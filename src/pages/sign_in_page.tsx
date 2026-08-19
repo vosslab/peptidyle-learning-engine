@@ -111,7 +111,7 @@ export function SignInPage(): JSX.Element {
     try {
       await runtime.client.selectAccountCourse(course.courseId);
       await session.retry();
-      navigate(`/courses/${courseRouteReference(course.coursePublicId)}`);
+      navigate(`/courses/${courseRouteReference(course.courseReference)}`);
     } catch {
       setState(
         accountError("That course could not be opened. Refresh your account and try again."),
@@ -252,7 +252,7 @@ export function EmailAuthenticationCompletePage(): JSX.Element {
     try {
       await runtime.client.selectAccountCourse(course.courseId);
       await session.retry();
-      navigate(`/courses/${courseRouteReference(course.coursePublicId)}`);
+      navigate(`/courses/${courseRouteReference(course.courseReference)}`);
     } catch {
       setState(accountError("That course could not be opened. Try again from the sign-in page."));
     }

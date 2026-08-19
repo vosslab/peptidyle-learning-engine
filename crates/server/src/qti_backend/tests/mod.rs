@@ -7,9 +7,9 @@ use learning_data_access::in_memory::{MemoryQtiGraderStore, MemoryStore};
 use learning_data_access::{
     AssetDeliveryId, AssetDeliveryRecord, AssetStore, AssignmentRecord, AuthorizedAssetDelivery,
     CatalogAssetBinding, CatalogStore, CommitPreparedQtiImport, CommitPreparedQtiImportOutcome,
-    CourseRecord, EnqueueJob, JobLeaseDuration, JobPayload, JobStore, PublishDraftCommand,
-    QtiGradingStore, QtiImportGradingPayload, QtiImportStore, SessionLifetime, SessionSubject,
-    Store, TenantContext,
+    CourseRecord, CourseRosterStore, CreateCourseCommand, EnqueueJob, JobLeaseDuration, JobPayload,
+    JobStore, PublishDraftCommand, QtiGradingStore, QtiImportGradingPayload, QtiImportStore,
+    SessionLifetime, SessionSubject, Store, TenantContext, UpsertCourseMember,
 };
 use objects::memory::MemoryObjectStore;
 use objects::{ObjectKey, ObjectStore, PutObject};
@@ -18,11 +18,9 @@ use question_model::response::{ChoiceId, ChoiceOption, ResponseDefinition};
 use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{
-    ActivityTimestamp, AssetId, AssignmentEnrollment, AssignmentId, AssignmentRun,
-    AttemptTimerRecord, CourseId, CourseMembership, CourseMembershipRole, EnrollmentId,
+    ActivityTimestamp, AssetId, AssignmentId, AssignmentRun, AttemptTimerRecord, CourseId,
     GradingDefinition, ObjectId, ProblemId, PublicationScope, QuestionAttempt, QuestionAttemptId,
-    QuestionMetadata, RunId, StudentId, TenantId, UserId, VersionId, WorkspaceId,
-    WorkspaceImportId,
+    QuestionMetadata, RunId, TenantId, UserId, VersionId, WorkspaceId, WorkspaceImportId,
 };
 use tower::ServiceExt;
 

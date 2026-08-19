@@ -27,8 +27,6 @@ test.beforeAll(async () => {
         import { serializeFlatQuestionSource } from "./src/features/flat_question_authoring/flat_question_codec.ts";
 
         const workspace = "00000000-0000-4000-8000-000000000010";
-        const problem = "00000000-0000-4000-8000-000000000011";
-        const version = "00000000-0000-4000-8000-000000000012";
         const calls = [];
         const publicCalls = [];
         const hotspotAsset = { assetId: "aaaaaaaa-0000-4000-8000-000000000013", contentChecksum: "a".repeat(64), displayLabel: "Cell membrane diagram", mediaType: "image/png", intrinsicWidth: 800, intrinsicHeight: 600 };
@@ -69,8 +67,8 @@ test.beforeAll(async () => {
           if (response.kind === "ordering") return { kind: "ordering", items: response.items.map(option) };
           return { kind: "hotspot", surface: { asset: response.surface.asset, checksum: response.surface.checksum }, description: response.surface.description, regions: response.regions.map((region) => ({ ...region, label: [{ kind: "text", markdown: region.label }] })), selection: { kind: "atLeastOne" } };
         };
-        const compiled = (candidate, published = false) => ({
-          ...(published ? { problem, version } : {}), workspace,
+        const compiled = (candidate) => ({
+          workspace,
           source: { backend: "native", family: family(candidate.response.kind) },
           prompt: [{ kind: "text", markdown: candidate.prompt }],
           response: publicResponse(candidate.response),
@@ -78,6 +76,13 @@ test.beforeAll(async () => {
           randomization: { kind: "static" }, grading: { mode: "allOrNothing", points: candidate.points },
           metadata: { title: candidate.title, tags: candidate.tags, taxonomy: candidate.taxonomy,
             license: candidate.license, language: candidate.language },
+        });
+        const publicationSummary = (candidate, scope, byline) => ({
+          questionId: "7K3-M9QP", backend: "native", capabilities: ["serverGrading"],
+          metadata: { title: candidate.title, tags: candidate.tags, taxonomy: candidate.taxonomy,
+            license: candidate.license, language: candidate.language },
+          byline,
+          scope, lifecycle: { state: "published" }, publishedAt: 1786000000000,
         });
         const transport = async (input, init = {}) => {
           const url = new URL(String(input), window.location.origin);
@@ -115,7 +120,8 @@ test.beforeAll(async () => {
             return finish();
           }
           if (url.pathname === "/api/problems/" + workspace + "/flat-question-publish" && method === "POST") {
-            return json(compiled(source, true));
+            const request = JSON.parse(body);
+            return json(publicationSummary(source, request.scope, request.byline), 201);
           }
           return json({ error: "not found" }, 404);
         };
@@ -293,6 +299,12 @@ test("instructor authors, resolves a stale draft, and publishes only the reviewe
   await page.getByRole("button", { name: "Review publication changes" }).click();
   await expect(page.getByRole("button", { name: "Confirm and publish" })).toBeVisible();
   await page.getByLabel("Publication scope").selectOption("public");
+  const byline = page.getByLabel("Reviewed public byline");
+  await byline.fill("Fixture Instructor\nFixture Instructor");
+  await page.getByRole("button", { name: "Confirm and publish" }).click();
+  await expect(byline).toBeFocused();
+  await expect(page.getByRole("button", { name: "Confirm and publish" })).toBeVisible();
+  await byline.fill("Fixture Instructor");
   await page.getByRole("button", { name: "Confirm and publish" }).click();
   await expect(page.getByRole("link", { name: "Open question library" })).toHaveAttribute(
     "href",
@@ -313,7 +325,7 @@ test("instructor authors, resolves a stale draft, and publishes only the reviewe
   );
   expect(publish).toHaveLength(1);
   expect(publish[0]).toMatchObject({
-    body: '{"scope":"public"}',
+    body: '{"scope":"public","byline":{"names":["Fixture Instructor"]}}',
     ifMatch: expect.stringMatching(/^"[1-9][0-9]*"$/u),
   });
   const publicBodies = await fixtureValue<{ readonly body: string | null }[]>(

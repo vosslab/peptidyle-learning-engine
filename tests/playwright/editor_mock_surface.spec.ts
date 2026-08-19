@@ -193,7 +193,7 @@ test.beforeAll(async () => {
           const method = init?.method ?? "GET";
           const body = typeof init?.body === "string" ? init.body : null;
           calls.push({ method, path: url.pathname + url.search, body, ifMatch: init?.headers?.["if-match"] ?? null });
-          if (url.pathname === "/api/workspaces" && method === "GET") return json({ items: [{ workspace, publicId: 1, title: "Saved workspace draft", sourceBackend: "native" }], nextCursor: null });
+          if (url.pathname === "/api/workspaces" && method === "GET") return json({ items: [{ workspace, reference: "W-1", title: "Saved workspace draft", sourceBackend: "native" }], nextCursor: null });
           if (url.pathname === "/api/workspaces/foreign" && method === "GET") return json({ error: "not found" }, 404);
           if (url.pathname === "/api/workspaces/" + workspace && method === "GET") {
             return json(
@@ -313,8 +313,20 @@ test("editor retains authored input and visible capability guidance through reco
 
   await fixture.getByRole("button", { name: "Review publication changes" }).click();
   await expect(fixture.getByRole("heading", { name: "Publication changes" })).toBeVisible();
+  await fixture.getByLabel("Publication scope").selectOption("public");
+  const byline = fixture.getByLabel("Reviewed public byline");
+  await byline.fill("Fixture Instructor\nFixture Instructor");
+  await fixture.getByRole("button", { name: "Confirm publication" }).click();
+  await expect(byline).toBeFocused();
+  await expect(fixture.getByRole("heading", { name: "Publication changes" })).toBeVisible();
+  await expect(fixture.getByLabel("Publication scope")).toHaveValue("public");
+  await expect(byline).toHaveValue("Fixture Instructor\nFixture Instructor");
+  await byline.fill("Fixture Instructor");
   await fixture.getByRole("button", { name: "Confirm publication" }).click();
   await expect(fixture.getByText("Publication service temporarily unavailable")).toBeVisible();
+  await expect(fixture.getByRole("heading", { name: "Publication changes" })).toBeVisible();
+  await expect(fixture.getByLabel("Publication scope")).toHaveValue("public");
+  await expect(byline).toHaveValue("Fixture Instructor");
   await expect(title).toHaveValue("Preserved instructor revision");
   expect(requests.filter((url) => new URL(url).pathname.startsWith("/api/"))).toEqual([]);
 });
@@ -458,7 +470,7 @@ test("live author preview saves first, binds its ETag, and refuses a stale prese
   await expect(fixture.getByRole("heading", { name: "Correct response" })).toHaveCount(0);
 });
 
-test("live editor preserves drafts across publication refusals and publishes scope-only intent", async ({
+test("live editor preserves drafts across publication refusals and publishes reviewed bylines", async ({
   page,
 }) => {
   await page.goto("/");
@@ -485,6 +497,7 @@ test("live editor preserves drafts across publication refusals and publishes sco
   );
   await expect(fixture.getByLabel("Publication scope")).toHaveValue("institution");
   await fixture.getByLabel("Publication scope").selectOption("public");
+  await fixture.getByLabel("Reviewed public byline").fill("Fixture Instructor");
   await fixture.getByRole("button", { name: "Confirm publication" }).click();
   await expect(
     fixture.getByRole("status").filter({
@@ -495,6 +508,7 @@ test("live editor preserves drafts across publication refusals and publishes sco
   await title.fill("Post-diff local revision");
   await fixture.getByRole("button", { name: "Review publication changes" }).click();
   await expect(fixture.getByText("This publication creates a new Question ID.")).toBeVisible();
+  await fixture.getByLabel("Reviewed public byline").fill("Fixture Instructor");
   await fixture.getByRole("button", { name: "Confirm publication" }).click();
   await expect(
     fixture.getByRole("alert").filter({ hasText: "Reload, save your edits" }),
@@ -511,6 +525,7 @@ test("live editor preserves drafts across publication refusals and publishes sco
   await expect(fixture.getByText("Publishing saved title:")).toContainText(
     "Recovered intended title",
   );
+  await fixture.getByLabel("Reviewed public byline").fill("Fixture Instructor");
   await fixture.getByRole("button", { name: "Confirm publication" }).click();
   await expect(
     fixture.getByRole("status").filter({
@@ -530,19 +545,19 @@ test("live editor preserves drafts across publication refusals and publishes sco
     {
       method: "POST",
       path: "/api/problems/0198e000-0000-7000-8000-000000000002/publish",
-      body: '{"scope":"public"}',
+      body: '{"scope":"public","byline":{"names":["Fixture Instructor"]}}',
       ifMatch: '"2"',
     },
     {
       method: "POST",
       path: "/api/problems/0198e000-0000-7000-8000-000000000002/publish",
-      body: '{"scope":"public"}',
+      body: '{"scope":"public","byline":{"names":["Fixture Instructor"]}}',
       ifMatch: '"3"',
     },
     {
       method: "POST",
       path: "/api/problems/0198e000-0000-7000-8000-000000000002/publish",
-      body: '{"scope":"public"}',
+      body: '{"scope":"public","byline":{"names":["Fixture Instructor"]}}',
       ifMatch: '"6"',
     },
   ]);
@@ -558,7 +573,9 @@ test("live editor preserves drafts across publication refusals and publishes sco
   expect(
     evidence.calls
       .filter((call) => call.path.endsWith("/publish"))
-      .every((call) => call.body === '{"scope":"public"}'),
+      .every(
+        (call) => call.body === '{"scope":"public","byline":{"names":["Fixture Instructor"]}}',
+      ),
   ).toBe(true);
   const saves = evidence.calls.filter((call) => call.method === "PUT");
   expect(saves.map((call) => call.ifMatch)).toEqual(['"1"', '"2"', '"4"', '"5"']);

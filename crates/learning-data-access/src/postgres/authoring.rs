@@ -168,7 +168,7 @@ impl crate::AuthoringStore for PostgresStore {
             .map(|row| {
                 let workspace: Uuid = row.try_get("workspace_id").map_err(map_sqlx_error)?;
                 let public_number: i32 = row.try_get("public_id").map_err(map_sqlx_error)?;
-                let public_id = question_model::WorkspacePublicId::new(public_number as u64)
+                let reference = question_model::WorkspaceReference::new(public_number as u64)
                     .ok_or_else(|| {
                         StoreError::Unavailable(
                             "stored workspace route number is invalid".to_string(),
@@ -184,7 +184,7 @@ impl crate::AuthoringStore for PostgresStore {
                 }
                 Ok((
                     WorkspaceId::from_uuid(workspace),
-                    draft.question.workspace_summary(public_id),
+                    draft.question.workspace_summary(reference),
                 ))
             })
             .collect::<Result<Vec<_>, StoreError>>()?;

@@ -28,8 +28,8 @@ interface:
 ```bash
 npm run setup
 ./build.sh
-./check_codebase.sh
 ./check_rust.sh
+./check_codebase.sh
 source source_me.sh && python3 -m pytest tests/
 ```
 

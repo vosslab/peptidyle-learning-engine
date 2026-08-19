@@ -8,12 +8,13 @@ import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
-import type { PublicationScope } from "../../../generated/api/PublicationScope";
 import type { ApiClient } from "../client";
+import { isPublicByline } from "../public_byline";
 import type {
   AssignmentEditorDetail,
   FeedbackReleaseResponse,
   PublicationResult,
+  PublicationRequest,
   PublicationValidationResponse,
   PrefetchedNextQuestion,
   WorkspaceDraftDetail,
@@ -31,6 +32,7 @@ import {
   decodeCourseBannerCandidateReceipt,
   decodeCourseCreateInput,
   decodeCourseSummary,
+  decodeCourseTermValidationFailure,
   decodeDraftQuestionDefinition,
   decodeFeedbackReleaseResponse,
   decodePrefetchedNextQuestion,
@@ -50,6 +52,7 @@ import {
   AssignmentValidationError,
   CourseAppearanceConflictError,
   CourseAppearanceFileError,
+  CourseTermValidationError,
   PublicationValidationError,
   WorkspaceConflictError,
 } from "./error";
@@ -122,6 +125,33 @@ export async function requestJson<T>(
       `API response ${path} must contain 1 to ${MAX_RESPONSE_CHARACTERS} JSON characters`,
     );
   return decoder(decodeJson(text, path), "response");
+}
+
+async function requestCourseCreate(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  input: import("../contracts").CourseCreateInput,
+): Promise<CourseSummary> {
+  const path = "/api/courses";
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    method: "POST",
+    headers: { accept: "application/json", "content-type": "application/json" },
+    body: JSON.stringify(input),
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (response.status === 422) {
+    const value = await boundedResponseJson(response, path);
+    let failure: import("../../../generated/api/CourseTermValidationFailure").CourseTermValidationFailure;
+    try {
+      failure = decodeCourseTermValidationFailure(value, "response");
+    } catch (_error: unknown) {
+      throw new ApiRequestError(response.status, path);
+    }
+    throw new CourseTermValidationError(path, failure);
+  }
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  return decodeCourseSummary(await boundedResponseJson(response, path), "response");
 }
 
 function workspacePath(workspace: WorkspaceId): string {
@@ -318,11 +348,13 @@ export function createRequestClient(
     },
     publishWorkspace: async (
       workspace,
-      scope: PublicationScope,
+      request: PublicationRequest,
       revision: string,
     ): Promise<PublicationResult> => {
-      if (scope !== "institution" && scope !== "public")
+      if (request.scope !== "institution" && request.scope !== "public")
         throw new ApiProtocolError("publication scope must be institution or public");
+      if (!isPublicByline(request.byline))
+        throw new ApiProtocolError("publication requires one to sixteen reviewed author names");
       if (!validRevision(revision))
         throw new ApiProtocolError("publication revision must be one positive strong numeric ETag");
       const path = `/api/problems/${encodedId(workspace)}/publish`;
@@ -333,7 +365,7 @@ export function createRequestClient(
           "content-type": "application/json",
           "if-match": revision,
         },
-        body: JSON.stringify({ scope }),
+        body: JSON.stringify(request),
         credentials: "same-origin",
         cache: "no-store",
       });
@@ -399,10 +431,7 @@ export function createRequestClient(
       return appearance;
     },
     createCourse: (input): Promise<CourseSummary> =>
-      requestJson(fetchImplementation, basePath, "/api/courses", decodeCourseSummary, {
-        method: "POST",
-        body: decodeCourseCreateInput(input, "request"),
-      }),
+      requestCourseCreate(fetchImplementation, basePath, decodeCourseCreateInput(input, "request")),
     createAssignment: (courseId, input) =>
       requestAssignmentEditor(
         fetchImplementation,

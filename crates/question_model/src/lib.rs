@@ -19,6 +19,8 @@ pub mod answer;
 /// Stable assignment items, selection groups, and exact point values.
 pub mod assignment;
 pub mod auth;
+/// Immutable public publication attribution, separate from private author authority.
+pub mod byline;
 pub mod capability;
 /// Shared catalog metadata, visibility, lineage, and browse projections.
 pub mod catalog;
@@ -26,7 +28,12 @@ pub mod catalog;
 pub mod course;
 /// Closed, browser-safe course appearance and banner presentation contracts.
 pub mod course_appearance;
+/// Validated inclusive course-calendar bounds and authoritative IANA zone.
+pub mod course_term;
 pub mod definition;
+/// Internal entitlement and materialization contracts. These types never
+/// cross the browser boundary.
+pub mod entitlement;
 pub mod envelope;
 /// Private teaching material and policy-redacted browser feedback.
 pub mod feedback;
@@ -50,18 +57,18 @@ pub use crate::activity::{
     ActivityTimestamp, AssignmentEnrollment, AssignmentId, AssignmentItemId,
     AssignmentPolicyExceptionId, AssignmentRun, AssignmentRunItem, AssignmentSelectionGroupId,
     AttemptProvenance, AttemptResult, AttemptStatus, AttemptTimerRecord, CourseGroupId, CourseId,
-    EnrollmentId, EnrollmentStatus, ImplementationVersion, IssuedAttemptCapabilityV1,
-    QuestionAttempt, QuestionAttemptId, RunId, RunMode, SourceArtifact, StudentAssignmentSummary,
-    StudentId, TenantId,
+    CourseMembershipId, EnrollmentId, EnrollmentStatus, ImplementationVersion,
+    IssuedAttemptCapabilityV1, QuestionAttempt, QuestionAttemptId, RunId, RunMode, SourceArtifact,
+    StudentAssignmentSummary, StudentId, TenantId,
 };
 pub use crate::assignment::{
     AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentItem, AssignmentRunTiming,
     AssignmentScoringMode, AssignmentSelectionCandidate, AssignmentSelectionGroup,
-    AssignmentTimingPolicy, DEFAULT_MASTERY_TIME_LIMIT_SECONDS, LateSubmissionPolicy,
-    MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, PointValue, ScoringGeneration, ScoringStatus,
-    SelectionOrdering,
+    DEFAULT_MASTERY_TIME_LIMIT_SECONDS, LateSubmissionPolicy, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS,
+    PointValue, ScoringGeneration, ScoringStatus, SelectionOrdering,
 };
 pub use crate::auth::{UserId, UserRole};
+pub use crate::byline::{PublicAuthorName, PublicByline, PublicBylineError};
 pub use crate::capability::{BackendCapabilities, Capability};
 pub use crate::catalog::{
     CatalogCapabilityFacet, CatalogLicenseFacet, CatalogLicenseValue, CatalogLifecycle,
@@ -74,18 +81,28 @@ pub use crate::catalog::{
 };
 pub use crate::course::{
     AssignmentItemSummary, AssignmentSelectionCandidateSummary, AssignmentSelectionGroupSummary,
-    AssignmentSummary, CourseMembership, CourseMembershipRole, CourseSummary, GradebookSummaryRow,
+    AssignmentSummary, CourseMembershipRole, CourseSummary, GradebookSummaryRow,
 };
 pub use crate::course_appearance::{
     CourseAppearance, CourseAppearanceRevision, CourseAppearanceUpdate, CourseBannerAltText,
     CourseBannerAlternativeText, CourseBannerCandidateId, CourseBannerCandidateReceipt,
     CourseBannerId, CourseBannerMutation, CourseBannerPresentation, CourseThemeId,
 };
+pub use crate::course_term::{
+    CourseDate, CourseDateError, CourseTerm, CourseTermError, CourseTermFailureCode,
+    CourseTermFailureReason, CourseTermField, CourseTermValidationFailure, IanaTimeZone,
+    IanaTimeZoneError,
+};
 pub use crate::definition::{
     DraftQuestionDefinition, DraftQuestionSource, DraftSourcePublicationError, GradingDefinition,
     MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionDefinition, QuestionMetadata, QuestionSource,
     QuestionSourceValidationError, QuestionTitleError, WorkspaceDraftSummary,
     validate_question_title,
+};
+pub use crate::entitlement::{
+    AssignmentAudience, AssignmentAudienceError, CourseGroupPurpose, EntitlementMaterialization,
+    EntitlementPurpose, EvaluatorVersion, GroupPurposeCapabilities, MaterializationAuthority,
+    MaterializationBasis, MaterializationDisposition, MaterializationRule, NonEmptyAudienceGroups,
 };
 pub use crate::envelope::QuestionEnvelope;
 pub use crate::feedback::{DisclosedFeedback, FeedbackContent};
@@ -101,7 +118,8 @@ pub use crate::presentation::{
     PresentedHotspotRegionV1, PresentedHotspotSurfaceV1, RenderedItemIdV1, ResponseSchemaV1,
 };
 pub use crate::public_route::{
-    AssignmentPublicId, CoursePublicId, MAX_PUBLIC_ROUTE_NUMBER, RunPublicId, WorkspacePublicId,
+    AssignmentReference, CourseGroupReference, CourseReference, MAX_PUBLIC_ROUTE_NUMBER,
+    NavigationResolution, RESERVED_REFERENCE_PREFIXES, RunReference, WorkspaceReference,
 };
 pub use crate::response::{ResponseDefinition, StudentResponse};
 pub use crate::run_policy::{

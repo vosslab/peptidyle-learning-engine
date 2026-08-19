@@ -50,7 +50,6 @@ pub(super) struct SeedIds {
     pub(super) course: CourseId,
     pub(super) assignment: AssignmentId,
     pub(super) assignment_item: AssignmentItemId,
-    pub(super) enrollment: EnrollmentId,
     pub(super) run: RunId,
     pub(super) attempt: QuestionAttemptId,
     pub(super) concurrent_run: RunId,
@@ -61,20 +60,6 @@ pub(super) struct SeedIds {
     pub(super) retirement_run: RunId,
     pub(super) retirement_attempt: QuestionAttemptId,
     pub(super) post_retirement_run: RunId,
-    pub(super) timing_assignment: AssignmentId,
-    pub(super) timing_assignment_item_one: AssignmentItemId,
-    pub(super) timing_assignment_item_two: AssignmentItemId,
-    pub(super) timing_assignment_item_three: AssignmentItemId,
-    pub(super) timing_enrollment: EnrollmentId,
-    pub(super) timing_run: RunId,
-    pub(super) timing_attempt_one: QuestionAttemptId,
-    pub(super) timing_attempt_two: QuestionAttemptId,
-    pub(super) timing_attempt_three: QuestionAttemptId,
-    pub(super) timing_group: CourseGroupId,
-    pub(super) timing_group_exception: AssignmentPolicyExceptionId,
-    pub(super) timing_student_exception: AssignmentPolicyExceptionId,
-    pub(super) timing_exception_run: RunId,
-    pub(super) timing_exception_attempt: QuestionAttemptId,
 }
 
 /// The opt-in WebWork seed keeps its disposable course scaffold stable while
@@ -88,7 +73,6 @@ pub(super) struct WebworkPilotSeedIds {
     pub(super) course: CourseId,
     pub(super) assignment: AssignmentId,
     pub(super) assignment_item: AssignmentItemId,
-    pub(super) enrollment: EnrollmentId,
 }
 
 impl WebworkPilotSeedIds {
@@ -102,7 +86,6 @@ impl WebworkPilotSeedIds {
             course: CourseId::from_uuid(id("course")),
             assignment: AssignmentId::from_uuid(id("assignment")),
             assignment_item: AssignmentItemId::from_uuid(id("assignment-item")),
-            enrollment: EnrollmentId::from_uuid(id("enrollment")),
         }
     }
 
@@ -120,7 +103,6 @@ impl WebworkPilotSeedIds {
             course: CourseId::from_uuid(id("course")),
             assignment: AssignmentId::from_uuid(id("assignment")),
             assignment_item: AssignmentItemId::from_uuid(id("assignment-item")),
-            enrollment: EnrollmentId::from_uuid(id("enrollment")),
         }
     }
 }
@@ -134,7 +116,6 @@ impl SeedIds {
             course: CourseId::from_uuid(derived_uuid(tenant, "course")),
             assignment: AssignmentId::from_uuid(derived_uuid(tenant, "assignment")),
             assignment_item: AssignmentItemId::from_uuid(derived_uuid(tenant, "assignment-item")),
-            enrollment: EnrollmentId::from_uuid(derived_uuid(tenant, "enrollment")),
             run: RunId::from_uuid(derived_uuid(tenant, "run")),
             attempt: QuestionAttemptId::from_uuid(derived_uuid(tenant, "attempt")),
             concurrent_run: RunId::from_uuid(derived_uuid(tenant, "concurrent-run")),
@@ -154,47 +135,6 @@ impl SeedIds {
                 "retirement-attempt",
             )),
             post_retirement_run: RunId::from_uuid(derived_uuid(tenant, "post-retirement-run")),
-            timing_assignment: AssignmentId::from_uuid(derived_uuid(tenant, "timing-assignment")),
-            timing_assignment_item_one: AssignmentItemId::from_uuid(derived_uuid(
-                tenant,
-                "timing-assignment-item-one",
-            )),
-            timing_assignment_item_two: AssignmentItemId::from_uuid(derived_uuid(
-                tenant,
-                "timing-assignment-item-two",
-            )),
-            timing_assignment_item_three: AssignmentItemId::from_uuid(derived_uuid(
-                tenant,
-                "timing-assignment-item-three",
-            )),
-            timing_enrollment: EnrollmentId::from_uuid(derived_uuid(tenant, "timing-enrollment")),
-            timing_run: RunId::from_uuid(derived_uuid(tenant, "timing-run")),
-            timing_attempt_one: QuestionAttemptId::from_uuid(derived_uuid(
-                tenant,
-                "timing-attempt-one",
-            )),
-            timing_attempt_two: QuestionAttemptId::from_uuid(derived_uuid(
-                tenant,
-                "timing-attempt-two",
-            )),
-            timing_attempt_three: QuestionAttemptId::from_uuid(derived_uuid(
-                tenant,
-                "timing-attempt-three",
-            )),
-            timing_group: CourseGroupId::from_uuid(derived_uuid(tenant, "timing-group")),
-            timing_group_exception: AssignmentPolicyExceptionId::from_uuid(derived_uuid(
-                tenant,
-                "timing-group-exception",
-            )),
-            timing_student_exception: AssignmentPolicyExceptionId::from_uuid(derived_uuid(
-                tenant,
-                "timing-student-exception",
-            )),
-            timing_exception_run: RunId::from_uuid(derived_uuid(tenant, "timing-exception-run")),
-            timing_exception_attempt: QuestionAttemptId::from_uuid(derived_uuid(
-                tenant,
-                "timing-exception-attempt",
-            )),
         }
     }
 

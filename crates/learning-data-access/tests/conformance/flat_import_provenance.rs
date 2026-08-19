@@ -506,6 +506,7 @@ fn publication_command(
         }),
         publisher: fixture.owner,
         scope: PublicationScope::Public,
+        byline: reviewed_byline(),
         capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
     }
 }

@@ -16,15 +16,21 @@ pub(super) async fn require_course_access<S>(
 where
     S: Store + CourseRecordsAccessStore,
 {
-    let record = match store.get_course(authenticated.tenant_context, course).await {
-        Ok(Some(record)) => record,
+    let membership = match store
+        .get_current_course_membership(
+            authenticated.tenant_context,
+            course,
+            authenticated.record.subject.user(),
+        )
+        .await
+    {
+        Ok(Some(membership)) => membership,
         Ok(None) => return Err(error_response(StatusCode::NOT_FOUND, "course not found")),
         Err(error) => return Err(store_error_response(error)),
     };
-    let role = record.role_for(authenticated.record.subject.user());
-    match role {
-        Some(CourseMembershipRole::Instructor) => Ok(()),
-        Some(CourseMembershipRole::Student) => {
+    match membership.role {
+        CourseMembershipRole::Instructor => Ok(()),
+        CourseMembershipRole::Student => {
             match course_records_are_visible(store, authenticated, course).await {
                 Ok(true) => {}
                 Ok(false) => {
@@ -41,7 +47,6 @@ where
                 Ok(())
             }
         }
-        None => Err(error_response(StatusCode::NOT_FOUND, "course not found")),
     }
 }
 

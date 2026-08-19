@@ -309,7 +309,7 @@ pub struct WorkspaceDraftSummary {
     /// Private workspace identity used to retrieve the editable draft.
     pub workspace: WorkspaceId,
     /// Stable typed locator used in application navigation.
-    pub public_id: crate::WorkspacePublicId,
+    pub reference: crate::WorkspaceReference,
     /// Human-facing draft title.
     pub title: String,
     /// Adapter family without its private source locator.
@@ -318,10 +318,10 @@ pub struct WorkspaceDraftSummary {
 
 impl DraftQuestionDefinition {
     /// Builds the intentionally compact list projection for this draft.
-    pub fn workspace_summary(&self, public_id: crate::WorkspacePublicId) -> WorkspaceDraftSummary {
+    pub fn workspace_summary(&self, reference: crate::WorkspaceReference) -> WorkspaceDraftSummary {
         WorkspaceDraftSummary {
             workspace: self.workspace,
-            public_id,
+            reference,
             title: self.metadata.title.clone(),
             source_backend: crate::catalog::QuestionBackend::from(&self.source),
         }

@@ -3,10 +3,7 @@
 use std::collections::BTreeSet;
 
 use async_trait::async_trait;
-use question_model::{
-    AssignmentEnrollment, CourseMembership, CourseMembershipRole, EnrollmentId,
-    StudentAssignmentSummary, StudentId, UserRole,
-};
+use question_model::{CourseMembershipRole, StudentId, UserRole};
 
 use super::invitation_delivery::{cancel_for_invitation, create_pending};
 use super::sessions::active_subject;
@@ -30,6 +27,16 @@ pub(super) struct StoredCourseInvitation {
     pub(super) record: CourseInvitation,
 }
 
+/// Contact and display data subordinate to one canonical membership episode.
+#[derive(Debug, Clone)]
+pub(super) struct StoredCourseRosterProfile {
+    pub(super) tenant: question_model::TenantId,
+    pub(super) course: question_model::CourseId,
+    pub(super) membership: question_model::CourseMembershipId,
+    pub(super) display_name: String,
+    pub(super) roster_email: Option<crate::AuthenticationEmail>,
+}
+
 #[async_trait]
 impl CourseRosterStore for MemoryStore {
     async fn list_course_roster(
@@ -48,36 +55,32 @@ impl CourseRosterStore for MemoryStore {
             course,
             CourseRosterSupportAction::ListRoster,
         )?;
-        let mut records = state
-            .roster_members
-            .iter()
-            .filter(|((tenant, record_course, _), _)| {
-                *tenant == context.tenant_id() && *record_course == course
-            })
-            .map(|((_, _, member), record)| {
-                (
-                    format!("member:{}", member.as_uuid()),
-                    CourseRosterEntry::Member(record.clone()),
-                )
-            })
-            .chain(
-                state
-                    .course_invitations
-                    .iter()
-                    .filter(|((tenant, record_course, _), _)| {
-                        *tenant == context.tenant_id() && *record_course == course
-                    })
-                    .filter(|(_, stored)| {
-                        public_invitation(&state, stored).status == CourseInvitationStatus::Pending
-                    })
-                    .map(|((_, _, invitation), stored)| {
-                        (
-                            format!("invitation:{}", invitation.as_uuid()),
-                            CourseRosterEntry::Invitation(public_invitation(&state, stored)),
-                        )
-                    }),
-            )
-            .collect::<Vec<_>>();
+        let mut records = Vec::new();
+        for ((profile_tenant, profile_course, membership), profile) in &state.roster_profiles {
+            if *profile_tenant == context.tenant_id() && *profile_course == course {
+                records.push((
+                    format!("member:{}", membership.as_uuid()),
+                    CourseRosterEntry::Member(public_member(&state, profile)?),
+                ));
+            }
+        }
+        records.extend(
+            state
+                .course_invitations
+                .iter()
+                .filter(|((tenant, record_course, _), _)| {
+                    *tenant == context.tenant_id() && *record_course == course
+                })
+                .filter(|(_, stored)| {
+                    public_invitation(&state, stored).status == CourseInvitationStatus::Pending
+                })
+                .map(|((_, _, invitation), stored)| {
+                    (
+                        format!("invitation:{}", invitation.as_uuid()),
+                        CourseRosterEntry::Invitation(public_invitation(&state, stored)),
+                    )
+                }),
+        );
         records.sort_by(|left, right| left.0.cmp(&right.0));
         Ok(CourseRosterPage {
             entries: page_records(records, &page),
@@ -294,33 +297,34 @@ impl CourseRosterStore for MemoryStore {
         if current.revision != command.expected_revision {
             return Err(StoreError::Conflict);
         }
-        let key = (tenant, command.course, command.member);
+        let membership = question_model::CourseMembershipId::from_uuid(command.member.as_uuid());
         let now = state.authoritative_time;
-        let user = {
-            let member = state
-                .roster_members
-                .get_mut(&key)
-                .ok_or(StoreError::NotFound)?;
-            if member.status == CourseMemberStatus::Revoked {
-                return Ok(current.revision);
-            }
-            member.status = CourseMemberStatus::Revoked;
-            member.revoked_at = Some(now);
-            member.user
-        };
-        let course_record = state
-            .courses
-            .get_mut(&(tenant, command.course))
+        let canonical = state
+            .course_memberships
+            .get_mut(&(tenant, membership))
+            .filter(|record| record.course == command.course)
             .ok_or(StoreError::NotFound)?;
-        course_record
-            .members
-            .retain(|membership| membership.user != user);
+        if canonical.status == CourseMemberStatus::Revoked {
+            return Ok(current.revision);
+        }
+        let user = canonical.user;
+        let roster_id = canonical.roster_id.clone();
+        canonical.status = CourseMemberStatus::Revoked;
+        canonical.revoked_at = Some(now);
+        state
+            .active_course_membership_by_user
+            .remove(&(tenant, command.course, user));
+        if let Some(roster_id) = roster_id {
+            state
+                .roster_member_by_roster_id
+                .remove(&(tenant, command.course, roster_id));
+        }
         for record in state
             .course_groups
             .values_mut()
             .filter(|record| record.tenant == tenant && record.course == command.course)
         {
-            record.members.retain(|member| *member != user);
+            record.members.retain(|member| *member != membership);
         }
         bump_roster_revision(
             &mut state,
@@ -429,69 +433,48 @@ fn claim_locked(
         .get(&(tenant, course, stored.record.roster_id.clone()))
         .copied()
         && state
-            .roster_members
-            .get(&(tenant, course, existing_member))
+            .course_memberships
+            .get(&(tenant, existing_member))
             .is_some_and(|member| member.user != command.user)
     {
         return Err(StoreError::Conflict);
     }
     let student = learner_identity(state, tenant, command.user)?;
-    let member_id = match state
-        .roster_member_by_user
-        .get(&(tenant, course, command.user))
-        .copied()
-    {
-        Some(existing) => existing,
-        None => CourseMemberId::generate()?,
-    };
-    let member_key = (tenant, course, member_id);
-    let joined_at = state
-        .roster_members
-        .get(&member_key)
-        .map_or(state.authoritative_time, |member| member.joined_at);
-    let member = crate::CourseRosterMember {
-        id: member_id,
+    let membership = super::entitlement::ensure_course_membership_id(
+        state,
         tenant,
         course,
-        user: command.user,
+        command.user,
         student,
+    )?;
+    let canonical = state
+        .course_memberships
+        .get_mut(&(tenant, membership))
+        .ok_or_else(|| StoreError::Unavailable("membership was not created".to_string()))?;
+    if canonical
+        .roster_id
+        .as_ref()
+        .is_some_and(|roster_id| roster_id != &stored.record.roster_id)
+    {
+        return Err(StoreError::Conflict);
+    }
+    canonical.roster_id = Some(stored.record.roster_id.clone());
+    let profile = StoredCourseRosterProfile {
+        tenant,
+        course,
+        membership,
         display_name: crate::validated_account_display_name(&command.display_name)
             .map_err(|error| StoreError::InvalidRecord(error.to_string()))?,
         roster_email: Some(stored.record.email.clone()),
-        roster_id: Some(stored.record.roster_id.clone()),
-        status: CourseMemberStatus::Active,
-        joined_at,
-        revoked_at: None,
     };
-    state
-        .roster_member_by_user
-        .insert((tenant, course, command.user), member_id);
     state.roster_member_by_roster_id.insert(
-        (
-            tenant,
-            course,
-            member
-                .roster_id
-                .clone()
-                .expect("a claimed invitation always carries a roster identifier"),
-        ),
-        member_id,
+        (tenant, course, stored.record.roster_id.clone()),
+        membership,
     );
-    state.roster_members.insert(member_key, member.clone());
-
-    let course_record = state
-        .courses
-        .get_mut(&(tenant, course))
-        .ok_or(StoreError::NotFound)?;
-    if course_record.role_for(command.user).is_none() {
-        course_record.members.push(CourseMembership {
-            user: command.user,
-            role: CourseMembershipRole::Student,
-        });
-    } else if course_record.role_for(command.user) != Some(CourseMembershipRole::Student) {
-        return Err(StoreError::Conflict);
-    }
-    reconcile_member_assignments(state, tenant, course, command.user, student)?;
+    state
+        .roster_profiles
+        .insert((tenant, course, membership), profile.clone());
+    let member = public_member(state, &profile)?;
     let invitation = state
         .course_invitations
         .get_mut(&(tenant, course, invitation_id))
@@ -514,76 +497,62 @@ fn upsert_member_locked(
     command: UpsertCourseMember,
 ) -> Result<ClaimedCourseMembership, StoreError> {
     let student = learner_identity(state, tenant, command.user)?;
-    if let Some(existing_member_id) = state
-        .roster_member_by_user
+    if let Some(existing_membership) = state
+        .active_course_membership_by_user
         .get(&(tenant, command.course, command.user))
         .copied()
+        && let Some(profile) =
+            state
+                .roster_profiles
+                .get(&(tenant, command.course, existing_membership))
     {
-        let existing = state
-            .roster_members
-            .get(&(tenant, command.course, existing_member_id))
-            .cloned()
-            .ok_or(StoreError::Unavailable(
-                "local roster member index is inconsistent".to_string(),
-            ))?;
-        if existing.status == CourseMemberStatus::Active {
-            ensure_student_membership(state, tenant, command.course, command.user)?;
-            reconcile_member_assignments(state, tenant, command.course, command.user, student)?;
-            return Ok(ClaimedCourseMembership {
-                tenant,
-                course: command.course,
-                member: existing,
-                roster_revision: roster_policy(state, tenant, command.course).revision,
-            });
-        }
+        let existing = public_member(state, profile)?;
+        return Ok(ClaimedCourseMembership {
+            tenant,
+            course: command.course,
+            member: existing,
+            roster_revision: roster_policy(state, tenant, command.course).revision,
+        });
     }
-    let member_id = match state
-        .roster_member_by_user
-        .get(&(tenant, command.course, command.user))
-        .copied()
-    {
-        Some(existing) => existing,
-        None => CourseMemberId::generate()?,
-    };
-    let member_key = (tenant, command.course, member_id);
-    let joined_at = state
-        .roster_members
-        .get(&member_key)
-        .map_or(state.authoritative_time, |member| member.joined_at);
-    let member = crate::CourseRosterMember {
-        id: member_id,
+    let membership = super::entitlement::ensure_course_membership_id(
+        state,
+        tenant,
+        command.course,
+        command.user,
+        student,
+    )?;
+    let roster_id = command
+        .roster_contact
+        .as_ref()
+        .map(|contact| contact.roster_id.clone());
+    let canonical = state
+        .course_memberships
+        .get_mut(&(tenant, membership))
+        .ok_or_else(|| StoreError::Unavailable("membership was not created".to_string()))?;
+    canonical.roster_id = roster_id.clone();
+    let profile = StoredCourseRosterProfile {
         tenant,
         course: command.course,
-        user: command.user,
-        student,
+        membership,
         display_name: crate::validated_account_display_name(&command.display_name)
             .map_err(|error| StoreError::InvalidRecord(error.to_string()))?,
         roster_email: command
             .roster_contact
             .as_ref()
             .map(|contact| contact.email.clone()),
-        roster_id: command
-            .roster_contact
-            .as_ref()
-            .map(|contact| contact.roster_id.clone()),
-        status: CourseMemberStatus::Active,
-        joined_at,
-        revoked_at: None,
     };
-    state
-        .roster_member_by_user
-        .insert((tenant, command.course, command.user), member_id);
-    if let Some(roster_id) = member.roster_id.clone()
+    if let Some(roster_id) = roster_id
         && let Some(existing) = state
             .roster_member_by_roster_id
-            .insert((tenant, command.course, roster_id), member_id)
-        && existing != member_id
+            .insert((tenant, command.course, roster_id), membership)
+        && existing != membership
     {
         return Err(StoreError::Conflict);
     }
-    state.roster_members.insert(member_key, member.clone());
-    ensure_student_membership(state, tenant, command.course, command.user)?;
-    reconcile_member_assignments(state, tenant, command.course, command.user, student)?;
+    state
+        .roster_profiles
+        .insert((tenant, command.course, membership), profile.clone());
+    let member = public_member(state, &profile)?;
     let roster_revision = bump_roster_revision(state, tenant, command.course, None)?;
     Ok(ClaimedCourseMembership {
         tenant,
@@ -591,27 +560,6 @@ fn upsert_member_locked(
         member,
         roster_revision,
     })
-}
-
-fn ensure_student_membership(
-    state: &mut State,
-    tenant: question_model::TenantId,
-    course: question_model::CourseId,
-    user: question_model::UserId,
-) -> Result<(), StoreError> {
-    let course_record = state
-        .courses
-        .get_mut(&(tenant, course))
-        .ok_or(StoreError::NotFound)?;
-    if course_record.role_for(user).is_none() {
-        course_record.members.push(CourseMembership {
-            user,
-            role: CourseMembershipRole::Student,
-        });
-    } else if course_record.role_for(user) != Some(CourseMembershipRole::Student) {
-        return Err(StoreError::Conflict);
-    }
-    Ok(())
 }
 
 fn learner_identity(
@@ -630,81 +578,6 @@ fn learner_identity(
     Ok(student)
 }
 
-fn reconcile_member_assignments(
-    state: &mut State,
-    tenant: question_model::TenantId,
-    course: question_model::CourseId,
-    user: question_model::UserId,
-    student: StudentId,
-) -> Result<(), StoreError> {
-    let assignments = state
-        .assignments
-        .values()
-        .filter(|assignment| assignment.tenant == tenant && assignment.course_id == course)
-        .map(|assignment| assignment.id)
-        .collect::<BTreeSet<_>>();
-    for assignment in assignments {
-        if state.enrollments.values().any(|enrollment| {
-            enrollment.tenant == tenant
-                && enrollment.assignment == assignment
-                && enrollment.user == user
-        }) {
-            continue;
-        }
-        if state.enrollments.values().any(|enrollment| {
-            enrollment.tenant == tenant
-                && enrollment.assignment == assignment
-                && enrollment.student == student
-        }) {
-            return Err(StoreError::Conflict);
-        }
-        let enrollment = AssignmentEnrollment {
-            id: random_enrollment_id()?,
-            tenant,
-            assignment,
-            user,
-            student,
-            first_completed_at: None,
-            current_grade_run: None,
-            best_grade_run: None,
-        };
-        state.summaries.insert(
-            (tenant, enrollment.id),
-            StudentAssignmentSummary::empty(tenant, enrollment.id),
-        );
-        state
-            .enrollments
-            .insert((tenant, enrollment.id), enrollment);
-    }
-    Ok(())
-}
-
-pub(super) fn reconcile_new_assignment(
-    state: &mut State,
-    assignment: &crate::AssignmentRecord,
-) -> Result<(), StoreError> {
-    let members = state
-        .roster_members
-        .values()
-        .filter(|member| {
-            member.tenant == assignment.tenant
-                && member.course == assignment.course_id
-                && member.status == CourseMemberStatus::Active
-        })
-        .map(|member| (member.user, member.student))
-        .collect::<Vec<_>>();
-    for (user, student) in members {
-        reconcile_member_assignments(
-            state,
-            assignment.tenant,
-            assignment.course_id,
-            user,
-            student,
-        )?;
-    }
-    Ok(())
-}
-
 pub(super) fn require_course_instructor(
     state: &State,
     context: TenantContext,
@@ -712,11 +585,16 @@ pub(super) fn require_course_instructor(
     course: question_model::CourseId,
 ) -> Result<question_model::UserId, StoreError> {
     let subject = active_subject(state, context, session).ok_or(StoreError::NotFound)?;
-    let record = state
+    state
         .courses
         .get(&(context.tenant_id(), course))
         .ok_or(StoreError::NotFound)?;
-    match record.role_for(subject.user()) {
+    match super::entitlement::current_course_role(
+        state,
+        context.tenant_id(),
+        course,
+        subject.user(),
+    ) {
         Some(CourseMembershipRole::Instructor) => Ok(subject.user()),
         Some(CourseMembershipRole::Student) => Err(StoreError::Forbidden),
         None => Err(StoreError::NotFound),
@@ -733,15 +611,22 @@ pub(super) fn require_roster_authority(
     let subject = active_subject(state, context, session).ok_or(StoreError::NotFound)?;
     let actor = subject.user();
     let is_sysadmin = subject.roles().contains(&UserRole::Sysadmin);
-    let record = state
+    state
         .courses
         .get(&(context.tenant_id(), course))
         .ok_or(StoreError::NotFound)?;
-    if record.role_for(actor) == Some(CourseMembershipRole::Instructor) {
+    if super::entitlement::current_course_role(state, context.tenant_id(), course, actor)
+        == Some(CourseMembershipRole::Instructor)
+    {
         return Ok(actor);
     }
     if !is_sysadmin {
-        return match record.role_for(actor) {
+        return match super::entitlement::current_course_role(
+            state,
+            context.tenant_id(),
+            course,
+            actor,
+        ) {
             Some(CourseMembershipRole::Student) => Err(StoreError::Forbidden),
             None => Err(StoreError::NotFound),
             Some(CourseMembershipRole::Instructor) => {
@@ -768,15 +653,23 @@ pub(super) fn require_roster_read_authority(
     course: question_model::CourseId,
 ) -> Result<(), StoreError> {
     let subject = active_subject(state, context, session).ok_or(StoreError::NotFound)?;
-    let record = state
+    state
         .courses
         .get(&(context.tenant_id(), course))
         .ok_or(StoreError::NotFound)?;
-    if record.role_for(subject.user()) == Some(CourseMembershipRole::Instructor)
+    if super::entitlement::current_course_role(state, context.tenant_id(), course, subject.user())
+        == Some(CourseMembershipRole::Instructor)
         || subject.roles().contains(&UserRole::Sysadmin)
     {
         Ok(())
-    } else if record.role_for(subject.user()).is_some() {
+    } else if super::entitlement::current_course_role(
+        state,
+        context.tenant_id(),
+        course,
+        subject.user(),
+    )
+    .is_some()
+    {
         Err(StoreError::Forbidden)
     } else {
         Err(StoreError::NotFound)
@@ -865,21 +758,48 @@ fn claimed_existing_member(
     course: question_model::CourseId,
     user: question_model::UserId,
 ) -> Result<ClaimedCourseMembership, StoreError> {
-    let member_id = state
-        .roster_member_by_user
+    let membership = state
+        .active_course_membership_by_user
         .get(&(tenant, course, user))
         .copied()
         .ok_or(StoreError::NotFound)?;
-    let member = state
-        .roster_members
-        .get(&(tenant, course, member_id))
-        .cloned()
+    let profile = state
+        .roster_profiles
+        .get(&(tenant, course, membership))
         .ok_or(StoreError::NotFound)?;
+    let member = public_member(state, profile)?;
     Ok(ClaimedCourseMembership {
         tenant,
         course,
         member,
         roster_revision: roster_policy(state, tenant, course).revision,
+    })
+}
+
+fn public_member(
+    state: &State,
+    profile: &StoredCourseRosterProfile,
+) -> Result<crate::CourseRosterMember, StoreError> {
+    let membership = state
+        .course_memberships
+        .get(&(profile.tenant, profile.membership))
+        .filter(|membership| membership.course == profile.course)
+        .ok_or_else(|| StoreError::Unavailable("roster profile has no membership".to_string()))?;
+    let student = membership.student.ok_or_else(|| {
+        StoreError::Unavailable("roster profile does not belong to a student".to_string())
+    })?;
+    Ok(crate::CourseRosterMember {
+        id: CourseMemberId::from_uuid(membership.id.as_uuid()),
+        tenant: profile.tenant,
+        course: profile.course,
+        user: membership.user,
+        student,
+        display_name: profile.display_name.clone(),
+        roster_email: profile.roster_email.clone(),
+        roster_id: membership.roster_id.clone(),
+        status: membership.status,
+        joined_at: membership.joined_at,
+        revoked_at: membership.revoked_at,
     })
 }
 
@@ -896,10 +816,6 @@ fn timestamp_after_seconds(
 
 fn random_student_id() -> Result<StudentId, StoreError> {
     random_uuid("student ID").map(StudentId::from_uuid)
-}
-
-fn random_enrollment_id() -> Result<EnrollmentId, StoreError> {
-    random_uuid("enrollment ID").map(EnrollmentId::from_uuid)
 }
 
 fn random_uuid(label: &str) -> Result<uuid::Uuid, StoreError> {

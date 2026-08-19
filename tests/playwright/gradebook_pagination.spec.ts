@@ -163,7 +163,7 @@ test.beforeAll(async () => {
                           summary: {
                             ...publishedProblemFixture.course,
                             id: selectedCourseId,
-                            publicId: selectedCourseId === courseBId ? 2 : 1,
+                            reference: selectedCourseId === courseBId ? "C-2" : "C-1",
                             role: "instructor",
                           },
                           appearance: { theme: "grass", revision: "1", banner: null },
@@ -320,9 +320,7 @@ test("gradebook appends a keyboard-requested 51st row once, transfers focus, and
   await expect(
     root.getByRole("link", { name: "Skip to load more gradebook records", exact: true }),
   ).toHaveCount(0);
-  await expect(
-    root.getByText("Loaded 51 gradebook records.", { exact: true }),
-  ).toBeVisible();
+  await expect(root.getByText("Loaded 51 gradebook records.", { exact: true })).toBeVisible();
   await expect(
     root
       .locator('button[id^="gradebook-history-control-"]')
@@ -355,7 +353,9 @@ test("gradebook preserves visible records and retries the exact opaque cursor af
   await expect(
     root
       .getByRole("alert")
-      .getByText(/Could not load more gradebook records\. The 50 gradebook records already visible/),
+      .getByText(
+        /Could not load more gradebook records\. The 50 gradebook records already visible/,
+      ),
   ).toBeVisible();
   await expect(root.locator("tr.gradebook-row")).toHaveCount(50);
   await expect(root.locator("#gradebook-pagination")).toHaveCount(1);

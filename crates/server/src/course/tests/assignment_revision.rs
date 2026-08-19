@@ -6,10 +6,8 @@ use axum::body::Body;
 use axum::http::Request;
 use axum::http::header::ETAG;
 use learning_data_access::in_memory::MemoryStore;
-use learning_data_access::{CatalogStore, CourseRecord, Store, TenantContext};
-use question_model::{
-    CourseId, CourseMembership, CourseMembershipRole, TenantId, UserId, UserRole,
-};
+use learning_data_access::{CatalogStore, CourseRecord, CreateCourseCommand, Store, TenantContext};
+use question_model::{CourseId, TenantId, UserId, UserRole};
 use std::sync::Arc;
 use tower::ServiceExt;
 
@@ -42,16 +40,21 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
     let instructor = UserId::from_uuid(id(8_201));
     let course = CourseId::from_uuid(id(8_202));
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Biochemistry".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Biochemistry".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await

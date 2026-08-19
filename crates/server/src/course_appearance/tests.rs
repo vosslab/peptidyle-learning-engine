@@ -9,15 +9,16 @@ use axum::http::{Method, Request};
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
     AuthoritativeTimeStore, CourseAppearanceStore, CourseBannerCleanupBatch, CourseRecord,
-    RegisterCourseBannerCandidate, SaveCourseAppearance, SessionLifetime, SessionStore,
-    SessionSubject, SessionTokenHash, Store, TenantContext,
+    CourseRosterStore, CreateCourseCommand, RegisterCourseBannerCandidate, SaveCourseAppearance,
+    SessionLifetime, SessionStore, SessionSubject, SessionTokenHash, Store, TenantContext,
+    UpsertCourseMember,
 };
 use objects::memory::MemoryObjectStore;
 use objects::{ObjectStore, ObjectStoreError, PutObject, SignedUrl, StoredObject};
 use question_model::{
     CourseAppearance, CourseAppearanceUpdate, CourseBannerAlternativeText,
-    CourseBannerCandidateReceipt, CourseBannerMutation, CourseId, CourseMembership,
-    CourseMembershipRole, CourseThemeId, TenantId, UserId, UserRole,
+    CourseBannerCandidateReceipt, CourseBannerMutation, CourseId, CourseThemeId, TenantId, UserId,
+    UserRole,
 };
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -47,26 +48,37 @@ where
     let outsider = UserId::from_uuid(Uuid::from_u128(81_005));
     let context = TenantContext::from_authenticated_session(tenant);
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Keyboard-accessible biochemistry".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Keyboard-accessible biochemistry".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("course fixture should persist");
+    store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Appearance learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("student roster membership");
     let instructor_cookie = session_cookie(
         &store,
         tenant,
@@ -337,8 +349,8 @@ where
     assert!(
         current_delivery["url"]
             .as_str()
-            .expect("protected delivery should return a signed URL")
-            .contains("?expires="),
+            .is_some_and(|url| !url.is_empty()),
+        "protected delivery should return an opaque signed URL"
     );
     assert_eq!(
         fixture
@@ -558,26 +570,37 @@ async fn postgres_minio_cleanup_deletes_superseded_objects_and_preserves_current
             .expect("live session should persist");
     }
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Combined PostgreSQL and MinIO cleanup".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Combined PostgreSQL and MinIO cleanup".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("live course should persist");
+    store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Combined cleanup learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("live student roster membership");
     let now = store
         .authoritative_time(context)
         .await

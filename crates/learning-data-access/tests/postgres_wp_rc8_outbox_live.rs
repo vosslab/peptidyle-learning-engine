@@ -25,59 +25,86 @@ async fn insert_delivery_fixture(pool: &sqlx::PgPool, expired: bool) -> (Uuid, U
     let course = id();
     let instructor = id();
     let invitation = id();
-    sqlx::query("INSERT INTO course (tenant_id, course_id, title) VALUES ($1, $2, $3)")
-        .bind(tenant)
-        .bind(course)
-        .bind("RC8 disposable invitation delivery")
-        .execute(pool)
+    let mut token_hash = [0_u8; 32];
+    getrandom::fill(&mut token_hash).expect("disposable invitation token-hash randomness");
+    let mut transaction = pool
+        .begin()
         .await
-        .expect("insert isolated invitation course");
+        .expect("begin isolated invitation fixture");
+    sqlx::query(
+        "INSERT INTO course (tenant_id, course_id, title, term_start_date, term_end_date, \
+         time_zone) VALUES ($1, $2, $3, DATE '2026-08-24', DATE '2026-12-18', \
+         'America/Chicago')",
+    )
+    .bind(tenant)
+    .bind(course)
+    .bind("RC8 disposable invitation delivery")
+    .execute(&mut *transaction)
+    .await
+    .expect("insert isolated invitation course");
     sqlx::query("INSERT INTO course_roster_state (tenant_id, course_id) VALUES ($1, $2)")
         .bind(tenant)
         .bind(course)
-        .execute(pool)
+        .execute(&mut *transaction)
         .await
         .expect("insert isolated invitation roster state");
-    let invitation_sql = if expired {
-        "INSERT INTO course_invitation (tenant_id, course_id, invitation_id, token_hash, normalized_email, \\
-         delivery_email, roster_id, invited_by, idempotency_key, expires_at) \\
-         VALUES ($1, $2, $3, $4, $5, $5, '900000001', $6, $7, \\
-                 transaction_timestamp() - interval '1 second')"
-    } else {
-        "INSERT INTO course_invitation (tenant_id, course_id, invitation_id, token_hash, normalized_email, \\
-         delivery_email, roster_id, invited_by, idempotency_key, expires_at) \\
-         VALUES ($1, $2, $3, $4, $5, $5, '900000001', $6, $7, \\
-                 transaction_timestamp() + interval '1 day')"
-    };
-    sqlx::query(invitation_sql)
+    sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
+        .bind(tenant.to_string())
+        .execute(&mut *transaction)
+        .await
+        .expect("scope isolated invitation fixture to its tenant");
+    sqlx::query(
+        "INSERT INTO course_invitation (tenant_id, course_id, invitation_id, token_hash, normalized_email, \
+         delivery_email, roster_id, invited_by, idempotency_key, expires_at) \
+         VALUES ($1, $2, $3, $4, $5, $5, '900000001', $6, $7, \
+                 transaction_timestamp() + interval '1 day')",
+    )
         .bind(tenant)
         .bind(course)
         .bind(invitation)
-        .bind([0x71_u8; 32].as_slice())
+        .bind(token_hash.as_slice())
         .bind(format!("delivery-{}@example.invalid", id()))
         .bind(instructor)
         .bind(format!("delivery-{}", id()))
-        .execute(pool)
+        .execute(&mut *transaction)
         .await
         .expect("insert isolated invitation");
     let delivery = id();
     sqlx::query(
-        "INSERT INTO course_invitation_delivery (tenant_id, course_id, invitation_id, delivery_id) \\
+        "INSERT INTO course_invitation_delivery (tenant_id, course_id, invitation_id, delivery_id) \
          VALUES ($1, $2, $3, $4)",
     )
     .bind(tenant)
     .bind(course)
     .bind(invitation)
     .bind(delivery)
-    .execute(pool)
+    .execute(&mut *transaction)
     .await
     .expect("create one durable delivery for the invitation");
+    if expired {
+        sqlx::query(
+            "UPDATE course_invitation \
+             SET created_at = transaction_timestamp() - interval '2 days', \
+                 expires_at = transaction_timestamp() - interval '1 day' \
+             WHERE tenant_id = $1 AND course_id = $2 AND invitation_id = $3",
+        )
+        .bind(tenant)
+        .bind(course)
+        .bind(invitation)
+        .execute(&mut *transaction)
+        .await
+        .expect("make an otherwise valid invitation naturally expired");
+    }
+    transaction
+        .commit()
+        .await
+        .expect("commit isolated invitation fixture");
     (tenant, course, invitation, delivery)
 }
 
 async fn delivery_state(pool: &sqlx::PgPool, delivery: Uuid) -> (String, bool, bool) {
     let row = sqlx::query(
-        "SELECT state, lease_id IS NULL AS lease_cleared, terminal_at IS NOT NULL AS terminal \\
+        "SELECT state, lease_id IS NULL AS lease_cleared, terminal_at IS NOT NULL AS terminal \
          FROM course_invitation_delivery WHERE delivery_id = $1",
     )
     .bind(delivery)
@@ -175,7 +202,7 @@ async fn postgres_wp_rc8_invitation_delivery_authority_and_outbox() {
 
     // A stale lease cannot complete after the broker has fenced it.
     sqlx::query(
-        "UPDATE course_invitation_delivery SET lease_expires_at = transaction_timestamp() - interval '1 second' \\
+        "UPDATE course_invitation_delivery SET lease_expires_at = transaction_timestamp() - interval '1 second' \
          WHERE delivery_id = $1",
     )
     .bind(ready_delivery)
@@ -218,7 +245,8 @@ async fn postgres_wp_rc8_invitation_delivery_authority_and_outbox() {
         ("cancelled".to_string(), true, true),
         "unprepared expiry is terminal cancellation"
     );
-    let (_, _, _, prepared_expiry_delivery) = insert_delivery_fixture(&owner_pool, false).await;
+    let (prepared_expiry_tenant, prepared_expiry_course, _, prepared_expiry_delivery) =
+        insert_delivery_fixture(&owner_pool, false).await;
     let prepared_expiry = worker
         .claim_due_course_invitation_deliveries(1, 60)
         .await
@@ -232,14 +260,31 @@ async fn postgres_wp_rc8_invitation_delivery_authority_and_outbox() {
             .expect("prepare active expiry fixture")
             .is_some()
     );
+    let mut expiry = owner_pool
+        .begin()
+        .await
+        .expect("begin prepared-expiry fixture transaction");
+    sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
+        .bind(prepared_expiry_tenant.to_string())
+        .execute(&mut *expiry)
+        .await
+        .expect("scope prepared-expiry fixture to its tenant");
     sqlx::query(
-        "UPDATE course_invitation SET expires_at = transaction_timestamp() - interval '1 second' \\
-         WHERE invitation_id = $1",
+        "UPDATE course_invitation \
+         SET created_at = transaction_timestamp() - interval '2 days', \
+             expires_at = transaction_timestamp() - interval '1 day' \
+         WHERE tenant_id = $1 AND course_id = $2 AND invitation_id = $3",
     )
+    .bind(prepared_expiry_tenant)
+    .bind(prepared_expiry_course)
     .bind(prepared_expiry.delivery.invitation.as_uuid())
-    .execute(&owner_pool)
+    .execute(&mut *expiry)
     .await
     .expect("advance only the disposable invitation past expiry");
+    expiry
+        .commit()
+        .await
+        .expect("commit prepared-expiry fixture");
     assert!(
         worker
             .claim_due_course_invitation_deliveries(10, 60)
@@ -291,7 +336,8 @@ async fn postgres_wp_rc8_invitation_delivery_authority_and_outbox() {
     );
 
     // The application role receives no cross-tenant delivery disclosure.
-    let (_, _, _, foreign_delivery) = insert_delivery_fixture(&owner_pool, false).await;
+    let (foreign_tenant, foreign_course, foreign_invitation, _) =
+        insert_delivery_fixture(&owner_pool, false).await;
     let mut foreign = owner_pool.begin().await.expect("foreign tenant probe");
     sqlx::query("SET LOCAL ROLE ple_app")
         .execute(&mut *foreign)
@@ -303,12 +349,17 @@ async fn postgres_wp_rc8_invitation_delivery_authority_and_outbox() {
         .await
         .expect("foreign tenant context");
     assert!(
-        sqlx::query("SELECT state FROM course_invitation_delivery WHERE delivery_id = $1")
-            .bind(foreign_delivery)
-            .fetch_optional(&mut *foreign)
-            .await
-            .expect("foreign delivery query")
-            .is_none()
+        sqlx::query(
+            "SELECT state FROM course_invitation_delivery \
+             WHERE tenant_id = $1 AND course_id = $2 AND invitation_id = $3",
+        )
+        .bind(foreign_tenant)
+        .bind(foreign_course)
+        .bind(foreign_invitation)
+        .fetch_optional(&mut *foreign)
+        .await
+        .expect("foreign delivery query")
+        .is_none()
     );
     foreign.rollback().await.expect("foreign probe rollback");
 

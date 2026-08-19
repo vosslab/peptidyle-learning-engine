@@ -134,8 +134,8 @@ export function AssignmentEditorLivePage(): JSX.Element {
       <AssignmentEditorPage
         repository={createAssignmentEditorRepository(runtime.client)}
         courseId={courseId as CourseId}
-        coursePublicId={
-          (gate() as Extract<CourseGate, { readonly kind: "allowed" }>).course.publicId
+        courseReference={
+          (gate() as Extract<CourseGate, { readonly kind: "allowed" }>).course.reference
         }
         mode={
           assignmentReference === undefined

@@ -1,19 +1,24 @@
 use axum::Json;
-use axum::extract::{Path, Query, State};
+use axum::body::to_bytes;
+use axum::extract::{Path, Query, Request, State};
+use axum::http::header::CONTENT_TYPE;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use learning_data_access::{
-    CatalogStore, CourseListScope, CourseRecord, CourseRecordsAccessStore, Cursor, PageRequest,
-    PageSize, PaginationError, SessionStore, Store,
+    CatalogStore, CourseListScope, CourseRecord, CourseRecordsAccessStore, CreateCourseCommand,
+    Cursor, PageRequest, PageSize, PaginationError, SessionStore, Store,
 };
-use question_model::{CourseId, CourseMembership, CourseMembershipRole};
+use question_model::{CourseId, CourseMembershipRole};
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
 use super::assignments::assignment_summary_items;
 use super::policy::{course_records_are_visible, may_create_course, require_course_access};
 use super::projection::{error_response, store_error_response};
-use super::routing::{CourseQuery, CourseRouteState, CreateCourseRequest, DEFAULT_PAGE_SIZE};
+use super::routing::{
+    CourseQuery, CourseRouteState, CreateCourseDecodeError, DEFAULT_PAGE_SIZE,
+    MAX_COURSE_BODY_BYTES, decode_course_create_request,
+};
 
 pub(super) async fn list_courses<S>(
     State(state): State<CourseRouteState<S>>,
@@ -44,12 +49,12 @@ where
 
 pub(super) async fn create_course<S>(
     State(state): State<CourseRouteState<S>>,
-    headers: HeaderMap,
-    Json(request): Json<CreateCourseRequest>,
+    request: Request,
 ) -> Response
 where
     S: Store + CourseRecordsAccessStore + SessionStore + 'static,
 {
+    let headers = request.headers().clone();
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
@@ -57,29 +62,71 @@ where
     if !may_create_course(&authenticated) {
         return error_response(StatusCode::FORBIDDEN, "course creation is not authorized");
     }
-    if request.title.trim().is_empty() {
+    if !headers
+        .get(CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| {
+            value
+                .split(';')
+                .next()
+                .is_some_and(|media| media.trim().eq_ignore_ascii_case("application/json"))
+        })
+    {
         return error_response(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "course title must contain non-whitespace content",
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "course request must use application/json",
         );
     }
+    let body = match to_bytes(request.into_body(), MAX_COURSE_BODY_BYTES).await {
+        Ok(body) => body,
+        Err(_) => {
+            return error_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "course request is invalid",
+            );
+        }
+    };
+    let value = match serde_json::from_slice(&body) {
+        Ok(value) => value,
+        Err(_) => {
+            return error_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "course request is invalid",
+            );
+        }
+    };
+    let request = match decode_course_create_request(value) {
+        Ok(request) => request,
+        Err(CreateCourseDecodeError::Invalid) => {
+            return error_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "course request is invalid",
+            );
+        }
+        Err(CreateCourseDecodeError::Term(failure)) => {
+            return no_store((StatusCode::UNPROCESSABLE_ENTITY, Json(failure)).into_response());
+        }
+    };
     let course = CourseRecord {
         id: CourseId::generate(),
         tenant: authenticated.tenant_context.tenant_id(),
         title: request.title,
-        members: vec![CourseMembership {
-            user: authenticated.record.subject.user(),
-            role: CourseMembershipRole::Instructor,
-        }],
+        term: request.term,
     };
     match state
         .store
-        .upsert_course(authenticated.tenant_context, course.clone())
+        .create_course(
+            authenticated.tenant_context,
+            CreateCourseCommand {
+                course: course.clone(),
+                initial_instructor: authenticated.record.subject.user(),
+            },
+        )
         .await
     {
         Ok(()) => match state
             .store
-            .course_public_id(
+            .course_reference(
                 authenticated.tenant_context,
                 authenticated.record.subject.user(),
                 course.id,
@@ -123,10 +170,18 @@ where
         Ok(None) => return error_response(StatusCode::NOT_FOUND, "course not found"),
         Err(error) => return store_error_response(error),
     };
-    let role = if let Some(role) = record.role_for(authenticated.record.subject.user()) {
-        role
-    } else {
-        return error_response(StatusCode::NOT_FOUND, "course not found");
+    let role = match state
+        .store
+        .get_current_course_membership(
+            authenticated.tenant_context,
+            course,
+            authenticated.record.subject.user(),
+        )
+        .await
+    {
+        Ok(Some(membership)) => membership.role,
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "course not found"),
+        Err(error) => return store_error_response(error),
     };
     if role == CourseMembershipRole::Student {
         match course_records_are_visible(state.store.as_ref(), &authenticated, course).await {
@@ -137,7 +192,7 @@ where
     }
     let public_id = match state
         .store
-        .course_public_id(
+        .course_reference(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
             course,
@@ -173,17 +228,45 @@ where
         Ok(page) => page,
         Err(error) => return error_response(StatusCode::BAD_REQUEST, &error.to_string()),
     };
-    match state
+    let member_role = match state
         .store
-        .list_assignments(authenticated.tenant_context, course, page)
+        .get_current_course_membership(
+            authenticated.tenant_context,
+            course,
+            authenticated.record.subject.user(),
+        )
         .await
     {
+        Ok(Some(membership)) => membership.role,
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "course not found"),
+        Err(error) => return store_error_response(error),
+    };
+    let assignments = match member_role {
+        CourseMembershipRole::Student => {
+            state
+                .store
+                .list_learner_entitled_assignments(
+                    authenticated.tenant_context,
+                    authenticated.record.subject.user(),
+                    course,
+                    page,
+                )
+                .await
+        }
+        CourseMembershipRole::Instructor => {
+            state
+                .store
+                .list_assignments(authenticated.tenant_context, course, page)
+                .await
+        }
+    };
+    match assignments {
         Ok(page) => {
             let mut summaries = Vec::with_capacity(page.items.len());
             for assignment in page.items {
                 let public_id = match state
                     .store
-                    .assignment_public_id(
+                    .assignment_reference(
                         authenticated.tenant_context,
                         authenticated.record.subject.user(),
                         assignment.id,

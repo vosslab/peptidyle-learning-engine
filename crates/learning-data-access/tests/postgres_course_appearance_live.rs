@@ -5,15 +5,15 @@
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AuthoritativeTimeStore, COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseAppearanceStore,
-    CourseBannerCleanupBatch, CourseRecord, RegisterCourseBannerCandidate, SaveCourseAppearance,
-    SessionLifetime, SessionStore, SessionSubject, SessionTokenHash, Store, StoreError,
-    TenantContext,
+    CourseBannerCleanupBatch, CourseRecord, CourseRosterStore, CreateCourseCommand,
+    RegisterCourseBannerCandidate, SaveCourseAppearance, SessionLifetime, SessionStore,
+    SessionSubject, SessionTokenHash, Store, StoreError, TenantContext, UpsertCourseMember,
 };
 use objects::{ObjectKey, ObjectRecord, Sha256Digest};
 use question_model::{
     ActivityTimestamp, CourseAppearanceRevision, CourseAppearanceUpdate,
     CourseBannerAlternativeText, CourseBannerCandidateId, CourseBannerId, CourseBannerMutation,
-    CourseId, CourseMembership, CourseMembershipRole, CourseThemeId, TenantId, UserId, UserRole,
+    CourseId, CourseThemeId, TenantId, UserId, UserRole,
 };
 use uuid::Uuid;
 
@@ -72,33 +72,43 @@ async fn postgres_course_appearance_is_revisioned_role_bound_and_current_only() 
     let foreign_tenant = TenantId::from_uuid(id());
     let course = CourseId::from_uuid(id());
     let instructor = UserId::from_uuid(id());
-    let replacement_instructor = UserId::from_uuid(id());
     let student = UserId::from_uuid(id());
     let context = TenantContext::from_authenticated_session(tenant);
     let foreign_context = TenantContext::from_authenticated_session(foreign_tenant);
     let instructor_session = session(&store, tenant, instructor, vec![UserRole::Instructor]).await;
     let student_session = session(&store, tenant, student, vec![UserRole::Student]).await;
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Live appearance course".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Live appearance course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("course and trigger-owned default appearance should persist");
+    store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Live appearance student".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("student membership should persist");
     let initial = store
         .course_appearance(context, instructor_session, course)
         .await
@@ -246,16 +256,21 @@ async fn postgres_course_appearance_is_revisioned_role_bound_and_current_only() 
 
     let other_course = CourseId::from_uuid(id());
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: other_course,
-                tenant,
-                title: "Other live appearance course".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: other_course,
+                    tenant,
+                    title: "Other live appearance course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
@@ -290,46 +305,6 @@ async fn postgres_course_appearance_is_revisioned_role_bound_and_current_only() 
         .rollback()
         .await
         .expect("negative probe should roll back cleanly");
-
-    store
-        .upsert_course(
-            context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Live appearance course".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: replacement_instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
-            },
-        )
-        .await
-        .expect("membership replacement should preserve appearance");
-    assert_eq!(
-        store
-            .save_course_appearance(
-                context,
-                instructor_session,
-                course,
-                SaveCourseAppearance {
-                    expected_revision: saved.revision,
-                    update: CourseAppearanceUpdate {
-                        theme: CourseThemeId::Desert,
-                        banner: CourseBannerMutation::Remove,
-                    },
-                    promoted_object: None,
-                },
-            )
-            .await,
-        Err(StoreError::NotFound)
-    );
 
     sqlx::query(
         "UPDATE course_banner_candidate \

@@ -3,7 +3,11 @@ use super::fixtures::{assert_external_debug_is_redacted, external_begin, externa
 
 pub(super) async fn exercise_external_tool_broker<S>(store: &S)
 where
-    S: Store + CatalogStore + ExternalToolBrokerStore + ExternalToolLaunchSessionStore,
+    S: Store
+        + CatalogStore
+        + CourseRosterStore
+        + ExternalToolBrokerStore
+        + ExternalToolLaunchSessionStore,
 {
     let fixture = external_tool_fixture(store).await;
     let mut provider_url = fixture.binding.clone();

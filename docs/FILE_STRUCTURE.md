@@ -34,6 +34,8 @@ from this file map.
    +- lifecycle.py       Typed lifecycle sequencing for start, validate, and restart
    +- local_environment.py Default-only private environment bootstrap
    +- local_identity.py  Local credential and hash-only identity projection
+   +- private_files.py   Atomic private-file creation and replacement boundary
+   +- private_state.py   Descriptor-anchored repository-target E2E state owner
    +- renderer.py        Selected renderer OCI provenance and probe boundary
    +- _consumer_cli.py   Private disposable-consumer adapter
 `- run_playwright_tests.sh Browser test entry point
@@ -46,7 +48,7 @@ container build context, or runtime dependency.
 
 | Path                                                            | Owns                                                                                                                  |
 | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| [crates/question_model/](../crates/question_model/)             | Question types, capabilities, identifiers, and public presentation schemas.                                           |
+| [crates/question_model/](../crates/question_model/)             | Question types, mandatory course-term values, capabilities, identifiers, and public presentation schemas.            |
 | [crates/domain/](../crates/domain/)                             | Attempt state, policies, seeded generation, timing inputs, and answer-free validation.                                |
 | [crates/grading/](../crates/grading/)                           | Answer keys, checkers, and correctness decisions.                                                                     |
 | [crates/objects/](../crates/objects/)                           | Typed object-store interface, four bucket domains, checksums, image validation, and MinIO/S3 backends.                |
@@ -76,6 +78,7 @@ crates/learning-data-access/
 |  |  `- catalog_search.rs Portable ranked-search admission and fixed-point scoring helpers
 |  +- postgres/        PostgreSQL implementations and connection attestation
 |  |  `- catalog/search.rs Canonical ranked full-text and word-similarity search
+|  |  `- effective_policy_receipts.rs Sealed effective-policy receipt persistence and reconstruction
 |  +- activity.rs      Actor-scoped learner reads and activity ownership
 |  +- external_tool.rs External broker leases, dispatch, and finalization contracts
 |  +- jobs.rs          Durable job and publication-outbox contracts
@@ -86,7 +89,7 @@ crates/learning-data-access/
 `- tests/
    +- conformance/     Backend-neutral behavior cases
    +- fixtures/        Small safe fixture evidence
-   `- postgres_*_live.rs Disposable PostgreSQL acceptance gates, including ignored catalog Store, disclosure, and plan suites
+   `- postgres_*_live.rs Disposable PostgreSQL acceptance gates, including ignored course-term, catalog Store, disclosure, and plan suites
 ```
 
 When a persistence capability changes, update its contract, both

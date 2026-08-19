@@ -122,7 +122,9 @@ test("J1 student reaches visible feedback and the next question in the instructo
     has: page.locator("dt", { hasText: "Run time limit" }),
   });
   await expect(runTimeLimit).toBeVisible();
-  await expect(runTimeLimit.locator("dd")).toHaveText("Untimed");
+  // New Mastery assignments deliberately start with the reviewed 15-minute limit.
+  // The learner must see that limit before committing to start a practice run.
+  await expect(runTimeLimit.locator("dd")).toHaveText("15 minutes");
 
   const start = page.getByRole("button", { name: "Start or continue practice" });
   await expect(start).toBeVisible();

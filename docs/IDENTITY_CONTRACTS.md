@@ -51,11 +51,12 @@ sequential counters and not browser secrets.
 | `AssetId`                                          | Logical published content asset                        | May resolve to an immutable physical object but is not its storage identity.                                           |
 | `ObjectId`                                         | Immutable object-store record                          | Names stored bytes and may back source, asset, export, or learner-record artifacts.                                    |
 | `CourseId`                                         | Tenant course or section                               | Owns assignment placement and course membership context.                                                               |
-| `CourseGroupId`                                    | Current group within a course                          | Used for policy exceptions and group-scoped timing, not a global roster.                                               |
+| `CourseMembershipId`                               | One immutable course-membership episode                | Current authority requires active status; revocation preserves the episode for evidence and reinvitation creates a new one. |
+| `CourseGroupId`                                    | Current typed group within a course                    | Contains membership episodes and contributes only the capabilities allowed by its Section, Lab, Cohort, Accommodation, or Work purpose. |
 | `AssignmentId`                                     | Tenant assignment                                      | Owns current policy and ordered current items.                                                                         |
 | `AssignmentItemId`                                 | Stable current-state assignment item                   | Retains item identity while future points, ordering, or policy change.                                                 |
 | `AssignmentSelectionGroupId`                       | Random-selection group                                 | Distinct from its selected run items.                                                                                  |
-| `EnrollmentId`                                     | One student's durable relationship with one assignment | Binds learner, assignment, and cross-run mastery state.                                                                |
+| `EnrollmentId`                                     | One materialized assignment receipt for a stable learner | Binds cross-run mastery state and sealed first-grant provenance; never grants current access.                          |
 | `RunId`                                            | One pass through an assignment                         | Belongs to one enrollment; later practice creates a new run rather than rewriting the completed one.                   |
 | `QuestionAttemptId`                                | One issued question instance                           | Is the primary learner-answer route identity; binds run, exact version, seed, timing, status, provenance, and backend. |
 | `AssignmentPolicyExceptionId`                      | One current policy exception                           | Auditable tenant record for a student or group exception.                                                              |
@@ -83,6 +84,8 @@ are not substitutes for durable ownership and authorization.
 | Value                                | Purpose                                                                                                   | Do not use it as                                                                  |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | `QuestionId`                         | Single non-sequential Crockford Base32 locator such as `7K3-M9QP`; names one immutable published question | Authorization, a hidden snapshot ID, or a version selector.                       |
+| `CourseReference`, `AssignmentReference`, `RunReference`, `WorkspaceReference`, and `CourseGroupReference` | Exact positive public locators `C-`, `A-`, `R-`, `W-`, and `G-` for the corresponding root aggregate | Authorization, a tenant or course selector, or an internal durable ID. |
+| `PublicByline`                       | Ordered reviewed public author display names frozen with one published version | Account identity, publication authority, or a private author relationship. |
 | `ProblemVersionRef`                  | Exact internal immutable `(ProblemId, VersionId)` evidence                                                | A browser version selector, learner attempt, or mutable assignment-item identity. |
 | `ChoiceId`                           | Stable internal semantic ID for an authored choice, slot, match endpoint, order item, or hotspot region   | A display label, screen position, or presentation-scoped response token.          |
 | `Seed` plus generator version        | Reproduces a generated variant under immutable content                                                    | Learner authority to select a new variant.                                        |
@@ -98,6 +101,12 @@ Semantic response IDs are in
 [crates/question_model/src/assignment.rs](../crates/question_model/src/assignment.rs),
 and queued generation fences are a closed server-side contract in
 [crates/learning-data-access/src/jobs.rs](../crates/learning-data-access/src/jobs.rs).
+
+Route references are full-string, prefix-specific values with no leading zero and a positive 31-bit
+number. They locate a record only after the server resolves the reference inside the authenticated
+tenant, membership, or workspace boundary. `AC-` is reserved for the later Alpha aggregate and has
+no teaching-course interpretation. A `PublicByline` has one through sixteen distinct trimmed display
+names; it is immutable publication metadata and never conveys account authority.
 
 One Question ID has one immutable published content identity. A correction,
 fork, or other authored content change receives a new Question ID and may

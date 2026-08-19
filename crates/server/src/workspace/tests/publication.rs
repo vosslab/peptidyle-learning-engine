@@ -50,6 +50,11 @@ async fn publication_validation_and_diff_use_persisted_draft_safe_semantics() {
                 flat_question_promotion: None,
                 publisher: actor,
                 scope: question_model::PublicationScope::Public,
+                byline: question_model::PublicByline::new(vec![
+                    question_model::PublicAuthorName::new("PLE fixture".to_string())
+                        .expect("valid test byline"),
+                ])
+                .expect("valid test byline"),
                 capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
             },
         )

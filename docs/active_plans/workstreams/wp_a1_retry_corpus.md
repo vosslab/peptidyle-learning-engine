@@ -19,9 +19,9 @@
 - Save requires HTTP 200 and one strong positive decimal i64 ETag. Publication sends
   that exact ETag, requires HTTP 201, and is never automatically retried after an
   ambiguous outcome.
-- A safe catalog-detail GET is inspected for answer-bearing fields. The returned
-  arrangement record has only the published problem/version reference and its
-  arrangement label; it never includes a credential, cookie, source, or answer key.
+- A safe catalog-detail GET by canonical Question ID is inspected for answer-bearing fields. The
+  returned retry-corpus result has only that Question ID, its public catalog title, and arrangement
+  label; it never includes a credential, cookie, source, answer key, ProblemId, or VersionId.
 - This package creates no account, enrollment, course, membership, SQL fixture, or cleanup action.
 
 ## Evidence

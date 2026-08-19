@@ -414,23 +414,23 @@ VALUES
 
 INSERT INTO public.problem_version
     (problem_id, version_id, content_sha256, workspace_id,
-     title, backend, metadata, publication_scope, authors)
+     title, backend, metadata, publication_scope, author_ids, public_byline)
 VALUES
     ('11111111-1111-4111-8111-0000000000b6',
      '11111111-1111-4111-8111-0000000000b7', repeat('3', 64),
      '11111111-1111-4111-8111-0000000000b2', 'Absent grading probe', 'native',
      '{"language":"en-US","license":{"kind":"cc0"},"taxonomy":[],"tags":[]}',
-     'public', '["11111111-1111-4111-8111-0000000000b3"]'),
+     'public', '["11111111-1111-4111-8111-0000000000b3"]', ARRAY['Flat grading fixture']),
     ('11111111-1111-4111-8111-0000000000b8',
      '11111111-1111-4111-8111-0000000000b9', repeat('4', 64),
      '11111111-1111-4111-8111-0000000000b2', 'Stored grading probe', 'native',
      '{"language":"en-US","license":{"kind":"cc0"},"taxonomy":[],"tags":[]}',
-     'public', '["11111111-1111-4111-8111-0000000000b3"]'),
+     'public', '["11111111-1111-4111-8111-0000000000b3"]', ARRAY['Flat grading fixture']),
     ('11111111-1111-4111-8111-0000000000c6',
      '11111111-1111-4111-8111-0000000000c7', repeat('6', 64),
      '11111111-1111-4111-8111-0000000000b2', 'Foreign owner probe', 'native',
      '{"language":"en-US","license":{"kind":"cc0"},"taxonomy":[],"tags":[]}',
-     'public', '["11111111-1111-4111-8111-0000000000b3"]');
+     'public', '["11111111-1111-4111-8111-0000000000b3"]', ARRAY['Flat grading fixture']);
 
 INSERT INTO public.problem_version_payload
     (problem_id, version_id, payload, payload_sha256)

@@ -53,14 +53,17 @@ pub(super) async fn seed_chapter_one_statistics(
         ensure_webwork_pilot_course(
             store,
             context,
+            arguments.instructor,
             CourseRecord {
                 id: course,
                 tenant: arguments.tenant,
                 title: format!("Chapter 1 discovery evidence cohort {}", index + 1),
-                members: vec![CourseMembership {
-                    user: arguments.instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+                term: question_model::CourseTerm::from_parts(
+                    "2026-08-24",
+                    "2026-12-18",
+                    "America/Chicago",
+                )
+                .expect("explicit fixture course term"),
             },
         )
         .await?;
@@ -72,6 +75,7 @@ pub(super) async fn seed_chapter_one_statistics(
                 tenant: arguments.tenant,
                 course_id: course,
                 title: "Chapter 1 phenylalanine evidence activity".to_string(),
+                audience: question_model::AssignmentAudience::CourseWide,
                 items: vec![AssignmentItem {
                     id: AssignmentItemId::from_uuid(pilot_uuid(
                         arguments.tenant,
@@ -99,7 +103,15 @@ pub(super) async fn seed_chapter_one_statistics(
             STATISTICS_COHORT_SLUG,
             learner_slug,
         ));
-        upsert_chapter_one_student(store, context, learner, course, assignment).await?;
+        upsert_chapter_one_student(
+            store,
+            context,
+            arguments.instructor,
+            learner,
+            course,
+            assignment,
+        )
+        .await?;
         let run_id = RunId::from_uuid(pilot_uuid(
             arguments.tenant,
             STATISTICS_COHORT_SLUG,

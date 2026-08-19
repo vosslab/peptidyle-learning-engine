@@ -28,7 +28,7 @@ tests/
 
 ## How to run
 
-- Fast pytest lane: `pytest tests/`
+- Fast pytest lane: `source source_me.sh && python3 -m pytest tests/`
 - Single browser test: `node tests/playwright/test_<name>.mjs` (TypeScript repos include `PLAYWRIGHT_USAGE.md` in their propagated `docs/` folder)
 - Single non-browser E2E: `bash tests/e2e/e2e_<name>.sh`,
   `source source_me.sh && python3 tests/e2e/e2e_<name>.py`, or
@@ -58,13 +58,16 @@ enforce a closed owner policy:
   isolated data-stack Compose definition.
 - `chapter-one-browser` owns its isolated full teaching stack and derived
   gateway image.
+- `wp-r2-host-seed-renderer` owns its isolated host-seed and renderer stack.
 - `replica-restart` owns the replica Compose overlay and may stop one exact API
   replica only after it proves a peer remains running.
 - The UI walkthrough uses controller primitives directly with its own private
   state and cleanup capability; it is not a generic adapter consumer.
 
 The shared adapter controls provider selection, environment sanitization,
-label discovery, scoped diagnostics, and cleanup. Runners keep their test data,
+label discovery, scoped diagnostics, and cleanup. It also allocates and later
+identity-verifies repository-target private state for the Node replica owner, so
+JavaScript does not implement a second cleanup authority. Runners keep their test data,
 ports, secrets, application assertions, and failure receipts. A failed cleanup
 is a failed E2E: retain the private manifest/evidence and inspect the exact
 label-resolved target instead of deleting the receipt or broadening cleanup.

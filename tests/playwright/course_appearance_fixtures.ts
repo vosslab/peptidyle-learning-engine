@@ -7,8 +7,8 @@ import type { Page, Route } from "@playwright/test";
 import { publishedProblemFixture } from "../../generated/fixtures/published_problem";
 
 export const COURSE_ID = publishedProblemFixture.course.id;
-export const COURSE_REFERENCE = `C-${publishedProblemFixture.course.publicId}`;
-export const ASSIGNMENT_REFERENCE = `A-${publishedProblemFixture.assignment.publicId}`;
+export const COURSE_REFERENCE = publishedProblemFixture.course.reference;
+export const ASSIGNMENT_REFERENCE = publishedProblemFixture.assignment.reference;
 export const APPEARANCE_PATH = `/instructor/courses/${COURSE_REFERENCE}/appearance`;
 export const CANDIDATE_ID = "0198e000-0000-7000-8000-000000000811";
 export const SECOND_CANDIDATE_ID = "0198e000-0000-7000-8000-000000000812";

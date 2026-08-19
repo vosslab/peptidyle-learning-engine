@@ -42,6 +42,7 @@ where
                 flat_question_promotion: None,
                 publisher,
                 scope: PublicationScope::Public,
+                byline: reviewed_byline(),
                 capabilities: capabilities.clone(),
             },
         )
@@ -83,6 +84,7 @@ where
                 flat_question_promotion: None,
                 publisher,
                 scope: PublicationScope::Public,
+                byline: reviewed_byline(),
                 capabilities,
             },
         )
@@ -120,6 +122,7 @@ where
                     flat_question_promotion: None,
                     publisher,
                     scope: PublicationScope::Public,
+                    byline: reviewed_byline(),
                     capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
                 },
             )
@@ -151,6 +154,7 @@ where
                     flat_question_promotion: None,
                     publisher,
                     scope: PublicationScope::Public,
+                    byline: reviewed_byline(),
                     capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
                 },
             )

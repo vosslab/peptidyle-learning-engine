@@ -8,16 +8,21 @@ async fn memory_catalog_keeps_question_identity_exact() {
     let publisher = UserId::from_uuid(uuid(303));
     let course = CourseId::from_uuid(uuid(304));
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Catalog course".to_string(),
-                members: vec![CourseMembership {
-                    user: publisher,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            learning_data_access::CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Catalog course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: publisher,
             },
         )
         .await
@@ -50,6 +55,7 @@ async fn memory_catalog_keeps_question_identity_exact() {
                 flat_question_promotion: None,
                 publisher,
                 scope: PublicationScope::Institution,
+                byline: reviewed_byline(),
                 capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
             },
         )
@@ -87,6 +93,7 @@ async fn memory_catalog_keeps_question_identity_exact() {
                     tenant,
                     course_id: course,
                     title: "Exact catalog reference".to_string(),
+                    audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![reference]),
                     selection_groups: Vec::new(),
                     policies: policies(),

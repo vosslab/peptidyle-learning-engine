@@ -60,7 +60,12 @@ impl MemoryStore {
                 id: course,
                 tenant,
                 title: "Retention test course".to_string(),
-                members: Vec::new(),
+                term: question_model::CourseTerm::from_parts(
+                    "2026-08-24",
+                    "2026-12-18",
+                    "America/Chicago",
+                )
+                .expect("explicit fixture course term"),
             });
         state.course_retention.insert(
             (tenant, course),

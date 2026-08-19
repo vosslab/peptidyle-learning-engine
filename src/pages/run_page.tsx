@@ -155,7 +155,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
 
   function escapeToAssignment(): void {
     navigate(
-      `/courses/${courseRouteReference(screen().course.summary.publicId)}/assignments/${assignmentRouteReference(screen().assignment.publicId)}`,
+      `/courses/${courseRouteReference(screen().course.summary.reference)}/assignments/${assignmentRouteReference(screen().assignment.reference)}`,
     );
   }
 
@@ -298,7 +298,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
     setPracticeError(null);
     try {
       const run = await runtime.client.startRun(screen().assignment.id);
-      navigate(`/runs/${runRouteReference(run.publicId)}`);
+      navigate(`/runs/${runRouteReference(run.reference)}`);
     } catch (error: unknown) {
       setPracticeError(
         error instanceof Error ? error.message : "Could not start another practice run.",

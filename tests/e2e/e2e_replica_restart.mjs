@@ -12,8 +12,7 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -301,16 +300,46 @@ function parseReplica(value) {
   return value;
 }
 
-function safeComposeDiagnostic(stderr, privateValues = []) {
-  let redacted = stderr;
+function redactFailureOutput(stdout, stderr, privateValues = []) {
+  let redacted = `${stdout}\n${stderr}`;
   for (const privateValue of privateValues) {
-    redacted = redacted.replaceAll(privateValue, "[redacted]");
+    if (privateValue !== "") redacted = redacted.replaceAll(privateValue, "[redacted]");
   }
   return redacted
     .replaceAll(POSTGRES_PASSWORD, "[redacted]")
     .replaceAll("ple-e2e-minio-password", "[redacted]")
     .replace(/postgres:\/\/[^@\s]+@/gu, "postgres://[redacted]@")
     .slice(-2_000);
+}
+
+async function createPrivateDirectory() {
+  const result = await command(
+    "python3",
+    ["-m", "local_stack_control._consumer_cli", "prepare-state", "--owner", "replica-restart"],
+    "preparing replica E2E private state",
+    { safeDiagnostics: false },
+  );
+  const directory = result.stdout.trim();
+  const expectedPrefix = join(REPO_ROOT, "target", "replica-e2e", "run-");
+  if (!directory.startsWith(expectedPrefix)) fail("private-state adapter returned an invalid path");
+  return directory;
+}
+
+async function removePrivateDirectory(directory) {
+  await command(
+    "python3",
+    [
+      "-m",
+      "local_stack_control._consumer_cli",
+      "remove-state",
+      "--owner",
+      "replica-restart",
+      "--directory",
+      directory,
+    ],
+    "removing replica E2E private state",
+    { safeDiagnostics: false },
+  );
 }
 
 function adapterArguments(action, manifestPath, actionArguments = []) {
@@ -325,10 +354,9 @@ function adapterArguments(action, manifestPath, actionArguments = []) {
 }
 
 async function adapterCommand(action, manifestPath, actionArguments, label, options = {}) {
-  // Adapter failures do not echo raw Compose output. The only deployment
-  // detail exposed by this runner comes from its bounded, redacted diagnostics
-  // action below.
-  const adapterOptions = { ...options, safeDiagnostics: false };
+  // The closed adapter emits only bounded, redacted failure output. Keep that
+  // receipt available to the runner without exposing the adapter argv.
+  const adapterOptions = { ...options };
   return command(
     "python3",
     adapterArguments(action, manifestPath, actionArguments),
@@ -403,7 +431,7 @@ async function command(
     // Do not include argv/stdout/stderr here: the seed command receives a DB
     // URL and the test owns a local identity credential.
     const diagnostic = safeDiagnostics
-      ? safeComposeDiagnostic(error.stderr ?? "", privateValues)
+      ? redactFailureOutput(error.stdout ?? "", error.stderr ?? "", privateValues)
       : "";
     fail(
       `${label} failed (${String(error.code ?? "unknown error")})${diagnostic ? `\n${diagnostic}` : ""}`,
@@ -578,7 +606,7 @@ async function runLive() {
 
   const project = `ple-replica-e2e-${randomBytes(5).toString("hex")}`;
   const applicationImage = `localhost/peptidyle-learning-engine:${project}`;
-  const tempDirectory = await mkdtemp(join(tmpdir(), "ple-replica-e2e-"));
+  const tempDirectory = await createPrivateDirectory();
   const envPath = join(tempDirectory, "compose.env");
   const identityPath = join(tempDirectory, "local-identities.json");
   const invitationSecretPath = join(tempDirectory, "invitation_token_secret");
@@ -871,7 +899,7 @@ async function runLive() {
       const reason = retainEvidence ? "PLE_E2E_KEEP=1" : "cleanup failed";
       console.log(`${reason} retained replica E2E evidence in ${tempDirectory}`);
     } else {
-      await rm(tempDirectory, { recursive: true, force: true });
+      await removePrivateDirectory(tempDirectory);
     }
   }
 }

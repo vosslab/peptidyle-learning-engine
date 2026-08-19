@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ActivityTimestamp, AssignmentItemId, AssignmentSelectionGroupId, ProblemVersionRef};
+use crate::{AssignmentItemId, AssignmentSelectionGroupId, ProblemVersionRef};
 
 const POINT_SCALE: i64 = 10_000;
 const MAX_WHOLE_POINTS: i64 = 1_000_000_000;
@@ -73,38 +73,12 @@ pub enum AssignmentDeadlineBehavior {
     AutoSubmit,
 }
 
-/// Mutable current assignment access and timer policy.
-///
-/// This is not an assignment-history snapshot. Active attempts resolve it
-/// again after an authorized edit, so extensions and shortened limits take
-/// effect immediately.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AssignmentTimingPolicy {
-    /// Whether ordinary students may discover or start the assignment.
-    pub visible: bool,
-    /// Earliest server time at which a new run may start.
-    pub available_at: Option<ActivityTimestamp>,
-    /// Ordinary due date used by the late-submission policy.
-    pub due_at: Option<ActivityTimestamp>,
-    /// Absolute boundary after which work is closed.
-    pub closes_at: Option<ActivityTimestamp>,
-    /// Treatment of work after the ordinary due date.
-    pub late_submission: LateSubmissionPolicy,
-    /// Whole-run limit in seconds from the authoritative run start.
-    pub time_limit_seconds: Option<u32>,
-    /// Maximum assignment runs, or `None` for no assignment-level cap.
-    pub attempt_limit: Option<u32>,
-    /// Behavior at the resolved hard deadline.
-    pub deadline_behavior: AssignmentDeadlineBehavior,
-}
-
 /// Editor-owned whole-run timer choice.
 ///
 /// This deliberately contains only the one value that an assignment editor
-/// may change in this release.  Schedule, visibility, late-work, and
-/// accommodation policy remain server-managed `AssignmentTimingPolicy`
-/// concerns and are not accidentally overwritten by an editor save.
+/// may change in this release. Schedule, late-work, and accommodation policy
+/// are resolved by the server-owned effective-policy workflow and are not
+/// accidentally overwritten by an editor save.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentRunTiming {
@@ -122,21 +96,6 @@ pub const DEFAULT_MASTERY_TIME_LIMIT_SECONDS: u32 = 900;
 /// columns. Keeping this public makes every browser and storage boundary share
 /// the same lossless domain without a needless `BIGINT` migration.
 pub const MAX_ASSIGNMENT_TIME_LIMIT_SECONDS: u32 = 2_147_483_647;
-
-impl Default for AssignmentTimingPolicy {
-    fn default() -> Self {
-        Self {
-            visible: true,
-            available_at: None,
-            due_at: None,
-            closes_at: None,
-            late_submission: LateSubmissionPolicy::Accept,
-            time_limit_seconds: None,
-            attempt_limit: None,
-            deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
-        }
-    }
-}
 
 /// Exact nonnegative point value with four decimal places of precision.
 ///

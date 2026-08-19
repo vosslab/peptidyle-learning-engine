@@ -86,10 +86,20 @@ source source_me.sh && python3 local_stack.py logs --tail 80 webwork-renderer
 
 ## Email sign-in and invitations
 
-- **A new invitation reports `emailDelivery: notSent`:** this is the normal copy-link path when
-  no external SMTP provider is configured. Give the Instructor-only one-time link to the learner
-  through the course's established channel. The invitation remains single-use and the learner
-  still completes email authentication before it can become course membership.
+- **A new invitation reports `emailDelivery: queued`:** PLE accepted it for processing. This state
+  is not proof of provider submission or mailbox delivery. When no external SMTP provider is
+  configured, use the Instructor-only one-time copy link through the course's established channel.
+  The invitation remains single-use and the learner still completes email authentication before it
+  can become course membership.
+- **An invitation reports `emailDelivery: sentToProvider`:** the configured provider accepted the
+  submission, but this does not confirm mailbox delivery. The copy link remains available as the
+  direct course-channel handoff.
+- **An invitation reports `emailDelivery: needsAttention`:** delivery needs explicit operator
+  attention after an ambiguous result or a failure that remains after retry processing, including
+  a permanent failure. Do not treat it as delivered; use a fresh explicit resend when available,
+  or cancel it and create a new invitation.
+- **An invitation reports `emailDelivery: cancelled`:** its link is fenced and must not be shared.
+  Create a new invitation if enrollment is still needed.
 - **Email sign-in is unavailable through the production process:** this is expected today. The
   canonical account/session route graph is composed, but no SMTP provider or email-activation path
   is configured. Fastmail is the intended future provider. When its operator account, authorized

@@ -6,6 +6,7 @@ import pytest
 
 import local_stack_control.consumer
 import local_stack_control.models
+import local_stack_control._consumer_cli
 
 
 #============================================
@@ -71,3 +72,39 @@ def test_replica_diagnostics_redact_private_values() -> None:
 	)
 
 	assert "private-value" not in redacted and "user:password" not in redacted
+
+
+#============================================
+def test_replica_compose_failure_receipt_redacts_stdout_and_stderr() -> None:
+	"""Closed Compose failure evidence preserves clues without private values."""
+	result = local_stack_control.models.CommandResult(
+		argv=("compose",),
+		returncode=125,
+		stdout="stdout clue private-value",
+		stderr="stderr clue postgres://user:password@postgres/database",
+	)
+	receipt = local_stack_control._consumer_cli.compose_failure_diagnostics(
+		result, ("private-value", "password")
+	)
+
+	assert "stdout clue" in receipt and "stderr clue" in receipt
+	assert "private-value" not in receipt and "user:password" not in receipt
+
+
+#============================================
+def test_replica_compose_success_forwards_stdout_and_stderr(
+	capsys: pytest.CaptureFixture[str],
+) -> None:
+	"""Closed successful Compose calls preserve output for their caller."""
+	result = local_stack_control.models.CommandResult(
+		argv=("compose",),
+		returncode=0,
+		stdout="1|1|1|1|1\n",
+		stderr="compose warning\n",
+	)
+
+	local_stack_control._consumer_cli.write_compose_success_output(result)
+
+	captured = capsys.readouterr()
+	assert captured.out == "1|1|1|1|1\n"
+	assert captured.err == "compose warning\n"

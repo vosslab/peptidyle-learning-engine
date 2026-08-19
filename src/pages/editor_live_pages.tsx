@@ -55,7 +55,7 @@ export function WorkspaceListLivePage(): JSX.Element {
   return (
     <WasmEditorPage
       repository={createWorkspaceEditorRepository(runtime.client, createInstructorPreviewClient())}
-      onOpenDraft={(draft) => navigate(`/workspace/${workspaceRouteReference(draft.publicId)}`)}
+      onOpenDraft={(draft) => navigate(`/workspace/${workspaceRouteReference(draft.reference)}`)}
       onCreateFlatQuestion={createFlatQuestion}
     />
   );

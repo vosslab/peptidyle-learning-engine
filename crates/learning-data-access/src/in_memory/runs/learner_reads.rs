@@ -15,12 +15,20 @@ pub(super) async fn assignment_run_items(
         return Ok(None);
     };
     let enrollment = enrollment_record(&state, context.tenant_id(), record.enrollment)?;
-    if enrollment.user != actor {
-        return Ok(None);
-    }
     let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
     require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-    require_active_learner_membership(&state, context.tenant_id(), assignment.course_id, actor)?;
+    if super::super::entitlement::require_current_enrollment_entitlement(
+        &state,
+        context.tenant_id(),
+        actor,
+        assignment.course_id,
+        assignment.id,
+        &enrollment,
+    )
+    .is_err()
+    {
+        return Ok(None);
+    }
     Ok(Some(
         state
             .run_items
@@ -43,12 +51,20 @@ pub(super) async fn prefetched_question(
         return Ok(None);
     };
     let enrollment = enrollment_record(&state, context.tenant_id(), record.enrollment)?;
-    if enrollment.user != actor {
-        return Ok(None);
-    }
     let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
     require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-    require_active_learner_membership(&state, context.tenant_id(), assignment.course_id, actor)?;
+    if super::super::entitlement::require_current_enrollment_entitlement(
+        &state,
+        context.tenant_id(),
+        actor,
+        assignment.course_id,
+        assignment.id,
+        &enrollment,
+    )
+    .is_err()
+    {
+        return Ok(None);
+    }
     Ok(state
         .prefetched_questions
         .get(&(context.tenant_id(), run, predecessor, assignment_position))
@@ -66,12 +82,20 @@ pub(super) async fn pending_submission_for_run(
         return Ok(None);
     };
     let enrollment = enrollment_record(&state, context.tenant_id(), record.enrollment)?;
-    if enrollment.user != actor {
-        return Ok(None);
-    }
     let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
     require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-    require_active_learner_membership(&state, context.tenant_id(), assignment.course_id, actor)?;
+    if super::super::entitlement::require_current_enrollment_entitlement(
+        &state,
+        context.tenant_id(),
+        actor,
+        assignment.course_id,
+        assignment.id,
+        &enrollment,
+    )
+    .is_err()
+    {
+        return Ok(None);
+    }
     let pending: Vec<_> = state
         .attempts
         .values()
@@ -107,12 +131,20 @@ pub(super) async fn list_question_attempts(
         return Ok(None);
     };
     let enrollment = enrollment_record(&state, context.tenant_id(), record.enrollment)?;
-    if enrollment.user != actor {
-        return Ok(None);
-    }
     let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
     require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-    require_active_learner_membership(&state, context.tenant_id(), assignment.course_id, actor)?;
+    if super::super::entitlement::require_current_enrollment_entitlement(
+        &state,
+        context.tenant_id(),
+        actor,
+        assignment.course_id,
+        assignment.id,
+        &enrollment,
+    )
+    .is_err()
+    {
+        return Ok(None);
+    }
     let records = state
         .attempts
         .iter()

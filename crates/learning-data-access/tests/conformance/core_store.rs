@@ -2,7 +2,7 @@ use super::*;
 
 pub(super) async fn exercise_store<S>(store: &S)
 where
-    S: Store + CatalogStore,
+    S: Store + CatalogStore + CourseRosterStore,
 {
     let tenant = TenantId::from_uuid(uuid(1));
     let foreign_tenant = TenantId::from_uuid(uuid(2));
@@ -16,7 +16,6 @@ where
     let assignment_id = AssignmentId::from_uuid(uuid(8));
     let course_id = CourseId::from_uuid(uuid(17));
     let course_user = UserId::from_uuid(uuid(18));
-    let enrollment_id = EnrollmentId::from_uuid(uuid(9));
     let run_id = RunId::from_uuid(uuid(10));
     let practice_run_id = RunId::from_uuid(uuid(14));
     let draft = DraftRecord {
@@ -30,6 +29,7 @@ where
         tenant,
         course_id,
         title: "Molar mass mastery".to_string(),
+        audience: question_model::AssignmentAudience::CourseWide,
         items: fixed_items(vec![ProblemVersionRef { problem, version }]),
         selection_groups: Vec::new(),
         policies: policies(),
@@ -78,6 +78,7 @@ where
                     flat_question_promotion: None,
                     publisher,
                     scope: PublicationScope::Public,
+                    byline: reviewed_byline(),
                     capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
                 },
             )
@@ -159,7 +160,7 @@ where
         .as_object()
         .expect("workspace summary should be an object");
     assert_eq!(summary_fields.len(), 4);
-    assert!(summary_fields.contains_key("publicId"));
+    assert!(summary_fields.contains_key("reference"));
     for forbidden in [
         "problem", "version", "source", "grading", "object", "asset", "prompt", "response",
     ] {
@@ -324,6 +325,7 @@ where
                 flat_question_promotion: None,
                 publisher,
                 scope: PublicationScope::Public,
+                byline: reviewed_byline(),
                 capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
             },
         )
@@ -399,6 +401,7 @@ where
                 flat_question_promotion: None,
                 publisher,
                 scope: PublicationScope::Public,
+                byline: reviewed_byline(),
                 capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
             },
         )
@@ -423,66 +426,46 @@ where
         .expect("second catalog page should load");
 
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course_id,
-                tenant,
-                title: "Biochemistry".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: course_user,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: UserId::from_uuid(uuid(14)),
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course_id,
+                    tenant,
+                    title: "Biochemistry".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: course_user,
             },
         )
         .await
         .expect("conforming course write should succeed");
     store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course: course_id,
+                user: UserId::from_uuid(uuid(14)),
+                display_name: "First learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("conforming learner membership should succeed");
+    store
         .create_untimed_assignment(context, assignment.clone())
         .await
         .expect("conforming assignment write should succeed");
-    store
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: enrollment_id,
-                tenant,
-                assignment: assignment_id,
-                user: UserId::from_uuid(uuid(14)),
-                student: StudentId::from_uuid(uuid(11)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
+    let started = store
+        .start_or_resume_run(context, UserId::from_uuid(uuid(14)), assignment_id, run_id)
         .await
-        .expect("conforming enrollment creation should succeed");
-    store
-        .apply_activity_transition(
-            context,
-            ActivityTransition::StartRun {
-                run: AssignmentRun {
-                    id: run_id,
-                    public_id: question_model::RunPublicId::new(1).expect("valid public run ID"),
-                    tenant,
-                    enrollment: enrollment_id,
-                    run_number: 1,
-                    started_at: ActivityTimestamp::from_unix_millis(100),
-                    completed_at: None,
-                    score: None,
-                    mode: RunMode::Assigned,
-                    variation: VariationPolicy::NewSeeds,
-                },
-            },
-        )
-        .await
-        .expect("conforming run start should succeed");
+        .expect("learner start should atomically materialize entitlement");
+    let enrollment_id = started.enrollment;
     store
         .apply_activity_transition(
             context,
@@ -546,22 +529,11 @@ where
         .expect("question attempt should exist");
 
     store
-        .apply_activity_transition(
+        .start_or_resume_run(
             context,
-            ActivityTransition::StartRun {
-                run: AssignmentRun {
-                    id: practice_run_id,
-                    public_id: question_model::RunPublicId::new(2).expect("valid public run ID"),
-                    tenant,
-                    enrollment: enrollment_id,
-                    run_number: 2,
-                    started_at: ActivityTimestamp::from_unix_millis(140),
-                    completed_at: None,
-                    score: None,
-                    mode: RunMode::Practice,
-                    variation: VariationPolicy::NewSeeds,
-                },
-            },
+            UserId::from_uuid(uuid(14)),
+            assignment_id,
+            practice_run_id,
         )
         .await
         .expect("continued practice should remain available after completion");
@@ -589,47 +561,27 @@ where
 
     let second_student = UserId::from_uuid(uuid(20));
     store
-        .upsert_course(
+        .upsert_course_member(
             context,
-            CourseRecord {
-                id: course_id,
-                tenant,
-                title: "Biochemistry".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: course_user,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: UserId::from_uuid(uuid(14)),
-                        role: CourseMembershipRole::Student,
-                    },
-                    CourseMembership {
-                        user: second_student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
-            },
-        )
-        .await
-        .expect("course may add another enrolled student");
-    let second_enrollment = EnrollmentId::from_uuid(uuid(21));
-    store
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: second_enrollment,
-                tenant,
-                assignment: assignment_id,
+            UpsertCourseMember {
+                course: course_id,
                 user: second_student,
-                student: StudentId::from_uuid(uuid(22)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
+                display_name: "Second learner".to_string(),
+                roster_contact: None,
             },
         )
         .await
-        .expect("second course enrollment should create an empty projection");
+        .expect("course may add another learner");
+    let _second_enrollment = store
+        .start_or_resume_run(
+            context,
+            second_student,
+            assignment_id,
+            RunId::from_uuid(uuid(21)),
+        )
+        .await
+        .expect("second learner start should materialize their receipt")
+        .enrollment;
     let first_gradebook_page = store
         .list_gradebook_rows(
             context,
@@ -731,6 +683,11 @@ where
         )
         .await
         .expect("nonmember course list should load");
+    let stored_course = store
+        .get_course(context, course_id)
+        .await
+        .expect("course read should succeed")
+        .expect("course should remain");
     let run_page = store
         .list_runs(
             context,
@@ -755,6 +712,11 @@ where
     );
     assert_eq!(tenant_assignments.items.len(), 1);
     assert_eq!(member_courses.items.len(), 1);
+    let expected_term =
+        question_model::CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
+            .expect("explicit expected course term");
+    assert_eq!(stored_course.term, expected_term);
+    assert_eq!(member_courses.items[0].term, stored_course.term);
     assert_eq!(
         member_courses.items[0].role,
         CourseMembershipRole::Instructor

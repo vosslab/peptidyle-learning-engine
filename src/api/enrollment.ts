@@ -2,7 +2,7 @@
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
-import type { CoursePublicId } from "../../generated/api/CoursePublicId";
+import type { CourseReference } from "../../generated/api/CourseReference";
 import {
   DecodeError,
   decodeArray,
@@ -16,7 +16,8 @@ import {
   decodeStringEnum,
   decodeUuid,
 } from "./decoder";
-import { decodeCursor, decodePublicRouteNumber, requireOnlyFields } from "./decoders/shared";
+import { decodeCursor, requireOnlyFields } from "./decoders/shared";
+import { parseCourseReference } from "../navigation/public_route";
 
 export type CourseRosterRole = "student";
 export type CourseRosterMemberStatus = "active" | "revoked";
@@ -52,7 +53,7 @@ export interface AccountPresentationPreference {
 
 export interface AccountCourse {
   readonly courseId: CourseId;
-  readonly coursePublicId: CoursePublicId;
+  readonly courseReference: CourseReference;
   readonly title: string;
   readonly role: "student" | "instructor";
 }
@@ -70,7 +71,7 @@ export interface SelectedCourseSession {
 
 export interface ClaimedCourseInvitation {
   readonly courseId: CourseId;
-  readonly coursePublicId: CoursePublicId;
+  readonly courseReference: CourseReference;
   readonly membershipStatus: "active";
 }
 
@@ -341,13 +342,15 @@ function decodeAccountRole(value: unknown, path: string): AccountCourse["role"] 
 
 function decodeAccountCourse(value: unknown, path: string): AccountCourse {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["courseId", "coursePublicId", "title", "role"]);
+  requireOnlyFields(record, path, ["courseId", "courseReference", "title", "role"]);
+  const reference = field(record, "courseReference", path);
+  if (typeof reference !== "string")
+    throw new DecodeError(`${path}.courseReference`, "a C- reference");
+  const courseReference = parseCourseReference(reference);
+  if (courseReference === null) throw new DecodeError(`${path}.courseReference`, "a C- reference");
   return {
     courseId: decodeUuid(field(record, "courseId", path), `${path}.courseId`),
-    coursePublicId: decodePublicRouteNumber(
-      field(record, "coursePublicId", path),
-      `${path}.coursePublicId`,
-    ),
+    courseReference,
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     role: decodeAccountRole(field(record, "role", path), `${path}.role`),
   };
@@ -390,13 +393,15 @@ export function decodeClaimedCourseInvitation(
   path = "response",
 ): ClaimedCourseInvitation {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["courseId", "coursePublicId", "membershipStatus"]);
+  requireOnlyFields(record, path, ["courseId", "courseReference", "membershipStatus"]);
+  const reference = field(record, "courseReference", path);
+  if (typeof reference !== "string")
+    throw new DecodeError(`${path}.courseReference`, "a C- reference");
+  const courseReference = parseCourseReference(reference);
+  if (courseReference === null) throw new DecodeError(`${path}.courseReference`, "a C- reference");
   return {
     courseId: decodeUuid(field(record, "courseId", path), `${path}.courseId`),
-    coursePublicId: decodePublicRouteNumber(
-      field(record, "coursePublicId", path),
-      `${path}.coursePublicId`,
-    ),
+    courseReference,
     membershipStatus: decodeStringEnum(
       field(record, "membershipStatus", path),
       `${path}.membershipStatus`,

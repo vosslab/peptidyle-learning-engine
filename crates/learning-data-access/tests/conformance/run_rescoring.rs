@@ -28,6 +28,7 @@ where
             locked_assignment.revision,
             AssignmentUpdate {
                 title: locked_assignment.record.title.clone(),
+                audience: locked_assignment.record.audience.clone(),
                 items: rescored_items.clone(),
                 selection_groups: locked_assignment.record.selection_groups.clone(),
                 policies: locked_assignment.record.policies,
@@ -87,6 +88,7 @@ where
             rescored.revision,
             AssignmentUpdate {
                 title: rescored.record.title.clone(),
+                audience: rescored.record.audience.clone(),
                 items: superseding_items.clone(),
                 selection_groups: rescored.record.selection_groups.clone(),
                 policies: rescored.record.policies,
@@ -245,6 +247,7 @@ where
                 superseding.revision,
                 AssignmentUpdate {
                     title: superseding.record.title.clone(),
+                    audience: superseding.record.audience.clone(),
                     items: added_items,
                     selection_groups: superseding.record.selection_groups.clone(),
                     policies: superseding.record.policies,

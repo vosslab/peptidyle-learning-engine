@@ -12,7 +12,7 @@ pub(crate) struct ExternalToolFixture {
 
 pub(crate) async fn external_tool_fixture<S>(store: &S) -> ExternalToolFixture
 where
-    S: Store + CatalogStore,
+    S: Store + CatalogStore + CourseRosterStore,
 {
     let tenant = TenantId::from_uuid(uuid(10_001));
     let foreign_tenant = TenantId::from_uuid(uuid(10_002));
@@ -26,7 +26,6 @@ where
     let version = VersionId::from_uuid(uuid(10_007));
     let course = CourseId::from_uuid(uuid(10_008));
     let assignment = AssignmentId::from_uuid(uuid(10_009));
-    let enrollment = EnrollmentId::from_uuid(uuid(10_010));
     let run_id = RunId::from_uuid(uuid(10_011));
     let attempt = QuestionAttemptId::from_uuid(uuid(10_012));
     let source_object = ObjectId::from_uuid(uuid(10_014));
@@ -68,36 +67,46 @@ where
                 flat_question_promotion: None,
                 publisher: instructor,
                 scope: PublicationScope::Public,
+                byline: reviewed_byline(),
                 capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
             },
         )
         .await
         .expect("external-tool publication");
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "External tool course".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: actor,
-                        role: CourseMembershipRole::Student,
-                    },
-                    CourseMembership {
-                        user: stranger,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            learning_data_access::CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "External tool course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("external-tool course");
+    for (user, display_name) in [(actor, "External actor"), (stranger, "External stranger")] {
+        store
+            .upsert_course_member(
+                context,
+                learning_data_access::UpsertCourseMember {
+                    course,
+                    user,
+                    display_name: display_name.to_string(),
+                    roster_contact: None,
+                },
+            )
+            .await
+            .expect("external-tool learner membership");
+    }
     let mut external_policies = policies();
     external_policies.completion = CompletionRequirement::AnswerAll;
     store
@@ -108,6 +117,7 @@ where
                 tenant,
                 course_id: course,
                 title: "External tool assignment".to_string(),
+                audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![ProblemVersionRef { problem, version }]),
                 selection_groups: Vec::new(),
                 policies: external_policies,
@@ -115,22 +125,6 @@ where
         )
         .await
         .expect("external-tool assignment");
-    store
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: enrollment,
-                tenant,
-                assignment,
-                user: actor,
-                student: StudentId::from_uuid(uuid(10_013)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
-        .await
-        .expect("external-tool enrollment");
     let run = store
         .start_or_resume_run(context, actor, assignment, run_id)
         .await

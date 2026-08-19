@@ -48,7 +48,7 @@ export function CourseInvitationPage(): JSX.Element {
     try {
       const claimed = await runtime.client.redeemCourseInvitation(invitationToken);
       await session.retry();
-      navigate(`/courses/${courseRouteReference(claimed.coursePublicId)}`);
+      navigate(`/courses/${courseRouteReference(claimed.courseReference)}`);
     } catch {
       setState({
         kind: "error",

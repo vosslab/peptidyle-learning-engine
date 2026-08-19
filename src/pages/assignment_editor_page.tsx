@@ -4,7 +4,7 @@ import { A } from "@solidjs/router";
 import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js";
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
-import type { CoursePublicId } from "../../generated/api/CoursePublicId";
+import type { CourseReference } from "../../generated/api/CourseReference";
 import type { TenantId } from "../../generated/api/TenantId";
 import { CourseManagementNav } from "../components/course_management_nav";
 import { CopyableQuestionId } from "../components/copyable_question_id";
@@ -38,7 +38,7 @@ export type AssignmentEditorMode =
 export interface AssignmentEditorPageProps {
   readonly repository: AssignmentEditorRepository;
   readonly courseId: CourseId;
-  readonly coursePublicId: CoursePublicId;
+  readonly courseReference: CourseReference;
   readonly mode: AssignmentEditorMode;
   readonly tenant: TenantId;
 }
@@ -432,7 +432,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
         your course needs a different one.
       </p>
       <CourseManagementNav
-        coursePublicId={props.coursePublicId}
+        courseReference={props.courseReference}
         active={props.mode.kind === "create" ? "newAssignment" : "assignments"}
       />
       <p role="status" aria-live="polite">
@@ -462,7 +462,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                   <p>{assignment().title} now appears in this course.</p>
                   <A
                     class="primary-link"
-                    href={`/courses/${courseRouteReference(props.coursePublicId)}/assignments/${assignmentRouteReference(assignment().publicId)}`}
+                    href={`/courses/${courseRouteReference(props.courseReference)}/assignments/${assignmentRouteReference(assignment().reference)}`}
                   >
                     Open {assignment().title}
                   </A>

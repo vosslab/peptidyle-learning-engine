@@ -117,7 +117,8 @@ pub(super) async fn apply_postgres_attempt_support(
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
-    assignment_timing::cancel_postgres_attempt_timing_job(transaction, tenant, attempt_id).await?;
+    assignment_timing::cancel_postgres_effective_policy_job(transaction, tenant, attempt_id)
+        .await?;
 
     let has_evaluation: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM submission_evaluation \
@@ -212,8 +213,10 @@ pub(super) async fn load_attempt_for_external_update(
             floor(extract(epoch FROM attempt.submitted_at) * 1000)::bigint AS current_submitted_at, \
             floor(extract(epoch FROM timing.effective_deadline) * 1000)::bigint AS current_deadline_at \
         FROM question_attempt AS attempt \
-        LEFT JOIN attempt_timing_current AS timing \
-          ON timing.tenant_id = attempt.tenant_id AND timing.attempt_id = attempt.attempt_id \
+        LEFT JOIN attempt_effective_policy_current AS current_effect \
+          ON current_effect.tenant_id = attempt.tenant_id AND current_effect.attempt_id = attempt.attempt_id \
+        LEFT JOIN attempt_effective_policy_receipt AS timing \
+          ON timing.tenant_id=current_effect.tenant_id AND timing.attempt_id=current_effect.attempt_id AND timing.receipt_generation=current_effect.receipt_generation \
         WHERE attempt.tenant_id = $1 AND attempt.attempt_id = $2 \
         ORDER BY attempt.occurred_at LIMIT 1 FOR UPDATE OF attempt")
         .bind(tenant.as_uuid()).bind(attempt.as_uuid()).fetch_optional(&mut **transaction).await.map_err(map_sqlx_error)?.ok_or(StoreError::NotFound)?;
@@ -244,8 +247,10 @@ pub(super) async fn submit_question_attempt(
                 attempt.webwork_grading_payload_sha256, \
                 attempt.issued_feedback_disclosure \
          FROM question_attempt AS attempt \
-         LEFT JOIN attempt_timing_current AS timing \
-           ON timing.tenant_id = attempt.tenant_id AND timing.attempt_id = attempt.attempt_id \
+         LEFT JOIN attempt_effective_policy_current AS current_effect \
+           ON current_effect.tenant_id = attempt.tenant_id AND current_effect.attempt_id = attempt.attempt_id \
+         LEFT JOIN attempt_effective_policy_receipt AS timing \
+           ON timing.tenant_id=current_effect.tenant_id AND timing.attempt_id=current_effect.attempt_id AND timing.receipt_generation=current_effect.receipt_generation \
          WHERE attempt.tenant_id = $1 AND attempt.attempt_id = $2 \
          ORDER BY attempt.occurred_at LIMIT 1 FOR UPDATE OF attempt",
     )
@@ -359,8 +364,10 @@ pub(super) async fn submit_question_attempt(
            ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id \
          LEFT JOIN submission_evaluation AS evaluation \
            ON evaluation.tenant_id = qa.tenant_id AND evaluation.attempt_id = qa.attempt_id \
-         LEFT JOIN attempt_timing_current AS timing \
-           ON timing.tenant_id = qa.tenant_id AND timing.attempt_id = qa.attempt_id \
+         LEFT JOIN attempt_effective_policy_current AS current_effect \
+           ON current_effect.tenant_id = qa.tenant_id AND current_effect.attempt_id = qa.attempt_id \
+         LEFT JOIN attempt_effective_policy_receipt AS timing \
+           ON timing.tenant_id=current_effect.tenant_id AND timing.attempt_id=current_effect.attempt_id AND timing.receipt_generation=current_effect.receipt_generation \
          WHERE qa.tenant_id = $1 AND qa.run_id = $2",
     )
     .bind(tenant.as_uuid())
@@ -465,7 +472,7 @@ pub(super) async fn submit_question_attempt(
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
-    assignment_timing::cancel_postgres_attempt_timing_job(transaction, tenant, submitted.id)
+    assignment_timing::cancel_postgres_effective_policy_job(transaction, tenant, submitted.id)
         .await?;
     let (response_payload, response_checksum) = encode_payload(&command.response)?;
     sqlx::query(
@@ -535,7 +542,6 @@ pub(super) async fn submit_question_attempt(
 
     if run.completed_at.is_some() {
         let (run_payload, run_checksum) = encode_payload(&run)?;
-        let (enrollment_payload, enrollment_checksum) = encode_payload(&enrollment)?;
         sqlx::query(
             "UPDATE assignment_run SET completed_at = transaction_timestamp(), \
              payload = $3, payload_sha256 = $4 WHERE tenant_id = $1 AND run_id = $2",
@@ -548,13 +554,20 @@ pub(super) async fn submit_question_attempt(
         .await
         .map_err(map_sqlx_error)?;
         sqlx::query(
-            "UPDATE enrollment SET payload = $3, payload_sha256 = $4 \
+            "UPDATE enrollment SET first_completed_at = to_timestamp($3::double precision / 1000), \
+                    current_grade_run_id = $4, \
+                    best_grade_run_id = $5 \
              WHERE tenant_id = $1 AND enrollment_id = $2",
         )
         .bind(tenant.as_uuid())
         .bind(enrollment.id.as_uuid())
-        .bind(enrollment_payload)
-        .bind(enrollment_checksum)
+        .bind(
+            enrollment
+                .first_completed_at
+                .map(|value| value.as_unix_millis()),
+        )
+        .bind(enrollment.current_grade_run.map(|value| value.as_uuid()))
+        .bind(enrollment.best_grade_run.map(|value| value.as_uuid()))
         .execute(&mut **transaction)
         .await
         .map_err(map_sqlx_error)?;

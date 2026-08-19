@@ -37,6 +37,7 @@ pub(super) async fn seed_webwork_pilot(arguments: &SeedArguments) -> Result<Mani
             ensure_webwork_pilot_course(
                 &store,
                 context,
+                arguments.instructor,
                 webwork_pilot_course(arguments, marker.course),
             )
             .await?;
@@ -94,22 +95,16 @@ pub(super) async fn seed_webwork_pilot(arguments: &SeedArguments) -> Result<Mani
         version: published.version,
     };
     let course = webwork_pilot_course(arguments, ids.course);
-    ensure_webwork_pilot_course(&store, context, course).await?;
+    ensure_webwork_pilot_course(&store, context, arguments.instructor, course).await?;
     let assignment = webwork_pilot_assignment(arguments, ids, reference);
     ensure_webwork_pilot_assignment(&store, context, assignment).await?;
     let enrollment = ensure_webwork_pilot_enrollment(
         &store,
         context,
-        AssignmentEnrollment {
-            id: ids.enrollment,
-            tenant: arguments.tenant,
-            assignment: ids.assignment,
-            user: arguments.student,
-            student: StudentId::from_uuid(arguments.student.as_uuid()),
-            first_completed_at: None,
-            current_grade_run: None,
-            best_grade_run: None,
-        },
+        arguments.instructor,
+        arguments.student,
+        ids.course,
+        ids.assignment,
     )
     .await?;
     Ok(Manifest {
@@ -165,16 +160,8 @@ fn webwork_pilot_course(arguments: &SeedArguments, course: CourseId) -> CourseRe
         id: course,
         tenant: arguments.tenant,
         title: "PLE WebWork pilot E2E course".to_string(),
-        members: vec![
-            CourseMembership {
-                user: arguments.instructor,
-                role: CourseMembershipRole::Instructor,
-            },
-            CourseMembership {
-                user: arguments.student,
-                role: CourseMembershipRole::Student,
-            },
-        ],
+        term: question_model::CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
+            .expect("explicit fixture course term"),
     }
 }
 
@@ -188,6 +175,7 @@ fn webwork_pilot_assignment(
         tenant: arguments.tenant,
         course_id: ids.course,
         title: "PLE WebWork pilot E2E assignment".to_string(),
+        audience: question_model::AssignmentAudience::CourseWide,
         items: vec![AssignmentItem {
             id: ids.assignment_item,
             reference,
@@ -351,6 +339,9 @@ where
             flat_question_promotion: None,
             publisher,
             scope: PublicationScope::Institution,
+            byline: question_model::PublicByline::new(vec![
+                question_model::PublicAuthorName::new("E2E Instructor".to_string())?,
+            ])?,
             capabilities: capabilities.clone(),
         };
         match store.publish_draft(context, publisher, command).await {
@@ -441,7 +432,7 @@ where
         || actual.capabilities != *expected_capabilities
         || actual.scope != PublicationScope::Institution
         || actual.lifecycle != CatalogLifecycle::Published
-        || actual.authors != vec![publisher]
+        || actual.author_ids != vec![publisher]
         || actual.derived_from.is_some()
     {
         bail!("existing WebWork pilot publication differs from the deterministic seed");
@@ -462,6 +453,7 @@ where
 pub(super) async fn ensure_webwork_pilot_course<S>(
     store: &S,
     context: TenantContext,
+    initial_instructor: UserId,
     expected: CourseRecord,
 ) -> Result<()>
 where
@@ -476,7 +468,13 @@ where
         Some(_) => bail!("existing WebWork pilot course differs from the deterministic seed"),
         None => {
             store
-                .upsert_course(context, expected.clone())
+                .create_course(
+                    context,
+                    learning_data_access::CreateCourseCommand {
+                        course: expected.clone(),
+                        initial_instructor,
+                    },
+                )
                 .await
                 .context("creating WebWork pilot E2E course")?;
             let actual = store
@@ -492,10 +490,8 @@ where
     }
 }
 
-/// Verifies the authored course seed without claiming ownership of roster
-/// membership. The canonical roster transaction may add students after the
-/// course is created; seeded identity, title, and required roles remain exact,
-/// and an unexpected instructor still fails closed.
+/// Verifies the authored course marker. Canonical membership belongs to its
+/// dedicated owner and is never reconstructed from this aggregate.
 pub(super) fn webwork_pilot_course_seed_matches(
     actual: &CourseRecord,
     expected: &CourseRecord,
@@ -503,14 +499,7 @@ pub(super) fn webwork_pilot_course_seed_matches(
     actual.id == expected.id
         && actual.tenant == expected.tenant
         && actual.title == expected.title
-        && expected
-            .members
-            .iter()
-            .all(|membership| actual.members.contains(membership))
-        && actual.members.iter().all(|membership| {
-            expected.members.contains(membership)
-                || membership.role == CourseMembershipRole::Student
-        })
+        && actual.term == expected.term
 }
 
 pub(super) async fn ensure_webwork_pilot_assignment<S>(
@@ -553,84 +542,49 @@ where
 pub(super) async fn ensure_webwork_pilot_enrollment<S>(
     store: &S,
     context: TenantContext,
-    expected: AssignmentEnrollment,
-) -> Result<AssignmentEnrollment>
-where
-    S: Store,
-{
-    match store
-        .get_enrollment(context, expected.id)
-        .await
-        .context("reading deterministic WebWork pilot enrollment")?
-    {
-        Some(actual) if webwork_pilot_enrollment_identity_matches(&actual, &expected) => Ok(actual),
-        Some(_) => bail!("existing WebWork pilot enrollment differs from the deterministic seed"),
-        None => match store.create_enrollment(context, expected.clone()).await {
-            Ok(()) => store
-                .get_enrollment(context, expected.id)
-                .await
-                .context("reloading created WebWork pilot enrollment")?
-                .ok_or_else(|| anyhow::anyhow!("created WebWork pilot enrollment disappeared")),
-            Err(StoreError::AlreadyExists) => {
-                find_assignment_enrollment(store, context, expected.assignment, expected.user).await
-            }
-            Err(error) => Err(error).context("creating WebWork pilot E2E enrollment"),
-        },
-    }
-}
-
-pub(super) fn webwork_pilot_enrollment_identity_matches(
-    actual: &AssignmentEnrollment,
-    expected: &AssignmentEnrollment,
-) -> bool {
-    actual.id == expected.id
-        && actual.tenant == expected.tenant
-        && actual.assignment == expected.assignment
-        && actual.user == expected.user
-}
-
-pub(super) async fn find_assignment_enrollment<S>(
-    store: &S,
-    context: TenantContext,
+    instructor: UserId,
+    student: UserId,
+    course: CourseId,
     assignment: AssignmentId,
-    user: UserId,
 ) -> Result<AssignmentEnrollment>
 where
-    S: Store,
+    S: Store + CourseRosterStore,
 {
-    let course = store
-        .get_assignment(context, assignment)
+    // Seed learners are established through the sole roster owner before an
+    // instructor explicitly issues their historical entitlement receipt.
+    // Neither a course aggregate nor an enrollment supplies current access.
+    store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Replica E2E learner".to_string(),
+                roster_contact: None,
+            },
+        )
         .await
-        .context("reading pilot assignment after enrollment conflict")?
-        .context("pilot assignment disappeared after enrollment conflict")?
-        .course_id;
-    let page_size = PageSize::new(PageSize::MAX).expect("maximum page size is valid");
-    let mut request = PageRequest::first(page_size);
-    loop {
-        let page = store
-            .list_gradebook_rows(context, course, request)
-            .await
-            .context("reading pilot gradebook after enrollment conflict")?;
-        for row in page.items {
-            if row.assignment_id != assignment {
-                continue;
-            }
-            let actual = store
-                .get_enrollment(context, row.enrollment_id)
-                .await
-                .context("reading roster-created pilot enrollment")?
-                .context("roster-created pilot enrollment disappeared")?;
-            if actual.tenant == context.tenant_id()
-                && actual.assignment == assignment
-                && actual.user == user
-            {
-                return Ok(actual);
-            }
+        .context("establishing the WebWork pilot learner through the canonical roster")?;
+    match store
+        .issue_assignment_entitlement(
+            context,
+            learning_data_access::MaterializeAssignmentEntitlementCommand::for_instructor_action(
+                student,
+                course,
+                assignment,
+                instructor,
+                question_model::EntitlementPurpose::InstructorIssue,
+            )
+            .map_err(anyhow::Error::from)?,
+        )
+        .await
+        .context("materializing WebWork pilot enrollment through current entitlement")?
+    {
+        learning_data_access::AssignmentEntitlementMaterialization::Granted(materialized) => {
+            Ok(materialized.enrollment)
         }
-        let Some(cursor) = page.next_cursor else {
-            break;
-        };
-        request = PageRequest::after(cursor, page_size);
+        learning_data_access::AssignmentEntitlementMaterialization::Denied(_) => {
+            bail!("WebWork pilot learner is not currently entitled to its assignment")
+        }
     }
-    bail!("an existing assignment enrollment could not be resolved for the pilot student")
 }

@@ -110,6 +110,11 @@ fn publication_command(
         }),
         publisher: owner,
         scope: PublicationScope::Institution,
+        byline: question_model::PublicByline::new(vec![
+            question_model::PublicAuthorName::new("PLE fixture".to_string())
+                .expect("valid test byline"),
+        ])
+        .expect("valid test byline"),
         capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
     }
 }
@@ -183,8 +188,8 @@ async fn seed_non_flat_answer_key(
     .expect("seed non-flat problem");
     sqlx::query(
         "INSERT INTO public.problem_version \
-         (problem_id, version_id, content_sha256, workspace_id, title, backend, publication_scope, authors) \
-         VALUES ($1, $2, $3, $4, 'non-flat grading filter fixture', $5, 'public', '[\"fixture\"]'::jsonb)",
+         (problem_id, version_id, content_sha256, workspace_id, title, backend, publication_scope, author_ids, public_byline) \
+         VALUES ($1, $2, $3, $4, 'non-flat grading filter fixture', $5, 'public', '[\"fixture\"]'::jsonb, ARRAY['Fixture author'])",
     )
     .bind(reference.problem.as_uuid())
     .bind(reference.version.as_uuid())

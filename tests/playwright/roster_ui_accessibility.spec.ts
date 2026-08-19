@@ -4,6 +4,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { publishedProblemFixture } from "../../generated/fixtures/published_problem";
+import type { CourseRosterMember } from "../../src/api/enrollment";
 
 const COURSE = "C-1";
 
@@ -41,7 +42,7 @@ async function useInstructorApi(page: Page): Promise<void> {
     });
   });
   const course = { ...publishedProblemFixture.course, role: "instructor" as const };
-  const member = {
+  const member: CourseRosterMember = {
     memberId: "0198e000-0000-7000-8000-000000000602",
     displayName: "Fixture Student",
     rosterEmail: "student@mail.roosevelt.edu",

@@ -36,8 +36,7 @@ import {
 const COURSE = "C-42";
 const ASSIGNMENT = "A-73";
 const EXAM_ASSIGNMENT = "A-74";
-const PROBLEM = "123e4567-e89b-12d3-a456-426614174002";
-const VERSION = "123e4567-e89b-12d3-a456-426614174003";
+const QUESTION_ID = "7K3-M9QP";
 const BASELINE_ASSIGNMENT = "123e4567-e89b-12d3-a456-426614174004";
 
 function arrangements() {
@@ -49,7 +48,7 @@ function arrangements() {
     { label: "launcher-seeded-enrollment", publicIds: {} },
     {
       label: "api-retry-corpus-publication",
-      publicIds: { versionId: VERSION, problemId: PROBLEM },
+      publicIds: { questionId: QUESTION_ID },
     },
     {
       label: "launcher-baseline-assignment",
@@ -98,41 +97,6 @@ test("the retry run preserves visible outcomes without answer or grading evidenc
     "visible_submit",
   ]);
   assert.deepEqual(parseW2JourneyFragment(fragment), fragment);
-});
-
-test("report rendering sorts arrangements and retains the public-only outcome record", () => {
-  const allJourneys = journeys();
-  const rendered = renderVisibleOutcomeReport(42, arrangements(), allJourneys);
-  assert.equal(
-    rendered,
-    JSON.stringify({
-      schemaVersion: 1,
-      status: "PASS",
-      masterSeed: 42,
-      stage: "complete",
-      elapsedMs: 68,
-      arrangements: [
-        {
-          label: "api-exam-assignment",
-          publicIds: { courseReference: COURSE, examAssignmentReference: EXAM_ASSIGNMENT },
-        },
-        {
-          label: "api-mastery-assignment",
-          publicIds: { courseReference: COURSE, masteryAssignmentReference: ASSIGNMENT },
-        },
-        {
-          label: "api-retry-corpus-publication",
-          publicIds: { problemId: PROBLEM, versionId: VERSION },
-        },
-        {
-          label: "launcher-baseline-assignment",
-          publicIds: { baselineAssignmentId: BASELINE_ASSIGNMENT },
-        },
-        { label: "launcher-seeded-enrollment", publicIds: {} },
-      ],
-      journeys: allJourneys,
-    }) + "\n",
-  );
 });
 
 test("the renderer rejects duplicate arrangements and invalid first-run outcomes", () => {

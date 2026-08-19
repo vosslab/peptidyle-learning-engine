@@ -11,15 +11,14 @@ use serde::{Deserialize, Serialize};
 
 use super::assignments::{
     add_assignment_item, create_assignment, get_assignment, get_assignment_summary,
-    remove_assignment_item,
-    replace_assignment_item_question, update_assignment,
+    remove_assignment_item, replace_assignment_item_question, update_assignment,
 };
 use super::invitation_capability::CourseInvitationIssuer;
 use super::queries::{create_course, get_course, list_assignments, list_courses, list_gradebook};
 use super::roster::{LocalTeachingRosterDirectory, roster_router};
 
 pub(super) const DEFAULT_PAGE_SIZE: u16 = 50;
-const MAX_COURSE_BODY_BYTES: usize = 64 * 1_024;
+pub(super) const MAX_COURSE_BODY_BYTES: usize = 64 * 1_024;
 
 /// Builds the authenticated course and assignment route group.
 pub fn router<S>(store: Arc<S>) -> Router
@@ -128,11 +127,153 @@ pub(super) struct CourseQuery {
     pub(super) page_size: Option<u16>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
 pub(super) struct CreateCourseRequest {
     pub(super) title: String,
+    pub(super) term: question_model::CourseTerm,
+}
+
+pub(super) enum CreateCourseDecodeError {
+    Invalid,
+    Term(question_model::CourseTermValidationFailure),
+}
+
+pub(super) fn decode_course_create_request(
+    value: serde_json::Value,
+) -> Result<CreateCourseRequest, CreateCourseDecodeError> {
+    let record = value.as_object().ok_or(CreateCourseDecodeError::Invalid)?;
+    if record
+        .keys()
+        .any(|field| field != "title" && field != "term")
+    {
+        return Err(CreateCourseDecodeError::Invalid);
+    }
+    let term_value = record.get("term").ok_or_else(|| {
+        CreateCourseDecodeError::Term(course_term_failure(
+            question_model::CourseTermField::Term,
+            question_model::CourseTermFailureReason::Required,
+        ))
+    })?;
+    let term_record = term_value.as_object().ok_or_else(|| {
+        CreateCourseDecodeError::Term(course_term_failure(
+            question_model::CourseTermField::Term,
+            question_model::CourseTermFailureReason::Required,
+        ))
+    })?;
+    if term_record
+        .keys()
+        .any(|field| field != "startDate" && field != "endDate" && field != "timeZone")
+    {
+        return Err(CreateCourseDecodeError::Invalid);
+    }
+    let title = record
+        .get("title")
+        .and_then(serde_json::Value::as_str)
+        .ok_or(CreateCourseDecodeError::Invalid)?;
+    if title.trim().is_empty() {
+        return Err(CreateCourseDecodeError::Invalid);
+    }
+    let start_date = required_term_string(
+        term_record,
+        "startDate",
+        question_model::CourseTermField::StartDate,
+    )?;
+    let end_date = required_term_string(
+        term_record,
+        "endDate",
+        question_model::CourseTermField::EndDate,
+    )?;
+    let time_zone = required_term_string(
+        term_record,
+        "timeZone",
+        question_model::CourseTermField::TimeZone,
+    )?;
+    let term = question_model::CourseTerm::from_parts(start_date, end_date, time_zone).map_err(
+        |error| {
+            let (field, reason) = match error {
+                question_model::CourseTermError::StartDate => (
+                    question_model::CourseTermField::StartDate,
+                    question_model::CourseTermFailureReason::InvalidCalendarDate,
+                ),
+                question_model::CourseTermError::EndDate => (
+                    question_model::CourseTermField::EndDate,
+                    question_model::CourseTermFailureReason::InvalidCalendarDate,
+                ),
+                question_model::CourseTermError::EndBeforeStart => (
+                    question_model::CourseTermField::EndDate,
+                    question_model::CourseTermFailureReason::EndBeforeStart,
+                ),
+                question_model::CourseTermError::TimeZone => (
+                    question_model::CourseTermField::TimeZone,
+                    question_model::CourseTermFailureReason::UnknownIanaTimeZone,
+                ),
+            };
+            CreateCourseDecodeError::Term(course_term_failure(field, reason))
+        },
+    )?;
+    Ok(CreateCourseRequest {
+        title: title.to_string(),
+        term,
+    })
+}
+
+fn required_term_string<'a>(
+    record: &'a serde_json::Map<String, serde_json::Value>,
+    name: &str,
+    field: question_model::CourseTermField,
+) -> Result<&'a str, CreateCourseDecodeError> {
+    let Some(value) = record.get(name) else {
+        return Err(CreateCourseDecodeError::Term(course_term_failure(
+            field,
+            question_model::CourseTermFailureReason::Required,
+        )));
+    };
+    value.as_str().ok_or_else(|| {
+        let reason = match field {
+            question_model::CourseTermField::StartDate
+            | question_model::CourseTermField::EndDate => {
+                question_model::CourseTermFailureReason::InvalidCalendarDate
+            }
+            question_model::CourseTermField::TimeZone => {
+                question_model::CourseTermFailureReason::UnknownIanaTimeZone
+            }
+            question_model::CourseTermField::Term => {
+                question_model::CourseTermFailureReason::Required
+            }
+        };
+        CreateCourseDecodeError::Term(course_term_failure(field, reason))
+    })
+}
+
+fn course_term_failure(
+    field: question_model::CourseTermField,
+    reason: question_model::CourseTermFailureReason,
+) -> question_model::CourseTermValidationFailure {
+    let message = match (field, reason) {
+        (question_model::CourseTermField::Term, _) => "Enter the course term dates and time zone.",
+        (_, question_model::CourseTermFailureReason::Required) => match field {
+            question_model::CourseTermField::StartDate => "Enter a course start date.",
+            question_model::CourseTermField::EndDate => "Enter a course end date.",
+            question_model::CourseTermField::TimeZone => "Enter an IANA time zone.",
+            question_model::CourseTermField::Term => "Enter the course term dates and time zone.",
+        },
+        (_, question_model::CourseTermFailureReason::InvalidCalendarDate) => {
+            "Enter a valid date in YYYY-MM-DD format."
+        }
+        (_, question_model::CourseTermFailureReason::EndBeforeStart) => {
+            "Choose an end date on or after the start date."
+        }
+        (_, question_model::CourseTermFailureReason::UnknownIanaTimeZone) => {
+            "Choose a valid IANA time zone such as America/Chicago."
+        }
+    };
+    question_model::CourseTermValidationFailure {
+        error: question_model::CourseTermFailureCode::CourseTermInvalid,
+        field,
+        reason,
+        message: message.to_string(),
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -64,7 +64,7 @@ def parse_arrangement_output(stdout: str) -> tuple[list[dict[str, object]], list
 	allowed = (
 		({"label"}, "launcher-seeded-enrollment"),
 		({"label", "baselineAssignmentId"}, "launcher-baseline-assignment"),
-		({"label", "problemId", "versionId"}, "api-retry-corpus-publication"),
+		({"label", "questionId"}, "api-retry-corpus-publication"),
 		({"label", "courseId", "masteryAssignmentId"}, "api-mastery-assignment"),
 		({"label", "courseId", "examAssignmentId"}, "api-exam-assignment"),
 	)
@@ -76,7 +76,9 @@ def parse_arrangement_output(stdout: str) -> tuple[list[dict[str, object]], list
 		for key, identifier in value.items():
 			if not isinstance(identifier, str):
 				raise ValueError("invalid output")
-			if key != "label" and not UUID_TEXT.fullmatch(identifier):
+			if key == "questionId" and not QUESTION_ID.fullmatch(identifier):
+				raise ValueError("invalid output")
+			if key not in {"label", "questionId"} and not UUID_TEXT.fullmatch(identifier):
 				raise ValueError("invalid output")
 			checked[key] = identifier
 		validated.append(checked)

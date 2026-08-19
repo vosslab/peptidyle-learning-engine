@@ -553,10 +553,12 @@ where
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "course not found"))?;
     let actor = authenticated.record.subject.user();
-    let role = record.role_for(actor);
-    let Some(role) = role else {
-        return Err(error_response(StatusCode::NOT_FOUND, "course not found"));
-    };
+    let role = store
+        .get_current_course_membership(authenticated.tenant_context, course_id, actor)
+        .await
+        .map_err(store_error_response)?
+        .map(|membership| membership.role)
+        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "course not found"))?;
     let appearance = store
         .course_appearance(
             authenticated.tenant_context,
@@ -567,7 +569,7 @@ where
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "course appearance not found"))?;
     let public_id = store
-        .course_public_id(authenticated.tenant_context, actor, course_id)
+        .course_reference(authenticated.tenant_context, actor, course_id)
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "course not found"))?;
@@ -643,11 +645,6 @@ pub(super) async fn authorized_enrollment<S: Store>(
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "enrollment not found"))?;
-    let course = store
-        .get_course(authenticated.tenant_context, assignment.course_id)
-        .await
-        .map_err(store_error_response)?
-        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "enrollment not found"))?;
     if enrollment.user == actor {
         return Err(error_response(
             StatusCode::NOT_FOUND,
@@ -660,9 +657,16 @@ pub(super) async fn authorized_enrollment<S: Store>(
             "enrollment not found",
         ));
     }
-    let instructor = course
-        .role_for(actor)
-        .is_some_and(|role| matches!(role, question_model::CourseMembershipRole::Instructor));
+    let instructor = store
+        .get_current_course_membership(authenticated.tenant_context, assignment.course_id, actor)
+        .await
+        .map_err(store_error_response)?
+        .is_some_and(|membership| {
+            matches!(
+                membership.role,
+                question_model::CourseMembershipRole::Instructor
+            )
+        });
     if instructor {
         Ok(enrollment)
     } else {

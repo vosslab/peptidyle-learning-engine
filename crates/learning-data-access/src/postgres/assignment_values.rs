@@ -1,14 +1,6 @@
 use super::*;
 
 #[cfg(feature = "postgres")]
-pub(super) fn course_membership_role_name(role: CourseMembershipRole) -> &'static str {
-    match role {
-        CourseMembershipRole::Student => "student",
-        CourseMembershipRole::Instructor => "instructor",
-    }
-}
-
-#[cfg(feature = "postgres")]
 pub(super) fn assignment_delivery_state_name(
     state: question_model::AssignmentDeliveryState,
 ) -> &'static str {

@@ -5,13 +5,14 @@ use question_model::{AssignmentId, CourseId, ObjectId, TenantId, UserId};
 use sqlx::{Row, types::Uuid};
 
 use super::course_roster::{lock_course_roster_cross_product, require_course_instructor};
-use super::{PostgresStore, decode_payload_row, encode_payload, map_sqlx_error};
+use super::{
+    PostgresStore, decode_payload_row, encode_payload, load_assignment_for_share, map_sqlx_error,
+};
 use crate::{
-    AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssignmentRecord,
-    CreateAssignmentExport, ExportArtifactKind, ExportArtifactRecord, ExportCommitDisposition,
-    ExportId, ExportJobCommit, ExportJobStore, JobId, JobPayload, StoreError,
-    StudentExportArtifactView, StudentExportJob, StudentExportState, StudentExportView,
-    TenantContext,
+    AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, CreateAssignmentExport,
+    ExportArtifactKind, ExportArtifactRecord, ExportCommitDisposition, ExportId, ExportJobCommit,
+    ExportJobStore, JobId, JobPayload, StoreError, StudentExportArtifactView, StudentExportJob,
+    StudentExportState, StudentExportView, TenantContext,
 };
 
 #[async_trait]
@@ -31,19 +32,19 @@ impl ExportJobStore for PostgresStore {
         let manifest = fresh_export_object_id()?;
         let job = JobId::generate()?;
         let mut transaction = self.begin_tenant(context).await?;
-        let row = sqlx::query(
-            "SELECT payload FROM assignment \
-             WHERE tenant_id = $1 AND assignment_id = $2 \
-               AND public.ple_course_records_accessible(tenant_id, course_id) \
-             FOR SHARE",
-        )
-        .bind(context.tenant_id().as_uuid())
-        .bind(request.assignment.as_uuid())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
-        let assignment: AssignmentRecord = decode_payload_row(&row)?;
+        let assignment =
+            load_assignment_for_share(&mut transaction, context.tenant_id(), request.assignment)
+                .await?;
+        let records_accessible: bool =
+            sqlx::query_scalar("SELECT public.ple_course_records_accessible($1, $2)")
+                .bind(context.tenant_id().as_uuid())
+                .bind(assignment.course_id.as_uuid())
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+        if !records_accessible {
+            return Err(StoreError::NotFound);
+        }
         // Course roster mutation takes this same row lock. Holding it while
         // resolving the session and inserting the job prevents a removed
         // instructor from winning a membership-change race.

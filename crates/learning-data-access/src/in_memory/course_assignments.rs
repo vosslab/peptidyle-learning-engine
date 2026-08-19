@@ -12,10 +12,6 @@ impl crate::CourseAssignmentStore for MemoryStore {
     ) -> Result<StoredAssignment, StoreError> {
         ensure_tenant(context, assignment.tenant)?;
         validate_assignment(&assignment)?;
-        validate_assignment_timing(AssignmentTimingPolicy {
-            time_limit_seconds: assignment_timing.time_limit_seconds,
-            ..AssignmentTimingPolicy::default()
-        })?;
         let mut state = self.write_state()?;
         let key = (assignment.tenant, assignment.id);
         if state.assignments.contains_key(&key) {
@@ -29,30 +25,26 @@ impl crate::CourseAssignmentStore for MemoryStore {
             scoring_generation: ScoringGeneration::INITIAL,
             scoring_status: ScoringStatus::Current,
         };
-        let snapshot = state.clone();
-        super::navigation_references::ensure_assignment_public_id(
+        super::navigation_references::ensure_assignment_reference(
             &mut state,
             stored.record.tenant,
             stored.record.id,
         )?;
         state.assignments.insert(key, stored.record.clone());
         state.assignment_revisions.insert(key, stored.revision);
-        state.assignment_timing.insert(
+        state.assignment_base_policy.insert(
             key,
-            AssignmentTimingPolicy {
-                time_limit_seconds: assignment_timing.time_limit_seconds,
-                ..AssignmentTimingPolicy::default()
+            StoredBaseAssignmentPolicy {
+                tenant: stored.record.tenant,
+                course: stored.record.course_id,
+                assignment: stored.record.id,
+                policy: base_policy_from_editor_timing(assignment_timing.time_limit_seconds)?,
+                revision: stored.revision,
             },
         );
         state
             .assignment_scoring
             .insert(key, (stored.scoring_generation, stored.scoring_status));
-        if let Err(error) =
-            super::course_roster::reconcile_new_assignment(&mut state, &stored.record)
-        {
-            *state = snapshot;
-            return Err(error);
-        }
         Ok(stored)
     }
     async fn replace_assignment_with_timing_impl(
@@ -83,21 +75,13 @@ impl crate::CourseAssignmentStore for MemoryStore {
             return Err(StoreError::Conflict);
         }
         let next_revision = current.next()?;
-        let previous_timing = state
-            .assignment_timing
-            .get(&key)
-            .copied()
-            .ok_or(StoreError::NotFound)?;
-        validate_assignment_timing(AssignmentTimingPolicy {
-            time_limit_seconds: update.assignment_timing.time_limit_seconds,
-            ..AssignmentTimingPolicy::default()
-        })?;
         crate::ensure_assignment_update_preserves_references(&existing, &update.assignment)?;
         let assignment = AssignmentRecord {
             id: assignment,
             tenant: context.tenant_id(),
             course_id: course,
             title: update.assignment.title,
+            audience: update.assignment.audience,
             items: update.assignment.items,
             selection_groups: update.assignment.selection_groups,
             policies: update.assignment.policies,
@@ -105,7 +89,14 @@ impl crate::CourseAssignmentStore for MemoryStore {
         validate_assignment(&assignment)?;
         validate_memory_assignment_references(&state, context, &assignment)?;
         let previous = state.assignments.get(&key).ok_or(StoreError::NotFound)?;
-        validate_memory_assignment_content_lock(&state, previous, &assignment)?;
+        if retirement_would_orphan_active_attempt(
+            &state,
+            context.tenant_id(),
+            previous,
+            &assignment,
+        )? {
+            return Err(StoreError::Conflict);
+        }
         let scoring_changed = assignment_scoring_changed(previous, &assignment);
         let (generation, _) = state
             .assignment_scoring
@@ -153,27 +144,6 @@ impl crate::CourseAssignmentStore for MemoryStore {
         };
         state.assignments.insert(key, stored.record.clone());
         state.assignment_revisions.insert(key, stored.revision);
-        if previous_timing.time_limit_seconds != update.assignment_timing.time_limit_seconds {
-            if let Err(error) = apply_memory_assignment_timing_update(
-                &mut state,
-                context.tenant_id(),
-                stored.record.id,
-                Some(AssignmentTimingPolicy {
-                    time_limit_seconds: update.assignment_timing.time_limit_seconds,
-                    ..previous_timing
-                }),
-            ) {
-                *state = snapshot;
-                return Err(error);
-            }
-            state.assignment_timing.insert(
-                key,
-                AssignmentTimingPolicy {
-                    time_limit_seconds: update.assignment_timing.time_limit_seconds,
-                    ..previous_timing
-                },
-            );
-        }
         state
             .assignment_scoring
             .insert(key, (stored.scoring_generation, stored.scoring_status));
@@ -216,11 +186,12 @@ impl crate::CourseAssignmentStore for MemoryStore {
             revision: revision.next()?,
             assignment_timing: question_model::AssignmentRunTiming {
                 time_limit_seconds: state
-                    .assignment_timing
+                    .assignment_base_policy
                     .get(&key)
-                    .copied()
                     .ok_or(StoreError::NotFound)?
-                    .time_limit_seconds,
+                    .policy
+                    .time_limit_seconds
+                    .map(std::num::NonZeroU32::get),
             },
             scoring_generation: state
                 .assignment_scoring
@@ -309,10 +280,10 @@ impl crate::CourseAssignmentStore for MemoryStore {
         validate_assignment(&replacement)?;
         validate_memory_assignment_references(&state, context, &replacement)?;
         let timing = state
-            .assignment_timing
+            .assignment_base_policy
             .get(&key)
-            .copied()
-            .ok_or(StoreError::NotFound)?;
+            .ok_or(StoreError::NotFound)?
+            .policy;
         let (generation, status) = state
             .assignment_scoring
             .get(&key)
@@ -322,7 +293,7 @@ impl crate::CourseAssignmentStore for MemoryStore {
             record: replacement,
             revision: revision.next()?,
             assignment_timing: question_model::AssignmentRunTiming {
-                time_limit_seconds: timing.time_limit_seconds,
+                time_limit_seconds: timing.time_limit_seconds.map(std::num::NonZeroU32::get),
             },
             scoring_generation: generation,
             scoring_status: status,
@@ -377,10 +348,10 @@ impl crate::CourseAssignmentStore for MemoryStore {
         replacement.items.sort_by_key(|item| item.position);
         validate_assignment(&replacement)?;
         let timing = state
-            .assignment_timing
+            .assignment_base_policy
             .get(&key)
-            .copied()
-            .ok_or(StoreError::NotFound)?;
+            .ok_or(StoreError::NotFound)?
+            .policy;
         let (generation, status) = state
             .assignment_scoring
             .get(&key)
@@ -390,7 +361,7 @@ impl crate::CourseAssignmentStore for MemoryStore {
             record: replacement,
             revision: revision.next()?,
             assignment_timing: question_model::AssignmentRunTiming {
-                time_limit_seconds: timing.time_limit_seconds,
+                time_limit_seconds: timing.time_limit_seconds.map(std::num::NonZeroU32::get),
             },
             scoring_generation: generation,
             scoring_status: status,
@@ -463,11 +434,12 @@ impl crate::CourseAssignmentStore for MemoryStore {
             revision,
             assignment_timing: question_model::AssignmentRunTiming {
                 time_limit_seconds: state
-                    .assignment_timing
+                    .assignment_base_policy
                     .get(&key)
-                    .copied()
                     .ok_or(StoreError::NotFound)?
-                    .time_limit_seconds,
+                    .policy
+                    .time_limit_seconds
+                    .map(std::num::NonZeroU32::get),
             },
             scoring_generation,
             scoring_status,
@@ -508,47 +480,6 @@ impl crate::CourseAssignmentStore for MemoryStore {
             .collect();
         Ok(page_records(records, &page))
     }
-    async fn create_enrollment_impl(
-        &self,
-        context: TenantContext,
-        enrollment: AssignmentEnrollment,
-    ) -> Result<(), StoreError> {
-        ensure_tenant(context, enrollment.tenant)?;
-        let mut state = self.write_state()?;
-        let assignment = state
-            .assignments
-            .get(&(enrollment.tenant, enrollment.assignment))
-            .ok_or_else(|| {
-                StoreError::InvalidRecord("enrollment references a missing assignment".to_string())
-            })?;
-        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-        let course = state
-            .courses
-            .get(&(enrollment.tenant, assignment.course_id))
-            .ok_or(StoreError::NotFound)?;
-        if course.role_for(enrollment.user) != Some(CourseMembershipRole::Student) {
-            return Err(StoreError::InvalidRecord(
-                "enrollment user must be a student member of the assignment course".to_string(),
-            ));
-        }
-        let key = (enrollment.tenant, enrollment.id);
-        if state.enrollments.contains_key(&key) {
-            return Err(StoreError::AlreadyExists);
-        }
-        if state.enrollments.values().any(|existing| {
-            existing.tenant == enrollment.tenant
-                && existing.assignment == enrollment.assignment
-                && existing.user == enrollment.user
-        }) {
-            return Err(StoreError::AlreadyExists);
-        }
-        state.summaries.insert(
-            key,
-            StudentAssignmentSummary::empty(enrollment.tenant, enrollment.id),
-        );
-        state.enrollments.insert(key, enrollment);
-        Ok(())
-    }
     async fn get_enrollment_impl(
         &self,
         context: TenantContext,
@@ -568,6 +499,93 @@ impl crate::CourseAssignmentStore for MemoryStore {
         }
         Ok(Some(record))
     }
+}
+
+/// Prevents a revision from retiring an immutable run item while its issued
+/// attempt is still answerable. The attempt is tied to the run's immutable
+/// item snapshot, not to the mutable assignment definition or an effective
+/// policy receipt. That preserves the S3 receipt boundary while retaining the
+/// evidence needed to protect an active learner interaction.
+fn retirement_would_orphan_active_attempt(
+    state: &State,
+    tenant: TenantId,
+    previous: &AssignmentRecord,
+    replacement: &AssignmentRecord,
+) -> Result<bool, StoreError> {
+    let retired_items = previous
+        .items
+        .iter()
+        .filter(|item| item.delivery_state == question_model::AssignmentDeliveryState::Active)
+        .map(|item| item.id)
+        .chain(
+            previous
+                .selection_groups
+                .iter()
+                .flat_map(|group| group.candidates.iter())
+                .filter(|candidate| {
+                    candidate.delivery_state == question_model::AssignmentDeliveryState::Active
+                })
+                .map(|candidate| candidate.id),
+        )
+        .filter(|item| !assignment_item_is_active(replacement, *item))
+        .collect::<std::collections::BTreeSet<_>>();
+    if retired_items.is_empty() {
+        return Ok(false);
+    }
+
+    state
+        .attempts
+        .values()
+        .filter(|attempt| attempt.tenant == tenant)
+        .filter(|attempt| {
+            projected_attempt(state, tenant, attempt).status == AttemptStatus::InProgress
+        })
+        .try_fold(false, |blocked, attempt| {
+            let run = state.runs.get(&(tenant, attempt.run)).ok_or_else(|| {
+                StoreError::Unavailable("active attempt is missing its run".to_string())
+            })?;
+            let enrollment = state
+                .enrollments
+                .get(&(tenant, run.enrollment))
+                .ok_or_else(|| {
+                    StoreError::Unavailable(
+                        "active attempt run is missing its enrollment".to_string(),
+                    )
+                })?;
+            if enrollment.assignment != previous.id {
+                return Ok(blocked);
+            }
+            let run_items = state.run_items.get(&(tenant, run.id)).ok_or_else(|| {
+                StoreError::Unavailable(
+                    "active attempt run is missing its immutable items".to_string(),
+                )
+            })?;
+            let run_item = run_items
+                .iter()
+                .find(|item| item.issued_position == attempt.assignment_position)
+                .ok_or_else(|| {
+                    StoreError::Unavailable(
+                        "active attempt has no immutable assignment item".to_string(),
+                    )
+                })?;
+            Ok(blocked || retired_items.contains(&run_item.assignment_item))
+        })
+}
+
+fn assignment_item_is_active(
+    assignment: &AssignmentRecord,
+    target: question_model::AssignmentItemId,
+) -> bool {
+    assignment.items.iter().any(|item| {
+        item.id == target && item.delivery_state == question_model::AssignmentDeliveryState::Active
+    }) || assignment
+        .selection_groups
+        .iter()
+        .flat_map(|group| group.candidates.iter())
+        .any(|candidate| {
+            candidate.id == target
+                && candidate.delivery_state == question_model::AssignmentDeliveryState::Active
+        })
 }
 
 /// Loads one enrollment inside an already tenant-scoped state operation.

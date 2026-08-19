@@ -4,7 +4,7 @@ import { publishedProblemFixture } from "../../generated/fixtures/published_prob
 
 const course = publishedProblemFixture.course;
 const original = publishedProblemFixture.assignment;
-const assignmentPath = `/instructor/courses/C-${course.publicId}/assignments/A-${original.publicId}/edit`;
+const assignmentPath = `/instructor/courses/${course.reference}/assignments/${original.reference}/edit`;
 const replacementId = "7K4-M9QP";
 const replacement = {
   ...publishedProblemFixture.catalogProblem,
@@ -53,9 +53,9 @@ test("instructor replaces an assigned Question ID with visible issued-work conse
       });
     if (path === "/api/auth/account/presentation")
       return await response(route, { contrast: "standard" });
-    if (path === `/api/navigation/C-${course.publicId}`)
+    if (path === `/api/navigation/${course.reference}`)
       return await response(route, { kind: "course", courseId: course.id });
-    if (path === `/api/navigation/A-${original.publicId}`)
+    if (path === `/api/navigation/${original.reference}`)
       return await response(route, {
         kind: "assignment",
         courseId: course.id,

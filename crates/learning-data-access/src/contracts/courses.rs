@@ -1,6 +1,7 @@
 use super::*;
 
-/// Tenant-owned course, including its explicit course-local access list.
+/// Tenant-owned course. Direct access lives exclusively in
+/// [`CourseMembershipRecord`], never in this aggregate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseRecord {
@@ -10,8 +11,40 @@ pub struct CourseRecord {
     pub tenant: TenantId,
     /// Human-facing course or section title.
     pub title: String,
-    /// Explicit course-local permissions keyed by authenticated user identity.
-    pub members: Vec<CourseMembership>,
+    /// Required inclusive term bounds and authoritative scheduling zone.
+    pub term: question_model::CourseTerm,
+}
+
+/// Atomic course-provisioning command.
+///
+/// A course has no usable orphan state: the first instructor membership is
+/// created in the same transaction. Later roster changes use their dedicated
+/// lifecycle commands and may not replace this relationship wholesale.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CreateCourseCommand {
+    pub course: CourseRecord,
+    pub initial_instructor: UserId,
+}
+
+/// Canonical course access relationship.  Each reinvitation creates a new
+/// episode; a revoked row remains immutable evidence for receipts created
+/// during that episode.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CourseMembershipRecord {
+    pub id: question_model::CourseMembershipId,
+    pub tenant: TenantId,
+    pub course: CourseId,
+    pub user: UserId,
+    /// Learner identity for student episodes; instructors deliberately have
+    /// no synthetic learner identity.
+    pub student: Option<StudentId>,
+    pub role: CourseMembershipRole,
+    /// Active course-local export key. This is membership authority, not
+    /// presentation profile data, and becomes reusable after revocation.
+    pub roster_id: Option<crate::CourseRosterId>,
+    pub status: crate::CourseMemberStatus,
+    pub joined_at: ActivityTimestamp,
+    pub revoked_at: Option<ActivityTimestamp>,
 }
 
 impl CourseRecord {
@@ -19,23 +52,16 @@ impl CourseRecord {
     pub fn summary(
         &self,
         role: CourseMembershipRole,
-        public_id: question_model::CoursePublicId,
+        reference: question_model::CourseReference,
     ) -> CourseSummary {
         CourseSummary {
             id: self.id,
-            public_id,
+            reference,
             tenant: self.tenant,
             title: self.title.clone(),
+            term: self.term.clone(),
             role,
         }
-    }
-
-    /// Resolves one authenticated user's explicit course membership.
-    pub fn role_for(&self, user: UserId) -> Option<CourseMembershipRole> {
-        self.members
-            .iter()
-            .find(|membership| membership.user == user)
-            .map(|membership| membership.role)
     }
 }
 
@@ -47,8 +73,7 @@ pub enum CourseListScope {
 }
 
 /// Tenant-owned assignment that references shared immutable content.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AssignmentRecord {
     /// Durable assignment identity.
     pub id: AssignmentId,
@@ -58,6 +83,9 @@ pub struct AssignmentRecord {
     pub course_id: CourseId,
     /// Human-facing assignment title.
     pub title: String,
+    /// Explicit current audience.  Course-wide and group-scoped delivery are
+    /// different contracts; absence is not a compatible default.
+    pub audience: question_model::AssignmentAudience,
     /// Stable ordered fixed items selected for the assignment.
     pub items: Vec<question_model::AssignmentItem>,
     /// Random-selection groups with pinned immutable candidates.
@@ -67,8 +95,7 @@ pub struct AssignmentRecord {
 }
 
 /// Editable assignment definition together with its server-managed revision.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct StoredAssignment {
     pub record: AssignmentRecord,
     pub revision: AssignmentRevision,
@@ -82,10 +109,10 @@ pub struct StoredAssignment {
 
 /// Editable assignment fields supplied after the server has bound identity and
 /// course ownership from the authenticated route.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AssignmentUpdate {
     pub title: String,
+    pub audience: question_model::AssignmentAudience,
     pub items: Vec<question_model::AssignmentItem>,
     pub selection_groups: Vec<question_model::AssignmentSelectionGroup>,
     pub policies: RunPolicies,
@@ -93,34 +120,13 @@ pub struct AssignmentUpdate {
 
 /// One editor save expressed as one revision-checked persistence operation.
 ///
-/// `assignment_timing` is deliberately narrower than `AssignmentTimingPolicy`:
-/// a normal editor save must not clear schedule, access, or accommodation
+/// `assignment_timing` is deliberately narrower than the effective-policy
+/// resolver: a normal editor save must not clear schedule or accommodation
 /// settings owned by their dedicated policy workflow.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AssignmentEditorUpdate {
     pub assignment: AssignmentUpdate,
     pub assignment_timing: question_model::AssignmentRunTiming,
-}
-
-/// Current timing policy paired with the assignment's shared revision token.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct StoredAssignmentTiming {
-    pub tenant: TenantId,
-    pub course: CourseId,
-    pub assignment: AssignmentId,
-    pub policy: AssignmentTimingPolicy,
-    pub revision: AssignmentRevision,
-}
-
-/// Authorized current-state replacement for assignment timing and access.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct UpdateAssignmentTimingCommand {
-    pub actor: UserId,
-    pub course: CourseId,
-    pub assignment: AssignmentId,
-    pub expected_revision: AssignmentRevision,
-    pub policy: AssignmentTimingPolicy,
 }
 
 /// Revision-checked instructor command behind the Delete and Regrade action.
@@ -188,74 +194,6 @@ pub struct RemoveAssignmentFixedItemCommand {
     /// Strong revision token read by the instructor before removal.
     pub expected_revision: AssignmentRevision,
 }
-/// Confirms that an ordinary full-assignment save preserves the exact fixed
-/// item and selection-candidate identity-to-publication mappings. The save
-/// may reorder those identities and update assignment-authored settings.
-/// Focused revision-checked commands make content substitutions, additions,
-/// and removals explicit.
-pub fn ensure_assignment_update_preserves_references(
-    current: &AssignmentRecord,
-    update: &AssignmentUpdate,
-) -> Result<(), StoreError> {
-    let fixed_references = |items: &[question_model::AssignmentItem]| {
-        items
-            .iter()
-            .map(|item| (item.id, item.reference))
-            .collect::<std::collections::BTreeMap<_, _>>()
-    };
-    let candidate_references = |groups: &[question_model::AssignmentSelectionGroup]| {
-        groups
-            .iter()
-            .flat_map(|group| group.candidates.iter())
-            .map(|candidate| (candidate.id, candidate.reference))
-            .collect::<std::collections::BTreeMap<_, _>>()
-    };
-    let same_identity_set = |persisted: &std::collections::BTreeMap<_, _>,
-                             edited: &std::collections::BTreeMap<_, _>,
-                             persisted_count: usize,
-                             edited_count: usize,
-                             kind: &str| {
-        (persisted.len() == persisted_count
-            && edited.len() == edited_count
-            && persisted == edited)
-            .then_some(())
-            .ok_or_else(|| {
-                StoreError::InvalidRecord(format!(
-                    "an ordinary assignment save preserves every {kind} identity and immutable publication; use a focused revision-checked item command"
-                ))
-            })
-    };
-
-    let current_fixed = fixed_references(&current.items);
-    let updated_fixed = fixed_references(&update.items);
-    same_identity_set(
-        &current_fixed,
-        &updated_fixed,
-        current.items.len(),
-        update.items.len(),
-        "fixed item",
-    )?;
-    let current_candidate = candidate_references(&current.selection_groups);
-    let updated_candidate = candidate_references(&update.selection_groups);
-    let current_candidate_count = current
-        .selection_groups
-        .iter()
-        .map(|group| group.candidates.len())
-        .sum();
-    let updated_candidate_count = update
-        .selection_groups
-        .iter()
-        .map(|group| group.candidates.len())
-        .sum();
-    same_identity_set(
-        &current_candidate,
-        &updated_candidate,
-        current_candidate_count,
-        updated_candidate_count,
-        "selection candidate",
-    )
-}
-
 impl AssignmentRecord {
     /// Every pinned immutable reference in the current assignment definition.
     pub fn references(&self) -> impl Iterator<Item = ProblemVersionRef> + '_ {
@@ -294,13 +232,13 @@ impl AssignmentRecord {
     /// Question-ID display data.
     pub fn summary(
         &self,
-        public_id: question_model::AssignmentPublicId,
+        reference: question_model::AssignmentReference,
         items: Vec<question_model::AssignmentItemSummary>,
         selection_groups: Vec<question_model::AssignmentSelectionGroupSummary>,
     ) -> AssignmentSummary {
         AssignmentSummary {
             id: self.id,
-            public_id,
+            reference,
             tenant: self.tenant,
             course_id: self.course_id,
             title: self.title.clone(),
@@ -407,82 +345,6 @@ fn assignment_selection_rank(seed: u64, candidate: AssignmentItemId) -> u64 {
     let mut rank = [0_u8; 8];
     rank.copy_from_slice(&digest.as_bytes()[..8]);
     u64::from_be_bytes(rank)
-}
-
-pub(crate) fn delete_and_regrade_update(
-    stored: &StoredAssignment,
-    target: AssignmentItemId,
-) -> Result<Option<AssignmentUpdate>, StoreError> {
-    let mut update = AssignmentUpdate {
-        title: stored.record.title.clone(),
-        items: stored.record.items.clone(),
-        selection_groups: stored.record.selection_groups.clone(),
-        policies: stored.record.policies,
-    };
-    if let Some(item) = update.items.iter_mut().find(|item| item.id == target) {
-        if item.delivery_state == AssignmentDeliveryState::Retired
-            && item.scoring_mode == question_model::AssignmentScoringMode::Excluded
-        {
-            return Ok(None);
-        }
-        item.delivery_state = AssignmentDeliveryState::Retired;
-        item.scoring_mode = question_model::AssignmentScoringMode::Excluded;
-        return Ok(Some(update));
-    }
-    if let Some(candidate) = update
-        .selection_groups
-        .iter_mut()
-        .flat_map(|group| group.candidates.iter_mut())
-        .find(|candidate| candidate.id == target)
-    {
-        if candidate.delivery_state == AssignmentDeliveryState::Retired {
-            return Ok(None);
-        }
-        candidate.delivery_state = AssignmentDeliveryState::Retired;
-        return Ok(Some(update));
-    }
-    Err(StoreError::NotFound)
-}
-
-pub(crate) fn assignment_scoring_changed(
-    previous: &AssignmentRecord,
-    replacement: &AssignmentRecord,
-) -> bool {
-    let fixed = |assignment: &AssignmentRecord| {
-        assignment
-            .items
-            .iter()
-            .map(|item| {
-                (
-                    item.id,
-                    (item.points_possible, item.delivery_state, item.scoring_mode),
-                )
-            })
-            .collect::<std::collections::BTreeMap<_, _>>()
-    };
-    let groups = |assignment: &AssignmentRecord| {
-        assignment
-            .selection_groups
-            .iter()
-            .map(|group| {
-                (
-                    group.id,
-                    (
-                        group.points_per_item,
-                        group
-                            .candidates
-                            .iter()
-                            .map(|candidate| (candidate.id, candidate.delivery_state))
-                            .collect::<std::collections::BTreeMap<_, _>>(),
-                    ),
-                )
-            })
-            .collect::<std::collections::BTreeMap<_, _>>()
-    };
-    previous.policies.completion != replacement.policies.completion
-        || previous.policies.grade != replacement.policies.grade
-        || fixed(previous) != fixed(replacement)
-        || groups(previous) != groups(replacement)
 }
 
 /// Applies current assignment scoring to one normalized backend result.
@@ -616,6 +478,7 @@ mod assignment_selection_tests {
             tenant: TenantId::from_uuid(id(2)),
             course_id: CourseId::from_uuid(id(3)),
             title: "Selection fixture".to_string(),
+            audience: question_model::AssignmentAudience::CourseWide,
             items: vec![AssignmentItem {
                 id: AssignmentItemId::from_uuid(id(30)),
                 reference: reference(0),
@@ -693,6 +556,7 @@ mod assignment_selection_tests {
             tenant: TenantId::from_uuid(id(203)),
             course_id: CourseId::from_uuid(id(204)),
             title: "Scoring modes".to_string(),
+            audience: question_model::AssignmentAudience::CourseWide,
             items: modes
                 .into_iter()
                 .enumerate()
@@ -813,6 +677,7 @@ mod assignment_selection_tests {
             tenant,
             course_id: CourseId::from_uuid(id(303)),
             title: "Selected completion".to_string(),
+            audience: question_model::AssignmentAudience::CourseWide,
             items: Vec::new(),
             selection_groups: vec![AssignmentSelectionGroup {
                 id: question_model::AssignmentSelectionGroupId::from_uuid(id(304)),
@@ -918,6 +783,7 @@ mod assignment_selection_tests {
             tenant: TenantId::from_uuid(id(2)),
             course_id: CourseId::from_uuid(id(3)),
             title: "Immutable item fixture".to_string(),
+            audience: question_model::AssignmentAudience::CourseWide,
             items: vec![item(30, reference(1), 0), item(31, reference(2), 1)],
             selection_groups: vec![AssignmentSelectionGroup {
                 id: question_model::AssignmentSelectionGroupId::from_uuid(id(40)),
@@ -945,6 +811,7 @@ mod assignment_selection_tests {
     fn ordinary_update(record: &AssignmentRecord) -> AssignmentUpdate {
         AssignmentUpdate {
             title: record.title.clone(),
+            audience: record.audience.clone(),
             items: record.items.clone(),
             selection_groups: record.selection_groups.clone(),
             policies: record.policies,

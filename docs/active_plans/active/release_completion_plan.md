@@ -23,6 +23,10 @@ OpenTofu baseline are code-complete. WP-RC10 needs live AWS/RDS, restore, and re
 Completed packages remain accepted. Completion requires working production artifacts, passing
 behavior/security gates, current docs, and no P0/P1; stubs, mocks, disabled tests, and TODOs do not.
 
+The global current-package handoff is recorded only in [implementation_status.md](../implementation_status.md);
+this plan owns release scope and dependency order, and the `release integrator` owns migration
+order and allocation for both plans.
+
 Two release boundaries are explicit: the **working-codebase release** completes reproducible
 repository-owned artifacts without institutional secrets; **production activation** supplies
 credentials, applies deployment, runs named live gates, completes legal review, and enrolls the
@@ -43,9 +47,9 @@ persistence and role claims to `tests/e2e/e2e_wp_r2_postgres_rls.py`; manufactur
 decoder/client/editor behavior, while `tests/playwright/assignment_editor.spec.ts` owns its mock-backed visible
 replacement behavior. `local_stack_control/acceptance_lanes.py` is the sole live browser replacement route and
 `tests/walkthrough/run_ui_walkthrough.py` the sole M6 composition journey. WP-R2 creates no fixture directory,
-predicts no assigned live Question ID, count, or hash, and records inventories, screenshots, and timing only in
-`_temp_professor_roadmap_20260814/wp_r2_closeout.review.md`. `generated/api/` remains ignored derivative output of
-`crates/project-tools/src/tsgen.rs`.
+predicts no assigned live Question ID, count, or hash. Durable M0 package evidence is in
+[implementation_status.md](../implementation_status.md) and [CHANGELOG.md](../../CHANGELOG.md);
+inventories/screenshots/timings are historical only, not an ignored scratch dependency. `generated/api/` remains ignored derivative output of `crates/project-tools/src/tsgen.rs`.
 
 ## Decisions
 
@@ -137,9 +141,8 @@ open; WP-PY-L1 is accepted on 2026-08-15 after final offline/live Validation and
 reviews with no P0-P3 finding. It replaces `local_stack_control/launch.sh`,
 `_restart.sh`, and `containers/local_identity_bootstrap.sh` all at once before M1; it deletes the shell
 implementation instead of shipping a Python wrapper or dual launcher. M1 retains its separate declared
-dependency gates. The next current package is WP-RC8 acceptance;
-later packages may migrate
-remaining E2E, developer, renderer-probe, and destructive-cleanup scripts.
+dependency gates. Later packages may migrate remaining E2E, developer, renderer-probe, and
+destructive-cleanup scripts.
 
 The remaining complex-script order is explicit: after WP-PY-L1, the canonical WeBWorK
 renderer/host-seed acceptance owner converts its stateful runner; the release-candidate composition
@@ -295,14 +298,17 @@ begins only after WP-P2 preserves the reserved migration ordering below.
 
 - **Status:** accepted on 2026-08-12. This closes the remaining timed-problem gap in the
   human-guidance walkthrough; it does not change the status of the broader release plan.
-- **Depends on:** the existing course-owned `AssignmentTimingPolicy`, the visible assignment editor,
-  and the shared assignment revision. Implement the Rust/store/editor contract before the Solid form,
-  then run focused behavior gates before the current-stack walkthrough.
-- **Contract:** whole-run timing remains course-owned `AssignmentTimingPolicy`. The editor alone exposes
-  `assignmentTiming: { timeLimitSeconds: positive u32 | null }`; `null` is an intentional untimed
-  assignment. A new mastery draft receives the Rust-generated `900`-second default. Create, update, and
-  editor GET compose assignment definition and timing atomically under one revision; published question
-  versions and their immutable question-level `TimingPolicy` do not change.
+- **Depends on:** the then-course-owned `AssignmentTimingPolicy`, the visible assignment editor, and
+  the shared assignment revision. This records the accepted package's historical dependency order:
+  `AssignmentTimingPolicy` and its API have since been removed. Implement the Rust/store/editor contract
+  before the Solid form, then run focused behavior gates before the current-stack walkthrough.
+- **Contract:** at acceptance, whole-run timing was course-owned through `AssignmentTimingPolicy`. The
+  editor alone exposed `assignmentTiming: { timeLimitSeconds: positive u32 | null }`; `null` was an
+  intentional untimed assignment. A new mastery draft received the Rust-generated `900`-second default.
+  Create, update, and editor GET composed assignment definition and timing atomically under one revision;
+  published question versions and their immutable question-level `TimingPolicy` did not change. That
+  removed model is not a current policy authority: accepted WP-PROF-S3's effective-policy resolver and
+  immutable sealed receipts with their current pointer are the sole current authority.
 - **Behavior:** the instructor can see and save an accessible `Time limit for each practice run` fieldset
   with Timed/Untimed choices and a minutes input. A new mastery assignment visibly starts at 15 minutes.
   The student sees a server-backed countdown for a timed run and `Untimed` only when the saved value is
@@ -668,7 +674,9 @@ tests/`; both diff checks. The contact sheet and exact theme inventory are not p
   transport or deliverability tooling.
 - **Files:** `crates/server/src/auth/{passwordless,email,webauthn,oidc}.rs`;
   `crates/learning-data-access/src/{account_identity,course_roster}.rs` plus Memory/PostgreSQL
-  owners; `schemas/migrations/2026080909_passwordless_identity.sql`;
+  owners; `schemas/migrations/2026080909_passwordless_identity.sql` and
+  `schemas/migrations/2026081501_email_change_session_revocation.sql` through
+  `2026081504_email_change_session_revocation_repair.sql`;
   `src/pages/{sign_in,account_security,course_roster,course_invitation}_page.tsx`;
   `src/auth/session_context.tsx`; passwordless/enrollment E2E and Playwright suites;
   [ENROLLMENT_DESIGN.md](../../ENROLLMENT_DESIGN.md); auth/security/deployment/usage docs and
@@ -905,16 +913,8 @@ development. They must pass, not skip, in WP-RC12 release evidence.
 
 ## Migration and compatibility policy
 
-- Preserve the accepted six-file baseline and `2026080907_course_appearance.sql`.
-- Reserve `2026080908_secure_question_grading_payloads.sql`,
-  `2026080909_passwordless_identity.sql`, `2026080910_object_reconciliation.sql`, and
-  `2026080911_lti_advantage.sql` in that order. Secure learner uploads then own
-  `2026080912_secure_learner_uploads.sql`. The 0908 file remains the schema predecessor even while
-  its product cutover acceptance is open. WP-RC7 schema work begins after identity/enrollment 0909,
-  while its non-schema object inventory work may run in
-  parallel. A package needing another
-  migration takes the next two-digit daily sequence; it does not insert or rename an accepted
-  version.
+- The shared migration ledger/allocation registry in [implementation_status.md](../implementation_status.md) is authoritative and owned by the `release integrator`; preserve the accepted baseline and `2026080907_course_appearance.sql` without duplicating the registry here.
+- New schema packages receive an allocation before implementation; accepted versions are never inserted/renamed, and non-schema packages do not implicitly receive one. WP-PROF-E2 may prepare/review a candidate baseline earlier, but actual replacement requires professor WP-PROF-E2 readiness plus all repository-owned release schema packages/RC12 immediately before first production data; it must not replace the ledger early.
 - PLE flat JSON source identity lives inside the existing versioned source payload and immutable
   object/checksum binding; no family-shaped table is added.
 - Native PLE flat JSON uses its v2 reader only. Current source and disposable test data are rebuilt

@@ -3,9 +3,7 @@
 import { expect, test } from "@playwright/test";
 
 import {
-  arrangementOutputFor,
   authenticatedInstructorContextWithRequest,
-  instructorSetupArrangementOutput,
   instructorCredential,
   launcherManifest,
 } from "../../walkthrough/children/arrange";
@@ -27,65 +25,6 @@ test("private parser accepts only the instructor and the launcher baseline refer
     "arrangement-input",
   );
   expect(() => instructorCredential(`instructor=${SENTINEL}!`)).toThrow("arrangement-input");
-});
-
-test("instructor setup retains the four launcher Chapter 1 Genetics references", () => {
-  const output = instructorSetupArrangementOutput([
-    {
-      displayId: "7K3-M9QP",
-      problemId: "123e4567-e89b-12d3-a456-426614174001",
-      versionId: "123e4567-e89b-12d3-a456-426614174002",
-    },
-    {
-      displayId: "ABC-123T",
-      problemId: "123e4567-e89b-12d3-a456-426614174003",
-      versionId: "123e4567-e89b-12d3-a456-426614174004",
-    },
-    {
-      displayId: "PEP-T1D3",
-      problemId: "123e4567-e89b-12d3-a456-426614174005",
-      versionId: "123e4567-e89b-12d3-a456-426614174006",
-    },
-    {
-      displayId: "GEN-E42K",
-      problemId: "123e4567-e89b-12d3-a456-426614174007",
-      versionId: "123e4567-e89b-12d3-a456-426614174008",
-    },
-  ]);
-  expect(output).toEqual({
-    arrangements: [
-      {
-        label: "launcher-chapter-one-genetics",
-        questions: expect.any(Array),
-      },
-    ],
-  });
-  expect(output.arrangements[0]?.questions).toHaveLength(4);
-});
-
-test("arrangement output separates every setup boundary into fixed public records", () => {
-  const output = arrangementOutputFor(
-    "123e4567-e89b-12d3-a456-426614174000",
-    {
-      problem: "123e4567-e89b-12d3-a456-426614174001",
-      version: "123e4567-e89b-12d3-a456-426614174002",
-    },
-    {
-      arrangement: "seeded-course-assignments",
-      baselineAssignmentId: "123e4567-e89b-12d3-a456-426614174000",
-      courseId: "123e4567-e89b-12d3-a456-426614174003",
-      masteryAssignmentId: "123e4567-e89b-12d3-a456-426614174004",
-      examAssignmentId: "123e4567-e89b-12d3-a456-426614174005",
-    },
-  );
-  expect(output.arrangements.map(({ label }) => label)).toEqual([
-    "launcher-seeded-enrollment",
-    "launcher-baseline-assignment",
-    "api-retry-corpus-publication",
-    "api-mastery-assignment",
-    "api-exam-assignment",
-  ]);
-  expect(JSON.stringify(output)).not.toContain(SENTINEL);
 });
 
 test("failed instructor login disposes its isolated context without echoing private transport data", async () => {

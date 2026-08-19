@@ -1,11 +1,134 @@
 # Implementation status and handoff
 
-Last updated: 2026-08-15
+Last updated: 2026-08-19
 
 This file is a durable execution handoff. The architecture, scope, milestone order, security
-boundaries, and acceptance criteria remain authoritative in `implementation_plan.md`. Durable owner
-decisions remain authoritative in `../HUMAN_GUIDANCE.md`. If this status disagrees with either
-source, follow those sources and correct this file.
+boundaries, and acceptance criteria remain authoritative in the implementation and active plans.
+Durable owner decisions remain authoritative in `../HUMAN_GUIDANCE.md`. This file is authoritative
+for the changing global current-package handoff and shared migration allocation registry; other
+documents link here instead of copying those mutable values.
+
+The active [professor capability plan](active/professor_capability_architecture_plan.md) supplements
+the release plan and does not replace it. This file is the sole global current-package handoff
+registry: WP-PROF-S4 is the single current professor package, and the release queue is PARKED at
+still-open WP-RC8.
+The professor and release plans own their scope and dependency queues, but defer current-handoff
+truth to this registry. WP-PROF-S1, WP-PROF-S2, WP-PROF-S3, WP-PROF-S5, and WP-PROF-S7 are accepted.
+WP-PROF-S4 is the dependency-ready lane-A disclosure package: it consumes WP-PROF-S3's one effective
+policy verdict and per-field provenance; it does not reconstruct entitlement, gates, or modifier
+precedence. WP-RC8 owns the open provider, mailbox, passkey, multi-replica, security, and HCI gates.
+Professor pre-production work may use the shared migration ledger; it does not accept or imply
+production email authentication, mailbox delivery, onboarding, deployment, or release acceptance.
+
+## Shared migration ledger and allocation
+
+The `release integrator` is the single migration-order and ledger owner across the release and
+professor roadmaps. This section is the shared allocation registry; plans reference it rather than
+creating competing reservation tables. Accepted migration files are immutable and are not amended or
+renumbered. Future schema packages receive an allocation before implementation; non-schema packages
+do not implicitly receive one.
+
+| Allocation | Package | Capability or disposition |
+| --- | --- | --- |
+| `2026080801`-`2026080806` | Foundational baseline | Accepted six-file baseline |
+| `2026080907` | WP-RC1 | Course appearance; accepted |
+| `2026080908` | WP-P2 | Secure question-grading payloads; allocated |
+| `2026080909` | WP-RC8 | Passwordless identity and enrollment; allocated, acceptance open |
+| `2026080910` | WP-RC7 | Object reconciliation; reserved, acceptance open |
+| `2026080911` | WP-RC9 | LTI Advantage; reserved, acceptance open |
+| `2026080912` | WP-FU1..WP-FU6 | Secure learner uploads; reserved, acceptance open |
+| `2026080914`-`2026080935` | Repository-owned release packages | Existing forward allocations; files are immutable |
+| `2026081401` | WP-R0 | Ranked catalog discovery; existing forward allocation |
+| `2026081501`-`2026081504` | WP-RC8 repairs | Existing forward allocations; files are immutable |
+| `2026081801` | WP-PROF-S2 | Course term and time zone; accepted and immutable |
+| `2026081802` | WP-PROF-S7 | Typed references and bylines; accepted and immutable |
+| `2026081803` | WP-PROF-S5 | Entitlement, typed group purposes, and materialization; accepted and immutable |
+| `2026081804` | WP-PROF-S3 | Effective-policy resolver; accepted and immutable |
+| `2026081805` | WP-PROF-S4 | Disclosure policy; M1 reservation |
+| `2026081806` | WP-PROF-S6 | Course grade scheme; M1 reservation |
+
+The S3, S4, and S5 allocations were reordered before any of their migration files existed.
+Accepted S5 occupies `2026081803` and accepted S3 occupies `2026081804`; the next forward allocation
+is S4 `2026081805`. No placeholder migration, absent-file dependency, or out-of-order application is
+permitted. Numeric allocation records the forward migration sequence, while package dependency
+remains defined by the professor plan.
+
+The actual clean-cluster baseline replacement requires both professor WP-PROF-E2 readiness and completion
+of all repository-owned release schema packages/RC12, immediately before first production data. WP-PROF-E2
+may prepare and review a candidate baseline earlier, but it must not replace the ledger early.
+
+WP-PROF-S1 acceptance evidence on 2026-08-18 is recorded on the final material tree:
+`source source_me.sh && python3 -m pytest tests/test_markdown_links.py tests/test_ascii_compliance.py`
+passed 1,471 tests; `source source_me.sh && python3 -m pytest tests/` passed 5,235 tests in 3.13
+seconds; and both `git diff --check` and `git diff --cached --check` passed. Independent acceptance
+review returned ACCEPT with no P0/P1/P2 finding.
+
+WP-PROF-S2 is accepted on 2026-08-18. Its final material-tree Validation passed: `./check_rust.sh`;
+`./check_codebase.sh` (five checks and 261 Node tests); `source source_me.sh && python3 -m pytest
+tests/` (5,235 tests); outside-sandbox `./run_playwright_tests.sh --build` (203 of 203); and the
+outside-sandbox `tests/e2e/e2e_database_baseline.sh` PostgreSQL 17 lane (37 migrations, including
+the exact course-term constraint, round-trip, and RLS oracle). Both diff checks passed. Independent
+database/domain, browser/HCI, and architecture/test final reviews returned ACCEPT with no P0--P3
+finding. The release Wasm gzip result is 231,911 bytes, a 353-byte increase. The accepted
+test-only repairs replaced the native-date one-Tab assertion with the bounded real-Tab helper and
+moved browser term decoding to its focused owner. That S2 closeout did not accept WP-PROF-S7,
+WP-RC8, WP-RC12, or production activation.
+
+WP-PROF-S7 is accepted on 2026-08-19. It establishes exact typed `C-`, `A-`, `R-`, `W-`, and `G-`
+references, reserves `AC-` for the later Alpha aggregate, and resolves every route reference through
+one authorized navigation result. Published versions retain an immutable, validated ordered public
+byline that is distinct from private author-account IDs; safe catalog projections and publication
+contracts carry the byline without exposing account authority. Migration `2026081802` is accepted
+and immutable. Final material-tree Validation passed: `./check_rust.sh`; `./check_codebase.sh`
+(five checks and 264 Node tests); `source source_me.sh && python3 -m pytest tests/` (5,235 tests);
+outside-sandbox `./run_playwright_tests.sh --build` (203 of 203, zero skips); and outside-sandbox
+`tests/e2e/e2e_database_baseline.sh` (fresh PostgreSQL 17 database, 38 migrations, the S7 live
+reference/byline oracle, RLS denial matrix, and cleanup). Both diff checks passed. The release Wasm
+measurement recorded input 1,122,735 bytes, bindgen raw 1,059,562 bytes, gzip 231,897 bytes, and
+SHA-256 `b04c1572d361b10518138e2090a67a33ca78de795f44c175f3cde6b4d7264d15`; versus accepted S2,
+the deltas are +373, +405, and -14 bytes. Independent PostgreSQL/RLS, Rust-contract, and
+frontend/HCI reviews returned ACCEPT with no final blocking finding. The migration view-dependency
+ordering repair remains useful implementation history, not a final failure. This closeout does not
+accept WP-RC8, provider or mailbox delivery, passkeys, multi-replica operation, production deployment,
+or release activation.
+
+WP-PROF-S5 is accepted on 2026-08-19. One canonical `course_member` episode is now the current
+course-membership authority, while `course_roster_profile` retains only subordinate display and
+contact evidence. Assignment receipts are derived from typed course-wide or group audiences on the
+first entitlement-bearing action, record immutable actor-or-rule provenance and sealed evaluator
+basis/scopes, and are never recreated by a roster-by-assignment cross-product. Current learner
+actions re-evaluate the same entitlement authority, while historical receipts remain historical.
+Migration `2026081803` is accepted and immutable. Final material-tree Validation passed:
+`./check_rust.sh`; `./check_codebase.sh` (five checks and 264 Node tests); `source source_me.sh &&
+python3 -m pytest tests/` (5,232 tests); outside-sandbox `./run_playwright_tests.sh --build` (203 of
+203, zero skips); outside-sandbox `tests/e2e/e2e_database_baseline.sh` (fresh PostgreSQL 17 database,
+39 migrations, the exact entitlement/membership/RLS oracle, and cleanup); and outside-sandbox
+`source source_me.sh && python3 local_stack.py acceptance` with all seven browser/visual/live lanes
+green. Both diff checks passed. Independent domain/Store, PostgreSQL/RLS/security, and API/HCI/test
+reviews returned ACCEPT with no P0--P3 finding. The sole professor handoff advances to WP-PROF-S3;
+WP-RC8 remains parked and open, and this closeout does not claim provider or mailbox delivery,
+passkeys, multi-replica operation, deployment, or release activation.
+
+WP-PROF-S3 is accepted on 2026-08-19. It establishes one pure, ordered effective-assignment-policy
+resolver: lifecycle, S5 entitlement, then action authorization deny before modifiers; approved group
+schedule offsets and accommodations plus an individual exception resolve per field with provenance.
+The resolver consumes the S5 decision and its opaque applicable scopes rather than reading roster,
+audience, membership, or enrollment state. Memory and PostgreSQL use that same grant-filtered input
+composition for resolution, start, issue, and list paths, so an unrelated group modifier cannot deny
+an otherwise entitled learner. Migration `2026081804` is accepted and immutable: normalized base,
+group, and individual inputs support append-only sealed per-attempt policy receipts, complete
+per-field source rows, and a current pointer only to a sealed receipt. Final material-tree Validation
+passed `./check_rust.sh`; `./check_codebase.sh` (five checks and 264 Node tests); `source source_me.sh
+&& python3 -m pytest tests/` (5,220 tests); outside-sandbox `./run_playwright_tests.sh --build` (203
+of 203, zero skips); a fresh PostgreSQL 17 baseline (40 migrations and the exact normalized S3
+oracle, including cleanup); and outside-sandbox `source source_me.sh && python3 local_stack.py
+acceptance` (ordinary browser, course-appearance visual, instructor-corpus visual, canonical
+walkthrough, Chapter One pilot, live Chapter One 4/4, and live WebWork 4/4). A one-time external
+renderer-image rebuild after pruning was an environmental acceptance prerequisite, not a PLE change.
+Independent domain/Store, PostgreSQL/RLS, and consumer/test reviews returned ACCEPT with no final
+blocking finding; both diff checks passed. The sole professor handoff advances to WP-PROF-S4.
+WP-RC8 remains parked and open. This closeout does not accept provider or mailbox delivery, passkeys,
+multi-replica operation, production deployment, or release activation.
 
 ## Working rules
 
@@ -55,8 +178,8 @@ storage, and deployed worker/replica exercises remain one-time deployment gates 
 
 ## Accepted task: WP-R0 catalog discovery
 
-WP-R0 is independently accepted on 2026-08-14. It closes the M0 catalog-discovery slice only; M0
-remains open, and WP-R1 is the next dependency-ordered package.
+WP-R0 is independently accepted on 2026-08-14. It closes the first professor-track M0
+catalog-discovery slice; WP-R1 followed in that historical dependency order.
 
 - A valid Question ID uses the exclusive exact-ID branch. Other queries use normalized lexical
   relevance with deliberate trigram typo recovery.
@@ -74,8 +197,8 @@ remains open, and WP-R1 is the next dependency-ordered package.
 
 ## Accepted task: WP-R1 local teaching-loop evidence
 
-WP-R1 is independently accepted on 2026-08-14. M0 remains open; WP-R2 is the next
-dependency-ordered package.
+WP-R1 is independently accepted on 2026-08-14. It closes the next professor-track M0
+release-truth slice; WP-R2 followed in that historical dependency order.
 
 - The completed statistics UI discloses the available release-truth evidence.
 - Python owns the Chapter One pilot, Chapter One browser journey, and aggregate acceptance lanes over
@@ -91,8 +214,9 @@ dependency-ordered package.
 ## Accepted task: WP-R2 immutable-question release truth
 
 WP-R2 is accepted on the final material tree. WP-PY-L1 is accepted on 2026-08-15 after final offline
-and live Validation and its three named independent reviews. M0 remains open; WP-RC8 acceptance is the
-next package in the active release plan.
+and live Validation and its three named independent reviews. These four packages evidence accepted
+M0 for the professor roadmap. The current handoff and release-queue state are recorded in the
+opening registry entry above.
 
 - Every content change publishes a new immutable `AAA-BBBB` Question ID and fresh hidden
   `(ProblemId, VersionId)` evidence. Optional one-way provenance retains source attribution without
@@ -360,7 +484,8 @@ The WP-QTI-12 independent review and documentation close-out is complete:
   and exactly `containers_ple_pgdata`, `containers_ple_miniodata`, and `containers_ple_identity_runtime`
   retained. `final_python_repository_review.ae3`, `final_podman_security_review.c2`, and
   `walkthrough_acceptance_final_review.ae3` each ACCEPT with no P0-P3 finding; WP-PY-L1 is accepted on
-  2026-08-15. M0 remains open and WP-RC8 acceptance is next.
+  2026-08-15. The professor roadmap records M0 as accepted; the current handoff and release-queue
+  state are recorded in the opening registry entry above.
 
   Live evidence also corrected renderer OCI-ID normalization; database-seed environment fallback;
   unsupported Compose `rm` removal; restart recovery/readiness; semantic renderer probing; Chapter 1

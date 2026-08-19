@@ -3,14 +3,14 @@
 import { A } from "@solidjs/router";
 import type { JSX } from "solid-js";
 
-import type { CoursePublicId } from "../../generated/api/CoursePublicId";
+import type { CourseReference } from "../../generated/api/CourseReference";
 import { courseRouteReference } from "../navigation/public_route";
 
 export type CourseManagementSection =
   "assignments" | "newAssignment" | "students" | "gradebook" | "appearance";
 
 interface CourseManagementNavProps {
-  readonly coursePublicId: CoursePublicId;
+  readonly courseReference: CourseReference;
   readonly active?: CourseManagementSection;
 }
 
@@ -19,7 +19,7 @@ function current(active: boolean): "page" | undefined {
 }
 
 export function CourseManagementNav(props: CourseManagementNavProps): JSX.Element {
-  const reference = courseRouteReference(props.coursePublicId);
+  const reference = courseRouteReference(props.courseReference);
   return (
     <nav class="course-management-nav" aria-label="Course management">
       <A href={`/courses/${reference}`} end aria-current={current(props.active === "assignments")}>

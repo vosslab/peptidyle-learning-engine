@@ -6,11 +6,11 @@ use super::*;
 mod retention_tests {
     use super::*;
     use crate::{
-        JobClaimFilter, JobLeaseDuration, JobPayload, JobStore, RetentionApiStore, RetentionDays,
-        RetentionDispatchBatch, RetentionScheduleStore, RetentionWorkerCommand,
-        RetentionWorkerStore, SessionLifetime, SessionStore,
+        CourseRosterStore, CreateCourseCommand, JobClaimFilter, JobLeaseDuration, JobPayload,
+        JobStore, RetentionApiStore, RetentionDays, RetentionDispatchBatch, RetentionScheduleStore,
+        RetentionWorkerCommand, RetentionWorkerStore, SessionLifetime, SessionStore, Store,
+        UpsertCourseMember,
     };
-    use question_model::{CourseMembership, CourseMembershipRole};
 
     fn session(number: u8) -> SessionTokenHash {
         SessionTokenHash::compute(&[number; 32])
@@ -34,6 +34,50 @@ mod retention_tests {
             .expect("store session");
     }
 
+    async fn establish_course(
+        store: &MemoryStore,
+        context: TenantContext,
+        course: CourseId,
+        title: &str,
+        instructor: UserId,
+        students: &[UserId],
+    ) {
+        store
+            .create_course(
+                context,
+                CreateCourseCommand {
+                    course: CourseRecord {
+                        id: course,
+                        tenant: context.tenant_id(),
+                        title: title.to_string(),
+                        term: question_model::CourseTerm::from_parts(
+                            "2026-08-24",
+                            "2026-12-18",
+                            "America/Chicago",
+                        )
+                        .expect("explicit fixture course term"),
+                    },
+                    initial_instructor: instructor,
+                },
+            )
+            .await
+            .expect("retention fixture course");
+        for student in students {
+            store
+                .upsert_course_member(
+                    context,
+                    UpsertCourseMember {
+                        course,
+                        user: *student,
+                        display_name: "Retention learner".to_string(),
+                        roster_contact: None,
+                    },
+                )
+                .await
+                .expect("retention fixture learner membership");
+        }
+    }
+
     #[tokio::test]
     async fn retention_policy_and_course_end_are_session_authorized_and_idempotent() {
         let store = MemoryStore::default();
@@ -43,28 +87,18 @@ mod retention_tests {
         let student = UserId::from_uuid(Uuid::from_u128(81_003));
         let sysadmin = UserId::from_uuid(Uuid::from_u128(81_004));
         let course = CourseId::from_uuid(Uuid::from_u128(81_005));
-        {
-            let mut state = store.write_state().expect("retention state");
-            state.authoritative_time = ActivityTimestamp::from_unix_millis(1_000_000);
-            state.courses.insert(
-                (tenant, course),
-                CourseRecord {
-                    id: course,
-                    tenant,
-                    title: "Retention course".to_string(),
-                    members: vec![
-                        CourseMembership {
-                            user: instructor,
-                            role: CourseMembershipRole::Instructor,
-                        },
-                        CourseMembership {
-                            user: student,
-                            role: CourseMembershipRole::Student,
-                        },
-                    ],
-                },
-            );
-        }
+        store
+            .set_authoritative_time(ActivityTimestamp::from_unix_millis(1_000_000))
+            .expect("retention fixture clock");
+        establish_course(
+            &store,
+            context,
+            course,
+            "Retention course",
+            instructor,
+            &[student],
+        )
+        .await;
         establish_session(
             &store,
             session(1),
@@ -142,22 +176,10 @@ mod retention_tests {
         let instructor = UserId::from_uuid(Uuid::from_u128(81_101));
         let sysadmin = UserId::from_uuid(Uuid::from_u128(81_102));
         let course = CourseId::from_uuid(Uuid::from_u128(81_103));
-        {
-            let mut state = store.write_state().expect("state");
-            state.authoritative_time = ActivityTimestamp::from_unix_millis(1_000_000);
-            state.courses.insert(
-                (tenant, course),
-                CourseRecord {
-                    id: course,
-                    tenant,
-                    title: "Dispatch course".to_string(),
-                    members: vec![CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    }],
-                },
-            );
-        }
+        store
+            .set_authoritative_time(ActivityTimestamp::from_unix_millis(1_000_000))
+            .expect("fixture clock");
+        establish_course(&store, context, course, "Dispatch course", instructor, &[]).await;
         establish_session(
             &store,
             session(10),
@@ -289,21 +311,15 @@ mod retention_tests {
         let default_tenant = TenantId::from_uuid(Uuid::from_u128(81_104));
         let default_context = TenantContext::from_authenticated_session(default_tenant);
         let default_course = CourseId::from_uuid(Uuid::from_u128(81_105));
-        {
-            let mut state = store.write_state().expect("state");
-            state.courses.insert(
-                (default_tenant, default_course),
-                CourseRecord {
-                    id: default_course,
-                    tenant: default_tenant,
-                    title: "Default dispatch course".to_string(),
-                    members: vec![CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    }],
-                },
-            );
-        }
+        establish_course(
+            &store,
+            default_context,
+            default_course,
+            "Default dispatch course",
+            instructor,
+            &[],
+        )
+        .await;
         establish_session(
             &store,
             session(12),
@@ -356,28 +372,18 @@ mod retention_tests {
         let student = UserId::from_uuid(Uuid::from_u128(81_202));
         let sysadmin = UserId::from_uuid(Uuid::from_u128(81_203));
         let course = CourseId::from_uuid(Uuid::from_u128(81_204));
-        {
-            let mut state = store.write_state().expect("state");
-            state.authoritative_time = ActivityTimestamp::from_unix_millis(2_000_000);
-            state.courses.insert(
-                (tenant, course),
-                CourseRecord {
-                    id: course,
-                    tenant,
-                    title: "Extension course".to_string(),
-                    members: vec![
-                        CourseMembership {
-                            user: instructor,
-                            role: CourseMembershipRole::Instructor,
-                        },
-                        CourseMembership {
-                            user: student,
-                            role: CourseMembershipRole::Student,
-                        },
-                    ],
-                },
-            );
-        }
+        store
+            .set_authoritative_time(ActivityTimestamp::from_unix_millis(2_000_000))
+            .expect("fixture clock");
+        establish_course(
+            &store,
+            context,
+            course,
+            "Extension course",
+            instructor,
+            &[student],
+        )
+        .await;
         establish_session(
             &store,
             session(20),
@@ -624,34 +630,27 @@ mod retention_tests {
         let instructor = UserId::from_uuid(Uuid::from_u128(81_301));
         let course = CourseId::from_uuid(Uuid::from_u128(81_302));
         let other_course = CourseId::from_uuid(Uuid::from_u128(81_303));
-        {
-            let mut state = store.write_state().expect("state");
-            state.authoritative_time = ActivityTimestamp::from_unix_millis(3_000_000);
-            state.courses.insert(
-                (tenant, course),
-                CourseRecord {
-                    id: course,
-                    tenant,
-                    title: "Retention API course".to_string(),
-                    members: vec![CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    }],
-                },
-            );
-            state.courses.insert(
-                (tenant, other_course),
-                CourseRecord {
-                    id: other_course,
-                    tenant,
-                    title: "Other retention API course".to_string(),
-                    members: vec![CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    }],
-                },
-            );
-        }
+        store
+            .set_authoritative_time(ActivityTimestamp::from_unix_millis(3_000_000))
+            .expect("fixture clock");
+        establish_course(
+            &store,
+            context,
+            course,
+            "Retention API course",
+            instructor,
+            &[],
+        )
+        .await;
+        establish_course(
+            &store,
+            context,
+            other_course,
+            "Other retention API course",
+            instructor,
+            &[],
+        )
+        .await;
         establish_session(
             &store,
             session(30),

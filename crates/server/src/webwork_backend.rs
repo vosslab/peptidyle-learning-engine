@@ -623,6 +623,11 @@ mod tests {
                     flat_question_promotion: None,
                     publisher,
                     scope: question_model::PublicationScope::Institution,
+                    byline: question_model::PublicByline::new(vec![
+                        question_model::PublicAuthorName::new("PLE fixture".to_string())
+                            .expect("valid test byline"),
+                    ])
+                    .expect("valid test byline"),
                     capabilities: BackendCapabilities::from_iter([
                         question_model::Capability::AlgorithmicGeneration,
                         question_model::Capability::ServerGrading,

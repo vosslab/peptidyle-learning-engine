@@ -101,21 +101,17 @@ impl crate::FeedbackStore for PostgresStore {
         let enrollment =
             load_enrollment_for_update(&mut transaction, tenant, run.enrollment).await?;
         let assignment = load_assignment(&mut transaction, tenant, enrollment.assignment).await?;
-        if actor == enrollment.user {
-            transaction_context::require_active_learner_membership(
-                &mut transaction,
-                tenant,
-                enrollment.assignment,
-                actor,
+        let learner_self = matches!(
+            super::entitlement::evaluate_current(
+                &mut transaction, tenant, actor, assignment.course_id, assignment.id,
             )
-            .await?;
-        } else if !postgres_is_course_instructor(
-            &mut transaction,
-            tenant,
-            assignment.course_id,
-            actor,
-        )
-        .await?
+            .await?,
+            domain::entitlement::EntitlementDecision::Granted(ref grant)
+                if grant.student() == enrollment.student
+        );
+        if !learner_self
+            && !postgres_is_course_instructor(&mut transaction, tenant, assignment.course_id, actor)
+                .await?
         {
             return Err(StoreError::NotFound);
         }
@@ -171,38 +167,28 @@ impl crate::FeedbackStore for PostgresStore {
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
         let run: AssignmentRun = decode_payload_row(&run_row)?;
-        let enrollment_row = sqlx::query(
-            "SELECT payload, payload_sha256 FROM enrollment \
-             WHERE tenant_id = $1 AND enrollment_id = $2",
-        )
-        .bind(tenant.as_uuid())
-        .bind(run.enrollment.as_uuid())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
-        let enrollment: AssignmentEnrollment = decode_payload_row(&enrollment_row)?;
+        let enrollment = load_postgres_enrollment(&mut transaction, tenant, run.enrollment).await?;
         let assignment = load_assignment(&mut transaction, tenant, enrollment.assignment).await?;
-        if actor == enrollment.user {
-            transaction_context::require_active_learner_membership(
-                &mut transaction,
-                tenant,
-                enrollment.assignment,
-                actor,
+        let learner_self = matches!(
+            super::entitlement::evaluate_current(
+                &mut transaction, tenant, actor, assignment.course_id, assignment.id,
             )
-            .await?;
-        } else if !postgres_is_course_instructor(
-            &mut transaction,
-            tenant,
-            assignment.course_id,
-            actor,
-        )
-        .await?
+            .await?,
+            domain::entitlement::EntitlementDecision::Granted(ref grant)
+                if grant.student() == enrollment.student
+        );
+        if !learner_self
+            && !postgres_is_course_instructor(&mut transaction, tenant, assignment.course_id, actor)
+                .await?
         {
             return Err(StoreError::NotFound);
         }
         let summary_row = sqlx::query(
-            "SELECT payload, payload_sha256 FROM student_assignment_summary \
+            "SELECT tenant_id, enrollment_id, current_score, best_score, latest_score, \
+                    completed_run_count, total_question_attempts, \
+                    floor(extract(epoch FROM last_activity_at) * 1000)::bigint \
+                        AS last_activity_at_millis \
+             FROM student_assignment_summary \
              WHERE tenant_id = $1 AND enrollment_id = $2",
         )
         .bind(tenant.as_uuid())
@@ -211,7 +197,7 @@ impl crate::FeedbackStore for PostgresStore {
         .await
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
-        let summary: StudentAssignmentSummary = decode_payload_row(&summary_row)?;
+        let summary = decode_summary_row(&summary_row)?;
 
         // This is deliberately the sole bounded outcome query. It reads each
         // attempt's issuance-persisted disclosure and private feedback/release
@@ -235,8 +221,8 @@ impl crate::FeedbackStore for PostgresStore {
                ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id \
              LEFT JOIN submission_evaluation AS evaluation \
                ON evaluation.tenant_id = qa.tenant_id AND evaluation.attempt_id = qa.attempt_id \
-             LEFT JOIN attempt_timing_current AS timing \
-               ON timing.tenant_id = qa.tenant_id AND timing.attempt_id = qa.attempt_id \
+             LEFT JOIN attempt_effective_policy_current AS current_effect ON current_effect.tenant_id=qa.tenant_id AND current_effect.attempt_id=qa.attempt_id \
+             LEFT JOIN attempt_effective_policy_receipt AS timing ON timing.tenant_id=current_effect.tenant_id AND timing.attempt_id=current_effect.attempt_id AND timing.receipt_generation=current_effect.receipt_generation \
              JOIN assignment_run_item AS ri \
                ON ri.tenant_id = qa.tenant_id AND ri.run_id = qa.run_id \
               AND ri.issued_position = qa.assignment_position \
@@ -262,7 +248,7 @@ impl crate::FeedbackStore for PostgresStore {
         .bind(after.map(|cursor| cursor.attempt))
         .bind(limit)
         .bind(assignment.id.as_uuid())
-        .bind(actor == enrollment.user)
+        .bind(learner_self)
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;

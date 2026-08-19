@@ -50,6 +50,7 @@ where
                 flat_question_promotion: None,
                 publisher,
                 scope: PublicationScope::Institution,
+                byline: reviewed_byline(),
                 capabilities: BackendCapabilities::from_iter([
                     Capability::AlgorithmicGeneration,
                     Capability::ServerGrading,
@@ -70,7 +71,6 @@ where
     )
     .expect("published WebWork fixture has an immutable grading definition");
     let support_assignment = AssignmentId::from_uuid(uuid(89_972 + fixture_offset));
-    let support_enrollment = EnrollmentId::from_uuid(uuid(89_973 + fixture_offset));
     let support_run_id = RunId::from_uuid(uuid(89_974 + fixture_offset));
     store
         .create_untimed_assignment(
@@ -80,6 +80,7 @@ where
                 tenant,
                 course_id: course,
                 title: "Attempt support fixture".to_string(),
+                audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![
                     ProblemVersionRef { problem, version },
                     ProblemVersionRef { problem, version },
@@ -90,22 +91,6 @@ where
         )
         .await
         .expect("attempt support assignment");
-    store
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: support_enrollment,
-                tenant,
-                assignment: support_assignment,
-                user: student_user,
-                student: StudentId::from_uuid(uuid(89_975 + fixture_offset)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
-        .await
-        .expect("attempt support enrollment");
     let support_run = store
         .start_or_resume_run(context, student_user, support_assignment, support_run_id)
         .await
@@ -197,8 +182,8 @@ where
         store
             .get_webwork_grade_replay_state(context, publisher, support_attempt.id)
             .await,
-        Err(StoreError::Forbidden),
-        "an instructor cannot read learner-bound private replay state"
+        Err(StoreError::NotFound),
+        "an instructor cannot discover learner-bound private replay state"
     );
     assert_eq!(
         store

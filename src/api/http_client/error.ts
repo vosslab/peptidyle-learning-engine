@@ -11,6 +11,20 @@ export class ApiRequestError extends Error {
   }
 }
 
+/** A bounded course-term refusal with one safe field-specific correction. */
+export class CourseTermValidationError extends ApiRequestError {
+  public readonly failure: import("../../../generated/api/CourseTermValidationFailure").CourseTermValidationFailure;
+
+  public constructor(
+    path: string,
+    failure: import("../../../generated/api/CourseTermValidationFailure").CourseTermValidationFailure,
+  ) {
+    super(422, path);
+    this.name = "CourseTermValidationError";
+    this.failure = failure;
+  }
+}
+
 /** Successful HTTP response that violated the browser-safe API contract. */
 export class ApiProtocolError extends Error {
   public constructor(message: string) {

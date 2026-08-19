@@ -707,7 +707,7 @@ pub(crate) fn validate_published(record: &PublishedProblemRecord) -> Result<(), 
             "published record IDs must match its question definition".to_string(),
         ));
     }
-    if record.authors.is_empty() {
+    if record.author_ids.is_empty() {
         return Err(StoreError::InvalidRecord(
             "published problem must have at least one author".to_string(),
         ));
@@ -718,10 +718,10 @@ pub(crate) fn validate_published(record: &PublishedProblemRecord) -> Result<(), 
         .metadata
         .validate_title()
         .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-    let mut authors = record.authors.clone();
-    authors.sort_unstable();
-    authors.dedup();
-    if authors.len() != record.authors.len() {
+    let mut distinct_author_ids = record.author_ids.clone();
+    distinct_author_ids.sort_unstable();
+    distinct_author_ids.dedup();
+    if distinct_author_ids.len() != record.author_ids.len() {
         return Err(StoreError::InvalidRecord(
             "published problem authors must be unique".to_string(),
         ));

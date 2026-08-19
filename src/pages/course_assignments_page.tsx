@@ -31,7 +31,7 @@ export interface AssignmentListProps {
 }
 
 function assignmentLinkId(assignment: AssignmentSummary): string {
-  const id = `assignment-review-${assignmentRouteReference(assignment.publicId)}`;
+  const id = `assignment-review-${assignmentRouteReference(assignment.reference)}`;
   return id;
 }
 
@@ -95,7 +95,7 @@ function AssignmentCard(props: AssignmentCardProps): JSX.Element {
       </Show>
       <A
         class="quiet-link"
-        href={`/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.publicId)}`}
+        href={`/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}`}
         id={assignmentLinkId(props.assignment)}
         ref={(element) => props.registerLink(props.assignment, element)}
       >
@@ -222,7 +222,9 @@ export function AssignmentList(props: AssignmentListProps): JSX.Element {
                 assignment={assignment}
                 courseReference={props.courseReference}
                 showStudentProgress={!props.canCreateAssignment}
-                registerLink={(currentAssignment, element) => reviewLinks.set(currentAssignment.id, element)}
+                registerLink={(currentAssignment, element) =>
+                  reviewLinks.set(currentAssignment.id, element)
+                }
               />
             )}
           </For>
@@ -298,7 +300,7 @@ export function CourseAssignmentsPage(): JSX.Element {
   const courseScope = useCourseThemeRouteData();
   const course = courseScope?.kind === "course" ? courseRouteData(courseScope).summary : undefined;
   const courseId = course?.id;
-  const courseReference = course === undefined ? undefined : courseRouteReference(course.publicId);
+  const courseReference = course === undefined ? undefined : courseRouteReference(course.reference);
   const assignments = createAsync(() => {
     if (courseId === undefined) {
       return Promise.reject(new Error("Course route is unavailable"));
@@ -325,7 +327,7 @@ export function CourseAssignmentsPage(): JSX.Element {
       <h2>Assignments</h2>
       <Show when={canManageCourse() ? course : undefined}>
         {(currentCourse) => (
-          <CourseManagementNav coursePublicId={currentCourse().publicId} active="assignments" />
+          <CourseManagementNav courseReference={currentCourse().reference} active="assignments" />
         )}
       </Show>
       <Suspense fallback={<p class="loading-state">Loading assignments...</p>}>

@@ -1,19 +1,28 @@
 use super::*;
 use hmac::{KeyInit, Mac};
 
+mod assignment_editing;
 mod catalog;
+mod catalog_store;
 mod courses;
+mod entitlement;
 mod runs;
 mod store;
 mod store_capabilities;
+mod store_error;
 mod workers;
 
+pub use assignment_editing::ensure_assignment_update_preserves_references;
+pub(crate) use assignment_editing::{assignment_scoring_changed, delete_and_regrade_update};
 pub use catalog::*;
+pub use catalog_store::{CatalogSourceStore, CatalogStore};
 pub use courses::*;
+pub use entitlement::*;
 pub use runs::*;
-pub use store::{CatalogSourceStore, CatalogStore, Store, StoreError};
+pub use store::Store;
 pub(crate) use store_capabilities::{
-    ActivityStore, AssignmentPolicyStore, AuthoringStore, CourseAssignmentStore, CourseStore,
+    ActivityStore, AuthoringStore, CourseAssignmentStore, CourseStore, EffectivePolicyStore,
     FeedbackStore, RunStore, StatisticsStore,
 };
+pub use store_error::StoreError;
 pub use workers::*;

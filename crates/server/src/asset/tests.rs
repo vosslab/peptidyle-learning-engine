@@ -7,9 +7,9 @@ use axum::middleware;
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
     AssetDeliveryRecord, AssetDeliveryScope, AssetPublication, CatalogStore, CourseRecord,
-    DraftRecord, JobLeaseDuration, JobPayload, JobStore, PublishDraftCommand,
-    RetentionWorkerCommand, RetentionWorkerStore, SessionLifetime, SessionSubject, Store,
-    TenantContext,
+    CourseRosterStore, CreateCourseCommand, DraftRecord, JobLeaseDuration, JobPayload, JobStore,
+    PublishDraftCommand, RetentionWorkerCommand, RetentionWorkerStore, SessionLifetime,
+    SessionSubject, Store, TenantContext, UpsertCourseMember,
 };
 use objects::memory::MemoryObjectStore;
 use objects::{ObjectCategory, ObjectKey, ObjectStoreError, PutObject, Sha256Digest};
@@ -20,10 +20,10 @@ use question_model::response::ResponseDefinition;
 use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{
-    ActivityTimestamp, AssetId, BackendCapabilities, Capability, CourseId, CourseMembership,
-    CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
-    ObjectId, ProblemId, ProblemVersionRef, PublicationScope, QuestionMetadata, QuestionSource,
-    TenantId, UserId, UserRole, VersionId, WorkspaceId, WorkspaceImportId,
+    ActivityTimestamp, AssetId, BackendCapabilities, Capability, CourseId, DraftQuestionDefinition,
+    DraftQuestionSource, GradingDefinition, ObjectId, ProblemId, ProblemVersionRef,
+    PublicationScope, QuestionMetadata, QuestionSource, TenantId, UserId, UserRole, VersionId,
+    WorkspaceId, WorkspaceImportId,
 };
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -132,6 +132,11 @@ async fn publish(
                 flat_question_promotion: None,
                 publisher,
                 scope,
+                byline: question_model::PublicByline::new(vec![
+                    question_model::PublicAuthorName::new("PLE fixture".to_string())
+                        .expect("valid test byline"),
+                ])
+                .expect("valid test byline"),
                 capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
             },
         )
@@ -180,26 +185,37 @@ async fn fixture() -> (
         .expect("clock");
     let objects = Arc::new(MemoryObjectStore::default());
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Asset route course".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: publisher,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Asset route course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: publisher,
             },
         )
         .await
         .expect("course");
+    store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Asset learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("student roster membership");
 
     let public_problem = ProblemId::from_uuid(id(10));
     let public_version = VersionId::from_uuid(id(11));

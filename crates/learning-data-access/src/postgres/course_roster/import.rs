@@ -33,13 +33,6 @@ pub(super) async fn stage(
     cleanup_expired(&mut transaction).await?;
     precheck_course_roster_authority(&mut transaction, session, command.course).await?;
     lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-    let actor = require_audited_course_roster_actor(
-        &mut transaction,
-        session,
-        command.course,
-        CourseRosterSupportAction::StageImport,
-    )
-    .await?;
     let policy = load_policy(&mut transaction, tenant, command.course, true).await?;
     if policy.revision != command.expected_roster_revision {
         return Err(StoreError::Conflict);
@@ -68,6 +61,13 @@ pub(super) async fn stage(
         let import = CourseRosterImportId::from_uuid(
             row.try_get("roster_import_id").map_err(map_sqlx_error)?,
         );
+        require_audited_course_roster_actor(
+            &mut transaction,
+            session,
+            command.course,
+            CourseRosterSupportAction::StageImport,
+        )
+        .await?;
         let preview = load_preview(&mut transaction, tenant, command.course, import).await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         return Ok(preview);
@@ -80,6 +80,13 @@ pub(super) async fn stage(
         command.course,
         &policy,
         &command.rows,
+    )
+    .await?;
+    let actor = require_audited_course_roster_actor(
+        &mut transaction,
+        session,
+        command.course,
+        CourseRosterSupportAction::StageImport,
     )
     .await?;
     let row = sqlx::query(
@@ -159,13 +166,6 @@ pub(super) async fn commit(
     cleanup_expired(&mut transaction).await?;
     precheck_course_roster_authority(&mut transaction, session, command.course).await?;
     lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-    let actor = require_audited_course_roster_actor(
-        &mut transaction,
-        session,
-        command.course,
-        CourseRosterSupportAction::CommitImport,
-    )
-    .await?;
     let current_policy = load_policy(&mut transaction, tenant, command.course, true).await?;
     let row = sqlx::query(
         "SELECT roster_revision, committed_roster_revision, revision, status, \
@@ -188,6 +188,13 @@ pub(super) async fn commit(
         if stored_commit_key.as_deref() != Some(command.idempotency_key.as_str()) {
             return Err(StoreError::Conflict);
         }
+        require_audited_course_roster_actor(
+            &mut transaction,
+            session,
+            command.course,
+            CourseRosterSupportAction::CommitImport,
+        )
+        .await?;
         let result = load_committed(
             &mut transaction,
             tenant,
@@ -247,6 +254,13 @@ pub(super) async fn commit(
             "roster import invitation set does not match ready rows".to_string(),
         ));
     }
+    let actor = require_audited_course_roster_actor(
+        &mut transaction,
+        session,
+        command.course,
+        CourseRosterSupportAction::CommitImport,
+    )
+    .await?;
     let mut invitations = Vec::with_capacity(ready_rows.len());
     for ready in ready_rows {
         let row_number = u16::try_from(
@@ -380,8 +394,13 @@ async fn classify_rows(
     inputs: &[CourseRosterImportRowInput],
 ) -> Result<Vec<CourseRosterImportRow>, StoreError> {
     let members = sqlx::query(
-        "SELECT roster_email_normalized, roster_id FROM course_roster_member \
-         WHERE tenant_id = $1 AND course_id = $2 AND status = 'active'",
+        "SELECT profile.roster_email_normalized, membership.roster_id \
+         FROM course_member membership \
+         JOIN course_roster_profile profile \
+           ON profile.tenant_id = membership.tenant_id AND profile.course_id = membership.course_id \
+          AND profile.course_membership_id = membership.course_membership_id \
+         WHERE membership.tenant_id = $1 AND membership.course_id = $2 \
+           AND membership.role = 'student' AND membership.status = 'active'",
     )
     .bind(tenant.as_uuid())
     .bind(course.as_uuid())

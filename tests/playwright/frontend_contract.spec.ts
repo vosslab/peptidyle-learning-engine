@@ -108,6 +108,13 @@ test("all product routes resolve inside the persistent shell", async ({ page }) 
           name: "Workspace authoring is not available for this account",
         }),
       ).toBeVisible();
+    } else if (route.surface === "problemDetail") {
+      await expect(
+        page.getByRole("heading", {
+          name: "Problem library is not available for this account",
+        }),
+      ).toBeVisible();
+      await expect(page.locator('[data-route-surface="problemDetail"]')).toHaveCount(0);
     } else {
       await expect(page.locator(`[data-route-surface="${route.surface}"]`)).toBeVisible();
     }
@@ -192,7 +199,7 @@ test("an instructor can invite a student through the platform keyboard path", as
         {
           invitation,
           redemptionPath: `/course-invitations/redeem#token=${"A".repeat(43)}`,
-          emailDelivery: "notSent",
+          emailDelivery: "queued",
         },
         { "cache-control": "no-store" },
       );
@@ -237,17 +244,15 @@ test("ordinary roster composition omits local teaching controls and activation r
   expect(requests.some((path) => path.endsWith("/local-teaching-members"))).toBe(false);
 });
 
-test("student navigation stays learner-focused and link navigation focuses main content", async ({
-  page,
-}) => {
+test("student navigation hides restricted controls and focuses main content", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("link", { name: "Workspace" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Library" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Courses" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Library" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Library" }).click();
+  await page.getByRole("link", { name: "Account" }).click();
   await expect(page.locator("#main-content")).toBeFocused();
-  await expect(page.locator('[data-route-surface="library"]')).toBeVisible();
+  await expect(page.locator('[data-route-surface="accountSecurity"]')).toBeVisible();
 
   await page.getByRole("link", { name: "Skip to learning content" }).focus();
   await page.keyboard.press("Enter");
@@ -270,6 +275,21 @@ test("manual student workspace navigation mounts no authoring transport", async 
       (path) => path.startsWith("/api/workspaces") || path.includes("author-preview"),
     ),
   ).toEqual([]);
+});
+
+test("manual student catalog-detail navigation mounts no catalog transport", async ({ page }) => {
+  const requests: string[] = [];
+  page.on("request", (request) => requests.push(new URL(request.url()).pathname));
+
+  await page.goto("/");
+  requests.length = 0;
+  await navigateWithinSpa(page, `/library/${IDS.problem}`);
+
+  await expect(
+    page.getByRole("heading", { name: "Problem library is not available for this account" }),
+  ).toBeVisible();
+  await expect(page.locator('[data-route-surface="problemDetail"]')).toHaveCount(0);
+  expect(requests.filter((path) => path.startsWith("/api/problems/by-id/"))).toEqual([]);
 });
 
 test("a route failure keeps the shell usable and omits raw exception details", async ({ page }) => {
@@ -306,9 +326,9 @@ test("header navigation leaves a failed route and renders the selected surface",
   await page.goto("/");
 
   await expect(page.getByRole("button", { name: "Try this page again" })).toBeVisible();
-  await page.getByRole("link", { name: "Library" }).click();
+  await page.getByRole("link", { name: "Account" }).click();
   await expect(page.locator("header.site-header")).toBeVisible();
-  await expect(page.locator('[data-route-surface="library"]')).toBeVisible();
+  await expect(page.locator('[data-route-surface="accountSecurity"]')).toBeVisible();
 });
 
 test("a student reaches, validates, submits, and advances through the generated reference response", async ({

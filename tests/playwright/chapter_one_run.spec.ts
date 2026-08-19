@@ -157,7 +157,10 @@ async function completeChapter(page: Page, chapter: ChapterJourney): Promise<voi
     (response) =>
       new URL(response.url()).pathname === "/api/runs" && response.request().method() === "POST",
   );
-  await activateWithKeyboard(page, page.getByRole("button", { name: "Start or continue practice" }));
+  await activateWithKeyboard(
+    page,
+    page.getByRole("button", { name: "Start or continue practice" }),
+  );
   const started = await runResponse;
   if (started.status() !== 201) {
     await expect(page.getByRole("alert")).toContainText("Could not open the practice run");
@@ -237,6 +240,11 @@ async function selectDifferentPublishedQuestion(
 async function prepareReplacement(page: Page, originalQuestionId: string): Promise<string> {
   await page.bringToFront();
   const replace = page.getByRole("button", { name: "Replace", exact: true }).first();
+  // The route shell is visible before its asynchronous assignment projection has rendered.
+  // Wait for the enabled, visible control before beginning the bounded native-tab traversal;
+  // otherwise the traversal can finish while there is no target in the document.
+  await expect(replace).toBeVisible();
+  await expect(replace).toBeEnabled();
   await tabTo(page, replace);
   await page.keyboard.press("Enter");
   await expect(

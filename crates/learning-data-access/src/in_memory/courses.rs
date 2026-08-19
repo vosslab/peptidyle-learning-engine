@@ -1,50 +1,32 @@
+use crate::CreateCourseCommand;
 use async_trait::async_trait;
 
 use super::*;
 
 #[async_trait]
 impl crate::CourseStore for MemoryStore {
-    async fn upsert_course_impl(
+    async fn create_course_impl(
         &self,
         context: TenantContext,
-        course: CourseRecord,
+        command: CreateCourseCommand,
     ) -> Result<(), StoreError> {
+        let course = command.course;
         ensure_tenant(context, course.tenant)?;
         validate_course(&course)?;
         let tenant = course.tenant;
         let course_id = course.id;
-        let student_members = course
-            .members
-            .iter()
-            .filter_map(|membership| {
-                (membership.role == question_model::CourseMembershipRole::Student)
-                    .then_some(membership.user)
-            })
-            .collect::<BTreeSet<_>>();
         let mut state = self.write_state()?;
-        let affected_groups = state
-            .course_groups
-            .iter()
-            .filter_map(|((record_tenant, group), record)| {
-                (*record_tenant == tenant && record.course == course_id).then_some(*group)
-            })
-            .collect::<BTreeSet<_>>();
-        let affected_assignments = state
-            .assignment_policy_exceptions
-            .iter()
-            .filter_map(|((record_tenant, assignment, target), _)| {
-                (*record_tenant == tenant
-                    && matches!(
-                        target,
-                        AssignmentPolicyExceptionTarget::CourseGroup(group)
-                            if affected_groups.contains(group)
-                    ))
-                .then_some(*assignment)
-            })
-            .collect::<BTreeSet<_>>();
-        let snapshot = state.clone();
-        super::navigation_references::ensure_course_public_id(&mut state, tenant, course_id)?;
+        if state.courses.contains_key(&(tenant, course_id)) {
+            return Err(StoreError::AlreadyExists);
+        }
+        super::navigation_references::ensure_course_reference(&mut state, tenant, course_id)?;
         state.courses.insert((tenant, course_id), course);
+        super::entitlement::create_initial_instructor_membership(
+            &mut state,
+            tenant,
+            course_id,
+            command.initial_instructor,
+        )?;
         state
             .course_appearances
             .entry((tenant, course_id))
@@ -53,21 +35,6 @@ impl crate::CourseStore for MemoryStore {
                 revision: question_model::CourseAppearanceRevision::INITIAL,
                 banner: None,
             });
-        for group in &affected_groups {
-            if let Some(record) = state.course_groups.get_mut(&(tenant, *group)) {
-                record
-                    .members
-                    .retain(|member| student_members.contains(member));
-            }
-        }
-        for assignment in affected_assignments {
-            if let Err(error) =
-                apply_memory_assignment_timing_update(&mut state, tenant, assignment, None)
-            {
-                *state = snapshot;
-                return Err(error);
-            }
-        }
         Ok(())
     }
     async fn get_course_impl(
@@ -77,6 +44,18 @@ impl crate::CourseStore for MemoryStore {
     ) -> Result<Option<CourseRecord>, StoreError> {
         let state = self.read_state()?;
         Ok(state.courses.get(&(context.tenant_id(), course)).cloned())
+    }
+    async fn get_current_course_membership_impl(
+        &self,
+        context: TenantContext,
+        course: CourseId,
+        user: UserId,
+    ) -> Result<Option<CourseMembershipRecord>, StoreError> {
+        let state = self.read_state()?;
+        Ok(
+            super::entitlement::active_membership_for(&state, context.tenant_id(), course, user)
+                .cloned(),
+        )
     }
     async fn list_courses_impl(
         &self,
@@ -93,7 +72,10 @@ impl crate::CourseStore for MemoryStore {
                     return None;
                 }
                 let role = match scope {
-                    CourseListScope::Member(user) => record.role_for(user)?,
+                    CourseListScope::Member(user) => {
+                        super::entitlement::active_membership_for(&state, *tenant, *course_id, user)
+                            .map(|membership| membership.role)?
+                    }
                 };
                 if role == CourseMembershipRole::Student
                     && !course_records_accessible(&state, context.tenant_id(), *course_id)
@@ -101,7 +83,7 @@ impl crate::CourseStore for MemoryStore {
                     return None;
                 }
                 let public_id = state
-                    .course_public_ids
+                    .course_references
                     .get(&(*tenant, *course_id))
                     .copied()?;
                 Some((course_id.to_string(), record.summary(role, public_id)))
@@ -120,16 +102,22 @@ impl crate::CourseStore for MemoryStore {
         let key = (tenant, command.record.id);
         let mut state = self.write_state()?;
         require_course_records_accessible(&state, tenant, command.record.course)?;
-        let course = state
-            .courses
-            .get(&(tenant, command.record.course))
-            .ok_or(StoreError::NotFound)?;
-        if course.role_for(command.actor) != Some(CourseMembershipRole::Instructor)
-            || command
-                .record
-                .members
-                .iter()
-                .any(|user| course.role_for(*user) != Some(CourseMembershipRole::Student))
+        if !state.courses.contains_key(&(tenant, command.record.course))
+            || super::entitlement::active_membership_for(
+                &state,
+                tenant,
+                command.record.course,
+                command.actor,
+            )
+            .is_none_or(|membership| membership.role != CourseMembershipRole::Instructor)
+            || command.record.members.iter().any(|membership| {
+                super::entitlement::active_membership_by_id(&state, tenant, *membership).is_none_or(
+                    |record| {
+                        record.course != command.record.course
+                            || record.role != CourseMembershipRole::Student
+                    },
+                )
+            })
         {
             return Err(StoreError::NotFound);
         }
@@ -158,26 +146,8 @@ impl crate::CourseStore for MemoryStore {
             None if command.expected_revision.is_none() => CourseGroupRevision::INITIAL,
             None => return Err(StoreError::Conflict),
         };
-        let affected = state
-            .assignment_policy_exceptions
-            .iter()
-            .filter_map(|((record_tenant, assignment, target), _)| {
-                (*record_tenant == tenant
-                    && *target == AssignmentPolicyExceptionTarget::CourseGroup(command.record.id))
-                .then_some(*assignment)
-            })
-            .collect::<BTreeSet<_>>();
-        let snapshot = state.clone();
         state.course_groups.insert(key, command.record.clone());
         state.course_group_revisions.insert(key, revision);
-        for assignment in affected {
-            if let Err(error) =
-                apply_memory_assignment_timing_update(&mut state, tenant, assignment, None)
-            {
-                *state = snapshot;
-                return Err(error);
-            }
-        }
         Ok(StoredCourseGroup {
             record: command.record,
             revision,

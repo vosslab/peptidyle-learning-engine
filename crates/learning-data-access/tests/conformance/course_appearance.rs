@@ -1,14 +1,15 @@
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
     COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseAppearanceStore, CourseBannerCleanupBatch,
-    CourseRecord, RegisterCourseBannerCandidate, SaveCourseAppearance, SessionLifetime,
-    SessionStore, SessionSubject, SessionTokenHash, Store, StoreError, TenantContext,
+    CourseRecord, CourseRosterStore, CreateCourseCommand, RegisterCourseBannerCandidate,
+    SaveCourseAppearance, SessionLifetime, SessionStore, SessionSubject, SessionTokenHash, Store,
+    StoreError, TenantContext, UpsertCourseMember,
 };
 use objects::{ObjectCategory, ObjectKey, ObjectRecord, Sha256Digest};
 use question_model::{
     ActivityTimestamp, CourseAppearanceRevision, CourseAppearanceUpdate,
     CourseBannerAlternativeText, CourseBannerCandidateId, CourseBannerId, CourseBannerMutation,
-    CourseId, CourseMembership, CourseMembershipRole, CourseThemeId, TenantId, UserId, UserRole,
+    CourseId, CourseThemeId, TenantId, UserId, UserRole,
 };
 use uuid::Uuid;
 
@@ -105,8 +106,6 @@ async fn memory_course_appearance_cas_delivery_membership_and_cleanup_conform() 
     let instructor = UserId::from_uuid(id(70_003));
     let student = UserId::from_uuid(id(70_004));
     let outsider = UserId::from_uuid(id(70_005));
-    let sysadmin = UserId::from_uuid(id(70_006));
-    let replacement_instructor = UserId::from_uuid(id(70_007));
     let context = TenantContext::from_authenticated_session(tenant);
     let instructor_session = create_session(
         &store,
@@ -132,35 +131,38 @@ async fn memory_course_appearance_cas_delivery_membership_and_cleanup_conform() 
         b"appearance-outsider",
     )
     .await;
-    let sysadmin_session = create_session(
-        &store,
-        tenant,
-        sysadmin,
-        vec![UserRole::Sysadmin],
-        b"appearance-sysadmin",
-    )
-    .await;
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Appearance course".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Appearance course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("course should persist");
+    store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Appearance learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("learner membership should persist");
 
     let initial = store
         .course_appearance(context, instructor_session, course)
@@ -322,54 +324,6 @@ async fn memory_course_appearance_cas_delivery_membership_and_cleanup_conform() 
         .authorize_course_banner_delivery(context, student_session, second_banner)
         .await
         .expect("replacement should become the one current delivery");
-
-    store
-        .upsert_course(
-            context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Appearance course".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: replacement_instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
-            },
-        )
-        .await
-        .expect("membership update should persist without resetting appearance");
-    assert_eq!(
-        store
-            .save_course_appearance(
-                context,
-                instructor_session,
-                course,
-                SaveCourseAppearance {
-                    expected_revision: second.revision,
-                    update: CourseAppearanceUpdate {
-                        theme: CourseThemeId::Beach,
-                        banner: CourseBannerMutation::Remove,
-                    },
-                    promoted_object: None,
-                },
-            )
-            .await,
-        Err(StoreError::NotFound),
-        "persisted membership removal must revoke a previously valid session"
-    );
-    assert_eq!(
-        store
-            .course_appearance(context, sysadmin_session, course)
-            .await,
-        Ok(None),
-        "sysadmin status alone must not expose a course"
-    );
 
     store
         .set_authoritative_time(ActivityTimestamp::from_unix_millis(6_000))

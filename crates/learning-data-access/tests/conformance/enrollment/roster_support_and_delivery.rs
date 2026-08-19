@@ -12,16 +12,21 @@ async fn memory_sysadmin_roster_support_is_narrow_and_audited() {
     let sysadmin = UserId::from_uuid(uuid(123_002));
     let course = CourseId::from_uuid(uuid(123_003));
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Sysadmin roster authority".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Sysadmin roster authority".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
@@ -35,24 +40,27 @@ async fn memory_sysadmin_roster_support_is_narrow_and_audited() {
     )
     .await;
 
+    let invitation_command = CreateCourseInvitation {
+        course,
+        email: AuthenticationEmail::parse("sysadmin-invited@example.edu").expect("valid email"),
+        roster_id: CourseRosterId::parse("900123003").expect("valid roster ID"),
+        token_hash: CourseInvitationSecretHash::compute(b"sysadmin-invitation"),
+        idempotency_key: RosterIdempotencyKey::parse("sysadmin-invitation")
+            .expect("valid idempotency key"),
+        lifetime: CourseInvitationLifetime::from_seconds(86_400).expect("bounded lifetime"),
+    };
     let invitation = store
-        .create_course_invitation(
-            context,
-            sysadmin_session,
-            CreateCourseInvitation {
-                course,
-                email: AuthenticationEmail::parse("sysadmin-invited@example.edu")
-                    .expect("valid email"),
-                roster_id: CourseRosterId::parse("900123003").expect("valid roster ID"),
-                token_hash: CourseInvitationSecretHash::compute(b"sysadmin-invitation"),
-                idempotency_key: RosterIdempotencyKey::parse("sysadmin-invitation")
-                    .expect("valid idempotency key"),
-                lifetime: CourseInvitationLifetime::from_seconds(86_400).expect("bounded lifetime"),
-            },
-        )
+        .create_course_invitation(context, sysadmin_session, invitation_command.clone())
         .await
         .expect("sysadmin may perform narrow roster support without course membership");
     assert_eq!(invitation.invited_by, sysadmin);
+    assert_eq!(
+        store
+            .create_course_invitation(context, sysadmin_session, invitation_command)
+            .await
+            .expect("Sysadmin exact replay remains an audited successful response"),
+        invitation
+    );
     let roster = store
         .list_course_roster(
             context,
@@ -69,6 +77,7 @@ async fn memory_sysadmin_roster_support_is_narrow_and_audited() {
     assert_eq!(
         audits.iter().map(|audit| audit.action).collect::<Vec<_>>(),
         vec![
+            CourseRosterSupportAction::CreateInvitation,
             CourseRosterSupportAction::CreateInvitation,
             CourseRosterSupportAction::ListRoster,
         ]
@@ -106,16 +115,21 @@ async fn memory_roster_import_previews_then_commits_exactly_the_ready_rows() {
     let instructor = UserId::from_uuid(uuid(124_001));
     let course = CourseId::from_uuid(uuid(124_002));
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Bulk roster preview".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Bulk roster preview".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await

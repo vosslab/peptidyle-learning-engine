@@ -277,6 +277,11 @@ mod tests {
             }),
             publisher: actor(),
             scope: PublicationScope::Public,
+            byline: question_model::PublicByline::new(vec![
+                question_model::PublicAuthorName::new("Flat question test author".to_string())
+                    .expect("valid test byline"),
+            ])
+            .expect("valid test byline"),
             capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
         }
     }

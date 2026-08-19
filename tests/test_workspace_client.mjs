@@ -12,6 +12,7 @@ import {
   PublicationValidationError,
 } from "../src/api/http_client.ts";
 import { decodePublicationDiff, decodeWorkspaceDraftPage } from "../src/api/decoders.ts";
+import { decodePublicByline, parseReviewedPublicByline } from "../src/api/public_byline.ts";
 import { createWorkspaceEditorRepository } from "../src/pages/editor_workspace_repository.ts";
 import { createMockApiClient } from "../src/api/mock/client.ts";
 
@@ -73,7 +74,7 @@ test("publication diff recursively admits only semantic projections and consiste
   }
 });
 
-test("publication transport uses a bodyless validation request and a scope-only publish body", async () => {
+test("publication transport uses a bodyless validation request and an explicit reviewed byline", async () => {
   const calls = [];
   const client = createHttpApiClient({
     fetch: async (input, init) => {
@@ -97,12 +98,47 @@ test("publication transport uses a bodyless validation request and a scope-only 
   });
   await client.validateWorkspacePublication(workspace);
   await client.getWorkspacePublicationDiff(workspace);
-  await client.publishWorkspace(workspace, "public", '"1"');
+  const request = { scope: "public", byline: { names: ["Fixture Instructor"] } };
+  await client.publishWorkspace(workspace, request, '"1"');
   assert.equal(calls[0].init.method, "POST");
   assert.equal(calls[0].init.body, undefined);
   assert.equal(calls[0].init.headers["content-type"], undefined);
-  assert.equal(calls[2].init.body, JSON.stringify({ scope: "public" }));
+  assert.equal(calls[2].init.body, JSON.stringify(request));
   assert.equal(calls[2].init.headers["content-type"], "application/json");
+});
+
+test("reviewed bylines share strict line-based author input and wire decoding", async () => {
+  assert.deepEqual(parseReviewedPublicByline("  Ada Lovelace  \nGrace Hopper"), {
+    names: ["Ada Lovelace", "Grace Hopper"],
+  });
+  for (const text of ["", "Ada\nAda", "Ada\u0007", "😀".repeat(121)]) {
+    assert.equal(parseReviewedPublicByline(text), null);
+  }
+  assert.deepEqual(decodePublicByline({ names: ["Ada Lovelace"] }, "response.byline"), {
+    names: ["Ada Lovelace"],
+  });
+  for (const value of [
+    { names: [] },
+    { names: ["Ada Lovelace", "Ada Lovelace"] },
+    { names: ["Ada\u0007"] },
+    { names: ["Ada Lovelace"], extra: true },
+  ]) {
+    assert.throws(() => decodePublicByline(value, "response.byline"));
+  }
+
+  const client = createHttpApiClient({
+    fetch: async () => {
+      throw new Error("invalid bylines must not reach fetch");
+    },
+  });
+  await assert.rejects(
+    client.publishWorkspace(
+      workspace,
+      { scope: "public", byline: { names: ["Ada\u0007"] } },
+      '"1"',
+    ),
+    ApiProtocolError,
+  );
 });
 
 test("author mock provides a safe first-publication diff without mutating the draft", async () => {
@@ -110,13 +146,28 @@ test("author mock provides a safe first-publication diff without mutating the dr
   const before = await client.getWorkspaceDraft(workspace);
   const validation = await client.validateWorkspacePublication(workspace);
   const diff = await client.getWorkspacePublicationDiff(workspace);
-  const result = await client.publishWorkspace(workspace, "institution", before.revision);
+  const result = await client.publishWorkspace(
+    workspace,
+    { scope: "institution", byline: { names: ["Fixture Instructor"] } },
+    before.revision,
+  );
   const after = await client.getWorkspaceDraft(workspace);
   assert.deepEqual(validation, { kind: "capabilityReport", revision: '"1"', violations: [] });
   assert.equal(diff.baseline, "newQuestion");
   assert.equal(diff.current.title, before.draft.metadata.title);
   assert.equal(result.summary.questionId, publishedProblemFixture.catalogProblem.questionId);
   assert.deepEqual(after, before);
+});
+
+test("author mock rejects malformed reviewed bylines before publication", async () => {
+  const client = createMockApiClient({ workspaceAuthoring: true });
+  const revision = (await client.getWorkspaceDraft(workspace)).revision;
+  for (const names of [["Ada\u0007"], ["😀".repeat(121)], ["Ada Lovelace", "Ada Lovelace"]]) {
+    await assert.rejects(
+      client.publishWorkspace(workspace, { scope: "institution", byline: { names } }, revision),
+      /byline/u,
+    );
+  }
 });
 
 test("publication 422 shapes keep readiness distinct from complete capability violations", async () => {
@@ -149,7 +200,11 @@ test("publication 422 shapes keep readiness distinct from complete capability vi
       ),
   });
   await assert.rejects(
-    capabilityFailure.publishWorkspace(workspace, "public", '"1"'),
+    capabilityFailure.publishWorkspace(
+      workspace,
+      { scope: "public", byline: { names: ["Fixture Instructor"] } },
+      '"1"',
+    ),
     (error) =>
       error instanceof PublicationValidationError &&
       error.messageForAuthor === "publication validation failed" &&
@@ -176,12 +231,21 @@ test("publication revisions reject missing, mismatched, zero, and out-of-range e
   });
   for (const revision of [undefined, '"0"', '"9223372036854775808"']) {
     await assert.rejects(
-      () => publish.publishWorkspace(workspace, "public", revision),
+      () =>
+        publish.publishWorkspace(
+          workspace,
+          { scope: "public", byline: { names: ["Fixture Instructor"] } },
+          revision,
+        ),
       /revision|arguments/u,
     );
   }
   await assert.rejects(
-    publish.publishWorkspace(workspace, "public", '"1"'),
+    publish.publishWorkspace(
+      workspace,
+      { scope: "public", byline: { names: ["Fixture Instructor"] } },
+      '"1"',
+    ),
     WorkspaceConflictError,
   );
 });
@@ -198,7 +262,7 @@ test("workspace CRUD uses no-store, exact ETags, and never permits a path/body m
           items: [
             {
               workspace,
-              publicId: 1,
+              reference: "W-1",
               title: draft.metadata.title,
               sourceBackend: draft.source.backend,
             },

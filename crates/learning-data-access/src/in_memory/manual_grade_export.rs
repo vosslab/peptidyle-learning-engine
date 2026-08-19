@@ -27,26 +27,51 @@ impl ManualGradeExportStore for MemoryStore {
             .filter(|assignment| assignment.course_id == command.course)
             .ok_or(StoreError::NotFound)?;
         let mut rows = state
-            .roster_members
+            .course_memberships
             .values()
-            .filter(|member| member.tenant == tenant && member.course == command.course)
-            .filter_map(|member| {
-                let roster_id = member.roster_id.clone()?;
-                let roster_email = member.roster_email.clone()?;
-                let enrollment = state.enrollments.values().find(|enrollment| {
+            .filter(|membership| {
+                membership.tenant == tenant
+                    && membership.course == command.course
+                    && membership.status == crate::CourseMemberStatus::Active
+                    && membership.role == question_model::CourseMembershipRole::Student
+            })
+            .filter_map(|membership| {
+                let student = membership.student?;
+                let roster_id = membership.roster_id.clone()?;
+                let profile =
+                    state
+                        .roster_profiles
+                        .get(&(tenant, command.course, membership.id))?;
+                let roster_email = profile.roster_email.clone()?;
+                Some((membership, profile, student, roster_id, roster_email))
+            })
+            .map(|(_membership, profile, student, roster_id, roster_email)| {
+                let current_score = match state.enrollments.values().find(|enrollment| {
                     enrollment.tenant == tenant
                         && enrollment.assignment == assignment.id
-                        && enrollment.student == member.student
-                })?;
-                let summary = state.summaries.get(&(tenant, enrollment.id))?;
-                Some(ManualGradeExportRow {
+                        && enrollment.student == student
+                }) {
+                    Some(enrollment) => {
+                        state
+                            .summaries
+                            .get(&(tenant, enrollment.id))
+                            .ok_or_else(|| {
+                                StoreError::Unavailable(
+                                    "entitlement receipt is missing its summary".to_string(),
+                                )
+                            })?
+                            .current_score
+                    }
+                    None => None,
+                };
+                Ok(ManualGradeExportRow {
                     roster_id,
                     roster_email,
-                    display_name: member.display_name.clone(),
-                    current_score: summary.current_score,
+                    display_name: profile.display_name.clone(),
+                    current_score,
                 })
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, StoreError>>()?;
         if rows.len() > MAX_MANUAL_GRADE_EXPORT_ROWS {
             return Err(StoreError::InvalidRecord(
                 "manual grade export exceeds the row limit".to_string(),

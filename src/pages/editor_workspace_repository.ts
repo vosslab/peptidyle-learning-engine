@@ -133,7 +133,7 @@ export function createWorkspaceEditorRepository(
         })),
       };
     },
-    publish: async (draft, scope, reviewedRevision): Promise<PublishOutcome> => {
+    publish: async (draft, request, reviewedRevision): Promise<PublishOutcome> => {
       try {
         const current = loaded.get(draft.workspace);
         if (current === undefined) {
@@ -142,7 +142,7 @@ export function createWorkspaceEditorRepository(
         if (current.revision !== reviewedRevision) {
           throw new WorkspaceConflictError(409, `/api/problems/${draft.workspace}/publish`);
         }
-        const result = await client.publishWorkspace(draft.workspace, scope, reviewedRevision);
+        const result = await client.publishWorkspace(draft.workspace, request, reviewedRevision);
         return { kind: "published", questionId: result.summary.questionId };
       } catch (error: unknown) {
         if (error instanceof PublicationValidationError) {

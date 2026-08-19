@@ -44,15 +44,17 @@ Then verify the cross-language build gate and the separate fast documentation an
 suite:
 
 ```bash
-./check_codebase.sh
 ./check_rust.sh
+./check_codebase.sh
 source source_me.sh && python3 -m pytest -q tests/
 ```
 
-Success is exit status zero from all three commands. `./check_codebase.sh` is the vendored
-TypeScript and browser gate, `./check_rust.sh` is the repository-owned Cargo and Rust gate, and
-`pytest tests/` remains the separate fast documentation and hygiene lane. For a built browser
-artifact without starting containers, run `./build.sh`; it creates `dist/` and `dist_wasm/`.
+Run `./check_rust.sh` first: it generates the ignored TypeScript API and fixture projections that
+`./check_codebase.sh` consumes. Success is exit status zero from all three commands.
+`./check_rust.sh` is the repository-owned Cargo and Rust gate, `./check_codebase.sh` is the vendored
+TypeScript and browser gate, and `pytest tests/` remains the separate fast documentation and hygiene
+lane. For a built browser artifact without starting containers, run `./build.sh`; it creates `dist/`
+and `dist_wasm/`.
 
 For choosing a focused development gate, use [DEVELOPMENT.md](DEVELOPMENT.md). The durable API,
 storage, tenancy, and server-only-grading boundaries are recorded in [CONTRACTS.md](CONTRACTS.md)

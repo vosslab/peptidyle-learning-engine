@@ -23,7 +23,7 @@ const DIAGNOSTICS = ["visible-control-unavailable", "visible-state-unavailable"]
 const ARRANGEMENT_KEYS: Readonly<Record<string, readonly string[]>> = {
   "launcher-seeded-enrollment": [],
   "launcher-baseline-assignment": ["baselineAssignmentId"],
-  "api-retry-corpus-publication": ["problemId", "versionId"],
+  "api-retry-corpus-publication": ["questionId"],
   "api-mastery-assignment": ["courseReference", "masteryAssignmentReference"],
   "api-exam-assignment": ["courseReference", "examAssignmentReference"],
 };
@@ -496,6 +496,11 @@ function validArrangementIdentifier(key: string, value: unknown): value is strin
   if (key === "courseReference") return isCourseReference(value);
   if (key === "masteryAssignmentReference" || key === "examAssignmentReference") {
     return isAssignmentReference(value);
+  }
+  if (key === "questionId") {
+    return (
+      typeof value === "string" && /^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u.test(value)
+    );
   }
   return typeof value === "string" && PRIVATE_UUID.test(value);
 }

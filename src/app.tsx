@@ -4,7 +4,7 @@ import { A, useLocation, useNavigate, type RouteSectionProps } from "@solidjs/ro
 import { createEffect, createSignal, ErrorBoundary, Show, type JSX } from "solid-js";
 
 import { useSessionBootstrap, type SessionBootstrapState } from "./auth/session_context";
-import { ROUTE_CONTRACT, type RouteContract, type RouteId } from "./route_contract";
+import { rolesMayAccessRoute, type RouteId } from "./route_contract";
 import { CourseThemeScope } from "./features/course_appearance/course_theme_scope";
 import { LocalDevelopmentSignIn } from "./auth/local_development";
 import { PresentationContrastProvider } from "./presentation/contrast_context";
@@ -23,19 +23,10 @@ function canUseAuthoringTools(state: SessionBootstrapState): boolean {
 }
 
 function canAccessRoute(state: SessionBootstrapState, routeId: RouteId): boolean {
-  const route = ROUTE_CONTRACT.find((item) => item.id === routeId) as
-    | (RouteContract & { id: RouteId })
-    | undefined;
-  if (route === undefined) {
-    return false;
-  }
-  if (route.requiredRoles === undefined || route.requiredRoles.length === 0) {
-    return true;
-  }
   if (state.kind !== "authenticated") {
     return false;
   }
-  return route.requiredRoles?.some((requiredRole) => state.session.user.roles.includes(requiredRole));
+  return rolesMayAccessRoute(routeId, state.session.user.roles);
 }
 
 function canUseLibrary(state: SessionBootstrapState): boolean {

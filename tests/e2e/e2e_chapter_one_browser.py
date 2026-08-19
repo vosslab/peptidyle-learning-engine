@@ -6,9 +6,7 @@ import hashlib
 import os
 import pathlib
 import secrets
-import shutil
 import sys
-import tempfile
 from collections.abc import Mapping, Sequence
 
 SCRIPT_REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -17,6 +15,7 @@ sys.path.insert(0, str(SCRIPT_REPOSITORY_ROOT))
 import local_stack_control.chapter_one
 import local_stack_control.consumer
 import local_stack_control.models
+import local_stack_control.private_state
 import local_stack_control.process
 
 
@@ -25,6 +24,8 @@ INSTRUCTOR_ID = "00000000-0000-0000-0000-000000000101"
 STUDENT_ID = "00000000-0000-0000-0000-000000000102"
 POSTGRES_USER = "ple_chapter_browser"
 POSTGRES_DATABASE = "ple_chapter_browser"
+PRIVATE_STATE_RELATIVE_DIRECTORY = pathlib.Path("target") / "chapter-one-browser"
+PRIVATE_STATE_DIRECTORY_PREFIX = "run-"
 
 
 class BrowserE2EError(local_stack_control.models.ControllerError):
@@ -250,8 +251,15 @@ def main() -> None:
 		runner,
 		root,
 	)
-	directory = pathlib.Path(tempfile.mkdtemp(prefix="ple-chapter-one-browser-"))
-	os.chmod(directory, 0o700)
+	try:
+		private_state = local_stack_control.private_state.prepare(
+			root,
+			PRIVATE_STATE_RELATIVE_DIRECTORY,
+			PRIVATE_STATE_DIRECTORY_PREFIX,
+		)
+	except local_stack_control.models.ControllerError as error:
+		raise BrowserE2EError("could not prepare private Chapter One browser state") from error
+	directory = private_state.directory
 	project, manifest_path, postgres_password, minio_password, question_id_secret_path = (
 		write_private_target(
 			directory,
@@ -313,9 +321,9 @@ def main() -> None:
 					file=sys.stderr,
 				)
 				raise
-			shutil.rmtree(directory)
+			private_state.remove()
 		else:
-			shutil.rmtree(directory)
+			private_state.remove()
 
 
 if __name__ == "__main__":

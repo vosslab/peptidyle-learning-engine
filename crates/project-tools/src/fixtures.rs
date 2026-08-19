@@ -204,6 +204,9 @@ fn build_corpus() -> Result<FixtureCorpus> {
         backend: QuestionBackend::Native,
         capabilities: adapter.capabilities(&published_problem.source)?,
         metadata: published_problem.metadata.clone(),
+        byline: question_model::PublicByline::new(vec![question_model::PublicAuthorName::new(
+            "Fixture Instructor".to_string(),
+        )?])?,
         scope: PublicationScope::Public,
         lifecycle: CatalogLifecycle::Published,
         published_at: timestamp(1_786_000_000_000),
@@ -236,7 +239,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
         .enumerate()
         .map(|(index, id)| AssignmentRun {
             id: *id,
-            public_id: question_model::RunPublicId::new(
+            reference: question_model::RunReference::new(
                 u64::try_from(index + 1).expect("four fixture runs fit u64"),
             )
             .expect("four fixture public run IDs are valid"),
@@ -294,15 +297,21 @@ fn build_corpus() -> Result<FixtureCorpus> {
         assets,
         course: CourseSummary {
             id: course_id,
-            public_id: question_model::CoursePublicId::new(1).expect("valid public course ID"),
+            reference: question_model::CourseReference::new(1).expect("valid course reference"),
             tenant,
             title: "BIOC 301: Biochemistry".to_string(),
+            term: question_model::CourseTerm::from_parts(
+                "2026-08-24",
+                "2026-12-18",
+                "America/Chicago",
+            )
+            .expect("explicit fixture course term"),
             role: CourseMembershipRole::Student,
         },
         assignment: AssignmentSummary {
             id: assignment_id,
-            public_id: question_model::AssignmentPublicId::new(1)
-                .expect("valid public assignment ID"),
+            reference: question_model::AssignmentReference::new(1)
+                .expect("valid assignment reference"),
             tenant,
             course_id,
             title: "Peptide bond mastery".to_string(),

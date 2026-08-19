@@ -4,8 +4,7 @@ import { For, Show, batch, createEffect, createSignal, onMount, type JSX } from 
 
 import type { PublicationScope } from "../../../generated/api/PublicationScope";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
-import type { ApiClient } from "../../api/client";
-import type { WasmFacade } from "../../wasm/index";
+import { parseReviewedPublicByline } from "../../api/public_byline";
 import { FlatChoiceList } from "./flat_choice_list";
 import { FlatFeedbackFields } from "./flat_feedback_fields";
 import { hotspotSourceFromAsset } from "./flat_hotspot_editor_model";
@@ -46,11 +45,8 @@ import { parseNumericLiteral } from "./flat_numeric_model";
 import { FlatPolicyFields } from "./flat_policy_fields";
 import { flatQuestionPublicPreview } from "./flat_question_public_preview";
 import { FlatQuestionPreview } from "./flat_question_preview";
-import {
-  FlatQuestionStaleConflictError,
-  type FlatQuestionRepository,
-} from "./flat_question_repository";
-import type { FlatQuestionRead } from "./flat_question_client";
+import type { FlatQuestionEditorPageProps } from "./flat_question_editor_types";
+import { FlatQuestionStaleConflictError } from "./flat_question_repository";
 import type {
   FlatQuestionAssetClient,
   FlatQuestionAssetDescriptor,
@@ -58,30 +54,10 @@ import type {
 import type { FlatQuestionHotspotResponse, FlatQuestionSourceV2 } from "./flat_question_source";
 import type { FlatQuestionInstructorAnswerCheck } from "./flat_question_preview";
 
-export interface FlatQuestionEditorPageProps {
-  readonly workspace: WorkspaceId;
-  readonly initial: FlatQuestionRead;
-  readonly repository: FlatQuestionRepository;
-  /** The ordinary browser client supplies only answer-free publication review data. */
-  readonly api: Pick<ApiClient, "validateWorkspacePublication" | "getWorkspacePublicationDiff">;
-  /** Injected browser-safe validator keeps preview on the same learner ResponseWidget path. */
-  readonly responseValidator: Pick<WasmFacade, "validateResponseFormat">;
-  /** Protected image metadata client; absent only in a deliberately limited embedded fixture. */
-  readonly assetClient?: FlatQuestionAssetClient;
-  /** Same-route QTI conversion may move focus into the newly replaced draft. */
-  readonly focusHeadingOnMount?: boolean;
-  /** Clears the route's one-shot focus request after the unlocked heading receives it. */
-  readonly onHeadingFocusDelivered?: () => void;
-  /** Reports the exact saved revision and whether this editor has local changes. */
-  readonly onDraftDisplayStateChange?: (state: FlatQuestionDraftDisplayState) => void;
-  /** Prevents edits while QTI conversion is replacing and refetching this draft. */
-  readonly replacementPending?: boolean;
-}
-
-export interface FlatQuestionDraftDisplayState {
-  readonly revision: string;
-  readonly dirty: boolean;
-}
+export type {
+  FlatQuestionDraftDisplayState,
+  FlatQuestionEditorPageProps,
+} from "./flat_question_editor_types";
 
 type Review = {
   readonly revision: string;
@@ -374,9 +350,11 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
   const [review, setReview] = createSignal<Review | null>(null);
   const [reviewLoading, setReviewLoading] = createSignal(false);
   const [scope, setScope] = createSignal<PublicationScope>("institution");
+  const [bylineText, setBylineText] = createSignal("");
   const [status, setStatus] = createSignal<string | null>(null);
   const [showInstructorCheck, setShowInstructorCheck] = createSignal(false);
   let heading: HTMLHeadingElement | null = null;
+  let bylineInput: HTMLTextAreaElement | undefined;
   let reviewRequestGeneration = 0;
   let headingFocusDelivered = false;
 
@@ -700,10 +678,16 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
       setStatus("Refresh the publication review before publishing.");
       return;
     }
+    const byline = parseReviewedPublicByline(bylineText());
+    if (byline === null) {
+      setStatus("Provide one to sixteen distinct reviewed author names before publishing.");
+      requestAnimationFrame(() => bylineInput?.focus());
+      return;
+    }
     transition({ kind: "publishStarted" });
     setStatus("Publishing a new Question ID...");
     try {
-      await props.repository.publish(props.workspace, scope());
+      await props.repository.publish(props.workspace, { scope: scope(), byline });
       transition({
         kind: "publishSucceeded",
         reference: "/library",
@@ -952,6 +936,22 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
                           <option value="institution">Institution</option>
                           <option value="public">Public</option>
                         </select>
+                      </label>
+                      <label class="flat-question-authoring__field">
+                        <span>Reviewed public byline</span>
+                        <textarea
+                          ref={(element) => {
+                            bylineInput = element;
+                          }}
+                          value={bylineText()}
+                          onInput={(event) => setBylineText(event.currentTarget.value)}
+                          aria-describedby="flat-byline-help"
+                          disabled={isLocked()}
+                        />
+                        <span id="flat-byline-help" class="flat-question-authoring__help">
+                          Enter one to sixteen distinct names, one per line. This reviewed text, not
+                          account information, is published with the question.
+                        </span>
                       </label>
                       <p>Confirming publishes this saved private draft with a new Question ID.</p>
                       <button

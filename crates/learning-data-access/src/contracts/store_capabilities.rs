@@ -114,11 +114,12 @@ pub trait AuthoringStore: Send + Sync {
 /// Focused persistence capability composed by [`Store`].
 #[async_trait]
 pub trait CourseStore: Send + Sync {
-    /// Creates or replaces a tenant-owned course and its explicit memberships.
-    async fn upsert_course_impl(
+    /// Atomically creates a tenant-owned course and its mandatory initial
+    /// instructor membership.
+    async fn create_course_impl(
         &self,
         context: TenantContext,
-        course: CourseRecord,
+        command: CreateCourseCommand,
     ) -> Result<(), StoreError>;
 
     /// Reads one course inside the active tenant for authorization checks.
@@ -127,6 +128,15 @@ pub trait CourseStore: Send + Sync {
         context: TenantContext,
         course: CourseId,
     ) -> Result<Option<CourseRecord>, StoreError>;
+
+    /// Reads the sole current direct-authority episode for one user. Historical
+    /// episodes remain available only through their immutable receipts.
+    async fn get_current_course_membership_impl(
+        &self,
+        context: TenantContext,
+        course: CourseId,
+        user: UserId,
+    ) -> Result<Option<CourseMembershipRecord>, StoreError>;
 
     /// Lists courses visible to a member or sysadmin.
     async fn list_courses_impl(
@@ -277,13 +287,6 @@ pub trait CourseAssignmentStore: Send + Sync {
         page: PageRequest,
     ) -> Result<Page<AssignmentRecord>, StoreError>;
 
-    /// Creates one enrollment and its empty compact summary.
-    async fn create_enrollment_impl(
-        &self,
-        context: TenantContext,
-        enrollment: AssignmentEnrollment,
-    ) -> Result<(), StoreError>;
-
     /// Reads one enrollment inside the active tenant.
     async fn get_enrollment_impl(
         &self,
@@ -294,60 +297,70 @@ pub trait CourseAssignmentStore: Send + Sync {
 
 /// Focused persistence capability composed by [`Store`].
 #[async_trait]
-pub trait AssignmentPolicyStore: Send + Sync {
-    /// Reads the mutable access/time-limit policy and shared assignment revision.
-    async fn get_assignment_timing_impl(
+pub trait EffectivePolicyStore: Send + Sync {
+    /// Reads the assignment-owned M1 base policy and its shared revision.
+    async fn get_base_assignment_policy_impl(
         &self,
         context: TenantContext,
         assignment: AssignmentId,
-    ) -> Result<Option<StoredAssignmentTiming>, StoreError>;
+    ) -> Result<Option<StoredBaseAssignmentPolicy>, StoreError>;
 
-    /// Replaces current timing under instructor authority and immediately
-    /// re-resolves every active attempt. A newly elapsed deadline is submitted
-    /// in this transaction; an extension reschedules its durable job.
-    async fn update_assignment_timing_impl(
+    async fn put_base_assignment_policy_impl(
         &self,
         context: TenantContext,
-        command: UpdateAssignmentTimingCommand,
-    ) -> Result<StoredAssignmentTiming, StoreError>;
+        command: PutBaseAssignmentPolicyCommand,
+    ) -> Result<StoredBaseAssignmentPolicy, StoreError>;
 
-    /// Creates or replaces one target's current accommodation under the
-    /// assignment revision and immediately re-resolves affected active work.
-    async fn set_assignment_policy_exception_impl(
+    async fn put_group_schedule_offset_impl(
         &self,
         context: TenantContext,
-        command: SetAssignmentPolicyExceptionCommand,
-    ) -> Result<StoredAssignmentPolicyException, StoreError>;
-
-    /// Removes one current accommodation and immediately re-resolves affected work.
-    async fn delete_assignment_policy_exception_impl(
-        &self,
-        context: TenantContext,
-        command: DeleteAssignmentPolicyExceptionCommand,
+        command: PutGroupScheduleOffsetCommand,
     ) -> Result<AssignmentRevision, StoreError>;
 
-    /// Reads one exception by its non-authorizing internal identity.
-    async fn get_assignment_policy_exception_impl(
+    async fn delete_group_schedule_offset_impl(
         &self,
         context: TenantContext,
-        assignment: AssignmentId,
-        exception: AssignmentPolicyExceptionId,
-    ) -> Result<Option<StoredAssignmentPolicyException>, StoreError>;
+        command: DeleteGroupScheduleOffsetCommand,
+    ) -> Result<AssignmentRevision, StoreError>;
 
-    /// Resolves the exact current policy used for one assignment enrollment.
-    async fn resolve_assignment_timing_impl(
+    async fn put_group_accommodation_impl(
         &self,
         context: TenantContext,
-        assignment: AssignmentId,
-        student: StudentId,
-    ) -> Result<Option<ResolvedAssignmentTiming>, StoreError>;
+        command: PutGroupAccommodationCommand,
+    ) -> Result<AssignmentRevision, StoreError>;
 
-    /// Reads the effective policy explanation recorded for one issued attempt.
-    async fn get_attempt_resolved_timing_impl(
+    async fn delete_group_accommodation_impl(
+        &self,
+        context: TenantContext,
+        command: DeleteGroupAccommodationCommand,
+    ) -> Result<AssignmentRevision, StoreError>;
+
+    async fn put_individual_policy_exception_impl(
+        &self,
+        context: TenantContext,
+        command: PutIndividualPolicyExceptionCommand,
+    ) -> Result<AssignmentRevision, StoreError>;
+
+    async fn delete_individual_policy_exception_impl(
+        &self,
+        context: TenantContext,
+        command: DeleteIndividualPolicyExceptionCommand,
+    ) -> Result<AssignmentRevision, StoreError>;
+
+    /// Resolves M1--M4 from an S5 decision; implementations may not derive
+    /// group applicability, membership, or audience outside that decision.
+    async fn resolve_effective_policy_impl(
+        &self,
+        context: TenantContext,
+        command: ResolveEffectivePolicyCommand,
+    ) -> Result<Option<EffectivePolicyResolution>, StoreError>;
+
+    /// Reads the immutable effective-policy receipt for one issued attempt.
+    async fn get_issued_effective_policy_receipt_impl(
         &self,
         context: TenantContext,
         attempt: QuestionAttemptId,
-    ) -> Result<Option<ResolvedAttemptTiming>, StoreError>;
+    ) -> Result<Option<IssuedEffectivePolicyReceipt>, StoreError>;
 }
 
 /// Focused persistence capability composed by [`Store`].

@@ -164,21 +164,16 @@ where
         }
         Err(error) => return Err(store_error_response(error)),
     };
-    let course = match store
-        .get_course(authenticated.tenant_context, assignment.course_id)
-        .await
-    {
-        Ok(Some(course)) => course,
-        Ok(None) => {
-            return Err(error_response(
-                StatusCode::NOT_FOUND,
-                "assignment not found",
-            ));
-        }
-        Err(error) => return Err(store_error_response(error)),
-    };
     let manages = matches!(
-        course.role_for(authenticated.record.subject.user()),
+        store
+            .get_current_course_membership(
+                authenticated.tenant_context,
+                assignment.course_id,
+                authenticated.record.subject.user(),
+            )
+            .await
+            .map_err(store_error_response)?
+            .map(|membership| membership.role),
         Some(CourseMembershipRole::Instructor)
     );
     manages
@@ -220,9 +215,10 @@ mod tests {
     use axum::http::Request;
     use learning_data_access::in_memory::MemoryStore;
     use learning_data_access::{
-        AssignmentRecord, CatalogStore, CourseRecord, DraftRecord, JobLeaseDuration, JobPayload,
-        JobStore, PublishDraftCommand, RetentionWorkerCommand, RetentionWorkerStore,
-        SessionLifetime, SessionSubject, TenantContext,
+        AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateCourseCommand,
+        DraftRecord, JobLeaseDuration, JobPayload, JobStore, PublishDraftCommand,
+        RetentionWorkerCommand, RetentionWorkerStore, SessionLifetime, SessionSubject,
+        TenantContext, UpsertCourseMember,
     };
     use question_model::answer::NumericTolerance;
     use question_model::envelope::ContentBlock;
@@ -234,10 +230,10 @@ mod tests {
     };
     use question_model::taxonomy::License;
     use question_model::{
-        ActivityTimestamp, BackendCapabilities, Capability, CourseId, CourseMembership,
-        CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
-        ObjectId, ProblemId, ProblemVersionRef, PublicationScope, QuestionMetadata, QuestionSource,
-        RunPolicies, TenantId, UserId, UserRole, VersionId, WorkspaceId,
+        ActivityTimestamp, BackendCapabilities, Capability, CourseId, DraftQuestionDefinition,
+        DraftQuestionSource, GradingDefinition, ObjectId, ProblemId, ProblemVersionRef,
+        PublicationScope, QuestionMetadata, QuestionSource, RunPolicies, TenantId, UserId,
+        UserRole, VersionId, WorkspaceId,
     };
     use tower::ServiceExt;
     use uuid::Uuid;
@@ -345,6 +341,11 @@ mod tests {
                     flat_question_promotion: None,
                     publisher,
                     scope: PublicationScope::Public,
+                    byline: question_model::PublicByline::new(vec![
+                        question_model::PublicAuthorName::new("PLE fixture".to_string())
+                            .expect("valid test byline"),
+                    ])
+                    .expect("valid test byline"),
                     capabilities: BackendCapabilities::from_iter([
                         Capability::ServerGrading,
                         Capability::PrintExport,
@@ -382,30 +383,37 @@ mod tests {
         )
         .await;
         store
-            .upsert_course(
+            .create_course(
                 context,
-                CourseRecord {
-                    id: course,
-                    tenant,
-                    title: "BIOC 301".to_string(),
-                    members: vec![
-                        CourseMembership {
-                            user: requester,
-                            role: CourseMembershipRole::Instructor,
-                        },
-                        CourseMembership {
-                            user: other_instructor,
-                            role: CourseMembershipRole::Instructor,
-                        },
-                        CourseMembership {
-                            user: student,
-                            role: CourseMembershipRole::Student,
-                        },
-                    ],
+                CreateCourseCommand {
+                    course: CourseRecord {
+                        id: course,
+                        tenant,
+                        title: "BIOC 301".to_string(),
+                        term: question_model::CourseTerm::from_parts(
+                            "2026-08-24",
+                            "2026-12-18",
+                            "America/Chicago",
+                        )
+                        .expect("explicit fixture course term"),
+                    },
+                    initial_instructor: requester,
                 },
             )
             .await
             .expect("course save");
+        store
+            .upsert_course_member(
+                context,
+                UpsertCourseMember {
+                    course,
+                    user: student,
+                    display_name: "Export learner".to_string(),
+                    roster_contact: None,
+                },
+            )
+            .await
+            .expect("student roster membership");
         let reference = publish_fixture(&store, context, tenant, requester).await;
         store
             .create_untimed_assignment(
@@ -414,6 +422,7 @@ mod tests {
                     id: assignment,
                     tenant,
                     course_id: course,
+                    audience: question_model::AssignmentAudience::CourseWide,
                     title: "Peptide bond exam".to_string(),
                     items: vec![question_model::AssignmentItem {
                         id: question_model::AssignmentItemId::from_uuid(id(105)),

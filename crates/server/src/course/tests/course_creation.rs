@@ -76,8 +76,9 @@ async fn course_creation_rejects_invalid_requests_and_student_callers_without_pe
     assert_eq!(student_create.status(), StatusCode::FORBIDDEN);
 
     for invalid_body in [
-        r#"{"title":"   "}"#,
-        r#"{"title":"BIOC 301","role":"sysadmin"}"#,
+        r#"{"title":"   ","term":{"startDate":"2026-08-24","endDate":"2026-12-18","timeZone":"America/Chicago"}}"#,
+        r#"{"title":"BIOC 301","term":{"startDate":"2026-08-24","endDate":"2026-12-18","timeZone":"America/Chicago"},"role":"sysadmin"}"#,
+        r#"{"title":"BIOC 301","term":{"startDate":"2026-08-24","endDate":"2026-12-18","timeZone":"America/Chicago","offset":"-06:00"}}"#,
     ] {
         let rejected_course = app
             .clone()
@@ -93,6 +94,81 @@ async fn course_creation_rejects_invalid_requests_and_student_callers_without_pe
             .await
             .expect("invalid course response");
         assert_eq!(rejected_course.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    for (invalid_body, field, reason, message) in [
+        (
+            r#"{"title":"BIOC 301"}"#,
+            "term",
+            "required",
+            "Enter the course term dates and time zone.",
+        ),
+        (
+            r#"{"title":"BIOC 301","term":{"endDate":"2026-12-18","timeZone":"America/Chicago"}}"#,
+            "startDate",
+            "required",
+            "Enter a course start date.",
+        ),
+        (
+            r#"{"title":"BIOC 301","term":{"startDate":"2026-08-24","timeZone":"America/Chicago"}}"#,
+            "endDate",
+            "required",
+            "Enter a course end date.",
+        ),
+        (
+            r#"{"title":"BIOC 301","term":{"startDate":"2026-08-24","endDate":"2026-12-18"}}"#,
+            "timeZone",
+            "required",
+            "Enter an IANA time zone.",
+        ),
+        (
+            r#"{"title":"BIOC 301","term":{"startDate":"2026-02-30","endDate":"2026-12-18","timeZone":"America/Chicago"}}"#,
+            "startDate",
+            "invalidCalendarDate",
+            "Enter a valid date in YYYY-MM-DD format.",
+        ),
+        (
+            r#"{"title":"BIOC 301","term":{"startDate":"2026-12-19","endDate":"2026-12-18","timeZone":"America/Chicago"}}"#,
+            "endDate",
+            "endBeforeStart",
+            "Choose an end date on or after the start date.",
+        ),
+        (
+            r#"{"title":"BIOC 301","term":{"startDate":"2026-08-24","endDate":"2026-02-30","timeZone":"America/Chicago"}}"#,
+            "endDate",
+            "invalidCalendarDate",
+            "Enter a valid date in YYYY-MM-DD format.",
+        ),
+        (
+            r#"{"title":"BIOC 301","term":{"startDate":"2026-08-24","endDate":"2026-12-18","timeZone":"america/chicago"}}"#,
+            "timeZone",
+            "unknownIanaTimeZone",
+            "Choose a valid IANA time zone such as America/Chicago.",
+        ),
+    ] {
+        let rejected_course = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/courses")
+                    .header("cookie", &instructor_cookie)
+                    .header("content-type", "application/json")
+                    .body(Body::from(invalid_body))
+                    .expect("invalid course term request"),
+            )
+            .await
+            .expect("invalid course term response");
+        assert_eq!(rejected_course.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(
+            response_json(rejected_course).await,
+            serde_json::json!({
+                "error": "courseTermInvalid",
+                "field": field,
+                "reason": reason,
+                "message": message,
+            })
+        );
     }
 
     for (cookie, expected_message) in [
@@ -132,7 +208,9 @@ async fn course_creation_rejects_invalid_requests_and_student_callers_without_pe
                 .uri("/api/courses")
                 .header("cookie", &sysadmin_cookie)
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"title":"BIOC 301: Biochemistry"}"#))
+                .body(Body::from(
+                    r#"{"title":"BIOC 301: Biochemistry","term":{"startDate":"2026-08-24","endDate":"2026-12-18","timeZone":"America/Chicago"}}"#,
+                ))
                 .expect("sysadmin course request"),
         )
         .await
@@ -140,6 +218,35 @@ async fn course_creation_rejects_invalid_requests_and_student_callers_without_pe
     assert_eq!(sysadmin_create.status(), StatusCode::CREATED);
     let created = response_json(sysadmin_create).await;
     assert_eq!(created["role"], "instructor");
+    assert_eq!(
+        created["term"],
+        serde_json::json!({
+            "startDate": "2026-08-24",
+            "endDate": "2026-12-18",
+            "timeZone": "America/Chicago",
+        })
+    );
+
+    let instructor_create = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/courses")
+                .header("cookie", &instructor_cookie)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"title":"BIOC 302: Enzymes","term":{"startDate":"2027-01-11","endDate":"2027-05-07","timeZone":"Europe/Paris"}}"#,
+                ))
+                .expect("instructor course request"),
+        )
+        .await
+        .expect("instructor course response");
+    assert_eq!(instructor_create.status(), StatusCode::CREATED);
+    assert_eq!(
+        response_json(instructor_create).await["term"]["timeZone"],
+        "Europe/Paris"
+    );
 
     let sysadmin_courses = store
         .list_courses(

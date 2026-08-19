@@ -23,7 +23,6 @@ import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { TaxonomyTerm } from "../../generated/api/TaxonomyTerm";
 import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
-import type { PublicationScope } from "../../generated/api/PublicationScope";
 import type { CapabilityValidator, FormatValidator, TimerEvaluator } from "../wasm/index";
 import type { CourseRosterClient } from "./enrollment";
 import type {
@@ -48,10 +47,11 @@ import type {
   WorkspaceDraftPage,
   PublicationDiff,
   PublicationResult,
+  PublicationRequest,
   PublicationValidationResponse,
   PrefetchedNextQuestion,
-  NavigationResolution,
 } from "./contracts";
+import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { PublicRouteReference } from "../navigation/public_route";
 
 /** Browser-safe client contract. A future HTTP transport implements this interface. */
@@ -75,7 +75,7 @@ export interface ApiClient extends CourseRosterClient {
   readonly getWorkspacePublicationDiff: (workspace: WorkspaceId) => Promise<PublicationDiff>;
   readonly publishWorkspace: (
     workspace: WorkspaceId,
-    scope: PublicationScope,
+    request: PublicationRequest,
     revision: string,
   ) => Promise<PublicationResult>;
   readonly listProblems: (cursor?: string) => Promise<CursorPage<CatalogProblemSummary>>;

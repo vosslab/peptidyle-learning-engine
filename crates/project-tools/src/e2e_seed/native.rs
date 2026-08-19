@@ -34,8 +34,13 @@ pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
         SeedReplayState::Fresh => {
             // Persist this marker before any immutable publication. A later
             // retry sees the incomplete state and asks for a disposable reset.
-            ensure_webwork_pilot_course(&store, context, native_course(&arguments, marker.course))
-                .await?;
+            ensure_webwork_pilot_course(
+                &store,
+                context,
+                arguments.instructor,
+                native_course(&arguments, marker.course),
+            )
+            .await?;
             publish_fresh_native(&store, context, &arguments, marker).await?
         }
         SeedReplayState::Replay => {
@@ -72,21 +77,21 @@ pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
         version: published.version,
     };
     let assignment = native_assignment(&arguments, ids, reference);
-    ensure_webwork_pilot_course(&store, context, native_course(&arguments, ids.course)).await?;
-    ensure_webwork_pilot_assignment(&store, context, assignment.clone()).await?;
-    ensure_webwork_pilot_enrollment(
+    ensure_webwork_pilot_course(
         &store,
         context,
-        AssignmentEnrollment {
-            id: ids.enrollment,
-            tenant: arguments.tenant,
-            assignment: ids.assignment,
-            user: arguments.student,
-            student: StudentId::from_uuid(arguments.student.as_uuid()),
-            first_completed_at: None,
-            current_grade_run: None,
-            best_grade_run: None,
-        },
+        arguments.instructor,
+        native_course(&arguments, ids.course),
+    )
+    .await?;
+    ensure_webwork_pilot_assignment(&store, context, assignment.clone()).await?;
+    let enrollment = ensure_webwork_pilot_enrollment(
+        &store,
+        context,
+        arguments.instructor,
+        arguments.student,
+        ids.course,
+        ids.assignment,
     )
     .await
     .context("creating native E2E enrollment")?;
@@ -102,20 +107,9 @@ pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
         )
         .await?;
     }
-    if arguments.exercise_timing {
-        exercise_assignment_timing(
-            &store,
-            context,
-            arguments.instructor,
-            arguments.student,
-            ids,
-        )
-        .await?;
-    }
-
     Ok(Manifest {
         assignment_id: ids.assignment,
-        enrollment_id: ids.enrollment,
+        enrollment_id: enrollment.id,
         question_id: published.question_id.clone(),
         problem_id: published.problem,
         version_id: published.version,
@@ -161,6 +155,9 @@ async fn publish_fresh_native(
                 flat_question_promotion: None,
                 publisher: arguments.instructor,
                 scope: PublicationScope::Institution,
+                byline: question_model::PublicByline::new(vec![
+                    question_model::PublicAuthorName::new("E2E Instructor".to_string())?,
+                ])?,
                 capabilities,
             },
         )
@@ -182,16 +179,8 @@ fn native_course(arguments: &SeedArguments, course: CourseId) -> CourseRecord {
         id: course,
         tenant: arguments.tenant,
         title: "PLE replica E2E course".to_string(),
-        members: vec![
-            CourseMembership {
-                user: arguments.instructor,
-                role: CourseMembershipRole::Instructor,
-            },
-            CourseMembership {
-                user: arguments.student,
-                role: CourseMembershipRole::Student,
-            },
-        ],
+        term: question_model::CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
+            .expect("explicit fixture course term"),
     }
 }
 
@@ -205,6 +194,7 @@ fn native_assignment(
         tenant: arguments.tenant,
         course_id: ids.course,
         title: "PLE replica E2E assignment".to_string(),
+        audience: question_model::AssignmentAudience::CourseWide,
         items: vec![AssignmentItem {
             id: ids.assignment_item,
             reference,
@@ -264,7 +254,7 @@ where
         || record.capabilities != native_capabilities()?
         || record.scope != PublicationScope::Institution
         || record.lifecycle != CatalogLifecycle::Published
-        || record.authors.as_slice() != [publisher]
+        || record.author_ids.as_slice() != [publisher]
         || record.derived_from.is_some()
     {
         bail!("native retained publication differs from the reviewed immutable source");

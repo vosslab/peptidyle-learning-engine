@@ -51,11 +51,7 @@ pub(super) fn decode_member(
         }
     };
     Ok(CourseRosterMember {
-        id: CourseMemberId::from_uuid(
-            row.try_get("record_id")
-                .or_else(|_| row.try_get("course_member_id"))
-                .map_err(map_sqlx_error)?,
-        ),
+        id: CourseMemberId::from_uuid(row.try_get("record_id").map_err(map_sqlx_error)?),
         tenant,
         course,
         user: UserId::from_uuid(row.try_get("user_id").map_err(map_sqlx_error)?),

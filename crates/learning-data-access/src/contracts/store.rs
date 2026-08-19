@@ -1,151 +1,5 @@
 use super::*;
 
-/// Portable persistence failure with no SQL type in its variants.
-#[derive(Debug, Clone, PartialEq)]
-pub enum StoreError {
-    /// Requested record is absent in the active tenant or shared catalog.
-    NotFound,
-    /// Immutable identity already exists.
-    AlreadyExists,
-    /// A tenant-owned record disagrees with authenticated context.
-    TenantMismatch,
-    /// Stored state changed after a caller validated its expected value.
-    Conflict,
-    /// PostgreSQL aborted the whole transaction due to a serialization or deadlock conflict.
-    RetryableTransaction,
-    /// Authenticated identity lacks ownership or role for the operation.
-    Forbidden,
-    /// Record shape violates a model invariant.
-    InvalidRecord(String),
-    /// Pure activity projection rejected the transition.
-    RunModel(RunModelError),
-    /// The database-authoritative timer no longer accepts this response.
-    TimedOut,
-    /// Backend state is temporarily unavailable.
-    Unavailable(String),
-}
-
-impl std::fmt::Display for StoreError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::NotFound => write!(formatter, "record not found"),
-            Self::AlreadyExists => write!(formatter, "immutable record already exists"),
-            Self::TenantMismatch => write!(formatter, "record tenant does not match context"),
-            Self::Conflict => write!(formatter, "record changed before the operation committed"),
-            Self::RetryableTransaction => write!(formatter, "transaction must be retried"),
-            Self::Forbidden => write!(formatter, "operation is not authorized"),
-            Self::InvalidRecord(message) => write!(formatter, "invalid record: {message}"),
-            Self::RunModel(error) => write!(formatter, "activity transition rejected: {error}"),
-            Self::TimedOut => write!(formatter, "question attempt timed out"),
-            Self::Unavailable(message) => write!(formatter, "store unavailable: {message}"),
-        }
-    }
-}
-
-impl std::error::Error for StoreError {}
-
-impl From<RunModelError> for StoreError {
-    fn from(error: RunModelError) -> Self {
-        Self::RunModel(error)
-    }
-}
-
-/// Catalog operations that require visibility, ownership, and atomic publish.
-#[async_trait]
-pub trait CatalogStore: Send + Sync {
-    /// Validates the stored draft expectation and atomically publishes it.
-    async fn publish_draft(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        command: PublishDraftCommand,
-    ) -> Result<PublishedProblemRecord, StoreError>;
-
-    /// Resolves an exact visible version, including deprecated or archived ones.
-    async fn get_catalog_problem(
-        &self,
-        context: TenantContext,
-        reference: ProblemVersionRef,
-    ) -> Result<Option<PublishedProblemRecord>, StoreError>;
-
-    /// Resolves a visible Question ID to its exact immutable publication under
-    /// the caller's authorization.
-    ///
-    /// A Question ID identifies one publication. This lookup neither follows
-    /// a successor nor selects a latest version.
-    async fn resolve_catalog_problem(
-        &self,
-        context: TenantContext,
-        reference: question_model::ProblemDisplayRef,
-    ) -> Result<Option<PublishedProblemRecord>, StoreError>;
-
-    /// Lists discoverable hot metadata in stable cursor order.
-    async fn list_catalog(
-        &self,
-        context: TenantContext,
-        page: PageRequest,
-    ) -> Result<Page<CatalogProblemSummary>, StoreError>;
-
-    /// Lists distinct controlled taxonomy terms in stable cursor order.
-    async fn list_catalog_taxonomy(
-        &self,
-        context: TenantContext,
-        page: PageRequest,
-    ) -> Result<Page<TaxonomyTerm>, StoreError>;
-
-    /// Searches hot discoverable metadata and returns rows plus server-side
-    /// facets from one normalized-query snapshot. Implementations must reject
-    /// a cursor issued for a different normalized query and must never load
-    /// `problem_version_payload` merely to browse or aggregate.
-    async fn search_catalog(
-        &self,
-        context: TenantContext,
-        query: CatalogSearchQuery,
-    ) -> Result<CatalogSearchPage, StoreError>;
-
-    /// Returns a safe exact immutable catalog-detail projection. This default
-    /// retains compatibility for focused test stores while production stores
-    /// may use a hot metadata projection instead of loading source bindings.
-    async fn get_catalog_detail(
-        &self,
-        context: TenantContext,
-        reference: ProblemVersionRef,
-    ) -> Result<Option<CatalogProblemDetail>, StoreError> {
-        Ok(self
-            .get_catalog_problem(context, reference)
-            .await?
-            .map(|record| CatalogProblemDetail {
-                summary: record.summary(),
-                prompt: record.question.prompt,
-                statistics: question_model::CatalogStatisticsStatus::Unavailable,
-            }))
-    }
-
-    /// Applies an author-owned, one-way post-publication transition.
-    async fn transition_catalog_problem(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        reference: ProblemVersionRef,
-        transition: CatalogTransition,
-    ) -> Result<PublishedProblemRecord, StoreError>;
-}
-
-/// Private catalog bridge from an exact visible version to its source bytes.
-///
-/// This trait is intentionally not part of any browser DTO or public asset
-/// delivery API. A foreign tenant receives `None` before an object store is
-/// consulted, which keeps source-object existence tenant-isolated.
-#[async_trait]
-pub trait CatalogSourceStore: Send + Sync {
-    /// Resolves the exact source binding for one visible immutable version.
-    async fn catalog_source_artifact(
-        &self,
-        context: TenantContext,
-        reference: ProblemVersionRef,
-    ) -> Result<Option<PublishedSourceArtifact>, StoreError>;
-}
-
 /// Persistence operations consumed by catalog, course, run, and worker lanes.
 /// Complete persistence contract consumed by server and worker lanes.
 #[async_trait]
@@ -155,13 +9,54 @@ pub trait Store:
     + AuthoringStore
     + CourseStore
     + CourseAssignmentStore
-    + AssignmentPolicyStore
+    + EntitlementStore
+    + EffectivePolicyStore
     + RunStore
     + FeedbackStore
     + ActivityStore
     + NavigationReferenceStore
     + AccountPresentationStore
 {
+    /// Lists the current learner-visible assignment definitions for one
+    /// course.  This is non-mutating and uses the same entitlement evaluator
+    /// as receipt materialization.
+    async fn list_learner_entitled_assignments(
+        &self,
+        context: TenantContext,
+        learner: UserId,
+        course: CourseId,
+        page: PageRequest,
+    ) -> Result<Page<AssignmentRecord>, StoreError> {
+        EntitlementStore::list_learner_entitled_assignments_impl(
+            self, context, learner, course, page,
+        )
+        .await
+    }
+
+    /// Evaluates present learner authority without materializing a receipt.
+    async fn evaluate_assignment_entitlement(
+        &self,
+        context: TenantContext,
+        learner: UserId,
+        course: CourseId,
+        assignment: AssignmentId,
+    ) -> Result<domain::entitlement::EntitlementDecision, StoreError> {
+        EntitlementStore::evaluate_assignment_entitlement_impl(
+            self, context, learner, course, assignment,
+        )
+        .await
+    }
+
+    /// Explicit instructor issue of a learner receipt. Learner start, attempt,
+    /// submission, and replay must materialize only inside their owning action.
+    async fn issue_assignment_entitlement(
+        &self,
+        context: TenantContext,
+        command: MaterializeAssignmentEntitlementCommand,
+    ) -> Result<AssignmentEntitlementMaterialization, StoreError> {
+        EntitlementStore::issue_assignment_entitlement_impl(self, context, command).await
+    }
+
     /// Delegates to the focused [`StatisticsStore`] capability.
     async fn question_statistics(
         &self,
@@ -253,12 +148,12 @@ pub trait Store:
     }
 
     /// Delegates to the focused [`CourseStore`] capability.
-    async fn upsert_course(
+    async fn create_course(
         &self,
         context: TenantContext,
-        course: CourseRecord,
+        command: CreateCourseCommand,
     ) -> Result<(), StoreError> {
-        CourseStore::upsert_course_impl(self, context, course).await
+        CourseStore::create_course_impl(self, context, command).await
     }
 
     /// Delegates to the focused [`CourseStore`] capability.
@@ -268,6 +163,16 @@ pub trait Store:
         course: CourseId,
     ) -> Result<Option<CourseRecord>, StoreError> {
         CourseStore::get_course_impl(self, context, course).await
+    }
+
+    /// Delegates to the canonical current-membership authority query.
+    async fn get_current_course_membership(
+        &self,
+        context: TenantContext,
+        course: CourseId,
+        user: UserId,
+    ) -> Result<Option<CourseMembershipRecord>, StoreError> {
+        CourseStore::get_current_course_membership_impl(self, context, course, user).await
     }
 
     /// Delegates to the focused [`CourseStore`] capability.
@@ -433,15 +338,6 @@ pub trait Store:
     }
 
     /// Delegates to the focused [`CourseAssignmentStore`] capability.
-    async fn create_enrollment(
-        &self,
-        context: TenantContext,
-        enrollment: AssignmentEnrollment,
-    ) -> Result<(), StoreError> {
-        CourseAssignmentStore::create_enrollment_impl(self, context, enrollment).await
-    }
-
-    /// Delegates to the focused [`CourseAssignmentStore`] capability.
     async fn get_enrollment(
         &self,
         context: TenantContext,
@@ -483,73 +379,94 @@ pub trait Store:
         ActivityStore::instructor_get_enrollment_impl(self, context, actor, enrollment).await
     }
 
-    /// Delegates to the focused [`AssignmentPolicyStore`] capability.
-    async fn get_assignment_timing(
+    /// Delegates to the focused [`EffectivePolicyStore`] capability.
+    async fn get_base_assignment_policy(
         &self,
         context: TenantContext,
         assignment: AssignmentId,
-    ) -> Result<Option<StoredAssignmentTiming>, StoreError> {
-        AssignmentPolicyStore::get_assignment_timing_impl(self, context, assignment).await
+    ) -> Result<Option<StoredBaseAssignmentPolicy>, StoreError> {
+        EffectivePolicyStore::get_base_assignment_policy_impl(self, context, assignment).await
     }
 
-    /// Delegates to the focused [`AssignmentPolicyStore`] capability.
-    async fn update_assignment_timing(
+    /// Delegates to the focused [`EffectivePolicyStore`] capability.
+    async fn put_base_assignment_policy(
         &self,
         context: TenantContext,
-        command: UpdateAssignmentTimingCommand,
-    ) -> Result<StoredAssignmentTiming, StoreError> {
-        AssignmentPolicyStore::update_assignment_timing_impl(self, context, command).await
+        command: PutBaseAssignmentPolicyCommand,
+    ) -> Result<StoredBaseAssignmentPolicy, StoreError> {
+        EffectivePolicyStore::put_base_assignment_policy_impl(self, context, command).await
     }
 
-    /// Delegates to the focused [`AssignmentPolicyStore`] capability.
-    async fn set_assignment_policy_exception(
+    /// Delegates to the focused [`EffectivePolicyStore`] capability.
+    async fn put_group_schedule_offset(
         &self,
         context: TenantContext,
-        command: SetAssignmentPolicyExceptionCommand,
-    ) -> Result<StoredAssignmentPolicyException, StoreError> {
-        AssignmentPolicyStore::set_assignment_policy_exception_impl(self, context, command).await
-    }
-
-    /// Delegates to the focused [`AssignmentPolicyStore`] capability.
-    async fn delete_assignment_policy_exception(
-        &self,
-        context: TenantContext,
-        command: DeleteAssignmentPolicyExceptionCommand,
+        command: PutGroupScheduleOffsetCommand,
     ) -> Result<AssignmentRevision, StoreError> {
-        AssignmentPolicyStore::delete_assignment_policy_exception_impl(self, context, command).await
+        EffectivePolicyStore::put_group_schedule_offset_impl(self, context, command).await
     }
 
-    /// Delegates to the focused [`AssignmentPolicyStore`] capability.
-    async fn get_assignment_policy_exception(
+    /// Delegates to the focused [`EffectivePolicyStore`] capability.
+    async fn delete_group_schedule_offset(
         &self,
         context: TenantContext,
-        assignment: AssignmentId,
-        exception: AssignmentPolicyExceptionId,
-    ) -> Result<Option<StoredAssignmentPolicyException>, StoreError> {
-        AssignmentPolicyStore::get_assignment_policy_exception_impl(
-            self, context, assignment, exception,
-        )
-        .await
+        command: DeleteGroupScheduleOffsetCommand,
+    ) -> Result<AssignmentRevision, StoreError> {
+        EffectivePolicyStore::delete_group_schedule_offset_impl(self, context, command).await
     }
 
-    /// Delegates to the focused [`AssignmentPolicyStore`] capability.
-    async fn resolve_assignment_timing(
+    /// Delegates to the focused [`EffectivePolicyStore`] capability.
+    async fn put_group_accommodation(
         &self,
         context: TenantContext,
-        assignment: AssignmentId,
-        student: StudentId,
-    ) -> Result<Option<ResolvedAssignmentTiming>, StoreError> {
-        AssignmentPolicyStore::resolve_assignment_timing_impl(self, context, assignment, student)
-            .await
+        command: PutGroupAccommodationCommand,
+    ) -> Result<AssignmentRevision, StoreError> {
+        EffectivePolicyStore::put_group_accommodation_impl(self, context, command).await
     }
 
-    /// Delegates to the focused [`AssignmentPolicyStore`] capability.
-    async fn get_attempt_resolved_timing(
+    /// Delegates to the focused [`EffectivePolicyStore`] capability.
+    async fn delete_group_accommodation(
+        &self,
+        context: TenantContext,
+        command: DeleteGroupAccommodationCommand,
+    ) -> Result<AssignmentRevision, StoreError> {
+        EffectivePolicyStore::delete_group_accommodation_impl(self, context, command).await
+    }
+
+    /// Delegates to the focused [`EffectivePolicyStore`] capability.
+    async fn put_individual_policy_exception(
+        &self,
+        context: TenantContext,
+        command: PutIndividualPolicyExceptionCommand,
+    ) -> Result<AssignmentRevision, StoreError> {
+        EffectivePolicyStore::put_individual_policy_exception_impl(self, context, command).await
+    }
+
+    /// Delegates to the focused [`EffectivePolicyStore`] capability.
+    async fn delete_individual_policy_exception(
+        &self,
+        context: TenantContext,
+        command: DeleteIndividualPolicyExceptionCommand,
+    ) -> Result<AssignmentRevision, StoreError> {
+        EffectivePolicyStore::delete_individual_policy_exception_impl(self, context, command).await
+    }
+
+    /// Delegates to the focused [`EffectivePolicyStore`] capability.
+    async fn resolve_effective_policy(
+        &self,
+        context: TenantContext,
+        command: ResolveEffectivePolicyCommand,
+    ) -> Result<Option<EffectivePolicyResolution>, StoreError> {
+        EffectivePolicyStore::resolve_effective_policy_impl(self, context, command).await
+    }
+
+    /// Delegates to the focused [`EffectivePolicyStore`] capability.
+    async fn get_issued_effective_policy_receipt(
         &self,
         context: TenantContext,
         attempt: QuestionAttemptId,
-    ) -> Result<Option<ResolvedAttemptTiming>, StoreError> {
-        AssignmentPolicyStore::get_attempt_resolved_timing_impl(self, context, attempt).await
+    ) -> Result<Option<IssuedEffectivePolicyReceipt>, StoreError> {
+        EffectivePolicyStore::get_issued_effective_policy_receipt_impl(self, context, attempt).await
     }
 
     /// Delegates to the focused [`RunStore`] capability.
@@ -947,7 +864,8 @@ impl<T> Store for T where
         + AuthoringStore
         + CourseStore
         + CourseAssignmentStore
-        + AssignmentPolicyStore
+        + EntitlementStore
+        + EffectivePolicyStore
         + RunStore
         + FeedbackStore
         + ActivityStore

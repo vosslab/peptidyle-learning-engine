@@ -880,6 +880,7 @@ where
                     flat_question_promotion: None,
                     publisher,
                     scope: PublicationScope::Public,
+                    byline: reviewed_byline(),
                     capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
                 },
             )
@@ -918,6 +919,7 @@ where
                 flat_question_promotion: None,
                 publisher,
                 scope: PublicationScope::Public,
+                byline: reviewed_byline(),
                 capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
             },
         )

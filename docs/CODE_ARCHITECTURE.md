@@ -50,9 +50,11 @@ browser-visible assessment transition.
   import answer-bearing checkers. [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md)
   defines adapter responsibilities.
 - **Actor-scoped learner access.** Learner routes use learner-scoped store
-  operations. Each operation verifies the acting user, active student
-  membership, enrollment, and attempt or run relationship in the same store
-  boundary; a route-level ownership check is not the sole control.
+  operations. Each operation verifies the acting user and re-evaluates active
+  student membership, assignment audience, and applicable groups before
+  binding the stable learner identity to a retained enrollment, attempt, or
+  run in the same store boundary; a route-level ownership check is not the
+  sole control.
 - **Database-enforced tenant isolation.** PostgreSQL forces row-level security
   on tenant-bearing records. API, worker, grader, and public-asset-publisher
   processes use distinct login profiles with closed capability-role contracts;
@@ -79,8 +81,8 @@ browser-visible assessment transition.
 
 | Component                | Location                                                                                  | Responsibility                                                                                                                          |
 | ------------------------ | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Question model           | [crates/question_model/](../crates/question_model/)                                       | Question taxonomy, identifiers, capabilities, browser-safe presentations, and response schemas.                                         |
-| Domain                   | [crates/domain/](../crates/domain/)                                                       | Run state, policy evaluation, seeded generation, timing inputs, and validation without a database or wall clock.                        |
+| Question model           | [crates/question_model/](../crates/question_model/)                                       | Question taxonomy, typed public references, immutable public bylines, mandatory course-term values, capabilities, browser-safe presentations, and response schemas.          |
+| Domain                   | [crates/domain/](../crates/domain/)                                                       | Run state, pure effective-policy resolution after entitlement, seeded generation, timing inputs, and validation without a database or wall clock. |
 | Grading                  | [crates/grading/](../crates/grading/)                                                     | Answer-bearing checkers and correctness decisions; server-side only.                                                                    |
 | Learning data access     | [crates/learning-data-access/](../crates/learning-data-access/)                           | Store contracts, in-memory and PostgreSQL implementations, migrations, forced RLS context, capability roles, and conformance tests.     |
 | Object storage           | [crates/objects/](../crates/objects/)                                                     | Typed object keys, checksums, strict image ingress validation, and MinIO/S3-compatible implementations.                                 |
@@ -95,6 +97,15 @@ The Cargo dependency graph is a security control: `crates/domain/` depends only
 on the question model, while `crates/wasm/` does not depend on `crates/grading/`.
 The server composition root selects concrete stores, object backends, identity
 providers, and adapters.
+
+Course-term ownership is deliberately vertical and singular. `question_model` validates exact
+calendar dates, ordered inclusive bounds, and case-sensitive IANA membership; `CourseRecord` and
+`CourseSummary` require that value. Memory and PostgreSQL Store implementations carry the same
+value, the existing course routes serialize it, generated TypeScript owns the response shape, and
+the Solid course form supplies it explicitly. PostgreSQL adds native date/date/text columns to the
+existing course row and treats an invalid stored value as unavailable rather than inventing a
+fallback. Assignment dates remain absolute instants associated with a term-bearing course; this
+slice does not resolve local wall times, daylight-saving transitions, or schedule shifts.
 
 ## Assessment and asset-publication flow
 
@@ -126,13 +137,22 @@ course-record deletion separate from reusable published content.
 `crates/server/src/auth/` implements passwordless email and passkey flows,
 session issuance, logout, challenge binding, request-origin checks, and
 rate-limiting inputs. Opaque user identifiers, not email addresses, identify
-accounts. Course membership and enrollment determine course authority.
+accounts. Canonical course-membership episodes and the derived entitlement
+evaluator determine current course/assignment authority; an enrollment is
+retained educational evidence, never an access grant.
 
 The data-access Store contracts make authority explicit at the persistence
 boundary. Learner operations accept an actor and require active learner access;
 Instructor-history operations use their own contracts. PostgreSQL evaluates those
 operations in transactions with tenant context and row-level security, while
 the in-memory store supplies the same behavior for conformance testing.
+
+The effective-policy resolver is a separate pure domain boundary. It consumes the entitlement
+decision and evaluator-approved scopes supplied by S5, then applies lifecycle, entitlement, and
+authorization gates in order before resolving the base policy, approved group modifiers, and an
+individual exception. Both Store backends construct that same grant-filtered input for current
+resolution and action paths. PostgreSQL alone persists the sealed per-attempt receipt and normalized
+per-field provenance; subsequent reads use the receipt rather than mutable policy inputs.
 
 ## Catalog discovery and statistics disclosure
 
@@ -156,6 +176,12 @@ adds the shared monotonic publication/disclosure event sequence, the
 security-invoker catalog view, and forced-RLS, broker-owned disclosure recording.
 It is the database authority for disclosure events; application readers see
 them only through catalog visibility.
+
+Typed public references live in `crates/question_model/src/public_route.rs` and resolve through one
+authorized server navigation result; they never become authorization inputs. Immutable
+`PublicByline` attribution lives beside the published question model, while private author-account
+relationships remain outside browser-safe catalog projections. PostgreSQL stores and validates the
+ordered byline on the immutable version and projects it through the security-invoker catalog view.
 
 ## External question engines
 
@@ -216,7 +242,9 @@ sanitization, label-based Podman discovery, semantic service status, and
 project-scoped cleanup plans. Focused Python modules own lifecycle sequencing:
 `lifecycle.py` coordinates typed start, validation, and restart requests;
 `local_environment.py`, `local_identity.py`, and `private_files.py` own default-only
-private state; `renderer.py` owns selected-renderer OCI configuration-ID provenance;
+private state; `private_state.py` owns mode-0700 repository-target run directories,
+replacement-resistant descriptor access, and cross-process cleanup receipts for remote Podman
+bind sources; `renderer.py` owns selected-renderer OCI configuration-ID provenance;
 and lifecycle validation, waits, and diagnostics retain semantic readiness and safe failures.
 
 `local_stack_control/chapter_one.py` owns the Chapter 1 subprocess boundary and protected,
@@ -229,7 +257,7 @@ restricted to the `containers` project. A separate closed disposable-owner
 adapter (`python3 -m local_stack_control._consumer_cli`) forms
 temporary E2E targets only from a private mode-0600 manifest and a runner-held
 cleanup capability. The closed owners are `course-appearance`, `chapter-one-pilot`,
-`database-baseline`, `chapter-one-browser`, and `replica-restart`; each fixes its
+`database-baseline`, `chapter-one-browser`, `wp-r2-host-seed-renderer`, and `replica-restart`; each fixes its
 project namespace and Compose files before any action is formed. The adapter
 allows scoped Compose actions, diagnostics, or the one owner-specific replica
 outage action, while cleanup requires the private capability and label-derived

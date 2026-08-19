@@ -37,7 +37,9 @@ async fn catalog_and_taxonomy_lists_use_cursors_and_hide_deprecated_versions() {
                     .header("cookie", &cookie)
                     .header(IF_MATCH, strong_if_match(draft_revision))
                     .header("content-type", "application/json")
-                    .body(Body::from(r#"{"scope":"public"}"#))
+                    .body(Body::from(
+                        r#"{"scope":"public","byline":{"names":["PLE fixture"]}}"#,
+                    ))
                     .expect("publish request"),
             )
             .await
@@ -226,7 +228,9 @@ async fn catalog_search_and_safe_detail_are_authenticated_bounded_and_non_cachea
                 .header("cookie", &cookie)
                 .header(IF_MATCH, strong_if_match(draft_revision))
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"scope":"public"}"#))
+                .body(Body::from(
+                    r#"{"scope":"public","byline":{"names":["PLE fixture"]}}"#,
+                ))
                 .expect("publish request"),
         )
         .await
@@ -357,12 +361,7 @@ async fn catalog_read_routes_reject_student_access() {
     let workspace = WorkspaceId::from_uuid(id(33));
     let version = VersionId::from_uuid(id(34));
     let revision = store
-        .upsert_draft(
-            context,
-            instructor,
-            None,
-            draft(tenant, workspace, version),
-        )
+        .upsert_draft(context, instructor, None, draft(tenant, workspace, version))
         .await
         .expect("draft save")
         .revision;
@@ -375,7 +374,9 @@ async fn catalog_read_routes_reject_student_access() {
                 .header("cookie", &instructor_cookie)
                 .header(IF_MATCH, strong_if_match(revision))
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"scope":"public"}"#))
+                .body(Body::from(
+                    r#"{"scope":"public","byline":{"names":["PLE fixture"]}}"#,
+                ))
                 .expect("publish request"),
         )
         .await
@@ -446,7 +447,9 @@ async fn catalog_search_rejects_a_cursor_forged_with_an_ordinary_sha256() {
                     .header("cookie", &cookie)
                     .header(IF_MATCH, strong_if_match(revision))
                     .header("content-type", "application/json")
-                    .body(Body::from(r#"{"scope":"public"}"#))
+                    .body(Body::from(
+                        r#"{"scope":"public","byline":{"names":["PLE fixture"]}}"#,
+                    ))
                     .expect("publish search fixture"),
             )
             .await

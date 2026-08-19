@@ -488,7 +488,7 @@ export function CourseRosterPage(): JSX.Element {
       </p>
       <Show when={course}>
         {(currentCourse) => (
-          <CourseManagementNav coursePublicId={currentCourse().publicId} active="students" />
+          <CourseManagementNav courseReference={currentCourse().reference} active="students" />
         )}
       </Show>
       <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">

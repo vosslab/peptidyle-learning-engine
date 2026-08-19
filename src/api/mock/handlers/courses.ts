@@ -2,6 +2,7 @@ import { publishedProblemFixture } from "../../../../generated/fixtures/publishe
 import type { CourseAppearance } from "../../../../generated/api/CourseAppearance";
 import type { CourseAppearanceUpdate } from "../../../../generated/api/CourseAppearanceUpdate";
 import type { CourseSummary } from "../../../../generated/api/CourseSummary";
+import type { CourseCreateInput } from "../../contracts";
 import { DecodeError } from "../../decoder";
 import { createMockAssignmentState, respondAuthoring } from "./authoring";
 import { decodeCourseAppearanceUpdate, decodeCourseCreateInput } from "../../decoders";
@@ -25,7 +26,7 @@ export const mockCourseAppearance: CourseAppearance = {
 export const secondaryMockCourse: CourseSummary = {
   ...publishedProblemFixture.course,
   id: "0198e000-0000-7000-8000-000000000015",
-  publicId: 2,
+  reference: "C-2",
   title: "Genetics pilot",
 };
 
@@ -84,11 +85,11 @@ async function appearanceInput(request: Request): Promise<CourseAppearanceUpdate
   }
 }
 
-async function courseCreateInput(request: Request): Promise<string | undefined> {
+async function courseCreateInput(request: Request): Promise<CourseCreateInput | undefined> {
   try {
     const text = await request.text();
     if (hasDuplicateJsonObjectMember(text)) return undefined;
-    return decodeCourseCreateInput(JSON.parse(text), "request").title;
+    return decodeCourseCreateInput(JSON.parse(text), "request");
   } catch (error: unknown) {
     if (error instanceof DecodeError || error instanceof SyntaxError) return undefined;
     throw error;
@@ -178,10 +179,10 @@ export async function respondCourse(
       return jsonResponse({ items: [publishedProblemFixture.course], nextCursor: null });
     }
     if (request.method === "POST") {
-      const title = await courseCreateInput(request);
-      if (title === undefined) return appearanceError(422, "course title is invalid");
+      const input = await courseCreateInput(request);
+      if (input === undefined) return appearanceError(422, "course request is invalid");
       return jsonResponse(
-        { ...publishedProblemFixture.course, title, role: "instructor" },
+        { ...publishedProblemFixture.course, ...input, role: "instructor" },
         201,
         noStoreHeaders(),
       );

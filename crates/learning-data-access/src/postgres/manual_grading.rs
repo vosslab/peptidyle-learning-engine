@@ -155,8 +155,9 @@ async fn submit_pending_manual_question_attempt(
         super::submission::load_issued_feedback_disclosure(transaction, tenant, submitted.id)
             .await?;
     let effective_grace: Option<i32> = sqlx::query_scalar(
-        "SELECT effective_grace_seconds FROM attempt_timing_current \
-         WHERE tenant_id = $1 AND attempt_id = $2",
+        "SELECT receipt.effective_grace_seconds FROM attempt_effective_policy_current current_effect \
+         JOIN attempt_effective_policy_receipt receipt ON receipt.tenant_id=current_effect.tenant_id AND receipt.attempt_id=current_effect.attempt_id AND receipt.receipt_generation=current_effect.receipt_generation \
+         WHERE current_effect.tenant_id = $1 AND current_effect.attempt_id = $2",
     )
     .bind(tenant.as_uuid())
     .bind(submitted.id.as_uuid())
@@ -260,8 +261,12 @@ async fn submit_pending_manual_question_attempt(
     if updated.rows_affected() != 1 {
         return Err(StoreError::Conflict);
     }
-    super::assignment_timing::cancel_postgres_attempt_timing_job(transaction, tenant, submitted.id)
-        .await?;
+    super::assignment_timing::cancel_postgres_effective_policy_job(
+        transaction,
+        tenant,
+        submitted.id,
+    )
+    .await?;
     store_summary(transaction, &next).await?;
     let (run_payload, run_checksum) = encode_payload(&run)?;
     let (summary_payload, summary_checksum) = encode_payload(&next)?;
@@ -642,8 +647,10 @@ async fn load_manual_attempt_for_update(
            ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id \
          LEFT JOIN submission_evaluation evaluation \
            ON evaluation.tenant_id = qa.tenant_id AND evaluation.attempt_id = qa.attempt_id \
-         LEFT JOIN attempt_timing_current timing \
-           ON timing.tenant_id = qa.tenant_id AND timing.attempt_id = qa.attempt_id \
+         LEFT JOIN attempt_effective_policy_current current_effect \
+           ON current_effect.tenant_id = qa.tenant_id AND current_effect.attempt_id = qa.attempt_id \
+         LEFT JOIN attempt_effective_policy_receipt timing \
+           ON timing.tenant_id=current_effect.tenant_id AND timing.attempt_id=current_effect.attempt_id AND timing.receipt_generation=current_effect.receipt_generation \
          WHERE qa.tenant_id = $1 AND qa.attempt_id = $2 \
          ORDER BY qa.occurred_at LIMIT 1 FOR UPDATE OF qa",
     )

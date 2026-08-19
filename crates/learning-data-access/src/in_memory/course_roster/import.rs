@@ -313,26 +313,32 @@ fn classify_valid_row(
     roster_id: &crate::CourseRosterId,
 ) -> RosterImportRowStatus {
     let matching_members = state
-        .roster_members
+        .roster_profiles
         .values()
-        .filter(|member| {
-            member.tenant == tenant
-                && member.course == course
-                && member.status == CourseMemberStatus::Active
-                && (member
+        .filter_map(|profile| {
+            let membership = state
+                .course_memberships
+                .get(&(tenant, profile.membership))?;
+            (profile.tenant == tenant
+                && profile.course == course
+                && membership.status == CourseMemberStatus::Active
+                && membership.role == question_model::CourseMembershipRole::Student
+                && (profile
                     .roster_email
                     .as_ref()
                     .is_some_and(|stored| stored.normalized() == email.normalized())
-                    || member.roster_id.as_ref() == Some(roster_id))
+                    || membership.roster_id.as_ref() == Some(roster_id)))
+            .then_some((profile, membership))
         })
         .collect::<Vec<_>>();
     if !matching_members.is_empty() {
         return if matching_members.len() == 1
             && matching_members[0]
+                .0
                 .roster_email
                 .as_ref()
                 .is_some_and(|stored| stored.normalized() == email.normalized())
-            && matching_members[0].roster_id.as_ref() == Some(roster_id)
+            && matching_members[0].1.roster_id.as_ref() == Some(roster_id)
         {
             RosterImportRowStatus::AlreadyMember
         } else {

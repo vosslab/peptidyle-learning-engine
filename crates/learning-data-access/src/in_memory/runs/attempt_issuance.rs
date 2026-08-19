@@ -9,9 +9,9 @@ use crate::{
 
 use super::super::{
     MemoryAttemptTiming, MemoryStore, StoredJob, assignment_record, enrollment_record,
-    issued_timer, memory_resolved_assignment_policy, projected_attempt,
-    require_course_records_accessible, resolved_memory_attempt_timing, timing_policy_grace_seconds,
-    validate_assignment_position,
+    issued_timer, memory_effective_policy_inputs_for_grant, projected_attempt,
+    require_course_records_accessible, store_issued_effective_policy_receipt,
+    timing_policy_grace_seconds,
 };
 
 pub(super) async fn issue_or_resume_question_attempt(
@@ -32,22 +32,39 @@ pub(super) async fn issue_or_resume_question_attempt(
         ));
     }
     let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
-    if enrollment.user != command.actor {
-        return Err(StoreError::Forbidden);
-    }
     let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
     require_course_records_accessible(&state, tenant, assignment.course_id)?;
-    super::super::require_active_learner_membership(
-        &state,
-        tenant,
-        assignment.course_id,
-        command.actor,
-    )?;
+    let domain::entitlement::EntitlementDecision::Granted(grant) =
+        super::super::entitlement::evaluate_locked(
+            &state,
+            tenant,
+            command.actor,
+            assignment.course_id,
+            assignment.id,
+        )?
+    else {
+        return Err(StoreError::NotFound);
+    };
+    if grant.student() != enrollment.student {
+        return Err(StoreError::NotFound);
+    }
     let run_items = state
         .run_items
         .get(&(tenant, command.run))
         .ok_or(StoreError::NotFound)?;
-    validate_assignment_position(run_items, &command)?;
+    let expected = run_items
+        .iter()
+        .find(|item| item.issued_position == command.assignment_position)
+        .ok_or_else(|| {
+            StoreError::InvalidRecord("question position is outside the assignment".to_string())
+        })?;
+    if expected.reference.problem != command.problem
+        || expected.reference.version != command.question_version
+    {
+        return Err(StoreError::InvalidRecord(
+            "question identity does not match its assignment position".to_string(),
+        ));
+    }
 
     let prefetched = command.prefetched.as_ref();
     if let Some(prefetched) = prefetched {
@@ -272,15 +289,36 @@ pub(super) async fn issue_or_resume_question_attempt(
         question.question.timing_policy,
     )?;
     let authored_grace_seconds = timing_policy_grace_seconds(question.question.timing_policy);
-    let resolved_assignment_timing =
-        memory_resolved_assignment_policy(&state, tenant, assignment.id, &enrollment, None)?;
-    let (effective_deadline, effective_grace_seconds, auto_submit_at) =
-        resolved_memory_attempt_timing(
-            resolved_assignment_timing.policy,
-            &run,
-            authored_timer.deadline,
-            authored_grace_seconds,
-        )?;
+    let inputs = memory_effective_policy_inputs_for_grant(&state, tenant, assignment.id, &grant)?;
+    let decision = domain::effective_assignment_policy::resolve_effective_policy(
+        domain::effective_assignment_policy::ResolveEffectivePolicyInput {
+            lifecycle: domain::effective_assignment_policy::AssignmentLifecycleGate::Open,
+            entitlement: domain::entitlement::EntitlementDecision::Granted(grant),
+            authorization: domain::effective_assignment_policy::AuthorizationGate::Authorized,
+            now: state.authoritative_time,
+            prior_run_count: run.run_number.saturating_sub(1),
+            base: inputs.base,
+            group_schedule_offsets: inputs.schedule_offsets,
+            group_accommodations: inputs.accommodations,
+            individual_exception: inputs.individual,
+        },
+    )
+    .map_err(|error| {
+        StoreError::InvalidRecord(format!("invalid effective policy inputs: {error:?}"))
+    })?;
+    let domain::effective_assignment_policy::EffectivePolicyDecision::Allowed {
+        policy,
+        start: domain::effective_assignment_policy::StartVerdict::MayStart { .. },
+    } = decision
+    else {
+        return Err(StoreError::NotFound);
+    };
+    let (effective_deadline, effective_grace_seconds, auto_submit_at) = effective_attempt_deadline(
+        &run,
+        authored_timer.deadline,
+        authored_grace_seconds,
+        &policy,
+    )?;
     if effective_deadline.is_some_and(|deadline| deadline < state.authoritative_time)
         || auto_submit_at.is_some_and(|deadline| deadline <= state.authoritative_time)
     {
@@ -361,14 +399,6 @@ pub(super) async fn issue_or_resume_question_attempt(
     } else {
         None
     };
-    if let Some(prefetched) = prefetched {
-        state.prefetched_questions.remove(&(
-            tenant,
-            command.run,
-            prefetched.predecessor,
-            command.assignment_position,
-        ));
-    }
     if let Some(predecessor) = command.predecessor_submission {
         if state
             .attempts
@@ -385,13 +415,38 @@ pub(super) async fn issue_or_resume_question_attempt(
                 return Err(StoreError::Conflict);
             }
             Some(None) => return Err(StoreError::Conflict),
-            _ => {
-                state.submission_next_attempts.insert(
-                    (tenant, predecessor),
-                    Some(ReceiptNextAttempt::from_attempt(&attempt)),
-                );
-            }
+            _ => {}
         }
+    }
+    let materialized = super::super::entitlement::materialize_locked(
+        &mut state,
+        tenant,
+        crate::MaterializeAssignmentEntitlementCommand::for_learner_action(
+            command.actor,
+            assignment.course_id,
+            assignment.id,
+            question_model::EntitlementPurpose::GradeBearingAction,
+        )?,
+    )?;
+    let crate::AssignmentEntitlementMaterialization::Granted(materialized) = materialized else {
+        return Err(StoreError::NotFound);
+    };
+    if materialized.enrollment.id != enrollment.id {
+        return Err(StoreError::NotFound);
+    }
+    if let Some(prefetched) = prefetched {
+        state.prefetched_questions.remove(&(
+            tenant,
+            command.run,
+            prefetched.predecessor,
+            command.assignment_position,
+        ));
+    }
+    if let Some(predecessor) = command.predecessor_submission {
+        state.submission_next_attempts.insert(
+            (tenant, predecessor),
+            Some(ReceiptNextAttempt::from_attempt(&attempt)),
+        );
     }
     let timing_job_id = timing_job.as_ref().map(|(job, _)| *job);
     if let Some((job, queued)) = timing_job {
@@ -410,9 +465,7 @@ pub(super) async fn issue_or_resume_question_attempt(
             job: timing_job_id,
         },
     );
-    state
-        .attempt_timing_resolution
-        .insert((tenant, attempt.id), resolved_assignment_timing);
+    store_issued_effective_policy_receipt(&mut state, tenant, attempt.id, *policy)?;
     state.attempts.insert((tenant, attempt.id), attempt.clone());
     state
         .attempt_presentation_capabilities
@@ -457,4 +510,49 @@ pub(super) async fn issue_or_resume_question_attempt(
             .insert((tenant, attempt.id), replay);
     }
     Ok(attempt)
+}
+
+fn effective_attempt_deadline(
+    run: &question_model::AssignmentRun,
+    authored_deadline: Option<question_model::ActivityTimestamp>,
+    authored_grace_seconds: u32,
+    policy: &domain::effective_assignment_policy::EffectiveAssignmentPolicy,
+) -> Result<
+    (
+        Option<question_model::ActivityTimestamp>,
+        u32,
+        Option<question_model::ActivityTimestamp>,
+    ),
+    StoreError,
+> {
+    let mut resolved = authored_deadline.map(|deadline| (deadline, authored_grace_seconds));
+    let mut consider = |deadline, grace| {
+        if resolved.is_none_or(|current| (deadline, grace) < current) {
+            resolved = Some((deadline, grace));
+        }
+    };
+    if let Some(limit) = policy.time_limit_seconds.value {
+        consider(
+            super::super::add_seconds(run.started_at, limit.get(), "assignment time limit")?,
+            0,
+        );
+    }
+    if policy.late_submission.value == question_model::LateSubmissionPolicy::Reject
+        && let Some(due) = policy.due_at.value
+    {
+        consider(due, 0);
+    }
+    if let Some(close) = policy.closes_at.value {
+        consider(close, 0);
+    }
+    let auto_submit_at = resolved
+        .map(|(deadline, grace)| {
+            super::super::add_seconds(deadline, grace, "attempt auto-submit deadline")
+        })
+        .transpose()?;
+    Ok((
+        resolved.map(|(deadline, _)| deadline),
+        resolved.map_or(0, |(_, grace)| grace),
+        auto_submit_at,
+    ))
 }

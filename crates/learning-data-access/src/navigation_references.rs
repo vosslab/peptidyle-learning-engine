@@ -2,8 +2,8 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AssignmentId, AssignmentPublicId, CourseId, CoursePublicId, RunId, RunPublicId, UserId,
-    WorkspaceId, WorkspacePublicId,
+    AssignmentId, AssignmentReference, CourseId, CourseReference, EnrollmentId, RunId,
+    RunReference, UserId, WorkspaceId, WorkspaceReference,
 };
 
 use crate::{StoreError, TenantContext};
@@ -15,65 +15,73 @@ pub struct AssignmentRouteIdentity {
     pub assignment: AssignmentId,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RunRouteIdentity {
+    pub course: CourseId,
+    pub assignment: AssignmentId,
+    pub enrollment: EnrollmentId,
+    pub run: RunId,
+}
+
 /// Persistence capability for public route locators.
 ///
 /// Every method takes the authenticated actor. A result is absent unless that actor may navigate to
 /// the record under the current tenant; the returned UUID remains an internal transport detail.
 #[async_trait]
 pub trait NavigationReferenceStore: Send + Sync {
-    async fn course_public_id(
+    async fn course_reference(
         &self,
         context: TenantContext,
         actor: UserId,
         course: CourseId,
-    ) -> Result<Option<CoursePublicId>, StoreError>;
+    ) -> Result<Option<CourseReference>, StoreError>;
 
-    async fn resolve_course_public_id(
+    async fn resolve_course_reference(
         &self,
         context: TenantContext,
         actor: UserId,
-        public_id: CoursePublicId,
+        reference: CourseReference,
     ) -> Result<Option<CourseId>, StoreError>;
 
-    async fn assignment_public_id(
+    async fn assignment_reference(
         &self,
         context: TenantContext,
         actor: UserId,
         assignment: AssignmentId,
-    ) -> Result<Option<AssignmentPublicId>, StoreError>;
+    ) -> Result<Option<AssignmentReference>, StoreError>;
 
-    async fn resolve_assignment_public_id(
+    async fn resolve_assignment_reference(
         &self,
         context: TenantContext,
         actor: UserId,
-        public_id: AssignmentPublicId,
+        reference: AssignmentReference,
     ) -> Result<Option<AssignmentRouteIdentity>, StoreError>;
 
-    async fn run_public_id(
+    async fn run_reference(
         &self,
         context: TenantContext,
         actor: UserId,
         run: RunId,
-    ) -> Result<Option<RunPublicId>, StoreError>;
+    ) -> Result<Option<RunReference>, StoreError>;
 
-    async fn resolve_run_public_id(
+    async fn resolve_run_reference(
         &self,
         context: TenantContext,
         actor: UserId,
-        public_id: RunPublicId,
-    ) -> Result<Option<RunId>, StoreError>;
+        reference: RunReference,
+    ) -> Result<Option<RunRouteIdentity>, StoreError>;
 
-    async fn workspace_public_id(
+    async fn workspace_reference(
         &self,
         context: TenantContext,
         actor: UserId,
         workspace: WorkspaceId,
-    ) -> Result<Option<WorkspacePublicId>, StoreError>;
+    ) -> Result<Option<WorkspaceReference>, StoreError>;
 
-    async fn resolve_workspace_public_id(
+    async fn resolve_workspace_reference(
         &self,
         context: TenantContext,
         actor: UserId,
-        public_id: WorkspacePublicId,
+        reference: WorkspaceReference,
     ) -> Result<Option<WorkspaceId>, StoreError>;
 }

@@ -625,6 +625,11 @@ fn publication_command(
         flat_question_promotion,
         publisher: actor,
         scope: PublicationScope::Institution,
+        byline: question_model::PublicByline::new(vec![
+            question_model::PublicAuthorName::new("PLE fixture".to_string())
+                .expect("valid test byline"),
+        ])
+        .expect("valid test byline"),
         capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
     }
 }

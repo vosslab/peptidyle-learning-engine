@@ -63,7 +63,7 @@ impl crate::StatisticsStore for PostgresStore {
                     AssignmentId::from_uuid(row.try_get("assignment_id").map_err(map_sqlx_error)?);
                 let enrollment_id =
                     EnrollmentId::from_uuid(row.try_get("enrollment_id").map_err(map_sqlx_error)?);
-                let summary: StudentAssignmentSummary = decode_payload_row(row)?;
+                let summary = decode_summary_row_named(row, "summary_")?;
                 Ok((
                     GradebookCursor {
                         assignment: assignment_id.as_uuid(),

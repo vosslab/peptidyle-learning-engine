@@ -5,9 +5,13 @@ import { createMemo, createSignal, For, Show, Suspense, type JSX } from "solid-j
 
 import type { CourseSummary, CursorPage } from "../api/contracts";
 import { useApiRuntime } from "../api/runtime";
+import { CourseTermValidationError } from "../api/http_client/error";
 import { useSessionBootstrap } from "../auth/session_context";
 import { CursorPageSession, type CursorPageSessionState } from "./cursor_page_session";
 import { courseRouteReference } from "../navigation/public_route";
+import type { CourseTermField } from "../../generated/api/CourseTermField";
+
+type CourseCreateField = "title" | CourseTermField;
 
 interface CourseCardProps {
   readonly course: CourseSummary;
@@ -29,8 +33,8 @@ function CourseCard(props: CourseCardProps): JSX.Element {
       <p>Review the current assignment or resume an in-progress practice run.</p>
       <A
         class="primary-link"
-        href={`/courses/${courseRouteReference(props.course.publicId)}`}
-        id={`course-open-${courseRouteReference(props.course.publicId)}`}
+        href={`/courses/${courseRouteReference(props.course.reference)}`}
+        id={`course-open-${courseRouteReference(props.course.reference)}`}
         ref={(element: HTMLAnchorElement) => props.registerLink(props.course, element)}
       >
         Open course
@@ -79,7 +83,7 @@ export function CourseList(props: CourseListProps): JSX.Element {
     const first = appended[0];
     if (first === undefined) return;
     requestAnimationFrame(() =>
-      document.getElementById(`course-open-${courseRouteReference(first.publicId)}`)?.focus(),
+      document.getElementById(`course-open-${courseRouteReference(first.reference)}`)?.focus(),
     );
   }
 
@@ -223,10 +227,18 @@ export function CourseListPage(): JSX.Element {
   const session = useSessionBootstrap();
   const courses = createAsync(() => runtime.queries.courses());
   const [title, setTitle] = createSignal("");
+  const [startDate, setStartDate] = createSignal("");
+  const [endDate, setEndDate] = createSignal("");
+  const [timeZone, setTimeZone] = createSignal("");
   const [createdCourses, setCreatedCourses] = createSignal<ReadonlyArray<CourseSummary>>([]);
   const [isCreating, setIsCreating] = createSignal(false);
   const [creationError, setCreationError] = createSignal<string | null>(null);
+  const [creationErrorField, setCreationErrorField] = createSignal<CourseCreateField | null>(null);
   const courseLinks = new Map<string, HTMLAnchorElement>();
+  let titleInput: HTMLInputElement | undefined;
+  let startDateInput: HTMLInputElement | undefined;
+  let endDateInput: HTMLInputElement | undefined;
+  let timeZoneInput: HTMLInputElement | undefined;
 
   async function reloadCourses(): Promise<void> {
     await revalidate(runtime.queries.courses.key);
@@ -244,22 +256,71 @@ export function CourseListPage(): JSX.Element {
     courseLinks.set(course.id, element);
   }
 
+  function focusCourseField(field: CourseCreateField): void {
+    const input = {
+      title: titleInput,
+      term: startDateInput,
+      startDate: startDateInput,
+      endDate: endDateInput,
+      timeZone: timeZoneInput,
+    }[field];
+    queueMicrotask(() => input?.focus());
+  }
+
+  function rejectCourseInput(field: CourseCreateField, message: string): void {
+    setCreationErrorField(field);
+    setCreationError(message);
+    focusCourseField(field);
+  }
+
   async function createCourse(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     if (isCreating()) return;
     if (title().trim().length === 0) {
-      setCreationError("Enter a course title before creating the course.");
+      rejectCourseInput("title", "Enter a course title before creating the course.");
+      return;
+    }
+    if (startDate() === "") {
+      rejectCourseInput("startDate", "Enter a course start date.");
+      return;
+    }
+    if (endDate() === "") {
+      rejectCourseInput("endDate", "Enter a course end date.");
+      return;
+    }
+    if (endDate() < startDate()) {
+      rejectCourseInput("endDate", "Choose an end date on or after the start date.");
+      return;
+    }
+    if (timeZone().trim().length === 0) {
+      rejectCourseInput("timeZone", "Enter an IANA time zone.");
       return;
     }
     setCreationError(null);
+    setCreationErrorField(null);
     setIsCreating(true);
     try {
-      const course = await runtime.client.createCourse({ title: title() });
+      const course = await runtime.client.createCourse({
+        title: title(),
+        term: {
+          startDate: startDate(),
+          endDate: endDate(),
+          timeZone: timeZone(),
+        },
+      });
       setCreatedCourses((current) => [course, ...current]);
       setTitle("");
+      setStartDate("");
+      setEndDate("");
+      setTimeZone("");
       queueMicrotask(() => courseLinks.get(course.id)?.focus());
-    } catch (_error: unknown) {
-      setCreationError("We could not create that course. Check your connection and try again.");
+    } catch (error: unknown) {
+      if (error instanceof CourseTermValidationError) {
+        rejectCourseInput(error.failure.field, error.failure.message);
+      } else {
+        setCreationErrorField(null);
+        setCreationError("We could not create that course. Check your connection and try again.");
+      }
     } finally {
       setIsCreating(false);
     }
@@ -278,6 +339,7 @@ export function CourseListPage(): JSX.Element {
         <form
           class="course-create-form"
           aria-busy={isCreating()}
+          novalidate
           onSubmit={(event) => void createCourse(event)}
         >
           <h2>Start another course</h2>
@@ -291,7 +353,55 @@ export function CourseListPage(): JSX.Element {
               onInput={(event) => setTitle(event.currentTarget.value)}
               autocomplete="off"
               required
+              aria-invalid={creationErrorField() === "title"}
               aria-describedby="course-create-status"
+              ref={(element) => (titleInput = element)}
+            />
+          </label>
+          <label for="course-start-date">
+            Start date
+            <input
+              id="course-start-date"
+              name="startDate"
+              type="date"
+              value={startDate()}
+              onInput={(event) => setStartDate(event.currentTarget.value)}
+              required
+              aria-invalid={creationErrorField() === "startDate"}
+              aria-describedby="course-create-status"
+              ref={(element) => (startDateInput = element)}
+            />
+          </label>
+          <label for="course-end-date">
+            End date
+            <input
+              id="course-end-date"
+              name="endDate"
+              type="date"
+              value={endDate()}
+              onInput={(event) => setEndDate(event.currentTarget.value)}
+              required
+              aria-invalid={creationErrorField() === "endDate"}
+              aria-describedby="course-create-status"
+              ref={(element) => (endDateInput = element)}
+            />
+          </label>
+          <label for="course-time-zone">
+            Time zone (IANA)
+            <input
+              id="course-time-zone"
+              name="timeZone"
+              type="text"
+              value={timeZone()}
+              onInput={(event) => setTimeZone(event.currentTarget.value)}
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck={false}
+              placeholder="America/Chicago"
+              required
+              aria-invalid={creationErrorField() === "timeZone"}
+              aria-describedby="course-create-status"
+              ref={(element) => (timeZoneInput = element)}
             />
           </label>
           <button class="primary-action" type="submit" disabled={isCreating()}>

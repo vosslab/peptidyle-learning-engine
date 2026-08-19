@@ -152,7 +152,7 @@ test.beforeAll(async () => {
             return new Response(JSON.stringify({
               ...run,
               id: "0198e000-0000-7000-8000-000000000024",
-              publicId: 5,
+              reference: "R-5",
               runNumber: 5,
               startedAt: 1786000005000,
               completedAt: null,

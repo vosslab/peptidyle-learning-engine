@@ -46,8 +46,8 @@ async fn postgres_catalog_statistics_disclosure_is_brokered_and_visibility_bound
         .await
         .expect("insert catalog problem fixture");
         sqlx::query(
-            "INSERT INTO problem_version (problem_id, version_id, content_sha256, workspace_id, title, publication_scope, lifecycle, authors) \
-             VALUES ($1, $2, repeat('a', 64), $3, 'Disclosure fixture', $4, 'published', '[\"PLE\"]'::jsonb)",
+            "INSERT INTO problem_version (problem_id, version_id, content_sha256, workspace_id, title, publication_scope, lifecycle, author_ids, public_byline) \
+             VALUES ($1, $2, repeat('a', 64), $3, 'Disclosure fixture', $4, 'published', '[\"PLE\"]'::jsonb, ARRAY['PLE fixture'])",
         )
         .bind(problem)
         .bind(version)

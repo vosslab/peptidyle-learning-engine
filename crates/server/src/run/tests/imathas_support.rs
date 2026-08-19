@@ -246,6 +246,11 @@ pub(super) async fn contracted_route_fixture(
                 flat_question_promotion: None,
                 publisher: instructor,
                 scope: PublicationScope::Public,
+                byline: question_model::PublicByline::new(vec![
+                    question_model::PublicAuthorName::new("PLE fixture".to_string())
+                        .expect("valid test byline"),
+                ])
+                .expect("valid test byline"),
                 capabilities: BackendCapabilities::from_iter([
                     Capability::AlgorithmicGeneration,
                     Capability::ServerGrading,
@@ -262,28 +267,38 @@ pub(super) async fn contracted_route_fixture(
         .question;
     let course = CourseId::from_uuid(id(809));
     let assignment = AssignmentId::from_uuid(id(810));
-    let enrollment = EnrollmentId::from_uuid(id(811));
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Recorded course".into(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: actor,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Recorded course".into(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("course");
+    store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: actor,
+                display_name: "Recorded learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("student roster membership");
     store
         .create_untimed_assignment(
             context,
@@ -291,6 +306,7 @@ pub(super) async fn contracted_route_fixture(
                 id: assignment,
                 tenant,
                 course_id: course,
+                audience: question_model::AssignmentAudience::CourseWide,
                 title: "Recorded assignment".into(),
                 items: assignment_items(vec![reference]),
                 selection_groups: Vec::new(),
@@ -304,22 +320,6 @@ pub(super) async fn contracted_route_fixture(
         )
         .await
         .expect("assignment");
-    store
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: enrollment,
-                tenant,
-                assignment,
-                user: actor,
-                student: StudentId::from_uuid(id(812)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
-        .await
-        .expect("enrollment");
     let (provider, transport) = RecordedContractedTransportFactory::new(transport_mode)
         .contracted_provider_with_transport();
     let adapter = Arc::new(adapter_imathas::ImathasAdapter::new(

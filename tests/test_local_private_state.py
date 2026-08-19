@@ -13,6 +13,7 @@ import local_stack_control.local_environment
 import local_stack_control.local_identity
 import local_stack_control.models
 import local_stack_control.private_files
+import local_stack_control.private_state
 import local_stack_control.compose
 
 
@@ -156,3 +157,106 @@ def test_disposable_capability_reader_refuses_a_link_without_returning_target_by
 	with pytest.raises(local_stack_control.models.ControllerError):
 		local_stack_control.compose.require_disposable_capability_file(capability)
 	assert target.read_bytes() == b"C" * 32
+
+
+#============================================
+def test_private_state_requires_an_existing_mode_0700_target_root(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""A pre-existing bind-source root is refused rather than silently normalized."""
+	root = tmp_path / "target" / "private-state"
+	root.mkdir(parents=True, mode=0o700)
+	root.chmod(0o755)
+
+	with pytest.raises(local_stack_control.models.ControllerError, match="could not prepare"):
+		local_stack_control.private_state.prepare(tmp_path, pathlib.Path("target") / "private-state")
+
+	assert stat.S_IMODE(root.stat().st_mode) == 0o755
+
+
+#============================================
+@pytest.mark.parametrize(
+	"relative_root",
+	(
+		pathlib.Path("target"),
+		pathlib.Path("target") / ".." / "outside",
+	),
+)
+def test_private_state_cannot_escape_or_claim_the_target_parent(
+	tmp_path: pathlib.Path,
+	relative_root: pathlib.Path,
+) -> None:
+	"""The shared owner accepts only a named subtree under ``target``."""
+	with pytest.raises(local_stack_control.models.ControllerError, match="relative target"):
+		local_stack_control.private_state.prepare(tmp_path, relative_root)
+
+
+#============================================
+def test_private_state_cleanup_rechecks_the_run_entry_through_the_root_descriptor(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""A swapped run entry is rejected immediately before descriptor-relative deletion."""
+	state = local_stack_control.private_state.prepare(
+		tmp_path, pathlib.Path("target") / "private-state"
+	)
+	outside = tmp_path / "outside"
+	outside.mkdir()
+	state.directory.rmdir()
+	state.directory.symlink_to(outside, target_is_directory=True)
+
+	with pytest.raises(local_stack_control.models.ControllerError, match="unavailable for cleanup"):
+		state.remove()
+
+	assert outside.is_dir()
+
+
+#============================================
+def test_private_state_cleanup_refuses_a_replaced_private_root(tmp_path: pathlib.Path) -> None:
+	"""Cleanup cannot follow a replacement of the private root itself."""
+	state = local_stack_control.private_state.prepare(
+		tmp_path, pathlib.Path("target") / "private-state"
+	)
+	outside = tmp_path / "outside"
+	outside.mkdir()
+	state.directory.rmdir()
+	state.directory.parent.rmdir()
+	state.directory.parent.symlink_to(outside, target_is_directory=True)
+
+	with pytest.raises(local_stack_control.models.ControllerError, match="unavailable for cleanup"):
+		state.remove()
+
+	assert outside.is_dir()
+
+
+#============================================
+def test_private_state_directory_descriptor_rejects_a_replacement(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""Private artifact operations never receive a descriptor for a swapped run directory."""
+	state = local_stack_control.private_state.prepare(
+		tmp_path, pathlib.Path("target") / "private-state"
+	)
+	outside = tmp_path / "outside"
+	outside.mkdir()
+	state.directory.rmdir()
+	state.directory.symlink_to(outside, target_is_directory=True)
+
+	with pytest.raises(local_stack_control.models.ControllerError, match="directory access"):
+		state.directory_descriptor()
+
+	assert outside.is_dir()
+
+
+#============================================
+def test_persisted_private_state_round_trip_preserves_cleanup_authority(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""A later adapter invocation can remove only the originally captured run directory."""
+	relative_root = pathlib.Path("target") / "private-state"
+	state = local_stack_control.private_state.prepare_persisted(tmp_path, relative_root)
+
+	local_stack_control.private_state.remove_persisted(
+		tmp_path, relative_root, state.directory
+	)
+
+	assert not state.directory.exists()

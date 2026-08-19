@@ -310,7 +310,9 @@ async fn publish_with_scope(
                     .header("cookie", &fixture.owner_cookie)
                     .header("if-match", revision)
                     .header("content-type", "application/json")
-                    .body(Body::from(format!(r#"{{"scope":"{scope}"}}"#)))
+                    .body(Body::from(format!(
+                        r#"{{"scope":"{scope}","byline":{{"names":["PLE fixture"]}}}}"#
+                    )))
                     .expect("publish request"),
             )
             .await

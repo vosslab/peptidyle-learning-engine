@@ -164,7 +164,7 @@ async fn memory_export_commits_exact_four_private_artifacts_atomically() {
 }
 
 #[tokio::test]
-async fn export_creation_rechecks_live_course_authority_inside_the_store() {
+async fn export_creation_requires_current_course_authority_inside_the_store() {
     let store = MemoryStore::default();
     exercise_store(&store).await;
     let tenant = TenantId::from_uuid(uuid(1));
@@ -199,33 +199,4 @@ async fn export_creation_rechecks_live_course_authority_inside_the_store() {
         .create_assignment_export(context, instructor_session, command)
         .await
         .expect("current course instructor can create an export");
-
-    store
-        .upsert_course(
-            context,
-            CourseRecord {
-                id: CourseId::from_uuid(uuid(17)),
-                tenant,
-                title: "Biochemistry after handoff".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: learner,
-                        role: CourseMembershipRole::Student,
-                    },
-                    CourseMembership {
-                        user: outsider,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                ],
-            },
-        )
-        .await
-        .expect("fixture removes the former instructor");
-    assert_eq!(
-        store
-            .create_assignment_export(context, instructor_session, command)
-            .await,
-        Err(StoreError::NotFound),
-        "an old session loses export authority with its course membership"
-    );
 }

@@ -66,7 +66,7 @@ export function AssignmentOverviewPage(): JSX.Element {
     setStartError(undefined);
     try {
       const run = await runtime.client.startRun(assignmentId);
-      navigate(`/runs/${runRouteReference(run.publicId)}`);
+      navigate(`/runs/${runRouteReference(run.reference)}`);
     } catch (error: unknown) {
       setStartError(
         error instanceof Error
@@ -153,7 +153,7 @@ export function AssignmentOverviewPage(): JSX.Element {
                 {(currentCourse) => (
                   <A
                     class="quiet-action"
-                    href={`/instructor/courses/${courseRouteReference(currentCourse().summary.publicId)}/assignments/${assignmentRouteReference(current().publicId)}/edit`}
+                    href={`/instructor/courses/${courseRouteReference(currentCourse().summary.reference)}/assignments/${assignmentRouteReference(current().reference)}/edit`}
                   >
                     Edit assignment
                   </A>

@@ -13,7 +13,7 @@ pub(super) async fn exercise_run_api_receipts<S>(
     feedback_disclosure: FeedbackDisclosure,
 ) -> RunApiFixture
 where
-    S: Store + CatalogStore + JobStore + AssignmentScoringWorkerStore,
+    S: Store + CatalogStore + CourseRosterStore + JobStore + AssignmentScoringWorkerStore,
 {
     let fixture_offset = if feedback_disclosure == FeedbackDisclosure::OnRelease {
         10_000
@@ -24,13 +24,12 @@ where
     let context = TenantContext::from_authenticated_session(tenant);
     let publisher = UserId::from_uuid(uuid(402));
     let student_user = UserId::from_uuid(uuid(403));
-    let second_instructor = UserId::from_uuid(uuid(10_403 + fixture_offset));
+    let unrelated_user = UserId::from_uuid(uuid(10_403 + fixture_offset));
     let workspace = WorkspaceId::from_uuid(uuid(404));
     let problem = ProblemId::from_uuid(uuid(405 + fixture_offset));
     let version = VersionId::from_uuid(uuid(406 + fixture_offset));
     let course = CourseId::from_uuid(uuid(407));
     let assignment = AssignmentId::from_uuid(uuid(408));
-    let enrollment = EnrollmentId::from_uuid(uuid(409));
     let first_run = RunId::from_uuid(uuid(410));
     let ignored_resume_id = RunId::from_uuid(uuid(411));
     let attempt_id = QuestionAttemptId::from_uuid(uuid(412));
@@ -64,36 +63,44 @@ where
                 flat_question_promotion: None,
                 publisher,
                 scope: PublicationScope::Public,
+                byline: reviewed_byline(),
                 capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
             },
         )
         .await
         .expect("run fixture publication");
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Run API biochemistry".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: publisher,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: second_instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student_user,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            learning_data_access::CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Run API biochemistry".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: publisher,
             },
         )
         .await
         .expect("run fixture course");
+    store
+        .upsert_course_member(
+            context,
+            learning_data_access::UpsertCourseMember {
+                course,
+                user: student_user,
+                display_name: "Run learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("run fixture learner membership");
     store
         .create_untimed_assignment(
             context,
@@ -102,6 +109,7 @@ where
                 tenant,
                 course_id: course,
                 title: "Run API assignment".to_string(),
+                audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![
                     ProblemVersionRef { problem, version },
                     ProblemVersionRef { problem, version },
@@ -112,23 +120,6 @@ where
         )
         .await
         .expect("run fixture assignment");
-    store
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: enrollment,
-                tenant,
-                assignment,
-                user: student_user,
-                student: StudentId::from_uuid(uuid(413)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
-        .await
-        .expect("run fixture enrollment");
-
     let run = store
         .start_or_resume_run(context, student_user, assignment, first_run)
         .await
@@ -305,13 +296,13 @@ where
             .reserve_or_resume_prefetched_question(
                 context,
                 ReservePrefetchedQuestionCommand {
-                    actor: second_instructor,
+                    actor: unrelated_user,
                     reservation: reservation.clone(),
                 },
             )
             .await,
-        Err(StoreError::Forbidden),
-        "another course member cannot reserve a student's next question",
+        Err(StoreError::NotFound),
+        "a different member has no learner entitlement to reserve a student's next question",
     );
     assert_eq!(
         store
@@ -441,7 +432,7 @@ where
     );
     assert_eq!(
         store
-            .submission_record(context, second_instructor, attempt.id)
+            .submission_record(context, unrelated_user, attempt.id)
             .await,
         Err(StoreError::NotFound),
         "another course member cannot use a receipt read as an attempt-existence oracle"
@@ -545,19 +536,6 @@ where
         );
         assert_eq!(
             store
-                .release_attempt_feedback(
-                    context,
-                    ReleaseAttemptFeedbackCommand {
-                        actor: second_instructor,
-                        attempt: attempt.id,
-                    },
-                )
-                .await,
-            Err(StoreError::Conflict),
-            "a release remains immutable for a different authorized instructor"
-        );
-        assert_eq!(
-            store
                 .get_attempt_feedback_release(context, student_user, attempt.id)
                 .await,
             Ok(Some(released)),
@@ -651,10 +629,10 @@ where
     );
     assert_eq!(
         store
-            .pending_submission_for_run(context, second_instructor, run.id)
+            .pending_submission_for_run(context, unrelated_user, run.id)
             .await,
-        Err(StoreError::Forbidden),
-        "another course member cannot discover a student's pending submission",
+        Err(StoreError::NotFound),
+        "a different member cannot discover a student's pending submission",
     );
 
     let second_attempt = store
@@ -779,7 +757,7 @@ where
     );
     assert_eq!(
         store
-            .finalize_submission_next_attempt(context, second_instructor, second_attempt.id, None)
+            .finalize_submission_next_attempt(context, unrelated_user, second_attempt.id, None)
             .await,
         Err(StoreError::NotFound),
         "another course member cannot enumerate or finalize a student's pending receipt",

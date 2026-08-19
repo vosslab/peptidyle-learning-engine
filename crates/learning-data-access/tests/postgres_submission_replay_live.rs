@@ -4,10 +4,11 @@
 
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
-    AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, DraftRecord,
-    FlatGradingCapability, IssueQuestionAttemptCommand, PrefetchedQuestion, PresentationCapability,
-    PublishDraftCommand, ReservePrefetchedQuestionCommand, Store, StoreError,
-    SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
+    AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateCourseCommand,
+    DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand, PrefetchedQuestion,
+    PresentationCapability, PublishDraftCommand, ReservePrefetchedQuestionCommand, Store,
+    StoreError, SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext,
+    UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -23,11 +24,11 @@ use question_model::run_policy::{
 use question_model::taxonomy::License;
 use question_model::{
     AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId, AssignmentScoringMode,
-    AttemptProvenance, AttemptResult, BackendCapabilities, Capability, CourseId, CourseMembership,
-    CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource, FeedbackContent,
-    GradingDefinition, ImplementationVersion, PointValue, PresentationBindingV1, ProblemId,
-    ProblemVersionRef, PublicationScope, QuestionAttemptId, QuestionMetadata, QuestionSource,
-    ResponseDefinition, RunId, StudentResponse, TenantId, UserId, VersionId, WorkspaceId,
+    AttemptProvenance, AttemptResult, BackendCapabilities, Capability, CourseId,
+    DraftQuestionDefinition, DraftQuestionSource, FeedbackContent, GradingDefinition,
+    ImplementationVersion, PointValue, PresentationBindingV1, ProblemId, ProblemVersionRef,
+    PublicationScope, QuestionAttemptId, QuestionMetadata, QuestionSource, ResponseDefinition,
+    RunId, StudentResponse, TenantId, UserId, VersionId, WorkspaceId,
 };
 use std::sync::Arc;
 use tokio::sync::Barrier;
@@ -215,6 +216,11 @@ async fn publish_question(
                 },
                 publisher: instructor,
                 scope: PublicationScope::Public,
+                byline: question_model::PublicByline::new(vec![
+                    question_model::PublicAuthorName::new("PLE fixture".to_string())
+                        .expect("valid test byline"),
+                ])
+                .expect("valid test byline"),
                 source_artifact: None,
                 qti_promotion: None,
                 flat_question_promotion: None,
@@ -242,16 +248,21 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
     let instructor = UserId::from_uuid(id());
     let student = UserId::from_uuid(id());
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Receipt snapshot course".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Receipt snapshot course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
@@ -267,6 +278,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
                 tenant,
                 course_id: course,
                 title: "Receipt snapshot practice".to_string(),
+                audience: question_model::AssignmentAudience::CourseWide,
                 items: vec![
                     assignment_item_at(reference, 0),
                     assignment_item_at(reference, 1),

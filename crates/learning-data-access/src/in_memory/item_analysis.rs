@@ -55,11 +55,9 @@ impl crate::CourseItemAnalysisStore for MemoryStore {
         let Some(subject) = active_analysis_session(&state, context, session) else {
             return Ok(None);
         };
-        let authorized = state
-            .courses
-            .get(&(tenant, course))
-            .and_then(|record| record.role_for(subject.user()))
-            == Some(CourseMembershipRole::Instructor);
+        let authorized = state.courses.contains_key(&(tenant, course))
+            && super::entitlement::current_course_role(&state, tenant, course, subject.user())
+                == Some(CourseMembershipRole::Instructor);
         if assignment_record.course_id != course
             || !course_records_accessible(&state, tenant, course)
             || !authorized

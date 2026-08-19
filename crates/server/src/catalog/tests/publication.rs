@@ -40,6 +40,7 @@ async fn qid_lifecycle_routes_authorize_then_resolve_exact_visible_questions() {
         }),
         Arc::new(ReviewNotRequired),
     );
+    crate::catalog::PUBLICATION_MINT_COUNT.with(|count| count.set(0));
     let instructor_cookie = issued_cookie(&store, vec![UserRole::Instructor], publisher).await;
     let student_cookie = issued_cookie(
         &store,
@@ -54,7 +55,9 @@ async fn qid_lifecycle_routes_authorize_then_resolve_exact_visible_questions() {
             Request::post("/api/problems/by-id/not-a-question/deprecate")
                 .header("cookie", &student_cookie)
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"reason":"unused"}"#))
+                .body(Body::from(
+                    r#"{"scope":"institution","byline":{"names":["PLE fixture"]},"reason":"unused"}"#,
+                ))
                 .expect("request"),
         )
         .await
@@ -74,6 +77,31 @@ async fn qid_lifecycle_routes_authorize_then_resolve_exact_visible_questions() {
         .expect("response");
     assert_eq!(malformed.status(), axum::http::StatusCode::BAD_REQUEST);
 
+    let unknown_field = app
+        .clone()
+        .oneshot(
+            Request::post(format!("/api/problems/{workspace}/publish"))
+                .header("cookie", &instructor_cookie)
+                .header("if-match", strong_if_match(revision))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"scope":"institution","byline":{"names":["PLE fixture"]},"unexpected":true}"#,
+                ))
+                .expect("strict publish request"),
+        )
+        .await
+        .expect("strict publish response");
+    assert_eq!(unknown_field.status(), axum::http::StatusCode::BAD_REQUEST);
+    crate::catalog::PUBLICATION_MINT_COUNT.with(|count| {
+        assert_eq!(
+            count.get(),
+            0,
+            "unknown request fields cannot mint publication identity"
+        );
+    });
+
+    // The exact same draft revision remains publishable, proving the rejected
+    // request also did not consume the mutable draft.
     let published = app
         .clone()
         .oneshot(
@@ -81,7 +109,9 @@ async fn qid_lifecycle_routes_authorize_then_resolve_exact_visible_questions() {
                 .header("cookie", &instructor_cookie)
                 .header("if-match", strong_if_match(revision))
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"scope":"institution"}"#))
+                .body(Body::from(
+                    r#"{"scope":"institution","byline":{"names":["PLE fixture"]}}"#,
+                ))
                 .expect("request"),
         )
         .await

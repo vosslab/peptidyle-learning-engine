@@ -275,6 +275,12 @@ run_live_cargo_test "passwordless account, roster, and role separation" env PLE_
 	postgres_enrollment_capability_is_locked_unique_and_role_separated \
 	-- --ignored --exact --test-threads=1
 
+echo "database baseline E2E: derived entitlement, materialized receipt, and forced RLS"
+run_live_cargo_test "derived entitlement, materialized receipt, and forced RLS" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_entitlement_membership_live \
+	postgres_entitlement_membership_is_derived_materialized_and_rls_enforced \
+	-- --ignored --exact --test-threads=1
+
 echo "database baseline E2E: family-filtered concurrent worker claims"
 run_live_cargo_test "family-filtered concurrent worker claims" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
 	--test postgres_worker_filter_live \
@@ -311,10 +317,22 @@ run_live_cargo_test "course appearance revision, role, and current-pointer polic
 	postgres_course_appearance_is_revisioned_role_bound_and_current_only \
 	-- --ignored --exact --test-threads=1
 
-echo "database baseline E2E: atomic assignment-editor timing and active-run reschedule"
-run_live_cargo_test "atomic assignment-editor timing and active-run reschedule" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
-	--test postgres_assignment_timing_live \
-	postgres_assignment_editor_timing_is_atomic_and_reschedules_active_work \
+echo "database baseline E2E: mandatory course term constraints, round-trip, and RLS"
+run_live_cargo_test "mandatory course term constraints, round-trip, and RLS" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_course_term_live \
+	postgres_course_terms_round_trip_enforce_constraints_and_remain_tenant_isolated \
+	-- --ignored --exact --test-threads=1
+
+echo "database baseline E2E: typed public references, RLS, and immutable bylines"
+run_live_cargo_test "typed public references, RLS, and immutable bylines" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_public_references_byline_live \
+	postgres_public_references_and_bylines_are_normalized_authorized_and_immutable \
+	-- --ignored --exact --test-threads=1
+
+echo "database baseline E2E: normalized effective policy, provenance, and RLS"
+run_live_cargo_test "normalized effective policy, provenance, and RLS" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_effective_policy_live \
+	postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforced \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: concurrent prefetch preserves immutable submission replay"
@@ -403,7 +421,7 @@ printf '%s\n' "$mutated_status" | grep -q ': modified' || \
 # while the coverage inventory below keeps empty RLS relations visibly
 # unexercised instead of treating their zero-row query as a pass.
 psql_in_container -d "$DATABASE_NAME" -c \
-	"INSERT INTO public.course (tenant_id, course_id, title) VALUES ('$TENANT_B'::uuid, '00000000-0000-4000-8000-0000000000c1'::uuid, 'Tenant B RLS probe')"
+	"INSERT INTO public.course (tenant_id, course_id, title, term_start_date, term_end_date, time_zone) VALUES ('$TENANT_B'::uuid, '00000000-0000-4000-8000-0000000000c1'::uuid, 'Tenant B RLS probe', DATE '2026-08-24', DATE '2026-12-18', 'America/Chicago')"
 
 # Catalog fixtures exercise the two non-tenant-column policies: a public key,
 # a tenant-A grant, and a tenant-B-only key. Values are written as the isolated
@@ -416,11 +434,11 @@ VALUES
     ('00000000-0000-4000-8000-000000000102', 'H5Q8X32', '$TENANT_B'::uuid, '00000000-0000-4000-8000-000000000202', 'institution', 'CC0-1.0'),
     ('00000000-0000-4000-8000-000000000103', 'N7P4Y98', '$TENANT_B'::uuid, '00000000-0000-4000-8000-000000000203', 'institution', 'CC0-1.0');
 INSERT INTO public.problem_version
-    (problem_id, version_id, content_sha256, workspace_id, title, publication_scope, authors)
+    (problem_id, version_id, content_sha256, workspace_id, title, publication_scope, author_ids, public_byline)
 VALUES
-    ('00000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000000111', repeat('a', 64), '00000000-0000-4000-8000-000000000211', 'public grader probe', 'public', '["E2E"]'::jsonb),
-    ('00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000112', repeat('b', 64), '00000000-0000-4000-8000-000000000212', 'granted grader probe', 'institution', '["E2E"]'::jsonb),
-    ('00000000-0000-4000-8000-000000000103', '00000000-0000-4000-8000-000000000113', repeat('c', 64), '00000000-0000-4000-8000-000000000213', 'private grader probe', 'institution', '["E2E"]'::jsonb);
+    ('00000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000000111', repeat('a', 64), '00000000-0000-4000-8000-000000000211', 'public grader probe', 'public', '["E2E"]'::jsonb, ARRAY['E2E fixture']),
+    ('00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000112', repeat('b', 64), '00000000-0000-4000-8000-000000000212', 'granted grader probe', 'institution', '["E2E"]'::jsonb, ARRAY['E2E fixture']),
+    ('00000000-0000-4000-8000-000000000103', '00000000-0000-4000-8000-000000000113', repeat('c', 64), '00000000-0000-4000-8000-000000000213', 'private grader probe', 'institution', '["E2E"]'::jsonb, ARRAY['E2E fixture']);
 INSERT INTO public.catalog_tenant_grant (tenant_id, problem_id, version_id)
 VALUES ('$TENANT_A'::uuid, '00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000112');
 INSERT INTO public.answer_key (problem_id, version_id, key_payload, key_sha256)

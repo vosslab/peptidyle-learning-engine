@@ -101,6 +101,7 @@ impl<S, O, B, R> Clone for QtiPublicationRouteState<S, O, B, R> {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct QtiPublishRequest {
     scope: PublicationScope,
+    byline: question_model::PublicByline,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -281,6 +282,7 @@ where
         flat_question_promotion: None,
         publisher,
         scope: request.scope,
+        byline: request.byline,
         capabilities,
     };
     match dispatch_publication(state.store.as_ref(), &authenticated, command).await {

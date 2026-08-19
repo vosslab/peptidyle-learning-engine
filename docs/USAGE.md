@@ -19,6 +19,12 @@ The resulting browser session is HttpOnly; the bearer value is not stored in bro
 This local-file session exercises seeded course work, not passwordless account creation,
 invitation claim, email sign-in, or passkey enrollment.
 
+When creating a teaching course, enter its title, inclusive start and end calendar dates, and the
+exact case-sensitive IANA time zone used for that course (for example, `America/Chicago`). The form
+does not infer the browser or account zone. An invalid date order or unknown zone keeps every value,
+announces the specific correction, focuses its field, and permits a direct retry without creating a
+partial course.
+
 The normal local launch publishes the reviewed Genetics Chapter 1 and Biochemistry Chapter 1
 Mastery assignments. Each has exactly four questions in the documented order: WeBWorK MC, WeBWorK
 MATCH, PLE flat MC, and PLE flat MATCH. The answer-free seed manifest is written with mode 0600 to

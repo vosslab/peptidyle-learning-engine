@@ -7,54 +7,36 @@ pub(super) async fn require_attempt_owner(
     attempt: QuestionAttemptId,
     actor: UserId,
 ) -> Result<(), StoreError> {
-    let owns_attempt = sqlx::query(
-        "SELECT cm.user_id FROM question_attempt AS qa \
+    let owner = sqlx::query(
+        "SELECT a.course_id, e.assignment_id, e.student_id FROM question_attempt AS qa \
          JOIN assignment_run AS ar ON ar.tenant_id = qa.tenant_id AND ar.run_id = qa.run_id \
          JOIN enrollment AS e ON e.tenant_id = ar.tenant_id AND e.enrollment_id = ar.enrollment_id \
          JOIN assignment AS a ON a.tenant_id = e.tenant_id AND a.assignment_id = e.assignment_id \
-         JOIN course_member AS cm ON cm.tenant_id = a.tenant_id AND cm.course_id = a.course_id \
-             AND cm.user_id = e.user_id AND cm.role = 'student' \
-         WHERE qa.tenant_id = $1 AND qa.attempt_id = $2 AND e.user_id = $3 \
+         WHERE qa.tenant_id = $1 AND qa.attempt_id = $2 \
            AND public.ple_course_records_accessible(a.tenant_id, a.course_id) \
-         FOR KEY SHARE OF cm",
+         FOR KEY SHARE OF qa",
     )
     .bind(tenant.as_uuid())
     .bind(attempt.as_uuid())
-    .bind(actor.as_uuid())
     .fetch_optional(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
-    if owns_attempt.is_some() {
-        Ok(())
-    } else {
-        Err(StoreError::NotFound)
+    let owner = owner.ok_or(StoreError::NotFound)?;
+    let assignment =
+        AssignmentId::from_uuid(owner.try_get("assignment_id").map_err(map_sqlx_error)?);
+    let student =
+        question_model::StudentId::from_uuid(owner.try_get("student_id").map_err(map_sqlx_error)?);
+    let course = CourseId::from_uuid(owner.try_get("course_id").map_err(map_sqlx_error)?);
+    let decision =
+        super::entitlement::evaluate_current(transaction, tenant, actor, course, assignment)
+            .await?;
+    match decision {
+        domain::entitlement::EntitlementDecision::Granted(grant) if grant.student() == student => {
+            Ok(())
+        }
+        domain::entitlement::EntitlementDecision::Granted(_) => Err(StoreError::NotFound),
+        domain::entitlement::EntitlementDecision::Denied(_) => Err(StoreError::NotFound),
     }
-}
-
-/// Locks current membership so a learner operation and roster revocation are
-/// serialized rather than authorized by a stale membership observation.
-#[cfg(feature = "postgres")]
-pub(super) async fn require_active_learner_membership(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    assignment: AssignmentId,
-    actor: UserId,
-) -> Result<(), StoreError> {
-    let membership = sqlx::query(
-        "SELECT cm.user_id FROM assignment AS a \
-         JOIN course_member AS cm ON cm.tenant_id = a.tenant_id AND cm.course_id = a.course_id \
-             AND cm.user_id = $3 AND cm.role = 'student' \
-         WHERE a.tenant_id = $1 AND a.assignment_id = $2 \
-           AND public.ple_course_records_accessible(a.tenant_id, a.course_id) \
-         FOR KEY SHARE OF cm",
-    )
-    .bind(tenant.as_uuid())
-    .bind(assignment.as_uuid())
-    .bind(actor.as_uuid())
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    membership.ok_or(StoreError::NotFound).map(|_| ())
 }
 
 #[cfg(feature = "postgres")]
@@ -66,7 +48,8 @@ pub(super) async fn postgres_is_course_instructor(
 ) -> Result<bool, StoreError> {
     Ok(sqlx::query(
         "SELECT user_id FROM course_member \
-         WHERE tenant_id = $1 AND course_id = $2 AND user_id = $3 AND role = 'instructor' \
+         WHERE tenant_id = $1 AND course_id = $2 AND user_id = $3 \
+           AND role = 'instructor' AND status = 'active' \
          FOR KEY SHARE",
     )
     .bind(tenant.as_uuid())

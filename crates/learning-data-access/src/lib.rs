@@ -16,16 +16,15 @@ use question_model::run_policy::FeedbackDisclosure;
 use question_model::taxonomy::TaxonomyTerm;
 use question_model::{
     ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentItem,
-    AssignmentItemId, AssignmentPolicyExceptionId, AssignmentRun, AssignmentRunItem,
-    AssignmentSelectionGroup, AssignmentSummary, AssignmentTimingPolicy, AttemptProvenance,
-    AttemptResult, AttemptStatus, BackendCapabilities, CatalogLifecycle, CatalogProblemDetail,
-    CatalogProblemSummary, CatalogSearchPage, CatalogSearchQuery, CourseGroupId, CourseId,
-    CourseMembership, CourseMembershipRole, CourseSummary, DraftQuestionDefinition, EnrollmentId,
-    GradePolicy, GradebookSummaryRow, PresentationBindingV1, PresentationEnvelopeV1, ProblemId,
-    PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionDefinition,
-    QuestionStatisticsDisclosure, RunId, RunPolicies, ScoringGeneration, ScoringStatus,
-    SelectionOrdering, StudentAssignmentSummary, StudentId, StudentResponse, TenantId, UserId,
-    VersionId, WorkspaceDraftSummary, WorkspaceId,
+    AssignmentItemId, AssignmentRun, AssignmentRunItem, AssignmentSelectionGroup,
+    AssignmentSummary, AttemptProvenance, AttemptResult, AttemptStatus, BackendCapabilities,
+    CatalogLifecycle, CatalogProblemDetail, CatalogProblemSummary, CatalogSearchPage,
+    CatalogSearchQuery, CourseGroupId, CourseId, CourseMembershipRole, CourseSummary,
+    DraftQuestionDefinition, EnrollmentId, GradePolicy, GradebookSummaryRow, PresentationBindingV1,
+    PresentationEnvelopeV1, ProblemId, PublicationScope, QuestionAttempt, QuestionAttemptId,
+    QuestionBackend, QuestionDefinition, QuestionStatisticsDisclosure, RunId, RunPolicies,
+    ScoringGeneration, ScoringStatus, SelectionOrdering, StudentAssignmentSummary, StudentId,
+    StudentResponse, TenantId, UserId, VersionId, WorkspaceDraftSummary, WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -171,17 +170,19 @@ pub use crate::manual_grading::{
     ManualGradeActionId, ManualGradeReceipt, ManualGradingStore, SetManualGradeCommand,
     SubmitPendingManualQuestionAttemptCommand,
 };
-pub use crate::navigation_references::{AssignmentRouteIdentity, NavigationReferenceStore};
-pub use crate::pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
-pub use crate::policy::{
-    AssignmentExceptionLimit, AssignmentExceptionTimestamp, AssignmentPolicyException,
-    AssignmentPolicyExceptionTarget, CourseGroupRecord, CourseGroupRevision,
-    DeleteAssignmentPolicyExceptionCommand, PutCourseGroupCommand, ResolvedAssignmentTiming,
-    ResolvedAttemptTiming, SetAssignmentPolicyExceptionCommand, StoredAssignmentPolicyException,
-    StoredCourseGroup,
+pub use crate::navigation_references::{
+    AssignmentRouteIdentity, NavigationReferenceStore, RunRouteIdentity,
 };
-pub(crate) use crate::policy::{
-    ResolvedAssignmentTimingPolicy, resolve_assignment_policy, validate_assignment_policy_exception,
+pub use crate::pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
+pub(crate) use crate::policy::EffectivePolicyInputs;
+pub use crate::policy::{
+    CourseGroupRecord, CourseGroupRevision, DeleteGroupAccommodationCommand,
+    DeleteGroupScheduleOffsetCommand, DeleteIndividualPolicyExceptionCommand, EffectivePolicyField,
+    EffectivePolicyResolution, IssuedEffectivePolicyFieldSource, IssuedEffectivePolicyReceipt,
+    PutBaseAssignmentPolicyCommand, PutCourseGroupCommand, PutGroupAccommodationCommand,
+    PutGroupScheduleOffsetCommand, PutIndividualPolicyExceptionCommand,
+    ResolveEffectivePolicyCommand, StoredBaseAssignmentPolicy, StoredCourseGroup,
+    StoredIndividualPolicyException,
 };
 pub use crate::qti::{
     CommitPreparedQtiImport, CommitPreparedQtiImportOutcome, CreateQtiImportCommand,
@@ -214,8 +215,7 @@ pub(crate) use activity_policy::CurrentRunQuestion;
 pub(crate) use activity_policy::{
     completed_run_score, current_run_questions, ensure_tenant, grade_policy,
     project_enrollment_completion, summary_transition, validate_asset_delivery,
-    validate_assignment, validate_assignment_timing, validate_attempt_result, validate_course,
-    validate_course_group,
+    validate_assignment, validate_attempt_result, validate_course, validate_course_group,
 };
 #[cfg(feature = "postgres")]
 pub(crate) use publication_validation::validate_source_artifact_identity;
@@ -228,7 +228,7 @@ pub(crate) use publication_validation::{
 mod contracts;
 pub use contracts::*;
 pub(crate) use contracts::{
-    ActivityStore, AssignmentPolicyStore, AuthoringStore, CourseAssignmentStore, CourseStore,
+    ActivityStore, AuthoringStore, CourseAssignmentStore, CourseStore, EffectivePolicyStore,
     FeedbackStore, RunStore, StatisticsStore, assignment_item_is_retired,
     assignment_scoring_changed, current_attempt_points, decode_catalog_search_cursor,
     decode_workspace_draft_cursor, delete_and_regrade_update, encode_catalog_search_cursor,

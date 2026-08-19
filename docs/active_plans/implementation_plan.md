@@ -5,14 +5,16 @@
 [customer-spec.md](customer-spec.md) describes a
 backend-agnostic assignment platform built around repeated attempts, algorithmic questions, and
 question-level timing. The foundational M0 and M1 platform slices and the main M2 through M4
-learning paths are implemented, while current milestone acceptance remains governed by the active
-release plan and M0 remains open. Retention R4.4, QTI profile import WP-QTI-12, course appearance
+learning paths are implemented, while current release-track acceptance remains governed by the active
+release plan. The professor roadmap's evidenced M0 release-truth exit is accepted; the sole global
+current-package handoff is recorded in [implementation_status.md](implementation_status.md). Retention R4.4, QTI
+profile import WP-QTI-12, course appearance
 WP-CA1 through WP-CA7/WP-RC1, and production-seam closure WP-RC2 are accepted. The authoritative
 remaining package sequence, binary scope ledger, owners, files, behavior, success conditions, and
 validation are in
-[release_completion_plan.md](active/release_completion_plan.md). That release plan and
-[implementation_status.md](implementation_status.md) own the current next package; this foundation
-plan does not duplicate the changing handoff.
+[release_completion_plan.md](active/release_completion_plan.md). The release plan owns release scope
+and dependency order, while [implementation_status.md](implementation_status.md) owns the sole global
+current-package handoff; this foundation plan does not duplicate that changing handoff.
 
 **2026-08-14 WP-R2 acceptance.** WP-R2 establishes the no-drift release truth: each published
 Question ID names one immutable content identity; every content change mints a new assigned Question
@@ -25,8 +27,8 @@ The pre-production schema and code no longer retain sequential `ProblemPublicId`
 seed publication mints fresh opaque evidence; a rerun resumes through a protected explicit manifest
 or verified existing record, never tenant-derived question UUIDs. Final material-tree evidence is
 recorded in [implementation_status.md](implementation_status.md) and the changelog. WP-PY-L1 is
-accepted on 2026-08-15. M0 remains open; the active release plan's next package remains WP-RC8
-acceptance.
+accepted on 2026-08-15. The professor roadmap records M0 as accepted from the four evidenced
+release-truth packages; its subsequent work follows the professor dependency queue.
 
 The separately active `docs/active_plans/peptidyle-walkthrough-plan.md` owns its corrected M8-M11
 acceptance sequence. It proves visible instructor course, local roster, and corpus-backed assignment
@@ -42,8 +44,9 @@ focused Python modules are the current build, bootstrap, migration, seed, render
 That direct Python lifecycle conversion is accepted: WP-PY-L1 replaces the
 launcher, `_restart.sh`, and `local_identity_bootstrap.sh` together after WP-R2 and before M1. No Python
 wrapper or dual launcher is an accepted intermediate state. Final offline and live Validation are green,
-as are the three named independent final reviews. M0 remains open; M1 retains its separate declared
-dependency gates.
+as are the three named independent final reviews. The professor roadmap's M0 evidence is accepted;
+its subsequent work follows the professor dependency queue, while the release plan retains its
+later acceptance gates.
 
 **WP-R2 test and live-evidence boundary.** Offline Memory publication, replacement, and replay behavior
 belongs in `crates/learning-data-access/tests/conformance/publication.rs` and `assignments.rs`; server
@@ -57,16 +60,18 @@ manifest convergence; and the disposable real host-seed/renderer driver is
 live browser replacement route; `tests/walkthrough/run_ui_walkthrough.py` owns the one M6 composition
 journey. WP-R2 uses inline builders and adds no fixture directory. Generated `generated/api/` output is
 ignored derivative output from `crates/project-tools/src/tsgen.rs`; authored consumers own their
-decoders and behavior. The ignored `_temp_professor_roadmap_20260814/wp_r2_closeout.review.md` records
-the one-time migration/schema/source/route/generated inventories, screenshots, and timing observations.
+decoders and behavior. Durable M0 package evidence is recorded in
+[implementation_status.md](implementation_status.md) and [CHANGELOG.md](../CHANGELOG.md); one-time
+migration/schema/source/route/generated inventories, screenshots, and timing observations are
+historical evidence only and are not referenced through an ignored scratch artifact.
 
 **Local renderer provenance.** WP-R1 is accepted on 2026-08-14. Its completed Chapter One
 pilot/browser and aggregate-acceptance Python work uses one designated configured renderer image name
 as the stable local selection and rebuild target. Each live run records the inspected immutable OCI
 image configuration ID as exact runtime provenance. Image pruning may remove the selected local bytes,
-after which the configured target is rebuilt before use. WP-R2 is accepted; M0 remains open, and
-WP-PY-L1 is accepted on 2026-08-15 after final offline/live Validation and its named independent final
-reviews.
+after which the configured target is rebuilt before use. WP-R2 is accepted; the professor roadmap's
+M0 evidence is accepted, and WP-PY-L1 is accepted on 2026-08-15 after final offline/live Validation
+and its named independent final reviews. The release plan retains its later acceptance gates.
 
 ADAPT (`OTHER_REPOS/adapt/`) is the surface model and the source of the sharpest lessons, because its
 weaknesses are visible in its own schema. Three review passes (`reviewer_commments.md`,
@@ -752,7 +757,7 @@ source/runtime semantics based on the reviewed QTI Package Maker item models. Ve
 refused; version 2 is the sole native reader. Remaining acceptance is recorded in
 `docs/active_plans/active/flat_question_family_evolution_plan.md`; external QTI-JSONL is a separate
 future adapter concern. The course appearance package is accepted through WP-CA7/WP-RC1 and production-seam closure
-WP-RC2 is accepted; WP-RC3 shipped upstream WeBWorK is the current implementation package. The dependency order and exact
+WP-RC2 is accepted; the shipped upstream WeBWorK implementation is historical WP-RC3 evidence. The dependency order and exact
 profiles, refusal semantics, provenance
 boundary, author workflow, and acceptance gates are frozen in
 [qti_profile_mapping_plan.md](decisions/qti_profile_mapping_plan.md).

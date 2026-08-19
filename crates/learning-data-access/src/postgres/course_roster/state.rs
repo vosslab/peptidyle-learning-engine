@@ -1,9 +1,9 @@
 //! Locked course-roster state primitives shared by roster workflows.
 
-use question_model::{CourseId, TenantId, UserId};
-use sqlx::{Postgres, Row, Transaction};
+use question_model::{CourseId, TenantId};
+use sqlx::{Postgres, Transaction};
 
-use super::{enrollment, map_sqlx_error};
+use super::map_sqlx_error;
 use crate::StoreError;
 
 pub(in crate::postgres) async fn ensure_roster_state(
@@ -20,34 +20,6 @@ pub(in crate::postgres) async fn ensure_roster_state(
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
-    Ok(())
-}
-
-pub(in crate::postgres) async fn reconcile_new_assignment(
-    transaction: &mut Transaction<'_, Postgres>,
-    assignment: &crate::AssignmentRecord,
-) -> Result<(), StoreError> {
-    let rows = sqlx::query(
-        "SELECT user_id, student_id FROM course_roster_member \
-         WHERE tenant_id = $1 AND course_id = $2 AND status = 'active' ORDER BY user_id",
-    )
-    .bind(assignment.tenant.as_uuid())
-    .bind(assignment.course_id.as_uuid())
-    .fetch_all(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    for row in rows {
-        enrollment::insert_missing_enrollment(
-            transaction,
-            assignment.tenant,
-            assignment.id,
-            UserId::from_uuid(row.try_get("user_id").map_err(map_sqlx_error)?),
-            question_model::StudentId::from_uuid(
-                row.try_get("student_id").map_err(map_sqlx_error)?,
-            ),
-        )
-        .await?;
-    }
     Ok(())
 }
 

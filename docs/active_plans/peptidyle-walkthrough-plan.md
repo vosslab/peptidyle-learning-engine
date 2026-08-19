@@ -498,10 +498,12 @@ remain path-only private inputs and never enter the handoff or report.
 - Touch points: assignment editor request/response contract, assignment editor Store capabilities,
   existing timing resolver, generated browser contracts/defaults, editor model/page, and focused
   Rust/TypeScript/Playwright tests.
-- Depends on: WP-I3 and the existing `AssignmentTimingPolicy`; its Rust/store/editor API boundary
-  precedes the Solid form and the live J13/J1 sequence.
+- Depends on: WP-I3 and the then-existing `AssignmentTimingPolicy`; this is historical dependency
+  evidence only, because that legacy model and API are removed. Its Rust/store/editor boundary precedes
+  the Solid form and the live J13/J1 sequence. Current policy authority is accepted WP-PROF-S3's
+  effective-policy resolver and immutable sealed receipts with their current pointer.
 - Acceptance criteria:
-  - The course-owned whole-run timing field is editor-only
+  - At acceptance, the course-owned whole-run timing field was editor-only
     `assignmentTiming.timeLimitSeconds: positive u32 | null`; it is not a `RunPolicies` field or a
     published-question setting.
   - New mastery assignments start from the Rust-generated `900`-second default. The editor visibly

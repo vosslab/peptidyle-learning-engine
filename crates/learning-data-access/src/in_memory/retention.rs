@@ -810,12 +810,13 @@ fn ensure_retention_course_authority(
     roles: &[UserRole],
     course: CourseId,
 ) -> Result<(), StoreError> {
-    let course_record = state
+    state
         .courses
         .get(&(context.tenant_id(), course))
         .ok_or(StoreError::Forbidden)?;
     if roles.contains(&UserRole::Sysadmin)
-        || course_record.role_for(user) == Some(CourseMembershipRole::Instructor)
+        || super::entitlement::current_course_role(state, context.tenant_id(), course, user)
+            == Some(CourseMembershipRole::Instructor)
     {
         Ok(())
     } else {

@@ -1,5 +1,7 @@
 // route_contract.ts - pure data form of the frozen product route contract.
 
+import type { UserRole } from "../generated/api/UserRole";
+
 export interface RouteContract {
   readonly id:
     | "courses"
@@ -72,6 +74,7 @@ export const ROUTE_CONTRACT = [
     id: "problemDetail",
     path: "/library/:problemRef",
     surface: "Published question detail",
+    requiredRoles: ["instructor", "sysadmin"],
   },
   {
     id: "workspaceList",
@@ -112,3 +115,16 @@ export const ROUTE_CONTRACT = [
 ] as const satisfies ReadonlyArray<RouteContract>;
 
 export type RouteId = (typeof ROUTE_CONTRACT)[number]["id"];
+
+/** Checks the role boundary declared by a product route without mounting its surface. */
+export function rolesMayAccessRoute(routeId: RouteId, roles: ReadonlyArray<UserRole>): boolean {
+  const route: RouteContract | undefined = ROUTE_CONTRACT.find((item) => item.id === routeId);
+  if (
+    route === undefined ||
+    route.requiredRoles === undefined ||
+    route.requiredRoles.length === 0
+  ) {
+    return true;
+  }
+  return route.requiredRoles.some((requiredRole) => roles.includes(requiredRole));
+}

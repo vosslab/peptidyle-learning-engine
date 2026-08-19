@@ -206,6 +206,7 @@ impl<S, O, B, R> Clone for FlatQuestionRouteState<S, O, B, R> {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct FlatQuestionPublishRequest {
     scope: PublicationScope,
+    byline: question_model::PublicByline,
 }
 
 async fn save_flat_question<S, O, B, R>(
@@ -642,6 +643,7 @@ where
         }),
         publisher,
         scope: request.scope,
+        byline: request.byline,
         capabilities,
     };
     match dispatch_publication(state.store.as_ref(), &authenticated, command).await {

@@ -517,8 +517,9 @@ mod tests {
     use learning_data_access::in_memory::MemoryStore;
     use learning_data_access::{
         AssetStore, AssignmentRecord, CatalogStore, CourseRecord, CreateAssignmentExport,
-        DraftRecord, ExportJobStore, JobLeaseDuration, JobPayload, JobStore, PublishDraftCommand,
-        SessionLifetime, SessionStore, SessionSubject, SessionTokenHash, Store,
+        CreateCourseCommand, DraftRecord, ExportJobStore, JobLeaseDuration, JobPayload, JobStore,
+        PublishDraftCommand, SessionLifetime, SessionStore, SessionSubject, SessionTokenHash,
+        Store,
     };
     use objects::{
         Bucket, ObjectCategory, ObjectKey, ObjectRecord, ObjectStore, PutObject, Sha256Digest,
@@ -533,10 +534,9 @@ mod tests {
     use question_model::taxonomy::License;
     use question_model::{
         ActivityTimestamp, AssignmentId, BackendCapabilities, Capability, CourseId,
-        CourseMembership, CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource,
-        GradingDefinition, ObjectId, ProblemId, ProblemVersionRef, PublicationScope,
-        QuestionMetadata, QuestionSource, ResponseDefinition, RunPolicies, TenantId, UserId,
-        UserRole, VersionId, WorkspaceId,
+        DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, ObjectId, ProblemId,
+        ProblemVersionRef, PublicationScope, QuestionMetadata, QuestionSource, ResponseDefinition,
+        RunPolicies, TenantId, UserId, UserRole, VersionId, WorkspaceId,
     };
     use uuid::Uuid;
 
@@ -624,6 +624,11 @@ mod tests {
                     flat_question_promotion: None,
                     publisher: author,
                     scope: PublicationScope::Public,
+                    byline: question_model::PublicByline::new(vec![
+                        question_model::PublicAuthorName::new("PLE fixture".to_string())
+                            .expect("valid test byline"),
+                    ])
+                    .expect("valid test byline"),
                     capabilities: BackendCapabilities::from_iter([
                         Capability::ServerGrading,
                         Capability::PrintExport,
@@ -650,16 +655,21 @@ mod tests {
         let course = CourseId::from_uuid(id(22));
         let assignment = AssignmentId::from_uuid(id(23));
         store
-            .upsert_course(
+            .create_course(
                 context,
-                CourseRecord {
-                    id: course,
-                    tenant,
-                    title: "BIOC 301".to_string(),
-                    members: vec![CourseMembership {
-                        user: author,
-                        role: CourseMembershipRole::Instructor,
-                    }],
+                CreateCourseCommand {
+                    course: CourseRecord {
+                        id: course,
+                        tenant,
+                        title: "BIOC 301".to_string(),
+                        term: question_model::CourseTerm::from_parts(
+                            "2026-08-24",
+                            "2026-12-18",
+                            "America/Chicago",
+                        )
+                        .expect("explicit fixture course term"),
+                    },
+                    initial_instructor: author,
                 },
             )
             .await
@@ -672,6 +682,7 @@ mod tests {
                     id: assignment,
                     tenant,
                     course_id: course,
+                    audience: question_model::AssignmentAudience::CourseWide,
                     title: "Peptide bond exam".to_string(),
                     items: vec![question_model::AssignmentItem {
                         id: question_model::AssignmentItemId::from_uuid(id(24)),

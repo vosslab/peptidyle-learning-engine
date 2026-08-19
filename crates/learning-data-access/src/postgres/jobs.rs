@@ -179,8 +179,9 @@ impl crate::AttemptAutoSubmitWorkerStore for PostgresStore {
                         AS effective_deadline_millis, \
                     floor(extract(epoch FROM auto_submit_at) * 1000)::bigint \
                         AS auto_submit_at_millis \
-             FROM attempt_timing_current \
-             WHERE tenant_id = $1 AND attempt_id = $2 FOR UPDATE",
+             FROM attempt_effective_policy_current current_effect \
+             JOIN attempt_effective_policy_receipt receipt ON receipt.tenant_id=current_effect.tenant_id AND receipt.attempt_id=current_effect.attempt_id AND receipt.receipt_generation=current_effect.receipt_generation \
+             WHERE current_effect.tenant_id = $1 AND current_effect.attempt_id = $2 FOR UPDATE OF current_effect",
         )
         .bind(tenant.as_uuid())
         .bind(command.attempt.as_uuid())
@@ -215,7 +216,7 @@ impl crate::AttemptAutoSubmitWorkerStore for PostgresStore {
         let Some(auto_submit_at) = auto_submit_at else {
             complete_postgres_claimed_job(&mut transaction, command.job, command.lease).await?;
             sqlx::query(
-                "UPDATE attempt_timing_current SET job_id = NULL, \
+                "UPDATE attempt_effective_policy_current SET job_id = NULL, \
                     updated_at = transaction_timestamp() \
                  WHERE tenant_id = $1 AND attempt_id = $2",
             )
@@ -268,7 +269,7 @@ impl crate::AttemptAutoSubmitWorkerStore for PostgresStore {
             return Err(StoreError::Conflict);
         }
         sqlx::query(
-            "UPDATE attempt_timing_current SET job_id = NULL, \
+            "UPDATE attempt_effective_policy_current SET job_id = NULL, \
                 updated_at = transaction_timestamp() \
              WHERE tenant_id = $1 AND attempt_id = $2",
         )
@@ -522,9 +523,19 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
             );
         }
         let enrollment_rows = sqlx::query(
-            "SELECT e.enrollment_id, e.payload AS enrollment_payload, \
-                    e.payload_sha256 AS enrollment_payload_sha256, \
-                    sas.payload AS summary_payload, sas.payload_sha256 AS summary_payload_sha256 \
+            "SELECT e.enrollment_id, e.tenant_id, e.assignment_id, e.user_id, e.student_id, \
+                    floor(extract(epoch FROM e.first_completed_at) * 1000)::bigint \
+                        AS first_completed_at_millis, \
+                    e.current_grade_run_id, e.best_grade_run_id, \
+                    sas.tenant_id AS summary_tenant_id, \
+                    sas.enrollment_id AS summary_enrollment_id, \
+                    sas.current_score AS summary_current_score, \
+                    sas.best_score AS summary_best_score, \
+                    sas.latest_score AS summary_latest_score, \
+                    sas.completed_run_count AS summary_completed_run_count, \
+                    sas.total_question_attempts AS summary_total_question_attempts, \
+                    floor(extract(epoch FROM sas.last_activity_at) * 1000)::bigint \
+                        AS summary_last_activity_at_millis \
                FROM enrollment e \
                JOIN student_assignment_summary sas ON sas.tenant_id = e.tenant_id \
                     AND sas.enrollment_id = e.enrollment_id \
@@ -538,10 +549,8 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
         .map_err(map_sqlx_error)?;
         let enrollment_count = enrollment_rows.len();
         for row in enrollment_rows {
-            let enrollment: AssignmentEnrollment =
-                decode_payload_row_named(&row, "enrollment_payload", "enrollment_payload_sha256")?;
-            let summary: StudentAssignmentSummary =
-                decode_payload_row_named(&row, "summary_payload", "summary_payload_sha256")?;
+            let enrollment = decode_postgres_enrollment_row(&row)?;
+            let summary = decode_summary_row_named(&row, "summary_")?;
             let completed = completed_by_enrollment
                 .remove(&enrollment.id)
                 .unwrap_or_default();
@@ -553,24 +562,34 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
                 completed,
                 first_completed_at,
             )?;
-            let (summary_payload, summary_checksum) = encode_payload(&summary)?;
-            let (enrollment_payload, enrollment_checksum) = encode_payload(&enrollment)?;
             sqlx::query(
                 "INSERT INTO assignment_summary_staging \
                  (tenant_id, job_id, assignment_id, scoring_generation, enrollment_id, \
-                  summary_payload, summary_payload_sha256, enrollment_payload, \
-                  enrollment_payload_sha256) \
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+                  current_score, best_score, latest_score, completed_run_count, \
+                  total_question_attempts, last_activity_at, first_completed_at, \
+                  current_grade_run_id, best_grade_run_id) \
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \
+                         to_timestamp($11::double precision / 1000), \
+                         to_timestamp($12::double precision / 1000), $13, $14)",
             )
             .bind(tenant.as_uuid())
             .bind(command.job.as_uuid())
             .bind(command.assignment.as_uuid())
             .bind(generation)
             .bind(enrollment.id.as_uuid())
-            .bind(summary_payload)
-            .bind(summary_checksum)
-            .bind(enrollment_payload)
-            .bind(enrollment_checksum)
+            .bind(summary.current_score)
+            .bind(summary.best_score)
+            .bind(summary.latest_score)
+            .bind(i64::from(summary.completed_run_count))
+            .bind(i64::try_from(summary.total_question_attempts).map_err(|_| StoreError::Conflict)?)
+            .bind(summary.last_activity_at.map(|value| value.as_unix_millis()))
+            .bind(
+                enrollment
+                    .first_completed_at
+                    .map(|value| value.as_unix_millis()),
+            )
+            .bind(enrollment.current_grade_run.map(|value| value.as_uuid()))
+            .bind(enrollment.best_grade_run.map(|value| value.as_uuid()))
             .execute(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -722,8 +741,11 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
             .map_err(map_sqlx_error)?;
             sqlx::query(
                 "UPDATE student_assignment_summary sas \
-                    SET payload = staged.summary_payload, \
-                        payload_sha256 = staged.summary_payload_sha256, \
+                    SET current_score = staged.current_score, \
+                        best_score = staged.best_score, latest_score = staged.latest_score, \
+                        completed_run_count = staged.completed_run_count, \
+                        total_question_attempts = staged.total_question_attempts, \
+                        last_activity_at = staged.last_activity_at, \
                         updated_at = transaction_timestamp() \
                    FROM assignment_summary_staging staged \
                   WHERE staged.tenant_id = $1 AND staged.job_id = $2 \
@@ -736,8 +758,9 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
             .await
             .map_err(map_sqlx_error)?;
             sqlx::query(
-                "UPDATE enrollment e SET payload = staged.enrollment_payload, \
-                        payload_sha256 = staged.enrollment_payload_sha256 \
+                "UPDATE enrollment e SET first_completed_at = staged.first_completed_at, \
+                        current_grade_run_id = staged.current_grade_run_id, \
+                        best_grade_run_id = staged.best_grade_run_id \
                    FROM assignment_summary_staging staged \
                   WHERE staged.tenant_id = $1 AND staged.job_id = $2 \
                     AND e.tenant_id = staged.tenant_id \

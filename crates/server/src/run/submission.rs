@@ -28,6 +28,23 @@ where
         Err(message) => return error_response(StatusCode::BAD_REQUEST, message),
     };
     let actor = authenticated.record.subject.user();
+    let attempt = match state
+        .store
+        .learner_get_question_attempt(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            attempt_id,
+        )
+        .await
+    {
+        Ok(Some(attempt)) => attempt,
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "attempt not found"),
+        Err(error) => return store_error_response(error),
+    };
+    let run = match owned_run(state.store.as_ref(), &authenticated, attempt.run).await {
+        Ok(run) => run,
+        Err(response) => return response,
+    };
     match state
         .store
         .replay_submission(
@@ -52,23 +69,6 @@ where
         Ok(None) => {}
         Err(error) => return store_error_response(error),
     }
-    let attempt = match state
-        .store
-        .learner_get_question_attempt(
-            authenticated.tenant_context,
-            authenticated.record.subject.user(),
-            attempt_id,
-        )
-        .await
-    {
-        Ok(Some(attempt)) => attempt,
-        Ok(None) => return error_response(StatusCode::NOT_FOUND, "attempt not found"),
-        Err(error) => return store_error_response(error),
-    };
-    let run = match owned_run(state.store.as_ref(), &authenticated, attempt.run).await {
-        Ok(run) => run,
-        Err(response) => return response,
-    };
     if run.completed_at.is_some() {
         return error_response(StatusCode::CONFLICT, "run is already complete");
     }

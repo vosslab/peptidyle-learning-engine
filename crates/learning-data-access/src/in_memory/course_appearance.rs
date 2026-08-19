@@ -443,8 +443,8 @@ fn appearance_role(
     subject: &SessionSubject,
     course: CourseId,
 ) -> Option<CourseMembershipRole> {
-    let record = state.courses.get(&(context.tenant_id(), course))?;
-    record.role_for(subject.user())
+    state.courses.get(&(context.tenant_id(), course))?;
+    super::entitlement::current_course_role(state, context.tenant_id(), course, subject.user())
 }
 
 fn require_appearance_authority(
@@ -454,11 +454,16 @@ fn require_appearance_authority(
     course: CourseId,
 ) -> Result<UserId, StoreError> {
     let subject = active_subject(state, context, session).ok_or(StoreError::NotFound)?;
-    let record = state
+    state
         .courses
         .get(&(context.tenant_id(), course))
         .ok_or(StoreError::NotFound)?;
-    match record.role_for(subject.user()) {
+    match super::entitlement::current_course_role(
+        state,
+        context.tenant_id(),
+        course,
+        subject.user(),
+    ) {
         Some(CourseMembershipRole::Instructor) => Ok(subject.user()),
         Some(CourseMembershipRole::Student) => Err(StoreError::Forbidden),
         None => Err(StoreError::NotFound),

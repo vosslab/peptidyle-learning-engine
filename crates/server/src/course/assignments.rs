@@ -4,6 +4,7 @@ use axum::extract::{Path, State};
 use axum::http::header::{ETAG, IF_MATCH};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
+use domain::entitlement::EntitlementDecision;
 use learning_data_access::{
     AddAssignmentFixedItemCommand, AssignmentRecord, AssignmentRevision, CatalogStore,
     CourseRecordsAccessStore, RemoveAssignmentFixedItemCommand, ReplaceAssignmentFixedItemCommand,
@@ -18,7 +19,7 @@ use serde::Serialize;
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
 use super::policy::require_course_access;
-use super::projection::{error_response, no_store, store_error_response};
+use super::projection::{error_response, store_error_response};
 use super::routing::{
     AddAssignmentItemRequest, AssignmentItemUpdateRequest, CourseRouteState,
     CreateAssignmentRequest, ReplaceAssignmentItemQuestionRequest, UpdateAssignmentRequest,
@@ -67,6 +68,7 @@ where
         tenant: authenticated.tenant_context.tenant_id(),
         course_id: course,
         title: request.title,
+        audience: question_model::AssignmentAudience::CourseWide,
         items: assignment_items(publications, None),
         selection_groups: Vec::new(),
         policies: request.policies,
@@ -123,6 +125,37 @@ where
     {
         return response;
     }
+    let member_role = match state
+        .store
+        .get_current_course_membership(
+            authenticated.tenant_context,
+            assignment.record.course_id,
+            authenticated.record.subject.user(),
+        )
+        .await
+    {
+        Ok(Some(membership)) => membership.role,
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "assignment not found"),
+        Err(error) => return store_error_response(error),
+    };
+    if member_role == question_model::CourseMembershipRole::Student {
+        match state
+            .store
+            .evaluate_assignment_entitlement(
+                authenticated.tenant_context,
+                authenticated.record.subject.user(),
+                assignment.record.course_id,
+                assignment.record.id,
+            )
+            .await
+        {
+            Ok(EntitlementDecision::Granted(_)) => {}
+            Ok(EntitlementDecision::Denied(_)) => {
+                return error_response(StatusCode::NOT_FOUND, "assignment not found");
+            }
+            Err(error) => return store_error_response(error),
+        }
+    }
     assignment_response(&state, &authenticated, StatusCode::OK, assignment).await
 }
 
@@ -138,6 +171,31 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
+    let assignment_record = match state
+        .store
+        .get_assignment(authenticated.tenant_context, assignment)
+        .await
+    {
+        Ok(Some(record)) => record,
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "assignment summary not found"),
+        Err(error) => return store_error_response(error),
+    };
+    match state
+        .store
+        .evaluate_assignment_entitlement(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            assignment_record.course_id,
+            assignment,
+        )
+        .await
+    {
+        Ok(EntitlementDecision::Granted(_)) => {}
+        Ok(EntitlementDecision::Denied(_)) => {
+            return error_response(StatusCode::NOT_FOUND, "assignment summary not found");
+        }
+        Err(error) => return store_error_response(error),
+    }
     let enrollment = match state
         .store
         .learner_get_enrollment_for_assignment(
@@ -235,6 +293,7 @@ where
         tenant: authenticated.tenant_context.tenant_id(),
         course_id: course,
         title: request.title.clone(),
+        audience: current.record.audience.clone(),
         items: items.clone(),
         selection_groups: current.record.selection_groups.clone(),
         policies: request.policies,
@@ -254,6 +313,7 @@ where
             learning_data_access::AssignmentEditorUpdate {
                 assignment: learning_data_access::AssignmentUpdate {
                     title: request.title,
+                    audience: current.record.audience,
                     items,
                     selection_groups: current.record.selection_groups,
                     policies: request.policies,
@@ -549,7 +609,7 @@ where
     }
     let public_id = match state
         .store
-        .assignment_public_id(
+        .assignment_reference(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
             assignment.record.id,

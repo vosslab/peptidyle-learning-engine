@@ -55,6 +55,59 @@ pub(super) async fn insert_postgres_assignment_items(
     Ok(())
 }
 
+/// Stores the explicit assignment audience in its normalized relation.  The
+/// database's deferred constraint trigger owns same-course and purpose
+/// invariants; this writer deliberately has no JSON representation or
+/// compatibility default.
+#[cfg(feature = "postgres")]
+pub(super) async fn replace_postgres_assignment_audience(
+    transaction: &mut Transaction<'_, Postgres>,
+    assignment: &AssignmentRecord,
+) -> Result<(), StoreError> {
+    let groups = match &assignment.audience {
+        question_model::AssignmentAudience::CourseWide => Vec::new(),
+        question_model::AssignmentAudience::AnyOfGroups(groups) => groups
+            .iter()
+            .map(|group| group.as_uuid())
+            .collect::<Vec<_>>(),
+    };
+    sqlx::query(
+        "DELETE FROM assignment_audience_group WHERE tenant_id = $1 AND assignment_id = $2 \
+         AND NOT (course_group_id = ANY($3::uuid[]))",
+    )
+    .bind(assignment.tenant.as_uuid())
+    .bind(assignment.id.as_uuid())
+    .bind(&groups)
+    .execute(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    for group in groups {
+        sqlx::query(
+            "INSERT INTO assignment_audience_group \
+             (tenant_id, assignment_id, course_id, course_group_id) VALUES ($1, $2, $3, $4) \
+             ON CONFLICT (tenant_id, assignment_id, course_group_id) DO NOTHING",
+        )
+        .bind(assignment.tenant.as_uuid())
+        .bind(assignment.id.as_uuid())
+        .bind(assignment.course_id.as_uuid())
+        .bind(group)
+        .execute(&mut **transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+    }
+    Ok(())
+}
+
+#[cfg(feature = "postgres")]
+pub(super) fn assignment_audience_kind(
+    audience: &question_model::AssignmentAudience,
+) -> &'static str {
+    match audience {
+        question_model::AssignmentAudience::CourseWide => "course_wide",
+        question_model::AssignmentAudience::AnyOfGroups(_) => "any_of_groups",
+    }
+}
+
 #[cfg(feature = "postgres")]
 pub(super) async fn replace_postgres_assignment_items(
     transaction: &mut Transaction<'_, Postgres>,
@@ -403,7 +456,7 @@ pub(super) async fn load_assignment(
         "SELECT assignment_id, course_id, title, completion_policy, \
                 completion_threshold::text AS completion_threshold, \
                 attempt_selection_policy, continued_practice_policy, \
-                practice_max_additional_runs, variation_policy \
+                practice_max_additional_runs, variation_policy, audience_kind \
          FROM assignment \
          WHERE tenant_id = $1 AND assignment_id = $2",
     )
@@ -427,7 +480,7 @@ pub(super) async fn load_assignment_for_share(
         "SELECT assignment_id, course_id, title, completion_policy, \
                 completion_threshold::text AS completion_threshold, \
                 attempt_selection_policy, continued_practice_policy, \
-                practice_max_additional_runs, variation_policy \
+                practice_max_additional_runs, variation_policy, audience_kind \
          FROM assignment \
          WHERE tenant_id = $1 AND assignment_id = $2 FOR SHARE",
     )
@@ -460,11 +513,20 @@ pub(super) fn decode_assignment_header(
         .try_get("practice_max_additional_runs")
         .map_err(map_sqlx_error)?;
     let variation_policy: String = row.try_get("variation_policy").map_err(map_sqlx_error)?;
+    let audience_kind: String = row.try_get("audience_kind").map_err(map_sqlx_error)?;
+    if !matches!(audience_kind.as_str(), "course_wide" | "any_of_groups") {
+        return Err(StoreError::Unavailable(
+            "stored assignment audience kind is invalid".to_string(),
+        ));
+    }
     Ok(AssignmentRecord {
         id: AssignmentId::from_uuid(row.try_get("assignment_id").map_err(map_sqlx_error)?),
         tenant,
         course_id: CourseId::from_uuid(row.try_get("course_id").map_err(map_sqlx_error)?),
         title: row.try_get("title").map_err(map_sqlx_error)?,
+        // `load_assignment_relations` reads the normalized relation and
+        // replaces this temporary value before returning an assignment.
+        audience: question_model::AssignmentAudience::CourseWide,
         items: Vec::new(),
         selection_groups: Vec::new(),
         policies: RunPolicies {
@@ -481,6 +543,45 @@ pub(super) async fn load_assignment_relations(
     transaction: &mut Transaction<'_, Postgres>,
     mut assignment: AssignmentRecord,
 ) -> Result<AssignmentRecord, StoreError> {
+    let audience_kind: String = sqlx::query_scalar(
+        "SELECT audience_kind FROM assignment WHERE tenant_id = $1 AND assignment_id = $2",
+    )
+    .bind(assignment.tenant.as_uuid())
+    .bind(assignment.id.as_uuid())
+    .fetch_one(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    let audience_rows = sqlx::query_scalar::<_, Uuid>(
+        "SELECT course_group_id FROM assignment_audience_group \
+         WHERE tenant_id = $1 AND assignment_id = $2 ORDER BY course_group_id",
+    )
+    .bind(assignment.tenant.as_uuid())
+    .bind(assignment.id.as_uuid())
+    .fetch_all(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    assignment.audience = match audience_kind.as_str() {
+        "course_wide" if audience_rows.is_empty() => question_model::AssignmentAudience::CourseWide,
+        "course_wide" => {
+            return Err(StoreError::Unavailable(
+                "stored course-wide assignment has audience groups".to_string(),
+            ));
+        }
+        "any_of_groups" => question_model::AssignmentAudience::any_of_groups(
+            audience_rows
+                .into_iter()
+                .map(CourseGroupId::from_uuid)
+                .collect(),
+        )
+        .map_err(|_| {
+            StoreError::Unavailable("stored group assignment audience is invalid".to_string())
+        })?,
+        _ => {
+            return Err(StoreError::Unavailable(
+                "stored assignment audience kind is invalid".to_string(),
+            ));
+        }
+    };
     let item_rows = sqlx::query(
         "SELECT assignment_item_id, position, problem_id, version_id, \
                 points_possible::text AS points_possible, delivery_state, scoring_mode \
@@ -634,7 +735,10 @@ pub(super) async fn load_enrollment_for_update(
     enrollment: EnrollmentId,
 ) -> Result<AssignmentEnrollment, StoreError> {
     let row = sqlx::query(
-        "SELECT payload, payload_sha256 FROM enrollment \
+        "SELECT enrollment_id, tenant_id, assignment_id, user_id, student_id, \
+                floor(extract(epoch FROM first_completed_at) * 1000)::bigint \
+                    AS first_completed_at_millis, \
+                current_grade_run_id, best_grade_run_id FROM enrollment \
          WHERE tenant_id = $1 AND enrollment_id = $2 FOR UPDATE",
     )
     .bind(tenant.as_uuid())
@@ -643,7 +747,59 @@ pub(super) async fn load_enrollment_for_update(
     .await
     .map_err(map_sqlx_error)?
     .ok_or(StoreError::NotFound)?;
-    decode_payload_row(&row)
+    decode_postgres_enrollment_row(&row)
+}
+
+/// Decodes the normalized mutable enrollment state.  Enrollment provenance and
+/// entitlement scopes are separate immutable relations, so this deliberately
+/// has no payload or checksum compatibility path.
+#[cfg(feature = "postgres")]
+pub(super) fn decode_postgres_enrollment_row(
+    row: &PgRow,
+) -> Result<AssignmentEnrollment, StoreError> {
+    Ok(AssignmentEnrollment {
+        id: EnrollmentId::from_uuid(row.try_get("enrollment_id").map_err(map_sqlx_error)?),
+        tenant: TenantId::from_uuid(row.try_get("tenant_id").map_err(map_sqlx_error)?),
+        assignment: AssignmentId::from_uuid(row.try_get("assignment_id").map_err(map_sqlx_error)?),
+        user: UserId::from_uuid(row.try_get("user_id").map_err(map_sqlx_error)?),
+        student: StudentId::from_uuid(row.try_get("student_id").map_err(map_sqlx_error)?),
+        first_completed_at: row
+            .try_get::<Option<i64>, _>("first_completed_at_millis")
+            .map_err(map_sqlx_error)?
+            .map(ActivityTimestamp::from_unix_millis),
+        current_grade_run: row
+            .try_get::<Option<Uuid>, _>("current_grade_run_id")
+            .map_err(map_sqlx_error)?
+            .map(RunId::from_uuid),
+        best_grade_run: row
+            .try_get::<Option<Uuid>, _>("best_grade_run_id")
+            .map_err(map_sqlx_error)?
+            .map(RunId::from_uuid),
+    })
+}
+
+/// Loads the relational enrollment representation without taking an update
+/// lock.  Readers that mutate the enrollment use [`load_enrollment_for_update`].
+#[cfg(feature = "postgres")]
+pub(super) async fn load_postgres_enrollment(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    enrollment: EnrollmentId,
+) -> Result<AssignmentEnrollment, StoreError> {
+    let row = sqlx::query(
+        "SELECT enrollment_id, tenant_id, assignment_id, user_id, student_id, \
+                floor(extract(epoch FROM first_completed_at) * 1000)::bigint \
+                    AS first_completed_at_millis, \
+                current_grade_run_id, best_grade_run_id FROM enrollment \
+         WHERE tenant_id = $1 AND enrollment_id = $2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(enrollment.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?
+    .ok_or(StoreError::NotFound)?;
+    decode_postgres_enrollment_row(&row)
 }
 
 #[cfg(feature = "postgres")]
@@ -672,7 +828,11 @@ pub(super) async fn load_summary_for_update(
     enrollment: EnrollmentId,
 ) -> Result<StudentAssignmentSummary, StoreError> {
     let row = sqlx::query(
-        "SELECT payload, payload_sha256 FROM student_assignment_summary \
+        "SELECT tenant_id, enrollment_id, current_score, best_score, latest_score, \
+                completed_run_count, total_question_attempts, \
+                floor(extract(epoch FROM last_activity_at) * 1000)::bigint \
+                    AS last_activity_at_millis \
+         FROM student_assignment_summary \
          WHERE tenant_id = $1 AND enrollment_id = $2 FOR UPDATE",
     )
     .bind(tenant.as_uuid())
@@ -681,7 +841,7 @@ pub(super) async fn load_summary_for_update(
     .await
     .map_err(map_sqlx_error)?
     .ok_or(StoreError::NotFound)?;
-    decode_payload_row(&row)
+    decode_summary_row(&row)
 }
 
 #[cfg(feature = "postgres")]
@@ -689,18 +849,28 @@ pub(super) async fn store_summary(
     transaction: &mut Transaction<'_, Postgres>,
     summary: &StudentAssignmentSummary,
 ) -> Result<(), StoreError> {
-    let (payload, checksum) = encode_payload(summary)?;
-    sqlx::query(
-        "UPDATE student_assignment_summary SET payload = $3, payload_sha256 = $4, \
-         updated_at = transaction_timestamp() WHERE tenant_id = $1 AND enrollment_id = $2",
+    let updated = sqlx::query(
+        "UPDATE student_assignment_summary \
+         SET current_score = $3, best_score = $4, latest_score = $5, \
+             completed_run_count = $6, total_question_attempts = $7, \
+             last_activity_at = to_timestamp($8::double precision / 1000), \
+             updated_at = transaction_timestamp() \
+         WHERE tenant_id = $1 AND enrollment_id = $2",
     )
     .bind(summary.tenant.as_uuid())
     .bind(summary.enrollment.as_uuid())
-    .bind(payload)
-    .bind(checksum)
+    .bind(summary.current_score)
+    .bind(summary.best_score)
+    .bind(summary.latest_score)
+    .bind(i64::from(summary.completed_run_count))
+    .bind(i64::try_from(summary.total_question_attempts).map_err(|_| StoreError::Conflict)?)
+    .bind(summary.last_activity_at.map(|value| value.as_unix_millis()))
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
+    if updated.rows_affected() != 1 {
+        return Err(StoreError::NotFound);
+    }
     Ok(())
 }
 
@@ -718,9 +888,9 @@ pub(super) async fn insert_problem_version(
         "INSERT INTO problem_version \
          (problem_id, version_id, content_sha256, workspace_id, title, \
           backend, capabilities, metadata, \
-          publication_scope, lifecycle, lifecycle_reason, authors, \
+          publication_scope, lifecycle, lifecycle_reason, author_ids, public_byline, \
           derived_from_problem_id, derived_from_version_id) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
     )
     .bind(record.problem.as_uuid())
     .bind(record.version.as_uuid())
@@ -733,7 +903,15 @@ pub(super) async fn insert_problem_version(
     .bind(publication_scope_name(record.scope))
     .bind(lifecycle)
     .bind(lifecycle_reason)
-    .bind(Json(record.authors.clone()))
+    .bind(Json(record.author_ids.clone()))
+    .bind(
+        record
+            .byline
+            .names
+            .iter()
+            .map(|name| name.as_str())
+            .collect::<Vec<_>>(),
+    )
     .bind(derived_from_problem)
     .bind(derived_from_version)
     .execute(&mut **transaction)

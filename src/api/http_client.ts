@@ -18,6 +18,7 @@ export {
   AssignmentValidationError,
   CourseAppearanceConflictError,
   CourseAppearanceFileError,
+  CourseTermValidationError,
   PublicationValidationError,
   WorkspaceConflictError,
 } from "./http_client/error";

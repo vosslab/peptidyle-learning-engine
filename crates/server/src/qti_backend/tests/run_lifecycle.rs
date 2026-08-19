@@ -180,6 +180,11 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
                 flat_question_promotion: None,
                 publisher,
                 scope: PublicationScope::Institution,
+                byline: question_model::PublicByline::new(vec![
+                    question_model::PublicAuthorName::new("PLE fixture".to_string())
+                        .expect("valid test byline"),
+                ])
+                .expect("valid test byline"),
                 capabilities: question_model::BackendCapabilities::from_iter([
                     question_model::Capability::ServerGrading,
                 ]),
@@ -208,26 +213,37 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
     let course = CourseId::from_uuid(uuid::Uuid::from_u128(7_208));
     let assignment = AssignmentId::from_uuid(uuid::Uuid::from_u128(7_209));
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "QTI course".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: publisher,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "QTI course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: publisher,
             },
         )
         .await
         .expect("course");
+    store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "QTI learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("student roster membership");
     store
         .create_untimed_assignment(
             context,
@@ -235,6 +251,7 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
                 id: assignment,
                 tenant,
                 course_id: course,
+                audience: question_model::AssignmentAudience::CourseWide,
                 title: "QTI assignment".to_string(),
                 items: vec![question_model::AssignmentItem {
                     id: question_model::AssignmentItemId::from_uuid(uuid::Uuid::from_u128(7_210)),
@@ -255,22 +272,6 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
         )
         .await
         .expect("assignment");
-    store
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: EnrollmentId::from_uuid(uuid::Uuid::from_u128(7_210)),
-                tenant,
-                assignment,
-                user: student,
-                student: StudentId::from_uuid(uuid::Uuid::from_u128(7_211)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
-        .await
-        .expect("enrollment");
     let cookie = issue_session(
         store.as_ref(),
         SessionSubject::new(

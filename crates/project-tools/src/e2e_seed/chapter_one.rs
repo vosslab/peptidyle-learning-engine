@@ -175,14 +175,17 @@ pub(super) async fn seed_chapter_one_pilot(
         ensure_webwork_pilot_course(
             &store,
             context,
+            arguments.instructor,
             CourseRecord {
                 id: course_id,
                 tenant: arguments.tenant,
                 title: chapter.course_title.clone(),
-                members: vec![CourseMembership {
-                    user: arguments.instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+                term: question_model::CourseTerm::from_parts(
+                    "2026-08-24",
+                    "2026-12-18",
+                    "America/Chicago",
+                )
+                .expect("explicit fixture course term"),
             },
         )
         .await?;
@@ -269,6 +272,7 @@ pub(super) async fn seed_chapter_one_pilot(
                 tenant: arguments.tenant,
                 course_id,
                 title: chapter.assignment_title.clone(),
+                audience: question_model::AssignmentAudience::CourseWide,
                 items,
                 selection_groups: Vec::new(),
                 policies: RunPolicies {
@@ -283,6 +287,7 @@ pub(super) async fn seed_chapter_one_pilot(
         let enrollment = upsert_chapter_one_student(
             &store,
             context,
+            arguments.instructor,
             arguments.student,
             course_id,
             assignment_id,
@@ -308,13 +313,13 @@ pub(super) async fn seed_chapter_one_pilot(
     Ok(output)
 }
 
-/// Creates the disposable Chapter 1 learner through the sole roster owner.
-/// That transaction owns the roster row, course membership, and one
-/// enrollment for every existing assignment; the seed never writes any of
-/// those records directly.
+/// Creates the disposable Chapter 1 learner through the canonical membership
+/// owner, then materializes its one assignment receipt through the sole
+/// entitlement seam.
 pub(super) async fn upsert_chapter_one_student<S>(
     store: &S,
     context: TenantContext,
+    instructor: UserId,
     student: UserId,
     course: CourseId,
     assignment: AssignmentId,
@@ -340,9 +345,9 @@ where
     {
         bail!("Chapter 1 learner creation did not produce an active no-contact roster member");
     }
-    find_assignment_enrollment(store, context, assignment, student)
+    ensure_webwork_pilot_enrollment(store, context, instructor, student, course, assignment)
         .await
-        .context("resolving roster-derived Chapter 1 assignment enrollment")
+        .context("materializing Chapter 1 assignment enrollment")
 }
 
 fn pilot_object_store(storage: &WebworkPilotStorage) -> Result<objects::s3::S3ObjectStore> {
@@ -496,6 +501,11 @@ where
                     flat_question_promotion: None,
                     publisher,
                     scope: PublicationScope::Institution,
+                    byline: question_model::PublicByline::new(vec![
+                        question_model::PublicAuthorName::new(
+                            "Chapter One Instructor".to_string(),
+                        )?,
+                    ])?,
                     capabilities: capabilities.clone(),
                 },
             )
@@ -697,6 +707,11 @@ async fn publish_flat_question(
                     }),
                     publisher,
                     scope: PublicationScope::Institution,
+                    byline: question_model::PublicByline::new(vec![
+                        question_model::PublicAuthorName::new(
+                            "Chapter One Instructor".to_string(),
+                        )?,
+                    ])?,
                     capabilities: capabilities.clone(),
                 },
             )
@@ -887,7 +902,7 @@ where
         || record.capabilities != *expected_capabilities
         || record.scope != PublicationScope::Institution
         || record.lifecycle != CatalogLifecycle::Published
-        || record.authors.as_slice() != [publisher]
+        || record.author_ids.as_slice() != [publisher]
         || record.derived_from.is_some()
     {
         bail!("existing Chapter 1 pilot publication differs from reviewed content");

@@ -644,7 +644,9 @@ async fn qti_publish_endpoint_is_the_only_route_that_promotes_committed_staging(
                 .header("cookie", cookie)
                 .header("if-match", format!("\"{}\"", saved.revision.value()))
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"scope":"institution"}"#))
+                .body(Body::from(
+                    r#"{"scope":"institution","byline":{"names":["PLE fixture"]}}"#,
+                ))
                 .expect("QTI publish request"),
         )
         .await
@@ -715,7 +717,9 @@ async fn qti_publish_requires_one_current_strong_workspace_revision() {
             .clone()
             .oneshot(
                 request
-                    .body(Body::from(r#"{"scope":"institution"}"#))
+                    .body(Body::from(
+                        r#"{"scope":"institution","byline":{"names":["PLE fixture"]}}"#,
+                    ))
                     .expect("QTI publish request"),
             )
             .await
@@ -764,7 +768,9 @@ async fn qti_publish_rejects_review_time_draft_change_without_visible_version() 
                 .header("cookie", cookie)
                 .header("if-match", format!("\"{}\"", saved.revision.value()))
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"scope":"public"}"#))
+                .body(Body::from(
+                    r#"{"scope":"public","byline":{"names":["PLE fixture"]}}"#,
+                ))
                 .expect("QTI publish request"),
         )
         .await

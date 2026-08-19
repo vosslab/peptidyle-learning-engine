@@ -46,14 +46,17 @@ impl crate::StatisticsStore for MemoryStore {
                 }
                 let summary = state.summaries.get(&(tenant, *enrollment_id))?.clone();
                 let learner_name = state
-                    .roster_members
+                    .course_memberships
                     .values()
-                    .find(|member| {
-                        member.tenant == tenant
-                            && member.course == course
-                            && member.student == enrollment.student
+                    .find(|membership| {
+                        membership.tenant == tenant
+                            && membership.course == course
+                            && membership.student == Some(enrollment.student)
                     })
-                    .map(|member| member.display_name.clone())
+                    .and_then(|membership| {
+                        state.roster_profiles.get(&(tenant, course, membership.id))
+                    })
+                    .map(|profile| profile.display_name.clone())
                     .unwrap_or_else(|| "Learner".to_string());
                 Some((
                     GradebookCursor {

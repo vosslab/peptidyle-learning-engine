@@ -27,6 +27,22 @@ import type { CourseBannerAlternativeText } from "../../../generated/api/CourseB
 import type { CourseBannerCandidateReceipt } from "../../../generated/api/CourseBannerCandidateReceipt";
 import type { CourseBannerPresentation } from "../../../generated/api/CourseBannerPresentation";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
+import type { AssignmentRouteReference, CourseRouteReference } from "../../navigation/public_route";
+import { decodePublicByline } from "../public_byline";
+import { parseAssignmentReference, parseCourseReference } from "../../navigation/public_route";
+
+function decodeCourseReference(value: unknown, path: string): CourseRouteReference {
+  if (typeof value !== "string") throw new DecodeError(path, "a C- reference");
+  const reference = parseCourseReference(value);
+  if (reference === null) throw new DecodeError(path, "a C- reference");
+  return reference;
+}
+function decodeAssignmentReference(value: unknown, path: string): AssignmentRouteReference {
+  if (typeof value !== "string") throw new DecodeError(path, "an A- reference");
+  const reference = parseAssignmentReference(value);
+  if (reference === null) throw new DecodeError(path, "an A- reference");
+  return reference;
+}
 import type { CourseThemeId } from "../../../generated/api/CourseThemeId";
 import type { PointValue } from "../../../generated/api/PointValue";
 import type { QuestionStatisticsView } from "../../../generated/api/QuestionStatisticsView";
@@ -70,7 +86,6 @@ import {
   decodeCursor,
   decodeEnvelopeTitle,
   decodeIdentifier,
-  decodePublicRouteNumber,
   decodeQuestionMetadata,
   decodeTaxonomyTerm,
   decodeTimestamp,
@@ -78,7 +93,11 @@ import {
   kind,
   requireOnlyFields,
 } from "./shared";
+import { decodeCourseTerm } from "./course_term";
 import { decodeContentBlock } from "./question_model";
+
+// Retain the established catalog-course import surface while course-term owns its decoding rules.
+export { decodeCourseTerm, decodeCourseTermValidationFailure } from "./course_term";
 
 function decodeQuestionId(value: unknown, path: string): string {
   const questionId = decodeString(value, path);
@@ -103,6 +122,7 @@ export function decodeCatalogProblemSummary(
       "scope",
       "lifecycle",
       "publishedAt",
+      "byline",
     ]);
   }
   const decoded = {
@@ -119,6 +139,7 @@ export function decodeCatalogProblemSummary(
       `${path}.capabilities`,
     ),
     metadata: decodeQuestionMetadata(field(record, "metadata", path), `${path}.metadata`, strict),
+    byline: decodePublicByline(field(record, "byline", path), `${path}.byline`),
     scope: decodeStringEnum(field(record, "scope", path), `${path}.scope`, [
       "institution",
       "public",
@@ -131,6 +152,23 @@ export function decodeCatalogProblemSummary(
     publishedAt: decodeTimestamp(field(record, "publishedAt", path), `${path}.publishedAt`),
   } satisfies CatalogProblemSummary;
   return decoded;
+}
+
+/**
+ * Verifies the exact browser-safe success projection for a native publication.
+ *
+ * Decoding establishes the DTO's shape; callers of a publication command must
+ * additionally bind that DTO to their requested scope and the published state.
+ */
+export function isPublishedNativeCatalogProblemSummary(
+  summary: CatalogProblemSummary,
+  scope: CatalogProblemSummary["scope"],
+): boolean {
+  return (
+    summary.backend === "native" &&
+    summary.scope === scope &&
+    summary.lifecycle.state === "published"
+  );
 }
 
 function decodeCatalogTaxonomyFacet(value: unknown, path: string): CatalogTaxonomyFacet {
@@ -403,18 +441,15 @@ function decodeRunPolicies(value: unknown, path: string, strict = false): RunPol
   return decoded;
 }
 
-export function decodeCourseSummary(
-  value: unknown,
-  path = "response",
-  strict = false,
-): CourseSummary {
+export function decodeCourseSummary(value: unknown, path = "response"): CourseSummary {
   const record = decodeRecord(value, path);
-  if (strict) requireOnlyFields(record, path, ["id", "publicId", "tenant", "title", "role"]);
+  requireOnlyFields(record, path, ["id", "reference", "tenant", "title", "term", "role"]);
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    publicId: decodePublicRouteNumber(field(record, "publicId", path), `${path}.publicId`),
+    reference: decodeCourseReference(field(record, "reference", path), `${path}.reference`),
     tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
+    term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
     role: decodeStringEnum(field(record, "role", path), `${path}.role`, ["student", "instructor"]),
   } satisfies CourseSummary;
   return decoded;
@@ -423,13 +458,14 @@ export function decodeCourseSummary(
 /** Strict request decoder for the public course-creation transport boundary. */
 export function decodeCourseCreateInput(value: unknown, path = "request"): CourseCreateInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title"]);
+  requireOnlyFields(record, path, ["title", "term"]);
   const title = decodeNonemptyString(field(record, "title", path), `${path}.title`);
   if (title.trim().length === 0) {
     throw new DecodeError(`${path}.title`, "a course title containing non-whitespace content");
   }
   const decoded = {
     title,
+    term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
   } satisfies CourseCreateInput;
   return decoded;
 }
@@ -743,7 +779,7 @@ export function decodeAssignmentSummary(
   if (strict) {
     requireOnlyFields(record, path, [
       "id",
-      "publicId",
+      "reference",
       "tenant",
       "courseId",
       "title",
@@ -754,7 +790,7 @@ export function decodeAssignmentSummary(
   }
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    publicId: decodePublicRouteNumber(field(record, "publicId", path), `${path}.publicId`),
+    reference: decodeAssignmentReference(field(record, "reference", path), `${path}.reference`),
     tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
     courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
@@ -778,7 +814,7 @@ export function decodeAssignmentSummaryWithTiming(
   if (strict) {
     requireOnlyFields(record, path, [
       "id",
-      "publicId",
+      "reference",
       "tenant",
       "courseId",
       "title",
@@ -874,7 +910,7 @@ export function decodeAssignmentEditorDetail(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
-    "publicId",
+    "reference",
     "tenant",
     "courseId",
     "title",
@@ -886,7 +922,7 @@ export function decodeAssignmentEditorDetail(
   const summary = decodeAssignmentSummary(record, path, false);
   const decoded = {
     id: summary.id,
-    publicId: summary.publicId,
+    reference: summary.reference,
     tenant: summary.tenant,
     courseId: summary.courseId,
     title: summary.title,

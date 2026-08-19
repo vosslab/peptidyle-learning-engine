@@ -266,6 +266,8 @@ pub struct CatalogProblemSummary {
     pub capabilities: BackendCapabilities,
     /// Shared metadata used for title, taxonomy, license, and language facets.
     pub metadata: QuestionMetadata,
+    /// Immutable reviewed publication attribution; never account authority.
+    pub byline: crate::PublicByline,
     /// Institution-only or public visibility.
     pub scope: PublicationScope,
     /// Published, deprecated, or archived state.
@@ -738,6 +740,11 @@ mod tests {
                     license: License::Cc0,
                     language: "en".to_string(),
                 },
+                byline: crate::PublicByline::new(vec![
+                    crate::PublicAuthorName::new("Fixture Author".to_string())
+                        .expect("valid byline"),
+                ])
+                .expect("valid byline"),
                 scope: PublicationScope::Public,
                 lifecycle: CatalogLifecycle::Published,
                 published_at: ActivityTimestamp::from_unix_millis(0),

@@ -2,10 +2,19 @@
 
 import type { APIRequest } from "@playwright/test";
 
+import type { PublicByline } from "../../../generated/api/PublicByline";
+import {
+  decodeCatalogProblemDetail,
+  decodeCatalogProblemSummary,
+  isPublishedNativeCatalogProblemSummary,
+} from "../../../src/api/decoders/catalog_course";
 import { choose_value, create_named_stream } from "./rng";
 
 const FLAT_QUESTION_MEDIA_TYPE = "application/vnd.peptidyle.flat-question+json";
 const RETRY_CORPUS_STREAM = "arrangement.retry-corpus.content";
+const RETRY_CORPUS_BYLINE = {
+  names: ["PLE retry corpus fixture"],
+} satisfies PublicByline;
 const PUBLIC_FORBIDDEN_FIELDS = new Set([
   "answerkey",
   "answerkeys",
@@ -41,13 +50,15 @@ interface RetryCorpusChoice {
 
 interface FlatQuestionSource {
   readonly format: "pleFlatQuestion";
-  readonly version: 1;
-  readonly kind: "singleChoice";
+  readonly version: 2;
   readonly title: string;
   readonly prompt: string;
-  readonly choices: readonly RetryCorpusChoice[];
-  readonly correctChoice: string;
-  readonly feedback: Readonly<Record<string, never>>;
+  readonly response: {
+    readonly kind: "singleChoice";
+    readonly choices: readonly (RetryCorpusChoice & { readonly feedback: null })[];
+    readonly correctChoice: string;
+  };
+  readonly feedback: { readonly correct: null; readonly incorrect: null };
   readonly points: 1;
   readonly attemptPolicy: {
     readonly maxAttempts: null;
@@ -74,7 +85,9 @@ interface RetryCorpusTransport {
   post(
     path: string,
     request: {
-      readonly data: { readonly credential: string } | { readonly scope: "institution" };
+      readonly data:
+        | { readonly credential: string }
+        | { readonly scope: "institution"; readonly byline: PublicByline };
       readonly headers?: Readonly<Record<string, string>>;
     },
   ): Promise<RequestResponse>;
@@ -101,8 +114,8 @@ export interface RetryCorpusInputs {
 }
 
 export interface PublishedRetryCorpus {
-  readonly problem: string;
-  readonly version: string;
+  /** The browser-safe, canonical ID returned by the catalog publication summary. */
+  readonly questionId: string;
   /** Public title used only to locate this fresh corpus entry in the visible catalog. */
   readonly catalogSearchTitle: string;
   readonly arrangement: "native-retry-corpus";
@@ -218,13 +231,15 @@ function retryCorpusSource(
   const variant = choose_value(stream, RETRY_CORPUS_VARIANTS);
   return {
     format: "pleFlatQuestion",
-    version: 1,
-    kind: "singleChoice",
+    version: 2,
     title,
     prompt: variant.prompt,
-    choices: variant.choices,
-    correctChoice: variant.correctChoice,
-    feedback: {},
+    response: {
+      kind: "singleChoice",
+      choices: variant.choices.map((choice) => ({ ...choice, feedback: null })),
+      correctChoice: variant.correctChoice,
+    },
+    feedback: { correct: null, incorrect: null },
     points: 1,
     attemptPolicy: { maxAttempts: null, feedback: "immediateFull" },
     timingPolicy: timedQuestion
@@ -267,29 +282,36 @@ async function publishInstitutionally(
   context: RetryCorpusTransport,
   workspace: string,
   etag: string,
-): Promise<Pick<PublishedRetryCorpus, "problem" | "version">> {
+): Promise<Pick<PublishedRetryCorpus, "questionId">> {
   const response = await context.post(`/api/problems/${workspace}/flat-question-publish`, {
     headers: { "if-match": etag },
-    data: { scope: "institution" },
+    data: { scope: "institution", byline: RETRY_CORPUS_BYLINE },
   });
   if (response.status() !== 201) {
     throw new RetryCorpusArrangementError("publish");
   }
   const payload = await response.json();
-  if (!isPublishedReference(payload)) {
+  const summary = decodePublishedSummary(payload);
+  if (summary === undefined || !isPublishedNativeCatalogProblemSummary(summary, "institution")) {
     throw new RetryCorpusArrangementError("publish");
   }
-  return { problem: payload.problem, version: payload.version };
+  return { questionId: summary.questionId };
 }
 
 async function inspectSafePublicProjection(
   context: RetryCorpusTransport,
-  published: Pick<PublishedRetryCorpus, "problem" | "version">,
+  published: Pick<PublishedRetryCorpus, "questionId">,
 ): Promise<void> {
-  const response = await context.get(
-    `/api/problems/${published.problem}/versions/${published.version}/detail`,
-  );
-  if (response.status() !== 200 || containsForbiddenPublicField(await response.json())) {
+  const response = await context.get(`/api/problems/by-id/${published.questionId}/detail`);
+  if (response.status() !== 200) {
+    throw new RetryCorpusArrangementError("public-inspection");
+  }
+  const payload = await response.json();
+  if (containsForbiddenPublicField(payload)) {
+    throw new RetryCorpusArrangementError("public-inspection");
+  }
+  const detail = decodePublicDetail(payload);
+  if (detail === undefined || detail.summary.questionId !== published.questionId) {
     throw new RetryCorpusArrangementError("public-inspection");
   }
 }
@@ -300,16 +322,24 @@ function isStrongEtag(value: string): boolean {
   return revision !== undefined && BigInt(revision) <= 9_223_372_036_854_775_807n;
 }
 
-function isPublishedReference(
+function decodePublishedSummary(
   value: unknown,
-): value is Pick<PublishedRetryCorpus, "problem" | "version"> {
-  if (!isRecord(value)) return false;
-  return (
-    typeof value["problem"] === "string" &&
-    UUID.test(value["problem"]) &&
-    typeof value["version"] === "string" &&
-    UUID.test(value["version"])
-  );
+): ReturnType<typeof decodeCatalogProblemSummary> | undefined {
+  try {
+    return decodeCatalogProblemSummary(value, "publication", true);
+  } catch {
+    return undefined;
+  }
+}
+
+function decodePublicDetail(
+  value: unknown,
+): ReturnType<typeof decodeCatalogProblemDetail> | undefined {
+  try {
+    return decodeCatalogProblemDetail(value, "catalog detail");
+  } catch {
+    return undefined;
+  }
 }
 
 function containsForbiddenPublicField(value: unknown): boolean {

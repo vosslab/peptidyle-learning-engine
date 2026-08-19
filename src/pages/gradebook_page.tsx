@@ -6,7 +6,7 @@ import "./instructor_data_tables.css";
 
 import type { AssignmentRun } from "../../generated/api/AssignmentRun";
 import type { CourseId } from "../../generated/api/CourseId";
-import type { CoursePublicId } from "../../generated/api/CoursePublicId";
+import type { CourseReference } from "../../generated/api/CourseReference";
 import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import { useApiRuntime } from "../api/runtime";
 import { CourseManagementNav } from "../components/course_management_nav";
@@ -63,7 +63,7 @@ function gradebookHistoryControlId(row: GradebookSummaryRow): string {
 
 interface GradebookCoursePageProps {
   readonly courseId: CourseId;
-  readonly coursePublicId: CoursePublicId;
+  readonly courseReference: CourseReference;
 }
 
 function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
@@ -242,7 +242,7 @@ function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
         A compact view of assignment progress. Open a learner's run history only when you need the
         detail.
       </p>
-      <CourseManagementNav coursePublicId={props.coursePublicId} active="gradebook" />
+      <CourseManagementNav courseReference={props.courseReference} active="gradebook" />
       <p class="gradebook-status" role="status" aria-live="polite" aria-atomic="true">
         {announcement()}
       </p>
@@ -506,7 +506,7 @@ export function GradebookPage(): JSX.Element {
         </section>
       }
     >
-      {(course) => <GradebookCoursePage courseId={course.id} coursePublicId={course.publicId} />}
+      {(course) => <GradebookCoursePage courseId={course.id} courseReference={course.reference} />}
     </Show>
   );
 }

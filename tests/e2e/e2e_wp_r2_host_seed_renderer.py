@@ -8,9 +8,7 @@ import os
 import pathlib
 import re
 import secrets
-import shutil
 import sys
-import tempfile
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -20,7 +18,10 @@ sys.path.insert(0, str(SCRIPT_REPOSITORY_ROOT))
 
 import local_stack_control.env_file
 import local_stack_control.models
+import local_stack_control.private_files
+import local_stack_control.private_state
 import local_stack_control.process
+import local_stack_control.renderer
 
 
 TENANT_ID = "00000000-0000-0000-0000-000000000100"
@@ -29,6 +30,7 @@ STUDENT_ID = "00000000-0000-0000-0000-000000000102"
 POSTGRES_USER = "ple_wp_r2_host_seed"
 POSTGRES_DATABASE = "ple_wp_r2_host_seed"
 QUESTION_ID_PATTERN = "^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$"
+PRIVATE_STATE_RELATIVE_DIRECTORY = pathlib.Path("target") / "wp-r2-host-seed-renderer"
 
 
 class HostSeedE2EError(local_stack_control.models.ControllerError):
@@ -53,11 +55,10 @@ def repo_root() -> pathlib.Path:
 
 
 #============================================
-def private_file(path: pathlib.Path, content: str | bytes) -> None:
-	"""Create one regular mode-0600 file without a permissive creation window."""
-	file_descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-	with os.fdopen(file_descriptor, "wb") as output:
-		output.write(content.encode("ascii") if isinstance(content, str) else content)
+def private_file(path: pathlib.Path, content: str | bytes, mode: int = 0o600) -> None:
+	"""Atomically write one deliberately mode-restricted private control file."""
+	encoded = content.encode("ascii") if isinstance(content, str) else content
+	local_stack_control.private_files.write_atomic_file(path, encoded, mode)
 
 
 #============================================
@@ -238,8 +239,8 @@ def write_private_target(
 		+ '","user_id":"'
 		+ STUDENT_ID
 		+ '","display_name":"Local Learner","roles":["student"]}]}\n',
+		0o644,
 	)
-	os.chmod(identities_path, 0o644)
 	invitation_path = directory / "invitation-secret"
 	question_secret_path = directory / "question-id-secret"
 	private_file(invitation_path, invitation_secret)
@@ -247,6 +248,7 @@ def write_private_target(
 	capability_path = directory / "disposable.capability"
 	capability = secrets.token_bytes(32)
 	private_file(capability_path, capability)
+	renderer_provenance_path = directory / local_stack_control.renderer.PROVENANCE_NAME
 	env_path = directory / "env.local"
 	private_file(
 		env_path,
@@ -274,6 +276,7 @@ def write_private_target(
 		f"PLE_WEBWORK_RENDERER_IMAGE={selections['PLE_WEBWORK_RENDERER_IMAGE']}\n"
 		f"PLE_WEBWORK_RENDERER_BASE_URL={selections['PLE_WEBWORK_RENDERER_BASE_URL']}\n"
 		f"PLE_WEBWORK_RENDERER_ID={selections['PLE_WEBWORK_RENDERER_ID']}\n"
+		f"PLE_WEBWORK_PROVENANCE_FILE={renderer_provenance_path}\n"
 		f"PLE_WEBWORK_PROBLEM_JWT_SECRET={secrets.token_hex(32)}\n"
 		f"PLE_WEBWORK_SESSION_JWT_SECRET={secrets.token_hex(32)}\n"
 		f"PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS={selections['PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS']}\n"
@@ -394,6 +397,18 @@ def cleanup(runner: local_stack_control.process.CommandRunner, manifest_path: pa
 
 
 #============================================
+def cleanup_private_state(
+	runner: local_stack_control.process.CommandRunner,
+	manifest_path: pathlib.Path,
+	root: pathlib.Path,
+	private_state: local_stack_control.private_state.PrivateState,
+) -> None:
+	"""Stop the capability-owned stack before deleting its bind-mount sources."""
+	cleanup(runner, manifest_path, root)
+	private_state.remove()
+
+
+#============================================
 def main() -> None:
 	"""Launch, publish/replay native and WebWork, render, and exactly clean."""
 	require_malformed_manifest_refusal()
@@ -407,8 +422,10 @@ def main() -> None:
 	local_stack_control.process.require_available_loopback_ports(
 		(postgres_port, minio_port, minio_console_port, gateway_port), runner, root
 	)
-	directory = pathlib.Path(tempfile.mkdtemp(prefix="ple-wp-r2-host-seed-renderer-"))
-	os.chmod(directory, 0o700)
+	private_state = local_stack_control.private_state.prepare(
+		root, PRIVATE_STATE_RELATIVE_DIRECTORY
+	)
+	directory = private_state.directory
 	project, manifest_path, question_secret_path, postgres_password, minio_password = write_private_target(
 		directory, postgres_port, minio_port, minio_console_port, gateway_port, selections
 	)
@@ -445,13 +462,12 @@ def main() -> None:
 			print(f"WP-R2 host seed: preserving {project} and {directory}")
 		elif stack_started:
 			try:
-				cleanup(runner, manifest_path, root)
+				cleanup_private_state(runner, manifest_path, root, private_state)
 			except HostSeedE2EError:
 				print(f"WP-R2 host seed: cleanup failed; preserving {directory}", file=sys.stderr)
 				raise
-			shutil.rmtree(directory)
 		else:
-			shutil.rmtree(directory)
+			private_state.remove()
 
 
 if __name__ == "__main__":

@@ -332,8 +332,10 @@ pub struct PublishedProblemRecord {
     pub scope: PublicationScope,
     /// Discoverability and new-assignment state.
     pub lifecycle: CatalogLifecycle,
-    /// Ordered, nonempty authors for ordinary attribution.
-    pub authors: Vec<UserId>,
+    /// Ordered private account authority for lifecycle checks; never a catalog projection.
+    pub author_ids: Vec<UserId>,
+    /// Immutable reviewed browser-safe attribution snapshot.
+    pub byline: question_model::PublicByline,
     /// Optional immutable source evidence for a derived publication.
     ///
     /// Provenance does not define a successor, current version, redirect, or
@@ -351,6 +353,7 @@ impl PublishedProblemRecord {
             backend: QuestionBackend::from(&self.question.source),
             capabilities: self.capabilities.clone(),
             metadata: self.question.metadata.clone(),
+            byline: self.byline.clone(),
             scope: self.scope,
             lifecycle: self.lifecycle.clone(),
             published_at: self.published_at,
@@ -385,6 +388,8 @@ pub struct PublishDraftCommand {
     pub publisher: UserId,
     /// Institution-only or public target.
     pub scope: PublicationScope,
+    /// Explicit reviewed immutable publication attribution. No account default exists.
+    pub byline: question_model::PublicByline,
     /// Trusted capabilities resolved from the server adapter registry.
     pub capabilities: BackendCapabilities,
 }

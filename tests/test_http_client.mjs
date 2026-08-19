@@ -16,11 +16,22 @@ import {
   decodeIssuedPresentationEnvelope,
   decodeStudentResponse,
 } from "../src/api/decoders.ts";
-import { ApiProtocolError, ApiRequestError, createHttpApiClient } from "../src/api/http_client.ts";
+import {
+  ApiProtocolError,
+  ApiRequestError,
+  CourseTermValidationError,
+  createHttpApiClient,
+} from "../src/api/http_client.ts";
 import { createHttpLocalCredentialLogin } from "../src/api/http_client/local_development_auth.ts";
 import { createMockFetch, issuedQuestionWireForAttempt } from "../src/api/mock/handlers.ts";
 import { validateResponseFormatInMock } from "../src/api/mock/format_validation.ts";
 import { createFixtureFetch, jsonResponse } from "./http_client_test_support.mjs";
+
+const explicitCourseTerm = {
+  startDate: "2026-08-24",
+  endDate: "2026-12-18",
+  timeZone: "America/Chicago",
+};
 
 test("question decoders reject published, grading, and provider-secret fields instead of dropping them", () => {
   const draft = publishedProblemFixture.draft;
@@ -540,7 +551,10 @@ test("the HTTP client decodes every implemented route and composes a run screen"
   );
   assert.deepEqual((await client.listTaxonomy()).items, fixture.publishedProblem.metadata.taxonomy);
   assert.equal((await client.listCourses()).items[0].id, fixture.course.id);
-  const createdCourse = await client.createCourse({ title: "BIOC 301: Biochemistry" });
+  const createdCourse = await client.createCourse({
+    title: "BIOC 301: Biochemistry",
+    term: explicitCourseTerm,
+  });
   assert.equal(createdCourse.id, fixture.course.id);
   assert.equal((await client.getCourse(fixture.course.id)).role, "student");
   assert.equal((await client.getCourseAppearance(fixture.course.id)).theme, "grass");
@@ -551,10 +565,9 @@ test("the HTTP client decodes every implemented route and composes a run screen"
     fixture.assignment.id,
   );
   assert.equal((await client.getAssignment(fixture.assignment.id)).courseId, fixture.course.id);
-  assert.deepEqual(
-    (await client.getAssignment(fixture.assignment.id)).assignmentTiming,
-    { timeLimitSeconds: null },
-  );
+  assert.deepEqual((await client.getAssignment(fixture.assignment.id)).assignmentTiming, {
+    timeLimitSeconds: null,
+  });
   assert.equal(
     (await client.getEnrollment(fixture.enrollment.id)).summary.enrollment,
     fixture.enrollment.id,
@@ -650,7 +663,7 @@ test("the HTTP client decodes every implemented route and composes a run screen"
   assert.equal(submission.headers.get("content-type"), "application/json");
 });
 
-test("course creation sends only a strict public title and rejects malformed input or output", async () => {
+test("course creation enforces the strict term request, summary, and bounded refusal contracts", async () => {
   const requests = [];
   const fixture = publishedProblemFixture.course;
   const client = createHttpApiClient({
@@ -661,21 +674,92 @@ test("course creation sends only a strict public title and rejects malformed inp
     },
   });
 
-  const created = await client.createCourse({ title: "BIOC 301: Biochemistry" });
+  const input = { title: "BIOC 301: Biochemistry", term: explicitCourseTerm };
+  const created = await client.createCourse(input);
   assert.equal(created.role, "instructor");
   assert.equal(requests.length, 1);
   assert.equal(requests[0].method, "POST");
   assert.equal(new URL(requests[0].url).pathname, "/api/courses");
-  assert.deepEqual(JSON.parse(await requests[0].text()), { title: "BIOC 301: Biochemistry" });
+  assert.deepEqual(JSON.parse(await requests[0].text()), input);
   assert.throws(
-    () => client.createCourse({ title: "   " }),
+    () => client.createCourse({ title: "   ", term: explicitCourseTerm }),
     DecodeError,
     "course creation must reject an all-whitespace title before transport",
   );
   assert.throws(
-    () => client.createCourse({ title: "BIOC 301", role: "sysadmin" }),
+    () => client.createCourse({ ...input, role: "sysadmin" }),
     DecodeError,
     "course creation must reject fields outside its public request contract",
+  );
+  for (const invalid of [
+    { title: "BIOC 301" },
+    { ...input, term: { ...explicitCourseTerm, startDate: "2026-02-30" } },
+    {
+      ...input,
+      term: { ...explicitCourseTerm, startDate: "2026-12-19", endDate: "2026-12-18" },
+    },
+    { ...input, term: { ...explicitCourseTerm, offset: "-06:00" } },
+  ]) {
+    assert.throws(() => client.createCourse(invalid), DecodeError);
+  }
+
+  const missingTermClient = createHttpApiClient({
+    fetch: async () => {
+      const { term: _term, ...missingTerm } = fixture;
+      return jsonResponse(missingTerm, 201);
+    },
+  });
+  await assert.rejects(() => missingTermClient.createCourse(input), DecodeError);
+
+  const extraTermClient = createHttpApiClient({
+    fetch: async () =>
+      jsonResponse({ ...fixture, term: { ...fixture.term, offset: "-06:00" } }, 201),
+  });
+  await assert.rejects(() => extraTermClient.createCourse(input), DecodeError);
+
+  const refusedClient = createHttpApiClient({
+    fetch: async () =>
+      jsonResponse(
+        {
+          error: "courseTermInvalid",
+          field: "timeZone",
+          reason: "unknownIanaTimeZone",
+          message: "Choose a valid IANA time zone such as America/Chicago.",
+        },
+        422,
+      ),
+  });
+  await assert.rejects(
+    () => refusedClient.createCourse(input),
+    (error) =>
+      error instanceof CourseTermValidationError &&
+      error.failure.field === "timeZone" &&
+      error.failure.reason === "unknownIanaTimeZone",
+  );
+
+  const overlongRefusalClient = createHttpApiClient({
+    fetch: async () =>
+      jsonResponse(
+        {
+          error: "courseTermInvalid",
+          field: "timeZone",
+          reason: "unknownIanaTimeZone",
+          message: "x".repeat(161),
+        },
+        422,
+      ),
+  });
+  await assert.rejects(
+    () => overlongRefusalClient.createCourse(input),
+    (error) => error instanceof ApiRequestError && !(error instanceof CourseTermValidationError),
+  );
+
+  const genericRefusalClient = createHttpApiClient({
+    fetch: async () => jsonResponse({ error: "course request is invalid" }, 422),
+  });
+  await assert.rejects(
+    () => genericRefusalClient.createCourse(input),
+    (error) => error instanceof ApiRequestError && !(error instanceof CourseTermValidationError),
   );
 });
 

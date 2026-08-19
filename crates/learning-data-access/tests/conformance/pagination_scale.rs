@@ -14,7 +14,7 @@ const SMALL_PAGE_SIZE: u16 = 17;
 /// tenant.
 pub(super) async fn exercise_course_pagination_scale<S>(store: &S)
 where
-    S: Store + CatalogStore,
+    S: Store + CatalogStore + CourseRosterStore,
 {
     let tenant = TenantId::from_uuid(uuid(80_000));
     let foreign_tenant = TenantId::from_uuid(uuid(80_001));
@@ -24,26 +24,37 @@ where
     let student = UserId::from_uuid(uuid(80_003));
     let course = CourseId::from_uuid(uuid(80_004));
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Pagination scale course".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            learning_data_access::CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Pagination scale course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("pagination scale course");
+    store
+        .upsert_course_member(
+            context,
+            learning_data_access::UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Pagination learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("pagination learner membership");
     let reference = publish_assignment_version(
         store,
         context,
@@ -58,7 +69,6 @@ where
     let mut expected_gradebook_rows = BTreeSet::new();
     for offset in 0..ROW_COUNT {
         let assignment = AssignmentId::from_uuid(uuid(80_200 + offset));
-        let enrollment = EnrollmentId::from_uuid(uuid(80_300 + offset));
         store
             .create_untimed_assignment(
                 context,
@@ -67,6 +77,7 @@ where
                     tenant,
                     course_id: course,
                     title: format!("Pagination assignment {offset}"),
+                    audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![reference]),
                     selection_groups: Vec::new(),
                     policies: policies(),
@@ -74,24 +85,17 @@ where
             )
             .await
             .expect("pagination scale assignment");
-        store
-            .create_enrollment(
+        let run = store
+            .start_or_resume_run(
                 context,
-                AssignmentEnrollment {
-                    id: enrollment,
-                    tenant,
-                    assignment,
-                    user: student,
-                    student: StudentId::from_uuid(uuid(80_400 + offset)),
-                    first_completed_at: None,
-                    current_grade_run: None,
-                    best_grade_run: None,
-                },
+                student,
+                assignment,
+                RunId::from_uuid(uuid(80_300 + offset)),
             )
             .await
-            .expect("pagination scale enrollment");
+            .expect("pagination learner action materializes enrollment");
         expected_assignments.insert(assignment.to_string());
-        expected_gradebook_rows.insert((assignment.to_string(), enrollment.to_string()));
+        expected_gradebook_rows.insert((assignment.to_string(), run.enrollment.to_string()));
     }
 
     for page_size in [DEFAULT_PAGE_SIZE, SMALL_PAGE_SIZE] {

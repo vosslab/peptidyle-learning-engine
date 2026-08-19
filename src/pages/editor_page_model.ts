@@ -8,9 +8,10 @@ import type { ResponseDefinition } from "../../generated/api/ResponseDefinition"
 import type { Seed } from "../../generated/api/Seed";
 import type { TimingPolicy } from "../../generated/api/TimingPolicy";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
-import type { WorkspacePublicId } from "../../generated/api/WorkspacePublicId";
+import type { WorkspaceReference } from "../../generated/api/WorkspaceReference";
 import type { AttemptPolicy } from "../../generated/api/AttemptPolicy";
 import type { PublicationScope } from "../../generated/api/PublicationScope";
+import type { PublicByline } from "../../generated/api/PublicByline";
 import type { InstructorPreviewResult } from "./editor_instructor_preview";
 
 /**
@@ -37,7 +38,7 @@ export interface EditorDraftDisplayState {
 
 export interface WorkspaceDraftSummary {
   readonly workspace: WorkspaceId;
-  readonly publicId: WorkspacePublicId;
+  readonly reference: WorkspaceReference;
   readonly title: string;
   readonly sourceBackend: DraftQuestionSource["backend"];
 }
@@ -107,7 +108,7 @@ export interface EditorRepository {
   /** Publishes only the exact revision represented by a previously reviewed server diff. */
   readonly publish: (
     draft: EditorDraft,
-    scope: PublicationScope,
+    request: { readonly scope: PublicationScope; readonly byline: PublicByline },
     reviewedRevision: string,
   ) => Promise<PublishOutcome>;
   /** Only completed server contracts are enabled by a live repository. */

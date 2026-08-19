@@ -8,6 +8,8 @@ export interface CatalogBrowseRow {
   readonly displayId: string;
   readonly title: string;
   readonly summary: string;
+  /** Reviewed publication-time attribution; never an account or ownership identity. */
+  readonly byline: ReadonlyArray<string>;
   readonly taxonomy: ReadonlyArray<string>;
   readonly capabilities: ReadonlyArray<string>;
   readonly license: string;
@@ -100,7 +102,15 @@ function stringList(value: unknown, path: string): ReadonlyArray<string> {
 function decodeRow(value: unknown, path: string): CatalogBrowseRow {
   if (
     !isRecord(value) ||
-    !hasExactKeys(value, ["capabilities", "displayId", "license", "summary", "taxonomy", "title"])
+    !hasExactKeys(value, [
+      "byline",
+      "capabilities",
+      "displayId",
+      "license",
+      "summary",
+      "taxonomy",
+      "title",
+    ])
   ) {
     throw new Error(`${path} has an unexpected shape`);
   }
@@ -112,6 +122,7 @@ function decodeRow(value: unknown, path: string): CatalogBrowseRow {
     displayId,
     title: boundedText(value["title"], `${path}.title`),
     summary: boundedText(value["summary"], `${path}.summary`, MAX_SUMMARY_LENGTH),
+    byline: stringList(value["byline"], `${path}.byline`),
     taxonomy: stringList(value["taxonomy"], `${path}.taxonomy`),
     capabilities: stringList(value["capabilities"], `${path}.capabilities`),
     license: boundedText(value["license"], `${path}.license`),
@@ -405,6 +416,7 @@ export function createSyntheticCatalogRepository(
           displayId: syntheticQuestionId(number),
           title: `Synthetic problem ${number}`,
           summary: "A browser-safe synthetic catalog record for virtual-list behavior checks.",
+          byline: ["Synthetic Instructor"],
           taxonomy: ["Biochemistry"],
           capabilities: ["algorithmic"],
           license: "CC BY 4.0",

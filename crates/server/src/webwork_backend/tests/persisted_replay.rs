@@ -5,15 +5,15 @@ use std::sync::atomic::Ordering;
 use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode};
 use learning_data_access::{
-    AssignmentRecord, CourseRecord, IssueQuestionAttemptCommand, SessionLifetime, SessionSubject,
-    Store, TenantContext,
+    AssignmentRecord, CourseRecord, CourseRosterStore, CreateCourseCommand,
+    IssueQuestionAttemptCommand, SessionLifetime, SessionSubject, Store, TenantContext,
+    UpsertCourseMember,
 };
 use question_model::response::{ChoiceId, StudentResponse};
 use question_model::{
-    AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentItem, AssignmentItemId,
-    AssignmentScoringMode, CompletionRequirement, ContinuedPractice, CourseId, CourseMembership,
-    CourseMembershipRole, EnrollmentId, GradePolicy, PointValue, QuestionAttempt,
-    QuestionAttemptId, RunId, RunPolicies, StudentId, UserId, UserRole, VariationPolicy,
+    AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId, AssignmentScoringMode,
+    CompletionRequirement, ContinuedPractice, CourseId, GradePolicy, PointValue, QuestionAttempt,
+    QuestionAttemptId, RunId, RunPolicies, UserId, UserRole, VariationPolicy,
 };
 use tower::ServiceExt;
 
@@ -76,26 +76,38 @@ async fn persist_attempt(
     let assignment = AssignmentId::from_uuid(id(22));
     backend
         .sources
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Recorded WeBWorK course".into(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: actor,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Recorded WeBWorK course".into(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("course");
+    backend
+        .sources
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: actor,
+                display_name: "Recorded learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("student roster membership");
     backend
         .sources
         .create_untimed_assignment(
@@ -104,6 +116,7 @@ async fn persist_attempt(
                 id: assignment,
                 tenant,
                 course_id: course,
+                audience: question_model::AssignmentAudience::CourseWide,
                 title: "Recorded WeBWorK assignment".into(),
                 items: vec![AssignmentItem {
                     id: AssignmentItemId::from_uuid(id(23)),
@@ -124,23 +137,6 @@ async fn persist_attempt(
         )
         .await
         .expect("assignment");
-    backend
-        .sources
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: EnrollmentId::from_uuid(id(24)),
-                tenant,
-                assignment,
-                user: actor,
-                student: StudentId::from_uuid(id(25)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
-        .await
-        .expect("enrollment");
     let run = backend
         .sources
         .start_or_resume_run(context, actor, assignment, RunId::from_uuid(id(26)))

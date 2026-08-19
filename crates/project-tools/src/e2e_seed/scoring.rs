@@ -144,6 +144,7 @@ pub(super) async fn exercise_scoring_generation(
             current.revision,
             AssignmentUpdate {
                 title: current.record.title,
+                audience: current.record.audience,
                 items,
                 selection_groups: current.record.selection_groups,
                 policies: current.record.policies,
@@ -194,6 +195,7 @@ pub(super) async fn exercise_scoring_generation(
             changed.revision,
             AssignmentUpdate {
                 title: changed.record.title,
+                audience: changed.record.audience,
                 items: superseding_items,
                 selection_groups: changed.record.selection_groups,
                 policies: changed.record.policies,
@@ -844,6 +846,7 @@ pub(super) async fn recalculate_seed_item(
             current.revision,
             AssignmentUpdate {
                 title: current.record.title,
+                audience: current.record.audience,
                 items,
                 selection_groups: current.record.selection_groups,
                 policies: current.record.policies,

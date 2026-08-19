@@ -12,6 +12,8 @@ SELECT set_config(
     false
 );
 
+BEGIN;
+
 -- One complete activity identity is enough to satisfy the immutable foreign
 -- keys while generate_series supplies realistic partition cardinality.
 INSERT INTO public.problem (
@@ -36,26 +38,58 @@ INSERT INTO public.problem_version (
     content_sha256,
     workspace_id,
     title,
-    authors
+    author_ids,
+    public_byline
 ) VALUES (
     'f1000000-0000-4000-8000-000000000001',
     'f1000000-0000-4000-8000-000000000004',
     repeat('1', 64),
     'f1000000-0000-4000-8000-000000000005',
     'Partition pruning fixture',
-    '[{"name":"Partition gate"}]'::jsonb
+    '[{"name":"Partition gate"}]'::jsonb,
+    ARRAY['Partition gate']
 );
 
-INSERT INTO public.course (tenant_id, course_id, title) VALUES (
+INSERT INTO public.course (
+    tenant_id, course_id, title, term_start_date, term_end_date, time_zone
+) VALUES (
     'f1000000-0000-4000-8000-000000000002',
     'f1000000-0000-4000-8000-000000000006',
-    'Partition pruning course'
+    'Partition pruning course',
+    DATE '2026-08-24',
+    DATE '2026-12-18',
+    'America/Chicago'
 );
 
-INSERT INTO public.assignment (tenant_id, assignment_id, course_id, title) VALUES (
+INSERT INTO public.tenant_learner_identity (tenant_id, user_id, student_id) VALUES (
+    'f1000000-0000-4000-8000-000000000002',
+    'f1000000-0000-4000-8000-000000000009',
+    'f1000000-0000-4000-8000-000000000009'
+);
+
+INSERT INTO public.course_member (
+    tenant_id, course_id, course_membership_id, user_id, student_id, role,
+    status, roster_id, joined_at, revoked_at
+) VALUES (
+    'f1000000-0000-4000-8000-000000000002',
+    'f1000000-0000-4000-8000-000000000006',
+    'f1000000-0000-4000-8000-00000000000c',
+    'f1000000-0000-4000-8000-000000000009',
+    'f1000000-0000-4000-8000-000000000009',
+    'student',
+    'active',
+    NULL,
+    transaction_timestamp(),
+    NULL
+);
+
+INSERT INTO public.assignment (
+    tenant_id, assignment_id, course_id, audience_kind, title
+) VALUES (
     'f1000000-0000-4000-8000-000000000002',
     'f1000000-0000-4000-8000-000000000007',
     'f1000000-0000-4000-8000-000000000006',
+    'course_wide',
     'Partition pruning assignment'
 );
 
@@ -63,19 +97,47 @@ INSERT INTO public.enrollment (
     tenant_id,
     enrollment_id,
     assignment_id,
+    course_id,
+    course_membership_id,
     student_id,
     user_id,
-    payload,
-    payload_sha256
+    materialized_at,
+    materialization_purpose,
+    materialized_by_user_id,
+    materialization_rule,
+    evaluator_version
 ) VALUES (
     'f1000000-0000-4000-8000-000000000002',
     'f1000000-0000-4000-8000-000000000008',
     'f1000000-0000-4000-8000-000000000007',
+    'f1000000-0000-4000-8000-000000000006',
+    'f1000000-0000-4000-8000-00000000000c',
     'f1000000-0000-4000-8000-000000000009',
     'f1000000-0000-4000-8000-000000000009',
-    '{}'::jsonb,
-    repeat('2', 64)
+    transaction_timestamp(),
+    'start_run',
+    'f1000000-0000-4000-8000-000000000009',
+    NULL,
+    1
 );
+
+INSERT INTO public.enrollment_entitlement_basis_receipt (
+    tenant_id, enrollment_id, scope_receipt_id, scope_kind, course_id,
+    course_group_id, course_group_purpose
+) VALUES (
+    'f1000000-0000-4000-8000-000000000002',
+    'f1000000-0000-4000-8000-000000000008',
+    gen_random_uuid(),
+    'course_wide',
+    'f1000000-0000-4000-8000-000000000006',
+    NULL,
+    NULL
+);
+
+UPDATE public.enrollment
+SET entitlement_receipts_sealed_at = transaction_timestamp()
+WHERE tenant_id = 'f1000000-0000-4000-8000-000000000002'
+  AND enrollment_id = 'f1000000-0000-4000-8000-000000000008';
 
 INSERT INTO public.assignment_run (
     tenant_id,
@@ -304,17 +366,49 @@ END $$;
 -- A separate course supplies 120 assignments and 500 learners each. This is
 -- large enough for the normal planner to distinguish a bounded summary page
 -- from rebuilding grade state out of append-only activity.
-INSERT INTO public.course (tenant_id, course_id, title) VALUES (
+INSERT INTO public.course (
+    tenant_id, course_id, title, term_start_date, term_end_date, time_zone
+) VALUES (
     'f1000000-0000-4000-8000-000000000002',
     'f1000000-0000-4000-8000-00000000000b',
-    'Gradebook plan course'
+    'Gradebook plan course',
+    DATE '2026-08-24',
+    DATE '2026-12-18',
+    'America/Chicago'
 );
 
-INSERT INTO public.assignment (tenant_id, assignment_id, course_id, title)
+INSERT INTO public.tenant_learner_identity (tenant_id, user_id, student_id)
+SELECT
+    'f1000000-0000-4000-8000-000000000002'::uuid,
+    md5('gradebook-student-' || student_number)::uuid,
+    md5('gradebook-student-' || student_number)::uuid
+FROM generate_series(1, 500) AS students(student_number);
+
+INSERT INTO public.course_member (
+    tenant_id, course_id, course_membership_id, user_id, student_id, role,
+    status, roster_id, joined_at, revoked_at
+)
+SELECT
+    'f1000000-0000-4000-8000-000000000002'::uuid,
+    'f1000000-0000-4000-8000-00000000000b'::uuid,
+    md5('gradebook-membership-' || student_number)::uuid,
+    md5('gradebook-student-' || student_number)::uuid,
+    md5('gradebook-student-' || student_number)::uuid,
+    'student',
+    'active',
+    NULL,
+    transaction_timestamp(),
+    NULL
+FROM generate_series(1, 500) AS students(student_number);
+
+INSERT INTO public.assignment (
+    tenant_id, assignment_id, course_id, audience_kind, title
+)
 SELECT
     'f1000000-0000-4000-8000-000000000002'::uuid,
     md5('gradebook-assignment-' || assignment_number)::uuid,
     'f1000000-0000-4000-8000-00000000000b'::uuid,
+    'course_wide',
     'Gradebook assignment ' || assignment_number
 FROM generate_series(1, 120) AS assignments(assignment_number);
 
@@ -322,36 +416,77 @@ INSERT INTO public.enrollment (
     tenant_id,
     enrollment_id,
     assignment_id,
+    course_id,
+    course_membership_id,
     student_id,
     user_id,
-    payload,
-    payload_sha256
+    materialized_at,
+    materialization_purpose,
+    materialized_by_user_id,
+    materialization_rule,
+    evaluator_version
 )
 SELECT
     'f1000000-0000-4000-8000-000000000002'::uuid,
     md5('gradebook-enrollment-' || assignment_number || '-' || student_number)::uuid,
     md5('gradebook-assignment-' || assignment_number)::uuid,
+    'f1000000-0000-4000-8000-00000000000b'::uuid,
+    md5('gradebook-membership-' || student_number)::uuid,
     md5('gradebook-student-' || student_number)::uuid,
     md5('gradebook-student-' || student_number)::uuid,
-    '{}'::jsonb,
-    repeat('8', 64)
+    transaction_timestamp(),
+    'start_run',
+    md5('gradebook-student-' || student_number)::uuid,
+    NULL,
+    1
 FROM generate_series(1, 120) AS assignments(assignment_number)
 CROSS JOIN generate_series(1, 500) AS students(student_number);
 
-INSERT INTO public.student_assignment_summary (
-    tenant_id,
-    enrollment_id,
-    payload,
-    payload_sha256
+INSERT INTO public.enrollment_entitlement_basis_receipt (
+    tenant_id, enrollment_id, scope_receipt_id, scope_kind, course_id,
+    course_group_id, course_group_purpose
 )
 SELECT
     tenant_id,
     enrollment_id,
-    '{"status":"current"}'::jsonb,
-    repeat('9', 64)
+    gen_random_uuid(),
+    'course_wide',
+    course_id,
+    NULL,
+    NULL
 FROM public.enrollment
 WHERE tenant_id = 'f1000000-0000-4000-8000-000000000002'::uuid
   AND assignment_id <> 'f1000000-0000-4000-8000-000000000007'::uuid;
+
+UPDATE public.enrollment
+SET entitlement_receipts_sealed_at = transaction_timestamp()
+WHERE tenant_id = 'f1000000-0000-4000-8000-000000000002'::uuid
+  AND entitlement_receipts_sealed_at IS NULL;
+
+INSERT INTO public.student_assignment_summary (
+    tenant_id,
+    enrollment_id,
+    current_score,
+    best_score,
+    latest_score,
+    completed_run_count,
+    total_question_attempts,
+    last_activity_at
+)
+SELECT
+    tenant_id,
+    enrollment_id,
+    NULL,
+    NULL,
+    NULL,
+    0,
+    0,
+    NULL
+FROM public.enrollment
+WHERE tenant_id = 'f1000000-0000-4000-8000-000000000002'::uuid
+  AND assignment_id <> 'f1000000-0000-4000-8000-000000000007'::uuid;
+
+COMMIT;
 
 ANALYZE public.assignment;
 ANALYZE public.enrollment;
@@ -380,10 +515,15 @@ BEGIN
         SELECT
             enrollment.enrollment_id,
             enrollment.student_id,
+            COALESCE(profile.display_name, 'Learner') AS learner_name,
             assignment.assignment_id,
             assignment.title AS assignment_title,
-            summary.payload,
-            summary.payload_sha256
+            summary.current_score,
+            summary.best_score,
+            summary.latest_score,
+            summary.completed_run_count,
+            summary.total_question_attempts,
+            summary.last_activity_at
           FROM public.assignment AS assignment
           JOIN public.enrollment AS enrollment
             ON enrollment.tenant_id = assignment.tenant_id
@@ -391,6 +531,10 @@ BEGIN
           JOIN public.student_assignment_summary AS summary
             ON summary.tenant_id = enrollment.tenant_id
            AND summary.enrollment_id = enrollment.enrollment_id
+     LEFT JOIN public.course_roster_profile AS profile
+            ON profile.tenant_id = enrollment.tenant_id
+           AND profile.course_id = assignment.course_id
+           AND profile.course_membership_id = enrollment.course_membership_id
          WHERE assignment.tenant_id = 'f1000000-0000-4000-8000-000000000002'::uuid
            AND assignment.course_id = 'f1000000-0000-4000-8000-00000000000b'::uuid
            AND public.ple_course_records_accessible(
@@ -430,6 +574,7 @@ BEGIN
     END IF;
     IF scanned_relations IS DISTINCT FROM ARRAY[
         'assignment',
+        'course_roster_profile',
         'enrollment',
         'student_assignment_summary'
     ] THEN

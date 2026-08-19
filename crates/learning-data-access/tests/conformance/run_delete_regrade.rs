@@ -15,7 +15,6 @@ where
     let reservation = &fixture.reservation;
     let response = &fixture.response;
     let delete_assignment = AssignmentId::from_uuid(uuid(89_960 + fixture_offset));
-    let delete_enrollment = EnrollmentId::from_uuid(uuid(89_961 + fixture_offset));
     let delete_run_id = RunId::from_uuid(uuid(89_962 + fixture_offset));
     let delete_items = fixed_items(vec![
         ProblemVersionRef { problem, version },
@@ -31,6 +30,7 @@ where
                 tenant,
                 course_id: course,
                 title: "Delete and Regrade fixture".to_string(),
+                audience: question_model::AssignmentAudience::CourseWide,
                 items: delete_items,
                 selection_groups: Vec::new(),
                 policies: policies(),
@@ -38,22 +38,6 @@ where
         )
         .await
         .expect("Delete and Regrade assignment");
-    store
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: delete_enrollment,
-                tenant,
-                assignment: delete_assignment,
-                user: student_user,
-                student: StudentId::from_uuid(uuid(89_963 + fixture_offset)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
-        .await
-        .expect("Delete and Regrade enrollment");
     let delete_run = store
         .start_or_resume_run(context, student_user, delete_assignment, delete_run_id)
         .await

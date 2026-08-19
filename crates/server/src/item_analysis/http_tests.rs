@@ -6,9 +6,10 @@ use axum::response::Response;
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
     AssignmentRecord, CatalogStore, CourseItemAnalysisCommitOutcome,
-    CourseItemAnalysisWorkerCommand, CourseItemAnalysisWorkerStore, CourseRecord, DraftRecord,
-    EnqueueJob, JobLeaseDuration, JobPayload, JobStore, PublishDraftCommand, SessionLifetime,
-    SessionSubject, Store, TenantContext,
+    CourseItemAnalysisWorkerCommand, CourseItemAnalysisWorkerStore, CourseRecord,
+    CourseRosterStore, CreateCourseCommand, DraftRecord, EnqueueJob, JobLeaseDuration, JobPayload,
+    JobStore, PublishDraftCommand, SessionLifetime, SessionSubject, Store, TenantContext,
+    UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -21,10 +22,10 @@ use question_model::run_policy::{
 use question_model::taxonomy::License;
 use question_model::{
     ActivityTimestamp, AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId,
-    AssignmentScoringMode, BackendCapabilities, Capability, CourseId, CourseMembership,
-    CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
-    PointValue, ProblemId, ProblemVersionRef, PublicationScope, QuestionMetadata, QuestionSource,
-    ScoringGeneration, TenantId, UserId, UserRole, VersionId, WorkspaceId,
+    AssignmentScoringMode, BackendCapabilities, Capability, CourseId, DraftQuestionDefinition,
+    DraftQuestionSource, GradingDefinition, PointValue, ProblemId, ProblemVersionRef,
+    PublicationScope, QuestionMetadata, QuestionSource, ScoringGeneration, TenantId, UserId,
+    UserRole, VersionId, WorkspaceId,
 };
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -120,6 +121,11 @@ async fn publish_fixture(
                 flat_question_promotion: None,
                 publisher,
                 scope: PublicationScope::Public,
+                byline: question_model::PublicByline::new(vec![
+                    question_model::PublicAuthorName::new("PLE fixture".to_string())
+                        .expect("valid test byline"),
+                ])
+                .expect("valid test byline"),
                 capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
             },
         )
@@ -179,26 +185,37 @@ async fn current_item_analysis_route_authorizes_without_leaking_private_analysis
 
     let course = CourseId::from_uuid(id(8));
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "BIOC 301".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "BIOC 301".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("create course");
+    store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Item analysis learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("student roster membership");
     let reference = publish_fixture(&store, context, tenant, instructor).await;
     let assignment = AssignmentId::from_uuid(id(9));
     store
@@ -208,6 +225,7 @@ async fn current_item_analysis_route_authorizes_without_leaking_private_analysis
                 id: assignment,
                 tenant,
                 course_id: course,
+                audience: question_model::AssignmentAudience::CourseWide,
                 title: "Item analysis fixture".to_string(),
                 items: vec![AssignmentItem {
                     id: AssignmentItemId::from_uuid(id(10)),

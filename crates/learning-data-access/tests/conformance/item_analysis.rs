@@ -33,7 +33,6 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
     let workspace = WorkspaceId::from_uuid(uuid(80_007));
     let course = CourseId::from_uuid(uuid(80_008));
     let assignment = AssignmentId::from_uuid(uuid(80_009));
-    let enrollment = EnrollmentId::from_uuid(uuid(80_010));
     let automatic = ProblemVersionRef {
         problem: ProblemId::from_uuid(uuid(80_011)),
         version: VersionId::from_uuid(uuid(80_012)),
@@ -66,6 +65,7 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
                     flat_question_promotion: None,
                     publisher: instructor,
                     scope: PublicationScope::Public,
+                    byline: reviewed_byline(),
                     capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
                 },
             )
@@ -73,26 +73,37 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
             .expect("analysis fixture publication");
     }
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Item analysis course".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            learning_data_access::CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Item analysis course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("analysis fixture course");
+    store
+        .upsert_course_member(
+            context,
+            learning_data_access::UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Analysis learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("analysis learner membership");
     let mut policy = policies();
     policy.completion = CompletionRequirement::AnswerAll;
     let items = fixed_items(vec![automatic, manual]);
@@ -106,6 +117,7 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
                 tenant,
                 course_id: course,
                 title: "Item analysis assignment".to_string(),
+                audience: question_model::AssignmentAudience::CourseWide,
                 items,
                 selection_groups: Vec::new(),
                 policies: policy,
@@ -113,22 +125,28 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
         )
         .await
         .expect("analysis fixture assignment");
-    store
-        .create_enrollment(
+    let enrollment = match store
+        .issue_assignment_entitlement(
             context,
-            AssignmentEnrollment {
-                id: enrollment,
-                tenant,
+            learning_data_access::MaterializeAssignmentEntitlementCommand::for_instructor_action(
+                student,
+                course,
                 assignment,
-                user: student,
-                student: StudentId::from_uuid(uuid(80_015)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
+                instructor,
+                question_model::EntitlementPurpose::InstructorIssue,
+            )
+            .expect("valid explicit instructor issue"),
         )
         .await
-        .expect("analysis fixture enrollment");
+        .expect("analysis fixture instructor issue")
+    {
+        learning_data_access::AssignmentEntitlementMaterialization::Granted(receipt) => {
+            receipt.enrollment.id
+        }
+        learning_data_access::AssignmentEntitlementMaterialization::Denied(reason) => {
+            panic!("fixture instructor issue denied: {reason:?}")
+        }
+    };
 
     async fn session(
         store: &MemoryStore,

@@ -8,12 +8,12 @@ import secrets
 import shutil
 import stat
 import sys
-import tempfile
 
 import local_stack_control.compose
 import local_stack_control.env_file
 import local_stack_control.lifecycle
 import local_stack_control.models
+import local_stack_control.private_state
 
 import tests.walkthrough.walklib.arrangement_contract as arrangement_contract
 import tests.walkthrough.walklib.configuration as configuration
@@ -34,6 +34,8 @@ INSTRUCTOR_SETUP_CHECKPOINT_FILE = "instructor-setup-checkpoint.txt"
 CHILD_INPUTS_FILE = "walkthrough-inputs.json"
 # Keep the private config extension explicit so Playwright loads it as ESM.
 PLAYWRIGHT_CONFIG_FILE = "playwright.walkthrough.config.mts"
+PRIVATE_STATE_RELATIVE_DIRECTORY = pathlib.Path("target") / "ui-walkthrough"
+PRIVATE_STATE_DIRECTORY_PREFIX = "run-"
 J1_CHECKPOINTS = frozenset({
 		"signed_in",
 		"course_visible",
@@ -116,9 +118,8 @@ class WalkthroughRunner:
 		# Four human-readable references are needed only by the J13 browser child.
 		self.instructor_catalog_display_ids: list[str] | None = None
 		self.visible_outcomes: dict[str, object] | None = None
-		self.private_state_directory: pathlib.Path | None = None
+		self.private_state: local_stack_control.private_state.PrivateState | None = None
 		self.private_env_file: pathlib.Path | None = None
-		self.private_state_identity: tuple[int, int] | None = None
 		self.journey_state_file: pathlib.Path | None = None
 		self.child_inputs_file: pathlib.Path | None = None
 		self.playwright_config_file: pathlib.Path | None = None
@@ -129,6 +130,11 @@ class WalkthroughRunner:
 		self.instructor_setup_checkpoint_file: pathlib.Path | None = None
 		self.instructor_setup_checkpoint_identity: tuple[int, int] | None = None
 		self.instructor_setup_failure_checkpoint: str | None = None
+
+	@property
+	def private_state_directory(self) -> pathlib.Path | None:
+		"""Return the shared state directory for owner-local artifact paths."""
+		return None if self.private_state is None else self.private_state.directory
 	def sanitized_child_environment(self) -> dict[str, str]:
 		"""Remove ambient runner controls before every runner-owned child process."""
 		environment = {
@@ -333,47 +339,55 @@ class WalkthroughRunner:
 		)
 
 	def prepare_journey_state(self) -> None:
-		"""Create one private runner-owned state file outside Playwright's artifact tree."""
+		"""Create VM-mountable private state under the ignored repository target tree."""
 		try:
-			directory = pathlib.Path(tempfile.mkdtemp(prefix="ple-ui-walkthrough-"))
-		except OSError as error:
+			state = local_stack_control.private_state.prepare(
+				self.repository_root,
+				PRIVATE_STATE_RELATIVE_DIRECTORY,
+				PRIVATE_STATE_DIRECTORY_PREFIX,
+			)
+		except local_stack_control.models.ControllerError as error:
 			raise RunnerError("could not prepare private walkthrough state") from error
-		directory.chmod(0o700)
-		directory_metadata = directory.lstat()
-		if (
-			not stat.S_ISDIR(directory_metadata.st_mode)
-			or stat.S_ISLNK(directory_metadata.st_mode)
-			or stat.S_IMODE(directory_metadata.st_mode) != 0o700
-		):
-			raise RunnerError("could not prepare private walkthrough state")
-		state_file = directory / "journeys.json"
-		file_descriptor = os.open(state_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-		os.close(file_descriptor)
-		checkpoint_file = directory / J1_CHECKPOINT_FILE
-		file_descriptor = os.open(checkpoint_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-		os.close(file_descriptor)
-		j2_checkpoint_file = directory / J2_CHECKPOINT_FILE
-		file_descriptor = os.open(j2_checkpoint_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-		os.close(file_descriptor)
-		instructor_checkpoint_file = directory / INSTRUCTOR_SETUP_CHECKPOINT_FILE
-		file_descriptor = os.open(
-			instructor_checkpoint_file,
-			os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-			0o600,
-		)
-		instructor_checkpoint_metadata = os.fstat(file_descriptor)
-		os.close(file_descriptor)
+		directory = state.directory
+		directory_descriptor = -1
+		file_descriptor = -1
+		try:
+			directory_descriptor = state.directory_descriptor()
+			for filename in ("journeys.json", J1_CHECKPOINT_FILE, J2_CHECKPOINT_FILE):
+				file_descriptor = os.open(
+					filename,
+					os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+					0o600,
+					dir_fd=directory_descriptor,
+				)
+				os.close(file_descriptor)
+				file_descriptor = -1
+			file_descriptor = os.open(
+				INSTRUCTOR_SETUP_CHECKPOINT_FILE,
+				os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+				0o600,
+				dir_fd=directory_descriptor,
+			)
+			instructor_checkpoint_metadata = os.fstat(file_descriptor)
+			os.close(file_descriptor)
+			file_descriptor = -1
+		except (OSError, local_stack_control.models.ControllerError) as error:
+			raise RunnerError("could not prepare private walkthrough state") from error
+		finally:
+			if file_descriptor >= 0:
+				os.close(file_descriptor)
+			if directory_descriptor >= 0:
+				os.close(directory_descriptor)
 		if (
 			not stat.S_ISREG(instructor_checkpoint_metadata.st_mode)
 			or stat.S_IMODE(instructor_checkpoint_metadata.st_mode) != 0o600
 		):
 			raise RunnerError("could not prepare private walkthrough state")
-		self.private_state_directory = directory
-		self.private_state_identity = (directory_metadata.st_dev, directory_metadata.st_ino)
-		self.journey_state_file = state_file
-		self.j1_checkpoint_file = checkpoint_file
-		self.j2_checkpoint_file = j2_checkpoint_file
-		self.instructor_setup_checkpoint_file = instructor_checkpoint_file
+		self.private_state = state
+		self.journey_state_file = directory / "journeys.json"
+		self.j1_checkpoint_file = directory / J1_CHECKPOINT_FILE
+		self.j2_checkpoint_file = directory / J2_CHECKPOINT_FILE
+		self.instructor_setup_checkpoint_file = directory / INSTRUCTOR_SETUP_CHECKPOINT_FILE
 		self.instructor_setup_checkpoint_identity = (
 			instructor_checkpoint_metadata.st_dev,
 			instructor_checkpoint_metadata.st_ino,
@@ -430,24 +444,14 @@ class WalkthroughRunner:
 		return base_url
 
 	def private_state_descriptor(self) -> int:
-		"""Open the exact private directory without following a replacement symlink."""
-		directory = self.private_state_directory
-		identity = self.private_state_identity
-		if directory is None or identity is None:
+		"""Open the exact shared private directory for descriptor-anchored operations."""
+		state = self.private_state
+		if state is None:
 			raise RunnerError("private walkthrough input directory is unavailable")
-		descriptor = os.open(
-			directory,
-			os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0),
-		)
-		metadata = os.fstat(descriptor)
-		if (
-			not stat.S_ISDIR(metadata.st_mode)
-			or stat.S_IMODE(metadata.st_mode) != 0o700
-			or (metadata.st_dev, metadata.st_ino) != identity
-		):
-			os.close(descriptor)
-			raise RunnerError("private walkthrough input directory is unavailable")
-		return descriptor
+		try:
+			return state.directory_descriptor()
+		except local_stack_control.models.ControllerError as error:
+			raise RunnerError("private walkthrough input directory is unavailable") from error
 
 	def child_input_payload(
 		self,
@@ -582,22 +586,21 @@ class WalkthroughRunner:
 		allowed_stages: frozenset[str],
 	) -> str:
 		"""Read one canonical private journey stage without retaining child output."""
-		state_identity = self.private_state_identity
+		state = self.private_state
+		state_identity = None if state is None else state.directory_identity
 		if (
 			path is None
+			or state is None
 			or state_identity is None
 			or path.name != filename
+			or path.parent != state.directory
 			or path.is_symlink()
 		):
 			return "unavailable"
-		parent = path.parent
 		directory_descriptor = -1
 		file_descriptor = -1
 		try:
-			directory_descriptor = os.open(
-				parent,
-				os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0),
-			)
+			directory_descriptor = self.private_state_descriptor()
 			parent_metadata = os.fstat(directory_descriptor)
 			file_descriptor = os.open(
 				filename,
@@ -605,18 +608,12 @@ class WalkthroughRunner:
 				dir_fd=directory_descriptor,
 			)
 			metadata = os.fstat(file_descriptor)
-			current_parent = parent.lstat()
 			if (
 				not stat.S_ISDIR(parent_metadata.st_mode)
 				or stat.S_IMODE(parent_metadata.st_mode) != 0o700
 				or not stat.S_ISREG(metadata.st_mode)
 				or stat.S_IMODE(metadata.st_mode) != 0o600
 				or metadata.st_size > 64
-				or not stat.S_ISDIR(current_parent.st_mode)
-				or stat.S_ISLNK(current_parent.st_mode)
-				or stat.S_IMODE(current_parent.st_mode) != 0o700
-				or current_parent.st_dev != parent_metadata.st_dev
-				or current_parent.st_ino != parent_metadata.st_ino
 				or (parent_metadata.st_dev, parent_metadata.st_ino) != state_identity
 			):
 				return "unavailable"
@@ -656,24 +653,23 @@ class WalkthroughRunner:
 	def read_instructor_setup_failure_checkpoint(self) -> str:
 		"""Read only a canonical runner-owned instructor stage without retaining child output."""
 		path = self.instructor_setup_checkpoint_file
-		state_identity = self.private_state_identity
+		state = self.private_state
+		state_identity = None if state is None else state.directory_identity
 		checkpoint_identity = self.instructor_setup_checkpoint_identity
 		if (
 			path is None
+			or state is None
 			or state_identity is None
 			or checkpoint_identity is None
 			or path.name != INSTRUCTOR_SETUP_CHECKPOINT_FILE
+			or path.parent != state.directory
 			or path.is_symlink()
 		):
 			return "unavailable"
-		parent = path.parent
 		directory_descriptor = -1
 		file_descriptor = -1
 		try:
-			directory_descriptor = os.open(
-				parent,
-				os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0),
-			)
+			directory_descriptor = self.private_state_descriptor()
 			parent_metadata = os.fstat(directory_descriptor)
 			file_descriptor = os.open(
 				INSTRUCTOR_SETUP_CHECKPOINT_FILE,
@@ -681,18 +677,12 @@ class WalkthroughRunner:
 				dir_fd=directory_descriptor,
 			)
 			metadata = os.fstat(file_descriptor)
-			current_parent = parent.lstat()
 			if (
 				not stat.S_ISDIR(parent_metadata.st_mode)
 				or stat.S_IMODE(parent_metadata.st_mode) != 0o700
 				or not stat.S_ISREG(metadata.st_mode)
 				or stat.S_IMODE(metadata.st_mode) != 0o600
 				or metadata.st_size > 64
-				or not stat.S_ISDIR(current_parent.st_mode)
-				or stat.S_ISLNK(current_parent.st_mode)
-				or stat.S_IMODE(current_parent.st_mode) != 0o700
-				or current_parent.st_dev != parent_metadata.st_dev
-				or current_parent.st_ino != parent_metadata.st_ino
 				or (parent_metadata.st_dev, parent_metadata.st_ino) != state_identity
 				or (metadata.st_dev, metadata.st_ino) != checkpoint_identity
 			):
@@ -778,21 +768,14 @@ class WalkthroughRunner:
 	#============================================
 	def remove_private_state(self) -> None:
 		"""Remove only the exact runner-created private state directory after safe cleanup."""
-		if self.private_state_directory is None:
+		state = self.private_state
+		if state is None:
 			return
-		identity = self.private_state_identity
-		metadata = self.private_state_directory.lstat()
-		if (
-			identity is None
-			or stat.S_ISLNK(metadata.st_mode)
-			or not stat.S_ISDIR(metadata.st_mode)
-			or stat.S_IMODE(metadata.st_mode) != 0o700
-			or (metadata.st_dev, metadata.st_ino) != identity
-		):
-			raise RunnerError("walkthrough private state path must not contain a symlink")
-		shutil.rmtree(self.private_state_directory)
-		self.private_state_directory = None
-		self.private_state_identity = None
+		try:
+			state.remove()
+		except local_stack_control.models.ControllerError as error:
+			raise RunnerError(str(error)) from error
+		self.private_state = None
 		self.journey_state_file = None
 		self.child_inputs_file = None
 		self.playwright_config_file = None
@@ -806,23 +789,16 @@ class WalkthroughRunner:
 	#============================================
 	def retained_private_state_instruction(self) -> str | None:
 		"""Describe a verified private recovery directory without exposing its contents."""
-		directory = self.private_state_directory
-		identity = self.private_state_identity
-		if directory is None or identity is None:
+		state = self.private_state
+		if state is None:
 			return None
 		try:
-			metadata = directory.lstat()
-		except OSError:
+			descriptor = state.directory_descriptor()
+		except local_stack_control.models.ControllerError:
 			return None
-		if (
-			stat.S_ISLNK(metadata.st_mode)
-			or not stat.S_ISDIR(metadata.st_mode)
-			or stat.S_IMODE(metadata.st_mode) != 0o700
-			or (metadata.st_dev, metadata.st_ino) != identity
-		):
-			return None
+		os.close(descriptor)
 		message = (
-			f"UI walkthrough: private recovery state retained at {directory}. "
+			f"UI walkthrough: private recovery state retained at {state.directory}. "
 			"It is mode 0700 and may contain local credentials; remove it after diagnosing cleanup."
 		)
 		return message
@@ -900,7 +876,7 @@ class WalkthroughRunner:
 				dataclasses.replace(disposable.target, env_file=self.inputs.env_file, env_setting_names=local_stack_control.env_file.env_setting_names(self.inputs.env_file)), self.controller_runner(), self.repository_root
 			)
 		except local_stack_control.models.ControllerError as error:
-			raise RunnerError("walkthrough lifecycle validation failed") from error
+			raise RunnerError(f"walkthrough lifecycle validation failed: {error}") from error
 
 		self.report_stage = "lifecycle_start"
 		self.assert_no_existing_stack()
@@ -915,7 +891,7 @@ class WalkthroughRunner:
 				),
 			)
 		except local_stack_control.models.ControllerError as error:
-			raise RunnerError("walkthrough lifecycle start failed") from error
+			raise RunnerError(f"walkthrough lifecycle start failed: {error}") from error
 
 		self.report_stage = "live_boundary"
 		login_file = self.stack_env_file().parent / "local-login.txt"

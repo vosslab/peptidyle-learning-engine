@@ -12,9 +12,8 @@ use domain::run::RunModelError;
 use domain::scoring::RunTransition;
 use objects::{Bucket, ObjectCategory, ObjectKey, ObjectRecord};
 use question_model::{
-    ActivityTimestamp, AssignmentEnrollment, AssignmentItemId, AssignmentRunItem,
-    AssignmentTimingPolicy, AttemptResult, CourseMembershipRole, GradePolicy, QuestionAttempt,
-    QuestionAttemptId, RunId, StudentAssignmentSummary, TenantId,
+    ActivityTimestamp, AssignmentEnrollment, AssignmentItemId, AssignmentRunItem, AttemptResult,
+    GradePolicy, QuestionAttempt, QuestionAttemptId, RunId, StudentAssignmentSummary, TenantId,
 };
 
 pub(crate) fn grade_policy(assignment: &AssignmentRecord) -> GradePolicy {
@@ -55,30 +54,6 @@ pub(crate) fn ensure_tenant(
 /// Validates a course record before either backend persists it.
 pub(crate) fn validate_course(course: &CourseRecord) -> Result<(), StoreError> {
     validate_title("course", &course.title)?;
-    if course.members.is_empty() {
-        return Err(StoreError::InvalidRecord(
-            "course must have at least one member".to_string(),
-        ));
-    }
-    if !course
-        .members
-        .iter()
-        .any(|membership| membership.role == CourseMembershipRole::Instructor)
-    {
-        return Err(StoreError::InvalidRecord(
-            "course must have at least one instructor".to_string(),
-        ));
-    }
-    let unique_members: std::collections::BTreeSet<_> = course
-        .members
-        .iter()
-        .map(|membership| membership.user)
-        .collect();
-    if unique_members.len() != course.members.len() {
-        return Err(StoreError::InvalidRecord(
-            "course memberships must have unique users".to_string(),
-        ));
-    }
     Ok(())
 }
 
@@ -192,47 +167,6 @@ pub(crate) fn validate_assignment(assignment: &AssignmentRecord) -> Result<(), S
     Ok(())
 }
 
-/// Validates one current assignment access/timing policy before persistence.
-pub(crate) fn validate_assignment_timing(policy: AssignmentTimingPolicy) -> Result<(), StoreError> {
-    if policy.time_limit_seconds == Some(0) {
-        return Err(StoreError::InvalidRecord(
-            "assignment time limit must be greater than zero".to_string(),
-        ));
-    }
-    if policy
-        .time_limit_seconds
-        .is_some_and(|seconds| seconds > question_model::MAX_ASSIGNMENT_TIME_LIMIT_SECONDS)
-    {
-        return Err(StoreError::InvalidRecord(format!(
-            "assignment time limit must not exceed {} seconds",
-            question_model::MAX_ASSIGNMENT_TIME_LIMIT_SECONDS
-        )));
-    }
-    if policy.attempt_limit == Some(0) {
-        return Err(StoreError::InvalidRecord(
-            "assignment attempt limit must be greater than zero".to_string(),
-        ));
-    }
-    let ordered = policy
-        .available_at
-        .zip(policy.due_at)
-        .is_none_or(|(available, due)| available <= due)
-        && policy
-            .due_at
-            .zip(policy.closes_at)
-            .is_none_or(|(due, closes)| due <= closes)
-        && policy
-            .available_at
-            .zip(policy.closes_at)
-            .is_none_or(|(available, closes)| available <= closes);
-    if !ordered {
-        return Err(StoreError::InvalidRecord(
-            "assignment availability, due date, and close date must be ordered".to_string(),
-        ));
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use objects::Sha256Digest;
@@ -298,21 +232,6 @@ mod tests {
             publication: crate::AssetPublication::Pending,
             pending_source: Some(source),
         }
-    }
-
-    #[test]
-    fn assignment_time_limit_accepts_postgres_maximum_and_rejects_first_larger_value() {
-        let mut policy = AssignmentTimingPolicy {
-            time_limit_seconds: Some(question_model::MAX_ASSIGNMENT_TIME_LIMIT_SECONDS),
-            ..AssignmentTimingPolicy::default()
-        };
-        assert!(validate_assignment_timing(policy).is_ok());
-
-        policy.time_limit_seconds = Some(question_model::MAX_ASSIGNMENT_TIME_LIMIT_SECONDS + 1);
-        assert!(matches!(
-            validate_assignment_timing(policy),
-            Err(StoreError::InvalidRecord(message)) if message.contains("must not exceed")
-        ));
     }
 
     #[test]

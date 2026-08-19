@@ -10,7 +10,7 @@ import type {
 
 const ACCOUNT_COURSE = {
   courseId: publishedProblemFixture.course.id,
-  coursePublicId: publishedProblemFixture.course.publicId,
+  courseReference: publishedProblemFixture.course.reference,
   title: publishedProblemFixture.course.title,
   role: "instructor" as const,
 };
@@ -78,7 +78,7 @@ export function createMockEnrollmentClient(): CourseRosterClient {
     redeemCourseInvitation: () =>
       Promise.resolve({
         courseId: ACCOUNT_COURSE.courseId,
-        coursePublicId: ACCOUNT_COURSE.coursePublicId,
+        courseReference: ACCOUNT_COURSE.courseReference,
         membershipStatus: "active",
       }),
     startPasskeyRegistration: () => Promise.resolve({ ceremonyId: MOCK_CEREMONY_ID, options: {} }),

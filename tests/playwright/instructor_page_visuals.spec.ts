@@ -11,9 +11,9 @@ import {
 
 const outputDirectory = process.env["PLE_INSTRUCTOR_PAGE_VISUALS_DIR"];
 const courseId = publishedProblemFixture.course.id;
-const courseReference = `C-${publishedProblemFixture.course.publicId}`;
+const courseReference = publishedProblemFixture.course.reference;
 const assignmentId = publishedProblemFixture.assignment.id;
-const assignmentReference = `A-${publishedProblemFixture.assignment.publicId}`;
+const assignmentReference = publishedProblemFixture.assignment.reference;
 const workspaceId = publishedProblemFixture.draft.workspace;
 const workspaceReference = "W-1";
 
@@ -32,13 +32,13 @@ const courses = [
   {
     ...course,
     id: fixtureUuid(210),
-    publicId: 2,
+    reference: "A-2",
     title: "GEN 220: Genetics",
   },
   {
     ...course,
     id: fixtureUuid(211),
-    publicId: 3,
+    reference: "A-3",
     title: "MOLB 330: Molecular Biology",
   },
 ] as const;
@@ -106,14 +106,14 @@ const assignments = [
   {
     ...publishedProblemFixture.assignment,
     id: fixtureUuid(240),
-    publicId: 2,
+    reference: "C-2",
     title: "Enzyme kinetics check-in",
     items: assignmentItems(250, 3),
   },
   {
     ...publishedProblemFixture.assignment,
     id: fixtureUuid(260),
-    publicId: 3,
+    reference: "C-3",
     title: "Protein folding review",
     items: assignmentItems(270, 4),
   },
@@ -205,19 +205,19 @@ const roster = {
 const workspaceDrafts = [
   {
     workspace: workspaceId,
-    publicId: 1,
+    reference: "W-1",
     title: "Peptide bond resonance revision",
     sourceBackend: "native",
   },
   {
     workspace: fixtureUuid(350),
-    publicId: 2,
+    reference: "W-2",
     title: "DNA replication checkpoint",
     sourceBackend: "native",
   },
   {
     workspace: fixtureUuid(351),
-    publicId: 3,
+    reference: "W-3",
     title: "Enzyme inhibition comparison",
     sourceBackend: "native",
   },

@@ -6,8 +6,8 @@ use axum::body::Body;
 use axum::http::Request;
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
-    CourseRosterStore, JobLeaseDuration, JobPayload, JobStore, RetentionWorkerCommand,
-    RetentionWorkerStore, TenantContext, UpsertCourseMember,
+    CourseRosterStore, CreateCourseCommand, JobLeaseDuration, JobPayload, JobStore,
+    RetentionWorkerCommand, RetentionWorkerStore, TenantContext, UpsertCourseMember,
 };
 use question_model::{ActivityTimestamp, ObjectId, TenantId, UserId};
 use tower::ServiceExt;
@@ -47,7 +47,9 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                 .uri("/api/courses")
                 .header("cookie", &instructor_cookie)
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"title":"BIOC 301: Biochemistry"}"#))
+                .body(Body::from(
+                    r#"{"title":"BIOC 301: Biochemistry","term":{"startDate":"2026-08-24","endDate":"2026-12-18","timeZone":"America/Chicago"}}"#,
+                ))
                 .expect("course request"),
         )
         .await
@@ -58,17 +60,16 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         serde_json::from_value(created_course["id"].clone()).expect("course ID response");
     assert_eq!(created_course["role"], "instructor");
 
-    let mut course_record = store
-        .get_course(context, course)
-        .await
-        .expect("course lookup")
-        .expect("course exists");
-    course_record.members.push(CourseMembership {
-        user: student,
-        role: CourseMembershipRole::Student,
-    });
     store
-        .upsert_course(context, course_record)
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Biochemistry learner".to_string(),
+                roster_contact: None,
+            },
+        )
         .await
         .expect("student membership save");
     let reference = publish_fixture(&store, context, tenant, instructor).await;
@@ -358,16 +359,21 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
 
     let wrong_course = CourseId::from_uuid(id(99));
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: wrong_course,
-                tenant,
-                title: "BIOC 399: Wrong course".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: wrong_course,
+                    tenant,
+                    title: "BIOC 399: Wrong course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
@@ -527,7 +533,9 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                 .uri("/api/courses")
                 .header("cookie", &instructor_cookie)
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"title":"BIOC 302: Enzymes"}"#))
+                .body(Body::from(
+                    r#"{"title":"BIOC 302: Enzymes","term":{"startDate":"2027-01-11","endDate":"2027-05-07","timeZone":"America/Chicago"}}"#,
+                ))
                 .expect("second course request"),
         )
         .await
@@ -536,17 +544,16 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
     let second_course = response_json(second_course).await;
     let second_course: CourseId =
         serde_json::from_value(second_course["id"].clone()).expect("second course ID response");
-    let mut second_course_record = store
-        .get_course(context, second_course)
-        .await
-        .expect("second course lookup")
-        .expect("second course exists");
-    second_course_record.members.push(CourseMembership {
-        user: student,
-        role: CourseMembershipRole::Student,
-    });
     store
-        .upsert_course(context, second_course_record)
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course: second_course,
+                user: student,
+                display_name: "Enzymes learner".to_string(),
+                roster_contact: None,
+            },
+        )
         .await
         .expect("second student membership save");
 

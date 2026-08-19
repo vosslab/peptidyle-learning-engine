@@ -29,6 +29,11 @@
       },
       "language": "en-US"
     },
+    "byline": {
+      "names": [
+        "Fixture Instructor"
+      ]
+    },
     "scope": "public",
     "lifecycle": {
       "state": "published"
@@ -275,14 +280,19 @@
   ],
   "course": {
     "id": "0198e000-0000-7000-8000-000000000014",
-    "publicId": 1,
+    "reference": "C-1",
     "tenant": "0198e000-0000-7000-8000-000000000001",
     "title": "BIOC 301: Biochemistry",
+    "term": {
+      "startDate": "2026-08-24",
+      "endDate": "2026-12-18",
+      "timeZone": "America/Chicago"
+    },
     "role": "student"
   },
   "assignment": {
     "id": "0198e000-0000-7000-8000-000000000006",
-    "publicId": 1,
+    "reference": "A-1",
     "tenant": "0198e000-0000-7000-8000-000000000001",
     "courseId": "0198e000-0000-7000-8000-000000000014",
     "title": "Peptide bond mastery",
@@ -330,7 +340,7 @@
   "runs": [
     {
       "id": "0198e000-0000-7000-8000-000000000020",
-      "publicId": 1,
+      "reference": "R-1",
       "tenant": "0198e000-0000-7000-8000-000000000001",
       "enrollment": "0198e000-0000-7000-8000-000000000007",
       "runNumber": 1,
@@ -342,7 +352,7 @@
     },
     {
       "id": "0198e000-0000-7000-8000-000000000021",
-      "publicId": 2,
+      "reference": "R-2",
       "tenant": "0198e000-0000-7000-8000-000000000001",
       "enrollment": "0198e000-0000-7000-8000-000000000007",
       "runNumber": 2,
@@ -354,7 +364,7 @@
     },
     {
       "id": "0198e000-0000-7000-8000-000000000022",
-      "publicId": 3,
+      "reference": "R-3",
       "tenant": "0198e000-0000-7000-8000-000000000001",
       "enrollment": "0198e000-0000-7000-8000-000000000007",
       "runNumber": 3,
@@ -366,7 +376,7 @@
     },
     {
       "id": "0198e000-0000-7000-8000-000000000023",
-      "publicId": 4,
+      "reference": "R-4",
       "tenant": "0198e000-0000-7000-8000-000000000001",
       "enrollment": "0198e000-0000-7000-8000-000000000007",
       "runNumber": 4,

@@ -2,7 +2,7 @@ use super::*;
 
 pub(super) async fn exercise_run_api_store<S>(store: &S, feedback_disclosure: FeedbackDisclosure)
 where
-    S: Store + CatalogStore + JobStore + AssignmentScoringWorkerStore,
+    S: Store + CatalogStore + CourseRosterStore + JobStore + AssignmentScoringWorkerStore,
 {
     let fixture = exercise_run_api_receipts(store, feedback_disclosure).await;
     exercise_run_rescoring(store, &fixture).await;

@@ -109,6 +109,11 @@ async fn publish(
                 },
                 publisher,
                 scope: PublicationScope::Public,
+                byline: question_model::PublicByline::new(vec![
+                    question_model::PublicAuthorName::new("PLE fixture".to_string())
+                        .expect("valid test byline"),
+                ])
+                .expect("valid test byline"),
                 source_artifact: None,
                 qti_promotion: None,
                 flat_question_promotion: None,

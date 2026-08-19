@@ -60,11 +60,13 @@ impl ManualGradingStore for MemoryStore {
         let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
         let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
         require_course_records_accessible(&state, tenant, assignment.course_id)?;
-        let course = state
+        state
             .courses
             .get(&(tenant, assignment.course_id))
             .ok_or(StoreError::NotFound)?;
-        if course.role_for(actor) != Some(CourseMembershipRole::Instructor) {
+        if super::entitlement::current_course_role(&state, tenant, assignment.course_id, actor)
+            != Some(CourseMembershipRole::Instructor)
+        {
             return Err(StoreError::NotFound);
         }
         let evaluation = state.manual_evaluations.get(&(tenant, attempt)).cloned();
@@ -99,11 +101,13 @@ impl ManualGradingStore for MemoryStore {
         let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
         let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
         require_course_records_accessible(&state, tenant, assignment.course_id)?;
-        let course = state
+        state
             .courses
             .get(&(tenant, assignment.course_id))
             .ok_or(StoreError::NotFound)?;
-        if course.role_for(actor) != Some(CourseMembershipRole::Instructor) {
+        if super::entitlement::current_course_role(&state, tenant, assignment.course_id, actor)
+            != Some(CourseMembershipRole::Instructor)
+        {
             return Err(StoreError::NotFound);
         }
         Ok(state.manual_evaluations.get(&(tenant, attempt)).cloned())
@@ -267,11 +271,13 @@ fn set_memory_manual_grade(
     let enrollment = enrollment_record(state, tenant, run.enrollment)?;
     let assignment = assignment_record(state, tenant, enrollment.assignment)?;
     require_course_records_accessible(state, tenant, assignment.course_id)?;
-    let course = state
+    state
         .courses
         .get(&(tenant, assignment.course_id))
         .ok_or(StoreError::NotFound)?;
-    if course.role_for(command.actor) != Some(CourseMembershipRole::Instructor) {
+    if super::entitlement::current_course_role(state, tenant, assignment.course_id, command.actor)
+        != Some(CourseMembershipRole::Instructor)
+    {
         return Err(StoreError::NotFound);
     }
     let digest = request_digest(&command);

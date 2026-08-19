@@ -20,10 +20,11 @@ use axum::http::Request;
 use grading::{AnswerKey, GradingError, grade};
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
-    AssignmentRecord, CatalogTransition, CourseRecord, DraftRecord, JobLeaseDuration, JobPayload,
-    JobStore, Page, PublishDraftCommand, PublishedProblemRecord, RetentionWorkerCommand,
+    AssignmentRecord, CatalogTransition, CourseRecord, CourseRosterStore, CreateCourseCommand,
+    DraftRecord, JobLeaseDuration, JobPayload, JobStore, MaterializeAssignmentEntitlementCommand,
+    Page, PublishDraftCommand, PublishedProblemRecord, RetentionWorkerCommand,
     RetentionWorkerStore, SessionLifetime, SessionRecord, SessionSubject, SessionTokenHash,
-    TenantContext,
+    TenantContext, UpsertCourseMember,
 };
 use question_model::answer::{NumericTolerance, SelectionCardinality};
 use question_model::envelope::ContentBlock;
@@ -38,10 +39,9 @@ use question_model::run_policy::{
 use question_model::taxonomy::License;
 use question_model::{
     ActivityTimestamp, BackendCapabilities, Capability, CatalogProblemSummary, CatalogSearchPage,
-    CatalogSearchQuery, CourseId, CourseMembership, CourseMembershipRole, DraftQuestionDefinition,
-    DraftQuestionSource, EnrollmentId, GradingDefinition, ImplementationVersion, ObjectId,
-    ProblemId, PublicationScope, QuestionMetadata, QuestionSource, StudentId, TenantId, UserId,
-    VersionId, WorkspaceId,
+    CatalogSearchQuery, CourseId, DraftQuestionDefinition, DraftQuestionSource, EnrollmentId,
+    EntitlementPurpose, GradingDefinition, ImplementationVersion, ObjectId, ProblemId,
+    PublicationScope, QuestionMetadata, QuestionSource, TenantId, UserId, VersionId, WorkspaceId,
 };
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -561,7 +561,6 @@ async fn fixture_with_response(
     let outsider = UserId::from_uuid(id(4));
     let course = CourseId::from_uuid(id(5));
     let assignment = AssignmentId::from_uuid(id(6));
-    let enrollment = EnrollmentId::from_uuid(id(7));
     let problem = ProblemId::from_uuid(id(8));
     let version = VersionId::from_uuid(id(9));
     let workspace = WorkspaceId::from_uuid(id(10));
@@ -613,6 +612,11 @@ async fn fixture_with_response(
                 flat_question_promotion: None,
                 publisher: instructor,
                 scope: PublicationScope::Public,
+                byline: question_model::PublicByline::new(vec![
+                    question_model::PublicAuthorName::new("PLE fixture".to_string())
+                        .expect("valid test byline"),
+                ])
+                .expect("valid test byline"),
                 capabilities: BackendCapabilities::from_iter([
                     Capability::AlgorithmicGeneration,
                     Capability::ServerGrading,
@@ -622,26 +626,37 @@ async fn fixture_with_response(
         .await
         .expect("publish");
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Biochemistry".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Biochemistry".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("course");
+    store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Student".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("student roster membership");
     store
         .create_untimed_assignment(
             context,
@@ -649,6 +664,7 @@ async fn fixture_with_response(
                 id: assignment,
                 tenant,
                 course_id: course,
+                audience: question_model::AssignmentAudience::CourseWide,
                 title: "Molar mass mastery".to_string(),
                 items: assignment_items(vec![ProblemVersionRef { problem, version }]),
                 selection_groups: Vec::new(),
@@ -662,22 +678,28 @@ async fn fixture_with_response(
         )
         .await
         .expect("assignment");
-    store
-        .create_enrollment(
+    let enrollment = match store
+        .issue_assignment_entitlement(
             context,
-            AssignmentEnrollment {
-                id: enrollment,
-                tenant,
+            MaterializeAssignmentEntitlementCommand::for_instructor_action(
+                student,
+                course,
                 assignment,
-                user: student,
-                student: StudentId::from_uuid(id(11)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
+                instructor,
+                EntitlementPurpose::InstructorIssue,
+            )
+            .expect("fixture instructor issue command"),
         )
         .await
-        .expect("enrollment");
+        .expect("fixture entitlement materialization")
+    {
+        learning_data_access::AssignmentEntitlementMaterialization::Granted(receipt) => {
+            receipt.enrollment.id
+        }
+        learning_data_access::AssignmentEntitlementMaterialization::Denied(_) => {
+            panic!("fixture student must be entitled")
+        }
+    };
     let student_cookie = issued_cookie(store.as_ref(), student, "Student").await;
     let outsider_cookie = issued_cookie(store.as_ref(), outsider, "Outsider").await;
     let backend = Arc::new(NumericBackend {
@@ -838,6 +860,11 @@ async fn native_feedback_fixture(
                 flat_question_promotion: None,
                 publisher: instructor,
                 scope: PublicationScope::Institution,
+                byline: question_model::PublicByline::new(vec![
+                    question_model::PublicAuthorName::new("PLE fixture".to_string())
+                        .expect("valid test byline"),
+                ])
+                .expect("valid test byline"),
                 capabilities: BackendCapabilities::from_iter([
                     Capability::AlgorithmicGeneration,
                     Capability::ClientRendering,
@@ -849,26 +876,37 @@ async fn native_feedback_fixture(
         .await
         .expect("publish");
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Biochemistry".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Biochemistry".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("course");
+    store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Student".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("student roster membership");
     store
         .create_untimed_assignment(
             context,
@@ -876,6 +914,7 @@ async fn native_feedback_fixture(
                 id: assignment,
                 tenant,
                 course_id: course,
+                audience: question_model::AssignmentAudience::CourseWide,
                 title: "Peptide feedback".to_string(),
                 items: assignment_items(vec![
                     ProblemVersionRef { problem, version },
@@ -892,22 +931,6 @@ async fn native_feedback_fixture(
         )
         .await
         .expect("assignment");
-    store
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: EnrollmentId::from_uuid(id(210)),
-                tenant,
-                assignment,
-                user: student,
-                student: StudentId::from_uuid(id(211)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
-        .await
-        .expect("enrollment");
     let student_cookie = issued_cookie_for(store.as_ref(), tenant, student, "Student").await;
     let outsider_cookie = issued_cookie_for(store.as_ref(), tenant, outsider, "Outsider").await;
     let backend = Arc::new(CountingNativeBackend {

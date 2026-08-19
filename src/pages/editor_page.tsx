@@ -7,10 +7,12 @@ import type { ContentBlock } from "../../generated/api/ContentBlock";
 import type { Seed } from "../../generated/api/Seed";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { PublicationScope } from "../../generated/api/PublicationScope";
+import type { PublicByline } from "../../generated/api/PublicByline";
 import { QuestionRenderer } from "../components/question_renderer";
 import { ResponseWidget } from "../components/response_widget";
 import { ContentBlockList } from "../components/feedback_panel";
 import { WorkspaceConflictError } from "../api/http_client";
+import { parseReviewedPublicByline } from "../api/public_byline";
 import type { WasmFacade } from "../wasm/index";
 import { useWasmFacade } from "../wasm/context";
 import { createEditorPreviewFacade } from "./editor_preview_facade";
@@ -58,7 +60,7 @@ type InstructorPreviewState =
 type PublishState =
   | { readonly kind: "idle" }
   | { readonly kind: "loadingDiff" }
-  | { readonly kind: "confirm"; readonly diff: PublishVersionDiff }
+  | { readonly kind: "confirm"; readonly diff: PublishVersionDiff; readonly message: string | null }
   | { readonly kind: "publishing" }
   | { readonly kind: "published"; readonly questionId: string }
   | { readonly kind: "error"; readonly message: string };
@@ -155,10 +157,12 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
   const [publicationReadiness, setPublicationReadiness] = createSignal<string | null>(null);
   const [saveMessage, setSaveMessage] = createSignal<string | null>(null);
   const [publicationScope, setPublicationScope] = createSignal<PublicationScope>("institution");
+  const [publicationByline, setPublicationByline] = createSignal("");
   const [staleConflict, setStaleConflict] = createSignal(false);
   const [creatingFlatQuestion, setCreatingFlatQuestion] = createSignal(false);
   const [creationMessage, setCreationMessage] = createSignal<string | null>(null);
   const [draftDirty, setDraftDirty] = createSignal(false);
+  let publicationBylineInput: HTMLTextAreaElement | undefined;
 
   const ready = (): Extract<PageState, { readonly kind: "ready" }> | undefined => {
     const value = page();
@@ -408,7 +412,11 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
         });
         return;
       }
-      setPublish({ kind: "confirm", diff: await props.repository.getPublishDiff(saved) });
+      setPublish({
+        kind: "confirm",
+        diff: await props.repository.getPublishDiff(saved),
+        message: null,
+      });
     } catch (error: unknown) {
       const isConflict = error instanceof WorkspaceConflictError;
       setStaleConflict(isConflict);
@@ -428,13 +436,19 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     const current = ready();
     const review = publishConfirm();
     if (current === undefined || review === undefined) return;
+    const byline = parseReviewedPublicByline(publicationByline());
+    if (byline === null) {
+      setPublish({ ...review, message: "Provide one to sixteen distinct reviewed author names." });
+      requestAnimationFrame(() => publicationBylineInput?.focus());
+      return;
+    }
+    const request: { readonly scope: PublicationScope; readonly byline: PublicByline } = {
+      scope: publicationScope(),
+      byline,
+    };
     setPublish({ kind: "publishing" });
     try {
-      const outcome = await props.repository.publish(
-        current.draft,
-        publicationScope(),
-        review.diff.revision,
-      );
+      const outcome = await props.repository.publish(current.draft, request, review.diff.revision);
       switch (outcome.kind) {
         case "published":
           setPublish({
@@ -445,25 +459,31 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
         case "validationFailed":
           setViolations(outcome.violations);
           setPublish({
-            kind: "error",
+            ...review,
             message: "Publication needs the listed capability changes. Your draft is still open.",
           });
           break;
         case "error":
-          setPublish({ kind: "error", message: outcome.message });
+          setPublish({ ...review, message: outcome.message });
           break;
       }
     } catch (error: unknown) {
       const isConflict = error instanceof WorkspaceConflictError;
       setStaleConflict(isConflict);
-      setPublish({
-        kind: "error",
-        message: isConflict
-          ? "Someone saved a newer revision. Reload, save your edits, and review again."
-          : error instanceof Error
-            ? error.message
-            : "Publication could not finish. Your draft is still open.",
-      });
+      setPublish(
+        isConflict
+          ? {
+              kind: "error",
+              message: "Someone saved a newer revision. Reload, save your edits, and review again.",
+            }
+          : {
+              ...review,
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Publication could not finish. Your draft is still open.",
+            },
+      );
     }
   }
 
@@ -896,6 +916,21 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                           <option value="public">Public (review required)</option>
                         </select>
                       </label>
+                      <label class="editor-field">
+                        Reviewed public byline
+                        <textarea
+                          ref={(element) => {
+                            publicationBylineInput = element;
+                          }}
+                          value={publicationByline()}
+                          onInput={(event) => setPublicationByline(event.currentTarget.value)}
+                          aria-describedby="workspace-byline-help"
+                        />
+                        <span id="workspace-byline-help">
+                          Enter one reviewed name per line. The published attribution never uses
+                          account data.
+                        </span>
+                      </label>
                       <button
                         class="primary-action"
                         type="button"
@@ -903,6 +938,11 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                       >
                         Confirm publication
                       </button>
+                      <Show when={state().message !== null}>
+                        <p class="inline-error" role="alert">
+                          {state().message}
+                        </p>
+                      </Show>
                     </div>
                   )}
                 </Show>

@@ -4,11 +4,29 @@ import { A, createAsync, useParams } from "@solidjs/router";
 import { For, Show, Suspense, type JSX } from "solid-js";
 
 import { useApiRuntime } from "../api/runtime";
+import { useSessionBootstrap, type SessionBootstrapState } from "../auth/session_context";
 import { CopyableQuestionId } from "../components/copyable_question_id";
 import { parseProblemRouteReference } from "../navigation/public_route";
+import { rolesMayAccessRoute } from "../route_contract";
 import { CatalogStatisticsPanel } from "./catalog_statistics_panel";
 
-export function ProblemDetailPage(): JSX.Element {
+function mayReadCatalog(state: SessionBootstrapState): boolean {
+  return (
+    state.kind === "authenticated" && rolesMayAccessRoute("problemDetail", state.session.user.roles)
+  );
+}
+
+function CatalogDetailDenied(): JSX.Element {
+  return (
+    <section class="page" data-route-surface="catalogDetailDenied" aria-live="polite">
+      <p class="eyebrow">Published question library</p>
+      <h1>Problem library is not available for this account</h1>
+      <p>Your learning space remains available. Ask an instructor for library access.</p>
+    </section>
+  );
+}
+
+function CatalogDetailPage(): JSX.Element {
   const runtime = useApiRuntime();
   const params = useParams();
   const detail = createAsync(() => {
@@ -46,6 +64,7 @@ export function ProblemDetailPage(): JSX.Element {
               <p class="eyebrow">Published question</p>
               <h1>{record().summary.metadata.title}</h1>
               <CopyableQuestionId displayId={record().summary.questionId} />
+              <p aria-label="Published by">By {record().summary.byline.names.join(", ")}</p>
               <p>{`Backend: ${record().summary.backend}`}</p>
               <section aria-label="Problem prompt">
                 <For each={record().prompt}>
@@ -70,5 +89,15 @@ export function ProblemDetailPage(): JSX.Element {
         </Show>
       </Suspense>
     </section>
+  );
+}
+
+/** Guards catalog detail transport with the same role contract as the library route. */
+export function ProblemDetailPage(): JSX.Element {
+  const session = useSessionBootstrap();
+  return (
+    <Show when={mayReadCatalog(session.state())} fallback={<CatalogDetailDenied />}>
+      <CatalogDetailPage />
+    </Show>
   );
 }

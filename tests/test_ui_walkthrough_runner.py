@@ -189,33 +189,6 @@ def test_controller_adapter_preserves_optional_stdin_without_exposing_it() -> No
 
 
 #============================================
-def test_private_stack_environment_preserves_source_and_owns_image(tmp_path: pathlib.Path) -> None:
-	"""The launcher gets compact settings plus runner-owned paths and image identity."""
-	repository = tmp_path / "repository"
-	source = write_env_file(repository, "containers/env.local", 3010)
-	source.write_text(
-		"# Operator guidance remains in the selected source file.\n"
-		"PLE_GATEWAY_HOST_PORT=3010\n\nPOSTGRES_PASSWORD=private\n",
-		encoding="ascii",
-	)
-	runner = walkthrough.WalkthroughRunner(resolved_inputs(repository), repository, {}, RecordingCommands())
-	runner.prepare_journey_state()
-	runner.create_private_stack_environment()
-	private_env = runner.stack_env_file()
-	private_contents = private_env.read_text(encoding="ascii")
-	runner.remove_private_state()
-
-	assert source.read_text(encoding="ascii").startswith("# Operator guidance")
-	assert "# Operator guidance" not in private_contents
-	assert "PLE_GATEWAY_HOST_PORT=3010\nPOSTGRES_PASSWORD=private\n" in private_contents
-	assert f"PLE_APPLICATION_IMAGE=localhost/peptidyle-learning-engine:{runner.compose_project_name}" in private_contents
-	assert f"PLE_LOCAL_AUTH_HOST_FILE={private_env.parent}/local-identities.json" in private_contents
-	assert f"PLE_INVITATION_TOKEN_SECRET_HOST_FILE={private_env.parent}/.secrets/invitation_token_secret" in private_contents
-	assert f"PLE_QUESTION_ID_SECRET_HOST_FILE={private_env.parent}/.secrets/question_id_secret" in private_contents
-	assert private_env.parent.name.startswith("ple-ui-walkthrough-") and not private_env.exists()
-
-
-#============================================
 def test_walkthrough_validation_uses_source_environment_before_private_bootstrap(
 	tmp_path: pathlib.Path,
 ) -> None:

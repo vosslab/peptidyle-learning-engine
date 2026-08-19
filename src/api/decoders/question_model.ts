@@ -10,6 +10,15 @@ import type { RandomizationDefinition } from "../../../generated/api/Randomizati
 import type { ResponseDefinition } from "../../../generated/api/ResponseDefinition";
 import type { TimingPolicy } from "../../../generated/api/TimingPolicy";
 import type { WorkspaceDraftSummary } from "../../../generated/api/WorkspaceDraftSummary";
+import type { WorkspaceRouteReference } from "../../navigation/public_route";
+import { parseWorkspaceReference } from "../../navigation/public_route";
+
+function decodeWorkspaceReference(value: unknown, path: string): WorkspaceRouteReference {
+  if (typeof value !== "string") throw new DecodeError(path, "a W- reference");
+  const reference = parseWorkspaceReference(value);
+  if (reference === null) throw new DecodeError(path, "a W- reference");
+  return reference;
+}
 import type {
   PublicationDiff,
   PublicationReadinessFailure,
@@ -41,7 +50,6 @@ import {
   decodeEnvelopeTitle,
   decodeIdentifier,
   decodeLicense,
-  decodePublicRouteNumber,
   decodeTaxonomyTerm,
   field,
   kind,
@@ -389,10 +397,10 @@ export function decodeWorkspaceDraftSummary(
   path = "response",
 ): WorkspaceDraftSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["workspace", "publicId", "title", "sourceBackend"]);
+  requireOnlyFields(record, path, ["workspace", "reference", "title", "sourceBackend"]);
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
-    publicId: decodePublicRouteNumber(field(record, "publicId", path), `${path}.publicId`),
+    reference: decodeWorkspaceReference(field(record, "reference", path), `${path}.reference`),
     title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
     sourceBackend: decodeStringEnum(
       field(record, "sourceBackend", path),

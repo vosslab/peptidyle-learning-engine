@@ -21,6 +21,8 @@ POSTGRES_DATABASE = "ple_wp_rc8_postgres_outbox"
 LIVE_TEST = "postgres_wp_rc8_invitation_delivery_authority_and_outbox"
 EMAIL_CONFLICT_TEST = "postgres_email_change_conflict_rolls_back_without_revoking_prior_sessions"
 ENROLLMENT_DELIVERY_TEST = "postgres_enrollment_capability_is_locked_unique_and_role_separated"
+PASSWORDLESS_CHALLENGE_TEST = "postgres_passwordless_challenge_consumption_is_binding_atomic"
+COURSE_MEMBER_UPSERT_TEST = "postgres_course_member_upsert_is_atomic_idempotent_and_tenant_scoped"
 SAFE_ENVIRONMENT = ("PATH", "HOME", "CARGO_HOME", "RUSTUP_HOME", "TMPDIR", "LANG")
 
 
@@ -90,7 +92,7 @@ def cargo_environment(database_url: str) -> dict[str, str]:
 
 #============================================
 def main() -> None:
-	"""Run one fresh migration, role, RLS, and worker-outbox oracle then clean it."""
+	"""Run fresh PostgreSQL authority, delivery, account, and roster oracles then clean up."""
 	directory = pathlib.Path(tempfile.mkdtemp(prefix="ple-wp-rc8-postgres-outbox-"))
 	os.chmod(directory, 0o700)
 	manifest, password, port = target(directory)
@@ -120,7 +122,23 @@ def main() -> None:
 		], cargo_environment(database_url))
 		if "0 passed" in enrollment_output:
 			raise local_stack_control.models.ControllerError("WP-RC8 PostgreSQL selected no enrollment delivery test")
-		print("WP-RC8 PostgreSQL outbox: completed migration, worker authority, and outbox oracle")
+		passwordless_output = run([
+			"cargo", "test", "-p", "learning-data-access", "--features", "postgres",
+			"--test", "postgres_enrollment_live", "--", "--ignored", "--exact", PASSWORDLESS_CHALLENGE_TEST,
+		], cargo_environment(database_url))
+		if "0 passed" in passwordless_output:
+			raise local_stack_control.models.ControllerError(
+				"PostgreSQL account oracle selected no passwordless challenge consumption test"
+			)
+		course_member_output = run([
+			"cargo", "test", "-p", "learning-data-access", "--features", "postgres",
+			"--test", "postgres_enrollment_live", "--", "--ignored", "--exact", COURSE_MEMBER_UPSERT_TEST,
+		], cargo_environment(database_url))
+		if "0 passed" in course_member_output:
+			raise local_stack_control.models.ControllerError(
+				"PostgreSQL roster oracle selected no course member upsert test"
+			)
+		print("WP-RC8 PostgreSQL outbox: completed migration, delivery, account, and roster authority oracles")
 	finally:
 		if started and not keep:
 			run(adapter("cleanup", manifest))

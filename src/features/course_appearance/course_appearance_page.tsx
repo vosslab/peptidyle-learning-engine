@@ -140,7 +140,7 @@ export function CourseAppearancePage(): JSX.Element {
         <p class="eyebrow">Course settings</p>
         <h1>Course appearance is not available for this account</h1>
         <p class="page-lede">Only a course instructor can change its appearance.</p>
-        <A class="quiet-link" href={`/courses/${courseRouteReference(course.summary.publicId)}`}>
+        <A class="quiet-link" href={`/courses/${courseRouteReference(course.summary.reference)}`}>
           Return to course
         </A>
       </section>
@@ -363,7 +363,7 @@ export function CourseAppearancePage(): JSX.Element {
         Give {course.summary.title} a recognizable color theme and optional entry banner. The course
         title stays readable text, and the selected theme applies only inside this course.
       </p>
-      <CourseManagementNav coursePublicId={course.summary.publicId} active="appearance" />
+      <CourseManagementNav courseReference={course.summary.reference} active="appearance" />
 
       <Show when={conflict()}>
         <section class="course-appearance-conflict" role="alert">

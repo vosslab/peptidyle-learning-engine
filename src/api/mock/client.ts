@@ -18,7 +18,6 @@ import type { RunId } from "../../../generated/api/RunId";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuestionDefinition";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
-import type { PublicationScope } from "../../../generated/api/PublicationScope";
 import type { ApiClient } from "../client";
 import {
   ApiProtocolError,
@@ -30,6 +29,7 @@ import {
   WorkspaceConflictError,
 } from "../http_client";
 import { catalogProblemReferencePath, catalogSearchPath } from "../catalog_query";
+import { isPublicByline } from "../public_byline";
 import {
   decodeCatalogProblemDetail,
   decodeCatalogProblemSummary,
@@ -322,13 +322,13 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
   const client: ApiClient = {
     ...createMockEnrollmentClient(),
     resolveNavigation: (reference) => {
-      if (reference === `C-${publishedProblemFixture.course.publicId}`) {
+      if (reference === publishedProblemFixture.course.reference) {
         return Promise.resolve({ kind: "course", courseId: publishedProblemFixture.course.id });
       }
-      if (reference === `C-${secondaryMockCourse.publicId}`) {
+      if (reference === secondaryMockCourse.reference) {
         return Promise.resolve({ kind: "course", courseId: secondaryMockCourse.id });
       }
-      if (reference === `A-${publishedProblemFixture.assignment.publicId}`) {
+      if (reference === publishedProblemFixture.assignment.reference) {
         return Promise.resolve({
           kind: "assignment",
           courseId: publishedProblemFixture.assignment.courseId,
@@ -336,9 +336,17 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
         });
       }
       const run = publishedProblemFixture.runs.find(
-        (candidate) => reference === `R-${candidate.publicId}`,
+        (candidate) => reference === candidate.reference,
       );
-      if (run !== undefined) return Promise.resolve({ kind: "run", runId: run.id });
+      if (run !== undefined) {
+        return Promise.resolve({
+          kind: "run",
+          courseId: publishedProblemFixture.assignment.courseId,
+          assignmentId: publishedProblemFixture.assignment.id,
+          enrollmentId: run.enrollment,
+          runId: run.id,
+        });
+      }
       if (reference === "W-1" && workspaceDraft !== undefined) {
         return Promise.resolve({ kind: "workspace", workspaceId: workspaceDraft.workspace });
       }
@@ -372,7 +380,7 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
             : [
                 {
                   workspace: draft.workspace,
-                  publicId: 1,
+                  reference: "W-1",
                   title: draft.metadata.title,
                   sourceBackend: draft.source.backend,
                 },
@@ -450,13 +458,16 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
     },
     publishWorkspace: (
       workspace: WorkspaceId,
-      scope: PublicationScope,
+      request: import("../contracts").PublicationRequest,
       revision: string,
     ): Promise<PublicationResult> => {
       const authorizationError = workspaceAuthoringError();
       if (authorizationError !== undefined) return Promise.reject(authorizationError);
-      if (scope !== "institution" && scope !== "public") {
+      if (request.scope !== "institution" && request.scope !== "public") {
         return Promise.reject(new Error("Mock publication scope is invalid"));
+      }
+      if (!isPublicByline(request.byline)) {
+        return Promise.reject(new Error("Mock publication byline is invalid"));
       }
       const detail = workspaceDetail();
       if (detail.draft.workspace !== workspace)
@@ -509,9 +520,11 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
       return expectSerialized(mockFetch(`/api/courses${suffix}`), expected);
     },
     createCourse: (input: CourseCreateInput) => {
+      const decoded = decodeCourseCreateInput(input, "request");
       const course = {
         ...publishedProblemFixture.course,
-        title: decodeCourseCreateInput(input, "request").title,
+        title: decoded.title,
+        term: decoded.term,
         role: "instructor",
       } satisfies CourseSummary;
       return Promise.resolve(course);

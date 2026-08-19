@@ -1,282 +1,293 @@
 use async_trait::async_trait;
 
 use super::{MemoryStore, State};
-use crate::{AssignmentId, CourseId, RunId, StoreError, TenantContext, UserId, WorkspaceId};
-use question_model::TenantId;
+use crate::{
+    AssignmentId, AssignmentRouteIdentity, CourseId, RunId, RunRouteIdentity, StoreError,
+    TenantContext, UserId, WorkspaceId,
+};
+use question_model::{CourseMembershipRole, TenantId};
 
-fn next_public_number(counter: &mut u32) -> Result<u64, StoreError> {
+fn next_reference(counter: &mut u32) -> Result<u64, StoreError> {
     *counter = counter
         .checked_add(1)
         .filter(|value| *value <= question_model::MAX_PUBLIC_ROUTE_NUMBER)
-        .ok_or_else(|| StoreError::Unavailable("public route number limit reached".to_string()))?;
+        .ok_or_else(|| StoreError::Unavailable("reference number limit reached".into()))?;
     Ok(u64::from(*counter))
 }
 
-pub(super) fn ensure_course_public_id(
+pub(super) fn ensure_course_reference(
     state: &mut State,
     tenant: TenantId,
     course: CourseId,
-) -> Result<question_model::CoursePublicId, StoreError> {
-    if let Some(public_id) = state.course_public_ids.get(&(tenant, course)).copied() {
-        return Ok(public_id);
+) -> Result<question_model::CourseReference, StoreError> {
+    if let Some(reference) = state.course_references.get(&(tenant, course)).copied() {
+        return Ok(reference);
     }
-    let public_id =
-        question_model::CoursePublicId::new(next_public_number(&mut state.next_course_public_id)?)
-            .ok_or_else(|| StoreError::Unavailable("invalid course route number".to_string()))?;
-    state.course_public_ids.insert((tenant, course), public_id);
+    let reference =
+        question_model::CourseReference::new(next_reference(&mut state.next_course_reference)?)
+            .ok_or_else(|| StoreError::Unavailable("invalid course reference".into()))?;
+    state.course_references.insert((tenant, course), reference);
     state
-        .courses_by_public_id
-        .insert((tenant, public_id), course);
-    Ok(public_id)
+        .courses_by_reference
+        .insert((tenant, reference), course);
+    Ok(reference)
 }
-
-pub(super) fn ensure_assignment_public_id(
+pub(super) fn ensure_assignment_reference(
     state: &mut State,
     tenant: TenantId,
     assignment: AssignmentId,
-) -> Result<question_model::AssignmentPublicId, StoreError> {
-    if let Some(public_id) = state
-        .assignment_public_ids
+) -> Result<question_model::AssignmentReference, StoreError> {
+    if let Some(reference) = state
+        .assignment_references
         .get(&(tenant, assignment))
         .copied()
     {
-        return Ok(public_id);
+        return Ok(reference);
     }
-    let public_id = question_model::AssignmentPublicId::new(next_public_number(
-        &mut state.next_assignment_public_id,
+    let reference = question_model::AssignmentReference::new(next_reference(
+        &mut state.next_assignment_reference,
     )?)
-    .ok_or_else(|| StoreError::Unavailable("invalid assignment route number".to_string()))?;
+    .ok_or_else(|| StoreError::Unavailable("invalid assignment reference".into()))?;
     state
-        .assignment_public_ids
-        .insert((tenant, assignment), public_id);
+        .assignment_references
+        .insert((tenant, assignment), reference);
     state
-        .assignments_by_public_id
-        .insert((tenant, public_id), assignment);
-    Ok(public_id)
+        .assignments_by_reference
+        .insert((tenant, reference), assignment);
+    Ok(reference)
 }
-
-pub(super) fn ensure_run_public_id(
+pub(super) fn ensure_run_reference(
     state: &mut State,
     tenant: TenantId,
     run: RunId,
-) -> Result<question_model::RunPublicId, StoreError> {
-    if let Some(public_id) = state.run_public_ids.get(&(tenant, run)).copied() {
-        return Ok(public_id);
+) -> Result<question_model::RunReference, StoreError> {
+    if let Some(reference) = state.run_references.get(&(tenant, run)).copied() {
+        return Ok(reference);
     }
-    let public_id =
-        question_model::RunPublicId::new(next_public_number(&mut state.next_run_public_id)?)
-            .ok_or_else(|| StoreError::Unavailable("invalid run route number".to_string()))?;
-    state.run_public_ids.insert((tenant, run), public_id);
-    state.runs_by_public_id.insert((tenant, public_id), run);
-    Ok(public_id)
+    let reference =
+        question_model::RunReference::new(next_reference(&mut state.next_run_reference)?)
+            .ok_or_else(|| StoreError::Unavailable("invalid run reference".into()))?;
+    state.run_references.insert((tenant, run), reference);
+    state.runs_by_reference.insert((tenant, reference), run);
+    Ok(reference)
 }
-
-pub(super) fn ensure_workspace_public_id(
+pub(super) fn ensure_workspace_reference(
     state: &mut State,
     tenant: TenantId,
     workspace: WorkspaceId,
-) -> Result<question_model::WorkspacePublicId, StoreError> {
-    if let Some(public_id) = state
-        .workspace_public_ids
+) -> Result<question_model::WorkspaceReference, StoreError> {
+    if let Some(reference) = state
+        .workspace_references
         .get(&(tenant, workspace))
         .copied()
     {
-        return Ok(public_id);
+        return Ok(reference);
     }
-    let public_id = question_model::WorkspacePublicId::new(next_public_number(
-        &mut state.next_workspace_public_id,
+    let reference = question_model::WorkspaceReference::new(next_reference(
+        &mut state.next_workspace_reference,
     )?)
-    .ok_or_else(|| StoreError::Unavailable("invalid workspace route number".to_string()))?;
+    .ok_or_else(|| StoreError::Unavailable("invalid workspace reference".into()))?;
     state
-        .workspace_public_ids
-        .insert((tenant, workspace), public_id);
+        .workspace_references
+        .insert((tenant, workspace), reference);
     state
-        .workspaces_by_public_id
-        .insert((tenant, public_id), workspace);
-    Ok(public_id)
+        .workspaces_by_reference
+        .insert((tenant, reference), workspace);
+    Ok(reference)
+}
+
+fn run_identity(
+    state: &State,
+    tenant: TenantId,
+    actor: UserId,
+    run: RunId,
+) -> Option<RunRouteIdentity> {
+    let run_record = state.runs.get(&(tenant, run))?;
+    let enrollment = state.enrollments.get(&(tenant, run_record.enrollment))?;
+    let assignment = state.assignments.get(&(tenant, enrollment.assignment))?;
+    state.courses.get(&(tenant, assignment.course_id))?;
+    let role = super::entitlement::current_course_role(state, tenant, assignment.course_id, actor)?;
+    let allowed = super::entitlement::require_current_enrollment_entitlement(
+        state,
+        tenant,
+        actor,
+        assignment.course_id,
+        assignment.id,
+        enrollment,
+    )
+    .is_ok()
+        || role == CourseMembershipRole::Instructor;
+    allowed.then_some(RunRouteIdentity {
+        course: assignment.course_id,
+        assignment: enrollment.assignment,
+        enrollment: run_record.enrollment,
+        run,
+    })
 }
 
 #[async_trait]
 impl crate::NavigationReferenceStore for MemoryStore {
-    async fn course_public_id(
+    async fn course_reference(
         &self,
         context: TenantContext,
         actor: UserId,
         course: CourseId,
-    ) -> Result<Option<question_model::CoursePublicId>, StoreError> {
+    ) -> Result<Option<question_model::CourseReference>, StoreError> {
         let state = self.read_state()?;
-        let Some(record) = state.courses.get(&(context.tenant_id(), course)) else {
-            return Ok(None);
-        };
-        if record.role_for(actor).is_none() {
-            return Ok(None);
-        }
-        Ok(state
-            .course_public_ids
-            .get(&(context.tenant_id(), course))
-            .copied())
-    }
-
-    async fn resolve_course_public_id(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        public_id: question_model::CoursePublicId,
-    ) -> Result<Option<CourseId>, StoreError> {
-        let state = self.read_state()?;
-        let Some(course) = state
-            .courses_by_public_id
-            .get(&(context.tenant_id(), public_id))
-            .copied()
-        else {
-            return Ok(None);
-        };
         Ok(state
             .courses
             .get(&(context.tenant_id(), course))
-            .and_then(|record| record.role_for(actor).map(|_| course)))
+            .and_then(|_| {
+                super::entitlement::current_course_role(&state, context.tenant_id(), course, actor)
+            })
+            .and_then(|_| {
+                state
+                    .course_references
+                    .get(&(context.tenant_id(), course))
+                    .copied()
+            }))
     }
-
-    async fn assignment_public_id(
+    async fn resolve_course_reference(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        reference: question_model::CourseReference,
+    ) -> Result<Option<CourseId>, StoreError> {
+        let state = self.read_state()?;
+        let course = state
+            .courses_by_reference
+            .get(&(context.tenant_id(), reference))
+            .copied();
+        Ok(course.filter(|course| {
+            state.courses.contains_key(&(context.tenant_id(), *course))
+                && super::entitlement::current_course_role(
+                    &state,
+                    context.tenant_id(),
+                    *course,
+                    actor,
+                )
+                .is_some()
+        }))
+    }
+    async fn assignment_reference(
         &self,
         context: TenantContext,
         actor: UserId,
         assignment: AssignmentId,
-    ) -> Result<Option<question_model::AssignmentPublicId>, StoreError> {
+    ) -> Result<Option<question_model::AssignmentReference>, StoreError> {
         let state = self.read_state()?;
-        let Some(record) = state.assignments.get(&(context.tenant_id(), assignment)) else {
-            return Ok(None);
-        };
-        let allowed = state
-            .courses
-            .get(&(context.tenant_id(), record.course_id))
-            .is_some_and(|course| course.role_for(actor).is_some());
-        Ok(allowed
-            .then(|| {
+        Ok(state
+            .assignments
+            .get(&(context.tenant_id(), assignment))
+            .filter(|record| {
                 state
-                    .assignment_public_ids
+                    .courses
+                    .contains_key(&(context.tenant_id(), record.course_id))
+                    && super::entitlement::current_course_role(
+                        &state,
+                        context.tenant_id(),
+                        record.course_id,
+                        actor,
+                    )
+                    .is_some()
+            })
+            .and_then(|_| {
+                state
+                    .assignment_references
                     .get(&(context.tenant_id(), assignment))
                     .copied()
-            })
-            .flatten())
+            }))
     }
-
-    async fn resolve_assignment_public_id(
+    async fn resolve_assignment_reference(
         &self,
         context: TenantContext,
         actor: UserId,
-        public_id: question_model::AssignmentPublicId,
-    ) -> Result<Option<crate::AssignmentRouteIdentity>, StoreError> {
+        reference: question_model::AssignmentReference,
+    ) -> Result<Option<AssignmentRouteIdentity>, StoreError> {
         let state = self.read_state()?;
-        let Some(assignment) = state
-            .assignments_by_public_id
-            .get(&(context.tenant_id(), public_id))
-            .copied()
-        else {
-            return Ok(None);
-        };
-        let Some(record) = state.assignments.get(&(context.tenant_id(), assignment)) else {
-            return Ok(None);
-        };
-        let allowed = state
-            .courses
-            .get(&(context.tenant_id(), record.course_id))
-            .is_some_and(|course| course.role_for(actor).is_some());
-        Ok(allowed.then_some(crate::AssignmentRouteIdentity {
-            course: record.course_id,
-            assignment,
+        let assignment = state
+            .assignments_by_reference
+            .get(&(context.tenant_id(), reference))
+            .copied();
+        Ok(assignment.and_then(|assignment| {
+            let record = state.assignments.get(&(context.tenant_id(), assignment))?;
+            state
+                .courses
+                .get(&(context.tenant_id(), record.course_id))?;
+            super::entitlement::current_course_role(
+                &state,
+                context.tenant_id(),
+                record.course_id,
+                actor,
+            )?;
+            Some(AssignmentRouteIdentity {
+                course: record.course_id,
+                assignment,
+            })
         }))
     }
-
-    async fn run_public_id(
+    async fn run_reference(
         &self,
         context: TenantContext,
         actor: UserId,
         run: RunId,
-    ) -> Result<Option<question_model::RunPublicId>, StoreError> {
+    ) -> Result<Option<question_model::RunReference>, StoreError> {
         let state = self.read_state()?;
-        let allowed = state
-            .runs
-            .get(&(context.tenant_id(), run))
-            .and_then(|record| {
+        Ok(
+            run_identity(&state, context.tenant_id(), actor, run).and_then(|_| {
                 state
-                    .enrollments
-                    .get(&(context.tenant_id(), record.enrollment))
-            })
-            .is_some_and(|enrollment| enrollment.user == actor);
-        Ok(allowed
-            .then(|| {
-                state
-                    .run_public_ids
+                    .run_references
                     .get(&(context.tenant_id(), run))
                     .copied()
-            })
-            .flatten())
+            }),
+        )
     }
-
-    async fn resolve_run_public_id(
+    async fn resolve_run_reference(
         &self,
         context: TenantContext,
         actor: UserId,
-        public_id: question_model::RunPublicId,
-    ) -> Result<Option<RunId>, StoreError> {
+        reference: question_model::RunReference,
+    ) -> Result<Option<RunRouteIdentity>, StoreError> {
         let state = self.read_state()?;
-        let Some(run) = state
-            .runs_by_public_id
-            .get(&(context.tenant_id(), public_id))
+        Ok(state
+            .runs_by_reference
+            .get(&(context.tenant_id(), reference))
             .copied()
-        else {
-            return Ok(None);
-        };
-        let allowed = state
-            .runs
-            .get(&(context.tenant_id(), run))
-            .and_then(|record| {
-                state
-                    .enrollments
-                    .get(&(context.tenant_id(), record.enrollment))
-            })
-            .is_some_and(|enrollment| enrollment.user == actor);
-        Ok(allowed.then_some(run))
+            .and_then(|run| run_identity(&state, context.tenant_id(), actor, run)))
     }
-
-    async fn workspace_public_id(
+    async fn workspace_reference(
         &self,
         context: TenantContext,
         actor: UserId,
         workspace: WorkspaceId,
-    ) -> Result<Option<question_model::WorkspacePublicId>, StoreError> {
+    ) -> Result<Option<question_model::WorkspaceReference>, StoreError> {
         let state = self.read_state()?;
-        let allowed = state
+        Ok(state
             .draft_access
-            .contains_key(&(context.tenant_id(), workspace, actor));
-        Ok(allowed
+            .contains_key(&(context.tenant_id(), workspace, actor))
             .then(|| {
                 state
-                    .workspace_public_ids
+                    .workspace_references
                     .get(&(context.tenant_id(), workspace))
                     .copied()
             })
             .flatten())
     }
-
-    async fn resolve_workspace_public_id(
+    async fn resolve_workspace_reference(
         &self,
         context: TenantContext,
         actor: UserId,
-        public_id: question_model::WorkspacePublicId,
+        reference: question_model::WorkspaceReference,
     ) -> Result<Option<WorkspaceId>, StoreError> {
         let state = self.read_state()?;
-        let Some(workspace) = state
-            .workspaces_by_public_id
-            .get(&(context.tenant_id(), public_id))
-            .copied()
-        else {
-            return Ok(None);
-        };
         Ok(state
-            .draft_access
-            .contains_key(&(context.tenant_id(), workspace, actor))
-            .then_some(workspace))
+            .workspaces_by_reference
+            .get(&(context.tenant_id(), reference))
+            .copied()
+            .filter(|workspace| {
+                state
+                    .draft_access
+                    .contains_key(&(context.tenant_id(), *workspace, actor))
+            }))
     }
 }

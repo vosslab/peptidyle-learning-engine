@@ -100,7 +100,7 @@ export function CourseThemeScope(props: CourseThemeScopeProps): JSX.Element {
               <div
                 class="course-theme-scope"
                 data-course-theme={savedAppearance().theme}
-                data-course-reference={courseRouteReference(course().summary.publicId)}
+                data-course-reference={courseRouteReference(course().summary.reference)}
                 style={courseThemeStyle(tokens())}
               >
                 {props.children}

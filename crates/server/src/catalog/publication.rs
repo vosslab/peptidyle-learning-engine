@@ -2,6 +2,7 @@
 use std::cell::Cell;
 
 use axum::Json;
+use axum::extract::rejection::JsonRejection;
 use axum::extract::{Path, State};
 use axum::http::header::IF_MATCH;
 use axum::http::{HeaderMap, StatusCode};
@@ -87,9 +88,10 @@ pub(crate) fn prepare_published_source(
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct PublishProblemRequest {
     scope: PublicationScope,
+    byline: question_model::PublicByline,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -145,13 +147,17 @@ pub(super) async fn publish_problem<S, B, R>(
     State(state): State<CatalogRouteState<S, B, R>>,
     headers: HeaderMap,
     Path(workspace): Path<WorkspaceId>,
-    Json(request): Json<PublishProblemRequest>,
+    request: Result<Json<PublishProblemRequest>, JsonRejection>,
 ) -> Response
 where
     S: Store + CatalogStore + SessionStore + 'static,
     B: BackendRegistry + 'static,
     R: PublicReviewGate + 'static,
 {
+    let request = match request {
+        Ok(Json(request)) => request,
+        Err(_) => return error_response(StatusCode::BAD_REQUEST, "publication request is invalid"),
+    };
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
@@ -320,6 +326,7 @@ where
         flat_question_promotion: None,
         publisher,
         scope: request.scope,
+        byline: request.byline,
         capabilities,
     };
     match dispatch_publication(state.store.as_ref(), &authenticated, command).await {

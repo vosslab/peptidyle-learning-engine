@@ -1,8 +1,14 @@
 import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuestionDefinition";
+import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
 import type { PublicationScope } from "../../../generated/api/PublicationScope";
-import type { QuestionDefinition } from "../../../generated/api/QuestionDefinition";
+import type { PublicByline } from "../../../generated/api/PublicByline";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
-import { decodeDraftQuestionDefinition, decodeQuestionDefinition } from "../../api/decoders";
+import {
+  decodeCatalogProblemSummary,
+  decodeDraftQuestionDefinition,
+  isPublishedNativeCatalogProblemSummary,
+} from "../../api/decoders";
+import { isPublicByline } from "../../api/public_byline";
 import {
   FLAT_QUESTION_FILL_IN_FAMILY,
   FLAT_QUESTION_HOTSPOT_FAMILY,
@@ -69,9 +75,9 @@ export interface FlatQuestionClient {
   ): Promise<FlatQuestionSave>;
   publish(
     workspace: WorkspaceId,
-    scope: PublicationScope,
+    request: { readonly scope: PublicationScope; readonly byline: PublicByline },
     revision: string,
-  ): Promise<QuestionDefinition>;
+  ): Promise<CatalogProblemSummary>;
 }
 
 function browserFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -182,7 +188,7 @@ function decodeJson(text: string, path: string): unknown {
 }
 
 function requireFlatNativeSource(
-  source: DraftQuestionDefinition["source"] | QuestionDefinition["source"],
+  source: DraftQuestionDefinition["source"],
   response: FlatQuestionSourceV2["response"] | undefined,
   responseKind: "save" | "publication",
 ): void {
@@ -315,11 +321,16 @@ export function createFlatQuestionClient(
 
   async function publish(
     workspace: WorkspaceId,
-    scope: PublicationScope,
+    request: { readonly scope: PublicationScope; readonly byline: PublicByline },
     revision: string,
-  ): Promise<QuestionDefinition> {
-    if (scope !== "institution" && scope !== "public") {
+  ): Promise<CatalogProblemSummary> {
+    if (request.scope !== "institution" && request.scope !== "public") {
       throw new FlatQuestionProtocolError("Flat-question publication scope is invalid");
+    }
+    if (!isPublicByline(request.byline)) {
+      throw new FlatQuestionProtocolError(
+        "Flat-question publication requires one to sixteen reviewed author names",
+      );
     }
     const path = publishPath(workspace);
     const requestPath = sameOriginPath(basePath, path);
@@ -332,21 +343,24 @@ export function createFlatQuestionClient(
           "content-type": "application/json",
           "if-match": validRevision(revision),
         },
-        JSON.stringify({ scope }),
+        JSON.stringify(request),
       ),
     );
     if (response.status === 409 || response.status === 428)
       throw new FlatQuestionConflictError(response.status, path);
     if (!response.ok) throw new FlatQuestionRequestError(response.status, path);
     requireJson(response, path);
-    const question = decodeQuestionDefinition(decodeJson(await boundedText(response, path), path));
-    if (question.workspace !== workspace) {
+    const summary = decodeCatalogProblemSummary(
+      decodeJson(await boundedText(response, path), path),
+      path,
+      true,
+    );
+    if (!isPublishedNativeCatalogProblemSummary(summary, request.scope)) {
       throw new FlatQuestionProtocolError(
-        "Flat-question publication response does not match its workspace",
+        "Flat-question publication response must be a native published summary for its requested scope",
       );
     }
-    requireFlatNativeSource(question.source, undefined, "publication");
-    return question;
+    return summary;
   }
 
   return { load, save, publish };

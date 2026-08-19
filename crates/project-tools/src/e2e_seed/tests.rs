@@ -1,5 +1,5 @@
 use super::*;
-use question_model::Capability;
+use question_model::{ActivityTimestamp, Capability};
 
 #[test]
 fn help_has_no_secret_or_browser_seed_endpoint() {
@@ -50,41 +50,8 @@ fn deterministic_seed_scaffold_keeps_non_question_records_separate() {
     let first = SeedIds::fresh_for_tenant(tenant);
     let second = SeedIds::fresh_for_tenant(tenant);
     assert_eq!(first.assignment, second.assignment);
-    assert_ne!(first.assignment.as_uuid(), first.enrollment.as_uuid());
     assert_ne!(first.problem.as_uuid(), first.version.as_uuid());
     assert_ne!(first.problem, second.problem);
-}
-
-#[test]
-fn webwork_pilot_enrollment_rerun_preserves_server_owned_progress() {
-    let tenant = TenantId::from_uuid(Uuid::from_u128(20));
-    let ids = SeedIds::fresh_for_tenant(tenant);
-    let user = UserId::from_uuid(Uuid::from_u128(21));
-    let expected = AssignmentEnrollment {
-        id: ids.enrollment,
-        tenant,
-        assignment: ids.assignment,
-        user,
-        student: StudentId::from_uuid(user.as_uuid()),
-        first_completed_at: None,
-        current_grade_run: None,
-        best_grade_run: None,
-    };
-    let mut progressed = expected.clone();
-    progressed.first_completed_at = Some(ActivityTimestamp::from_unix_millis(1));
-    progressed.current_grade_run = Some(RunId::from_uuid(Uuid::from_u128(22)));
-    progressed.best_grade_run = Some(RunId::from_uuid(Uuid::from_u128(23)));
-
-    assert!(webwork_pilot_enrollment_identity_matches(
-        &progressed,
-        &expected
-    ));
-
-    progressed.user = UserId::from_uuid(Uuid::from_u128(24));
-    assert!(!webwork_pilot_enrollment_identity_matches(
-        &progressed,
-        &expected
-    ));
 }
 
 #[test]
@@ -426,12 +393,10 @@ async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster(
         id: course,
         tenant,
         title: "Disposable Chapter 1 Genetics".to_string(),
-        members: vec![CourseMembership {
-            user: instructor,
-            role: CourseMembershipRole::Instructor,
-        }],
+        term: question_model::CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
+            .expect("explicit fixture course term"),
     };
-    ensure_webwork_pilot_course(&store, context, expected_course.clone())
+    ensure_webwork_pilot_course(&store, context, instructor, expected_course.clone())
         .await
         .expect("the seed creates an instructor-owned course before roster activation");
     store
@@ -442,6 +407,7 @@ async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster(
                 tenant,
                 course_id: course,
                 title: "Disposable Chapter 1 assignment".to_string(),
+                audience: question_model::AssignmentAudience::CourseWide,
                 items: vec![AssignmentItem {
                     id: AssignmentItemId::from_uuid(Uuid::from_u128(306)),
                     reference: ProblemVersionRef {
@@ -465,13 +431,15 @@ async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster(
         .await
         .expect("the seed creates the assignment before roster activation");
 
-    let first = upsert_chapter_one_student(&store, context, student, course, assignment)
-        .await
-        .expect("the canonical roster derives the first enrollment");
-    let second = upsert_chapter_one_student(&store, context, student, course, assignment)
-        .await
-        .expect("the canonical roster upsert is idempotent on rerun");
-    ensure_webwork_pilot_course(&store, context, expected_course)
+    let first =
+        upsert_chapter_one_student(&store, context, instructor, student, course, assignment)
+            .await
+            .expect("the entitlement seam materializes the first enrollment");
+    let second =
+        upsert_chapter_one_student(&store, context, instructor, student, course, assignment)
+            .await
+            .expect("the entitlement seam is idempotent on rerun");
+    ensure_webwork_pilot_course(&store, context, instructor, expected_course)
         .await
         .expect("the course seed accepts student membership owned by the canonical roster");
     assert_eq!(first, second);
@@ -498,45 +466,32 @@ async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster(
     assert_eq!(member.roster_id, None);
     assert_eq!(
         store
-            .get_course(context, course)
+            .get_current_course_membership(context, course, student)
             .await
-            .expect("course read succeeds")
-            .expect("course remains")
-            .role_for(student),
-        Some(question_model::CourseMembershipRole::Student)
+            .expect("membership read succeeds")
+            .expect("student membership remains")
+            .role,
+        question_model::CourseMembershipRole::Student
     );
 }
 
 #[test]
 fn course_seed_identity_allows_only_roster_owned_additional_students() {
     let tenant = TenantId::from_uuid(Uuid::from_u128(311));
-    let instructor = UserId::from_uuid(Uuid::from_u128(312));
     let expected = CourseRecord {
         id: CourseId::from_uuid(Uuid::from_u128(313)),
         tenant,
         title: "Genetics Chapter 1".to_string(),
-        members: vec![CourseMembership {
-            user: instructor,
-            role: CourseMembershipRole::Instructor,
-        }],
+        term: question_model::CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
+            .expect("explicit fixture course term"),
     };
-    let mut roster_extended = expected.clone();
-    roster_extended.members.push(CourseMembership {
-        user: UserId::from_uuid(Uuid::from_u128(314)),
-        role: CourseMembershipRole::Student,
-    });
-    assert!(webwork_pilot_course_seed_matches(
-        &roster_extended,
-        &expected
-    ));
-
-    let mut unexpected_instructor = roster_extended;
-    unexpected_instructor.members.push(CourseMembership {
-        user: UserId::from_uuid(Uuid::from_u128(315)),
-        role: CourseMembershipRole::Instructor,
-    });
+    let different_title = CourseRecord {
+        title: "Different course".to_string(),
+        ..expected.clone()
+    };
+    assert!(webwork_pilot_course_seed_matches(&expected, &expected));
     assert!(!webwork_pilot_course_seed_matches(
-        &unexpected_instructor,
+        &different_title,
         &expected
     ));
 }
@@ -881,18 +836,10 @@ async fn webwork_pilot_converges_after_every_persisted_prefix_and_on_rerun() {
         id: ids.course,
         tenant,
         title: "PLE WebWork pilot E2E course".to_string(),
-        members: vec![
-            CourseMembership {
-                user: instructor,
-                role: CourseMembershipRole::Instructor,
-            },
-            CourseMembership {
-                user: student,
-                role: CourseMembershipRole::Student,
-            },
-        ],
+        term: question_model::CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
+            .expect("explicit fixture course term"),
     };
-    ensure_webwork_pilot_course(&store, context, course.clone())
+    ensure_webwork_pilot_course(&store, context, instructor, course.clone())
         .await
         .expect("course prefix converges");
     let assignment = AssignmentRecord {
@@ -900,6 +847,7 @@ async fn webwork_pilot_converges_after_every_persisted_prefix_and_on_rerun() {
         tenant,
         course_id: ids.course,
         title: "PLE WebWork pilot E2E assignment".to_string(),
+        audience: question_model::AssignmentAudience::CourseWide,
         items: vec![AssignmentItem {
             id: ids.assignment_item,
             reference,
@@ -919,19 +867,16 @@ async fn webwork_pilot_converges_after_every_persisted_prefix_and_on_rerun() {
     ensure_webwork_pilot_assignment(&store, context, assignment.clone())
         .await
         .expect("assignment prefix converges");
-    let enrollment = AssignmentEnrollment {
-        id: ids.enrollment,
-        tenant,
-        assignment: ids.assignment,
-        user: student,
-        student: StudentId::from_uuid(student.as_uuid()),
-        first_completed_at: None,
-        current_grade_run: None,
-        best_grade_run: None,
-    };
-    ensure_webwork_pilot_enrollment(&store, context, enrollment.clone())
-        .await
-        .expect("enrollment prefix converges");
+    ensure_webwork_pilot_enrollment(
+        &store,
+        context,
+        instructor,
+        student,
+        ids.course,
+        ids.assignment,
+    )
+    .await
+    .expect("enrollment prefix converges");
 
     ensure_webwork_pilot_publication(
         &store,
@@ -944,15 +889,22 @@ async fn webwork_pilot_converges_after_every_persisted_prefix_and_on_rerun() {
     )
     .await
     .expect("published rerun verifies rather than republishes");
-    ensure_webwork_pilot_course(&store, context, course)
+    ensure_webwork_pilot_course(&store, context, instructor, course)
         .await
         .expect("course rerun verifies rather than mutates");
     ensure_webwork_pilot_assignment(&store, context, assignment)
         .await
         .expect("assignment rerun verifies rather than mutates");
-    ensure_webwork_pilot_enrollment(&store, context, enrollment)
-        .await
-        .expect("enrollment rerun verifies rather than mutates");
+    ensure_webwork_pilot_enrollment(
+        &store,
+        context,
+        instructor,
+        student,
+        ids.course,
+        ids.assignment,
+    )
+    .await
+    .expect("enrollment rerun verifies rather than mutates");
     let error = ensure_webwork_pilot_publication(
         &store,
         context,

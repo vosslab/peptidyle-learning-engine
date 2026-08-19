@@ -61,11 +61,15 @@ test("passwordless and roster decoders reject authority and secret fields", () =
   );
   assert.deepEqual(
     decodeAccountCoursePage({
-      courses: [{ courseId: COURSE, coursePublicId: 1, title: "Biochemistry", role: "student" }],
+      courses: [
+        { courseId: COURSE, courseReference: "C-1", title: "Biochemistry", role: "student" },
+      ],
       nextCursor: null,
     }),
     {
-      courses: [{ courseId: COURSE, coursePublicId: 1, title: "Biochemistry", role: "student" }],
+      courses: [
+        { courseId: COURSE, courseReference: "C-1", title: "Biochemistry", role: "student" },
+      ],
       nextCursor: null,
     },
   );
@@ -75,7 +79,7 @@ test("passwordless and roster decoders reject authority and secret fields", () =
         courses: [
           {
             courseId: COURSE,
-            coursePublicId: 1,
+            courseReference: "C-1",
             title: "Biochemistry",
             role: "student",
             tenant: "hidden",

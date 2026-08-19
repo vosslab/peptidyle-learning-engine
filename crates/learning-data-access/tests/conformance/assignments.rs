@@ -38,6 +38,7 @@ where
                 flat_question_promotion: None,
                 publisher: author,
                 scope,
+                byline: reviewed_byline(),
                 capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
             },
         )
@@ -52,7 +53,7 @@ where
 /// rules before accepting a new course artifact.
 pub(super) async fn exercise_assignment_cas<S>(store: &S)
 where
-    S: Store + CatalogStore,
+    S: Store + CatalogStore + CourseRosterStore,
 {
     let tenant = TenantId::from_uuid(uuid(70_000));
     let foreign_tenant = TenantId::from_uuid(uuid(70_001));
@@ -64,57 +65,79 @@ where
     let course = CourseId::from_uuid(uuid(70_003));
     let wrong_course = CourseId::from_uuid(uuid(70_004));
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Assignment CAS course".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                    CourseMembership {
-                        user: future_student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            learning_data_access::CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Assignment CAS course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("assignment CAS course");
+    for (user, display_name) in [
+        (student, "Assignment learner"),
+        (future_student, "Future assignment learner"),
+    ] {
+        store
+            .upsert_course_member(
+                context,
+                learning_data_access::UpsertCourseMember {
+                    course,
+                    user,
+                    display_name: display_name.to_string(),
+                    roster_contact: None,
+                },
+            )
+            .await
+            .expect("assignment learner membership");
+    }
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: wrong_course,
-                tenant,
-                title: "Other course".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            learning_data_access::CreateCourseCommand {
+                course: CourseRecord {
+                    id: wrong_course,
+                    tenant,
+                    title: "Other course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("wrong-course fixture");
     let foreign_course = CourseId::from_uuid(uuid(70_005));
     store
-        .upsert_course(
+        .create_course(
             foreign_context,
-            CourseRecord {
-                id: foreign_course,
-                tenant: foreign_tenant,
-                title: "Foreign course".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            learning_data_access::CreateCourseCommand {
+                course: CourseRecord {
+                    id: foreign_course,
+                    tenant: foreign_tenant,
+                    title: "Foreign course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
@@ -209,6 +232,7 @@ where
         tenant,
         course_id: course,
         title: "Ordered source selection".to_string(),
+        audience: question_model::AssignmentAudience::CourseWide,
         items: initial_items,
         selection_groups: vec![AssignmentSelectionGroup {
             id: AssignmentSelectionGroupId::from_uuid(uuid(70_208)),
@@ -245,6 +269,7 @@ where
     reordered_items[1].position = 2;
     let update = AssignmentUpdate {
         title: "Reordered source selection".to_string(),
+        audience: initial.audience.clone(),
         items: reordered_items,
         selection_groups: initial.selection_groups.clone(),
         policies: updated_policies,
@@ -364,52 +389,17 @@ where
     assert_eq!(removed.record.selection_groups[0].position, 1);
     assert_eq!(removed.record.items[1].position, 2);
 
-    let enrollment = EnrollmentId::from_uuid(uuid(70_210));
-    let run = RunId::from_uuid(uuid(70_211));
-    store
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: enrollment,
-                tenant,
-                assignment,
-                user: student,
-                student: StudentId::from_uuid(uuid(70_212)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
+    let run = store
+        .start_or_resume_run(context, student, assignment, RunId::from_uuid(uuid(70_211)))
         .await
-        .expect("student enrollment creates before the issued-run snapshot");
-    store
-        .apply_activity_transition(
-            context,
-            ActivityTransition::StartRun {
-                run: AssignmentRun {
-                    id: run,
-                    public_id: question_model::RunPublicId::new(70_211)
-                        .expect("valid public run ID"),
-                    tenant,
-                    enrollment,
-                    run_number: 1,
-                    started_at: ActivityTimestamp::from_unix_millis(100),
-                    completed_at: None,
-                    score: None,
-                    mode: RunMode::Assigned,
-                    variation: VariationPolicy::SelectedProblemVariants,
-                },
-            },
-        )
-        .await
-        .expect("run start freezes the current fixed-item reference");
+        .expect("run start atomically materializes the learner receipt");
     let old_run_attempt = store
         .issue_or_resume_question_attempt(
             context,
             IssueQuestionAttemptCommand {
                 actor: student,
                 attempt: QuestionAttemptId::from_uuid(uuid(70_214)),
-                run,
+                run: run.id,
                 assignment_position: 0,
                 problem: replacement_reference.problem,
                 question_version: replacement_reference.version,
@@ -481,42 +471,12 @@ where
         .await
         .expect("old issued item grades through its stable assignment slot");
     assert_eq!(receipt.attempt.id, old_run_attempt.id);
-    let future_enrollment = EnrollmentId::from_uuid(uuid(70_216));
-    let future_run = RunId::from_uuid(uuid(70_217));
-    store
-        .create_enrollment(
+    let future_run = store
+        .start_or_resume_run(
             context,
-            AssignmentEnrollment {
-                id: future_enrollment,
-                tenant,
-                assignment,
-                user: future_student,
-                student: StudentId::from_uuid(uuid(70_218)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
-        .await
-        .expect("future learner enrollment saves");
-    store
-        .apply_activity_transition(
-            context,
-            ActivityTransition::StartRun {
-                run: AssignmentRun {
-                    id: future_run,
-                    public_id: question_model::RunPublicId::new(70_217)
-                        .expect("valid future public run ID"),
-                    tenant,
-                    enrollment: future_enrollment,
-                    run_number: 1,
-                    started_at: ActivityTimestamp::from_unix_millis(130),
-                    completed_at: None,
-                    score: None,
-                    mode: RunMode::Assigned,
-                    variation: VariationPolicy::SelectedProblemVariants,
-                },
-            },
+            future_student,
+            assignment,
+            RunId::from_uuid(uuid(70_217)),
         )
         .await
         .expect("future run snapshots the replacement definition");
@@ -526,7 +486,7 @@ where
             IssueQuestionAttemptCommand {
                 actor: future_student,
                 attempt: QuestionAttemptId::from_uuid(uuid(70_219)),
-                run: future_run,
+                run: future_run.id,
                 assignment_position: 0,
                 problem: post_run_replacement_reference.problem,
                 question_version: post_run_replacement_reference.version,
@@ -593,6 +553,7 @@ where
     );
     let current_definition = AssignmentUpdate {
         title: post_run_replacement.record.title.clone(),
+        audience: post_run_replacement.record.audience.clone(),
         items: post_run_replacement.record.items.clone(),
         selection_groups: post_run_replacement.record.selection_groups.clone(),
         policies: post_run_replacement.record.policies,
@@ -656,6 +617,7 @@ where
                     tenant,
                     course_id: course,
                     title: "archived reference".to_string(),
+                    audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![archived]),
                     selection_groups: Vec::new(),
                     policies: policies(),
@@ -673,6 +635,7 @@ where
                     tenant: foreign_tenant,
                     course_id: foreign_course,
                     title: "hidden reference".to_string(),
+                    audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![hidden]),
                     selection_groups: Vec::new(),
                     policies: policies(),
@@ -689,6 +652,7 @@ where
                 tenant,
                 course_id: course,
                 title: "Repeated immutable version positions".to_string(),
+                audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![published, published]),
                 selection_groups: Vec::new(),
                 policies: policies(),
@@ -713,6 +677,7 @@ where
                     tenant,
                     course_id: course,
                     title: "Invalid completion threshold".to_string(),
+                    audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![published]),
                     selection_groups: Vec::new(),
                     policies: invalid_threshold,

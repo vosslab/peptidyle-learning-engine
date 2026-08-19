@@ -8,32 +8,11 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
 use learning_data_access::{NavigationReferenceStore, SessionStore};
-use question_model::{AssignmentPublicId, CoursePublicId, RunPublicId, WorkspacePublicId};
-use serde::Serialize;
+use question_model::{
+    AssignmentReference, CourseReference, NavigationResolution, RunReference, WorkspaceReference,
+};
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
-
-#[derive(Debug, Serialize)]
-#[serde(
-    tag = "kind",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
-enum NavigationResolution {
-    Course {
-        course_id: question_model::CourseId,
-    },
-    Assignment {
-        course_id: question_model::CourseId,
-        assignment_id: question_model::AssignmentId,
-    },
-    Run {
-        run_id: question_model::RunId,
-    },
-    Workspace {
-        workspace_id: question_model::WorkspaceId,
-    },
-}
 
 pub fn router<S>(store: Arc<S>) -> Router
 where
@@ -58,14 +37,14 @@ where
     };
     let actor = authenticated.record.subject.user();
     let context = authenticated.tenant_context;
-    let resolved = if let Ok(public_id) = reference.parse::<CoursePublicId>() {
+    let resolved = if let Ok(reference) = reference.parse::<CourseReference>() {
         store
-            .resolve_course_public_id(context, actor, public_id)
+            .resolve_course_reference(context, actor, reference)
             .await
             .map(|value| value.map(|course_id| NavigationResolution::Course { course_id }))
-    } else if let Ok(public_id) = reference.parse::<AssignmentPublicId>() {
+    } else if let Ok(reference) = reference.parse::<AssignmentReference>() {
         store
-            .resolve_assignment_public_id(context, actor, public_id)
+            .resolve_assignment_reference(context, actor, reference)
             .await
             .map(|value| {
                 value.map(|identity| NavigationResolution::Assignment {
@@ -73,14 +52,21 @@ where
                     assignment_id: identity.assignment,
                 })
             })
-    } else if let Ok(public_id) = reference.parse::<RunPublicId>() {
+    } else if let Ok(reference) = reference.parse::<RunReference>() {
         store
-            .resolve_run_public_id(context, actor, public_id)
+            .resolve_run_reference(context, actor, reference)
             .await
-            .map(|value| value.map(|run_id| NavigationResolution::Run { run_id }))
-    } else if let Ok(public_id) = reference.parse::<WorkspacePublicId>() {
+            .map(|value| {
+                value.map(|identity| NavigationResolution::Run {
+                    course_id: identity.course,
+                    assignment_id: identity.assignment,
+                    enrollment_id: identity.enrollment,
+                    run_id: identity.run,
+                })
+            })
+    } else if let Ok(reference) = reference.parse::<WorkspaceReference>() {
         store
-            .resolve_workspace_public_id(context, actor, public_id)
+            .resolve_workspace_reference(context, actor, reference)
             .await
             .map(|value| value.map(|workspace_id| NavigationResolution::Workspace { workspace_id }))
     } else {
@@ -116,7 +102,7 @@ mod tests {
     use question_model::CourseId;
     use uuid::Uuid;
 
-    use super::NavigationResolution;
+    use question_model::NavigationResolution;
 
     #[test]
     fn navigation_resolution_uses_the_camel_case_browser_contract() {

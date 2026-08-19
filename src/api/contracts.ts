@@ -15,7 +15,6 @@ import type { StudentAssignmentSummary } from "../../generated/api/StudentAssign
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
 import type { WorkspaceDraftSummary } from "../../generated/api/WorkspaceDraftSummary";
-import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { Capability } from "../../generated/api/Capability";
 import type { PublicationScope } from "../../generated/api/PublicationScope";
 import type { License } from "../../generated/api/License";
@@ -27,12 +26,13 @@ import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { TenantId } from "../../generated/api/TenantId";
 import type { UserId } from "../../generated/api/UserId";
 import type { UserRole } from "../../generated/api/UserRole";
-import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseAppearance } from "../../generated/api/CourseAppearance";
 import type { Seed } from "../../generated/api/Seed";
 import type { VersionId } from "../../generated/api/VersionId";
 import type { AssignmentRunTiming } from "../../generated/api/AssignmentRunTiming";
 import type { CatalogProblemSummary } from "../../generated/api/CatalogProblemSummary";
+import type { CourseTerm } from "../../generated/api/CourseTerm";
+import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 
 export type { AssignmentSummary, CourseSummary };
 export type { GradebookSummaryRow };
@@ -63,15 +63,7 @@ export interface AssignmentEditorDetail extends AssignmentSummary {
 }
 
 /** Authorized resolution of one compact reference to a browser API identity. */
-export type NavigationResolution =
-  | { readonly kind: "course"; readonly courseId: CourseId }
-  | {
-      readonly kind: "assignment";
-      readonly courseId: CourseId;
-      readonly assignmentId: AssignmentId;
-    }
-  | { readonly kind: "run"; readonly runId: RunId }
-  | { readonly kind: "workspace"; readonly workspaceId: WorkspaceId };
+export type { NavigationResolution };
 
 /** The exact mutable body accepted for assignment creation and replacement. */
 export interface AssignmentCreateInput {
@@ -109,6 +101,7 @@ export interface ReplaceAssignmentItemQuestionInput {
 /** The deliberately small public request accepted when an instructor creates a course. */
 export interface CourseCreateInput {
   readonly title: string;
+  readonly term: CourseTerm;
 }
 
 /** One server-derived capability conflict for a selected immutable version. */
@@ -289,6 +282,7 @@ export interface PublicationResult {
 
 export interface PublicationRequest {
   readonly scope: PublicationScope;
+  readonly byline: CatalogProblemSummary["byline"];
 }
 
 /**

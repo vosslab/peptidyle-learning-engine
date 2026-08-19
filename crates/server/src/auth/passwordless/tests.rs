@@ -5,8 +5,8 @@ use axum::body::{Body, to_bytes};
 use axum::extract::connect_info::MockConnectInfo;
 use axum::http::{Request, StatusCode};
 use learning_data_access::in_memory::MemoryStore;
-use learning_data_access::{CourseRecord, Store, TenantContext};
-use question_model::{CourseMembership, CourseMembershipRole, TenantId, UserId};
+use learning_data_access::{CourseRecord, CreateCourseCommand, Store, TenantContext};
+use question_model::{TenantId, UserId};
 use tower::ServiceExt;
 
 use super::*;
@@ -189,16 +189,21 @@ async fn account_course_selection_derives_tenant_and_role_from_store_membership(
     let tenant = TenantId::from_uuid(uuid::Uuid::from_u128(50_003));
     let course = CourseId::from_uuid(uuid::Uuid::from_u128(50_004));
     store
-        .upsert_course(
+        .create_course(
             TenantContext::from_authenticated_session(tenant),
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Biochemistry".to_string(),
-                members: vec![CourseMembership {
-                    user,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Biochemistry".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: user,
             },
         )
         .await

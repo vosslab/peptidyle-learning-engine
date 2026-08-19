@@ -229,6 +229,7 @@ async fn exercise_flat_question_store(
         flat_question_promotion: Some(promotion),
         publisher: owner,
         scope: PublicationScope::Public,
+        byline: reviewed_byline(),
         capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
     };
     let mut bad_artifact = artifact.clone();

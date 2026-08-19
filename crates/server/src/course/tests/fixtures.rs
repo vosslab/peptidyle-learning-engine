@@ -119,6 +119,11 @@ pub(super) async fn publish_fixture_with_identity(
                 flat_question_promotion: None,
                 publisher,
                 scope: PublicationScope::Public,
+                byline: question_model::PublicByline::new(vec![
+                    question_model::PublicAuthorName::new("PLE fixture".to_string())
+                        .expect("valid test byline"),
+                ])
+                .expect("valid test byline"),
                 capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
             },
         )

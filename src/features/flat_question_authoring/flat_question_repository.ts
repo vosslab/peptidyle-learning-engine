@@ -1,5 +1,6 @@
+import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
 import type { PublicationScope } from "../../../generated/api/PublicationScope";
-import type { QuestionDefinition } from "../../../generated/api/QuestionDefinition";
+import type { PublicByline } from "../../../generated/api/PublicByline";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import {
   FlatQuestionConflictError,
@@ -17,16 +18,19 @@ export interface FlatQuestionAuthoringClient {
   ): Promise<FlatQuestionSave>;
   publish(
     workspace: WorkspaceId,
-    scope: PublicationScope,
+    request: { readonly scope: PublicationScope; readonly byline: PublicByline },
     revision: string,
-  ): Promise<QuestionDefinition>;
+  ): Promise<CatalogProblemSummary>;
 }
 
 export interface FlatQuestionRepository {
   load(workspace: WorkspaceId): Promise<FlatQuestionRead>;
   save(workspace: WorkspaceId, source: FlatQuestionSourceV2): Promise<FlatQuestionSave>;
   reload(workspace: WorkspaceId): Promise<FlatQuestionRead>;
-  publish(workspace: WorkspaceId, scope: PublicationScope): Promise<QuestionDefinition>;
+  publish(
+    workspace: WorkspaceId,
+    request: { readonly scope: PublicationScope; readonly byline: PublicByline },
+  ): Promise<CatalogProblemSummary>;
 }
 
 /** A stale save keeps the caller's private source available for a deliberate merge or reload. */
@@ -91,13 +95,13 @@ export function createFlatQuestionRepository(
 
   async function publish(
     workspace: WorkspaceId,
-    scope: PublicationScope,
-  ): Promise<QuestionDefinition> {
+    request: { readonly scope: PublicationScope; readonly byline: PublicByline },
+  ): Promise<CatalogProblemSummary> {
     const revision = revisions.get(workspace);
     if (revision === undefined) {
       throw new Error("Load the saved flat question before publishing it.");
     }
-    return await client.publish(workspace, scope, revision);
+    return await client.publish(workspace, request, revision);
   }
 
   return { load, save, reload, publish };

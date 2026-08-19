@@ -27,12 +27,11 @@ use question_model::taxonomy::TaxonomyTerm;
 #[cfg(feature = "postgres")]
 use question_model::{
     ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentItem,
-    AssignmentItemId, AssignmentPolicyExceptionId, AssignmentRun, AssignmentRunItem,
-    AssignmentScoringMode, AssignmentSelectionCandidate, AssignmentSelectionGroup,
-    AssignmentSelectionGroupId, AssignmentTimingPolicy, AttemptResult, AttemptStatus,
-    BackendCapabilities, CatalogCapabilityFacet, CatalogLicenseFacet, CatalogLifecycle,
-    CatalogProblemSummary, CatalogSearchQuery, CatalogTaxonomyFacet, CourseGroupId, CourseId,
-    CourseMembership, CourseMembershipRole, CourseSummary, EnrollmentId, EnrollmentStatus,
+    AssignmentItemId, AssignmentRun, AssignmentRunItem, AssignmentScoringMode,
+    AssignmentSelectionCandidate, AssignmentSelectionGroup, AssignmentSelectionGroupId,
+    AttemptResult, AttemptStatus, BackendCapabilities, CatalogCapabilityFacet, CatalogLicenseFacet,
+    CatalogLifecycle, CatalogProblemSummary, CatalogSearchQuery, CatalogTaxonomyFacet,
+    CourseGroupId, CourseId, CourseMembershipRole, CourseSummary, EnrollmentId, EnrollmentStatus,
     LateSubmissionPolicy, PointValue, PresentationBindingV1, PresentationDigestV1,
     PresentationNonceV1, ProblemId, ProblemVersionRef, PublicationScope, QuestionAttempt,
     QuestionAttemptId, QuestionBackend, QuestionMetadata, QuestionStatisticsDisclosure,
@@ -66,30 +65,27 @@ use crate::statistics::derive_statistics_contributions;
 #[cfg(feature = "postgres")]
 use crate::{
     ActivityTransition, AddAssignmentFixedItemCommand, AssetDeliveryRecord, AssetDeliveryScope,
-    AssignmentDefinitionDisposition, AssignmentEditorUpdate, AssignmentPolicyExceptionTarget,
-    AssignmentRecord, AssignmentRevision, AttemptFeedbackRecord, AttemptSupportAction,
-    AttemptSupportActionId, AttemptSupportRecord, ClearAttemptCommand, CourseGroupRecord,
-    CourseGroupRevision, CourseListScope, CourseRecord, CourseRecordsAccessStore,
-    CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState, CourseRetentionView,
-    Cursor, DeleteAndRegradeAssignmentItemCommand, DeleteAssignmentPolicyExceptionCommand,
+    AssignmentDefinitionDisposition, AssignmentEditorUpdate, AssignmentRecord, AssignmentRevision,
+    AttemptFeedbackRecord, AttemptSupportAction, AttemptSupportActionId, AttemptSupportRecord,
+    ClearAttemptCommand, CourseGroupRecord, CourseGroupRevision, CourseListScope, CourseRecord,
+    CourseRecordsAccessStore, CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState,
+    CourseRetentionView, CreateCourseCommand, Cursor, DeleteAndRegradeAssignmentItemCommand,
     DraftRecord, FeedbackReleaseRecord, ForceSubmitAttemptCommand, InstitutionRetentionPolicy,
     IssueQuestionAttemptCommand, Page, PageRequest, PageSize, PrefetchedQuestion,
     PublishedProblemRecord, PublishedSourceArtifact, PutCourseGroupCommand,
     ReleaseAttemptFeedbackCommand, RemoveAssignmentFixedItemCommand,
-    ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand, ResolvedAssignmentTiming,
-    ResolvedAttemptTiming, RetentionApiStore, RetentionCleanupManifest, RetentionDays,
-    RetentionDispatchBatch, RetentionRevision, RetentionScheduleStore, RetentionStore,
-    RetentionWork, RetentionWorkerCommand, RetentionWorkerStore, RunSummaryOutcomeInput,
-    RunSummaryPageInput, SetAssignmentPolicyExceptionCommand, Store, StoreError, StoredAssignment,
-    StoredAssignmentPolicyException, StoredAssignmentTiming, StoredCourseGroup,
-    SubmissionIdempotencyKey, SubmissionNextAttempt, SubmissionRecord,
-    SubmitQuestionAttemptCommand, TenantContext, UpdateAssignmentTimingCommand, WorkspaceDraft,
+    ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand, RetentionApiStore,
+    RetentionCleanupManifest, RetentionDays, RetentionDispatchBatch, RetentionRevision,
+    RetentionScheduleStore, RetentionStore, RetentionWork, RetentionWorkerCommand,
+    RetentionWorkerStore, RunSummaryOutcomeInput, RunSummaryPageInput, Store, StoreError,
+    StoredAssignment, StoredCourseGroup, SubmissionIdempotencyKey, SubmissionNextAttempt,
+    SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext, WorkspaceDraft,
     WorkspaceDraftRevision, assignment_scoring_changed, completed_run_score, current_run_questions,
     decode_workspace_draft_cursor, delete_and_regrade_update, encode_workspace_draft_cursor,
     ensure_tenant, grade_policy, private_feedback_record, project_enrollment_completion,
     select_assignment_run_items, summary_transition, validate_asset_delivery, validate_assignment,
-    validate_assignment_policy_exception, validate_assignment_timing, validate_course,
-    validate_course_group, validate_draft, validate_published, validate_qti_import,
+    validate_course, validate_course_group, validate_draft, validate_published,
+    validate_qti_import,
 };
 
 #[cfg(feature = "postgres")]
@@ -112,6 +108,10 @@ mod row_decode;
 #[cfg(feature = "postgres")]
 use row_decode::*;
 #[cfg(feature = "postgres")]
+mod summary;
+#[cfg(feature = "postgres")]
+use summary::*;
+#[cfg(feature = "postgres")]
 mod assignment_values;
 #[cfg(feature = "postgres")]
 use assignment_values::*;
@@ -127,6 +127,8 @@ use transaction_context::*;
 mod feedback_data;
 #[cfg(feature = "postgres")]
 use feedback_data::*;
+#[cfg(feature = "postgres")]
+mod entitlement;
 #[cfg(feature = "postgres")]
 mod submission;
 #[cfg(feature = "postgres")]
@@ -161,6 +163,8 @@ mod course_roster;
 mod course_roster_decode;
 #[cfg(feature = "postgres")]
 mod courses;
+#[cfg(feature = "postgres")]
+mod effective_policy_receipts;
 #[cfg(feature = "postgres")]
 mod exports;
 #[cfg(feature = "postgres")]
@@ -230,17 +234,23 @@ struct AttemptSupportAuditPayload {
 #[cfg(feature = "postgres")]
 const GRADEBOOK_SUMMARY_PAGE_SQL: &str = "SELECT \
     e.enrollment_id, e.student_id, \
-    COALESCE(crm.display_name, 'Learner') AS learner_name, \
+    COALESCE(profile.display_name, 'Learner') AS learner_name, \
     a.assignment_id, a.title AS assignment_title, \
-    sas.payload, sas.payload_sha256 \
+    sas.tenant_id AS summary_tenant_id, sas.enrollment_id AS summary_enrollment_id, \
+    sas.current_score AS summary_current_score, sas.best_score AS summary_best_score, \
+    sas.latest_score AS summary_latest_score, \
+    sas.completed_run_count AS summary_completed_run_count, \
+    sas.total_question_attempts AS summary_total_question_attempts, \
+    floor(extract(epoch FROM sas.last_activity_at) * 1000)::bigint \
+        AS summary_last_activity_at_millis \
  FROM assignment AS a \
  JOIN enrollment AS e \
    ON e.tenant_id = a.tenant_id AND e.assignment_id = a.assignment_id \
  JOIN student_assignment_summary AS sas \
    ON sas.tenant_id = e.tenant_id AND sas.enrollment_id = e.enrollment_id \
- LEFT JOIN course_roster_member AS crm \
-   ON crm.tenant_id = e.tenant_id AND crm.course_id = a.course_id \
-  AND crm.student_id = e.student_id \
+ LEFT JOIN course_roster_profile AS profile \
+   ON profile.tenant_id = e.tenant_id AND profile.course_id = a.course_id \
+  AND profile.course_membership_id = e.course_membership_id \
  WHERE a.tenant_id = $1 AND a.course_id = $2 \
    AND public.ple_course_records_accessible(a.tenant_id, a.course_id) \
    AND ($3::uuid IS NULL \
@@ -251,10 +261,12 @@ const GRADEBOOK_SUMMARY_PAGE_SQL: &str = "SELECT \
 /// an archived course from its learners at the database query boundary.
 #[cfg(feature = "postgres")]
 const MEMBER_COURSE_PAGE_SQL: &str = "SELECT \
-    c.course_id::text AS stable_key, c.course_id, c.public_id, c.title, cm.role \
+    c.course_id::text AS stable_key, c.course_id, c.public_id, c.title, \
+    c.term_start_date::text AS term_start_date, \
+    c.term_end_date::text AS term_end_date, c.time_zone, cm.role \
  FROM course AS c JOIN course_member AS cm \
    ON cm.tenant_id = c.tenant_id AND cm.course_id = c.course_id \
- WHERE c.tenant_id = $1 AND cm.user_id = $2 \
+ WHERE c.tenant_id = $1 AND cm.user_id = $2 AND cm.status = 'active' \
    AND (cm.role <> 'student' OR \
         public.ple_course_records_accessible(c.tenant_id, c.course_id)) \
    AND ($3::text IS NULL OR c.course_id::text > $3) \

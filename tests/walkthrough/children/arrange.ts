@@ -23,8 +23,7 @@ export interface ArrangementRecord {
     | "launcher-chapter-one-genetics";
   readonly baselineAssignmentId?: string;
   readonly courseId?: string;
-  readonly problemId?: string;
-  readonly versionId?: string;
+  readonly questionId?: string;
   /** Private runner handoff only; it is stripped before any report is written. */
   readonly catalogSearchTitle?: string;
   readonly masteryAssignmentId?: string;
@@ -181,7 +180,7 @@ function isUuid(value: unknown): value is string {
 
 export function arrangementOutputFor(
   baselineAssignmentId: string,
-  corpus: { readonly problem: string; readonly version: string },
+  corpus: { readonly questionId: string },
   assignments: AssignmentArrangement,
 ): ArrangementOutput {
   const arrangements: readonly ArrangementRecord[] = [
@@ -189,8 +188,7 @@ export function arrangementOutputFor(
     { label: "launcher-baseline-assignment", baselineAssignmentId },
     {
       label: "api-retry-corpus-publication",
-      problemId: corpus.problem,
-      versionId: corpus.version,
+      questionId: corpus.questionId,
     },
     {
       label: "api-mastery-assignment",

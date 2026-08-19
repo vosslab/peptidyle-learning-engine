@@ -20,9 +20,10 @@ passkeys, verified account-email replacement, and account-to-course-context
 selection. The generic router mounts those account routes with the course
 roster, invitation, bulk import, atomic enrollment, and manual grade-export
 routes. Memory and PostgreSQL implement the same Store contract, including
-the transaction that creates course membership, the tenant learner identity,
-every assignment enrollment, and every empty summary. Later assignment
-creation enrolls all current learners.
+canonical course-membership episodes, the tenant learner identity, derived
+assignment entitlement, and first-event materialization of one assignment
+receipt with its typed empty summary and immutable provenance. Roster and
+assignment writes do not eagerly create learner records.
 
 **Current startable composition:** `production_router_from_env` builds the
 persistent dependencies and composes the provider-free PLE passwordless/
@@ -51,12 +52,16 @@ authenticates and claims the invitation, the same Store-owned transaction:
 
 1. resolves the authenticated PLE `UserId`;
 2. creates or reuses that user's tenant-scoped pedagogical `StudentId`;
-3. creates the student's `course_member` row;
-4. creates one enrollment for every existing assignment in the course; and
-5. creates the empty summary paired with every new enrollment.
+3. creates a fresh active `course_member` episode; and
+4. stores course-local display/contact evidence in the subordinate roster
+   profile.
 
-When an instructor later creates an assignment, PLE creates an enrollment and
-empty summary for every current student member in that same transaction.
+When an instructor later creates an assignment, PLE stores the assignment and
+its explicit audience only. The sole entitlement evaluator derives current
+access from active membership, audience, and typed group membership. The first
+run start, grade-bearing action, or explicit instructor issue atomically
+creates the assignment receipt, typed empty summary, grant basis, applicable
+policy scopes, and immutable actor-or-rule provenance.
 
 This gives instructors the simple course-enrollment model used successfully by
 LibreTexts ADAPT without weakening PLE's more precise activity model:
@@ -66,20 +71,22 @@ Instructor action                 Durable PLE records
 
 Add learner to course      ->     course_member
                                   tenant learner identity
-                                  assignment enrollment 1 + empty summary
-                                  assignment enrollment 2 + empty summary
-                                  ...
+                                  course roster profile
 
 Create later assignment    ->     assignment
-                                  one enrollment + summary per student member
+                                  explicit course-wide or group audience
+
+First entitlement-bearing  ->     assignment enrollment receipt
+event                             typed empty summary
+                                  sealed grant/scopes/provenance
 ```
 
 The normal UI does not ask an instructor to add the same student separately to
 every assignment. A public assignment-enrollment endpoint is therefore not the
-primary product workflow. If PLE later supports assignments offered to only a
-subset of a course, that feature must add an explicit assignment-audience
-contract and reconcile enrollments from it. Absence of an enrollment must not
-silently become an undocumented targeting mechanism.
+primary product workflow. Assignment targeting is the explicit audience
+contract; absence of a materialized receipt means only that no entitlement-
+bearing event has occurred. It is never interpreted as current denial or
+current grant.
 
 ## Why records remain separate
 
@@ -98,11 +105,12 @@ submissions, or grades. Roster removal revokes future course access. Record
 archive and deletion continue through the explicit retention workflow in
 [RETENTION_POLICY.md](RETENTION_POLICY.md).
 
-Learner-scoped Store operations recheck active `Student` membership together
-with enrollment ownership at the database/Store boundary. Thus a revoked
-learner cannot continue to read a run, attempt, summary, feedback release, or
-prefetch that was issued before removal. Direct course instructors use distinct
-Instructor-history operations for records retained for grade, audit, and
+Learner-scoped Store operations re-evaluate active `Student` membership,
+assignment audience, and applicable groups, then bind the result's stable
+`StudentId` to any retained receipt at the database/Store boundary. Thus a
+revoked learner cannot continue to read a run, attempt, summary, feedback
+release, or prefetch that was issued before removal. Direct course instructors
+use distinct Instructor-history operations for records retained for grade, audit, and
 retention work; membership removal does not accidentally erase that explicit
 Instructor authority. Sysadmin status grants no general access to those
 records; its closed, audited roster-support capability is the explicit
@@ -324,7 +332,7 @@ instructor enters email and roster ID
     -> learner completes short-lived, single-use email authentication
     -> PLE resolves or creates the learner's opaque UserId
     -> learner claims the invitation
-    -> PLE creates course membership and assignment enrollments atomically
+    -> PLE creates course membership and its roster profile atomically
     -> learner enrolls one or more passkeys
 ```
 
@@ -484,15 +492,21 @@ server log, or later roster response:
     "expiresAt": "2026-08-17T12:00:00Z"
   },
   "redemptionPath": "/course-invitations/redeem#token=one-time-base64url-secret",
-  "emailDelivery": "notSent"
+  "emailDelivery": "queued"
 }
 ```
 
-`emailDelivery` is `sent` only when the established SMTP adapter accepted the
-message; `notSent` leaves the copy link as the delivery path. The browser
-decoder rejects absolute or cross-origin redemption URLs. An exact idempotent
-retry reproduces the same path from server-held key material so the server does
-not persist plaintext solely to support retry.
+`emailDelivery` is `queued` when the invitation is accepted for processing,
+including pending or retryable work. It is never proof that a provider accepted
+the message or that a mailbox received it. `sentToProvider` means only that the
+configured provider accepted the submission. `needsAttention` covers an
+ambiguous result or a failure that remains after retry processing, including a
+permanent failure, and requires explicit operator action.
+`cancelled` is fenced, so its link must not be shared. Without SMTP, the
+copy-link path remains usable. The browser decoder rejects absolute or
+cross-origin redemption URLs. An exact idempotent retry reproduces the same
+path from server-held key material so the server does not persist plaintext
+solely to support retry.
 
 Mutations return `Cache-Control: no-store`. Creating or claiming an invitation
 uses an `Idempotency-Key`; policy replacement, revocation, and bulk commit use
@@ -508,7 +522,10 @@ invitation identities. A browser never supplies them as new record identities.
 | Student tries an Instructor action | `403` after valid course membership is known |
 | Malformed email or roster identifier | Safe `422` without account-existence detail |
 | Existing or nonexistent PLE account at that email | Identical accepted invitation response |
-| SMTP absent or rejects delivery | Accepted single invitation with `emailDelivery: notSent` and the copy-link path |
+| SMTP absent | Accepted single invitation with `emailDelivery: queued` and the copy-link path |
+| Retryable delivery work | `emailDelivery: queued`; processing may continue without provider or mailbox evidence |
+| Ambiguous or permanent delivery failure | `emailDelivery: needsAttention`; operator action is required |
+| Cancelled invitation | `emailDelivery: cancelled`; the link is fenced and must not be shared |
 | Reused invitation by the same resulting member | Idempotent existing-membership result |
 | Reused invitation by another user | Safe conflict; no course or claimant detail |
 | Stale roster revision or changed import | `409` with reload guidance |
@@ -679,8 +696,8 @@ domain-policy, and revoke controls consistent with
 A learner opens the invitation in the browser that requested email
 authentication or enters the short code in that browser. PLE verifies the
 short-lived email challenge before revealing the course. Confirming once
-creates or restores membership and the required assignment enrollments. PLE
-then offers an optional passkey shortcut without blocking course entry. An
+creates a fresh active membership episode without eager assignment receipts.
+PLE then offers an optional passkey shortcut without blocking course entry. An
 existing account may always authenticate through email; a registered passkey
 provides an additional direct sign-in option.
 
@@ -720,11 +737,13 @@ Roster removal is an access transition, not record destruction.
 
 - New runs, attempts, asset grants, and invitation redemption are refused after
   membership removal.
-- Existing enrollments and summaries remain available to authorized direct
-  course instructors under course retention policy.
+- Existing materialized receipts, summaries, and issued evidence remain
+  available to authorized direct course instructors under course retention
+  policy.
 - Existing group membership is removed with course membership.
-- Re-adding the same learner reuses the stable learner identity and existing
-  enrollments.
+- Re-adding the same learner creates a fresh membership episode, reuses the
+  stable learner identity, and preserves existing assignment receipts and
+  their original membership provenance.
 - Archive/delete jobs remain the only path that disposes learner records and
   associated protected objects.
 - Every roster mutation records actor, course, target member, source

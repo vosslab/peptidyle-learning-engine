@@ -27,9 +27,9 @@ use objects::{
 };
 use question_model::response::{ChoiceId, StudentResponse};
 use question_model::{
-    ActivityTimestamp, AttemptStatus, AttemptTimerRecord, ProblemVersionRef, QuestionAttempt,
-    QuestionAttemptId, QuestionDefinition, RunId, TenantId, UserId, UserRole, WorkspaceId,
-    WorkspaceImportId,
+    ActivityTimestamp, AttemptStatus, AttemptTimerRecord, CatalogProblemSummary, ProblemDisplayRef,
+    ProblemVersionRef, QuestionAttempt, QuestionAttemptId, RunId, TenantId, UserId, UserRole,
+    WorkspaceId, WorkspaceImportId,
 };
 use serde_json::Value;
 use tower::ServiceExt;
@@ -464,7 +464,9 @@ async fn postgres_profile_upload_worker_conversion_publication_and_grading_are_c
             .header("cookie", &owner_cookie)
             .header(IF_MATCH, &converted_etag)
             .header("content-type", "application/json")
-            .body(Body::from(r#"{"scope":"institution"}"#))
+            .body(Body::from(
+                r#"{"scope":"institution","byline":{"names":["PLE fixture"]}}"#,
+            ))
             .expect("publication request"),
     )
     .await
@@ -478,18 +480,24 @@ async fn postgres_profile_upload_worker_conversion_publication_and_grading_are_c
         String::from_utf8_lossy(&publication_body)
     );
     assert_no_store(&publication_headers);
-    let question: QuestionDefinition =
-        serde_json::from_slice(&publication_body).expect("published question response");
+    let summary: CatalogProblemSummary =
+        serde_json::from_slice(&publication_body).expect("safe catalog publication summary");
+    let catalog = store
+        .resolve_catalog_problem(
+            context,
+            ProblemDisplayRef {
+                question_id: summary.question_id.clone(),
+            },
+        )
+        .await
+        .expect("published catalog lookup")
+        .expect("published native flat question exists");
+    assert_eq!(catalog.summary(), summary);
+    let question = catalog.question;
     let reference = ProblemVersionRef {
         problem: question.problem,
         version: question.version,
     };
-    let catalog = store
-        .get_catalog_problem(context, reference)
-        .await
-        .expect("published catalog lookup")
-        .expect("published native flat question exists");
-    assert_eq!(catalog.question, question);
     assert!(
         store
             .get_catalog_problem(foreign_context, reference)

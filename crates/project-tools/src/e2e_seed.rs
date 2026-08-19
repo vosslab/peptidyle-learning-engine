@@ -4,25 +4,20 @@
 //! migrations and uses the production PostgreSQL store contract, then writes
 //! only non-secret identifiers to stdout for the browser E2E runner.
 
-use std::{collections::BTreeMap, time::Duration};
+use std::collections::BTreeMap;
 
 use adapter_native::NativeAdapter;
 use anyhow::{Context, Result, bail};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
-    AssignmentExceptionLimit, AssignmentExceptionTimestamp, AssignmentPolicyException,
-    AssignmentPolicyExceptionTarget, AssignmentRecord, AssignmentScoringCommitOutcome,
-    AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore, AssignmentUpdate,
-    AttemptAutoSubmitCommitOutcome, AttemptAutoSubmitWorkerCommand, AttemptAutoSubmitWorkerStore,
-    AttemptSupportActionId, AuthoritativeTimeStore, CatalogSourceStore, CatalogStore,
-    ClearAttemptCommand, CourseGroupRecord, CourseRecord, CourseRosterStore,
-    DeleteAndRegradeAssignmentItemCommand, DeleteAssignmentPolicyExceptionCommand, DraftRecord,
-    FlatGradingCapability, FlatQuestionGradingPayload, ForceSubmitAttemptCommand,
-    IssueQuestionAttemptCommand, IssuedFlatGradingContract, JobClaimFilter, JobLeaseDuration,
-    JobPayload, JobStore, PageRequest, PageSize, PresentationCapability, PublishDraftCommand,
-    PutCourseGroupCommand, SetAssignmentPolicyExceptionCommand, Store, StoreError,
-    SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext,
-    UpdateAssignmentTimingCommand, UpsertCourseMember,
+    AssignmentRecord, AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand,
+    AssignmentScoringWorkerStore, AssignmentUpdate, AttemptSupportActionId, AuthoritativeTimeStore,
+    CatalogSourceStore, CatalogStore, ClearAttemptCommand, CourseRecord, CourseRosterStore,
+    DeleteAndRegradeAssignmentItemCommand, DraftRecord, FlatGradingCapability,
+    FlatQuestionGradingPayload, ForceSubmitAttemptCommand, IssueQuestionAttemptCommand,
+    IssuedFlatGradingContract, JobClaimFilter, JobLeaseDuration, JobPayload, JobStore, PageRequest,
+    PageSize, PresentationCapability, PublishDraftCommand, Store, StoreError,
+    SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
 };
 use objects::{ObjectCategory, ObjectKey, ObjectStore, PutObject};
 use question_model::answer::SelectionCardinality;
@@ -40,12 +35,11 @@ use question_model::run_policy::{
 };
 use question_model::taxonomy::{License, Tag};
 use question_model::{
-    ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentItem,
-    AssignmentItemId, AssignmentPolicyExceptionId, AssignmentScoringMode, AssignmentTimingPolicy,
-    AttemptProvenance, AttemptResult, AttemptStatus, CatalogLifecycle, CourseGroupId, CourseId,
-    CourseMembership, CourseMembershipRole, EnrollmentId, FeedbackContent, ImplementationVersion,
-    ObjectId, PointValue, PresentationBindingV1, ProblemId, ProblemVersionRef, PublicationScope,
-    QuestionAttemptId, QuestionId, RunId, StudentId, TenantId, UserId, VersionId, WorkspaceId,
+    AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentItem, AssignmentItemId,
+    AssignmentScoringMode, AttemptProvenance, AttemptResult, AttemptStatus, CatalogLifecycle,
+    CourseId, EnrollmentId, FeedbackContent, ImplementationVersion, ObjectId, PointValue,
+    PresentationBindingV1, ProblemId, ProblemVersionRef, PublicationScope, QuestionAttemptId,
+    QuestionId, RunId, TenantId, UserId, VersionId, WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -75,10 +69,6 @@ use chapter_one::*;
 mod chapter_one_statistics;
 use chapter_one_statistics::*;
 
-#[path = "e2e_seed/timing.rs"]
-mod timing;
-use timing::*;
-
 #[path = "e2e_seed/scoring.rs"]
 mod scoring;
 use scoring::*;
@@ -87,7 +77,7 @@ use scoring::*;
 mod records;
 use records::*;
 
-const USAGE: &str = "usage: cargo tools e2e-seed [--database-url <URL>] --tenant <UUID> (--instructor <UUID>|--user <UUID>) --student <UUID> --apply-migrations [--exercise-scoring] [--exercise-timing] [(--webwork-pilot|--chapter-one-pilot) --s3-endpoint <URL> --s3-region <REGION> --private-content-bucket <BUCKET> [--chapter-one-existing-manifest <PATH>]] (database URL also reads PLE_MIGRATION_DATABASE_URL)";
+const USAGE: &str = "usage: cargo tools e2e-seed [--database-url <URL>] --tenant <UUID> (--instructor <UUID>|--user <UUID>) --student <UUID> --apply-migrations [--exercise-scoring] [(--webwork-pilot|--chapter-one-pilot) --s3-endpoint <URL> --s3-region <REGION> --private-content-bucket <BUCKET> [--chapter-one-existing-manifest <PATH>]] (database URL also reads PLE_MIGRATION_DATABASE_URL)";
 const WEBWORK_PILOT_SOURCE_PATH: &str = "content/pilot/webwork/which_hydrophobic-simple.pgml";
 const WEBWORK_PILOT_SOURCE: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -147,7 +137,6 @@ struct SeedArguments {
     student: UserId,
     apply_migrations: bool,
     exercise_scoring: bool,
-    exercise_timing: bool,
     webwork_pilot: Option<WebworkPilotStorage>,
     chapter_one_pilot: Option<WebworkPilotStorage>,
     chapter_one_existing_manifest: Option<String>,
@@ -197,7 +186,6 @@ fn parse_arguments_with_database_url(
     let mut student = None;
     let mut apply_migrations = false;
     let mut exercise_scoring = false;
-    let mut exercise_timing = false;
     let mut webwork_pilot = false;
     let mut chapter_one_pilot = false;
     let mut s3_endpoint = None;
@@ -210,10 +198,6 @@ fn parse_arguments_with_database_url(
         index += 1;
         if flag == "--exercise-scoring" && !exercise_scoring {
             exercise_scoring = true;
-            continue;
-        }
-        if flag == "--exercise-timing" && !exercise_timing {
-            exercise_timing = true;
             continue;
         }
         if flag == "--apply-migrations" && !apply_migrations {
@@ -291,7 +275,6 @@ fn parse_arguments_with_database_url(
         student: student.ok_or_else(|| anyhow::anyhow!("--student is required; {USAGE}"))?,
         apply_migrations,
         exercise_scoring,
-        exercise_timing,
         webwork_pilot,
         chapter_one_pilot,
         chapter_one_existing_manifest,

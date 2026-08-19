@@ -11,9 +11,9 @@ use adapter_imathas::{
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
     AssignmentRecord, BeginExternalToolGradeCommand, CatalogSourceStore, CatalogStore,
-    CourseRecord, DraftRecord, ExternalToolBegin, ExternalToolBrokerStore,
-    IssueQuestionAttemptCommand, PersistedCorrelation, PublishDraftCommand,
-    StageExternalToolVerificationCommand, Store,
+    CourseRecord, CourseRosterStore, CreateCourseCommand, DraftRecord, ExternalToolBegin,
+    ExternalToolBrokerStore, IssueQuestionAttemptCommand, PersistedCorrelation,
+    PublishDraftCommand, StageExternalToolVerificationCommand, Store, UpsertCourseMember,
 };
 use objects::memory::MemoryObjectStore;
 use objects::{ObjectKey, ObjectStore, PutObject, Sha256Digest};
@@ -22,11 +22,10 @@ use question_model::generation::{RandomizationDefinition, Seed};
 use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{
-    ActivityTimestamp, AssignmentEnrollment, AssignmentId, AttemptResult, BackendCapabilities,
-    CompletionRequirement, ContinuedPractice, CourseId, CourseMembership, CourseMembershipRole,
-    DraftQuestionDefinition, DraftQuestionSource, EnrollmentId, GradePolicy, GradingDefinition,
-    ProblemId, QuestionAttemptId, QuestionMetadata, QuestionSource, RunId, RunPolicies, StudentId,
-    StudentResponse, TenantId, UserId, VersionId, WorkspaceId,
+    ActivityTimestamp, AssignmentId, AttemptResult, BackendCapabilities, CompletionRequirement,
+    ContinuedPractice, CourseId, DraftQuestionDefinition, DraftQuestionSource, GradePolicy,
+    GradingDefinition, ProblemId, QuestionAttemptId, QuestionMetadata, QuestionSource, RunId,
+    RunPolicies, StudentResponse, TenantId, UserId, VersionId, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -175,6 +174,11 @@ async fn fixture() -> Fixture {
                 flat_question_promotion: None,
                 publisher: instructor,
                 scope: question_model::PublicationScope::Public,
+                byline: question_model::PublicByline::new(vec![
+                    question_model::PublicAuthorName::new("PLE fixture".to_string())
+                        .expect("valid test byline"),
+                ])
+                .expect("valid test byline"),
                 capabilities: BackendCapabilities::from_iter([
                     Capability::AlgorithmicGeneration,
                     Capability::ServerGrading,
@@ -191,28 +195,38 @@ async fn fixture() -> Fixture {
         .question;
     let course = CourseId::from_uuid(id(7));
     let assignment = AssignmentId::from_uuid(id(8));
-    let enrollment = EnrollmentId::from_uuid(id(9));
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Recorded course".into(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: actor,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Recorded course".into(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("course");
+    store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: actor,
+                display_name: "Recorded learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("student roster membership");
     store
         .create_untimed_assignment(
             context,
@@ -220,6 +234,7 @@ async fn fixture() -> Fixture {
                 id: assignment,
                 tenant,
                 course_id: course,
+                audience: question_model::AssignmentAudience::CourseWide,
                 title: "Recorded assignment".into(),
                 items: vec![question_model::AssignmentItem {
                     id: question_model::AssignmentItemId::from_uuid(id(10)),
@@ -240,22 +255,6 @@ async fn fixture() -> Fixture {
         )
         .await
         .expect("assignment");
-    store
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: enrollment,
-                tenant,
-                assignment,
-                user: actor,
-                student: StudentId::from_uuid(id(10)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
-        .await
-        .expect("enrollment");
     let run = store
         .start_or_resume_run(context, actor, assignment, RunId::from_uuid(id(11)))
         .await

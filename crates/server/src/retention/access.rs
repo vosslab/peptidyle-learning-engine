@@ -25,19 +25,20 @@ where
     let user = authenticated.record.subject.user();
     let roles = authenticated.record.subject.roles();
     let is_sysadmin = roles.contains(&UserRole::Sysadmin);
-    let course_record = match store.get_course(authenticated.tenant_context, course).await {
-        Ok(None)
-        | Err(StoreError::Forbidden | StoreError::TenantMismatch | StoreError::NotFound) => {
-            return Err(error_response(
-                StatusCode::NOT_FOUND,
-                "course does not authorize this action",
-            ));
-        }
-        Ok(Some(record)) => record,
+    let membership = match store
+        .get_current_course_membership(authenticated.tenant_context, course, user)
+        .await
+    {
+        Ok(membership) => membership,
+        Err(StoreError::Forbidden | StoreError::TenantMismatch | StoreError::NotFound) => None,
         Err(error) => return Err(route_store_error(error)),
     };
-    let course_role = course_record.role_for(user);
-    if !(is_sysadmin || matches!(course_role, Some(CourseMembershipRole::Instructor))) {
+    if !(is_sysadmin
+        || matches!(
+            membership.as_ref().map(|membership| membership.role),
+            Some(CourseMembershipRole::Instructor)
+        ))
+    {
         return Err(error_response(
             StatusCode::NOT_FOUND,
             "course does not authorize this action",

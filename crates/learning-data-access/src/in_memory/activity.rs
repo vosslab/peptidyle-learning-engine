@@ -20,10 +20,13 @@ impl crate::ActivityStore for MemoryStore {
         };
         let assignment = assignment_record(&state, context.tenant_id(), record.assignment)?;
         require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-        let instructor = state
-            .courses
-            .get(&(context.tenant_id(), assignment.course_id))
-            .is_some_and(|course| course.role_for(actor) == Some(CourseMembershipRole::Instructor));
+        let instructor = super::entitlement::active_membership_for(
+            &state,
+            context.tenant_id(),
+            assignment.course_id,
+            actor,
+        )
+        .is_some_and(|membership| membership.role == CourseMembershipRole::Instructor);
         if instructor {
             Ok(Some(record))
         } else {
@@ -44,17 +47,20 @@ impl crate::ActivityStore for MemoryStore {
         else {
             return Ok(None);
         };
-        if record.user != actor {
-            return Ok(None);
-        }
         let assignment = assignment_record(&state, context.tenant_id(), record.assignment)?;
         require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-        require_active_learner_membership(
+        if super::entitlement::require_current_enrollment_entitlement(
             &state,
             context.tenant_id(),
-            assignment.course_id,
             actor,
-        )?;
+            assignment.course_id,
+            assignment.id,
+            &record,
+        )
+        .is_err()
+        {
+            return Ok(None);
+        }
         Ok(Some(record))
     }
     async fn learner_get_enrollment_for_assignment_impl(
@@ -64,22 +70,38 @@ impl crate::ActivityStore for MemoryStore {
         assignment: AssignmentId,
     ) -> Result<Option<AssignmentEnrollment>, StoreError> {
         let state = self.read_state()?;
+        let current_student = super::entitlement::active_membership_for(
+            &state,
+            context.tenant_id(),
+            assignment_record(&state, context.tenant_id(), assignment)?.course_id,
+            actor,
+        )
+        .and_then(|membership| membership.student);
+        let Some(current_student) = current_student else {
+            return Ok(None);
+        };
         let Some(record) = state
             .enrollments
             .values()
-            .find(|record| record.assignment == assignment && record.user == actor)
+            .find(|record| record.assignment == assignment && record.student == current_student)
             .cloned()
         else {
             return Ok(None);
         };
         let assignment = assignment_record(&state, context.tenant_id(), record.assignment)?;
         require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-        require_active_learner_membership(
+        if super::entitlement::require_current_enrollment_entitlement(
             &state,
             context.tenant_id(),
-            assignment.course_id,
             actor,
-        )?;
+            assignment.course_id,
+            assignment.id,
+            &record,
+        )
+        .is_err()
+        {
+            return Ok(None);
+        }
         Ok(Some(record))
     }
     async fn learner_get_run_impl(
@@ -93,17 +115,20 @@ impl crate::ActivityStore for MemoryStore {
             return Ok(None);
         };
         let enrollment = enrollment_record(&state, context.tenant_id(), run.enrollment)?;
-        if enrollment.user != actor {
-            return Ok(None);
-        }
         let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
         require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-        require_active_learner_membership(
+        if super::entitlement::require_current_enrollment_entitlement(
             &state,
             context.tenant_id(),
-            assignment.course_id,
             actor,
-        )?;
+            assignment.course_id,
+            assignment.id,
+            &enrollment,
+        )
+        .is_err()
+        {
+            return Ok(None);
+        }
         Ok(Some(run))
     }
     async fn apply_activity_transition_impl(
@@ -335,15 +360,27 @@ impl crate::ActivityStore for MemoryStore {
         let Some(record) = state.enrollments.get(&(context.tenant_id(), enrollment)) else {
             return Ok(None);
         };
-        if record.user == actor {
-            return Ok(None);
-        }
         let assignment = assignment_record(&state, context.tenant_id(), record.assignment)?;
         require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-        let instructor = state
-            .courses
-            .get(&(context.tenant_id(), assignment.course_id))
-            .is_some_and(|course| course.role_for(actor) == Some(CourseMembershipRole::Instructor));
+        if super::entitlement::require_current_enrollment_entitlement(
+            &state,
+            context.tenant_id(),
+            actor,
+            assignment.course_id,
+            assignment.id,
+            record,
+        )
+        .is_ok()
+        {
+            return Ok(None);
+        }
+        let instructor = super::entitlement::active_membership_for(
+            &state,
+            context.tenant_id(),
+            assignment.course_id,
+            actor,
+        )
+        .is_some_and(|membership| membership.role == CourseMembershipRole::Instructor);
         if !instructor {
             return Ok(None);
         }
@@ -368,17 +405,20 @@ impl crate::ActivityStore for MemoryStore {
         let Some(record) = state.enrollments.get(&(context.tenant_id(), enrollment)) else {
             return Ok(None);
         };
-        if record.user != actor {
-            return Ok(None);
-        }
         let assignment = assignment_record(&state, context.tenant_id(), record.assignment)?;
         require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-        require_active_learner_membership(
+        if super::entitlement::require_current_enrollment_entitlement(
             &state,
             context.tenant_id(),
-            assignment.course_id,
             actor,
-        )?;
+            assignment.course_id,
+            assignment.id,
+            record,
+        )
+        .is_err()
+        {
+            return Ok(None);
+        }
         let records = state
             .runs
             .iter()
@@ -424,17 +464,20 @@ impl crate::ActivityStore for MemoryStore {
             .get(&(context.tenant_id(), record.run))
             .ok_or(StoreError::NotFound)?;
         let enrollment = enrollment_record(&state, context.tenant_id(), run.enrollment)?;
-        if enrollment.user != actor {
-            return Ok(None);
-        }
         let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
         require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-        require_active_learner_membership(
+        if super::entitlement::require_current_enrollment_entitlement(
             &state,
             context.tenant_id(),
-            assignment.course_id,
             actor,
-        )?;
+            assignment.course_id,
+            assignment.id,
+            &enrollment,
+        )
+        .is_err()
+        {
+            return Ok(None);
+        }
         Ok(Some(record))
     }
     async fn get_summary_impl(
@@ -471,17 +514,20 @@ impl crate::ActivityStore for MemoryStore {
         let Some(record) = state.enrollments.get(&(context.tenant_id(), enrollment)) else {
             return Ok(None);
         };
-        if record.user != actor {
-            return Ok(None);
-        }
         let assignment = assignment_record(&state, context.tenant_id(), record.assignment)?;
         require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-        require_active_learner_membership(
+        if super::entitlement::require_current_enrollment_entitlement(
             &state,
             context.tenant_id(),
-            assignment.course_id,
             actor,
-        )?;
+            assignment.course_id,
+            assignment.id,
+            record,
+        )
+        .is_err()
+        {
+            return Ok(None);
+        }
         Ok(state
             .summaries
             .get(&(context.tenant_id(), enrollment))
@@ -545,13 +591,17 @@ pub(super) fn require_attempt_owner(
         .get(&(tenant, attempt.run))
         .ok_or(StoreError::NotFound)?;
     let enrollment = enrollment_record(state, tenant, run.enrollment)?;
-    if enrollment.user == actor {
-        let assignment = assignment_record(state, tenant, enrollment.assignment)?;
-        require_course_records_accessible(state, tenant, assignment.course_id)?;
-        require_active_learner_membership(state, tenant, assignment.course_id, actor)
-    } else {
-        Err(StoreError::NotFound)
-    }
+    let assignment = assignment_record(state, tenant, enrollment.assignment)?;
+    require_course_records_accessible(state, tenant, assignment.course_id)?;
+    super::entitlement::require_current_enrollment_entitlement(
+        state,
+        tenant,
+        actor,
+        assignment.course_id,
+        assignment.id,
+        &enrollment,
+    )
+    .map(|_| ())
 }
 
 pub(super) fn require_attempt_course_records_accessible(
@@ -589,11 +639,10 @@ pub(super) fn apply_memory_attempt_support(
     let enrollment = enrollment_record(state, tenant, run.enrollment)?;
     let assignment = assignment_record(state, tenant, enrollment.assignment)?;
     require_course_records_accessible(state, tenant, assignment.course_id)?;
-    let course = state
-        .courses
-        .get(&(tenant, assignment.course_id))
-        .ok_or(StoreError::NotFound)?;
-    if course.role_for(actor) != Some(CourseMembershipRole::Instructor) {
+    if !state.courses.contains_key(&(tenant, assignment.course_id))
+        || !super::entitlement::active_membership_for(state, tenant, assignment.course_id, actor)
+            .is_some_and(|membership| membership.role == CourseMembershipRole::Instructor)
+    {
         return Err(StoreError::NotFound);
     }
     if let Some(existing) = state.attempt_support_actions.get(&(tenant, action_id)) {

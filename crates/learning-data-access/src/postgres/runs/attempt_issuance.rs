@@ -1,8 +1,8 @@
 use objects::Sha256Digest;
 use question_model::run_policy::TimingPolicy;
 use question_model::{
-    ActivityTimestamp, AssignmentRun, AttemptStatus, AttemptTimerRecord, CourseId,
-    PresentationBindingV1, QuestionAttempt, QuestionEnvelope, TenantId,
+    ActivityTimestamp, AttemptStatus, AttemptTimerRecord, CourseId, PresentationBindingV1,
+    QuestionAttempt, QuestionEnvelope, TenantId,
 };
 use sqlx::types::Uuid;
 use sqlx::{Postgres, Row, Transaction};
@@ -50,28 +50,41 @@ pub(super) async fn issue_or_resume_question_attempt(
         ));
     }
     let enrollment = load_enrollment_for_update(transaction, tenant, run.enrollment).await?;
-    if enrollment.user != command.actor {
-        return Err(StoreError::Forbidden);
-    }
-    super::super::transaction_context::require_active_learner_membership(
-        transaction,
-        tenant,
-        enrollment.assignment,
-        command.actor,
-    )
-    .await?;
     assignment_timing::lock_postgres_assignment_policy(transaction, tenant, enrollment.assignment)
         .await?;
     let assignment_guard =
         load_assignment_for_share(transaction, tenant, enrollment.assignment).await?;
-    let resolved_assignment_timing = assignment_timing::load_postgres_resolved_assignment_policy(
-        transaction,
-        tenant,
-        enrollment.assignment,
-        &enrollment,
-        None,
-    )
-    .await?;
+    let domain::entitlement::EntitlementDecision::Granted(grant) =
+        super::super::entitlement::evaluate_current(
+            transaction,
+            tenant,
+            command.actor,
+            assignment_guard.course_id,
+            enrollment.assignment,
+        )
+        .await?
+    else {
+        return Err(StoreError::NotFound);
+    };
+    if grant.student() != enrollment.student {
+        return Err(StoreError::NotFound);
+    }
+    let (effective_decision, assignment_revision) =
+        super::super::course_policy::resolve_granted_effective_policy(
+            transaction,
+            grant.clone(),
+            domain::effective_assignment_policy::AssignmentLifecycleGate::Open,
+            domain::effective_assignment_policy::AuthorizationGate::Authorized,
+            run.run_number.saturating_sub(1),
+        )
+        .await?;
+    let domain::effective_assignment_policy::EffectivePolicyDecision::Allowed {
+        policy,
+        start: domain::effective_assignment_policy::StartVerdict::MayStart { .. },
+    } = effective_decision
+    else {
+        return Err(StoreError::NotFound);
+    };
     validate_postgres_assignment_position(transaction, tenant, &command).await?;
     let assignment_position = i32::try_from(command.assignment_position)
         .map_err(|_| StoreError::InvalidRecord("assignment position is too large".to_string()))?;
@@ -110,8 +123,11 @@ pub(super) async fn issue_or_resume_question_attempt(
          FROM question_attempt AS qa \
          LEFT JOIN submission_idempotency AS si \
            ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id \
-         LEFT JOIN attempt_timing_current AS timing \
-           ON timing.tenant_id = qa.tenant_id AND timing.attempt_id = qa.attempt_id \
+         LEFT JOIN attempt_effective_policy_current AS current_effect \
+           ON current_effect.tenant_id = qa.tenant_id AND current_effect.attempt_id = qa.attempt_id \
+         LEFT JOIN attempt_effective_policy_receipt AS timing \
+           ON timing.tenant_id = current_effect.tenant_id AND timing.attempt_id = current_effect.attempt_id \
+          AND timing.receipt_generation = current_effect.receipt_generation \
          WHERE qa.tenant_id = $1 AND qa.run_id = $2 \
            AND qa.attempt_status = 'in_progress' AND si.attempt_id IS NULL \
          ORDER BY qa.occurred_at DESC, qa.attempt_id::text DESC LIMIT 1",
@@ -327,17 +343,16 @@ pub(super) async fn issue_or_resume_question_attempt(
         webwork_grading_capability,
     )?;
     let issued_at = database_timestamp(transaction).await?;
-    let authored_timer = issued_timer(issued_at, &run, question.question.timing_policy)?;
+    let authored_timer = issued_timer(issued_at, run.started_at, question.question.timing_policy)?;
     let authored_grace_seconds =
         assignment_timing::timing_policy_grace_seconds(question.question.timing_policy);
     let assignment_timing::ResolvedPostgresAttemptTiming {
         effective_deadline,
         effective_grace_seconds,
         auto_submit_at,
-        resolution_kind,
     } = assignment_timing::resolved_postgres_attempt_timing(
-        resolved_assignment_timing.policy,
-        &run,
+        &policy,
+        run.started_at,
         authored_timer.deadline,
         authored_grace_seconds,
     )?;
@@ -492,81 +507,25 @@ pub(super) async fn issue_or_resume_question_attempt(
     } else {
         None
     };
-    let timing_inserted = sqlx::query(
-        "INSERT INTO attempt_timing_current \
-         (tenant_id, attempt_id, attempt_occurred_at, assignment_id, course_id, \
-          authored_deadline, authored_grace_seconds, effective_deadline, \
-          effective_grace_seconds, auto_submit_at, resolution_kind, resolved_visible, \
-          resolved_available_at, resolved_due_at, resolved_closes_at, \
-          resolved_late_submission_policy, resolved_time_limit_seconds, \
-          resolved_attempt_limit, resolution_sources, timing_generation, job_id) \
-         SELECT $1, $2, attempt.occurred_at, $3, $4, \
-                TIMESTAMPTZ 'epoch' + $5::bigint * INTERVAL '1 millisecond', $6, \
-                TIMESTAMPTZ 'epoch' + $7::bigint * INTERVAL '1 millisecond', $8, \
-                TIMESTAMPTZ 'epoch' + $9::bigint * INTERVAL '1 millisecond', $10, $11, \
-                TIMESTAMPTZ 'epoch' + $12::bigint * INTERVAL '1 millisecond', \
-                TIMESTAMPTZ 'epoch' + $13::bigint * INTERVAL '1 millisecond', \
-                TIMESTAMPTZ 'epoch' + $14::bigint * INTERVAL '1 millisecond', \
-                $15, $16, $17, $18, $19, $20 \
-           FROM question_attempt AS attempt \
-          WHERE attempt.tenant_id = $1 AND attempt.attempt_id = $2",
+    let receipt_generation = 1_i64;
+    super::super::effective_policy_receipts::append_sealed_effective_policy_receipt(
+        transaction,
+        super::super::effective_policy_receipts::EffectivePolicyReceiptWrite {
+            tenant,
+            course: assignment_guard.course_id,
+            assignment: assignment_guard.id,
+            attempt: attempt.id,
+            generation: receipt_generation,
+            policy: &policy,
+            effective_deadline,
+            effective_grace_seconds,
+            auto_submit_at,
+            revision: assignment_revision,
+        },
     )
-    .bind(tenant.as_uuid())
-    .bind(attempt.id.as_uuid())
-    .bind(assignment_guard.id.as_uuid())
-    .bind(assignment_guard.course_id.as_uuid())
-    .bind(authored_timer.deadline.map(|value| value.as_unix_millis()))
-    .bind(i64::from(authored_grace_seconds))
-    .bind(effective_deadline.map(|value| value.as_unix_millis()))
-    .bind(i64::from(effective_grace_seconds))
-    .bind(auto_submit_at.map(|value| value.as_unix_millis()))
-    .bind(resolution_kind)
-    .bind(resolved_assignment_timing.policy.visible)
-    .bind(
-        resolved_assignment_timing
-            .policy
-            .available_at
-            .map(|value| value.as_unix_millis()),
-    )
-    .bind(
-        resolved_assignment_timing
-            .policy
-            .due_at
-            .map(|value| value.as_unix_millis()),
-    )
-    .bind(
-        resolved_assignment_timing
-            .policy
-            .closes_at
-            .map(|value| value.as_unix_millis()),
-    )
-    .bind(assignment_timing::late_submission_policy_name(
-        resolved_assignment_timing.policy.late_submission,
-    ))
-    .bind(
-        resolved_assignment_timing
-            .policy
-            .time_limit_seconds
-            .map(i64::from),
-    )
-    .bind(
-        resolved_assignment_timing
-            .policy
-            .attempt_limit
-            .map(i64::from),
-    )
-    .bind(
-        serde_json::to_value(&resolved_assignment_timing.contributors)
-            .map_err(|error| StoreError::InvalidRecord(error.to_string()))?,
-    )
-    .bind(i64::try_from(timing_generation).expect("initial generation fits"))
-    .bind(timing_job.map(JobId::as_uuid))
-    .execute(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    if timing_inserted.rows_affected() != 1 {
-        return Err(StoreError::Conflict);
-    }
+    .await?;
+    sqlx::query("INSERT INTO attempt_effective_policy_current (tenant_id,attempt_id,attempt_occurred_at,assignment_id,course_id,receipt_generation,timing_generation,job_id) SELECT $1,$2,occurred_at,$3,$4,$5,$6,$7 FROM question_attempt WHERE tenant_id=$1 AND attempt_id=$2")
+        .bind(tenant.as_uuid()).bind(attempt.id.as_uuid()).bind(assignment_guard.id.as_uuid()).bind(assignment_guard.course_id.as_uuid()).bind(receipt_generation).bind(i64::try_from(timing_generation).map_err(|_| StoreError::Conflict)?).bind(timing_job.map(JobId::as_uuid)).execute(&mut **transaction).await.map_err(map_sqlx_error)?;
     if let Some(prefetched) = prefetched {
         sqlx::query(
             "DELETE FROM question_prefetch WHERE tenant_id = $1 AND run_id = $2 AND predecessor_attempt_id = $3 AND assignment_position = $4",
@@ -922,9 +881,9 @@ pub(super) async fn validate_postgres_assignment_position(
 }
 
 #[cfg(feature = "postgres")]
-pub(super) fn issued_timer(
+pub(in crate::postgres) fn issued_timer(
     issued_at: ActivityTimestamp,
-    run: &AssignmentRun,
+    run_started_at: ActivityTimestamp,
     policy: TimingPolicy,
 ) -> Result<AttemptTimerRecord, StoreError> {
     let deadline = match policy {
@@ -933,7 +892,7 @@ pub(super) fn issued_timer(
             Some(add_seconds(issued_at, seconds, "question deadline")?)
         }
         TimingPolicy::PerAttempt { seconds, .. } => {
-            let deadline = add_seconds(run.started_at, seconds, "run deadline")?;
+            let deadline = add_seconds(run_started_at, seconds, "run deadline")?;
             if deadline < issued_at {
                 return Err(StoreError::TimedOut);
             }

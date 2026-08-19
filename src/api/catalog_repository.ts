@@ -115,6 +115,7 @@ export function createCatalogRepository(client: ApiClient): CatalogBrowseReposit
           displayId: item.questionId,
           title: item.metadata.title,
           summary: `Published ${item.backend} problem.`,
+          byline: item.byline.names,
           taxonomy: item.metadata.taxonomy.map((term) => `${term.scheme}:${term.code}`),
           capabilities: item.capabilities,
           license: item.metadata.license.kind,

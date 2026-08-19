@@ -1,11 +1,10 @@
 //! PostgreSQL manual grade-export projection and PII-free audit.
 
 use async_trait::async_trait;
-use question_model::StudentAssignmentSummary;
 use sqlx::Row;
 
 use super::course_roster::require_course_instructor;
-use super::{PostgresStore, decode_payload_row, map_sqlx_error, retry_transaction};
+use super::{PostgresStore, map_sqlx_error, retry_transaction};
 use crate::{
     AuthenticationEmail, CourseRosterId, CreateManualGradeExport, MAX_MANUAL_GRADE_EXPORT_ROWS,
     ManualGradeExport, ManualGradeExportId, ManualGradeExportRow, ManualGradeExportStore,
@@ -40,20 +39,26 @@ impl ManualGradeExportStore for PostgresStore {
                 return Err(StoreError::NotFound);
             }
             let rows = sqlx::query(
-                "SELECT member.roster_email_normalized, member.roster_email_delivery, \
-                    member.roster_id, member.display_name, summary.payload, \
-                    summary.payload_sha256 \
-             FROM course_roster_member member \
-             JOIN enrollment enrollment \
+                "SELECT profile.roster_email_normalized, profile.roster_email_delivery, \
+                    member.roster_id, profile.display_name, \
+                    enrollment.enrollment_id AS entitlement_enrollment_id, \
+                    summary.enrollment_id AS summary_enrollment_id, summary.current_score \
+             FROM course_member member \
+             JOIN course_roster_profile profile \
+               ON profile.tenant_id = member.tenant_id \
+              AND profile.course_id = member.course_id \
+              AND profile.course_membership_id = member.course_membership_id \
+        LEFT JOIN enrollment enrollment \
                ON enrollment.tenant_id = member.tenant_id \
               AND enrollment.student_id = member.student_id \
               AND enrollment.assignment_id = $3 \
-             JOIN student_assignment_summary summary \
+        LEFT JOIN student_assignment_summary summary \
                ON summary.tenant_id = enrollment.tenant_id \
               AND summary.enrollment_id = enrollment.enrollment_id \
              WHERE member.tenant_id = $1 AND member.course_id = $2 \
-               AND member.roster_email_normalized IS NOT NULL \
-               AND member.roster_email_delivery IS NOT NULL \
+               AND member.role = 'student' AND member.status = 'active' \
+               AND profile.roster_email_normalized IS NOT NULL \
+               AND profile.roster_email_delivery IS NOT NULL \
                AND member.roster_id IS NOT NULL \
                AND public.ple_course_records_accessible(member.tenant_id, member.course_id) \
              ORDER BY member.roster_id LIMIT $4",
@@ -87,7 +92,24 @@ impl ManualGradeExportStore for PostgresStore {
                             "stored roster email normalization is invalid".to_string(),
                         ));
                     }
-                    let summary: StudentAssignmentSummary = decode_payload_row(row)?;
+                    let current_score = if row
+                        .try_get::<Option<uuid::Uuid>, _>("entitlement_enrollment_id")
+                        .map_err(map_sqlx_error)?
+                        .is_some()
+                    {
+                        if row
+                            .try_get::<Option<uuid::Uuid>, _>("summary_enrollment_id")
+                            .map_err(map_sqlx_error)?
+                            .is_none()
+                        {
+                            return Err(StoreError::Unavailable(
+                                "entitlement receipt is missing its summary".to_string(),
+                            ));
+                        }
+                        row.try_get("current_score").map_err(map_sqlx_error)?
+                    } else {
+                        None
+                    };
                     Ok(ManualGradeExportRow {
                         roster_id: CourseRosterId::parse(
                             &row.try_get::<String, _>("roster_id")
@@ -98,7 +120,7 @@ impl ManualGradeExportStore for PostgresStore {
                         })?,
                         roster_email,
                         display_name: row.try_get("display_name").map_err(map_sqlx_error)?,
-                        current_score: summary.current_score,
+                        current_score,
                     })
                 })
                 .collect::<Result<Vec<_>, StoreError>>()?;

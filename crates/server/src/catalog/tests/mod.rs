@@ -233,7 +233,9 @@ async fn publication_uses_server_capabilities_roles_and_fresh_problem_identity()
                 .header("cookie", &cookie)
                 .header(IF_MATCH, strong_if_match(draft_revision))
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"scope":"public"}"#))
+                .body(Body::from(
+                    r#"{"scope":"public","byline":{"names":["PLE fixture"]}}"#,
+                ))
                 .expect("publish request"),
         )
         .await
@@ -287,7 +289,9 @@ async fn publication_uses_server_capabilities_roles_and_fresh_problem_identity()
                 .header("cookie", student_cookie)
                 .header(IF_MATCH, strong_if_match(draft_revision))
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"scope":"public"}"#))
+                .body(Body::from(
+                    r#"{"scope":"public","byline":{"names":["PLE fixture"]}}"#,
+                ))
                 .expect("publish request"),
         )
         .await
@@ -312,7 +316,9 @@ async fn publication_uses_server_capabilities_roles_and_fresh_problem_identity()
                 .header("cookie", &cookie)
                 .header(IF_MATCH, strong_if_match(draft_revision))
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"scope":"public"}"#))
+                .body(Body::from(
+                    r#"{"scope":"public","byline":{"names":["PLE fixture"]}}"#,
+                ))
                 .expect("publish request"),
         )
         .await
@@ -327,7 +333,9 @@ async fn publication_uses_server_capabilities_roles_and_fresh_problem_identity()
                 .header("cookie", cookie)
                 .header(IF_MATCH, strong_if_match(draft_revision))
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"scope":"public"}"#))
+                .body(Body::from(
+                    r#"{"scope":"public","byline":{"names":["PLE fixture"]}}"#,
+                ))
                 .expect("publish request"),
         )
         .await
@@ -374,7 +382,9 @@ async fn publication_requires_a_current_strong_workspace_revision_before_minting
                 .uri(format!("/api/problems/{workspace}/publish"))
                 .header("cookie", &cookie)
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"scope":"institution"}"#))
+                .body(Body::from(
+                    r#"{"scope":"institution","byline":{"names":["PLE fixture"]}}"#,
+                ))
                 .expect("missing revision request"),
         )
         .await
@@ -392,7 +402,9 @@ async fn publication_requires_a_current_strong_workspace_revision_before_minting
                     .header("cookie", &cookie)
                     .header(IF_MATCH, malformed)
                     .header("content-type", "application/json")
-                    .body(Body::from(r#"{"scope":"institution"}"#))
+                    .body(Body::from(
+                        r#"{"scope":"institution","byline":{"names":["PLE fixture"]}}"#,
+                    ))
                     .expect("malformed revision request"),
             )
             .await
@@ -421,7 +433,9 @@ async fn publication_requires_a_current_strong_workspace_revision_before_minting
                 .header("cookie", cookie)
                 .header(IF_MATCH, strong_if_match(initial_revision))
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"scope":"institution"}"#))
+                .body(Body::from(
+                    r#"{"scope":"institution","byline":{"names":["PLE fixture"]}}"#,
+                ))
                 .expect("stale revision request"),
         )
         .await
@@ -474,7 +488,9 @@ async fn publication_refuses_a_collaborator_edit_that_arrives_during_review_befo
                 .header("cookie", cookie)
                 .header(IF_MATCH, strong_if_match(published_revision))
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"scope":"public"}"#))
+                .body(Body::from(
+                    r#"{"scope":"public","byline":{"names":["PLE fixture"]}}"#,
+                ))
                 .expect("publication request"),
         )
         .await
@@ -528,7 +544,9 @@ async fn same_tenant_nonowner_publisher_cannot_mint_from_a_private_workspace() {
                 .header("cookie", cookie)
                 .header(IF_MATCH, strong_if_match(owner_revision))
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"scope":"institution"}"#))
+                .body(Body::from(
+                    r#"{"scope":"institution","byline":{"names":["PLE fixture"]}}"#,
+                ))
                 .expect("publish request"),
         )
         .await
@@ -572,7 +590,9 @@ async fn changed_server_capabilities_refuse_before_minting_and_preserve_the_draf
                 .header("cookie", cookie)
                 .header(IF_MATCH, strong_if_match(draft_revision))
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"scope":"institution"}"#))
+                .body(Body::from(
+                    r#"{"scope":"institution","byline":{"names":["PLE fixture"]}}"#,
+                ))
                 .expect("publish request"),
         )
         .await
@@ -631,7 +651,9 @@ async fn unprepared_imathas_refusal_preserves_draft_without_minting_an_identity(
                 .header("cookie", cookie)
                 .header(IF_MATCH, strong_if_match(draft_revision))
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"scope":"institution"}"#))
+                .body(Body::from(
+                    r#"{"scope":"institution","byline":{"names":["PLE fixture"]}}"#,
+                ))
                 .expect("publish request"),
         )
         .await
@@ -687,7 +709,9 @@ async fn corrupt_legacy_titles_refuse_at_http_boundary_before_minting() {
                     .header("cookie", cookie)
                     .header(IF_MATCH, "\"1\"")
                     .header("content-type", "application/json")
-                    .body(Body::from(r#"{"scope":"institution"}"#))
+                    .body(Body::from(
+                        r#"{"scope":"institution","byline":{"names":["PLE fixture"]}}"#,
+                    ))
                     .expect("publish request"),
             )
             .await
@@ -762,7 +786,9 @@ async fn every_unprepared_source_backed_draft_refuses_before_identity_minting() 
                     .header("cookie", cookie)
                     .header(IF_MATCH, strong_if_match(draft_revision))
                     .header("content-type", "application/json")
-                    .body(Body::from(r#"{"scope":"institution"}"#))
+                    .body(Body::from(
+                        r#"{"scope":"institution","byline":{"names":["PLE fixture"]}}"#,
+                    ))
                     .expect("publish request"),
             )
             .await

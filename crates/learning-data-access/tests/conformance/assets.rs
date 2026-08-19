@@ -22,7 +22,7 @@ pub(super) fn source_artifact(
 
 async fn exercise_asset_store<S>(store: &S)
 where
-    S: Store + CatalogStore + AssetStore,
+    S: Store + CatalogStore + AssetStore + CourseRosterStore,
 {
     let tenant = TenantId::from_uuid(uuid(401));
     let foreign_tenant = TenantId::from_uuid(uuid(402));
@@ -33,26 +33,37 @@ where
     let stranger = UserId::from_uuid(uuid(405));
     let course = CourseId::from_uuid(uuid(405_001));
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Asset delivery course".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: publisher,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            learning_data_access::CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Asset delivery course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: publisher,
             },
         )
         .await
         .expect("asset delivery course");
+    store
+        .upsert_course_member(
+            context,
+            learning_data_access::UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Asset learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("asset learner membership");
     let public_problem = ProblemId::from_uuid(uuid(406));
     let public_version = VersionId::from_uuid(uuid(407));
     let institution_problem = ProblemId::from_uuid(uuid(408));
@@ -95,6 +106,7 @@ where
                     flat_question_promotion: None,
                     publisher,
                     scope,
+                    byline: reviewed_byline(),
                     capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
                 },
             )

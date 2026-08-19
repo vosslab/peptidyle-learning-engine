@@ -6,12 +6,13 @@ use axum::response::Response;
 use learning_data_access::Store;
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
-    ClaimedJob, CourseRecord, JobLeaseDuration, JobPayload, JobStore,
-    RETENTION_ARCHIVE_NOTIFICATION_COPY, RetentionDispatchBatch, RetentionScheduleStore,
+    ClaimedJob, CourseRecord, CourseRosterStore, CreateCourseCommand, JobLeaseDuration, JobPayload,
+    JobStore, RETENTION_ARCHIVE_NOTIFICATION_COPY, RetentionDispatchBatch, RetentionScheduleStore,
     RetentionWorkerCommand, RetentionWorkerStore, SessionLifetime, SessionSubject, TenantContext,
+    UpsertCourseMember,
 };
 use question_model::{
-    ActivityTimestamp, CourseId, CourseMembership, CourseMembershipRole, TenantId, UserId, UserRole,
+    ActivityTimestamp, CourseId, CourseMembershipRole, TenantId, UserId, UserRole,
 };
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -129,21 +130,47 @@ async fn create_course(
     course: CourseId,
     members: Vec<(UserId, CourseMembershipRole)>,
 ) {
+    let context = TenantContext::from_authenticated_session(tenant);
+    let initial_instructor = members
+        .iter()
+        .find_map(|(user, role)| (*role == CourseMembershipRole::Instructor).then_some(*user))
+        .expect("retention fixture needs an initial instructor");
     store
-        .upsert_course(
-            TenantContext::from_authenticated_session(tenant),
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "BIOC 301".to_string(),
-                members: members
-                    .into_iter()
-                    .map(|(user, role)| CourseMembership { user, role })
-                    .collect(),
+        .create_course(
+            context,
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "BIOC 301".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor,
             },
         )
         .await
         .expect("course persisted");
+    for (user, role) in members {
+        if role == CourseMembershipRole::Student {
+            store
+                .upsert_course_member(
+                    context,
+                    UpsertCourseMember {
+                        course,
+                        user,
+                        display_name: "Retention learner".to_string(),
+                        roster_contact: None,
+                    },
+                )
+                .await
+                .expect("student roster membership");
+        }
+    }
 }
 
 async fn make_request(
@@ -673,21 +700,17 @@ async fn retention_archive_route_replays_scheduled_with_no_duplicate_jobs_and_co
     let tenant = TenantId::from_uuid(id(51));
     let course = CourseId::from_uuid(id(52));
     let instructor = UserId::from_uuid(id(53));
-    let other_instructor = UserId::from_uuid(id(54));
+    let sysadmin = UserId::from_uuid(id(54));
     create_course(
         &store,
         tenant,
         course,
-        vec![
-            (instructor, CourseMembershipRole::Instructor),
-            (other_instructor, CourseMembershipRole::Instructor),
-        ],
+        vec![(instructor, CourseMembershipRole::Instructor)],
     )
     .await;
     let instructor_cookie =
         issued_cookie(&store, tenant, vec![UserRole::Instructor], instructor).await;
-    let other_instructor_cookie =
-        issued_cookie(&store, tenant, vec![UserRole::Instructor], other_instructor).await;
+    let sysadmin_cookie = issued_cookie(&store, tenant, vec![UserRole::Sysadmin], sysadmin).await;
     let app = router(Arc::clone(&store));
     let ended = end_retention(&app, Some(&instructor_cookie), course, "").await;
     assert_eq!(ended.status(), StatusCode::OK);
@@ -798,7 +821,7 @@ async fn retention_archive_route_replays_scheduled_with_no_duplicate_jobs_and_co
 
     let mismatched_actor = archive_retention(
         &app,
-        Some(&other_instructor_cookie),
+        Some(&sysadmin_cookie),
         course,
         &[&current_header],
         Some("application/json"),
@@ -890,10 +913,7 @@ async fn retention_extend_route_is_sysadmin_only_and_rejects_stale_requests() {
         &store,
         tenant,
         course,
-        vec![
-            (instructor, CourseMembershipRole::Instructor),
-            (sysadmin, CourseMembershipRole::Instructor),
-        ],
+        vec![(instructor, CourseMembershipRole::Instructor)],
     )
     .await;
     let instructor_cookie =

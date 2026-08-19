@@ -2,15 +2,16 @@
 
 This document is the durable map of PLE's PostgreSQL schema: what owns each kind of
 fact, which migration state is accepted, and where to find the detailed contracts. It
-does not authorize changing an accepted migration. The release plan and the migration
-ledger remain the authority for unfinished work and deployment acceptance.
+does not authorize changing an accepted migration. The shared status registry and release
+plan remain the authority for unfinished work and deployment acceptance.
 
 ## Schema authority
 
 The checked-in SQLx migrations in [schemas/migrations/](../schemas/migrations/) define
 the schema. The Rust Store contracts and PostgreSQL implementation must agree with those
-migrations, but do not replace them as schema authority. The release plan owns migration
-order, package status, and acceptance evidence:
+migrations, but do not replace them as schema authority. The shared registry in
+[implementation_status.md](active_plans/implementation_status.md) owns unfinished migration
+allocation and current package handoff; the release plan owns package scope and acceptance evidence:
 
 - [implementation plan](active_plans/implementation_plan.md) defines the platform
   architecture and storage boundaries.
@@ -28,11 +29,11 @@ capabilities.
 
 ## Migration ledger
 
-The checked-in chain has 31 migrations. The immutable accepted baseline is the first seven
+The checked-in chain has 40 migrations. The immutable accepted baseline is the first seven
 migrations and its historical inventory is 80 top-level relations: the first six are the accepted
 pre-data baseline, and `2026080907_course_appearance.sql` is the first accepted forward migration.
-That 80-relation number is not the current schema size. Later migrations through 0935 are also
-present, and the complete 31-migration chain requires the current disposable PostgreSQL baseline.
+That 80-relation number is not the current schema size. Later migrations through 1804 are also
+present, and the complete 40-migration chain requires the current disposable PostgreSQL baseline.
 Owning product packages that remain open are identified below; a successful migration gate does not
 silently accept them. SQLx's ledger and runtime-created partition children are excluded from the
 historical inventory. Relation counts are drift checks, not capacity metrics or a reason to avoid a
@@ -75,21 +76,21 @@ grading contract for version-scoped HOTSPOT assets.
 contracts for their respective presentation-bearing families. They follow the same fresh-ledger,
 no-backfill rule: a required contract that is missing, malformed, or mismatched is unavailable.
 
-### Open and reserved sequence
+### Physical migration inventory
 
 An accepted migration is immutable and later accepted work takes the next ordered forward version.
 An unaccepted pre-production migration is different: when its design is wrong, correct or replace
 that source directly, update the checked ledger expectation, and rebuild a clean disposable
 database. Do not add a compatibility migration, nullable fallback, backfill, or legacy reader for
-data that does not exist. The active release plan decides which versions are accepted.
+data that does not exist. This table inventories migration files and their observed source state; it
+is not an allocation or reservation authority. The shared registry in
+[implementation_status.md](active_plans/implementation_status.md) is the sole authority for
+unfinished migration allocation, while the active release plan owns package acceptance.
 
 | Version    | Planned owner    | Intended scope                                                                                          | Current source state                                         |
 | ---------- | ---------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | 2026080908 | WP-P2            | Secure learner grading payload binding and WeBWorK replay state                                         | File present; acceptance open                                |
 | 2026080909 | WP-RC8           | Passwordless account, passkey/email identity, invitation, course roster, import, and grade-export audit | File present; migration gate passed; package acceptance open |
-| 2026080910 | WP-RC7           | Object inventory and reconciliation                                                                     | Reserved; no migration file yet                              |
-| 2026080911 | WP-RC9           | LTI 1.3 / Advantage launches and passback                                                               | Reserved; no migration file yet                              |
-| 2026080912 | WP-FU            | Secure learner upload capability                                                                        | Reserved; no migration file yet                              |
 | 2026080914 | WP-RC4           | Flat-question v2 grading                                                                                | File present; package acceptance open                        |
 | 2026080915 | WP-HG1           | Historical internal catalog display-number range                                                        | File present; public use superseded by 2026080931             |
 | 2026080916 | Receipt closeout | Submission receipt presentation payload/checksum and derived disclosure                                 | File present; live receipt oracle passed                     |
@@ -106,6 +107,15 @@ data that does not exist. The active release plan decides which versions are acc
 | 2026080933 | Security repair  | Replace the boolean audit switch with a non-action precheck and an audited Sysadmin actor, use built-in SHA-256, grant the broker only `UPDATE (tenant_id)` needed for `FOR KEY SHARE`, and retain the dedicated `ple_roster_support_broker` SECURITY DEFINER owner | File present; focused static/offline checks pending live baseline |
 | 2026080934 | Security repair  | Require current-tenant ownership, not catalog visibility, to append catalog tenant grants, immutable version payloads, or source artifacts | File present; focused live RLS oracle pending |
 | 2026080935 | Question ID      | Require a live original-instructor session capability for owner corrections; propagate only future assignment definitions through a narrow broker while preserving issued evidence | File present; focused static/offline checks pending live baseline |
+| 2026081401 | Catalog discovery | Ranked lexical catalog discovery and stable paging                                                | File present; disposable catalog gate passed                  |
+| 2026081501 | WP-RC8 account   | Atomic verified-email replacement and account/tenant-session revocation                            | File present; package acceptance open                         |
+| 2026081502 | WP-RC8 delivery  | Bounded course-invitation delivery outbox, leases, provider receipts, and cancellation              | File present; package acceptance open                         |
+| 2026081503 | WP-RC8 repair    | Relation-qualified invitation-delivery claim function                                              | File present; disposable PostgreSQL gate passed               |
+| 2026081504 | WP-RC8 repair    | Relation-qualified email-change completion and session-revocation function                          | File present; disposable PostgreSQL gate passed               |
+| 2026081801 | WP-PROF-S2       | Mandatory inclusive teaching-course term dates and exact IANA time-zone text on the course row       | Accepted and immutable; disposable PostgreSQL 17 baseline passed |
+| 2026081802 | WP-PROF-S7       | Positive public scalar for course groups; immutable validated public byline on published versions and catalog projection | Accepted and immutable; fresh PostgreSQL 17 baseline and RLS oracle passed |
+| 2026081803 | WP-PROF-S5       | Canonical membership episodes, derived entitlement, typed group purposes/audiences, sealed materialization provenance, and typed assignment summaries | Accepted and immutable; fresh PostgreSQL 17 baseline and RLS oracle passed |
+| 2026081804 | WP-PROF-S3       | Normalized base policy, group offsets/accommodations, individual exceptions, sealed per-attempt effective-policy receipts, field provenance, and current pointer | Accepted and immutable; fresh PostgreSQL 17 baseline and exact normalized resolver/RLS oracle passed |
 
 The 2026080931 and 2026080935 entries describe superseded pre-production migration behavior. The
 current WP-R2 schema contract uses one immutable Question ID per publication, fresh hidden
@@ -117,13 +127,27 @@ The upload migration follows the reserved identity/reconciliation/LTI sequence a
 learner file responses fail closed. See the
 [secure learner upload plan](active_plans/active/secure_learner_file_upload_plan.md).
 The fresh pre-production `2026080909_passwordless_identity.sql` schema owns the one
-canonical course-roster member model: optional roster contact, course membership, and
-enrollment reconciliation. There is no provenance column, local-roster migration, or
-legacy-member source. The local-file development adapter authenticates a fictional
-actor only; the disposable no-contact learner seed calls canonical
-`UpsertCourseMember` to create roster, membership, and enrollment records. Because
+canonical course-roster workflow. Migration `2026081803` makes `course_member` the sole current
+membership-episode authority and keeps display/contact evidence in the subordinate
+`course_roster_profile`; neither relation is an assignment receipt. The local-file development
+adapter authenticates a fictional actor only; the disposable no-contact learner seed uses the
+same course-membership and evaluator/materialization Store capabilities as runtime code. Because
 this checked-in schema is pre-production-only, a changed migration baseline requires
 a clean disposable PostgreSQL volume rather than an in-place ledger edit.
+
+`2026081801_course_term.sql` keeps the term's three atomic attributes on `public.course` because
+they depend on the course key and have no independent lifecycle. Native `date` columns preserve
+calendar values, `text` preserves exact IANA spelling, and `NOT NULL`, ordering, range, trim, and
+length constraints reject malformed row shapes. Exact known-zone membership remains in the shared
+Rust value type so the application can update its reviewed IANA corpus without a competing database
+enum or lookup table. The migration has no default, backfill, compatibility reader, or new index.
+
+`2026081804_effective_policy_resolver.sql` keeps mutable assignment policy inputs separate from
+immutable attempt evidence. The base row, group schedule offsets, group accommodations, and one
+student exception are normalized assignment relations. Each attempt receipt records all resolved
+fields and their ordered sources, seals only after complete provenance exists, and is selected by a
+current pointer that can reference only a sealed generation. The schema therefore preserves why an
+issued policy applied without reconstructing historical timing from changed current inputs.
 
 The unaccepted `2026080930_account_presentation_preference.sql` derives presentation
 preference reads and writes only from a live, opaque 32-byte account-session hash.
@@ -145,7 +169,7 @@ are not stored in these relations.
 | Catalog and publication    | `problem`, `problem_version`, `problem_version_payload`, `answer_key`, `published_source_artifact`                                                     | One human Question ID names one immutable published question; hidden exact evidence preserves grading and provenance.         |
 | Private authoring          | `workspace_draft` and `workspace_*` import/source relations                                                                                            | Tenant-private mutable work before publication.                                                                             |
 | Course activity            | `course`, `course_member`, `tenant_learner_identity`, `course_roster_*`, `course_invitation`, `assignment`, `assignment_item`, `enrollment`            | Tenant/course configuration, protected roster PII, membership, and enrollment.                                              |
-| Learner evidence           | `assignment_run`, `assignment_run_item`, `question_attempt`, `submission`, `submission_evaluation`                                                     | Tenant-owned educational records.                                                                                           |
+| Learner evidence           | `assignment_run`, `assignment_run_item`, `question_attempt`, `attempt_effective_policy_receipt`, `attempt_effective_policy_receipt_field_source`, `submission`, `submission_evaluation` | Tenant-owned educational records; effective-policy evidence is append-only and sealed. |
 | Current projections        | `attempt_score_current`, `student_assignment_summary`, `course_item_analysis_current`                                                                  | Recomputed/published current state; not a substitute for source evidence.                                                   |
 | Protected delivery/audit   | `asset_delivery`, `student_export_*`, `record_access_log`, `audit_event`                                                                               | Explicitly authorized and retention-bound record access/evidence.                                                           |
 
@@ -356,10 +380,11 @@ evidence; a passing Rust compile does not prove any of them.
 
 For a durable schema change:
 
-1. Confirm the owning package and the migration's accepted/unaccepted status in the active release
-   plan.
-2. For an accepted version, add the next reserved forward migration and never rewrite its filename,
-   version, or checksum. For unaccepted pre-production work, fix the design at its source and
+1. Confirm the owning package and the migration's allocation in
+   [implementation_status.md](active_plans/implementation_status.md), then confirm accepted or
+   unaccepted status in the active release plan.
+2. For an accepted version, add the next forward migration allocated in the shared registry and
+   never rewrite its filename, version, or checksum. For unaccepted pre-production work, fix the design at its source and
    rebuild the disposable database rather than preserving a superseded shape.
 3. Preserve tenant keys, forced RLS, least-privilege grants, retention reachability, and
    answer-key isolation in the same change.

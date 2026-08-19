@@ -1,12 +1,12 @@
 use super::*;
-use crate::Store;
+use crate::{CourseMemberStatus, Store};
 use question_model::answer::NumericTolerance;
 use question_model::generation::RandomizationDefinition;
 use question_model::run_policy::{AttemptPolicy, FeedbackDisclosure};
 use question_model::taxonomy::{License, Tag};
 use question_model::{
     AssignmentRun, AttemptProvenance, AttemptResult, AttemptTimerRecord, BackendCapabilities,
-    Capability, CourseMembership, CourseMembershipRole, DraftQuestionDefinition,
+    Capability, CourseMembershipId, CourseMembershipRole, DraftQuestionDefinition,
     DraftQuestionSource, GradingDefinition, ImplementationVersion, QuestionDefinition,
     QuestionMetadata, ResponseDefinition, StudentId,
 };
@@ -68,7 +68,12 @@ pub(super) fn record(number: u128) -> PublishedProblemRecord {
         capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
         scope: PublicationScope::Public,
         lifecycle: CatalogLifecycle::Published,
-        authors: vec![UserId::from_uuid(Uuid::from_u128(40_000))],
+        author_ids: vec![UserId::from_uuid(Uuid::from_u128(40_000))],
+        byline: question_model::PublicByline::new(vec![
+            question_model::PublicAuthorName::new("Catalog test author".to_string())
+                .expect("valid test byline"),
+        ])
+        .expect("valid test byline"),
         derived_from: None,
         published_at: ActivityTimestamp::from_unix_millis(0),
     }
@@ -221,6 +226,7 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
         tenant,
         course_id: CourseId::from_uuid(Uuid::from_u128(72_006)),
         title: "Statistics completion fixture".to_string(),
+        audience: question_model::AssignmentAudience::CourseWide,
         items: [a, b, a]
             .into_iter()
             .enumerate()
@@ -255,7 +261,7 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
     };
     let run = AssignmentRun {
         id: assigned_run,
-        public_id: question_model::RunPublicId::new(1).expect("valid public run ID"),
+        reference: question_model::RunReference::new(1).expect("valid run reference"),
         tenant,
         enrollment: enrollment_id,
         run_number: 1,
@@ -275,12 +281,33 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
                 id: assignment.course_id,
                 tenant,
                 title: "Statistics fixture course".to_string(),
-                members: vec![CourseMembership {
-                    user: actor,
-                    role: CourseMembershipRole::Student,
-                }],
+                term: question_model::CourseTerm::from_parts(
+                    "2026-08-24",
+                    "2026-12-18",
+                    "America/Chicago",
+                )
+                .expect("explicit fixture course term"),
             },
         );
+        let membership = CourseMembershipId::from_uuid(Uuid::from_u128(72_008));
+        state.course_memberships.insert(
+            (tenant, membership),
+            CourseMembershipRecord {
+                id: membership,
+                tenant,
+                course: assignment.course_id,
+                user: actor,
+                student: Some(StudentId::from_uuid(Uuid::from_u128(72_007))),
+                role: CourseMembershipRole::Student,
+                roster_id: None,
+                status: CourseMemberStatus::Active,
+                joined_at: ActivityTimestamp::from_unix_millis(0),
+                revoked_at: None,
+            },
+        );
+        state
+            .active_course_membership_by_user
+            .insert((tenant, assignment.course_id, actor), membership);
         state
             .published
             .insert((published_a.problem, published_a.version), published_a);
@@ -461,7 +488,7 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
             (tenant, practice_run),
             AssignmentRun {
                 id: practice_run,
-                public_id: question_model::RunPublicId::new(2).expect("valid public run ID"),
+                reference: question_model::RunReference::new(2).expect("valid run reference"),
                 tenant,
                 enrollment: enrollment_id,
                 run_number: 2,

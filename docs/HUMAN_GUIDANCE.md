@@ -39,6 +39,9 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   cover student surfaces at both 1280 by 800 and the high-priority 800 by 1280 tablet target, and
   keep one narrow-phone compatibility guard.
   Do not expand the viewport matrix without a demonstrated product problem.
+- For planning, professor surfaces target at least 1280 by 800 CSS pixels. Use this student planning
+  mix: 1280 by 800 laptop 40%, 800 by 1280 portrait tablet 30%, iPhone Pro aspect 20%, and square
+  aspect 10%. These are planning weights, not test quotas or telemetry targets.
 
 ## Interface composition and accessibility
 
@@ -71,13 +74,32 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   destinations; after opening a course, use course-local navigation for assignments, learners,
   gradebook, and appearance. Add a separate dashboard only for a demonstrated cross-course task that
   the object-centered workspaces cannot serve.
+- Every teaching course has a term and IANA time zone before it accepts absolute assignment dates.
+- Professors rehearse through the product's rehearsal path instead of a test student or `login-as`;
+  a rehearsal never carries learner identity.
+- A cross-course attention surface is permitted only under the product's stated actionability
+  predicate for work that needs an instructor's action.
+- Catalog evidence remains anonymous and says `insufficient evidence` when evidence is too weak to
+  disclose; it does not show a weak estimate.
 
 ## Plan status
 
 - Treat `docs/active_plans/implementation_plan.md` as the source of truth for
   implementation order, architecture, contracts, security, tests, and gates.
 - Use `docs/active_plans/active/release_completion_plan.md` for the decision-complete remaining
-  package sequence and binary version 1 scope.
+  package sequence and binary version 1 scope. Use
+  [implementation_status.md](active_plans/implementation_status.md) as the sole global
+  current-package handoff registry. The implementation and active plans own scope and dependency
+  queues and link to that registry instead of copying its changing values.
+- Treat package identity as a repository-wide contract: any package key that crosses plans, status,
+  migration allocation, or changelog evidence must be globally unique and plan-namespaced. Reserve
+  `WP-PROF-*` for active professor-roadmap packages; keep accepted cross-roadmap keys (`WP-R0`,
+  `WP-R1`, `WP-R2`, and `WP-PY-L1`) unchanged, and preserve legacy walkthrough IDs in their own
+  historical scope.
+- The `release integrator` is the single shared migration-order and ledger owner across the release
+  and professor roadmaps. Both roadmaps reference the shared allocation registry in
+  `docs/active_plans/implementation_status.md`; a package receives a migration allocation before
+  implementing schema work, and non-schema packages do not implicitly receive one.
 - `docs/active_plans/m0-results.md` is concluded M0 evidence. Read it when M0
   history matters; do not treat it as an active task or reopen M0 without new
   evidence.
@@ -320,6 +342,11 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   external provider, but that intent is not acceptance evidence: keep email-dependent controls and
   claims unavailable until operator credentials, an authorized sender, live delivery, and browser
   sign-in have each been verified.
+- When email is unconfigured, a local instructor-to-student teaching/pilot walkthrough may use the
+  fictional pilot identities, direct local roster membership, and a copyable invitation link through
+  a trusted LMS. This route-around does not accept production authentication, mailbox delivery,
+  onboarding, or release activation. Reserve "rehearsal" for the identity-free `PreviewSubject`
+  contract.
 
 ## Flat question source
 
@@ -530,8 +557,10 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   be a one-time copyable invitation link shared through an existing trusted LMS;
   configured SMTP is an optional delivery channel, not an enrollment dependency.
   Use an established Rust email library and the operator-selected external SMTP provider for
-  email authentication and optional delivery. Do not build or maintain a PLE mail
-  server, queue, templating engine, or deliverability system. A learner keeps one
+  email authentication and optional delivery. PLE owns the bounded course-invitation delivery
+  outbox described in [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md); it records provider submission,
+  leases, retry state, and cancellation without claiming mailbox delivery. Do not build or maintain
+  a PLE mail server, generic mail queue, templating engine, or deliverability system. A learner keeps one
   PLE account across courses and institutions; course membership limits each
   instructor's access.
 - Do not create a separate account-recovery mode while verified email authentication

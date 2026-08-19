@@ -50,6 +50,21 @@ pub(super) fn decode_catalog_payload_row(
     }
     let lifecycle: String = row.try_get("lifecycle").map_err(map_sqlx_error)?;
     let reason: Option<String> = row.try_get("lifecycle_reason").map_err(map_sqlx_error)?;
+    let Json(author_ids): Json<Vec<UserId>> = row.try_get("author_ids").map_err(map_sqlx_error)?;
+    let byline_names: Vec<String> = row.try_get("public_byline").map_err(map_sqlx_error)?;
+    let byline = question_model::PublicByline::new(
+        byline_names
+            .into_iter()
+            .map(question_model::PublicAuthorName::new)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| StoreError::Unavailable("stored public byline is invalid".to_string()))?,
+    )
+    .map_err(|_| StoreError::Unavailable("stored public byline is invalid".to_string()))?;
+    if record.author_ids != author_ids || record.byline != byline {
+        return Err(StoreError::Unavailable(
+            "stored catalog payload attribution disagrees with its row".to_string(),
+        ));
+    }
     record.lifecycle = parse_catalog_lifecycle(&lifecycle, reason)?;
     validate_published(&record).map_err(|error| {
         StoreError::Unavailable(format!("stored catalog payload is invalid: {error}"))
@@ -67,6 +82,15 @@ pub(super) fn decode_catalog_summary_row(row: &PgRow) -> Result<CatalogProblemSu
     let Json(capabilities): Json<BackendCapabilities> =
         row.try_get("capabilities").map_err(map_sqlx_error)?;
     let Json(metadata): Json<QuestionMetadata> = row.try_get("metadata").map_err(map_sqlx_error)?;
+    let names: Vec<String> = row.try_get("public_byline").map_err(map_sqlx_error)?;
+    let byline = question_model::PublicByline::new(
+        names
+            .into_iter()
+            .map(question_model::PublicAuthorName::new)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| StoreError::Unavailable("stored public byline is invalid".to_string()))?,
+    )
+    .map_err(|_| StoreError::Unavailable("stored public byline is invalid".to_string()))?;
     let publication_scope: String = row.try_get("publication_scope").map_err(map_sqlx_error)?;
     let lifecycle: String = row.try_get("lifecycle").map_err(map_sqlx_error)?;
     let lifecycle_reason: Option<String> =
@@ -77,6 +101,7 @@ pub(super) fn decode_catalog_summary_row(row: &PgRow) -> Result<CatalogProblemSu
         backend: parse_question_backend(&backend)?,
         capabilities,
         metadata,
+        byline,
         scope: parse_publication_scope(&publication_scope)?,
         lifecycle: parse_catalog_lifecycle(&lifecycle, lifecycle_reason)?,
         published_at: ActivityTimestamp::from_unix_millis(published_at_millis),

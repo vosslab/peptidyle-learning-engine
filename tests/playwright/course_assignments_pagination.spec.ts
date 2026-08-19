@@ -27,12 +27,14 @@ const fixtureRouterPlugin = {
           if (typeof props.ref === "function") props.ref(anchor);
           return anchor;
         }
-        export function createAsync() { return () => undefined; }
+        import { createResource } from "solid-js";
+        export function createAsync(loader) { const [value] = createResource(loader); return value; }
         export function revalidate() { return Promise.resolve(); }
         export function useParams() { return {}; }
         export function query(callback, key) { callback.key = key; callback.keyFor = () => key; return callback; }
       `,
       loader: "js",
+      resolveDir: process.cwd(),
     }));
   },
 } satisfies Plugin;
@@ -51,13 +53,13 @@ test.beforeAll(async () => {
       contents: `
         import { createComponent } from "solid-js";
         import { render } from "solid-js/web";
-        import { ApiRuntimeProvider } from "./src/api/runtime.tsx";
+        import { createApiRuntime, ApiRuntimeProvider } from "./src/api/runtime.tsx";
         import { AssignmentList } from "./src/pages/course_assignments_page.tsx";
 
         const courseId = "${COURSE_ID}";
         const firstPage = Array.from({ length: 50 }, (_, index) => ({
           id: "0198e000-0000-7000-8000-" + String(index + 100).padStart(12, "0"),
-          publicId: index + 100,
+          reference: "A-" + String(index + 100),
           courseId,
           title: "Assignment " + String(index + 1),
           items: [{ deliveryState: "active" }],
@@ -65,7 +67,7 @@ test.beforeAll(async () => {
         }));
         const secondPage = Array.from({ length: 50 }, (_, index) => ({
           id: "0198e000-0000-7000-8000-" + String(index + 200).padStart(12, "0"),
-          publicId: index + 200,
+          reference: "A-" + String(index + 200),
           courseId,
           title: "Assignment " + String(index + 51),
           items: [{ deliveryState: "active" }],
@@ -73,7 +75,7 @@ test.beforeAll(async () => {
         }));
         const target = {
           id: "0198e000-0000-7000-8000-000000000999",
-          publicId: 999,
+          reference: "A-999",
           courseId,
           title: "Assignment 101",
           items: [{ deliveryState: "active" }],
@@ -82,7 +84,7 @@ test.beforeAll(async () => {
         const terminalTarget = {
           ...target,
           id: "0198e000-0000-7000-8000-000000001000",
-          publicId: 1000,
+          reference: "A-1000",
           title: "Assignment 102",
         };
         const requests = [];
@@ -118,8 +120,9 @@ test.beforeAll(async () => {
         mount.id = "main-content";
         mount.tabIndex = -1;
         document.body.append(skipToMain, mount);
+        const runtime = createApiRuntime(client);
         render(() => createComponent(ApiRuntimeProvider, {
-          runtime: { client },
+          runtime,
           get children() {
             return createComponent(AssignmentList, {
               courseId,

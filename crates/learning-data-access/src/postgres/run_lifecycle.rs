@@ -9,27 +9,20 @@ pub(super) async fn start_or_resume_run(
     proposed_run: RunId,
 ) -> Result<AssignmentRun, StoreError> {
     let tenant = context.tenant_id();
-    let enrollment_row = sqlx::query(
-        "SELECT payload, payload_sha256 FROM enrollment \
-         WHERE tenant_id = $1 AND assignment_id = $2 AND user_id = $3 FOR UPDATE",
-    )
-    .bind(tenant.as_uuid())
-    .bind(assignment_id.as_uuid())
-    .bind(actor.as_uuid())
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?
-    .ok_or(StoreError::NotFound)?;
-    let enrollment: AssignmentEnrollment = decode_payload_row(&enrollment_row)?;
-    transaction_context::require_active_learner_membership(
-        transaction,
-        tenant,
-        assignment_id,
-        actor,
-    )
-    .await?;
-    assignment_timing::lock_postgres_assignment_policy(transaction, tenant, assignment_id).await?;
     let assignment = load_assignment_for_share(transaction, tenant, assignment_id).await?;
+    let domain::entitlement::EntitlementDecision::Granted(grant) =
+        super::entitlement::evaluate_current(
+            transaction,
+            tenant,
+            actor,
+            assignment.course_id,
+            assignment_id,
+        )
+        .await?
+    else {
+        return Err(StoreError::NotFound);
+    };
+    assignment_timing::lock_postgres_assignment_policy(transaction, tenant, assignment_id).await?;
     let course_accessible: bool =
         sqlx::query_scalar("SELECT public.ple_course_records_accessible($1, $2)")
             .bind(tenant.as_uuid())
@@ -40,6 +33,67 @@ pub(super) async fn start_or_resume_run(
     if !course_accessible {
         return Err(StoreError::NotFound);
     }
+    let prior_run_count: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM assignment_run run JOIN enrollment enrollment ON enrollment.tenant_id=run.tenant_id AND enrollment.enrollment_id=run.enrollment_id WHERE run.tenant_id=$1 AND enrollment.assignment_id=$2 AND enrollment.student_id=$3",
+    ).bind(tenant.as_uuid()).bind(assignment_id.as_uuid()).bind(grant.student().as_uuid()).fetch_one(&mut **transaction).await.map_err(map_sqlx_error)?;
+    let (decision, _) = super::course_policy::resolve_granted_effective_policy(
+        transaction,
+        grant.clone(),
+        domain::effective_assignment_policy::AssignmentLifecycleGate::Open,
+        domain::effective_assignment_policy::AuthorizationGate::Authorized,
+        u32::try_from(prior_run_count)
+            .map_err(|_| StoreError::Unavailable("run count exceeds policy range".to_string()))?,
+    )
+    .await?;
+    let domain::effective_assignment_policy::EffectivePolicyDecision::Allowed {
+        start: domain::effective_assignment_policy::StartVerdict::MayStart { .. },
+        ..
+    } = decision
+    else {
+        return Err(StoreError::NotFound);
+    };
+    // A start denial must not manufacture an S5 receipt.  Existing receipt
+    // evidence is sufficient to check resume/continued-practice before the
+    // materialization seam; S5 remains the only owner of how it was issued.
+    if let Some((existing_enrollment, existing_summary, _, _)) =
+        super::entitlement::load_existing_receipt(
+            transaction,
+            tenant,
+            assignment_id,
+            grant.student(),
+        )
+        .await?
+    {
+        let active_row = sqlx::query(
+            "SELECT payload, payload_sha256 FROM assignment_run WHERE tenant_id=$1 AND enrollment_id=$2 AND completed_at IS NULL ORDER BY run_number DESC LIMIT 1",
+        )
+        .bind(tenant.as_uuid())
+        .bind(existing_enrollment.id.as_uuid())
+        .fetch_optional(&mut **transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        if let Some(row) = active_row {
+            return decode_payload_row(&row);
+        }
+        if !continued_practice_allows_run(&existing_summary, assignment.policies.continued_practice)
+        {
+            return Err(StoreError::InvalidRecord(
+                "continued-practice policy does not permit another run".to_string(),
+            ));
+        }
+    }
+    let command = crate::MaterializeAssignmentEntitlementCommand::for_learner_action(
+        actor,
+        assignment.course_id,
+        assignment_id,
+        question_model::EntitlementPurpose::StartRun,
+    )?;
+    let crate::AssignmentEntitlementMaterialization::Granted(entitlement) =
+        super::entitlement::materialize_granted_entitlement(transaction, &grant, command).await?
+    else {
+        return Err(StoreError::NotFound);
+    };
+    let enrollment = entitlement.enrollment;
     let active_row = sqlx::query(
         "SELECT payload, payload_sha256 FROM assignment_run \
          WHERE tenant_id = $1 AND enrollment_id = $2 AND completed_at IS NULL \
@@ -53,39 +107,7 @@ pub(super) async fn start_or_resume_run(
     if let Some(row) = active_row {
         return decode_payload_row(&row);
     }
-    let timing = assignment_timing::load_postgres_resolved_assignment_policy(
-        transaction,
-        tenant,
-        assignment_id,
-        &enrollment,
-        None,
-    )
-    .await?
-    .policy;
     let now = database_timestamp(transaction).await?;
-    if !timing.visible {
-        return Err(StoreError::NotFound);
-    }
-    if timing
-        .available_at
-        .is_some_and(|available_at| now < available_at)
-    {
-        return Err(StoreError::InvalidRecord(
-            "assignment is not yet available".to_string(),
-        ));
-    }
-    if timing.closes_at.is_some_and(|closes_at| now >= closes_at) {
-        return Err(StoreError::InvalidRecord(
-            "assignment is closed".to_string(),
-        ));
-    }
-    if timing.late_submission == LateSubmissionPolicy::Reject
-        && timing.due_at.is_some_and(|due_at| now > due_at)
-    {
-        return Err(StoreError::InvalidRecord(
-            "assignment due date has passed".to_string(),
-        ));
-    }
     let previous = load_summary_for_update(transaction, tenant, enrollment.id).await?;
     if !continued_practice_allows_run(&previous, assignment.policies.continued_practice) {
         return Err(StoreError::InvalidRecord(
@@ -101,14 +123,6 @@ pub(super) async fn start_or_resume_run(
     .fetch_one(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
-    if timing
-        .attempt_limit
-        .is_some_and(|limit| max_run_number >= i64::from(limit))
-    {
-        return Err(StoreError::InvalidRecord(
-            "assignment attempt limit has been reached".to_string(),
-        ));
-    }
     let run_number = u32::try_from(max_run_number)
         .map_err(|_| StoreError::InvalidRecord("run number overflow".to_string()))?
         .checked_add(1)
@@ -118,11 +132,11 @@ pub(super) async fn start_or_resume_run(
             .fetch_one(&mut **transaction)
             .await
             .map_err(map_sqlx_error)?;
-    let public_id = question_model::RunPublicId::new(public_number as u64)
+    let reference = question_model::RunReference::new(public_number as u64)
         .ok_or_else(|| StoreError::Unavailable("run route number limit reached".to_string()))?;
     let run = AssignmentRun {
         id: proposed_run,
-        public_id,
+        reference,
         tenant,
         enrollment: enrollment.id,
         run_number,
@@ -148,7 +162,7 @@ pub(super) async fn start_or_resume_run(
     )
     .bind(tenant.as_uuid())
     .bind(run.id.as_uuid())
-    .bind(i64::from(run.public_id.value()))
+    .bind(i64::from(run.reference.number()))
     .bind(run.enrollment.as_uuid())
     .bind(i64::from(run.run_number))
     .bind(payload)
@@ -254,7 +268,7 @@ pub(super) async fn apply_start_run(
     )
     .bind(tenant.as_uuid())
     .bind(run.id.as_uuid())
-    .bind(i64::from(run.public_id.value()))
+    .bind(i64::from(run.reference.number()))
     .bind(run.enrollment.as_uuid())
     .bind(i64::from(run.run_number))
     .bind(run.started_at.as_unix_millis())
@@ -508,7 +522,6 @@ pub(super) async fn apply_complete_run(
     run.score = Some(score);
     project_enrollment_completion(&mut enrollment, &previous, grade, run_id, score, at);
     let (run_payload, run_checksum) = encode_payload(&run)?;
-    let (enrollment_payload, enrollment_checksum) = encode_payload(&enrollment)?;
     sqlx::query(
         "UPDATE assignment_run SET completed_at = to_timestamp($3::double precision / 1000.0), \
          payload = $4, payload_sha256 = $5 WHERE tenant_id = $1 AND run_id = $2",
@@ -522,13 +535,19 @@ pub(super) async fn apply_complete_run(
     .await
     .map_err(map_sqlx_error)?;
     sqlx::query(
-        "UPDATE enrollment SET payload = $3, payload_sha256 = $4 \
+        "UPDATE enrollment SET first_completed_at = to_timestamp($3::double precision / 1000.0), \
+                current_grade_run_id = $4, best_grade_run_id = $5 \
          WHERE tenant_id = $1 AND enrollment_id = $2",
     )
     .bind(tenant.as_uuid())
     .bind(enrollment.id.as_uuid())
-    .bind(enrollment_payload)
-    .bind(enrollment_checksum)
+    .bind(
+        enrollment
+            .first_completed_at
+            .map(|value| value.as_unix_millis()),
+    )
+    .bind(enrollment.current_grade_run.map(|value| value.as_uuid()))
+    .bind(enrollment.best_grade_run.map(|value| value.as_uuid()))
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;

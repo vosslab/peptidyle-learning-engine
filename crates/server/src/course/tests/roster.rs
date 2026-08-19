@@ -9,12 +9,10 @@ use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use learning_data_access::{
     AssignmentRecord, AuthenticationEmail, ClaimCourseInvitation, CourseInvitationDeliveryState,
-    CourseInvitationSecretHash, CourseRecord, CourseRosterStore, CourseRosterSupportAction, Store,
-    TenantContext,
+    CourseInvitationSecretHash, CourseRecord, CourseRosterStore, CourseRosterSupportAction,
+    CreateCourseCommand, Store, TenantContext,
 };
-use question_model::{
-    AssignmentId, CourseId, CourseMembership, CourseMembershipRole, TenantId, UserId, UserRole,
-};
+use question_model::{AssignmentId, CourseId, TenantId, UserId, UserRole};
 use tower::ServiceExt;
 
 #[tokio::test]
@@ -27,16 +25,21 @@ async fn local_teaching_roster_uses_alias_resolution_and_canonical_member_upsert
     let course = CourseId::from_uuid(id(1_154));
     let context = TenantContext::from_authenticated_session(tenant);
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Genetics local teaching".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Genetics local teaching".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
@@ -300,16 +303,21 @@ async fn sysadmin_roster_support_is_audited_without_granting_grade_export() {
     let course = CourseId::from_uuid(id(1_083));
     let context = TenantContext::from_authenticated_session(tenant);
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Roster support".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Roster support".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
@@ -416,16 +424,21 @@ async fn roster_http_is_instructor_scoped_secret_free_and_idempotent() {
     let course = CourseId::from_uuid(id(1_104));
     let context = TenantContext::from_authenticated_session(tenant);
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "BIOC 301".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "BIOC 301".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
@@ -704,16 +717,21 @@ async fn roster_csv_preview_is_bounded_and_commit_invites_only_ready_rows() {
     let course = CourseId::from_uuid(id(1_202));
     let context = TenantContext::from_authenticated_session(tenant);
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Bulk roster".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Bulk roster".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
@@ -821,16 +839,21 @@ async fn manual_grade_export_contains_only_course_roster_identity_and_selected_s
     let assignment = AssignmentId::from_uuid(id(1_304));
     let context = TenantContext::from_authenticated_session(tenant);
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Export course".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Export course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
@@ -843,6 +866,7 @@ async fn manual_grade_export_contains_only_course_roster_identity_and_selected_s
                 id: assignment,
                 tenant,
                 course_id: course,
+                audience: question_model::AssignmentAudience::CourseWide,
                 title: "Manual export assignment".to_string(),
                 items: vec![question_model::AssignmentItem {
                     id: question_model::AssignmentItemId::from_uuid(id(1_305)),

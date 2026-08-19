@@ -3,12 +3,13 @@
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AssignmentRecord, AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand,
-    AssignmentScoringWorkerStore, CatalogStore, CourseRecord, CourseRosterStore, DraftRecord,
-    EvaluationRevision, FlatGradingCapability, IssueQuestionAttemptCommand, JobClaimFilter,
-    JobLeaseDuration, JobPayload, JobStore, ManualCredit, ManualGradeActionId, ManualGradingStore,
-    PresentationCapability, PublishDraftCommand, SetManualGradeCommand, Store, StoreError,
-    SubmissionIdempotencyKey, SubmitPendingManualQuestionAttemptCommand,
-    SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
+    AssignmentScoringWorkerStore, CatalogStore, CourseRecord, CourseRosterStore,
+    CreateCourseCommand, DraftRecord, EvaluationRevision, FlatGradingCapability,
+    IssueQuestionAttemptCommand, JobClaimFilter, JobLeaseDuration, JobPayload, JobStore,
+    ManualCredit, ManualGradeActionId, ManualGradingStore, PresentationCapability,
+    PublishDraftCommand, SetManualGradeCommand, Store, StoreError, SubmissionIdempotencyKey,
+    SubmitPendingManualQuestionAttemptCommand, SubmitQuestionAttemptCommand, TenantContext,
+    UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -22,10 +23,10 @@ use question_model::taxonomy::License;
 use question_model::{
     AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId, AssignmentScoringMode,
     AttemptProvenance, AttemptResult, AttemptStatus, BackendCapabilities, Capability, CourseId,
-    CourseMembership, CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource,
-    FeedbackContent, GradingDefinition, ImplementationVersion, PointValue, ProblemId,
-    ProblemVersionRef, PublicationScope, QuestionAttemptId, QuestionMetadata, QuestionSource,
-    RunId, ScoringStatus, StudentResponse, TenantId, UserId, VersionId, WorkspaceId,
+    DraftQuestionDefinition, DraftQuestionSource, FeedbackContent, GradingDefinition,
+    ImplementationVersion, PointValue, ProblemId, ProblemVersionRef, PublicationScope,
+    QuestionAttemptId, QuestionMetadata, QuestionSource, RunId, ScoringStatus, StudentResponse,
+    TenantId, UserId, VersionId, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -125,6 +126,11 @@ async fn publish_question(
                 flat_question_promotion: None,
                 publisher: instructor,
                 scope: PublicationScope::Institution,
+                byline: question_model::PublicByline::new(vec![
+                    question_model::PublicAuthorName::new("PLE fixture".to_string())
+                        .expect("valid test byline"),
+                ])
+                .expect("valid test byline"),
                 capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
             },
         )
@@ -232,16 +238,21 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
     )
     .await;
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Live mixed grading course".to_string(),
-                members: vec![CourseMembership {
-                    user: instructor,
-                    role: CourseMembershipRole::Instructor,
-                }],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Live mixed grading course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
@@ -254,6 +265,7 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
                 tenant,
                 course_id: course,
                 title: "Live mixed grading assignment".to_string(),
+                audience: question_model::AssignmentAudience::CourseWide,
                 items: vec![
                     assignment_item(automatic_reference, 0),
                     assignment_item(manual_reference, 1),

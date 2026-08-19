@@ -259,7 +259,8 @@ impl CatalogStore for MemoryStore {
             capabilities: command.capabilities,
             scope: command.scope,
             lifecycle: CatalogLifecycle::Published,
-            authors: vec![command.publisher],
+            author_ids: vec![command.publisher],
+            byline: command.byline.clone(),
             derived_from: command.expected_draft.derived_from,
             published_at: state.authoritative_time,
         };
@@ -607,7 +608,7 @@ impl CatalogStore for MemoryStore {
             return Err(StoreError::NotFound);
         }
         let record = state.published.get_mut(&key).ok_or(StoreError::NotFound)?;
-        if !record.authors.contains(&actor) {
+        if !record.author_ids.contains(&actor) {
             return Err(StoreError::Forbidden);
         }
         record.lifecycle = match (&record.lifecycle, transition) {

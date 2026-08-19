@@ -4,9 +4,7 @@
 //! attempt. It then locks that attempt before the run. Callers revalidate the
 //! locked run, enrollment, and active membership before changing state.
 
-use question_model::{
-    AssignmentEnrollment, AssignmentRun, QuestionAttemptId, RunId, TenantId, UserId,
-};
+use question_model::{AssignmentRun, QuestionAttemptId, RunId, TenantId, UserId};
 use sqlx::{Postgres, Transaction};
 
 use crate::{ReceiptNextAttempt, StoreError};
@@ -37,35 +35,22 @@ pub(super) async fn preauthorize_learner_run(
     .map_err(map_sqlx_error)?
     .ok_or(StoreError::NotFound)?;
     let run: AssignmentRun = decode_payload_row(&row)?;
-    let row = sqlx::query(
-        "SELECT payload, payload_sha256 FROM enrollment \
-         WHERE tenant_id = $1 AND enrollment_id = $2",
-    )
-    .bind(tenant.as_uuid())
-    .bind(run.enrollment.as_uuid())
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?
-    .ok_or(StoreError::NotFound)?;
-    let enrollment: AssignmentEnrollment = decode_payload_row(&row)?;
-    if enrollment.user != actor {
-        return Err(StoreError::Forbidden);
-    }
+    let enrollment =
+        super::super::load_postgres_enrollment(transaction, tenant, run.enrollment).await?;
     let assignment = load_assignment(transaction, tenant, enrollment.assignment).await?;
-    let active: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM course_member AS cm \
-         WHERE cm.tenant_id = $1 AND cm.course_id = $2 AND cm.user_id = $3 \
-           AND cm.role = 'student' \
-           AND public.ple_course_records_accessible($1, $2))",
+    let decision = super::super::entitlement::evaluate_current(
+        transaction,
+        tenant,
+        actor,
+        assignment.course_id,
+        enrollment.assignment,
     )
-    .bind(tenant.as_uuid())
-    .bind(assignment.course_id.as_uuid())
-    .bind(actor.as_uuid())
-    .fetch_one(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    if !active {
-        return Err(StoreError::NotFound);
+    .await?;
+    match decision {
+        domain::entitlement::EntitlementDecision::Granted(grant)
+            if grant.student() == enrollment.student => {}
+        domain::entitlement::EntitlementDecision::Granted(_)
+        | domain::entitlement::EntitlementDecision::Denied(_) => return Err(StoreError::NotFound),
     }
     Ok(())
 }

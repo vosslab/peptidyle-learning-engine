@@ -309,7 +309,7 @@ struct AccountEmailChangedResponse {
 #[serde(rename_all = "camelCase")]
 struct ClaimedInvitationResponse {
     course_id: question_model::CourseId,
-    course_public_id: question_model::CoursePublicId,
+    course_reference: question_model::CourseReference,
     membership_status: &'static str,
 }
 
@@ -324,7 +324,7 @@ struct AccountCoursePageResponse {
 #[serde(rename_all = "camelCase")]
 struct AccountCourseResponse {
     course_id: CourseId,
-    course_public_id: question_model::CoursePublicId,
+    course_reference: question_model::CourseReference,
     title: String,
     role: &'static str,
 }
@@ -636,9 +636,9 @@ where
         Ok(issued) => issued,
         Err(error) => return super::auth_error_response(error),
     };
-    let course_public_id = match state
+    let course_reference = match state
         .store
-        .course_public_id(
+        .course_reference(
             TenantContext::from_authenticated_session(claimed.tenant),
             account.user,
             claimed.course,
@@ -653,7 +653,7 @@ where
         issued.set_cookie,
         ClaimedInvitationResponse {
             course_id: claimed.course,
-            course_public_id,
+            course_reference,
             membership_status: "active",
         },
     )
@@ -700,7 +700,7 @@ where
     for context in page.items {
         let public_id = match state
             .store
-            .course_public_id(
+            .course_reference(
                 TenantContext::from_authenticated_session(context.tenant),
                 account.user,
                 context.course,
@@ -712,7 +712,7 @@ where
         };
         courses.push(AccountCourseResponse {
             course_id: context.course,
-            course_public_id: public_id,
+            course_reference: public_id,
             title: context.title,
             role: course_role_name(context.role),
         });

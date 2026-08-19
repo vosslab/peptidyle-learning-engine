@@ -31,12 +31,17 @@ A goal may be marked complete only when the whole named suite is green on the fi
 The default repository completion suite for a goal that changes executable behavior is:
 
 ```bash
-./check_codebase.sh
 ./check_rust.sh
+./check_codebase.sh
 source source_me.sh && python3 -m pytest tests/
 git diff --check
 git diff --cached --check
 ```
+
+Run `./check_rust.sh` before `./check_codebase.sh`. The Rust gate owns the
+ignored `generated/` TypeScript API and fixture projections; the vendored
+TypeScript gate consumes those projections during its typecheck. A clean tree
+therefore cannot start with `./check_codebase.sh` when `generated/` is absent.
 
 Add `./run_playwright_tests.sh --build` for ordinary mock-backed built-browser behavior. It must
 finish with zero skips. For a goal that requires the complete browser claim, add

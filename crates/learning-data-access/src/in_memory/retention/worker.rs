@@ -518,7 +518,17 @@ impl RetentionWorkerStore for MemoryStore {
                     !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
                 });
                 state
-                    .attempt_timing_resolution
+                    .issued_effective_policy_receipts
+                    .retain(|(tenant_id, attempt_id, _), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
+                state.issued_effective_policy_field_sources.retain(
+                    |(tenant_id, attempt_id, _, _, _), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    },
+                );
+                state
+                    .attempt_effective_policy_current
                     .retain(|(tenant_id, attempt_id), _| {
                         !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
                     });
@@ -563,31 +573,57 @@ impl RetentionWorkerStore for MemoryStore {
                 state
                     .assignment_score_staging
                     .retain(|job, _| !scoring_job_ids.contains(job));
-                if let Some(course_record) = state.courses.get_mut(&(tenant, course)) {
-                    course_record.members.retain(|member| {
-                        member.role != question_model::CourseMembershipRole::Student
-                    });
+                let revoked_at = state.authoritative_time;
+                for membership in state.course_memberships.values_mut() {
+                    if membership.tenant == tenant
+                        && membership.course == course
+                        && membership.role == question_model::CourseMembershipRole::Student
+                        && membership.status == crate::CourseMemberStatus::Active
+                    {
+                        membership.status = crate::CourseMemberStatus::Revoked;
+                        membership.revoked_at = Some(revoked_at);
+                    }
                 }
+                state.active_course_membership_by_user.retain(
+                    |(record_tenant, record_course, _), _| {
+                        !(*record_tenant == tenant && *record_course == course)
+                    },
+                );
                 for ((record_tenant, _), group) in &mut state.course_groups {
                     if *record_tenant == tenant && group.course == course {
                         group.members.clear();
                     }
                 }
-                state.assignment_policy_exceptions.retain(
-                    |(record_tenant, assignment, target), _| {
-                        !(*record_tenant == tenant
-                            && assignment_ids.contains(assignment)
-                            && matches!(target, AssignmentPolicyExceptionTarget::Student(_)))
+                state.assignment_individual_policy_exceptions.retain(
+                    |(record_tenant, assignment, _), _| {
+                        !(*record_tenant == tenant && assignment_ids.contains(assignment))
                     },
                 );
                 if assignment_disposition == AssignmentDefinitionDisposition::Delete {
                     for assignment_id in &assignment_ids {
                         state.assignments.remove(&(tenant, *assignment_id));
                         state.assignment_revisions.remove(&(tenant, *assignment_id));
-                        state.assignment_timing.remove(&(tenant, *assignment_id));
+                        state
+                            .assignment_base_policy
+                            .remove(&(tenant, *assignment_id));
+                        state.assignment_group_schedule_offsets.retain(
+                            |(record_tenant, assignment, _), _| {
+                                !(*record_tenant == tenant && assignment == assignment_id)
+                            },
+                        );
+                        state.assignment_group_accommodations.retain(
+                            |(record_tenant, assignment, _), _| {
+                                !(*record_tenant == tenant && assignment == assignment_id)
+                            },
+                        );
                         state.assignment_scoring.remove(&(tenant, *assignment_id));
                     }
-                    state.assignment_policy_exceptions.retain(
+                    state.assignment_group_schedule_offsets.retain(
+                        |(record_tenant, assignment, _), _| {
+                            !(*record_tenant == tenant && assignment_ids.contains(assignment))
+                        },
+                    );
+                    state.assignment_group_accommodations.retain(
                         |(record_tenant, assignment, _), _| {
                             !(*record_tenant == tenant && assignment_ids.contains(assignment))
                         },

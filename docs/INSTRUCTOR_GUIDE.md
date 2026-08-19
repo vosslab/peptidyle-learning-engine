@@ -35,11 +35,14 @@ placeholders.
 
 1. Sign in through the visible local-development form.
 2. Enter a descriptive title in **Course title**.
-3. Activate **Create course**.
-4. Open the new course card.
+3. Enter the inclusive **Start date** and **End date** for the teaching term.
+4. Enter the exact case-sensitive **Time zone (IANA)**, such as `America/Chicago`.
+5. Activate **Create course**.
+6. Open the new course card.
 
 The created course is a real PostgreSQL-backed course. It is not a browser fixture or an API-only
-arrangement.
+arrangement. The form never guesses a browser time zone. If a term value is invalid, it preserves
+all four inputs, announces and focuses the field to correct, and supports an immediate retry.
 
 ## Add the local student
 

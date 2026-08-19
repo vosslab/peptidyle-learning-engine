@@ -8,8 +8,13 @@ import { createMockApiClient } from "../src/api/mock/client.ts";
 import {
   assignmentRouteReference,
   courseRouteReference,
+  parseCourseGroupReference,
+  parseAssignmentReference,
+  parseCourseReference,
   parseProblemRouteReference,
   parsePublicRouteReference,
+  parseRunReference,
+  parseWorkspaceReference,
   problemRouteReference,
   runRouteReference,
   workspaceRouteReference,
@@ -22,23 +27,32 @@ import {
 } from "../src/navigation/resolved_route.ts";
 
 test("human route references are compact, typed, and bounded", () => {
-  assert.equal(courseRouteReference(1), "C-1");
-  assert.equal(assignmentRouteReference(2_147_483_647), "A-2147483647");
-  assert.equal(runRouteReference(30), "R-30");
-  assert.equal(workspaceRouteReference(40), "W-40");
+  assert.equal(courseRouteReference("C-1"), "C-1");
+  assert.equal(assignmentRouteReference("A-2147483647"), "A-2147483647");
+  assert.equal(runRouteReference("R-30"), "R-30");
+  assert.equal(workspaceRouteReference("W-40"), "W-40");
   assert.equal(problemRouteReference("7K3-M9QP"), "7K3-M9QP");
 
   for (const reference of ["C-1", "A-20", "R-30", "W-40"]) {
     assert.equal(parsePublicRouteReference(reference), reference);
   }
-  for (const rejected of [
-    "C-0",
-    "C-01",
-    "C-2147483648",
-    "P-1-v1",
-    "0198e000-0000-7000-8000-000000000001",
+  for (const [parser, prefix] of [
+    [parseCourseReference, "C"],
+    [parseAssignmentReference, "A"],
+    [parseRunReference, "R"],
+    [parseWorkspaceReference, "W"],
+    [parseCourseGroupReference, "G"],
   ]) {
-    assert.equal(parsePublicRouteReference(rejected), null);
+    assert.equal(parser(`${prefix}-1`), `${prefix}-1`);
+    for (const rejected of [
+      `${prefix}-0`,
+      `${prefix}-01`,
+      `${prefix}-2147483648`,
+      "X-1",
+      "0198e000-0000-7000-8000-000000000001",
+    ]) {
+      assert.equal(parser(rejected), null);
+    }
   }
   assert.equal(parseProblemRouteReference("7k3m9qp"), "7K3-M9QP");
   assert.equal(parseProblemRouteReference("OI0-001x"), "010-001X");
@@ -50,16 +64,16 @@ test("route resolution recovers protected API identities without weakening refer
   const client = createMockApiClient({ workspaceAuthoring: true });
   const fixture = publishedProblemFixture;
 
-  assert.equal(await resolveCourseRoute(client, `C-${fixture.course.publicId}`), fixture.course.id);
-  assert.deepEqual(await resolveAssignmentRoute(client, `A-${fixture.assignment.publicId}`), {
+  assert.equal(await resolveCourseRoute(client, fixture.course.reference), fixture.course.id);
+  assert.deepEqual(await resolveAssignmentRoute(client, fixture.assignment.reference), {
     kind: "assignment",
     courseId: fixture.course.id,
     assignmentId: fixture.assignment.id,
   });
-  assert.equal(await resolveRunRoute(client, `R-${fixture.runs[0].publicId}`), fixture.runs[0].id);
+  assert.equal(await resolveRunRoute(client, fixture.runs[0].reference), fixture.runs[0].id);
   const draft = (await client.listWorkspaceDrafts()).items[0];
   assert.notEqual(draft, undefined);
-  assert.equal(await resolveWorkspaceRoute(client, `W-${draft.publicId}`), draft.workspace);
+  assert.equal(await resolveWorkspaceRoute(client, draft.reference), draft.workspace);
 
   const wrongKindClient = {
     resolveNavigation: () =>
@@ -69,7 +83,7 @@ test("route resolution recovers protected API identities without weakening refer
         assignmentId: fixture.assignment.id,
       }),
   };
-  await assert.rejects(resolveCourseRoute(wrongKindClient, `C-${fixture.course.publicId}`), {
+  await assert.rejects(resolveCourseRoute(wrongKindClient, fixture.course.reference), {
     message: "Course reference resolved to another resource",
   });
   await assert.rejects(resolveCourseRoute(client, fixture.course.id), {

@@ -3,10 +3,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentDeliveryState, AssignmentId, AssignmentItemId, AssignmentPublicId,
+    AssignmentDeliveryState, AssignmentId, AssignmentItemId, AssignmentReference,
     AssignmentScoringMode, AssignmentSelectionGroupId, BackendCapabilities, CourseId,
-    CoursePublicId, EnrollmentId, PointValue, QuestionBackend, QuestionId, RunPolicies,
-    SelectionOrdering, StudentAssignmentSummary, StudentId, TenantId, UserId,
+    CourseReference, EnrollmentId, PointValue, QuestionBackend, QuestionId, RunPolicies,
+    SelectionOrdering, StudentAssignmentSummary, StudentId, TenantId,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -22,16 +22,6 @@ pub enum CourseMembershipRole {
     Instructor,
 }
 
-/// One authenticated user's direct membership in a course.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CourseMembership {
-    /// Authenticated person who may enter the course.
-    pub user: UserId,
-    /// Course-local authority granted to that person.
-    pub role: CourseMembershipRole,
-}
-
 /// Course information sufficient for the signed-in landing page.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,11 +29,13 @@ pub struct CourseSummary {
     /// Durable course identity.
     pub id: CourseId,
     /// Stable typed locator used in application navigation.
-    pub public_id: CoursePublicId,
+    pub reference: CourseReference,
     /// Direct RLS boundary.
     pub tenant: TenantId,
     /// Human-facing course or section title.
     pub title: String,
+    /// Required inclusive term bounds and authoritative scheduling zone.
+    pub term: crate::CourseTerm,
     /// Signed-in user's authority for this course.
     pub role: CourseMembershipRole,
 }
@@ -119,7 +111,7 @@ pub struct AssignmentSummary {
     /// Durable assignment identity.
     pub id: AssignmentId,
     /// Stable typed locator used in application navigation.
-    pub public_id: AssignmentPublicId,
+    pub reference: AssignmentReference,
     /// Direct RLS boundary.
     pub tenant: TenantId,
     /// Course that owns this assignment.
@@ -170,7 +162,7 @@ mod tests {
     fn rust_names_serialize_as_lower_camel_course_contracts() {
         let assignment = AssignmentSummary {
             id: AssignmentId::from_uuid(Uuid::from_u128(1)),
-            public_id: crate::AssignmentPublicId::new(1).expect("valid public ID"),
+            reference: crate::AssignmentReference::new(1).expect("valid reference"),
             tenant: TenantId::from_uuid(Uuid::from_u128(2)),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
             title: "Peptide bonds".to_string(),

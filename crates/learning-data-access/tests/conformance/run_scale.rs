@@ -19,7 +19,6 @@ where
     let scale_run_id = RunId::from_uuid(uuid(90_000 + fixture_offset));
     let scale_problems = vec![ProblemVersionRef { problem, version }; 51];
     let scale_assignment = AssignmentId::from_uuid(uuid(89_990 + fixture_offset));
-    let scale_enrollment = EnrollmentId::from_uuid(uuid(89_991 + fixture_offset));
     store
         .create_untimed_assignment(
             context,
@@ -28,6 +27,7 @@ where
                 tenant,
                 course_id: course,
                 title: "Run summary scale fixture".to_string(),
+                audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(scale_problems),
                 selection_groups: Vec::new(),
                 policies: policies(),
@@ -35,22 +35,6 @@ where
         )
         .await
         .expect("independent scale assignment");
-    store
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: scale_enrollment,
-                tenant,
-                assignment: scale_assignment,
-                user: student_user,
-                student: StudentId::from_uuid(uuid(89_992 + fixture_offset)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
-        .await
-        .expect("independent scale enrollment");
     let scale_run = store
         .start_or_resume_run(context, student_user, scale_assignment, scale_run_id)
         .await

@@ -10,6 +10,7 @@ import { createDefaultFlatQuestionSource } from "../src/features/flat_question_a
 import {
   createFlatQuestionClient,
   FlatQuestionConflictError,
+  FlatQuestionProtocolError,
 } from "../src/features/flat_question_authoring/flat_question_client.ts";
 import {
   flatQuestionPublicPreview,
@@ -78,6 +79,19 @@ function publicDefinition(includeVersion = false) {
     ...definition,
     problem: "00000000-0000-4000-8000-000000000002",
     version: "00000000-0000-4000-8000-000000000003",
+  };
+}
+
+function publicationSummary(backend = "native") {
+  return {
+    questionId: "7K3-M9QP",
+    backend,
+    capabilities: ["serverGrading"],
+    metadata: publicDefinition().metadata,
+    byline: { names: ["Fixture Instructor"] },
+    scope: "institution",
+    lifecycle: { state: "published" },
+    publishedAt: 1786000000000,
   };
 }
 
@@ -525,13 +539,15 @@ test("client sends exact protected paths, headers, body, and revisions", async (
         });
       }
       if (init.method === "PUT") return jsonResponse(publicDefinition(), 200, '"2"');
-      return jsonResponse(publicDefinition(true), 201, '"2"');
+      return jsonResponse(publicationSummary(), 201, '"2"');
     },
   });
 
   const loaded = await client.load(workspace);
   const saved = await client.save(workspace, loaded.source, loaded.revision);
-  await client.publish(workspace, "institution", saved.revision);
+  const publicationRequest = { scope: "institution", byline: { names: ["Fixture Instructor"] } };
+  const published = await client.publish(workspace, publicationRequest, saved.revision);
+  assert.deepEqual(published, publicationSummary());
 
   assert.equal(requests[0].input, `/ple/api/workspaces/${workspace}/flat-question`);
   assert.equal(requests[0].init.headers.accept, FLAT_QUESTION_MEDIA_TYPE);
@@ -540,8 +556,22 @@ test("client sends exact protected paths, headers, body, and revisions", async (
   assert.equal(requests[1].init.headers["if-match"], '"1"');
   assert.equal(requests[1].init.body, serializeFlatQuestionSource(source()));
   assert.equal(requests[2].input, `/ple/api/problems/${workspace}/flat-question-publish`);
+  assert.equal(requests[2].init.body, JSON.stringify(publicationRequest));
   assert.equal(requests[2].init.headers["if-match"], '"2"');
-  assert.equal(requests[2].init.body, JSON.stringify({ scope: "institution" }));
+});
+
+test("publication rejects invalid reviewed bylines before it can make a request", async () => {
+  const client = createFlatQuestionClient({
+    fetch: async () => {
+      throw new Error("invalid reviewed bylines must not reach fetch");
+    },
+  });
+  for (const names of [["Ada\u0007"], ["😀".repeat(121)], ["Ada Lovelace", "Ada Lovelace"]]) {
+    await assert.rejects(
+      client.publish(workspace, { scope: "institution", byline: { names } }, '"1"'),
+      FlatQuestionProtocolError,
+    );
+  }
 });
 
 test("client rejects unsafe base paths before it can make a request", () => {
@@ -617,7 +647,7 @@ test("client rejects public responses whose identity does not match the requeste
   await assert.rejects(client.save(workspace, source()), /does not match its workspace/u);
 });
 
-test("client rejects save and publication DTOs that are not the exact flat native family", async () => {
+test("client rejects save DTOs and publication summaries that do not exactly confirm publication", async () => {
   const wrongSave = createFlatQuestionClient({
     fetch: async () =>
       jsonResponse({ ...publicDefinition(), source: { backend: "native", family: "other" } }),
@@ -625,16 +655,33 @@ test("client rejects save and publication DTOs that are not the exact flat nativ
   await assert.rejects(wrongSave.save(workspace, source()), /flat_single_choice_v2/u);
 
   const wrongPublication = createFlatQuestionClient({
-    fetch: async () =>
-      jsonResponse({
-        ...publicDefinition(true),
-        source: { backend: "webwork", pgPath: "secret.pg" },
-      }),
+    fetch: async () => jsonResponse(publicationSummary("webwork")),
   });
   await assert.rejects(
-    wrongPublication.publish(workspace, "institution", '"1"'),
-    /flat_single_choice_v2/u,
+    wrongPublication.publish(
+      workspace,
+      { scope: "institution", byline: { names: ["Fixture Instructor"] } },
+      '"1"',
+    ),
+    /native published summary/u,
   );
+
+  for (const summary of [
+    { ...publicationSummary(), scope: "public" },
+    { ...publicationSummary(), lifecycle: { state: "deprecated", reason: "withdrawn" } },
+  ]) {
+    const wrongLifecycleOrScope = createFlatQuestionClient({
+      fetch: async () => jsonResponse(summary),
+    });
+    await assert.rejects(
+      wrongLifecycleOrScope.publish(
+        workspace,
+        { scope: "institution", byline: { names: ["Fixture Instructor"] } },
+        '"1"',
+      ),
+      /native published summary/u,
+    );
+  }
 });
 
 test("client accepts the exact native hotspot family for a strict hotspot source", async () => {
@@ -684,7 +731,7 @@ test("repository does not regress a workspace revision when an older save finish
     },
     async publish(_workspace, _scope, revision) {
       publishedRevision = revision;
-      return publicDefinition(true);
+      return publicationSummary();
     },
   });
 
@@ -695,7 +742,10 @@ test("repository does not regress a workspace revision when an older save finish
   await newer;
   firstSave.resolve({ draft: publicDefinition(), revision: '"2"' });
   await older;
-  await repository.publish(workspace, "institution");
+  await repository.publish(workspace, {
+    scope: "institution",
+    byline: { names: ["Fixture Instructor"] },
+  });
   assert.deepEqual(observedRevisions, ['"1"', '"1"']);
   assert.equal(publishedRevision, '"3"');
 });

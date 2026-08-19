@@ -1,4 +1,4 @@
-import type { NavigationResolution } from "../contracts";
+import type { NavigationResolution } from "../../../generated/api/NavigationResolution";
 import { DecodeError, decodeRecord } from "../decoder";
 import { decodeIdentifier, field, kind, requireOnlyFields } from "./shared";
 
@@ -23,9 +23,18 @@ export function decodeNavigationResolution(
         assignmentId: decodeIdentifier(field(record, "assignmentId", path), `${path}.assignmentId`),
       };
     case "run":
-      requireOnlyFields(record, path, ["kind", "runId"]);
+      requireOnlyFields(record, path, [
+        "kind",
+        "courseId",
+        "assignmentId",
+        "enrollmentId",
+        "runId",
+      ]);
       return {
         kind: "run",
+        courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
+        assignmentId: decodeIdentifier(field(record, "assignmentId", path), `${path}.assignmentId`),
+        enrollmentId: decodeIdentifier(field(record, "enrollmentId", path), `${path}.enrollmentId`),
         runId: decodeIdentifier(field(record, "runId", path), `${path}.runId`),
       };
     case "workspace":

@@ -56,7 +56,10 @@ async fn postgres_wp_r2_persistence_rls_and_no_drift() {
     let course_a = id();
     let course_b = id();
     sqlx::query(
-        "INSERT INTO course (tenant_id, course_id, title) VALUES ($1, $2, $3), ($4, $5, $6)",
+        "INSERT INTO course (tenant_id, course_id, title, term_start_date, term_end_date, \
+         time_zone) VALUES ($1, $2, $3, DATE '2026-08-24', DATE '2026-12-18', \
+         'America/Chicago'), ($4, $5, $6, DATE '2026-08-24', DATE '2026-12-18', \
+         'America/Chicago')",
     )
     .bind(tenant_a)
     .bind(course_a)
@@ -152,9 +155,9 @@ async fn postgres_wp_r2_persistence_rls_and_no_drift() {
     .expect("second immutable problem persists");
     sqlx::query(
         "INSERT INTO problem_version \
-         (problem_id, version_id, content_sha256, workspace_id, title, authors) \
+         (problem_id, version_id, content_sha256, workspace_id, title, author_ids, public_byline) \
          VALUES ($1, $2, repeat('a', 64), $3, 'First immutable question', \
-                 jsonb_build_array($4::text))",
+                 jsonb_build_array($4::text), ARRAY['WP-R2 fixture'])",
     )
     .bind(problem_a)
     .bind(version)
@@ -165,9 +168,9 @@ async fn postgres_wp_r2_persistence_rls_and_no_drift() {
     .expect("first immutable version persists");
     let duplicate = sqlx::query(
         "INSERT INTO problem_version \
-         (problem_id, version_id, content_sha256, workspace_id, title, authors) \
+         (problem_id, version_id, content_sha256, workspace_id, title, author_ids, public_byline) \
          VALUES ($1, $2, repeat('b', 64), $3, 'Duplicate immutable question', \
-                 jsonb_build_array($4::text))",
+                 jsonb_build_array($4::text), ARRAY['WP-R2 fixture'])",
     )
     .bind(problem_b)
     .bind(version)

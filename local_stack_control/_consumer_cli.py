@@ -9,8 +9,14 @@ import local_stack_control.compose
 import local_stack_control.consumer
 import local_stack_control.discovery
 import local_stack_control.models
+import local_stack_control.private_state
 import local_stack_control.process
 import local_stack_control.lifecycle
+
+
+PRIVATE_STATE_ROOTS = {
+	"replica-restart": pathlib.Path("target") / "replica-e2e",
+}
 
 
 #============================================
@@ -36,6 +42,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	stop_instance.add_argument("--manifest", required=True, type=pathlib.Path)
 	stop_instance.add_argument("--service", required=True)
 	stop_instance.add_argument("--id-prefix", required=True)
+	prepare_state = actions.add_parser("prepare-state")
+	prepare_state.add_argument("--owner", required=True, choices=tuple(PRIVATE_STATE_ROOTS))
+	remove_state = actions.add_parser("remove-state")
+	remove_state.add_argument("--owner", required=True, choices=tuple(PRIVATE_STATE_ROOTS))
+	remove_state.add_argument("--directory", required=True, type=pathlib.Path)
 	args = parser.parse_args(argv)
 	if args.action == "compose":
 		if len(args.arguments) > 0 and args.arguments[0] == "--":
@@ -130,6 +141,24 @@ def run_diagnostics(
 
 
 #============================================
+def compose_failure_diagnostics(
+	result: local_stack_control.models.CommandResult,
+	private_values: tuple[str, ...],
+) -> str:
+	"""Return the bounded redacted receipt for one failed closed Compose call."""
+	return local_stack_control.consumer.redact_diagnostics(
+		"\n".join((result.stdout, result.stderr)), private_values
+	)
+
+
+#============================================
+def write_compose_success_output(result: local_stack_control.models.CommandResult) -> None:
+	"""Forward successful closed Compose output without changing its bytes."""
+	sys.stdout.write(result.stdout)
+	sys.stderr.write(result.stderr)
+
+
+#============================================
 def stop_replica_instance(
 	runner: local_stack_control.process.CommandRunner,
 	disposable: local_stack_control.models.DisposableComposeTarget,
@@ -182,6 +211,19 @@ def main() -> None:
 	try:
 		runner = local_stack_control.process.SubprocessRunner()
 		root = repo_root(runner)
+		if args.action == "prepare-state":
+			state = local_stack_control.private_state.prepare_persisted(
+				root, PRIVATE_STATE_ROOTS[args.owner]
+			)
+			print(state.directory)
+			raise SystemExit(0)
+		if args.action == "remove-state":
+			local_stack_control.private_state.remove_persisted(
+				root,
+				PRIVATE_STATE_ROOTS[args.owner],
+				args.directory.absolute(),
+			)
+			raise SystemExit(0)
 		manifest = local_stack_control.consumer.load_manifest(root, args.manifest)
 		disposable = local_stack_control.consumer.disposable_target(runner, root, manifest)
 		if args.action != "diagnostics":
@@ -192,8 +234,17 @@ def main() -> None:
 				disposable,
 				args.arguments,
 			)
-			result = runner.stream(argv, environment, root)
-			raise SystemExit(result)
+			result = runner.run(argv, environment, root)
+			if result.ok():
+				write_compose_success_output(result)
+			else:
+				private_values = local_stack_control.consumer.private_environment_values(
+					disposable.target.env_file
+				)
+				diagnostic = compose_failure_diagnostics(result, private_values)
+				if diagnostic != "":
+					print(diagnostic, file=sys.stderr)
+			raise SystemExit(result.returncode)
 		if args.action == "launch":
 			local_stack_control.consumer.require_mutating_capability(runner, disposable)
 			result = local_stack_control.lifecycle.start_lifecycle(

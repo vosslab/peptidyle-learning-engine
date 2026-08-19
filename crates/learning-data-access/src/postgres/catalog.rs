@@ -216,7 +216,7 @@ impl CatalogStore for PostgresStore {
                 };
 
                 let publication = command.publication;
-                let authors = vec![command.publisher];
+                let author_ids = vec![command.publisher];
                 let derived_from = command.expected_draft.derived_from;
                 if let Some(source) = derived_from {
                     let source_visible: bool = sqlx::query_scalar(
@@ -322,7 +322,8 @@ impl CatalogStore for PostgresStore {
                     capabilities: command.capabilities,
                     scope: command.scope,
                     lifecycle: CatalogLifecycle::Published,
-                    authors,
+                    author_ids,
+                    byline: command.byline.clone(),
                     derived_from,
                     published_at: ActivityTimestamp::from_unix_millis(published_at_millis),
                 };
@@ -483,7 +484,7 @@ impl CatalogStore for PostgresStore {
         let mut transaction = self.begin_tenant(context).await?;
         let row = sqlx::query(
             "SELECT pv.problem_id, p.question_id, pv.version_id, \
-                    pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason \
+                    pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason, pv.author_ids, pv.public_byline \
              FROM problem_version AS pv \
              JOIN problem AS p USING (problem_id) \
              JOIN problem_version_payload AS pvp USING (problem_id, version_id) \
@@ -511,7 +512,7 @@ impl CatalogStore for PostgresStore {
         let mut transaction = self.begin_tenant(context).await?;
         let row = sqlx::query(
             "SELECT pv.problem_id, p.question_id, pv.version_id, \
-                    pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason \
+                    pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason, pv.author_ids, pv.public_byline \
              FROM problem AS p \
              JOIN problem_version AS pv USING (problem_id) \
              JOIN problem_version_payload AS pvp USING (problem_id, version_id) \
@@ -615,7 +616,7 @@ impl CatalogStore for PostgresStore {
         let mut transaction = self.begin_tenant_snapshot(context).await?;
         let row = sqlx::query(
             "SELECT pv.problem_id, p.question_id, pv.version_id, \
-                    pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason \
+                    pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason, pv.author_ids, pv.public_byline \
              FROM problem_version AS pv \
              JOIN problem AS p USING (problem_id) \
              JOIN problem_version_payload AS pvp USING (problem_id, version_id) \
@@ -669,7 +670,7 @@ impl CatalogStore for PostgresStore {
         let mut transaction = self.begin_tenant(context).await?;
         let row = sqlx::query(
             "SELECT pv.problem_id, p.question_id, pv.version_id, \
-                    pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason \
+                    pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason, pv.author_ids, pv.public_byline \
              FROM problem_version AS pv \
              JOIN problem AS p USING (problem_id) \
              JOIN problem_version_payload AS pvp USING (problem_id, version_id) \
@@ -684,7 +685,7 @@ impl CatalogStore for PostgresStore {
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
         let mut record = decode_catalog_payload_row(&row)?;
-        if !record.authors.contains(&actor) {
+        if !record.author_ids.contains(&actor) {
             return Err(StoreError::Forbidden);
         }
         record.lifecycle = match (&record.lifecycle, transition) {

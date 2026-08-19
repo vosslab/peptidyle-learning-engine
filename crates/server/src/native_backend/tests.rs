@@ -7,9 +7,10 @@ use axum::http::{HeaderValue, Request, StatusCode};
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
     AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssignmentRecord, CatalogStore,
-    CourseRecord, DraftRecord, FlatQuestionGradingPayload, FlatQuestionPublicationPromotion,
-    FlatQuestionStore, PublishDraftCommand, PublishedSourceArtifact, SessionLifetime,
-    SessionSubject, Store, UpsertFlatQuestionCommand,
+    CourseRecord, CourseRosterStore, CreateCourseCommand, DraftRecord, FlatQuestionGradingPayload,
+    FlatQuestionPublicationPromotion, FlatQuestionStore, PublishDraftCommand,
+    PublishedSourceArtifact, SessionLifetime, SessionSubject, Store, UpsertCourseMember,
+    UpsertFlatQuestionCommand,
 };
 use objects::{ObjectKey, ObjectRecord, Sha256Digest};
 use question_model::answer::SelectionCardinality;
@@ -23,11 +24,10 @@ use question_model::run_policy::{
 };
 use question_model::taxonomy::License;
 use question_model::{
-    ActivityTimestamp, AssetId, AssignmentEnrollment, AssignmentId, AssignmentItem,
-    AssignmentItemId, BackendCapabilities, CourseId, CourseMembership, CourseMembershipRole,
-    DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, PointValue, ProblemId,
-    QuestionAttemptId, QuestionBackend, QuestionMetadata, QuestionSource, RunId, StudentId,
-    TenantId, UserId, UserRole, VersionId, WorkspaceId,
+    ActivityTimestamp, AssetId, AssignmentId, AssignmentItem, AssignmentItemId,
+    BackendCapabilities, CourseId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
+    PointValue, ProblemId, QuestionAttemptId, QuestionBackend, QuestionMetadata, QuestionSource,
+    RunId, TenantId, UserId, UserRole, VersionId, WorkspaceId,
 };
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -271,6 +271,11 @@ async fn published_flat_fixture() -> (
                 }),
                 publisher: owner,
                 scope: question_model::PublicationScope::Institution,
+                byline: question_model::PublicByline::new(vec![
+                    question_model::PublicAuthorName::new("PLE fixture".to_string())
+                        .expect("valid test byline"),
+                ])
+                .expect("valid test byline"),
                 capabilities: BackendCapabilities::from_iter([Capability::ServerGrading]),
             },
         )
@@ -334,26 +339,37 @@ async fn flat_run_fixture() -> (Router, String, AssignmentId) {
     let course = CourseId::from_uuid(uuid(121));
     let assignment = AssignmentId::from_uuid(uuid(122));
     store
-        .upsert_course(
+        .create_course(
             context,
-            CourseRecord {
-                id: course,
-                tenant,
-                title: "Retry semantics".to_string(),
-                members: vec![
-                    CourseMembership {
-                        user: instructor,
-                        role: CourseMembershipRole::Instructor,
-                    },
-                    CourseMembership {
-                        user: student,
-                        role: CourseMembershipRole::Student,
-                    },
-                ],
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "Retry semantics".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("explicit fixture course term"),
+                },
+                initial_instructor: instructor,
             },
         )
         .await
         .expect("retry fixture course saves");
+    store
+        .upsert_course_member(
+            context,
+            UpsertCourseMember {
+                course,
+                user: student,
+                display_name: "Retry learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("retry fixture student membership");
     store
         .create_untimed_assignment(
             context,
@@ -361,6 +377,7 @@ async fn flat_run_fixture() -> (Router, String, AssignmentId) {
                 id: assignment,
                 tenant,
                 course_id: course,
+                audience: question_model::AssignmentAudience::CourseWide,
                 title: "Retry semantics".to_string(),
                 items: vec![AssignmentItem {
                     id: AssignmentItemId::from_uuid(uuid(123)),
@@ -381,22 +398,6 @@ async fn flat_run_fixture() -> (Router, String, AssignmentId) {
         )
         .await
         .expect("retry fixture assignment saves");
-    store
-        .create_enrollment(
-            context,
-            AssignmentEnrollment {
-                id: question_model::EnrollmentId::from_uuid(uuid(124)),
-                tenant,
-                assignment,
-                user: student,
-                student: StudentId::from_uuid(uuid(125)),
-                first_completed_at: None,
-                current_grade_run: None,
-                best_grade_run: None,
-            },
-        )
-        .await
-        .expect("retry fixture enrollment saves");
     let subject = SessionSubject::new(tenant, student, "Retry student", vec![UserRole::Student])
         .expect("retry fixture session subject");
     let issued = crate::auth::issue_session(
@@ -554,6 +555,11 @@ async fn native_bridge_reproduces_only_with_exact_memory_catalog_assets() {
                 flat_question_promotion: None,
                 publisher,
                 scope: question_model::PublicationScope::Institution,
+                byline: question_model::PublicByline::new(vec![
+                    question_model::PublicAuthorName::new("PLE fixture".to_string())
+                        .expect("valid test byline"),
+                ])
+                .expect("valid test byline"),
                 capabilities: BackendCapabilities::from_iter([
                     Capability::AlgorithmicGeneration,
                     Capability::ClientRendering,

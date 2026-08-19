@@ -291,7 +291,7 @@ impl AccountIdentityStore for MemoryStore {
             .courses
             .iter()
             .filter_map(|((tenant, course), record)| {
-                let role = record.role_for(user)?;
+                let role = super::entitlement::current_course_role(&state, *tenant, *course, user)?;
                 if role == CourseMembershipRole::Student
                     && !super::course_records_accessible(&state, *tenant, *course)
                 {
@@ -324,7 +324,8 @@ impl AccountIdentityStore for MemoryStore {
                 if *stored_course != course {
                     return None;
                 }
-                let role = record.role_for(user)?;
+                let role =
+                    super::entitlement::current_course_role(&state, *tenant, *stored_course, user)?;
                 if role == CourseMembershipRole::Student
                     && !super::course_records_accessible(&state, *tenant, *stored_course)
                 {

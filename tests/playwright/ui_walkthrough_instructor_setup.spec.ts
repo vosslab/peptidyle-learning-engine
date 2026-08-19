@@ -58,6 +58,18 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
   await tabTo(page, courseTitleInput);
   await expect(courseTitleInput).toBeFocused();
   await courseTitleInput.fill(courseTitle);
+  const startDateInput = page.getByLabel("Start date");
+  await tabTo(page, startDateInput);
+  await expect(startDateInput).toBeFocused();
+  await startDateInput.fill("2026-08-24");
+  const endDateInput = page.getByLabel("End date");
+  await tabTo(page, endDateInput);
+  await expect(endDateInput).toBeFocused();
+  await endDateInput.fill("2026-12-18");
+  const timeZoneInput = page.getByLabel("Time zone (IANA)");
+  await tabTo(page, timeZoneInput);
+  await expect(timeZoneInput).toBeFocused();
+  await timeZoneInput.fill("America/Chicago");
   const createCourse = page.getByRole("button", { name: "Create course", exact: true });
   await tabTo(page, createCourse);
   await expect(createCourse).toBeFocused();

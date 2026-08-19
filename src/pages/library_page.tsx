@@ -211,6 +211,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                   <article class="catalog-row" style={{ height: `${rowHeightPx()}px` }}>
                     <h2>{row.title}</h2>
                     <p>{row.summary}</p>
+                    <p aria-label="Published by">By {row.byline.join(", ")}</p>
                     <p class="card-kicker">{row.taxonomy.join(" / ")}</p>
                     <CopyableQuestionId displayId={row.displayId} />
                     <A class="quiet-link" href={catalogLink(row)}>

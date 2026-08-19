@@ -70,7 +70,7 @@ export function RunSummaryPage(): JSX.Element {
     setPracticeError(null);
     try {
       const run = await runtime.client.startRun(assignment);
-      navigate(`/runs/${runRouteReference(run.publicId)}`);
+      navigate(`/runs/${runRouteReference(run.reference)}`);
     } catch {
       setPracticeError("Could not start a fresh practice run. Your summary is still available.");
     }

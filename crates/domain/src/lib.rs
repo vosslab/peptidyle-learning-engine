@@ -11,6 +11,11 @@ pub mod attempt;
 pub mod completion;
 /// Key-free deterministic workspace-draft prompt preview (MOD-WASM).
 pub mod draft_preview;
+/// Pure current assignment-policy resolution after S5 entitlement.
+pub mod effective_assignment_policy;
+/// Pure current-entitlement evaluation. Persistence supplies normalized facts;
+/// this module never reads a roster, database, clock, or browser token.
+pub mod entitlement;
 /// Seeded question generation (MOD-GEN).
 pub mod generator;
 /// Current tenant-owned course item-analysis projections (MOD-STATS).

@@ -23,11 +23,17 @@ impl crate::FeedbackStore for MemoryStore {
         let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
         let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
         require_course_records_accessible(&state, tenant, assignment.course_id)?;
-        let course = state
+        state
             .courses
             .get(&(tenant, assignment.course_id))
             .ok_or(StoreError::NotFound)?;
-        if course.role_for(command.actor) != Some(CourseMembershipRole::Instructor) {
+        if super::entitlement::current_course_role(
+            &state,
+            tenant,
+            assignment.course_id,
+            command.actor,
+        ) != Some(CourseMembershipRole::Instructor)
+        {
             return Err(StoreError::NotFound);
         }
         if !state.submissions.contains_key(&(tenant, command.attempt)) {
@@ -81,13 +87,23 @@ impl crate::FeedbackStore for MemoryStore {
         let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
         let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
         require_course_records_accessible(&state, tenant, assignment.course_id)?;
-        let course = state
+        state
             .courses
             .get(&(tenant, assignment.course_id))
             .ok_or(StoreError::NotFound)?;
-        if actor == enrollment.user {
-            require_active_learner_membership(&state, tenant, assignment.course_id, actor)?;
-        } else if course.role_for(actor) != Some(CourseMembershipRole::Instructor) {
+        let learner_self = super::entitlement::require_current_enrollment_entitlement(
+            &state,
+            tenant,
+            actor,
+            assignment.course_id,
+            assignment.id,
+            &enrollment,
+        )
+        .is_ok();
+        if !learner_self
+            && super::entitlement::current_course_role(&state, tenant, assignment.course_id, actor)
+                != Some(CourseMembershipRole::Instructor)
+        {
             return Err(StoreError::NotFound);
         }
         Ok(state.feedback_releases.get(&(tenant, attempt_id)).cloned())
@@ -109,13 +125,23 @@ impl crate::FeedbackStore for MemoryStore {
         let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
         let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
         require_course_records_accessible(&state, tenant, assignment.course_id)?;
-        let course = state
+        state
             .courses
             .get(&(tenant, assignment.course_id))
             .ok_or(StoreError::NotFound)?;
-        if actor == enrollment.user {
-            require_active_learner_membership(&state, tenant, assignment.course_id, actor)?;
-        } else if course.role_for(actor) != Some(CourseMembershipRole::Instructor) {
+        let learner_self = super::entitlement::require_current_enrollment_entitlement(
+            &state,
+            tenant,
+            actor,
+            assignment.course_id,
+            assignment.id,
+            &enrollment,
+        )
+        .is_ok();
+        if !learner_self
+            && super::entitlement::current_course_role(&state, tenant, assignment.course_id, actor)
+                != Some(CourseMembershipRole::Instructor)
+        {
             return Err(StoreError::NotFound);
         }
         let summary = state
@@ -135,10 +161,10 @@ impl crate::FeedbackStore for MemoryStore {
             .filter(|attempt| attempt.tenant == tenant && attempt.run == run.id)
         {
             let current = projected_attempt(&state, tenant, attempt);
-            if actor == enrollment.user && current.status == AttemptStatus::Cleared {
+            if learner_self && current.status == AttemptStatus::Cleared {
                 continue;
             }
-            if actor == enrollment.user {
+            if learner_self {
                 let assignment_item = state
                     .run_items
                     .get(&(tenant, run.id))

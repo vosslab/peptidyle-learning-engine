@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::ProblemVersionRef;
-use crate::RunPublicId;
+use crate::RunReference;
 use crate::UserId;
 use crate::generation::GeneratorReference;
 use crate::identity::{ObjectId, ProblemId, VersionId};
@@ -43,6 +43,15 @@ pub struct CourseId(Uuid);
 /// One current membership group inside a tenant-owned course.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CourseGroupId(Uuid);
+
+/// One durable course-local membership record.
+///
+/// This identity is historical evidence as well as the single current
+/// membership lock target.  It is intentionally distinct from a user and a
+/// student record: revocation and a later reinvitation must not rewrite a
+/// receipt minted under an earlier membership.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct CourseMembershipId(Uuid);
 
 /// A student enrolled in an assignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -99,6 +108,7 @@ impl_activity_identifier!(AssignmentItemId);
 impl_activity_identifier!(AssignmentSelectionGroupId);
 impl_activity_identifier!(CourseId);
 impl_activity_identifier!(CourseGroupId);
+impl_activity_identifier!(CourseMembershipId);
 impl_activity_identifier!(StudentId);
 impl_activity_identifier!(AssignmentPolicyExceptionId);
 impl_activity_identifier!(EnrollmentId);
@@ -197,7 +207,7 @@ pub struct AssignmentRun {
     /// Durable run identity.
     pub id: RunId,
     /// Stable typed locator used in application navigation.
-    pub public_id: RunPublicId,
+    pub reference: RunReference,
     /// RLS boundary carried directly on this educational record.
     pub tenant: TenantId,
     /// Enrollment that owns this run.

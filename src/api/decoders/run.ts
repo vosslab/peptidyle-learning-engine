@@ -2,6 +2,15 @@
 
 import type { AssignmentEnrollment } from "../../../generated/api/AssignmentEnrollment";
 import type { AssignmentRun } from "../../../generated/api/AssignmentRun";
+import type { RunRouteReference } from "../../navigation/public_route";
+import { parseRunReference } from "../../navigation/public_route";
+
+function decodeRunReference(value: unknown, path: string): RunRouteReference {
+  if (typeof value !== "string") throw new DecodeError(path, "an R- reference");
+  const reference = parseRunReference(value);
+  if (reference === null) throw new DecodeError(path, "an R- reference");
+  return reference;
+}
 import type { AssignmentSummary } from "../../../generated/api/AssignmentSummary";
 import type { AttemptProvenance } from "../../../generated/api/AttemptProvenance";
 import type { AttemptStatus } from "../../../generated/api/AttemptStatus";
@@ -52,7 +61,6 @@ import {
   decodeCursor,
   decodeCursorPage,
   decodeIdentifier,
-  decodePublicRouteNumber,
   decodeSha256,
   decodeTaxonomyTerm,
   decodeTimestamp,
@@ -217,7 +225,7 @@ export function decodeAssignmentRun(value: unknown, path = "response"): Assignme
   const record = decodeRecord(value, path);
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    publicId: decodePublicRouteNumber(field(record, "publicId", path), `${path}.publicId`),
+    reference: decodeRunReference(field(record, "reference", path), `${path}.reference`),
     tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
     enrollment: decodeIdentifier(field(record, "enrollment", path), `${path}.enrollment`),
     runNumber: decodePositiveInteger(field(record, "runNumber", path), `${path}.runNumber`),
@@ -242,7 +250,7 @@ function decodeStrictAssignmentRun(value: unknown, path: string): AssignmentRun 
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
-    "publicId",
+    "reference",
     "tenant",
     "enrollment",
     "runNumber",
@@ -638,9 +646,7 @@ export function decodeTaxonomyPage(value: unknown, path = "response"): CursorPag
 }
 
 export function decodeCoursePage(value: unknown, path = "response"): CursorPage<CourseSummary> {
-  return decodeCursorPage(value, path, (item, itemPath) =>
-    decodeCourseSummary(item, itemPath, true),
-  );
+  return decodeCursorPage(value, path, decodeCourseSummary);
 }
 
 export function decodeAssignmentPage(

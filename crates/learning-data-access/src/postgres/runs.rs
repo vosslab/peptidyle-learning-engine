@@ -26,9 +26,6 @@ async fn require_active_learner_run(
         Err(error) => return Err(error),
     };
     let enrollment = load_enrollment_for_update(transaction, tenant, record.enrollment).await?;
-    if enrollment.user != actor {
-        return Ok(None);
-    }
     let assignment = load_assignment(transaction, tenant, enrollment.assignment).await?;
     let accessible: bool =
         sqlx::query_scalar("SELECT public.ple_course_records_accessible($1, $2)")
@@ -40,13 +37,20 @@ async fn require_active_learner_run(
     if !accessible {
         return Err(StoreError::NotFound);
     }
-    transaction_context::require_active_learner_membership(
+    let decision = super::entitlement::evaluate_current(
         transaction,
         tenant,
-        enrollment.assignment,
         actor,
+        assignment.course_id,
+        enrollment.assignment,
     )
     .await?;
+    match decision {
+        domain::entitlement::EntitlementDecision::Granted(grant)
+            if grant.student() == enrollment.student => {}
+        domain::entitlement::EntitlementDecision::Granted(_)
+        | domain::entitlement::EntitlementDecision::Denied(_) => return Ok(None),
+    }
     Ok(Some(record))
 }
 
@@ -440,18 +444,20 @@ impl crate::RunStore for PostgresStore {
         let enrollment =
             load_enrollment_for_update(&mut transaction, context.tenant_id(), run.enrollment)
                 .await?;
-        if enrollment.user != command.actor {
-            return Err(StoreError::Forbidden);
-        }
         let assignment =
             load_assignment(&mut transaction, context.tenant_id(), enrollment.assignment).await?;
-        transaction_context::require_active_learner_membership(
+        let decision = super::entitlement::evaluate_current(
             &mut transaction,
             context.tenant_id(),
-            enrollment.assignment,
             command.actor,
+            assignment.course_id,
+            enrollment.assignment,
         )
         .await?;
+        if !matches!(decision, domain::entitlement::EntitlementDecision::Granted(ref grant) if grant.student() == enrollment.student)
+        {
+            return Err(StoreError::NotFound);
+        }
         let submitted: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM submission_idempotency WHERE tenant_id = $1 AND attempt_id = $2)")
             .bind(context.tenant_id().as_uuid()).bind(reservation.predecessor.as_uuid())
             .fetch_one(&mut *transaction).await.map_err(map_sqlx_error)?;
@@ -525,8 +531,19 @@ impl crate::RunStore for PostgresStore {
             run_record.enrollment,
         )
         .await?;
-        if enrollment.user != actor {
-            return Err(StoreError::Forbidden);
+        let assignment =
+            load_assignment(&mut transaction, context.tenant_id(), enrollment.assignment).await?;
+        let decision = super::entitlement::evaluate_current(
+            &mut transaction,
+            context.tenant_id(),
+            actor,
+            assignment.course_id,
+            enrollment.assignment,
+        )
+        .await?;
+        if !matches!(decision, domain::entitlement::EntitlementDecision::Granted(ref grant) if grant.student() == enrollment.student)
+        {
+            return Err(StoreError::NotFound);
         }
         let row = sqlx::query("SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, presentation_digest FROM question_prefetch WHERE tenant_id = $1 AND run_id = $2 AND predecessor_attempt_id = $3 AND assignment_position = $4")
             .bind(context.tenant_id().as_uuid()).bind(run.as_uuid()).bind(predecessor.as_uuid()).bind(i32::try_from(assignment_position).map_err(|_| StoreError::InvalidRecord("prefetch position is too large".to_string()))?)
@@ -756,8 +773,8 @@ impl crate::RunStore for PostgresStore {
                ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id \
              LEFT JOIN submission_evaluation AS evaluation \
                ON evaluation.tenant_id = qa.tenant_id AND evaluation.attempt_id = qa.attempt_id \
-             LEFT JOIN attempt_timing_current AS timing \
-               ON timing.tenant_id = qa.tenant_id AND timing.attempt_id = qa.attempt_id \
+             LEFT JOIN attempt_effective_policy_current AS current_effect ON current_effect.tenant_id=qa.tenant_id AND current_effect.attempt_id=qa.attempt_id \
+             LEFT JOIN attempt_effective_policy_receipt AS timing ON timing.tenant_id=current_effect.tenant_id AND timing.attempt_id=current_effect.attempt_id AND timing.receipt_generation=current_effect.receipt_generation \
              WHERE qa.tenant_id = $1 AND qa.run_id = $2 \
                AND ($3::text IS NULL OR \
                     lpad(qa.assignment_position::text, 10, '0') || '/' || \
@@ -797,7 +814,7 @@ impl crate::RunStore for PostgresStore {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(None);
         }
-        let rows = sqlx::query("SELECT lpad(qa.assignment_position::text, 10, '0') || '/' || lpad((extract(epoch FROM qa.occurred_at) * 1000)::bigint::text, 20, '0') || '/' || qa.attempt_id::text AS stable_key, COALESCE(si.payload, qa.payload) AS payload, COALESCE(si.payload_sha256, qa.payload_sha256) AS payload_sha256, evaluation.payload AS evaluation_payload, evaluation.payload_sha256 AS evaluation_payload_sha256, evaluation.grading_status AS evaluation_grading_status, qa.attempt_status AS current_attempt_status, floor(extract(epoch FROM qa.submitted_at) * 1000)::bigint AS current_submitted_at, floor(extract(epoch FROM timing.effective_deadline) * 1000)::bigint AS current_deadline_at FROM question_attempt AS qa LEFT JOIN submission_idempotency AS si ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id LEFT JOIN submission_evaluation AS evaluation ON evaluation.tenant_id = qa.tenant_id AND evaluation.attempt_id = qa.attempt_id LEFT JOIN attempt_timing_current AS timing ON timing.tenant_id = qa.tenant_id AND timing.attempt_id = qa.attempt_id WHERE qa.tenant_id = $1 AND qa.run_id = $2 AND ($3::text IS NULL OR lpad(qa.assignment_position::text, 10, '0') || '/' || lpad((extract(epoch FROM qa.occurred_at) * 1000)::bigint::text, 20, '0') || '/' || qa.attempt_id::text > $3) ORDER BY qa.assignment_position, qa.occurred_at, qa.attempt_id::text LIMIT $4").bind(context.tenant_id().as_uuid()).bind(run.as_uuid()).bind(cursor).bind(limit).fetch_all(&mut *transaction).await.map_err(map_sqlx_error)?;
+        let rows = sqlx::query("SELECT lpad(qa.assignment_position::text, 10, '0') || '/' || lpad((extract(epoch FROM qa.occurred_at) * 1000)::bigint::text, 20, '0') || '/' || qa.attempt_id::text AS stable_key, COALESCE(si.payload, qa.payload) AS payload, COALESCE(si.payload_sha256, qa.payload_sha256) AS payload_sha256, evaluation.payload AS evaluation_payload, evaluation.payload_sha256 AS evaluation_payload_sha256, evaluation.grading_status AS evaluation_grading_status, qa.attempt_status AS current_attempt_status, floor(extract(epoch FROM qa.submitted_at) * 1000)::bigint AS current_submitted_at, floor(extract(epoch FROM timing.effective_deadline) * 1000)::bigint AS current_deadline_at FROM question_attempt AS qa LEFT JOIN submission_idempotency AS si ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id LEFT JOIN submission_evaluation AS evaluation ON evaluation.tenant_id = qa.tenant_id AND evaluation.attempt_id = qa.attempt_id LEFT JOIN attempt_effective_policy_current AS current_effect ON current_effect.tenant_id=qa.tenant_id AND current_effect.attempt_id=qa.attempt_id LEFT JOIN attempt_effective_policy_receipt AS timing ON timing.tenant_id=current_effect.tenant_id AND timing.attempt_id=current_effect.attempt_id AND timing.receipt_generation=current_effect.receipt_generation WHERE qa.tenant_id = $1 AND qa.run_id = $2 AND ($3::text IS NULL OR lpad(qa.assignment_position::text, 10, '0') || '/' || lpad((extract(epoch FROM qa.occurred_at) * 1000)::bigint::text, 20, '0') || '/' || qa.attempt_id::text > $3) ORDER BY qa.assignment_position, qa.occurred_at, qa.attempt_id::text LIMIT $4").bind(context.tenant_id().as_uuid()).bind(run.as_uuid()).bind(cursor).bind(limit).fetch_all(&mut *transaction).await.map_err(map_sqlx_error)?;
         let result = page_from_rows_with(
             rows,
             page.size.get(),

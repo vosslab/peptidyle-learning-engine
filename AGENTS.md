@@ -2,6 +2,12 @@
 
 - `docs/active_plans/implementation_plan.md` and its active release plan are the source of truth for
   scope, architecture, contracts, dependency order, validation, and acceptance.
+- `docs/active_plans/implementation_status.md` is the sole source of truth for the changing global
+  current-package handoff and shared migration allocation registry. Plans own scope, dependency
+  order, validation, and acceptance; they link to status instead of copying mutable handoff values.
+- Package identities that cross plans, status, migration allocation, or changelog evidence must be
+  globally unique and plan-namespaced. Reserve `WP-PROF-*` for the active professor roadmap; keep
+  accepted cross-roadmap keys (`WP-R0`, `WP-R1`, `WP-R2`, and `WP-PY-L1`) unchanged.
 - Preserve durable owner decisions in `docs/HUMAN_GUIDANCE.md`.
 - Complete one defined task in dependency order. Use its narrow validation and acceptance gate before
   continuing, then update `docs/CHANGELOG.md`.
