@@ -3,11 +3,10 @@
 This file records durable project guidance from the repository owner. Apply it
 alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 
-- Keep this file close to the owner's actual words. Put engineering
-  interpretations, inferred requirements, and implementation details in the
-  active plan or workstream documents instead.
-- When the owner corrects an interpretation, update this file to preserve the
-  correction.
+> Maintenance note: Prior manager runs expanded concise human specifications
+> into additional inferred requirements. Keep this file tight to the human's
+> specification. Put engineering interpretation and implementation detail in
+> the active plan or a focused technical document.
 
 - Keep every source file below 1000 lines by moving complete capabilities into
   focused modules before a parent file becomes an implementation warehouse.
@@ -19,51 +18,24 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   Instructors are expected to use laptops predominantly, and students are expected to use laptops
   most often as well. A supported laptop browser may occupy only part of a larger physical display;
   do not assume full-screen desktop use.
-- Treat an 800 by 1280 portrait browser as a high-priority student/tablet target alongside the
-  laptop, because student devices are more variable than instructor devices. Tablet is a student
-  design target rather than a second tier. That variability must not make the canonical laptop
-  interface padded, stacked, or visually compromised.
-- Keep ordinary narrow phones genuinely usable for occasional work, such as completing an assignment
-  on a phone while commuting: prevent horizontal overflow, preserve accessible controls and
-  navigation, and reorganize individual components when available space requires it.
-  A phone layout may be less elegant and need not preserve the desktop information density or visual
-  composition. Do not redesign or stack the entire product merely to optimize for a
-  320-pixel-wide viewport; narrow-phone checks are compatibility guards, not the design canvas.
-- Adapt layout with CSS Grid and Flexbox plus complementary media and container queries. Use a small
-  accessible disclosure menu when the visible navigation actually runs out of space. SolidJS manages
-  interface state but does not replace CSS layout. Do not add an npm responsive-menu dependency
-  unless the current navigation has a demonstrated interaction need that native HTML and CSS cannot
-  meet cleanly.
-- Distinguish physical panel resolution from the browser's CSS-pixel viewport when recording
-  evidence. Center visual acceptance on the canonical 1280 by 800 laptop window for both roles,
-  cover student surfaces at both 1280 by 800 and the high-priority 800 by 1280 tablet target, and
-  keep one narrow-phone compatibility guard.
-  Do not expand the viewport matrix without a demonstrated product problem.
 - For planning, professor surfaces target at least 1280 by 800 CSS pixels. Use this student planning
   mix: 1280 by 800 laptop 40%, 800 by 1280 portrait tablet 30%, iPhone Pro aspect 20%, and square
   aspect 10%. These are planning weights, not test quotas or telemetry targets.
 - Permanent visual evidence is organized under `docs/screenshots/` by role and by student/access
   boundary. The exact CSS-pixel matrix is 1280 by 800 (16:10), 800 by 1280 (10:16), 393 by 852
   (iPhone Pro aspect), and 800 by 800 (square), with planning weights of 40%, 30%, 20%, and 10%.
-- Professor evidence remains desktop evidence at 1280 by 800 or larger. Student evidence must show
-  an allowed student surface and a fail-closed denial of instructor-only routes. Because pixels cannot
-  prove authorization, every student/access capture is paired with no-transport assertions and direct
-  route probes.
-- The committed corpus is owned only by its manifest. Screenshots count as acceptance evidence only
-  after a fresh capture and inspection; a retained image does not by itself prove that the current
-  implementation passes. Email is unavailable for live evidence, so local-development credentials or
-  invitations are permitted without claiming email delivery.
+- A project **demo** uses actual PostgreSQL with the real migrations, schema, RLS, and persistent
+  seeded data through the ordinary browser and server stack. It shows that the site works.
+- Every fresh installation includes the demo data as a persistent base course with the students
+  already created. Returning to the demo is like checking in on a live course.
 - Keep public evidence separate from private evidence. Do not put answer keys, grading
   implementations, private source, email, UUIDs, or FERPA records in a public or learner corpus.
-  Deterministic fictional fixture addresses in the reserved `example.invalid` domain are permitted
-  in test evidence and are not real identifying records; they must remain visibly fictional.
 
 ## Interface composition and accessibility
 
 - Compose pages around the teaching task, not around individually padded components. Review
   typography, spacing, alignment, borders, controls, navigation, content width, and information
-  grouping together. Prefer shared shell and design-system corrections when the same problem appears
-  on several pages.
+  grouping together. 
 - Optimize instructor workflows first for a 1280 by 800 CSS-pixel laptop viewport. Assignment
   authoring, problem selection and organization, gradebook, roster, course management, workspace,
   and library pages should use most of the useful width when it improves scanning or editing. Four
@@ -72,54 +44,8 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   tablet as design targets, and keep them responsive across the narrow-phone compatibility guard. A
   wide screen should not force the learner's attention across an arbitrary prompt/response split;
   keep each question and its response controls in one readable composition.
-- Establish hierarchy with composition and spacing before adding borders, weight, or color. Use
-  compact page headings, quiet secondary actions, restrained dividers, and visible grouping. Do not
-  make every control look equally important.
-- Keep accessible names, semantics, keyboard operation, readable text, non-color status cues, and
-  visible focus in every presentation. Increased contrast is a user-selectable presentation mode,
-  not the visual default for every user. Standard presentation should meet the accepted 5.5:1
-  ordinary-text target while preserving the selected course palette; increased contrast may use
-  stronger text, boundaries, and focus treatment without changing content or behavior.
-- Use a precise, element-sized focus indicator. Do not place thick dark rings around an entire page
-  or content region when the focused control can be identified directly.
 - Do not reserve a persistent footer band for a slogan on teaching workspaces where vertical space
   is scarce.
-- Treat Courses as the instructor home workspace instead of copying ADAPT's generic Dashboard
-  dropdown. Keep Courses, Library, Workspace, and Account directly visible as distinct global
-  destinations; after opening a course, use course-local navigation for assignments, learners,
-  gradebook, and appearance. Add a separate dashboard only for a demonstrated cross-course task that
-  the object-centered workspaces cannot serve.
-- Every teaching course has a term and IANA time zone before it accepts absolute assignment dates.
-- Professors rehearse through the product's rehearsal path instead of a test student or `login-as`;
-  a rehearsal never carries learner identity.
-- A cross-course attention surface is permitted only under the product's stated actionability
-  predicate for work that needs an instructor's action.
-- Catalog evidence remains anonymous and says `insufficient evidence` when evidence is too weak to
-  disclose; it does not show a weak estimate.
-
-## Plan status
-
-- Treat `docs/active_plans/implementation_plan.md` as the source of truth for
-  implementation order, architecture, contracts, security, tests, and gates.
-- Use `docs/active_plans/active/release_completion_plan.md` for the decision-complete remaining
-  package sequence and binary version 1 scope. Use
-  [implementation_status.md](active_plans/implementation_status.md) as the sole global
-  current-package handoff registry. The implementation and active plans own scope and dependency
-  queues and link to that registry instead of copying its changing values.
-- Treat package identity as a repository-wide contract: any package key that crosses plans, status,
-  migration allocation, or changelog evidence must be globally unique and plan-namespaced. Reserve
-  `WP-PROF-*` for active professor-roadmap packages; keep accepted cross-roadmap keys (`WP-R0`,
-  `WP-R1`, `WP-R2`, and `WP-PY-L1`) unchanged, and preserve legacy walkthrough IDs in their own
-  historical scope.
-- The `release integrator` is the single shared migration-order and ledger owner across the release
-  and professor roadmaps. Both roadmaps reference the shared allocation registry in
-  `docs/active_plans/implementation_status.md`; a package receives a migration allocation before
-  implementing schema work, and non-schema packages do not implicitly receive one.
-- `docs/active_plans/m0-results.md` is concluded M0 evidence. Read it when M0
-  history matters; do not treat it as an active task or reopen M0 without new
-  evidence.
-- Finish and validate one work package before advancing to its dependency-order
-  successor.
 
 ## Retention defaults
 
@@ -129,39 +55,18 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Retain tenant-owned assignment definitions by default when student records
   archive or delete. A later archive workflow may offer an explicit owner
   choice without following references into shared published content.
-
-## Backup and recovery
-
-- Name SQLx migrations with a compact integer version prefix in the form
-  `YYYYMMDDNN_description.sql`, where `NN` is the two-digit sequence for that
-  day. Keep the prefix contiguous because SQLx parses everything before the
-  first underscore as one integer migration version.
-- Back up PostgreSQL role attributes and memberships together with the database,
-  but omit password hashes. Rehydrate and rotate login credentials from the
-  deployment secret manager after restoration.
-- Encrypt backup artifacts before they reach persistent storage. Restore into a
-  clean cluster and verify the migration ledger, logical data fingerprint,
-  owners, grants, forced RLS, tenant isolation, application writes, and broker
-  calls before calling the database recovered.
-- Treat a local logical restore rehearsal as recovery evidence, not as proof
-  that managed point-in-time recovery, production key management, a numerical
-  recovery objective, or the disclosed backup-retention window is deployed.
+- Project teaching-operation retention pages from the existing retention engine. Browser pages
+  display server-owned state and actions instead of reconstructing a second retention lifecycle.
 
 ## Agent-specific guidance
 
 - Codex follows `AGENTS.md` and the repository style documents.
-- A goal is not complete until the entire plan-scoped Validation test suite defined in
-  [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite) is green on the final
-  material tree. Required skips and unrun gates are not green; later material changes invalidate the
-  affected evidence. Keep the goal active until those gates and required independent reviews pass.
 - `docs/CLAUDE_HOOK_USAGE_GUIDE.md` is specific to Claude tooling and does not
   govern Codex commands or file-search behavior.
 - Choose the robust, clean methodology and keep pushing forward while the next
   safe task is clear.
-- Prioritize positive prompting, especially for small models. State the desired action, named tool,
-  scope owner, expected artifact, and success check directly. Use omission for irrelevant tools and
-  alternatives. When work stays with the manager, give the subagent only its affirmative owned
-  task. Name an unwanted action only when a concrete safety boundary requires it.
+- Prioritize positive prompting, especially for small models. State the intended action directly
+  and omit unwanted tools and actions unless a concrete safety boundary requires naming them.
 - Be efficient with time. Subagents and tokens are cheap; wall time is not.
 - Break hard problems into the smallest independently completable tasks. Give
   each task one owner, one clear outcome, and one verification step. Run
@@ -197,46 +102,27 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 ## Local services
 
 - Podman is normally running on the owner's machine.
-- Use `source source_me.sh && python3 local_stack.py` as the normal local-stack controller. Its typed
-  reusable layer is also the common lifecycle contract for Codex, aggregate Playwright acceptance,
-  and canonical walkthrough disposable ownership; do not recreate provider selection, env-file
-  sanitization, label discovery, readiness, or generic cleanup in each shell/test runner.
-- Keep direct lifecycle, configuration, private-file, identity, Podman, polling, cleanup, and renderer-provenance
-  ownership in focused private `local_stack_control` Python modules behind that controller. The controller calls
-  those modules directly; `_consumer_cli` remains a closed typed disposable adapter, while walkthrough and
-  Chapter compatibility facades stay logic-free.
-- Local-stack lifecycle tools may inspect any Compose project by label, but mutating commands should
-  affect only the default pre-production `containers` project unless a typed disposable-owner contract
-  explicitly supplies its private environment, compose target, owner evidence, and exact cleanup scope.
-- Label-derived containers, volumes, and networks are the source of truth for lifecycle scope; generated
-  resource names are not authority. The default controller never accepts arbitrary destructive project,
-  image, network, volume, force, or prune behavior.
-- A destructive local reset must show the exact project and resources, require the visible project
-  confirmation `--confirm-project containers`, and avoid unscoped container, network, or volume
-  removal.
+- Use `source source_me.sh && python3 local_stack.py` as the normal local-stack controller.
 - Treat all local Podman images and project-named simulated-data volumes as disposable acceptance
   infrastructure. Image pruning is pre-approved. Project-named simulated-data volumes may be removed
   when their named acceptance target is verified; retain the typed target, label, and explicit-resource
   safeguards so cleanup remains scoped and inspectable.
-- Use the local containers when the active work package reaches a documented
-  PostgreSQL, MinIO, health, tenancy, or other container-dependent gate.
-- Keep offline contract work on memory backends when its work-package gate does
-  not require containers.
+- Before an ordinary local stack replacement, remove all containers and orphans in the exact labelled
+  project while retaining its named simulated-data volumes; then recreate the complete designed suite.
+  After semantic readiness, prune every image not used by a current container. All images in the
+  owner's local Podman machine belong to this project and are disposable; the active full-suite
+  containers protect their current images from pruning, while obsolete application, renderer,
+  gateway, base, and intermediate builds must not accumulate.
 - Start live or full-stack Playwright only after every required long-running
   Podman service is active, each declared health check passes, and every
-  one-shot setup service exits successfully. Keep mock-backed browser tests
+  one-shot setup service exits successfully. Keep test-double-backed browser tests
   clearly separate because they do not claim local-stack acceptance.
 
 ## Teaching and product priorities
 
 - PLE is pre-production: it has no users and no current durable data. Improve
-  the current design directly. Do not add compatibility shims, legacy readers,
-  migration or adoption paths, or duplicate retained fixtures for hypothetical
-  users. Keep explicit versioning where it defines the current external or
-  artifact protocol and supports future evolution; ordinary disposable local
-  data may be rebuilt.
-- Do not squash the current PostgreSQL migration ledger during active feature
-  acceptance. Before the first production deployment, replace the unreleased
+  the current design directly.
+- Before the first production deployment, replace the unreleased
   history with one reviewed clean-cluster baseline. After that baseline ships,
   preserve each new forward migration as the durable upgrade ledger.
 - Push harder on the visual design. Make the interface less bubbly, especially by reducing overly
@@ -246,8 +132,7 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   their scope. Keep opaque globally unique identifiers for internal boundaries where that level of
   uniqueness is useful.
 - Never present a UUID in visible or announced page content, application navigation URLs, or
-  user-copyable links. Browser routes use short typed human references such as `C-123`, `A-456`,
-  `R-789`, and `W-42`; questions use the Crockford Base32 identity defined in
+  user-copyable links. questions use the Crockford Base32 identity defined in
   `docs/QUESTION_ID_SPEC.md`. Resolve every reference under the current
   tenant, role, membership, and ownership boundary. A public reference is a locator, never authority.
   Background API and asset requests and hidden form values may retain internal UUIDs when needed.
@@ -258,38 +143,6 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   lookup, but assignment copy/import and a checklist from an existing assignment are the preferred
   ways to reuse a group of questions. Preserve entered input and the unchanged assignment when an ID
   is malformed, unavailable, unauthorized, or already selected.
-- A Question ID is assigned once and names one immutable published question. PLE does not support
-  problem drift: no correction, publication, or background action may change the content reached by
-  that Question ID or automatically advance an assignment. Every authored content change, including
-  a bug fix, publishes a new question with a new Question ID; it may retain explicit provenance to
-  its source. Existing assignments remain pinned until an Instructor deliberately replaces the item.
-  Keep immutable snapshots and exact hidden `(ProblemId, VersionId)` evidence only for issued-attempt
-  replay, grading, audit, and provenance. It is never an instructor-facing selector.
-- The assigned `AAA-BBBB` Question ID is the sole durable question identity. Every real publication
-  also receives fresh opaque hidden `ProblemId` and `VersionId` evidence. Do not retain or introduce
-  a second question identity: legacy sequential `ProblemPublicId`/`P-...`, `ProblemVersionNumber`,
-  predecessor chains, and version-chain resolution are prohibited. Deterministic fixed IDs are
-  allowed only in isolated unit fixtures, derived render/cache identities, and non-question seed
-  records. A real native or WeBWorK host seed publisher mints fresh question IDs and converges a
-  rerun through an explicit protected manifest or verified existing record, never a tenant-derived
-  question UUID.
-- Python owns complex orchestration: state, arrays/parsing, private temporary files, subprocess and
-  Podman lifecycle, polling, cleanup, and lane-result aggregation. Bash is allowed only as a tiny
-  direct `exec` or `source` wrapper with no second state machine. Reuse typed Python orchestration
-  boundaries; do not create a Python wrapper around a retained complex shell launcher.
-- The product supports learning through repeated algorithmic practice. A first
-  completion or a 100 percent score must not end continued practice when policy
-  permits another run.
-- Fresh variation is more important pedagogically than seed replay. Give every
-  newly issued parameterized question instance a fresh server-owned seed;
-  preserve an existing attempt's seed only for resume, re-render, audit, and
-  debugging of that same instance.
-- Preserve server-only grading and answer secrecy. The browser may validate
-  response format but must not receive answer keys or grading implementations.
-- Keep student and course records tenant-owned while published educational
-  content remains shared and immutable.
-- Favor behavior-focused evidence that reflects what instructors and students
-  actually do over implementation-detail tests.
 
 ## User roles and student records
 
@@ -335,57 +188,20 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   Keep the complete Genetics-plus-Biochemistry eight-question learner sweep as a separate release
   gate so the walkthrough remains focused without substituting a synthetic one-question story for
   release content.
-- Have the instructor visibly copy or import the Genetics Chapter 1 assignment, then confirm its
-  four recognizable question titles and Crockford Base32 Question IDs before creating the target
-  assignment. The workflow must not reconstruct a teaching set from ranges, sequential numbers,
-  version suffixes, or UUIDs.
-- Keep the public pilot guides visually complete. Show the instructor's course, roster, published
-  problem selection, and assignment settings. Show the student's assignment list, live timed
-  problem, score, and visible option to start another practice run.
-- Use the unmistakably fictional, deterministic labels `Dr. Fake Professor`, `Mary Fake Student`,
-  and `Jack Fake Student` for local pilot identities and screenshot data. No screenshot should
-  imply that a real Roosevelt student or instructor participated.
-- Treat the approved fake-user walkthrough screenshots as required acceptance evidence. Do not use
-  student privacy as a reason to omit them. Continue excluding credentials, answer material,
-  traces, and raw child output because those are security and test-integrity boundaries.
-- Keep email outside this walkthrough. The local instructor and student identities are the intended
-  actors; no agent needs an email account, mailbox, delivered link, SMTP provider, passwordless
-  challenge, invitation-delivery proof, or canonical-account acceptance for this walkthrough.
-- Do not report missing email infrastructure as a walkthrough blocker. Canonical email identity and
-  production onboarding remain separately owned release concerns.
 - No SMTP provider or email-activation path is configured today. Fastmail is the intended future
   external provider, but that intent is not acceptance evidence: keep email-dependent controls and
   claims unavailable until operator credentials, an authorized sender, live delivery, and browser
   sign-in have each been verified.
-- When email is unconfigured, a local instructor-to-student teaching/pilot walkthrough may use the
-  fictional pilot identities, direct local roster membership, and a copyable invitation link through
-  a trusted LMS. This route-around does not accept production authentication, mailbox delivery,
-  onboarding, or release activation. Reserve "rehearsal" for the identity-free `PreviewSubject`
-  contract.
 
 ## Flat question source
 
 - Use versioned PLE flat-question JSON as the canonical machine format for
   simple static questions. Treat QTI as an import/export adapter and archival
   interchange format, not as the internal source model.
-- Keep the first version small and closed. Add an explicit format version for
-  new question families or incompatible semantics instead of accumulating
-  QTI-style expression trees and vendor extensions in one flexible document.
-- Compile answer-bearing author input into separate checksummed public question
-  content and grader-only key/feedback material. Neither authored nor published
-  source objects may receive signed delivery URLs.
-- Stable semantic choice, blank, prompt, item, and region IDs own answer meaning inside PLE; display
-  labels such as A, B, and C do not. An import adapter derives those IDs deterministically when an
-  external source uses text or position instead of authored identifiers.
 - PLE flat-question JSON must support, at a minimum, multiple choice (MC), multiple answer
   (MA), fill-in-the-blank (FIB), multiple fill-in-the-blank (MULTI-FIB),
   numerical entry (NUM), matching (MATCH), ordered list (ORDER), and image hot
   spot (HOTSPOT) questions.
-- Use closed PLE flat-question JSON version 2 as the internal source contract for all eight families.
-  Base MC, MA, MATCH, NUM, FIB, MULTI-FIB, and ORDER semantics on the reviewed QTI Package Maker item
-  model while retaining accepted answers and grading data that print-oriented writers omit. HOTSPOT
-  is a bounded PLE extension because the reviewed item model does not define it. Do not retain a
-  version 1 `singleChoice` reader, source bytes, or compatibility behavior.
 - Use QTI Package Maker's HTML self-test as the learner-interaction reference for those seven native
   families. Preserve its useful task clarity: one compact question surface, an obvious submit action,
   visible selected or entered state, exact per-part completion where a response has several parts,
@@ -398,10 +214,6 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   interactions, color-only feedback, or large padded card treatment. Native labeled controls,
   Tab/Shift+Tab plus Enter or Space, visible text status, preserved input, and recoverable submission
   errors are the primary path; pointer and arrow-key interactions are optional enhancements.
-- Treat a future external QTI-JSONL format as an adapter/interchange concern, not a prerequisite for
-  native family support. Keep any accepted external interpretation in one versioned adapter and map
-  it into PLE's answer-free public model plus grader-only private material; never spread external
-  fields across storage, routes, UI, and grading.
 - For image and other binary references, keep bytes, checksums, media types, lifecycle, and
   authorization in PLE object storage rather than embedding bytes in JSON or database rows. Port
   engine code to Rust only when a concrete integration needs it.
@@ -413,21 +225,6 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   canonical JSON contract. Prefer JSON for deterministic cross-language
   validation and checksums, not because parser speed materially affects the
   student request path.
-- Keep flat-question private material behind the dedicated grader capability.
-  Persistence may validate its opaque typed integrity and bind it to the public
-  model. Outside the narrow protected author-source route below,
-  browser-facing stores, routes, generated contracts, and the Wasm closure
-  must neither construct nor read its canonical bytes.
-- The authenticated, author-role-only flat-question source `GET`/`PUT` route is
-  the deliberately narrow browser exception for an instructor's own canonical
-  source. It must use `Cache-Control: no-store` and a strong ETag and never
-  broaden ordinary browser contracts. An author-owned immutable asset picker may
-  return the server-verified content checksum required to bind that exact asset;
-  the browser may echo but never assert that value, and the server must re-resolve
-  it on every save and publication. Never expose signed object URLs, object keys,
-  buckets, paths, or storage-record identities.
-  Learner/student preview, Wasm, public publication DTOs, and all non-author
-  routes remain answer-free.
 
 ## First content release
 
@@ -491,17 +288,13 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 
 ## Performance choices
 
-- When measured behavior is slow, consider implementing the hot path in Rust
-  or WebAssembly.
+- When measured behavior is slow, consider implementing the hot path in Rust/WebAssembly.
 - Keep the security boundary intact when optimizing: deterministic generation,
   response-format validation, timer display, and state transitions may run in
   WebAssembly; answers, keys, and correctness decisions remain server-only.
 
 ## Score precision and display
 
-- Use `f64` for scoring calculations and `AttemptResult` across Rust, WebAssembly,
-  and browser projections. Do not replace ordinary score arithmetic with `f32`
-  or a scaled-integer points model.
 - Round computed current points explicitly to at most four decimal places before
   persistence. Keep PostgreSQL `NUMERIC` as the rounded storage boundary without
   forcing general Rust scoring code to use fixed-point arithmetic.
@@ -537,30 +330,10 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Split by ownership and behavior rather than arbitrary line ranges. Preserve
   public paths and typed contracts during structural extraction so module work
   does not force unrelated callers to change.
-- Keep walkthrough entry scripts thin. Put reusable Python orchestration in a
-  dedicated importable package while preserving the documented shell command;
-  keep browser journeys under `tests/playwright/` as separate visible evidence.
-- Give Python programs a small explicit interface: put choices that an operator
-  makes between runs in documented `argparse` arguments or a selected
-  configuration file. Reserve the process environment for operating-system and
-  ecosystem configuration, not hidden walkthrough modes, ports, paths, or
-  credentials. When fixed child processes need a handoff, pass one explicit,
-  versioned private input file by argument; validate its schema, ownership,
-  path, and permissions at each boundary.
-- A production worker may claim a job family only when that registry entry has
-  both a real handler and its atomic committer. Derive the queue-family filter
-  from those complete entries; leave reserved work queued instead of adding a
-  placeholder or allowing a partial worker to consume it. Scale worker
-  processes for concurrency and keep one bounded job between shutdown checks.
 - Use plain capability names before implementation jargon in code comments,
   documentation, commands, and contributor handoffs. `learning-data-access`
   owns persistence contracts and backends, `in_memory` names its database-free
   backend module, and `project-tools` contains repository-only automation.
-- Use hyphens for Cargo package and crate-directory names, such as
-  `learning-data-access` and `project-tools`. Use underscores for Rust module
-  and import names, such as `in_memory` and `learning_data_access`.
-- Invoke repository automation through `cargo tools`. Do not retain the opaque
-  `cargo xtask` compatibility alias after the atomic naming migration.
 
 ## Authentication storage and compliance
 
@@ -590,15 +363,10 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   reluctantly, use deliberately, and purge predictably under the course
   retention policy.
 
-- Store the opaque authentication credential in one host-only HttpOnly cookie,
-  not in `localStorage`. JavaScript must never be able to read the bearer
-  credential.
+- Store the opaque authentication credential in one host-only HttpOnly cookie. 
+  JavaScript must never be able to read the bearer credential.
 - Use the cookie only for authentication, session security, expiration, and
-  revocation needed to provide the signed-in service. Do not attach analytics,
-  advertising, cross-site tracking, or unrelated preference data to it.
-- Treat `localStorage` and similar browser mechanisms as storage/access
-  technologies too; changing the browser API is not a way around European
-  storage-consent rules.
+  revocation needed to provide the signed-in service.
 - Classify the authentication cookie as strictly necessary only while it is
   essential to the service explicitly requested by the user and has no
   secondary purpose. Clearly disclose its name, purpose, deployment context,
@@ -621,10 +389,8 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 ## Security design decisions
 
 - Encrypt PostgreSQL, object storage, backups, and deployment volumes at rest
-  with managed encryption and scoped KMS keys. Do not add blanket application
-  encryption to immutable public published content: its delivery needs CDN
-  access and its integrity is enforced by immutable publication evidence and
-  SHA-256 bindings. Use application AEAD selectively for stored secrets such
+  with managed encryption and scoped KMS keys. 
+  Use application AEAD selectively for stored secrets such
   as external-tool launch state.
 - Security concealment and accessible teaching guidance are complementary:
   revoked or unauthorized learners receive the same generic unavailable/not-
