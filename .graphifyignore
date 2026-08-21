@@ -3,3 +3,10 @@ tests/
 devel/
 tools/
 docs/
+generated/
+dist/
+dist_wasm/
+node_modules/
+target/
+OTHER_REPOS/
+LOCAL_ONLY/
