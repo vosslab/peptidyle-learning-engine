@@ -257,7 +257,7 @@ tests/
 +- test_*.py          Fast repository-policy and documentation checks
 +- test_local_stack_control.py Offline typed local-stack controller contracts
 +- test_*.mjs         Deterministic browser-contract checks without a browser
-+- playwright/        Built-browser tests, browser-test helper, and private live-validation runner
++- playwright/        Production-browser scenarios and private live-validation helpers
 +- e2e/               Generic disposable whole-system runners
 |  +- `compose.live-demo-browser.yaml` Owner-locked disposable production-auth/TLS E2E overlay; not an operator production deployment
 |  `- `Caddyfile.live-demo-browser` Owner-locked disposable production-auth/TLS E2E gateway; not an operator production deployment
@@ -270,10 +270,11 @@ generated/
 `- fixtures/          Generated fixture projections
 ```
 
-`dist/`, `dist_browser_test/`, `dist_wasm/`, `target/`, `test-results/`, and Playwright report
-directories are reproducible ignored output. `dist_browser_test/` is the isolated browser-test
-artifact served by `tests/playwright/helper_browser_test_server.mjs` and its browser-test/test-double
-transport. Checked-in fixtures under
+`dist/`, `dist_wasm/`, `target/`, `test-results/`, and Playwright report directories are reproducible
+ignored output. `dist/` is the production browser artifact used by local development, the canonical
+disposable browser suite, and connected acceptance. V1 moves canonical screenshot capture to that
+same origin; current visual-fixture lanes and retained images remain transitional evidence. Legacy
+alternate browser-test output remains ignored only until its retirement inventory completes. Checked-in fixtures under
 `tests/fixtures/` are source evidence and should change deliberately.
 
 Committed visual evidence lives under `docs/screenshots/`, organized by role and access boundary:
@@ -288,8 +289,8 @@ docs/screenshots/
 
 `tests/playwright/ui_corpus_manifest.ts` is the sole screenshot ownership authority. The directories
 describe evidence boundaries; the manifest owns artifact names, routes, roles, pipelines, viewports,
-and evidence purposes. A retained image is not acceptance evidence until a fresh capture and visual
-inspection pass.
+and evidence purposes. A retained image is not canonical acceptance evidence until V1 captures it
+from the real origin and its provenance verifier and visual review pass.
 
 `python3 local_stack.py acceptance` is the explicit live aggregate entry point. It
 hands lifecycle conflict detection and environment sanitization to the controller, then

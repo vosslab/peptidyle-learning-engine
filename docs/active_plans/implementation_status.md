@@ -11,13 +11,14 @@ documents link here instead of copying those mutable values.
 The active [professor capability plan](active/professor_capability_architecture_plan.md) supplements
 the release plan and does not replace it. This file is the sole global current-package handoff
 registry: WP-PROF-T2 and WP-PROF-LD1 are accepted on 2026-08-20; WP-PROF-LD2 is accepted on
-2026-08-21; WP-PROF-T3 is the sole current professor package; and the release queue is PARKED at
+2026-08-21; WP-PROF-BS1 is the sole current professor package; and the release queue is PARKED at
 still-open WP-RC8.
 The professor and release plans own their scope and dependency queues, but defer current-handoff
 truth to this registry. WP-PROF-S1, WP-PROF-S2, WP-PROF-S3, WP-PROF-S4, WP-PROF-S5, and WP-PROF-S7
 are accepted, as are WP-PROF-S6, WP-PROF-T1, WP-PROF-T2, WP-PROF-LD1, and WP-PROF-LD2. LD1 delivered
 the live-demo baseline lifecycle. LD2 accepted its seeded-entry, initial-Sysadmin-claim, and
-connected-live-authoring capability. WP-PROF-T3 is current. LD2 uses the
+connected-live-authoring capability. WP-PROF-BS1 is current. WP-PROF-T3 is the planned frozen-scope
+successor after accepted BS1, and WP-PROF-T4 follows T3. LD2 uses the
 necessary existing WP-RC8 account-session/passkey/origin contracts; its claim, passkey, and
 Student/Instructor selector seams remain non-schema. WP-RC8 remains PARKED and open for provider,
 mailbox, unrelated passkey, multi-replica, security, HCI, and release gates.
@@ -33,12 +34,13 @@ to bind configured first-ownership proof. Its separately accepted immutable `202
 narrow Student pre-tenant account-course context retention-boundary repair. Selector behavior and
 claim, passkey, account, and session data and semantics remain non-schema; the generation-read
 broker is the narrow schema authorization seam for that otherwise non-schema ownership flow.
-WP-PROF-T3 is current and is a
-non-schema, non-mutating preview plane: it reuses the forced-RLS `audit_event` and writable
-repeatable-read snapshot for the one successful learner-derived-subject audit, while accepted
-`2026081807_teaching_operations.sql` remains immutable. The active professor plan owns the frozen
-LD1 and T3 scope, privacy boundaries, dependencies, and acceptance matrices; this registry owns
-only the current-package handoff and migration allocation truth.
+WP-PROF-BS1 is current and is a non-schema browser-architecture package unless implementation
+discovers an independent real persistence requirement. It owns the canonical disposable HTTPS
+production-browser suite. WP-PROF-T3 remains the planned, non-schema, non-mutating preview plane:
+it reuses the forced-RLS `audit_event` and writable repeatable-read snapshot for the one successful
+learner-derived-subject audit, while accepted `2026081807_teaching_operations.sql` remains immutable.
+The active professor plan owns the frozen LD1, BS1, and T3 scope, privacy boundaries, dependencies,
+and acceptance matrices; this registry owns only the current-package handoff and migration allocation truth.
 
 ## Shared migration ledger and allocation
 

@@ -78,8 +78,6 @@ Treat these paths as build products, not hand-maintained source:
   contracts and checked fixture sources.
 - `dist_wasm/` contains the generated WebAssembly bridge and JavaScript glue.
 - `dist/` contains the browser bundle and receives the WebAssembly assets under `dist/wasm/`.
-- `dist_browser_test/` contains the ignored browser-test artifact and test-double transport assets,
-  served only by the Playwright helper; it is separate from the installed Base Course lifecycle.
 - `target/` contains Cargo build products.
 
 Change the Rust contract, fixture source, browser source, or build pipeline that owns an output;
@@ -104,9 +102,9 @@ active work package.
 | Rust code, features, lints, tests, or Wasm | `./check_rust.sh`                                           | The complete offline Cargo and Rust gate.                                                 |
 | TypeScript, browser lint, format, or tests | `./check_codebase.sh`                                       | The vendored TypeScript and Node gate.                                                    |
 | Repository documentation and hygiene       | `source source_me.sh && python3 -m pytest tests/`           | Fast Python hygiene and repository-rule checks.                                           |
-| Built-browser behavior                     | `./run_playwright_tests.sh --build`                         | The ordinary demo-environment browser suite, with no skips.                               |
-| Complete Playwright validation             | `source source_me.sh && python3 local_stack.py acceptance`  | Ordinary browser coverage plus required visual, walkthrough, and live-browser acceptance. |
-| One browser scenario                       | `./run_playwright_tests.sh tests/playwright/<file>.spec.ts` | The selected built-browser scenario.                                                      |
+| Built-browser behavior                     | `./run_playwright_tests.sh --build`                         | A focused production `dist/` scenario through a fresh disposable HTTPS PLE stack.         |
+| Complete Playwright validation             | `source source_me.sh && python3 local_stack.py acceptance`  | One canonical real-stack browser lane plus transitional visual, walkthrough, and service receipts. |
+| One browser scenario                       | `./run_playwright_tests.sh tests/playwright/<file>.spec.ts` | The selected production-browser scenario on a fresh disposable stack.                     |
 | Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                              | The named disposable whole-system oracle.                                                 |
 | Local stack diagnosis and lifecycle        | `source source_me.sh && python3 local_stack.py <command>`   | The scoped controller contract.                                                           |
 
@@ -117,12 +115,11 @@ orchestration. Both are intentionally excluded from `pytest tests/`; see
 
 ### Playwright execution lanes
 
-`./run_playwright_tests.sh --build` is the ordinary fast browser gate. It builds
-`dist_browser_test/`, starts the browser-test helper configured in `playwright.config.ts`, and
-serves the bundle with browser-test/test-double transport handlers. It must finish with no skipped
-tests. It neither requires nor reuses a Podman PLE stack. Real-stack, walkthrough, and visual
-evidence cases are deliberately outside its collection; they are not ordinary tests that happened
-to skip.
+`./run_playwright_tests.sh --build` is the focused browser gate. It creates a fresh disposable
+stack, builds production `dist/`, and serves it through the HTTPS PLE gateway with real
+authentication, authorization, API, PostgreSQL, storage, worker, and renderer services. It must
+finish with no skipped tests. The scenario creates product state through visible PLE controls,
+using the seeded baseline only where its declared contract permits it.
 
 Run the complete Playwright Validation test suite explicitly when the active plan requires all
 browser claims:
@@ -132,8 +129,9 @@ source source_me.sh && python3 local_stack.py acceptance
 ```
 
 Start from no existing default or retained walkthrough stack. The command refuses inherited live-target,
-credential, and Compose overrides; it owns the temporary visual output and invokes each live or
-walkthrough owner with its documented private inputs. A failed or skipped required lane is red, so
+credential, and Compose overrides; it invokes the canonical browser lane once with its documented
+private inputs. The two retained visual-fixture lanes are transitional receipts, not canonical
+screenshot provenance; V1 replaces them with real-origin capture. A failed or skipped required lane is red, so
 the suite is not green until every lane passes. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
 for the evidence boundary and [USAGE.md](USAGE.md#build-and-validation-commands) for operator
 preconditions.

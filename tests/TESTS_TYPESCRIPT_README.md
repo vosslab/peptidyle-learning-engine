@@ -3,10 +3,9 @@
 ## What this repo is
 
 PLE is a server platform. You write the browser client in `src/`; `./build.sh`
-creates `dist/`, which the ordinary PLE gateway serves with its API. The
-browser-test artifact is separately named `dist_browser_test/` and is not a
-deployment artifact. The npm aliases mirror supported commands as an optional
-convenience.
+creates production `dist/`, which the PLE gateway serves with its API. Browser
+testing uses that same artifact through a disposable real stack. The npm aliases
+mirror supported commands as an optional convenience.
 
 ## Front door shell scripts
 
@@ -19,8 +18,8 @@ convenience.
 | `./devel/clean_build.sh` | Wipe build outputs. |
 
 Run `./check_codebase.sh --help` for usage. `local_stack.py` owns the ordinary
-local service lifecycle. `./run_playwright_tests.sh` owns the isolated
-browser-test server and accepts `--build` to force its artifact rebuild.
+local service lifecycle. `./run_playwright_tests.sh` owns a fresh disposable
+HTTPS browser stack and accepts `--build` to force its production-artifact rebuild.
 
 ## Repo layout you edit
 

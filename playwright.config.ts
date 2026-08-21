@@ -48,6 +48,20 @@ export function browserTestServerEnabled(
   return !activation.webwork && !activation.liveDemo;
 }
 
+/** Maps each private lane input to its origin and applies TLS acceptance only to live-demo. */
+export function productionBrowserUse(
+  liveDemoInputs: { readonly baseUrl: string } | undefined,
+  liveWebworkInputs: { readonly baseUrl: string } | undefined,
+): {
+  readonly baseURL: string;
+  readonly ignoreHTTPSErrors: boolean;
+} {
+  const baseURL =
+    liveDemoInputs?.baseUrl ?? liveWebworkInputs?.baseUrl ?? `http://127.0.0.1:${PORT}`;
+  const ignoreHTTPSErrors = liveDemoInputs !== undefined;
+  return { baseURL, ignoreHTTPSErrors };
+}
+
 const liveModeActivation = liveModeActivationFromEnvironment(process.env);
 /** Evaluated while Playwright loads this file, before it can create Chromium. */
 export const configuredLiveWebworkInputs = liveModeActivation.webwork
@@ -57,10 +71,7 @@ export const configuredLiveDemoInputs = liveModeActivation.liveDemo
   ? liveDemoInputsFromEnvironment(process.env)
   : undefined;
 const startBrowserTestServer = browserTestServerEnabled(process.env);
-const baseURL =
-  configuredLiveDemoInputs?.baseUrl ??
-  configuredLiveWebworkInputs?.baseUrl ??
-  `http://127.0.0.1:${PORT}`;
+const browserUse = productionBrowserUse(configuredLiveDemoInputs, configuredLiveWebworkInputs);
 
 export default defineConfig({
   testDir: "tests/playwright",
@@ -70,11 +81,11 @@ export default defineConfig({
   reporter: "list",
   outputDir: "test-results",
   use: {
-    baseURL,
+    baseURL: browserUse.baseURL,
     headless: true,
     // The self-signed Caddy certificate is accepted only by this selected
     // disposable live-demo lane; ordinary and WebWork lanes retain normal TLS.
-    ignoreHTTPSErrors: configuredLiveDemoInputs !== undefined,
+    ignoreHTTPSErrors: browserUse.ignoreHTTPSErrors,
   },
   webServer: startBrowserTestServer
     ? {

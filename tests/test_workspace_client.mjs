@@ -14,7 +14,6 @@ import {
 import { decodePublicationDiff, decodeWorkspaceDraftPage } from "../src/api/decoders.ts";
 import { decodePublicByline, parseReviewedPublicByline } from "../src/api/public_byline.ts";
 import { createWorkspaceEditorRepository } from "../src/pages/editor_workspace_repository.ts";
-import { createMockApiClient } from "../src/api/mock/client.ts";
 
 const draft = publishedProblemFixture.draft;
 const workspace = draft.workspace;
@@ -139,35 +138,6 @@ test("reviewed bylines share strict line-based author input and wire decoding", 
     ),
     ApiProtocolError,
   );
-});
-
-test("author mock provides a safe first-publication diff without mutating the draft", async () => {
-  const client = createMockApiClient({ workspaceAuthoring: true });
-  const before = await client.getWorkspaceDraft(workspace);
-  const validation = await client.validateWorkspacePublication(workspace);
-  const diff = await client.getWorkspacePublicationDiff(workspace);
-  const result = await client.publishWorkspace(
-    workspace,
-    { scope: "institution", byline: { names: ["Fixture Instructor"] } },
-    before.revision,
-  );
-  const after = await client.getWorkspaceDraft(workspace);
-  assert.deepEqual(validation, { kind: "capabilityReport", revision: '"1"', violations: [] });
-  assert.equal(diff.baseline, "newQuestion");
-  assert.equal(diff.current.title, before.draft.metadata.title);
-  assert.equal(result.summary.questionId, publishedProblemFixture.catalogProblem.questionId);
-  assert.deepEqual(after, before);
-});
-
-test("author mock rejects malformed reviewed bylines before publication", async () => {
-  const client = createMockApiClient({ workspaceAuthoring: true });
-  const revision = (await client.getWorkspaceDraft(workspace)).revision;
-  for (const names of [["Ada\u0007"], ["😀".repeat(121)], ["Ada Lovelace", "Ada Lovelace"]]) {
-    await assert.rejects(
-      client.publishWorkspace(workspace, { scope: "institution", byline: { names } }, revision),
-      /byline/u,
-    );
-  }
 });
 
 test("publication 422 shapes keep readiness distinct from complete capability violations", async () => {
@@ -338,22 +308,6 @@ test("workspace boundaries reject foreign failures, oversized errors, and contam
     fetch: async () => jsonResponse(contaminated, { headers: { etag: '"1"' } }),
   });
   await assert.rejects(client.getWorkspaceDraft(workspace), /allowed by this response contract/u);
-});
-
-test("the student mock fixture fails closed for workspace writes and deletes", async () => {
-  const studentClient = createMockApiClient();
-  await assert.rejects(studentClient.listWorkspaceDrafts(), /not authorized/u);
-  await assert.rejects(studentClient.saveWorkspaceDraft(workspace, draft), /not authorized/u);
-  await assert.rejects(studentClient.deleteWorkspaceDraft(workspace, '"1"'), /not authorized/u);
-
-  const instructorClient = createMockApiClient({ workspaceAuthoring: true });
-  const loaded = await instructorClient.getWorkspaceDraft(workspace);
-  await instructorClient.saveWorkspaceDraft(workspace, loaded.draft, loaded.revision);
-  await assert.rejects(
-    instructorClient.deleteWorkspaceDraft(workspace, loaded.revision),
-    WorkspaceConflictError,
-  );
-  await instructorClient.deleteWorkspaceDraft(workspace, '"2"');
 });
 
 test("stale delete after a collaborator save sends the old ETag and returns a reloadable conflict", async () => {

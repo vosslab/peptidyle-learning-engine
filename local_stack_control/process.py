@@ -3,9 +3,12 @@
 import os
 import json
 import pathlib
+import secrets
 import shutil
 import subprocess
 import abc
+import dataclasses
+import time
 
 import local_stack_control.models
 import local_stack_control.env_file
@@ -32,6 +35,24 @@ class CommandRunner(abc.ABC):
 		cwd: pathlib.Path | None = None,
 	) -> int:
 		"""Run a command with inherited output."""
+
+
+@dataclasses.dataclass(frozen=True)
+class ProcessSession:
+	"""One owner-created POSIX session retained for post-command leak inspection."""
+
+	process_group_id: int
+	created_at_ns: int
+	scope: str
+	owner_marker: str
+
+
+@dataclasses.dataclass(frozen=True)
+class SessionCommandResult:
+	"""One owner-session identity and command status, including nonzero completions."""
+
+	session: ProcessSession
+	returncode: int
 
 
 class SubprocessRunner(CommandRunner):
@@ -96,6 +117,28 @@ class SubprocessRunner(CommandRunner):
 		result = completed.returncode
 		return result
 
+
+#============================================
+def stream_in_owner_session(
+	runner: CommandRunner,
+	argv: list[str],
+	environment: dict[str, str] | None = None,
+	cwd: pathlib.Path | None = None,
+) -> SessionCommandResult:
+	"""Run one owner command and return session ownership before callers convert a nonzero exit."""
+	if not isinstance(runner, SubprocessRunner):
+		returncode = runner.stream(argv, environment, cwd)
+		return SessionCommandResult(ProcessSession(-1, time.time_ns(), "injected", ""), returncode)
+	if shutil.which(argv[0]) is None:
+		return SessionCommandResult(ProcessSession(-1, time.time_ns(), "unavailable", ""), 127)
+	base_environment = current_environment() if environment is None else environment
+	effective_environment = local_stack_control.env_file.sanitized_runtime_environment(base_environment)
+	marker = "ple-owner-" + secrets.token_hex(16)
+	effective_environment["PLE_BROWSER_SUITE_OWNER_SESSION"] = marker
+	child = subprocess.Popen(argv, env=effective_environment, cwd=cwd, start_new_session=True)
+	process_group = ProcessSession(child.pid, time.time_ns(), "process-group-or-marker", marker)
+	returncode = child.wait()
+	return SessionCommandResult(process_group, returncode)
 
 #============================================
 def current_environment() -> dict[str, str]:

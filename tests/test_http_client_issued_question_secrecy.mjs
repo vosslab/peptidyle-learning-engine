@@ -6,23 +6,34 @@ import test from "node:test";
 import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
 import { DecodeError } from "../src/api/decoder.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
-import { createFixtureFetch, jsonResponse } from "./http_client_test_support.mjs";
+import {
+  createRecordingFetch,
+  issuedQuestionWireFixture,
+  jsonResponse,
+} from "./http_client_test_support.mjs";
+
+function clientWithIssuedQuestion(mutator) {
+  const attempt = publishedProblemFixture.attempts.at(-1);
+  assert.ok(attempt);
+  const { recordingFetch } = createRecordingFetch(async (request) => {
+    if (new URL(request.url).pathname.endsWith("/question")) {
+      const issued = structuredClone(
+        issuedQuestionWireFixture(attempt, publishedProblemFixture.publishedProblem),
+      );
+      mutator(issued);
+      return jsonResponse(issued);
+    }
+    return jsonResponse({ ...attempt, scoringStatus: "current" });
+  });
+  return { attempt, client: createHttpApiClient({ fetch: recordingFetch }) };
+}
 
 test("issued-question transport rejects a response that carries a server-only field", async () => {
-  const { fixtureFetch } = createFixtureFetch();
-  const client = createHttpApiClient({
-    fetch: async (input, init) => {
-      const response = await fixtureFetch(input, init);
-      if (input.toString().includes("/question")) {
-        const value = await response.json();
-        value.grading = { mode: "allOrNothing", points: 1 };
-        return jsonResponse(value);
-      }
-      return response;
-    },
+  const { attempt, client } = clientWithIssuedQuestion((issued) => {
+    issued.grading = { mode: "allOrNothing", points: 1 };
   });
   await assert.rejects(
-    client.getIssuedQuestion(publishedProblemFixture.attempts.at(-1).id),
+    client.getIssuedQuestion(attempt.id),
     (error) =>
       error instanceof DecodeError &&
       error.message === "response.grading must be a field allowed by this response contract",
@@ -157,20 +168,9 @@ test("issued-question transport rejects answer material at every nested envelope
   ];
 
   for (const hostile of hostileEnvelopes) {
-    const { fixtureFetch } = createFixtureFetch();
-    const client = createHttpApiClient({
-      fetch: async (input, init) => {
-        const response = await fixtureFetch(input, init);
-        if (input.toString().includes("/question")) {
-          const value = await response.json();
-          hostile.mutate(value);
-          return jsonResponse(value);
-        }
-        return response;
-      },
-    });
+    const { attempt, client } = clientWithIssuedQuestion(hostile.mutate);
     await assert.rejects(
-      client.getIssuedQuestion(publishedProblemFixture.attempts.at(-1).id),
+      client.getIssuedQuestion(attempt.id),
       (error) =>
         error instanceof DecodeError &&
         error.message === `${hostile.path} must be a field allowed by this response contract`,

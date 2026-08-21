@@ -5,9 +5,11 @@
 
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
+import { writeFileSync } from "node:fs";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import { installVirtualAuthenticator } from "../helper_live_demo";
+import { liveDemoOriginReceiptPathFromEnvironment } from "../live_demo_live_config";
 import { tabTo } from "../simulator/keyboard_walkthrough";
 
 const inputs = configuredLiveDemoInputs;
@@ -18,6 +20,14 @@ const connectedActionTimeoutMs = 30_000;
 function requiredInputs(): NonNullable<typeof inputs> {
   if (inputs === undefined) throw new Error("connected live-demo inputs were not configured");
   return inputs;
+}
+
+function requiredSysadminOwnershipProof(): string {
+  const value = requiredInputs();
+  if (value.sysadminRequirement !== "unclaimed" || value.sysadminOwnershipProof === undefined) {
+    throw new Error("the live-demo first-claim journey requires its private ownership proof");
+  }
+  return value.sysadminOwnershipProof;
 }
 
 function isoDate(offsetDays: number): string {
@@ -91,19 +101,50 @@ function configureConnectedJourneyPage(page: Page): void {
   page.setDefaultNavigationTimeout(connectedActionTimeoutMs);
 }
 
+function recordOrigin(value: string, origins: Set<string>): void {
+  if (value === "about:blank") return;
+  const origin = new URL(value).origin;
+  origins.add(origin);
+}
+
+function observeContextOrigins(
+  context: BrowserContext,
+  pageOrigins: Set<string>,
+  requestOrigins: Set<string>,
+): void {
+  context.on("request", (request) => recordOrigin(request.url(), requestOrigins));
+  context.on("page", (page) => {
+    page.on("framenavigated", (frame) => {
+      if (frame === page.mainFrame()) recordOrigin(frame.url(), pageOrigins);
+    });
+  });
+}
+
+function writeOriginReceipt(pageOrigins: Set<string>, requestOrigins: Set<string>): void {
+  const receiptPath = liveDemoOriginReceiptPathFromEnvironment(process.env);
+  const value = {
+    pageOrigins: [...pageOrigins].sort(),
+    requestOrigins: [...requestOrigins].sort(),
+  };
+  writeFileSync(receiptPath, JSON.stringify(value), { encoding: "ascii", flag: "wx", mode: 0o600 });
+}
+
 test.describe.configure({ mode: "serial" });
 
 test("live demo: connected ordinary authoring, enrollment, WebAuthn, and teaching journey", async ({
   browser,
-}, testInfo) => {
+}) => {
   test.setTimeout(connectedJourneyTimeoutMs);
-  requiredInputs();
-  const tag = `LD2-${Date.now()}-${testInfo.parallelIndex}`;
+  const scenarioInput = requiredInputs();
+  expect(scenarioInput.scenarioId).toBe("live_demo");
+  const tag = scenarioInput.namespace;
   const questionTitle = `Connected single choice ${tag}`;
   const correctChoice = `Correct peptide bond ${tag}`;
   const courseTitle = `Connected course ${tag}`;
   const assignmentTitle = `Connected assignment ${tag}`;
   const contexts: BrowserContext[] = [];
+  const pageOrigins = new Set<string>();
+  const requestOrigins = new Set<string>();
 
   try {
     const contextOptions = { viewport: { width: 1280, height: 800 }, ignoreHTTPSErrors: true };
@@ -112,7 +153,10 @@ test("live demo: connected ordinary authoring, enrollment, WebAuthn, and teachin
     const morganContext = await browser.newContext(contextOptions);
     const averyContext = await browser.newContext(contextOptions);
     contexts.push(elenaContext, maryContext, morganContext, averyContext);
-    for (const context of contexts) configureConnectedJourneyContext(context);
+    for (const context of contexts) {
+      configureConnectedJourneyContext(context);
+      observeContextOrigins(context, pageOrigins, requestOrigins);
+    }
     const elena = await elenaContext.newPage();
     const mary = await maryContext.newPage();
     const morgan = await morganContext.newPage();
@@ -220,25 +264,9 @@ test("live demo: connected ordinary authoring, enrollment, WebAuthn, and teachin
       morgan.getByRole("heading", { name: "Set up administrator access" }),
     ).toBeVisible();
     await expectNoBlockingAxeViolations(morgan);
-    let blockedCourseList = false;
-    await morgan.route("**/api/auth/account/courses*", async (route) => {
-      if (!blockedCourseList) {
-        blockedCourseList = true;
-        await route.abort("failed");
-        return;
-      }
-      await route.continue();
-    });
-    await morgan
-      .getByLabel("Administrator setup code")
-      .fill(requiredInputs().sysadminOwnershipProof);
+    await morgan.getByLabel("Administrator setup code").fill(requiredSysadminOwnershipProof());
     await morgan.getByLabel("Passkey name").fill(`Morgan passkey ${tag}`);
     await morgan.getByRole("button", { name: "Set up administrator passkey" }).click();
-    const retry = morgan.getByRole("button", { name: "Retry course list" });
-    await expect(retry).toBeFocused();
-    await expect(morgan.getByLabel("Administrator setup code")).toHaveCount(0);
-    await morgan.unroute("**/api/auth/account/courses*");
-    await retry.press("Enter");
     const recoveredCourseHeading = morgan.getByRole("heading", { name: "Choose your course" });
     await expect(recoveredCourseHeading).toBeVisible();
     await expect(recoveredCourseHeading).toBeFocused();
@@ -308,8 +336,10 @@ test("live demo: connected ordinary authoring, enrollment, WebAuthn, and teachin
     await expect(acceptedInvitationStatus).toHaveText("Invitation accepted.");
     await expect(avery.getByRole("heading", { name: "No invitations waiting" })).toBeVisible();
     await expect(pendingInvitationHeading).toBeFocused();
-    await avery.goto("/sign-in");
-    await avery.getByRole("button", { name: /Continue as .*Avery Singh/u }).click();
+    await signOut(avery);
+    await chooseSeededAccount(avery, /Avery Singh/u);
+    // This is the contract's primary persistence observation: Avery's fresh authorized
+    // session sees the teaching-team role that the visible invitation acceptance created.
     await expect(courseChoice(avery, courseTitle)).toBeVisible();
     await selectCourse(avery, courseTitle);
     await avery.getByRole("link", { name: "Teaching operations" }).click();
@@ -320,6 +350,10 @@ test("live demo: connected ordinary authoring, enrollment, WebAuthn, and teachin
     await morgan.getByRole("button", { name: "Sign in with a passkey" }).click();
     await expect(morgan.getByRole("heading", { name: "Choose your course" })).toBeVisible();
   } finally {
-    await closeContexts(contexts);
+    try {
+      await closeContexts(contexts);
+    } finally {
+      writeOriginReceipt(pageOrigins, requestOrigins);
+    }
   }
 });

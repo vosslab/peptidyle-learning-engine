@@ -935,11 +935,9 @@ class WalkthroughRunner:
 			)
 		)
 		self.report_stage = "playwright_gateway_smoke"
-		self.run_playwright("tests/playwright/ui_walkthrough_smoke.spec.ts")
+		self.run_playwright(playwright_boundary.specification_for_stage("gateway_smoke"))
 		self.report_stage = "playwright_instructor_setup"
-		self.run_playwright(
-			"tests/playwright/ui_walkthrough_instructor_setup.spec.ts"
-		)
+		self.run_playwright(playwright_boundary.specification_for_stage("instructor_setup"))
 		if self.inputs.instructor_setup_only:
 			return
 		self.report_stage = "instructor_setup_handoff"
@@ -947,20 +945,20 @@ class WalkthroughRunner:
 		if self.j1_checkpoint_file is None:
 			raise RunnerError("J1 checkpoint is unavailable")
 		self.report_stage = "playwright_j1"
-		self.run_playwright("tests/playwright/ui_walkthrough_keyboard_j1.spec.ts")
+		self.run_playwright(playwright_boundary.specification_for_stage("j1"))
 		self.report_stage = "playwright_j2"
-		self.run_playwright("tests/playwright/ui_walkthrough_keyboard_j2.spec.ts")
-		for stage, specification in (
-			("playwright_j3", "tests/playwright/ui_walkthrough_keyboard_j3.spec.ts"),
-			("playwright_j4", "tests/playwright/ui_walkthrough_keyboard_j4.spec.ts"),
+		self.run_playwright(playwright_boundary.specification_for_stage("j2"))
+		for report_stage, specification_stage in (
+			("playwright_j3", "j3"),
+			("playwright_j4", "j4"),
 		):
-			self.report_stage = stage
-			self.run_playwright(specification)
+			self.report_stage = report_stage
+			self.run_playwright(playwright_boundary.specification_for_stage(specification_stage))
 		if self.inputs.student_repeat_only:
 			self.report_stage = "student_repeat_complete"
 			return
 		self.report_stage = "playwright_j5"
-		self.run_playwright("tests/playwright/ui_walkthrough_keyboard_j5.spec.ts")
+		self.run_playwright(playwright_boundary.specification_for_stage("j5"))
 		self.append_cross_actor_evidence()
 		self.collect_visible_outcomes()
 

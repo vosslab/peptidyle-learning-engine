@@ -332,19 +332,19 @@ API by the application gateway. It is not a static deployment artifact.
 ### Artifact boundaries
 
 The default client entry `src/main.tsx` imports `src/api/browser_client.ts`,
-which creates the ordinary same-origin HTTP client. The isolated browser-test
-build selects `src/api/browser_client_browser_test.ts` only when
-`PLE_BROWSER_TEST_TRANSPORT=1` and writes `dist_browser_test/`. The Playwright
-runner owns that flag and its loopback static helper. Production and local
-application builds use `dist/` and retain the ordinary HTTP client.
+which creates the same-origin HTTP client used by production and browser
+testing. `run_playwright_tests.sh` builds `dist/` and the suite owner serves it
+through its disposable HTTPS gateway. The remaining alternate browser-test
+build code is a retirement-inventory concern; it is not a supported browser
+execution path.
 
 ### Operational commands
 
 - `./check_codebase.sh` runs the fast TypeScript gate.
 - `./build.sh` builds the complete PLE application artifact.
 - `source source_me.sh && python3 local_stack.py start --no-open` starts ordinary local PLE.
-- `./run_playwright_tests.sh` runs the isolated browser-test artifact.
-- `source source_me.sh && python3 local_stack.py acceptance` runs live browser acceptance.
+- `./run_playwright_tests.sh` runs a focused production-browser real-stack scenario.
+- `source source_me.sh && python3 local_stack.py acceptance` runs the complete connected browser acceptance.
 - `./devel/clean_build.sh` removes build outputs.
 
 `npm run build`, `npm run launch`, `npm run check`, `npm run clean`, and

@@ -233,20 +233,21 @@ require WebWork2 source pins, render-course credentials, or a MariaDB password.
 ./build.sh                 # Rust, Wasm, generated contracts, fixtures, and Solid bundle
 ./check_codebase.sh        # vendored TypeScript and browser gate
 ./check_rust.sh            # repository-owned Cargo and Rust gate
-./run_playwright_tests.sh --build       # ordinary demo-environment browser suite
+./run_playwright_tests.sh --build       # focused production-browser real-stack scenario
 source source_me.sh && python3 local_stack.py acceptance   # complete opt-in Playwright validation suite
 ```
 
-The ordinary Playwright command uses the local demo preview server, which is internally backed by
-mock transport handlers, and proves built-browser behavior rather than the Podman stack. It finishes
-with zero skipped tests: real-stack, walkthrough, and visual cases
-are deliberately not ordinary collection. Use it for the daily browser gate, even when a local
-stack happens to be running.
+The focused Playwright command owns a fresh disposable HTTPS PLE stack and runs production `dist/`
+through the gateway, real authentication and authorization, API, PostgreSQL, MinIO, worker, and
+renderer. It finishes with zero skipped tests and creates its scenario state through visible PLE
+workflows. Use it for a selected browser behavior without reusing a locally running stack.
 
 `source source_me.sh && python3 local_stack.py acceptance` is the complete Playwright Validation test suite. Begin
 with no existing default or retained walkthrough stack; the command refuses either caller-owned
-target instead of stopping it. It runs the ordinary suite, temporary-only visual checks, the canonical UI
-walkthrough, and the dedicated Chapter 1 and WebWork browser owners. It accepts no URL, credential,
+target instead of stopping it. It runs the canonical browser suite once, two transitional visual-fixture
+checks, the canonical UI walkthrough, and the dedicated Chapter 1 and WebWork browser owners. The
+visual-fixture checks do not provide canonical screenshot provenance; V1 migrates that evidence to the
+suite-owned real origin. It accepts no URL, credential,
 or Compose-project override. Any required lane that fails or skips is red. The command starts only
 the disposable or canonical local stacks that its owning runners create and clean up.
 

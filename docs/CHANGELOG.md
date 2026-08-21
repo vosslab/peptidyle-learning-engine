@@ -4,6 +4,50 @@
 
 ### Fixes and Maintenance
 
+- Accepted `WP-PROF-BS1-H0`: a typed shared `live_demo` browser-suite owner and wrapper now validate
+  closed selection/configuration before allocation, create and validate generation-bound input before
+  Chromium, sanitize the Playwright environment, and record truthful lifecycle plus typed-cleanup
+  receipts with aggregated failures and private diagnostic retention.
+
+- Accepted `WP-PROF-BS1-H1`: `run_playwright_tests.sh` now owns default, `--build`, named
+  `live_demo`, approved-file, and literal-grep selections through a fresh disposable production
+  `dist/` HTTPS stack. The lifecycle owns build and cleanup; WebWork/walkthrough callers retain
+  closed owner-fixed transitional commands until their later consolidation, and TLS bypass applies
+  only to the live-demo path.
+
+- Accepted `WP-PROF-BS1-H2`: Python `ScenarioContract` is the sole policy owner with strict generic
+  `BrowserScenarioInputV1` and Rust Base Course receipt authority. A public-safe run namespace
+  replaces `Date.now()`/`parallelIndex`; product mutations use visible UI, route-abort fault behavior
+  moves to F1, and Avery's visible sign-out/sign-in proves teaching-team persistence.
+
+- Accepted `WP-PROF-BS1-H3`: typed browser-suite oracles now prove the exact disposable HTTPS
+  gateway origin, lifecycle-derived `podman-compose --in-pod false` provider policy, labelled
+  resources, private artifacts, and owner processes. Receipts expose safe metadata only; successful
+  cleanup leaves each final ownership inventory empty.
+
+- Accepted `WP-PROF-BS1-C0`: `all_test.sh` is the fail-fast aggregate front door, ordered as
+  environment, pytest, build, Rust, codebase, one local-stack acceptance handoff, and both diff
+  checks. Aggregate evidence has one canonical real-stack production-browser lane and two labelled
+  transitional visual-fixture lanes pending V1; the duplicate compatibility-wrapper lane is gone.
+  The evidence model and operational documentation now state that boundary and reserve fakes for
+  narrow isolated contracts.
+
+- Accepted `WP-PROF-BS1-B0`: the V2 browser-scenario contract now has a closed
+  `sysadminRequirement`, a deterministic flat catalog with an explicit legacy-live-demo bridge, and
+  a multi-scenario owner that uses one disposable stack for a complete selection and a fresh stack
+  for a focused selection. Each child receives only its own canonical input and origin-receipt path;
+  ordered public success and failure receipts record each child outcome without exposing private
+  claim material.
+
+- Accepted `WP-PROF-BS1-U1`: retained browser-independent Node evidence now uses literal decoder
+  payloads, direct narrow dependencies, and a test-local recording fetch. It restores
+  issued-question secrecy checks without a fake server, retains no `src/api/mock/**` imports, and
+  adds a deterministic consumer/allocation scanner that assigns every remaining mock-runtime marker
+  to its later real-stack migration owner (`I1`, `L1`, `A1`, `S1`, `V1`, `F1`, or `R1`).
+
+- Restored the executable mode for `tests/e2e/e2e_live_demo_browser.py`, bringing its shebang
+  into alignment with the repository executable-script contract.
+
 - Moved the live-demo selector identities and generation-bound Sysadmin claim
   context out of the common Compose topology and into the HTTPS live-demo
   browser overlay. Ordinary local, Chapter One, WebWork, and walkthrough
@@ -29,7 +73,63 @@
   explicit HTTPS live-demo overlay, whose TLS browser owner alone creates the
   private, generation-bound passkey-ownership proof.
 
+### Decisions and Failures
+
+- Reprioritized `WP-PROF-BS1` as the sole current professor package after accepted live-demo
+  delivery, ahead of planned frozen-scope `WP-PROF-T3` and `WP-PROF-T4`. It establishes one
+  disposable production-browser HTTPS path for Playwright, screenshots, and acceptance, then
+  retires the parallel mock application as real scenarios and narrow unit tests take ownership of
+  meaningful behavior. The plan starts with a typed live-demo owner adapter, uses UI-created
+  namespaced state and product-visible persistence evidence, adds service receipts only for their
+  named claims, and records visual evidence through automated image evaluation. Pre-production
+  implementation may strengthen foundational boundaries directly; suite-labelled cleanup and
+  repeat-run noninterference are acceptance evidence, while image pruning is permitted lifecycle
+  hygiene.
+
 ### Developer Tests and Notes
+
+- BS1-H0 Validation passed 3,251 affected tests. Its real production HTTPS `live_demo` scenario
+  passed under `ple-live-demo-browser-46aa4964966b`; successful cleanup left zero matching Podman
+  resources and no `run-*` private state. Final correctness review returned ACCEPT. Final security
+  rereview closed `BS1-H0-SEC-001` with no P0-P3 finding.
+
+- BS1-H1 passed 21 initial focused Python, 7 Node config, and 43 corrected focused pytest tests,
+  TypeScript checks, shell/pyflakes/diff checks, and real default `--build`
+  `ple-live-demo-browser-2898787a80e3` plus focused-grep
+  `ple-live-demo-browser-3410dc98a716` runs. Each left zero matching resources and no `run-*`
+  state. Final correctness and security reviews returned ACCEPT with no P0-P3 finding.
+
+- BS1-H2 passed corrected 32 Python and 4 Node tests, TypeScript, Prettier, and diff checks; the
+  canonical real `live_demo` passed and cleaned its owned stack. Final correctness returned ACCEPT
+  with no P0-P3 finding; final security closed PASS with 34 pytest, 8 Node, TypeScript, and diff
+  evidence.
+
+- BS1-H3 passed 37 focused pytest checks, 4 Node checks, TypeScript, pyflakes, Prettier, and diff
+  validation. Two sequential fresh production HTTPS runs, `ple-live-demo-browser-ba258fc76aeb` and
+  `ple-live-demo-browser-b0984e1ae0ea`, each recorded the exact gateway origin and an empty final
+  labelled-resource, private-artifact, and owner-process inventory. Independent correctness
+  returned ACCEPT and security returned PASS with no P0-P3 finding.
+
+- BS1-C0 passed one aggregate `local_stack.py acceptance` run with successful labelled-resource
+  cleanup, the full 6,232-test pytest suite, shell syntax, and working-tree plus cached-diff gates.
+  The aggregate receipt names the canonical production-browser behavior lane separately from two
+  transitional visual-fixture lanes. Independent correctness returned ACCEPT and security returned
+  PASS with no P0-P3 finding.
+
+- BS1-B0 passed 42 focused Python tests, 5 Node parser tests, TypeScript compilation, Prettier,
+  pyflakes, and both diff checks. Sequential real default and focused production-browser runs used
+  distinct disposable HTTPS origins and removed their private state and all owned resources.
+  Independent correctness returned ACCEPT and security returned PASS with no P0-P3 finding.
+
+- BS1-U1 passed the retained focused Node evidence: 52 named tests (53 file-level reported passes
+  including its support module), ESLint, TypeScript, Prettier, and both diff checks. The current
+  integrated material tree passed `./check_codebase.sh` with 278 Node tests and
+  `source source_me.sh && pytest tests/` with 6,396 tests. Independent correctness returned ACCEPT
+  and security returned PASS with no P0-P3 finding.
+
+- Final validation for the executable-mode repair passed Rust workspace checks, five TypeScript
+  checks with 322 Node tests, 6,089 pytest cases, 248 built Playwright cases, and the complete
+  disposable local-stack acceptance suite with no required skips.
 
 - Applied authority ruling A to the accepted immutable WP-PROF-LD2 allocation: migration
   `2026081809` owns exactly two narrow least-privilege execute-only brokers, safe normal Sysadmin

@@ -2,11 +2,13 @@
 
 import json
 import pathlib
+import re
 
 import pytest
 
 import tests.walkthrough.walklib.instructor_handoff as instructor_handoff
 import tests.walkthrough.walklib.models as walkthrough_models
+import tests.walkthrough.walklib.playwright_boundary as playwright_boundary
 import tests.walkthrough.walklib.runner as walkthrough
 
 
@@ -434,15 +436,64 @@ def test_playwright_uses_standard_config_and_no_hidden_ple_protocol(tmp_path: pa
 		commands,
 	)
 	runner.prepare_journey_state()
-	runner.run_playwright("tests/playwright/ui_walkthrough_keyboard_j1.spec.ts")
+	runner.run_playwright(playwright_boundary.specification_for_stage("j1"))
 	command, environment = commands.calls[0]
 	config_path = runner.playwright_config_file
 	assert config_path is not None
 	runner.remove_private_state()
 
-	assert "--config" in command
+	assert command == [
+		"npx", "playwright", "test", "--config", str(config_path),
+		playwright_boundary.specification_for_stage("j1"),
+	]
 	assert config_path.suffix == ".mts"
 	assert not any(key.startswith("PLE_") for key in environment or {})
+
+
+#============================================
+@pytest.mark.parametrize(
+	"specification",
+	sorted(playwright_boundary.WALKTHROUGH_SPECIFICATIONS),
+)
+def test_walkthrough_playwright_boundary_accepts_every_authored_specification(
+	tmp_path: pathlib.Path, specification: str,
+) -> None:
+	"""The walkthrough has a fixed private config/spec command for every authored journey."""
+	config_path = tmp_path / "private.config.mts"
+	config_path.write_text("export default {};\n", encoding="ascii")
+	commands: list[list[str]] = []
+
+	def record(command: list[str], environment: dict[str, str]) -> walkthrough_models.CommandResult:
+		del environment
+		commands.append(command)
+		return walkthrough_models.CommandResult(0, "", "")
+
+	playwright_boundary.run_specification(
+		config_path,
+		specification,
+		record,
+		{},
+	)
+	assert commands == [
+		[
+			"npx", "playwright", "test", "--config", str(config_path),
+			specification,
+		]
+	]
+	with pytest.raises(walkthrough_models.RunnerError, match="specification"):
+		playwright_boundary.run_specification(config_path, "tests/playwright/other.spec.ts", record, {})
+
+
+#============================================
+def test_runner_uses_the_canonical_walkthrough_specification_inventory() -> None:
+	"""Runner stages resolve their browser files through the one closed boundary inventory."""
+	runner_source = pathlib.Path(walkthrough.__file__).read_text(encoding="ascii")
+	assert re.findall(r"ui_walkthrough_[A-Za-z0-9_]+\.spec\.ts", runner_source) == []
+	assert set(playwright_boundary.WALKTHROUGH_SPECIFICATIONS_BY_STAGE) == {
+		"gateway_smoke", "instructor_setup", "j1", "j2", "j3", "j4", "j5",
+	}
+	assert len(playwright_boundary.WALKTHROUGH_SPECIFICATIONS) == 7
+	assert runner_source.count("specification_for_stage(") == 6
 
 
 def test_unsafe_explicit_paths_are_rejected_before_child_actions(tmp_path: pathlib.Path) -> None:

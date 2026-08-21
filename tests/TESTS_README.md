@@ -35,10 +35,11 @@ tests/
   `node tests/e2e/e2e_<name>.mjs` (see [../docs/E2E_TESTS.md](../docs/E2E_TESTS.md))
 - Bulk non-browser E2E: `bash tests/e2e/e2e_run_all.sh`
 
-The ordinary Playwright lane builds the isolated `dist_browser_test/` artifact and serves it with
-`tests/playwright/helper_browser_test_server.mjs`. Its browser-test/test-double transport is
-separate from the production `dist/` bundle, installed Base Course lifecycle, and live-stack E2E
-services.
+The canonical Playwright front door builds production `dist/` and serves it through a fresh
+suite-owned HTTPS gateway connected to the real PLE services. Its scenarios use visible PLE workflows
+to create namespaced state; the fixture owns only the declared seeded baseline and infrastructure
+controls. Aggregate acceptance also retains two transitional visual-fixture lanes until V1 moves
+canonical screenshot provenance to this real origin.
 
 ## Why two folders for E2E
 
@@ -66,9 +67,10 @@ enforce a closed owner policy:
 - `webwork-browser` owns its isolated full teaching stack, private browser
   identity fixture, renderer-outage action, and derived gateway image.
 - `live-demo-browser` owns the disposable production-auth HTTPS connected E2E.
-  Its canonical runner, `tests/e2e/e2e_live_demo_browser.py`, creates the
-  ordinary stack with no test-double auth, runs
-  `tests/playwright/e2e/live_demo.spec.ts`, and performs typed cleanup.
+  Its canonical runner, `run_playwright_tests.sh`, selects the typed suite
+  owner, runs `tests/playwright/e2e/live_demo.spec.ts`, and performs typed
+  cleanup. `tests/e2e/e2e_live_demo_browser.py` remains a compatibility entry
+  while the retirement inventory is completed.
 - `wp-r2-host-seed-renderer` owns its isolated host-seed and renderer stack.
 - `replica-restart` owns the replica Compose overlay and may stop one exact API
   replica only after it proves a peer remains running.

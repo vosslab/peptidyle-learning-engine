@@ -388,5 +388,5 @@ export PLE_WEBWORK_LIVE_BASE_URL="$BASE_URL"
 export PLE_WEBWORK_LIVE_STUDENT_CREDENTIAL_FILE="$CREDENTIAL_FILE"
 export PLE_WEBWORK_LIVE_ASSIGNMENT_ID="$ASSIGNMENT_ID"
 [ -f tests/playwright/webwork_run.spec.ts ] || fail "required browser acceptance spec tests/playwright/webwork_run.spec.ts is missing"
-bash run_playwright_tests.sh tests/playwright/webwork_run.spec.ts
+npx playwright test --config playwright.config.ts tests/playwright/webwork_run.spec.ts
 echo "PASS: PLE WebWork live acceptance proved safe gateway projection, persisted same-attempt snapshot replay without adapter events, fresh issuance renderer evidence with an optional random-key cache hit, full/zero scoring, renderer-outage isolation, and private-material non-disclosure."

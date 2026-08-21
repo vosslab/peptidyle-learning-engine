@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createAttemptStateMachine } from "../src/features/attempt/attempt_state.ts";
-import { validateResponseFormatInMock } from "../src/api/mock/format_validation.ts";
+import { validateSavedResponse } from "./http_client_test_support.mjs";
 
 function createStorage() {
   const values = new Map();
@@ -214,7 +214,7 @@ test("a hostile saved multiple-choice response is discarded before it reaches an
       idempotencyKey: "hostile-key",
     }),
   );
-  const fixture = createMachine({ storage, validateSavedResponse: validateResponseFormatInMock });
+  const fixture = createMachine({ storage, validateSavedResponse });
   const definition = {
     kind: "multipleChoice",
     choices: [{ id: "known", body: [] }],
@@ -248,7 +248,7 @@ test("a hostile saved ordering is discarded and a valid saved permutation retain
   );
   const hostile = createMachine({
     storage: hostileStorage,
-    validateSavedResponse: validateResponseFormatInMock,
+    validateSavedResponse,
   });
   hostile.machine.start(orderingDefinition);
   await new Promise((resolve) => setImmediate(resolve));
@@ -264,7 +264,7 @@ test("a hostile saved ordering is discarded and a valid saved permutation retain
   );
   const valid = createMachine({
     storage: validStorage,
-    validateSavedResponse: validateResponseFormatInMock,
+    validateSavedResponse,
   });
   valid.machine.start(orderingDefinition);
   await new Promise((resolve) => setImmediate(resolve));

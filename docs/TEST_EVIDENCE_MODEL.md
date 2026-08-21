@@ -28,32 +28,29 @@ A goal may be marked complete only when the whole named suite is green on the fi
 - The handoff and `docs/CHANGELOG.md` record the commands, results, intentional optional skips, and
   any acceptance evidence that is deliberately one-time.
 
-The default repository completion suite for a goal that changes executable behavior is:
+The repository aggregate Validation front door for executable behavior is:
 
 ```bash
-./check_rust.sh
-./check_codebase.sh
-source source_me.sh && python3 -m pytest tests/
-git diff --check
-git diff --cached --check
+./all_test.sh
 ```
 
-Run `./check_rust.sh` before `./check_codebase.sh`. The Rust gate owns the
-ignored `generated/` TypeScript API and fixture projections; the vendored
-TypeScript gate consumes those projections during its typecheck. A clean tree
-therefore cannot start with `./check_codebase.sh` when `generated/` is absent.
+It fails fast in this order: repository environment and pytest, a distinct
+production `dist/` build receipt, Rust checks, codebase checks, one
+`local_stack.py acceptance` invocation, the cached diff check, and the
+working-tree diff check. Run `./check_rust.sh` before `./check_codebase.sh`:
+the Rust gate owns the ignored `generated/` TypeScript API and fixture
+projections that the TypeScript gate consumes.
 
-Add `./run_playwright_tests.sh --build` for ordinary built-browser demo-environment behavior. It
-uses fictional users and sample data through the isolated browser-test artifact and internal
-test-double transport handlers, and must finish with zero skips. For a goal that requires the
-complete browser claim, add
-`source source_me.sh && python3 local_stack.py acceptance`; it owns the temporary visual, walkthrough, and dedicated
-live-browser lanes, and a required skip is red. Add the named `tests/e2e/` runner for each
-PostgreSQL, MinIO, renderer, migration, restart, or other real-service claim not already owned by
-that validation command. Add the plan-required accessibility, visual, security, architecture, or
-release review when automation cannot establish the acceptance criterion. Documentation-only goals
-may name the focused repository hygiene modules plus both diff checks when no executable, generated,
-configuration, or runtime contract changed.
+`./run_playwright_tests.sh --build` remains the focused selector for the production browser suite.
+It creates a fresh disposable HTTPS stack and exercises production `dist/` through the real PLE
+gateway and services. `source source_me.sh && python3 local_stack.py acceptance` owns that focused
+browser lane once inside its complete connected validation. Its two retained visual-fixture lanes
+are transitional evidence until the screenshot migration supplies real-origin provenance; they do
+not establish canonical screenshot provenance. A required skip is red. Add a named
+`tests/e2e/` runner only for a PostgreSQL, MinIO, renderer, migration, restart, or other real-service
+claim that the aggregate does not already own. Documentation-only goals may name focused repository
+hygiene modules plus both diff checks when no executable, generated, configuration, or runtime
+contract changed.
 
 One-time probes may be required completion evidence without becoming permanent tests. Classify them
 under this document and apply the permanent-test checklist before retaining anything in the suite.
@@ -68,7 +65,7 @@ under the repository's blocking rules. Never report "complete except for validat
 | Permanent architecture or hygiene gate         | Yes                                            | Regular automated gate                              | Does a durable repository rule remain true?                                                       | Does the application deliver the intended student or instructor experience?                        |
 | One-time implementation probe                  | No, except a concise result record when useful | Run only while investigating or rebuilding a slice  | Did this particular implementation, migration, or reconstruction behave as expected at that time? | Does the behavior remain protected from future regressions?                                        |
 | Opt-in disposable or live acceptance           | Yes, when it is a repeatable boundary oracle   | Explicit command and disposable/private environment | Does the named real boundary work under the declared environment?                                 | Does a different deployment, upstream version, browser, or institution configuration work?         |
-| Independent review or human visual evidence    | A concise review record may be kept            | Human or independently scoped review                | Does the reviewed artifact meet the stated semantic, pedagogical, security, or visual criterion?  | Does an automated suite cover every judgment a reviewer made, or that a later change preserves it? |
+| Independent automated or agent review          | A concise review record may be kept            | Independently scoped automated or agent review      | Does the reviewed artifact meet its stated semantic, security, architecture, or visual criterion? | Does one review make every future change correct, or replace an optional human usability judgment? |
 
 The word _test_ is therefore not enough. A passing test report must identify
 its class, backend or environment, and the exact claim it supports.
@@ -90,16 +87,15 @@ delete the proposed permanent test.
   answer-bearing action in the environment the test actually uses.
 - Two interchangeable implementations preserve the same documented behavior
   when a conformance suite is deliberately shared between them.
-- A browser built from the current source provides the user-visible journey
-  exercised by a durable browser test.
+- A production browser built from the current source provides the user-visible
+  journey exercised through its declared real-stack scenario.
 
 ### What this class cannot prove
 
 - A memory-backed test cannot prove PostgreSQL roles, forced RLS, migrations,
   transactions, restart behavior, or an object-store delivery policy.
-- A demo-environment browser route backed by a test-double transport cannot prove the API, database,
-  renderer, or network
-  integration behind that route.
+- An isolated decoder, serialization, or error-mapping test cannot prove the API, database, renderer,
+  or network integration beyond its declared local contract.
 - A recorded provider response cannot prove that the provider is currently
   reachable, authenticates PLE, or has not changed its behavior.
 - A focused test does not prove an unrelated product workflow merely because
@@ -114,9 +110,9 @@ delete the proposed permanent test.
   through the documented Node/check gate, not through pytest.
 - Rust unit, integration, and conformance tests live with their owning crate
   and run through the focused Cargo command named by the work package.
-- Browser tests live only under `tests/playwright/`. The runner loads a built
-  application over HTTP and uses visible, accessible controls. They are
-  excluded from the fast pytest collection.
+- Browser tests live only under `tests/playwright/`. The runner loads production
+  `dist/` through the suite-owned HTTPS gateway and uses visible, accessible
+  controls. They are excluded from the fast pytest collection.
 - Non-browser end-to-end orchestration lives only under `tests/e2e/`, with
   `e2e_*.sh` or `e2e_*.py` names. It is also excluded from pytest.
 
@@ -133,7 +129,7 @@ tests.
 | `crates/learning-data-access/tests/conformance.rs`        | The maintained `Store` behavior exercised by its cases is consistent for the configured conformance driver.                               | It does not by itself prove a live PostgreSQL role/RLS/migration boundary.                                               |
 | Rust and TypeScript response/decoder tests                | Wire values, response-shape handling, and invalid-input refusal keep their stated contract.                                               | They do not prove a full browser-to-server round trip.                                                                   |
 | `tests/playwright/student_keyboard_accessibility.spec.ts` | The built PLE browser surface preserves the specified keyboard journey and separately scoped shortcuts.                                   | It does not replace screen-reader, assistive-technology, or human usability review.                                      |
-| Demo-environment catalog, editor, or run Playwright specs | The browser-test artifact handles the declared same-origin client contract and visible states using fictional users and sample data. | Its internal test-double transport does not prove the production API or storage implementation. |
+| `tests/playwright/e2e/live_demo.spec.ts` through `run_playwright_tests.sh` | A visible fictional instructor journey uses the production browser, real authentication and authorization, and the disposable connected PLE stack. | It proves only the declared local seeded scenario; reload, a new session, or an authorized observer supplies persistence evidence for each behavior. |
 
 ## 2. Permanent architecture and hygiene gates
 
@@ -232,7 +228,7 @@ the PLE same-origin gateway.
 - A container readiness probe does not prove the learner workflow.
 - A direct provider probe does not prove PLE's gateway, secrecy, or browser
   boundary.
-- A successful live run does not make unrelated mock coverage redundant.
+- A successful live run does not prove an unrelated service, deployment, or user journey.
 
 ### Location, activation, and result discipline
 
@@ -248,11 +244,11 @@ the PLE same-origin gateway.
   `check_rust.sh`'s ordinary workspace tests.
 - Live Playwright specs remain in `tests/playwright/`, but must require
   explicit configuration rather than silently contacting a real service.
-- The ordinary `./run_playwright_tests.sh --build` collection uses the browser-test helper serving
-  `dist_browser_test/` with test-double transport and contains no opt-in cases. Run
-  `source source_me.sh && python3 local_stack.py acceptance` for the complete browser Validation
-  test suite; it requires no existing default or retained walkthrough stack, owns its temporary visual
-  evidence and dedicated live runners, and treats every required skip as red.
+- `./run_playwright_tests.sh --build` owns a focused, fresh production-browser scenario against its
+  disposable HTTPS stack. Run `source source_me.sh && python3 local_stack.py acceptance` for the
+  complete browser Validation suite; it invokes that canonical lane once, retains two explicitly
+  transitional visual-fixture receipts, owns its dedicated real-service runners, and treats every
+  required skip as red.
 - Temporary screenshots, traces, recordings, and Playwright results belong in
   ignored `test-results/` (or the runner's ignored output), not in permanent
   fixtures unless their durable, reviewed role is explicitly established.
@@ -270,13 +266,11 @@ offline gate live because it used realistic fixture text.
 | `tests/e2e/e2e_webwork_render_rpc.sh`                  | An isolated, capability-cleaned PLE renderer gateway can issue, replay/cache, grade, handle outage, and avoid leaking protected renderer material for the supported fixture. | It is not a claim of unrestricted WeBWorK compatibility.                                                        |
 | `tests/playwright/webwork_run.spec.ts`                 | The configured live PLE/WebWork browser path uses visible learner controls and detects private upstream material in the browser trace.                 | It is opt-in acceptance for its licensed fixture and local configuration, not a generic provider certification. |
 
-## 5. Independent review and human visual evidence
+## 5. Independent automated and agent review
 
-Some PLE decisions require expert judgment: whether a screen makes sense to a
-student, whether instructional wording is clear, whether a rendered math or
-image question is usable, whether a privacy argument covers the actual data
-flow, or whether a new architecture still has coherent ownership. Automated
-checks support those judgments but do not replace them.
+Independent review validates a defined artifact, fixture transition, architecture boundary, or
+captured visual result. Agent and automated reviewers record their scope, criteria, conclusions,
+limitations, and follow-up work, so packages have an autonomous completion path.
 
 An independent review should name its scope, artifact or environment,
 reviewer perspective, criteria, conclusions, limitations, and any follow-up
@@ -285,20 +279,16 @@ ongoing proof. Preserve concise accepted findings in the durable document that
 owns the rule; keep detailed historical review material under
 `docs/active_plans/` when it explains a completed decision.
 
-For visual and interaction work, run the relevant built-browser scenario,
-inspect the rendered result at useful viewport and state combinations, and
-then record the human conclusion separately. A green Playwright assertion can
-prove that a visible state was reached. It cannot prove that the visual
-hierarchy is legible, that keyboard flow is comfortable, or that a student
-will understand the instructions.
+For visual and interaction work, V1 captures declared viewport and state combinations from the
+production-browser scenario and applies automated image and interaction oracles. Until that
+migration completes, retained visual-fixture captures remain focused evidence and do not establish
+canonical screenshot provenance.
 
 The [no-mouse accessibility contract](NO_MOUSE_ACCESSIBILITY_CONTRACT.md)
 illustrates the division: automated primary-path and widget-extension tests
-guard repeatable keyboard behavior, while assistive-technology and usability
-assessment remain human evidence. The same applies to the WeBWorK render: a
-sanitizer and browser network test support security claims, while a reviewer
-must still assess whether the visible problem is usable for the intended
-student.
+guard repeatable keyboard behavior, while captured fixture states and agent
+review make completion reproducible. Optional human usability assessment can
+inform later product decisions; it is outside automated package completion.
 
 ## Choosing the evidence before writing it
 
@@ -314,11 +304,10 @@ Ask these questions in order:
 3. Is the check useful only to guide this implementation step? If yes, make it
    a temporary probe, record its conclusion if it changes a durable decision,
    and remove it.
-4. Does the acceptance criterion depend on teaching judgment, interaction
-   quality, visual meaning, or an independent security/architecture reading?
-   If yes, schedule and record a review in addition to suitable automated
-   evidence.
+4. Does the acceptance criterion need an independent security, architecture,
+   interaction, or visual reading? If yes, schedule the scoped automated or
+   agent review with captured fixtures and suitable behavior evidence.
 
 This produces a small, honest evidence set: fast checks protect enduring
 behavior, live gates protect real boundaries, temporary probes guide current
-work, and human review covers what automation cannot validly decide.
+work, and independently reproducible review covers the declared completion criterion.

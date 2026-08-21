@@ -1,0 +1,342 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Allocates each remaining browser mock consumer to its real-stack scenario owner or retired fake-application deletion.",
+  "retainedUnitEvidence": [
+    "tests/http_client_test_support.mjs",
+    "tests/test_http_client.mjs",
+    "tests/test_http_client_issued_question_secrecy.mjs",
+    "tests/test_catalog_client.mjs",
+    "tests/test_catalog_browser.mjs",
+    "tests/test_assignment_client.mjs",
+    "tests/test_workspace_client.mjs",
+    "tests/test_attempt_state.mjs",
+    "tests/test_public_navigation.mjs",
+    "tests/test_frontend_contract.mjs"
+  ],
+  "allocations": [
+    {
+      "path": "pipeline/build.mjs",
+      "owner": "R1",
+      "behavior": "alternate browser artifact selection"
+    },
+    { "path": "playwright.config.ts", "owner": "R1", "behavior": "ordinary mock browser server" },
+    {
+      "path": "tests/e2e/e2e_browser_local_development_build.mjs",
+      "owner": "R1",
+      "behavior": "alternate build assertion"
+    },
+    { "path": "tests/e2e/e2e_replica_restart.mjs", "owner": "F1", "behavior": "restart recovery" },
+    {
+      "path": "tests/playwright/assignment_access_modifiers.spec.ts",
+      "owner": "A1",
+      "behavior": "assignment access authorization"
+    },
+    {
+      "path": "tests/playwright/assignment_delivery_check.spec.ts",
+      "owner": "I1",
+      "behavior": "instructor delivery mutation"
+    },
+    {
+      "path": "tests/playwright/assignment_editor.spec.ts",
+      "owner": "I1",
+      "behavior": "assignment editing"
+    },
+    {
+      "path": "tests/playwright/assignment_overview_progress.spec.ts",
+      "owner": "L1",
+      "behavior": "learner assignment progress"
+    },
+    {
+      "path": "tests/playwright/catalog_browser.spec.ts",
+      "owner": "L1",
+      "behavior": "catalog browsing"
+    },
+    {
+      "path": "tests/playwright/course_appearance.spec.ts",
+      "owner": "V1",
+      "behavior": "course appearance"
+    },
+    {
+      "path": "tests/playwright/course_appearance_fixtures.ts",
+      "owner": "V1",
+      "behavior": "appearance visual state"
+    },
+    {
+      "path": "tests/playwright/course_appearance_visual.spec.ts",
+      "owner": "V1",
+      "behavior": "appearance visual evidence"
+    },
+    {
+      "path": "tests/playwright/course_creation.spec.ts",
+      "owner": "I1",
+      "behavior": "course creation"
+    },
+    {
+      "path": "tests/playwright/course_grade_settings.spec.ts",
+      "owner": "I1",
+      "behavior": "grade settings"
+    },
+    {
+      "path": "tests/playwright/course_theme_scope.spec.ts",
+      "owner": "V1",
+      "behavior": "course theme scope"
+    },
+    {
+      "path": "tests/playwright/external_tool_response.spec.ts",
+      "owner": "S1",
+      "behavior": "external tool response"
+    },
+    {
+      "path": "tests/playwright/feedback_submission_flow.spec.ts",
+      "owner": "L1",
+      "behavior": "learner feedback submission"
+    },
+    {
+      "path": "tests/playwright/frontend_contract.spec.ts",
+      "owner": "A1",
+      "behavior": "route authorization"
+    },
+    {
+      "path": "tests/playwright/gradebook.spec.ts",
+      "owner": "I1",
+      "behavior": "gradebook visibility"
+    },
+    {
+      "path": "tests/playwright/helper_browser_test_server.mjs",
+      "owner": "R1",
+      "behavior": "mock static server"
+    },
+    {
+      "path": "tests/playwright/instructor_page_visuals.spec.ts",
+      "owner": "V1",
+      "behavior": "instructor visual evidence"
+    },
+    {
+      "path": "tests/playwright/qti_profile_import.spec.ts",
+      "owner": "S1",
+      "behavior": "QTI provider behavior"
+    },
+    {
+      "path": "tests/playwright/question_renderer_security.spec.ts",
+      "owner": "S1",
+      "behavior": "renderer security"
+    },
+    {
+      "path": "tests/playwright/roster_ui_accessibility.spec.ts",
+      "owner": "I1",
+      "behavior": "roster interaction"
+    },
+    {
+      "path": "tests/playwright/run_completion_summary.spec.ts",
+      "owner": "L1",
+      "behavior": "run completion"
+    },
+    {
+      "path": "tests/playwright/run_prefetch_route.spec.ts",
+      "owner": "L1",
+      "behavior": "run prefetch recovery"
+    },
+    {
+      "path": "tests/playwright/student_access_visuals.spec.ts",
+      "owner": "V1",
+      "behavior": "student visual evidence"
+    },
+    {
+      "path": "tests/playwright/t2_visual_corpus.spec.ts",
+      "owner": "R1",
+      "behavior": "mock-only visual corpus"
+    },
+    {
+      "path": "tests/playwright/teaching_operations_demo.spec.ts",
+      "owner": "I1",
+      "behavior": "teaching operations"
+    },
+    { "path": "tests/test_course_theme_scope.mjs", "owner": "V1", "behavior": "theme UI behavior" },
+    {
+      "path": "tests/test_live_demo_auth_ui.mjs",
+      "owner": "A1",
+      "behavior": "live-demo sign-in UI"
+    },
+    {
+      "path": "tests/test_mock_handlers.mjs",
+      "owner": "R1",
+      "behavior": "mock handler implementation"
+    },
+    {
+      "path": "tests/test_mock_teaching_operations.mjs",
+      "owner": "R1",
+      "behavior": "mock teaching state machine"
+    }
+  ],
+  "runtimeMarkerAllocations": [
+    {
+      "path": "crates/project-tools/src/fixtures.rs",
+      "owner": "R1",
+      "behavior": "generated mock fixture contract"
+    },
+    { "path": "devel/dist_clean.sh", "owner": "R1", "behavior": "alternate artifact cleanup" },
+    {
+      "path": "pipeline/build.mjs",
+      "owner": "R1",
+      "behavior": "alternate browser artifact selection"
+    },
+    { "path": "playwright.config.ts", "owner": "R1", "behavior": "ordinary mock browser server" },
+    {
+      "path": "src/api/browser_client_browser_test.ts",
+      "owner": "R1",
+      "behavior": "mock browser client"
+    },
+    { "path": "src/app.tsx", "owner": "R1", "behavior": "browser mock global branch" },
+    {
+      "path": "src/auth/local_development_browser_test.tsx",
+      "owner": "R1",
+      "behavior": "mock local sign-in"
+    },
+    {
+      "path": "tests/e2e/e2e_browser_local_development_build.mjs",
+      "owner": "R1",
+      "behavior": "alternate build assertion"
+    },
+    {
+      "path": "tests/playwright/assignment_delivery_check.spec.ts",
+      "owner": "I1",
+      "behavior": "instructor delivery mutation"
+    },
+    {
+      "path": "tests/playwright/catalog_browser.spec.ts",
+      "owner": "L1",
+      "behavior": "catalog browsing"
+    },
+    {
+      "path": "tests/playwright/course_theme_scope.spec.ts",
+      "owner": "V1",
+      "behavior": "course theme scope"
+    },
+    {
+      "path": "tests/playwright/external_tool_response.spec.ts",
+      "owner": "S1",
+      "behavior": "external tool response"
+    },
+    {
+      "path": "tests/playwright/feedback_submission_flow.spec.ts",
+      "owner": "L1",
+      "behavior": "learner feedback submission"
+    },
+    {
+      "path": "tests/playwright/frontend_contract.spec.ts",
+      "owner": "A1",
+      "behavior": "route authorization"
+    },
+    {
+      "path": "tests/playwright/helper_browser_test_server.mjs",
+      "owner": "R1",
+      "behavior": "mock static server"
+    },
+    {
+      "path": "tests/playwright/run_completion_summary.spec.ts",
+      "owner": "L1",
+      "behavior": "run completion"
+    },
+    {
+      "path": "tests/playwright/run_prefetch_route.spec.ts",
+      "owner": "L1",
+      "behavior": "run prefetch recovery"
+    },
+    { "path": "tests/test_editor_ui.mjs", "owner": "I1", "behavior": "editor preview boundary" },
+    {
+      "path": "tests/test_mock_handlers.mjs",
+      "owner": "R1",
+      "behavior": "mock handler implementation"
+    },
+    {
+      "path": "tests/test_mock_teaching_operations.mjs",
+      "owner": "R1",
+      "behavior": "mock teaching state machine"
+    },
+    {
+      "path": "tests/playwright/assignment_access_modifiers.spec.ts",
+      "owner": "X1",
+      "behavior": "revision conflict injection"
+    },
+    {
+      "path": "tests/playwright/assignment_editor.spec.ts",
+      "owner": "I1",
+      "behavior": "assignment editor interaction"
+    },
+    {
+      "path": "tests/playwright/assignment_overview_progress.spec.ts",
+      "owner": "L1",
+      "behavior": "learner assignment overview"
+    },
+    {
+      "path": "tests/playwright/course_appearance.spec.ts",
+      "owner": "V1",
+      "behavior": "course appearance interaction"
+    },
+    {
+      "path": "tests/playwright/course_appearance_fixtures.ts",
+      "owner": "V1",
+      "behavior": "course appearance fixture transport"
+    },
+    {
+      "path": "tests/playwright/course_appearance_visual.spec.ts",
+      "owner": "V1",
+      "behavior": "course appearance visual capture"
+    },
+    {
+      "path": "tests/playwright/course_creation.spec.ts",
+      "owner": "I1",
+      "behavior": "course creation interaction"
+    },
+    {
+      "path": "tests/playwright/course_grade_settings.spec.ts",
+      "owner": "I1",
+      "behavior": "course grading settings"
+    },
+    {
+      "path": "tests/playwright/editor_mock_surface.spec.ts",
+      "owner": "R1",
+      "behavior": "fake editor surface"
+    },
+    {
+      "path": "tests/playwright/gradebook.spec.ts",
+      "owner": "I1",
+      "behavior": "gradebook interaction"
+    },
+    {
+      "path": "tests/playwright/instructor_page_visuals.spec.ts",
+      "owner": "V1",
+      "behavior": "instructor visual capture"
+    },
+    {
+      "path": "tests/playwright/qti_profile_import.spec.ts",
+      "owner": "S1",
+      "behavior": "provider import and infrastructure fault"
+    },
+    {
+      "path": "tests/playwright/question_renderer_security.spec.ts",
+      "owner": "S1",
+      "behavior": "renderer asset isolation"
+    },
+    {
+      "path": "tests/playwright/roster_ui_accessibility.spec.ts",
+      "owner": "I1",
+      "behavior": "roster interaction accessibility"
+    },
+    {
+      "path": "tests/playwright/student_access_visuals.spec.ts",
+      "owner": "V1",
+      "behavior": "student visual capture"
+    },
+    {
+      "path": "tests/playwright/t2_visual_corpus.spec.ts",
+      "owner": "R1",
+      "behavior": "fake visual corpus"
+    },
+    {
+      "path": "tests/playwright/teaching_operations_demo.spec.ts",
+      "owner": "I1",
+      "behavior": "teaching operations interaction"
+    }
+  ]
+}

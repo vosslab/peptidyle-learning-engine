@@ -1,5 +1,11 @@
 # Student keyboard accessibility audit
 
+> **Historical evidence notice - superseded for current browser acceptance.** This dated audit
+> records the focused fixture evidence available when it was written. Current browser product
+> behavior uses the production `dist/` disposable real-stack path defined in
+> [TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md); this audit's visual fixtures do not establish
+> canonical screenshot provenance before V1.
+
 Status: implementation and focused acceptance complete for the evidence scope recorded below. The
 live PLE-owned WebWork keyboard path passed on 2026-08-10; representative screen-reader and real
 third-party-provider evaluation remains pending.

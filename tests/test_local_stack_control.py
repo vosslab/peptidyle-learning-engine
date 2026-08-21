@@ -780,19 +780,41 @@ def test_acceptance_lanes_stop_after_the_first_nonzero_child(tmp_path: pathlib.P
 
 
 #============================================
-def test_acceptance_lanes_keep_live_demo_final_and_dispatch_in_order(tmp_path: pathlib.Path) -> None:
-	"""The connected live-demo lane remains final in the fully successful aggregate."""
+def test_acceptance_lanes_declare_one_canonical_browser_and_transitional_visuals(
+	tmp_path: pathlib.Path,
+	capsys: pytest.CaptureFixture[str],
+) -> None:
+	"""Aggregate receipts distinguish production behavior from visual-fixture migration work."""
 	declared_lanes = local_stack_control.acceptance_lanes.lanes("test-python")
-	live_demo_lane = declared_lanes[-1]
-
-	assert (live_demo_lane.name, live_demo_lane.argv) == (
-		"connected ordinary-site live-demo browser journey",
-		("test-python", "tests/e2e/e2e_live_demo_browser.py"),
+	canonical_browser_lanes = tuple(
+		lane
+		for lane in declared_lanes
+		if lane.evidence_boundary is local_stack_control.acceptance_lanes.EvidenceBoundary.CANONICAL_PRODUCTION_BROWSER
 	)
+	transitional_visual_lanes = tuple(
+		lane
+		for lane in declared_lanes
+		if lane.evidence_boundary is local_stack_control.acceptance_lanes.EvidenceBoundary.TRANSITIONAL_VISUAL_FIXTURE
+	)
+
+	assert tuple((lane.name, lane.argv) for lane in canonical_browser_lanes) == (
+		(
+			"canonical production-browser behavior",
+			("bash", "run_playwright_tests.sh", "--build"),
+		),
+	)
+	assert tuple(lane.name for lane in transitional_visual_lanes) == (
+		"transitional course-appearance visual fixture",
+		"transitional instructor-page visual fixture corpus",
+	)
+	assert all("e2e_live_demo_browser.py" not in lane.argv for lane in declared_lanes)
 	runner = ValidationLaneRunner(tuple(0 for _ in declared_lanes))
 	local_stack_control.acceptance_lanes.run(runner, tmp_path, {})
 
 	assert runner.streamed == [list(lane.argv) for lane in local_stack_control.acceptance_lanes.lanes()]
+	receipt = capsys.readouterr().out
+	assert receipt.count("Evidence boundary: canonical production-browser behavior") == 1
+	assert receipt.count("Evidence boundary: transitional visual-fixture evidence") == 2
 
 
 #============================================

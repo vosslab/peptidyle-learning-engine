@@ -693,8 +693,14 @@ without disclosing archived, deleted, or started-retention course records, leave
 unchanged, and prove connected Student login. Sysadmin remains a normal account-ownership and passkey
 flow with full ordinary Sysadmin capabilities.
 
-The approved live-demo handoff is `WP-PROF-LD1` -> `WP-PROF-LD2` -> `WP-PROF-T3`. LD2 was accepted
-on 2026-08-21, so T3 is the separate sole current package.
+The approved live-demo handoff is `WP-PROF-LD1` -> `WP-PROF-LD2` -> `WP-PROF-BS1` ->
+`WP-PROF-T3` -> `WP-PROF-T4`. LD2 was accepted on 2026-08-21. The sole current-package handoff
+is recorded in [implementation_status.md](../implementation_status.md).
+
+`WP-PROF-BS1` now replaces the parallel mock-backed browser application and separate
+screenshot/browser owners with one canonical disposable real-stack suite. It establishes the
+production `dist/` and HTTPS gateway path before T3 browser acceptance. T3 retains its frozen scope
+as the planned successor after BS1; its focused active plan owns the execution detail.
 
 ### WP-PROF-T3 preview contract
 
@@ -1043,8 +1049,9 @@ P1 finding.
 | WP-PROF-T2 | Expert coder | Groups, entitlement, accommodations, co-instructors, retention | WP-PROF-S5, WP-PROF-T1 |
 | WP-PROF-LD1 | Integrator | Accepted 2026-08-20: `base_course_installation`, LDA-owned SQL/lock/migration lifecycle, deterministic product evidence, and real-stack lifecycle proof | WP-PROF-T2 accepted |
 | WP-PROF-LD2 | Expert coder | Seeded Student/Instructor entry and initial Sysadmin claim through ordinary WP-RC8 account-session paths; `2026081809` owns exactly two least-privilege execute-only brokers: Sysadmin approval-candidate discovery and read-only completed-installation-generation lookup for configured first-ownership proof; `2026081810` only repairs Student pre-tenant account-course retention | WP-PROF-LD1 accepted; necessary existing WP-RC8 account-session/passkey/origin contracts |
-| WP-PROF-T3 | Expert coder | Preview plane; separate sole current package after accepted live-demo delivery | WP-PROF-S4, WP-PROF-T1, WP-PROF-LD1 accepted, WP-PROF-LD2 accepted, approved live-demo goal delivered |
-| WP-PROF-T4 | Expert coder | Rehearsal runs on the preview plane | WP-PROF-T3 |
+| WP-PROF-BS1 | Integrator | Current canonical disposable real-stack browser suite for Playwright, acceptance, and screenshots; UI-first scenario state; retirement of the test-only browser application and mock transport | WP-PROF-LD2 accepted |
+| WP-PROF-T3 | Expert coder | Planned frozen-scope preview plane; resumes after accepted real-stack browser foundation | WP-PROF-S4, WP-PROF-T1, WP-PROF-LD1 accepted, WP-PROF-LD2 accepted, WP-PROF-BS1 accepted |
+| WP-PROF-T4 | Expert coder | Rehearsal runs on the preview plane | WP-PROF-T3 accepted |
 | WP-PROF-T5 | Coder | Item pool authoring over selection groups | WP-PROF-T1 |
 | WP-PROF-D1 | Expert coder | Search metadata, usage index, validity contract, quality signal | WP-PROF-S7, WP-R2 |
 | WP-PROF-D2 | Coder | Collections, Favorites, saved searches, bulk actions, ProblemPicker | WP-PROF-D1 |

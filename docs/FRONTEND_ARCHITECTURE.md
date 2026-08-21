@@ -373,22 +373,23 @@ them.
 
 ## Validation gates
 
-The evidence below names what each lane proves. Mock routes and dynamically
-mounted fixtures are useful focused evidence, but neither is a live WebWork
-acceptance claim.
+The evidence below names what each lane proves. Focused route and dynamically
+mounted fixtures protect isolated component behavior. The canonical browser
+product-behavior claim comes from production `dist/` on the disposable real stack;
+fixture visual captures remain transitional until V1 establishes real-origin screenshot provenance.
 
 | Evidence lane                          | Current evidence                                                                                                | What it proves                                                                                                                                                                                            | Boundary                                                                                                   | Status                                  |
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| Built mock route tests                 | `tests/playwright/frontend_contract.spec.ts` and the student keyboard audit                                     | The compiled mock-backed application resolves product routes and completes the reference course-to-answer journey with Tab, Shift+Tab, Space, explicit submission, and native link activation.            | It does not exercise the live API, private renderer, or upstream WebWork.                                  | Complete for the primary platform path. |
+| Focused route and keyboard tests       | `tests/playwright/frontend_contract.spec.ts` and the student keyboard audit                                     | Isolated controls preserve the declared route and keyboard behavior with Tab, Shift+Tab, Space, explicit submission, and native link activation.                                                   | It does not exercise the live API, private renderer, or upstream WebWork.                                  | Complete for the focused component scope. |
 | Dynamically mounted component fixtures | `tests/playwright/student_keyboard_accessibility.spec.ts` and `tests/playwright/external_tool_response.spec.ts` | Production Solid response components isolate Arrow, digit, Enter-to-submit, Escape, and broker interactions so shortcut failures are classified separately.                                               | The fixture bundle is injected into a mock page, not mounted through a complete built route or live stack. | Complete for named widget extensions.   |
-| Source and contract evidence           | `src/wasm/index.ts`, `src/wasm/context.tsx`, `src/main.tsx`, and `tests/test_frontend_contract.mjs`             | The five-operation facade has one shared loader, typed fallbacks for three operations, unavailable-only preview and presentation-verification fallbacks, and no correctness field in mock format reports. | Source and mock-contract checks cannot prove a generated module or a deployed server behaved this way.     | Complete as implementation evidence.    |
-| Required live WebWork gate             | `tests/playwright/webwork_run.spec.ts` through `tests/e2e/e2e_webwork_render_rpc.sh`                            | The private live stack proves the browser calls PLE only, remains answer-free, supports keyboard completion, and receives correct/incorrect outcomes through PLE.                                         | It requires explicit private stack and credential inputs; the ordinary mock suite still skips it.          | Passed on 2026-08-10.                   |
+| Source and contract evidence           | `src/wasm/index.ts`, `src/wasm/context.tsx`, `src/main.tsx`, and `tests/test_frontend_contract.mjs`             | The five-operation facade has one shared loader, typed fallbacks for three operations, unavailable-only preview and presentation-verification fallbacks, and no correctness field in local format reports. | Source and local-contract checks cannot prove a generated module or a deployed server behaved this way.     | Complete as implementation evidence.    |
+| Required live WebWork gate             | `tests/playwright/webwork_run.spec.ts` through `tests/e2e/e2e_webwork_render_rpc.sh`                            | The private live stack proves the browser calls PLE only, remains answer-free, supports keyboard completion, and receives correct/incorrect outcomes through PLE.                                         | It requires its declared private fixture and lifecycle inputs.                                              | Passed on 2026-08-10.                   |
 
-- Node tests freeze the route map, mock/client behavior, and absence of
+- Node tests freeze the route map, client behavior, and absence of
   answer-bearing generated names.
 - TypeScript compilation checks the client, generated fixture projection, WASM
   facade, and response-widget props without `any` or unchecked casts.
-- The focused keyboard evidence and its remaining human evaluation are in
+- The focused keyboard evidence and optional future usability evaluation are in
   [`ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md`](ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md).
 - The durable student interaction requirements, including future MATCH, FIB,
   MULTI-FIB, and HOTSPOT behavior, are in

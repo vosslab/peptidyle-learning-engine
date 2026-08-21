@@ -3,8 +3,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
-import { createMockApiClient } from "../src/api/mock/client.ts";
 import {
   assignmentRouteReference,
   courseRouteReference,
@@ -61,8 +59,27 @@ test("human route references are compact, typed, and bounded", () => {
 });
 
 test("route resolution recovers protected API identities without weakening reference kinds", async () => {
-  const client = createMockApiClient({ workspaceAuthoring: true });
-  const fixture = publishedProblemFixture;
+  const fixture = {
+    course: { reference: "C-1", id: "course-id" },
+    assignment: { reference: "A-1", id: "assignment-id" },
+    run: { reference: "R-1", id: "run-id" },
+    workspace: { reference: "W-1", id: "workspace-id" },
+  };
+  const client = {
+    resolveNavigation: async (reference) => {
+      const values = {
+        "C-1": { kind: "course", courseId: fixture.course.id },
+        "A-1": {
+          kind: "assignment",
+          courseId: fixture.course.id,
+          assignmentId: fixture.assignment.id,
+        },
+        "R-1": { kind: "run", runId: fixture.run.id },
+        "W-1": { kind: "workspace", workspaceId: fixture.workspace.id },
+      };
+      return values[reference];
+    },
+  };
 
   assert.equal(await resolveCourseRoute(client, fixture.course.reference), fixture.course.id);
   assert.deepEqual(await resolveAssignmentRoute(client, fixture.assignment.reference), {
@@ -70,10 +87,11 @@ test("route resolution recovers protected API identities without weakening refer
     courseId: fixture.course.id,
     assignmentId: fixture.assignment.id,
   });
-  assert.equal(await resolveRunRoute(client, fixture.runs[0].reference), fixture.runs[0].id);
-  const draft = (await client.listWorkspaceDrafts()).items[0];
-  assert.notEqual(draft, undefined);
-  assert.equal(await resolveWorkspaceRoute(client, draft.reference), draft.workspace);
+  assert.equal(await resolveRunRoute(client, fixture.run.reference), fixture.run.id);
+  assert.equal(
+    await resolveWorkspaceRoute(client, fixture.workspace.reference),
+    fixture.workspace.id,
+  );
 
   const wrongKindClient = {
     resolveNavigation: () =>
