@@ -65,6 +65,9 @@ def runner_for(tmp_path: pathlib.Path, commands: CleanupCommands) -> object:
 	env_file.parent.mkdir(parents=True)
 	env_file.write_text("PLE_GATEWAY_HOST_PORT=3010\n", encoding="ascii")
 	(repository / "containers/compose.yaml").write_text("services: {}\n", encoding="ascii")
+	(repository / "containers/compose.local-development.yaml").write_text(
+		"services: {}\n", encoding="ascii"
+	)
 	inputs = walkthrough.resolve_inputs(walkthrough.parse_args(["--master-seed", "42"]), repository)
 	return walkthrough.WalkthroughRunner(inputs, repository, {}, commands)
 

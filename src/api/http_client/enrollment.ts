@@ -121,6 +121,16 @@ function isAuthenticationResponse(
   return "signature" in value.response;
 }
 
+function webauthnPublicKeyOptions(
+  value: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const publicKey = value.publicKey;
+  if (typeof publicKey !== "object" || publicKey === null || Array.isArray(publicKey)) {
+    throw new ApiProtocolError("WebAuthn options must contain a publicKey record");
+  }
+  return publicKey as Readonly<Record<string, unknown>>;
+}
+
 /**
  * The platform parser owns the WebAuthn JSON-to-binary conversion. The cast is
  * isolated at this browser-standard boundary; the server remains the semantic
@@ -130,7 +140,7 @@ function registrationOptions(
   value: Readonly<Record<string, unknown>>,
 ): PublicKeyCredentialCreationOptions {
   return PublicKeyCredential.parseCreationOptionsFromJSON(
-    value as unknown as PublicKeyCredentialCreationOptionsJSON,
+    webauthnPublicKeyOptions(value) as unknown as PublicKeyCredentialCreationOptionsJSON,
   );
 }
 
@@ -158,12 +168,21 @@ export async function registerWebauthnWithBrowser<T>(
 }
 
 /** See registrationOptions; this is the matching discoverable-login boundary. */
-function authenticationOptions(
-  value: Readonly<Record<string, unknown>>,
-): PublicKeyCredentialRequestOptions {
-  return PublicKeyCredential.parseRequestOptionsFromJSON(
-    value as unknown as PublicKeyCredentialRequestOptionsJSON,
+function authenticationOptions(value: Readonly<Record<string, unknown>>): CredentialRequestOptions &
+  Readonly<{
+    publicKey: PublicKeyCredentialRequestOptions;
+    mediation: "conditional";
+  }> {
+  const mediation = value.mediation;
+  if (mediation !== "conditional") {
+    throw new ApiProtocolError(
+      "WebAuthn authentication options must require conditional mediation",
+    );
+  }
+  const publicKey = PublicKeyCredential.parseRequestOptionsFromJSON(
+    webauthnPublicKeyOptions(value) as unknown as PublicKeyCredentialRequestOptionsJSON,
   );
+  return { publicKey, mediation };
 }
 
 export async function registerPasskeyWithBrowser(
@@ -183,9 +202,7 @@ export async function authenticatePasskeyWithBrowser(client: CourseRosterClient)
     throw new ApiProtocolError("This browser does not support passkeys");
   }
   const started = await client.startPasskeyAuthentication();
-  const credential = await navigator.credentials.get({
-    publicKey: authenticationOptions(started.options),
-  });
+  const credential = await navigator.credentials.get(authenticationOptions(started.options));
   const json = credentialJson(credential);
   if (!isAuthenticationResponse(json)) {
     throw new ApiProtocolError("The authenticator returned an unexpected sign-in response");

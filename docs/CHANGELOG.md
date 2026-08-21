@@ -1,9 +1,83 @@
 # Changelog
 
+## 2026-08-21
+
+### Fixes and Maintenance
+
+- Moved the live-demo selector identities and generation-bound Sysadmin claim
+  context out of the common Compose topology and into the HTTPS live-demo
+  browser overlay. Ordinary local, Chapter One, WebWork, and walkthrough
+  owners now launch without demo-only inputs; the retired default-only proof
+  command no longer suggests that ordinary local state owns the live-demo
+  capability.
+
+- Increased the one-shot MinIO Client service memory envelope from 128 MiB to
+  256 MiB after the real `mc pipe` receipt-create operation again exited 137.
+  The narrow resource repair retained the service hardening and received
+  independent acceptance.
+- Repaired the disposable UI walkthrough environment to bootstrap and validate
+  its private ownership/passkey setup context under its declared owner policy
+  without accepting a source or ambient proof path; the browser walkthrough
+  itself does not exercise a Sysadmin passkey journey. Its interim live-demo
+  claim-context plumbing was superseded and removed when demo auth was
+  isolated to the explicit HTTPS live-demo overlay.
+- Repaired offline UI walkthrough temporary repositories so they include both canonical Compose
+  files required by the `ui-walkthrough` disposable-owner policy.
+- Kept the database-and-storage live-demo baseline owner independent of the
+  browser-only Sysadmin claim context. The interim ordinary-local claim-context
+  plumbing was superseded and removed when demo auth was isolated to the
+  explicit HTTPS live-demo overlay, whose TLS browser owner alone creates the
+  private, generation-bound passkey-ownership proof.
+
+### Developer Tests and Notes
+
+- Applied authority ruling A to the accepted immutable WP-PROF-LD2 allocation: migration
+  `2026081809` owns exactly two narrow least-privilege execute-only brokers, safe normal Sysadmin
+  approval-candidate discovery and read-only completed-installation-generation lookup used to bind
+  configured first-ownership proof. `2026081810` is accepted and immutable only for the Student
+  pre-tenant account-course retention repair. Selector behavior and claim/passkey/account/session
+  data and semantics remain non-schema; the generation-read broker is the narrow schema
+  authorization seam for that otherwise non-schema ownership flow. This supersedes the temporary
+  P2 reopening record below, restores LD2 acceptance on 2026-08-21, advances T3 as sole current,
+  and leaves WP-RC8 parked and open. This documentation closeout does not itself prove final-goal
+  completion: final-goal completion additionally requires the complete final-material-tree Validation
+  after these record edits.
+- Reopened WP-PROF-LD2 after the independent final material review rejected a P2
+  documentation-and-migration scope contradiction. Migration `2026081809` contains both the
+  Sysadmin approval-candidate discovery broker and the restricted completed-installation-generation
+  read broker used by the ownership route. Its exact allocation scope is under authority correction;
+  `2026081810` remains allocated for the narrow Student pre-tenant account-course context
+  retention-boundary repair. Neither allocation is accepted or immutable. The full
+  final-material-tree Validation and a fresh independent review are required after correction; this
+  entry does not choose between widening 1809's accepted scope and splitting a new migration.
+- Historical post-repair runtime evidence for the open WP-PROF-LD2 passed
+  `./check_rust.sh`; `./check_codebase.sh` (five checks and 322 Node tests);
+  pytest (6,017 tests, no skips); the baseline E2E under
+  `ple_live_demo_baseline_124c398f82978266c7370838`; and all eight aggregate
+  acceptance lanes. The terminal owner-locked local HTTPS Playwright journey
+  passed once under `ple-live-demo-browser-d0ff0e97f4ac`. Typed cleanup and
+  exact-label checks left zero containers, volumes, and networks after both
+  connected runs; both diff checks passed and no Python bytecode artifacts
+  remained. This documentation closeout does not itself prove final-goal
+  completion; final-goal completion additionally requires the complete
+  final-material-tree Validation after the scope correction. This does not claim
+  public, AWS, operator, or production deployment activation and does not
+  close WP-RC8.
+- Corrected the live-demo regeneration checklist to the KISS product contract:
+  fresh database and object-storage regeneration creates the seeded Sysadmin
+  in its original unclaimed baseline state without a credential-replay
+  requirement. Clarified that the owner-locked TLS overlay is disposable
+  connected-E2E validation, not public or production deployment activation.
+
 ## 2026-08-20
 
 ### Additions and New Features
 
+- Split the common Compose topology from the ordinary local-development overlay. The default
+  lifecycle and local disposable owners now use base plus local development (then SMTP when
+  selected), while the live-demo browser owner remains base plus its TLS overlay without a local
+  identity bind. Live bootstrap still creates its seed, invitation, Question ID, and claim inputs
+  but no longer creates local-file credentials or an authentication host-file setting.
 - Accepted WP-PROF-T2 with `2026081807_teaching_operations.sql` immutable. Course groups,
   purpose-specific allow/warn policies, referenced-group refusal, atomic S5/S3 re-evaluation with
   sealed receipt history, operator-owned Instructor approval, target-bound 30-day co-instructor
@@ -52,9 +126,12 @@
   and Store boundary and project-tools remains the direct CLI adapter. The final PostgreSQL 17 plus
   MinIO lifecycle proved five ordinary accounts across two courses, interruption/resume, retained
   restarts, concurrent serialization, fail-closed mixed state, and fresh regeneration. WP-PROF-LD2
-  is now the sole professor handoff; T3 remains parked. LD2 receives `2026081809` only for safe
-  Sysadmin approval-candidate discovery; the selector, ownership claim, and passkey seams remain
-  non-schema. Whole live-demo Validation remains incomplete until LD2 and the connected goal close.
+  made WP-PROF-LD2 the next professor handoff; T3 remains parked. LD2's `2026081809` and
+  `2026081810` allocations were later found to need 1809 scope reconciliation: the current 1809
+  file contains approval-candidate discovery and a completed-installation-generation read broker.
+  The selector and passkey ceremony seams remain non-schema; the generation-read broker awaits an
+  authority ruling. Whole live-demo Validation remains incomplete until LD2 and the connected goal
+  close.
 
 - Recorded the intermediate WP-PROF-T2 contract/allocation gate before implementation. The shared
   migration ledger reserves `2026081807` for future

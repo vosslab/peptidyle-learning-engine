@@ -4,91 +4,38 @@ import { A, useNavigate } from "@solidjs/router";
 import { Show, createSignal, onMount, type JSX } from "solid-js";
 
 import type { AccountCourse } from "../api/enrollment";
-import { DecodeError } from "../api/decoder";
-import { ApiRequestError } from "../api/http_client/error";
 import { registerLiveDemoSysadminWithBrowser } from "../api/http_client/live_demo";
 import { useApiRuntime } from "../api/runtime";
 import { useSessionBootstrap } from "../auth/session_context";
 import { courseRouteReference } from "../navigation/public_route";
 import { AccountCoursePicker } from "./account_course_picker";
 import {
+  clearSysadminOwnershipProof,
   isLiveDemoUnavailable,
+  sysadminCourseFailure,
+  sysadminOwnershipFailure,
   sysadminOwnershipAvailability,
-  type SysadminOwnershipAvailability,
+  sysadminSetupBusyMessage,
+  sysadminSetupCourseRows,
+  sysadminSetupErrorMessage,
+  sysadminSetupFormVisible,
+  sysadminSetupRetry,
+  type SysadminSetupState,
 } from "./live_demo_auth_model";
 import "./live_demo_auth.css";
-
-type SetupState =
-  | { readonly kind: "loading" }
-  | { readonly kind: SysadminOwnershipAvailability }
-  | { readonly kind: "busy"; readonly message: string }
-  | { readonly kind: "courses"; readonly courses: ReadonlyArray<AccountCourse> }
-  | { readonly kind: "empty" }
-  | { readonly kind: "unavailable" }
-  | {
-      readonly kind: "error";
-      readonly message: string;
-      readonly focus: "proof" | "label";
-      readonly retry: "availability" | "setup";
-    };
-
-function courseRows(state: SetupState): ReadonlyArray<AccountCourse> {
-  return state.kind === "courses" ? state.courses : [];
-}
-
-function setupBusyMessage(state: SetupState): string {
-  return state.kind === "busy" ? state.message : "";
-}
-
-function setupErrorMessage(state: SetupState): string {
-  return state.kind === "error" ? state.message : "";
-}
-
-function setupErrorNeedsAvailabilityRetry(state: SetupState): boolean {
-  return state.kind === "error" && state.retry === "availability";
-}
-
-function setupFormVisible(state: SetupState): boolean {
-  if (state.kind === "error") return state.retry === "setup";
-  return state.kind === "ready" || state.kind === "busy";
-}
-
-function ownershipAttemptFailure(error: unknown): SetupState {
-  if (error instanceof ApiRequestError && error.status === 409) {
-    return { kind: "complete" };
-  }
-  if (
-    error instanceof DecodeError ||
-    (error instanceof ApiRequestError && [400, 401, 403].includes(error.status))
-  ) {
-    return {
-      kind: "error",
-      message:
-        "The setup code could not be verified. Check the code supplied for this demo and try again.",
-      focus: "proof",
-      retry: "setup",
-    };
-  }
-  return {
-    kind: "error",
-    message:
-      "The passkey was not set up. You can try again with this device or another passkey-capable device.",
-    focus: "label",
-    retry: "setup",
-  };
-}
 
 export function LiveDemoSysadminSetupPage(): JSX.Element {
   const runtime = useApiRuntime();
   const session = useSessionBootstrap();
   const navigate = useNavigate();
-  const [state, setState] = createSignal<SetupState>({ kind: "loading" });
+  const [state, setState] = createSignal<SysadminSetupState>({ kind: "loading" });
   const [ownershipProof, setOwnershipProof] = createSignal("");
   const [passkeyLabel, setPasskeyLabel] = createSignal("This device");
   let proofInput: HTMLInputElement | undefined;
   let labelInput: HTMLInputElement | undefined;
   let courseHeading: HTMLHeadingElement | undefined;
   let availabilityRetry: HTMLButtonElement | undefined;
+  let courseRetry: HTMLButtonElement | undefined;
 
   function focusAfterError(target: "proof" | "label"): void {
     queueMicrotask(() => (target === "proof" ? proofInput : labelInput)?.focus());
@@ -104,10 +51,8 @@ export function LiveDemoSysadminSetupPage(): JSX.Element {
         isLiveDemoUnavailable(error)
           ? { kind: "unavailable" }
           : {
-              kind: "error",
+              kind: "availability-error",
               message: "Administrator setup is unavailable for this deployment.",
-              focus: "proof",
-              retry: "availability",
             },
       );
       if (!isLiveDemoUnavailable(error)) queueMicrotask(() => availabilityRetry?.focus());
@@ -115,7 +60,7 @@ export function LiveDemoSysadminSetupPage(): JSX.Element {
   }
 
   async function loadCourses(): Promise<void> {
-    setState({ kind: "busy", message: "Opening your account..." });
+    setState({ kind: "courses-busy", message: "Opening your account..." });
     try {
       const page = await runtime.client.listAccountCourses();
       if (page.courses.length === 0) {
@@ -125,47 +70,36 @@ export function LiveDemoSysadminSetupPage(): JSX.Element {
       setState({ kind: "courses", courses: page.courses });
       queueMicrotask(() => courseHeading?.focus());
     } catch {
-      setState({
-        kind: "error",
-        message: "Your administrator passkey is ready, but your course list could not load.",
-        focus: "label",
-        retry: "setup",
-      });
-      focusAfterError("label");
+      setState(sysadminCourseFailure("list"));
+      queueMicrotask(() => courseRetry?.focus());
     }
   }
 
   async function submit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     const proof = ownershipProof();
-    setState({ kind: "busy", message: "Setting up your administrator passkey..." });
+    setState({ kind: "ownership-busy" });
     try {
       await registerLiveDemoSysadminWithBrowser(runtime.client, proof, passkeyLabel());
       await loadCourses();
     } catch (error: unknown) {
-      const failure = ownershipAttemptFailure(error);
+      const failure = sysadminOwnershipFailure(error);
       setState(failure);
-      if (failure.kind === "error") focusAfterError(failure.focus);
+      if (failure.kind === "ownership-error") focusAfterError(failure.focus);
     } finally {
-      // The operator proof lives only in this signal for the duration of this attempt.
-      setOwnershipProof("");
+      setOwnershipProof(clearSysadminOwnershipProof());
     }
   }
 
   async function selectCourse(course: AccountCourse): Promise<void> {
-    setState({ kind: "busy", message: `Opening ${course.title}...` });
+    setState({ kind: "courses-busy", message: `Opening ${course.title}...` });
     try {
       await runtime.client.selectAccountCourse(course.courseId);
       await session.retry();
       navigate(`/courses/${courseRouteReference(course.courseReference)}`);
     } catch {
-      setState({
-        kind: "error",
-        message: "That course could not be opened. Return to sign in and try again.",
-        focus: "label",
-        retry: "setup",
-      });
-      focusAfterError("label");
+      setState(sysadminCourseFailure("select"));
+      queueMicrotask(() => courseRetry?.focus());
     }
   }
 
@@ -196,7 +130,7 @@ export function LiveDemoSysadminSetupPage(): JSX.Element {
           </A>
         </section>
       </Show>
-      <Show when={setupFormVisible(state())}>
+      <Show when={sysadminSetupFormVisible(state())}>
         <form class="auth-panel sysadmin-setup-form" onSubmit={(event) => void submit(event)}>
           <p>
             Enter the setup code supplied for this deployment, then create the administrator passkey
@@ -212,7 +146,7 @@ export function LiveDemoSysadminSetupPage(): JSX.Element {
             autocomplete="off"
             required
             value={ownershipProof()}
-            disabled={state().kind === "busy"}
+            disabled={state().kind === "ownership-busy"}
             onInput={(event) => setOwnershipProof(event.currentTarget.value)}
           />
           <label for="live-demo-passkey-label">Passkey name</label>
@@ -224,23 +158,23 @@ export function LiveDemoSysadminSetupPage(): JSX.Element {
             maxlength={80}
             required
             value={passkeyLabel()}
-            disabled={state().kind === "busy"}
+            disabled={state().kind === "ownership-busy"}
             onInput={(event) => setPasskeyLabel(event.currentTarget.value)}
           />
-          <button class="primary-action" type="submit" disabled={state().kind === "busy"}>
+          <button class="primary-action" type="submit" disabled={state().kind === "ownership-busy"}>
             Set up administrator passkey
           </button>
         </form>
       </Show>
-      <Show when={state().kind === "busy"}>
+      <Show when={state().kind === "ownership-busy" || state().kind === "courses-busy"}>
         <p class="calm-status" role="status" aria-live="polite">
-          {setupBusyMessage(state())}
+          {sysadminSetupBusyMessage(state())}
         </p>
       </Show>
-      <Show when={state().kind === "error"}>
+      <Show when={sysadminSetupErrorMessage(state())}>
         <section class="inline-error" role="alert">
-          <p>{setupErrorMessage(state())}</p>
-          <Show when={setupErrorNeedsAvailabilityRetry(state())}>
+          <p>{sysadminSetupErrorMessage(state())}</p>
+          <Show when={sysadminSetupRetry(state()) === "availability"}>
             <button
               class="quiet-action"
               type="button"
@@ -252,11 +186,26 @@ export function LiveDemoSysadminSetupPage(): JSX.Element {
               Retry
             </button>
           </Show>
+          <Show when={sysadminSetupRetry(state()) === "courses"}>
+            <button
+              class="quiet-action"
+              type="button"
+              ref={(element) => {
+                courseRetry = element;
+              }}
+              onClick={() => void loadCourses()}
+            >
+              Retry course list
+            </button>
+            <A class="quiet-link" href="/sign-in">
+              Return to sign in
+            </A>
+          </Show>
         </section>
       </Show>
       <Show when={state().kind === "courses"}>
         <AccountCoursePicker
-          courses={courseRows(state())}
+          courses={sysadminSetupCourseRows(state())}
           select={selectCourse}
           busy={false}
           headingRef={(element) => {

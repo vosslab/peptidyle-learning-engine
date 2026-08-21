@@ -342,11 +342,17 @@ enter Solid components. `crates/wasm/` exposes answer-free helpers for
 deterministic formatting, response validation, and timer support. The server
 remains authoritative whenever browser and server could disagree.
 
-[containers/compose.yaml](../containers/compose.yaml) defines the local stack:
-gateway, API, ordinary worker, PostgreSQL, MinIO, a private renderer, and
-one-shot setup services. The gateway is the browser entry point. Local
-PostgreSQL and MinIO retain named-volume state; application services are
-replaceable. [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md) and
+[containers/compose.yaml](../containers/compose.yaml) defines the common
+topology: gateway, API, worker, PostgreSQL, MinIO, a private renderer, and
+one-shot setup services. The ordinary local teaching stack adds
+`containers/compose.local-development.yaml`
+for local-file authentication and local-worker behavior. The disposable
+live-demo browser lane instead adds
+`tests/e2e/compose.live-demo-browser.yaml`
+for production authentication, local storage, and the TLS gateway. The gateway
+is the browser entry point. Local PostgreSQL and MinIO retain named-volume
+state; application services are replaceable.
+[LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md) and
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) document its topology
 and operation.
 
@@ -373,8 +379,11 @@ restricted to the `containers` project. A separate closed disposable-owner
 adapter (`python3 -m local_stack_control._consumer_cli`) forms
 temporary E2E targets only from a private mode-0600 manifest and a runner-held
 cleanup capability. The closed owners are `course-appearance`, `chapter-one-pilot`,
-`database-baseline`, `chapter-one-browser`, `webwork-browser`, `wp-r2-host-seed-renderer`, and `replica-restart`; each fixes its
-project namespace and Compose files before any action is formed. The adapter
+`database-baseline`, `chapter-one-browser`, `webwork-browser`, `live-demo-browser`,
+`wp-r2-host-seed-renderer`, and `replica-restart`; each fixes its project namespace and Compose
+files before any action is formed. `live-demo-browser` is the owner-locked, disposable HTTPS
+production-auth connected E2E only; it is neither a general local target nor a public production
+deployment. The adapter
 allows scoped Compose actions, diagnostics, or the policy-declared outage action,
 while cleanup requires the private capability and label-derived
 snapshot. It cannot accept a caller-selected target or generic removal command.

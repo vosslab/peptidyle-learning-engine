@@ -164,9 +164,6 @@ def reset_plan(
 	base_course_manifest = (
 		target.env_file.parent / local_stack_control.models.DEFAULT_BASE_COURSE_MANIFEST_FILE
 	)
-	claim_context = (
-		target.env_file.parent / local_stack_control.models.DEFAULT_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE
-	)
 	chapter_manifest = (
 		target.repo_root / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE
 	)
@@ -175,7 +172,7 @@ def reset_plan(
 		snapshot=snapshot,
 		argv=tuple(argv),
 		removes_volumes=True,
-		host_paths_to_remove=(base_course_manifest, claim_context, chapter_manifest),
+		host_paths_to_remove=(base_course_manifest, chapter_manifest),
 	)
 	return plan
 

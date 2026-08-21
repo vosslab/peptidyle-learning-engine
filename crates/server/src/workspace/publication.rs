@@ -137,6 +137,9 @@ where
             draft_revision: revision,
             baseline: PublicationDiffBaseline::NewQuestion,
             current,
+            // A new question has no published baseline. The browser's strict
+            // semantic-diff contract still receives the explicit empty set.
+            changed: Vec::new(),
         },
     )
 }
@@ -156,6 +159,7 @@ struct PublicationDiff {
     draft_revision: WorkspaceDraftRevision,
     baseline: PublicationDiffBaseline,
     current: PublicationSemanticProjection,
+    changed: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]

@@ -357,13 +357,8 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "WebAssembly initialization failed";
 }
 
-declare const __PLE_BROWSER_ASSET_BASE__: "root" | "relative";
-
 function wasmAssetUrl(fileName: "ple_bridge.js" | "ple_bridge_bg.wasm"): URL {
-  const buildAssetBase =
-    typeof __PLE_BROWSER_ASSET_BASE__ === "string" ? __PLE_BROWSER_ASSET_BASE__ : "root";
-  const base = buildAssetBase === "root" ? `${window.location.origin}/` : document.baseURI;
-  return new URL(`wasm/${fileName}`, base);
+  return new URL(`wasm/${fileName}`, `${window.location.origin}/`);
 }
 
 async function initializeWasmFacade(

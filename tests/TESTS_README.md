@@ -65,6 +65,10 @@ enforce a closed owner policy:
   gateway image.
 - `webwork-browser` owns its isolated full teaching stack, private browser
   identity fixture, renderer-outage action, and derived gateway image.
+- `live-demo-browser` owns the disposable production-auth HTTPS connected E2E.
+  Its canonical runner, `tests/e2e/e2e_live_demo_browser.py`, creates the
+  ordinary stack with no test-double auth, runs
+  `tests/playwright/e2e/live_demo.spec.ts`, and performs typed cleanup.
 - `wp-r2-host-seed-renderer` owns its isolated host-seed and renderer stack.
 - `replica-restart` owns the replica Compose overlay and may stop one exact API
   replica only after it proves a peer remains running.

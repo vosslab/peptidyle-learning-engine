@@ -4,6 +4,7 @@ export type Environment = Readonly<Record<string, string | undefined>>;
 
 export interface LiveModeActivation {
   readonly webwork: boolean;
+  readonly liveDemo: boolean;
 }
 
 function activationValue(environment: Environment, name: string): boolean {
@@ -16,5 +17,11 @@ function activationValue(environment: Environment, name: string): boolean {
 /** Validates the separate WebWork live switch before its input parser reads a credential. */
 export function liveModeActivationFromEnvironment(environment: Environment): LiveModeActivation {
   const webwork = activationValue(environment, "PLE_WEBWORK_LIVE_REQUIRED");
-  return { webwork };
+  const liveDemo = activationValue(environment, "PLE_LIVE_DEMO_BROWSER_REQUIRED");
+  if (webwork && liveDemo) {
+    throw new Error(
+      "PLE_WEBWORK_LIVE_REQUIRED and PLE_LIVE_DEMO_BROWSER_REQUIRED cannot both be enabled",
+    );
+  }
+  return { webwork, liveDemo };
 }

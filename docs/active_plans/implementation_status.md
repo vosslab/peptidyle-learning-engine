@@ -1,6 +1,6 @@
 # Implementation status and handoff
 
-Last updated: 2026-08-20
+Last updated: 2026-08-21
 
 This file is a durable execution handoff. The architecture, scope, milestone order, security
 boundaries, and acceptance criteria remain authoritative in the implementation and active plans.
@@ -10,28 +10,30 @@ documents link here instead of copying those mutable values.
 
 The active [professor capability plan](active/professor_capability_architecture_plan.md) supplements
 the release plan and does not replace it. This file is the sole global current-package handoff
-registry: WP-PROF-T2 and WP-PROF-LD1 are accepted on 2026-08-20; WP-PROF-LD2 is the single current professor package,
-and the release queue is PARKED at still-open WP-RC8.
+registry: WP-PROF-T2 and WP-PROF-LD1 are accepted on 2026-08-20; WP-PROF-LD2 is accepted on
+2026-08-21; WP-PROF-T3 is the sole current professor package; and the release queue is PARKED at
+still-open WP-RC8.
 The professor and release plans own their scope and dependency queues, but defer current-handoff
 truth to this registry. WP-PROF-S1, WP-PROF-S2, WP-PROF-S3, WP-PROF-S4, WP-PROF-S5, and WP-PROF-S7
-are accepted, as are WP-PROF-S6, WP-PROF-T1, WP-PROF-T2, and WP-PROF-LD1. LD1 delivered the
-live-demo baseline lifecycle. WP-PROF-LD2 now owns the seeded-entry, initial-Sysadmin-claim, and
-connected-live-authoring work. WP-PROF-T3 remains separate and parked while the approved live-demo
-goal is open; it returns only after LD2 delivers that goal and its connected Validation and review
-pass. LD2 requires the necessary existing WP-RC8 account-session/passkey/origin contracts. Its
-claim, passkey, and Student/Instructor selector seams remain non-schema. A completed boundary review
-identified one separate durable need: safe Sysadmin approval-candidate discovery requires a new
-least-privilege PostgreSQL broker function, allocated below. LD2 can implement and validate those
-seams while WP-RC8's unrelated provider, mailbox, multi-replica, security, and HCI gates remain open.
-WP-RC8 owns the open provider, mailbox, passkey, multi-replica, security, and HCI gates.
+are accepted, as are WP-PROF-S6, WP-PROF-T1, WP-PROF-T2, WP-PROF-LD1, and WP-PROF-LD2. LD1 delivered
+the live-demo baseline lifecycle. LD2 accepted its seeded-entry, initial-Sysadmin-claim, and
+connected-live-authoring capability. WP-PROF-T3 is current. LD2 uses the
+necessary existing WP-RC8 account-session/passkey/origin contracts; its claim, passkey, and
+Student/Instructor selector seams remain non-schema. WP-RC8 remains PARKED and open for provider,
+mailbox, unrelated passkey, multi-replica, security, HCI, and release gates.
 Professor pre-production work may use the shared migration ledger; it does not accept or imply
 production email authentication, mailbox delivery, onboarding, deployment, or release acceptance.
 
 WP-PROF-LD1 is accepted. It owns the durable live-demo installation-state and Base Course lifecycle
 named by the approved [live-demo specification](../LIVE_DEMO_SPEC.md). Its accepted migration is
-`2026081808_live_demo_install_state.sql`. WP-PROF-LD2 is the current schema package only for its
-least-privilege Sysadmin approval-candidate discovery broker function; its allocated migration is
-`2026081809`. WP-PROF-T3 remains a
+`2026081808_live_demo_install_state.sql`. WP-PROF-LD2 is accepted. Its immutable `2026081809`
+allocation owns exactly two least-privilege execute-only PostgreSQL brokers: safe normal Sysadmin
+approval-candidate discovery and read-only completed live-demo installation-generation lookup used
+to bind configured first-ownership proof. Its separately accepted immutable `2026081810` is only the
+narrow Student pre-tenant account-course context retention-boundary repair. Selector behavior and
+claim, passkey, account, and session data and semantics remain non-schema; the generation-read
+broker is the narrow schema authorization seam for that otherwise non-schema ownership flow.
+WP-PROF-T3 is current and is a
 non-schema, non-mutating preview plane: it reuses the forced-RLS `audit_event` and writable
 repeatable-read snapshot for the one successful learner-derived-subject audit, while accepted
 `2026081807_teaching_operations.sql` remains immutable. The active professor plan owns the frozen
@@ -66,16 +68,19 @@ do not implicitly receive one.
 | `2026081806` | WP-PROF-S6 | Course grade scheme; accepted and immutable |
 | `2026081807` | WP-PROF-T2 | Teaching operations; accepted and immutable |
 | `2026081808` | WP-PROF-LD1 | Live-demo installation state; accepted and immutable |
-| `2026081809` | WP-PROF-LD2 | Least-privilege Sysadmin approval-candidate discovery broker function; allocated |
+| `2026081809` | WP-PROF-LD2 | Accepted and immutable; exactly two least-privilege execute-only brokers: Sysadmin approval-candidate discovery and read-only completed-installation-generation lookup for configured first-ownership proof |
+| `2026081810` | WP-PROF-LD2 | Accepted and immutable; only the narrow Student pre-tenant account-course context retention-boundary repair |
 
 The S3, S4, and S5 allocations were reordered before any of their migration files existed.
 Accepted S5 occupies `2026081803`, accepted S3 occupies `2026081804`, accepted S4 occupies
 `2026081805`, accepted S6 occupies `2026081806`, and WP-PROF-T2 occupies `2026081807`.
 `2026081807_teaching_operations.sql` is accepted and immutable, and the forward migration order
 remains contiguous through `2026081807`. `2026081808_live_demo_install_state.sql` is accepted and
-immutable; `2026081809` is allocated to WP-PROF-LD2. No placeholder migration, absent-file dependency, or
-out-of-order application is permitted. Numeric allocation records the forward migration sequence,
-while package dependency remains defined by the professor plan.
+immutable. `2026081809` and `2026081810` are accepted and immutable. The 1809 allocation accurately
+records its two existing brokers; no additional migration is warranted. No placeholder migration,
+absent-file dependency, or out-of-order application
+is permitted. Numeric allocation records the forward migration sequence, while package dependency
+remains defined by the professor plan.
 
 WP-PROF-LD1 accepted the durable `installing` and `complete` installation state; one advisory lock for
 single-writer first-install coordination; deterministic Base Course seeding with generation-bound
@@ -90,6 +95,24 @@ server-start hook. LD1 acceptance includes migration and live lifecycle evidence
 and resume, retained restart, fail-closed mixed state handling, and fresh regeneration. It does not
 add account, passkey, session, authentication, origin, or replica schema or behavior: WP-RC8 retains
 those security boundaries.
+
+WP-PROF-LD2 was accepted on 2026-08-21 after the authority record accurately classified the two
+existing 1809 brokers. The `createbuckets` receipt-create operation previously
+exited 137 at 128 MiB; its bounded resource limit is now 256 MiB, and independent review accepted
+that narrow repair. The full post-repair runtime tree passed `./check_rust.sh` (terminal `PASS: Rust
+workspace checks and tests completed.`); `./check_codebase.sh` (five checks, 322 Node tests);
+`source source_me.sh && python3 -m pytest tests/` (6,017 passed, no skips); and `source
+source_me.sh && python3 tests/e2e/e2e_live_demo_baseline.py` (PASS: fresh install, retained edit
+without storage access, interruption repair, concurrency, pre-marker refusal, and fresh
+regeneration with unclaimed seeded Sysadmin). `source source_me.sh && python3 local_stack.py
+acceptance` passed all eight lanes, including its terminal connected HTTPS Playwright journey (one
+passed) under project `ple-live-demo-browser-d0ff0e97f4ac`; typed cleanup and exact-label checks
+left zero containers, volumes, and networks. The baseline E2E project
+`ple_live_demo_baseline_124c398f82978266c7370838` likewise left those exact inventories empty.
+Both diff checks passed, with no `__pycache__`, `.pyc`, or `.pyo` files. The package acceptance
+does not itself prove final-goal completion: final-goal completion additionally requires the complete
+final-material-tree Validation after these record edits. This accepts neither public/AWS/operator
+deployment nor WP-RC8.
 
 The actual clean-cluster baseline replacement requires both professor WP-PROF-E2 readiness and completion
 of all repository-owned release schema packages/RC12, immediately before first production data. WP-PROF-E2

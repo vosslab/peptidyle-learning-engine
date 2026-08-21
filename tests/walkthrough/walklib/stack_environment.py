@@ -7,7 +7,6 @@ import secrets
 import local_stack_control.cleanup
 import local_stack_control.commands
 import local_stack_control.discovery
-import local_stack_control.models
 import local_stack_control.process
 
 import tests.walkthrough.walklib as walklib

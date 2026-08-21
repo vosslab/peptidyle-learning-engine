@@ -1,14 +1,20 @@
 // WP-PROF-LD2 static browser-authentication route and safety tests.
 
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import test from "node:test";
 
 import { ApiRequestError } from "../src/api/http_client/error.ts";
 import {
+  clearSysadminOwnershipProof,
   isLiveDemoUnavailable,
   seededDemoDescription,
+  sysadminCourseFailure,
+  sysadminOwnershipFailure,
   sysadminOwnershipAvailability,
+  sysadminSetupBusyMessage,
+  sysadminSetupErrorMessage,
+  sysadminSetupFormVisible,
+  sysadminSetupRetry,
 } from "../src/pages/live_demo_auth_model.ts";
 import { rolesMayAccessRoute, routeContractForPathname } from "../src/route_contract.ts";
 import { courseThemeRouteRequest } from "../src/features/course_appearance/course_theme_route.ts";
@@ -36,27 +42,30 @@ test("live-demo availability keeps 404 absent and maps safe ownership states", (
   assert.match(seededDemoDescription("elenaInstructor"), /seeded account/u);
 });
 
-test("the Sysadmin setup page keeps the ownership proof out of browser persistence", () => {
-  const source = fs.readFileSync("src/pages/live_demo_sysadmin_setup_page.tsx", "utf8");
+test("post-claim course failures close ownership setup and focus a course-list retry", () => {
+  const failedCourseLoad = sysadminCourseFailure("list");
+  const failedCourseSelection = sysadminCourseFailure("select");
 
-  assert.match(
-    source,
-    /registerLiveDemoSysadminWithBrowser\(runtime\.client, proof, passkeyLabel\(\)\)/u,
-  );
-  assert.match(
-    source,
-    /finally \{\s*\/\/ The operator proof[\s\S]*?setOwnershipProof\(""\);\s*\}/u,
-  );
-  assert.match(source, /ownershipAttemptFailure\(error\)/u);
-  assert.match(source, /Administrator setup is already complete/u);
-  assert.doesNotMatch(source, /(?:localStorage|sessionStorage|console\.|window\.location)/u);
+  assert.equal(sysadminSetupFormVisible(failedCourseLoad), false);
+  assert.equal(sysadminSetupRetry(failedCourseLoad), "courses");
+  assert.match(sysadminSetupErrorMessage(failedCourseLoad), /passkey is ready/u);
+  assert.equal(sysadminSetupRetry(failedCourseSelection), "courses");
+  assert.match(sysadminSetupErrorMessage(failedCourseSelection), /Reload your course list/u);
+  assert.equal(clearSysadminOwnershipProof(), "");
 });
 
-test("seeded account selection stays on the closed selector then shared course-picker path", () => {
-  const source = fs.readFileSync("src/pages/sign_in_page.tsx", "utf8");
+test("only ownership failures reopen the claim form, while a stale claim is terminal", () => {
+  const invalidProof = sysadminOwnershipFailure(
+    new ApiRequestError(403, "/api/auth/live-demo/sysadmin/ownership"),
+  );
+  const alreadyClaimed = sysadminOwnershipFailure(
+    new ApiRequestError(409, "/api/auth/live-demo/sysadmin/ownership"),
+  );
 
-  assert.match(source, /runtime\.client\.listSeededDemoAccounts\(\)/u);
-  assert.match(source, /runtime\.client\.selectSeededDemoAccount\(account\.persona\)/u);
-  assert.match(source, /<AccountCoursePicker/u);
-  assert.doesNotMatch(source, /startLiveDemoSysadminOwnership|completeLiveDemoSysadminOwnership/u);
+  assert.equal(sysadminSetupFormVisible(invalidProof), true);
+  assert.equal(sysadminSetupFormVisible(alreadyClaimed), false);
+  assert.equal(
+    sysadminSetupBusyMessage({ kind: "courses-busy", message: "Opening your account..." }),
+    "Opening your account...",
+  );
 });

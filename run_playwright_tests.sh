@@ -5,9 +5,9 @@
 #   - Requires node and npm on PATH.
 #   - Requires node_modules/ to be installed (npm install).
 #   - Requires playwright.config.ts at the repo root.
-#   - Assumption: playwright.config.ts owns the test server via its webServer
-#     block. This script does NOT start run_web_server.sh; Playwright spins up
-#     its own dev/preview server as configured in playwright.config.ts.
+#   - Assumption: playwright.config.ts owns the isolated browser-test server
+#     through its webServer block. Playwright starts
+#     tests/playwright/helper_browser_test_server.mjs as configured there.
 #   - If dist_browser_test/index.html or dist_browser_test/main.js is missing, the webServer block will
 #     likely fail. Pass --build (or let the auto-check trigger) to rebuild first.
 #   - Pass --build to force a browser-test artifact rebuild even when it is present.

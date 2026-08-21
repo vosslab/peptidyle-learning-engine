@@ -39,6 +39,7 @@ CANONICAL_IMAGE_SELECTIONS_BY_OWNER = {
 	"wp-rc8-postgres-outbox": ("PLE_POSTGRES_IMAGE_SHA256",),
 	"chapter-one-browser": (),
 	"webwork-browser": (),
+	"live-demo-browser": (),
 	"wp-r2-host-seed-renderer": (),
 	"replica-restart": (),
 }
@@ -222,7 +223,10 @@ def lifecycle_options(
 ) -> "local_stack_control.lifecycle.LifecycleOptions":
 	"""Form the closed lifecycle request allowed to full-stack disposable owners."""
 	policy = disposable_policy(disposable)
-	launch_owners = {"chapter-one-browser", "webwork-browser", "wp-r2-host-seed-renderer"}
+	launch_owners = {
+		"chapter-one-browser", "webwork-browser", "live-demo-browser",
+		"wp-r2-host-seed-renderer",
+	}
 	if policy.owner not in launch_owners:
 		raise local_stack_control.models.ControllerError(
 			"closed full-stack owners may use the structured launcher"

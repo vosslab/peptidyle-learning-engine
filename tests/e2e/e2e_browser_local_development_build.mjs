@@ -33,11 +33,11 @@ function normalizedBuildInputs(metafilePath) {
   );
 }
 
-function buildBrowser(localDevelopmentAuth, assetBase = "root", browserTestTransport = false) {
+function buildBrowser(localDevelopmentAuth, browserTestTransport = false) {
   const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "ple-browser-build-"));
   const metafilePath = path.join(outputDirectory, "build-metafile.json");
   try {
-    execFileSync("node", ["pipeline/build.mjs", "--skip-wasm", `--asset-base=${assetBase}`], {
+    execFileSync("node", ["pipeline/build.mjs", "--skip-wasm"], {
       cwd: repoRoot,
       env: {
         ...process.env,
@@ -60,8 +60,7 @@ function buildBrowser(localDevelopmentAuth, assetBase = "root", browserTestTrans
 
 const production = buildBrowser(false);
 const local = buildBrowser(true);
-const githubPages = buildBrowser(false, "relative");
-const browserTest = buildBrowser(true, "root", true);
+const browserTest = buildBrowser(true, true);
 
 assert.equal(
   production.inputs.has(disabledInput),
@@ -93,9 +92,4 @@ assert.match(
   production.indexHtml,
   /<script type="module" src="\/main\.js\?v=[0-9a-f]{8}"><\/script>/u,
   "the live module must resolve from the gateway root",
-);
-assert.doesNotMatch(
-  githubPages.indexHtml,
-  /(?:href|src)="\/(?:style|main)\.(?:css|js)\?v=/u,
-  "the GitHub Pages variant must retain project-relative assets",
 );

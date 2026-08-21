@@ -92,7 +92,7 @@ pub(super) use adapter_webwork::{HttpWebworkRenderer, HttpWebworkRendererConfig,
 /// provider-backed login route. The local launcher remains separately paired
 /// with explicit development-only configuration.
 pub async fn production_router_from_env() -> Result<Router> {
-    let persistent = PersistentDependencies::from_env(StorageRuntime::Api).await?;
+    let persistent = PersistentDependencies::from_env(StorageRuntime::api_from_env()?).await?;
     persistent.production_router()
 }
 
@@ -104,7 +104,9 @@ pub async fn production_router_from_env() -> Result<Router> {
 /// cookies and public-publication denial coupled to that mode.
 #[cfg(feature = "local-development-auth")]
 pub async fn local_development_router_from_env() -> Result<Router> {
-    let persistent = PersistentDependencies::from_env(StorageRuntime::LocalDevelopment).await?;
+    let persistent =
+        PersistentDependencies::from_local_development_env(StorageRuntime::local_development_api())
+            .await?;
     let local_authentication = local_development_authentication_from_env()?;
     Ok(persistent
         .local_development_router(local_authentication, Arc::new(LocalDevelopmentReviewGate)))
@@ -118,6 +120,9 @@ pub fn bind_address_from_env() -> Result<SocketAddr> {
         .context("PLE_BIND_ADDR must be a socket address")
 }
 
+#[cfg(test)]
+#[path = "composition/tests/storage_topology.rs"]
+mod storage_topology_tests;
 #[cfg(all(test, feature = "local-development-auth"))]
 #[path = "composition/tests/mod.rs"]
 mod tests;

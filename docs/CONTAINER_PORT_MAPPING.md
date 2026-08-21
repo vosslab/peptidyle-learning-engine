@@ -1,8 +1,9 @@
 # Container port mapping
 
 This document maps the supported local Podman ports. The executable source of
-truth is [containers/compose.yaml](../containers/compose.yaml); the typed
-`local_stack_control` lifecycle selects the gateway host port.
+truth is [containers/compose.yaml](../containers/compose.yaml) plus
+`containers/compose.local-development.yaml`; the typed `local_stack_control`
+lifecycle selects the gateway host port.
 
 All published ports bind to `127.0.0.1`. They are local-development access
 points, not services exposed to the LAN.
@@ -69,7 +70,8 @@ guide.
 ## Inspecting the live stack
 
 ```bash
-podman compose -f containers/compose.yaml --env-file containers/env.local ps
+podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
+  --env-file containers/env.local ps
 gateway_port="$(awk -F= '$1 == "PLE_GATEWAY_HOST_PORT" {print $2}' containers/env.local)"
 curl -s "http://127.0.0.1:${gateway_port:-8080}/health"
 ```

@@ -51,6 +51,8 @@ def write_env_file(repository: pathlib.Path, relative_path: str, port: int) -> p
 	path.write_text(f"PLE_GATEWAY_HOST_PORT={port}\n", encoding="ascii")
 	compose_file = repository / "containers" / "compose.yaml"
 	compose_file.write_text("services: {}\n", encoding="ascii")
+	local_development_compose_file = repository / "containers" / "compose.local-development.yaml"
+	local_development_compose_file.write_text("services: {}\n", encoding="ascii")
 	return path
 
 
@@ -189,19 +191,57 @@ def test_controller_adapter_preserves_optional_stdin_without_exposing_it() -> No
 
 
 #============================================
-def test_walkthrough_validation_uses_source_environment_before_private_bootstrap(
+def test_walkthrough_private_bootstrap_is_the_read_only_validation_target(
 	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-	"""Read-only validation precedes start on the initialized source, not teaching-private state."""
+	"""Validation reads the bootstrapped private target without changing the selected source file."""
 	repository = tmp_path / "repository"
 	source = write_env_file(repository, "containers/env.local", 3010)
+	source_contents = "PLE_GATEWAY_HOST_PORT=3010\n"
+	source.write_text(source_contents, encoding="ascii")
 	source.chmod(0o600)
 	runner = walkthrough.WalkthroughRunner(resolved_inputs(repository), repository, {}, RecordingCommands())
-	runner.prepare_journey_state()
-	runner.create_private_stack_environment()
+	observed_targets: list[object] = []
+	class StopAfterValidation(RuntimeError):
+		"""Stop the offline lifecycle after its read-only validation boundary."""
+
+	def record_validation(
+		target: object, _commands: object, validation_root: pathlib.Path
+	) -> str:
+		assert validation_root == repository
+		observed_targets.append(target)
+		raise StopAfterValidation()
+
+	monkeypatch.setattr(walkthrough, "effective_gateway_port", lambda _inputs: 3010)
+	monkeypatch.setattr(walkthrough, "effective_stack_ports", lambda _inputs: ())
+	monkeypatch.setattr(walkthrough, "reject_external_compose_project_name", lambda *_args: None)
+	monkeypatch.setattr(walkthrough, "assert_no_active_ple_stack", lambda *_args: None)
+	monkeypatch.setattr(walkthrough, "assert_ports_available", lambda *_args: None)
+	monkeypatch.setattr(runner, "configure_compose", lambda: None)
+	monkeypatch.setattr(runner, "assert_no_existing_stack", lambda: None)
+	monkeypatch.setattr(runner, "prepare_report_directory", lambda: None)
+	monkeypatch.setattr(
+		walkthrough.stack_environment, "require_empty_disposable_preflight", lambda *_args: None
+	)
+	monkeypatch.setattr(
+		walkthrough.local_stack_control.lifecycle, "validate_lifecycle", record_validation
+	)
+	with pytest.raises(StopAfterValidation):
+		runner.execute()
+	disposable = runner.disposable_target
+	assert disposable is not None
 	private_env = runner.stack_env_file()
+	private_values = dict(
+		line.split("=", 1)
+		for line in private_env.read_text(encoding="ascii").splitlines()
+		if line != ""
+	)
 
 	assert runner.inputs.env_file == source and runner.inputs.env_file != private_env
+	assert source.read_text(encoding="ascii") == source_contents
+	assert observed_targets == [disposable]
+	assert not any(name.startswith("PLE_LIVE_DEMO_") for name in private_values)
 	runner.remove_private_state()
 
 

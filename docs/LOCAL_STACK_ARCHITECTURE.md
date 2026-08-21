@@ -1,16 +1,23 @@
 # Local stack architecture
 
 This document answers one operational question: why does each container in the
-PLE local stack exist? The authoritative configuration is
-[`containers/compose.yaml`](../containers/compose.yaml). The normal operator
-path is `source source_me.sh && python3 local_stack.py`. Focused private
+PLE local stack exist? The ordinary local configuration is
+[containers/compose.yaml](../containers/compose.yaml) followed by
+`containers/compose.local-development.yaml`.
+The base defines common services, networks, hardening, and one-shot setup. The
+local-development overlay selects local-file authentication and local worker
+commands. The normal operator path is `source source_me.sh && python3 local_stack.py`.
+Focused private
 `local_stack_control` Python modules own bootstrap, startup, migration, seed,
 renderer provenance, polling, and readiness directly. This keeps Compose lifecycle
 discovery, scoped logs, confirmation, and acceptance preflight in one typed boundary.
 
-The normal stack includes PLE's standalone WeBWorK PG renderer. SMTP is the one
-optional overlay because PLE connects to an external mail provider rather than
-operating a mail server.
+The normal stack includes PLE's standalone WeBWorK PG renderer.
+[containers/compose.smtp.yaml](../containers/compose.smtp.yaml) is an optional
+third overlay because PLE connects to an external mail provider rather than
+operating a mail server. The disposable live-demo browser lane instead uses the
+base and its owner-locked TLS overlay; it uses production authentication and
+does not select the local-development overlay.
 
 This is intentionally an HTTP, loopback-only development topology. Caddy does
 not emit HSTS locally: a browser must not be instructed to require HTTPS for a

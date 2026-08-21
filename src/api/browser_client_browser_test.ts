@@ -31,7 +31,8 @@ export function createBrowserApiClient(): ApiClient {
     teachingAccountPendingInvitation: window.__PLE_MOCK_ACCOUNT_PENDING_INVITATION__ === true,
     teachingModifierConflictOnce: window.__PLE_MOCK_TEACHING_MODIFIER_CONFLICT_ONCE__ === true,
     teachingRetentionConflictOnce: window.__PLE_MOCK_TEACHING_RETENTION_CONFLICT_ONCE__ === true,
-    teachingGroupDeleteConflictOnce: window.__PLE_MOCK_TEACHING_GROUP_DELETE_CONFLICT_ONCE__ === true,
+    teachingGroupDeleteConflictOnce:
+      window.__PLE_MOCK_TEACHING_GROUP_DELETE_CONFLICT_ONCE__ === true,
     teachingRetentionArchiveForbiddenOnce:
       window.__PLE_MOCK_TEACHING_RETENTION_ARCHIVE_FORBIDDEN_ONCE__ === true,
     teachingRetentionDeleteUnavailableOnce:

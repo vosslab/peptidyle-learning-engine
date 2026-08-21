@@ -1,0 +1,60 @@
+# Production-auth and local-storage composition for the one disposable live-demo browser lane.
+# Invoke only with containers/compose.yaml through the owner-locked lifecycle adapter.
+
+services:
+  identity-secret-init:
+    volumes:
+      - type: bind
+        source: ${PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE:?set by e2e_live_demo_browser.py}
+        target: /run/source/live_demo_sysadmin_claim_context.json
+        read_only: true
+        bind:
+          create_host_path: false
+    command: ["/bin/sh", "-ec", "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; cp /run/source/question_id_secret /run/ple-secrets/question_id_secret; cp /run/source/live_demo_sysadmin_claim_context.json /run/ple-secrets/live_demo_sysadmin_claim_context.json; chmod 600 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret /run/ple-secrets/live_demo_sysadmin_claim_context.json; chown 10001:10001 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret /run/ple-secrets/live_demo_sysadmin_claim_context.json"]
+
+  api:
+    build:
+      target: live-demo
+    environment:
+      PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH: "0"
+      PLE_AUTH_PROVIDER: !reset null
+      PLE_LOCAL_AUTH_FILE: !reset null
+      PLE_STORAGE_TOPOLOGY: disposable-local
+      PLE_TRUSTED_PROXY_CIDRS: ${PLE_TRUSTED_PROXY_CIDRS:?set by e2e_live_demo_browser.py}
+      PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID: ${PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID:?set by e2e_live_demo_browser.py}
+      PLE_LIVE_DEMO_MARY_STUDENT_USER_ID: ${PLE_LIVE_DEMO_MARY_STUDENT_USER_ID:?set by e2e_live_demo_browser.py}
+      PLE_LIVE_DEMO_JACK_STUDENT_USER_ID: ${PLE_LIVE_DEMO_JACK_STUDENT_USER_ID:?set by e2e_live_demo_browser.py}
+      PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID: ${PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID:?set by e2e_live_demo_browser.py}
+      PLE_LIVE_DEMO_SYSADMIN_USER_ID: ${PLE_LIVE_DEMO_SYSADMIN_USER_ID:?set by e2e_live_demo_browser.py}
+      PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE: /run/ple-secrets/live_demo_sysadmin_claim_context.json
+    volumes: !override
+      - ple_identity_runtime:/run/ple-secrets:ro
+
+  worker:
+    command: ["--worker"]
+    environment:
+      PLE_STORAGE_TOPOLOGY: disposable-local
+
+  gateway:
+    volumes: !override
+      - ../tests/e2e/Caddyfile.live-demo-browser:/etc/caddy/Caddyfile:ro
+      - ../dist:/srv/peptidyle:ro
+    healthcheck:
+      test: !override
+        - CMD
+        - curl
+        - --insecure
+        - --fail
+        - --silent
+        - --show-error
+        - --max-time
+        - "2"
+        - https://localhost:8080/health
+    networks:
+      - default
+
+networks:
+  gateway_api:
+    ipam:
+      config:
+        - subnet: 172.30.255.0/29

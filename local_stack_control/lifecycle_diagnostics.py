@@ -13,8 +13,12 @@ def redacted_failure_detail(
 ) -> str:
 	"""Return a bounded child failure summary with supplied private material removed."""
 	text = "child reported a failure"
-	for value in private_values:
-		if value != "":
-			text = text.replace(value, "[private]")
-	text = text[:MAXIMUM_DIAGNOSTIC_CHARACTERS]
+	if private_values:
+		text = "\n".join((result.stdout, result.stderr)).strip()
+		for value in sorted(set(private_values), key=len, reverse=True):
+			if value != "":
+				text = text.replace(value, "[private]")
+		if text == "":
+			text = "child reported a failure"
+	text = text[-MAXIMUM_DIAGNOSTIC_CHARACTERS:]
 	return text

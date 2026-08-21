@@ -1,0 +1,23 @@
+# Local-file authentication and local-worker behavior for the ordinary teaching stack.
+# The common base intentionally stays usable by the production-auth disposable lane.
+services:
+  api:
+    build:
+      target: local-development
+    environment:
+      PLE_AUTH_PROVIDER: local-file
+      PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH: "1"
+      PLE_LOCAL_AUTH_FILE: /run/ple/local-identities.json
+    volumes:
+      - type: bind
+        source: ${PLE_LOCAL_AUTH_HOST_FILE:?set PLE_LOCAL_AUTH_HOST_FILE to an operator-created local identities JSON file}
+        target: /run/ple/local-identities.json
+        read_only: true
+        bind:
+          create_host_path: false
+
+  worker:
+    command: ["--local-worker"]
+
+  invitation-delivery-worker:
+    command: ["--local-invitation-delivery-worker"]

@@ -34,6 +34,7 @@ use super::passwordless::{
 };
 use super::webauthn::{
     PasswordlessWebauthn, WEBAUTHN_BINDING_COOKIE, decode_state, encode_state, persist_ceremony,
+    require_discoverable_credential,
 };
 use super::{ClientAddressPolicy, SessionConfig, clear_session_cookie, no_store};
 
@@ -252,6 +253,10 @@ where
     ) {
         Ok(value) => value,
         Err(_) => return ownership_unavailable(),
+    };
+    let options = match require_discoverable_credential(options) {
+        Ok(options) => options,
+        Err(()) => return ownership_unavailable(),
     };
     let binding = match RandomSecret::generate() {
         Ok(value) => value,

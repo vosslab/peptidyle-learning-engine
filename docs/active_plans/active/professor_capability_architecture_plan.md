@@ -681,13 +681,20 @@ the seeded-entry seams against those contracts while unrelated WP-RC8 provider, 
 multi-replica, security, and HCI gates remain open. It adds a deployment-controlled Student/Instructor
 persona selector that resolves only to seeded ordinary accounts and then follows the normal
 account-session and course/role-selection path. It extends, rather than replaces, WP-RC8's production
-authentication boundary. Its claim, passkey, and selector seams are non-schema. A completed boundary
-review allocated `2026081809` only for the new least-privilege PostgreSQL broker function needed for
-safe Sysadmin approval-candidate discovery. Sysadmin remains a normal account-ownership and passkey
+authentication boundary. Its selector behavior and claim, passkey, account, and session data and
+semantics remain non-schema. A completed boundary review allocated `2026081809` for exactly two
+least-privilege execute-only PostgreSQL brokers: safe normal Sysadmin approval-candidate discovery,
+and a read-only completed live-demo installation-generation lookup that binds the configured
+first-ownership proof. The generation-read broker is the narrow schema authorization seam for that
+otherwise non-schema ownership flow; it grants no role and writes no lifecycle, identity, passkey,
+or session state. The separate `2026081810` allocation is only for the
+discovered Student pre-tenant account-course context repair: it must retain active Student contexts
+without disclosing archived, deleted, or started-retention course records, leave Instructor behavior
+unchanged, and prove connected Student login. Sysadmin remains a normal account-ownership and passkey
 flow with full ordinary Sysadmin capabilities.
 
-The approved live-demo handoff is `WP-PROF-LD1` -> `WP-PROF-LD2`; `WP-PROF-T3` remains separate and
-parked until that live-demo goal is delivered.
+The approved live-demo handoff is `WP-PROF-LD1` -> `WP-PROF-LD2` -> `WP-PROF-T3`. LD2 was accepted
+on 2026-08-21, so T3 is the separate sole current package.
 
 ### WP-PROF-T3 preview contract
 
@@ -1035,8 +1042,8 @@ P1 finding.
 | WP-PROF-T1 | Expert coder | Lifecycle, schedule, late policy, instructions, scoring status | WP-PROF-S3 |
 | WP-PROF-T2 | Expert coder | Groups, entitlement, accommodations, co-instructors, retention | WP-PROF-S5, WP-PROF-T1 |
 | WP-PROF-LD1 | Integrator | Accepted 2026-08-20: `base_course_installation`, LDA-owned SQL/lock/migration lifecycle, deterministic product evidence, and real-stack lifecycle proof | WP-PROF-T2 accepted |
-| WP-PROF-LD2 | Expert coder | Seeded Student/Instructor entry and initial Sysadmin claim through ordinary WP-RC8 account-session paths; `2026081809` only for least-privilege Sysadmin candidate discovery | WP-PROF-LD1 accepted; necessary existing WP-RC8 account-session/passkey/origin contracts |
-| WP-PROF-T3 | Expert coder | Preview plane; separate and parked until the approved live-demo goal is delivered, then returns as current handoff | WP-PROF-S4, WP-PROF-T1, WP-PROF-LD1 accepted, WP-PROF-LD2 accepted, approved live-demo goal delivered |
+| WP-PROF-LD2 | Expert coder | Seeded Student/Instructor entry and initial Sysadmin claim through ordinary WP-RC8 account-session paths; `2026081809` owns exactly two least-privilege execute-only brokers: Sysadmin approval-candidate discovery and read-only completed-installation-generation lookup for configured first-ownership proof; `2026081810` only repairs Student pre-tenant account-course retention | WP-PROF-LD1 accepted; necessary existing WP-RC8 account-session/passkey/origin contracts |
+| WP-PROF-T3 | Expert coder | Preview plane; separate sole current package after accepted live-demo delivery | WP-PROF-S4, WP-PROF-T1, WP-PROF-LD1 accepted, WP-PROF-LD2 accepted, approved live-demo goal delivered |
 | WP-PROF-T4 | Expert coder | Rehearsal runs on the preview plane | WP-PROF-T3 |
 | WP-PROF-T5 | Coder | Item pool authoring over selection groups | WP-PROF-T1 |
 | WP-PROF-D1 | Expert coder | Search metadata, usage index, validity contract, quality signal | WP-PROF-S7, WP-R2 |
@@ -1053,8 +1060,10 @@ P1 finding.
 | WP-PROF-E2 | Integrator | Final gates, visual review, docs, changelog, baseline procedure | WP-PROF-E1 |
 
 Each package owns its capability modules. The six named M1 schema packages and the accepted
-post-M1 WP-PROF-LD1 allocation are recorded in the shared registry; WP-PROF-LD2 has the narrow
-`2026081809` broker allocation. Every later schema package
+post-M1 WP-PROF-LD1 allocation are recorded in the shared registry; WP-PROF-LD2 has the
+`2026081809` two-broker allocation (Sysadmin approval-candidate discovery and completed-installation-
+generation lookup for configured first-ownership proof) and the separate `2026081810` Student
+pre-tenant account-course retention-boundary repair allocation. Every later schema package
 receives a release-integrator allocation before implementation, and non-schema packages receive no
 migration implicitly. Shared route registration and migration ordering belong to the integrator.
 

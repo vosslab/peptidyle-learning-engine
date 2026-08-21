@@ -19,9 +19,9 @@ DISPOSABLE_CAPABILITY_SETTING = "PLE_DISPOSABLE_CAPABILITY_SHA256"
 DEFAULT_PROJECT = "containers"
 DEFAULT_ENV_FILE = "containers/env.local"
 DEFAULT_BASE_COURSE_MANIFEST_FILE = ".runtime/base-course.json"
-DEFAULT_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE = ".runtime/live-demo-sysadmin-claim-context.json"
 DEFAULT_CHAPTER_ONE_MANIFEST_FILE = "containers/local-chapter-one-pilot.json"
 PRIMARY_COMPOSE_FILE = "containers/compose.yaml"
+LOCAL_DEVELOPMENT_COMPOSE_FILE = "containers/compose.local-development.yaml"
 SMTP_COMPOSE_FILE = "containers/compose.smtp.yaml"
 DISPOSABLE_COMPOSE_PROVIDER = "podman-compose"
 DISPOSABLE_PROVIDER_GLOBAL_ARGS = ("--in-pod", "false")
@@ -136,24 +136,36 @@ DISPOSABLE_OWNER_POLICIES = (
 		owner="chapter-one-browser",
 		project_prefix="ple-chapter-one-browser-",
 		project_pattern=re.compile(r"^ple-chapter-one-browser-[a-f0-9]{12}$"),
-		compose_relative_paths=(PRIMARY_COMPOSE_FILE,),
+		compose_relative_paths=(PRIMARY_COMPOSE_FILE, LOCAL_DEVELOPMENT_COMPOSE_FILE),
 		removes_gateway_image=True,
 	),
 	DisposableOwnerPolicy(
 		owner="webwork-browser",
 		project_prefix="ple-webwork-browser-",
 		project_pattern=re.compile(r"^ple-webwork-browser-[a-f0-9]{12}$"),
-		compose_relative_paths=(PRIMARY_COMPOSE_FILE,),
+		compose_relative_paths=(PRIMARY_COMPOSE_FILE, LOCAL_DEVELOPMENT_COMPOSE_FILE),
 		removes_gateway_image=True,
 		outage_service="webwork-renderer",
 		evidence_log_service="api",
 		allows_generic_compose=False,
 	),
 	DisposableOwnerPolicy(
+		owner="live-demo-browser",
+		project_prefix="ple-live-demo-browser-",
+		project_pattern=re.compile(r"^ple-live-demo-browser-[a-f0-9]{12}$"),
+		compose_relative_paths=(
+			PRIMARY_COMPOSE_FILE,
+			"tests/e2e/compose.live-demo-browser.yaml",
+		),
+		removes_gateway_image=True,
+		evidence_log_service="worker",
+		allows_generic_compose=False,
+	),
+	DisposableOwnerPolicy(
 		owner="wp-r2-host-seed-renderer",
 		project_prefix="ple-wp-r2-host-seed-renderer-",
 		project_pattern=re.compile(r"^ple-wp-r2-host-seed-renderer-[a-f0-9]{12}$"),
-		compose_relative_paths=(PRIMARY_COMPOSE_FILE,),
+		compose_relative_paths=(PRIMARY_COMPOSE_FILE, LOCAL_DEVELOPMENT_COMPOSE_FILE),
 		removes_gateway_image=True,
 	),
 	DisposableOwnerPolicy(
@@ -162,6 +174,7 @@ DISPOSABLE_OWNER_POLICIES = (
 		project_pattern=re.compile(r"^ple-replica-e2e-[a-f0-9]{10}$"),
 		compose_relative_paths=(
 			PRIMARY_COMPOSE_FILE,
+			LOCAL_DEVELOPMENT_COMPOSE_FILE,
 			"tests/e2e/compose.replica-e2e.yaml",
 		),
 		removes_gateway_image=True,
@@ -172,7 +185,7 @@ DISPOSABLE_OWNER_POLICIES = (
 		owner="ui-walkthrough",
 		project_prefix="ple-ui-walkthrough-",
 		project_pattern=re.compile(r"^ple-ui-walkthrough-[a-f0-9]{16}$"),
-		compose_relative_paths=(PRIMARY_COMPOSE_FILE,),
+		compose_relative_paths=(PRIMARY_COMPOSE_FILE, LOCAL_DEVELOPMENT_COMPOSE_FILE),
 	),
 )
 

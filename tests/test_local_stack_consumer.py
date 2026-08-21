@@ -38,11 +38,16 @@ def test_resource_capability_rejects_missing_or_foreign_digest(
 	compose_file = tmp_path / "containers" / "compose.yaml"
 	compose_file.parent.mkdir()
 	compose_file.write_text("services: {}\n", encoding="ascii")
+	local_development_compose_file = compose_file.with_name("compose.local-development.yaml")
+	local_development_compose_file.write_text("services: {}\n", encoding="ascii")
 	target = local_stack_control.models.ComposeTarget(
 		repo_root=tmp_path,
 		project="ple-chapter-one-browser-0123456789ab",
 		env_file=env_file,
-		compose_files=(compose_file.resolve(strict=True),),
+		compose_files=(
+			compose_file.resolve(strict=True),
+			local_development_compose_file.resolve(strict=True),
+		),
 		provider=local_stack_control.models.ComposeProvider(
 			("podman-compose", "--in-pod", "false"), "podman-compose"
 		),

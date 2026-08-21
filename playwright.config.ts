@@ -2,6 +2,7 @@
 import { defineConfig } from "@playwright/test";
 
 import { liveModeActivationFromEnvironment } from "./tests/playwright/live_mode_activation";
+import { liveDemoInputsFromEnvironment } from "./tests/playwright/live_demo_live_config";
 import { liveInputsFromEnvironment } from "./tests/playwright/webwork_live_config";
 
 const PORT = process.env["PW_PORT"] ?? "4173";
@@ -25,6 +26,7 @@ export function testIgnoreFromEnvironment(
   if (!activation.webwork) {
     ignored.push("**/chapter_one_run.spec.ts");
   }
+  if (!activation.liveDemo) ignored.push("**/e2e/live_demo.spec.ts");
   if (environment["PLE_WP_R2_WEBWORK_QUESTION_ID"] === undefined) {
     ignored.push("**/e2e/wp_r2_host_seed_renderer.spec.ts");
   }
@@ -43,7 +45,7 @@ export function browserTestServerEnabled(
   environment: Readonly<Record<string, string | undefined>>,
 ): boolean {
   const activation = liveModeActivationFromEnvironment(environment);
-  return !activation.webwork;
+  return !activation.webwork && !activation.liveDemo;
 }
 
 const liveModeActivation = liveModeActivationFromEnvironment(process.env);
@@ -51,8 +53,14 @@ const liveModeActivation = liveModeActivationFromEnvironment(process.env);
 export const configuredLiveWebworkInputs = liveModeActivation.webwork
   ? liveInputsFromEnvironment(process.env)
   : undefined;
+export const configuredLiveDemoInputs = liveModeActivation.liveDemo
+  ? liveDemoInputsFromEnvironment(process.env)
+  : undefined;
 const startBrowserTestServer = browserTestServerEnabled(process.env);
-const baseURL = configuredLiveWebworkInputs?.baseUrl ?? `http://127.0.0.1:${PORT}`;
+const baseURL =
+  configuredLiveDemoInputs?.baseUrl ??
+  configuredLiveWebworkInputs?.baseUrl ??
+  `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
   testDir: "tests/playwright",
@@ -64,6 +72,9 @@ export default defineConfig({
   use: {
     baseURL,
     headless: true,
+    // The self-signed Caddy certificate is accepted only by this selected
+    // disposable live-demo lane; ordinary and WebWork lanes retain normal TLS.
+    ignoreHTTPSErrors: configuredLiveDemoInputs !== undefined,
   },
   webServer: startBrowserTestServer
     ? {

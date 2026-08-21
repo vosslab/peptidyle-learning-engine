@@ -1,7 +1,6 @@
 """Run the real-stack public UI walkthrough with fail-closed boundaries."""
 
 import json
-import dataclasses
 import os
 import pathlib
 import secrets
@@ -437,6 +436,31 @@ class WalkthroughRunner:
 			raise RunnerError("private walkthrough Compose environment is unavailable")
 		return self.private_env_file
 
+	def bootstrap_private_stack_environment(
+		self,
+		disposable: local_stack_control.models.DisposableComposeTarget,
+	) -> None:
+		"""Create only this runner's missing private state before read-only validation."""
+		try:
+			local_stack_control.lifecycle.bootstrap_default_state(
+				disposable, self.controller_runner()
+			)
+		except local_stack_control.models.ControllerError as error:
+			raise RunnerError("walkthrough private bootstrap failed") from error
+
+	def validate_private_stack_environment(
+		self,
+		disposable: local_stack_control.models.DisposableComposeTarget,
+	) -> None:
+		"""Validate the bootstrapped private target without changing its Compose stack."""
+		self.report_stage = "lifecycle_validate"
+		try:
+			local_stack_control.lifecycle.validate_lifecycle(
+				disposable, self.controller_runner(), self.repository_root
+			)
+		except local_stack_control.models.ControllerError as error:
+			raise RunnerError(f"walkthrough lifecycle validation failed: {error}") from error
+
 	def base_url(self) -> str:
 		"""Return the explicit loopback gateway origin selected by the env file."""
 		gateway_port = effective_gateway_port(self.inputs)
@@ -866,17 +890,11 @@ class WalkthroughRunner:
 		disposable = self.disposable_target
 		if disposable is None:
 			raise RunnerError("walkthrough disposable Compose target is unavailable")
+		self.bootstrap_private_stack_environment(disposable)
 		stack_environment.require_empty_disposable_preflight(
 			disposable, self.controller_runner()
 		)
-
-		self.report_stage = "lifecycle_validate"
-		try:
-			local_stack_control.lifecycle.validate_lifecycle(
-				dataclasses.replace(disposable.target, env_file=self.inputs.env_file, env_setting_names=local_stack_control.env_file.env_setting_names(self.inputs.env_file)), self.controller_runner(), self.repository_root
-			)
-		except local_stack_control.models.ControllerError as error:
-			raise RunnerError(f"walkthrough lifecycle validation failed: {error}") from error
+		self.validate_private_stack_environment(disposable)
 
 		self.report_stage = "lifecycle_start"
 		self.assert_no_existing_stack()

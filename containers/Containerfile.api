@@ -32,6 +32,9 @@ RUN cargo build --release --locked --bin server_core --features e2e-observabilit
 FROM builder AS local-development-builder
 RUN cargo build --release --locked --bin server_core --features local-development-auth
 
+FROM builder AS live-demo-builder
+RUN cargo build --release --locked --bin server_core --features local-disposable-storage
+
 FROM builder AS production-builder
 RUN cargo build --release --locked --bin server_core
 
@@ -69,6 +72,10 @@ ENTRYPOINT ["/usr/local/bin/peptidyle-api"]
 
 FROM runtime-base AS local-development
 COPY --from=local-development-builder /build/target/release/server_core /usr/local/bin/peptidyle-api
+ENTRYPOINT ["/usr/local/bin/peptidyle-api"]
+
+FROM runtime-base AS live-demo
+COPY --from=live-demo-builder /build/target/release/server_core /usr/local/bin/peptidyle-api
 ENTRYPOINT ["/usr/local/bin/peptidyle-api"]
 
 # Keep this final target production-safe for direct `podman build` use. The

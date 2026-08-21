@@ -1,0 +1,77 @@
+{
+	# Keep certificate management for the explicit internal issuer while avoiding
+	# an unused HTTP redirect listener in this HTTPS-only disposable lane.
+	auto_https disable_redirects
+	# Chromium trusts this lane's ephemeral certificate only for the isolated
+	# Playwright run.  The unprivileged gateway has no host trust-store role.
+	skip_install_trust
+	admin off
+	persist_config off
+	servers :8080 {
+		protocols h1
+		max_header_size 64KB
+		timeouts {
+			read_body 30s
+			read_header 5s
+			write 30s
+			idle 30s
+		}
+	}
+}
+
+# The disposable live-demo edge is deliberately HTTPS-only. Caddy's internal
+# CA makes the test certificate local to this ephemeral gateway; Chromium's
+# trust override is scoped to the matching live Playwright lane. The owner
+# overlay gives `gateway_api` its fixed private /29; only API and this gateway
+# attach to that network, while the gateway's default-network attachment exists
+# solely to proxy public MinIO assets.
+https://localhost:8080 {
+	bind 0.0.0.0
+	tls internal
+
+	header {
+		-Server
+		Cache-Control "no-store"
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-origin"
+		X-Frame-Options "SAMEORIGIN"
+	}
+
+	@api path /api /api/* /health
+	handle @api {
+		reverse_proxy api:3000 {
+			header_up -X-Forwarded-For
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto https
+			transport http {
+				network_proxy none
+				versions 1.1
+				dial_timeout 2s
+				response_header_timeout 30s
+				read_timeout 30s
+				write_timeout 30s
+			}
+		}
+	}
+
+	@public_assets path /public-assets /public-assets/*
+	handle @public_assets {
+		reverse_proxy minio:9000 {
+			transport http {
+				network_proxy none
+				versions 1.1
+			}
+		}
+	}
+
+	handle {
+		header Content-Security-Policy "base-uri 'none'; default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; frame-src 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'self'"
+		root * /srv/peptidyle
+		try_files {path} /index.html
+		file_server
+	}
+}

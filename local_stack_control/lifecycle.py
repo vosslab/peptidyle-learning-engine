@@ -6,6 +6,7 @@ import os
 import collections.abc
 
 import local_stack_control.compose
+import local_stack_control.consumer
 import local_stack_control.discovery
 import local_stack_control.env_file
 import local_stack_control.image_cleanup
@@ -14,6 +15,7 @@ import local_stack_control.lifecycle_wait
 import local_stack_control.lifecycle_diagnostics
 import local_stack_control.local_environment
 import local_stack_control.local_identity
+import local_stack_control.lifecycle_profiles
 import local_stack_control.models
 import local_stack_control.private_files
 import local_stack_control.process
@@ -22,6 +24,7 @@ import local_stack_control.status
 import local_stack_control.chapter_one
 import local_stack_control.base_course_lifecycle
 import local_stack_control.live_demo_claim_context
+import local_stack_control.live_demo_gateway
 
 
 LOCAL_TENANT_ID = "00000000-0000-0000-0000-000000000100"
@@ -40,6 +43,7 @@ class LifecycleOptions:
 	build: bool
 	release: bool
 	open_browser: bool
+	local_development_browser_auth: bool = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -68,41 +72,6 @@ def target_of(
 	return target
 
 
-#============================================
-def is_default_target(target: local_stack_control.models.ComposeTarget) -> bool:
-	"""Return whether the exact target is eligible for default local bootstrap."""
-	result = (
-		target.project == local_stack_control.models.DEFAULT_PROJECT
-		and local_stack_control.local_environment.is_default_local_environment(
-			target.repo_root, target.env_file
-		)
-	)
-	return result
-
-
-#============================================
-def is_teaching_profile(
-	target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget,
-) -> bool:
-	"""Return whether a closed disposable owner selected local teaching state."""
-	result = (
-		isinstance(target, local_stack_control.models.DisposableComposeTarget)
-		and target.owner_policy in {"live-demo-baseline", "ui-walkthrough"}
-	)
-	return result
-
-
-#============================================
-def uses_local_teaching_state(
-	target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget,
-) -> bool:
-	"""Return whether target ownership authorizes local identities and teaching seed state."""
-	selected = target_of(target)
-	result = is_default_target(selected) or is_teaching_profile(target)
-	return result
-
-
-#============================================
 def private_runtime_paths(repo_root: pathlib.Path, env_file: pathlib.Path) -> tuple[pathlib.Path, ...]:
 	"""Return fixed local private paths beside one default or disposable environment."""
 	directory = env_file.parent
@@ -111,7 +80,6 @@ def private_runtime_paths(repo_root: pathlib.Path, env_file: pathlib.Path) -> tu
 		directory / "local-identities.json",
 		directory / ".secrets" / "invitation_token_secret",
 		directory / ".secrets" / "question_id_secret",
-		directory / local_stack_control.models.DEFAULT_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE,
 		directory / ".secrets",
 	)
 	return paths
@@ -124,13 +92,13 @@ def bootstrap_default_state(
 ) -> None:
 	"""Create only absent default-local state before selected-env validation."""
 	selected = target_of(target)
-	if not uses_local_teaching_state(target):
+	if not local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
 		if not selected.env_file.exists():
 			raise local_stack_control.models.ControllerError(
 				"a custom mutating env file must already exist and have mode 0600"
 			)
 		return
-	if is_default_target(selected):
+	if local_stack_control.lifecycle_profiles.is_default_target(selected):
 		local_stack_control.local_environment.bootstrap_default_environment(
 			selected.repo_root,
 			selected.env_file,
@@ -139,26 +107,35 @@ def bootstrap_default_state(
 	# A new default is created mode 0600 before this point.  Every preexisting
 	# selected teaching environment is rejected before parsing or replacement.
 	local_stack_control.env_file.require_mutation_env_file(selected.env_file)
-	configure_default_environment(selected, runner)
-	credential_path, identity_path, invitation_path, question_path, _, _ = private_runtime_paths(
+	local_auth = local_stack_control.lifecycle_profiles.uses_local_auth_state(target)
+	configure_default_environment(selected, runner, local_auth)
+	credential_path, identity_path, invitation_path, question_path, _ = private_runtime_paths(
 		selected.repo_root, selected.env_file
 	)
-	configuration = local_stack_control.local_identity.LocalIdentityConfiguration(
-		credential_file=credential_path,
-		identity_file=identity_path,
-		tenant_id=LOCAL_TENANT_ID,
-		instructor_id=LOCAL_INSTRUCTOR_ID,
-		student_id=LOCAL_MARY_ID,
-	)
-	local_stack_control.local_identity.bootstrap_local_identities(configuration)
+	values = local_stack_control.env_file.env_settings(selected.env_file)
+	if local_auth:
+		configuration = local_stack_control.local_identity.LocalIdentityConfiguration(
+			credential_file=credential_path,
+			identity_file=identity_path,
+			tenant_id=LOCAL_TENANT_ID,
+			instructor_id=LOCAL_INSTRUCTOR_ID,
+			student_id=LOCAL_MARY_ID,
+		)
+		local_stack_control.local_identity.bootstrap_local_identities(configuration)
 	local_stack_control.local_environment.bootstrap_secret32_file(invitation_path)
 	local_stack_control.local_environment.bootstrap_secret32_file(question_path)
+	if local_stack_control.lifecycle_profiles.uses_live_demo_sysadmin_claim_context(target):
+		claim_context_path = absolute_value_path(
+			selected.repo_root, values["PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE"]
+		)
+		local_stack_control.live_demo_claim_context.ensure_bind_source(claim_context_path)
 
 
 #============================================
 def configure_default_environment(
 	target: local_stack_control.models.ComposeTarget,
 	runner: local_stack_control.process.CommandRunner | None,
+	include_local_auth: bool = True,
 ) -> None:
 	"""Fill only missing or template default settings in the supported private environment."""
 	local_stack_control.env_file.require_mutation_env_file(target.env_file)
@@ -171,16 +148,7 @@ def configure_default_environment(
 		"PLE_LOCAL_GRADER_PASSWORD": os.urandom(24).hex(),
 		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE": str(secret_directory / "invitation_token_secret"),
 		"PLE_QUESTION_ID_SECRET_HOST_FILE": str(secret_directory / "question_id_secret"),
-		"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE": str(
-			runtime_directory / local_stack_control.models.DEFAULT_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE
-		),
-		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID": LOCAL_INSTRUCTOR_ID,
-		"PLE_LIVE_DEMO_MARY_STUDENT_USER_ID": LOCAL_MARY_ID,
-		"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID": LOCAL_JACK_ID,
-		"PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID": LOCAL_APPROVAL_CANDIDATE_ID,
-		"PLE_LIVE_DEMO_SYSADMIN_USER_ID": LOCAL_SYSADMIN_ID,
 		"PLE_WEBWORK_PROVENANCE_FILE": str(secret_directory / "webwork-renderer.provenance"),
-		"PLE_LOCAL_AUTH_HOST_FILE": str(runtime_directory / "local-identities.json"),
 		"PLE_PUBLIC_ASSET_BASE_URL": "http://127.0.0.1:9000/public-assets",
 		"PLE_WEBAUTHN_RP_ID": "localhost",
 		"PLE_WEBAUTHN_RP_NAME": "Peptidyle Learning Engine",
@@ -193,6 +161,19 @@ def configure_default_environment(
 		"PLE_WEBWORK_SESSION_JWT_SECRET": os.urandom(32).hex(),
 		"PLE_WEBWORK_RENDERER_ID": "vosslab-webwork-pg-renderer",
 	}
+	if include_local_auth:
+		defaults["PLE_LOCAL_AUTH_HOST_FILE"] = str(runtime_directory / "local-identities.json")
+	if local_stack_control.live_demo_gateway.is_tls_target(target):
+		defaults.update({
+			"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE": str(
+				runtime_directory / ".runtime/live-demo-sysadmin-claim-context.json"
+			),
+			"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID": LOCAL_INSTRUCTOR_ID,
+			"PLE_LIVE_DEMO_MARY_STUDENT_USER_ID": LOCAL_MARY_ID,
+			"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID": LOCAL_JACK_ID,
+			"PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID": LOCAL_APPROVAL_CANDIDATE_ID,
+			"PLE_LIVE_DEMO_SYSADMIN_USER_ID": LOCAL_SYSADMIN_ID,
+		})
 	changed = False
 	for name, value in defaults.items():
 		if values.get(name, "") in ("", "change-me-before-first-run", "openwebwork-webwork2"):
@@ -273,14 +254,17 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 		"POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "MINIO_ROOT_USER",
 		"MINIO_ROOT_PASSWORD", "PLE_LOCAL_GRADER_PASSWORD", "PLE_LOCAL_AUTH_HOST_FILE",
 		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE", "PLE_QUESTION_ID_SECRET_HOST_FILE",
-		"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE",
-		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID", "PLE_LIVE_DEMO_MARY_STUDENT_USER_ID",
-		"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID", "PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID",
-		"PLE_LIVE_DEMO_SYSADMIN_USER_ID",
 		"PLE_WEBWORK_RENDERER_ID", "PLE_WEBWORK_PROBLEM_JWT_SECRET",
 		"PLE_WEBWORK_SESSION_JWT_SECRET",
 		"PLE_WEBWORK_PROVENANCE_FILE",
 	)
+	if local_stack_control.live_demo_gateway.is_tls_target(target):
+		required = tuple(name for name in required if name != "PLE_LOCAL_AUTH_HOST_FILE") + (
+			"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE",
+			"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID", "PLE_LIVE_DEMO_MARY_STUDENT_USER_ID",
+			"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID", "PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID",
+			"PLE_LIVE_DEMO_SYSADMIN_USER_ID",
+		)
 	require_values(values, required)
 	for name in (
 		"PLE_POSTGRES_IMAGE_SHA256", "PLE_MINIO_IMAGE_SHA256", "PLE_MINIO_MC_IMAGE_SHA256",
@@ -290,9 +274,9 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 	for name in ("PLE_INVITATION_TOKEN_SECRET_HOST_FILE", "PLE_QUESTION_ID_SECRET_HOST_FILE"):
 		path = absolute_value_path(target.repo_root, values[name])
 		local_stack_control.local_environment.read_secret32_file(path)
-	claim_path = absolute_value_path(target.repo_root, values["PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE"])
-	if claim_path.exists() or claim_path.is_symlink():
-		local_stack_control.live_demo_claim_context.read_context(claim_path)
+	if local_stack_control.live_demo_gateway.is_tls_target(target):
+		claim_path = absolute_value_path(target.repo_root, values["PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE"])
+		local_stack_control.live_demo_claim_context.validate_bind_source(claim_path)
 	if target.with_smtp:
 		validate_smtp(values, target.repo_root)
 	return values
@@ -351,7 +335,7 @@ def validate_lifecycle(
 	target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget,
 	runner: local_stack_control.process.CommandRunner,
 	repo_root: pathlib.Path,
-) -> None:
+) -> str:
 	"""Perform read-only validation with no bootstrap, engine start, or Compose mutation."""
 	selected = target_of(target)
 	if selected.repo_root != repo_root:
@@ -366,6 +350,7 @@ def validate_lifecycle(
 		local_stack_control.compose.compose_argv(selected, ["config"]), child_environment(selected), repo_root
 	)
 	require_command(compose_result, "Compose configuration validation")
+	return compose_result.stdout
 
 
 #============================================
@@ -388,7 +373,11 @@ def start_lifecycle(
 	oci_id = local_stack_control.renderer.inspect_renderer_oci_id(
 		runner, repo_root, values["PLE_WEBWORK_RENDERER_IMAGE"], environment
 	)
-	build_artifacts(runner, repo_root, options)
+	build_options = dataclasses.replace(
+		options,
+		local_development_browser_auth=not local_stack_control.live_demo_gateway.is_tls_target(selected),
+	)
+	build_artifacts(runner, repo_root, build_options)
 	# Reconcile the complete selected project before starting dependency stages.
 	# Podman Compose applies --remove-orphans to the services named by a partial
 	# `up`; using it with the later --no-deps application subset can remove the
@@ -412,7 +401,7 @@ def start_lifecycle(
 	compose_run(selected, runner, ["up", "-d", "--force-recreate", "--no-deps", "webwork-renderer"])
 	wait_for_renderer_ready(selected, runner, options, oci_id)
 	attest_renderer(selected, runner, repo_root, values, oci_id)
-	if is_teaching_profile(target):
+	if local_stack_control.lifecycle_profiles.is_teaching_profile(target):
 		publish_chapter_one(runner, repo_root, target, values, environment)
 	run_api_initializers(selected, runner, options)
 	compose_run(selected, runner, ["build", "api", "gateway"])
@@ -429,7 +418,7 @@ def start_lifecycle(
 		],
 	)
 	gateway_url = wait_for_complete_ready(selected, runner, options)
-	if is_default_target(selected):
+	if local_stack_control.lifecycle_profiles.is_default_target(selected):
 		local_stack_control.image_cleanup.prune_superseded_images(runner, repo_root)
 	if options.open_browser:
 		open_browser(runner, repo_root, gateway_url)
@@ -512,14 +501,15 @@ def child_environment(target: local_stack_control.models.ComposeTarget) -> dict[
 def compose_run(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, arguments: list[str]) -> None:
 	"""Run one non-secret Compose operation and retain failures for diagnosis."""
 	result = runner.run(local_stack_control.compose.compose_argv(target, arguments), child_environment(target), target.repo_root)
-	require_command(result, "selected Compose operation")
+	private_values = local_stack_control.consumer.private_environment_values(target.env_file)
+	require_command(result, "selected Compose operation", private_values)
 
 
 #============================================
-def require_command(result: local_stack_control.models.CommandResult, operation: str) -> None:
+def require_command(result: local_stack_control.models.CommandResult, operation: str, private_values: tuple[str, ...] = ()) -> None:
 	"""Convert child failure into bounded non-secret lifecycle guidance."""
 	if not result.ok():
-		detail = local_stack_control.lifecycle_diagnostics.redacted_failure_detail(result)
+		detail = local_stack_control.lifecycle_diagnostics.redacted_failure_detail(result, private_values)
 		raise local_stack_control.models.ControllerError(
 			f"{operation} failed ({detail}); retained stack resources are available for diagnostics"
 		)
@@ -536,7 +526,7 @@ def build_artifacts(runner: local_stack_control.process.CommandRunner, repo_root
 	environment = local_stack_control.env_file.sanitized_runtime_environment(
 		local_stack_control.process.current_environment()
 	)
-	environment["PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH"] = "1"
+	environment["PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH"] = "1" if options.local_development_browser_auth else "0"
 	result = runner.run(["./build.sh", profile], environment, repo_root)
 	require_command(result, "host artifact build")
 
@@ -645,7 +635,7 @@ def wait_for_renderer_ready(
 #============================================
 def synchronize_database(target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget, runner: local_stack_control.process.CommandRunner, values: dict[str, str]) -> None:
 	"""Synchronize the local database login only for the default local target."""
-	if not uses_local_teaching_state(target):
+	if not local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
 		return
 	selected = target_of(target)
 	password = values["POSTGRES_PASSWORD"]
@@ -674,7 +664,7 @@ def prepare_installed_base_course(
 	environment: dict[str, str],
 ) -> BaseCourseLifecycleReceipt | None:
 	"""Classify the migrated Base Course state before starting object storage."""
-	if not uses_local_teaching_state(target):
+	if not local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
 		return None
 	child = dict(environment)
 	child["PLE_MIGRATION_DATABASE_URL"] = database_url(values)
@@ -699,7 +689,7 @@ def finalize_installed_base_course(
 	selected = target_of(target)
 	if preparation.install_state == "complete":
 		write_base_course_diagnostic(selected, preparation.raw_output)
-		ensure_live_demo_claim_context(selected, values, preparation)
+		ensure_live_demo_claim_context(target, values, preparation)
 		return
 	local_stack_control.base_course_lifecycle.ensure_storage_receipt(
 		selected, runner, preparation, child_environment(selected)
@@ -715,17 +705,21 @@ def finalize_installed_base_course(
 			"installed Base Course install did not complete"
 		)
 	write_base_course_diagnostic(selected, completed.raw_output)
-	ensure_live_demo_claim_context(selected, values, completed)
+	ensure_live_demo_claim_context(target, values, completed)
 
 
 #============================================
 def ensure_live_demo_claim_context(
-	target: local_stack_control.models.ComposeTarget,
+	target: local_stack_control.models.ComposeTarget
+	| local_stack_control.models.DisposableComposeTarget,
 	values: dict[str, str],
 	receipt: BaseCourseLifecycleReceipt,
 ) -> None:
 	"""Bind the private Sysadmin proof to the completed Rust lifecycle receipt."""
-	path = absolute_value_path(target.repo_root, values["PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE"])
+	if not local_stack_control.lifecycle_profiles.uses_live_demo_sysadmin_claim_context(target):
+		return
+	selected = target_of(target)
+	path = absolute_value_path(selected.repo_root, values["PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE"])
 	local_stack_control.live_demo_claim_context.ensure_context(
 		path, receipt.installation_generation, values["PLE_LIVE_DEMO_SYSADMIN_USER_ID"]
 	)
@@ -963,9 +957,9 @@ def require_restart_report(
 #============================================
 def wait_for_complete_ready(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, options: LifecycleOptions) -> str:
 	"""Require loopback gateway health and complete label-derived semantic readiness."""
-	url = gateway_url(target)
+	url = local_stack_control.live_demo_gateway.gateway_url(target)
 	def read_report() -> local_stack_control.models.StatusReport:
-		result = runner.run(["curl", "--fail", "--silent", "--show-error", "--max-time", "2", "--output", "/dev/null", url + "health"], child_environment(target), target.repo_root)
+		result = runner.run(local_stack_control.live_demo_gateway.health_probe_argv(url), child_environment(target), target.repo_root)
 		if result.ok():
 			return status_report(target, runner)
 		return unavailable_report(target)
@@ -975,15 +969,6 @@ def wait_for_complete_ready(target: local_stack_control.models.ComposeTarget, ru
 
 
 #============================================
-def gateway_url(target: local_stack_control.models.ComposeTarget) -> str:
-	"""Derive the non-secret loopback gateway URL from selected environment authority."""
-	values = local_stack_control.env_file.env_settings(target.env_file)
-	port = values.get("PLE_GATEWAY_HOST_PORT", "8080")
-	if not port.isdecimal() or not 1 <= int(port) <= 65535:
-		raise local_stack_control.models.ControllerError("selected gateway port is invalid")
-	return f"http://127.0.0.1:{port}/"
-
-
 #============================================
 def open_browser(runner: local_stack_control.process.CommandRunner, repo_root: pathlib.Path, url: str) -> None:
 	"""Open the proven loopback URL using an argument-array platform opener."""

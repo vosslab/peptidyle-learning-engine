@@ -10,6 +10,7 @@ import {
   decodeSeededDemoAccounts,
 } from "../src/api/live_demo.ts";
 import { ApiRequestError, createHttpApiClient } from "../src/api/http_client.ts";
+import { authenticatePasskeyWithBrowser } from "../src/api/http_client/enrollment.ts";
 import { registerLiveDemoSysadminWithBrowser } from "../src/api/http_client/live_demo.ts";
 
 const OWNERSHIP_PROOF = "A".repeat(43);
@@ -164,24 +165,28 @@ test("unavailable Sysadmin ownership remains an HTTP absence, not protocol succe
   );
 });
 
-test("live-demo ownership uses the shared browser registration conversion and canonical credential JSON", async () => {
+test("shared browser WebAuthn conversion extracts webauthn-rs publicKey options", async () => {
   const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
   const credentialDescriptor = Object.getOwnPropertyDescriptor(globalThis, "PublicKeyCredential");
   const calls = [];
 
   class FakePublicKeyCredential {
     static parseCreationOptionsFromJSON(options) {
-      calls.push({ kind: "parse", options });
+      calls.push({ kind: "parseCreation", options });
       return { challenge: new Uint8Array([1]) };
     }
 
+    static parseRequestOptionsFromJSON(options) {
+      calls.push({ kind: "parseRequest", options });
+      return { challenge: new Uint8Array([2]) };
+    }
+
+    constructor(response) {
+      this.response = response;
+    }
+
     toJSON() {
-      return {
-        id: "credential",
-        rawId: "credential",
-        response: { attestationObject: "attestation" },
-        type: "public-key",
-      };
+      return { id: "credential", rawId: "credential", response: this.response, type: "public-key" };
     }
   }
 
@@ -195,7 +200,11 @@ test("live-demo ownership uses the shared browser registration conversion and ca
       credentials: {
         create: async (options) => {
           calls.push({ kind: "create", options });
-          return new FakePublicKeyCredential();
+          return new FakePublicKeyCredential({ attestationObject: "attestation" });
+        },
+        get: async (options) => {
+          calls.push({ kind: "get", options });
+          return new FakePublicKeyCredential({ signature: "signature" });
         },
       },
     },
@@ -210,7 +219,7 @@ test("live-demo ownership uses the shared browser registration conversion and ca
         getLiveDemoSysadminOwnershipStatus: async () => ({ available: true }),
         startLiveDemoSysadminOwnership: async (proof) => {
           assert.equal(proof, OWNERSHIP_PROOF);
-          return { ceremonyId: CEREMONY_ID, options: { challenge: "one" } };
+          return { ceremonyId: CEREMONY_ID, options: { publicKey: { challenge: "one" } } };
         },
         completeLiveDemoSysadminOwnership: async (proof, ceremonyId, label, credential) => {
           completed.push({ proof, ceremonyId, label, credential });
@@ -220,10 +229,27 @@ test("live-demo ownership uses the shared browser registration conversion and ca
       OWNERSHIP_PROOF,
       "Laptop passkey",
     );
+    await authenticatePasskeyWithBrowser({
+      startPasskeyAuthentication: async () => ({
+        ceremonyId: CEREMONY_ID,
+        options: { publicKey: { challenge: "two" }, mediation: "conditional" },
+      }),
+      completePasskeyAuthentication: async (ceremonyId, credential) => {
+        assert.equal(ceremonyId, CEREMONY_ID);
+        assert.deepEqual(credential.response, { signature: "signature" });
+        return { authenticated: true };
+      },
+    });
     assert.deepEqual(
       calls.map((call) => call.kind),
-      ["parse", "create"],
+      ["parseCreation", "create", "parseRequest", "get"],
     );
+    assert.deepEqual(calls[0].options, { challenge: "one" });
+    assert.deepEqual(calls[2].options, { challenge: "two" });
+    assert.deepEqual(calls[3].options, {
+      publicKey: { challenge: new Uint8Array([2]) },
+      mediation: "conditional",
+    });
     assert.deepEqual(completed, [
       {
         proof: OWNERSHIP_PROOF,
@@ -237,6 +263,40 @@ test("live-demo ownership uses the shared browser registration conversion and ca
         },
       },
     ]);
+    await assert.rejects(
+      registerLiveDemoSysadminWithBrowser(
+        {
+          listSeededDemoAccounts: async () => ({ accounts: [] }),
+          selectSeededDemoAccount: async () => ({ authenticated: true }),
+          getLiveDemoSysadminOwnershipStatus: async () => ({ available: true }),
+          startLiveDemoSysadminOwnership: async () => ({ ceremonyId: CEREMONY_ID, options: {} }),
+          completeLiveDemoSysadminOwnership: async () => ({ authenticated: true }),
+        },
+        OWNERSHIP_PROOF,
+        "Laptop passkey",
+      ),
+      /publicKey record/u,
+    );
+    await assert.rejects(
+      authenticatePasskeyWithBrowser({
+        startPasskeyAuthentication: async () => ({
+          ceremonyId: CEREMONY_ID,
+          options: { publicKey: { challenge: "two" } },
+        }),
+        completePasskeyAuthentication: async () => ({ authenticated: true }),
+      }),
+      /conditional mediation/u,
+    );
+    await assert.rejects(
+      authenticatePasskeyWithBrowser({
+        startPasskeyAuthentication: async () => ({
+          ceremonyId: CEREMONY_ID,
+          options: { publicKey: { challenge: "two" }, mediation: "required" },
+        }),
+        completePasskeyAuthentication: async () => ({ authenticated: true }),
+      }),
+      /conditional mediation/u,
+    );
   } finally {
     if (navigatorDescriptor === undefined) delete globalThis.navigator;
     else Object.defineProperty(globalThis, "navigator", navigatorDescriptor);

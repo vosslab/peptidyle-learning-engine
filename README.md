@@ -4,9 +4,9 @@ An open platform for mastery teaching across question formats. Students retry va
 
 **Project status: advanced implementation, not ready for production deployment.** Core learning,
 privacy, browser, and local-development paths work together, including a bounded external WeBWorK PG
-renderer. Read the [current project status](docs/active_plans/reports/project_status_report_2026-08-10.md)
-for verified scope and the [implementation plan](docs/active_plans/implementation_plan.md) for planned
-work.
+renderer. Read the [current implementation handoff](docs/active_plans/implementation_status.md)
+for verified current scope and the [implementation plan](docs/active_plans/implementation_plan.md) for
+planned work.
 
 ## Practice past completion
 
@@ -299,6 +299,10 @@ Start with a local run and the system map:
 - [docs/USER_ROLES.md](docs/USER_ROLES.md) - the closed Student, Instructor,
   and Sysadmin model, direct course authority, and FERPA radioactive-data
   boundary.
+- [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md) and the current
+  [live-demo handoff](docs/active_plans/implementation_status.md) - the connected live-demo
+  contract and current work; its selector and passkey behavior are deployment-controlled,
+  owner-locked validation, not public production activation.
 
 The durable documentation has three layers:
 
@@ -316,7 +320,9 @@ For status and contribution work:
 
 - [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md) - implementation
   roadmap, module catalog, contracts, and validation for this build.
-- [docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md) - current executive status,
+- [docs/active_plans/implementation_status.md](docs/active_plans/implementation_status.md) - current
+  package handoff and shared migration allocation registry.
+- [docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md) - historical Aug. 10 executive status,
   verification evidence, milestone posture, blockers, and next work.
 - [docs/active_plans/project_status_report_2026-08-09.md](docs/active_plans/project_status_report_2026-08-09.md)
   - historical Aug. 9 snapshot retained for comparison.

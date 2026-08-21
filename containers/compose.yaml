@@ -1,4 +1,4 @@
-# compose.yaml - complete local development stack.
+# compose.yaml - common local and disposable stack topology.
 x-ple-disposable-capability-label: &ple-disposable-capability-label
   org.peptidyle.disposable.capability-sha256: "${PLE_DISPOSABLE_CAPABILITY_SHA256:-normal}"
 
@@ -181,7 +181,9 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m,mode=1777
     cpus: "0.10"
-    mem_limit: 64m
+    # `mc pipe` is a Go client operation.  A 128 MiB cgroup can OOM-kill it
+    # while creating the generation receipt even though MinIO is healthy.
+    mem_limit: 256m
     pids_limit: 32
     restart: "no"
 
@@ -203,14 +205,8 @@ services:
         read_only: true
         bind:
           create_host_path: false
-      - type: bind
-        source: ${PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE:?set PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE to the local private live-demo claim context}
-        target: /run/source/live_demo_sysadmin_claim_context.json
-        read_only: true
-        bind:
-          create_host_path: false
       - ple_identity_runtime:/run/ple-secrets
-    command: ["/bin/sh", "-ec", "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; cp /run/source/question_id_secret /run/ple-secrets/question_id_secret; cp /run/source/live_demo_sysadmin_claim_context.json /run/ple-secrets/live_demo_sysadmin_claim_context.json; chmod 600 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret /run/ple-secrets/live_demo_sysadmin_claim_context.json; chown 10001:10001 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret /run/ple-secrets/live_demo_sysadmin_claim_context.json"]
+    command: ["/bin/sh", "-ec", "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; cp /run/source/question_id_secret /run/ple-secrets/question_id_secret; chmod 600 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret; chown 10001:10001 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret"]
     network_mode: none
     read_only: true
     cap_drop:
@@ -234,7 +230,7 @@ services:
     build:
       context: ..
       dockerfile: containers/Containerfile.api
-      target: local-development
+      target: production
     depends_on:
       postgres:
         condition: service_healthy
@@ -246,9 +242,6 @@ services:
         condition: service_healthy
     environment:
       PLE_BIND_ADDR: 0.0.0.0:3000
-      PLE_AUTH_PROVIDER: local-file
-      PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH: "1"
-      PLE_LOCAL_AUTH_FILE: /run/ple/local-identities.json
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-peptidyle}
       PLE_GRADER_DATABASE_URL: postgres://ple_grading_reader:${PLE_LOCAL_GRADER_PASSWORD:?set PLE_LOCAL_GRADER_PASSWORD in the env file}@postgres:5432/${POSTGRES_DB:-peptidyle}
       PLE_S3_ENDPOINT: http://minio:9000
@@ -263,12 +256,6 @@ services:
       PLE_WEBAUTHN_RP_NAME: ${PLE_WEBAUTHN_RP_NAME:?set PLE_WEBAUTHN_RP_NAME in the env file}
       PLE_INVITATION_TOKEN_SECRET_FILE: /run/ple-secrets/invitation_token_secret
       PLE_QUESTION_ID_SECRET_FILE: /run/ple-secrets/question_id_secret
-      PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID: ${PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID:?set PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID in the env file}
-      PLE_LIVE_DEMO_MARY_STUDENT_USER_ID: ${PLE_LIVE_DEMO_MARY_STUDENT_USER_ID:?set PLE_LIVE_DEMO_MARY_STUDENT_USER_ID in the env file}
-      PLE_LIVE_DEMO_JACK_STUDENT_USER_ID: ${PLE_LIVE_DEMO_JACK_STUDENT_USER_ID:?set PLE_LIVE_DEMO_JACK_STUDENT_USER_ID in the env file}
-      PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID: ${PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID:?set PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID in the env file}
-      PLE_LIVE_DEMO_SYSADMIN_USER_ID: ${PLE_LIVE_DEMO_SYSADMIN_USER_ID:?set PLE_LIVE_DEMO_SYSADMIN_USER_ID in the env file}
-      PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE: /run/ple-secrets/live_demo_sysadmin_claim_context.json
       PLE_WEBWORK_RENDERER_BASE_URL: http://webwork-renderer:3000/
       PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:-15}
       PLE_WEBWORK_MAX_RESPONSE_BYTES: ${PLE_WEBWORK_MAX_RESPONSE_BYTES:-1048576}
@@ -277,12 +264,6 @@ services:
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
     volumes:
-      - type: bind
-        source: ${PLE_LOCAL_AUTH_HOST_FILE:?set PLE_LOCAL_AUTH_HOST_FILE to an operator-created local identities JSON file}
-        target: /run/ple/local-identities.json
-        read_only: true
-        bind:
-          create_host_path: false
       - type: volume
         source: ple_identity_runtime
         target: /run/ple-secrets
@@ -324,7 +305,7 @@ services:
     # Keep the worker's runtime configuration separate while consuming the
     # single application image built by the `api` service.
     image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
-    command: ["--local-worker"]
+    command: ["--worker"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -367,7 +348,7 @@ services:
   invitation-delivery-worker:
     labels: *ple-disposable-capability-label
     image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
-    command: ["--local-invitation-delivery-worker"]
+    command: ["--invitation-delivery-worker"]
     depends_on:
       postgres:
         condition: service_healthy

@@ -142,6 +142,7 @@ async fn publication_validation_and_diff_use_persisted_draft_safe_semantics() {
     let diff = response_json(diff).await;
     assert_eq!(diff["draftRevision"], 1);
     assert_eq!(diff["baseline"], "newQuestion");
+    assert_eq!(diff["changed"], serde_json::json!([]));
     assert_eq!(diff["current"]["sourceBackend"], "native");
     let serialized = diff.to_string();
     for forbidden in [

@@ -4,6 +4,7 @@ This document explains the implemented local multi-replica topology and the
 separate OpenTofu production baseline. It is an operations guide, not evidence
 that an AWS deployment has been accepted. The source contracts are
 [containers/compose.yaml](../containers/compose.yaml),
+`containers/compose.local-development.yaml`,
 [containers/Caddyfile](../containers/Caddyfile), and the server composition in
 [crates/server/src/composition.rs](../crates/server/src/composition.rs).
 
@@ -214,12 +215,16 @@ After the normal stack is ready, scale API and worker replicas with the same
 environment file. API replicas stay behind the gateway; workers remain private.
 
 ```bash
-podman compose -f containers/compose.yaml --env-file containers/env.local \
+podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
+  --env-file containers/env.local \
   up -d --scale api=2 api gateway
-podman compose -f containers/compose.yaml --env-file containers/env.local \
+podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
+  --env-file containers/env.local \
   up -d --scale worker=2 worker
-podman compose -f containers/compose.yaml --env-file containers/env.local ps
-podman compose -f containers/compose.yaml --env-file containers/env.local logs -f api worker
+podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
+  --env-file containers/env.local ps
+podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
+  --env-file containers/env.local logs -f api worker
 PLE_GATEWAY_HOST_PORT="$(awk -F= '$1 == "PLE_GATEWAY_HOST_PORT" { print $2 }' containers/env.local)"
 curl --fail --silent --show-error "http://127.0.0.1:${PLE_GATEWAY_HOST_PORT}/health"
 ```
@@ -229,17 +234,21 @@ matching sources have live single-stack acceptance; broader PG compatibility and
 matching behavior require separate evidence:
 
 ```bash
-podman compose -f containers/compose.yaml --env-file containers/env.local ps
-podman compose -f containers/compose.yaml --env-file containers/env.local \
+podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
+  --env-file containers/env.local ps
+podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
+  --env-file containers/env.local \
   up -d --scale api=2 --scale worker=2
-podman compose -f containers/compose.yaml --env-file containers/env.local \
+podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
+  --env-file containers/env.local \
   logs -f api worker webwork-renderer
 ```
 
 Normal teardown retains volumes:
 
 ```bash
-podman compose -f containers/compose.yaml --env-file containers/env.local \
+podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
+  --env-file containers/env.local \
   down --remove-orphans
 ```
 

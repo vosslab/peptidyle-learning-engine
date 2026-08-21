@@ -56,6 +56,10 @@ def lanes(python_executable: str | None = None) -> tuple[ValidationLane, ...]:
 			"isolated disposable WebWork browser acceptance",
 			("bash", "tests/e2e/e2e_webwork_render_rpc.sh"),
 		),
+		ValidationLane(
+			"connected ordinary-site live-demo browser journey",
+			(python, "tests/e2e/e2e_live_demo_browser.py"),
+		),
 	)
 	return result
 

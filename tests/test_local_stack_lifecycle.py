@@ -8,6 +8,7 @@ import pytest
 
 import local_stack_control.lifecycle
 import local_stack_control.local_environment
+import local_stack_control.lifecycle_profiles
 import local_stack_control.models
 import local_stack_control.process
 import local_stack_control.renderer
@@ -555,8 +556,42 @@ def test_closed_walkthrough_owner_is_a_teaching_profile_but_custom_target_is_not
 		target=target, owner_policy="ui-walkthrough", capability_file=tmp_path / "capability",
 		project_prefix="ple-ui-walkthrough-", private_environment_file=target.env_file,
 	)
-	assert local_stack_control.lifecycle.uses_local_teaching_state(disposable)
-	assert not local_stack_control.lifecycle.uses_local_teaching_state(target)
+	assert local_stack_control.lifecycle_profiles.uses_local_teaching_state(disposable)
+	assert local_stack_control.lifecycle_profiles.uses_local_auth_state(disposable)
+	assert not local_stack_control.lifecycle_profiles.uses_live_demo_sysadmin_claim_context(disposable)
+	assert not local_stack_control.lifecycle_profiles.uses_local_teaching_state(target)
+	assert not local_stack_control.lifecycle_profiles.uses_local_auth_state(target)
+	assert not local_stack_control.lifecycle_profiles.uses_live_demo_sysadmin_claim_context(target)
+
+
+#============================================
+def test_live_teaching_bootstrap_keeps_seed_inputs_without_local_auth_files(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The TLS owner creates seed inputs without introducing local-file credentials."""
+	target = lifecycle_target(tmp_path, "ple-live-demo-browser-0123456789ab", "live/env.local")
+	target.env_file.parent.mkdir()
+	target.env_file.write_text(
+		"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE=live/.runtime/claim-context.json\n",
+		encoding="ascii",
+	)
+	target.env_file.chmod(0o600)
+	disposable = local_stack_control.models.DisposableComposeTarget(
+		target=target,
+		owner_policy="live-demo-browser",
+		capability_file=tmp_path / "capability",
+		project_prefix="ple-live-demo-browser-",
+		private_environment_file=target.env_file,
+	)
+
+	local_stack_control.lifecycle.bootstrap_default_state(disposable, GatewayPortRunner((), False))
+	values = local_stack_control.env_file.env_settings(target.env_file)
+	credential_path, identity_path, invitation_path, question_path, _ = local_stack_control.lifecycle.private_runtime_paths(
+		tmp_path, target.env_file
+	)
+
+	assert "PLE_LOCAL_AUTH_HOST_FILE" not in values and not credential_path.exists() and not identity_path.exists()
+	assert invitation_path.is_file() and question_path.is_file()
 
 
 #============================================
@@ -582,6 +617,42 @@ def test_default_environment_symlink_is_not_a_bootstrap_target(tmp_path: pathlib
 	other.write_text("SAFE=value\n", encoding="ascii")
 	default_path.symlink_to(other)
 	assert not local_stack_control.local_environment.is_default_local_environment(tmp_path, default_path)
+
+
+#============================================
+def test_compose_failure_retains_redacted_bounded_child_diagnostics(tmp_path: pathlib.Path) -> None:
+	"""Compose failures retain the useful tail only after exact private-value redaction."""
+	target = lifecycle_target(tmp_path, "containers", "containers/env.local")
+	target.env_file.parent.mkdir()
+	target.env_file.write_text("PLE_TEST_SECRET=private-value\n", encoding="ascii")
+	target.env_file.chmod(0o600)
+	result = local_stack_control.models.CommandResult(
+		("podman", "compose"), 1, "x" * 400 + "stdout useful private-value", "stderr useful private-value",
+	)
+	detail = local_stack_control.lifecycle_diagnostics.redacted_failure_detail(
+		result, ("private-value",)
+	)
+	assert len(detail) == local_stack_control.lifecycle_diagnostics.MAXIMUM_DIAGNOSTIC_CHARACTERS
+	assert "stdout useful [private]" in detail
+	class FailureRunner(UnexpectedRunner):
+		def run(self, argv: list[str], environment: dict[str, str] | None = None, cwd: pathlib.Path | None = None, stdin: str | None = None) -> local_stack_control.models.CommandResult:
+			return result
+	with pytest.raises(local_stack_control.models.ControllerError) as error:
+		local_stack_control.lifecycle.compose_run(target, FailureRunner(), ["up", "-d"])
+	message = str(error.value)
+	assert "stderr useful [private]" in message
+	assert "private-value" not in message
+	assert len(message) <= 512
+
+
+#============================================
+def test_unspecified_private_values_keep_failure_detail_generic() -> None:
+	"""Non-Compose callers retain the safe generic message without a redaction authority."""
+	result = local_stack_control.models.CommandResult(("command",), 1, "useful child output", "useful child error")
+	with pytest.raises(local_stack_control.models.ControllerError) as error:
+		local_stack_control.lifecycle.require_command(result, "other operation")
+	assert "child reported a failure" in str(error.value)
+	assert "useful child" not in str(error.value)
 
 
 #============================================

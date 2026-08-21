@@ -203,7 +203,8 @@ schemas/
 `- migrations/        Ordered forward SQL migrations, including auth, RLS, external fences, publication outbox, 2026081401 ranked catalog discovery, and 2026081805 assignment learner-disclosure policy
 
 containers/
-+- compose.yaml       Normal local services, private networks, hardening, and one-shot setup
++- compose.yaml       Common local and disposable topology, private networks, hardening, and one-shot setup
++- compose.local-development.yaml Ordinary local authentication and worker overlay
 +- compose.smtp.yaml  Optional external SMTP-provider overlay
 +- Containerfile.api  Shared API, worker, and publisher image
 +- Containerfile.gateway Gateway image
@@ -258,6 +259,8 @@ tests/
 +- test_*.mjs         Deterministic browser-contract checks without a browser
 +- playwright/        Built-browser tests, browser-test helper, and private live-validation runner
 +- e2e/               Generic disposable whole-system runners
+|  +- `compose.live-demo-browser.yaml` Owner-locked disposable production-auth/TLS E2E overlay; not an operator production deployment
+|  `- `Caddyfile.live-demo-browser` Owner-locked disposable production-auth/TLS E2E gateway; not an operator production deployment
 +- walkthrough/       Teaching-loop entry points and fixed child processes
 |  `- walklib/        Importable runner configuration, contracts, and lifecycle
 `- fixtures/          Small checked-in fixture evidence

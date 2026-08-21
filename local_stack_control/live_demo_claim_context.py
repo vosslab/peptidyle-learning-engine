@@ -76,6 +76,25 @@ def read_context(path: pathlib.Path) -> ClaimContext:
 
 
 #============================================
+def validate_bind_source(path: pathlib.Path) -> None:
+	"""Accept only a private pending source or one canonical installed context."""
+	content = local_stack_control.private_files.read_current_user_private_file(path, MAXIMUM_CONTEXT_BYTES)
+	if content != b"":
+		decode_context(content)
+
+
+#============================================
+def ensure_bind_source(path: pathlib.Path) -> bool:
+	"""Create the empty private source Compose needs before installation has a generation."""
+	if path.exists() or path.is_symlink():
+		validate_bind_source(path)
+		return False
+	local_stack_control.private_files.write_atomic_file(path, b"", 0o600)
+	validate_bind_source(path)
+	return True
+
+
+#============================================
 def ensure_context(
 	path: pathlib.Path,
 	installation_generation: str,
@@ -91,11 +110,13 @@ def ensure_context(
 	if expected_generation != installation_generation or expected_user_id != sysadmin_user_id:
 		raise local_stack_control.models.ControllerError("live-demo claim context inputs are invalid")
 	if path.exists() or path.is_symlink():
-		existing = read_context(path)
-		if existing.sysadmin_user_id != expected_user_id:
-			raise local_stack_control.models.ControllerError("live-demo Sysadmin claim context does not match the configured account")
-		if existing.installation_generation == expected_generation:
-			return existing
+		content = local_stack_control.private_files.read_current_user_private_file(path, MAXIMUM_CONTEXT_BYTES)
+		if content != b"":
+			existing = decode_context(content)
+			if existing.sysadmin_user_id != expected_user_id:
+				raise local_stack_control.models.ControllerError("live-demo Sysadmin claim context does not match the configured account")
+			if existing.installation_generation == expected_generation:
+				return existing
 	secret = random_bytes(32)
 	if not isinstance(secret, bytes) or len(secret) != 32:
 		raise local_stack_control.models.ControllerError("claim proof generator did not provide private secret material")

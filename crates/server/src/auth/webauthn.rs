@@ -23,6 +23,7 @@ use webauthn_rs::prelude::{
     PasskeyRegistration, PublicKeyCredential, RegisterPublicKeyCredential,
     RequestChallengeResponse, Url, Webauthn, WebauthnBuilder,
 };
+use webauthn_rs_proto::ResidentKeyRequirement;
 
 use super::passwordless::{
     ACCOUNT_SESSION_COOKIE, ACCOUNT_SESSION_SECONDS, NETWORK_RATE_LIMIT_ATTEMPTS, RandomSecret,
@@ -213,6 +214,10 @@ where
     ) {
         Ok(value) => value,
         Err(_) => return passwordless_unavailable(),
+    };
+    let options = match require_discoverable_credential(options) {
+        Ok(options) => options,
+        Err(()) => return passwordless_unavailable(),
     };
     let binding = match RandomSecret::generate() {
         Ok(binding) => binding,
@@ -605,6 +610,24 @@ fn decode_passkey(record: &PasskeyRecord) -> Result<Passkey, ()> {
     decode_state(&record.credential)
 }
 
+/// Makes every credential created for this usernameless sign-in service discoverable.
+///
+/// The passkey helper defaults this public browser option to non-resident
+/// credentials, and its registration state does not validate this request.
+/// The browser challenge is therefore the single enforceable boundary.
+pub(super) fn require_discoverable_credential(
+    mut options: CreationChallengeResponse,
+) -> Result<CreationChallengeResponse, ()> {
+    let selection = options
+        .public_key
+        .authenticator_selection
+        .as_mut()
+        .ok_or(())?;
+    selection.resident_key = Some(ResidentKeyRequirement::Required);
+    selection.require_resident_key = true;
+    Ok(options)
+}
+
 fn challenge_response<T: Serialize>(
     payload: T,
     binding: RandomSecret,
@@ -703,6 +726,42 @@ mod tests {
             .start_discoverable_authentication()
             .expect("discoverable challenge");
         assert!(challenge.public_key.allow_credentials.is_empty());
+    }
+
+    #[test]
+    fn registration_challenge_requires_a_discoverable_credential() {
+        let configured =
+            PasswordlessWebauthn::new("localhost", "http://localhost:4173", "PLE local")
+                .expect("local configuration");
+        let (challenge, _) = configured
+            .inner
+            .start_passkey_registration(Uuid::nil(), "learner", "Learner", None)
+            .expect("registration challenge");
+        let challenge = require_discoverable_credential(challenge).expect("selection criteria");
+        let challenge = serde_json::to_value(challenge).expect("challenge JSON");
+
+        assert_eq!(
+            challenge.pointer("/publicKey/authenticatorSelection/residentKey"),
+            Some(&serde_json::Value::String("required".to_owned()))
+        );
+        assert_eq!(
+            challenge.pointer("/publicKey/authenticatorSelection/requireResidentKey"),
+            Some(&serde_json::Value::Bool(true))
+        );
+    }
+
+    #[test]
+    fn registration_challenge_fails_closed_without_selection_criteria() {
+        let configured =
+            PasswordlessWebauthn::new("localhost", "http://localhost:4173", "PLE local")
+                .expect("local configuration");
+        let (mut challenge, _) = configured
+            .inner
+            .start_passkey_registration(Uuid::nil(), "learner", "Learner", None)
+            .expect("registration challenge");
+        challenge.public_key.authenticator_selection = None;
+
+        assert!(require_discoverable_credential(challenge).is_err());
     }
 
     #[tokio::test]

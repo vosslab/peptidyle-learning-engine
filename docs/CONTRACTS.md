@@ -232,7 +232,7 @@ remain server-derived.
 | ID         | Contract source and state                                                                                                                                                                                                                                   | Owner          | Direct consumers      | Reference/test implementation            |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | --------------------- | ---------------------------------------- |
 | MOD-LTI    | Reserved: `crates/server/src/lti.rs`                                                                                                                                                                                                                        | `expert_coder` | none; platform edge   | LMS sandbox fixtures                     |
-| MOD-DEPLOY | Implemented local deployment contract: `containers/compose.yaml`, optional `containers/compose.smtp.yaml`, and focused private `local_stack_control` Python lifecycle modules; production infrastructure under `deploy/` is a reserved boundary and unsupported in this repository | `expert_coder` | none; deployment edge | local stack and focused container checks |
+| MOD-DEPLOY | Implemented local deployment contract: `containers/compose.yaml` common base, required ordinary-local `containers/compose.local-development.yaml`, optional `containers/compose.smtp.yaml`, and focused private `local_stack_control` Python lifecycle modules. The owner-locked `live-demo-browser` TLS overlay and its `tests/e2e/e2e_live_demo_browser.py` runner provide disposable production-auth connected E2E only; they do not activate a production or public deployment. Production infrastructure under `deploy/` is a reserved boundary and unsupported in this repository. | `expert_coder` | none; deployment edge | local stack and focused container checks |
 
 ## Shared artifact ownership
 
@@ -248,6 +248,7 @@ not create a competing generator or copy.
 | `tests/e2e/e2e_wasm_export_allowlist.mjs`             | MOD-WASM      |
 | `src/api/mock/handlers.ts`                            | MOD-CLIENT    |
 | `containers/compose.yaml`                             | MOD-DEPLOY    |
+| `tests/e2e/compose.live-demo-browser.yaml`            | MOD-DEPLOY    |
 
 Generated TypeScript under `generated/api/` and `generated/fixtures/` is
 derivative. Its Rust model or fixture generator is the contract owner. The

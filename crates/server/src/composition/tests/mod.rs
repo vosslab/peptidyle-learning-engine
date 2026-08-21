@@ -16,9 +16,9 @@ use super::router::{
     e2e_replica_attribution_from_values, postgres_schema_probe,
 };
 use super::settings::{
-    ObjectStorageConnection, ProductionSettings, StorageRuntime, StorageSettings,
-    WebworkRendererSettings, parse_positive_u64, parse_positive_usize, parse_secret32,
-    required_env,
+    ObjectStorageConnection, ProcessRole, ProductionSettings, StorageRuntime, StorageSettings,
+    StorageTopology, WebworkRendererSettings, parse_positive_u64, parse_positive_usize,
+    parse_secret32, required_env,
 };
 use super::*;
 use crate::auth::{CookieTransport, IdentityProviderError};
@@ -412,7 +412,10 @@ fn object_security_domains_require_distinct_trimmed_bucket_names() {
 fn production_settings() -> ProductionSettings {
     ProductionSettings {
         storage: StorageSettings {
-            runtime: StorageRuntime::LocalDevelopment,
+            runtime: StorageRuntime {
+                role: ProcessRole::Api,
+                topology: StorageTopology::DisposableLocal,
+            },
             database_url: "postgres://user:password@127.0.0.1:1/ple".to_string(),
             question_id_secret: None,
             object_connection: ObjectStorageConnection::LocalMinio(

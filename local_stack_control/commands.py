@@ -17,7 +17,6 @@ import local_stack_control.models
 import local_stack_control.process
 import local_stack_control.status
 import local_stack_control.lifecycle
-import local_stack_control.live_demo_claim_context
 
 
 DEFAULT_LIFECYCLE_TIMEOUT_SECONDS = 180.0
@@ -539,23 +538,3 @@ def acceptance(
 		local_stack_control.process.current_environment()
 	)
 	return local_stack_control.acceptance_lanes.run(runner, repo_root, environment)
-
-
-#============================================
-def live_demo_sysadmin_ownership_proof(
-	args: argparse.Namespace,
-	runner: local_stack_control.process.CommandRunner,
-	repo_root: pathlib.Path,
-) -> int:
-	"""Print the private ownership proof only on this explicit operator request."""
-	target = target_from_args(args, runner, repo_root)
-	local_stack_control.compose.require_default_mutation_target(target)
-	values = local_stack_control.env_file.env_settings(target.env_file)
-	path = local_stack_control.lifecycle.absolute_value_path(
-		repo_root, values.get("PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE", "")
-	)
-	context = local_stack_control.live_demo_claim_context.read_context(path)
-	if context.sysadmin_user_id != local_stack_control.lifecycle.LOCAL_SYSADMIN_ID:
-		raise local_stack_control.models.ControllerError("live-demo Sysadmin claim context does not match the configured account")
-	print(context.ownership_proof)
-	return 0

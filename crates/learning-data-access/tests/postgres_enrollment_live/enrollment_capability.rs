@@ -647,4 +647,7 @@ async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
         .expect("passkey update and account session should commit atomically");
     assert_eq!(completed.session.user, account_user);
     assert!(completed.passkey.last_used_at.is_some());
+
+    verify_student_context_visibility_before_tenant_selection(&pool).await;
+    verify_instructor_context_order_and_paging(&pool).await;
 }

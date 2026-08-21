@@ -89,13 +89,13 @@ where
 /// reserved and are absent from the broker filter until their implementations
 /// have both a handler and an atomic committer.
 pub async fn run_production_worker_from_env() -> Result<()> {
-    run_worker_from_env(StorageRuntime::Worker).await
+    run_worker_from_env(StorageRuntime::worker_from_env()?).await
 }
 
 /// Starts the worker against the explicit plaintext local-development stack.
 #[cfg(feature = "local-development-auth")]
 pub async fn run_local_development_worker_from_env() -> Result<()> {
-    run_worker_from_env(StorageRuntime::LocalDevelopmentWorker).await
+    run_worker_from_env(StorageRuntime::local_development_worker()).await
 }
 
 /// Starts the production invitation-delivery process. Its database login has
@@ -115,7 +115,7 @@ pub async fn run_local_development_invitation_delivery_worker_from_env() -> Resu
 /// work: its sole capability is materializing already-committed public asset
 /// bytes, then activating their matching registry records.
 pub async fn run_public_asset_publisher_from_env() -> Result<()> {
-    let storage = StorageSettings::from_env(StorageRuntime::PublicAssetPublisher)?;
+    let storage = StorageSettings::from_env(StorageRuntime::publisher_from_env()?)?;
     let settings = ProductionWorkerSettings::from_env()?;
     let dependencies = PublisherStorageDependencies::from_settings(&storage).await?;
     verify_publisher_schema(&dependencies.pool).await?;

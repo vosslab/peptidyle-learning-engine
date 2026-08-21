@@ -9,7 +9,6 @@
 		"build": "./build.sh",
 		"launch": "python3 local_stack.py start",
 		"build:wasm": "./pipeline/build_wasm.sh",
-		"serve": "./run_web_server.sh",
 		"check": "./check_codebase.sh",
 		"clean": "./devel/clean_build.sh",
 		"clean:dist": "./devel/dist_clean.sh",

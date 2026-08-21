@@ -24,39 +24,147 @@ pub(super) enum ObjectStorageConnection {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum StorageRuntime {
-    #[cfg_attr(not(feature = "local-development-auth"), allow(dead_code))]
-    LocalDevelopment,
-    #[cfg_attr(not(feature = "local-development-auth"), allow(dead_code))]
-    LocalDevelopmentWorker,
+pub(super) enum ProcessRole {
     Api,
     Worker,
     PublicAssetPublisher,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum StorageTopology {
+    AwsWorkload,
+    #[cfg_attr(not(feature = "local-disposable-storage"), allow(dead_code))]
+    DisposableLocal,
+}
+
+impl StorageTopology {
+    const ENVIRONMENT_VARIABLE: &str = "PLE_STORAGE_TOPOLOGY";
+
+    pub(super) fn from_env() -> Result<Self> {
+        match std::env::var(Self::ENVIRONMENT_VARIABLE) {
+            Ok(value) => Self::from_value(Some(&value)),
+            Err(std::env::VarError::NotPresent) => Self::from_value(None),
+            Err(std::env::VarError::NotUnicode(_)) => {
+                bail!("PLE_STORAGE_TOPOLOGY must be valid UTF-8")
+            }
+        }
+    }
+
+    pub(super) fn from_value(value: Option<&str>) -> Result<Self> {
+        match value {
+            None | Some("aws-workload") => Ok(Self::AwsWorkload),
+            Some("disposable-local") => {
+                #[cfg(feature = "local-disposable-storage")]
+                {
+                    Ok(Self::DisposableLocal)
+                }
+                #[cfg(not(feature = "local-disposable-storage"))]
+                {
+                    bail!(
+                        "PLE_STORAGE_TOPOLOGY=disposable-local requires a binary built with local-disposable-storage"
+                    )
+                }
+            }
+            Some(value) => bail!(
+                "PLE_STORAGE_TOPOLOGY must be unset, aws-workload, or disposable-local; got {value:?}"
+            ),
+        }
+    }
+}
+
+/// Storage construction has two independent axes. Process role chooses the
+/// least-privilege database identity, while topology chooses AWS or the
+/// explicitly feature-gated disposable PostgreSQL/MinIO backing services.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct StorageRuntime {
+    pub(super) role: ProcessRole,
+    pub(super) topology: StorageTopology,
+}
+
+impl StorageRuntime {
+    pub(super) fn api_from_env() -> Result<Self> {
+        Ok(Self {
+            role: ProcessRole::Api,
+            topology: StorageTopology::from_env()?,
+        })
+    }
+
+    pub(super) fn worker_from_env() -> Result<Self> {
+        Ok(Self {
+            role: ProcessRole::Worker,
+            topology: StorageTopology::from_env()?,
+        })
+    }
+
+    pub(super) fn publisher_from_env() -> Result<Self> {
+        let topology = StorageTopology::from_env()?;
+        if topology != StorageTopology::AwsWorkload {
+            bail!("public-asset publisher requires PLE_STORAGE_TOPOLOGY=aws-workload");
+        }
+        Ok(Self {
+            role: ProcessRole::PublicAssetPublisher,
+            topology,
+        })
+    }
+
+    #[cfg(feature = "local-development-auth")]
+    pub(super) const fn local_development_api() -> Self {
+        Self {
+            role: ProcessRole::Api,
+            topology: StorageTopology::DisposableLocal,
+        }
+    }
+
+    #[cfg(feature = "local-development-auth")]
+    pub(super) const fn local_development_worker() -> Self {
+        Self {
+            role: ProcessRole::Worker,
+            topology: StorageTopology::DisposableLocal,
+        }
+    }
+
+    pub(super) fn database_variable(self) -> &'static str {
+        match (self.role, self.topology) {
+            (ProcessRole::Worker, StorageTopology::AwsWorkload) => "PLE_WORKER_DATABASE_URL",
+            (ProcessRole::PublicAssetPublisher, StorageTopology::AwsWorkload) => {
+                "PLE_PUBLISHER_DATABASE_URL"
+            }
+            (ProcessRole::Api, _) | (ProcessRole::Worker, StorageTopology::DisposableLocal) => {
+                "DATABASE_URL"
+            }
+            (ProcessRole::PublicAssetPublisher, StorageTopology::DisposableLocal) => {
+                unreachable!("publisher rejects disposable local storage")
+            }
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn uses_disposable_local_storage(self) -> bool {
+        self.topology == StorageTopology::DisposableLocal
+    }
+}
+
 impl StorageSettings {
     pub(super) fn from_env(runtime: StorageRuntime) -> Result<Self> {
-        let database_variable = match runtime {
-            StorageRuntime::Worker => "PLE_WORKER_DATABASE_URL",
-            StorageRuntime::PublicAssetPublisher => "PLE_PUBLISHER_DATABASE_URL",
-            StorageRuntime::LocalDevelopment
-            | StorageRuntime::LocalDevelopmentWorker
-            | StorageRuntime::Api => "DATABASE_URL",
-        };
-        let question_id_secret = match runtime {
-            StorageRuntime::LocalDevelopment => {
+        if runtime.role == ProcessRole::PublicAssetPublisher
+            && runtime.topology != StorageTopology::AwsWorkload
+        {
+            bail!("public-asset publisher requires PLE_STORAGE_TOPOLOGY=aws-workload");
+        }
+        let question_id_secret = match (runtime.role, runtime.topology) {
+            (ProcessRole::Api, StorageTopology::DisposableLocal) => {
                 let path = required_env("PLE_QUESTION_ID_SECRET_FILE")?;
                 let encoded = read_secret_file(&path, "PLE_QUESTION_ID_SECRET_FILE")?;
                 Some(parse_secret32("PLE_QUESTION_ID_SECRET_FILE", &encoded)?)
             }
-            StorageRuntime::Api => Some(decode_secret32("PLE_QUESTION_ID_SECRET")?),
-            StorageRuntime::LocalDevelopmentWorker
-            | StorageRuntime::Worker
-            | StorageRuntime::PublicAssetPublisher => None,
+            (ProcessRole::Api, StorageTopology::AwsWorkload) => {
+                Some(decode_secret32("PLE_QUESTION_ID_SECRET")?)
+            }
+            (ProcessRole::Worker, _) | (ProcessRole::PublicAssetPublisher, _) => None,
         };
         let region = required_env("PLE_S3_REGION")?;
-        let object_connection = match runtime {
-            StorageRuntime::LocalDevelopment | StorageRuntime::LocalDevelopmentWorker => {
+        let object_connection = match runtime.topology {
+            StorageTopology::DisposableLocal => {
                 ObjectStorageConnection::LocalMinio(objects::minio::EndpointConfig {
                     endpoint_url: required_env("PLE_S3_ENDPOINT")?,
                     region,
@@ -64,7 +172,7 @@ impl StorageSettings {
                     secret_access_key: required_env("AWS_SECRET_ACCESS_KEY")?,
                 })
             }
-            StorageRuntime::Api | StorageRuntime::Worker | StorageRuntime::PublicAssetPublisher => {
+            StorageTopology::AwsWorkload => {
                 reject_present_env("PLE_S3_ENDPOINT")?;
                 reject_present_env("AWS_ACCESS_KEY_ID")?;
                 reject_present_env("AWS_SECRET_ACCESS_KEY")?;
@@ -93,7 +201,7 @@ impl StorageSettings {
         )?;
         Ok(Self {
             runtime,
-            database_url: required_env(database_variable)?,
+            database_url: required_env(runtime.database_variable())?,
             question_id_secret,
             object_connection,
             public_assets_bucket,
@@ -139,17 +247,15 @@ pub(super) struct LazyStorageDependencies {
 
 impl LazyStorageDependencies {
     pub(super) async fn from_settings(settings: &StorageSettings) -> Result<Self> {
-        let pool = match settings.runtime {
-            StorageRuntime::LocalDevelopment | StorageRuntime::LocalDevelopmentWorker => {
-                lazy_pool(&settings.database_url)
-            }
-            StorageRuntime::Api => {
+        let pool = match (settings.runtime.role, settings.runtime.topology) {
+            (_, StorageTopology::DisposableLocal) => lazy_pool(&settings.database_url),
+            (ProcessRole::Api, StorageTopology::AwsWorkload) => {
                 production_pool(&settings.database_url, ProductionLoginProfile::Api)
             }
-            StorageRuntime::Worker => {
+            (ProcessRole::Worker, StorageTopology::AwsWorkload) => {
                 production_pool(&settings.database_url, ProductionLoginProfile::Worker)
             }
-            StorageRuntime::PublicAssetPublisher => {
+            (ProcessRole::PublicAssetPublisher, StorageTopology::AwsWorkload) => {
                 production_pool(&settings.database_url, ProductionLoginProfile::Publisher)
             }
         }
@@ -200,7 +306,7 @@ pub(super) struct PublisherStorageDependencies {
 
 impl PublisherStorageDependencies {
     pub(super) async fn from_settings(settings: &StorageSettings) -> Result<Self> {
-        if settings.runtime != StorageRuntime::PublicAssetPublisher {
+        if settings.runtime.role != ProcessRole::PublicAssetPublisher {
             bail!("publisher dependencies require the publisher runtime");
         }
         let pool = production_pool(&settings.database_url, ProductionLoginProfile::Publisher)
@@ -272,20 +378,32 @@ pub(super) struct WebworkRendererSettings {
 
 impl ProductionSettings {
     pub(super) fn from_env(runtime: StorageRuntime) -> Result<Self> {
-        let public_asset_base_url = match runtime {
-            StorageRuntime::LocalDevelopment | StorageRuntime::LocalDevelopmentWorker => {
+        Self::from_api_env(runtime, ApiSettingsMode::Production)
+    }
+
+    #[cfg(feature = "local-development-auth")]
+    pub(super) fn from_local_development_env(runtime: StorageRuntime) -> Result<Self> {
+        Self::from_api_env(runtime, ApiSettingsMode::LocalDevelopment)
+    }
+
+    fn from_api_env(runtime: StorageRuntime, mode: ApiSettingsMode) -> Result<Self> {
+        if runtime.role != ProcessRole::Api {
+            bail!("persistent API dependencies require the API process role");
+        }
+        let public_asset_base_url = match mode {
+            #[cfg(feature = "local-development-auth")]
+            ApiSettingsMode::LocalDevelopment => {
                 PublicAssetBaseUrl::local_development(required_env("PLE_PUBLIC_ASSET_BASE_URL")?)
             }
-            StorageRuntime::Api | StorageRuntime::Worker | StorageRuntime::PublicAssetPublisher => {
+            ApiSettingsMode::Production => {
                 PublicAssetBaseUrl::new(required_env("PLE_PUBLIC_ASSET_BASE_URL")?)
             }
         }
         .map_err(|_| anyhow::anyhow!("PLE_PUBLIC_ASSET_BASE_URL is invalid"))?;
-        let client_address_policy = match runtime {
-            StorageRuntime::LocalDevelopment | StorageRuntime::LocalDevelopmentWorker => {
-                crate::auth::ClientAddressPolicy::direct()
-            }
-            StorageRuntime::Api | StorageRuntime::Worker | StorageRuntime::PublicAssetPublisher => {
+        let client_address_policy = match mode {
+            #[cfg(feature = "local-development-auth")]
+            ApiSettingsMode::LocalDevelopment => crate::auth::ClientAddressPolicy::direct(),
+            ApiSettingsMode::Production => {
                 crate::auth::ClientAddressPolicy::behind_trusted_proxies(&required_env(
                     "PLE_TRUSTED_PROXY_CIDRS",
                 )?)
@@ -293,15 +411,7 @@ impl ProductionSettings {
             }
         };
         let webauthn_origin = required_env("PLE_WEBAUTHN_ORIGIN")?;
-        let browser_boundary = match runtime {
-            StorageRuntime::LocalDevelopment | StorageRuntime::LocalDevelopmentWorker => None,
-            StorageRuntime::Api | StorageRuntime::Worker | StorageRuntime::PublicAssetPublisher => {
-                Some(
-                    crate::auth::ProductionBrowserBoundary::new(Arc::from(webauthn_origin.clone()))
-                        .map_err(anyhow::Error::msg)?,
-                )
-            }
-        };
+        let browser_boundary = browser_boundary_for(mode, &webauthn_origin)?;
         let live_demo_selector = live_demo_selector_from_env(&webauthn_origin)?;
         let live_demo_sysadmin_ownership = live_demo_sysadmin_ownership_from_env(&webauthn_origin)?;
         validate_live_demo_identity_config(
@@ -443,6 +553,28 @@ impl ProductionSettings {
             Some("1") => Ok(true),
             Some(_) => bail!("PLE_QTI_RUNTIME_ENABLED must be exactly 1 when set"),
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ApiSettingsMode {
+    Production,
+    #[cfg(feature = "local-development-auth")]
+    LocalDevelopment,
+}
+
+pub(super) fn browser_boundary_for(
+    mode: ApiSettingsMode,
+    origin: &str,
+) -> Result<Option<crate::auth::ProductionBrowserBoundary>> {
+    match mode {
+        ApiSettingsMode::Production => {
+            crate::auth::ProductionBrowserBoundary::new(Arc::from(origin.to_string()))
+                .map(Some)
+                .map_err(anyhow::Error::msg)
+        }
+        #[cfg(feature = "local-development-auth")]
+        ApiSettingsMode::LocalDevelopment => Ok(None),
     }
 }
 

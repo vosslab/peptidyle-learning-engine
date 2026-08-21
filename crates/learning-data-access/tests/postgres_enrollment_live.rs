@@ -39,6 +39,7 @@ fn database_error_code(error: &sqlx::Error) -> Option<String> {
 }
 
 include!("postgres_enrollment_live/course_member_upsert.rs");
+include!("postgres_enrollment_live/account_course_context.rs");
 include!("postgres_enrollment_live/email_change_rollback.rs");
 include!("postgres_enrollment_live/enrollment_capability.rs");
 include!("postgres_enrollment_live/expired_invitation_replay.rs");

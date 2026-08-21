@@ -74,7 +74,10 @@ def choose_provider(
 #============================================
 def compose_files(repo_root: pathlib.Path, with_smtp: bool) -> tuple[pathlib.Path, ...]:
 	"""Return explicit Compose files for the selected topology."""
-	files = [repo_root / local_stack_control.models.PRIMARY_COMPOSE_FILE]
+	files = [
+		repo_root / local_stack_control.models.PRIMARY_COMPOSE_FILE,
+		repo_root / local_stack_control.models.LOCAL_DEVELOPMENT_COMPOSE_FILE,
+	]
 	if with_smtp:
 		files.append(repo_root / local_stack_control.models.SMTP_COMPOSE_FILE)
 	result = tuple(files)

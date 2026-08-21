@@ -19,6 +19,7 @@ import {
 const EXPECTED_ROUTE_PATHS = [
   "/",
   "/sign-in",
+  "/live-demo/sysadmin-setup",
   "/auth/email/complete",
   "/auth/account/email/complete",
   "/course-invitations/redeem",

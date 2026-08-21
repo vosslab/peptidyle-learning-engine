@@ -15,14 +15,12 @@
 //   1. build the WASM bridge first, because dist/ is assembled from its output
 //   2. type-check, so a broken build fails before it writes anything
 //   3. bundle with esbuild + solid plugin
-//   4. copy static assets, fingerprinting script and stylesheet URLs so browsers and
-//      GitHub Pages cannot serve yesterday's bundle
+//   4. copy static assets and fingerprint their root-gateway URLs so browsers
+//      cannot serve yesterday's bundle
 //
-// Run: node pipeline/build.mjs [--skip-wasm] [--asset-base=root|relative]
+// Run: node pipeline/build.mjs [--skip-wasm]
 //   --skip-wasm  reuse an existing dist_wasm/ (or omit the bridge entirely).
 //                Useful while iterating on UI only; never used for a release.
-//   --asset-base=root      emit root-relative browser assets for the live gateway (default).
-//   --asset-base=relative  retain relative assets for a GitHub Pages project site.
 
 import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
@@ -37,20 +35,6 @@ const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
 }).trim();
 
 const skipWasm = process.argv.includes("--skip-wasm");
-
-function browserAssetBase(argumentsList) {
-  const values = argumentsList
-    .filter((argument) => argument.startsWith("--asset-base="))
-    .map((argument) => argument.slice("--asset-base=".length));
-  if (values.length > 1) throw new Error("--asset-base may be specified at most once");
-  const value = values[0] ?? "root";
-  if (value !== "root" && value !== "relative") {
-    throw new Error("--asset-base must be root or relative");
-  }
-  return value;
-}
-
-const assetBase = browserAssetBase(process.argv.slice(2));
 
 const localDevelopmentAuth = process.env.PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH ?? "0";
 if (!["0", "1"].includes(localDevelopmentAuth)) {
@@ -201,14 +185,10 @@ function copyBrowserTestAssets() {
  */
 function copyIndexHtml(bundleHash, stylesheetHash, componentStylesheetHash) {
   const source = fs.readFileSync(path.join(srcDir, "index.html"), "utf8");
-  const assetPrefix = assetBase === "root" ? "/" : "";
   const fingerprinted = source
-    .replace(/(src=")(\.?\/?main\.js)(")/, `$1${assetPrefix}main.js?v=${bundleHash}$3`)
-    .replace(/(href=")(\.?\/?style\.css)(")/, `$1${assetPrefix}style.css?v=${stylesheetHash}$3`)
-    .replace(
-      /(href=")(\.?\/?main\.css)(")/,
-      `$1${assetPrefix}main.css?v=${componentStylesheetHash}$3`,
-    );
+    .replace(/(src=")(\.?\/?main\.js)(")/, `$1/main.js?v=${bundleHash}$3`)
+    .replace(/(href=")(\.?\/?style\.css)(")/, `$1/style.css?v=${stylesheetHash}$3`)
+    .replace(/(href=")(\.?\/?main\.css)(")/, `$1/main.css?v=${componentStylesheetHash}$3`);
   fs.writeFileSync(path.join(distDir, "index.html"), fingerprinted);
 }
 
@@ -247,9 +227,6 @@ async function main() {
     sourcemap: true,
     metafile: metafilePath !== undefined,
     logLevel: "info",
-    define: {
-      __PLE_BROWSER_ASSET_BASE__: JSON.stringify(assetBase),
-    },
     plugins: [
       {
         name: "local-development-browser-boundary",
@@ -291,9 +268,6 @@ async function main() {
 
   copyIndexHtml(bundleHash, stylesheetHash, componentStylesheetHash);
   fs.copyFileSync(path.join(srcDir, "style.css"), path.join(distDir, "style.css"));
-  // GitHub Pages runs Jekyll unless this file exists, and Jekyll drops any
-  // directory whose name starts with an underscore.
-  fs.writeFileSync(path.join(distDir, ".nojekyll"), "");
 
   copyWasmBridge();
   if (browserTestTransport === "1") {

@@ -54,6 +54,7 @@ impl PublicAssetBaseUrl {
     ///
     /// HTTP is accepted only through this typed local-development constructor;
     /// production configuration must use [`Self::new`].
+    #[cfg_attr(not(feature = "local-development-auth"), allow(dead_code))]
     pub(crate) fn local_development(value: impl Into<String>) -> Result<Self, PublicAssetUrlError> {
         Self::parse(value.into(), true)
     }

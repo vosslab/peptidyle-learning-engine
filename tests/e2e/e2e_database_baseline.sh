@@ -588,12 +588,14 @@ echo "database baseline E2E: explicitly unprotected public tables"
 psql_in_container -d "$DATABASE_NAME" -c \
 	"SELECT relname FROM pg_class WHERE relkind IN ('r', 'p') AND relnamespace = 'public'::regnamespace AND NOT relispartition AND NOT relrowsecurity ORDER BY relname"
 unexpected_unprotected="$(psql_in_container -d "$DATABASE_NAME" -At -c "
--- _sqlx_migrations is the migration ledger; instructor_approval is global operator-owned
--- Instructor eligibility rather than tenant or course authority; statistics are identity-free.
+-- _sqlx_migrations is the migration ledger; instructor_approval is global operator-owned eligibility.
+-- live_demo_install_state is global install metadata, reachable only through its execute-only broker.
+-- question_statistics_aggregate is identity-free.
 WITH allowed(relname) AS (
     VALUES
         ('_sqlx_migrations'),
         ('instructor_approval'),
+        ('live_demo_install_state'),
         ('question_statistics_aggregate')
 )
 SELECT count(*)

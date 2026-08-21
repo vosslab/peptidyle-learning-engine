@@ -121,6 +121,7 @@ class ValidationLaneRunner(local_stack_control.process.CommandRunner):
 		"""Store the fixed child results used by one offline lane test."""
 		self.result_codes = iter(result_codes)
 		self.failed = False
+		self.streamed: list[list[str]] = []
 
 	#============================================
 	def run(
@@ -145,6 +146,7 @@ class ValidationLaneRunner(local_stack_control.process.CommandRunner):
 		"""Return one child result and reject work after the first failure."""
 		if self.failed:
 			raise AssertionError(f"lane sequencing continued after failure with {argv}")
+		self.streamed.append(argv)
 		result = next(self.result_codes)
 		self.failed = result != 0
 		return result
@@ -182,14 +184,16 @@ def test_start_authorization_allows_only_missing_exact_default_environment(
 ) -> None:
 	"""First start reaches lifecycle bootstrap only for the declared default environment."""
 	compose_file = tmp_path / "containers" / "compose.yaml"
+	local_compose_file = tmp_path / "containers" / "compose.local-development.yaml"
 	compose_file.parent.mkdir()
 	compose_file.write_text("services: {}\n", encoding="ascii")
+	local_compose_file.write_text("services: {}\n", encoding="ascii")
 	default_env = tmp_path / "containers" / "env.local"
 	selected = local_stack_control.models.ComposeTarget(
 		repo_root=tmp_path,
 		project="containers",
 		env_file=default_env,
-		compose_files=(compose_file,),
+		compose_files=(compose_file, local_compose_file),
 		provider=local_stack_control.models.ComposeProvider(("podman", "compose"), "podman compose"),
 		with_smtp=False,
 		env_setting_names=(),
@@ -674,8 +678,6 @@ def test_reset_preview_owns_live_demo_private_records(tmp_path: pathlib.Path) ->
 	assert plan.host_paths_to_remove == (
 		selected_target.env_file.parent
 		/ local_stack_control.models.DEFAULT_BASE_COURSE_MANIFEST_FILE,
-		selected_target.env_file.parent
-		/ local_stack_control.models.DEFAULT_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE,
 		tmp_path / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE,
 	)
 
@@ -778,15 +780,36 @@ def test_acceptance_lanes_stop_after_the_first_nonzero_child(tmp_path: pathlib.P
 
 
 #============================================
+def test_acceptance_lanes_keep_live_demo_final_and_dispatch_in_order(tmp_path: pathlib.Path) -> None:
+	"""The connected live-demo lane remains final in the fully successful aggregate."""
+	declared_lanes = local_stack_control.acceptance_lanes.lanes("test-python")
+	live_demo_lane = declared_lanes[-1]
+
+	assert (live_demo_lane.name, live_demo_lane.argv) == (
+		"connected ordinary-site live-demo browser journey",
+		("test-python", "tests/e2e/e2e_live_demo_browser.py"),
+	)
+	runner = ValidationLaneRunner(tuple(0 for _ in declared_lanes))
+	local_stack_control.acceptance_lanes.run(runner, tmp_path, {})
+
+	assert runner.streamed == [list(lane.argv) for lane in local_stack_control.acceptance_lanes.lanes()]
+
+
+#============================================
 def disposable_target(tmp_path: pathlib.Path) -> local_stack_control.models.DisposableComposeTarget:
 	"""Build a private target with an opaque runner-held capability."""
 	selected_target = target(tmp_path, project="ple-ui-walkthrough-0123456789abcdef")
 	compose_file = tmp_path / "containers" / "compose.yaml"
+	local_compose_file = tmp_path / "containers" / "compose.local-development.yaml"
 	compose_file.parent.mkdir()
 	compose_file.write_text("services: {}\n", encoding="ascii")
+	local_compose_file.write_text("services: {}\n", encoding="ascii")
 	selected_target = dataclasses.replace(
 		selected_target,
-		compose_files=(compose_file.resolve(strict=True),),
+		compose_files=(
+			compose_file.resolve(strict=True),
+			local_compose_file.resolve(strict=True),
+		),
 		provider=local_stack_control.models.ComposeProvider(
 			("podman-compose",), "podman-compose"
 		),
@@ -805,6 +828,35 @@ def disposable_target(tmp_path: pathlib.Path) -> local_stack_control.models.Disp
 		selected_target,
 		capability_file,
 		"ui-walkthrough",
+	)
+
+
+#============================================
+def test_default_compose_order_keeps_local_auth_before_optional_smtp(tmp_path: pathlib.Path) -> None:
+	"""The ordinary target layers SMTP after the local-development behavior."""
+	base, local = local_stack_control.compose.compose_files(tmp_path, False)
+	with_smtp = local_stack_control.compose.compose_files(tmp_path, True)
+
+	assert (base, local) == (
+		tmp_path / local_stack_control.models.PRIMARY_COMPOSE_FILE,
+		tmp_path / local_stack_control.models.LOCAL_DEVELOPMENT_COMPOSE_FILE,
+	)
+	assert with_smtp == (
+		base,
+		local,
+		tmp_path / local_stack_control.models.SMTP_COMPOSE_FILE,
+	)
+
+
+#============================================
+def test_replica_owner_keeps_its_override_after_local_development() -> None:
+	"""The replica image target remains the final declared Compose override."""
+	policy = local_stack_control.models.disposable_owner_policy("replica-restart")
+
+	assert policy.compose_relative_paths == (
+		local_stack_control.models.PRIMARY_COMPOSE_FILE,
+		local_stack_control.models.LOCAL_DEVELOPMENT_COMPOSE_FILE,
+		"tests/e2e/compose.replica-e2e.yaml",
 	)
 
 
@@ -885,8 +937,10 @@ def test_walkthrough_owner_rejects_a_target_with_noncanonical_compose_files(
 		encoding="ascii",
 	)
 	expected_compose_file = tmp_path / "containers" / "compose.yaml"
+	local_compose_file = tmp_path / "containers" / "compose.local-development.yaml"
 	expected_compose_file.parent.mkdir()
 	expected_compose_file.write_text("services: {}\n", encoding="ascii")
+	local_compose_file.write_text("services: {}\n", encoding="ascii")
 
 	with pytest.raises(local_stack_control.models.ControllerError, match="Compose files"):
 		local_stack_control.compose.new_disposable_target(

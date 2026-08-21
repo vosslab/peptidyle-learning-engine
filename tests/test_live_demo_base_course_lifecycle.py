@@ -1,6 +1,5 @@
 """Offline contracts for the live-demo Base Course host boundary."""
 
-import argparse
 import json
 import pathlib
 import stat
@@ -13,6 +12,7 @@ import local_stack_control.compose
 import local_stack_control.env_file
 import local_stack_control.live_demo_claim_context
 import local_stack_control.lifecycle
+import local_stack_control.lifecycle_profiles
 import local_stack_control.models
 import local_stack_control.process
 
@@ -20,10 +20,16 @@ import local_stack_control.process
 class BaseCourseRunner(local_stack_control.process.CommandRunner):
 	"""Capture Base Course child commands and return fixed outputs."""
 
-	def __init__(self, *outputs: str, refuse_storage: bool = False) -> None:
+	def __init__(
+		self,
+		*outputs: str,
+		refuse_storage: bool = False,
+		storage_failure: tuple[str, str] | None = None,
+	) -> None:
 		"""Store deterministic outputs and an optional storage refusal."""
 		self.outputs = list(outputs)
 		self.refuse_storage = refuse_storage
+		self.storage_failure = storage_failure
 		self.calls: list[tuple[list[str], dict[str, str], pathlib.Path, str | None]] = []
 
 	#============================================
@@ -38,6 +44,9 @@ class BaseCourseRunner(local_stack_control.process.CommandRunner):
 		assert environment is not None
 		assert cwd is not None
 		self.calls.append((argv, environment, cwd, stdin))
+		if self.storage_failure is not None and "createbuckets" in argv:
+			stdout, stderr = self.storage_failure
+			return local_stack_control.models.CommandResult(tuple(argv), 17, stdout, stderr)
 		if self.refuse_storage and "createbuckets" in argv:
 			return local_stack_control.models.CommandResult(tuple(argv), 17, "refused", "")
 		if not self.outputs:
@@ -105,13 +114,14 @@ def base_course_receipt(
 def lifecycle_target(
 	tmp_path: pathlib.Path,
 	project: str = "containers",
+	compose_files: tuple[pathlib.Path, ...] = (),
 ) -> local_stack_control.models.ComposeTarget:
 	"""Build one selected target without a tracked configuration file."""
 	result = local_stack_control.models.ComposeTarget(
 		repo_root=tmp_path,
 		project=project,
 		env_file=tmp_path / "containers/env.local",
-		compose_files=(),
+		compose_files=compose_files,
 		provider=local_stack_control.models.ComposeProvider(
 			("podman", "compose"), "podman compose"
 		),
@@ -119,6 +129,20 @@ def lifecycle_target(
 		env_setting_names=(),
 	)
 	return result
+
+
+#============================================
+def live_demo_browser_compose_files(
+	tmp_path: pathlib.Path,
+) -> tuple[pathlib.Path, pathlib.Path]:
+	"""Create the policy-declared TLS topology for one offline lifecycle test."""
+	primary = tmp_path / "containers" / "compose.yaml"
+	overlay = tmp_path / "tests" / "e2e" / "compose.live-demo-browser.yaml"
+	primary.parent.mkdir()
+	overlay.parent.mkdir(parents=True)
+	primary.write_text("services: {}\n", encoding="ascii")
+	overlay.write_text("services: {}\n", encoding="ascii")
+	return primary.resolve(), overlay.resolve()
 
 
 #============================================
@@ -130,12 +154,6 @@ def database_values() -> dict[str, str]:
 		"POSTGRES_DB": "ple",
 		"PLE_POSTGRES_HOST_PORT": "5432",
 		"PLE_QUESTION_ID_SECRET_HOST_FILE": "containers/.secrets/question_id_secret",
-		"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE": "containers/.runtime/live-demo-sysadmin-claim-context.json",
-		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID": local_stack_control.lifecycle.LOCAL_INSTRUCTOR_ID,
-		"PLE_LIVE_DEMO_MARY_STUDENT_USER_ID": local_stack_control.lifecycle.LOCAL_MARY_ID,
-		"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID": local_stack_control.lifecycle.LOCAL_JACK_ID,
-		"PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID": local_stack_control.lifecycle.LOCAL_APPROVAL_CANDIDATE_ID,
-		"PLE_LIVE_DEMO_SYSADMIN_USER_ID": local_stack_control.lifecycle.LOCAL_SYSADMIN_ID,
 	}
 	return result
 
@@ -144,12 +162,6 @@ def database_values() -> dict[str, str]:
 def diagnostic_path(target: local_stack_control.models.ComposeTarget) -> pathlib.Path:
 	"""Return the selected environment's private Base Course diagnostic path."""
 	return target.env_file.parent / local_stack_control.models.DEFAULT_BASE_COURSE_MANIFEST_FILE
-
-
-#============================================
-def claim_context_path(target: local_stack_control.models.ComposeTarget) -> pathlib.Path:
-	"""Return the selected environment's private Sysadmin ownership context."""
-	return target.env_file.parent / local_stack_control.models.DEFAULT_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE
 
 
 #============================================
@@ -236,13 +248,6 @@ def test_installing_base_course_routes_receipt_and_writes_diagnostic(
 	assert stat.S_IMODE(diagnostic.parent.stat().st_mode) == 0o700
 	assert stat.S_IMODE(diagnostic.stat().st_mode) == 0o600
 	assert not (target.env_file.parent / "base-course.json").exists()
-	context = local_stack_control.live_demo_claim_context.read_context(claim_context_path(target))
-	assert (context.installation_generation, context.sysadmin_user_id) == (
-		"00000000-0000-0000-0000-000000000006",
-		local_stack_control.lifecycle.LOCAL_SYSADMIN_ID,
-	)
-	assert stat.S_IMODE(claim_context_path(target).stat().st_mode) == 0o600
-	assert context.ownership_proof not in diagnostic.read_text(encoding="utf-8")
 
 
 #============================================
@@ -266,7 +271,33 @@ def test_retained_base_course_has_zero_storage_calls(tmp_path: pathlib.Path) -> 
 	assert [call[0][-2:] for call in runner.calls] == [
 		["--lifecycle-phase", "prepare"]
 	]
-	assert claim_context_path(target).is_file()
+
+
+#============================================
+def test_baseline_owner_finalizes_without_sysadmin_claim_context(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The database and storage baseline owner does not exercise browser ownership setup."""
+	target = lifecycle_target(tmp_path, "ple_live_demo_baseline_0123456789ab")
+	target.env_file.parent.mkdir()
+	disposable = local_stack_control.models.DisposableComposeTarget(
+		target=target,
+		owner_policy="live-demo-baseline",
+		capability_file=tmp_path / "capability",
+		project_prefix="ple_live_demo_baseline_",
+		private_environment_file=target.env_file,
+	)
+	preparation = local_stack_control.base_course_lifecycle.decode(
+		base_course_receipt("retained", "complete"), "prepare"
+	)
+
+	assert not local_stack_control.lifecycle_profiles.uses_live_demo_sysadmin_claim_context(disposable)
+
+	local_stack_control.lifecycle.finalize_installed_base_course(
+		BaseCourseRunner(), tmp_path, disposable, database_values(), {"PATH": "/usr/bin"}, preparation
+	)
+
+	assert diagnostic_path(target).is_file()
 
 
 #============================================
@@ -283,7 +314,10 @@ def test_storage_refusal_fails_before_install_or_diagnostic(
 	preparation = local_stack_control.lifecycle.prepare_installed_base_course(
 		runner, tmp_path, target, database_values(), {"PATH": "/usr/bin"}
 	)
-	with pytest.raises(local_stack_control.models.ControllerError):
+	with pytest.raises(
+		local_stack_control.models.ControllerError,
+		match="storage receipt cannot safely resume \\(exit status 17; refused\\)",
+	):
 		local_stack_control.lifecycle.finalize_installed_base_course(
 			runner,
 			tmp_path,
@@ -295,6 +329,50 @@ def test_storage_refusal_fails_before_install_or_diagnostic(
 
 	assert len(runner.calls) == 2
 	assert not diagnostic_path(target).exists()
+
+
+#============================================
+def test_storage_failure_redacts_receipt_echoed_by_child(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""Receipt stdin remains private when a failing child echoes both streams."""
+	target = lifecycle_target(tmp_path)
+	receipt = local_stack_control.base_course_lifecycle.decode(
+		base_course_receipt("prepared", "installing"), "prepare"
+	)
+	runner = BaseCourseRunner(
+		storage_failure=(receipt.storage_receipt_json, receipt.storage_receipt_json),
+	)
+
+	with pytest.raises(local_stack_control.models.ControllerError) as error:
+		local_stack_control.base_course_lifecycle.ensure_storage_receipt(
+			target, runner, receipt, {"PATH": "/usr/bin:/bin"}
+		)
+
+	message = str(error.value)
+	assert receipt.storage_receipt_json not in message
+	assert "[private]" in message and "exit status 17" in message
+
+
+#============================================
+def test_storage_failure_retains_nonsecret_child_stage(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""One failed receipt command identifies its non-secret child stage."""
+	target = lifecycle_target(tmp_path)
+	receipt = local_stack_control.base_course_lifecycle.decode(
+		base_course_receipt("prepared", "installing"), "prepare"
+	)
+	runner = BaseCourseRunner(
+		storage_failure=("", "storage-receipt-stage=inventory-private-content"),
+	)
+
+	with pytest.raises(local_stack_control.models.ControllerError) as error:
+		local_stack_control.base_course_lifecycle.ensure_storage_receipt(
+			target, runner, receipt, {"PATH": "/usr/bin:/bin"}
+		)
+
+	assert "storage-receipt-stage=inventory-private-content" in str(error.value)
 
 
 #============================================
@@ -410,6 +488,54 @@ def test_claim_context_preserves_matching_generation_and_rotates_new_generation(
 
 
 #============================================
+def test_default_bootstrap_does_not_create_demo_claim_context(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""Ordinary bootstrap keeps the public base free of live-demo ownership inputs."""
+	target = lifecycle_target(tmp_path)
+	target.env_file.parent.mkdir()
+	template = (pathlib.Path(__file__).parents[1] / "containers/env.example").read_text(encoding="utf-8")
+	target.env_file.write_text(template, encoding="ascii")
+	target.env_file.chmod(0o600)
+	local_stack_control.lifecycle.bootstrap_default_state(target)
+	values = local_stack_control.lifecycle.validate_static(target)
+
+	assert "PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE" not in values
+
+
+#============================================
+def test_live_demo_browser_bootstrap_creates_its_selected_pending_claim_source(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The connected browser owner reaches static validation before Compose mutation."""
+	target = lifecycle_target(
+		tmp_path,
+		"ple-live-demo-browser-0123456789ab",
+		live_demo_browser_compose_files(tmp_path),
+	)
+	target.env_file.parent.mkdir(exist_ok=True)
+	template = (pathlib.Path(__file__).parents[1] / "containers/env.example").read_text(encoding="utf-8")
+	target.env_file.write_text(template, encoding="ascii")
+	target.env_file.chmod(0o600)
+	disposable = local_stack_control.models.DisposableComposeTarget(
+		target=target,
+		owner_policy="live-demo-browser",
+		capability_file=tmp_path / "capability",
+		project_prefix="ple-live-demo-browser-",
+		private_environment_file=target.env_file,
+	)
+
+	local_stack_control.lifecycle.bootstrap_default_state(disposable)
+	local_stack_control.lifecycle.validate_static(target)
+	values = local_stack_control.env_file.env_settings(target.env_file)
+	path = local_stack_control.lifecycle.absolute_value_path(
+		target.repo_root, values["PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE"]
+	)
+
+	assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+#============================================
 def test_malformed_claim_context_fails_without_replacement(tmp_path: pathlib.Path) -> None:
 	"""An ambiguous private context never becomes a new unreviewed proof."""
 	path = tmp_path / ".runtime/live-demo-sysadmin-claim-context.json"
@@ -429,10 +555,10 @@ def test_malformed_claim_context_fails_without_replacement(tmp_path: pathlib.Pat
 
 
 #============================================
-def test_default_environment_wires_exact_live_demo_identity_settings(
+def test_default_environment_omits_live_demo_identity_settings(
 	tmp_path: pathlib.Path,
 ) -> None:
-	"""The local deployment receives exact fixed account IDs and a private host path."""
+	"""The local deployment keeps demo-only identity settings out of its environment."""
 	target = lifecycle_target(tmp_path)
 	target.env_file.parent.mkdir()
 	target.env_file.write_text("", encoding="ascii")
@@ -441,48 +567,4 @@ def test_default_environment_wires_exact_live_demo_identity_settings(
 	local_stack_control.lifecycle.configure_default_environment(target, None)
 	values = local_stack_control.env_file.env_settings(target.env_file)
 
-	assert tuple(values[name] for name in (
-		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID",
-		"PLE_LIVE_DEMO_MARY_STUDENT_USER_ID",
-		"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID",
-		"PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID",
-		"PLE_LIVE_DEMO_SYSADMIN_USER_ID",
-	)) == (
-		local_stack_control.lifecycle.LOCAL_INSTRUCTOR_ID,
-		local_stack_control.lifecycle.LOCAL_MARY_ID,
-		local_stack_control.lifecycle.LOCAL_JACK_ID,
-		local_stack_control.lifecycle.LOCAL_APPROVAL_CANDIDATE_ID,
-		local_stack_control.lifecycle.LOCAL_SYSADMIN_ID,
-	)
-	assert values["PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE"] == str(claim_context_path(target))
-
-
-#============================================
-def test_explicit_operator_command_prints_only_private_claim_proof(
-	tmp_path: pathlib.Path,
-	monkeypatch: pytest.MonkeyPatch,
-	capsys: pytest.CaptureFixture[str],
-) -> None:
-	"""Only the named operator command reads and writes the ownership proof."""
-	target = lifecycle_target(tmp_path)
-	target.env_file.parent.mkdir()
-	context_path = claim_context_path(target)
-	context = local_stack_control.live_demo_claim_context.ensure_context(
-		context_path,
-		"00000000-0000-0000-0000-000000000006",
-		local_stack_control.lifecycle.LOCAL_SYSADMIN_ID,
-		lambda _: b"d" * 32,
-	)
-	target.env_file.write_text(
-		"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE=containers/.runtime/live-demo-sysadmin-claim-context.json\n",
-		encoding="ascii",
-	)
-	target.env_file.chmod(0o600)
-	monkeypatch.setattr(local_stack_control.commands, "target_from_args", lambda *_: target)
-	monkeypatch.setattr(local_stack_control.compose, "require_default_mutation_target", lambda _: None)
-
-	result = local_stack_control.commands.live_demo_sysadmin_ownership_proof(
-		argparse.Namespace(), BaseCourseRunner(), tmp_path
-	)
-
-	assert (result, capsys.readouterr().out) == (0, context.ownership_proof + "\n")
+	assert not any(name.startswith("PLE_LIVE_DEMO_") for name in values)

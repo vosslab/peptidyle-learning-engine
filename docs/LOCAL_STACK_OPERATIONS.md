@@ -2,9 +2,12 @@
 
 Local development stack for the Peptidyle Learning Engine: the browser gateway,
 API server, worker, PostgreSQL, MinIO, and private standalone WeBWorK PG
-renderer. These are the normal stack; SMTP is the only optional overlay.
-The Compose model is defined in
-[containers/compose.yaml](../containers/compose.yaml) and
+renderer. The normal Compose model layers
+`containers/compose.local-development.yaml`
+after [containers/compose.yaml](../containers/compose.yaml); the local overlay owns
+local-file authentication and local worker commands. SMTP is the optional third
+overlay. The live-demo owner deliberately uses the base plus its TLS overlay
+without the local-development file. The image model is in
 [containers/Containerfile.api](../containers/Containerfile.api).
 Replica scaling, shared-state ownership, failure behavior, and the planned
 production topology are in [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md).

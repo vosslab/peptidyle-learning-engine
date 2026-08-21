@@ -1,7 +1,9 @@
 //! Concrete production storage and grading backend assembly.
 
 use super::router::{HealthState, compose_passwordless_router, verify_application_schema_bounded};
-use super::settings::{LazyStorageDependencies, ProductionSettings, StorageRuntime};
+use super::settings::{
+    LazyStorageDependencies, ProductionSettings, StorageRuntime, StorageTopology,
+};
 use super::*;
 
 /// Concrete dependency construction for the future institution adapter.
@@ -42,6 +44,14 @@ pub(super) struct ConfiguredImathas {
 impl PersistentDependencies {
     pub(super) async fn from_env(runtime: StorageRuntime) -> Result<Self> {
         let settings = ProductionSettings::from_env(runtime)?;
+        let dependencies = Self::from_settings(&settings).await?;
+        dependencies.verify_startup_schema().await?;
+        Ok(dependencies)
+    }
+
+    #[cfg(feature = "local-development-auth")]
+    pub(super) async fn from_local_development_env(runtime: StorageRuntime) -> Result<Self> {
+        let settings = ProductionSettings::from_local_development_env(runtime)?;
         let dependencies = Self::from_settings(&settings).await?;
         dependencies.verify_startup_schema().await?;
         Ok(dependencies)
@@ -99,13 +109,11 @@ impl PersistentDependencies {
             };
         let grader_database_url = settings.grader_database_url()?;
         let grader = Arc::new(
-            match settings.storage.runtime {
-                StorageRuntime::LocalDevelopment | StorageRuntime::LocalDevelopmentWorker => {
+            match settings.storage.runtime.topology {
+                StorageTopology::DisposableLocal => {
                     PostgresGraderStore::connect_local_development(grader_database_url).await
                 }
-                StorageRuntime::Api
-                | StorageRuntime::Worker
-                | StorageRuntime::PublicAssetPublisher => {
+                StorageTopology::AwsWorkload => {
                     PostgresGraderStore::connect(grader_database_url).await
                 }
             }
