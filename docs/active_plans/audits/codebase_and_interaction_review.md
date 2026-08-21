@@ -1,5 +1,13 @@
 # Codebase and interaction review
 
+> **Historical review notice - superseded for current acceptance (2026-08-19).** This review records
+> the 2026-08-18 tree `bfdbdd7...` and remains a dated historical record. Current source repairs
+> centralize route-role policy and reject student catalog reads, while the current screenshot corpus
+> has refreshed ownership and expanded to 36 artifacts. Use [implementation status](../implementation_status.md),
+> the [changelog](../../CHANGELOG.md), and the [test evidence model](../../TEST_EVIDENCE_MODEL.md)
+> for current route, corpus, and acceptance evidence. Preserve the historical findings below; do not
+> treat this dated tree as current acceptance input.
+
 Read-only review of the Rust workspace, the SolidJS browser, the documented contracts, and the
 committed screenshot corpus, with `OTHER_REPOS/adapt` as comparison evidence.
 

@@ -655,7 +655,7 @@ async fn fixture_with_response(
         .await
         .expect("student roster membership");
     store
-        .create_untimed_assignment(
+        .create_assignment(
             context,
             AssignmentRecord {
                 id: assignment,
@@ -663,6 +663,8 @@ async fn fixture_with_response(
                 course_id: course,
                 audience: question_model::AssignmentAudience::CourseWide,
                 title: "Molar mass mastery".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Draft,
+                instructions: question_model::AssignmentInstructions::default(),
                 items: assignment_items(vec![ProblemVersionRef { problem, version }]),
                 selection_groups: Vec::new(),
                 disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
@@ -673,9 +675,32 @@ async fn fixture_with_response(
                     variation: VariationPolicy::NewSeeds,
                 },
             },
+            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("assignment");
+    let stored = store
+        .get_assignment_for_edit(context, assignment)
+        .await
+        .expect("assignment read")
+        .expect("fixture assignment");
+    store
+        .put_assignment_teaching_settings(
+            context,
+            learning_data_access::PutAssignmentTeachingSettingsCommand {
+                actor: instructor,
+                course,
+                assignment,
+                expected_revision: stored.revision,
+                settings: question_model::AssignmentTeachingSettings {
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    base_policy: question_model::BaseAssignmentPolicy::default(),
+                },
+            },
+        )
+        .await
+        .expect("publish assignment");
     let enrollment = match store
         .issue_assignment_entitlement(
             context,
@@ -901,7 +926,7 @@ async fn native_feedback_fixture() -> (
         .await
         .expect("student roster membership");
     store
-        .create_untimed_assignment(
+        .create_assignment(
             context,
             AssignmentRecord {
                 id: assignment,
@@ -909,6 +934,8 @@ async fn native_feedback_fixture() -> (
                 course_id: course,
                 audience: question_model::AssignmentAudience::CourseWide,
                 title: "Peptide feedback".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Draft,
+                instructions: question_model::AssignmentInstructions::default(),
                 items: assignment_items(vec![
                     ProblemVersionRef { problem, version },
                     ProblemVersionRef { problem, version },
@@ -922,9 +949,32 @@ async fn native_feedback_fixture() -> (
                     variation: VariationPolicy::NewSeeds,
                 },
             },
+            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("assignment");
+    let stored = store
+        .get_assignment_for_edit(context, assignment)
+        .await
+        .expect("assignment read")
+        .expect("fixture assignment");
+    store
+        .put_assignment_teaching_settings(
+            context,
+            learning_data_access::PutAssignmentTeachingSettingsCommand {
+                actor: instructor,
+                course,
+                assignment,
+                expected_revision: stored.revision,
+                settings: question_model::AssignmentTeachingSettings {
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    base_policy: question_model::BaseAssignmentPolicy::default(),
+                },
+            },
+        )
+        .await
+        .expect("publish assignment");
     let student_cookie = issued_cookie_for(store.as_ref(), tenant, student, "Student").await;
     let outsider_cookie = issued_cookie_for(store.as_ref(), tenant, outsider, "Outsider").await;
     let backend = Arc::new(CountingNativeBackend {

@@ -291,7 +291,9 @@ pub(super) async fn issue_or_resume_question_attempt(
     let inputs = memory_effective_policy_inputs_for_grant(&state, tenant, assignment.id, &grant)?;
     let decision = domain::effective_assignment_policy::resolve_effective_policy(
         domain::effective_assignment_policy::ResolveEffectivePolicyInput {
-            lifecycle: domain::effective_assignment_policy::AssignmentLifecycleGate::Open,
+            lifecycle: domain::effective_assignment_policy::assignment_lifecycle_gate(
+                assignment.lifecycle,
+            ),
             entitlement: domain::entitlement::EntitlementDecision::Granted(grant),
             authorization: domain::effective_assignment_policy::AuthorizationGate::Authorized,
             now: state.authoritative_time,
@@ -508,7 +510,7 @@ pub(super) async fn issue_or_resume_question_attempt(
     Ok(attempt)
 }
 
-fn effective_attempt_deadline(
+pub(crate) fn effective_attempt_deadline(
     run: &question_model::AssignmentRun,
     authored_deadline: Option<question_model::ActivityTimestamp>,
     authored_grace_seconds: u32,

@@ -163,69 +163,80 @@ pub trait CourseStore: Send + Sync {
     ) -> Result<Option<StoredCourseGroup>, StoreError>;
 }
 
+/// Focused management reads and destructive operation over the authoritative
+/// group aggregate. It intentionally remains outside broad [`Store`] until
+/// PostgreSQL owns the reserved T2 migration and implements this contract.
+#[async_trait]
+pub trait CourseGroupManagementStore: Send + Sync {
+    async fn list_course_groups(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        course: CourseId,
+        page: PageRequest,
+    ) -> Result<Page<CourseGroupView>, StoreError>;
+    async fn get_course_group_by_reference(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        course: CourseId,
+        reference: question_model::CourseGroupReference,
+    ) -> Result<Option<CourseGroupView>, StoreError>;
+    /// Maps an internal group identity back to its exact-course authorized view.
+    async fn get_course_group_by_id_for_instructor(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        course: CourseId,
+        group: CourseGroupId,
+    ) -> Result<Option<CourseGroupView>, StoreError>;
+    async fn delete_course_group(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        course: CourseId,
+        group: CourseGroupId,
+        expected_revision: CourseGroupRevision,
+    ) -> Result<bool, StoreError>;
+    async fn get_course_group_purpose_policy(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        course: CourseId,
+        purpose: question_model::CourseGroupPurpose,
+    ) -> Result<Option<StoredCourseGroupPurposePolicy>, StoreError>;
+    async fn update_course_group_purpose_policy(
+        &self,
+        context: TenantContext,
+        command: UpdateCourseGroupPurposePolicyCommand,
+    ) -> Result<StoredCourseGroupPurposePolicy, StoreError>;
+    async fn course_group_membership_warnings(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        course: CourseId,
+    ) -> Result<Vec<CourseGroupMembershipWarning>, StoreError>;
+}
+
 /// Focused persistence capability composed by [`Store`].
 #[async_trait]
 pub trait CourseAssignmentStore: Send + Sync {
-    /// Creates a non-editor assignment with the explicitly chosen Untimed
-    /// policy. Internal provisioning uses this narrower command; browser
-    /// editor requests always carry timing on the wire.
-    async fn create_untimed_assignment_impl(
+    /// Creates the definition and explicit base policy in one commit.
+    async fn create_assignment_impl(
         &self,
         context: TenantContext,
         assignment: AssignmentRecord,
-    ) -> Result<StoredAssignment, StoreError> {
-        self.create_assignment_with_timing_impl(
-            context,
-            assignment,
-            question_model::AssignmentRunTiming::default(),
-        )
-        .await
-    }
-
-    /// Creates the definition and its editor-owned run timing in one commit,
-    /// returning its initial strong revision token.
-    async fn create_assignment_with_timing_impl(
-        &self,
-        context: TenantContext,
-        assignment: AssignmentRecord,
-        assignment_timing: question_model::AssignmentRunTiming,
+        base_policy: question_model::BaseAssignmentPolicy,
     ) -> Result<StoredAssignment, StoreError>;
 
-    /// Replaces non-timing assignment fields while retaining the currently
-    /// persisted timing choice for internal workflows that never own timing.
-    async fn replace_assignment_preserving_timing_impl(
+    /// Replaces content fields while preserving teaching settings.
+    async fn replace_assignment_impl(
         &self,
         context: TenantContext,
         course: CourseId,
         assignment: AssignmentId,
         expected_revision: AssignmentRevision,
         update: AssignmentUpdate,
-    ) -> Result<StoredAssignment, StoreError> {
-        let current = self
-            .get_assignment_for_edit_impl(context, assignment)
-            .await?
-            .ok_or(StoreError::NotFound)?;
-        self.replace_assignment_with_timing_impl(
-            context,
-            course,
-            assignment,
-            expected_revision,
-            AssignmentEditorUpdate {
-                assignment: update,
-                assignment_timing: current.assignment_timing,
-            },
-        )
-        .await
-    }
-
-    /// Replaces definition and editor timing under one shared revision.
-    async fn replace_assignment_with_timing_impl(
-        &self,
-        context: TenantContext,
-        course: CourseId,
-        assignment: AssignmentId,
-        expected_revision: AssignmentRevision,
-        update: AssignmentEditorUpdate,
     ) -> Result<StoredAssignment, StoreError>;
 
     /// Replaces one fixed item for future runs under the assignment's strong
@@ -305,10 +316,10 @@ pub trait EffectivePolicyStore: Send + Sync {
         assignment: AssignmentId,
     ) -> Result<Option<StoredBaseAssignmentPolicy>, StoreError>;
 
-    async fn put_base_assignment_policy_impl(
+    async fn put_assignment_teaching_settings_impl(
         &self,
         context: TenantContext,
-        command: PutBaseAssignmentPolicyCommand,
+        command: PutAssignmentTeachingSettingsCommand,
     ) -> Result<StoredBaseAssignmentPolicy, StoreError>;
 
     async fn put_group_schedule_offset_impl(
@@ -737,5 +748,5 @@ pub trait ActivityStore: Send + Sync {
         context: TenantContext,
         actor: UserId,
         enrollment: EnrollmentId,
-    ) -> Result<Option<StudentAssignmentSummary>, StoreError>;
+    ) -> Result<Option<LearnerAssignmentSummarySnapshot>, StoreError>;
 }

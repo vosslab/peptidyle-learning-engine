@@ -28,6 +28,8 @@ pub mod catalog;
 pub mod course;
 /// Closed, browser-safe course appearance and banner presentation contracts.
 pub mod course_appearance;
+/// Closed course-grade aggregation configuration.
+pub mod course_grade;
 /// Validated inclusive course-calendar bounds and authoritative IANA zone.
 pub mod course_term;
 pub mod definition;
@@ -42,6 +44,8 @@ pub mod identity;
 pub mod lifecycle;
 /// Browser-safe, attempt-presentation-scoped question contracts.
 pub mod presentation;
+/// Strict non-mutating preview-plane contracts, separate from T2 teaching operations.
+pub mod preview_plane;
 /// Human-facing route locators that resolve to internal identities under authorization.
 pub mod public_route;
 pub mod response;
@@ -49,6 +53,10 @@ pub mod run_policy;
 /// Browser-safe anonymous-statistics projections and disclosure policy.
 pub mod statistics;
 pub mod taxonomy;
+/// Internal global approval and target-bound co-instructor lifecycle facts.
+pub mod teaching_authority;
+/// Browser/server teaching-operations wire contracts.
+pub mod teaching_operations;
 
 // The crate's front door. These are the types a caller reaches for first, so
 // they are re-exported to keep call sites short. Everything else stays
@@ -63,10 +71,17 @@ pub use crate::activity::{
     TenantId,
 };
 pub use crate::assignment::{
-    AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentItem, AssignmentRunTiming,
-    AssignmentScoringMode, AssignmentSelectionCandidate, AssignmentSelectionGroup,
-    DEFAULT_MASTERY_TIME_LIMIT_SECONDS, LateSubmissionPolicy, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS,
-    PointValue, ScoringGeneration, ScoringStatus, SelectionOrdering,
+    AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentInstructions,
+    AssignmentInstructionsError, AssignmentItem, AssignmentLifecycle, AssignmentScoringMode,
+    AssignmentSelectionCandidate, AssignmentSelectionGroup, AssignmentTeachingSettings,
+    AssignmentTeachingSettingsFailureCode, AssignmentTeachingSettingsFailureReason,
+    AssignmentTeachingSettingsField, AssignmentTeachingSettingsLocalError,
+    AssignmentTeachingSettingsValidationFailure, BaseAssignmentPolicy, CourseLocalDateTime,
+    CourseLocalDateTimeError, InstructorAssignmentCurrentState,
+    InstructorAssignmentTeachingSettingsLocal, LateSubmissionPolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
+    MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, PointValue,
+    ScoringGeneration, ScoringStatus, SelectionOrdering,
+    derive_instructor_assignment_current_state,
 };
 pub use crate::auth::{UserId, UserRole};
 pub use crate::byline::{PublicAuthorName, PublicByline, PublicBylineError};
@@ -83,12 +98,20 @@ pub use crate::catalog::{
 pub use crate::course::{
     AssignmentItemSummary, AssignmentSelectionCandidateSummary, AssignmentSelectionGroupSummary,
     AssignmentSummary, CourseMembershipRole, CourseSummary, GradebookSummaryRow,
-    LearnerAssignmentSummary,
+    LearnerAssignmentDelivery, LearnerAssignmentDetail, LearnerAssignmentSummary,
+    LearnerLateStatus,
 };
 pub use crate::course_appearance::{
     CourseAppearance, CourseAppearanceRevision, CourseAppearanceUpdate, CourseBannerAltText,
     CourseBannerAlternativeText, CourseBannerCandidateId, CourseBannerCandidateReceipt,
     CourseBannerId, CourseBannerMutation, CourseBannerPresentation, CourseThemeId,
+};
+pub use crate::course_grade::{
+    CourseGradeAssignmentSetting, CourseGradeAssignmentView, CourseGradeMode,
+    CourseGradeOutcomeView, CourseGradeRoundingRule, CourseGradeScheme, CourseGradeSchemeError,
+    CourseGradeSchemeUpdateView, CourseGradeSchemeView, CourseGradeUnavailableReasonView,
+    CourseGradebookTotalViewRow, CourseGradebookTotalsView, GradeCategoryId, GradeCategoryTitle,
+    LetterBand, LetterBandLabel, WeightedGradeCategory,
 };
 pub use crate::course_term::{
     CourseDate, CourseDateError, CourseTerm, CourseTermError, CourseTermFailureCode,
@@ -102,9 +125,11 @@ pub use crate::definition::{
     validate_question_title,
 };
 pub use crate::entitlement::{
-    AssignmentAudience, AssignmentAudienceError, CourseGroupPurpose, EntitlementMaterialization,
-    EntitlementPurpose, EvaluatorVersion, GroupPurposeCapabilities, MaterializationAuthority,
-    MaterializationBasis, MaterializationDisposition, MaterializationRule, NonEmptyAudienceGroups,
+    AssignmentAudience, AssignmentAudienceError, CourseGroupPurpose, CourseGroupPurposePolicy,
+    EntitlementMaterialization, EntitlementPurpose, EvaluatorVersion, GroupPurposeCapabilities,
+    MaterializationAuthority, MaterializationBasis, MaterializationDisposition,
+    MaterializationRule, MultipleMembershipDisposition, MultipleMembershipPolicy,
+    NonEmptyAudienceGroups,
 };
 pub use crate::envelope::QuestionEnvelope;
 pub use crate::feedback::{DisclosedFeedback, FeedbackContent};
@@ -119,9 +144,22 @@ pub use crate::presentation::{
     PresentationEnvelopeV1, PresentationNonceV1, PresentedBlankV1, PresentedChoiceV1,
     PresentedHotspotRegionV1, PresentedHotspotSurfaceV1, RenderedItemIdV1, ResponseSchemaV1,
 };
+pub use crate::preview_plane::{
+    DerivedPreviewSubjectRequest, InstructorPreviewSchedulePage, InstructorPreviewScheduleRow,
+    MAX_PREVIEW_SUBJECT_GROUPS, PreviewAccommodationComparison, PreviewDeadlineBehaviorField,
+    PreviewDeferredCapability, PreviewDenialReason, PreviewDisclosureFlags,
+    PreviewDisclosureMoment, PreviewDisclosureProjection, PreviewDisclosureUnavailableReason,
+    PreviewEntitlementDenialReason, PreviewEntitlementGrantReason, PreviewEntitlementOutcome,
+    PreviewEvaluation, PreviewFutureSeam, PreviewGroupFact, PreviewGroupFacts, PreviewGroupRole,
+    PreviewLateSubmissionField, PreviewLimitField, PreviewPlaneResponse, PreviewPolicySourceLayer,
+    PreviewPriorRunCount, PreviewResolvedPolicy, PreviewScheduleProjection, PreviewSelectedMoment,
+    PreviewSubject, PreviewSubjectKind, PreviewSyntheticGroupReferences, PreviewTimeField,
+    SyntheticPreviewModifiers, SyntheticPreviewSubjectRequest, preview_group_role,
+};
 pub use crate::public_route::{
-    AssignmentReference, CourseGroupReference, CourseReference, MAX_PUBLIC_ROUTE_NUMBER,
-    NavigationResolution, RESERVED_REFERENCE_PREFIXES, RunReference, WorkspaceReference,
+    AccountReference, AssignmentReference, CoInstructorInvitationReference, CourseGroupReference,
+    CourseMembershipReference, CourseReference, MAX_PUBLIC_ROUTE_NUMBER, NavigationResolution,
+    RESERVED_REFERENCE_PREFIXES, RunReference, WorkspaceReference,
 };
 pub use crate::response::{ResponseDefinition, StudentResponse};
 pub use crate::run_policy::{
@@ -131,4 +169,36 @@ pub use crate::run_policy::{
 pub use crate::statistics::{
     DEFAULT_STATISTICS_MINIMUM_COHORT_SIZE, LearnerClassStatistics, QuestionStatisticsDisclosure,
     QuestionStatisticsView, StatisticsDisclosurePolicy, StatisticsDisclosurePolicyError,
+};
+pub use crate::teaching_authority::{
+    CoInstructorInvitation, CoInstructorInvitationId, CoInstructorInvitationState,
+    InstructorApproval,
+};
+pub use crate::teaching_operations::{
+    AccountApprovalView, AssignmentPolicyPatchUpdateRequest, CoInstructorInvitationCreateRequest,
+    CoInstructorInvitationStateView, CoInstructorInvitationTerminalAction,
+    CoInstructorInvitationTerminalActionRequest, CoInstructorTargetSearchPage,
+    CoInstructorTargetSearchQuery, CoInstructorTargetSearchRequest, CoInstructorTargetView,
+    CourseCoInstructorInvitationView, CourseCoInstructorInvitationsPage, CourseGroupCreateRequest,
+    CourseGroupDetailView, CourseGroupListPage, CourseGroupMemberView, CourseGroupMembers,
+    CourseGroupMembershipWarningView, CourseGroupPurposePolicyUpdateRequest,
+    CourseGroupPurposePolicyView, CourseGroupSummaryView, CourseGroupUpdateRequest,
+    CourseStudentMembershipsPage, GroupScheduleOffsetSeconds, GroupScheduleOffsetUpdateRequest,
+    IndividualPolicyPatchUpdateRequest, InstructorApprovalStateView,
+    InstructorMembershipRemovalRequest, InstructorMembershipView, InstructorMembershipsPage,
+    MembershipPageRequest, PendingCoInstructorInvitationView, PendingCoInstructorInvitationsPage,
+    PolicyModificationModeView, PolicyPatchView, RetentionActionOutcomeView,
+    RetentionActionResponse, RetentionAdditionalDays, RetentionArchiveRequest,
+    RetentionDispositionView, RetentionExtendRequest, RetentionNotificationIntentView,
+    RetentionNotificationView, RetentionReadView, RetentionStateView,
+    SysadminInstructorApprovalStateView, SysadminInstructorApprovalView,
+    SysadminInstructorCandidateSearchPage, SysadminInstructorCandidateSearchRequest,
+    SysadminInstructorCandidateView, TeachingAccountView, TeachingAttemptLimit,
+    TeachingAttemptLimitFieldPatch, TeachingDisplayLabel, TeachingLateVerdict,
+    TeachingLimitFieldPatch, TeachingOperationRevision, TeachingOperationRevisionResponse,
+    TeachingPageSize, TeachingPreviewDeadlineBehaviorField, TeachingPreviewDenialReason,
+    TeachingPreviewFieldSource, TeachingPreviewGroupSource, TeachingPreviewGroupSources,
+    TeachingPreviewLateSubmissionField, TeachingPreviewLimitField, TeachingPreviewTimeField,
+    TeachingPreviewView, TeachingStartVerdict, TeachingTimeFieldPatch, TeachingTimeLimitSeconds,
+    project_teaching_preview_time_field, resolve_teaching_local_time,
 };

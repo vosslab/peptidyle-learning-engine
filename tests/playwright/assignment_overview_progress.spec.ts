@@ -12,6 +12,18 @@ const learnerAssignment = {
   title: assignment.title,
   items: assignment.items,
   selectionGroups: assignment.selectionGroups,
+  instructions: "Use the displayed structure.\nExplain your reasoning.",
+  timeZone: "America/Chicago",
+  delivery: {
+    availableAt: 1_787_580_000_000,
+    dueAt: 1_789_423_200_000,
+    closesAt: 1_789_441_200_000,
+    timeLimitSeconds: 60,
+    attemptLimit: 1,
+    lateSubmission: "markLate",
+    deadlineBehavior: "autoSubmit",
+    lateStatus: "onTime",
+  },
 };
 const assignmentPath = `/courses/${course.reference}/assignments/${assignment.reference}`;
 
@@ -57,11 +69,12 @@ function json(route: Route, value: unknown, headers: Record<string, string> = {}
   });
 }
 
-function learnerProgress(scoreState: ScoreState): object {
+function learnerProgress(scoreState: ScoreState, scoringStatus = "current"): object {
   switch (scoreState) {
     case "noActivity":
       return {
         scoreState,
+        scoringStatus,
         currentScore: null,
         bestScore: null,
         latestScore: null,
@@ -72,6 +85,7 @@ function learnerProgress(scoreState: ScoreState): object {
     case "withheld":
       return {
         scoreState,
+        scoringStatus,
         currentScore: null,
         bestScore: null,
         latestScore: null,
@@ -82,6 +96,7 @@ function learnerProgress(scoreState: ScoreState): object {
     case "available":
       return {
         scoreState,
+        scoringStatus,
         currentScore: 0.75,
         bestScore: 1,
         latestScore: 0.5,
@@ -96,6 +111,7 @@ async function installLearnerRoutes(
   page: Page,
   scoreState: ScoreState,
   classStatistics: ClassStatistics = undefined,
+  scoringStatus = "current",
 ): Promise<void> {
   await page.addInitScript(() =>
     Object.defineProperty(window, "__PLE_USE_MOCK_API__", {
@@ -141,7 +157,7 @@ async function installLearnerRoutes(
     }
     if (path === `/api/assignments/${assignment.id}/summary`) {
       return await json(route, {
-        ...learnerProgress(scoreState),
+        ...learnerProgress(scoreState, scoringStatus),
         ...(classStatistics === undefined ? {} : { classStatistics }),
       });
     }
@@ -156,8 +172,9 @@ async function openOverview(
   scoreState: ScoreState,
   viewport: { readonly width: number; readonly height: number },
   classStatistics: ClassStatistics = undefined,
+  scoringStatus = "current",
 ): Promise<void> {
-  await installLearnerRoutes(page, scoreState, classStatistics);
+  await installLearnerRoutes(page, scoreState, classStatistics, scoringStatus);
   await page.setViewportSize(viewport);
   await page.goto("/");
   await page.evaluate((path) => {
@@ -166,6 +183,45 @@ async function openOverview(
   }, assignmentPath);
   await expect(page.locator('[data-route-surface="assignmentOverview"]')).toBeVisible();
   await expect(page.getByRole("heading", { name: assignment.title })).toBeVisible();
+}
+
+test("student overview renders only safe delivery details and preserves instruction lines", async ({
+  page,
+}) => {
+  await openOverview(page, "available", learnerViewports[0]);
+
+  await expect(page.getByRole("heading", { name: "Instructions" })).toBeVisible();
+  await expect(page.locator(".plain-text-instructions")).toHaveText(
+    "Use the displayed structure.\nExplain your reasoning.",
+  );
+  const delivery = page.getByRole("heading", { name: "Delivery details" }).locator("..");
+  await expect(delivery).toContainText("America/Chicago");
+  await expect(delivery).not.toContainText("Not set");
+  await expect(delivery).toContainText("1 minute per run");
+  await expect(delivery).toContainText("1 attempt");
+  await expect(delivery).toContainText("Accepted and marked late after the due time");
+  await expect(delivery).toContainText("automatically submits work");
+  await expect(delivery).toContainText("On time");
+  await expect(page.locator("body")).not.toContainText(
+    /tenant|provenance|disclosurePolicy|afterSubmit/u,
+  );
+});
+
+for (const scoringStatus of ["recalculating", "failed"] as const) {
+  test(`student overview suppresses stale numeric scores while ${scoringStatus}`, async ({
+    page,
+  }) => {
+    await openOverview(page, "available", learnerViewports[0], undefined, scoringStatus);
+    const facts = page.locator(".assignment-facts").last();
+    await expect(facts).toContainText(
+      scoringStatus === "recalculating"
+        ? "Scores are recalculating"
+        : "Scores are temporarily unavailable",
+    );
+    await expect(facts).not.toContainText("75%");
+    await expect(facts).not.toContainText("50%");
+    await expect(facts).not.toContainText("100%");
+  });
 }
 
 const classStatisticsCases = [
@@ -200,7 +256,7 @@ for (const statisticsCase of classStatisticsCases) {
     }) => {
       await openOverview(page, statisticsCase.scoreState, viewport, statisticsCase.classStatistics);
 
-      const facts = page.locator(".assignment-facts");
+      const facts = page.locator(".assignment-facts").last();
       await expect(facts.getByRole("status")).toHaveText(
         "Score is currently unavailable. 1 completed run recorded.",
       );
@@ -235,7 +291,7 @@ for (const viewport of learnerViewports) {
     }) => {
       await openOverview(page, scoreCase.scoreState, viewport);
 
-      const facts = page.locator(".assignment-facts");
+      const facts = page.locator(".assignment-facts").last();
       await expect(page.getByRole("heading", { name: assignment.title })).toBeVisible();
       await expect(facts.getByRole("status")).toHaveText(scoreCase.status);
       await expect(facts).not.toContainText(/afterSubmit|afterDue|afterClose|duringAttempt|never/u);

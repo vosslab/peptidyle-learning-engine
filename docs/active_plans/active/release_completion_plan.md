@@ -185,7 +185,7 @@ WP-RC3 accepted compatibility proof ---> WP-ARCH1 accepted source decomposition
                                 WP-RC3R accepted standalone PG renderer
                                                    |
                                                    v
-                    WP-RC8 production account-provider composition
+                    WP-RC8 identity/account/session/passkey seams (acceptance open)
                                                    |
                                                    v
                                 WP-UI1 interface composition
@@ -199,7 +199,7 @@ WP-RC3 accepted compatibility proof ---> WP-ARCH1 accepted source decomposition
                                                         v
 WP-RC6 profiles/H5P
 WP-P2 persistent bindings ---> WP-RC7 M5 reconciliation/integration
-WP-RC8 accepted identity/enrollment ---> WP-RC9 LTI ---> WP-FU1..WP-FU6 secure uploads ---> WP-RC10 OpenTofu
+WP-RC8 identity/enrollment acceptance open ---> WP-RC9 LTI ---> WP-FU1..WP-FU6 secure uploads ---> WP-RC10 OpenTofu
                                                                         |
                                                                         v
                                                              WP-RC11 bot controls
@@ -219,8 +219,9 @@ WP-RC3R accepted catalog publication ---> WP-HG1 operational human references
 ```
 
 The human owner reprioritized WP-UI1 interface composition as the immediate repository-owned package, and it is now
-accepted. WP-RC8's production composition is complete, while its external provider, browser, and independent
-closeout gates remain. WP-RC4 resumes after that acceptance; its internal version 2 implementation no longer waits
+accepted. WP-RC8's generic identity, account, session, and passkey seams exist, while package acceptance and its
+provider, mailbox, multi-replica, security, and HCI gates remain open. WP-RC4 resumes after that acceptance; its
+internal version 2 implementation no longer waits
 on external QTI-JSONL artifacts. WP-P1 may proceed alongside RC4 closeout, but the complete WP-P1 through WP-P6
 boundary must be accepted before WP-RC5. WP-RC7's non-schema inventory work may proceed earlier; its schema work
 begins only after WP-P2 preserves the reserved migration ordering below.
@@ -298,10 +299,9 @@ begins only after WP-P2 preserves the reserved migration ordering below.
 
 - **Status:** accepted on 2026-08-12. This closes the remaining timed-problem gap in the
   human-guidance walkthrough; it does not change the status of the broader release plan.
-- **Depends on:** the then-course-owned `AssignmentTimingPolicy`, the visible assignment editor, and
-  the shared assignment revision. This records the accepted package's historical dependency order:
-  `AssignmentTimingPolicy` and its API have since been removed. Implement the Rust/store/editor contract
-  before the Solid form, then run focused behavior gates before the current-stack walkthrough.
+- **Depends on:** the then-course-owned `AssignmentTimingPolicy`, the visible assignment editor, and the
+  shared assignment revision. This records the accepted package's historical dependency order: the
+  `AssignmentTimingPolicy` and its API have since been removed. Implement the Rust/store/editor contract before the Solid form, then run focused behavior gates before the current-stack walkthrough.
 - **Contract:** at acceptance, whole-run timing was course-owned through `AssignmentTimingPolicy`. The
   editor alone exposed `assignmentTiming: { timeLimitSeconds: positive u32 | null }`; `null` was an
   intentional untimed assignment. A new mastery draft received the Rust-generated `900`-second default.
@@ -309,10 +309,12 @@ begins only after WP-P2 preserves the reserved migration ordering below.
   published question versions and their immutable question-level `TimingPolicy` did not change. That
   removed model is not a current policy authority: only accepted WP-PROF-S3's current S3-resolved
   effective-policy verdict/decision after S5 entitlement is current authority; sealed receipts are historical evidence.
+  WP-PROF-T1 supersedes the transport itself: current whole-run timing lives in the single
+  `AssignmentTeachingSettings` aggregate with lifecycle, instructions, schedule, limits, late, and deadline
+  behavior; accepted WP-HG1.T evidence is historical and authorizes no compatibility reader or writer.
 - **Behavior:** the instructor can see and save an accessible `Time limit for each practice run` fieldset
-  with Timed/Untimed choices and a minutes input. A new mastery assignment visibly starts at 15 minutes.
-  The student sees a server-backed countdown for a timed run and `Untimed` only when the saved value is
-  null. Invalid input and conflicts preserve the instructor's draft.
+  with Timed/Untimed choices and a minutes input; a new mastery assignment visibly starts at 15 minutes.
+  The student sees a server-backed countdown for a timed run, or `Untimed` only when the saved value is null; invalid input and conflicts preserve the instructor's draft.
 - **Permanent tests:** Rust Memory/PostgreSQL editor conformance for default, atomic create/replace, stale
   revision, and active-run deadline handling; strict HTTP/decoder/client tests for the nullable field;
   and keyboard-focused editor/student Playwright tests for the default, toggle, validation, recovery, and
@@ -976,7 +978,6 @@ development. They must pass, not skip, in WP-RC12 release evidence.
 - [ ] Production operator supplies email delivery and WebAuthn RP configuration; record optional SSO identities when enabled.
 - [ ] Institutional owner completes FERPA/legal/security sign-off.
 - [ ] Human fall-pilot accessibility and teaching walkthrough passes before student enrollment.
-
 ## Documentation close-out requirements
 
 Every package updates the changelog only after executable acceptance. Packages that change owner

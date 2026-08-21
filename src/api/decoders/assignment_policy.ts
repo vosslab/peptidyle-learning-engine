@@ -1,14 +1,6 @@
-import { MAX_ASSIGNMENT_TIME_LIMIT_SECONDS } from "../../../generated/api/MAX_ASSIGNMENT_TIME_LIMIT_SECONDS";
-import type { AssignmentRunTiming } from "../../../generated/api/AssignmentRunTiming";
 import type { LearnerDisclosurePolicy } from "../../../generated/api/LearnerDisclosurePolicy";
 import type { LearnerDisclosureTiming } from "../../../generated/api/LearnerDisclosureTiming";
-import {
-  DecodeError,
-  decodeNullable,
-  decodePositiveInteger,
-  decodeRecord,
-  decodeStringEnum,
-} from "../decoder";
+import { decodeRecord, decodeStringEnum } from "../decoder";
 import { field, requireOnlyFields } from "./shared";
 
 /** Decode the exact assignment-owned learner disclosure matrix. */
@@ -40,24 +32,4 @@ export function decodeLearnerDisclosurePolicy(
     solution: decodeTiming("solution"),
     classStatistics: decodeTiming("classStatistics"),
   };
-}
-
-export function decodeAssignmentRunTiming(value: unknown, path: string): AssignmentRunTiming {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["timeLimitSeconds"]);
-  const timeLimitSeconds = decodeNullable(
-    field(record, "timeLimitSeconds", path),
-    `${path}.timeLimitSeconds`,
-    (seconds, secondsPath) => {
-      const decoded = decodePositiveInteger(seconds, secondsPath);
-      if (decoded > MAX_ASSIGNMENT_TIME_LIMIT_SECONDS) {
-        throw new DecodeError(
-          secondsPath,
-          `a positive whole-second limit no greater than ${MAX_ASSIGNMENT_TIME_LIMIT_SECONDS}`,
-        );
-      }
-      return decoded;
-    },
-  );
-  return { timeLimitSeconds };
 }

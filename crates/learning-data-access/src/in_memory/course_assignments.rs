@@ -4,13 +4,18 @@ use super::*;
 
 #[async_trait]
 impl crate::CourseAssignmentStore for MemoryStore {
-    async fn create_assignment_with_timing_impl(
+    async fn create_assignment_impl(
         &self,
         context: TenantContext,
         assignment: AssignmentRecord,
-        assignment_timing: question_model::AssignmentRunTiming,
+        base_policy: question_model::BaseAssignmentPolicy,
     ) -> Result<StoredAssignment, StoreError> {
         ensure_tenant(context, assignment.tenant)?;
+        if assignment.lifecycle != question_model::AssignmentLifecycle::Draft {
+            return Err(StoreError::InvalidRecord(
+                "new assignments must begin in the draft lifecycle".to_string(),
+            ));
+        }
         validate_assignment(&assignment)?;
         let mut state = self.write_state()?;
         let key = (assignment.tenant, assignment.id);
@@ -18,10 +23,24 @@ impl crate::CourseAssignmentStore for MemoryStore {
             return Err(StoreError::AlreadyExists);
         }
         validate_memory_assignment_references(&state, context, &assignment)?;
+        let course_term = state
+            .courses
+            .get(&(assignment.tenant, assignment.course_id))
+            .ok_or(StoreError::NotFound)?
+            .term
+            .clone();
+        domain::effective_assignment_policy::validate_base_assignment_policy_for_course_term(
+            base_policy,
+            &course_term,
+        )
+        .map_err(|error| {
+            StoreError::InvalidRecord(format!("invalid assignment base policy: {error:?}"))
+        })?;
+        let snapshot = state.clone();
         let stored = StoredAssignment {
             record: assignment,
             revision: AssignmentRevision::INITIAL,
-            assignment_timing,
+            base_policy,
             scoring_generation: ScoringGeneration::INITIAL,
             scoring_status: ScoringStatus::Current,
         };
@@ -38,22 +57,30 @@ impl crate::CourseAssignmentStore for MemoryStore {
                 tenant: stored.record.tenant,
                 course: stored.record.course_id,
                 assignment: stored.record.id,
-                policy: base_policy_from_editor_timing(assignment_timing.time_limit_seconds)?,
+                policy: base_policy,
                 revision: stored.revision,
             },
         );
         state
             .assignment_scoring
             .insert(key, (stored.scoring_generation, stored.scoring_status));
+        if let Err(error) = super::course_gradebook::advance_course_grade_scheme_revision(
+            &mut state,
+            stored.record.tenant,
+            stored.record.course_id,
+        ) {
+            *state = snapshot;
+            return Err(error);
+        }
         Ok(stored)
     }
-    async fn replace_assignment_with_timing_impl(
+    async fn replace_assignment_impl(
         &self,
         context: TenantContext,
         course: CourseId,
         assignment: AssignmentId,
         expected_revision: AssignmentRevision,
-        update: AssignmentEditorUpdate,
+        update: crate::AssignmentUpdate,
     ) -> Result<StoredAssignment, StoreError> {
         let mut state = self.write_state()?;
         let snapshot = state.clone();
@@ -75,21 +102,24 @@ impl crate::CourseAssignmentStore for MemoryStore {
             return Err(StoreError::Conflict);
         }
         let next_revision = current.next()?;
-        crate::ensure_assignment_update_preserves_references(&existing, &update.assignment)?;
+        crate::ensure_assignment_update_preserves_references(&existing, &update)?;
         let assignment = AssignmentRecord {
             id: assignment,
             tenant: context.tenant_id(),
             course_id: course,
-            title: update.assignment.title,
-            audience: update.assignment.audience,
-            items: update.assignment.items,
-            selection_groups: update.assignment.selection_groups,
-            disclosure_policy: update.assignment.disclosure_policy,
-            policies: update.assignment.policies,
+            title: update.title,
+            lifecycle: existing.lifecycle,
+            instructions: existing.instructions.clone(),
+            audience: update.audience,
+            items: update.items,
+            selection_groups: update.selection_groups,
+            disclosure_policy: update.disclosure_policy,
+            policies: update.policies,
         };
         validate_assignment(&assignment)?;
         validate_memory_assignment_references(&state, context, &assignment)?;
         let previous = state.assignments.get(&key).ok_or(StoreError::NotFound)?;
+        let course_grade_projection_changed = previous.title != assignment.title;
         if retirement_would_orphan_active_attempt(
             &state,
             context.tenant_id(),
@@ -139,7 +169,11 @@ impl crate::CourseAssignmentStore for MemoryStore {
         let stored = StoredAssignment {
             record: assignment,
             revision: next_revision,
-            assignment_timing: update.assignment_timing,
+            base_policy: state
+                .assignment_base_policy
+                .get(&key)
+                .ok_or(StoreError::NotFound)?
+                .policy,
             scoring_generation,
             scoring_status,
         };
@@ -148,6 +182,29 @@ impl crate::CourseAssignmentStore for MemoryStore {
         state
             .assignment_scoring
             .insert(key, (stored.scoring_generation, stored.scoring_status));
+        if course_grade_projection_changed
+            && let Err(error) = super::course_gradebook::advance_course_grade_scheme_revision(
+                &mut state,
+                stored.record.tenant,
+                stored.record.course_id,
+            )
+        {
+            *state = snapshot;
+            return Err(error);
+        }
+        // Audience is an S5 input.  Replacing an assignment definition can
+        // therefore revoke an already-issued learner even though no M1--M4
+        // policy row changed.  Keep the definition, revision, and mutable
+        // active-attempt projection in the same rollback boundary.
+        if let Err(error) = super::course_policy::reresolve_active_assignment_attempts(
+            &mut state,
+            context.tenant_id(),
+            course,
+            stored.record.id,
+        ) {
+            *state = snapshot;
+            return Err(error);
+        }
         Ok(stored)
     }
     async fn replace_assignment_fixed_item_impl(
@@ -185,15 +242,11 @@ impl crate::CourseAssignmentStore for MemoryStore {
         let stored = StoredAssignment {
             record: replacement,
             revision: revision.next()?,
-            assignment_timing: question_model::AssignmentRunTiming {
-                time_limit_seconds: state
-                    .assignment_base_policy
-                    .get(&key)
-                    .ok_or(StoreError::NotFound)?
-                    .policy
-                    .time_limit_seconds
-                    .map(std::num::NonZeroU32::get),
-            },
+            base_policy: state
+                .assignment_base_policy
+                .get(&key)
+                .ok_or(StoreError::NotFound)?
+                .policy,
             scoring_generation: state
                 .assignment_scoring
                 .get(&key)
@@ -280,7 +333,7 @@ impl crate::CourseAssignmentStore for MemoryStore {
         replacement.items.sort_by_key(|item| item.position);
         validate_assignment(&replacement)?;
         validate_memory_assignment_references(&state, context, &replacement)?;
-        let timing = state
+        let base_policy = state
             .assignment_base_policy
             .get(&key)
             .ok_or(StoreError::NotFound)?
@@ -293,9 +346,7 @@ impl crate::CourseAssignmentStore for MemoryStore {
         let stored = StoredAssignment {
             record: replacement,
             revision: revision.next()?,
-            assignment_timing: question_model::AssignmentRunTiming {
-                time_limit_seconds: timing.time_limit_seconds.map(std::num::NonZeroU32::get),
-            },
+            base_policy,
             scoring_generation: generation,
             scoring_status: status,
         };
@@ -348,7 +399,7 @@ impl crate::CourseAssignmentStore for MemoryStore {
         }
         replacement.items.sort_by_key(|item| item.position);
         validate_assignment(&replacement)?;
-        let timing = state
+        let base_policy = state
             .assignment_base_policy
             .get(&key)
             .ok_or(StoreError::NotFound)?
@@ -361,9 +412,7 @@ impl crate::CourseAssignmentStore for MemoryStore {
         let stored = StoredAssignment {
             record: replacement,
             revision: revision.next()?,
-            assignment_timing: question_model::AssignmentRunTiming {
-                time_limit_seconds: timing.time_limit_seconds.map(std::num::NonZeroU32::get),
-            },
+            base_policy,
             scoring_generation: generation,
             scoring_status: status,
         };
@@ -392,16 +441,13 @@ impl crate::CourseAssignmentStore for MemoryStore {
         let Some(update) = delete_and_regrade_update(&stored, command.item)? else {
             return Ok(stored);
         };
-        crate::CourseAssignmentStore::replace_assignment_with_timing_impl(
+        crate::CourseAssignmentStore::replace_assignment_impl(
             self,
             context,
             command.course,
             command.assignment,
             command.expected_revision,
-            AssignmentEditorUpdate {
-                assignment: update,
-                assignment_timing: stored.assignment_timing,
-            },
+            update,
         )
         .await
     }
@@ -433,15 +479,11 @@ impl crate::CourseAssignmentStore for MemoryStore {
         Ok(Some(StoredAssignment {
             record,
             revision,
-            assignment_timing: question_model::AssignmentRunTiming {
-                time_limit_seconds: state
-                    .assignment_base_policy
-                    .get(&key)
-                    .ok_or(StoreError::NotFound)?
-                    .policy
-                    .time_limit_seconds
-                    .map(std::num::NonZeroU32::get),
-            },
+            base_policy: state
+                .assignment_base_policy
+                .get(&key)
+                .ok_or(StoreError::NotFound)?
+                .policy,
             scoring_generation,
             scoring_status,
         }))

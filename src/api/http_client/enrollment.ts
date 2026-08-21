@@ -1,6 +1,11 @@
 // Passwordless account, passkey, roster, and manual-export transport.
 
-import type { CourseRosterClient, ManualGradeExport, RosterImportPreview } from "../enrollment";
+import type {
+  CourseRosterClient,
+  ManualGradeExport,
+  RosterImportPreview,
+  WebauthnStart,
+} from "../enrollment";
 import {
   decodeAccountAuthenticated,
   decodeAccountEmailChanged,
@@ -129,6 +134,29 @@ function registrationOptions(
   );
 }
 
+/**
+ * Runs a browser registration ceremony supplied by one narrow transport owner.
+ * The server remains the authority for the credential and ceremony semantics.
+ */
+export async function registerWebauthnWithBrowser<T>(
+  start: () => Promise<WebauthnStart>,
+  complete: (ceremonyId: string, label: string, credential: RegistrationResponseJSON) => Promise<T>,
+  label: string,
+): Promise<T> {
+  if (!("credentials" in navigator) || !("PublicKeyCredential" in globalThis)) {
+    throw new ApiProtocolError("This browser does not support passkeys");
+  }
+  const started = await start();
+  const credential = await navigator.credentials.create({
+    publicKey: registrationOptions(started.options),
+  });
+  const json = credentialJson(credential);
+  if (!isRegistrationResponse(json)) {
+    throw new ApiProtocolError("The authenticator returned an unexpected registration response");
+  }
+  return complete(started.ceremonyId, label, json);
+}
+
 /** See registrationOptions; this is the matching discoverable-login boundary. */
 function authenticationOptions(
   value: Readonly<Record<string, unknown>>,
@@ -142,18 +170,12 @@ export async function registerPasskeyWithBrowser(
   client: CourseRosterClient,
   label: string,
 ): Promise<Awaited<ReturnType<CourseRosterClient["completePasskeyRegistration"]>>> {
-  if (!("credentials" in navigator) || !("PublicKeyCredential" in globalThis)) {
-    throw new ApiProtocolError("This browser does not support passkeys");
-  }
-  const started = await client.startPasskeyRegistration();
-  const credential = await navigator.credentials.create({
-    publicKey: registrationOptions(started.options),
-  });
-  const json = credentialJson(credential);
-  if (!isRegistrationResponse(json)) {
-    throw new ApiProtocolError("The authenticator returned an unexpected registration response");
-  }
-  return client.completePasskeyRegistration(started.ceremonyId, label, json);
+  return registerWebauthnWithBrowser(
+    () => client.startPasskeyRegistration(),
+    (ceremonyId, registrationLabel, credential) =>
+      client.completePasskeyRegistration(ceremonyId, registrationLabel, credential),
+    label,
+  );
 }
 
 export async function authenticatePasskeyWithBrowser(client: CourseRosterClient): Promise<void> {

@@ -13,7 +13,7 @@ pub const MAX_PUBLIC_ROUTE_NUMBER: u32 = i32::MAX as u32;
 
 /// Prefixes reserved by the route grammar. `AC-` is intentionally reserved without an Alpha
 /// reference type: the Alpha aggregate and its visibility rules belong to WP-PROF-B1.
-pub const RESERVED_REFERENCE_PREFIXES: &[&str] = &["C", "A", "R", "W", "G", "AC"];
+pub const RESERVED_REFERENCE_PREFIXES: &[&str] = &["C", "A", "R", "W", "G", "U", "M", "CI", "AC"];
 
 macro_rules! impl_reference {
     ($name:ident, $prefix:literal, $description:literal) => {
@@ -89,12 +89,35 @@ pub struct WorkspaceReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct CourseGroupReference(NonZeroU32);
+/// An authorized locator for an existing platform account. It carries neither email nor authority.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct AccountReference(NonZeroU32);
+/// An authorized locator for one course-membership episode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct CourseMembershipReference(NonZeroU32);
+/// An authorized locator for one target-bound co-instructor invitation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct CoInstructorInvitationReference(NonZeroU32);
 
 impl_reference!(CourseReference, "C", "course reference");
 impl_reference!(AssignmentReference, "A", "assignment reference");
 impl_reference!(RunReference, "R", "run reference");
 impl_reference!(WorkspaceReference, "W", "workspace reference");
 impl_reference!(CourseGroupReference, "G", "course-group reference");
+impl_reference!(AccountReference, "U", "account reference");
+impl_reference!(
+    CourseMembershipReference,
+    "M",
+    "course-membership reference"
+);
+impl_reference!(
+    CoInstructorInvitationReference,
+    "CI",
+    "co-instructor invitation reference"
+);
 
 /// One authorized navigation target. IDs remain transport details after Store authorization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -187,6 +210,30 @@ mod tests {
             "G-0",
             "G-01",
             "G-2147483648"
+        );
+        assert_reference_wire!(
+            AccountReference,
+            "U-128",
+            "C-128",
+            "U-0",
+            "U-01",
+            "U-2147483648"
+        );
+        assert_reference_wire!(
+            CourseMembershipReference,
+            "M-129",
+            "C-129",
+            "M-0",
+            "M-01",
+            "M-2147483648"
+        );
+        assert_reference_wire!(
+            CoInstructorInvitationReference,
+            "CI-130",
+            "C-130",
+            "CI-0",
+            "CI-01",
+            "CI-2147483648"
         );
         assert!("AC-1".parse::<CourseReference>().is_err());
         assert!(RESERVED_REFERENCE_PREFIXES.contains(&"AC"));

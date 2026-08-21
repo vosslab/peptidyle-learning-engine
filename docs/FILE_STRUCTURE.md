@@ -48,11 +48,12 @@ container build context, or runtime dependency.
 
 | Path                                                            | Owns                                                                                                                  |
 | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| [crates/question_model/](../crates/question_model/)             | Question types, mandatory course-term values, capabilities, identifiers, learner-progress projections, and public presentation schemas.            |
+| [crates/question_model/](../crates/question_model/)             | Question types, assignment teaching/local-time values, mandatory course-term values, capabilities, identifiers, learner-progress projections, and public presentation schemas. |
 | [crates/domain/](../crates/domain/)                             | Attempt state, policies, pure learner-disclosure evaluation, seeded generation, timing inputs, and answer-free validation.                                |
 | [crates/grading/](../crates/grading/)                           | Answer keys, checkers, and correctness decisions.                                                                     |
 | [crates/objects/](../crates/objects/)                           | Typed object-store interface, four bucket domains, checksums, image validation, and MinIO/S3 backends.                |
 | [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, in-memory and PostgreSQL implementations, RLS, capability roles, migrations, and conformance tests.  |
+| `crates/base-course-installation/`                               | Focused product crate, imported as `base_course_installation`, for typed Base Course request/receipt, recipe, and deterministic orchestration. |
 | [crates/adapters/native/](../crates/adapters/native/)           | First-party generated questions and flat-question source compilation.                                                 |
 | [crates/adapters/webwork/](../crates/adapters/webwork/)         | Private renderer protocol, safe projection, cache, and grading delegation.                                            |
 | [crates/adapters/qti/](../crates/adapters/qti/)                 | Bounded QTI parsing, profile mapping, and private grading handoff.                                                    |
@@ -61,10 +62,18 @@ container build context, or runtime dependency.
 | [crates/export/](../crates/export/)                             | Print model plus PDF and DOCX writers.                                                                                |
 | [crates/wasm/](../crates/wasm/)                                 | `wasm-bindgen` facade over answer-free domain behavior.                                                               |
 | [crates/server/](../crates/server/)                             | Axum API, auth, authorization, broker, ordinary worker, dedicated public-asset publisher, and dependency composition. |
-| [crates/project-tools/](../crates/project-tools/)               | Repository-only code generation, fixture, pilot-content validation, migration, and E2E seed commands.                 |
+| [crates/project-tools/](../crates/project-tools/)               | Direct `base-course` CLI adapter plus repository-only code generation, fixture, pilot-content validation, migration, and E2E seed commands. |
 
 Cargo package directories use hyphens; Rust imports use underscores. For
 example, `learning-data-access` is imported as `learning_data_access`.
+
+`learning-data-access` remains the sole SQL, PostgreSQL-lock,
+durable install-state, migration, and Store owner. The installer has no HTTP route or server-start
+hook; `project-tools` adapts it directly for `cargo tools base-course`. Its evidence is deliberately
+small: pure product-crate tests for typed request/receipt/recipe convergence, the existing LDA
+PostgreSQL live oracle for schema and locking, and the existing
+`tests/e2e/e2e_live_demo_baseline.py` for the connected lifecycle. No second product-specific
+PostgreSQL harness or exhaustive live matrix is planned.
 
 ## Learning data access
 
@@ -78,9 +87,12 @@ crates/learning-data-access/
 |  |  `- catalog_search.rs Portable ranked-search admission and fixed-point scoring helpers
 |  +- postgres/        PostgreSQL implementations and connection attestation
 |  |  `- catalog/search.rs Canonical ranked full-text and word-similarity search
+|  |  `- course_gradebook.rs Course-grade scheme, totals, and export implementation
 |  |  `- effective_policy_receipts.rs Sealed effective-policy receipt persistence and reconstruction
 |  |  `- assignment_records/learner_disclosure.rs Closed five-field disclosure-column decoder
 |  |  `- item_analysis/learner_class_statistics.rs Learner-safe current course analysis projection
+|  +- in_memory/course_policy.rs Atomic teaching-settings mutation and current policy resolution
+|  +- postgres/course_policy.rs PostgreSQL teaching-settings CAS, lifecycle gate, and receipt update
 |  +- activity.rs      Actor-scoped learner reads and activity ownership
 |  +- external_tool.rs External broker leases, dispatch, and finalization contracts
 |  +- feedback.rs      Private current disclosure receipt and learner-projection inputs
@@ -92,7 +104,7 @@ crates/learning-data-access/
 `- tests/
    +- conformance/     Backend-neutral behavior cases
    +- fixtures/        Small safe fixture evidence
-   `- postgres_*_live.rs Disposable PostgreSQL acceptance gates, including ignored course-term, catalog Store, disclosure, and plan suites
+   `- postgres_*_live.rs Disposable PostgreSQL acceptance gates, including ignored course-term, catalog Store, course-grade, disclosure, and plan suites
 ```
 
 When a persistence capability changes, update its contract, both
@@ -116,7 +128,10 @@ projection, discovery indexes, and forced-RLS disclosure broker.
 crates/server/src/
 +- auth/                             Passwordless email, passkey, session, and request-boundary behavior
 +- catalog/                           Catalog query and immutable publication behavior
-+- course/                            Course, roster, invitation, and assignment routes
++- course/                            Course, roster, invitation, assignment, and grade routes
+|  +- assignments/learner.rs           Learner-safe assignment detail projection
+|  +- assignments/teaching_settings.rs Instructor local-time teaching-settings CAS route
+|  `- gradebook.rs                     Course-grade scheme, compact totals, and CSV export routes
 +- run/                               Attempt issue, prefetch, submission, current disclosure redaction, and external-tool routes
 +- workspace/                         Authoring workspace behavior
 +- flat_question_publication/         Native publication routes and tests
@@ -147,7 +162,9 @@ src/
 +- components/      Reusable prompt, response, feedback, and accessibility UI
 +- features/        Capability-owned browser logic
 +- pages/           Route-level views and page-specific state
-|  `- assignment_editor_policy_panel.tsx Instructor disclosure-policy controls
+|  +- assignment_editor_policy_panel.tsx Instructor disclosure-policy controls
+|  +- assignment_teaching_operations_panel.tsx Lifecycle, instructions, schedule, limits, and late behavior
+|  `- assignment_overview_page.tsx Learner-safe instructions, resolved delivery, and score-state view
 +- learner_progress.ts Server-derived score-state display copy; never derives policy or timing
 +- wasm/            Shared domain WebAssembly facade and Solid context
 +- app.tsx          Application shell
@@ -239,7 +256,7 @@ tests/
 +- test_*.py          Fast repository-policy and documentation checks
 +- test_local_stack_control.py Offline typed local-stack controller contracts
 +- test_*.mjs         Deterministic browser-contract checks without a browser
-+- playwright/        Built-browser tests and the private live-validation lane runner
++- playwright/        Built-browser tests, browser-test helper, and private live-validation runner
 +- e2e/               Generic disposable whole-system runners
 +- walkthrough/       Teaching-loop entry points and fixed child processes
 |  `- walklib/        Importable runner configuration, contracts, and lifecycle
@@ -250,8 +267,10 @@ generated/
 `- fixtures/          Generated fixture projections
 ```
 
-`dist/`, `dist_wasm/`, `target/`, `test-results/`, and Playwright report
-directories are reproducible ignored output. Checked-in fixtures under
+`dist/`, `dist_browser_test/`, `dist_wasm/`, `target/`, `test-results/`, and Playwright report
+directories are reproducible ignored output. `dist_browser_test/` is the isolated browser-test
+artifact served by `tests/playwright/helper_browser_test_server.mjs` and its browser-test/test-double
+transport. Checked-in fixtures under
 `tests/fixtures/` are source evidence and should change deliberately.
 
 Committed visual evidence lives under `docs/screenshots/`, organized by role and access boundary:

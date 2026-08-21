@@ -5,9 +5,16 @@ import type { JSX } from "solid-js";
 
 import type { CourseReference } from "../../generated/api/CourseReference";
 import { courseRouteReference } from "../navigation/public_route";
+import "./course_management_nav.css";
 
 export type CourseManagementSection =
-  "assignments" | "newAssignment" | "students" | "gradebook" | "appearance";
+  | "assignments"
+  | "newAssignment"
+  | "students"
+  | "gradebook"
+  | "gradeSettings"
+  | "appearance"
+  | "teachingOperations";
 
 interface CourseManagementNavProps {
   readonly courseReference: CourseReference;
@@ -38,10 +45,22 @@ export function CourseManagementNav(props: CourseManagementNavProps): JSX.Elemen
         Students
       </A>
       <A
+        href={`/instructor/courses/${reference}/teaching-operations`}
+        aria-current={current(props.active === "teachingOperations")}
+      >
+        Teaching operations
+      </A>
+      <A
         href={`/instructor/courses/${reference}/gradebook`}
         aria-current={current(props.active === "gradebook")}
       >
         Gradebook
+      </A>
+      <A
+        href={`/instructor/courses/${reference}/grade-settings`}
+        aria-current={current(props.active === "gradeSettings")}
+      >
+        Grade settings
       </A>
       <A
         href={`/instructor/courses/${reference}/appearance`}

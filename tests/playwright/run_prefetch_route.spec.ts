@@ -62,9 +62,24 @@ test.beforeAll(async () => {
         let submitted = false;
         const templateAttempt = publishedProblemFixture.attempts[0];
         const templateRun = publishedProblemFixture.runs[0];
-        const learnerAssignment = (({ tenant, courseId, disclosurePolicy, policies, ...assignment }) => assignment)(publishedProblemFixture.assignment);
+        const learnerAssignment = {
+          ...(({ tenant, courseId, disclosurePolicy, policies, ...assignment }) => assignment)(publishedProblemFixture.assignment),
+          instructions: "Read the issued question before responding.",
+          timeZone: "America/Chicago",
+          delivery: {
+            availableAt: null,
+            dueAt: null,
+            closesAt: null,
+            timeLimitSeconds: null,
+            attemptLimit: null,
+            lateSubmission: "accept",
+            deadlineBehavior: "autoSubmit",
+            lateStatus: "onTime",
+          },
+        };
         const learnerProgress = {
           scoreState: "available",
+          scoringStatus: "current",
           currentScore: 1,
           bestScore: 1,
           latestScore: 1,
@@ -105,7 +120,7 @@ test.beforeAll(async () => {
             }
             return json(currentRun);
           }
-          if (method === "GET" && path === "/api/runs/" + runId + "/attempts") return json({ items: [current], nextCursor: null });
+          if (method === "GET" && path === "/api/runs/" + runId + "/attempts") return json({ items: [{ ...current, scoringStatus: "current" }], nextCursor: null });
           if (method === "GET" && path === "/api/attempts/" + current.id + "/question") return json(envelope(current));
           if (method === "GET" && path === "/api/navigation/" + publishedProblemFixture.assignment.reference) return json({ kind: "assignment", courseId: publishedProblemFixture.course.id, assignmentId: publishedProblemFixture.assignment.id });
           if (method === "GET" && path === "/api/courses/" + publishedProblemFixture.course.id) return json(publishedProblemFixture.course);
@@ -125,7 +140,7 @@ test.beforeAll(async () => {
           if (method === "POST" && path === "/api/submissions/" + current.id) {
             const next = attempt(runId, 1); active[runId] = 1; submitted = true;
             const nextIssued = mode === "pending" ? null : { id: next.id, run: next.run, questionVersion: next.questionVersion, seed: next.seed, deadline: null, assignmentPosition: 1, renderedQuestionSha256: hash("b") };
-            return json({ accepted: true, attempt: { ...current, response: { kind: "multipleChoice", selected: ["0001"] } }, feedback: { correctness: true }, nextIssued, nextPending: mode === "pending" });
+            return json({ accepted: true, attempt: { ...current, response: { kind: "multipleChoice", selected: ["0001"] } }, feedback: { correctness: true }, scoringStatus: "current", nextIssued, nextPending: mode === "pending" });
           }
           if (method === "GET" && path.startsWith("/api/assets/")) return new Response("asset", { status: 200 });
           return json({ error: "unhandled " + method + " " + path }, 404);

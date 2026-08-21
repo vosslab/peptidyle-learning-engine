@@ -195,7 +195,8 @@ pub enum RunTransition {
     },
     /// Derived completion was recorded with its final score.
     Completed {
-        /// Score fraction in the inclusive range `0.0..=1.0`.
+        /// Score fraction in the inclusive range `-1000.0..=1000.0`.
+        /// Extra and negative credit may place it outside `0.0..=1.0`.
         score: f64,
         /// Authoritative server time for the transition.
         at: ActivityTimestamp,

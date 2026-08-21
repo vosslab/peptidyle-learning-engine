@@ -95,6 +95,13 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
         issued_cookie_for_tenant(&store, tenant, vec![UserRole::Instructor], instructor).await;
     let student_cookie =
         issued_cookie_for_tenant(&store, tenant, vec![UserRole::Student], student).await;
+    let outsider_cookie = issued_cookie_for_tenant(
+        &store,
+        tenant,
+        vec![UserRole::Instructor],
+        UserId::from_uuid(id(8_204)),
+    )
+    .await;
     let app = router(Arc::clone(&store));
 
     let unavailable = app
@@ -106,7 +113,7 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
                 .body(Body::from(
                     serde_json::json!({
                         "title": "Unavailable", "questionIds": ["000-0000"], "policies": policies(),
-                        "assignmentTiming": {"timeLimitSeconds": null}
+                        "disclosurePolicy": question_model::LearnerDisclosurePolicy::default()
                     })
                     .to_string(),
                 ))
@@ -124,8 +131,7 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
                 .header("content-type", "application/json")
                 .body(Body::from(serde_json::json!({
                     "title": "Peptide practice", "questionIds": [question_id], "policies": policies(),
-                    "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
-                    "assignmentTiming": {"timeLimitSeconds": null}
+                    "disclosurePolicy": question_model::LearnerDisclosurePolicy::default()
                 }).to_string()))
                 .expect("request"),
         )
@@ -183,8 +189,7 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
                         "title": "Peptide practice",
                         "items": update_items,
                         "disclosurePolicy": revised_policy,
-                        "policies": policies(),
-                        "assignmentTiming": {"timeLimitSeconds": null}
+                        "policies": policies()
                     })
                     .to_string(),
                 ))
@@ -228,6 +233,191 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
         reread["disclosurePolicy"],
         serde_json::to_value(revised_policy).expect("revised disclosure policy serializes")
     );
+
+    let student_denied = app
+        .clone()
+        .oneshot(
+            Request::put(format!(
+                "/api/courses/{course}/assignments/{assignment}/teaching-settings"
+            ))
+            .header("cookie", &student_cookie)
+            .header("content-type", "application/json")
+            .body(Body::from("not json"))
+            .expect("student malformed settings request"),
+        )
+        .await
+        .expect("student malformed settings response");
+    assert_eq!(student_denied.status(), StatusCode::FORBIDDEN);
+
+    let outsider_denied = app
+        .clone()
+        .oneshot(
+            Request::put(format!(
+                "/api/courses/{course}/assignments/{assignment}/teaching-settings"
+            ))
+            .header("cookie", &outsider_cookie)
+            .header("content-type", "application/json")
+            .body(Body::from("not json"))
+            .expect("outsider malformed settings request"),
+        )
+        .await
+        .expect("outsider malformed settings response");
+    assert_eq!(outsider_denied.status(), StatusCode::NOT_FOUND);
+
+    let dst_due = app
+        .clone()
+        .oneshot(
+            Request::put(format!(
+                "/api/courses/{course}/assignments/{assignment}/teaching-settings"
+            ))
+            .header("cookie", &cookie)
+            .header(IF_MATCH, &etag)
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "timeZone": "America/Chicago", "lifecycle": "draft", "instructions": "",
+                    "availableAt": null, "dueAt": "2026-11-01T01:30:00.000", "closesAt": null,
+                    "timeLimitSeconds": null, "attemptLimit": null, "lateSubmission": "accept",
+                    "deadlineBehavior": "autoSubmit"
+                })
+                .to_string(),
+            ))
+            .expect("DST settings request"),
+        )
+        .await
+        .expect("DST settings response");
+    assert_eq!(dst_due.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        dst_due.headers().get("cache-control").expect("no-store"),
+        "no-store"
+    );
+    let dst_due = axum::body::to_bytes(dst_due.into_body(), 128 * 1024)
+        .await
+        .expect("DST settings body");
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&dst_due).expect("DST failure body"),
+        serde_json::json!({
+            "error": "assignmentTeachingSettingsInvalid", "field": "dueAt",
+            "reason": "ambiguousLocalTime",
+            "message": "Choose a local time outside the daylight-saving repeat hour."
+        })
+    );
+
+    let schedule_order = app
+        .clone()
+        .oneshot(
+            Request::put(format!(
+                "/api/courses/{course}/assignments/{assignment}/teaching-settings"
+            ))
+            .header("cookie", &cookie)
+            .header(IF_MATCH, &etag)
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "timeZone": "America/Chicago", "lifecycle": "draft", "instructions": "",
+                    "availableAt": "2026-09-02T10:00:00.000", "dueAt": "2026-09-01T10:00:00.000",
+                    "closesAt": null, "timeLimitSeconds": null, "attemptLimit": null,
+                    "lateSubmission": "accept", "deadlineBehavior": "autoSubmit"
+                })
+                .to_string(),
+            ))
+            .expect("out-of-order settings request"),
+        )
+        .await
+        .expect("out-of-order settings response");
+    assert_eq!(schedule_order.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let schedule_order = axum::body::to_bytes(schedule_order.into_body(), 128 * 1024)
+        .await
+        .expect("out-of-order settings body");
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&schedule_order)
+            .expect("out-of-order failure body")["field"],
+        "schedule"
+    );
+
+    let unknown_input = app
+        .clone()
+        .oneshot(
+            Request::put(format!(
+                "/api/courses/{course}/assignments/{assignment}/teaching-settings"
+            ))
+            .header("cookie", &cookie)
+            .header(IF_MATCH, &etag)
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({"unexpected": true}).to_string(),
+            ))
+            .expect("unknown settings request"),
+        )
+        .await
+        .expect("unknown settings response");
+    assert_eq!(unknown_input.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let unknown_input = axum::body::to_bytes(unknown_input.into_body(), 128 * 1024)
+        .await
+        .expect("unknown settings body");
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&unknown_input).expect("unknown failure body"),
+        serde_json::json!({
+            "error": "assignmentTeachingSettingsInvalid", "field": "teachingSettings",
+            "reason": "invalidInput", "message": "Enter complete teaching settings using the form fields."
+        })
+    );
+
+    let stale_malformed = app
+        .clone()
+        .oneshot(
+            Request::put(format!(
+                "/api/courses/{course}/assignments/{assignment}/teaching-settings"
+            ))
+            .header("cookie", &cookie)
+            .header(IF_MATCH, "\"999999\"")
+            .body(Body::from("not json"))
+            .expect("stale malformed settings request"),
+        )
+        .await
+        .expect("stale malformed settings response");
+    assert_eq!(stale_malformed.status(), StatusCode::PRECONDITION_FAILED);
+
+    let published = app
+        .clone()
+        .oneshot(
+            Request::put(format!(
+                "/api/courses/{course}/assignments/{assignment}/teaching-settings"
+            ))
+            .header("cookie", &cookie)
+            .header(IF_MATCH, &etag)
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "timeZone": "America/Chicago",
+                    "lifecycle": "published",
+                    "instructions": "Use complete sentences when explaining your reasoning.",
+                    "availableAt": null,
+                    "dueAt": null,
+                    "closesAt": null,
+                    "timeLimitSeconds": null,
+                    "attemptLimit": null,
+                    "lateSubmission": "accept",
+                    "deadlineBehavior": "autoSubmit"
+                })
+                .to_string(),
+            ))
+            .expect("publish teaching settings request"),
+        )
+        .await
+        .expect("publish teaching settings response");
+    assert_eq!(published.status(), StatusCode::OK);
+    assert_eq!(
+        published.headers().get("cache-control").expect("no-store"),
+        "no-store"
+    );
+    etag = published
+        .headers()
+        .get(ETAG)
+        .expect("published ETag")
+        .to_str()
+        .expect("published ETag text")
+        .to_string();
 
     let student_editor_read = app
         .clone()

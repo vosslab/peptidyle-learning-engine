@@ -120,6 +120,7 @@ test.beforeAll(async () => {
         mount.tabIndex = -1;
         document.body.append(skipToMain, mount);
         const runtime = createApiRuntime(client);
+        const canManageAssignment = window.location.hash === "#instructor";
         render(() => createComponent(ApiRuntimeProvider, {
           runtime,
           get children() {
@@ -128,7 +129,7 @@ test.beforeAll(async () => {
               courseReference: "C-1",
               initialPage: { items: firstPage, nextCursor: "after-50" },
               reloadAssignments: async () => { reloads += 1; },
-              canCreateAssignment: false,
+              canCreateAssignment: canManageAssignment,
             });
           },
         }), mount);
@@ -160,8 +161,11 @@ declare global {
   }
 }
 
-async function mountFixture(page: import("@playwright/test").Page): Promise<void> {
-  await page.goto("about:blank");
+async function mountFixture(
+  page: import("@playwright/test").Page,
+  role: "student" | "instructor" = "student",
+): Promise<void> {
+  await page.goto(role === "instructor" ? "about:blank#instructor" : "about:blank");
   await page.addScriptTag({ content: fixtureBundle });
   await expect(page.getByRole("button", { name: "Load more assignments" })).toBeVisible();
   await page.keyboard.press("Tab");
@@ -169,14 +173,38 @@ async function mountFixture(page: import("@playwright/test").Page): Promise<void
   await expect(page.locator("#main-content")).toBeFocused();
 }
 
+test("course managers edit directly without opening the learner-only assignment route", async ({
+  page,
+}) => {
+  await mountFixture(page, "instructor");
+  const firstCard = page.locator(".course-card").first();
+  const edit = firstCard.getByRole("link", { name: "Edit assignment", exact: true });
+  const deliveryCheck = firstCard.getByRole("link", {
+    name: "Check assignment delivery",
+    exact: true,
+  });
+  await expect(edit).toHaveAttribute("href", "/instructor/courses/C-1/assignments/A-100/edit");
+  await expect(deliveryCheck).toHaveAttribute(
+    "href",
+    "/instructor/courses/C-1/assignments/A-100/delivery-check",
+  );
+  await expect(firstCard.getByRole("link", { name: "Start assignment", exact: true })).toHaveCount(
+    0,
+  );
+  await expect(firstCard).not.toContainText("Score available");
+  await tabTo(page, edit);
+  await expect(edit).toBeFocused();
+});
+
 test("the production list helper reaches the exact 101st assignment through two keyboard pages", async ({
   page,
 }) => {
-  test.setTimeout(2_000);
   await page.setViewportSize({ width: 1280, height: 800 });
   await mountFixture(page);
   const firstCard = page.locator(".course-card").first();
-  await expect(firstCard).toContainText("3 questions in each new run.");
+  await expect(firstCard).toContainText(
+    "Open this assignment to review its instructions and delivery details.",
+  );
   await expect(firstCard).toContainText("Score available: Current 72%, Latest 76%, Best 83%.");
   const targetCard = page.locator(".course-card").filter({
     has: page.getByRole("heading", { name: "Assignment 101", exact: true }),

@@ -5,6 +5,8 @@ use crate::{ReceiptNextAttempt, ReceiptPresentationSnapshot};
 
 mod attempt_issuance;
 mod issued_contracts;
+
+pub(super) use attempt_issuance::effective_attempt_deadline;
 mod learner_reads;
 
 pub(super) use issued_contracts::{
@@ -48,11 +50,12 @@ impl crate::RunStore for MemoryStore {
             return Err(StoreError::NotFound);
         };
         let now = state.authoritative_time;
-        let existing_run_count = state
+        let completed_prior_run_count = state
             .runs
             .values()
             .filter(|run| {
                 run.tenant == tenant
+                    && run.completed_at.is_some()
                     && state
                         .enrollments
                         .get(&(tenant, run.enrollment))
@@ -66,11 +69,13 @@ impl crate::RunStore for MemoryStore {
             memory_effective_policy_inputs_for_grant(&state, tenant, assignment_id, &grant)?;
         let decision = domain::effective_assignment_policy::resolve_effective_policy(
             domain::effective_assignment_policy::ResolveEffectivePolicyInput {
-                lifecycle: domain::effective_assignment_policy::AssignmentLifecycleGate::Open,
+                lifecycle: domain::effective_assignment_policy::assignment_lifecycle_gate(
+                    assignment.lifecycle,
+                ),
                 entitlement: domain::entitlement::EntitlementDecision::Granted(grant.clone()),
                 authorization: domain::effective_assignment_policy::AuthorizationGate::Authorized,
                 now,
-                prior_run_count: u32::try_from(existing_run_count).map_err(|_| {
+                prior_run_count: u32::try_from(completed_prior_run_count).map_err(|_| {
                     StoreError::Unavailable("run count exceeds policy range".to_string())
                 })?,
                 base: inputs.base,

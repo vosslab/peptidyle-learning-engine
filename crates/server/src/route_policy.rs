@@ -61,6 +61,11 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     mutation("/api/auth/passwordless/email/complete", "POST"),
     mutation("/api/auth/account/email/start", "POST"),
     mutation("/api/auth/account/email/complete", "POST"),
+    read("/api/auth/live-demo/accounts"),
+    mutation("/api/auth/live-demo/accounts", "POST"),
+    read("/api/auth/live-demo/sysadmin-ownership"),
+    mutation("/api/auth/live-demo/sysadmin-ownership", "POST"),
+    mutation("/api/auth/live-demo/sysadmin-ownership/complete", "POST"),
     mutation("/api/course-invitations/redeem", "POST"),
     read("/api/auth/account/courses"),
     read("/api/auth/account/presentation"),
@@ -106,10 +111,18 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     read("/api/courses/{course}/assignments"),
     mutation("/api/courses/{course}/assignments", "POST"),
     read("/api/courses/{course}/gradebook"),
+    read("/api/courses/{course}/grade-scheme"),
+    mutation("/api/courses/{course}/grade-scheme", "PUT"),
+    read("/api/courses/{course}/gradebook-totals"),
+    mutation("/api/courses/{course}/grade-export.csv", "POST"),
     read("/api/assignments/{assignment}"),
     read("/api/assignments/{assignment}/learner"),
     read("/api/assignments/{assignment}/summary"),
     mutation("/api/courses/{course}/assignments/{assignment}", "PUT"),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/teaching-settings",
+        "PUT",
+    ),
     mutation(
         "/api/courses/{course}/assignments/{assignment}/items",
         "POST",
@@ -146,6 +159,69 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     mutation("/api/courses/{course}/retention/archive", "POST"),
     mutation("/api/courses/{course}/retention/delete", "POST"),
     mutation("/api/courses/{course}/retention/extend", "PATCH"),
+    read("/api/courses/{course}/groups"),
+    mutation("/api/courses/{course}/groups", "POST"),
+    read("/api/courses/{course}/groups/{group}"),
+    mutation("/api/courses/{course}/groups/{group}", "PUT"),
+    mutation("/api/courses/{course}/groups/{group}", "DELETE"),
+    read("/api/courses/{course}/group-purpose-policies/{purpose}"),
+    mutation(
+        "/api/courses/{course}/group-purpose-policies/{purpose}",
+        "PUT",
+    ),
+    read("/api/courses/{course}/group-membership-warnings"),
+    read("/api/courses/{course}/student-targets"),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/group-schedule-offsets/{group}",
+        "PUT",
+    ),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/group-schedule-offsets/{group}",
+        "DELETE",
+    ),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/group-accommodations/{group}",
+        "PUT",
+    ),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/group-accommodations/{group}",
+        "DELETE",
+    ),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/individual-policy-exceptions/{student}",
+        "PUT",
+    ),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/individual-policy-exceptions/{student}",
+        "DELETE",
+    ),
+    read("/api/courses/{course}/assignments/{assignment}/policy-preview/{student}"),
+    read("/api/courses/{course}/assignments/{assignment}/preview-schedule"),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/preview-subjects/synthetic",
+        "POST",
+    ),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/preview-subjects/derived",
+        "POST",
+    ),
+    mutation("/api/teaching/instructor-approvals/{account}", "PUT"),
+    mutation("/api/teaching/instructor-approvals/{account}", "DELETE"),
+    read("/api/teaching/instructor-approval-candidates"),
+    read("/api/courses/{course}/co-instructor-targets"),
+    read("/api/courses/{course}/co-instructor-invitations"),
+    mutation("/api/courses/{course}/co-instructor-invitations", "POST"),
+    mutation(
+        "/api/courses/{course}/co-instructor-invitations/{invitation}",
+        "DELETE",
+    ),
+    read("/api/account/co-instructor-invitations"),
+    mutation(
+        "/api/account/co-instructor-invitations/{invitation}",
+        "POST",
+    ),
+    read("/api/courses/{course}/instructors"),
+    mutation("/api/courses/{course}/instructors/{membership}", "DELETE"),
     mutation("/api/assignments/{assignment}/exports", "POST"),
     read("/api/exports/{export}"),
     mutation("/api/runs", "POST"),
@@ -317,7 +393,10 @@ mod tests {
         let app = apply_route_method_policy(
             Router::new()
                 .route("/health", get(|| async { StatusCode::NO_CONTENT }))
-                .route("/unreviewed", get(|| async { StatusCode::NO_CONTENT })),
+                .route(
+                    "/api/courses/{course}/groups/{group}/unreviewed",
+                    get(|| async { StatusCode::NO_CONTENT }),
+                ),
         );
         let health = app
             .clone()
@@ -326,10 +405,388 @@ mod tests {
             .unwrap();
         assert_eq!(health.status(), StatusCode::NO_CONTENT);
         let unreviewed = app
-            .oneshot(Request::get("/unreviewed").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::get("/api/courses/course/groups/group/unreviewed")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(unreviewed.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn live_demo_selector_operations_reach_the_composed_policy_router() {
+        async fn no_content() -> StatusCode {
+            StatusCode::NO_CONTENT
+        }
+
+        let app = apply_route_method_policy(Router::new().route(
+            "/api/auth/live-demo/accounts",
+            get(no_content).post(no_content),
+        ));
+        for (method, intent) in [
+            ("GET", RouteIntent::Representation),
+            ("POST", RouteIntent::StateTransition),
+        ] {
+            assert_eq!(
+                route_policy("/api/auth/live-demo/accounts", method),
+                Some(intent)
+            );
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri("/api/auth/live-demo/accounts")
+                        .body(Body::empty())
+                        .expect("selector operation request"),
+                )
+                .await
+                .expect("selector operation response");
+            assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        }
+    }
+
+    #[tokio::test]
+    async fn live_demo_sysadmin_ownership_operations_reach_the_composed_policy_router() {
+        async fn no_content() -> StatusCode {
+            StatusCode::NO_CONTENT
+        }
+
+        let app = apply_route_method_policy(
+            Router::new()
+                .route(
+                    "/api/auth/live-demo/sysadmin-ownership",
+                    get(no_content).post(no_content),
+                )
+                .route(
+                    "/api/auth/live-demo/sysadmin-ownership/complete",
+                    post(no_content),
+                ),
+        );
+        for (path, method, intent) in [
+            (
+                "/api/auth/live-demo/sysadmin-ownership",
+                "GET",
+                RouteIntent::Representation,
+            ),
+            (
+                "/api/auth/live-demo/sysadmin-ownership",
+                "POST",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/auth/live-demo/sysadmin-ownership/complete",
+                "POST",
+                RouteIntent::StateTransition,
+            ),
+        ] {
+            assert_eq!(route_policy(path, method), Some(intent));
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri(path)
+                        .body(Body::empty())
+                        .expect("ownership operation request"),
+                )
+                .await
+                .expect("ownership operation response");
+            assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        }
+    }
+
+    #[tokio::test]
+    async fn teaching_operations_routes_reach_the_composed_policy_router_with_reviewed_intents() {
+        async fn no_content() -> StatusCode {
+            StatusCode::NO_CONTENT
+        }
+
+        let app = apply_route_method_policy(
+            Router::new()
+                .route(
+                    "/api/courses/{course}/groups",
+                    get(no_content).post(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/groups/{group}",
+                    get(no_content).put(no_content).delete(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/group-purpose-policies/{purpose}",
+                    get(no_content).put(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/group-membership-warnings",
+                    get(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/student-targets",
+                    get(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/assignments/{assignment}/group-schedule-offsets/{group}",
+                    put(no_content).delete(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/assignments/{assignment}/group-accommodations/{group}",
+                    put(no_content).delete(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/assignments/{assignment}/individual-policy-exceptions/{student}",
+                    put(no_content).delete(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/assignments/{assignment}/policy-preview/{student}",
+                    get(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/assignments/{assignment}/preview-schedule",
+                    get(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/assignments/{assignment}/preview-subjects/synthetic",
+                    post(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/assignments/{assignment}/preview-subjects/derived",
+                    post(no_content),
+                )
+                .route(
+                    "/api/teaching/instructor-approvals/{account}",
+                    put(no_content).delete(no_content),
+                )
+                .route(
+                    "/api/teaching/instructor-approval-candidates",
+                    get(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/co-instructor-targets",
+                    get(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/co-instructor-invitations",
+                    get(no_content).post(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/co-instructor-invitations/{invitation}",
+                    delete(no_content),
+                )
+                .route(
+                    "/api/account/co-instructor-invitations",
+                    get(no_content),
+                )
+                .route(
+                    "/api/account/co-instructor-invitations/{invitation}",
+                    post(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/instructors",
+                    get(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/instructors/{membership}",
+                    delete(no_content),
+                ),
+        );
+        for (path, method, request_path, intent) in [
+            (
+                "/api/courses/{course}/groups",
+                "GET",
+                "/api/courses/course/groups",
+                RouteIntent::Representation,
+            ),
+            (
+                "/api/courses/{course}/groups",
+                "POST",
+                "/api/courses/course/groups",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/courses/{course}/groups/{group}",
+                "GET",
+                "/api/courses/course/groups/group",
+                RouteIntent::Representation,
+            ),
+            (
+                "/api/courses/{course}/groups/{group}",
+                "PUT",
+                "/api/courses/course/groups/group",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/courses/{course}/groups/{group}",
+                "DELETE",
+                "/api/courses/course/groups/group",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/courses/{course}/group-purpose-policies/{purpose}",
+                "GET",
+                "/api/courses/course/group-purpose-policies/section",
+                RouteIntent::Representation,
+            ),
+            (
+                "/api/courses/{course}/group-purpose-policies/{purpose}",
+                "PUT",
+                "/api/courses/course/group-purpose-policies/section",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/courses/{course}/group-membership-warnings",
+                "GET",
+                "/api/courses/course/group-membership-warnings",
+                RouteIntent::Representation,
+            ),
+            (
+                "/api/courses/{course}/student-targets",
+                "GET",
+                "/api/courses/course/student-targets",
+                RouteIntent::Representation,
+            ),
+            (
+                "/api/courses/{course}/assignments/{assignment}/group-schedule-offsets/{group}",
+                "PUT",
+                "/api/courses/course/assignments/assignment/group-schedule-offsets/group",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/courses/{course}/assignments/{assignment}/group-schedule-offsets/{group}",
+                "DELETE",
+                "/api/courses/course/assignments/assignment/group-schedule-offsets/group",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/courses/{course}/assignments/{assignment}/group-accommodations/{group}",
+                "PUT",
+                "/api/courses/course/assignments/assignment/group-accommodations/group",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/courses/{course}/assignments/{assignment}/group-accommodations/{group}",
+                "DELETE",
+                "/api/courses/course/assignments/assignment/group-accommodations/group",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/courses/{course}/assignments/{assignment}/individual-policy-exceptions/{student}",
+                "PUT",
+                "/api/courses/course/assignments/assignment/individual-policy-exceptions/student",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/courses/{course}/assignments/{assignment}/individual-policy-exceptions/{student}",
+                "DELETE",
+                "/api/courses/course/assignments/assignment/individual-policy-exceptions/student",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/courses/{course}/assignments/{assignment}/policy-preview/{student}",
+                "GET",
+                "/api/courses/course/assignments/assignment/policy-preview/student",
+                RouteIntent::Representation,
+            ),
+            (
+                "/api/courses/{course}/assignments/{assignment}/preview-schedule",
+                "GET",
+                "/api/courses/course/assignments/assignment/preview-schedule",
+                RouteIntent::Representation,
+            ),
+            (
+                "/api/courses/{course}/assignments/{assignment}/preview-subjects/synthetic",
+                "POST",
+                "/api/courses/course/assignments/assignment/preview-subjects/synthetic",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/courses/{course}/assignments/{assignment}/preview-subjects/derived",
+                "POST",
+                "/api/courses/course/assignments/assignment/preview-subjects/derived",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/teaching/instructor-approvals/{account}",
+                "PUT",
+                "/api/teaching/instructor-approvals/account",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/teaching/instructor-approvals/{account}",
+                "DELETE",
+                "/api/teaching/instructor-approvals/account",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/teaching/instructor-approval-candidates",
+                "GET",
+                "/api/teaching/instructor-approval-candidates",
+                RouteIntent::Representation,
+            ),
+            (
+                "/api/courses/{course}/co-instructor-targets",
+                "GET",
+                "/api/courses/course/co-instructor-targets",
+                RouteIntent::Representation,
+            ),
+            (
+                "/api/courses/{course}/co-instructor-invitations",
+                "GET",
+                "/api/courses/course/co-instructor-invitations",
+                RouteIntent::Representation,
+            ),
+            (
+                "/api/courses/{course}/co-instructor-invitations",
+                "POST",
+                "/api/courses/course/co-instructor-invitations",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/courses/{course}/co-instructor-invitations/{invitation}",
+                "DELETE",
+                "/api/courses/course/co-instructor-invitations/invitation",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/account/co-instructor-invitations",
+                "GET",
+                "/api/account/co-instructor-invitations",
+                RouteIntent::Representation,
+            ),
+            (
+                "/api/account/co-instructor-invitations/{invitation}",
+                "POST",
+                "/api/account/co-instructor-invitations/invitation",
+                RouteIntent::StateTransition,
+            ),
+            (
+                "/api/courses/{course}/instructors",
+                "GET",
+                "/api/courses/course/instructors",
+                RouteIntent::Representation,
+            ),
+            (
+                "/api/courses/{course}/instructors/{membership}",
+                "DELETE",
+                "/api/courses/course/instructors/membership",
+                RouteIntent::StateTransition,
+            ),
+        ] {
+            assert_eq!(route_policy(path, method), Some(intent), "{method} {path}");
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri(request_path)
+                        .body(Body::empty())
+                        .expect("teaching operation request"),
+                )
+                .await
+                .expect("composed route response");
+            assert_eq!(response.status(), StatusCode::NO_CONTENT, "{method} {path}");
+        }
     }
 
     #[tokio::test]
@@ -359,6 +816,10 @@ mod tests {
                 .route(
                     "/api/courses/{course}/assignments/{assignment}/items/{item}/question",
                     put(|| async { StatusCode::NO_CONTENT }),
+                )
+                .route(
+                    "/api/courses/{course}/assignments/{assignment}/teaching-settings",
+                    put(|| async { StatusCode::NO_CONTENT }),
                 ),
         );
         for request in [
@@ -368,6 +829,7 @@ mod tests {
             Request::post("/api/courses/course/assignments/assignment/items"),
             Request::delete("/api/courses/course/assignments/assignment/items/item"),
             Request::put("/api/courses/course/assignments/assignment/items/item/question"),
+            Request::put("/api/courses/course/assignments/assignment/teaching-settings"),
         ] {
             let response = app
                 .clone()

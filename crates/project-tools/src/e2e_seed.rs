@@ -8,7 +8,6 @@ use std::collections::BTreeMap;
 
 use adapter_native::NativeAdapter;
 use anyhow::{Context, Result, bail};
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
     AssignmentRecord, AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand,
     AssignmentScoringWorkerStore, AssignmentUpdate, AttemptSupportActionId, AuthoritativeTimeStore,
@@ -16,8 +15,9 @@ use learning_data_access::{
     DeleteAndRegradeAssignmentItemCommand, DraftRecord, FlatGradingCapability,
     FlatQuestionGradingPayload, ForceSubmitAttemptCommand, IssueQuestionAttemptCommand,
     IssuedFlatGradingContract, JobClaimFilter, JobLeaseDuration, JobPayload, JobStore, PageRequest,
-    PageSize, PresentationCapability, PublishDraftCommand, Store, StoreError,
-    SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
+    PageSize, PresentationCapability, PublishDraftCommand, PutAssignmentTeachingSettingsCommand,
+    Store, StoreError, SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext,
+    UpsertCourseMember,
 };
 use objects::{ObjectCategory, ObjectKey, ObjectStore, PutObject};
 use question_model::answer::SelectionCardinality;
@@ -87,33 +87,6 @@ const WEBWORK_PILOT_SOURCE_SHA256: &str =
     "2a662d3af1385dc180c529509106208424c978ba3890c411ae451b1be0369b2b";
 const WEBWORK_PILOT_SOURCE_PROVENANCE: &str = "Copied byte-for-byte from OTHER_REPOS/biology-problems-website/site_docs/biochemistry/topic01/downloads/which_hydrophobic-simple.pgml; source header declares CC BY 4.0 and notes that source code portions are LGPLv3.";
 const WEBWORK_PILOT_CONVERGENCE_ATTEMPTS: u8 = 3;
-
-fn question_id_store(
-    pool: learning_data_access::postgres::Pool,
-) -> Result<learning_data_access::postgres::PostgresStore> {
-    let encoded = match std::env::var("PLE_QUESTION_ID_SECRET_FILE") {
-        Ok(path) => std::fs::read_to_string(path)
-            .context("reading PLE_QUESTION_ID_SECRET_FILE for E2E publication")?,
-        Err(std::env::VarError::NotPresent) => std::env::var("PLE_QUESTION_ID_SECRET")
-            .context("PLE_QUESTION_ID_SECRET_FILE or PLE_QUESTION_ID_SECRET is required")?,
-        Err(error) => return Err(error).context("PLE_QUESTION_ID_SECRET_FILE is not Unicode"),
-    };
-    let encoded = encoded.trim_end_matches(['\r', '\n']);
-    let decoded = URL_SAFE_NO_PAD
-        .decode(encoded)
-        .context("Question ID secret must be canonical base64url")?;
-    if decoded.len() != 32 || URL_SAFE_NO_PAD.encode(&decoded) != encoded {
-        bail!("Question ID secret must be canonical 32-byte base64url");
-    }
-    Ok(
-        learning_data_access::postgres::PostgresStore::with_question_id_secret(
-            pool,
-            decoded
-                .try_into()
-                .expect("checked Question ID secret length"),
-        ),
-    )
-}
 
 /// Private host-only identifiers the E2E runner needs to start an assignment.
 ///

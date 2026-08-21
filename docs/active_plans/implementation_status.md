@@ -1,6 +1,6 @@
 # Implementation status and handoff
 
-Last updated: 2026-08-19
+Last updated: 2026-08-20
 
 This file is a durable execution handoff. The architecture, scope, milestone order, security
 boundaries, and acceptance criteria remain authoritative in the implementation and active plans.
@@ -10,16 +10,33 @@ documents link here instead of copying those mutable values.
 
 The active [professor capability plan](active/professor_capability_architecture_plan.md) supplements
 the release plan and does not replace it. This file is the sole global current-package handoff
-registry: WP-PROF-S6 is the single current professor package, and the release queue is PARKED at
-still-open WP-RC8.
+registry: WP-PROF-T2 and WP-PROF-LD1 are accepted on 2026-08-20; WP-PROF-LD2 is the single current professor package,
+and the release queue is PARKED at still-open WP-RC8.
 The professor and release plans own their scope and dependency queues, but defer current-handoff
 truth to this registry. WP-PROF-S1, WP-PROF-S2, WP-PROF-S3, WP-PROF-S4, WP-PROF-S5, and WP-PROF-S7
-are accepted. WP-PROF-S6 is the dependency-ready lane-C course-grade-scheme package; it consumes the
-accepted term and typed-reference spine without reopening S3 policy resolution, S4 disclosure, or
-S5 entitlement authority. WP-RC8 owns the open provider, mailbox, passkey, multi-replica, security,
-and HCI gates.
+are accepted, as are WP-PROF-S6, WP-PROF-T1, WP-PROF-T2, and WP-PROF-LD1. LD1 delivered the
+live-demo baseline lifecycle. WP-PROF-LD2 now owns the seeded-entry, initial-Sysadmin-claim, and
+connected-live-authoring work. WP-PROF-T3 remains separate and parked while the approved live-demo
+goal is open; it returns only after LD2 delivers that goal and its connected Validation and review
+pass. LD2 requires the necessary existing WP-RC8 account-session/passkey/origin contracts. Its
+claim, passkey, and Student/Instructor selector seams remain non-schema. A completed boundary review
+identified one separate durable need: safe Sysadmin approval-candidate discovery requires a new
+least-privilege PostgreSQL broker function, allocated below. LD2 can implement and validate those
+seams while WP-RC8's unrelated provider, mailbox, multi-replica, security, and HCI gates remain open.
+WP-RC8 owns the open provider, mailbox, passkey, multi-replica, security, and HCI gates.
 Professor pre-production work may use the shared migration ledger; it does not accept or imply
 production email authentication, mailbox delivery, onboarding, deployment, or release acceptance.
+
+WP-PROF-LD1 is accepted. It owns the durable live-demo installation-state and Base Course lifecycle
+named by the approved [live-demo specification](../LIVE_DEMO_SPEC.md). Its accepted migration is
+`2026081808_live_demo_install_state.sql`. WP-PROF-LD2 is the current schema package only for its
+least-privilege Sysadmin approval-candidate discovery broker function; its allocated migration is
+`2026081809`. WP-PROF-T3 remains a
+non-schema, non-mutating preview plane: it reuses the forced-RLS `audit_event` and writable
+repeatable-read snapshot for the one successful learner-derived-subject audit, while accepted
+`2026081807_teaching_operations.sql` remains immutable. The active professor plan owns the frozen
+LD1 and T3 scope, privacy boundaries, dependencies, and acceptance matrices; this registry owns
+only the current-package handoff and migration allocation truth.
 
 ## Shared migration ledger and allocation
 
@@ -46,17 +63,53 @@ do not implicitly receive one.
 | `2026081803` | WP-PROF-S5 | Entitlement, typed group purposes, and materialization; accepted and immutable |
 | `2026081804` | WP-PROF-S3 | Effective-policy resolver; accepted and immutable |
 | `2026081805` | WP-PROF-S4 | Disclosure policy; accepted and immutable |
-| `2026081806` | WP-PROF-S6 | Course grade scheme; M1 reservation |
+| `2026081806` | WP-PROF-S6 | Course grade scheme; accepted and immutable |
+| `2026081807` | WP-PROF-T2 | Teaching operations; accepted and immutable |
+| `2026081808` | WP-PROF-LD1 | Live-demo installation state; accepted and immutable |
+| `2026081809` | WP-PROF-LD2 | Least-privilege Sysadmin approval-candidate discovery broker function; allocated |
 
 The S3, S4, and S5 allocations were reordered before any of their migration files existed.
-Accepted S5 occupies `2026081803`, accepted S3 occupies `2026081804`, and accepted S4 occupies
-`2026081805`; the next forward allocation is S6 `2026081806`. No placeholder migration, absent-file
-dependency, or out-of-order application is permitted. Numeric allocation records the forward
-migration sequence, while package dependency remains defined by the professor plan.
+Accepted S5 occupies `2026081803`, accepted S3 occupies `2026081804`, accepted S4 occupies
+`2026081805`, accepted S6 occupies `2026081806`, and WP-PROF-T2 occupies `2026081807`.
+`2026081807_teaching_operations.sql` is accepted and immutable, and the forward migration order
+remains contiguous through `2026081807`. `2026081808_live_demo_install_state.sql` is accepted and
+immutable; `2026081809` is allocated to WP-PROF-LD2. No placeholder migration, absent-file dependency, or
+out-of-order application is permitted. Numeric allocation records the forward migration sequence,
+while package dependency remains defined by the professor plan.
+
+WP-PROF-LD1 accepted the durable `installing` and `complete` installation state; one advisory lock for
+single-writer first-install coordination; deterministic Base Course seeding with generation-bound
+storage receipts; and the fresh or mixed PostgreSQL/object-storage lifecycle rules. Retried
+`installing` work resumes the same verified generation. Retained `complete` restarts perform no seed
+writes, storage inspection, or equality scans. A pre-marker database or mixed database/storage pair
+fails closed and directs fresh regeneration of both stores. `learning-data-access` is the sole SQL,
+PostgreSQL-lock, durable-state, migration, and Store owner. The focused product crate
+`crates/base-course-installation/` (`base_course_installation`) owns the typed recipe and
+orchestration; `project-tools` is its direct CLI adapter. The product crate has no HTTP route or
+server-start hook. LD1 acceptance includes migration and live lifecycle evidence for interruption
+and resume, retained restart, fail-closed mixed state handling, and fresh regeneration. It does not
+add account, passkey, session, authentication, origin, or replica schema or behavior: WP-RC8 retains
+those security boundaries.
 
 The actual clean-cluster baseline replacement requires both professor WP-PROF-E2 readiness and completion
 of all repository-owned release schema packages/RC12, immediately before first production data. WP-PROF-E2
 may prepare and review a candidate baseline earlier, but it must not replace the ledger early.
+
+WP-PROF-T2 is accepted on 2026-08-20. It implements many-to-many course groups with five
+purpose-specific multiple-membership policies, referenced-group refusal, atomic S5/S3
+re-evaluation with sealed receipt history, operator-owned Instructor approval, target-bound 30-day
+co-instructor invitations, direct-membership acceptance, final-Instructor protection, server-owned
+retention actions, and server-derived entitlement/effective-policy previews. Migration
+`2026081807_teaching_operations.sql` is accepted and immutable. Final material-tree Validation
+passed `./check_rust.sh`; `./check_codebase.sh` (five checks and 301 Node tests); `source
+source_me.sh && python3 -m pytest tests/` (5,481 tests); built Playwright (245/245, zero skips); a
+fresh PostgreSQL 17 baseline through all 43 migrations with the T2 live oracles; `source
+source_me.sh && python3 local_stack.py acceptance`; T2 visual capture (2/2); and UI corpus
+verification (42/42). Both diff checks passed. T3 remains a later dependent package; the current
+registry now records WP-PROF-LD1 as accepted and WP-PROF-LD2 as the sole professor handoff;
+WP-RC8 remains parked and open. This closeout does not claim provider or mailbox delivery,
+production email, passkeys, multi-replica operation, deployment, release activation, or an early
+clean-cluster baseline replacement.
 
 WP-PROF-S1 acceptance evidence on 2026-08-18 is recorded on the final material tree:
 `source source_me.sh && python3 -m pytest tests/test_markdown_links.py tests/test_ascii_compliance.py`
@@ -158,6 +211,67 @@ to WP-PROF-S6; WP-RC8 remains parked and open. Local-development credentials and
 used because email is unavailable. This closeout does not accept provider or mailbox delivery,
 passkeys, multi-replica operation, production deployment, release activation, or an early
 clean-cluster baseline replacement.
+
+WP-PROF-S6 is accepted on 2026-08-19. It adds one revisioned course-grade scheme with total points
+and weighted categories as the only shipped modes, deterministic drop-lowest behavior, exact point
+arithmetic, one final four-decimal half-away-from-zero rounding step, optional letter bands, and
+explicit unavailable states. Totals consume maintained assignment summaries rather than rescanning
+attempts. The instructor-only browser edits the closed scheme with strong representation ETags,
+shows bounded totals, and downloads a synchronous nine-column RFC 4180 export whose durable audit is
+PII-free. Completion-based grading remains deferred design work and is absent from runtime,
+database, HTTP, and browser contracts.
+
+Migration `2026081806_course_grade_scheme.sql` is accepted and immutable. The final PostgreSQL 17
+baseline applied and verified all 42 migrations, passed the course-grade scheme/totals/export/RLS
+oracle and the 1805-to-1806 upgrade/retention oracle, completed the constraint, role, and forced-RLS
+inventories, and cleaned its disposable project. Final material-tree Validation passed
+`./check_rust.sh`; `./check_codebase.sh` (five checks and 278 Node tests); `source source_me.sh &&
+python3 -m pytest -q tests` (5,480 tests and 2 subtests); outside-sandbox built Playwright (231 of
+231, zero skips); and outside-sandbox `source source_me.sh && python3 local_stack.py acceptance` with
+all seven ordered browser, visual, walkthrough, Chapter One, and isolated WebWork lanes green. Both
+diff checks and the 36-artifact screenshot ownership/provenance verifier passed. The ordinary
+rootless Podman demo is ready on loopback port 8080 with the complete nine-container service suite;
+a repeated start replaced all nine prior container IDs, retained its three simulated-data volumes,
+and left no owned dangling images. Independent architecture/security, tests/HCI, and
+documentation/authority reviews returned ACCEPT with no unresolved P0--P3 finding. The sole
+professor handoff advances to WP-PROF-T1; WP-RC8 remains parked and open. This closeout does not ship
+completion-based grading or claim provider or mailbox delivery, production email, passkeys,
+multi-replica operation, deployment, release activation, or an early clean-cluster baseline
+replacement.
+
+WP-PROF-T1 is accepted on 2026-08-19. One revisioned assignment teaching aggregate now owns the
+closed Draft, Published, Closed, and terminal Archived lifecycle together with plain-text
+instructions, availability, due and close instants, run and attempt limits, late behavior, and
+server deadline behavior. Creation is Draft-only; publishing and later changes use the authenticated
+revision-CAS settings mutation. Instructor local wall-clock input names the course IANA zone, while
+the server alone rejects invalid, ambiguous, nonexistent, out-of-term, or misordered values and
+persists absolute instants. Memory and PostgreSQL derive lifecycle gate G1 from stored state and
+re-resolve active attempts consistently after a settings change.
+
+Learner list transport stays compact and authority-free, while the separately authorized detail
+projects only safe instructions and resolved delivery facts. Current, Recalculating, and Failed are
+independent scoring states; every aggregate, run, attempt, submission, and feedback numeric value is
+omitted unless scoring is Current. The browser gives instructors a direct assignment-editor action,
+keeps learner-only assignment routes and instructor-only routes separated, moves focus into the
+replacement task it reveals, and preserves keyboard recovery for field validation and stale
+revisions. T1 is a non-schema package: at its 2026-08-19 acceptance, migration `2026081806` was the
+last accepted immutable migration and the next schema allocation was unassigned.
+
+Final material-tree Validation passed `./check_rust.sh`; `./check_codebase.sh` (five checks and 279
+Node tests); `source source_me.sh && python3 -m pytest tests/ -q` (5,480 tests and 2 subtests); the
+fresh PostgreSQL 17 baseline (all 42 migrations, the assignment-teaching lifecycle/policy/receipt/RLS
+oracle, the retained S3--S6 oracles, and cleanup); and outside-sandbox `source source_me.sh &&
+python3 local_stack.py acceptance`. The uninterrupted acceptance passed 237 of 237 ordinary built
+browser tests, both visual-evidence lanes, J1--J5, the Chapter One publication oracle, the 4-of-4
+live Chapter One browser journey, and the 4-of-4 live WebWork browser journey. The 36-artifact
+screenshot verifier retains the inspected 1280 by 800, 800 by 1280, 393 by 852, and 800 by 800
+student/access evidence; direct route and no-transport tests remain the authorization proof. Both
+diff checks passed. Independent architecture/security, tests/HCI/browser, and docs/authority
+rechecks returned ACCEPT with no P0--P3 finding. The sole professor handoff advances to WP-PROF-T2;
+WP-RC8 remains parked and open. This closeout does not claim provider or mailbox delivery,
+production email, passkeys,
+multi-replica operation, deployment, release activation, or an early clean-cluster baseline
+replacement.
 
 ## Working rules
 
@@ -596,12 +710,12 @@ are clean; and three independent reviewers reported no P0/P1/P2.
   arguments and one explicit schema-versioned private child-input boundary. Focused offline tests
   cover its validation and environment isolation. The rebuilt Podman/Playwright execution passed
   the strengthened J13 visible copy/paste path and supplied the one-time acceptance evidence.
-- The assignment editor now carries the course-owned whole-run timing policy
-  through the revision-atomic `assignmentTiming.timeLimitSeconds` boundary. A
-  new Mastery draft visibly defaults to 900 seconds; an explicit `null` remains
-  an intentional untimed assignment, and immutable question versions remain
-  unchanged. WP-HG1.T permanent Store/API/browser behavior gates, the real timed Podman
-  walkthrough, and the refreshed visual evidence are accepted.
+- Historical WP-HG1.T accepted the former revision-atomic
+  `assignmentTiming.timeLimitSeconds` boundary and its 900-second Mastery default. WP-PROF-T1
+  directly removes that wire and compatibility API: current whole-run timing is one field of the
+  revisioned `AssignmentTeachingSettings` aggregate with lifecycle, instructions, schedule, late,
+  and deadline behavior. The earlier timed Podman walkthrough remains historical evidence; it is
+  not the current contract or current T1 acceptance evidence.
 - The previous corrected-charter evidence in M8-M11 remains useful historical
   evidence for the bounded local pilot, but is superseded as acceptance evidence
   by the strengthened human-reference contract. WP-HG1 now records the rebuilt live J13

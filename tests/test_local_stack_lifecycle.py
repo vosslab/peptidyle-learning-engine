@@ -12,6 +12,7 @@ import local_stack_control.models
 import local_stack_control.process
 import local_stack_control.renderer
 import local_stack_control.env_file
+import local_stack_control.image_cleanup
 import local_stack_control.status
 
 
@@ -189,18 +190,48 @@ def test_completed_requested_one_shot_does_not_wait_for_later_initializers(
 
 
 #============================================
+@pytest.mark.parametrize("teaching_profile", (False, True))
 def test_start_orders_required_effects_before_semantic_readiness(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
+	teaching_profile: bool,
 ) -> None:
-	"""A successful start completes storage, data, renderer, and API stages before readiness."""
-	target = lifecycle_target(tmp_path, "containers", "containers/env.local")
+	"""A start classifies migrated data before storage and preserves later dependencies."""
+	base_target = lifecycle_target(
+		tmp_path,
+		"ple-ui-walkthrough-test" if teaching_profile else "containers",
+		"walk/env.local" if teaching_profile else "containers/env.local",
+	)
+	target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget = base_target
+	if teaching_profile:
+		target = local_stack_control.models.DisposableComposeTarget(
+			target=base_target,
+			owner_policy="ui-walkthrough",
+			capability_file=tmp_path / "capability",
+			project_prefix="ple-ui-walkthrough-",
+			private_environment_file=base_target.env_file,
+		)
 	options = local_stack_control.lifecycle.LifecycleOptions(1.0, False, False, False)
 	events: list[str] = []
+	compose_arguments: list[list[str]] = []
 	values = {"PLE_WEBWORK_RENDERER_IMAGE": "localhost/renderer:tag"}
 
 	def mark(name: str) -> None:
 		events.append(name)
+
+	def compose_mark(
+		target: local_stack_control.models.ComposeTarget,
+		runner: local_stack_control.process.CommandRunner,
+		arguments: list[str],
+	) -> None:
+		del target, runner
+		compose_arguments.append(arguments)
+		if "createbuckets" in arguments:
+			mark("storage")
+		elif "gateway" in arguments:
+			mark("api")
+		else:
+			mark("maintenance")
 
 	monkeypatch.setattr(local_stack_control.lifecycle, "require_lifecycle_inputs", lambda target, root, options: mark("inputs"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "require_disposable_ownership", lambda target: mark("ownership"))
@@ -212,24 +243,76 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	monkeypatch.setattr(local_stack_control.lifecycle, "child_environment", lambda target: {})
 	monkeypatch.setattr(local_stack_control.renderer, "inspect_renderer_oci_id", lambda runner, root, reference, environment: "sha256:" + "a" * 64)
 	monkeypatch.setattr(local_stack_control.lifecycle, "build_artifacts", lambda runner, root, options: mark("build"))
-	monkeypatch.setattr(local_stack_control.lifecycle, "compose_run", lambda target, runner, arguments: mark("storage" if "createbuckets" in arguments else "api" if "gateway" in arguments else "maintenance"))
+	monkeypatch.setattr(local_stack_control.lifecycle, "compose_run", compose_mark)
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_one_shot", lambda target, runner, options, service: mark("storage-ready" if service == "createbuckets" else "api-initialized"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_postgres", lambda target, runner, values, options: mark("database-ready"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "synchronize_database", lambda target, runner, values: mark("database-login"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "run_migrations", lambda runner, root, values, environment: mark("migrated"))
-	monkeypatch.setattr(local_stack_control.lifecycle, "seed_default_demo", lambda runner, root, target, values, environment: mark("seeded"))
+	monkeypatch.setattr(
+		local_stack_control.lifecycle,
+		"prepare_installed_base_course",
+		lambda runner, root, target, values, environment: mark("prepared"),
+	)
+	monkeypatch.setattr(
+		local_stack_control.lifecycle,
+		"finalize_installed_base_course",
+		lambda runner, root, target, values, environment, preparation: mark("seeded"),
+	)
 	monkeypatch.setattr(local_stack_control.lifecycle, "provision_grading_role", lambda target, runner, values: mark("grading-role"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_renderer_ready", lambda target, runner, options, identity: mark("renderer-ready"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "attest_renderer", lambda target, runner, root, values, identity: mark("renderer-probed"))
-	monkeypatch.setattr(local_stack_control.lifecycle, "uses_local_teaching_state", lambda target: True)
 	monkeypatch.setattr(local_stack_control.lifecycle, "publish_chapter_one", lambda runner, root, target, values, environment: mark("chapter-one"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "run_api_initializers", lambda target, runner, options: mark("api-initializers"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_complete_ready", lambda target, runner, options: mark("ready") or "http://127.0.0.1:8080/")
+	monkeypatch.setattr(
+		local_stack_control.image_cleanup,
+		"prune_superseded_images",
+		lambda runner, root: mark("image-prune"),
+	)
 
 	local_stack_control.lifecycle.start_lifecycle(target, UnexpectedRunner(), tmp_path, options)
-	assert events.index("storage-ready") < events.index("migrated") < events.index("seeded")
-	assert events.index("renderer-ready") < events.index("renderer-probed") < events.index("chapter-one") < events.index("api-initializers")
+	assert events.index("migrated") < events.index("prepared") < events.index("storage")
+	assert events.index("prepared") < events.index("storage-ready")
+	assert events.index("storage-ready") < events.index("seeded")
+	assert events.index("renderer-ready") < events.index("renderer-probed")
+	if teaching_profile:
+		assert events.index("renderer-probed") < events.index("chapter-one") < events.index("api-initializers")
+		assert "image-prune" not in events
+	else:
+		assert events.index("renderer-probed") < events.index("api-initializers")
+		assert events.index("ready") < events.index("image-prune")
 	assert events.index("api-initializers") < events.index("api") < events.index("ready")
+	application_start = next(
+		arguments
+		for arguments in compose_arguments
+		if arguments[0] == "up" and "gateway" in arguments
+	)
+	project_reconcile = next(
+		arguments
+		for arguments in compose_arguments
+		if arguments[0] == "down"
+	)
+	maintenance_start = next(
+		arguments
+		for arguments in compose_arguments
+		if arguments[0] == "--profile"
+	)
+	database_start = next(
+		arguments
+		for arguments in compose_arguments
+		if arguments == ["up", "-d", "postgres"]
+	)
+	storage_start = next(
+		arguments
+		for arguments in compose_arguments
+		if arguments == ["up", "-d", "minio", "createbuckets"]
+	)
+	assert project_reconcile == ["down", "--remove-orphans"]
+	assert compose_arguments.index(project_reconcile) < compose_arguments.index(maintenance_start)
+	assert compose_arguments.index(database_start) < compose_arguments.index(storage_start)
+	assert "--force-recreate" in application_start
+	assert "--remove-orphans" not in application_start
+	assert "--no-deps" in application_start
 
 
 #============================================

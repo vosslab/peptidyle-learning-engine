@@ -14,9 +14,18 @@ pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
             .await
             .context("applying embedded migrations for e2e seed")?;
     }
-    let store = question_id_store(pool)?;
+    let store = crate::postgres_store::configured_postgres_store(pool)?;
     let context = TenantContext::from_authenticated_session(arguments.tenant);
     let marker = SeedIds::fresh_for_tenant(arguments.tenant);
+    seed_native_records(store, context, &arguments, marker).await
+}
+
+async fn seed_native_records(
+    store: learning_data_access::postgres::PostgresStore,
+    context: TenantContext,
+    arguments: &SeedArguments,
+    marker: SeedIds,
+) -> Result<Manifest> {
     let existing_course = store
         .get_course(context, marker.course)
         .await
@@ -32,16 +41,16 @@ pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
         "native seed",
     )? {
         SeedReplayState::Fresh => {
-            // Persist this marker before any immutable publication. A later
-            // retry sees the incomplete state and asks for a disposable reset.
+            // Persist this marker before immutable publication. Acceptance seed
+            // intentionally retains its independent reset-only contract.
             ensure_webwork_pilot_course(
                 &store,
                 context,
                 arguments.instructor,
-                native_course(&arguments, marker.course),
+                native_course(arguments, marker.course),
             )
             .await?;
-            publish_fresh_native(&store, context, &arguments, marker).await?
+            publish_fresh_native(&store, context, arguments, marker).await?
         }
         SeedReplayState::Replay => {
             let course = existing_course.expect("replay state has a course marker");
@@ -53,7 +62,7 @@ pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
                 .context("reading retained native publication")?
                 .context("native seed assignment refers to a missing publication")?;
             let ids = SeedIds::from_published(arguments.tenant, &published);
-            let expected_course = native_course(&arguments, ids.course);
+            let expected_course = native_course(arguments, ids.course);
             if !webwork_pilot_course_seed_matches(&course, &expected_course) {
                 bail!("native seed course marker differs from the reviewed host seed");
             }
@@ -62,10 +71,10 @@ pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
                 context,
                 &published,
                 arguments.instructor,
-                native_draft(ids.workspace),
+                replica_native_draft(ids.workspace),
             )
             .await?;
-            let expected_assignment = native_assignment(&arguments, ids, reference);
+            let expected_assignment = native_assignment(arguments, ids, reference);
             if assignment.record != expected_assignment {
                 bail!("native seed assignment differs from the retained immutable publication");
             }
@@ -76,25 +85,27 @@ pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
         problem: published.problem,
         version: published.version,
     };
-    let assignment = native_assignment(&arguments, ids, reference);
+    let assignment = native_assignment(arguments, ids, reference);
     ensure_webwork_pilot_course(
         &store,
         context,
         arguments.instructor,
-        native_course(&arguments, ids.course),
+        native_course(arguments, ids.course),
     )
     .await?;
-    ensure_webwork_pilot_assignment(&store, context, assignment.clone()).await?;
-    let enrollment = ensure_webwork_pilot_enrollment(
+    ensure_webwork_pilot_assignment(&store, context, arguments.instructor, assignment.clone())
+        .await?;
+    let enrollment = ensure_named_course_enrollment(
         &store,
         context,
         arguments.instructor,
         arguments.student,
         ids.course,
         ids.assignment,
+        "Replica E2E learner",
     )
     .await
-    .context("creating native E2E enrollment")?;
+    .context("creating native seed enrollment")?;
 
     if arguments.exercise_scoring {
         exercise_scoring_generation(
@@ -110,7 +121,7 @@ pub(super) async fn seed_native(arguments: SeedArguments) -> Result<Manifest> {
     Ok(Manifest {
         assignment_id: ids.assignment,
         enrollment_id: enrollment.id,
-        question_id: published.question_id.clone(),
+        question_id: published.question_id,
         problem_id: published.problem,
         version_id: published.version,
     })
@@ -124,7 +135,7 @@ async fn publish_fresh_native(
 ) -> Result<(SeedIds, learning_data_access::PublishedProblemRecord)> {
     let draft = DraftRecord {
         tenant: arguments.tenant,
-        question: native_draft(ids.workspace),
+        question: replica_native_draft(ids.workspace),
         derived_from: None,
     };
     let capabilities = native_capabilities()?;
@@ -174,7 +185,7 @@ async fn publish_fresh_native(
     Ok((ids, published))
 }
 
-fn native_course(arguments: &SeedArguments, course: CourseId) -> CourseRecord {
+pub(super) fn native_course(arguments: &SeedArguments, course: CourseId) -> CourseRecord {
     CourseRecord {
         id: course,
         tenant: arguments.tenant,
@@ -184,7 +195,7 @@ fn native_course(arguments: &SeedArguments, course: CourseId) -> CourseRecord {
     }
 }
 
-fn native_assignment(
+pub(super) fn native_assignment(
     arguments: &SeedArguments,
     ids: SeedIds,
     reference: ProblemVersionRef,
@@ -194,6 +205,11 @@ fn native_assignment(
         tenant: arguments.tenant,
         course_id: ids.course,
         title: "PLE replica E2E assignment".to_string(),
+        lifecycle: question_model::AssignmentLifecycle::Published,
+        instructions: question_model::AssignmentInstructions::try_new(
+            "Work through the peptide-bond geometry evidence before submitting.".to_string(),
+        )
+        .expect("native seed instructions are valid"),
         audience: question_model::AssignmentAudience::CourseWide,
         disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
         items: vec![AssignmentItem {

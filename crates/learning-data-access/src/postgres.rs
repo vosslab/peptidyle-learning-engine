@@ -65,7 +65,7 @@ use crate::statistics::derive_statistics_contributions;
 #[cfg(feature = "postgres")]
 use crate::{
     ActivityTransition, AddAssignmentFixedItemCommand, AssetDeliveryRecord, AssetDeliveryScope,
-    AssignmentDefinitionDisposition, AssignmentEditorUpdate, AssignmentRecord, AssignmentRevision,
+    AssignmentDefinitionDisposition, AssignmentRecord, AssignmentRevision, AssignmentUpdate,
     AttemptFeedbackRecord, AttemptSupportAction, AttemptSupportActionId, AttemptSupportRecord,
     ClearAttemptCommand, CourseGroupRecord, CourseGroupRevision, CourseListScope, CourseRecord,
     CourseRecordsAccessStore, CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState,
@@ -89,6 +89,8 @@ use crate::{
 };
 
 #[cfg(feature = "postgres")]
+mod live_demo_installation;
+#[cfg(feature = "postgres")]
 mod manual_grading;
 #[cfg(feature = "postgres")]
 use crate::{
@@ -108,6 +110,8 @@ mod row_decode;
 #[cfg(feature = "postgres")]
 use row_decode::*;
 #[cfg(feature = "postgres")]
+mod seeded_sysadmin_ownership;
+#[cfg(feature = "postgres")]
 mod summary;
 #[cfg(feature = "postgres")]
 use summary::*;
@@ -115,6 +119,13 @@ use summary::*;
 mod assignment_values;
 #[cfg(feature = "postgres")]
 use assignment_values::*;
+#[cfg(feature = "postgres")]
+pub mod base_course_install;
+#[cfg(feature = "postgres")]
+pub use base_course_install::{
+    BASE_COURSE_INSTALL_ADVISORY_LOCK_KEY, BaseCourseAccountPlatformRoles, BaseCourseAccountRecipe,
+    BaseCourseInstallLock, BaseCourseInstallState, acquire_base_course_install_lock,
+};
 #[cfg(feature = "postgres")]
 mod assignment_records;
 #[cfg(feature = "postgres")]
@@ -156,6 +167,10 @@ mod course_appearance;
 #[cfg(feature = "postgres")]
 mod course_assignments;
 #[cfg(feature = "postgres")]
+mod course_gradebook;
+#[cfg(feature = "postgres")]
+mod course_groups;
+#[cfg(feature = "postgres")]
 mod course_policy;
 #[cfg(feature = "postgres")]
 mod course_roster;
@@ -190,6 +205,8 @@ mod migrations;
 #[cfg(feature = "postgres")]
 mod navigation_references;
 #[cfg(feature = "postgres")]
+mod preview_plane;
+#[cfg(feature = "postgres")]
 mod publisher;
 #[cfg(feature = "postgres")]
 mod qti;
@@ -203,6 +220,10 @@ mod runs;
 mod sessions;
 #[cfg(feature = "postgres")]
 mod statistics;
+#[cfg(feature = "postgres")]
+mod teaching_authority;
+#[cfg(feature = "postgres")]
+mod teaching_authority_references;
 #[cfg(feature = "postgres")]
 pub use connection::{ProductionLoginProfile, lazy_pool, production_pool};
 #[cfg(feature = "postgres")]
@@ -235,7 +256,7 @@ struct AttemptSupportAuditPayload {
 const GRADEBOOK_SUMMARY_PAGE_SQL: &str = "SELECT \
     e.enrollment_id, e.student_id, \
     COALESCE(profile.display_name, 'Learner') AS learner_name, \
-    a.assignment_id, a.title AS assignment_title, \
+    a.assignment_id, a.title AS assignment_title, a.scoring_status, \
     sas.tenant_id AS summary_tenant_id, sas.enrollment_id AS summary_enrollment_id, \
     sas.current_score AS summary_current_score, sas.best_score AS summary_best_score, \
     sas.latest_score AS summary_latest_score, \

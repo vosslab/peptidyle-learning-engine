@@ -78,6 +78,8 @@ Treat these paths as build products, not hand-maintained source:
   contracts and checked fixture sources.
 - `dist_wasm/` contains the generated WebAssembly bridge and JavaScript glue.
 - `dist/` contains the browser bundle and receives the WebAssembly assets under `dist/wasm/`.
+- `dist_browser_test/` contains the ignored browser-test artifact and test-double transport assets,
+  served only by the Playwright helper; it is separate from the installed Base Course lifecycle.
 - `target/` contains Cargo build products.
 
 Change the Rust contract, fixture source, browser source, or build pipeline that owns an output;
@@ -102,7 +104,7 @@ active work package.
 | Rust code, features, lints, tests, or Wasm | `./check_rust.sh`                                           | The complete offline Cargo and Rust gate.                                                 |
 | TypeScript, browser lint, format, or tests | `./check_codebase.sh`                                       | The vendored TypeScript and Node gate.                                                    |
 | Repository documentation and hygiene       | `source source_me.sh && python3 -m pytest tests/`           | Fast Python hygiene and repository-rule checks.                                           |
-| Built-browser behavior                     | `./run_playwright_tests.sh --build`                         | The ordinary mock-backed browser suite, with no skips.                                    |
+| Built-browser behavior                     | `./run_playwright_tests.sh --build`                         | The ordinary demo-environment browser suite, with no skips.                               |
 | Complete Playwright validation             | `source source_me.sh && python3 local_stack.py acceptance`  | Ordinary browser coverage plus required visual, walkthrough, and live-browser acceptance. |
 | One browser scenario                       | `./run_playwright_tests.sh tests/playwright/<file>.spec.ts` | The selected built-browser scenario.                                                      |
 | Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                              | The named disposable whole-system oracle.                                                 |
@@ -115,8 +117,9 @@ orchestration. Both are intentionally excluded from `pytest tests/`; see
 
 ### Playwright execution lanes
 
-`./run_playwright_tests.sh --build` is the ordinary fast browser gate. It builds `dist/`, starts
-the mock preview server configured in `playwright.config.ts`, and must finish with no skipped
+`./run_playwright_tests.sh --build` is the ordinary fast browser gate. It builds
+`dist_browser_test/`, starts the browser-test helper configured in `playwright.config.ts`, and
+serves the bundle with browser-test/test-double transport handlers. It must finish with no skipped
 tests. It neither requires nor reuses a Podman PLE stack. Real-stack, walkthrough, and visual
 evidence cases are deliberately outside its collection; they are not ordinary tests that happened
 to skip.
@@ -198,8 +201,12 @@ its exact labelled project/resource and database-bound
 `containers/local-chapter-one-pilot.json` preview, and then use
 `reset --confirm-project containers`. Once the labelled Compose resources and
 volumes are gone, reset removes that private Chapter 1 replay record. Reset
-retains local host credentials. Global Podman pruning and image cleanup have
-their dedicated operator workflow. Raw Compose is a diagnosis or recovery
+retains local host credentials. An ordinary start first removes every container
+in its exact labelled project, including Compose orphans, while retaining the
+three named simulated-data volumes. It then recreates the complete designed
+service suite. After readiness, it prunes only dangling images carrying the
+reviewed PLE or local-renderer source label. Global Podman pruning and all other
+image cleanup retain their dedicated operator workflow. Raw Compose is a diagnosis or recovery
 interface only; normal changes use the controller's project and environment
 handling.
 

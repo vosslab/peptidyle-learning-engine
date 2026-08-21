@@ -13,6 +13,9 @@ use sqlx::{Postgres, Row, Transaction};
 use super::*;
 use crate::*;
 
+const HYPOTHETICAL_SOURCE_PERSISTENCE_ERROR: &str =
+    "hypothetical individual exceptions cannot be persisted in effective-policy receipts";
+
 /// Exact immutable values appended to one sealed effective-policy generation.
 /// The caller owns policy resolution and timing calculation; this module owns
 /// the normalized persistence protocol and its sealed-read reconstruction.
@@ -157,6 +160,11 @@ fn source_rows(source: &PolicySource) -> Result<Vec<(&'static str, Option<Uuid>)
             .collect(),
         PolicySource::IndividualException(id) => {
             vec![("individual_exception", Some(id.as_uuid()))]
+        }
+        PolicySource::HypotheticalIndividualException => {
+            return Err(StoreError::InvalidRecord(
+                HYPOTHETICAL_SOURCE_PERSISTENCE_ERROR.to_string(),
+            ));
         }
     })
 }
@@ -365,5 +373,42 @@ fn decode_source(rows: &[PgRow], field: &str) -> Result<PolicySource, StoreError
         _ => Err(StoreError::Unavailable(
             "sealed effective-policy provenance is malformed".to_string(),
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hypothetical_source_is_refused_without_changing_normal_mappings() {
+        let group_one = CourseGroupId::from_uuid(Uuid::from_u128(1));
+        let group_two = CourseGroupId::from_uuid(Uuid::from_u128(2));
+        let student = StudentId::from_uuid(Uuid::from_u128(3));
+
+        assert_eq!(source_rows(&PolicySource::Base), Ok(vec![("base", None)]));
+        assert_eq!(
+            source_rows(&PolicySource::GroupScheduleOffsets(vec![
+                group_one, group_two
+            ])),
+            Ok(vec![
+                ("group_schedule_offset", Some(group_one.as_uuid())),
+                ("group_schedule_offset", Some(group_two.as_uuid())),
+            ])
+        );
+        assert_eq!(
+            source_rows(&PolicySource::GroupAccommodations(vec![group_two])),
+            Ok(vec![("group_accommodation", Some(group_two.as_uuid()))])
+        );
+        assert_eq!(
+            source_rows(&PolicySource::IndividualException(student)),
+            Ok(vec![("individual_exception", Some(student.as_uuid()))])
+        );
+        assert_eq!(
+            source_rows(&PolicySource::HypotheticalIndividualException),
+            Err(StoreError::InvalidRecord(
+                HYPOTHETICAL_SOURCE_PERSISTENCE_ERROR.to_string(),
+            ))
+        );
     }
 }

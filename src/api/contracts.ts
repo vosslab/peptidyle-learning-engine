@@ -5,12 +5,14 @@ import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { AssignmentRun } from "../../generated/api/AssignmentRun";
 import type { AssignmentSummary } from "../../generated/api/AssignmentSummary";
 import type { LearnerAssignmentSummary } from "../../generated/api/LearnerAssignmentSummary";
+import type { LearnerAssignmentDetail } from "../../generated/api/LearnerAssignmentDetail";
 import type { CourseSummary } from "../../generated/api/CourseSummary";
 import type { DisclosedFeedback } from "../../generated/api/DisclosedFeedback";
 import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import type { QuestionAttempt } from "../../generated/api/QuestionAttempt";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
+import type { ScoringStatus } from "../../generated/api/ScoringStatus";
 import type { RunId } from "../../generated/api/RunId";
 import type { LearnerAssignmentProgress } from "../../generated/api/LearnerAssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
@@ -30,13 +32,14 @@ import type { UserRole } from "../../generated/api/UserRole";
 import type { CourseAppearance } from "../../generated/api/CourseAppearance";
 import type { Seed } from "../../generated/api/Seed";
 import type { VersionId } from "../../generated/api/VersionId";
-import type { AssignmentRunTiming } from "../../generated/api/AssignmentRunTiming";
+import type { InstructorAssignmentTeachingSettingsLocal } from "../../generated/api/InstructorAssignmentTeachingSettingsLocal";
+import type { InstructorAssignmentCurrentState } from "../../generated/api/InstructorAssignmentCurrentState";
 import type { CatalogProblemSummary } from "../../generated/api/CatalogProblemSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { LearnerDisclosurePolicy } from "../../generated/api/LearnerDisclosurePolicy";
 
-export type { AssignmentSummary, CourseSummary, LearnerAssignmentSummary };
+export type { AssignmentSummary, CourseSummary, LearnerAssignmentDetail, LearnerAssignmentSummary };
 export type { GradebookSummaryRow };
 
 /** One authorized course identity and its browser-safe appearance projection. */
@@ -54,8 +57,10 @@ export interface CourseRouteData {
  * into the editor transport.
  */
 export interface AssignmentEditorDetail extends AssignmentSummary {
-  /** Course-owned whole-practice-run timer; null explicitly means Untimed. */
-  readonly assignmentTiming: AssignmentRunTiming;
+  /** Course-local instructor projection; the server owns time-zone resolution. */
+  readonly teachingSettings: InstructorAssignmentTeachingSettingsLocal;
+  /** Server-derived current state at the response's authoritative instant. */
+  readonly currentState: InstructorAssignmentCurrentState;
   /** Strong server-issued ETag; send it byte-for-byte when updating. */
   readonly revision: string;
 }
@@ -70,8 +75,6 @@ export interface AssignmentCreateInput {
   readonly policies: RunPolicies;
   /** Assignment-owned timing for each learner-facing disclosure field. */
   readonly disclosurePolicy: LearnerDisclosurePolicy;
-  /** Modern editor saves always state the whole-run timing choice explicitly. */
-  readonly assignmentTiming: AssignmentRunTiming;
 }
 
 /** The ordinary editor save keeps each assigned Question ID unchanged. */
@@ -88,7 +91,6 @@ export interface AssignmentEditorInput {
   readonly policies: RunPolicies;
   /** Assignment-owned timing for each learner-facing disclosure field. */
   readonly disclosurePolicy: LearnerDisclosurePolicy;
-  readonly assignmentTiming: AssignmentRunTiming;
 }
 
 export interface AddAssignmentItemInput {
@@ -142,10 +144,16 @@ export interface EnrollmentView {
   readonly summary: LearnerAssignmentProgress;
 }
 
+/** Learner attempt projection with the current server-owned score freshness gate. */
+export interface LearnerQuestionAttempt extends QuestionAttempt {
+  readonly scoringStatus: ScoringStatus;
+}
+
 /** Explicit acknowledgement of an idempotent response submission. */
 export interface SubmissionReceipt {
   readonly accepted: true;
   readonly attempt: QuestionAttempt;
+  readonly scoringStatus: ScoringStatus;
   /** Server-redacted teaching material, or an explicit policy withholding it. */
   readonly feedback: DisclosedFeedback | null;
   readonly nextIssued: NextIssuedAttempt | null;
@@ -182,6 +190,7 @@ export interface RunSummaryOutcome {
   readonly submittedAt: number | null;
   readonly response: StudentResponse | null;
   readonly feedback: DisclosedFeedback | null;
+  readonly scoringStatus: ScoringStatus;
 }
 
 /** Current server projection; it never includes a question key, result, or release policy. */
@@ -305,7 +314,7 @@ export interface RunScreenData {
   /** Learner-safe assignment projection; no policy or ownership inputs. */
   readonly assignment: LearnerAssignmentSummary;
   readonly run: AssignmentRun;
-  readonly attempt: QuestionAttempt;
+  readonly attempt: LearnerQuestionAttempt;
   /** Server-regenerated, key-free variant bound to this issued attempt. */
   readonly issuedQuestion: QuestionEnvelope;
 }

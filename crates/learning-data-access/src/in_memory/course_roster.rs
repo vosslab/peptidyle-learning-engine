@@ -676,7 +676,7 @@ pub(super) fn require_roster_read_authority(
     }
 }
 
-fn roster_policy(
+pub(super) fn roster_policy(
     state: &State,
     tenant: question_model::TenantId,
     course: question_model::CourseId,
@@ -693,7 +693,7 @@ fn roster_policy(
         })
 }
 
-fn bump_roster_revision(
+pub(super) fn bump_roster_revision(
     state: &mut State,
     tenant: question_model::TenantId,
     course: question_model::CourseId,

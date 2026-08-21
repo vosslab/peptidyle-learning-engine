@@ -5,8 +5,10 @@ today and makes no production claim.
 
 ## Context
 
-PLE has 28 checked-in SQLx migrations in `schemas/migrations/`. The current chain is the correct
-source of truth during active feature acceptance. PLE has no users or durable production data, so
+This roadmap was drafted against a historical 28-file SQLx migration snapshot. The current chain
+and count are maintained by [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and the shared migration
+allocation ledger, which remain the source of truth during active feature acceptance. PLE has no
+users or durable production data, so
 before its first production deployment the unreleased history can become one reviewed, empty-cluster
 baseline. Once that baseline ships, each later schema change becomes an immutable forward migration.
 
@@ -49,8 +51,9 @@ forward ledger forever.
 
 ## Current state summary
 
-- `schemas/migrations/` contains 28 SQLx migration files, versions `2026080801` through
-  `2026080932` with intentional reserved-version gaps.
+- The historical baseline snapshot covered versions `2026080801` through `2026080932` with
+  intentional reserved-version gaps. The current `schemas/migrations/` inventory and count are
+  maintained in [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and the shared migration ledger.
 - The migration command is explicit and privileged: `cargo tools database migrate` requires
   `PLE_MIGRATION_DATABASE_URL`; the application role cannot apply DDL.
 - `cargo tools database status` reports ledger state; `verify` checks the application-visible
@@ -125,7 +128,8 @@ it owns only disposable teaching data outside the baseline migration.
 - Goal: describe the exact accepted schema that one baseline must create.
 - Owner: `postgresql-expert`.
 - Work packages: DB-BL1.
-- Needs: frozen 28-file migration chain and active release acceptance status.
+- Needs: a frozen migration-source snapshot from this roadmap's drafting point and active release
+  acceptance status.
 - Provides: a schema, role, RLS, view, grant, extension, function, trigger, partition, and index
   inventory with a reproducible clean-cluster comparison procedure.
 - Review boundary, when modifying the repository: SQL migration sources and database documentation.
@@ -190,9 +194,9 @@ it owns only disposable teaching data outside the baseline migration.
   `crates/project-tools/src/database.rs`, and `tests/e2e/e2e_database_baseline.sh` only where
   behavior genuinely changes.
 - Depends on: DB-BL1.
-- Acceptance criteria: replace the 28 unreleased files with one ordered SQLx baseline that creates
-  the inventory from DB-BL1 on an empty cluster; keep migration administration explicit and keep
-  application startup read-only.
+- Acceptance criteria: replace the unreleased migration history with one ordered SQLx baseline that
+  creates the inventory from DB-BL1 on an empty cluster; keep migration administration explicit and
+  keep application startup read-only.
 - Evidence or review, when useful: apply once, apply again without change, run status and verify
   twice from separately created empty databases, then compare both results to DB-BL1.
 - Obvious follow-ons: DB-BL2R and DB-BL3.
@@ -270,10 +274,10 @@ PostgreSQL, lifecycle, and browser work under `tests/e2e/` or Playwright, never 
 
 ## Migration and compatibility policy
 
-Before the baseline ships, the 28-file history remains immutable in practice for active package
-acceptance. At the explicit cutover, replace that entire unreleased history with one reviewed baseline
-and rebuild only clean disposable/local databases. Do not create bridges, down migrations, legacy
-readers, or data adoption paths.
+Before the baseline ships, the historical migration history captured by this roadmap remains
+immutable in practice for active package acceptance. At the explicit cutover, replace that entire
+unreleased history with one reviewed baseline and rebuild only clean disposable/local databases. Do
+not create bridges, down migrations, legacy readers, or data adoption paths.
 
 After the baseline ships, never edit its filename, version, SQL, or checksum. Every schema change
 gets one later forward migration with the owning active-plan package, fresh/no-op migration evidence,

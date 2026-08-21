@@ -95,13 +95,16 @@ where
         .await
         .expect("run fixture learner membership");
     store
-        .create_untimed_assignment(
+        .create_assignment_with_default_policy(
             context,
+            publisher,
             AssignmentRecord {
                 id: assignment,
                 tenant,
                 course_id: course,
                 title: "Run API assignment".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Published,
+                instructions: question_model::AssignmentInstructions::default(),
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![
                     ProblemVersionRef { problem, version },

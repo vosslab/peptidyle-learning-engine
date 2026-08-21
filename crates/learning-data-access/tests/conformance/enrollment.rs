@@ -75,13 +75,16 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
     .await;
     let first_assignment = AssignmentId::from_uuid(uuid(121_020));
     store
-        .create_untimed_assignment(
+        .create_assignment_with_default_policy(
             context,
+            instructor,
             AssignmentRecord {
                 id: first_assignment,
                 tenant,
                 course_id: course,
                 title: "Created before claim".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Published,
+                instructions: question_model::AssignmentInstructions::default(),
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![first_version]),
                 selection_groups: Vec::new(),
@@ -134,13 +137,16 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
     .await;
     let second_assignment = AssignmentId::from_uuid(uuid(121_040));
     store
-        .create_untimed_assignment(
+        .create_assignment_with_default_policy(
             context,
+            instructor,
             AssignmentRecord {
                 id: second_assignment,
                 tenant,
                 course_id: course,
                 title: "Created after claim".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Published,
+                instructions: question_model::AssignmentInstructions::default(),
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![second_version]),
                 selection_groups: Vec::new(),

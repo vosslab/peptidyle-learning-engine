@@ -75,10 +75,10 @@
 	}
 
 	handle {
-		# The browser shell has no inline code. This CSP therefore permits only
-		# same-origin modules, styles, media, and WebAssembly instantiation; it
-		# cannot be broadened by author-supplied question content.
-		header Content-Security-Policy "base-uri 'none'; default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; frame-src 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'self'"
+		# Scripts remain same-origin. The browser bundle uses catalog-owned inline
+		# custom properties and component-scoped styles; learner and author content
+		# reaches text and allowlisted presentation nodes rather than style sinks.
+		header Content-Security-Policy "base-uri 'none'; default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; frame-src 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'self'"
 		root * /srv/peptidyle
 		try_files {path} /index.html
 		file_server

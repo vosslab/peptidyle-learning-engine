@@ -21,6 +21,39 @@ function formatActivity(timestamp: number | null): string {
   }).format(new Date(timestamp));
 }
 
+function formatDeliveryTime(timestamp: number | null, timeZone: string): string {
+  if (timestamp === null) return "Not set";
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone,
+  }).format(new Date(timestamp));
+}
+
+function limit(value: number | null, singular: string, plural: string): string {
+  if (value === null) return `No ${plural} limit`;
+  return `${value} ${value === 1 ? singular : plural}`;
+}
+
+function runTimeLimit(seconds: number | null): string {
+  if (seconds === null) return "No whole-run time limit";
+  if (seconds % 3_600 === 0) {
+    const hours = seconds / 3_600;
+    return `${hours} ${hours === 1 ? "hour" : "hours"} per run`;
+  }
+  if (seconds % 60 === 0) {
+    const minutes = seconds / 60;
+    return `${minutes} ${minutes === 1 ? "minute" : "minutes"} per run`;
+  }
+  return `${seconds} ${seconds === 1 ? "second" : "seconds"} per run`;
+}
+
+function lateWorkCopy(value: "accept" | "markLate" | "reject"): string {
+  if (value === "accept") return "Accepted after the due time";
+  if (value === "markLate") return "Accepted and marked late after the due time";
+  return "Not accepted after the due time";
+}
+
 function classStatisticsSummary(statistics: LearnerClassStatistics): string {
   if (statistics.state === "insufficientEvidence") {
     return "Not enough evidence to show class statistics.";
@@ -88,6 +121,58 @@ export function AssignmentOverviewPage(): JSX.Element {
               <p class="page-lede">
                 Work from the structures and concepts in front of you. Memorization is not the goal.
               </p>
+              <Show when={current().instructions.length > 0}>
+                <section aria-labelledby="assignment-instructions-heading">
+                  <h2 id="assignment-instructions-heading">Instructions</h2>
+                  <p class="plain-text-instructions">{current().instructions}</p>
+                </section>
+              </Show>
+              <section aria-labelledby="delivery-details-heading">
+                <h2 id="delivery-details-heading">Delivery details</h2>
+                <p>Times are shown in the course time zone: {current().timeZone}.</p>
+                <dl class="assignment-facts">
+                  <div>
+                    <dt>Available</dt>
+                    <dd>
+                      {formatDeliveryTime(current().delivery.availableAt, current().timeZone)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Due</dt>
+                    <dd>{formatDeliveryTime(current().delivery.dueAt, current().timeZone)}</dd>
+                  </div>
+                  <div>
+                    <dt>Closes</dt>
+                    <dd>{formatDeliveryTime(current().delivery.closesAt, current().timeZone)}</dd>
+                  </div>
+                  <div>
+                    <dt>Whole-run limit</dt>
+                    <dd>{runTimeLimit(current().delivery.timeLimitSeconds)}</dd>
+                  </div>
+                  <div>
+                    <dt>Attempt limit</dt>
+                    <dd>{limit(current().delivery.attemptLimit, "attempt", "attempts")}</dd>
+                  </div>
+                  <div>
+                    <dt>Late work</dt>
+                    <dd>{lateWorkCopy(current().delivery.lateSubmission)}</dd>
+                  </div>
+                  <div>
+                    <dt>Deadline behavior</dt>
+                    <dd>The server automatically submits work at its effective deadline.</dd>
+                  </div>
+                  <div>
+                    <dt>Late status</dt>
+                    <dd>
+                      {current().delivery.lateStatus === "onTime"
+                        ? "On time"
+                        : current().delivery.lateStatus === "markedLate"
+                          ? "Accepted and marked late"
+                          : "Accepted late"}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
               <dl class="assignment-facts">
                 <div>
                   <dt>Questions per run</dt>
@@ -114,7 +199,12 @@ export function AssignmentOverviewPage(): JSX.Element {
                         <dt>Score status</dt>
                         <dd role="status">{learnerProgressSummary(assignmentSummary())}</dd>
                       </div>
-                      <Show when={assignmentSummary().scoreState === "available"}>
+                      <Show
+                        when={
+                          assignmentSummary().scoreState === "available" &&
+                          assignmentSummary().scoringStatus === "current"
+                        }
+                      >
                         <div>
                           <dt>Current score</dt>
                           <dd>{learnerScoreValue(assignmentSummary().currentScore)}</dd>

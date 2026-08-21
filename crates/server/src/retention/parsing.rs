@@ -6,57 +6,14 @@ use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::http::header::{HeaderValue, IF_MATCH};
 use axum::response::Response;
-use learning_data_access::{AssignmentDefinitionDisposition, RetentionDays, RetentionRevision};
+use learning_data_access::RetentionRevision;
+use serde::Serialize;
 use serde::de::{self, DeserializeOwned, MapAccess, Visitor};
-use serde::{Deserialize, Serialize};
 
 use super::MAX_RETENTION_BODY_BYTES;
 use super::projection::error_response;
 
 const JSON_MIME_TYPE: &str = "application/json";
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(super) struct ArchiveRequest {
-    assignment_definitions: AssignmentDefinitionDispositionRequest,
-}
-
-impl ArchiveRequest {
-    pub(super) fn disposition(self) -> AssignmentDefinitionDisposition {
-        match self.assignment_definitions {
-            AssignmentDefinitionDispositionRequest::Retain => {
-                AssignmentDefinitionDisposition::Retain
-            }
-            AssignmentDefinitionDispositionRequest::Delete => {
-                AssignmentDefinitionDisposition::Delete
-            }
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-enum AssignmentDefinitionDispositionRequest {
-    Retain,
-    Delete,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(super) struct ExtendRequest {
-    additional_days: i64,
-}
-
-impl ExtendRequest {
-    pub(super) fn additional_days(self) -> Result<RetentionDays, &'static str> {
-        if self.additional_days <= 0 {
-            return Err("additionalDays must be a positive integer");
-        }
-        let days = u16::try_from(self.additional_days)
-            .map_err(|_| "additionalDays must be a positive integer")?;
-        RetentionDays::new(days).map_err(|_| "additionalDays must be within retention bounds")
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum IfMatchError {
@@ -207,29 +164,34 @@ impl<'de> de::Deserialize<'de> for DuplicateKeyJsonValue {
 mod tests {
     use super::*;
     use axum::http::HeaderValue;
+    use question_model::{
+        RetentionArchiveRequest, RetentionDispositionView, RetentionExtendRequest,
+    };
 
     #[test]
     fn parse_strict_json_only_accepts_strict_body() {
-        let retain = serde_json::to_vec(&ArchiveRequest {
-            assignment_definitions: AssignmentDefinitionDispositionRequest::Retain,
+        let retain = serde_json::to_vec(&RetentionArchiveRequest {
+            assignment_definitions: RetentionDispositionView::Retain,
         })
         .expect("serialize archive fixture");
-        assert!(parse_strict_json::<ArchiveRequest>(Bytes::from(retain)).is_ok());
+        assert!(parse_strict_json::<RetentionArchiveRequest>(Bytes::from(retain)).is_ok());
         let expanded = serde_json::to_vec(
             &serde_json::json!({ "assignmentDefinitions": "retain", "extra": "ignored" }),
         )
         .expect("serialize archive fixture");
-        assert!(parse_strict_json::<ArchiveRequest>(Bytes::from(expanded)).is_err());
+        assert!(parse_strict_json::<RetentionArchiveRequest>(Bytes::from(expanded)).is_err());
     }
     #[test]
     fn parse_strict_json_rejects_wrong_types_and_duplicate_members() {
-        assert!(parse_strict_json::<ExtendRequest>(Bytes::from_static(br#"{}"#)).is_err());
+        assert!(parse_strict_json::<RetentionExtendRequest>(Bytes::from_static(br#"{}"#)).is_err());
         assert!(
-            parse_strict_json::<ExtendRequest>(Bytes::from_static(br#"{"additionalDays":3.5}"#))
-                .is_err()
+            parse_strict_json::<RetentionExtendRequest>(Bytes::from_static(
+                br#"{"additionalDays":3.5}"#
+            ))
+            .is_err()
         );
         assert!(
-            parse_strict_json::<ArchiveRequest>(Bytes::from_static(
+            parse_strict_json::<RetentionArchiveRequest>(Bytes::from_static(
                 br#"{"assignmentDefinitions":"retain","assignmentDefinitions":"delete"}"#
             ))
             .is_err()
@@ -262,17 +224,5 @@ mod tests {
             required_if_match_revision(&headers).expect("etag").value(),
             123
         );
-    }
-    #[test]
-    fn additional_days_reject_invalid_values() {
-        for value in [0, -1] {
-            assert_eq!(
-                ExtendRequest {
-                    additional_days: value
-                }
-                .additional_days(),
-                Err("additionalDays must be a positive integer")
-            );
-        }
     }
 }

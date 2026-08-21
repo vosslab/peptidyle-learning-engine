@@ -20,13 +20,16 @@ where
     let scale_problems = vec![ProblemVersionRef { problem, version }; 51];
     let scale_assignment = AssignmentId::from_uuid(uuid(89_990 + fixture_offset));
     store
-        .create_untimed_assignment(
+        .create_assignment_with_default_policy(
             context,
+            fixture.publisher,
             AssignmentRecord {
                 id: scale_assignment,
                 tenant,
                 course_id: course,
                 title: "Run summary scale fixture".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Published,
+                instructions: question_model::AssignmentInstructions::default(),
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(scale_problems),
                 selection_groups: Vec::new(),

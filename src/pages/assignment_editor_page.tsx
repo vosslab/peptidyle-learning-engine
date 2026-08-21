@@ -10,6 +10,7 @@ import { CourseManagementNav } from "../components/course_management_nav";
 import { CopyableQuestionId } from "../components/copyable_question_id";
 import {
   AssignmentConflictError,
+  AssignmentTeachingSettingsValidationError,
   AssignmentValidationError,
   ApiRequestError,
 } from "../api/http_client";
@@ -19,11 +20,9 @@ import {
   assignmentInput,
   capabilityLabel,
   createMasteryAssignmentDraft,
-  minutesToRunTimeLimit,
   moveAssignmentItem,
   parseExactProblemDisplayReferences,
   questionBackendLabel,
-  runTimeLimitMinutes,
   type AssignmentCatalogRow,
   type AssignmentEditorDraft,
 } from "./assignment_editor_model";
@@ -31,6 +30,7 @@ import type { AssignmentEditorDetail } from "../api/contracts";
 import type { AssignmentEditorRepository } from "./assignment_editor_repository";
 import type { ReusableAssignment } from "./assignment_editor_repository";
 import { AssignmentEditorPolicyPanel } from "./assignment_editor_policy_panel";
+import { AssignmentTeachingOperationsPanel } from "./assignment_teaching_operations_panel";
 import { assignmentRouteReference, courseRouteReference } from "../navigation/public_route";
 
 export type AssignmentEditorMode =
@@ -56,7 +56,6 @@ function draftFrom(detail: AssignmentEditorDetail): AssignmentEditorDraft {
     items: detail.items,
     policies: detail.policies,
     disclosurePolicy: detail.disclosurePolicy,
-    assignmentTiming: detail.assignmentTiming,
     revision: detail.revision,
   };
 }
@@ -79,16 +78,21 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
   const [reuseQuestionIndexes, setReuseQuestionIndexes] = createSignal<ReadonlySet<number>>(
     new Set(),
   );
-  const [runTimed, setRunTimed] = createSignal(true);
-  const [runMinutesText, setRunMinutesText] = createSignal("15");
-  const [preservedRunSeconds, setPreservedRunSeconds] = createSignal<number | null>(null);
-  const [runMinutesEdited, setRunMinutesEdited] = createSignal(false);
   const [violations, setViolations] = createSignal<
     ReadonlyArray<import("../api/contracts").AssignmentCapabilityViolation>
   >([]);
   const [created, setCreated] = createSignal<AssignmentEditorDetail>();
-  let runMinutesInput: HTMLInputElement | undefined;
+  const [teachingSettings, setTeachingSettings] =
+    createSignal<AssignmentEditorDetail["teachingSettings"]>();
+  const [teachingCurrentState, setTeachingCurrentState] =
+    createSignal<AssignmentEditorDetail["currentState"]>();
+  const [teachingMessage, setTeachingMessage] = createSignal("");
+  const [teachingFailureField, setTeachingFailureField] = createSignal<string>();
+  const [latestTeachingSettings, setLatestTeachingSettings] =
+    createSignal<AssignmentEditorDetail["teachingSettings"]>();
+  const [teachingBusy, setTeachingBusy] = createSignal(false);
   let violationHeading: HTMLHeadingElement | undefined;
+  let replacementQuestionInput: HTMLInputElement | undefined;
   const currentDraft = createMemo<AssignmentEditorDraft | undefined>(() => {
     const current = state();
     return current.kind === "ready" ? current.draft : undefined;
@@ -98,6 +102,11 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
     return current.kind === "ready" ? current : undefined;
   };
 
+  function beginReplacement(itemId: string): void {
+    setTargetItemId(itemId);
+    queueMicrotask(() => replacementQuestionInput?.focus());
+  }
+
   async function load(): Promise<void> {
     setState({ kind: "loading" });
     setConflict(false);
@@ -105,7 +114,6 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
       if (props.mode.kind === "create") {
         const draft = createMasteryAssignmentDraft(props.courseId);
         setState({ kind: "ready", draft });
-        adoptTiming(draft.assignmentTiming.timeLimitSeconds);
         setCreated(undefined);
         setMessage("Choose a title and Question IDs.");
         return;
@@ -118,7 +126,8 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
       )
         throw new Error("The editor received an unrelated assignment.");
       setState({ kind: "ready", draft: draftFrom(detail) });
-      adoptTiming(detail.assignmentTiming.timeLimitSeconds);
+      setTeachingSettings(detail.teachingSettings);
+      setTeachingCurrentState(detail.currentState);
       setMessage("Assignment loaded.");
     } catch (error: unknown) {
       setState({
@@ -127,20 +136,56 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
       });
     }
   }
-  function adoptTiming(seconds: number | null): void {
-    setRunTimed(seconds !== null);
-    setRunMinutesText(runTimeLimitMinutes(seconds));
-    setPreservedRunSeconds(seconds);
-    setRunMinutesEdited(false);
-  }
-  function timing(): { readonly seconds: number | null; readonly error: string | null } {
-    return runMinutesEdited()
-      ? minutesToRunTimeLimit(runMinutesText(), runTimed())
-      : { seconds: runTimed() ? preservedRunSeconds() : null, error: null };
-  }
   function update(next: AssignmentEditorDraft): void {
     setState({ kind: "ready", draft: next });
     setMessage("Unsaved assignment changes.");
+  }
+  async function saveTeachingSettings(
+    settings: AssignmentEditorDetail["teachingSettings"],
+  ): Promise<void> {
+    const current = ready();
+    if (current === undefined || props.mode.kind !== "edit" || teachingBusy()) return;
+    setTeachingBusy(true);
+    setTeachingMessage("");
+    setTeachingFailureField(undefined);
+    try {
+      const saved = await props.repository.saveTeachingSettings(
+        props.courseId,
+        props.mode.assignmentId,
+        settings,
+        current.draft.revision,
+      );
+      // Teaching operations are a separate transaction; keep ordinary content
+      // edits in the browser and only advance their shared revision.
+      setState({ kind: "ready", draft: { ...current.draft, revision: saved.revision } });
+      setTeachingSettings(saved.teachingSettings);
+      setTeachingCurrentState(saved.currentState);
+      setLatestTeachingSettings(undefined);
+      setTeachingMessage("Teaching operations saved.");
+    } catch (error: unknown) {
+      if (error instanceof AssignmentTeachingSettingsValidationError) {
+        setTeachingFailureField(error.failure.field);
+        setTeachingMessage(error.failure.message);
+      } else {
+        if (error instanceof AssignmentConflictError) {
+          try {
+            const latest = await props.repository.load(props.mode.assignmentId);
+            setLatestTeachingSettings(latest.teachingSettings);
+            setTeachingCurrentState(latest.currentState);
+            setState({ kind: "ready", draft: { ...current.draft, revision: latest.revision } });
+          } catch {
+            // Keep the local draft even if the latest-version fetch is unavailable.
+          }
+        }
+        setTeachingMessage(
+          error instanceof AssignmentConflictError
+            ? "A newer teaching-settings revision was fetched. Your edits are still here; retry to save them, or adopt the latest teaching operations."
+            : "Teaching operations were not saved. Correct the schedule or try again.",
+        );
+      }
+    } finally {
+      setTeachingBusy(false);
+    }
   }
   async function loadReusableAssignments(): Promise<void> {
     if (props.mode.kind !== "create") return;
@@ -360,31 +405,18 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
   async function save(): Promise<void> {
     const current = ready();
     if (current === undefined || busy()) return;
-    const validatedTiming = timing();
-    if (validatedTiming.error !== null) {
-      setMessage(validatedTiming.error);
-      queueMicrotask(() => runMinutesInput?.focus());
-      return;
-    }
     setBusy(true);
     try {
       const saved =
         props.mode.kind === "create"
-          ? await props.repository.create(props.courseId, {
-              ...assignmentCreateInput(current.draft),
-              assignmentTiming: { timeLimitSeconds: validatedTiming.seconds },
-            })
+          ? await props.repository.create(props.courseId, assignmentCreateInput(current.draft))
           : await props.repository.save(
               props.courseId,
               props.mode.assignmentId,
-              {
-                ...assignmentInput(current.draft),
-                assignmentTiming: { timeLimitSeconds: validatedTiming.seconds },
-              },
+              assignmentInput(current.draft),
               current.draft.revision,
             );
       setState({ kind: "ready", draft: draftFrom(saved) });
-      adoptTiming(saved.assignmentTiming.timeLimitSeconds);
       if (props.mode.kind === "create") {
         setCreated(saved);
         setMessage("Assignment created. Open it to review the student-facing course link.");
@@ -463,7 +495,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                   <p>{assignment().title} now appears in this course.</p>
                   <A
                     class="primary-link"
-                    href={`/courses/${courseRouteReference(props.courseReference)}/assignments/${assignmentRouteReference(assignment().reference)}`}
+                    href={`/instructor/courses/${courseRouteReference(props.courseReference)}/assignments/${assignmentRouteReference(assignment().reference)}/edit`}
                   >
                     Open {assignment().title}
                   </A>
@@ -657,7 +689,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                             <button
                               class="quiet-action"
                               disabled={props.mode.kind === "create"}
-                              onClick={() => setTargetItemId(item.id)}
+                              onClick={() => beginReplacement(item.id)}
                             >
                               Replace
                             </button>
@@ -721,25 +753,31 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                 <AssignmentEditorPolicyPanel
                   policies={() => draft().policies}
                   disclosurePolicy={() => draft().disclosurePolicy}
-                  runTimed={runTimed}
-                  runMinutesText={runMinutesText}
-                  runTimingError={() => timing().error}
                   onPoliciesChange={(policies) => update({ ...draft(), policies })}
                   onDisclosurePolicyChange={(disclosurePolicy) =>
                     update({ ...draft(), disclosurePolicy })
                   }
-                  onRunTimedChange={(timed) => {
-                    setRunTimed(timed);
-                    if (timed && preservedRunSeconds() === null) setRunMinutesEdited(true);
-                  }}
-                  onRunMinutesInput={(value) => {
-                    setRunMinutesEdited(true);
-                    setRunMinutesText(value);
-                  }}
-                  onRunMinutesInputRef={(element) => {
-                    runMinutesInput = element;
-                  }}
                 />
+                <Show when={props.mode.kind === "edit"}>
+                  <AssignmentTeachingOperationsPanel
+                    settings={teachingSettings}
+                    currentState={teachingCurrentState}
+                    busy={teachingBusy}
+                    message={teachingMessage}
+                    failureField={teachingFailureField}
+                    latestSettings={latestTeachingSettings}
+                    onAdoptLatest={() => {
+                      const latest = latestTeachingSettings();
+                      if (latest !== undefined) {
+                        setTeachingSettings(latest);
+                        setLatestTeachingSettings(undefined);
+                        setTeachingFailureField(undefined);
+                        setTeachingMessage("Latest teaching operations adopted.");
+                      }
+                    }}
+                    onSave={saveTeachingSettings}
+                  />
+                </Show>
                 <h2>
                   {targetItemId() === undefined ? "Add from library" : "Replace assigned question"}
                 </h2>
@@ -771,6 +809,9 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                 <label class="assignment-editor-field">
                   Question ID
                   <input
+                    ref={(element) => {
+                      replacementQuestionInput = element;
+                    }}
                     aria-label={
                       targetItemId() === undefined ? "Add Question ID" : "Replacement Question ID"
                     }

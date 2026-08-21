@@ -57,6 +57,9 @@ async function main() {
     ...mockArguments,
   ]);
 
+  process.stdout.write("\n== WP-PROF-T2 teaching-operations corpus (no containers needed) ==\n");
+  await run(root, "node", ["tests/playwright/capture_t2_visual_corpus.mjs", ...mockArguments]);
+
   process.stdout.write("\n== student/access corpus (no containers needed) ==\n");
   await run(root, "node", [
     "tests/playwright/capture_student_access_visuals.mjs",

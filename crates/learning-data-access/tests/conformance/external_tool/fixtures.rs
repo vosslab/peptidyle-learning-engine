@@ -110,13 +110,16 @@ where
     let mut external_policies = policies();
     external_policies.completion = CompletionRequirement::AnswerAll;
     store
-        .create_untimed_assignment(
+        .create_assignment_with_default_policy(
             context,
+            instructor,
             AssignmentRecord {
                 id: assignment,
                 tenant,
                 course_id: course,
                 title: "External tool assignment".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Published,
+                instructions: question_model::AssignmentInstructions::default(),
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![ProblemVersionRef { problem, version }]),
                 selection_groups: Vec::new(),

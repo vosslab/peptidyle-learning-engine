@@ -12,9 +12,10 @@ import type { QuestionId } from "../../generated/api/QuestionId";
 import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import type { RunId } from "../../generated/api/RunId";
 import type { LearnerAssignmentProgress } from "../../generated/api/LearnerAssignmentProgress";
-import type { ApiClient } from "./client";
+import type { ApiClient, OrdinaryBrowserApiClient } from "./client";
 import type {
   LearnerAssignmentSummary,
+  LearnerAssignmentDetail,
   CourseRouteData,
   CourseSummary,
   CursorPage,
@@ -28,15 +29,15 @@ interface QueryFunction<Arguments extends ReadonlyArray<unknown>, Result> {
   readonly keyFor: (...arguments_: Arguments) => string;
 }
 
-export interface ApiRuntime {
-  readonly client: ApiClient;
+export interface ApiRuntime<Client extends ApiClient = ApiClient> {
+  readonly client: Client;
   readonly queries: {
     readonly courses: QueryFunction<[], CursorPage<CourseSummary>>;
     readonly catalogSearch: QueryFunction<[CatalogSearchQuery], CatalogSearchPage>;
     readonly catalogDetail: QueryFunction<[QuestionId], CatalogProblemDetail>;
     readonly gradebook: QueryFunction<[CourseId], CursorPage<GradebookSummaryRow>>;
     readonly assignments: QueryFunction<[CourseId], CursorPage<LearnerAssignmentSummary>>;
-    readonly assignment: QueryFunction<[AssignmentId], LearnerAssignmentSummary>;
+    readonly assignment: QueryFunction<[AssignmentId], LearnerAssignmentDetail>;
     readonly assignmentSummary: QueryFunction<[AssignmentId], LearnerAssignmentProgress>;
     readonly courseScope: QueryFunction<[CourseId], CourseRouteData>;
     readonly runScreen: QueryFunction<[RunId], RunScreenData>;
@@ -45,7 +46,7 @@ export interface ApiRuntime {
 }
 
 /** Creates stable query identities around one injected transport. */
-export function createApiRuntime(client: ApiClient): ApiRuntime {
+export function createApiRuntime<Client extends ApiClient>(client: Client): ApiRuntime<Client> {
   return {
     client,
     queries: {
@@ -90,10 +91,10 @@ export function createApiRuntime(client: ApiClient): ApiRuntime {
   };
 }
 
-const ApiRuntimeContext = createContext<ApiRuntime>();
+const ApiRuntimeContext = createContext<ApiRuntime<OrdinaryBrowserApiClient>>();
 
 export interface ApiRuntimeProviderProps {
-  readonly runtime: ApiRuntime;
+  readonly runtime: ApiRuntime<OrdinaryBrowserApiClient>;
   readonly children: JSX.Element;
 }
 
@@ -105,7 +106,7 @@ export function ApiRuntimeProvider(props: ApiRuntimeProviderProps): JSX.Element 
 }
 
 /** Reads the app-owned client/query runtime. */
-export function useApiRuntime(): ApiRuntime {
+export function useApiRuntime(): ApiRuntime<OrdinaryBrowserApiClient> {
   const runtime = useContext(ApiRuntimeContext);
   if (runtime === undefined) {
     throw new Error("ApiRuntimeProvider is missing from the application root");

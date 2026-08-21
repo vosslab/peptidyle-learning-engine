@@ -1,0 +1,5 @@
+# Universal paths outside production code maps
+tests/
+devel/
+tools/
+docs/

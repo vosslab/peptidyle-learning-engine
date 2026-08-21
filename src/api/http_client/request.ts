@@ -2,6 +2,7 @@ import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { AssignmentRun } from "../../../generated/api/AssignmentRun";
 import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type { CourseAppearanceUpdate } from "../../../generated/api/CourseAppearanceUpdate";
+import type { CourseGradeSchemeUpdateView } from "../../../generated/api/CourseGradeSchemeUpdateView";
 import type { CourseBannerCandidateReceipt } from "../../../generated/api/CourseBannerCandidateReceipt";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
@@ -25,10 +26,14 @@ import {
   decodeAssignmentCreateInput,
   decodeAssignmentEditorDetail,
   decodeAssignmentEditorInput,
+  decodeAssignmentTeachingSettingsValidationFailure,
+  decodeInstructorAssignmentTeachingSettingsLocal,
   decodeReplaceAssignmentItemQuestionInput,
   decodeAssignmentRun,
   decodeCapabilityViolations,
   decodeCourseAppearance,
+  decodeCourseGradeSchemeView,
+  decodeCourseGradeSchemeUpdateView,
   decodeCourseBannerCandidateReceipt,
   decodeCourseCreateInput,
   decodeCourseSummary,
@@ -50,8 +55,10 @@ import {
   ApiRequestError,
   AssignmentConflictError,
   AssignmentValidationError,
+  AssignmentTeachingSettingsValidationError,
   CourseAppearanceConflictError,
   CourseAppearanceFileError,
+  CourseGradeSchemeConflictError,
   CourseTermValidationError,
   PublicationValidationError,
   WorkspaceConflictError,
@@ -229,7 +236,7 @@ export async function requestAssignmentEditor(
     credentials: "same-origin",
     cache: "no-store",
   });
-  if (response.status === 409 || response.status === 428)
+  if (response.status === 409 || response.status === 412 || response.status === 428)
     throw new AssignmentConflictError(response.status, path);
   responseContentType(response, path);
   const text = await response.text();
@@ -248,6 +255,17 @@ export async function requestAssignmentEditor(
       path,
       decodeAssignmentCapabilityViolations(value, "response"),
     );
+  if (response.status === 422) {
+    try {
+      throw new AssignmentTeachingSettingsValidationError(
+        path,
+        decodeAssignmentTeachingSettingsValidationFailure(value, "response"),
+      );
+    } catch (error: unknown) {
+      if (error instanceof AssignmentTeachingSettingsValidationError) throw error;
+      throw new ApiRequestError(response.status, path);
+    }
+  }
   if (!response.ok) throw new ApiRequestError(response.status, path);
   const detail = decodeAssignmentEditorDetail(value, "response");
   if (expected.assignmentId !== undefined && detail.id !== expected.assignmentId)
@@ -275,9 +293,12 @@ export function createRequestClient(
   | "publishWorkspace"
   | "uploadCourseBannerCandidate"
   | "saveCourseAppearance"
+  | "saveCourseGradeScheme"
+  | "createCourseGradeExport"
   | "createCourse"
   | "createAssignment"
   | "saveAssignment"
+  | "saveAssignmentTeachingSettings"
   | "addAssignmentItem"
   | "removeAssignmentItem"
   | "replaceAssignmentItemQuestion"
@@ -290,6 +311,68 @@ export function createRequestClient(
   | "validateAssignmentConfigOnServer"
 > {
   return {
+    saveCourseGradeScheme: async (
+      courseId,
+      update: CourseGradeSchemeUpdateView,
+      revision: string,
+    ): ReturnType<ApiClient["saveCourseGradeScheme"]> => {
+      if (!validRevision(revision))
+        throw new ApiProtocolError("course grade scheme needs one positive strong revision");
+      const body = decodeCourseGradeSchemeUpdateView(update, "request");
+      const path = `/api/courses/${encodedId(courseId)}/grade-scheme`;
+      const response = await fetchImplementation(requestPath(basePath, path), {
+        method: "PUT",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+          "if-match": revision,
+        },
+        body: JSON.stringify(body),
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      requireNoStore(response, path);
+      if (response.status === 412) throw new CourseGradeSchemeConflictError(path);
+      if (!response.ok) throw new ApiRequestError(response.status, path);
+      const scheme = decodeCourseGradeSchemeView(await boundedResponseJson(response, path));
+      const nextRevision = response.headers.get("etag");
+      if (nextRevision === null || !validRevision(nextRevision))
+        throw new ApiProtocolError(
+          `API response ${path} must include one positive strong numeric ETag`,
+        );
+      return { ...scheme, revision: nextRevision };
+    },
+    createCourseGradeExport: async (courseId): ReturnType<ApiClient["createCourseGradeExport"]> => {
+      const path = `/api/courses/${encodedId(courseId)}/grade-export.csv`;
+      const response = await fetchImplementation(requestPath(basePath, path), {
+        method: "POST",
+        headers: { accept: "text/csv" },
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      requireNoStore(response, path);
+      if (!response.ok) throw new ApiRequestError(response.status, path);
+      if (
+        response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "text/csv"
+      )
+        throw new ApiProtocolError(`API response ${path} must use text/csv`);
+      const exportId = response.headers.get("x-ple-course-grade-export-id");
+      const filename = response.headers
+        .get("content-disposition")
+        ?.match(/^attachment; filename=([A-Za-z0-9._-]+)$/u)?.[1];
+      if (
+        exportId === null ||
+        !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu.test(exportId) ||
+        filename === undefined
+      )
+        throw new ApiProtocolError(
+          `API response ${path} must include a safe export identity and filename`,
+        );
+      const csv = await response.blob();
+      if (csv.size > 4 * 1_024 * 1_024)
+        throw new ApiProtocolError(`API response ${path} exceeds the course export limit`);
+      return { exportId, filename, csv };
+    },
     saveWorkspaceDraft: (
       workspace,
       draft,
@@ -458,6 +541,29 @@ export function createRequestClient(
         {
           method: "PUT",
           body: decodeAssignmentEditorInput(input, "request"),
+          headers: { "if-match": revision },
+        },
+      );
+    },
+    saveAssignmentTeachingSettings: (
+      courseId,
+      assignmentId,
+      settings,
+      revision,
+    ): ReturnType<ApiClient["saveAssignmentTeachingSettings"]> => {
+      if (!validRevision(revision))
+        return Promise.reject(
+          new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
+        );
+      const path = `${assignmentPath(courseId, assignmentId)}/teaching-settings`;
+      return requestAssignmentEditor(
+        fetchImplementation,
+        basePath,
+        path,
+        { courseId, assignmentId },
+        {
+          method: "PUT",
+          body: decodeInstructorAssignmentTeachingSettingsLocal(settings, "request"),
           headers: { "if-match": revision },
         },
       );

@@ -14,7 +14,7 @@ pub(super) async fn exercise_run_api_store<S>(
         .expect("assignment edit read")
         .expect("run assignment exists");
     let withheld = store
-        .replace_assignment_preserving_timing(
+        .replace_assignment(
             fixture.context,
             fixture.course,
             fixture.assignment,

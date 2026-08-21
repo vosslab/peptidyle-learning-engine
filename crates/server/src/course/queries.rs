@@ -337,7 +337,19 @@ where
         .list_gradebook_rows(authenticated.tenant_context, course, page)
         .await
     {
-        Ok(page) => no_store(Json(page).into_response()),
+        Ok(mut page) => {
+            // A retained aggregate can remain present while the scorer is
+            // recalculating or has failed. Do not turn that retained value
+            // into an instructor-visible stale total.
+            for row in &mut page.items {
+                if !matches!(row.scoring_status, question_model::ScoringStatus::Current) {
+                    row.summary.current_score = None;
+                    row.summary.best_score = None;
+                    row.summary.latest_score = None;
+                }
+            }
+            no_store(Json(page).into_response())
+        }
         Err(error) => store_error_response(error),
     }
 }

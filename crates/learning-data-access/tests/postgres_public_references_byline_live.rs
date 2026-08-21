@@ -2,6 +2,10 @@
 
 //! Disposable PostgreSQL 17 oracle for public route references and bylines.
 
+#[path = "fixtures/published_assignment.rs"]
+mod published_assignment;
+use published_assignment::create_published_assignment;
+
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateCourseCommand,
@@ -17,11 +21,11 @@ use question_model::run_policy::{
 };
 use question_model::taxonomy::License;
 use question_model::{
-    AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId, AssignmentRunTiming,
-    AssignmentScoringMode, BackendCapabilities, Capability, CourseGroupReference, CourseId,
-    DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, PointValue, ProblemId,
-    ProblemVersionRef, PublicAuthorName, PublicByline, PublicationScope, QuestionMetadata,
-    QuestionSource, ResponseDefinition, RunId, TenantId, UserId, VersionId, WorkspaceId,
+    AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId, AssignmentScoringMode,
+    BackendCapabilities, Capability, CourseGroupReference, CourseId, DraftQuestionDefinition,
+    DraftQuestionSource, GradingDefinition, PointValue, ProblemId, ProblemVersionRef,
+    PublicAuthorName, PublicByline, PublicationScope, QuestionMetadata, QuestionSource,
+    ResponseDefinition, RunId, TenantId, UserId, VersionId, WorkspaceId,
 };
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
@@ -313,29 +317,30 @@ async fn postgres_public_references_and_bylines_are_normalized_authorized_and_im
         .await
         .expect("create separately addressable workspace fixture");
     let assignment = AssignmentId::from_uuid(id());
-    store
-        .create_assignment_with_timing(
-            context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                title: "Public-reference practice".to_string(),
-                audience: question_model::AssignmentAudience::CourseWide,
-                items: vec![assignment_item(ProblemVersionRef {
-                    problem: published.problem,
-                    version: published.version,
-                })],
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: policies(),
-            },
-            AssignmentRunTiming {
-                time_limit_seconds: None,
-            },
-        )
-        .await
-        .expect("create assignment");
+    create_published_assignment(
+        &store,
+        context,
+        instructor,
+        AssignmentRecord {
+            id: assignment,
+            tenant,
+            course_id: course,
+            title: "Public-reference practice".to_string(),
+            lifecycle: question_model::AssignmentLifecycle::Published,
+            instructions: question_model::AssignmentInstructions::default(),
+            audience: question_model::AssignmentAudience::CourseWide,
+            items: vec![assignment_item(ProblemVersionRef {
+                problem: published.problem,
+                version: published.version,
+            })],
+            selection_groups: Vec::new(),
+            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            policies: policies(),
+        },
+        question_model::BaseAssignmentPolicy::default(),
+    )
+    .await
+    .expect("create assignment");
     store
         .upsert_course_member(
             context,

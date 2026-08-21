@@ -52,6 +52,7 @@ export function fixtureLearnerProgress(
   if (!hasActivity) {
     return {
       scoreState: "noActivity",
+      scoringStatus: "current",
       currentScore: null,
       bestScore: null,
       latestScore: null,
@@ -62,6 +63,7 @@ export function fixtureLearnerProgress(
   }
   return {
     scoreState: "available",
+    scoringStatus: "current",
     currentScore: summary.currentScore,
     bestScore: summary.bestScore,
     latestScore: summary.latestScore,
@@ -77,7 +79,5 @@ export function fixtureLearnerAssignment(assignment: AssignmentSummary): Learner
     id: assignment.id,
     reference: assignment.reference,
     title: assignment.title,
-    items: assignment.items,
-    selectionGroups: assignment.selectionGroups,
   };
 }

@@ -413,7 +413,7 @@ mod tests {
             .expect("student roster membership");
         let reference = publish_fixture(&store, context, tenant, requester).await;
         store
-            .create_untimed_assignment(
+            .create_assignment(
                 context,
                 AssignmentRecord {
                     id: assignment,
@@ -421,6 +421,8 @@ mod tests {
                     course_id: course,
                     audience: question_model::AssignmentAudience::CourseWide,
                     title: "Peptide bond exam".to_string(),
+                    lifecycle: question_model::AssignmentLifecycle::Draft,
+                    instructions: question_model::AssignmentInstructions::default(),
                     items: vec![question_model::AssignmentItem {
                         id: question_model::AssignmentItemId::from_uuid(id(105)),
                         reference,
@@ -433,9 +435,23 @@ mod tests {
                     disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                     policies: policies(),
                 },
+                question_model::BaseAssignmentPolicy::default(),
             )
             .await
             .expect("assignment save");
+        crate::course::tests::fixtures::publish_assignment(
+            store.as_ref(),
+            context,
+            requester,
+            course,
+            assignment,
+            question_model::AssignmentTeachingSettings {
+                lifecycle: question_model::AssignmentLifecycle::Published,
+                instructions: question_model::AssignmentInstructions::default(),
+                base_policy: question_model::BaseAssignmentPolicy::default(),
+            },
+        )
+        .await;
         let app = router(Arc::clone(&store));
 
         let created = app

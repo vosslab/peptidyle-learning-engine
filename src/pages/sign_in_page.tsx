@@ -1,7 +1,7 @@
 // PLE-owned passwordless sign-in, email completion, and account course selection.
 
 import { A, useNavigate } from "@solidjs/router";
-import { For, Show, createSignal, type JSX } from "solid-js";
+import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 
 import type { AccountCourse } from "../api/enrollment";
 import {
@@ -9,9 +9,13 @@ import {
   registerPasskeyWithBrowser,
 } from "../api/http_client/enrollment";
 import { useApiRuntime } from "../api/runtime";
+import type { SeededDemoAccount } from "../api/live_demo";
 import { courseRouteReference } from "../navigation/public_route";
 import { useSessionBootstrap } from "../auth/session_context";
 import { consumeTokenFragment } from "../auth/secret_fragment";
+import { AccountCoursePicker } from "./account_course_picker";
+import { isLiveDemoUnavailable, seededDemoDescription } from "./live_demo_auth_model";
+import "./live_demo_auth.css";
 
 type AccountState =
   | { readonly kind: "idle" }
@@ -32,34 +36,19 @@ function accountCourses(state: AccountState): ReadonlyArray<AccountCourse> {
   return state.kind === "courses" ? state.courses : [];
 }
 
-interface CoursePickerProps {
-  readonly courses: ReadonlyArray<AccountCourse>;
-  readonly select: (course: AccountCourse) => Promise<void>;
-  readonly busy: boolean;
+type SeededDemoState =
+  | { readonly kind: "loading" }
+  | { readonly kind: "ready"; readonly accounts: ReadonlyArray<SeededDemoAccount> }
+  | { readonly kind: "opening"; readonly displayName: string }
+  | { readonly kind: "unavailable" }
+  | { readonly kind: "error" };
+
+function seededAccounts(state: SeededDemoState): ReadonlyArray<SeededDemoAccount> {
+  return state.kind === "ready" ? state.accounts : [];
 }
 
-function CoursePicker(props: CoursePickerProps): JSX.Element {
-  return (
-    <section class="auth-panel" aria-labelledby="account-courses-heading">
-      <h2 id="account-courses-heading">Choose your course</h2>
-      <p>Your PLE account can belong to courses from different instructors.</p>
-      <div class="account-course-list">
-        <For each={props.courses}>
-          {(course) => (
-            <button
-              class="quiet-action account-course-action"
-              type="button"
-              disabled={props.busy}
-              onClick={() => void props.select(course)}
-            >
-              <span>{course.title}</span>
-              <small>{course.role}</small>
-            </button>
-          )}
-        </For>
-      </div>
-    </section>
-  );
+function seededDemoOpeningName(state: SeededDemoState): string {
+  return state.kind === "opening" ? state.displayName : "";
 }
 
 export function SignInPage(): JSX.Element {
@@ -68,14 +57,20 @@ export function SignInPage(): JSX.Element {
   const navigate = useNavigate();
   const [email, setEmail] = createSignal("");
   const [state, setState] = createSignal<AccountState>({ kind: "idle" });
+  const [seededDemo, setSeededDemo] = createSignal<SeededDemoState>({ kind: "loading" });
+  let courseHeading: HTMLHeadingElement | undefined;
+  let seededDemoRetry: HTMLButtonElement | undefined;
 
-  async function loadCourses(): Promise<void> {
+  async function loadCourses(focusCourses = false): Promise<void> {
     setState({ kind: "busy", message: "Opening your account..." });
     try {
       const page = await runtime.client.listAccountCourses();
-      setState(
-        page.courses.length === 0 ? { kind: "empty" } : { kind: "courses", courses: page.courses },
-      );
+      if (page.courses.length === 0) {
+        setState({ kind: "empty" });
+        return;
+      }
+      setState({ kind: "courses", courses: page.courses });
+      if (focusCourses) queueMicrotask(() => courseHeading?.focus());
     } catch {
       setState(accountError("Your account is signed in, but its course list could not load."));
     }
@@ -119,6 +114,35 @@ export function SignInPage(): JSX.Element {
     }
   }
 
+  async function loadSeededDemoAccounts(): Promise<void> {
+    setSeededDemo({ kind: "loading" });
+    try {
+      const response = await runtime.client.listSeededDemoAccounts();
+      setSeededDemo({ kind: "ready", accounts: response.accounts });
+    } catch (error: unknown) {
+      if (isLiveDemoUnavailable(error)) {
+        setSeededDemo({ kind: "unavailable" });
+        return;
+      }
+      setSeededDemo({ kind: "error" });
+      queueMicrotask(() => seededDemoRetry?.focus());
+    }
+  }
+
+  async function selectSeededDemoAccount(account: SeededDemoAccount): Promise<void> {
+    const accounts = seededAccounts(seededDemo());
+    setSeededDemo({ kind: "opening", displayName: account.displayName });
+    try {
+      await runtime.client.selectSeededDemoAccount(account.persona);
+      await loadCourses(true);
+      setSeededDemo({ kind: "ready", accounts });
+    } catch {
+      setSeededDemo({ kind: "error" });
+    }
+  }
+
+  onMount(() => void loadSeededDemoAccounts());
+
   return (
     <section class="page auth-page" data-route-surface="signIn">
       <p class="eyebrow">Passwordless account</p>
@@ -161,6 +185,58 @@ export function SignInPage(): JSX.Element {
             Sign in with a passkey
           </button>
         </section>
+
+        <Show when={seededDemo().kind !== "unavailable"}>
+          <section class="auth-panel live-demo-panel" aria-labelledby="live-demo-heading">
+            <h2 id="live-demo-heading">Explore this live demo</h2>
+            <p>
+              Choose a seeded PLE account, then choose a course. Your actions use the normal PLE
+              system.
+            </p>
+            <Show when={seededDemo().kind === "loading"}>
+              <p class="calm-status live-demo-status" role="status" aria-live="polite">
+                Loading available demo accounts...
+              </p>
+            </Show>
+            <Show when={seededDemo().kind === "ready" || seededDemo().kind === "opening"}>
+              <div class="live-demo-persona-list">
+                <For each={seededAccounts(seededDemo())}>
+                  {(account) => (
+                    <button
+                      class="quiet-action live-demo-persona-action"
+                      type="button"
+                      disabled={seededDemo().kind === "opening"}
+                      onClick={() => void selectSeededDemoAccount(account)}
+                    >
+                      <span>Continue as {account.displayName}</span>
+                      <small>{seededDemoDescription(account.persona)}</small>
+                    </button>
+                  )}
+                </For>
+              </div>
+            </Show>
+            <Show when={seededDemo().kind === "opening"}>
+              <p class="calm-status live-demo-status" role="status" aria-live="polite">
+                Opening {seededDemoOpeningName(seededDemo())}'s account...
+              </p>
+            </Show>
+            <Show when={seededDemo().kind === "error"}>
+              <section class="inline-error" role="alert">
+                <p>That demo account could not be opened. Try again in a moment.</p>
+                <button
+                  class="quiet-action"
+                  type="button"
+                  ref={(element) => {
+                    seededDemoRetry = element;
+                  }}
+                  onClick={() => void loadSeededDemoAccounts()}
+                >
+                  Retry
+                </button>
+              </section>
+            </Show>
+          </section>
+        </Show>
       </div>
 
       <Show when={state().kind === "busy"}>
@@ -174,7 +250,14 @@ export function SignInPage(): JSX.Element {
         </p>
       </Show>
       <Show when={state().kind === "courses"}>
-        <CoursePicker courses={accountCourses(state())} select={selectCourse} busy={false} />
+        <AccountCoursePicker
+          courses={accountCourses(state())}
+          select={selectCourse}
+          busy={false}
+          headingRef={(element) => {
+            courseHeading = element;
+          }}
+        />
       </Show>
       <Show when={state().kind === "empty"}>
         <section class="auth-panel" role="status">
@@ -315,7 +398,7 @@ export function EmailAuthenticationCompletePage(): JSX.Element {
         </section>
       </Show>
       <Show when={state().kind === "courses"}>
-        <CoursePicker courses={accountCourses(state())} select={selectCourse} busy={false} />
+        <AccountCoursePicker courses={accountCourses(state())} select={selectCourse} busy={false} />
       </Show>
       <Show when={state().kind === "empty"}>
         <section class="auth-panel" role="status">

@@ -32,10 +32,9 @@ use learning_data_access::{
 use question_model::{CourseId, CourseMembershipRole, UserId, UserRole};
 use serde::{Deserialize, Serialize};
 
-use super::{ClientAddressPolicy, SessionConfig, issue_session, no_store, response_with_cookie};
-
-#[cfg(test)]
-use super::AuthError;
+use super::{
+    AuthError, ClientAddressPolicy, SessionConfig, issue_session, no_store, response_with_cookie,
+};
 
 pub(super) use support::{
     RandomSecret, authenticated_account, authenticated_account_session, authentication_rejected,
@@ -56,9 +55,9 @@ const EMAIL_RATE_LIMIT_ATTEMPTS: u32 = 5;
 // Network is deliberately a coarse /24 (IPv4) or /56 (IPv6) budget.  A
 // campus/NAT should sustain normal class traffic, while one prefix cannot use
 // this low-cost endpoint as an unlimited email relay.
-pub(super) const NETWORK_RATE_LIMIT_ATTEMPTS: u32 = 600;
+pub(in crate::auth) const NETWORK_RATE_LIMIT_ATTEMPTS: u32 = 600;
 const PRINCIPAL_RATE_LIMIT_ATTEMPTS: u32 = 12;
-const SERVICE_RATE_LIMIT_ATTEMPTS: u32 = 4_000;
+pub(in crate::auth) const SERVICE_RATE_LIMIT_ATTEMPTS: u32 = 4_000;
 const EMAIL_DELIVERY_SERVICE_KEY: &[u8] = b"email-delivery-v1";
 const MAX_PASSWORDLESS_BODY_BYTES: usize = 16 * 1_024;
 const DEFAULT_ACCOUNT_COURSE_PAGE_SIZE: u16 = 50;
@@ -83,10 +82,39 @@ impl PasswordlessRateLimitIssuer {
         scope: AuthenticationRateLimitScope,
         value: &[u8],
     ) -> Option<AuthenticationRateLimitKey> {
+        self.key_in_domain(b"ple-passwordless-rate-limit-v1\\0", scope, value)
+    }
+
+    pub(in crate::auth) fn live_demo_key(
+        &self,
+        scope: AuthenticationRateLimitScope,
+        value: &[u8],
+    ) -> Option<AuthenticationRateLimitKey> {
+        self.key_in_domain(b"ple-live-demo-selector-rate-limit-v1\\0", scope, value)
+    }
+
+    pub(in crate::auth) fn seeded_sysadmin_ownership_key(
+        &self,
+        scope: AuthenticationRateLimitScope,
+        value: &[u8],
+    ) -> Option<AuthenticationRateLimitKey> {
+        self.key_in_domain(
+            b"ple-seeded-sysadmin-ownership-rate-limit-v1\\0",
+            scope,
+            value,
+        )
+    }
+
+    fn key_in_domain(
+        &self,
+        domain: &[u8],
+        scope: AuthenticationRateLimitScope,
+        value: &[u8],
+    ) -> Option<AuthenticationRateLimitKey> {
         let secret = self.0?;
         let mut mac = Hmac::<sha2::Sha256>::new_from_slice(&secret)
             .expect("HMAC-SHA256 accepts a 32-byte server secret");
-        mac.update(b"ple-passwordless-rate-limit-v1\0");
+        mac.update(domain);
         mac.update(match scope {
             AuthenticationRateLimitScope::Email => b"email\0",
             AuthenticationRateLimitScope::Network => b"network\0",
@@ -99,6 +127,40 @@ impl PasswordlessRateLimitIssuer {
             mac.finalize().into_bytes().into(),
         ))
     }
+}
+
+/// Creates an ordinary account proof for a server-verified account.
+pub(in crate::auth) async fn issue_account_session<S>(
+    store: &S,
+    user: UserId,
+    config: SessionConfig,
+) -> Result<String, AuthError>
+where
+    S: AccountSessionStore + ?Sized,
+{
+    let lifetime = AccountSessionLifetime::from_seconds(ACCOUNT_SESSION_SECONDS)
+        .expect("fifteen minutes is the account-session bound");
+    for _ in 0..super::TOKEN_GENERATION_ATTEMPTS {
+        let token = RandomSecret::generate()?;
+        match store
+            .create_account_session(AccountSessionTokenHash::compute(&token.0), user, lifetime)
+            .await
+        {
+            Ok(_) => {
+                return Ok(secret_cookie(
+                    ACCOUNT_SESSION_COOKIE,
+                    &token,
+                    ACCOUNT_SESSION_SECONDS,
+                    config,
+                ));
+            }
+            Err(StoreError::AlreadyExists) => continue,
+            Err(error) => return Err(AuthError::Unavailable(error.to_string())),
+        }
+    }
+    Err(AuthError::Unavailable(
+        "repeated account-session-token collision".to_string(),
+    ))
 }
 
 impl std::fmt::Debug for PasswordlessRateLimitIssuer {
@@ -458,12 +520,12 @@ where
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RateLimitOutcome {
+pub(in crate::auth) enum RateLimitOutcome {
     Allowed,
     Denied { retry_after_seconds: u32 },
 }
 
-async fn consume_rate_limits<S, const N: usize>(
+pub(in crate::auth) async fn consume_rate_limits<S, const N: usize>(
     store: &S,
     limits: [(
         AuthenticationRateLimitScope,

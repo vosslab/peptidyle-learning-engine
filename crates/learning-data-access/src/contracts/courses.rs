@@ -83,6 +83,10 @@ pub struct AssignmentRecord {
     pub course_id: CourseId,
     /// Human-facing assignment title.
     pub title: String,
+    /// Professor-controlled delivery state. Draft is never learner-visible.
+    pub lifecycle: question_model::AssignmentLifecycle,
+    /// Learner-facing instructions owned with the assignment definition.
+    pub instructions: question_model::AssignmentInstructions,
     /// Explicit current audience.  Course-wide and group-scoped delivery are
     /// different contracts; absence is not a compatible default.
     pub audience: question_model::AssignmentAudience,
@@ -102,8 +106,8 @@ pub struct AssignmentRecord {
 pub struct StoredAssignment {
     pub record: AssignmentRecord,
     pub revision: AssignmentRevision,
-    /// Editor-only whole-run timer choice held under the same revision.
-    pub assignment_timing: question_model::AssignmentRunTiming,
+    /// The assignment-owned base policy held under the same revision.
+    pub base_policy: question_model::BaseAssignmentPolicy,
     /// Generation matched by current computed score rows.
     pub scoring_generation: ScoringGeneration,
     /// Whether scores for this generation may be presented.
@@ -120,17 +124,6 @@ pub struct AssignmentUpdate {
     pub selection_groups: Vec<question_model::AssignmentSelectionGroup>,
     pub disclosure_policy: question_model::LearnerDisclosurePolicy,
     pub policies: RunPolicies,
-}
-
-/// One editor save expressed as one revision-checked persistence operation.
-///
-/// `assignment_timing` is deliberately narrower than the effective-policy
-/// resolver: a normal editor save must not clear schedule or accommodation
-/// settings owned by their dedicated policy workflow.
-#[derive(Debug, Clone, PartialEq)]
-pub struct AssignmentEditorUpdate {
-    pub assignment: AssignmentUpdate,
-    pub assignment_timing: question_model::AssignmentRunTiming,
 }
 
 /// Revision-checked instructor command behind the Delete and Regrade action.
@@ -483,6 +476,8 @@ mod assignment_selection_tests {
             tenant: TenantId::from_uuid(id(2)),
             course_id: CourseId::from_uuid(id(3)),
             title: "Selection fixture".to_string(),
+            lifecycle: question_model::AssignmentLifecycle::Draft,
+            instructions: question_model::AssignmentInstructions::default(),
             audience: question_model::AssignmentAudience::CourseWide,
             items: vec![AssignmentItem {
                 id: AssignmentItemId::from_uuid(id(30)),
@@ -562,6 +557,8 @@ mod assignment_selection_tests {
             tenant: TenantId::from_uuid(id(203)),
             course_id: CourseId::from_uuid(id(204)),
             title: "Scoring modes".to_string(),
+            lifecycle: question_model::AssignmentLifecycle::Draft,
+            instructions: question_model::AssignmentInstructions::default(),
             audience: question_model::AssignmentAudience::CourseWide,
             items: modes
                 .into_iter()
@@ -684,6 +681,8 @@ mod assignment_selection_tests {
             tenant,
             course_id: CourseId::from_uuid(id(303)),
             title: "Selected completion".to_string(),
+            lifecycle: question_model::AssignmentLifecycle::Draft,
+            instructions: question_model::AssignmentInstructions::default(),
             audience: question_model::AssignmentAudience::CourseWide,
             items: Vec::new(),
             selection_groups: vec![AssignmentSelectionGroup {
@@ -791,6 +790,8 @@ mod assignment_selection_tests {
             tenant: TenantId::from_uuid(id(2)),
             course_id: CourseId::from_uuid(id(3)),
             title: "Immutable item fixture".to_string(),
+            lifecycle: question_model::AssignmentLifecycle::Draft,
+            instructions: question_model::AssignmentInstructions::default(),
             audience: question_model::AssignmentAudience::CourseWide,
             items: vec![item(30, reference(1), 0), item(31, reference(2), 1)],
             selection_groups: vec![AssignmentSelectionGroup {

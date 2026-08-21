@@ -673,7 +673,7 @@ mod tests {
             .expect("fixture course saves");
         let reference = published_fixture(store.as_ref(), context, tenant, author).await;
         store
-            .create_untimed_assignment(
+            .create_assignment(
                 context,
                 AssignmentRecord {
                     id: assignment,
@@ -681,6 +681,8 @@ mod tests {
                     course_id: course,
                     audience: question_model::AssignmentAudience::CourseWide,
                     title: "Peptide bond exam".to_string(),
+                    lifecycle: question_model::AssignmentLifecycle::Draft,
+                    instructions: question_model::AssignmentInstructions::default(),
                     items: vec![question_model::AssignmentItem {
                         id: question_model::AssignmentItemId::from_uuid(id(24)),
                         reference,
@@ -693,9 +695,23 @@ mod tests {
                     disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                     policies: policies(),
                 },
+                question_model::BaseAssignmentPolicy::default(),
             )
             .await
             .expect("fixture assignment saves");
+        crate::course::tests::fixtures::publish_assignment(
+            store.as_ref(),
+            context,
+            author,
+            course,
+            assignment,
+            question_model::AssignmentTeachingSettings {
+                lifecycle: question_model::AssignmentLifecycle::Published,
+                instructions: question_model::AssignmentInstructions::default(),
+                base_policy: question_model::BaseAssignmentPolicy::default(),
+            },
+        )
+        .await;
         let session = SessionTokenHash::compute(b"export-worker-fixture-instructor");
         store
             .create_session(

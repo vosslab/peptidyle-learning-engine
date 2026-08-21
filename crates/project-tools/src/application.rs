@@ -12,6 +12,9 @@
 //! cargo tools bindgen <input.wasm> <web|node> <out-dir> <out-name>
 //! cargo tools fixtures <--check|--write>
 //! cargo tools tsgen [model-dir] [out-dir]
+//! cargo tools base-course --database-url <URL> --apply-migrations --tenant <UUID>
+//! --instructor <UUID> --mary <UUID> --jack <UUID> --approval-candidate <UUID>
+//! --sysadmin <UUID>
 //! cargo tools e2e-seed --database-url <URL> --apply-migrations --tenant <UUID> --instructor <UUID> --student <UUID>
 //! # Explicit renderer-acceptance fixture only (not normal local-stack seeding):
 //! cargo tools e2e-seed --webwork-pilot --database-url <URL> --apply-migrations
@@ -24,7 +27,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 use wasm_bindgen_cli_support::Bindgen;
 
-use crate::{database, e2e_seed, fixtures, pilot_content, tsgen};
+use crate::{base_course, database, e2e_seed, fixtures, pilot_content, tsgen};
 
 /// Where the Rust question model lives, relative to the repo root.
 const DEFAULT_MODEL_DIR: &str = "crates/question_model/src";
@@ -45,7 +48,9 @@ const DEFAULT_FIXTURE_TS: &str = "generated/fixtures/published_problem.ts";
 pub(crate) fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(command) = args.first() else {
-        bail!("usage: cargo tools <bindgen|database|fixtures|pilot-content|tsgen|e2e-seed> ...");
+        bail!(
+            "usage: cargo tools <bindgen|database|fixtures|pilot-content|tsgen|base-course|e2e-seed> ..."
+        );
     };
 
     match command.as_str() {
@@ -54,6 +59,7 @@ pub(crate) fn run() -> Result<()> {
         "fixtures" => run_fixtures(&args[1..]),
         "pilot-content" => pilot_content::run(&args[1..]),
         "tsgen" => run_tsgen(&args[1..]),
+        "base-course" => base_course::run(&args[1..]),
         "e2e-seed" => e2e_seed::run(&args[1..]),
         other => bail!("unknown command: {other}"),
     }

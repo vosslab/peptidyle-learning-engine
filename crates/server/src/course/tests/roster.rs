@@ -860,7 +860,7 @@ async fn manual_grade_export_contains_only_course_roster_identity_and_selected_s
         .expect("course fixture");
     let reference = publish_fixture(&store, context, tenant, instructor).await;
     store
-        .create_untimed_assignment(
+        .create_assignment(
             context,
             AssignmentRecord {
                 id: assignment,
@@ -868,6 +868,8 @@ async fn manual_grade_export_contains_only_course_roster_identity_and_selected_s
                 course_id: course,
                 audience: question_model::AssignmentAudience::CourseWide,
                 title: "Manual export assignment".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Draft,
+                instructions: question_model::AssignmentInstructions::default(),
                 items: vec![question_model::AssignmentItem {
                     id: question_model::AssignmentItemId::from_uuid(id(1_305)),
                     reference,
@@ -880,9 +882,23 @@ async fn manual_grade_export_contains_only_course_roster_identity_and_selected_s
                 disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: policies(),
             },
+            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("assignment fixture");
+    super::fixtures::publish_assignment(
+        store.as_ref(),
+        context,
+        instructor,
+        course,
+        assignment,
+        question_model::AssignmentTeachingSettings {
+            lifecycle: question_model::AssignmentLifecycle::Published,
+            instructions: question_model::AssignmentInstructions::default(),
+            base_policy: question_model::BaseAssignmentPolicy::default(),
+        },
+    )
+    .await;
     let instructor_cookie =
         issued_cookie_for_tenant(&store, tenant, vec![UserRole::Instructor], instructor).await;
     let app = router_with_invitations(

@@ -6,6 +6,10 @@
 //! limited to PostgreSQL-only facts: RLS, grants, and the sealed receipt
 //! relations that no in-memory Store can prove.
 
+#[path = "fixtures/published_assignment.rs"]
+mod published_assignment;
+use published_assignment::create_published_assignment;
+
 use domain::effective_assignment_policy::{
     BaseAssignmentPolicy, GroupAccommodation, GroupScheduleOffset, IndividualPolicyException,
     PolicyModificationMode, PolicyPatch, PolicyPatchSet, PolicySource, ScheduleOffsetSeconds,
@@ -14,7 +18,7 @@ use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_applicatio
 use learning_data_access::{
     AssignmentRecord, CatalogStore, CourseGroupRecord, CourseRecord, CourseRosterStore,
     CreateCourseCommand, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
-    PresentationCapability, PutBaseAssignmentPolicyCommand, PutCourseGroupCommand,
+    PresentationCapability, PutAssignmentTeachingSettingsCommand, PutCourseGroupCommand,
     PutGroupAccommodationCommand, PutGroupScheduleOffsetCommand,
     PutIndividualPolicyExceptionCommand, ResolveEffectivePolicyCommand, Store,
     StoredIndividualPolicyException, TenantContext, UpsertCourseMember, WebworkGradingCapability,
@@ -38,6 +42,8 @@ use question_model::{
 use sqlx::PgPool;
 use std::num::NonZeroU32;
 use uuid::Uuid;
+
+const TERM_BASE_MILLIS: i64 = 1_787_590_800_000;
 
 #[path = "conformance/effective_policy_parity.rs"]
 mod effective_policy_parity;
@@ -265,30 +271,34 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
         .expect("learner has stable student identity");
     let reference = publish_question(&store, context, tenant, instructor).await;
     let assignment = AssignmentId::from_uuid(id());
-    let created = store
-        .create_untimed_assignment(
-            context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                title: "S3 normalized policy assignment".to_string(),
-                audience: question_model::AssignmentAudience::CourseWide,
-                items: vec![AssignmentItem {
-                    id: AssignmentItemId::from_uuid(id()),
-                    reference,
-                    position: 0,
-                    points_possible: PointValue::from_whole(1),
-                    delivery_state: AssignmentDeliveryState::Active,
-                    scoring_mode: AssignmentScoringMode::Normal,
-                }],
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: policies(),
-            },
-        )
-        .await
-        .expect("create assignment");
+    let created = create_published_assignment(
+        &store,
+        context,
+        instructor,
+        AssignmentRecord {
+            id: assignment,
+            tenant,
+            course_id: course,
+            title: "S3 normalized policy assignment".to_string(),
+            lifecycle: question_model::AssignmentLifecycle::Published,
+            instructions: question_model::AssignmentInstructions::default(),
+            audience: question_model::AssignmentAudience::CourseWide,
+            items: vec![AssignmentItem {
+                id: AssignmentItemId::from_uuid(id()),
+                reference,
+                position: 0,
+                points_possible: PointValue::from_whole(1),
+                delivery_state: AssignmentDeliveryState::Active,
+                scoring_mode: AssignmentScoringMode::Normal,
+            }],
+            selection_groups: Vec::new(),
+            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            policies: policies(),
+        },
+        BaseAssignmentPolicy::default(),
+    )
+    .await
+    .expect("create assignment");
     let membership = store
         .get_current_course_membership(context, course, learner)
         .await
@@ -399,21 +409,25 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
             .is_none()
     );
     let configured = store
-        .put_base_assignment_policy(
+        .put_assignment_teaching_settings(
             context,
-            PutBaseAssignmentPolicyCommand {
+            PutAssignmentTeachingSettingsCommand {
                 actor: instructor,
                 course,
                 assignment,
                 expected_revision: revised,
-                policy: BaseAssignmentPolicy {
-                    available_at: Some(ActivityTimestamp::from_unix_millis(0)),
-                    due_at: None,
-                    closes_at: None,
-                    time_limit_seconds: Some(NonZeroU32::new(120).expect("positive limit")),
-                    attempt_limit: None,
-                    late_submission: LateSubmissionPolicy::Accept,
-                    deadline_behavior: question_model::AssignmentDeadlineBehavior::AutoSubmit,
+                settings: question_model::AssignmentTeachingSettings {
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    base_policy: BaseAssignmentPolicy {
+                        available_at: None,
+                        due_at: None,
+                        closes_at: None,
+                        time_limit_seconds: Some(NonZeroU32::new(120).expect("positive limit")),
+                        attempt_limit: None,
+                        late_submission: LateSubmissionPolicy::Accept,
+                        deadline_behavior: question_model::AssignmentDeadlineBehavior::AutoSubmit,
+                    },
                 },
             },
         )
@@ -428,10 +442,9 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
             context,
             ResolveEffectivePolicyCommand {
                 assignment,
-                lifecycle: domain::effective_assignment_policy::AssignmentLifecycleGate::Open,
                 entitlement: grant,
                 authorization: domain::effective_assignment_policy::AuthorizationGate::Authorized,
-                now: ActivityTimestamp::from_unix_millis(1_000),
+                now: ActivityTimestamp::from_unix_millis(TERM_BASE_MILLIS + 1_000),
                 prior_run_count: 0,
             },
         )
@@ -457,12 +470,11 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
             context,
             ResolveEffectivePolicyCommand {
                 assignment,
-                lifecycle: domain::effective_assignment_policy::AssignmentLifecycleGate::Open,
                 entitlement: domain::entitlement::EntitlementDecision::Denied(
                     domain::entitlement::EntitlementDenial::LearnerNotActiveCourseStudent,
                 ),
                 authorization: domain::effective_assignment_policy::AuthorizationGate::Authorized,
-                now: ActivityTimestamp::from_unix_millis(1_000),
+                now: ActivityTimestamp::from_unix_millis(TERM_BASE_MILLIS + 1_000),
                 prior_run_count: 0,
             },
         )
@@ -500,16 +512,20 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
     assert_eq!(receipt.generation, 1);
 
     let changed = store
-        .put_base_assignment_policy(
+        .put_assignment_teaching_settings(
             context,
-            PutBaseAssignmentPolicyCommand {
+            PutAssignmentTeachingSettingsCommand {
                 actor: instructor,
                 course,
                 assignment,
                 expected_revision: configured.revision,
-                policy: BaseAssignmentPolicy {
-                    time_limit_seconds: Some(NonZeroU32::new(180).expect("positive limit")),
-                    ..configured.policy
+                settings: question_model::AssignmentTeachingSettings {
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    base_policy: BaseAssignmentPolicy {
+                        time_limit_seconds: Some(NonZeroU32::new(180).expect("positive limit")),
+                        ..configured.policy
+                    },
                 },
             },
         )

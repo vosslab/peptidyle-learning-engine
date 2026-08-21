@@ -8,6 +8,7 @@ import collections.abc
 import local_stack_control.compose
 import local_stack_control.discovery
 import local_stack_control.env_file
+import local_stack_control.image_cleanup
 import local_stack_control.lifecycle_validation
 import local_stack_control.lifecycle_wait
 import local_stack_control.lifecycle_diagnostics
@@ -19,11 +20,16 @@ import local_stack_control.process
 import local_stack_control.renderer
 import local_stack_control.status
 import local_stack_control.chapter_one
+import local_stack_control.base_course_lifecycle
+import local_stack_control.live_demo_claim_context
 
 
 LOCAL_TENANT_ID = "00000000-0000-0000-0000-000000000100"
 LOCAL_INSTRUCTOR_ID = "00000000-0000-0000-0000-000000000101"
-LOCAL_STUDENT_ID = "00000000-0000-0000-0000-000000000102"
+LOCAL_MARY_ID = "00000000-0000-0000-0000-000000000102"
+LOCAL_JACK_ID = "00000000-0000-0000-0000-000000000103"
+LOCAL_APPROVAL_CANDIDATE_ID = "00000000-0000-0000-0000-000000000104"
+LOCAL_SYSADMIN_ID = "00000000-0000-0000-0000-000000000105"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -47,6 +53,9 @@ class LifecycleResult:
 
 RendererStatusRead = collections.abc.Callable[[], local_stack_control.models.StatusReport]
 RendererPoll = collections.abc.Callable[[RendererStatusRead, float], local_stack_control.models.StatusReport]
+
+
+BaseCourseLifecycleReceipt = local_stack_control.base_course_lifecycle.Receipt
 
 
 #============================================
@@ -75,10 +84,10 @@ def is_default_target(target: local_stack_control.models.ComposeTarget) -> bool:
 def is_teaching_profile(
 	target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget,
 ) -> bool:
-	"""Return whether the closed walkthrough owner selected its local teaching profile."""
+	"""Return whether a closed disposable owner selected local teaching state."""
 	result = (
 		isinstance(target, local_stack_control.models.DisposableComposeTarget)
-		and target.owner_policy == "ui-walkthrough"
+		and target.owner_policy in {"live-demo-baseline", "ui-walkthrough"}
 	)
 	return result
 
@@ -102,6 +111,7 @@ def private_runtime_paths(repo_root: pathlib.Path, env_file: pathlib.Path) -> tu
 		directory / "local-identities.json",
 		directory / ".secrets" / "invitation_token_secret",
 		directory / ".secrets" / "question_id_secret",
+		directory / local_stack_control.models.DEFAULT_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE,
 		directory / ".secrets",
 	)
 	return paths
@@ -130,7 +140,7 @@ def bootstrap_default_state(
 	# selected teaching environment is rejected before parsing or replacement.
 	local_stack_control.env_file.require_mutation_env_file(selected.env_file)
 	configure_default_environment(selected, runner)
-	credential_path, identity_path, invitation_path, question_path, _ = private_runtime_paths(
+	credential_path, identity_path, invitation_path, question_path, _, _ = private_runtime_paths(
 		selected.repo_root, selected.env_file
 	)
 	configuration = local_stack_control.local_identity.LocalIdentityConfiguration(
@@ -138,7 +148,7 @@ def bootstrap_default_state(
 		identity_file=identity_path,
 		tenant_id=LOCAL_TENANT_ID,
 		instructor_id=LOCAL_INSTRUCTOR_ID,
-		student_id=LOCAL_STUDENT_ID,
+		student_id=LOCAL_MARY_ID,
 	)
 	local_stack_control.local_identity.bootstrap_local_identities(configuration)
 	local_stack_control.local_environment.bootstrap_secret32_file(invitation_path)
@@ -161,6 +171,14 @@ def configure_default_environment(
 		"PLE_LOCAL_GRADER_PASSWORD": os.urandom(24).hex(),
 		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE": str(secret_directory / "invitation_token_secret"),
 		"PLE_QUESTION_ID_SECRET_HOST_FILE": str(secret_directory / "question_id_secret"),
+		"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE": str(
+			runtime_directory / local_stack_control.models.DEFAULT_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE
+		),
+		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID": LOCAL_INSTRUCTOR_ID,
+		"PLE_LIVE_DEMO_MARY_STUDENT_USER_ID": LOCAL_MARY_ID,
+		"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID": LOCAL_JACK_ID,
+		"PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID": LOCAL_APPROVAL_CANDIDATE_ID,
+		"PLE_LIVE_DEMO_SYSADMIN_USER_ID": LOCAL_SYSADMIN_ID,
 		"PLE_WEBWORK_PROVENANCE_FILE": str(secret_directory / "webwork-renderer.provenance"),
 		"PLE_LOCAL_AUTH_HOST_FILE": str(runtime_directory / "local-identities.json"),
 		"PLE_PUBLIC_ASSET_BASE_URL": "http://127.0.0.1:9000/public-assets",
@@ -255,6 +273,10 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 		"POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "MINIO_ROOT_USER",
 		"MINIO_ROOT_PASSWORD", "PLE_LOCAL_GRADER_PASSWORD", "PLE_LOCAL_AUTH_HOST_FILE",
 		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE", "PLE_QUESTION_ID_SECRET_HOST_FILE",
+		"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE",
+		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID", "PLE_LIVE_DEMO_MARY_STUDENT_USER_ID",
+		"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID", "PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID",
+		"PLE_LIVE_DEMO_SYSADMIN_USER_ID",
 		"PLE_WEBWORK_RENDERER_ID", "PLE_WEBWORK_PROBLEM_JWT_SECRET",
 		"PLE_WEBWORK_SESSION_JWT_SECRET",
 		"PLE_WEBWORK_PROVENANCE_FILE",
@@ -268,6 +290,9 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 	for name in ("PLE_INVITATION_TOKEN_SECRET_HOST_FILE", "PLE_QUESTION_ID_SECRET_HOST_FILE"):
 		path = absolute_value_path(target.repo_root, values[name])
 		local_stack_control.local_environment.read_secret32_file(path)
+	claim_path = absolute_value_path(target.repo_root, values["PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE"])
+	if claim_path.exists() or claim_path.is_symlink():
+		local_stack_control.live_demo_claim_context.read_context(claim_path)
 	if target.with_smtp:
 		validate_smtp(values, target.repo_root)
 	return values
@@ -364,18 +389,30 @@ def start_lifecycle(
 		runner, repo_root, values["PLE_WEBWORK_RENDERER_IMAGE"], environment
 	)
 	build_artifacts(runner, repo_root, options)
+	# Reconcile the complete selected project before starting dependency stages.
+	# Podman Compose applies --remove-orphans to the services named by a partial
+	# `up`; using it with the later --no-deps application subset can remove the
+	# database and renderer that subset requires.  A full project down preserves
+	# named volumes while removing both current containers and obsolete services.
+	compose_run(selected, runner, ["down", "--remove-orphans"])
 	compose_run(selected, runner, ["--profile", "maintenance", "run", "--rm", "--no-deps", "-T", "postgres-major-guard"])
-	compose_run(selected, runner, ["up", "-d", "postgres", "minio", "createbuckets"])
-	wait_for_one_shot(selected, runner, options, "createbuckets")
+	compose_run(selected, runner, ["up", "-d", "postgres"])
 	wait_for_postgres(selected, runner, values, options)
 	synchronize_database(target, runner, values)
 	run_migrations(runner, repo_root, values, environment)
-	seed_default_demo(runner, repo_root, target, values, environment)
+	base_course = prepare_installed_base_course(
+		runner, repo_root, target, values, environment
+	)
 	provision_grading_role(selected, runner, values)
+	compose_run(selected, runner, ["up", "-d", "minio", "createbuckets"])
+	wait_for_one_shot(selected, runner, options, "createbuckets")
+	finalize_installed_base_course(
+		runner, repo_root, target, values, environment, base_course
+	)
 	compose_run(selected, runner, ["up", "-d", "--force-recreate", "--no-deps", "webwork-renderer"])
 	wait_for_renderer_ready(selected, runner, options, oci_id)
 	attest_renderer(selected, runner, repo_root, values, oci_id)
-	if uses_local_teaching_state(target):
+	if is_teaching_profile(target):
 		publish_chapter_one(runner, repo_root, target, values, environment)
 	run_api_initializers(selected, runner, options)
 	compose_run(selected, runner, ["build", "api", "gateway"])
@@ -383,8 +420,17 @@ def start_lifecycle(
 	if selected.with_smtp:
 		application_services.append("invitation-delivery-worker")
 	application_services.append("gateway")
-	compose_run(selected, runner, ["up", "-d", "--force-recreate", "--no-deps", *application_services])
+	compose_run(
+		selected,
+		runner,
+		[
+			"up", "-d", "--force-recreate", "--no-deps",
+			*application_services,
+		],
+	)
 	gateway_url = wait_for_complete_ready(selected, runner, options)
+	if is_default_target(selected):
+		local_stack_control.image_cleanup.prune_superseded_images(runner, repo_root)
 	if options.open_browser:
 		open_browser(runner, repo_root, gateway_url)
 	return LifecycleResult(selected.project, gateway_url, oci_id)
@@ -619,22 +665,120 @@ def run_migrations(runner: local_stack_control.process.CommandRunner, repo_root:
 
 
 #============================================
-def seed_default_demo(runner: local_stack_control.process.CommandRunner, repo_root: pathlib.Path, target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget, values: dict[str, str], environment: dict[str, str]) -> None:
-	"""Seed the legacy local demonstration only for the supported default profile."""
+def prepare_installed_base_course(
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+	target: local_stack_control.models.ComposeTarget
+	| local_stack_control.models.DisposableComposeTarget,
+	values: dict[str, str],
+	environment: dict[str, str],
+) -> BaseCourseLifecycleReceipt | None:
+	"""Classify the migrated Base Course state before starting object storage."""
 	if not uses_local_teaching_state(target):
-		return
-	selected = target_of(target)
+		return None
 	child = dict(environment)
 	child["PLE_MIGRATION_DATABASE_URL"] = database_url(values)
 	child["PLE_QUESTION_ID_SECRET_FILE"] = values["PLE_QUESTION_ID_SECRET_HOST_FILE"]
+	result = run_base_course_phase(runner, repo_root, child, "prepare")
+	return result
+
+
+#============================================
+def finalize_installed_base_course(
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+	target: local_stack_control.models.ComposeTarget
+	| local_stack_control.models.DisposableComposeTarget,
+	values: dict[str, str],
+	environment: dict[str, str],
+	preparation: BaseCourseLifecycleReceipt | None,
+) -> None:
+	"""Finish an installing baseline after ordinary object-storage readiness."""
+	if preparation is None:
+		return
+	selected = target_of(target)
+	if preparation.install_state == "complete":
+		write_base_course_diagnostic(selected, preparation.raw_output)
+		ensure_live_demo_claim_context(selected, values, preparation)
+		return
+	local_stack_control.base_course_lifecycle.ensure_storage_receipt(
+		selected, runner, preparation, child_environment(selected)
+	)
+	child = dict(environment)
+	child["PLE_MIGRATION_DATABASE_URL"] = database_url(values)
+	child["PLE_QUESTION_ID_SECRET_FILE"] = values["PLE_QUESTION_ID_SECRET_HOST_FILE"]
+	completed = run_base_course_phase(
+		runner, repo_root, child, "install", preparation.storage_receipt_json
+	)
+	if completed.install_state != "complete":
+		raise local_stack_control.models.ControllerError(
+			"installed Base Course install did not complete"
+		)
+	write_base_course_diagnostic(selected, completed.raw_output)
+	ensure_live_demo_claim_context(selected, values, completed)
+
+
+#============================================
+def ensure_live_demo_claim_context(
+	target: local_stack_control.models.ComposeTarget,
+	values: dict[str, str],
+	receipt: BaseCourseLifecycleReceipt,
+) -> None:
+	"""Bind the private Sysadmin proof to the completed Rust lifecycle receipt."""
+	path = absolute_value_path(target.repo_root, values["PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE"])
+	local_stack_control.live_demo_claim_context.ensure_context(
+		path, receipt.installation_generation, values["PLE_LIVE_DEMO_SYSADMIN_USER_ID"]
+	)
+
+
+#============================================
+def run_base_course_phase(
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+	child: dict[str, str],
+	phase: str,
+	storage_receipt: str | None = None,
+) -> BaseCourseLifecycleReceipt:
+	"""Invoke one closed lifecycle phase and decode its authoritative response."""
 	argv = [
-		"cargo", "tools", "e2e-seed", "--apply-migrations", "--tenant", LOCAL_TENANT_ID,
-		"--instructor", LOCAL_INSTRUCTOR_ID, "--student", LOCAL_STUDENT_ID,
+		"cargo",
+		"tools",
+		"base-course",
+		"--apply-migrations",
+		"--tenant",
+		LOCAL_TENANT_ID,
+		"--instructor",
+		LOCAL_INSTRUCTOR_ID,
+		"--mary",
+		LOCAL_MARY_ID,
+		"--jack",
+		LOCAL_JACK_ID,
+		"--approval-candidate",
+		LOCAL_APPROVAL_CANDIDATE_ID,
+		"--sysadmin",
+		LOCAL_SYSADMIN_ID,
+		"--lifecycle-phase",
+		phase,
 	]
+	if storage_receipt is not None:
+		argv.extend(["--storage-receipt", storage_receipt])
 	result = runner.run(argv, child, repo_root)
-	require_command(result, "default local demonstration seed")
-	manifest = selected.env_file.parent / "local-demo.json"
-	local_stack_control.private_files.write_atomic_file(manifest, result.stdout.encode("utf-8"), 0o600)
+	require_command(result, f"installed Base Course {phase}")
+	return local_stack_control.base_course_lifecycle.decode(result.stdout, phase)
+
+
+#============================================
+def write_base_course_diagnostic(
+	target: local_stack_control.models.ComposeTarget,
+	output: str,
+) -> None:
+	"""Write host-only diagnostics only after a complete Rust-owned lifecycle result."""
+	manifest = target.env_file.parent / local_stack_control.models.DEFAULT_BASE_COURSE_MANIFEST_FILE
+	local_stack_control.private_files.write_atomic_file(
+		manifest,
+		output.encode("utf-8"),
+		0o600,
+	)
 
 
 #============================================
@@ -732,7 +876,7 @@ def publish_chapter_one(runner: local_stack_control.process.CommandRunner, repo_
 		database_url=database_url(values),
 		tenant_id=LOCAL_TENANT_ID,
 		instructor_id=LOCAL_INSTRUCTOR_ID,
-		student_id=LOCAL_STUDENT_ID,
+		student_id=LOCAL_MARY_ID,
 		s3_endpoint="http://127.0.0.1:" + values.get("PLE_MINIO_API_HOST_PORT", "9000"),
 		aws_access_key_id=values["MINIO_ROOT_USER"],
 		aws_secret_access_key=values["MINIO_ROOT_PASSWORD"],

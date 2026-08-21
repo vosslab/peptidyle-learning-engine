@@ -72,7 +72,7 @@ standards documents:
   Blackboard mapping packages and the current dependency order.
 - [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) keeps answers server-only and PLE flat-question JSON
   canonical.
-- [QTI-JSON_OBJECT_FORMAT.md](../../QTI-JSON_OBJECT_FORMAT.md) defines the closed v1 source contract.
+- [QTI-JSON_OBJECT_FORMAT.md](../../QTI-JSON_OBJECT_FORMAT.md) defines the closed v2 native source contract.
 
 ## Package objectives
 
@@ -189,7 +189,7 @@ This package follows the repository's stated engineering philosophies:
 | Blackboard profile       | `adapter_qti::profiles::blackboard`                       | Exact Blackboard 2.1 pool recognition and static-item mapping                          |
 | Markup projection        | `adapter_qti::profiles::markup`                           | Allowlisted text/XHTML to deterministic Markdown                                       |
 | Choice identity          | `adapter_qti::profiles::choice_ids`                       | Stable vendor ID to PLE ID mapping and collision handling                              |
-| Native import factory    | `adapter_native::flat_question::imported`                 | Construct and validate canonical flat v1 from trusted mapped fields                    |
+| Native import factory    | `adapter_native::flat_question::imported`                 | Construct and validate canonical flat v2 from trusted mapped fields                    |
 | Conversion orchestration | `server_core::qti_profile_conversion`                     | Re-read archive, verify report digest, compile, copy object, call atomic Store command |
 | Upload/report API        | `server_core::qti_profile_import`                         | Protected raw ZIP upload, job status, safe result projection, no-store responses       |
 | Provenance contract      | `learning_data_access::flat_import_provenance`            | Current origin, publication promotion, and read-free validation types                  |
@@ -329,7 +329,7 @@ compatible parser patch with a regression fixture.
 
 ### Choice IDs
 
-- Preserve a vendor ID that already satisfies PLE flat v1 choice-ID rules.
+- Preserve a vendor ID that already satisfies PLE flat v2 choice-ID rules.
 - Otherwise derive `qti_` plus a lowercase SHA-256 prefix over profile ID, item identifier, and raw
   vendor ID.
 - Extend the digest prefix deterministically when the candidate collides with a preserved or derived

@@ -18,7 +18,7 @@ import type { SelectionCardinality } from "../../generated/api/SelectionCardinal
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { TimingPolicy } from "../../generated/api/TimingPolicy";
 import type { VersionId } from "../../generated/api/VersionId";
-import { decodeKeyFreeDraftPreview } from "../api/decoders";
+import { decodeKeyFreeDraftPreview } from "../api/decoders/question_model";
 
 export type ResponseFormatViolation =
   | { readonly kind: "responseKindMismatch" }
@@ -357,18 +357,27 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "WebAssembly initialization failed";
 }
 
+declare const __PLE_BROWSER_ASSET_BASE__: "root" | "relative";
+
+function wasmAssetUrl(fileName: "ple_bridge.js" | "ple_bridge_bg.wasm"): URL {
+  const buildAssetBase =
+    typeof __PLE_BROWSER_ASSET_BASE__ === "string" ? __PLE_BROWSER_ASSET_BASE__ : "root";
+  const base = buildAssetBase === "root" ? `${window.location.origin}/` : document.baseURI;
+  return new URL(`wasm/${fileName}`, base);
+}
+
 async function initializeWasmFacade(
   formatFallback: FormatValidator,
   timerFallback: TimerEvaluator,
   capabilityFallback: CapabilityValidator,
 ): Promise<WasmFacade> {
   try {
-    const bridgeUrl = new URL("wasm/ple_bridge.js", document.baseURI).href;
+    const bridgeUrl = wasmAssetUrl("ple_bridge.js").href;
     const loaded: unknown = await import(bridgeUrl);
     if (!isWasmBindgenModule(loaded)) {
       throw new Error("Generated WebAssembly bridge has an unexpected export shape");
     }
-    await loaded.default(new URL("wasm/ple_bridge_bg.wasm", document.baseURI));
+    await loaded.default(wasmAssetUrl("ple_bridge_bg.wasm"));
 
     const validateResponseFormat: FormatValidator = (definition, response) => {
       const json = loaded.validate_response_format(

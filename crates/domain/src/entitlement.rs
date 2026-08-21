@@ -88,6 +88,73 @@ pub enum EntitlementDecision {
     Denied(EntitlementDenial),
 }
 
+/// Identity-free normalized facts for a synthetic T3 preview subject.
+///
+/// The Store resolves request-bound group locators before constructing this
+/// value. Neither this type nor its resulting grant can represent a learner,
+/// membership, or persisted student record.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SyntheticPreviewEntitlementFacts {
+    tenant: TenantId,
+    course: CourseId,
+    assignment: AssignmentId,
+    audience: AssignmentAudience,
+    selected_groups: Vec<(CourseGroupId, CourseGroupPurpose)>,
+}
+
+impl SyntheticPreviewEntitlementFacts {
+    pub fn new(
+        tenant: TenantId,
+        course: CourseId,
+        assignment: AssignmentId,
+        audience: AssignmentAudience,
+        selected_groups: Vec<(CourseGroupId, CourseGroupPurpose)>,
+    ) -> Self {
+        Self {
+            tenant,
+            course,
+            assignment,
+            audience,
+            selected_groups,
+        }
+    }
+}
+
+/// S5-minted synthetic preview authority. Its fields deliberately remain
+/// private so only this module can approve policy scopes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SyntheticPreviewEntitlementGrant {
+    tenant: TenantId,
+    course: CourseId,
+    assignment: AssignmentId,
+    basis: MaterializationBasis,
+    applicable_policy_scopes: ApplicablePolicyScopes,
+}
+
+impl SyntheticPreviewEntitlementGrant {
+    pub fn tenant(&self) -> TenantId {
+        self.tenant
+    }
+    pub fn course(&self) -> CourseId {
+        self.course
+    }
+    pub fn assignment(&self) -> AssignmentId {
+        self.assignment
+    }
+    pub fn basis(&self) -> MaterializationBasis {
+        self.basis
+    }
+    pub fn applicable_policy_scopes(&self) -> &ApplicablePolicyScopes {
+        &self.applicable_policy_scopes
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SyntheticPreviewEntitlementDecision {
+    Granted(SyntheticPreviewEntitlementGrant),
+    Denied(EntitlementDenial),
+}
+
 /// All normalized facts the Store must load under its transaction boundary.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EntitlementFacts {
@@ -113,19 +180,7 @@ pub fn evaluate_assignment_entitlement(facts: EntitlementFacts) -> EntitlementDe
         return EntitlementDecision::Denied(EntitlementDenial::LearnerNotActiveCourseStudent);
     };
     let scopes = ApplicablePolicyScopes::from_current_memberships(facts.current_groups.clone());
-    let basis = match facts.audience {
-        AssignmentAudience::CourseWide => Some(MaterializationBasis::CourseWide),
-        AssignmentAudience::AnyOfGroups(groups) => groups
-            .iter()
-            .find_map(|audience_group| {
-                facts.current_groups.iter().find_map(|(group, purpose)| {
-                    (*group == audience_group
-                        && GroupPurposeCapabilities::for_purpose(*purpose).assignment_audience)
-                        .then_some((*group, *purpose))
-                })
-            })
-            .map(|(group, purpose)| MaterializationBasis::GroupAudience { group, purpose }),
-    };
+    let basis = materialization_basis(facts.audience, &facts.current_groups);
     match basis {
         Some(basis) => EntitlementDecision::Granted(EntitlementGrant {
             tenant: facts.tenant,
@@ -138,6 +193,50 @@ pub fn evaluate_assignment_entitlement(facts: EntitlementFacts) -> EntitlementDe
             applicable_policy_scopes: scopes,
         }),
         None => EntitlementDecision::Denied(EntitlementDenial::AudienceExcludesLearner),
+    }
+}
+
+/// Decides synthetic preview authority from identity-free group facts.
+///
+/// This shares the learner evaluator's audience and scope rules, but does not
+/// accept a membership or mint a learner authority token.
+pub fn evaluate_synthetic_preview_entitlement(
+    facts: SyntheticPreviewEntitlementFacts,
+) -> SyntheticPreviewEntitlementDecision {
+    let scopes = ApplicablePolicyScopes::from_current_memberships(facts.selected_groups.clone());
+    let basis = materialization_basis(facts.audience, &facts.selected_groups);
+    match basis {
+        Some(basis) => {
+            SyntheticPreviewEntitlementDecision::Granted(SyntheticPreviewEntitlementGrant {
+                tenant: facts.tenant,
+                course: facts.course,
+                assignment: facts.assignment,
+                basis,
+                applicable_policy_scopes: scopes,
+            })
+        }
+        None => {
+            SyntheticPreviewEntitlementDecision::Denied(EntitlementDenial::AudienceExcludesLearner)
+        }
+    }
+}
+
+fn materialization_basis(
+    audience: AssignmentAudience,
+    groups: &[(CourseGroupId, CourseGroupPurpose)],
+) -> Option<MaterializationBasis> {
+    match audience {
+        AssignmentAudience::CourseWide => Some(MaterializationBasis::CourseWide),
+        AssignmentAudience::AnyOfGroups(audience_groups) => audience_groups
+            .iter()
+            .find_map(|audience_group| {
+                groups.iter().find_map(|(group, purpose)| {
+                    (*group == audience_group
+                        && GroupPurposeCapabilities::for_purpose(*purpose).assignment_audience)
+                        .then_some((*group, *purpose))
+                })
+            })
+            .map(|(group, purpose)| MaterializationBasis::GroupAudience { group, purpose }),
     }
 }
 
@@ -209,5 +308,44 @@ mod tests {
             }
         );
         assert_eq!(grant.applicable_policy_scopes().iter().len(), 2);
+    }
+
+    #[test]
+    fn synthetic_preview_grants_coursewide_and_eligible_group_audiences() {
+        let section = CourseGroupId::from_uuid(id(7));
+        for audience in [
+            AssignmentAudience::CourseWide,
+            AssignmentAudience::any_of_groups(vec![section]).expect("nonempty audience"),
+        ] {
+            let decision =
+                evaluate_synthetic_preview_entitlement(SyntheticPreviewEntitlementFacts::new(
+                    TenantId::from_uuid(id(1)),
+                    CourseId::from_uuid(id(2)),
+                    AssignmentId::from_uuid(id(3)),
+                    audience,
+                    vec![(section, CourseGroupPurpose::Section)],
+                ));
+            assert!(matches!(
+                decision,
+                SyntheticPreviewEntitlementDecision::Granted(_)
+            ));
+        }
+    }
+
+    #[test]
+    fn synthetic_preview_denies_audience_without_an_eligible_group() {
+        let required = CourseGroupId::from_uuid(id(7));
+        let decision =
+            evaluate_synthetic_preview_entitlement(SyntheticPreviewEntitlementFacts::new(
+                TenantId::from_uuid(id(1)),
+                CourseId::from_uuid(id(2)),
+                AssignmentId::from_uuid(id(3)),
+                AssignmentAudience::any_of_groups(vec![required]).expect("nonempty audience"),
+                vec![(required, CourseGroupPurpose::Work)],
+            ));
+        assert_eq!(
+            decision,
+            SyntheticPreviewEntitlementDecision::Denied(EntitlementDenial::AudienceExcludesLearner)
+        );
     }
 }

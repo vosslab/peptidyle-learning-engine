@@ -4,8 +4,8 @@
 
 import { expect, test, type Page, type Route } from "@playwright/test";
 
+import type { LearnerAssignmentDetail } from "../../generated/api/LearnerAssignmentDetail";
 import type { LearnerAssignmentProgress } from "../../generated/api/LearnerAssignmentProgress";
-import type { LearnerAssignmentSummary } from "../../generated/api/LearnerAssignmentSummary";
 import { publishedProblemFixture } from "../../generated/fixtures/published_problem";
 import { ROUTE_CONTRACT, type RouteContract } from "../../src/route_contract";
 import { captureDocumentationScreenshot } from "./docs_screenshot_capture";
@@ -22,15 +22,29 @@ const course = {
   title: "BIOC 301: Protein Structure",
   role: "student" as const,
 };
-const assignment: LearnerAssignmentSummary = {
+const assignment: LearnerAssignmentDetail = {
   id: publishedProblemFixture.assignment.id,
   reference: publishedProblemFixture.assignment.reference,
   title: "Protein structure practice",
+  instructions:
+    "Use the structure diagrams as evidence.\nExplain each choice before starting a fresh variation.",
+  timeZone: "America/Chicago",
+  delivery: {
+    availableAt: 1_787_580_000_000,
+    dueAt: 1_789_423_200_000,
+    closesAt: 1_789_441_200_000,
+    timeLimitSeconds: 900,
+    attemptLimit: 3,
+    lateSubmission: "markLate",
+    deadlineBehavior: "autoSubmit",
+    lateStatus: "onTime",
+  },
   items: publishedProblemFixture.assignment.items,
   selectionGroups: publishedProblemFixture.assignment.selectionGroups,
 };
 const progress: LearnerAssignmentProgress = {
   scoreState: "available",
+  scoringStatus: "current",
   currentScore: 0.75,
   bestScore: 1,
   latestScore: 0.75,
@@ -50,6 +64,7 @@ const PRIVILEGED_COPY_PATTERN =
 interface StrictStudentApi {
   readonly instructorRequests: string[];
   readonly unexpectedRequests: string[];
+  readonly seenRequests: string[];
 }
 
 function json(route: Route, value: unknown, status = 200): Promise<void> {
@@ -72,6 +87,15 @@ function isInstructorTransport(pathname: string): boolean {
 async function installStrictStudentApi(page: Page): Promise<StrictStudentApi> {
   const instructorRequests: string[] = [];
   const unexpectedRequests: string[] = [];
+  const seenRequests: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") {
+      process.stderr.write(`student visual browser console: ${message.text()}\n`);
+    }
+  });
+  page.on("pageerror", (error) => {
+    process.stderr.write(`student visual page error: ${error.message}\n`);
+  });
   await page.addInitScript(() => {
     Object.defineProperty(window, "__PLE_USE_MOCK_API__", {
       configurable: false,
@@ -82,6 +106,7 @@ async function installStrictStudentApi(page: Page): Promise<StrictStudentApi> {
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     const pathname = new URL(request.url()).pathname;
+    seenRequests.push(`${request.method()} ${pathname}`);
     if (isInstructorTransport(pathname)) instructorRequests.push(pathname);
     if (pathname === "/api/auth/session") {
       return await json(route, {
@@ -141,7 +166,7 @@ async function installStrictStudentApi(page: Page): Promise<StrictStudentApi> {
     unexpectedRequests.push(`${request.method()} ${pathname}`);
     return await json(route, { error: "Unexpected student fixture request" }, 500);
   });
-  return { instructorRequests, unexpectedRequests };
+  return { instructorRequests, unexpectedRequests, seenRequests };
 }
 
 function manifestSurface(name: string): CorpusSurface {
@@ -178,7 +203,7 @@ function requiredRoute(routeId: RouteContract["id"]): RouteContract {
 
 async function expectStudentNavigation(page: Page): Promise<void> {
   const navigation = page.getByRole("navigation", { name: "Primary navigation" });
-  await expect(navigation.getByRole("link")).toHaveText(["Courses", "Account"]);
+  await expect(navigation.getByRole("link")).toHaveText(["Courses", "Account", "Invitations"]);
   await expect(navigation.getByRole("link", { name: "Library" })).toHaveCount(0);
   await expect(navigation.getByRole("link", { name: "Workspace" })).toHaveCount(0);
 }
@@ -236,8 +261,25 @@ test("student assignment overview uses only the learner projection across requir
   for (const artifact of surface.artifacts) {
     await page.setViewportSize(CORPUS_VIEWPORT_SIZES[artifact.viewport]);
     await page.goto(route);
+    const loadFailure = page.getByRole("alert");
+    await expect(
+      page.locator('[data-route-surface="assignmentOverview"], main [role="alert"]'),
+    ).toBeVisible();
+    if (await loadFailure.isVisible()) {
+      throw new Error(
+        `student assignment fixture failed to load; requests: ${JSON.stringify(api.seenRequests)}; unexpected: ${JSON.stringify(api.unexpectedRequests)}`,
+      );
+    }
     await expect(page.locator('[data-route-surface="assignmentOverview"]')).toBeVisible();
     await expect(page.getByRole("heading", { name: assignment.title })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Instructions" })).toBeVisible();
+    await expect(
+      page.getByText("Explain each choice before starting a fresh variation."),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Delivery details" })).toBeVisible();
+    await expect(page.getByText("America/Chicago", { exact: false })).toBeVisible();
+    await expect(page.getByText("15 minutes per run", { exact: true })).toBeVisible();
+    await expect(page.getByText("3 attempts", { exact: true })).toBeVisible();
     await expect(page.locator(".assignment-facts").getByRole("status")).toContainText(
       "Score available",
     );
@@ -267,7 +309,7 @@ test("student account remains available through the shared student navigation", 
   await captureArtifact(page, artifact);
 });
 
-test("student direct instructor routes deny before component transport and cover roster and gradebook", async ({
+test("student direct and reloaded instructor routes deny before component transport", async ({
   page,
 }) => {
   test.setTimeout(60_000);
@@ -275,24 +317,29 @@ test("student direct instructor routes deny before component transport and cover
   const protectedRoutes = ROUTE_CONTRACT.filter((route) => route.requiredRoles.length > 0);
 
   for (const route of protectedRoutes) {
-    api.instructorRequests.length = 0;
-    api.unexpectedRequests.length = 0;
-    await page.goto(materializeRoute(route));
-    const denial = page.locator('[data-route-surface="routeAccessDenied"]');
-    await expect(denial).toBeVisible();
-    await expect(denial).toHaveAttribute("data-denied-route", route.id);
-    await expect(
-      page.locator('[data-route-surface]:not([data-route-surface="routeAccessDenied"])'),
-    ).toHaveCount(0);
-    await expect(page.locator("[data-course-theme]")).toHaveCount(0);
-    await expectStudentNavigation(page);
-    await expectPublicStudentPixels(page, true);
-    expect(api.instructorRequests, route.id).toEqual([]);
-    expect(api.unexpectedRequests, route.id).toEqual([]);
+    for (const navigation of ["direct", "reload"] as const) {
+      api.instructorRequests.length = 0;
+      api.unexpectedRequests.length = 0;
+      if (navigation === "direct") await page.goto(materializeRoute(route));
+      else await page.reload();
+      const denial = page.locator('[data-route-surface="routeAccessDenied"]');
+      await expect(denial).toBeVisible();
+      await expect(denial).toHaveAttribute("data-denied-route", route.id);
+      await expect(
+        page.locator('[data-route-surface]:not([data-route-surface="routeAccessDenied"])'),
+      ).toHaveCount(0);
+      await expect(page.locator("[data-course-theme]")).toHaveCount(0);
+      await expectStudentNavigation(page);
+      await expectPublicStudentPixels(page, true);
+      expect(api.instructorRequests, `${route.id} ${navigation}`).toEqual([]);
+      expect(api.unexpectedRequests, `${route.id} ${navigation}`).toEqual([]);
+    }
   }
 
   expect(protectedRoutes.some((route) => route.id === "gradebook")).toBe(true);
   expect(protectedRoutes.some((route) => route.id === "courseRoster")).toBe(true);
+  expect(protectedRoutes.some((route) => route.id === "assignmentAccess")).toBe(true);
+  expect(protectedRoutes.some((route) => route.id === "teachingOperations")).toBe(true);
 
   const surface = requiredSurface("studentInstructorRouteDenial");
   const representativeRoute = materializePath(surface.route);

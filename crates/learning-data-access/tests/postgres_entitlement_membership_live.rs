@@ -6,6 +6,10 @@
 //! narrowly scoped SQL below observes PostgreSQL-only facts: forced RLS,
 //! receipt immutability, and least-privilege grants.
 
+#[path = "fixtures/published_assignment.rs"]
+mod published_assignment;
+use published_assignment::create_published_assignment;
+
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AssignmentEntitlementMaterialization, AssignmentRecord, CatalogStore, CourseGroupRecord,
@@ -24,8 +28,8 @@ use question_model::run_policy::{
 use question_model::taxonomy::License;
 use question_model::{
     AssignmentAudience, AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId,
-    AssignmentRunTiming, AssignmentScoringMode, BackendCapabilities, Capability, CourseGroupId,
-    CourseGroupPurpose, CourseId, DraftQuestionDefinition, DraftQuestionSource, EntitlementPurpose,
+    AssignmentScoringMode, BackendCapabilities, Capability, CourseGroupId, CourseGroupPurpose,
+    CourseId, DraftQuestionDefinition, DraftQuestionSource, EntitlementPurpose,
     MaterializationBasis, PointValue, ProblemId, ProblemVersionRef, PublicationScope,
     QuestionMetadata, QuestionSource, ResponseDefinition, TenantId, UserId, UserRole, VersionId,
     WorkspaceId,
@@ -135,6 +139,8 @@ fn assignment(
         tenant,
         course_id: course,
         title: "S5 entitlement assignment".to_string(),
+        lifecycle: question_model::AssignmentLifecycle::Published,
+        instructions: question_model::AssignmentInstructions::default(),
         audience,
         items: vec![AssignmentItem {
             id: AssignmentItemId::from_uuid(id()),
@@ -228,20 +234,21 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
 
     let reference = publish_question(&store, context, tenant, instructor).await;
     let assignment_id = AssignmentId::from_uuid(id());
-    store
-        .create_assignment_with_timing(
-            context,
-            assignment(
-                tenant,
-                course,
-                assignment_id,
-                reference,
-                AssignmentAudience::CourseWide,
-            ),
-            AssignmentRunTiming::default(),
-        )
-        .await
-        .expect("create explicitly course-wide assignment");
+    create_published_assignment(
+        &store,
+        context,
+        instructor,
+        assignment(
+            tenant,
+            course,
+            assignment_id,
+            reference,
+            AssignmentAudience::CourseWide,
+        ),
+        question_model::BaseAssignmentPolicy::default(),
+    )
+    .await
+    .expect("create explicitly course-wide assignment");
 
     let outsider = UserId::from_uuid(id());
     assert_eq!(
@@ -316,20 +323,21 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
     assert_eq!(receipt_counts.get::<i64, _>("bases"), 1);
 
     let concurrent_assignment = AssignmentId::from_uuid(id());
-    store
-        .create_assignment_with_timing(
-            context,
-            assignment(
-                tenant,
-                course,
-                concurrent_assignment,
-                reference,
-                AssignmentAudience::CourseWide,
-            ),
-            AssignmentRunTiming::default(),
-        )
-        .await
-        .expect("create concurrent materialization assignment");
+    create_published_assignment(
+        &store,
+        context,
+        instructor,
+        assignment(
+            tenant,
+            course,
+            concurrent_assignment,
+            reference,
+            AssignmentAudience::CourseWide,
+        ),
+        question_model::BaseAssignmentPolicy::default(),
+    )
+    .await
+    .expect("create concurrent materialization assignment");
     let concurrent_command = MaterializeAssignmentEntitlementCommand::for_instructor_action(
         student,
         course,
@@ -443,20 +451,21 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
         .await
         .expect("section admits canonical student membership");
     let group_assignment = AssignmentId::from_uuid(id());
-    store
-        .create_assignment_with_timing(
-            context,
-            assignment(
-                tenant,
-                course,
-                group_assignment,
-                reference,
-                AssignmentAudience::any_of_groups(vec![section]).expect("nonempty group audience"),
-            ),
-            AssignmentRunTiming::default(),
-        )
-        .await
-        .expect("create section audience assignment");
+    create_published_assignment(
+        &store,
+        context,
+        instructor,
+        assignment(
+            tenant,
+            course,
+            group_assignment,
+            reference,
+            AssignmentAudience::any_of_groups(vec![section]).expect("nonempty group audience"),
+        ),
+        question_model::BaseAssignmentPolicy::default(),
+    )
+    .await
+    .expect("create section audience assignment");
     assert!(matches!(
         store
             .evaluate_assignment_entitlement(context, student, course, group_assignment)
@@ -571,20 +580,21 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
         ),
         (second_visible, AssignmentAudience::CourseWide),
     ] {
-        store
-            .create_assignment_with_timing(
-                context,
-                assignment(
-                    tenant,
-                    pagination_course,
-                    assignment_id,
-                    reference,
-                    audience,
-                ),
-                AssignmentRunTiming::default(),
-            )
-            .await
-            .expect("create entitlement pagination assignment");
+        create_published_assignment(
+            &store,
+            context,
+            instructor,
+            assignment(
+                tenant,
+                pagination_course,
+                assignment_id,
+                reference,
+                audience,
+            ),
+            question_model::BaseAssignmentPolicy::default(),
+        )
+        .await
+        .expect("create entitlement pagination assignment");
     }
     let first_page = store
         .list_learner_entitled_assignments(
@@ -676,21 +686,22 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
         .await
         .expect("create race audience group");
     let race_assignment = AssignmentId::from_uuid(id());
-    store
-        .create_assignment_with_timing(
-            context,
-            assignment(
-                tenant,
-                course,
-                race_assignment,
-                reference,
-                AssignmentAudience::any_of_groups(vec![race_group.record.id])
-                    .expect("nonempty race audience"),
-            ),
-            AssignmentRunTiming::default(),
-        )
-        .await
-        .expect("create race audience assignment");
+    create_published_assignment(
+        &store,
+        context,
+        instructor,
+        assignment(
+            tenant,
+            course,
+            race_assignment,
+            reference,
+            AssignmentAudience::any_of_groups(vec![race_group.record.id])
+                .expect("nonempty race audience"),
+        ),
+        question_model::BaseAssignmentPolicy::default(),
+    )
+    .await
+    .expect("create race audience assignment");
     let race_issue = MaterializeAssignmentEntitlementCommand::for_instructor_action(
         student,
         course,
@@ -776,20 +787,21 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
             .expect("typed non-audience group persists with canonical member");
     }
     let scoped_assignment = AssignmentId::from_uuid(id());
-    store
-        .create_assignment_with_timing(
-            context,
-            assignment(
-                tenant,
-                course,
-                scoped_assignment,
-                reference,
-                AssignmentAudience::CourseWide,
-            ),
-            AssignmentRunTiming::default(),
-        )
-        .await
-        .expect("create course-wide policy-scope fixture");
+    create_published_assignment(
+        &store,
+        context,
+        instructor,
+        assignment(
+            tenant,
+            course,
+            scoped_assignment,
+            reference,
+            AssignmentAudience::CourseWide,
+        ),
+        question_model::BaseAssignmentPolicy::default(),
+    )
+    .await
+    .expect("create course-wide policy-scope fixture");
     let scoped = store
         .issue_assignment_entitlement(
             context,

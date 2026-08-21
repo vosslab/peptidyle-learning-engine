@@ -43,8 +43,10 @@ ignored `generated/` TypeScript API and fixture projections; the vendored
 TypeScript gate consumes those projections during its typecheck. A clean tree
 therefore cannot start with `./check_codebase.sh` when `generated/` is absent.
 
-Add `./run_playwright_tests.sh --build` for ordinary mock-backed built-browser behavior. It must
-finish with zero skips. For a goal that requires the complete browser claim, add
+Add `./run_playwright_tests.sh --build` for ordinary built-browser demo-environment behavior. It
+uses fictional users and sample data through the isolated browser-test artifact and internal
+test-double transport handlers, and must finish with zero skips. For a goal that requires the
+complete browser claim, add
 `source source_me.sh && python3 local_stack.py acceptance`; it owns the temporary visual, walkthrough, and dedicated
 live-browser lanes, and a required skip is red. Add the named `tests/e2e/` runner for each
 PostgreSQL, MinIO, renderer, migration, restart, or other real-service claim not already owned by
@@ -95,7 +97,8 @@ delete the proposed permanent test.
 
 - A memory-backed test cannot prove PostgreSQL roles, forced RLS, migrations,
   transactions, restart behavior, or an object-store delivery policy.
-- A mock browser route cannot prove the API, database, renderer, or network
+- A demo-environment browser route backed by a test-double transport cannot prove the API, database,
+  renderer, or network
   integration behind that route.
 - A recorded provider response cannot prove that the provider is currently
   reachable, authenticates PLE, or has not changed its behavior.
@@ -130,7 +133,7 @@ tests.
 | `crates/learning-data-access/tests/conformance.rs`        | The maintained `Store` behavior exercised by its cases is consistent for the configured conformance driver.                               | It does not by itself prove a live PostgreSQL role/RLS/migration boundary.                                               |
 | Rust and TypeScript response/decoder tests                | Wire values, response-shape handling, and invalid-input refusal keep their stated contract.                                               | They do not prove a full browser-to-server round trip.                                                                   |
 | `tests/playwright/student_keyboard_accessibility.spec.ts` | The built PLE browser surface preserves the specified keyboard journey and separately scoped shortcuts.                                   | It does not replace screen-reader, assistive-technology, or human usability review.                                      |
-| Mock-backed catalog, editor, or run Playwright specs      | The built browser handles the declared same-origin client contract and visible states.                                                    | A mock does not prove the production API or storage implementation.                                                      |
+| Demo-environment catalog, editor, or run Playwright specs | The browser-test artifact handles the declared same-origin client contract and visible states using fictional users and sample data. | Its internal test-double transport does not prove the production API or storage implementation. |
 
 ## 2. Permanent architecture and hygiene gates
 
@@ -245,8 +248,8 @@ the PLE same-origin gateway.
   `check_rust.sh`'s ordinary workspace tests.
 - Live Playwright specs remain in `tests/playwright/`, but must require
   explicit configuration rather than silently contacting a real service.
-- The ordinary `./run_playwright_tests.sh --build` collection uses the mock
-  preview server and contains no opt-in cases. Run
+- The ordinary `./run_playwright_tests.sh --build` collection uses the browser-test helper serving
+  `dist_browser_test/` with test-double transport and contains no opt-in cases. Run
   `source source_me.sh && python3 local_stack.py acceptance` for the complete browser Validation
   test suite; it requires no existing default or retained walkthrough stack, owns its temporary visual
   evidence and dedicated live runners, and treats every required skip as red.

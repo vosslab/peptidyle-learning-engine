@@ -23,13 +23,16 @@ where
     let retired_item = delete_items[0].id;
     let retained_item = delete_items[1].id;
     store
-        .create_untimed_assignment(
+        .create_assignment_with_default_policy(
             context,
+            publisher,
             AssignmentRecord {
                 id: delete_assignment,
                 tenant,
                 course_id: course,
                 title: "Delete and Regrade fixture".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Published,
+                instructions: question_model::AssignmentInstructions::default(),
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: delete_items,
                 selection_groups: Vec::new(),

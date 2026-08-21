@@ -297,7 +297,7 @@ pub(super) async fn contracted_route_fixture(
         .await
         .expect("student roster membership");
     store
-        .create_untimed_assignment(
+        .create_assignment(
             context,
             AssignmentRecord {
                 id: assignment,
@@ -305,6 +305,8 @@ pub(super) async fn contracted_route_fixture(
                 course_id: course,
                 audience: question_model::AssignmentAudience::CourseWide,
                 title: "Recorded assignment".into(),
+                lifecycle: question_model::AssignmentLifecycle::Draft,
+                instructions: question_model::AssignmentInstructions::default(),
                 items: assignment_items(vec![reference]),
                 selection_groups: Vec::new(),
                 disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
@@ -315,9 +317,23 @@ pub(super) async fn contracted_route_fixture(
                     variation: VariationPolicy::NewSeeds,
                 },
             },
+            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("assignment");
+    crate::course::tests::fixtures::publish_assignment(
+        store.as_ref(),
+        context,
+        instructor,
+        course,
+        assignment,
+        question_model::AssignmentTeachingSettings {
+            lifecycle: question_model::AssignmentLifecycle::Published,
+            instructions: question_model::AssignmentInstructions::default(),
+            base_policy: question_model::BaseAssignmentPolicy::default(),
+        },
+    )
+    .await;
     let (provider, transport) = RecordedContractedTransportFactory::new(transport_mode)
         .contracted_provider_with_transport();
     let adapter = Arc::new(adapter_imathas::ImathasAdapter::new(

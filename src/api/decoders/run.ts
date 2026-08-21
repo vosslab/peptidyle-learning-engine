@@ -25,12 +25,14 @@ import type { StudentAssignmentSummary } from "../../../generated/api/StudentAss
 import type { LearnerAssignmentProgress } from "../../../generated/api/LearnerAssignmentProgress";
 import type { LearnerClassStatistics } from "../../../generated/api/LearnerClassStatistics";
 import type { LearnerScoreState } from "../../../generated/api/LearnerScoreState";
+import type { ScoringStatus } from "../../../generated/api/ScoringStatus";
 import type { TaxonomyTerm } from "../../../generated/api/TaxonomyTerm";
 import type {
   AuthSession,
   CursorPage,
   EnrollmentView,
   FeedbackReleaseResponse,
+  LearnerQuestionAttempt,
   NextIssuedAttempt,
   PrefetchedNextQuestion,
   RunSummaryOutcome,
@@ -95,6 +97,28 @@ const ISSUED_ATTEMPT_CAPABILITIES = [
 // This fixed wire-contract minimum mirrors the server privacy floor. It only
 // rejects unsafe API data; release-policy evaluation remains server-owned.
 const LEARNER_CLASS_STATISTICS_WIRE_MINIMUM_COHORT_SIZE = 5;
+const SCORING_STATUSES = [
+  "current",
+  "recalculating",
+  "failed",
+] as const satisfies ReadonlyArray<ScoringStatus>;
+
+const QUESTION_ATTEMPT_FIELDS = [
+  "id",
+  "tenant",
+  "run",
+  "problem",
+  "questionVersion",
+  "assignmentPosition",
+  "seed",
+  "parameterHash",
+  "response",
+  "status",
+  "result",
+  "timer",
+  "provenance",
+  "issuedCapability",
+] as const;
 
 function decodeAttemptTimer(value: unknown, path: string): AttemptTimerRecord {
   const record = decodeRecord(value, path);
@@ -172,22 +196,7 @@ function decodeAttemptProvenance(value: unknown, path: string): AttemptProvenanc
 
 export function decodeQuestionAttempt(value: unknown, path = "response"): QuestionAttempt {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "id",
-    "tenant",
-    "run",
-    "problem",
-    "questionVersion",
-    "assignmentPosition",
-    "seed",
-    "parameterHash",
-    "response",
-    "status",
-    "result",
-    "timer",
-    "provenance",
-    "issuedCapability",
-  ]);
+  requireOnlyFields(record, path, QUESTION_ATTEMPT_FIELDS);
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     tenant: decodeIdentifier(field(record, "tenant", path), `${path}.tenant`),
@@ -225,6 +234,23 @@ export function decodeQuestionAttempt(value: unknown, path = "response"): Questi
       ISSUED_ATTEMPT_CAPABILITIES,
     ),
   } satisfies QuestionAttempt;
+  return decoded;
+}
+
+export function decodeLearnerQuestionAttempt(
+  value: unknown,
+  path = "response",
+): LearnerQuestionAttempt {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [...QUESTION_ATTEMPT_FIELDS, "scoringStatus"]);
+  const { scoringStatus, ...attempt } = record;
+  const decoded = {
+    ...decodeQuestionAttempt(attempt, path),
+    scoringStatus: decodeStringEnum(scoringStatus, `${path}.scoringStatus`, SCORING_STATUSES),
+  } satisfies LearnerQuestionAttempt;
+  if (decoded.scoringStatus !== "current" && decoded.result !== null) {
+    throw new DecodeError(`${path}.result`, "no numeric result while scoring is not current");
+  }
   return decoded;
 }
 
@@ -388,6 +414,7 @@ export function decodeLearnerAssignmentProgress(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "scoreState",
+    "scoringStatus",
     "currentScore",
     "bestScore",
     "latestScore",
@@ -406,6 +433,11 @@ export function decodeLearnerAssignmentProgress(
     : undefined;
   const decoded = {
     scoreState,
+    scoringStatus: decodeStringEnum(
+      field(record, "scoringStatus", path),
+      `${path}.scoringStatus`,
+      SCORING_STATUSES,
+    ),
     currentScore: decodeNullable(
       field(record, "currentScore", path),
       `${path}.currentScore`,
@@ -457,8 +489,9 @@ function decodeRunSummaryOutcome(value: unknown, path: string): RunSummaryOutcom
     "submittedAt",
     "response",
     "feedback",
+    "scoringStatus",
   ]);
-  return {
+  const decoded = {
     attempt: decodeIdentifier(field(record, "attempt", path), `${path}.attempt`),
     assignmentPosition: decodeNonnegativeInteger(
       field(record, "assignmentPosition", path),
@@ -479,7 +512,19 @@ function decodeRunSummaryOutcome(value: unknown, path: string): RunSummaryOutcom
       `${path}.feedback`,
       decodeDisclosedFeedback,
     ),
+    scoringStatus: decodeStringEnum(
+      field(record, "scoringStatus", path),
+      `${path}.scoringStatus`,
+      SCORING_STATUSES,
+    ),
   } satisfies RunSummaryOutcome;
+  if (
+    decoded.scoringStatus !== "current" &&
+    (decoded.feedback?.pointsEarned !== undefined || decoded.feedback?.pointsPossible !== undefined)
+  ) {
+    throw new DecodeError(`${path}.feedback`, "no numeric points while scoring is not current");
+  }
+  return decoded;
 }
 
 export function decodeRunSummaryResponse(value: unknown, path = "response"): RunSummaryResponse {
@@ -539,6 +584,7 @@ export function decodeGradebookSummaryRow(value: unknown, path = "response"): Gr
     "assignmentId",
     "assignmentTitle",
     "summary",
+    "scoringStatus",
   ]);
   const tenant = decodeIdentifier(field(record, "tenant", path), `${path}.tenant`);
   const summary = decodeStudentAssignmentSummary(field(record, "summary", path), `${path}.summary`);
@@ -573,6 +619,11 @@ export function decodeGradebookSummaryRow(value: unknown, path = "response"): Gr
     assignmentTitle: decodeNonemptyString(
       field(record, "assignmentTitle", path),
       `${path}.assignmentTitle`,
+    ),
+    scoringStatus: decodeStringEnum(
+      field(record, "scoringStatus", path),
+      `${path}.scoringStatus`,
+      SCORING_STATUSES,
     ),
     summary,
   } satisfies GradebookSummaryRow;
@@ -622,7 +673,14 @@ export function decodeEnrollmentView(value: unknown, path = "response"): Enrollm
 
 export function decodeSubmissionReceipt(value: unknown, path = "response"): SubmissionReceipt {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["accepted", "attempt", "feedback", "nextIssued", "nextPending"]);
+  requireOnlyFields(record, path, [
+    "accepted",
+    "attempt",
+    "feedback",
+    "scoringStatus",
+    "nextIssued",
+    "nextPending",
+  ]);
   const decoded = {
     accepted: decodeTrue(field(record, "accepted", path), `${path}.accepted`),
     attempt: decodeQuestionAttempt(field(record, "attempt", path), `${path}.attempt`),
@@ -630,6 +688,11 @@ export function decodeSubmissionReceipt(value: unknown, path = "response"): Subm
       field(record, "feedback", path),
       `${path}.feedback`,
       decodeDisclosedFeedback,
+    ),
+    scoringStatus: decodeStringEnum(
+      field(record, "scoringStatus", path),
+      `${path}.scoringStatus`,
+      SCORING_STATUSES,
     ),
     nextIssued: decodeNullable(
       field(record, "nextIssued", path),
@@ -643,6 +706,18 @@ export function decodeSubmissionReceipt(value: unknown, path = "response"): Subm
       path,
       "a submission receipt with either an issued successor or a pending successor",
     );
+  }
+  if (decoded.scoringStatus !== "current" && decoded.attempt.result !== null) {
+    throw new DecodeError(
+      `${path}.attempt.result`,
+      "no numeric result while scoring is not current",
+    );
+  }
+  if (
+    decoded.scoringStatus !== "current" &&
+    (decoded.feedback?.pointsEarned !== undefined || decoded.feedback?.pointsPossible !== undefined)
+  ) {
+    throw new DecodeError(`${path}.feedback`, "no numeric points while scoring is not current");
   }
   return decoded;
 }
@@ -755,8 +830,11 @@ export function decodeRunPage(value: unknown, path = "response"): CursorPage<Ass
   return decodeCursorPage(value, path, decodeStrictAssignmentRun);
 }
 
-export function decodeAttemptPage(value: unknown, path = "response"): CursorPage<QuestionAttempt> {
-  return decodeCursorPage(value, path, decodeQuestionAttempt);
+export function decodeAttemptPage(
+  value: unknown,
+  path = "response",
+): CursorPage<LearnerQuestionAttempt> {
+  return decodeCursorPage(value, path, decodeLearnerQuestionAttempt);
 }
 
 export function decodeGradebookPage(

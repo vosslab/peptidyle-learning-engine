@@ -6,6 +6,7 @@ import { canHandleCatalog, respondCatalog } from "./handlers/catalog";
 import {
   canHandleCourse,
   createMockCourseAppearanceState,
+  createMockCourseGradeState,
   respondCourse,
 } from "./handlers/courses";
 import { createMockAssignmentState } from "./handlers/authoring";
@@ -32,6 +33,7 @@ export {
   issuedQuestionWireForAttempt,
   externalToolFixtureAttempt,
   mockAttemptById,
+  mockLearnerAttempt,
   mockExternalToolSubmissionReceipt,
   mockPrefetchedNextQuestion,
   mockPrefetchSubmissionReceipt,
@@ -53,6 +55,7 @@ export const mockApiHandlers: ReadonlyArray<MockApiHandler> = [
 export function createMockFetch(): MockFetch {
   const assignmentState = createMockAssignmentState();
   const appearanceState = createMockCourseAppearanceState();
+  const gradeState = createMockCourseGradeState();
 
   async function mockFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     const request = requestFrom(input, init);
@@ -60,7 +63,7 @@ export function createMockFetch(): MockFetch {
     return handler === undefined
       ? routeNotFound(request)
       : handler.group === "course"
-        ? await respondCourse(request, assignmentState, appearanceState)
+        ? await respondCourse(request, assignmentState, appearanceState, gradeState)
         : await handler.respond(request);
   }
 

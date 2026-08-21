@@ -2,6 +2,10 @@
 
 //! Disposable PostgreSQL oracle for the course-local item-analysis projection.
 
+#[path = "fixtures/published_assignment.rs"]
+mod published_assignment;
+use published_assignment::create_published_assignment;
+
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AssignmentRecord, AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand,
@@ -335,28 +339,32 @@ async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
             scoring_mode: AssignmentScoringMode::Normal,
         },
     ];
-    store
-        .create_untimed_assignment(
-            context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                title: "Mixed item-analysis assignment".to_string(),
-                audience: question_model::AssignmentAudience::CourseWide,
-                items,
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: RunPolicies {
-                    completion: CompletionRequirement::AnswerAll,
-                    grade: GradePolicy::Highest,
-                    continued_practice: ContinuedPractice::Unlimited,
-                    variation: VariationPolicy::NewSeeds,
-                },
+    create_published_assignment(
+        &store,
+        context,
+        instructor,
+        AssignmentRecord {
+            id: assignment,
+            tenant,
+            course_id: course,
+            title: "Mixed item-analysis assignment".to_string(),
+            lifecycle: question_model::AssignmentLifecycle::Published,
+            instructions: question_model::AssignmentInstructions::default(),
+            audience: question_model::AssignmentAudience::CourseWide,
+            items,
+            selection_groups: Vec::new(),
+            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            policies: RunPolicies {
+                completion: CompletionRequirement::AnswerAll,
+                grade: GradePolicy::Highest,
+                continued_practice: ContinuedPractice::Unlimited,
+                variation: VariationPolicy::NewSeeds,
             },
-        )
-        .await
-        .expect("create assignment");
+        },
+        question_model::BaseAssignmentPolicy::default(),
+    )
+    .await
+    .expect("create assignment");
     store
         .upsert_course_member(
             context,

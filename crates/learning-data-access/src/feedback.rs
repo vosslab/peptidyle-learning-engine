@@ -7,8 +7,16 @@ use objects::Sha256Digest;
 use question_model::envelope::ContentBlock;
 use question_model::{
     ActivityTimestamp, AssignmentRun, AttemptResult, FeedbackContent, QuestionAttemptId,
-    StudentAssignmentSummary, StudentResponse, TenantId, UserId,
+    ScoringStatus, StudentAssignmentSummary, StudentResponse, TenantId, UserId,
 };
+
+/// One learner-safe summary and its score freshness read atomically by storage.
+/// It deliberately has no serialization or debug representation.
+#[derive(Clone, PartialEq)]
+pub struct LearnerAssignmentSummarySnapshot {
+    pub summary: StudentAssignmentSummary,
+    pub scoring_status: ScoringStatus,
+}
 
 /// Tenant-owned private feedback retained beside the first grade.
 ///
@@ -103,6 +111,7 @@ pub struct RunSummaryPageInput {
     pub run: AssignmentRun,
     pub assignment: AssignmentRecord,
     pub summary: StudentAssignmentSummary,
+    pub scoring_status: ScoringStatus,
     pub practice_allowed: bool,
     pub outcomes: Page<RunSummaryOutcomeInput>,
 }

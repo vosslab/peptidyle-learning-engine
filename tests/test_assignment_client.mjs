@@ -4,6 +4,7 @@ import test from "node:test";
 import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
 import { createMockApiClient } from "../src/api/mock/client.ts";
 import { AssignmentConflictError } from "../src/api/http_client/error.ts";
+import { decodeAssignmentEditorDetail } from "../src/api/decoders/catalog_course.ts";
 
 test("revisioned assignment commands carry QIDs and return fresh safe summaries", async () => {
   const client = createMockApiClient({ assignmentAuthoring: true });
@@ -27,7 +28,6 @@ test("revisioned assignment commands carry QIDs and return fresh safe summaries"
       ),
       disclosurePolicy: assignment.disclosurePolicy,
       policies: assignment.policies,
-      assignmentTiming: { timeLimitSeconds: null },
     },
     assignment.revision,
   );
@@ -70,6 +70,29 @@ test("focused assignment commands reject extra request fields before transport",
       { questionId: item.questionId, extra: true },
       assignment.revision,
     ),
+    /allowed by this response contract/u,
+  );
+});
+
+test("assignment editor current state is closed and consistent with stored intent", async () => {
+  const client = createMockApiClient({ assignmentAuthoring: true });
+  const assignment = await client.getAssignmentEditor(publishedProblemFixture.assignment.id);
+  const { revision: _revision, ...wire } = assignment;
+  assert.deepEqual(decodeAssignmentEditorDetail(wire).currentState, { state: "open" });
+  assert.throws(
+    () =>
+      decodeAssignmentEditorDetail({
+        ...wire,
+        currentState: { state: "closed", closedAt: null },
+      }),
+    /consistent with the stored lifecycle intent/u,
+  );
+  assert.throws(
+    () =>
+      decodeAssignmentEditorDetail({
+        ...wire,
+        currentState: { state: "open", browserClock: 1 },
+      }),
     /allowed by this response contract/u,
   );
 });

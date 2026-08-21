@@ -86,13 +86,16 @@ async fn memory_catalog_keeps_question_identity_exact() {
     );
     assert_eq!(
         store
-            .create_untimed_assignment(
+            .create_assignment_with_default_policy(
                 context,
+                publisher,
                 AssignmentRecord {
                     id: AssignmentId::from_uuid(uuid(309)),
                     tenant,
                     course_id: course,
                     title: "Exact catalog reference".to_string(),
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
                     audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![reference]),
                     selection_groups: Vec::new(),

@@ -151,7 +151,6 @@ async function completeChapter(page: Page, chapter: ChapterJourney): Promise<voi
       page.locator(".course-card").nth(index).getByRole("link", { name: "Start assignment" }),
     itemName: "assignments",
   });
-  await expect(assignment).toContainText("4 questions in each new run");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: chapter.assignment })).toBeVisible();
   await expect(page.getByText("4", { exact: true })).toBeVisible();
@@ -190,7 +189,7 @@ async function completeChapter(page: Page, chapter: ChapterJourney): Promise<voi
 }
 
 /**
- * Selector contract: the instructor assignment overview exposes an accessible Edit assignment
+ * Selector contract: the instructor assignment list exposes a direct accessible Edit assignment
  * link, and assignment_editor_page.tsx exposes Assignment content, Replace, Replacement Question
  * ID, Check Question ID, Replace with selected question, Reload assignment, and its live status.
  */
@@ -199,12 +198,7 @@ async function openAssignmentEditor(page: Page, chapter: ChapterJourney): Promis
   const assignment = page.locator(".course-card").filter({
     has: page.getByRole("heading", { name: chapter.assignment }),
   });
-  const review = assignment.getByRole("link", { name: "Start assignment", exact: true });
-  await expect(review).toBeVisible();
-  await tabTo(page, review);
-  await page.keyboard.press("Enter");
-  await expect(page.locator("[data-route-surface=assignmentOverview]")).toBeVisible();
-  const edit = page.getByRole("link", { name: "Edit assignment", exact: true });
+  const edit = assignment.getByRole("link", { name: "Edit assignment", exact: true });
   await expect(edit).toBeVisible();
   await tabTo(page, edit);
   await page.keyboard.press("Enter");
@@ -252,6 +246,9 @@ async function prepareReplacement(page: Page, originalQuestionId: string): Promi
   await expect(
     page.getByRole("heading", { name: "Replace assigned question", exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Replacement Question ID", exact: true }),
+  ).toBeFocused();
   await expect(
     page.getByText(
       "Future runs use the replacement. Already issued work stays with its original question.",

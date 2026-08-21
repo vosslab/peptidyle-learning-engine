@@ -43,9 +43,19 @@ export class WorkspaceConflictError extends ApiRequestError {
 
 /** A revisioned assignment save lost its server-side compare-and-swap race. */
 export class AssignmentConflictError extends ApiRequestError {
-  public constructor(status: 409 | 428, path: string) {
+  public constructor(status: 409 | 412 | 428, path: string) {
     super(status, path);
     this.name = "AssignmentConflictError";
+  }
+}
+
+/** A preview revision became stale; callers retain the hypothetical draft and reload it. */
+export class PreviewPlaneConflictError extends ApiRequestError {
+  declare public readonly status: 412;
+
+  public constructor(path: string) {
+    super(412, path);
+    this.name = "PreviewPlaneConflictError";
   }
 }
 
@@ -56,6 +66,15 @@ export class CourseAppearanceConflictError extends ApiRequestError {
   public constructor(path: string) {
     super(412, path);
     this.name = "CourseAppearanceConflictError";
+  }
+}
+
+/** A course-grade save lost its strong ETag race; the caller must retain its draft. */
+export class CourseGradeSchemeConflictError extends ApiRequestError {
+  declare public readonly status: 412;
+  public constructor(path: string) {
+    super(412, path);
+    this.name = "CourseGradeSchemeConflictError";
   }
 }
 
@@ -78,6 +97,17 @@ export class AssignmentValidationError extends ApiRequestError {
     super(422, path);
     this.name = "AssignmentValidationError";
     this.violations = violations;
+  }
+}
+
+/** A bounded server correction tied to exactly one teaching-settings control. */
+export class AssignmentTeachingSettingsValidationError extends ApiRequestError {
+  public constructor(
+    path: string,
+    public readonly failure: import("../../../generated/api/AssignmentTeachingSettingsValidationFailure").AssignmentTeachingSettingsValidationFailure,
+  ) {
+    super(422, path);
+    this.name = "AssignmentTeachingSettingsValidationError";
   }
 }
 

@@ -1,0 +1,78 @@
+/* Course teaching-team and account invitation layouts stay usable at narrow widths. */
+
+.teaching-team-panel,
+.pending-invitations-page {
+  width: min(100%, 80rem);
+}
+
+.teaching-team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: var(--ple-space-3);
+}
+
+.teaching-team-card,
+.pending-invitation-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.teaching-team-row,
+.pending-invitation-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ple-space-2);
+}
+
+.teaching-team-row > div,
+.pending-invitation-card > div {
+  min-width: min(100%, 14rem);
+}
+
+.teaching-team-results {
+  display: grid;
+  gap: var(--ple-space-1);
+  margin: var(--ple-space-2) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.teaching-team-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ple-space-1);
+  padding: var(--ple-space-1);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-control);
+}
+
+.teaching-team-meta {
+  margin: 0.25rem 0 0;
+  color: var(--ple-muted);
+}
+
+.pending-invitation-list {
+  display: grid;
+  gap: var(--ple-space-2);
+}
+
+@media (max-width: 30rem) {
+  .teaching-team-row,
+  .pending-invitation-card {
+    align-items: stretch;
+  }
+
+  .teaching-team-row button,
+  .pending-invitation-card .action-row,
+  .teaching-team-result button {
+    width: 100%;
+  }
+
+  .pending-invitation-card .action-row button {
+    flex: 1 1 9rem;
+  }
+}

@@ -33,6 +33,7 @@ mod account_presentation;
 mod activity_policy;
 mod asset_delivery;
 mod course_appearance;
+mod course_gradebook;
 mod course_roster;
 mod external_tool;
 mod feedback;
@@ -45,6 +46,7 @@ mod invitation_delivery;
 mod item_analysis;
 /// In-memory backend used by tests and lanes waiting for PostgreSQL.
 pub mod jobs;
+mod live_demo_installation;
 mod manual_grade_export;
 mod manual_grading;
 mod navigation_references;
@@ -66,6 +68,8 @@ mod score_precision;
 /// Provider-neutral, replica-safe authentication session contract.
 pub mod session;
 mod statistics;
+mod teaching_authority_references;
+mod teaching_authority_store;
 
 pub use crate::question_id::QuestionIdCodec;
 
@@ -76,12 +80,12 @@ pub use crate::account_identity::{
     AuthenticationRateLimitPolicy, AuthenticationRateLimitScope, BeginEmailAuthentication,
     BeginWebauthnCeremony, BrowserBindingHash, CompleteEmailAuthentication,
     CompleteEmailAuthenticationAndCreateSession, CompleteEmailChangeAndRevokeUserSessions,
-    CompletePasskeyAuthenticationAndCreateSession, CompletedAccountSession,
-    CompletedEmailAuthentication, CompletedPasskeySession, ConsumeAuthenticationRateLimit,
-    CredentialIdHash, EmailAuthenticationChallenge, EmailAuthenticationPurpose, EmailChallengeId,
-    EmailChallengeLifetime, EmailChallengeSecretHash, EmailDomain, PasskeyId, PasskeyRecord,
-    RegisterPasskey, WebauthnCeremony, WebauthnCeremonyId, WebauthnCeremonyKind,
-    WebauthnCeremonyLifetime, WebauthnState, validated_account_display_name,
+    CompletePasskeyAuthenticationAndCreateSession, CompleteSeededSysadminOwnership,
+    CompletedAccountSession, CompletedEmailAuthentication, CompletedPasskeySession,
+    ConsumeAuthenticationRateLimit, CredentialIdHash, EmailAuthenticationChallenge,
+    EmailAuthenticationPurpose, EmailChallengeId, EmailChallengeLifetime, EmailChallengeSecretHash,
+    EmailDomain, PasskeyId, PasskeyRecord, RegisterPasskey, WebauthnCeremony, WebauthnCeremonyId,
+    WebauthnCeremonyKind, WebauthnCeremonyLifetime, WebauthnState, validated_account_display_name,
     validated_passkey_label,
 };
 pub use crate::account_presentation::{
@@ -92,10 +96,18 @@ pub use crate::asset_delivery::{
     AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetPublication,
     AssetStore, AuthorizedAssetDelivery, CatalogAssetBinding, PublicAssetPublicationStore,
 };
+pub use crate::contracts::CourseGroupManagementStore;
+pub use crate::contracts::{PreviewPlaneResult, PreviewPlaneStore, PreviewSubjectAudit};
 pub use crate::course_appearance::{
     COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseAppearanceStore, CourseBannerCleanupBatch,
     CourseBannerCleanupClaim, CourseBannerCleanupToken, CourseBannerPromotion,
     RegisterCourseBannerCandidate, SaveCourseAppearance,
+};
+pub use crate::course_gradebook::{
+    CourseGradeAssignmentMembership, CourseGradeAssignmentRecord, CourseGradeExport,
+    CourseGradeExportAudit, CourseGradeExportId, CourseGradeSchemeRecord,
+    CourseGradeSchemeRevision, CourseGradebookStore, CourseGradebookTotalRow,
+    CourseGradebookTotals, MAX_COURSE_GRADE_EXPORT_ROWS, UpdateCourseGradeScheme,
 };
 pub use crate::course_roster::{
     AllowedEmailDomain, ClaimCourseInvitation, ClaimedCourseMembership, CommitCourseRosterImport,
@@ -122,9 +134,9 @@ pub use crate::external_tool::{
     StageExternalToolVerificationCommand,
 };
 pub use crate::feedback::{
-    AttemptFeedbackRecord, FeedbackReleaseRecord, LearnerDisclosureInput,
-    ReleaseAttemptFeedbackCommand, RunSummaryOutcomeInput, RunSummaryPageInput,
-    private_feedback_record,
+    AttemptFeedbackRecord, FeedbackReleaseRecord, LearnerAssignmentSummarySnapshot,
+    LearnerDisclosureInput, ReleaseAttemptFeedbackCommand, RunSummaryOutcomeInput,
+    RunSummaryPageInput, private_feedback_record,
 };
 pub use crate::flat_import_provenance::{
     FlatImportChoiceMapPayload, FlatImportConversionVersion, FlatImportIntegrityDigests,
@@ -161,6 +173,7 @@ pub use crate::jobs::{
     JobPayload, JobState, JobStore, QueueDepth, StudentExportArtifactView, StudentExportJob,
     StudentExportState, StudentExportView, TenantJobView,
 };
+pub use crate::live_demo_installation::LiveDemoInstallationStore;
 pub use crate::manual_grade_export::{
     CreateManualGradeExport, MAX_MANUAL_GRADE_EXPORT_ROWS, ManualGradeExport, ManualGradeExportId,
     ManualGradeExportRow, ManualGradeExportStore,
@@ -176,13 +189,15 @@ pub use crate::navigation_references::{
 pub use crate::pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
 pub(crate) use crate::policy::EffectivePolicyInputs;
 pub use crate::policy::{
-    CourseGroupRecord, CourseGroupRevision, DeleteGroupAccommodationCommand,
+    CourseGroupMembershipWarning, CourseGroupPurposePolicyRevision, CourseGroupRecord,
+    CourseGroupRevision, CourseGroupView, DeleteGroupAccommodationCommand,
     DeleteGroupScheduleOffsetCommand, DeleteIndividualPolicyExceptionCommand, EffectivePolicyField,
     EffectivePolicyResolution, IssuedEffectivePolicyFieldSource, IssuedEffectivePolicyReceipt,
-    PutBaseAssignmentPolicyCommand, PutCourseGroupCommand, PutGroupAccommodationCommand,
+    PutAssignmentTeachingSettingsCommand, PutCourseGroupCommand, PutGroupAccommodationCommand,
     PutGroupScheduleOffsetCommand, PutIndividualPolicyExceptionCommand,
     ResolveEffectivePolicyCommand, StoredBaseAssignmentPolicy, StoredCourseGroup,
-    StoredIndividualPolicyException,
+    StoredCourseGroupPurposePolicy, StoredIndividualPolicyException,
+    UpdateCourseGroupPurposePolicyCommand,
 };
 pub use crate::qti::{
     CommitPreparedQtiImport, CommitPreparedQtiImportOutcome, CreateQtiImportCommand,
@@ -209,6 +224,18 @@ pub use crate::rls::TenantContext;
 pub use crate::session::{
     SessionLifetime, SessionRecord, SessionStore, SessionSubject, SessionSubjectError,
     SessionTokenHash, SessionTokenHashParseError,
+};
+pub use crate::teaching_authority_references::{
+    CourseCoInstructorInvitationReferenceView, CourseInstructorMembershipReferencePage,
+    CourseInstructorMembershipReferenceView, CourseMembershipReferenceView,
+    InstructorStudentTargetView, OwnAccountReferenceView,
+    PendingCoInstructorInvitationReferenceView, TeachingAuthorityReferenceStore,
+};
+pub use crate::teaching_authority_store::{
+    ApproveInstructorAccount, CoInstructorInvitationRevision, CreateCoInstructorInvitation,
+    DirectInstructorMembershipView, InstructorApprovalRevision, RemoveDirectInstructorMembership,
+    RespondToCoInstructorInvitation, RevokeCoInstructorInvitation, RevokeInstructorApproval,
+    StoredCoInstructorInvitation, StoredInstructorApproval, TeachingAuthorityStore,
 };
 #[cfg(test)]
 pub(crate) use activity_policy::CurrentRunQuestion;

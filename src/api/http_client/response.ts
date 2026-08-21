@@ -6,11 +6,12 @@ import type { CatalogProblemSummary } from "../../../generated/api/CatalogProble
 import type { CatalogSearchPage } from "../../../generated/api/CatalogSearchPage";
 import type { CatalogSearchQuery } from "../../../generated/api/CatalogSearchQuery";
 import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
+import type { CourseGradeSchemeView } from "../../../generated/api/CourseGradeSchemeView";
+import type { CourseGradebookTotalsView } from "../../../generated/api/CourseGradebookTotalsView";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { EnrollmentId } from "../../../generated/api/EnrollmentId";
 import type { GradebookSummaryRow } from "../../../generated/api/GradebookSummaryRow";
 import type { QuestionId } from "../../../generated/api/QuestionId";
-import type { QuestionAttempt } from "../../../generated/api/QuestionAttempt";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
 import type { RunId } from "../../../generated/api/RunId";
@@ -23,6 +24,7 @@ import type {
   PublicationDiff,
   RunScreenData,
   RunSummaryResponse,
+  LearnerQuestionAttempt,
   WorkspaceDraftDetail,
 } from "../contracts";
 import { catalogProblemReferencePath, catalogSearchPath } from "../catalog_query";
@@ -30,20 +32,22 @@ import { assignmentRouteReference } from "../../navigation/public_route";
 import {
   decodeLearnerAssignmentPage,
   decodeAssignmentRun,
-  decodeLearnerAssignmentSummary,
+  decodeLearnerAssignmentDetail,
   decodeAttemptPage,
   decodeCatalogPage,
   decodeCatalogProblemDetail,
   decodeCatalogProblemSummary,
   decodeCatalogSearchPage,
   decodeCourseAppearance,
+  decodeCourseGradeSchemeView,
+  decodeCourseGradebookTotalsView,
   decodeCoursePage,
   decodeCourseSummary,
   decodeDraftQuestionDefinition,
   decodeEnrollmentView,
   decodeExternalToolLaunch,
   decodeGradebookPage,
-  decodeQuestionAttempt,
+  decodeLearnerQuestionAttempt,
   decodeQuestionEnvelope,
   decodeIssuedPresentationEnvelope,
   decodeRunPage,
@@ -87,7 +91,7 @@ function decodeProtectedAssetDelivery(value: unknown, path = "response"): string
 function issuedQuestionForAttempt(
   fetchImplementation: ApiFetch,
   basePath: string,
-  attempt: QuestionAttempt,
+  attempt: LearnerQuestionAttempt,
 ): Promise<QuestionEnvelope> {
   const decoder =
     attempt.issuedCapability === "notApplicable"
@@ -228,7 +232,7 @@ async function publicationDiff(
     throw new ApiProtocolError("Publication diff ETag does not match its draftRevision");
   return diff;
 }
-async function activeAttempt(client: ApiClient, runId: RunId): Promise<QuestionAttempt> {
+async function activeAttempt(client: ApiClient, runId: RunId): Promise<LearnerQuestionAttempt> {
   let cursor: string | undefined;
   const seen = new Set<string>();
   while (true) {
@@ -277,6 +281,8 @@ export function createResponseClient(
   | "listCourses"
   | "getCourse"
   | "getCourseAppearance"
+  | "getCourseGradeScheme"
+  | "getCourseGradebookTotals"
   | "listGradebook"
   | "listAssignments"
   | "getAssignment"
@@ -352,6 +358,40 @@ export function createResponseClient(
         decodeCourseSummary,
       ),
     getCourseAppearance: (courseId) => courseAppearance(fetchImplementation, basePath, courseId),
+    getCourseGradeScheme: async (
+      courseId,
+    ): Promise<CourseGradeSchemeView & { readonly revision: string }> => {
+      const path = `/api/courses/${encodedId(courseId)}/grade-scheme`;
+      const response = await fetchImplementation(requestPath(basePath, path), {
+        headers: { accept: "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      requireNoStore(response, path);
+      if (!response.ok) throw new ApiRequestError(response.status, path);
+      const scheme = decodeCourseGradeSchemeView(await boundedResponseJson(response, path));
+      const revision = response.headers.get("etag");
+      if (
+        revision === null ||
+        !/^"[1-9][0-9]*"$/u.test(revision) ||
+        BigInt(revision.slice(1, -1)) > 9_223_372_036_854_775_807n
+      )
+        throw new ApiProtocolError(
+          `API response ${path} must include one positive strong numeric ETag`,
+        );
+      return { ...scheme, revision };
+    },
+    getCourseGradebookTotals: async (courseId): Promise<CourseGradebookTotalsView> => {
+      const path = `/api/courses/${encodedId(courseId)}/gradebook-totals`;
+      const response = await fetchImplementation(requestPath(basePath, path), {
+        headers: { accept: "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      requireNoStore(response, path);
+      if (!response.ok) throw new ApiRequestError(response.status, path);
+      return decodeCourseGradebookTotalsView(await boundedResponseJson(response, path));
+    },
     listGradebook: (courseId, cursor, pageSize): Promise<CursorPage<GradebookSummaryRow>> =>
       requestJson(
         fetchImplementation,
@@ -371,7 +411,7 @@ export function createResponseClient(
         fetchImplementation,
         basePath,
         `/api/assignments/${encodedId(assignmentId)}/learner`,
-        decodeLearnerAssignmentSummary,
+        decodeLearnerAssignmentDetail,
       ),
     getAssignmentEditor: (assignmentId) =>
       requestAssignmentEditor(
@@ -440,14 +480,14 @@ export function createResponseClient(
         fetchImplementation,
         basePath,
         `/api/attempts/${encodedId(attemptId)}`,
-        decodeQuestionAttempt,
+        decodeLearnerQuestionAttempt,
       ),
     getIssuedQuestion: async (attemptId): Promise<QuestionEnvelope> => {
       const attempt = await requestJson(
         fetchImplementation,
         basePath,
         `/api/attempts/${encodedId(attemptId)}`,
-        decodeQuestionAttempt,
+        decodeLearnerQuestionAttempt,
       );
       return issuedQuestionForAttempt(fetchImplementation, basePath, attempt);
     },
@@ -477,7 +517,7 @@ export function createResponseClient(
         ),
       ]);
       verifyRunEnrollment(run, enrollment);
-      let attempt: QuestionAttempt;
+      let attempt: LearnerQuestionAttempt;
       if (initial.kind === "attempt") attempt = initial.attempt;
       else {
         const noActive =

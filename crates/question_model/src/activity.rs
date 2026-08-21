@@ -440,6 +440,8 @@ pub struct LearnerAssignmentProgress {
     /// Whether aggregate score values are absent because there is no submitted
     /// response, are currently withheld, or are available for display.
     pub score_state: LearnerScoreState,
+    /// Current freshness and visibility of the assignment's computed scores.
+    pub scoring_status: crate::ScoringStatus,
     /// Score selected by the assignment's grade policy when available.
     pub current_score: Option<f64>,
     /// Highest completed-run score when available.
@@ -461,7 +463,11 @@ pub struct LearnerAssignmentProgress {
 impl LearnerAssignmentProgress {
     /// Projects the internal summary after the server has made its disclosure
     /// decision. No-activity takes precedence over the disclosure setting.
-    pub fn from_summary(summary: &StudentAssignmentSummary, score_disclosed: bool) -> Self {
+    pub fn from_summary(
+        summary: &StudentAssignmentSummary,
+        score_disclosed: bool,
+        scoring_status: crate::ScoringStatus,
+    ) -> Self {
         let score_state = if summary.total_question_attempts == 0 {
             LearnerScoreState::NoActivity
         } else if score_disclosed {
@@ -469,9 +475,11 @@ impl LearnerAssignmentProgress {
         } else {
             LearnerScoreState::Withheld
         };
-        let scores = matches!(score_state, LearnerScoreState::Available);
+        let scores = matches!(score_state, LearnerScoreState::Available)
+            && matches!(scoring_status, crate::ScoringStatus::Current);
         Self {
             score_state,
+            scoring_status,
             current_score: scores.then_some(summary.current_score).flatten(),
             best_score: scores.then_some(summary.best_score).flatten(),
             latest_score: scores.then_some(summary.latest_score).flatten(),
@@ -526,7 +534,8 @@ mod tests {
             EnrollmentId::from_uuid(Uuid::from_u128(2)),
         );
         assert_eq!(
-            LearnerAssignmentProgress::from_summary(&summary, true).score_state,
+            LearnerAssignmentProgress::from_summary(&summary, true, crate::ScoringStatus::Current)
+                .score_state,
             LearnerScoreState::NoActivity
         );
 
@@ -534,7 +543,8 @@ mod tests {
         summary.current_score = Some(0.5);
         summary.best_score = Some(0.5);
         summary.latest_score = Some(0.5);
-        let withheld = LearnerAssignmentProgress::from_summary(&summary, false);
+        let withheld =
+            LearnerAssignmentProgress::from_summary(&summary, false, crate::ScoringStatus::Current);
         assert_eq!(withheld.score_state, LearnerScoreState::Withheld);
         assert_eq!(
             (
@@ -545,10 +555,30 @@ mod tests {
             (None, None, None)
         );
 
-        let available = LearnerAssignmentProgress::from_summary(&summary, true);
+        let available =
+            LearnerAssignmentProgress::from_summary(&summary, true, crate::ScoringStatus::Current);
         assert_eq!(available.score_state, LearnerScoreState::Available);
         assert_eq!(available.current_score, Some(0.5));
         assert!(available.class_statistics.is_none());
+    }
+
+    #[test]
+    fn learner_progress_hides_scores_while_scoring_is_not_current() {
+        let mut summary = StudentAssignmentSummary::empty(
+            TenantId::from_uuid(Uuid::from_u128(1)),
+            EnrollmentId::from_uuid(Uuid::from_u128(2)),
+        );
+        summary.total_question_attempts = 1;
+        summary.current_score = Some(0.5);
+        for scoring_status in [
+            crate::ScoringStatus::Recalculating,
+            crate::ScoringStatus::Failed,
+        ] {
+            let progress = LearnerAssignmentProgress::from_summary(&summary, true, scoring_status);
+            assert_eq!(progress.score_state, LearnerScoreState::Available);
+            assert_eq!(progress.scoring_status, scoring_status);
+            assert_eq!(progress.current_score, None);
+        }
     }
 
     #[test]

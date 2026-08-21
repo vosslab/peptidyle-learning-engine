@@ -8,8 +8,9 @@ use domain::effective_assignment_policy::{
     IndividualPolicyException, PolicySource, ResolvedField,
 };
 use question_model::{
-    AssignmentId, AssignmentPolicyExceptionId, CourseGroupId, CourseGroupPurpose, CourseId,
-    CourseMembershipId, QuestionAttemptId, StudentId, TenantId, UserId,
+    AssignmentId, AssignmentPolicyExceptionId, CourseGroupId, CourseGroupPurpose,
+    CourseGroupPurposePolicy, CourseGroupReference, CourseId, CourseMembershipId,
+    MultipleMembershipDisposition, QuestionAttemptId, StudentId, TenantId, UserId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -66,6 +67,72 @@ pub struct StoredCourseGroup {
     pub revision: CourseGroupRevision,
 }
 
+/// Authorized internal Store projection. HTTP must remap it to a strict
+/// browser DTO and never expose its durable identifiers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CourseGroupView {
+    pub reference: CourseGroupReference,
+    pub group: StoredCourseGroup,
+}
+
+/// Server-issued revision for one course-purpose membership policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct CourseGroupPurposePolicyRevision(u64);
+
+impl CourseGroupPurposePolicyRevision {
+    pub const INITIAL: Self = Self(1);
+    const MAX: u64 = i64::MAX as u64;
+
+    pub const fn value(self) -> u64 {
+        self.0
+    }
+
+    pub(crate) fn next(self) -> Result<Self, StoreError> {
+        self.0
+            .checked_add(1)
+            .filter(|value| *value <= Self::MAX)
+            .map(Self)
+            .ok_or_else(|| {
+                StoreError::Unavailable("course group purpose policy revision limit reached".into())
+            })
+    }
+
+    #[cfg(feature = "postgres")]
+    #[allow(dead_code)] // consumed by the reserved PostgreSQL T2 management implementation
+    pub(crate) fn from_stored(value: i64) -> Result<Self, StoreError> {
+        let value = u64::try_from(value).map_err(|_| {
+            StoreError::Unavailable("stored course group purpose policy revision is invalid".into())
+        })?;
+        (value > 0).then_some(Self(value)).ok_or_else(|| {
+            StoreError::Unavailable("stored course group purpose policy revision is invalid".into())
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StoredCourseGroupPurposePolicy {
+    pub policy: CourseGroupPurposePolicy,
+    pub revision: CourseGroupPurposePolicyRevision,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UpdateCourseGroupPurposePolicyCommand {
+    pub actor: UserId,
+    pub course: CourseId,
+    pub expected_revision: CourseGroupPurposePolicyRevision,
+    pub policy: CourseGroupPurposePolicy,
+}
+
+/// Informational result of one accepted membership edit. It is deliberately
+/// not an authorization or entitlement verdict.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CourseGroupMembershipWarning {
+    pub membership: CourseMembershipId,
+    pub purpose: CourseGroupPurpose,
+    pub membership_count: u32,
+    pub disposition: MultipleMembershipDisposition,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PutCourseGroupCommand {
     pub actor: UserId,
@@ -83,13 +150,13 @@ pub struct StoredBaseAssignmentPolicy {
     pub revision: AssignmentRevision,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PutBaseAssignmentPolicyCommand {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PutAssignmentTeachingSettingsCommand {
     pub actor: UserId,
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub expected_revision: AssignmentRevision,
-    pub policy: BaseAssignmentPolicy,
+    pub settings: question_model::AssignmentTeachingSettings,
 }
 
 /// M2: additive schedule adjustment, keyed by assignment and group.
@@ -170,7 +237,6 @@ pub struct EffectivePolicyResolution {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolveEffectivePolicyCommand {
     pub assignment: AssignmentId,
-    pub lifecycle: domain::effective_assignment_policy::AssignmentLifecycleGate,
     pub entitlement: domain::entitlement::EntitlementDecision,
     pub authorization: domain::effective_assignment_policy::AuthorizationGate,
     pub now: question_model::ActivityTimestamp,

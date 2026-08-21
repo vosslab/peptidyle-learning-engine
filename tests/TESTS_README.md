@@ -35,6 +35,11 @@ tests/
   `node tests/e2e/e2e_<name>.mjs` (see [../docs/E2E_TESTS.md](../docs/E2E_TESTS.md))
 - Bulk non-browser E2E: `bash tests/e2e/e2e_run_all.sh`
 
+The ordinary Playwright lane builds the isolated `dist_browser_test/` artifact and serves it with
+`tests/playwright/helper_browser_test_server.mjs`. Its browser-test/test-double transport is
+separate from the production `dist/` bundle, installed Base Course lifecycle, and live-stack E2E
+services.
+
 ## Why two folders for E2E
 
 Playwright is a tool; E2E is a scope. Not every Playwright test is end-to-end (a layout check or single-interaction smoke test is browser-driven but not E2E). One folder per execution model:

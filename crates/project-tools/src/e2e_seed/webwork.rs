@@ -15,7 +15,7 @@ pub(super) async fn seed_webwork_pilot(arguments: &SeedArguments) -> Result<Mani
     learning_data_access::postgres::apply_migrations(&pool)
         .await
         .context("applying embedded migrations for WebWork E2E seed")?;
-    let store = question_id_store(pool)?;
+    let store = crate::postgres_store::configured_postgres_store(pool)?;
     let context = TenantContext::from_authenticated_session(arguments.tenant);
     let marker = WebworkPilotSeedIds::fresh_for_tenant(arguments.tenant);
     let existing_course = store
@@ -97,7 +97,7 @@ pub(super) async fn seed_webwork_pilot(arguments: &SeedArguments) -> Result<Mani
     let course = webwork_pilot_course(arguments, ids.course);
     ensure_webwork_pilot_course(&store, context, arguments.instructor, course).await?;
     let assignment = webwork_pilot_assignment(arguments, ids, reference);
-    ensure_webwork_pilot_assignment(&store, context, assignment).await?;
+    ensure_webwork_pilot_assignment(&store, context, arguments.instructor, assignment).await?;
     let enrollment = ensure_webwork_pilot_enrollment(
         &store,
         context,
@@ -175,6 +175,11 @@ fn webwork_pilot_assignment(
         tenant: arguments.tenant,
         course_id: ids.course,
         title: "PLE WebWork pilot E2E assignment".to_string(),
+        lifecycle: question_model::AssignmentLifecycle::Published,
+        instructions: question_model::AssignmentInstructions::try_new(
+            "Solve the guided WeBWorK pilot problem, then explain your reasoning.".to_string(),
+        )
+        .expect("WebWork pilot instructions are valid"),
         audience: question_model::AssignmentAudience::CourseWide,
         disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
         items: vec![AssignmentItem {
@@ -506,20 +511,62 @@ pub(super) fn webwork_pilot_course_seed_matches(
 pub(super) async fn ensure_webwork_pilot_assignment<S>(
     store: &S,
     context: TenantContext,
+    instructor: UserId,
     expected: AssignmentRecord,
 ) -> Result<()>
 where
     S: Store,
 {
+    if expected.lifecycle != question_model::AssignmentLifecycle::Published {
+        bail!("deterministic demo assignment must converge to Published");
+    }
+    let mut draft = expected.clone();
+    draft.lifecycle = question_model::AssignmentLifecycle::Draft;
+
     match store
         .get_assignment_for_edit(context, expected.id)
         .await
         .context("reading deterministic WebWork pilot assignment")?
     {
         Some(actual) if actual.record == expected => Ok(()),
+        Some(actual) if actual.record == draft => {
+            store
+                .put_assignment_teaching_settings(
+                    context,
+                    PutAssignmentTeachingSettingsCommand {
+                        actor: instructor,
+                        course: expected.course_id,
+                        assignment: expected.id,
+                        expected_revision: actual.revision,
+                        settings: question_model::AssignmentTeachingSettings {
+                            lifecycle: question_model::AssignmentLifecycle::Published,
+                            instructions: expected.instructions.clone(),
+                            base_policy: question_model::BaseAssignmentPolicy::default(),
+                        },
+                    },
+                )
+                .await
+                .context("publishing deterministic demo assignment")?;
+            let published = store
+                .get_assignment_for_edit(context, expected.id)
+                .await
+                .context("reloading published deterministic demo assignment")?
+                .context("published deterministic demo assignment disappeared")?;
+            if published.record != expected {
+                bail!("published demo assignment differs from the deterministic seed");
+            }
+            Ok(())
+        }
         Some(_) => bail!("existing WebWork pilot assignment differs from the deterministic seed"),
         None => {
-            let created = match store.create_untimed_assignment(context, expected.clone()).await {
+            let created = match store
+                .create_assignment(
+                    context,
+                    draft.clone(),
+                    question_model::BaseAssignmentPolicy::default(),
+                )
+                .await
+            {
                 Ok(record) => record,
                 Err(StoreError::AlreadyExists) => store
                     .get_assignment_for_edit(context, expected.id)
@@ -532,8 +579,36 @@ where
                     })?,
                 Err(error) => return Err(error).context("creating WebWork pilot E2E assignment"),
             };
-            if created.record != expected {
-                bail!("created WebWork pilot assignment differs from the deterministic seed");
+            if created.record == expected {
+                return Ok(());
+            }
+            if created.record != draft {
+                bail!("created demo assignment differs from the deterministic draft seed");
+            }
+            store
+                .put_assignment_teaching_settings(
+                    context,
+                    PutAssignmentTeachingSettingsCommand {
+                        actor: instructor,
+                        course: expected.course_id,
+                        assignment: expected.id,
+                        expected_revision: created.revision,
+                        settings: question_model::AssignmentTeachingSettings {
+                            lifecycle: question_model::AssignmentLifecycle::Published,
+                            instructions: expected.instructions.clone(),
+                            base_policy: question_model::BaseAssignmentPolicy::default(),
+                        },
+                    },
+                )
+                .await
+                .context("publishing newly created deterministic demo assignment")?;
+            let published = store
+                .get_assignment_for_edit(context, expected.id)
+                .await
+                .context("reloading newly published deterministic demo assignment")?
+                .context("newly published deterministic demo assignment disappeared")?;
+            if published.record != expected {
+                bail!("published demo assignment differs from the deterministic seed");
             }
             Ok(())
         }
@@ -551,6 +626,30 @@ pub(super) async fn ensure_webwork_pilot_enrollment<S>(
 where
     S: Store + CourseRosterStore,
 {
+    ensure_named_course_enrollment(
+        store,
+        context,
+        instructor,
+        student,
+        course,
+        assignment,
+        "Replica E2E learner",
+    )
+    .await
+}
+
+pub(super) async fn ensure_named_course_enrollment<S>(
+    store: &S,
+    context: TenantContext,
+    instructor: UserId,
+    student: UserId,
+    course: CourseId,
+    assignment: AssignmentId,
+    display_name: &str,
+) -> Result<AssignmentEnrollment>
+where
+    S: Store + CourseRosterStore,
+{
     // Seed learners are established through the sole roster owner before an
     // instructor explicitly issues their historical entitlement receipt.
     // Neither a course aggregate nor an enrollment supplies current access.
@@ -560,7 +659,7 @@ where
             UpsertCourseMember {
                 course,
                 user: student,
-                display_name: "Replica E2E learner".to_string(),
+                display_name: display_name.to_string(),
                 roster_contact: None,
             },
         )

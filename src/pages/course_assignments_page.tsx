@@ -34,13 +34,6 @@ function assignmentLinkId(assignment: LearnerAssignmentSummary): string {
   return id;
 }
 
-function assignmentQuestionCount(assignment: LearnerAssignmentSummary): number {
-  return (
-    assignment.items.filter((item) => item.deliveryState === "active").length +
-    assignment.selectionGroups.reduce((count, group) => count + group.drawCount, 0)
-  );
-}
-
 function pluralize(count: number, singular: string, plural: string): string {
   return count === 1 ? singular : plural;
 }
@@ -48,24 +41,24 @@ function pluralize(count: number, singular: string, plural: string): string {
 interface AssignmentCardProps {
   readonly assignment: LearnerAssignmentSummary;
   readonly courseReference: CourseRouteReference;
-  readonly showStudentProgress: boolean;
+  readonly canManageAssignment: boolean;
   readonly registerLink: (assignment: LearnerAssignmentSummary, element: HTMLAnchorElement) => void;
 }
 
 function AssignmentCard(props: AssignmentCardProps): JSX.Element {
   const runtime = useApiRuntime();
   const progress = createAsync(() =>
-    props.showStudentProgress
-      ? runtime.queries.assignmentSummary(props.assignment.id).catch(() => null)
-      : Promise.resolve(null),
+    props.canManageAssignment
+      ? Promise.resolve(null)
+      : runtime.queries.assignmentSummary(props.assignment.id).catch(() => null),
   );
 
   return (
     <article class="course-card">
       <p class="card-kicker">Mastery practice</p>
       <h2>{props.assignment.title}</h2>
-      <p>{assignmentQuestionCount(props.assignment)} questions in each new run.</p>
-      <Show when={props.showStudentProgress}>
+      <p>Open this assignment to review its instructions and delivery details.</p>
+      <Show when={!props.canManageAssignment}>
         <Suspense fallback={<p>Progress loading...</p>}>
           <Show when={progress()} fallback={<p>Progress unavailable.</p>}>
             {(assignmentProgress) => <p>{learnerProgressSummary(assignmentProgress())}</p>}
@@ -74,12 +67,30 @@ function AssignmentCard(props: AssignmentCardProps): JSX.Element {
       </Show>
       <A
         class="quiet-link"
-        href={`/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}`}
+        href={
+          props.canManageAssignment
+            ? `/instructor/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}/edit`
+            : `/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}`
+        }
         id={assignmentLinkId(props.assignment)}
         ref={(element) => props.registerLink(props.assignment, element)}
       >
-        Start assignment
+        {props.canManageAssignment ? "Edit assignment" : "Start assignment"}
       </A>
+      <Show when={props.canManageAssignment}>
+        <A
+          class="quiet-link"
+          href={`/instructor/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}/access`}
+        >
+          Access and modifiers
+        </A>
+        <A
+          class="quiet-link"
+          href={`/instructor/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}/delivery-check`}
+        >
+          Check assignment delivery
+        </A>
+      </Show>
     </article>
   );
 }
@@ -200,7 +211,7 @@ export function AssignmentList(props: AssignmentListProps): JSX.Element {
               <AssignmentCard
                 assignment={assignment}
                 courseReference={props.courseReference}
-                showStudentProgress={!props.canCreateAssignment}
+                canManageAssignment={props.canCreateAssignment}
                 registerLink={(currentAssignment, element) =>
                   reviewLinks.set(currentAssignment.id, element)
                 }

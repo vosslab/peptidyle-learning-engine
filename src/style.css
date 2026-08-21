@@ -525,39 +525,6 @@ textarea:hover {
   font-weight: 620;
 }
 
-.course-management-nav {
-  display: flex;
-  width: fit-content;
-  max-width: 100%;
-  margin: 0 0 var(--ple-section-gap);
-  padding: 0.18rem;
-  border-radius: 0.6rem;
-  background: color-mix(in srgb, var(--ple-card-surface) 70%, transparent);
-  gap: 0.08rem;
-  overflow-x: auto;
-}
-
-.course-management-nav a {
-  flex: 0 0 auto;
-  padding: 0.38rem 0.62rem;
-  border-radius: 0.45rem;
-  color: var(--ple-muted);
-  font-size: 0.88rem;
-  font-weight: 650;
-  text-decoration: none;
-}
-
-.course-management-nav a:hover {
-  background: color-mix(in srgb, var(--ple-card-surface) 82%, var(--ple-theme-secondary));
-  color: var(--ple-ink);
-}
-
-.course-management-nav a[aria-current="page"] {
-  background: var(--ple-card-surface);
-  color: var(--ple-accent-strong);
-  box-shadow: 0 1px 2px rgb(15 23 42 / 10%);
-}
-
 .gradebook-empty,
 .empty-state {
   padding: 1rem;
@@ -989,4 +956,7 @@ html[data-contrast="increased"] .course-theme-scope {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+.plain-text-instructions {
+  white-space: pre-wrap;
 }

@@ -18,6 +18,8 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use cookie::{Cookie, SameSite};
+#[cfg(any(feature = "local-development-auth", test))]
+use learning_data_access::AccountIdentityStore;
 use learning_data_access::{
     AccountSessionStore, SessionLifetime, SessionRecord, SessionStore, SessionSubject, StoreError,
     TenantContext,
@@ -33,6 +35,10 @@ mod browser_boundary;
 mod client_address;
 #[path = "auth/passwordless.rs"]
 mod passwordless;
+#[path = "auth/seeded_account_selector.rs"]
+mod seeded_account_selector;
+#[path = "auth/seeded_sysadmin_ownership.rs"]
+mod seeded_sysadmin_ownership;
 #[path = "auth/session_cookie.rs"]
 mod session_cookie;
 #[path = "auth/webauthn.rs"]
@@ -46,6 +52,10 @@ pub use passwordless::{
     PasswordlessEmailAction, PasswordlessEmailDelivery, PasswordlessEmailDeliveryError,
     PasswordlessEmailSecret, PasswordlessRateLimitIssuer, UnavailablePasswordlessEmailDelivery,
     passwordless_router,
+};
+pub use seeded_account_selector::{SeededAccountSelectorConfig, seeded_account_selector_router};
+pub use seeded_sysadmin_ownership::{
+    SeededSysadminOwnershipConfig, seeded_sysadmin_ownership_router,
 };
 use session_cookie::{SessionToken, presented_token, session_cookie, wire_cookie_name};
 pub use webauthn::{PasswordlessWebauthn, passkey_router};
@@ -242,7 +252,7 @@ pub fn provider_login_router<P, S>(
 where
     P: IdentityProvider + 'static,
     P::Presentation: DeserializeOwned + Send + Sync + 'static,
-    S: SessionStore + 'static,
+    S: AccountIdentityStore + AccountSessionStore + SessionStore + 'static,
 {
     let state = AuthRouteState {
         provider,
@@ -407,7 +417,7 @@ async fn login_handler<P, S>(
 where
     P: IdentityProvider + 'static,
     P::Presentation: DeserializeOwned + Send + Sync + 'static,
-    S: SessionStore + 'static,
+    S: AccountIdentityStore + AccountSessionStore + SessionStore + 'static,
 {
     match authenticate_with_provider(
         state.provider.as_ref(),
@@ -417,13 +427,45 @@ where
     )
     .await
     {
-        Ok(issued) => response_with_cookie(
-            StatusCode::OK,
-            issued.set_cookie,
-            session_response(&issued.record),
-        ),
+        Ok(issued) => {
+            let account_cookie = match issue_provider_account_session(
+                state.sessions.as_ref(),
+                issued.record.subject.user(),
+                state.config,
+            )
+            .await
+            {
+                Ok(cookie) => cookie,
+                Err(error) => return auth_error_response(error),
+            };
+            let mut cookies = vec![issued.set_cookie];
+            cookies.extend(account_cookie);
+            response_with_cookies(StatusCode::OK, cookies, session_response(&issued.record))
+        }
         Err(error) => auth_error_response(error),
     }
+}
+
+#[cfg(any(feature = "local-development-auth", test))]
+async fn issue_provider_account_session<S>(
+    sessions: &S,
+    user: UserId,
+    config: SessionConfig,
+) -> Result<Option<String>, AuthError>
+where
+    S: AccountIdentityStore + AccountSessionStore + ?Sized,
+{
+    // Course-only identities remain valid for isolated teaching fixtures.
+    // Installed local courses provision their matching account rows and
+    // receive this additive account capability.
+    match sessions.get_account(user).await {
+        Ok(Some(_)) => {}
+        Ok(None) => return Ok(None),
+        Err(error) => return Err(AuthError::Unavailable(error.to_string())),
+    }
+    passwordless::issue_account_session(sessions, user, config)
+        .await
+        .map(Some)
 }
 
 async fn session_handler<S>(
@@ -491,16 +533,31 @@ fn session_response(record: &SessionRecord) -> AuthSessionResponse {
 }
 
 fn response_with_cookie<T: Serialize>(status: StatusCode, set_cookie: String, body: T) -> Response {
-    let mut response = (status, Json(body)).into_response();
-    match HeaderValue::from_str(&set_cookie) {
-        Ok(value) => {
-            response.headers_mut().insert(SET_COOKIE, value);
-            no_store(response)
+    response_with_cookies(status, [set_cookie], body)
+}
+
+fn response_with_cookies<T, I>(status: StatusCode, set_cookies: I, body: T) -> Response
+where
+    T: Serialize,
+    I: IntoIterator<Item = String>,
+{
+    let set_cookies = match set_cookies
+        .into_iter()
+        .map(|cookie| HeaderValue::from_str(&cookie))
+        .collect::<Result<Vec<_>, _>>()
+    {
+        Ok(set_cookies) => set_cookies,
+        Err(_) => {
+            return auth_error_response(AuthError::Unavailable(
+                "generated cookie was not a valid HTTP header".to_string(),
+            ));
         }
-        Err(_) => auth_error_response(AuthError::Unavailable(
-            "generated cookie was not a valid HTTP header".to_string(),
-        )),
+    };
+    let mut response = (status, Json(body)).into_response();
+    for set_cookie in set_cookies {
+        response.headers_mut().append(SET_COOKIE, set_cookie);
     }
+    no_store(response)
 }
 
 fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
@@ -533,432 +590,5 @@ pub(crate) fn no_store(mut response: Response) -> Response {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use axum::body::{Body, to_bytes};
-    use axum::http::Request;
-    use axum::middleware;
-    use axum::routing::post;
-    use learning_data_access::in_memory::MemoryStore;
-    use question_model::{TenantId, UserId, UserRole};
-    use tower::ServiceExt;
-    use uuid::Uuid;
-
-    struct FixtureProvider {
-        subject: SessionSubject,
-    }
-
-    #[derive(serde::Deserialize)]
-    struct FixturePresentation {
-        assertion: String,
-    }
-
-    #[async_trait]
-    impl IdentityProvider for FixtureProvider {
-        type Presentation = FixturePresentation;
-
-        async fn verify(
-            &self,
-            presentation: &Self::Presentation,
-        ) -> Result<SessionSubject, IdentityProviderError> {
-            if presentation.assertion == "valid fixture assertion" {
-                Ok(self.subject.clone())
-            } else {
-                Err(IdentityProviderError::Rejected)
-            }
-        }
-    }
-
-    fn subject() -> SessionSubject {
-        SessionSubject::new(
-            TenantId::from_uuid(Uuid::from_u128(1)),
-            UserId::from_uuid(Uuid::from_u128(2)),
-            "Fixture Student",
-            vec![UserRole::Student],
-        )
-        .expect("fixture subject")
-    }
-
-    fn config(transport: CookieTransport) -> SessionConfig {
-        SessionConfig::new(
-            SessionLifetime::from_seconds(3_600).expect("positive lifetime"),
-            transport,
-        )
-    }
-
-    fn cookie_request_header(set_cookie: &str) -> &str {
-        set_cookie
-            .split(';')
-            .next()
-            .expect("Set-Cookie should begin with a cookie pair")
-    }
-
-    #[tokio::test]
-    async fn provider_login_on_one_replica_resolves_on_another() {
-        let issuer = MemoryStore::default();
-        let next_replica = issuer.clone();
-        let provider = FixtureProvider { subject: subject() };
-        let issued = authenticate_with_provider(
-            &provider,
-            &FixturePresentation {
-                assertion: "valid fixture assertion".to_string(),
-            },
-            &issuer,
-            config(CookieTransport::FirstPartyHttps),
-        )
-        .await
-        .expect("provider login should issue a session");
-        let authenticated = resolve_session(
-            &next_replica,
-            Some(cookie_request_header(&issued.set_cookie)),
-        )
-        .await
-        .expect("another replica should resolve the database session");
-
-        assert_eq!(authenticated.record, issued.record);
-        assert_eq!(authenticated.tenant_context.tenant_id(), subject().tenant());
-        assert_eq!(
-            serde_json::to_value(authenticated.response()).expect("response should serialize"),
-            serde_json::json!({
-                "authenticated": true,
-                "tenant": subject().tenant(),
-                "user": {
-                    "id": subject().user(),
-                    "displayName": "Fixture Student",
-                    "roles": ["student"]
-                }
-            })
-        );
-    }
-
-    #[tokio::test]
-    async fn revocation_on_one_replica_takes_effect_on_another() {
-        let issuer = MemoryStore::default();
-        let next_replica = issuer.clone();
-        let issued = issue_session(&issuer, subject(), config(CookieTransport::FirstPartyHttps))
-            .await
-            .expect("session should issue");
-        let header = cookie_request_header(&issued.set_cookie);
-
-        revoke_session(&next_replica, Some(header))
-            .await
-            .expect("session should revoke");
-        assert!(matches!(
-            resolve_session(&issuer, Some(header)).await,
-            Err(AuthError::Unauthenticated)
-        ));
-    }
-
-    #[tokio::test]
-    async fn issued_session_debug_redacts_the_set_cookie_credential() {
-        let issued = issue_session(
-            &MemoryStore::default(),
-            subject(),
-            config(CookieTransport::FirstPartyHttps),
-        )
-        .await
-        .expect("session should issue");
-        let debug = format!("{issued:?}");
-        assert!(!debug.contains(&issued.set_cookie));
-        assert!(debug.contains("[redacted]"));
-    }
-
-    #[test]
-    fn cookie_attributes_match_the_selected_transport() {
-        let token = SessionToken([7; SESSION_TOKEN_BYTES]);
-        let first_party = session_cookie(&token, config(CookieTransport::FirstPartyHttps));
-        assert_eq!(first_party.http_only(), Some(true));
-        assert_eq!(first_party.secure(), Some(true));
-        assert_eq!(first_party.same_site(), Some(SameSite::Lax));
-        assert_eq!(first_party.path(), Some("/"));
-        assert_eq!(first_party.domain(), None);
-        assert_eq!(first_party.max_age(), None);
-        assert_eq!(first_party.expires(), None);
-        assert!(!first_party.value().contains('='));
-        assert_eq!(first_party.name(), "__Host-ple_session");
-
-        let local = session_cookie(&token, config(CookieTransport::LocalHttp));
-        assert_eq!(local.secure(), Some(false));
-        assert_eq!(local.same_site(), Some(SameSite::Lax));
-        assert_eq!(local.name(), "ple_session");
-    }
-
-    #[test]
-    fn production_cookie_normalization_ignores_unprefixed_sensitive_injection() {
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            COOKIE,
-            HeaderValue::from_static(
-                "ple_session=attacker; __Host-ple_session=trusted; theme=contrast",
-            ),
-        );
-        normalize_production_cookies(&mut headers);
-        assert_eq!(
-            headers.get(COOKIE).and_then(|value| value.to_str().ok()),
-            Some("ple_session=trusted; theme=contrast")
-        );
-    }
-
-    #[test]
-    fn production_origin_must_be_one_exact_value() {
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            "origin",
-            HeaderValue::from_static("https://learn.example.edu"),
-        );
-        assert!(origin_matches(&headers, "https://learn.example.edu"));
-        assert!(!origin_matches(&headers, "https://other.example.edu"));
-        headers.append(
-            "origin",
-            HeaderValue::from_static("https://learn.example.edu"),
-        );
-        assert!(!origin_matches(&headers, "https://learn.example.edu"));
-    }
-
-    #[test]
-    fn production_browser_boundary_normalizes_a_serialized_origin() {
-        let boundary = ProductionBrowserBoundary::new(Arc::from("https://learn.example.edu/"))
-            .expect("a root HTTPS URL is an origin");
-        assert_eq!(boundary.origin.as_ref(), "https://learn.example.edu");
-        assert_eq!(boundary.authority.as_ref(), "learn.example.edu");
-        assert!(
-            ProductionBrowserBoundary::new(Arc::from("https://user@learn.example.edu/")).is_err()
-        );
-    }
-
-    fn production_boundary_test_router() -> Router {
-        Router::new()
-            .route(
-                "/write",
-                post(|headers: HeaderMap| async move {
-                    headers
-                        .get(COOKIE)
-                        .and_then(|value| value.to_str().ok())
-                        .unwrap_or("no-cookie")
-                        .to_string()
-                }),
-            )
-            .layer(middleware::from_fn_with_state(
-                ProductionBrowserBoundary::new(Arc::from("https://learn.example.edu"))
-                    .expect("fixture origin"),
-                production_cookie_boundary,
-            ))
-    }
-
-    #[tokio::test]
-    async fn production_boundary_requires_exact_host_and_origin_for_cookie_mutations() {
-        let app = production_boundary_test_router();
-        let valid = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/write")
-                    .header("host", "learn.example.edu")
-                    .header("origin", "https://learn.example.edu")
-                    .header(COOKIE, "__Host-ple_session=trusted")
-                    .body(Body::empty())
-                    .expect("valid request"),
-            )
-            .await
-            .expect("valid response");
-        assert_eq!(valid.status(), StatusCode::OK);
-        assert!(
-            !valid.headers().contains_key("strict-transport-security"),
-            "the API boundary must not emit HSTS; the HTTPS edge owns it"
-        );
-        assert_eq!(
-            to_bytes(valid.into_body(), 1024).await.expect("body"),
-            "ple_session=trusted"
-        );
-
-        let cross_origin = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/write")
-                    .header("host", "learn.example.edu")
-                    .header("origin", "https://attacker.example")
-                    .header(COOKIE, "__Host-ple_session=trusted")
-                    .body(Body::empty())
-                    .expect("cross-origin request"),
-            )
-            .await
-            .expect("cross-origin response");
-        assert_eq!(cross_origin.status(), StatusCode::FORBIDDEN);
-        assert_eq!(cross_origin.headers()[CACHE_CONTROL], "no-store");
-
-        let wrong_host = app
-            .oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/write")
-                    .header("host", "attacker.example")
-                    .header("origin", "https://learn.example.edu")
-                    .header(COOKIE, "__Host-ple_session=trusted")
-                    .body(Body::empty())
-                    .expect("wrong-host request"),
-            )
-            .await
-            .expect("wrong-host response");
-        assert_eq!(wrong_host.status(), StatusCode::MISDIRECTED_REQUEST);
-    }
-
-    #[tokio::test]
-    async fn production_boundary_drops_legacy_sensitive_cookie_aliases() {
-        let response = production_boundary_test_router()
-            .oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/write")
-                    .header("host", "learn.example.edu")
-                    .header(COOKIE, "ple_session=attacker; theme=contrast")
-                    .body(Body::empty())
-                    .expect("legacy-cookie request"),
-            )
-            .await
-            .expect("legacy-cookie response");
-        assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(
-            to_bytes(response.into_body(), 1024).await.expect("body"),
-            "theme=contrast"
-        );
-    }
-
-    #[tokio::test]
-    async fn malformed_unknown_and_duplicate_cookies_share_one_failure() {
-        let store = MemoryStore::default();
-        for header in [
-            None,
-            Some("ple_session=not-base64"),
-            Some("ple_session=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
-            Some(
-                "ple_session=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA; ple_session=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-            ),
-        ] {
-            assert!(matches!(
-                resolve_session(&store, header).await,
-                Err(AuthError::Unauthenticated)
-            ));
-        }
-    }
-
-    #[tokio::test]
-    async fn rejected_provider_credentials_create_no_session() {
-        let store = MemoryStore::default();
-        let provider = FixtureProvider { subject: subject() };
-        assert!(matches!(
-            authenticate_with_provider(
-                &provider,
-                &FixturePresentation {
-                    assertion: "wrong fixture assertion".to_string(),
-                },
-                &store,
-                config(CookieTransport::FirstPartyHttps),
-            )
-            .await,
-            Err(AuthError::ProviderRejected)
-        ));
-    }
-
-    #[tokio::test]
-    async fn auth_http_routes_preserve_the_replica_boundary() {
-        let issuer = Arc::new(MemoryStore::default());
-        let next_replica = Arc::new(issuer.as_ref().clone());
-        let provider = Arc::new(FixtureProvider { subject: subject() });
-        let issuer_app = provider_login_router(
-            Arc::clone(&provider),
-            Arc::clone(&issuer),
-            config(CookieTransport::LocalHttp),
-        )
-        .merge(session_router(issuer, config(CookieTransport::LocalHttp)));
-        let replica_app = provider_login_router(
-            provider,
-            Arc::clone(&next_replica),
-            config(CookieTransport::LocalHttp),
-        )
-        .merge(session_router(
-            next_replica,
-            config(CookieTransport::LocalHttp),
-        ));
-        let login = issuer_app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/api/auth/login")
-                    .header("content-type", "application/json")
-                    .body(Body::from(
-                        serde_json::json!({ "assertion": "valid fixture assertion" }).to_string(),
-                    ))
-                    .expect("login request"),
-            )
-            .await
-            .expect("login response");
-        assert_eq!(login.status(), StatusCode::OK);
-        assert_eq!(
-            login.headers().get(CACHE_CONTROL),
-            Some(&HeaderValue::from_static("no-store"))
-        );
-        let cookie = login
-            .headers()
-            .get(SET_COOKIE)
-            .expect("login should set the opaque cookie")
-            .to_str()
-            .expect("cookie header should be text")
-            .to_string();
-        let cookie = cookie_request_header(&cookie).to_string();
-
-        let resumed = replica_app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .uri("/api/auth/session")
-                    .header(COOKIE, &cookie)
-                    .body(Body::empty())
-                    .expect("session request"),
-            )
-            .await
-            .expect("session response");
-        assert_eq!(resumed.status(), StatusCode::OK);
-        assert_eq!(
-            resumed.headers().get(CACHE_CONTROL),
-            Some(&HeaderValue::from_static("no-store"))
-        );
-
-        let logout = replica_app
-            .oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/api/auth/logout")
-                    .header(COOKIE, &cookie)
-                    .body(Body::empty())
-                    .expect("logout request"),
-            )
-            .await
-            .expect("logout response");
-        assert_eq!(logout.status(), StatusCode::OK);
-        assert!(
-            logout
-                .headers()
-                .get(SET_COOKIE)
-                .expect("logout should clear the cookie")
-                .to_str()
-                .expect("clear-cookie header should be text")
-                .contains("Max-Age=0")
-        );
-
-        let revoked = issuer_app
-            .oneshot(
-                Request::builder()
-                    .uri("/api/auth/session")
-                    .header(COOKIE, cookie)
-                    .body(Body::empty())
-                    .expect("revoked session request"),
-            )
-            .await
-            .expect("revoked session response");
-        assert_eq!(revoked.status(), StatusCode::UNAUTHORIZED);
-    }
-}
+#[path = "auth/tests.rs"]
+mod tests;

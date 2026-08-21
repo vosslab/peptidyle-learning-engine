@@ -3,6 +3,7 @@
 //! This module is deliberately separate from credential issuance so browser
 //! presentation checks remain a small, auditable trust boundary.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use axum::Json;
@@ -110,7 +111,15 @@ pub(crate) async fn production_cookie_boundary(
                 .into_response(),
         );
     }
-    normalize_production_cookies(request.headers_mut());
+    if !normalize_production_cookies(request.headers_mut()) {
+        return no_store(
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": "ambiguous browser cookies" })),
+            )
+                .into_response(),
+        );
+    }
     // HSTS is deliberately owned by the HTTPS browser edge.  This middleware
     // cannot see static documents, CDN-generated errors, redirects, or prove
     // that the request reached the browser over HTTPS; emitting it here would
@@ -228,24 +237,33 @@ fn host_matches(headers: &HeaderMap, expected: &str) -> bool {
         .is_some_and(|value| value.eq_ignore_ascii_case(expected))
 }
 
-pub(super) fn normalize_production_cookies(headers: &mut HeaderMap) {
-    let cookies = headers
+pub(super) fn normalize_production_cookies(headers: &mut HeaderMap) -> bool {
+    let mut normalized_sensitive_names = HashSet::new();
+    let mut cookies = Vec::new();
+    for cookie in headers
         .get_all(COOKIE)
         .iter()
         .filter_map(|value| value.to_str().ok())
         .flat_map(Cookie::split_parse)
         .filter_map(Result::ok)
-        .filter_map(|cookie| {
-            let name = internal_cookie_name(cookie.name()).or_else(|| {
-                (!is_internal_sensitive_cookie(cookie.name())).then_some(cookie.name())
-            })?;
-            Some(Cookie::new(name.to_string(), cookie.value().to_string()).to_string())
-        })
-        .collect::<Vec<_>>();
+    {
+        let name = match internal_cookie_name(cookie.name()) {
+            Some(name) => {
+                if !normalized_sensitive_names.insert(name) {
+                    return false;
+                }
+                name
+            }
+            None if !is_internal_sensitive_cookie(cookie.name()) => cookie.name(),
+            None => continue,
+        };
+        cookies.push(Cookie::new(name.to_string(), cookie.value().to_string()).to_string());
+    }
     headers.remove(COOKIE);
     if !cookies.is_empty()
         && let Ok(value) = HeaderValue::from_str(&cookies.join("; "))
     {
         headers.insert(COOKIE, value);
     }
+    true
 }

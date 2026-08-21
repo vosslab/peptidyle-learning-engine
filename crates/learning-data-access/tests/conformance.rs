@@ -41,8 +41,12 @@ mod pagination_scale;
 use pagination_scale::*;
 #[path = "conformance/catalog.rs"]
 mod catalog;
+#[path = "conformance/co_instructor_memory.rs"]
+mod co_instructor_memory;
 #[path = "conformance/course_appearance.rs"]
 mod course_appearance;
+#[path = "conformance/course_gradebook.rs"]
+mod course_gradebook;
 #[path = "conformance/effective_policy.rs"]
 mod effective_policy;
 #[path = "conformance/effective_policy_parity.rs"]
@@ -59,12 +63,16 @@ mod flat_import_provenance;
 mod flat_question;
 #[path = "conformance/flat_question_assets.rs"]
 mod flat_question_assets;
+#[path = "conformance/group_store_memory.rs"]
+mod group_store_memory;
 #[path = "conformance/item_analysis.rs"]
 mod item_analysis;
 #[path = "conformance/jobs.rs"]
 mod jobs;
 #[path = "conformance/manual_grading.rs"]
 mod manual_grading;
+#[path = "conformance/preview_plane_memory.rs"]
+mod preview_plane_memory;
 #[path = "conformance/qti.rs"]
 mod qti;
 #[path = "conformance/qti_ingress.rs"]
@@ -179,6 +187,48 @@ fn fixed_items(references: Vec<ProblemVersionRef>) -> Vec<AssignmentItem> {
         })
         .collect()
 }
+
+/// Conformance fixtures intentionally name the teaching defaults at the one
+/// creation boundary.  Individual tests that exercise lifecycle or schedule
+/// behavior construct their own explicit settings instead.
+trait ConformanceAssignmentStore: Store {
+    async fn create_assignment_with_default_policy(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        mut assignment: AssignmentRecord,
+    ) -> Result<learning_data_access::StoredAssignment, StoreError> {
+        let settings = question_model::AssignmentTeachingSettings {
+            lifecycle: assignment.lifecycle,
+            instructions: assignment.instructions.clone(),
+            base_policy: question_model::BaseAssignmentPolicy::default(),
+        };
+        assignment.lifecycle = question_model::AssignmentLifecycle::Draft;
+        let created = self
+            .create_assignment(
+                context,
+                assignment,
+                question_model::BaseAssignmentPolicy::default(),
+            )
+            .await?;
+        self.put_assignment_teaching_settings(
+            context,
+            learning_data_access::PutAssignmentTeachingSettingsCommand {
+                actor,
+                course: created.record.course_id,
+                assignment: created.record.id,
+                expected_revision: created.revision,
+                settings,
+            },
+        )
+        .await?;
+        self.get_assignment_for_edit(context, created.record.id)
+            .await?
+            .ok_or(StoreError::NotFound)
+    }
+}
+
+impl<T: Store + ?Sized> ConformanceAssignmentStore for T {}
 
 fn draft_question(workspace: WorkspaceId) -> DraftQuestionDefinition {
     DraftQuestionDefinition {

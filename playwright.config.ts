@@ -13,7 +13,7 @@ const WALKTHROUGH_TEST_IGNORE = [
 ] as const;
 
 /**
- * Ordinary discovery owns durable mock-backed tests only. Private live-stack,
+ * Ordinary discovery owns browser-test coverage. Private live-stack,
  * artifact, and walkthrough lanes have dedicated launchers with explicit
  * inputs; collecting them here would report an intentional skip as success.
  */
@@ -33,12 +33,13 @@ export function testIgnoreFromEnvironment(
   }
   if (environment["PLE_INSTRUCTOR_PAGE_VISUALS_DIR"] === undefined) {
     ignored.push("**/instructor_page_visuals.spec.ts");
+    ignored.push("**/t2_visual_corpus.spec.ts");
   }
   return ignored;
 }
 
-/** The live WebWork gate drives a running private stack, never the mock preview server. */
-export function mockPreviewServerEnabled(
+/** The live WebWork gate drives a running private stack, never the browser-test server. */
+export function browserTestServerEnabled(
   environment: Readonly<Record<string, string | undefined>>,
 ): boolean {
   const activation = liveModeActivationFromEnvironment(environment);
@@ -50,7 +51,7 @@ const liveModeActivation = liveModeActivationFromEnvironment(process.env);
 export const configuredLiveWebworkInputs = liveModeActivation.webwork
   ? liveInputsFromEnvironment(process.env)
   : undefined;
-const startMockPreviewServer = mockPreviewServerEnabled(process.env);
+const startBrowserTestServer = browserTestServerEnabled(process.env);
 const baseURL = configuredLiveWebworkInputs?.baseUrl ?? `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
@@ -64,9 +65,9 @@ export default defineConfig({
     baseURL,
     headless: true,
   },
-  webServer: startMockPreviewServer
+  webServer: startBrowserTestServer
     ? {
-        command: `node --import tsx tools/mock_preview_server.mjs ${PORT}`,
+        command: `node tests/playwright/helper_browser_test_server.mjs ${PORT}`,
         url: `http://127.0.0.1:${PORT}/`,
         reuseExistingServer: false,
         timeout: 30_000,

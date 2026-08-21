@@ -95,40 +95,67 @@ where
                 &empty_feedback,
                 learning_data_access::AttemptFeedbackRecord::content,
             );
-            let feedback =
-                project_run_feedback(outcome.disclosure.decision(), outcome.result, content);
+            let feedback = project_run_feedback(
+                outcome.disclosure.decision(),
+                question_model::ScoringStatus::Current,
+                outcome.result,
+                content,
+            );
             RunSummaryOutcome {
                 attempt: outcome.attempt,
                 assignment_position: outcome.assignment_position,
                 submitted_at: outcome.submitted_at,
                 response: outcome.response,
                 feedback,
+                scoring_status: page.scoring_status,
             }
         })
         .collect();
-    let outcomes = learning_data_access::Page {
+    let mut outcomes = learning_data_access::Page {
         items: outcomes,
         next_cursor: page.outcomes.next_cursor,
     };
     match run_summary_enrollment_access(state.store.as_ref(), &authenticated, page.run.enrollment)
         .await
     {
-        Ok(RunSummaryEnrollmentAccess::Instructor) => no_store(
-            Json(InstructorRunSummaryResponse {
-                course,
-                run: page.run,
-                summary: page.summary,
-                practice_allowed: page.practice_allowed,
-                outcomes,
-            })
-            .into_response(),
-        ),
+        Ok(RunSummaryEnrollmentAccess::Instructor) => {
+            let mut run = page.run;
+            let mut summary = page.summary;
+            if !matches!(page.scoring_status, question_model::ScoringStatus::Current) {
+                run.score = None;
+                summary.current_score = None;
+                summary.best_score = None;
+                summary.latest_score = None;
+            }
+            no_store(
+                Json(InstructorRunSummaryResponse {
+                    course,
+                    run,
+                    summary,
+                    scoring_status: page.scoring_status,
+                    practice_allowed: page.practice_allowed,
+                    outcomes,
+                })
+                .into_response(),
+            )
+        }
         Ok(RunSummaryEnrollmentAccess::Learner(enrollment)) => {
+            if !matches!(page.scoring_status, question_model::ScoringStatus::Current) {
+                for outcome in &mut outcomes.items {
+                    if let Some(feedback) = &mut outcome.feedback {
+                        feedback.points_earned = None;
+                        feedback.points_possible = None;
+                    }
+                }
+            }
             let (summary, score_disclosed) = match learner_assignment_progress(
                 state.store.as_ref(),
                 &authenticated,
                 &enrollment,
-                &page.summary,
+                &learning_data_access::LearnerAssignmentSummarySnapshot {
+                    summary: page.summary.clone(),
+                    scoring_status: page.scoring_status,
+                },
             )
             .await
             {
@@ -233,6 +260,8 @@ where
         Ok(None) => return error_response(StatusCode::NOT_FOUND, "run not found"),
         Err(error) => return store_error_response(error),
     };
+    let scoring_status =
+        learner_scoring_status(state.store.as_ref(), &authenticated, run.enrollment).await;
     for attempt in &mut page.items {
         if attempt.response.is_some() {
             let record = match state
@@ -254,11 +283,24 @@ where
                 Err(error) => return store_error_response(error),
             };
             *attempt = record.attempt;
-            apply_learner_disclosure(record.disclosure.decision(), attempt);
+            apply_learner_disclosure(record.disclosure.decision(), scoring_status, attempt);
             continue;
         }
     }
-    no_store(Json(page).into_response())
+    no_store(
+        Json(learning_data_access::Page {
+            items: page
+                .items
+                .into_iter()
+                .map(|attempt| LearnerAttemptProjection {
+                    attempt,
+                    scoring_status,
+                })
+                .collect(),
+            next_cursor: page.next_cursor,
+        })
+        .into_response(),
+    )
 }
 
 pub(super) async fn get_attempt<S, B>(
@@ -311,9 +353,22 @@ where
             Err(error) => return store_error_response(error),
         };
         attempt = record.attempt;
-        apply_learner_disclosure(record.disclosure.decision(), &mut attempt);
+        let scoring_status =
+            learner_scoring_status(state.store.as_ref(), &authenticated, _run.enrollment).await;
+        apply_learner_disclosure(record.disclosure.decision(), scoring_status, &mut attempt);
     }
-    no_store(Json(attempt).into_response())
+    no_store(
+        Json(LearnerAttemptProjection {
+            attempt,
+            scoring_status: learner_scoring_status(
+                state.store.as_ref(),
+                &authenticated,
+                _run.enrollment,
+            )
+            .await,
+        })
+        .into_response(),
+    )
 }
 
 /// Returns the exact, key-free envelope for an already issued attempt.
@@ -470,7 +525,7 @@ where
         )
     } else {
         no_store(
-            Json(serde_json::json!({ "enrollment": enrollment, "summary": summary }))
+            Json(serde_json::json!({ "enrollment": enrollment, "summary": summary.summary }))
                 .into_response(),
         )
     }
@@ -523,7 +578,7 @@ where
                 Err(response) => response,
             }
         }
-        Ok(Some(summary)) => no_store(Json(summary).into_response()),
+        Ok(Some(summary)) => no_store(Json(summary.summary).into_response()),
         Ok(None) => error_response(StatusCode::NOT_FOUND, "summary not found"),
         Err(error) => store_error_response(error),
     }

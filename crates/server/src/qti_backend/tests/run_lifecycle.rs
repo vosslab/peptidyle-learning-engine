@@ -242,7 +242,7 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
         .await
         .expect("student roster membership");
     store
-        .create_untimed_assignment(
+        .create_assignment(
             context,
             AssignmentRecord {
                 id: assignment,
@@ -250,6 +250,8 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
                 course_id: course,
                 audience: question_model::AssignmentAudience::CourseWide,
                 title: "QTI assignment".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Draft,
+                instructions: question_model::AssignmentInstructions::default(),
                 items: vec![question_model::AssignmentItem {
                     id: question_model::AssignmentItemId::from_uuid(uuid::Uuid::from_u128(7_210)),
                     reference,
@@ -267,9 +269,23 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
                     variation: VariationPolicy::NewSeeds,
                 },
             },
+            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("assignment");
+    crate::course::tests::fixtures::publish_assignment(
+        store.as_ref(),
+        context,
+        publisher,
+        course,
+        assignment,
+        question_model::AssignmentTeachingSettings {
+            lifecycle: question_model::AssignmentLifecycle::Published,
+            instructions: question_model::AssignmentInstructions::default(),
+            base_policy: question_model::BaseAssignmentPolicy::default(),
+        },
+    )
+    .await;
     let cookie = issue_session(
         store.as_ref(),
         SessionSubject::new(

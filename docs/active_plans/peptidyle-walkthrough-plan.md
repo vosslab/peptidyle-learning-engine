@@ -501,11 +501,13 @@ remain path-only private inputs and never enter the handoff or report.
 - Depends on: WP-I3 and the then-existing `AssignmentTimingPolicy`; this is historical dependency
   evidence only, because that legacy model and API are removed. Its Rust/store/editor boundary precedes
   the Solid form and the live J13/J1 sequence. Current policy authority is accepted WP-PROF-S3's
-  effective-policy resolver and immutable sealed receipts with their current pointer.
+  current resolved verdict after S5 entitlement; sealed receipts are historical attempt evidence.
 - Acceptance criteria:
   - At acceptance, the course-owned whole-run timing field was editor-only
     `assignmentTiming.timeLimitSeconds: positive u32 | null`; it is not a `RunPolicies` field or a
     published-question setting.
+    WP-PROF-T1 supersedes that transport with the single revisioned teaching-settings aggregate; no
+    current browser, Store, or route accepts `assignmentTiming`.
   - New mastery assignments start from the Rust-generated `900`-second default. The editor visibly
     presents 15 minutes with accessible Timed/Untimed controls and saves `null` only for an explicit
     Untimed choice.

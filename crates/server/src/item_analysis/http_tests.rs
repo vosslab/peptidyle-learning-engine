@@ -216,7 +216,7 @@ async fn current_item_analysis_route_authorizes_without_leaking_private_analysis
     let reference = publish_fixture(&store, context, tenant, instructor).await;
     let assignment = AssignmentId::from_uuid(id(9));
     store
-        .create_untimed_assignment(
+        .create_assignment(
             context,
             AssignmentRecord {
                 id: assignment,
@@ -224,6 +224,8 @@ async fn current_item_analysis_route_authorizes_without_leaking_private_analysis
                 course_id: course,
                 audience: question_model::AssignmentAudience::CourseWide,
                 title: "Item analysis fixture".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Draft,
+                instructions: question_model::AssignmentInstructions::default(),
                 items: vec![AssignmentItem {
                     id: AssignmentItemId::from_uuid(id(10)),
                     reference,
@@ -236,9 +238,23 @@ async fn current_item_analysis_route_authorizes_without_leaking_private_analysis
                 disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 policies: policies(),
             },
+            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("create assignment");
+    crate::course::tests::fixtures::publish_assignment(
+        store.as_ref(),
+        context,
+        instructor,
+        course,
+        assignment,
+        question_model::AssignmentTeachingSettings {
+            lifecycle: question_model::AssignmentLifecycle::Published,
+            instructions: question_model::AssignmentInstructions::default(),
+            base_policy: question_model::BaseAssignmentPolicy::default(),
+        },
+    )
+    .await;
     store
         .enqueue_job(
             context,

@@ -253,6 +253,15 @@ immutable question versions selected for the assignment. A teaching-oriented
 activity-type chooser is planned as a UI layer that writes those same explicit
 values. It is not evidence that the four labels below are current API values:
 
+The editor separately saves one revisioned teaching-operations aggregate:
+Draft/Published/Closed/Archived lifecycle, plain-text learner instructions,
+availability/due/close schedule, whole-run and attempt limits, late behavior,
+and deadline behavior. Only Published opens lifecycle gate G1. Course-local
+wall-clock input is converted by the server through the course IANA zone; the
+browser never derives an authoritative instant. An active run does not consume
+its own attempt-limit slot: completed runs determine whether another run may
+start, while the current active run remains resumable.
+
 | Teaching activity          | Current durable representation                                                                                    | Instructor experience status                                                                                          |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Mastery                    | `AllCorrect`, `Highest`, `Unlimited`, `NewSeeds`, question retry/timing, and assignment disclosure choices        | Fully representable; named chooser planned                                                                            |
@@ -297,6 +306,11 @@ projection. `score_state` is `NoActivity`, `Withheld`, or `Available`. Scores
 are present only for `Available`; `NoActivity` means no submitted response and takes precedence over
 disclosure. Starting a run may set `last_activity_at` without changing that score state.
 The learner projection omits the internal tenant and enrollment identifiers.
+Its independent `scoring_status` is `Current`, `Recalculating`, or `Failed`.
+Recalculating and Failed omit aggregate scores, run scores, attempt results,
+and disclosed point values even when disclosure would otherwise permit them,
+while keeping the underlying activity/disclosure state so a maintenance
+condition is never mistaken for a zero or a new attempt.
 
 `domain::scoring::project_summary` is a pure function:
 

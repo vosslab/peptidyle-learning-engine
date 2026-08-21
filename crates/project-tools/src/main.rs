@@ -1,10 +1,12 @@
 //! Project build, generation, database, fixture, and acceptance tools (WP-F2).
 
 mod application;
+mod base_course;
 mod database;
 mod e2e_seed;
 mod fixtures;
 mod pilot_content;
+mod postgres_store;
 mod tsgen;
 
 fn main() -> anyhow::Result<()> {

@@ -34,12 +34,11 @@ pub(super) async fn start_or_resume_run(
         return Err(StoreError::NotFound);
     }
     let prior_run_count: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM assignment_run run JOIN enrollment enrollment ON enrollment.tenant_id=run.tenant_id AND enrollment.enrollment_id=run.enrollment_id WHERE run.tenant_id=$1 AND enrollment.assignment_id=$2 AND enrollment.student_id=$3",
+        "SELECT count(*) FROM assignment_run run JOIN enrollment enrollment ON enrollment.tenant_id=run.tenant_id AND enrollment.enrollment_id=run.enrollment_id WHERE run.tenant_id=$1 AND enrollment.assignment_id=$2 AND enrollment.student_id=$3 AND run.completed_at IS NOT NULL",
     ).bind(tenant.as_uuid()).bind(assignment_id.as_uuid()).bind(grant.student().as_uuid()).fetch_one(&mut **transaction).await.map_err(map_sqlx_error)?;
     let (decision, _) = super::course_policy::resolve_granted_effective_policy(
         transaction,
         grant.clone(),
-        domain::effective_assignment_policy::AssignmentLifecycleGate::Open,
         domain::effective_assignment_policy::AuthorizationGate::Authorized,
         u32::try_from(prior_run_count)
             .map_err(|_| StoreError::Unavailable("run count exceeds policy range".to_string()))?,

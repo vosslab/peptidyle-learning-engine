@@ -609,7 +609,8 @@
         "completedRunCount": 3,
         "totalQuestionAttempts": 4,
         "lastActivityAt": 1786000004100
-      }
+      },
+      "scoringStatus": "current"
     }
   ]
 }

@@ -1,5 +1,13 @@
 # Codebase and interaction review: evidence register
 
+> **Historical evidence notice - superseded for current acceptance (2026-08-19).** This register
+> records the 2026-08-18 tree `bfdbdd7...` and remains a dated historical record. Current source
+> repairs centralize route-role policy and reject student catalog reads, while the current screenshot
+> corpus has refreshed ownership and expanded to 36 artifacts. Use [implementation status](../implementation_status.md),
+> the [changelog](../../CHANGELOG.md), and the [test evidence model](../../TEST_EVIDENCE_MODEL.md)
+> for current route, corpus, and acceptance evidence. Preserve the historical findings and
+> dispositions below; do not treat this dated register as current acceptance input.
+
 Supporting register for
 [codebase_and_interaction_review.md](codebase_and_interaction_review.md). That document carries the
 decisions; this one carries every finding with its citations, evidence class, and disposition.
@@ -65,9 +73,10 @@ pathnames rather than deriving them from the route contract.
 | STU-5 | Student assignment rows carry no state | Source | Resolved |
 | STU-6 | Completeness copy leaks pagination and breaks grammar | Source | Resolved |
 
-**STU-1.** `src/pages/assignment_overview_page.tsx` now renders assignment-level timing alongside other
-facts, and `/api/assignments/{assignment}` decoders now surface `assignmentTiming` with explicit Untimed
-defaulting when omitted by older payloads. The student sees timing before the timer starts.
+**STU-1.** This original repair used the now-retired `assignmentTiming` projection. WP-PROF-T1
+supersedes it: `src/pages/assignment_overview_page.tsx` reads only the dedicated learner-safe detail
+from `/api/assignments/{assignment}/learner`, including server-resolved course-zone delivery facts and
+an explicit no-limit state. No compatibility default or browser-local timing inference remains.
 
 **STU-2.** `src/pages/assignment_overview_page.tsx` now projects a learner-facing outcome
 sheet from `/api/assignments/{assignment}/summary`, and the endpoint resolves one

@@ -63,14 +63,8 @@ const disclosureTimingOptions: ReadonlyArray<readonly [LearnerDisclosureTiming, 
 interface AssignmentEditorPolicyPanelProps {
   readonly policies: () => RunPolicies;
   readonly disclosurePolicy: () => LearnerDisclosurePolicy;
-  readonly runTimed: () => boolean;
-  readonly runMinutesText: () => string;
-  readonly runTimingError: () => string | null;
   readonly onPoliciesChange: (policies: RunPolicies) => void;
   readonly onDisclosurePolicyChange: (policy: LearnerDisclosurePolicy) => void;
-  readonly onRunTimedChange: (timed: boolean) => void;
-  readonly onRunMinutesInput: (value: string) => void;
-  readonly onRunMinutesInputRef: (element: HTMLInputElement) => void;
 }
 
 /**
@@ -78,15 +72,6 @@ interface AssignmentEditorPolicyPanelProps {
  * the revisioned assignment draft and save transaction.
  */
 export function AssignmentEditorPolicyPanel(props: AssignmentEditorPolicyPanelProps): JSX.Element {
-  let runMinutesInput: HTMLInputElement | undefined;
-
-  function selectTimed(): void {
-    props.onRunTimedChange(true);
-    requestAnimationFrame(() => {
-      runMinutesInput?.focus();
-    });
-  }
-
   function changeDisclosure(field: keyof LearnerDisclosurePolicy, value: string): void {
     props.onDisclosurePolicyChange({
       ...props.disclosurePolicy(),
@@ -280,62 +265,6 @@ export function AssignmentEditorPolicyPanel(props: AssignmentEditorPolicyPanelPr
           </select>
         </label>
       </fieldset>
-      <fieldset class="assignment-editor-policy-set assignment-editor-run-timing">
-        <legend>Time limit for each practice run</legend>
-        <label class="assignment-editor-radio">
-          <input
-            type="radio"
-            name="assignment-run-timing"
-            checked={props.runTimed()}
-            onChange={selectTimed}
-          />
-          Timed
-        </label>
-        <Show when={props.runTimed()}>
-          <label class="assignment-editor-field">
-            Minutes per practice run
-            <input
-              ref={(element: HTMLInputElement) => {
-                runMinutesInput = element;
-                props.onRunMinutesInputRef(element);
-              }}
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="any"
-              value={props.runMinutesText()}
-              aria-describedby="run-time-limit-help"
-              aria-invalid={props.runTimingError() !== null}
-              onInput={(event) => props.onRunMinutesInput(event.currentTarget.value)}
-            />
-          </label>
-          <Show when={props.runTimingError()}>
-            {(message) => (
-              <p class="inline-error" role="alert">
-                {message()}
-              </p>
-            )}
-          </Show>
-        </Show>
-        <label class="assignment-editor-radio">
-          <input
-            type="radio"
-            name="assignment-run-timing"
-            checked={!props.runTimed()}
-            onChange={() => props.onRunTimedChange(false)}
-          />
-          Untimed
-        </label>
-        <p id="run-time-limit-help" class="assignment-editor-note">
-          The server keeps the time running and automatically submits work when the run ends. A
-          loaded time may display as an approximate number of minutes; it stays exact until you edit
-          this field.
-        </p>
-      </fieldset>
-      <p class="assignment-editor-note">
-        This setting limits the whole practice run. Each published question keeps its own response
-        and feedback rules.
-      </p>
     </section>
   );
 }

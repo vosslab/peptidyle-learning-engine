@@ -29,6 +29,8 @@ where
         tenant,
         course_id,
         title: "Molar mass mastery".to_string(),
+        lifecycle: question_model::AssignmentLifecycle::Published,
+        instructions: question_model::AssignmentInstructions::default(),
         audience: question_model::AssignmentAudience::CourseWide,
         items: fixed_items(vec![ProblemVersionRef { problem, version }]),
         selection_groups: Vec::new(),
@@ -459,7 +461,7 @@ where
         .await
         .expect("conforming learner membership should succeed");
     store
-        .create_untimed_assignment(context, assignment.clone())
+        .create_assignment_with_default_policy(context, course_user, assignment.clone())
         .await
         .expect("conforming assignment write should succeed");
     let started = store

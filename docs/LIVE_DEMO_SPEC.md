@@ -1,25 +1,25 @@
 # Live Demo Specification
 
-The demo is the real PLE system. The baseline is seeded data. Student and Instructor login only replaces the 
-identity-verification ceremony. Sysadmin exercises the real passkey path and has full Sysadmin capabilities. All 
-resulting data is ordinary live data. The data is disposable because the entire demo environment can be 
+The demo is the real PLE system. The baseline is seeded data. Student and Instructor login only replaces the
+identity-verification ceremony. Sysadmin exercises the real passkey path and has full Sysadmin capabilities. All
+resulting data is ordinary live data. The data is disposable because the entire demo environment can be
 regenerated, not because demo records or roles behave differently.
 
 ## Purpose
 
-The live demo is a fully functional PLE installation, not a fixed walkthrough or read-only demonstration. The 
+The live demo is a fully functional PLE installation, not a fixed walkthrough or read-only demonstration. The
 demo uses the normal PLE application workflows, authorization, database, and storage.
 
-The demo starts with seeded baseline data that gives people something useful to explore immediately. Once the 
+The demo starts with seeded baseline data that gives people something useful to explore immediately. Once the
 system starts, the seeded data is normal live data rather than special demo content.
 
 ## Seeded baseline
 
-The initial data includes representative instructors, students, courses, assignments, problems, and student 
+The initial data includes representative instructors, students, courses, assignments, problems, and student
 activity. People may explore and modify this data and create additional data through the normal PLE workflows.
 
-Data created or modified while using the demo persists normally in the database and storage. The data does not 
-need to survive regeneration of the demo. Preserving the demo database and storage preserves the current live 
+Data created or modified while using the demo persists normally in the database and storage. The data does not
+need to survive regeneration of the demo. Preserving the demo database and storage preserves the current live
 data.
 
 ## Instructor perspective
@@ -48,30 +48,30 @@ Student activity in the demo is normal live PLE data.
 
 ## Sysadmin perspective
 
-The demo should provide the full Sysadmin experience, including adding and approving instructors and the other 
-normal Sysadmin functions. The demo Sysadmin is a normal PLE Sysadmin with the same capabilities as a Sysadmin 
-in any other PLE installation. PLE continues to have only the normal Student, Instructor, and Sysadmin human 
+The demo should provide the full Sysadmin experience, including adding and approving instructors and the other
+normal Sysadmin functions. The demo Sysadmin is a normal PLE Sysadmin with the same capabilities as a Sysadmin
+in any other PLE installation. PLE continues to have only the normal Student, Instructor, and Sysadmin human
 roles. USER_ROLES.md
 
-The seeded Sysadmin account starts in an unclaimed state. First access requires completing the normal account 
-ownership setup, including passkey enrollment. This allows the live demo to exercise the real passkey workflow 
-immediately after a fresh deployment. Regenerating the demo restores the seeded Sysadmin account to its original 
+The seeded Sysadmin account starts in an unclaimed state. First access requires completing the normal account
+ownership setup, including passkey enrollment. This allows the live demo to exercise the real passkey workflow
+immediately after a fresh deployment. Regenerating the demo restores the seeded Sysadmin account to its original
 unclaimed state.
 
-The integrity of the demo data does not need to be protected from changes made through normal Sysadmin 
-capabilities. The entire installation is a disposable demonstration environment. A Sysadmin may modify or delete 
-seeded or user-created data just as in a normal installation. Regenerating the demo database and storage 
+The integrity of the demo data does not need to be protected from changes made through normal Sysadmin
+capabilities. The entire installation is a disposable demonstration environment. A Sysadmin may modify or delete
+seeded or user-created data just as in a normal installation. Regenerating the demo database and storage
 restores the seeded baseline.
 
 ## Demo authentication
 
 Student and Instructor seeded accounts can be entered directly through the demo account selector.
 
-Selecting a seeded account replaces only the normal passwordless identity-verification ceremony. The server 
-resolves the configured seeded account and creates the ordinary account session. Normal persisted course and 
+Selecting a seeded account replaces only the normal passwordless identity-verification ceremony. The server
+resolves the configured seeded account and creates the ordinary account session. Normal persisted course and
 role selection then creates the ordinary PLE session.
 
-The browser selects only a known demo persona. Account identity, roles, tenant context, course membership, and 
+The browser selects only a known demo persona. Account identity, roles, tenant context, course membership, and
 authorization continue to be derived by the server from normal PLE state.
 
 Conceptually:
@@ -94,10 +94,10 @@ After authentication, there is no separate demo application path.
 
 ## Sysadmin authentication and passkey setup
 
-The seeded Sysadmin account exists in the baseline data, but first access requires completing the normal account 
+The seeded Sysadmin account exists in the baseline data, but first access requires completing the normal account
 ownership setup, including passkey enrollment.
 
-After setup, the account uses the normal Sysadmin authentication and session path. This allows a fresh live demo 
+After setup, the account uses the normal Sysadmin authentication and session path. This allows a fresh live demo
 to exercise the real passkey workflow immediately rather than bypassing it for the Sysadmin.
 
 Conceptually:
@@ -123,7 +123,7 @@ Regenerating the demo restores the Sysadmin account to its original seeded, uncl
 
 ## Demo lifecycle
 
-The live demo should not require a parallel demo implementation. Courses, assignments, problems, accounts, 
+The live demo should not require a parallel demo implementation. Courses, assignments, problems, accounts,
 memberships, student work, grades, and other application state use the normal PLE data model.
 
 The distinction between a live demo and another PLE installation is primarily:

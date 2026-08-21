@@ -21,6 +21,22 @@ const disclosurePolicy = {
   solution: "afterSubmit",
   classStatistics: "never",
 } as const;
+const teachingSettings = {
+  timeZone: "America/Chicago",
+  lifecycle: "published",
+  instructions: "Read the structures before starting.",
+  availableAt: null,
+  dueAt: null,
+  closesAt: "2026-12-01T23:59:00.000",
+  timeLimitSeconds: null,
+  attemptLimit: null,
+  lateSubmission: "accept",
+  deadlineBehavior: "autoSubmit",
+} as const;
+const currentState = {
+  state: "closed",
+  closedAt: "2026-12-01T23:59:00.000",
+} as const;
 
 function response(
   route: Route,
@@ -41,6 +57,7 @@ test("instructor replaces an assigned Question ID with visible issued-work conse
 }) => {
   let assignment = { ...structuredClone(original), disclosurePolicy };
   let revision = 1;
+  let teachingConflict = false;
   await page.addInitScript(() =>
     Object.defineProperty(window, "__PLE_USE_MOCK_API__", { get: () => false }),
   );
@@ -76,12 +93,7 @@ test("instructor replaces an assigned Question ID with visible issued-work conse
         etag: '"1"',
       });
     if (path === `/api/assignments/${original.id}`)
-      return await response(
-        route,
-        { ...assignment, assignmentTiming: { timeLimitSeconds: null } },
-        200,
-        headers,
-      );
+      return await response(route, { ...assignment, teachingSettings, currentState }, 200, headers);
     if (path === `/api/problems/by-id/${replacementId}`) return await response(route, replacement);
     if (path === `/api/problems/by-id/${replacementId}/detail`)
       return await response(route, { summary: replacement, prompt: [], statistics: "unavailable" });
@@ -119,12 +131,43 @@ test("instructor replaces an assigned Question ID with visible issued-work conse
         disclosurePolicy: body.disclosurePolicy ?? assignment.disclosurePolicy,
       };
       revision += 1;
-      return await response(
-        route,
-        { ...assignment, assignmentTiming: { timeLimitSeconds: null } },
-        200,
-        { "cache-control": "no-store", etag: `"${revision}"` },
-      );
+      return await response(route, { ...assignment, teachingSettings, currentState }, 200, {
+        "cache-control": "no-store",
+        etag: `"${revision}"`,
+      });
+    }
+    if (
+      path === `/api/courses/${course.id}/assignments/${original.id}/teaching-settings` &&
+      request.method() === "PUT"
+    ) {
+      if (request.headers()["if-match"] !== '"2"')
+        return await response(route, { error: "assignment changed; reload it" }, 412, {
+          "cache-control": "no-store",
+        });
+      const body = request.postDataJSON() as { dueAt?: string | null };
+      if (body.dueAt === "2026-11-01T01:30:00.000")
+        return await response(
+          route,
+          {
+            error: "assignmentTeachingSettingsInvalid",
+            field: "dueAt",
+            reason: "ambiguousLocalTime",
+            message: "Choose a local time outside the daylight-saving repeat hour.",
+          },
+          422,
+          { "cache-control": "no-store" },
+        );
+      if (!teachingConflict) {
+        teachingConflict = true;
+        return await response(route, { error: "assignment changed; reload it" }, 412, {
+          "cache-control": "no-store",
+        });
+      }
+      revision += 1;
+      return await response(route, { ...assignment, teachingSettings, currentState }, 200, {
+        "cache-control": "no-store",
+        etag: `"${revision}"`,
+      });
     }
     if (
       path === `/api/courses/${course.id}/assignments/${original.id}/items` &&
@@ -149,12 +192,10 @@ test("instructor replaces an assigned Question ID with visible issued-work conse
         ],
       };
       revision = 3;
-      return await response(
-        route,
-        { ...assignment, assignmentTiming: { timeLimitSeconds: null } },
-        200,
-        { "cache-control": "no-store", etag: '"3"' },
-      );
+      return await response(route, { ...assignment, teachingSettings, currentState }, 200, {
+        "cache-control": "no-store",
+        etag: '"3"',
+      });
     }
     if (path.endsWith("/question") && request.method() === "PUT") {
       if (request.postData() !== JSON.stringify({ questionId: replacementId }))
@@ -176,12 +217,10 @@ test("instructor replaces an assigned Question ID with visible issued-work conse
               : candidate,
           ),
         };
-        return await response(
-          route,
-          { ...assignment, assignmentTiming: { timeLimitSeconds: null } },
-          200,
-          { "cache-control": "no-store", etag: '"4"' },
-        );
+        return await response(route, { ...assignment, teachingSettings, currentState }, 200, {
+          "cache-control": "no-store",
+          etag: '"4"',
+        });
       }
       return await response(route, { error: "assignment changed; reload it" }, 409, {
         "cache-control": "no-store",
@@ -195,6 +234,9 @@ test("instructor replaces an assigned Question ID with visible issued-work conse
     window.dispatchEvent(new PopStateEvent("popstate"));
   }, assignmentPath);
   await expect(page.getByRole("heading", { name: "Assignment editor" })).toBeVisible();
+  await expect(page.getByTestId("assignment-current-state")).toHaveText(
+    "Published, closed since 2026-12-01 23:59 America/Chicago.",
+  );
   const studentVisibility = page.getByRole("group", { name: "What students can see" });
   await expect(studentVisibility).toBeVisible();
   const fields = [
@@ -258,6 +300,25 @@ test("instructor replaces an assigned Question ID with visible issued-work conse
   await expect(
     studentVisibility.getByRole("combobox", { name: "Correct answer or solution", exact: true }),
   ).toHaveValue("never");
+  const teaching = page.getByRole("region", { name: "Teaching operations" });
+  await expect(teaching).toBeVisible();
+  await page.getByLabel("Assignment title").fill("Local content draft survives teaching save");
+  await teaching.getByLabel("Due").fill("2026-11-01T01:30");
+  await teaching.getByRole("button", { name: "Save teaching operations" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(teaching.getByRole("alert")).toContainText("daylight-saving repeat hour");
+  await expect(teaching.getByLabel("Due")).toBeFocused();
+  await expect(teaching.getByLabel("Due")).toHaveValue("2026-11-01T01:30");
+  await teaching.getByLabel("Due").fill("2026-11-02T10:00");
+  await teaching.getByRole("button", { name: "Save teaching operations" }).click();
+  await expect(
+    teaching.getByRole("button", { name: "Adopt latest teaching operations" }),
+  ).toBeVisible();
+  await expect(teaching.getByLabel("Due")).toHaveValue("2026-11-02T10:00");
+  await teaching.getByRole("button", { name: "Adopt latest teaching operations" }).click();
+  await expect(page.getByLabel("Assignment title")).toHaveValue(
+    "Local content draft survives teaching save",
+  );
   await page.getByText("Add by Question ID", { exact: true }).click();
   await page
     .getByRole("textbox", { name: "Direct import Question ID", exact: true })
@@ -273,7 +334,7 @@ test("instructor replaces an assigned Question ID with visible issued-work conse
     ),
   ).toBeVisible();
   const questionId = page.getByRole("textbox", { name: "Replacement Question ID", exact: true });
-  await questionId.focus();
+  await expect(questionId).toBeFocused();
   await page.keyboard.type(replacementId);
   await page.getByRole("button", { name: "Check Question ID" }).click();
   await expect(page.locator(".success-state .copyable-question-id code")).toHaveText(replacementId);
@@ -291,7 +352,9 @@ test("instructor replaces an assigned Question ID with visible issued-work conse
   await page.getByRole("button", { name: "Check Question ID" }).click();
   await page.getByRole("button", { name: "Replace with selected question" }).click();
   await expect(page.getByRole("button", { name: "Reload assignment" })).toBeVisible();
-  await expect(page.getByRole("alert")).toContainText("A newer assignment revision is available.");
+  await expect(
+    page.getByRole("alert").filter({ hasText: "A newer assignment revision" }),
+  ).toContainText("A newer assignment revision is available.");
   await expect(questionId).toHaveValue(replacementId);
   await expect(page.locator("body")).not.toContainText(/0198e000-0000-7000-8000/u);
   expect(

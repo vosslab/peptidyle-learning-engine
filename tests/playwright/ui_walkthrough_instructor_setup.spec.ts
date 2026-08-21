@@ -187,8 +187,6 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Create assignment", exact: true })).toBeVisible();
   writeInstructorSetupCheckpoint(inputs.instructorSetupCheckpointFile, "assignment_editor_opened");
-  await expect(page.getByRole("radio", { name: "Timed", exact: true })).toBeChecked();
-  await expect(page.getByLabel("Minutes per practice run")).toHaveValue("15");
   const assignmentTitleInput = page.getByLabel("Assignment title");
   await tabTo(page, assignmentTitleInput);
   await expect(assignmentTitleInput).toBeFocused();
@@ -293,9 +291,22 @@ test("J11/J12/J13 instructor visibly prepares a four-question Genetics assignmen
   if (typeof assignmentHref !== "string") {
     throw new Error("visible assignment link is unavailable");
   }
-  const assignmentReference = assignmentHref.slice(assignmentHref.lastIndexOf("/") + 1);
+  const assignmentReference = assignmentHref.match(/\/assignments\/([^/]+)\/edit$/u)?.[1];
   if (!isAssignmentReference(assignmentReference))
     throw new Error("visible assignment link is unavailable");
+  await assignmentLink.click();
+  await expect(page.getByRole("heading", { name: "Assignment editor", exact: true })).toBeVisible();
+  const teachingOperations = page.getByRole("region", { name: "Teaching operations" });
+  await expect(teachingOperations).toBeVisible();
+  await teachingOperations.getByLabel("Lifecycle").selectOption("published");
+  await teachingOperations.getByRole("button", { name: "Save teaching operations" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    teachingOperations.getByRole("status").filter({ hasText: "Teaching operations saved." }),
+  ).toHaveText("Teaching operations saved.");
+  await expect(teachingOperations.getByTestId("assignment-current-state")).toHaveText(
+    "Published, open now.",
+  );
   const j13: Extract<InstructorSetupFragment, { readonly journey: "J13" }> = {
     schemaVersion: 2,
     journey: "J13",

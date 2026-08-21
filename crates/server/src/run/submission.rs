@@ -352,8 +352,10 @@ fn translate_issued_response(
 /// through `QuestionAttempt.result` beside the field-by-field feedback DTO.
 pub(super) fn apply_learner_disclosure(
     disclosure: domain::disclosure_policy::LearnerDisclosureDecision,
+    scoring_status: question_model::ScoringStatus,
     attempt: &mut QuestionAttempt,
 ) {
+    let disclosure = score_current_disclosure(disclosure, scoring_status);
     if !(disclosure.score && disclosure.per_item_correctness) {
         attempt.result = None;
     }
@@ -371,12 +373,15 @@ where
     B: RunBackend,
 {
     let actor = authenticated.record.subject.user();
+    // A submission receipt is a learner per-item surface. Fail closed if the
+    // fresh atomic status snapshot cannot be read.
+    let scoring_status = learner_scoring_status(store, authenticated, record.run.enrollment).await;
     let next_state = match store
         .submission_next_attempt(authenticated.tenant_context, actor, record.attempt.id)
         .await
     {
         Ok(value) => value,
-        Err(_) => return submission_response(record, None, true),
+        Err(_) => return submission_response(record, None, true, scoring_status),
     };
     let next_state = if matches!(
         next_state,
@@ -396,7 +401,7 @@ where
         .await
         .is_err()
         {
-            return submission_response(record, None, true);
+            return submission_response(record, None, true, scoring_status);
         }
         match store
             .submission_next_attempt(authenticated.tenant_context, actor, record.attempt.id)
@@ -413,18 +418,18 @@ where
                     .await
                     .is_err()
                 {
-                    return submission_response(record, None, true);
+                    return submission_response(record, None, true, scoring_status);
                 }
                 learning_data_access::SubmissionNextAttempt::None
             }
             Ok(value) => value,
-            Err(_) => return submission_response(record, None, true),
+            Err(_) => return submission_response(record, None, true, scoring_status),
         }
     } else if matches!(
         next_state,
         learning_data_access::SubmissionNextAttempt::Pending
     ) {
-        return submission_response(record, None, true);
+        return submission_response(record, None, true, scoring_status);
     } else {
         next_state
     };
@@ -434,7 +439,7 @@ where
         learning_data_access::SubmissionNextAttempt::Issued(next) => Some(next_issued(next)),
         learning_data_access::SubmissionNextAttempt::Pending => None,
     };
-    submission_response(record, next_issued, next_pending)
+    submission_response(record, next_issued, next_pending, scoring_status)
 }
 
 fn next_issued(next: ReceiptNextAttempt) -> NextIssuedAttempt {
@@ -453,16 +458,23 @@ pub(super) fn submission_response(
     record: SubmissionRecord,
     next_issued: Option<NextIssuedAttempt>,
     next_pending: bool,
+    scoring_status: question_model::ScoringStatus,
 ) -> Response {
-    let decision = record.disclosure.decision();
-    let feedback = feedback_projection(decision, &record.attempt, record.feedback.content());
+    let decision = score_current_disclosure(record.disclosure.decision(), scoring_status);
+    let feedback = feedback_projection(
+        decision,
+        scoring_status,
+        &record.attempt,
+        record.feedback.content(),
+    );
     let mut attempt = record.attempt;
-    apply_learner_disclosure(decision, &mut attempt);
+    apply_learner_disclosure(decision, scoring_status, &mut attempt);
     no_store(
         Json(SubmissionReceipt {
             accepted: true,
             attempt,
             feedback,
+            scoring_status,
             next_issued,
             next_pending,
         })
@@ -472,17 +484,23 @@ pub(super) fn submission_response(
 
 pub(super) fn feedback_projection(
     disclosure: domain::disclosure_policy::LearnerDisclosureDecision,
+    scoring_status: question_model::ScoringStatus,
     attempt: &QuestionAttempt,
     content: &FeedbackContent,
 ) -> Option<DisclosedFeedback> {
-    project_run_feedback(disclosure, attempt.result, content)
+    project_run_feedback(disclosure, scoring_status, attempt.result, content)
 }
 
 /// Projects trusted feedback from one current, server-side disclosure decision.
 pub(super) fn project_run_feedback(
     disclosure: domain::disclosure_policy::LearnerDisclosureDecision,
+    scoring_status: question_model::ScoringStatus,
     result: Option<AttemptResult>,
     content: &FeedbackContent,
 ) -> Option<DisclosedFeedback> {
-    project_feedback(disclosure, result, content)
+    project_feedback(
+        score_current_disclosure(disclosure, scoring_status),
+        result,
+        content,
+    )
 }

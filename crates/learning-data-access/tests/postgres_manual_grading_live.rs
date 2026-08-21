@@ -1,5 +1,9 @@
 #![cfg(feature = "postgres")]
 
+#[path = "fixtures/published_assignment.rs"]
+mod published_assignment;
+use published_assignment::create_published_assignment;
+
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AssignmentRecord, AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand,
@@ -254,31 +258,35 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
         )
         .await
         .expect("create live mixed-grading course");
-    store
-        .create_untimed_assignment(
-            context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                title: "Live mixed grading assignment".to_string(),
-                audience: question_model::AssignmentAudience::CourseWide,
-                items: vec![
-                    assignment_item(automatic_reference, 0),
-                    assignment_item(manual_reference, 1),
-                ],
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: RunPolicies {
-                    completion: CompletionRequirement::AnswerAll,
-                    grade: GradePolicy::Highest,
-                    continued_practice: ContinuedPractice::Unlimited,
-                    variation: VariationPolicy::NewSeeds,
-                },
+    create_published_assignment(
+        &store,
+        context,
+        instructor,
+        AssignmentRecord {
+            id: assignment,
+            tenant,
+            course_id: course,
+            title: "Live mixed grading assignment".to_string(),
+            lifecycle: question_model::AssignmentLifecycle::Published,
+            instructions: question_model::AssignmentInstructions::default(),
+            audience: question_model::AssignmentAudience::CourseWide,
+            items: vec![
+                assignment_item(automatic_reference, 0),
+                assignment_item(manual_reference, 1),
+            ],
+            selection_groups: Vec::new(),
+            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            policies: RunPolicies {
+                completion: CompletionRequirement::AnswerAll,
+                grade: GradePolicy::Highest,
+                continued_practice: ContinuedPractice::Unlimited,
+                variation: VariationPolicy::NewSeeds,
             },
-        )
-        .await
-        .expect("create live mixed-grading assignment");
+        },
+        question_model::BaseAssignmentPolicy::default(),
+    )
+    .await
+    .expect("create live mixed-grading assignment");
     for (user, display_name) in [
         (student, "Live grading student"),
         (other_student, "Other live grading student"),

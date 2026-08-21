@@ -7,7 +7,7 @@
 // - src/components/response_widget.tsx: native radio controls and Enter submission.
 // - src/components/feedback_panel.tsx: correctness-only feedback projection.
 
-import { configuredLiveWebworkInputs, mockPreviewServerEnabled } from "../../playwright.config";
+import { browserTestServerEnabled, configuredLiveWebworkInputs } from "../../playwright.config";
 import { decodeAuthSession } from "../../src/api/decoders";
 import { isAssignmentReference, isCourseReference } from "./simulator/public_references";
 import { liveInputsFromEnvironment, type LiveWebworkInputs } from "./webwork_live_config";
@@ -510,8 +510,8 @@ test("live-required configuration is explicit and rejects incomplete activation"
       () => undefined,
     ),
   ).toBeDefined();
-  expect(mockPreviewServerEnabled({ PLE_WEBWORK_LIVE_REQUIRED: "1" })).toBe(false);
-  expect(mockPreviewServerEnabled({ PLE_WEBWORK_LIVE_REQUIRED: "0" })).toBe(true);
+  expect(browserTestServerEnabled({ PLE_WEBWORK_LIVE_REQUIRED: "1" })).toBe(false);
+  expect(browserTestServerEnabled({ PLE_WEBWORK_LIVE_REQUIRED: "0" })).toBe(true);
   if (process.env["PLE_WEBWORK_LIVE_REQUIRED"] === "1") {
     expect(configuredLiveWebworkInputs).toBeDefined();
   }

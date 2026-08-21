@@ -7,7 +7,6 @@ import type { AssignmentScoringMode } from "../../../generated/api/AssignmentSco
 import type { AssignmentSelectionCandidateSummary as AssignmentSelectionCandidate } from "../../../generated/api/AssignmentSelectionCandidateSummary";
 import type { AssignmentSelectionGroupSummary as AssignmentSelectionGroup } from "../../../generated/api/AssignmentSelectionGroupSummary";
 import type { AssignmentSummary } from "../../../generated/api/AssignmentSummary";
-import type { LearnerAssignmentSummary } from "../../../generated/api/LearnerAssignmentSummary";
 import type { CatalogCapabilityFacet } from "../../../generated/api/CatalogCapabilityFacet";
 import type { CatalogLicenseFacet } from "../../../generated/api/CatalogLicenseFacet";
 import type { CatalogLicenseValue } from "../../../generated/api/CatalogLicenseValue";
@@ -36,7 +35,7 @@ function decodeCourseReference(value: unknown, path: string): CourseRouteReferen
   if (reference === null) throw new DecodeError(path, "a C- reference");
   return reference;
 }
-function decodeAssignmentReference(value: unknown, path: string): AssignmentRouteReference {
+export function decodeAssignmentReference(value: unknown, path: string): AssignmentRouteReference {
   if (typeof value !== "string") throw new DecodeError(path, "an A- reference");
   const reference = parseAssignmentReference(value);
   if (reference === null) throw new DecodeError(path, "an A- reference");
@@ -93,11 +92,11 @@ import {
 } from "./shared";
 import { decodeCourseTerm } from "./course_term";
 import { decodeContentBlock } from "./question_model";
-import { decodeAssignmentRunTiming, decodeLearnerDisclosurePolicy } from "./assignment_policy";
+import { decodeLearnerDisclosurePolicy } from "./assignment_policy";
 
 // Retain the established catalog-course import surface while course-term owns its decoding rules.
 export { decodeCourseTerm, decodeCourseTermValidationFailure } from "./course_term";
-export { decodeAssignmentRunTiming, decodeLearnerDisclosurePolicy } from "./assignment_policy";
+export { decodeLearnerDisclosurePolicy } from "./assignment_policy";
 
 function decodeQuestionId(value: unknown, path: string): string {
   const questionId = decodeString(value, path);
@@ -620,7 +619,7 @@ function decodePointValue(value: unknown, path: string): PointValue {
   return decoded;
 }
 
-function decodeAssignmentItem(value: unknown, path: string): AssignmentItem {
+export function decodeAssignmentItem(value: unknown, path: string): AssignmentItem {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
@@ -738,7 +737,10 @@ function decodeAssignmentSelectionCandidate(
   };
 }
 
-function decodeAssignmentSelectionGroup(value: unknown, path: string): AssignmentSelectionGroup {
+export function decodeAssignmentSelectionGroup(
+  value: unknown,
+  path: string,
+): AssignmentSelectionGroup {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
@@ -811,45 +813,22 @@ export function decodeAssignmentSummary(
 }
 
 /** Decode the learner transport, which deliberately excludes authority inputs. */
-export function decodeLearnerAssignmentSummary(
-  value: unknown,
-  path = "response",
-  strict = true,
-): LearnerAssignmentSummary {
-  const record = decodeRecord(value, path);
-  if (strict) {
-    requireOnlyFields(record, path, ["id", "reference", "title", "items", "selectionGroups"]);
-  }
-  return {
-    id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    reference: decodeAssignmentReference(field(record, "reference", path), `${path}.reference`),
-    title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
-    items: decodeArray(field(record, "items", path), `${path}.items`, decodeAssignmentItem),
-    selectionGroups: decodeArray(
-      field(record, "selectionGroups", path),
-      `${path}.selectionGroups`,
-      decodeAssignmentSelectionGroup,
-    ),
-  } satisfies LearnerAssignmentSummary;
-}
-
-/**
- * Decode the exact mutable assignment body before it leaves the browser and
- * when a mock validates a request. This keeps request and response drift
- * visible instead of silently dropping a new field.
- */
+import {
+  decodeInstructorAssignmentCurrentState,
+  decodeInstructorAssignmentTeachingSettingsLocal,
+} from "./assignment_teaching_delivery";
+export {
+  decodeAssignmentTeachingSettingsValidationFailure,
+  decodeInstructorAssignmentTeachingSettingsLocal,
+  decodeLearnerAssignmentDetail,
+  decodeLearnerAssignmentSummary,
+} from "./assignment_teaching_delivery";
 export function decodeAssignmentEditorInput(
   value: unknown,
   path = "response",
 ): AssignmentEditorInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "title",
-    "items",
-    "policies",
-    "disclosurePolicy",
-    "assignmentTiming",
-  ]);
+  requireOnlyFields(record, path, ["title", "items", "policies", "disclosurePolicy"]);
   const decoded = {
     title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
     items: decodeArray(field(record, "items", path), `${path}.items`, decodeAssignmentUpdateItem),
@@ -857,10 +836,6 @@ export function decodeAssignmentEditorInput(
     disclosurePolicy: decodeLearnerDisclosurePolicy(
       field(record, "disclosurePolicy", path),
       `${path}.disclosurePolicy`,
-    ),
-    assignmentTiming: decodeAssignmentRunTiming(
-      field(record, "assignmentTiming", path),
-      `${path}.assignmentTiming`,
     ),
   } satisfies AssignmentEditorInput;
   return decoded;
@@ -871,13 +846,7 @@ export function decodeAssignmentCreateInput(
   path = "response",
 ): AssignmentCreateInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "title",
-    "questionIds",
-    "policies",
-    "disclosurePolicy",
-    "assignmentTiming",
-  ]);
+  requireOnlyFields(record, path, ["title", "questionIds", "policies", "disclosurePolicy"]);
   return {
     title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
     questionIds: decodeArray(
@@ -889,10 +858,6 @@ export function decodeAssignmentCreateInput(
     disclosurePolicy: decodeLearnerDisclosurePolicy(
       field(record, "disclosurePolicy", path),
       `${path}.disclosurePolicy`,
-    ),
-    assignmentTiming: decodeAssignmentRunTiming(
-      field(record, "assignmentTiming", path),
-      `${path}.assignmentTiming`,
     ),
   };
 }
@@ -939,9 +904,33 @@ export function decodeAssignmentEditorDetail(
     "selectionGroups",
     "disclosurePolicy",
     "policies",
-    "assignmentTiming",
+    "teachingSettings",
+    "currentState",
   ]);
   const summary = decodeAssignmentSummary(record, path, false);
+  const teachingSettings = decodeInstructorAssignmentTeachingSettingsLocal(
+    field(record, "teachingSettings", path),
+    `${path}.teachingSettings`,
+  );
+  const currentState = decodeInstructorAssignmentCurrentState(
+    field(record, "currentState", path),
+    `${path}.currentState`,
+  );
+  const currentMatchesIntent =
+    (teachingSettings.lifecycle === "draft" && currentState.state === "draft") ||
+    (teachingSettings.lifecycle === "archived" && currentState.state === "archived") ||
+    (teachingSettings.lifecycle === "closed" &&
+      currentState.state === "closed" &&
+      currentState.closedAt === null) ||
+    (teachingSettings.lifecycle === "published" &&
+      (currentState.state === "scheduled" ||
+        currentState.state === "open" ||
+        (currentState.state === "closed" && currentState.closedAt !== null)));
+  if (!currentMatchesIntent)
+    throw new DecodeError(
+      `${path}.currentState`,
+      "a server-derived state consistent with the stored lifecycle intent",
+    );
   const decoded = {
     id: summary.id,
     reference: summary.reference,
@@ -952,10 +941,8 @@ export function decodeAssignmentEditorDetail(
     selectionGroups: summary.selectionGroups,
     disclosurePolicy: summary.disclosurePolicy,
     policies: summary.policies,
-    assignmentTiming: decodeAssignmentRunTiming(
-      field(record, "assignmentTiming", path),
-      `${path}.assignmentTiming`,
-    ),
+    teachingSettings,
+    currentState,
   } satisfies Omit<AssignmentEditorDetail, "revision">;
   return decoded;
 }

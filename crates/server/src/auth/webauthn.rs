@@ -42,7 +42,7 @@ pub(super) fn clear_binding_cookie(config: SessionConfig) -> String {
 /// Validated relying-party configuration shared safely across API replicas.
 #[derive(Clone)]
 pub struct PasswordlessWebauthn {
-    inner: Arc<Webauthn>,
+    pub(super) inner: Arc<Webauthn>,
 }
 
 impl PasswordlessWebauthn {
@@ -567,7 +567,7 @@ where
     }
 }
 
-async fn persist_ceremony<S, T: Serialize>(
+pub(super) async fn persist_ceremony<S, T: Serialize>(
     store: &S,
     id: WebauthnCeremonyId,
     kind: WebauthnCeremonyKind,
@@ -591,13 +591,13 @@ where
         .map_err(|_| ())
 }
 
-fn encode_state<T: Serialize>(state: &T) -> Result<WebauthnState, ()> {
+pub(super) fn encode_state<T: Serialize>(state: &T) -> Result<WebauthnState, ()> {
     serde_json::to_vec(state)
         .map_err(|_| ())
         .and_then(|bytes| WebauthnState::new(bytes).map_err(|_| ()))
 }
 
-fn decode_state<T: for<'de> Deserialize<'de>>(state: &WebauthnState) -> Result<T, ()> {
+pub(super) fn decode_state<T: for<'de> Deserialize<'de>>(state: &WebauthnState) -> Result<T, ()> {
     serde_json::from_slice(state.as_bytes()).map_err(|_| ())
 }
 

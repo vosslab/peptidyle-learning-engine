@@ -4,15 +4,17 @@ use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::routing::{delete, get, post, put};
 use learning_data_access::{
-    AuthoritativeTimeStore, CatalogStore, CourseInvitationDeliveryStore, CourseItemAnalysisStore,
-    CourseRecordsAccessStore, CourseRosterStore, ManualGradeExportStore, SessionStore, Store,
+    AuthoritativeTimeStore, CatalogStore, CourseGradebookStore, CourseGroupManagementStore,
+    CourseInvitationDeliveryStore, CourseItemAnalysisStore, CourseRecordsAccessStore,
+    CourseRosterStore, ManualGradeExportStore, NavigationReferenceStore, PreviewPlaneStore,
+    SessionStore, Store, TeachingAuthorityReferenceStore, TeachingAuthorityStore,
 };
 use serde::{Deserialize, Serialize};
 
 use super::assignments::{
     add_assignment_item, create_assignment, get_assignment, get_assignment_summary,
-    get_learner_assignment, remove_assignment_item, replace_assignment_item_question,
-    update_assignment,
+    get_learner_assignment, put_teaching_settings, remove_assignment_item,
+    replace_assignment_item_question, update_assignment,
 };
 use super::invitation_capability::CourseInvitationIssuer;
 use super::queries::{create_course, get_course, list_assignments, list_courses, list_gradebook};
@@ -31,8 +33,14 @@ where
         + CourseRosterStore
         + CourseInvitationDeliveryStore
         + ManualGradeExportStore
+        + CourseGradebookStore
+        + CourseGroupManagementStore
         + SessionStore
+        + TeachingAuthorityStore
+        + TeachingAuthorityReferenceStore
         + AuthoritativeTimeStore
+        + NavigationReferenceStore
+        + PreviewPlaneStore
         + 'static,
 {
     router_with_invitations_and_local_teaching(store, CourseInvitationIssuer::unavailable(), None)
@@ -48,8 +56,14 @@ where
         + CourseRosterStore
         + CourseInvitationDeliveryStore
         + ManualGradeExportStore
+        + CourseGradebookStore
+        + CourseGroupManagementStore
         + SessionStore
+        + TeachingAuthorityStore
+        + TeachingAuthorityReferenceStore
         + AuthoritativeTimeStore
+        + NavigationReferenceStore
+        + PreviewPlaneStore
         + 'static,
 {
     router_with_invitations_and_local_teaching(store, issuer, None)
@@ -71,8 +85,14 @@ where
         + CourseRosterStore
         + CourseInvitationDeliveryStore
         + ManualGradeExportStore
+        + CourseGradebookStore
+        + CourseGroupManagementStore
         + SessionStore
+        + TeachingAuthorityStore
+        + TeachingAuthorityReferenceStore
         + AuthoritativeTimeStore
+        + NavigationReferenceStore
+        + PreviewPlaneStore
         + 'static,
 {
     let course_routes = Router::new()
@@ -85,6 +105,18 @@ where
             get(list_assignments::<S>).post(create_assignment::<S>),
         )
         .route("/api/courses/{course}/gradebook", get(list_gradebook::<S>))
+        .route(
+            "/api/courses/{course}/grade-scheme",
+            get(super::gradebook::get_scheme::<S>).put(super::gradebook::put_scheme::<S>),
+        )
+        .route(
+            "/api/courses/{course}/gradebook-totals",
+            get(super::gradebook::get_totals::<S>),
+        )
+        .route(
+            "/api/courses/{course}/grade-export.csv",
+            post(super::gradebook::create_export::<S>),
+        )
         .route("/api/courses/{course}", get(get_course::<S>))
         .route("/api/assignments/{assignment}", get(get_assignment::<S>))
         .route(
@@ -98,6 +130,10 @@ where
         .route(
             "/api/courses/{course}/assignments/{assignment}",
             put(update_assignment::<S>),
+        )
+        .route(
+            "/api/courses/{course}/assignments/{assignment}/teaching-settings",
+            put(put_teaching_settings::<S>),
         )
         .route(
             "/api/courses/{course}/assignments/{assignment}/items",
@@ -115,7 +151,13 @@ where
         .with_state(CourseRouteState {
             store: Arc::clone(&store),
         });
-    course_routes.merge(roster_router(store, issuer, local_teaching_roster))
+    course_routes
+        .merge(roster_router(
+            Arc::clone(&store),
+            issuer,
+            local_teaching_roster,
+        ))
+        .merge(super::teaching_operations::router(store))
 }
 
 pub(super) struct CourseRouteState<S> {
@@ -295,9 +337,6 @@ pub(super) struct CreateAssignmentRequest {
     pub(super) question_ids: Vec<question_model::QuestionId>,
     pub(super) disclosure_policy: question_model::LearnerDisclosurePolicy,
     pub(super) policies: question_model::RunPolicies,
-    /// Whole-run timing is always an explicit instructor decision. `null`
-    /// within the object deliberately means Untimed.
-    pub(super) assignment_timing: question_model::AssignmentRunTiming,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -307,8 +346,12 @@ pub(super) struct UpdateAssignmentRequest {
     pub(super) items: Vec<AssignmentItemUpdateRequest>,
     pub(super) disclosure_policy: question_model::LearnerDisclosurePolicy,
     pub(super) policies: question_model::RunPolicies,
-    pub(super) assignment_timing: question_model::AssignmentRunTiming,
 }
+
+/// Strict course-local instructor schedule input. It carries the authoritative
+/// course IANA zone so the server, never the browser, resolves wall-clock time.
+pub(super) type AssignmentTeachingSettingsRequest =
+    question_model::assignment::InstructorAssignmentTeachingSettingsLocal;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -363,30 +406,55 @@ mod tests {
                 continued_practice: question_model::ContinuedPractice::Unlimited,
                 variation: question_model::VariationPolicy::NewSeeds,
             },
-            assignment_timing: question_model::AssignmentRunTiming::default(),
         })
         .expect("request fixture serializes")
     }
 
     #[test]
-    fn assignment_timing_requires_an_object_with_nullable_member() {
-        let explicit = strict_assignment_request::<CreateAssignmentRequest>(explicit_request())
-            .expect("explicit null member is an untimed editor choice");
-        assert_eq!(
-            explicit.assignment_timing,
-            question_model::AssignmentRunTiming::default()
+    fn direct_cutover_rejects_retired_assignment_timing() {
+        let mut retired = explicit_request();
+        retired["assignmentTiming"] = serde_json::json!({"timeLimitSeconds": null});
+        assert!(strict_assignment_request::<CreateAssignmentRequest>(retired).is_err());
+    }
+
+    #[test]
+    fn teaching_settings_are_strict_course_local_input() {
+        let valid = serde_json::json!({
+            "timeZone": "America/Chicago",
+            "lifecycle": "draft",
+            "instructions": "Review the structure legend before starting.",
+            "availableAt": null,
+            "dueAt": "2026-03-08T02:30:00.000",
+            "closesAt": null,
+            "timeLimitSeconds": null,
+            "attemptLimit": null,
+            "lateSubmission": "accept",
+            "deadlineBehavior": "autoSubmit"
+        });
+        let decoded = strict_assignment_request::<AssignmentTeachingSettingsRequest>(valid)
+            .expect("strict local teaching settings decode");
+        let term =
+            question_model::CourseTerm::from_parts("2026-01-01", "2026-06-01", "America/Chicago")
+                .expect("course term");
+        assert!(
+            decoded.into_absolute(&term).is_err(),
+            "the server must refuse a nonexistent daylight-saving local time"
         );
 
-        let mut omitted = explicit_request();
-        omitted
-            .as_object_mut()
-            .expect("request object")
-            .remove("assignmentTiming");
-        assert!(strict_assignment_request::<CreateAssignmentRequest>(omitted).is_err());
-
-        let mut invalid = explicit_request();
-        invalid["assignmentTiming"] = serde_json::Value::Null;
-        assert!(strict_assignment_request::<CreateAssignmentRequest>(invalid).is_err());
+        let mut unknown = serde_json::json!({
+            "timeZone": "America/Chicago",
+            "lifecycle": "draft",
+            "instructions": "",
+            "availableAt": null,
+            "dueAt": null,
+            "closesAt": null,
+            "timeLimitSeconds": null,
+            "attemptLimit": null,
+            "lateSubmission": "accept",
+            "deadlineBehavior": "autoSubmit"
+        });
+        unknown["unexpected"] = serde_json::json!(true);
+        assert!(strict_assignment_request::<AssignmentTeachingSettingsRequest>(unknown).is_err());
     }
 
     #[test]
@@ -412,7 +480,6 @@ mod tests {
                 continued_practice: question_model::ContinuedPractice::Unlimited,
                 variation: question_model::VariationPolicy::NewSeeds,
             },
-            "assignmentTiming": question_model::AssignmentRunTiming::default(),
         });
         assert!(strict_assignment_request::<UpdateAssignmentRequest>(update.clone()).is_ok());
         let mut omitted_update = update;

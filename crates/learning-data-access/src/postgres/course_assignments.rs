@@ -4,30 +4,47 @@ use super::*;
 
 #[async_trait]
 impl crate::CourseAssignmentStore for PostgresStore {
-    async fn create_assignment_with_timing_impl(
+    async fn create_assignment_impl(
         &self,
         context: TenantContext,
         assignment: AssignmentRecord,
-        assignment_timing: question_model::AssignmentRunTiming,
+        base_policy: question_model::BaseAssignmentPolicy,
     ) -> Result<StoredAssignment, StoreError> {
         ensure_tenant(context, assignment.tenant)?;
+        if assignment.lifecycle != question_model::AssignmentLifecycle::Draft {
+            return Err(StoreError::InvalidRecord(
+                "new assignments must begin in the draft lifecycle".to_string(),
+            ));
+        }
         validate_assignment(&assignment)?;
-        validate_editor_time_limit(assignment_timing.time_limit_seconds)?;
         let (completion_policy, completion_threshold) =
             completion_policy_columns(assignment.policies.completion);
         let (practice_policy, practice_limit) =
             continued_practice_columns(assignment.policies.continued_practice)?;
         let mut transaction = self.begin_tenant(context).await?;
         validate_postgres_assignment_references(&mut transaction, context, &assignment).await?;
+        let course_term = super::course_policy::load_course_term_for_policy(
+            &mut transaction,
+            assignment.tenant,
+            assignment.course_id,
+        )
+        .await?;
+        domain::effective_assignment_policy::validate_base_assignment_policy_for_course_term(
+            base_policy,
+            &course_term,
+        )
+        .map_err(|error| {
+            StoreError::InvalidRecord(format!("invalid assignment base policy: {error:?}"))
+        })?;
         let inserted = sqlx::query(
             "INSERT INTO assignment \
              (tenant_id, assignment_id, course_id, title, completion_policy, \
               completion_threshold, attempt_selection_policy, continued_practice_policy, \
               practice_max_additional_runs, variation_policy, lifecycle, audience_kind, \
               score_disclosure, per_item_correctness_disclosure, feedback_text_disclosure, \
-              solution_disclosure, class_statistics_disclosure, revision) \
+              solution_disclosure, class_statistics_disclosure, revision, instructions) \
              VALUES ($1, $2, $3, $4, $5, $6::numeric, $7, $8, $9, $10, \
-                     'published', $11, $12, $13, $14, $15, $16, 1) \
+                     $11, $12, $13, $14, $15, $16, $17, 1, $18) \
              ON CONFLICT (tenant_id, assignment_id) DO NOTHING \
              RETURNING revision, scoring_generation, scoring_status",
         )
@@ -41,6 +58,9 @@ impl crate::CourseAssignmentStore for PostgresStore {
         .bind(practice_policy)
         .bind(practice_limit)
         .bind(variation_policy_name(assignment.policies.variation))
+        .bind(super::course_policy::assignment_lifecycle_name(
+            assignment.lifecycle,
+        ))
         .bind(assignment_audience_kind(&assignment.audience))
         .bind(learner_disclosure_timing_name(
             assignment.disclosure_policy.score,
@@ -57,6 +77,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
         .bind(learner_disclosure_timing_name(
             assignment.disclosure_policy.class_statistics,
         ))
+        .bind(assignment.instructions.as_str())
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -65,12 +86,18 @@ impl crate::CourseAssignmentStore for PostgresStore {
         };
         insert_postgres_assignment_items(&mut transaction, &assignment).await?;
         replace_postgres_assignment_audience(&mut transaction, &assignment).await?;
-        insert_editor_base_policy(
+        insert_base_policy(
             &mut transaction,
-            assignment.tenant,
+            context.tenant_id(),
             assignment.id,
             assignment.course_id,
-            assignment_timing.time_limit_seconds,
+            base_policy,
+        )
+        .await?;
+        super::course_gradebook::advance_course_grade_scheme_revision(
+            &mut transaction,
+            assignment.tenant,
+            assignment.course_id,
         )
         .await?;
         let revision =
@@ -79,49 +106,55 @@ impl crate::CourseAssignmentStore for PostgresStore {
         Ok(StoredAssignment {
             record: assignment,
             revision,
-            assignment_timing,
+            base_policy,
             scoring_generation: decode_scoring_generation(&row)?,
             scoring_status: decode_scoring_status(&row)?,
         })
     }
-    async fn replace_assignment_with_timing_impl(
+    async fn replace_assignment_impl(
         &self,
         context: TenantContext,
         course: CourseId,
         assignment: AssignmentId,
         expected_revision: AssignmentRevision,
-        update: AssignmentEditorUpdate,
+        update: AssignmentUpdate,
     ) -> Result<StoredAssignment, StoreError> {
-        validate_editor_time_limit(update.assignment_timing.time_limit_seconds)?;
-        let assignment = AssignmentRecord {
-            id: assignment,
-            tenant: context.tenant_id(),
-            course_id: course,
-            title: update.assignment.title.clone(),
-            audience: update.assignment.audience.clone(),
-            items: update.assignment.items.clone(),
-            selection_groups: update.assignment.selection_groups.clone(),
-            policies: update.assignment.policies,
-            disclosure_policy: update.assignment.disclosure_policy,
-        };
-        validate_assignment(&assignment)?;
-        let (completion_policy, completion_threshold) =
-            completion_policy_columns(assignment.policies.completion);
-        let (practice_policy, practice_limit) =
-            continued_practice_columns(assignment.policies.continued_practice)?;
         let mut transaction = self.begin_tenant(context).await?;
-        validate_postgres_assignment_references(&mut transaction, context, &assignment).await?;
         // This advisory lock serializes assignment definition, timing, and
         // accommodation edits before their differing row-level work begins.
         // A content-only save therefore need not lock active attempts.
         assignment_timing::lock_postgres_assignment_policy(
             &mut transaction,
-            assignment.tenant,
-            assignment.id,
+            context.tenant_id(),
+            assignment,
         )
         .await?;
-        let previous = load_assignment(&mut transaction, assignment.tenant, assignment.id).await?;
-        crate::ensure_assignment_update_preserves_references(&previous, &update.assignment)?;
+        let previous = load_assignment(&mut transaction, context.tenant_id(), assignment).await?;
+        if previous.course_id != course {
+            return Err(StoreError::NotFound);
+        }
+        let assignment = AssignmentRecord {
+            id: assignment,
+            tenant: context.tenant_id(),
+            course_id: course,
+            title: update.title.clone(),
+            lifecycle: previous.lifecycle,
+            instructions: previous.instructions.clone(),
+            audience: update.audience.clone(),
+            items: update.items.clone(),
+            selection_groups: update.selection_groups.clone(),
+            policies: update.policies,
+            disclosure_policy: update.disclosure_policy,
+        };
+        validate_assignment(&assignment)?;
+        validate_postgres_assignment_references(&mut transaction, context, &assignment).await?;
+        let (completion_policy, completion_threshold) =
+            completion_policy_columns(assignment.policies.completion);
+        let (practice_policy, practice_limit) =
+            continued_practice_columns(assignment.policies.continued_practice)?;
+        let course_grade_projection_changed = previous.title != assignment.title;
+        let audience_changed = previous.audience != assignment.audience;
+        crate::ensure_assignment_update_preserves_references(&previous, &update)?;
         let scoring_changed = assignment_scoring_changed(&previous, &assignment);
         let has_scores: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM attempt_score_current \
@@ -197,17 +230,30 @@ impl crate::CourseAssignmentStore for PostgresStore {
                 StoreError::NotFound
             });
         };
+        let revision =
+            AssignmentRevision::from_stored(row.try_get("revision").map_err(map_sqlx_error)?)?;
         let scoring_generation = decode_scoring_generation(&row)?;
         let scoring_status = decode_scoring_status(&row)?;
         replace_postgres_assignment_items(&mut transaction, &assignment).await?;
         replace_postgres_assignment_audience(&mut transaction, &assignment).await?;
-        update_editor_base_time_limit(
-            &mut transaction,
-            assignment.tenant,
-            assignment.id,
-            update.assignment_timing.time_limit_seconds,
-        )
-        .await?;
+        if audience_changed {
+            super::course_policy::reresolve_active_attempts(
+                &mut transaction,
+                assignment.tenant,
+                assignment.course_id,
+                assignment.id,
+                revision,
+            )
+            .await?;
+        }
+        if course_grade_projection_changed {
+            super::course_gradebook::advance_course_grade_scheme_revision(
+                &mut transaction,
+                assignment.tenant,
+                assignment.course_id,
+            )
+            .await?;
+        }
         if scoring_status == ScoringStatus::Recalculating {
             let job = JobId::generate()?;
             let payload = serde_json::to_value(JobPayload::RecalculateAssignment {
@@ -230,13 +276,13 @@ impl crate::CourseAssignmentStore for PostgresStore {
             .await
             .map_err(map_sqlx_error)?;
         }
+        let returned_base_policy =
+            load_base_policy(&mut transaction, assignment.tenant, assignment.id).await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(StoredAssignment {
             record: assignment,
-            revision: AssignmentRevision::from_stored(
-                row.try_get("revision").map_err(map_sqlx_error)?,
-            )?,
-            assignment_timing: update.assignment_timing,
+            revision,
+            base_policy: returned_base_policy,
             scoring_generation,
             scoring_status,
         })
@@ -428,15 +474,12 @@ impl crate::CourseAssignmentStore for PostgresStore {
         let Some(update) = delete_and_regrade_update(&stored, command.item)? else {
             return Ok(stored);
         };
-        self.replace_assignment_with_timing(
+        self.replace_assignment(
             context,
             command.course,
             command.assignment,
             command.expected_revision,
-            AssignmentEditorUpdate {
-                assignment: update,
-                assignment_timing: stored.assignment_timing,
-            },
+            update,
         )
         .await
     }
@@ -447,7 +490,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
     ) -> Result<Option<StoredAssignment>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         let row = sqlx::query(
-            "SELECT assignment_id, course_id, title, completion_policy, \
+            "SELECT assignment_id, course_id, title, lifecycle, instructions, completion_policy, \
                     completion_threshold::text AS completion_threshold, \
                     attempt_selection_policy, continued_practice_policy, \
                     practice_max_additional_runs, variation_policy, audience_kind, \
@@ -472,14 +515,8 @@ impl crate::CourseAssignmentStore for PostgresStore {
                 revision: AssignmentRevision::from_stored(
                     row.try_get("revision").map_err(map_sqlx_error)?,
                 )?,
-                assignment_timing: question_model::AssignmentRunTiming {
-                    time_limit_seconds: load_editor_time_limit(
-                        &mut transaction,
-                        context.tenant_id(),
-                        assignment,
-                    )
+                base_policy: load_base_policy(&mut transaction, context.tenant_id(), assignment)
                     .await?,
-                },
                 scoring_generation: decode_scoring_generation(row)?,
                 scoring_status: decode_scoring_status(row)?,
             }),
@@ -495,7 +532,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
     ) -> Result<Option<AssignmentRecord>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         let row = sqlx::query(
-            "SELECT assignment_id, course_id, title, completion_policy, \
+            "SELECT assignment_id, course_id, title, lifecycle, instructions, completion_policy, \
                     completion_threshold::text AS completion_threshold, \
                     attempt_selection_policy, continued_practice_policy, \
                     practice_max_additional_runs, variation_policy, audience_kind, \
@@ -544,6 +581,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
         }
         let rows = sqlx::query(
             "SELECT assignment_id::text AS stable_key, assignment_id, course_id, title, \
+                    lifecycle, instructions, \
                     completion_policy, completion_threshold::text AS completion_threshold, \
                     attempt_selection_policy, continued_practice_policy, \
                     practice_max_additional_runs, variation_policy, audience_kind, \
@@ -644,7 +682,7 @@ async fn load_fixed_item_assignment(
     assignment: AssignmentId,
 ) -> Result<StoredAssignment, StoreError> {
     let row = sqlx::query(
-        "SELECT assignment_id, course_id, title, completion_policy, \
+        "SELECT assignment_id, course_id, title, lifecycle, instructions, completion_policy, \
                 completion_threshold::text AS completion_threshold, \
                 attempt_selection_policy, continued_practice_policy, \
                 practice_max_additional_runs, variation_policy, audience_kind, \
@@ -665,65 +703,67 @@ async fn load_fixed_item_assignment(
         revision: AssignmentRevision::from_stored(
             row.try_get("revision").map_err(map_sqlx_error)?,
         )?,
-        assignment_timing: question_model::AssignmentRunTiming {
-            time_limit_seconds: load_editor_time_limit(transaction, tenant, assignment).await?,
-        },
+        base_policy: load_base_policy(transaction, tenant, assignment).await?,
         scoring_generation: decode_scoring_generation(&row)?,
         scoring_status: decode_scoring_status(&row)?,
     })
 }
 
-fn validate_editor_time_limit(value: Option<u32>) -> Result<(), StoreError> {
-    if value == Some(0)
-        || value.is_some_and(|seconds| seconds > question_model::MAX_ASSIGNMENT_TIME_LIMIT_SECONDS)
-    {
-        return Err(StoreError::InvalidRecord(
-            "assignment time limit is invalid".to_string(),
-        ));
-    }
-    Ok(())
-}
-
-async fn insert_editor_base_policy(
+async fn insert_base_policy(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
     assignment: AssignmentId,
     course: CourseId,
-    limit: Option<u32>,
+    policy: question_model::BaseAssignmentPolicy,
 ) -> Result<(), StoreError> {
-    sqlx::query("INSERT INTO assignment_effective_policy_base (tenant_id, assignment_id, course_id, late_submission_policy, deadline_behavior, time_limit_seconds) VALUES ($1,$2,$3,'accept','auto_submit',$4)")
-        .bind(tenant.as_uuid()).bind(assignment.as_uuid()).bind(course.as_uuid()).bind(limit.map(i32::try_from).transpose().map_err(|_| StoreError::InvalidRecord("assignment time limit is invalid".to_string()))?)
+    sqlx::query("INSERT INTO assignment_effective_policy_base (tenant_id, assignment_id, course_id, available_at, due_at, closes_at, late_submission_policy, deadline_behavior, time_limit_seconds, attempt_limit) VALUES ($1,$2,$3,to_timestamp($4::double precision / 1000),to_timestamp($5::double precision / 1000),to_timestamp($6::double precision / 1000),$7,$8,$9,$10)")
+        .bind(tenant.as_uuid()).bind(assignment.as_uuid()).bind(course.as_uuid())
+        .bind(policy.available_at.map(|value| value.as_unix_millis()))
+        .bind(policy.due_at.map(|value| value.as_unix_millis()))
+        .bind(policy.closes_at.map(|value| value.as_unix_millis()))
+        .bind(late_policy_name(policy.late_submission))
+        .bind(deadline_behavior_name(policy.deadline_behavior))
+        .bind(policy.time_limit_seconds.map(|value| i32::try_from(value.get())).transpose().map_err(|_| StoreError::InvalidRecord("assignment time limit is invalid".to_string()))?)
+        .bind(policy.attempt_limit.map(|value| i32::try_from(value.get())).transpose().map_err(|_| StoreError::InvalidRecord("assignment attempt limit is invalid".to_string()))?)
         .execute(&mut **transaction).await.map_err(map_sqlx_error)?;
     Ok(())
 }
 
-async fn update_editor_base_time_limit(
+async fn load_base_policy(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
     assignment: AssignmentId,
-    limit: Option<u32>,
-) -> Result<(), StoreError> {
-    let changed = sqlx::query("UPDATE assignment_effective_policy_base SET time_limit_seconds=$3, updated_at=transaction_timestamp() WHERE tenant_id=$1 AND assignment_id=$2")
-        .bind(tenant.as_uuid()).bind(assignment.as_uuid()).bind(limit.map(i32::try_from).transpose().map_err(|_| StoreError::InvalidRecord("assignment time limit is invalid".to_string()))?)
-        .execute(&mut **transaction).await.map_err(map_sqlx_error)?;
-    if changed.rows_affected() != 1 {
-        return Err(StoreError::NotFound);
+) -> Result<question_model::BaseAssignmentPolicy, StoreError> {
+    super::course_policy::load_base_policy(transaction, tenant, assignment).await
+}
+
+pub(super) async fn load_assignment_scoring_status(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    assignment: AssignmentId,
+) -> Result<ScoringStatus, StoreError> {
+    let row = sqlx::query(
+        "SELECT scoring_status FROM assignment WHERE tenant_id=$1 AND assignment_id=$2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(assignment.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?
+    .ok_or(StoreError::NotFound)?;
+    decode_scoring_status(&row)
+}
+
+fn late_policy_name(value: question_model::LateSubmissionPolicy) -> &'static str {
+    match value {
+        question_model::LateSubmissionPolicy::Accept => "accept",
+        question_model::LateSubmissionPolicy::MarkLate => "mark_late",
+        question_model::LateSubmissionPolicy::Reject => "reject",
     }
-    Ok(())
 }
 
-async fn load_editor_time_limit(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    assignment: AssignmentId,
-) -> Result<Option<u32>, StoreError> {
-    let value: Option<i32> = sqlx::query_scalar("SELECT time_limit_seconds FROM assignment_effective_policy_base WHERE tenant_id=$1 AND assignment_id=$2")
-        .bind(tenant.as_uuid()).bind(assignment.as_uuid()).fetch_optional(&mut **transaction).await.map_err(map_sqlx_error)?.ok_or(StoreError::NotFound)?;
-    value
-        .map(|v| {
-            u32::try_from(v).map_err(|_| {
-                StoreError::Unavailable("stored assignment time limit is invalid".to_string())
-            })
-        })
-        .transpose()
+fn deadline_behavior_name(value: question_model::AssignmentDeadlineBehavior) -> &'static str {
+    match value {
+        question_model::AssignmentDeadlineBehavior::AutoSubmit => "auto_submit",
+    }
 }

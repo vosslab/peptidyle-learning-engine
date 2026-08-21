@@ -1,0 +1,18 @@
+.assignment-access-page { max-width: 76rem; margin: 0 auto; padding: 1rem; }
+.assignment-access-grid { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+.assignment-access-panel, .assignment-access-preview { border: 1px solid var(--border-color, #aab4bc); border-radius: .5rem; padding: 1rem; background: var(--surface-color, #fff); }
+.assignment-access-scope-list, .assignment-access-actions, .assignment-access-mode { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+.assignment-access-field { display: grid; gap: .35rem; margin: .7rem 0; font-weight: 600; }
+.assignment-access-field input, .assignment-access-field select, .assignment-access-patch-field input { min-height: 2.6rem; max-width: 100%; font: inherit; }
+.assignment-access-patch-field { display: grid; gap: .35rem; margin: .75rem 0; padding: .6rem; border: 1px solid var(--border-color, #aab4bc); }
+.assignment-access-patch-field label, .assignment-access-mode label { font-weight: normal; }
+.assignment-access-help { max-width: 65ch; color: var(--muted-text-color, #43515d); }
+.assignment-access-preview-grid { display: grid; grid-template-columns: minmax(8rem, 1fr) minmax(0, 2fr); gap: .45rem .8rem; }
+.assignment-access-preview-grid dt { font-weight: 700; }.assignment-access-preview-grid dd { margin: 0; }
+.assignment-access-time-zone { padding: .6rem; border-inline-start: .35rem solid var(--accent-color, #176b3a); background: var(--subtle-surface-color, #edf5ef); }
+.assignment-access-provenance { padding-left: 1.5rem; }.assignment-access-error { color: #a01919; font-weight: 700; }
+.assignment-access-success { color: #176b3a; font-weight: 700; }.assignment-access-dialog-backdrop { position: fixed; z-index: 10; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgb(0 0 0 / .45); }
+.assignment-access-dialog { max-height: calc(100vh - 2rem); width: min(48rem, 100%); overflow: auto; padding: 1rem; border-radius: .5rem; background: var(--surface-color, #fff); }
+@media (min-width: 48rem) { .assignment-access-grid { grid-template-columns: minmax(20rem, 1fr) minmax(20rem, 1fr); } }
+@media (min-width: 120rem) { .assignment-access-page { max-width: 100rem; } }
+@media (max-width: 30rem) { .assignment-access-page { padding: .5rem; }.assignment-access-panel, .assignment-access-preview { padding: .75rem; }.assignment-access-actions button, .assignment-access-scope-list button { min-height: 2.75rem; flex: 1 1 100%; } }

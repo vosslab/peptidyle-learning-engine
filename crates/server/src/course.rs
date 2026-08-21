@@ -4,6 +4,7 @@
 //! keep routing, queries, mutations, access policy, and wire projections small.
 
 mod assignments;
+mod gradebook;
 mod invitation_capability;
 pub(crate) mod invitation_delivery_worker;
 mod invitation_email;
@@ -12,6 +13,7 @@ mod projection;
 mod queries;
 mod roster;
 mod routing;
+mod teaching_operations;
 
 pub use invitation_capability::{
     CourseInvitationDelivery, CourseInvitationDeliveryAttempt, CourseInvitationDeliveryError,
@@ -41,4 +43,4 @@ use std::sync::Arc;
 
 #[cfg(test)]
 #[path = "course/tests/mod.rs"]
-mod tests;
+pub(crate) mod tests;

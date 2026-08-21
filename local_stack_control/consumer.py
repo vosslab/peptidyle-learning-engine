@@ -29,6 +29,11 @@ CANONICAL_IMAGE_SELECTIONS_BY_OWNER = {
 		"PLE_MINIO_IMAGE_SHA256",
 		"PLE_MINIO_MC_IMAGE_SHA256",
 	),
+	"live-demo-baseline": (
+		"PLE_POSTGRES_IMAGE_SHA256",
+		"PLE_MINIO_IMAGE_SHA256",
+		"PLE_MINIO_MC_IMAGE_SHA256",
+	),
 	"database-baseline": ("PLE_POSTGRES_IMAGE_SHA256",),
 	"wp-r2-postgres-rls": ("PLE_POSTGRES_IMAGE_SHA256",),
 	"wp-rc8-postgres-outbox": ("PLE_POSTGRES_IMAGE_SHA256",),

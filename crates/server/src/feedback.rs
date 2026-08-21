@@ -4,7 +4,20 @@
 //! This module never consults catalog question policy, releases, or clocks.
 
 use domain::disclosure_policy::LearnerDisclosureDecision;
-use question_model::{AttemptResult, DisclosedFeedback, FeedbackContent};
+use question_model::{AttemptResult, DisclosedFeedback, FeedbackContent, ScoringStatus};
+
+/// Removes numeric disclosure while scoring is not current. This is shared by
+/// every learner projection so an older per-item receipt cannot contradict a
+/// recalculating or failed aggregate.
+pub fn score_current_disclosure(
+    mut decision: LearnerDisclosureDecision,
+    scoring_status: ScoringStatus,
+) -> LearnerDisclosureDecision {
+    if !matches!(scoring_status, ScoringStatus::Current) {
+        decision.score = false;
+    }
+    decision
+}
 
 /// Projects exactly the independently disclosed learner fields.
 ///
@@ -101,5 +114,22 @@ mod tests {
     #[test]
     fn class_statistics_has_no_feedback_projection() {
         assert!(project_feedback(decision(), Some(result()), &content()).is_none());
+    }
+
+    #[test]
+    fn non_current_scoring_never_projects_numeric_feedback() {
+        let mut allowed = decision();
+        allowed.score = true;
+        allowed.per_item_correctness = true;
+        for status in [ScoringStatus::Recalculating, ScoringStatus::Failed] {
+            let projected = project_feedback(
+                score_current_disclosure(allowed, status),
+                Some(result()),
+                &content(),
+            )
+            .expect("other disclosed fields keep the envelope present");
+            assert_eq!(projected.points_earned, None);
+            assert_eq!(projected.points_possible, None);
+        }
     }
 }

@@ -16,6 +16,7 @@ sha2.workspace = true
 
 # Clock-free by construction; see the workspace declaration.
 chrono.workspace = true
+chrono-tz.workspace = true
 
 # Optional so the WASM bridge can enable it without forcing it on the server.
 wasm-bindgen = { workspace = true, optional = true }

@@ -70,11 +70,17 @@ pub(super) async fn seed_chapter_one_statistics(
         ensure_webwork_pilot_assignment(
             store,
             context,
+            arguments.instructor,
             AssignmentRecord {
                 id: assignment,
                 tenant: arguments.tenant,
                 course_id: course,
                 title: "Chapter 1 phenylalanine evidence activity".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Published,
+                instructions: question_model::AssignmentInstructions::try_new(
+                    "Compare the molecular evidence before you choose an answer.".to_string(),
+                )
+                .expect("statistics seed instructions are valid"),
                 audience: question_model::AssignmentAudience::CourseWide,
                 disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 items: vec![AssignmentItem {

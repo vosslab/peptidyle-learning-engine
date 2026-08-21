@@ -147,7 +147,11 @@ test("preview serves the SPA shell only for declared browser document routes", a
   });
   expect(declaredRoute.status()).toBe(200);
   expect(declaredRoute.headers()["content-type"]).toContain("text/html");
-  expect(await declaredRoute.text()).toContain('<base href="/">');
+  const shell = await declaredRoute.text();
+  expect(shell).not.toContain("<base");
+  expect(shell).toMatch(/src="\/main\.js\?v=[a-f0-9]+"/);
+  expect(shell).toMatch(/href="\/main\.css\?v=[a-f0-9]+"/);
+  expect(shell).toMatch(/href="\/style\.css\?v=[a-f0-9]+"/);
 
   const refusals = await Promise.all([
     request.get("/unknown-learning-space", { headers: documentHeaders }),
@@ -168,6 +172,10 @@ test("all product routes resolve inside the persistent shell", async ({ page }) 
     { path: "/auth/account/email/complete", surface: "emailChangeComplete" },
     { path: "/course-invitations/redeem", surface: "courseInvitation" },
     { path: "/account/security", surface: "accountSecurity" },
+    {
+      path: "/account/co-instructor-invitations",
+      surface: "accountPendingInvitations",
+    },
     { path: `/courses/${IDS.course}`, surface: "courseAssignments" },
     {
       path: `/courses/${IDS.course}/assignments/${IDS.assignment}`,
@@ -198,8 +206,18 @@ test("all product routes resolve inside the persistent shell", async ({ page }) 
       restricted: true,
     },
     {
+      path: `/instructor/courses/${IDS.course}/assignments/${IDS.assignment}/access`,
+      surface: "assignmentAccess",
+      restricted: true,
+    },
+    {
       path: `/instructor/courses/${IDS.course}/gradebook`,
       surface: "gradebook",
+      restricted: true,
+    },
+    {
+      path: `/instructor/courses/${IDS.course}/grade-settings`,
+      surface: "courseGradeSettings",
       restricted: true,
     },
     {
@@ -210,6 +228,11 @@ test("all product routes resolve inside the persistent shell", async ({ page }) 
     {
       path: `/instructor/courses/${IDS.course}/students`,
       surface: "courseRoster",
+      restricted: true,
+    },
+    {
+      path: `/instructor/courses/${IDS.course}/teaching-operations`,
+      surface: "teachingOperations",
       restricted: true,
     },
   ];
@@ -299,14 +322,8 @@ test("an instructor can invite a student through the platform keyboard path", as
       );
     }
     if (path === `/api/courses/${course.id}/assignments`) {
-      const {
-        tenant: _tenant,
-        courseId: _courseId,
-        disclosurePolicy: _disclosurePolicy,
-        policies: _policies,
-        ...assignment
-      } = publishedProblemFixture.assignment;
-      return await json(route, { items: [assignment], nextCursor: null });
+      const { id, reference, title } = publishedProblemFixture.assignment;
+      return await json(route, { items: [{ id, reference, title }], nextCursor: null });
     }
     if (path === `/api/courses/${course.id}/roster`) return await json(route, roster());
     if (path === `/api/courses/${course.id}/invitations` && request.method() === "POST") {

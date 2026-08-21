@@ -81,6 +81,7 @@ impl crate::StatisticsStore for PostgresStore {
                         assignment_title: row
                             .try_get("assignment_title")
                             .map_err(map_sqlx_error)?,
+                        scoring_status: decode_scoring_status(row)?,
                         summary,
                     },
                 ))

@@ -98,7 +98,6 @@ test("assignment create request decoder rejects unknown disclosure policy member
         ...createMasteryAssignmentDraft(courseId).disclosurePolicy,
         privateAnswerKey: "not allowed",
       },
-      assignmentTiming: { timeLimitSeconds: null },
     }),
   );
 });

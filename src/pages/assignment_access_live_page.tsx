@@ -1,0 +1,139 @@
+// assignment_access_live_page.tsx - course and assignment ownership gate for access modifiers.
+
+import { useParams } from "@solidjs/router";
+import { Show, createSignal, onMount, type JSX } from "solid-js";
+
+import type { AssignmentId } from "../../generated/api/AssignmentId";
+import type { CourseGroupMemberView } from "../../generated/api/CourseGroupMemberView";
+import type { CourseId } from "../../generated/api/CourseId";
+import type { TeachingOperationRevision } from "../../generated/api/TeachingOperationRevision";
+import type { PreviewSubject } from "./assignment_access/model";
+import { useApiRuntime } from "../api/runtime";
+import {
+  courseRouteData,
+  useCourseThemeRouteData,
+} from "../features/course_appearance/course_theme_context";
+import { resolveAssignmentRoute } from "../navigation/resolved_route";
+import { AssignmentAccessPage } from "./assignment_access_page";
+
+type Gate =
+  | { readonly kind: "loading" }
+  | {
+      readonly kind: "allowed";
+      readonly courseId: CourseId;
+      readonly assignmentId: AssignmentId;
+      readonly revision: TeachingOperationRevision;
+    }
+  | { readonly kind: "denied" }
+  | { readonly kind: "unavailable" };
+
+async function loadAllPreviewSubjects(
+  loadPage: (
+    cursor?: string,
+    pageSize?: number,
+  ) => Promise<{
+    readonly students: ReadonlyArray<CourseGroupMemberView>;
+    readonly nextCursor: string | null;
+  }>,
+): Promise<ReadonlyArray<PreviewSubject>> {
+  const subjects: Array<PreviewSubject> = [];
+  const seen = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const page = await loadPage(cursor, 100);
+    for (const student of page.students) {
+      if (seen.has(student.reference)) continue;
+      seen.add(student.reference);
+      subjects.push({ reference: student.reference, display: student.display });
+    }
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor !== undefined);
+  return subjects;
+}
+
+/** The route resolves public references once, proves course ownership, then passes typed IDs inward. */
+export function AssignmentAccessLivePage(): JSX.Element {
+  const runtime = useApiRuntime();
+  const params = useParams();
+  const scopedRoute = useCourseThemeRouteData();
+  const [gate, setGate] = createSignal<Gate>({ kind: "loading" });
+  const allowedGate = (): Extract<Gate, { readonly kind: "allowed" }> | undefined => {
+    const current = gate();
+    return current.kind === "allowed" ? current : undefined;
+  };
+
+  async function checkAccess(): Promise<void> {
+    const course =
+      scopedRoute?.kind === "course" ? courseRouteData(scopedRoute).summary : undefined;
+    if (course === undefined) {
+      setGate({ kind: "unavailable" });
+      return;
+    }
+    if (course.role !== "instructor") {
+      setGate({ kind: "denied" });
+      return;
+    }
+    try {
+      const assignment = await resolveAssignmentRoute(runtime.client, params["assignmentRef"]);
+      if (assignment.courseId !== course.id) {
+        setGate({ kind: "unavailable" });
+        return;
+      }
+      const editor = await runtime.client.getAssignmentEditor(assignment.assignmentId);
+      if (editor.id !== assignment.assignmentId || editor.courseId !== course.id) {
+        setGate({ kind: "unavailable" });
+        return;
+      }
+      setGate({
+        kind: "allowed",
+        courseId: course.id,
+        assignmentId: assignment.assignmentId,
+        revision: editor.revision,
+      });
+    } catch {
+      setGate({ kind: "unavailable" });
+    }
+  }
+
+  onMount(() => void checkAccess());
+
+  return (
+    <Show
+      when={allowedGate()}
+      keyed
+      fallback={
+        <section class="page" data-route-surface="assignmentAccessGate">
+          <Show
+            when={gate().kind === "loading"}
+            fallback={<p role="alert">This assignment access page is unavailable.</p>}
+          >
+            <p role="status">Checking assignment access...</p>
+          </Show>
+        </section>
+      }
+    >
+      {(allowed) => (
+        <AssignmentAccessPage
+          client={runtime.client}
+          courseId={allowed.courseId}
+          assignmentId={allowed.assignmentId}
+          initialRevision={allowed.revision}
+          reloadAssignmentRevision={async () => {
+            const editor = await runtime.client.getAssignmentEditor(allowed.assignmentId);
+            if (editor.id !== allowed.assignmentId || editor.courseId !== allowed.courseId) {
+              throw new Error("Assignment revision is no longer available");
+            }
+            return editor.revision;
+          }}
+          loadPreviewSubjects={() =>
+            loadAllPreviewSubjects((cursor, pageSize) =>
+              runtime.client.listCourseStudentTargets(allowed.courseId, cursor, pageSize),
+            )
+          }
+        />
+      )}
+    </Show>
+  );
+}
+
+export { loadAllPreviewSubjects };

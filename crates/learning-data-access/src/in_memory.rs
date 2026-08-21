@@ -13,6 +13,7 @@ mod catalog_search_tests;
 mod catalog_snapshot_tests;
 mod course_appearance;
 mod course_assignments;
+mod course_gradebook;
 mod course_policy;
 mod course_roster;
 mod courses;
@@ -27,14 +28,19 @@ mod invitation_delivery;
 mod item_analysis;
 mod manual_grade_export;
 mod navigation_references;
+mod preview_plane;
 mod qti;
 mod qti_ingress;
 mod queue;
 mod retention;
 mod runs;
+#[cfg(test)]
+mod seeded_sysadmin_ownership_tests;
 mod sessions;
 mod state;
 mod statistics;
+mod teaching_authority;
+mod teaching_authority_references;
 
 use activity::{
     add_seconds, apply_memory_attempt_support, complete_memory_attempt_timing_job, issued_timer,
@@ -44,9 +50,8 @@ use activity::{
 use catalog::{catalog_record_visible, page_records};
 use course_assignments::{assignment_record, enrollment_record};
 use course_policy::{
-    base_policy_from_editor_timing, memory_assignment_has_results,
-    memory_effective_policy_inputs_for_grant, store_issued_effective_policy_receipt,
-    validate_memory_assignment_references,
+    memory_assignment_has_results, memory_effective_policy_inputs_for_grant,
+    store_issued_effective_policy_receipt, validate_memory_assignment_references,
 };
 use runs::submit_question_attempt_locked;
 use statistics::stage_statistics_contributions;
@@ -86,8 +91,8 @@ use crate::statistics::{StatisticsContribution, derive_statistics_contributions}
 use crate::{
     AccountRecord, AccountSessionRecord, AccountSessionTokenHash, ActivityTransition,
     AddAssignmentFixedItemCommand, AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord,
-    AssignmentDefinitionDisposition, AssignmentEditorUpdate, AssignmentRecord, AssignmentRevision,
-    AttemptSupportAction, AttemptSupportActionId, AttemptSupportRecord, AuthenticationRateLimitKey,
+    AssignmentDefinitionDisposition, AssignmentRecord, AssignmentRevision, AttemptSupportAction,
+    AttemptSupportActionId, AttemptSupportRecord, AuthenticationRateLimitKey,
     AuthenticationRateLimitScope, CatalogSourceStore, CatalogStore, CatalogTransition,
     ClearAttemptCommand, CourseEnrollmentPolicy, CourseGroupRecord, CourseGroupRevision,
     CourseInvitationId, CourseInvitationSecretHash, CourseListScope, CourseMembershipRecord,
@@ -100,7 +105,7 @@ use crate::{
     ForceSubmitAttemptCommand, InstitutionRetentionPolicy, IssueQuestionAttemptCommand,
     IssuedEffectivePolicyReceipt, Page, PageRequest, PageSize, PasskeyId, PasskeyRecord,
     PrefetchedQuestion, PublishDraftCommand, PublishedProblemRecord, PublishedSourceArtifact,
-    PutBaseAssignmentPolicyCommand, PutCourseGroupCommand, PutGroupAccommodationCommand,
+    PutAssignmentTeachingSettingsCommand, PutCourseGroupCommand, PutGroupAccommodationCommand,
     PutGroupScheduleOffsetCommand, PutIndividualPolicyExceptionCommand, RETENTION_JOB_MAX_ATTEMPTS,
     ReleaseAttemptFeedbackCommand, RemoveAssignmentFixedItemCommand,
     ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand,
@@ -238,6 +243,24 @@ pub struct MemoryFlatQuestionGraderStore {
 }
 
 impl MemoryStore {
+    /// Sets the private live-demo lifecycle projection for route-boundary tests.
+    #[cfg(feature = "test-support")]
+    pub fn set_live_demo_installation_state_for_test(
+        &self,
+        state: MemoryLiveDemoInstallationState,
+    ) -> Result<(), StoreError> {
+        self.write_state()?.live_demo_installation_state = match state {
+            MemoryLiveDemoInstallationState::Missing => StoredLiveDemoInstallationState::Missing,
+            MemoryLiveDemoInstallationState::Installing { generation } => {
+                StoredLiveDemoInstallationState::Installing { generation }
+            }
+            MemoryLiveDemoInstallationState::Complete { generation } => {
+                StoredLiveDemoInstallationState::Complete { generation }
+            }
+        };
+        Ok(())
+    }
+
     /// Builds an in-memory store whose Question IDs and catalog cursors derive
     /// from the same injected server secret, with separate HMAC domains.
     pub fn with_question_id_secret(secret: [u8; 32]) -> Self {
@@ -280,10 +303,15 @@ impl MemoryStore {
 #[derive(Debug, Default, Clone)]
 struct State {
     authoritative_time: ActivityTimestamp,
+    live_demo_installation_state: StoredLiveDemoInstallationState,
     next_course_reference: u32,
     next_assignment_reference: u32,
     next_run_reference: u32,
     next_workspace_reference: u32,
+    next_course_group_reference: u32,
+    next_account_reference: u32,
+    next_course_membership_reference: u32,
+    next_co_instructor_invitation_reference: u32,
     course_references: BTreeMap<(TenantId, CourseId), question_model::CourseReference>,
     courses_by_reference: BTreeMap<(TenantId, question_model::CourseReference), CourseId>,
     assignment_references: BTreeMap<(TenantId, AssignmentId), question_model::AssignmentReference>,
@@ -293,6 +321,24 @@ struct State {
     runs_by_reference: BTreeMap<(TenantId, question_model::RunReference), RunId>,
     workspace_references: BTreeMap<(TenantId, WorkspaceId), question_model::WorkspaceReference>,
     workspaces_by_reference: BTreeMap<(TenantId, question_model::WorkspaceReference), WorkspaceId>,
+    course_group_references:
+        BTreeMap<(TenantId, CourseGroupId), question_model::CourseGroupReference>,
+    course_groups_by_reference:
+        BTreeMap<(TenantId, question_model::CourseGroupReference), CourseGroupId>,
+    account_references: BTreeMap<UserId, question_model::AccountReference>,
+    accounts_by_reference: BTreeMap<question_model::AccountReference, UserId>,
+    course_membership_references:
+        BTreeMap<(TenantId, CourseMembershipId), question_model::CourseMembershipReference>,
+    course_memberships_by_reference:
+        BTreeMap<(TenantId, question_model::CourseMembershipReference), CourseMembershipId>,
+    co_instructor_invitation_references: BTreeMap<
+        (TenantId, question_model::CoInstructorInvitationId),
+        question_model::CoInstructorInvitationReference,
+    >,
+    co_instructor_invitations_by_reference: BTreeMap<
+        (TenantId, question_model::CoInstructorInvitationReference),
+        question_model::CoInstructorInvitationId,
+    >,
     accounts: BTreeMap<UserId, AccountRecord>,
     account_presentation: BTreeMap<UserId, crate::AccountPresentationPreference>,
     account_by_email: BTreeMap<String, UserId>,
@@ -352,6 +398,13 @@ struct State {
     course_memberships: BTreeMap<(TenantId, CourseMembershipId), CourseMembershipRecord>,
     /// The single current membership episode for one course/user.
     active_course_membership_by_user: BTreeMap<(TenantId, CourseId, UserId), CourseMembershipId>,
+    instructor_approvals: BTreeMap<UserId, crate::StoredInstructorApproval>,
+    co_instructor_invitations: BTreeMap<
+        (TenantId, question_model::CoInstructorInvitationId),
+        crate::StoredCoInstructorInvitation,
+    >,
+    co_instructor_invitation_acceptances:
+        BTreeMap<(TenantId, question_model::CoInstructorInvitationId), CourseMembershipId>,
     course_invitations:
         BTreeMap<(TenantId, CourseId, CourseInvitationId), course_roster::StoredCourseInvitation>,
     invitation_deliveries:
@@ -369,8 +422,11 @@ struct State {
     roster_import_idempotency:
         BTreeMap<(TenantId, CourseId, RosterIdempotencyKey), crate::CourseRosterImportId>,
     roster_support_audits: Vec<CourseRosterSupportAudit>,
+    preview_subject_audits: Vec<crate::PreviewSubjectAudit>,
     manual_grade_export_audits:
         BTreeMap<crate::ManualGradeExportId, (TenantId, CourseId, AssignmentId, UserId, usize)>,
+    course_grade_schemes: BTreeMap<(TenantId, CourseId), crate::CourseGradeSchemeRecord>,
+    course_grade_export_audits: BTreeMap<crate::CourseGradeExportId, crate::CourseGradeExportAudit>,
     course_appearances: BTreeMap<(TenantId, CourseId), question_model::CourseAppearance>,
     course_banner_candidates: BTreeMap<
         (TenantId, CourseId, question_model::CourseBannerCandidateId),
@@ -378,6 +434,10 @@ struct State {
     >,
     course_groups: BTreeMap<(TenantId, CourseGroupId), CourseGroupRecord>,
     course_group_revisions: BTreeMap<(TenantId, CourseGroupId), CourseGroupRevision>,
+    course_group_purpose_policies: BTreeMap<
+        (TenantId, CourseId, question_model::CourseGroupPurpose),
+        crate::StoredCourseGroupPurposePolicy,
+    >,
     assignments: BTreeMap<(TenantId, AssignmentId), AssignmentRecord>,
     assignment_revisions: BTreeMap<(TenantId, AssignmentId), AssignmentRevision>,
     assignment_base_policy: BTreeMap<(TenantId, AssignmentId), crate::StoredBaseAssignmentPolicy>,
@@ -468,6 +528,28 @@ struct State {
     asset_access_events: Vec<AssetAccessEvent>,
     jobs: BTreeMap<JobId, StoredJob>,
     exports: BTreeMap<(TenantId, ExportId), StoredExport>,
+}
+
+#[cfg_attr(not(feature = "test-support"), allow(dead_code))]
+#[derive(Debug, Default, Clone)]
+enum StoredLiveDemoInstallationState {
+    #[default]
+    Missing,
+    Installing {
+        generation: Uuid,
+    },
+    Complete {
+        generation: Uuid,
+    },
+}
+
+/// Test-only lifecycle inputs for the read-only live-demo generation seam.
+#[cfg(feature = "test-support")]
+#[derive(Debug, Clone, Copy)]
+pub enum MemoryLiveDemoInstallationState {
+    Missing,
+    Installing { generation: Uuid },
+    Complete { generation: Uuid },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

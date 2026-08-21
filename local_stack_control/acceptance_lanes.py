@@ -22,7 +22,7 @@ def lanes(python_executable: str | None = None) -> tuple[ValidationLane, ...]:
 	python = sys.executable if python_executable is None else python_executable
 	result = (
 		ValidationLane(
-			"ordinary built mock-browser suite",
+			"ordinary built demo-browser suite",
 			("bash", "run_playwright_tests.sh", "--build"),
 		),
 		ValidationLane(
@@ -30,7 +30,7 @@ def lanes(python_executable: str | None = None) -> tuple[ValidationLane, ...]:
 			("node", "tests/playwright/verify_course_appearance_visuals.mjs"),
 		),
 		ValidationLane(
-			"simulated instructor-page visual corpus",
+			"demo instructor-page visual corpus",
 			("node", "tests/playwright/capture_instructor_page_visuals.mjs", "--verify-only"),
 		),
 		ValidationLane(

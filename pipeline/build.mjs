@@ -18,9 +18,11 @@
 //   4. copy static assets, fingerprinting script and stylesheet URLs so browsers and
 //      GitHub Pages cannot serve yesterday's bundle
 //
-// Run: node pipeline/build.mjs [--skip-wasm]
+// Run: node pipeline/build.mjs [--skip-wasm] [--asset-base=root|relative]
 //   --skip-wasm  reuse an existing dist_wasm/ (or omit the bridge entirely).
 //                Useful while iterating on UI only; never used for a release.
+//   --asset-base=root      emit root-relative browser assets for the live gateway (default).
+//   --asset-base=relative  retain relative assets for a GitHub Pages project site.
 
 import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
@@ -36,9 +38,27 @@ const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
 
 const skipWasm = process.argv.includes("--skip-wasm");
 
+function browserAssetBase(argumentsList) {
+  const values = argumentsList
+    .filter((argument) => argument.startsWith("--asset-base="))
+    .map((argument) => argument.slice("--asset-base=".length));
+  if (values.length > 1) throw new Error("--asset-base may be specified at most once");
+  const value = values[0] ?? "root";
+  if (value !== "root" && value !== "relative") {
+    throw new Error("--asset-base must be root or relative");
+  }
+  return value;
+}
+
+const assetBase = browserAssetBase(process.argv.slice(2));
+
 const localDevelopmentAuth = process.env.PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH ?? "0";
 if (!["0", "1"].includes(localDevelopmentAuth)) {
   throw new Error("PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH must be unset, 0, or exactly 1");
+}
+const browserTestTransport = process.env.PLE_BROWSER_TEST_TRANSPORT ?? "0";
+if (!["0", "1"].includes(browserTestTransport)) {
+  throw new Error("PLE_BROWSER_TEST_TRANSPORT must be unset, 0, or exactly 1");
 }
 
 // Tests may direct an isolated build and machine-readable dependency graph
@@ -63,7 +83,16 @@ const fixtureProjectionPath = path.join(repoRoot, "generated", "fixtures", "publ
 const localDevelopmentBoundary = path.join(
   srcDir,
   "auth",
-  localDevelopmentAuth === "1" ? "local_development.tsx" : "local_development_disabled.tsx",
+  localDevelopmentAuth === "0"
+    ? "local_development_disabled.tsx"
+    : browserTestTransport === "1"
+      ? "local_development_browser_test.tsx"
+      : "local_development.tsx",
+);
+const browserClientBoundary = path.join(
+  srcDir,
+  "api",
+  browserTestTransport === "1" ? "browser_client_browser_test.ts" : "browser_client.ts",
 );
 
 //============================================
@@ -133,7 +162,7 @@ function copyWasmBridge() {
  *
  * @returns {void}
  */
-function copyMockFixtureAssets() {
+function copyBrowserTestAssets() {
   const projection = fs.readFileSync(fixtureProjectionPath, "utf8");
   const marker = "export const publishedProblemAssetBodies: Readonly<Record<string, string>> = ";
   const start = projection.indexOf(marker);
@@ -142,8 +171,7 @@ function copyMockFixtureAssets() {
   const objectEnd = projection.indexOf("\n};", objectStart) + 2;
   if (objectEnd < objectStart) throw new Error("generated fixture asset map is incomplete");
   const expression = projection.slice(objectStart, objectEnd);
-  // This file is generated from the checked fixture corpus in the preceding build stage. Its
-  // string literals may use either quote style after Prettier, so JSON.parse is not sufficient.
+  // Generated TypeScript may use either quote style after Prettier, so JSON.parse is insufficient.
   const evaluateFixtureMap = Function(`"use strict"; return (${expression});`);
   const bodies = evaluateFixtureMap();
   if (typeof bodies !== "object" || bodies === null || Array.isArray(bodies)) {
@@ -173,10 +201,14 @@ function copyMockFixtureAssets() {
  */
 function copyIndexHtml(bundleHash, stylesheetHash, componentStylesheetHash) {
   const source = fs.readFileSync(path.join(srcDir, "index.html"), "utf8");
+  const assetPrefix = assetBase === "root" ? "/" : "";
   const fingerprinted = source
-    .replace(/(src=")(\.?\/?main\.js)(")/, `$1main.js?v=${bundleHash}$3`)
-    .replace(/(href=")(\.?\/?style\.css)(")/, `$1style.css?v=${stylesheetHash}$3`)
-    .replace(/(href=")(\.?\/?main\.css)(")/, `$1main.css?v=${componentStylesheetHash}$3`);
+    .replace(/(src=")(\.?\/?main\.js)(")/, `$1${assetPrefix}main.js?v=${bundleHash}$3`)
+    .replace(/(href=")(\.?\/?style\.css)(")/, `$1${assetPrefix}style.css?v=${stylesheetHash}$3`)
+    .replace(
+      /(href=")(\.?\/?main\.css)(")/,
+      `$1${assetPrefix}main.css?v=${componentStylesheetHash}$3`,
+    );
   fs.writeFileSync(path.join(distDir, "index.html"), fingerprinted);
 }
 
@@ -215,13 +247,23 @@ async function main() {
     sourcemap: true,
     metafile: metafilePath !== undefined,
     logLevel: "info",
-    define: {},
+    define: {
+      __PLE_BROWSER_ASSET_BASE__: JSON.stringify(assetBase),
+    },
     plugins: [
       {
         name: "local-development-browser-boundary",
         setup(build) {
           build.onResolve({ filter: /^\.\/auth\/local_development$/ }, () => ({
             path: localDevelopmentBoundary,
+          }));
+        },
+      },
+      {
+        name: "browser-client-boundary",
+        setup(build) {
+          build.onResolve({ filter: /^\.\/api\/browser_client$/ }, () => ({
+            path: browserClientBoundary,
           }));
         },
       },
@@ -254,7 +296,9 @@ async function main() {
   fs.writeFileSync(path.join(distDir, ".nojekyll"), "");
 
   copyWasmBridge();
-  copyMockFixtureAssets();
+  if (browserTestTransport === "1") {
+    copyBrowserTestAssets();
+  }
 
   for (const required of ["index.html", "main.js", "main.css", "style.css"]) {
     if (!fs.existsSync(path.join(distDir, required))) {
@@ -262,7 +306,7 @@ async function main() {
     }
   }
 
-  console.log(`Built dist/ (bundle ${bundleHash})`);
+  console.log(`Built ${path.relative(repoRoot, distDir)}/ (bundle ${bundleHash})`);
 }
 
 await main();

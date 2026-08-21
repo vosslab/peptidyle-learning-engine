@@ -56,7 +56,7 @@ fn deterministic_seed_scaffold_keeps_non_question_records_separate() {
 
 #[test]
 fn native_seed_matches_catalog_publication_capability_admission() {
-    let draft = native_draft(WorkspaceId::from_uuid(Uuid::from_u128(12)));
+    let draft = replica_native_draft(WorkspaceId::from_uuid(Uuid::from_u128(12)));
     let violations = domain::policy::validate_draft_for_publication(
         &draft,
         &native_capabilities().expect("registered native family has capabilities"),
@@ -399,38 +399,44 @@ async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster(
     ensure_webwork_pilot_course(&store, context, instructor, expected_course.clone())
         .await
         .expect("the seed creates an instructor-owned course before roster activation");
-    store
-        .create_untimed_assignment(
-            context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                title: "Disposable Chapter 1 assignment".to_string(),
-                audience: question_model::AssignmentAudience::CourseWide,
-                items: vec![AssignmentItem {
-                    id: AssignmentItemId::from_uuid(Uuid::from_u128(306)),
-                    reference: ProblemVersionRef {
-                        problem: published.problem,
-                        version: published.version,
-                    },
-                    position: 0,
-                    points_possible: PointValue::from_whole(1),
-                    delivery_state: AssignmentDeliveryState::Active,
-                    scoring_mode: AssignmentScoringMode::Normal,
-                }],
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: RunPolicies {
-                    completion: CompletionRequirement::AnswerAll,
-                    grade: GradePolicy::Highest,
-                    continued_practice: ContinuedPractice::Unlimited,
-                    variation: VariationPolicy::NewSeeds,
+    ensure_webwork_pilot_assignment(
+        &store,
+        context,
+        instructor,
+        AssignmentRecord {
+            id: assignment,
+            tenant,
+            course_id: course,
+            title: "Disposable Chapter 1 assignment".to_string(),
+            lifecycle: question_model::AssignmentLifecycle::Published,
+            instructions: question_model::AssignmentInstructions::try_new(
+                "Use the Chapter 1 evidence to explain each answer.".to_string(),
+            )
+            .expect("fixture instructions are valid"),
+            audience: question_model::AssignmentAudience::CourseWide,
+            items: vec![AssignmentItem {
+                id: AssignmentItemId::from_uuid(Uuid::from_u128(306)),
+                reference: ProblemVersionRef {
+                    problem: published.problem,
+                    version: published.version,
                 },
+                position: 0,
+                points_possible: PointValue::from_whole(1),
+                delivery_state: AssignmentDeliveryState::Active,
+                scoring_mode: AssignmentScoringMode::Normal,
+            }],
+            selection_groups: Vec::new(),
+            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            policies: RunPolicies {
+                completion: CompletionRequirement::AnswerAll,
+                grade: GradePolicy::Highest,
+                continued_practice: ContinuedPractice::Unlimited,
+                variation: VariationPolicy::NewSeeds,
             },
-        )
-        .await
-        .expect("the seed creates the assignment before roster activation");
+        },
+    )
+    .await
+    .expect("the seed creates Draft then publishes before roster activation");
 
     let first =
         upsert_chapter_one_student(&store, context, instructor, student, course, assignment)
@@ -839,6 +845,11 @@ async fn webwork_pilot_converges_after_every_persisted_prefix_and_on_rerun() {
         tenant,
         course_id: ids.course,
         title: "PLE WebWork pilot E2E assignment".to_string(),
+        lifecycle: question_model::AssignmentLifecycle::Published,
+        instructions: question_model::AssignmentInstructions::try_new(
+            "Solve the guided WeBWorK pilot problem, then explain your reasoning.".to_string(),
+        )
+        .expect("WebWork pilot instructions are valid"),
         audience: question_model::AssignmentAudience::CourseWide,
         items: vec![AssignmentItem {
             id: ids.assignment_item,
@@ -857,7 +868,7 @@ async fn webwork_pilot_converges_after_every_persisted_prefix_and_on_rerun() {
             variation: VariationPolicy::NewSeeds,
         },
     };
-    ensure_webwork_pilot_assignment(&store, context, assignment.clone())
+    ensure_webwork_pilot_assignment(&store, context, instructor, assignment.clone())
         .await
         .expect("assignment prefix converges");
     ensure_webwork_pilot_enrollment(
@@ -885,7 +896,7 @@ async fn webwork_pilot_converges_after_every_persisted_prefix_and_on_rerun() {
     ensure_webwork_pilot_course(&store, context, instructor, course)
         .await
         .expect("course rerun verifies rather than mutates");
-    ensure_webwork_pilot_assignment(&store, context, assignment)
+    ensure_webwork_pilot_assignment(&store, context, instructor, assignment)
         .await
         .expect("assignment rerun verifies rather than mutates");
     ensure_webwork_pilot_enrollment(

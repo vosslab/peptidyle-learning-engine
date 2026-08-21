@@ -4,6 +4,7 @@
 # non-root identity. The pinned base digest is supplied by Compose.
 ARG CADDY_IMAGE
 FROM ${CADDY_IMAGE}
+LABEL org.opencontainers.image.source="https://github.com/vosslab/peptidyle-learning-engine"
 
 USER root
 RUN setcap -r /usr/bin/caddy

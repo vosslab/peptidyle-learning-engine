@@ -7,8 +7,7 @@
 import { render } from "solid-js/web";
 import { Router } from "@solidjs/router";
 
-import { createMockApiClient } from "./api/mock/client";
-import { createHttpApiClient } from "./api/http_client";
+import { createBrowserApiClient } from "./api/browser_client";
 import { ApiRuntimeProvider, createApiRuntime } from "./api/runtime";
 import { App } from "./app";
 import { localCredentialLogin } from "./auth/local_development";
@@ -27,9 +26,7 @@ if (mountPoint === null) {
 
 log.info("peptidyle client booting");
 
-/** Preview tests opt into fixtures before this module loads; normal builds always use same-origin HTTP. */
-const apiClient =
-  window.__PLE_USE_MOCK_API__ === true ? createMockApiClient() : createHttpApiClient();
+const apiClient = createBrowserApiClient();
 const apiRuntime = createApiRuntime(apiClient);
 
 render(

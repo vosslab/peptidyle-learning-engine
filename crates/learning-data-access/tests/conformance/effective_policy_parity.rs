@@ -1,14 +1,15 @@
 //! Backend-neutral S5-plus-S3 resolution parity for Store conformance.
 
 use domain::effective_assignment_policy::{
-    AssignmentLifecycleGate, AuthorizationGate, BaseAssignmentPolicy, EffectivePolicyDecision,
-    IndividualPolicyException, PolicyModificationMode, PolicyPatch, PolicyPatchSet, PolicySource,
+    AuthorizationGate, BaseAssignmentPolicy, EffectivePolicyDecision, IndividualPolicyException,
+    PolicyModificationMode, PolicyPatch, PolicyPatchSet, PolicySource,
 };
 use learning_data_access::{
     AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateCourseCommand,
-    DraftRecord, PublishDraftCommand, PutBaseAssignmentPolicyCommand,
-    PutIndividualPolicyExceptionCommand, ResolveEffectivePolicyCommand, Store,
-    StoredIndividualPolicyException, TenantContext, UpsertCourseMember,
+    DraftRecord, IssueQuestionAttemptCommand, PresentationCapability, PublishDraftCommand,
+    PutAssignmentTeachingSettingsCommand, PutIndividualPolicyExceptionCommand,
+    ResolveEffectivePolicyCommand, Store, StoreError, StoredIndividualPolicyException,
+    SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::generation::RandomizationDefinition;
@@ -16,16 +17,26 @@ use question_model::run_policy::{AttemptPolicy, TimingPolicy};
 use question_model::taxonomy::License;
 use question_model::{
     ActivityTimestamp, AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId,
-    AssignmentPolicyExceptionId, AssignmentScoringMode, BackendCapabilities, Capability, CourseId,
-    CourseTerm, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
-    LateSubmissionPolicy, PointValue, ProblemId, ProblemVersionRef, PublicationScope,
-    QuestionMetadata, QuestionSource, ResponseDefinition, TenantId, UserId, VersionId, WorkspaceId,
+    AssignmentPolicyExceptionId, AssignmentScoringMode, AttemptProvenance, AttemptResult,
+    BackendCapabilities, Capability, CourseId, CourseTerm, DraftQuestionDefinition,
+    DraftQuestionSource, FeedbackContent, GradingDefinition, ImplementationVersion,
+    LateSubmissionPolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS,
+    PointValue, ProblemId, ProblemVersionRef, PublicationScope, QuestionAttemptId,
+    QuestionMetadata, QuestionSource, ResponseDefinition, StudentResponse, TenantId, UserId,
+    VersionId, WorkspaceId,
 };
 use std::num::NonZeroU32;
 use uuid::Uuid;
 
 fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
+}
+
+fn implementation(id: &str) -> ImplementationVersion {
+    ImplementationVersion {
+        id: id.to_string(),
+        version: "1".to_string(),
+    }
 }
 
 async fn published_reference<S>(
@@ -148,33 +159,88 @@ where
         .student
         .expect("parity learner identity");
     let reference = published_reference(store, context, tenant, instructor).await;
-    let created = store
-        .create_untimed_assignment(
-            context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                title: "Parity assignment".to_string(),
-                audience: question_model::AssignmentAudience::CourseWide,
-                items: vec![AssignmentItem {
-                    id: AssignmentItemId::from_uuid(id(99_513)),
-                    reference,
-                    position: 0,
-                    points_possible: PointValue::from_whole(1),
-                    delivery_state: AssignmentDeliveryState::Active,
-                    scoring_mode: AssignmentScoringMode::Normal,
-                }],
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: question_model::RunPolicies {
-                    completion: question_model::CompletionRequirement::AnswerAll,
-                    grade: question_model::GradePolicy::Highest,
-                    continued_practice: question_model::ContinuedPractice::Unlimited,
-                    variation: question_model::VariationPolicy::NewSeeds,
+    let assignment_record = AssignmentRecord {
+        id: assignment,
+        tenant,
+        course_id: course,
+        title: "Parity assignment".to_string(),
+        lifecycle: question_model::AssignmentLifecycle::Draft,
+        instructions: question_model::AssignmentInstructions::default(),
+        audience: question_model::AssignmentAudience::CourseWide,
+        items: vec![AssignmentItem {
+            id: AssignmentItemId::from_uuid(id(99_513)),
+            reference,
+            position: 0,
+            points_possible: PointValue::from_whole(1),
+            delivery_state: AssignmentDeliveryState::Active,
+            scoring_mode: AssignmentScoringMode::Normal,
+        }],
+        selection_groups: Vec::new(),
+        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+        policies: question_model::RunPolicies {
+            completion: question_model::CompletionRequirement::AnswerAll,
+            grade: question_model::GradePolicy::Highest,
+            continued_practice: question_model::ContinuedPractice::Unlimited,
+            variation: question_model::VariationPolicy::NewSeeds,
+        },
+    };
+    for (offset, lifecycle) in [
+        question_model::AssignmentLifecycle::Published,
+        question_model::AssignmentLifecycle::Closed,
+        question_model::AssignmentLifecycle::Archived,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let rejected_assignment = AssignmentId::from_uuid(id(99_600 + offset as u128));
+        let rejected_record = AssignmentRecord {
+            id: rejected_assignment,
+            lifecycle,
+            ..assignment_record.clone()
+        };
+        assert!(matches!(
+            store
+                .create_assignment(context, rejected_record, BaseAssignmentPolicy::default())
+                .await,
+            Err(StoreError::InvalidRecord(_))
+        ));
+        assert!(
+            store
+                .get_assignment(context, rejected_assignment)
+                .await
+                .expect("read rejected lifecycle assignment")
+                .is_none()
+        );
+        assert!(
+            store
+                .get_base_assignment_policy(context, rejected_assignment)
+                .await
+                .expect("read rejected lifecycle policy")
+                .is_none()
+        );
+    }
+    assert!(matches!(
+        store
+            .create_assignment(
+                context,
+                assignment_record.clone(),
+                BaseAssignmentPolicy {
+                    available_at: Some(ActivityTimestamp::from_unix_millis(0)),
+                    ..BaseAssignmentPolicy::default()
                 },
-            },
-        )
+            )
+            .await,
+        Err(StoreError::InvalidRecord(_))
+    ));
+    assert!(
+        store
+            .get_assignment(context, assignment)
+            .await
+            .expect("read rejected assignment")
+            .is_none()
+    );
+    let created = store
+        .create_assignment(context, assignment_record, BaseAssignmentPolicy::default())
         .await
         .expect("create parity assignment");
     let revised = store
@@ -203,26 +269,104 @@ where
         .await
         .expect("store parity M4 record");
     store
-        .put_base_assignment_policy(
+        .put_assignment_teaching_settings(
             context,
-            PutBaseAssignmentPolicyCommand {
+            PutAssignmentTeachingSettingsCommand {
                 actor: instructor,
                 course,
                 assignment,
                 expected_revision: revised,
-                policy: BaseAssignmentPolicy {
-                    available_at: None,
-                    due_at: None,
-                    closes_at: None,
-                    time_limit_seconds: Some(NonZeroU32::new(120).expect("positive base limit")),
-                    attempt_limit: None,
-                    late_submission: LateSubmissionPolicy::Accept,
-                    deadline_behavior: question_model::AssignmentDeadlineBehavior::AutoSubmit,
+                settings: question_model::AssignmentTeachingSettings {
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    base_policy: BaseAssignmentPolicy {
+                        available_at: None,
+                        due_at: None,
+                        closes_at: None,
+                        time_limit_seconds: Some(
+                            NonZeroU32::new(120).expect("positive base limit"),
+                        ),
+                        attempt_limit: NonZeroU32::new(1),
+                        late_submission: LateSubmissionPolicy::Accept,
+                        deadline_behavior: question_model::AssignmentDeadlineBehavior::AutoSubmit,
+                    },
                 },
             },
         )
         .await
         .expect("store parity M1 record");
+    let current = store
+        .get_base_assignment_policy(context, assignment)
+        .await
+        .expect("read persisted parity policy")
+        .expect("parity policy exists");
+    for policy in [
+        BaseAssignmentPolicy {
+            available_at: Some(ActivityTimestamp::from_unix_millis(0)),
+            ..current.policy
+        },
+        BaseAssignmentPolicy {
+            available_at: Some(ActivityTimestamp::from_unix_millis(2)),
+            due_at: Some(ActivityTimestamp::from_unix_millis(1)),
+            ..current.policy
+        },
+        BaseAssignmentPolicy {
+            time_limit_seconds: NonZeroU32::new(MAX_ASSIGNMENT_TIME_LIMIT_SECONDS + 1),
+            ..current.policy
+        },
+        BaseAssignmentPolicy {
+            attempt_limit: NonZeroU32::new(MAX_ASSIGNMENT_ATTEMPT_LIMIT + 1),
+            ..current.policy
+        },
+    ] {
+        let result = store
+            .put_assignment_teaching_settings(
+                context,
+                PutAssignmentTeachingSettingsCommand {
+                    actor: instructor,
+                    course,
+                    assignment,
+                    expected_revision: current.revision,
+                    settings: question_model::AssignmentTeachingSettings {
+                        lifecycle: question_model::AssignmentLifecycle::Published,
+                        instructions: question_model::AssignmentInstructions::default(),
+                        base_policy: policy,
+                    },
+                },
+            )
+            .await;
+        assert!(matches!(result, Err(StoreError::InvalidRecord(_))));
+        let after = store
+            .get_base_assignment_policy(context, assignment)
+            .await
+            .expect("read policy after rejected edit")
+            .expect("rejected edit retains policy");
+        assert_eq!(after, current);
+    }
+    let postgres_boundary = store
+        .put_assignment_teaching_settings(
+            context,
+            PutAssignmentTeachingSettingsCommand {
+                actor: instructor,
+                course,
+                assignment,
+                expected_revision: current.revision,
+                settings: question_model::AssignmentTeachingSettings {
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    base_policy: BaseAssignmentPolicy {
+                        time_limit_seconds: NonZeroU32::new(MAX_ASSIGNMENT_TIME_LIMIT_SECONDS),
+                        ..current.policy
+                    },
+                },
+            },
+        )
+        .await
+        .expect("accept PostgreSQL integer boundaries");
+    assert_eq!(
+        postgres_boundary.policy.time_limit_seconds,
+        NonZeroU32::new(MAX_ASSIGNMENT_TIME_LIMIT_SECONDS)
+    );
     let entitlement = store
         .evaluate_assignment_entitlement(context, learner, course, assignment)
         .await
@@ -232,7 +376,6 @@ where
             context,
             ResolveEffectivePolicyCommand {
                 assignment,
-                lifecycle: AssignmentLifecycleGate::Open,
                 entitlement,
                 authorization: AuthorizationGate::Authorized,
                 now: ActivityTimestamp::from_unix_millis(0),
@@ -253,4 +396,127 @@ where
         policy.time_limit_seconds.source,
         PolicySource::IndividualException(student)
     );
+
+    let active = store
+        .start_or_resume_run(
+            context,
+            learner,
+            assignment,
+            question_model::RunId::from_uuid(id(99_514)),
+        )
+        .await
+        .expect("first limited run starts");
+    let active_list = store
+        .list_learner_entitled_assignments(
+            context,
+            learner,
+            course,
+            learning_data_access::PageRequest::first(
+                learning_data_access::PageSize::new(10).expect("bounded page"),
+            ),
+        )
+        .await
+        .expect("active limited assignment remains listed");
+    assert!(
+        active_list
+            .items
+            .iter()
+            .any(|record| record.id == assignment)
+    );
+    let resumed = store
+        .start_or_resume_run(
+            context,
+            learner,
+            assignment,
+            question_model::RunId::from_uuid(id(99_515)),
+        )
+        .await
+        .expect("active final-allowed run resumes");
+    assert_eq!(resumed, active);
+    let attempt = store
+        .issue_or_resume_question_attempt(
+            context,
+            IssueQuestionAttemptCommand {
+                actor: learner,
+                attempt: QuestionAttemptId::from_uuid(id(99_516)),
+                run: active.id,
+                assignment_position: 0,
+                problem: reference.problem,
+                question_version: reference.version,
+                seed: 9,
+                presentation_capability: PresentationCapability::NotApplicable,
+                presentation: None,
+                presentation_snapshot: None,
+                grading_envelope: None,
+                flat_grading: None,
+                flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
+                webwork_grading: None,
+                webwork_grading_capability:
+                    learning_data_access::WebworkGradingCapability::NotApplicable,
+                parameter_hash: "limited-run-parity".to_string(),
+                provenance: AttemptProvenance {
+                    adapter: implementation("limited-run-native"),
+                    renderer: None,
+                    generator: None,
+                    source_artifact: None,
+                    asset_objects: Vec::new(),
+                    grading: implementation("limited-run-grading"),
+                    rendered_question_sha256: "limited-run-render".to_string(),
+                },
+                webwork_replay: None,
+                prefetched: None,
+                predecessor_submission: None,
+            },
+        )
+        .await
+        .expect("issue the only run item");
+    let completed = store
+        .submit_question_attempt(
+            context,
+            SubmitQuestionAttemptCommand {
+                actor: learner,
+                attempt: attempt.id,
+                response: StudentResponse::Numeric { value: 1.0 },
+                result: AttemptResult {
+                    correct: true,
+                    points_earned: 1.0,
+                    points_possible: 1.0,
+                },
+                feedback: FeedbackContent::default(),
+                idempotency_key: SubmissionIdempotencyKey::parse("limited-run-completion")
+                    .expect("valid idempotency key"),
+            },
+        )
+        .await
+        .expect("complete the one allowed run");
+    assert_eq!(completed.run.id, active.id);
+    assert!(completed.run.completed_at.is_some());
+    let exhausted_list = store
+        .list_learner_entitled_assignments(
+            context,
+            learner,
+            course,
+            learning_data_access::PageRequest::first(
+                learning_data_access::PageSize::new(10).expect("bounded page"),
+            ),
+        )
+        .await
+        .expect("list after limited run completion");
+    assert!(
+        !exhausted_list
+            .items
+            .iter()
+            .any(|record| record.id == assignment)
+    );
+    assert!(matches!(
+        store
+            .start_or_resume_run(
+                context,
+                learner,
+                assignment,
+                question_model::RunId::from_uuid(id(99_517)),
+            )
+            .await,
+        Err(StoreError::NotFound)
+    ));
 }

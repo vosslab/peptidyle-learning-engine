@@ -244,6 +244,8 @@ pub(super) struct ProductionSettings {
     pub(super) webauthn: crate::auth::PasswordlessWebauthn,
     pub(super) browser_boundary: Option<crate::auth::ProductionBrowserBoundary>,
     pub(super) client_address_policy: crate::auth::ClientAddressPolicy,
+    pub(super) live_demo_selector: Option<crate::auth::SeededAccountSelectorConfig>,
+    pub(super) live_demo_sysadmin_ownership: Option<crate::auth::SeededSysadminOwnershipConfig>,
 }
 
 pub(super) struct EnrollmentEmailSettings {
@@ -300,6 +302,12 @@ impl ProductionSettings {
                 )
             }
         };
+        let live_demo_selector = live_demo_selector_from_env(&webauthn_origin)?;
+        let live_demo_sysadmin_ownership = live_demo_sysadmin_ownership_from_env(&webauthn_origin)?;
+        validate_live_demo_identity_config(
+            live_demo_selector.as_ref(),
+            live_demo_sysadmin_ownership.as_ref(),
+        )?;
         Ok(Self {
             storage: StorageSettings::from_env(runtime)?,
             public_asset_base_url,
@@ -317,6 +325,8 @@ impl ProductionSettings {
             .map_err(anyhow::Error::msg)?,
             browser_boundary,
             client_address_policy,
+            live_demo_selector,
+            live_demo_sysadmin_ownership,
         })
     }
 
@@ -434,6 +444,127 @@ impl ProductionSettings {
             Some(_) => bail!("PLE_QTI_RUNTIME_ENABLED must be exactly 1 when set"),
         }
     }
+}
+
+const LIVE_DEMO_SELECTOR_USER_ID_ENV: [&str; 4] = [
+    "PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID",
+    "PLE_LIVE_DEMO_MARY_STUDENT_USER_ID",
+    "PLE_LIVE_DEMO_JACK_STUDENT_USER_ID",
+    "PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID",
+];
+
+const LIVE_DEMO_SYSADMIN_USER_ID_ENV: &str = "PLE_LIVE_DEMO_SYSADMIN_USER_ID";
+const LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE_ENV: &str = "PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE";
+
+fn live_demo_selector_from_env(
+    origin: &str,
+) -> Result<Option<crate::auth::SeededAccountSelectorConfig>> {
+    let values = LIVE_DEMO_SELECTOR_USER_ID_ENV.map(std::env::var);
+    if values.iter().all(Result::is_err) {
+        return Ok(None);
+    }
+    let users = values
+        .into_iter()
+        .map(|value| {
+            let value = value.map_err(|_| {
+                anyhow::anyhow!("live-demo selector requires all four configured account IDs")
+            })?;
+            let uuid = uuid::Uuid::parse_str(&value)
+                .map_err(|_| anyhow::anyhow!("live-demo selector account ID must be a UUID"))?;
+            Ok(question_model::UserId::from_uuid(uuid))
+        })
+        .collect::<Result<Vec<_>>>()?
+        .try_into()
+        .expect("four configured live-demo account IDs");
+    crate::auth::SeededAccountSelectorConfig::new(Arc::from(origin.to_string()), users)
+        .map(Some)
+        .map_err(anyhow::Error::msg)
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SeededSysadminClaimContextFile {
+    installation_generation: String,
+    sysadmin_user_id: String,
+    ownership_proof: String,
+}
+
+pub(super) fn live_demo_sysadmin_ownership_from_env(
+    origin: &str,
+) -> Result<Option<crate::auth::SeededSysadminOwnershipConfig>> {
+    let (configured_user, path) = match (
+        std::env::var_os(LIVE_DEMO_SYSADMIN_USER_ID_ENV),
+        std::env::var_os(LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE_ENV),
+    ) {
+        (None, None) => return Ok(None),
+        (Some(_), None) => {
+            bail!(
+                "{LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE_ENV} must be set when {LIVE_DEMO_SYSADMIN_USER_ID_ENV} is set"
+            );
+        }
+        (None, Some(_)) => {
+            bail!(
+                "{LIVE_DEMO_SYSADMIN_USER_ID_ENV} must be set when {LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE_ENV} is set"
+            );
+        }
+        (Some(user), Some(path)) => (user, path),
+    };
+    let path = path.into_string().map_err(|_| {
+        anyhow::anyhow!("{LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE_ENV} must be valid Unicode")
+    })?;
+    let configured_user = configured_user.into_string().map_err(|_| {
+        anyhow::anyhow!("{LIVE_DEMO_SYSADMIN_USER_ID_ENV} must be a canonical UUID")
+    })?;
+    let configured_user_uuid = uuid::Uuid::parse_str(&configured_user).map_err(|_| {
+        anyhow::anyhow!("{LIVE_DEMO_SYSADMIN_USER_ID_ENV} must be a canonical UUID")
+    })?;
+    if configured_user_uuid.to_string() != configured_user {
+        bail!("{LIVE_DEMO_SYSADMIN_USER_ID_ENV} must be a canonical UUID");
+    }
+    let value = read_secret_file(&path, LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE_ENV)?;
+    let context: SeededSysadminClaimContextFile = serde_json::from_str(&value).map_err(|_| {
+        anyhow::anyhow!(
+            "PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE must be canonical claim context JSON"
+        )
+    })?;
+    if serde_json::to_string(&context).expect("claim context serializes") != value {
+        bail!("PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE must be canonical claim context JSON");
+    }
+    let installation_generation = uuid::Uuid::parse_str(&context.installation_generation)
+        .map_err(|_| anyhow::anyhow!("live-demo claim installationGeneration must be a UUID"))?;
+    if installation_generation.to_string() != context.installation_generation {
+        bail!("live-demo claim installationGeneration must be a canonical UUID");
+    }
+    let sysadmin_user = uuid::Uuid::parse_str(&context.sysadmin_user_id)
+        .map_err(|_| anyhow::anyhow!("live-demo claim sysadminUserId must be a UUID"))?;
+    if sysadmin_user.to_string() != context.sysadmin_user_id {
+        bail!("live-demo claim sysadminUserId must be a canonical UUID");
+    }
+    if configured_user_uuid != sysadmin_user {
+        bail!("{LIVE_DEMO_SYSADMIN_USER_ID_ENV} must equal live-demo claim sysadminUserId");
+    }
+    let ownership_proof =
+        parse_secret32("live-demo claim ownershipProof", &context.ownership_proof)?;
+    crate::auth::SeededSysadminOwnershipConfig::new(
+        Arc::from(origin.to_string()),
+        installation_generation,
+        question_model::UserId::from_uuid(sysadmin_user),
+        ownership_proof,
+    )
+    .map(Some)
+    .map_err(anyhow::Error::msg)
+}
+
+pub(super) fn validate_live_demo_identity_config(
+    selector: Option<&crate::auth::SeededAccountSelectorConfig>,
+    ownership: Option<&crate::auth::SeededSysadminOwnershipConfig>,
+) -> Result<()> {
+    if selector
+        .is_some_and(|selector| ownership.is_some_and(|claim| selector.contains_user(claim.user())))
+    {
+        bail!("live-demo Sysadmin claim user must differ from selector accounts");
+    }
+    Ok(())
 }
 
 impl EnrollmentEmailSettings {

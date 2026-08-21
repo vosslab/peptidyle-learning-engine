@@ -7,20 +7,11 @@
 import { createSignal, Show, type JSX } from "solid-js";
 
 import { createHttpLocalCredentialLogin } from "../api/http_client/local_development_auth";
-import { createMockLocalCredentialLogin } from "../api/mock/local_development_auth";
 import type { LocalCredentialLogin } from "./session_context";
 
-declare global {
-  interface Window {
-    __PLE_USE_MOCK_API__?: boolean;
-  }
-}
-
-/** Chooses a local-only transport without adding it to the production client API. */
+/** Creates the HTTP local-only transport without extending the production client API. */
 export function localCredentialLogin(): LocalCredentialLogin {
-  return window.__PLE_USE_MOCK_API__ === true
-    ? createMockLocalCredentialLogin()
-    : createHttpLocalCredentialLogin();
+  return createHttpLocalCredentialLogin();
 }
 
 export interface LocalDevelopmentSignInProps {

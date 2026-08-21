@@ -45,6 +45,10 @@ run_check browser_local_auth_build node tests/e2e/e2e_browser_local_development_
 # SQLx baseline, role grants, forced RLS, and disposable migration checksum proof.
 run_check database_baseline bash tests/e2e/e2e_database_baseline.sh
 
+# Fresh, retained, interrupted, concurrent, mixed, and regenerated live-demo baseline lifecycle.
+run_check live_demo_baseline bash -c \
+	'source source_me.sh && python3 tests/e2e/e2e_live_demo_baseline.py'
+
 # A learner session and idempotent submission survive across two API replicas.
 # A missing Podman machine is deliberately a failing BLOCKED prerequisite, not a skip.
 run_check replica_restart node tests/e2e/e2e_replica_restart.mjs

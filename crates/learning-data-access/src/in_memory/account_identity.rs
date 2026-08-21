@@ -9,13 +9,31 @@ use crate::{
     AuthenticationRateLimitDecision, AuthenticationRateLimitScope, BeginEmailAuthentication,
     BeginWebauthnCeremony, CompleteEmailAuthentication,
     CompleteEmailAuthenticationAndCreateSession, CompleteEmailChangeAndRevokeUserSessions,
-    CompletePasskeyAuthenticationAndCreateSession, CompletedAccountSession,
-    CompletedEmailAuthentication, CompletedPasskeySession, ConsumeAuthenticationRateLimit,
-    EmailAuthenticationChallenge, EmailAuthenticationPurpose, Page, PageRequest, PasskeyId,
-    PasskeyRecord, RegisterPasskey, StoreError, WebauthnCeremony, WebauthnCeremonyId,
-    validated_account_display_name,
+    CompletePasskeyAuthenticationAndCreateSession, CompleteSeededSysadminOwnership,
+    CompletedAccountSession, CompletedEmailAuthentication, CompletedPasskeySession,
+    ConsumeAuthenticationRateLimit, EmailAuthenticationChallenge, EmailAuthenticationPurpose,
+    LiveDemoInstallationStore, Page, PageRequest, PasskeyId, PasskeyRecord, RegisterPasskey,
+    StoreError, WebauthnCeremony, WebauthnCeremonyId, validated_account_display_name,
 };
-use question_model::{ActivityTimestamp, CourseId, CourseMembershipRole, UserId};
+use uuid::Uuid;
+
+#[async_trait]
+impl LiveDemoInstallationStore for MemoryStore {
+    async fn completed_live_demo_installation_generation(
+        &self,
+    ) -> Result<Option<Uuid>, StoreError> {
+        let state = self.read_state()?;
+        Ok(match state.live_demo_installation_state {
+            super::StoredLiveDemoInstallationState::Complete { generation } => Some(generation),
+            super::StoredLiveDemoInstallationState::Missing => None,
+            super::StoredLiveDemoInstallationState::Installing { generation } => {
+                let _ = generation;
+                None
+            }
+        })
+    }
+}
+use question_model::{ActivityTimestamp, CourseId, CourseMembershipRole, UserId, UserRole};
 
 #[derive(Debug, Clone)]
 pub(super) struct StoredAuthenticationRateLimit {
@@ -390,6 +408,130 @@ impl AccountIdentityStore for MemoryStore {
             return Ok(None);
         }
         Ok(state.webauthn_ceremonies.remove(&id))
+    }
+
+    async fn get_webauthn_ceremony(
+        &self,
+        id: WebauthnCeremonyId,
+        browser_binding: crate::BrowserBindingHash,
+    ) -> Result<Option<WebauthnCeremony>, StoreError> {
+        let state = self.read_state()?;
+        Ok(state
+            .webauthn_ceremonies
+            .get(&id)
+            .filter(|ceremony| {
+                constant_time_eq(
+                    &ceremony.browser_binding.as_bytes(),
+                    &browser_binding.as_bytes(),
+                ) && ceremony.expires_at > state.authoritative_time
+            })
+            .cloned())
+    }
+
+    async fn seeded_sysadmin_ownership_available(&self, user: UserId) -> Result<bool, StoreError> {
+        let state = self.read_state()?;
+        let account = state.accounts.get(&user).ok_or(StoreError::NotFound)?;
+        if account.platform_roles.as_slice() != [UserRole::Sysadmin] {
+            return Err(StoreError::Forbidden);
+        }
+        Ok(!state.passkeys.values().any(|passkey| passkey.user == user))
+    }
+
+    async fn complete_seeded_sysadmin_ownership(
+        &self,
+        command: CompleteSeededSysadminOwnership,
+    ) -> Result<CompletedPasskeySession, StoreError> {
+        let mut state = self.write_state()?;
+        let rollback = state.clone();
+        let result = (|| {
+            if command.target != command.passkey.user {
+                return Err(StoreError::Forbidden);
+            }
+            if command.presented_account_session == Some(command.session_token_hash) {
+                return Err(StoreError::AlreadyExists);
+            }
+            let account = state
+                .accounts
+                .get(&command.target)
+                .ok_or(StoreError::NotFound)?;
+            if account.platform_roles.as_slice() != [UserRole::Sysadmin] {
+                return Err(StoreError::Forbidden);
+            }
+            if state
+                .passkeys
+                .values()
+                .any(|passkey| passkey.user == command.target)
+            {
+                return Err(StoreError::Conflict);
+            }
+            let ceremony = state
+                .webauthn_ceremonies
+                .get(&command.ceremony_id)
+                .filter(|ceremony| {
+                    constant_time_eq(
+                        &ceremony.browser_binding.as_bytes(),
+                        &command.browser_binding.as_bytes(),
+                    ) && ceremony.expires_at > state.authoritative_time
+                })
+                .ok_or(StoreError::NotFound)?;
+            if ceremony.kind
+                != (crate::WebauthnCeremonyKind::Registration {
+                    user: command.target,
+                })
+            {
+                return Err(StoreError::Forbidden);
+            }
+            if state.passkeys.contains_key(&command.passkey.id)
+                || state
+                    .passkey_by_credential
+                    .contains_key(&command.passkey.credential_id_hash)
+                || state
+                    .account_sessions
+                    .contains_key(&command.session_token_hash)
+            {
+                return Err(StoreError::AlreadyExists);
+            }
+            let passkey = PasskeyRecord {
+                id: command.passkey.id,
+                user: command.target,
+                credential_id_hash: command.passkey.credential_id_hash,
+                label: command.passkey.label,
+                credential: command.passkey.credential,
+                created_at: state.authoritative_time,
+                last_used_at: None,
+                revoked_at: None,
+            };
+            let session = AccountSessionRecord {
+                token_hash: command.session_token_hash,
+                user: passkey.user,
+                created_at: state.authoritative_time,
+                expires_at: timestamp_after_seconds(
+                    state.authoritative_time,
+                    command.session_lifetime.as_seconds(),
+                )?,
+            };
+            state.webauthn_ceremonies.remove(&command.ceremony_id);
+            state
+                .passkey_by_credential
+                .insert(passkey.credential_id_hash, passkey.id);
+            state.passkeys.insert(passkey.id, passkey.clone());
+            if let Some(token_hash) = command.presented_account_session {
+                state.account_sessions.remove(&token_hash);
+            }
+            state
+                .account_sessions
+                .insert(command.session_token_hash, session.clone());
+            if let Some(token_hash) = command.presented_tenant_session
+                && let Some(stored) = state.sessions.get_mut(&token_hash)
+            {
+                stored.revoked = true;
+            }
+            Ok(CompletedPasskeySession { passkey, session })
+        })();
+        if result.is_err() {
+            *state = rollback;
+        }
+        result
     }
 
     async fn insert_passkey(&self, command: RegisterPasskey) -> Result<PasskeyRecord, StoreError> {

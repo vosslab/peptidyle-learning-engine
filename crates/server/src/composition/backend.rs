@@ -22,6 +22,8 @@ pub(super) struct PersistentDependencies {
     webauthn: crate::auth::PasswordlessWebauthn,
     browser_boundary: Option<crate::auth::ProductionBrowserBoundary>,
     client_address_policy: crate::auth::ClientAddressPolicy,
+    live_demo_selector: Option<crate::auth::SeededAccountSelectorConfig>,
+    live_demo_sysadmin_ownership: Option<crate::auth::SeededSysadminOwnershipConfig>,
     health: Arc<HealthState>,
 }
 
@@ -132,6 +134,8 @@ impl PersistentDependencies {
             webauthn: settings.webauthn.clone(),
             browser_boundary: settings.browser_boundary.clone(),
             client_address_policy: settings.client_address_policy.clone(),
+            live_demo_selector: settings.live_demo_selector.clone(),
+            live_demo_sysadmin_ownership: settings.live_demo_sysadmin_ownership.clone(),
             health: Arc::new(HealthState {
                 postgres: pool,
                 object_client,
@@ -214,6 +218,8 @@ impl PersistentDependencies {
             Arc::clone(&self.passwordless_email_delivery),
             self.passwordless_rate_limit_issuer.clone(),
             self.client_address_policy.clone(),
+            self.live_demo_selector.clone(),
+            self.live_demo_sysadmin_ownership.clone(),
             Some(self.webauthn.clone()),
             local_teaching_roster,
             Arc::clone(&self.health),

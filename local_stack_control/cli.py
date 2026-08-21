@@ -105,6 +105,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 	acceptance = subparsers.add_parser("acceptance", help="run no-skip live browser validation")
 	acceptance.set_defaults(handler=local_stack_control.commands.acceptance)
+
+	claim_proof = subparsers.add_parser(
+		"live-demo-sysadmin-ownership-proof",
+		help="print the private local live-demo Sysadmin ownership proof",
+	)
+	add_target_options(claim_proof)
+	claim_proof.set_defaults(handler=local_stack_control.commands.live_demo_sysadmin_ownership_proof)
 	return parser
 
 

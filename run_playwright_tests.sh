@@ -8,16 +8,16 @@
 #   - Assumption: playwright.config.ts owns the test server via its webServer
 #     block. This script does NOT start run_web_server.sh; Playwright spins up
 #     its own dev/preview server as configured in playwright.config.ts.
-#   - If dist/index.html or dist/main.js is missing, the webServer block will
+#   - If dist_browser_test/index.html or dist_browser_test/main.js is missing, the webServer block will
 #     likely fail. Pass --build (or let the auto-check trigger) to rebuild first.
-#   - Pass --build to force a rebuild even when dist/ is already present.
+#   - Pass --build to force a browser-test artifact rebuild even when it is present.
 #   - Remaining arguments are forwarded to 'npx playwright test'.
 #   - Exits with playwright's exit code.
 #   - Prints a clear PASS or FAIL line on completion.
 #
 # Flags:
 #   -h, --help    Print usage and exit 0.
-#   --build       Force rebuild of dist/ before running tests.
+#   --build       Force rebuild of the browser-test artifact before running tests.
 #
 # Examples:
 #   bash run_playwright_tests.sh
@@ -32,7 +32,7 @@ usage() {
 Usage: run_playwright_tests.sh [-h|--help] [--build] [PLAYWRIGHT_ARGS...]
 
   -h, --help    Print this help and exit 0.
-  --build       Force a dist/ rebuild before running tests.
+  --build       Force a browser-test artifact rebuild before running tests.
 
 Any remaining arguments are forwarded to 'npx playwright test'.
 USAGE
@@ -83,13 +83,13 @@ if [ ! -f playwright.config.ts ]; then
 	exit 1
 fi
 
-# Build gate: rebuild dist/ when forced or when expected outputs are missing.
+# Build gate: browser tests serve their own artifact, leaving dist/ for the live site.
 if [ "$FORCE_BUILD" -eq 1 ]; then
-	echo "==> --build flag set: rebuilding dist/..."
-	bash build.sh
-elif [ ! -f dist/index.html ] || [ ! -f dist/main.js ]; then
-	echo "==> dist/index.html or dist/main.js missing: running build.sh..."
-	bash build.sh
+	echo "==> --build flag set: rebuilding browser-test artifact..."
+	PLE_BROWSER_TEST_TRANSPORT=1 PLE_BROWSER_OUTPUT_DIRECTORY=dist_browser_test bash build.sh
+elif [ ! -f dist_browser_test/index.html ] || [ ! -f dist_browser_test/main.js ]; then
+	echo "==> browser-test artifact missing: rebuilding it..."
+	PLE_BROWSER_TEST_TRANSPORT=1 PLE_BROWSER_OUTPUT_DIRECTORY=dist_browser_test bash build.sh
 fi
 
 # Run Playwright; capture exit code so we can print the summary line.

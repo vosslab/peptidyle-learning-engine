@@ -21,7 +21,7 @@ where
     let mut rescored_items = locked_assignment.record.items.clone();
     rescored_items[0].points_possible = PointValue::from_whole(2);
     let rescored = store
-        .replace_assignment_preserving_timing(
+        .replace_assignment(
             context,
             course,
             assignment,
@@ -82,7 +82,7 @@ where
     let mut superseding_items = rescored.record.items.clone();
     superseding_items[0].points_possible = PointValue::from_whole(3);
     let superseding = store
-        .replace_assignment_preserving_timing(
+        .replace_assignment(
             context,
             course,
             assignment,
@@ -242,7 +242,7 @@ where
     added_items.push(added);
     assert!(matches!(
         store
-            .replace_assignment_preserving_timing(
+            .replace_assignment(
                 context,
                 course,
                 assignment,

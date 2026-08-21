@@ -7,12 +7,20 @@
 
 use std::num::NonZeroU32;
 
+use chrono::{DateTime, Utc};
 use question_model::{
-    ActivityTimestamp, AssignmentDeadlineBehavior, CourseGroupId, GroupPurposeCapabilities,
-    LateSubmissionPolicy, StudentId,
+    ActivityTimestamp, AssignmentDeadlineBehavior, AssignmentLifecycle, CourseGroupId, CourseTerm,
+    GroupPurposeCapabilities, LateSubmissionPolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
+    MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, StudentId,
 };
 
-use crate::entitlement::{EntitlementDecision, EntitlementDenial, EntitlementGrant};
+/// Compatibility re-export for established policy-resolution callers.
+pub use question_model::BaseAssignmentPolicy;
+
+use crate::entitlement::{
+    ApplicablePolicyScopes, EntitlementDecision, EntitlementDenial,
+    SyntheticPreviewEntitlementDecision,
+};
 
 const MAX_SCHEDULE_OFFSET_SECONDS: i32 = 31_536_000;
 
@@ -26,6 +34,40 @@ pub enum AssignmentLifecycleGate {
 pub enum AssignmentLifecycleDenial {
     NotPublished,
     Retired,
+}
+
+/// Maps persisted lifecycle intent to the first effective-policy gate.
+pub fn assignment_lifecycle_gate(lifecycle: AssignmentLifecycle) -> AssignmentLifecycleGate {
+    match lifecycle {
+        AssignmentLifecycle::Published => AssignmentLifecycleGate::Open,
+        AssignmentLifecycle::Draft => {
+            AssignmentLifecycleGate::Denied(AssignmentLifecycleDenial::NotPublished)
+        }
+        AssignmentLifecycle::Closed | AssignmentLifecycle::Archived => {
+            AssignmentLifecycleGate::Denied(AssignmentLifecycleDenial::Retired)
+        }
+    }
+}
+
+/// Returns whether a professor-controlled lifecycle transition is legal.
+pub fn is_legal_assignment_lifecycle_transition(
+    from: AssignmentLifecycle,
+    to: AssignmentLifecycle,
+) -> bool {
+    from == to
+        || matches!(
+            (from, to),
+            (
+                AssignmentLifecycle::Draft,
+                AssignmentLifecycle::Published | AssignmentLifecycle::Archived
+            ) | (
+                AssignmentLifecycle::Published,
+                AssignmentLifecycle::Closed | AssignmentLifecycle::Archived
+            ) | (
+                AssignmentLifecycle::Closed,
+                AssignmentLifecycle::Published | AssignmentLifecycle::Archived
+            )
+        )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,6 +103,7 @@ pub enum PolicySource {
     GroupScheduleOffsets(Vec<CourseGroupId>),
     GroupAccommodations(Vec<CourseGroupId>),
     IndividualException(StudentId),
+    HypotheticalIndividualException,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -78,17 +121,6 @@ pub struct EffectiveAssignmentPolicy {
     pub attempt_limit: ResolvedField<Option<NonZeroU32>>,
     pub late_submission: ResolvedField<LateSubmissionPolicy>,
     pub deadline_behavior: ResolvedField<AssignmentDeadlineBehavior>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BaseAssignmentPolicy {
-    pub available_at: Option<ActivityTimestamp>,
-    pub due_at: Option<ActivityTimestamp>,
-    pub closes_at: Option<ActivityTimestamp>,
-    pub time_limit_seconds: Option<NonZeroU32>,
-    pub attempt_limit: Option<NonZeroU32>,
-    pub late_submission: LateSubmissionPolicy,
-    pub deadline_behavior: AssignmentDeadlineBehavior,
 }
 
 /// A sparse M3/M4 patch. Assignment-owned late and deadline behavior are not
@@ -173,6 +205,13 @@ pub struct IndividualPolicyException {
     pub patch: PolicyPatchSet,
 }
 
+/// A preview-only individual policy modifier with no persisted learner key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HypotheticalIndividualPolicyException {
+    pub mode: PolicyModificationMode,
+    pub patch: PolicyPatchSet,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LateVerdict {
     OnTime,
@@ -214,6 +253,19 @@ pub struct ResolveEffectivePolicyInput {
     pub individual_exception: Option<IndividualPolicyException>,
 }
 
+/// Identity-free S3 input for a synthetic T3 preview subject.
+pub struct ResolveSyntheticPreviewPolicyInput {
+    pub lifecycle: AssignmentLifecycleGate,
+    pub entitlement: SyntheticPreviewEntitlementDecision,
+    pub authorization: AuthorizationGate,
+    pub now: ActivityTimestamp,
+    pub prior_run_count: u32,
+    pub base: BaseAssignmentPolicy,
+    pub group_schedule_offsets: Vec<GroupScheduleOffset>,
+    pub group_accommodations: Vec<GroupAccommodation>,
+    pub hypothetical_individual_exception: Option<HypotheticalIndividualPolicyException>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PolicyField {
     AvailableAt,
@@ -227,10 +279,15 @@ pub enum PolicyField {
 pub enum ModifierSource {
     Group(CourseGroupId),
     Individual(StudentId),
+    HypotheticalIndividual,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EffectivePolicyError {
+    BaseTimeLimitOutOfRange,
+    BaseAttemptLimitOutOfRange,
+    BaseTimestampOutsideCourseTerm(PolicyField),
+    BaseTimestampOutOfRange(PolicyField),
     UnapprovedScheduleScope(CourseGroupId),
     UnapprovedAccommodationScope(CourseGroupId),
     IndividualExceptionStudentMismatch {
@@ -248,6 +305,71 @@ pub enum EffectivePolicyError {
     },
     ScheduleOffsetOverflow,
     InvalidScheduleOrder,
+}
+
+/// Validates one persisted base policy independently of learner authority.
+///
+/// Store writes call this before opening a mutation. The resolver deliberately
+/// keeps its gate-first behavior, so a denied learner request never exposes
+/// policy-shape errors or causes modifier reads.
+pub fn validate_base_assignment_policy(
+    base: BaseAssignmentPolicy,
+) -> Result<(), EffectivePolicyError> {
+    if base
+        .time_limit_seconds
+        .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_TIME_LIMIT_SECONDS)
+    {
+        return Err(EffectivePolicyError::BaseTimeLimitOutOfRange);
+    }
+    if base
+        .attempt_limit
+        .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_ATTEMPT_LIMIT)
+    {
+        return Err(EffectivePolicyError::BaseAttemptLimitOutOfRange);
+    }
+    validate_schedule_values(base.available_at, base.due_at, base.closes_at)
+}
+
+/// Validates absolute persisted policy instants against the course-owned term.
+///
+/// The input is already an absolute server timestamp. This only projects that
+/// instant into the course's authoritative zone to check its calendar date; it
+/// neither accepts nor resolves professor-entered local wall-clock text.
+pub fn validate_base_assignment_policy_for_course_term(
+    base: BaseAssignmentPolicy,
+    term: &CourseTerm,
+) -> Result<(), EffectivePolicyError> {
+    validate_base_assignment_policy(base)?;
+    for (field, value) in [
+        (PolicyField::AvailableAt, base.available_at),
+        (PolicyField::DueAt, base.due_at),
+        (PolicyField::ClosesAt, base.closes_at),
+    ] {
+        validate_absolute_timestamp_in_course_term(field, value, term)?;
+    }
+    Ok(())
+}
+
+fn validate_absolute_timestamp_in_course_term(
+    field: PolicyField,
+    value: Option<ActivityTimestamp>,
+    term: &CourseTerm,
+) -> Result<(), EffectivePolicyError> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    let utc = DateTime::<Utc>::from_timestamp_millis(value.as_unix_millis())
+        .ok_or(EffectivePolicyError::BaseTimestampOutOfRange(field))?;
+    let zone = term
+        .time_zone()
+        .as_str()
+        .parse::<chrono_tz::Tz>()
+        .expect("CourseTerm contains an exact known IANA zone");
+    let date = utc.with_timezone(&zone).format("%Y-%m-%d").to_string();
+    if date.as_str() < term.start_date().as_str() || date.as_str() > term.end_date().as_str() {
+        return Err(EffectivePolicyError::BaseTimestampOutsideCourseTerm(field));
+    }
+    Ok(())
 }
 
 /// Resolves the complete policy after lifecycle, S5 entitlement, and action
@@ -278,49 +400,12 @@ pub fn resolve_effective_policy(
         });
     }
 
-    validate_modifier_authority(
-        &grant,
+    validate_group_modifier_authority(
+        grant.applicable_policy_scopes(),
         &input.group_schedule_offsets,
         &input.group_accommodations,
-        input.individual_exception,
     )?;
-    let mut policy = base_policy(input.base);
-    apply_schedule_offsets(&mut policy, &input.group_schedule_offsets)?;
-    apply_accommodations(&mut policy, &input.group_accommodations)?;
-    if let Some(individual) = input.individual_exception {
-        apply_individual_patch(&mut policy, individual)?;
-    }
-    validate_schedule(&policy)?;
-    let start = start_verdict(&policy, input.now, input.prior_run_count);
-    Ok(EffectivePolicyDecision::Allowed {
-        policy: Box::new(policy),
-        start,
-    })
-}
-
-fn validate_modifier_authority(
-    grant: &EntitlementGrant,
-    schedule_offsets: &[GroupScheduleOffset],
-    accommodations: &[GroupAccommodation],
-    individual_exception: Option<IndividualPolicyException>,
-) -> Result<(), EffectivePolicyError> {
-    for offset in schedule_offsets {
-        if !grant_scope_allows(grant, offset.group, |capabilities| {
-            capabilities.schedule_scope
-        }) {
-            return Err(EffectivePolicyError::UnapprovedScheduleScope(offset.group));
-        }
-    }
-    for accommodation in accommodations {
-        if !grant_scope_allows(grant, accommodation.group, |capabilities| {
-            capabilities.accommodation_scope
-        }) {
-            return Err(EffectivePolicyError::UnapprovedAccommodationScope(
-                accommodation.group,
-            ));
-        }
-    }
-    if let Some(individual) = individual_exception
+    if let Some(individual) = input.individual_exception
         && individual.student != grant.student()
     {
         return Err(EffectivePolicyError::IndividualExceptionStudentMismatch {
@@ -328,20 +413,115 @@ fn validate_modifier_authority(
             modifier: individual.student,
         });
     }
+    resolve_authorized_policy(
+        input.now,
+        input.prior_run_count,
+        input.base,
+        input.group_schedule_offsets,
+        input.group_accommodations,
+        input.individual_exception.map(IndividualPatch::Learner),
+    )
+}
+
+/// Resolves a synthetic preview policy after lifecycle, S5 synthetic
+/// entitlement, and action authorization. A hypothetical modifier cannot carry
+/// a persisted learner identifier or receipt authority.
+pub fn resolve_synthetic_preview_policy(
+    input: ResolveSyntheticPreviewPolicyInput,
+) -> Result<EffectivePolicyDecision, EffectivePolicyError> {
+    if let AssignmentLifecycleGate::Denied(reason) = input.lifecycle {
+        return Ok(EffectivePolicyDecision::Denied {
+            gate: PolicyGate::Lifecycle,
+            reason: GateDenial::Lifecycle(reason),
+        });
+    }
+    let grant = match input.entitlement {
+        SyntheticPreviewEntitlementDecision::Granted(grant) => grant,
+        SyntheticPreviewEntitlementDecision::Denied(reason) => {
+            return Ok(EffectivePolicyDecision::Denied {
+                gate: PolicyGate::Entitlement,
+                reason: GateDenial::Entitlement(reason),
+            });
+        }
+    };
+    if let AuthorizationGate::Denied(reason) = input.authorization {
+        return Ok(EffectivePolicyDecision::Denied {
+            gate: PolicyGate::Authorization,
+            reason: GateDenial::Authorization(reason),
+        });
+    }
+
+    validate_group_modifier_authority(
+        grant.applicable_policy_scopes(),
+        &input.group_schedule_offsets,
+        &input.group_accommodations,
+    )?;
+    resolve_authorized_policy(
+        input.now,
+        input.prior_run_count,
+        input.base,
+        input.group_schedule_offsets,
+        input.group_accommodations,
+        input
+            .hypothetical_individual_exception
+            .map(IndividualPatch::Hypothetical),
+    )
+}
+
+fn resolve_authorized_policy(
+    now: ActivityTimestamp,
+    prior_run_count: u32,
+    base: BaseAssignmentPolicy,
+    group_schedule_offsets: Vec<GroupScheduleOffset>,
+    group_accommodations: Vec<GroupAccommodation>,
+    individual_patch: Option<IndividualPatch>,
+) -> Result<EffectivePolicyDecision, EffectivePolicyError> {
+    let mut policy = base_policy(base);
+    apply_schedule_offsets(&mut policy, &group_schedule_offsets)?;
+    apply_accommodations(&mut policy, &group_accommodations)?;
+    if let Some(individual) = individual_patch {
+        apply_individual_patch(&mut policy, individual)?;
+    }
+    validate_schedule(&policy)?;
+    let start = start_verdict(&policy, now, prior_run_count);
+    Ok(EffectivePolicyDecision::Allowed {
+        policy: Box::new(policy),
+        start,
+    })
+}
+
+fn validate_group_modifier_authority(
+    scopes: &ApplicablePolicyScopes,
+    schedule_offsets: &[GroupScheduleOffset],
+    accommodations: &[GroupAccommodation],
+) -> Result<(), EffectivePolicyError> {
+    for offset in schedule_offsets {
+        if !scope_allows(scopes, offset.group, |capabilities| {
+            capabilities.schedule_scope
+        }) {
+            return Err(EffectivePolicyError::UnapprovedScheduleScope(offset.group));
+        }
+    }
+    for accommodation in accommodations {
+        if !scope_allows(scopes, accommodation.group, |capabilities| {
+            capabilities.accommodation_scope
+        }) {
+            return Err(EffectivePolicyError::UnapprovedAccommodationScope(
+                accommodation.group,
+            ));
+        }
+    }
     Ok(())
 }
 
-fn grant_scope_allows(
-    grant: &EntitlementGrant,
+fn scope_allows(
+    scopes: &ApplicablePolicyScopes,
     group: CourseGroupId,
     permits: impl Fn(GroupPurposeCapabilities) -> bool,
 ) -> bool {
-    grant
-        .applicable_policy_scopes()
-        .iter()
-        .any(|(scope, purpose)| {
-            *scope == group && permits(GroupPurposeCapabilities::for_purpose(*purpose))
-        })
+    scopes.iter().any(|(scope, purpose)| {
+        *scope == group && permits(GroupPurposeCapabilities::for_purpose(*purpose))
+    })
 }
 
 fn base_policy(base: BaseAssignmentPolicy) -> EffectiveAssignmentPolicy {
@@ -548,47 +728,78 @@ fn more_permissive<T: Ord>(
     }
 }
 
+#[derive(Clone, Copy)]
+enum IndividualPatch {
+    Learner(IndividualPolicyException),
+    Hypothetical(HypotheticalIndividualPolicyException),
+}
+
+impl IndividualPatch {
+    fn mode(self) -> PolicyModificationMode {
+        match self {
+            Self::Learner(value) => value.mode,
+            Self::Hypothetical(value) => value.mode,
+        }
+    }
+
+    fn patch(self) -> PolicyPatchSet {
+        match self {
+            Self::Learner(value) => value.patch,
+            Self::Hypothetical(value) => value.patch,
+        }
+    }
+
+    fn source(self) -> ModifierSource {
+        match self {
+            Self::Learner(value) => ModifierSource::Individual(value.student),
+            Self::Hypothetical(_) => ModifierSource::HypotheticalIndividual,
+        }
+    }
+}
+
 fn apply_individual_patch(
     policy: &mut EffectiveAssignmentPolicy,
-    individual: IndividualPolicyException,
+    individual: IndividualPatch,
 ) -> Result<(), EffectivePolicyError> {
-    let source = ModifierSource::Individual(individual.student);
+    let source = individual.source();
+    let patch = individual.patch();
+    let mode = individual.mode();
     apply_individual_field(
         &mut policy.available_at,
-        individual.patch.available_at,
-        individual.mode,
+        patch.available_at,
+        mode,
         PolicyField::AvailableAt,
         OptionalRule::Earlier,
         source,
     )?;
     apply_individual_field(
         &mut policy.due_at,
-        individual.patch.due_at,
-        individual.mode,
+        patch.due_at,
+        mode,
         PolicyField::DueAt,
         OptionalRule::Later,
         source,
     )?;
     apply_individual_field(
         &mut policy.closes_at,
-        individual.patch.closes_at,
-        individual.mode,
+        patch.closes_at,
+        mode,
         PolicyField::ClosesAt,
         OptionalRule::Later,
         source,
     )?;
     apply_individual_field(
         &mut policy.time_limit_seconds,
-        individual.patch.time_limit_seconds,
-        individual.mode,
+        patch.time_limit_seconds,
+        mode,
         PolicyField::TimeLimitSeconds,
         OptionalRule::Later,
         source,
     )?;
     apply_individual_field(
         &mut policy.attempt_limit,
-        individual.patch.attempt_limit,
-        individual.mode,
+        patch.attempt_limit,
+        mode,
         PolicyField::AttemptLimit,
         OptionalRule::Later,
         source,
@@ -619,6 +830,7 @@ fn apply_individual_field<T: Ord + Copy>(
     field.value = replacement;
     field.source = match error_source {
         ModifierSource::Individual(student) => PolicySource::IndividualException(student),
+        ModifierSource::HypotheticalIndividual => PolicySource::HypotheticalIndividualException,
         ModifierSource::Group(_) => {
             unreachable!("individual patches always carry an individual source")
         }
@@ -638,9 +850,18 @@ fn extends_optional<T: Ord>(old: Option<T>, new: Option<T>, rule: OptionalRule) 
 }
 
 fn validate_schedule(policy: &EffectiveAssignmentPolicy) -> Result<(), EffectivePolicyError> {
-    let available = policy.available_at.value;
-    let due = policy.due_at.value;
-    let closes = policy.closes_at.value;
+    validate_schedule_values(
+        policy.available_at.value,
+        policy.due_at.value,
+        policy.closes_at.value,
+    )
+}
+
+fn validate_schedule_values(
+    available: Option<ActivityTimestamp>,
+    due: Option<ActivityTimestamp>,
+    closes: Option<ActivityTimestamp>,
+) -> Result<(), EffectivePolicyError> {
     if available.zip(due).is_some_and(|(a, d)| a > d)
         || available.zip(closes).is_some_and(|(a, c)| a > c)
         || due.zip(closes).is_some_and(|(d, c)| d > c)

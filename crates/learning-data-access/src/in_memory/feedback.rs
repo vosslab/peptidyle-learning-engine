@@ -266,6 +266,11 @@ impl crate::FeedbackStore for MemoryStore {
                     .map(|(key, _)| key.encode(tenant.as_uuid(), run.id.as_uuid()))
             })
             .flatten();
+        let scoring_status = state
+            .assignment_scoring
+            .get(&(tenant, assignment.id))
+            .ok_or(StoreError::NotFound)?
+            .1;
         Ok(RunSummaryPageInput {
             run,
             practice_allowed: continued_practice_allows_run(
@@ -274,6 +279,7 @@ impl crate::FeedbackStore for MemoryStore {
             ),
             assignment,
             summary,
+            scoring_status,
             outcomes: Page {
                 items: rows.into_iter().map(|(_, item)| item).collect(),
                 next_cursor,

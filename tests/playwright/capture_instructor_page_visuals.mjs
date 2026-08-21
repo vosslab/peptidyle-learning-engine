@@ -54,13 +54,13 @@ async function main() {
     owner: "instructorMock",
     pipeline: "mock",
     mode: captureMode(),
-    label: "simulated instructor page visuals",
+    label: "instructor demo-environment page visuals",
     runCapture: async (directory) => await runCapture(root, directory),
   });
 }
 
 main().catch((error) => {
   const message = error instanceof Error ? error.message : "unknown capture failure";
-  process.stderr.write(`FAIL: simulated instructor page visuals: ${message}\n`);
+  process.stderr.write(`FAIL: instructor demo-environment page visuals: ${message}\n`);
   process.exitCode = 1;
 });

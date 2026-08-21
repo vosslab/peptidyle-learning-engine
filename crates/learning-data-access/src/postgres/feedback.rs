@@ -292,6 +292,12 @@ impl crate::FeedbackStore for PostgresStore {
                     .map(|(cursor, _)| cursor.encode(tenant.as_uuid(), run.id.as_uuid()))
             })
             .flatten();
+        let scoring_status = super::course_assignments::load_assignment_scoring_status(
+            &mut transaction,
+            tenant,
+            enrollment.assignment,
+        )
+        .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(RunSummaryPageInput {
             practice_allowed: continued_practice_allows_run(
@@ -300,6 +306,7 @@ impl crate::FeedbackStore for PostgresStore {
             ),
             run,
             assignment,
+            scoring_status,
             summary,
             outcomes: Page {
                 items: outcomes.into_iter().map(|(_, item)| item).collect(),

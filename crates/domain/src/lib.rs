@@ -9,6 +9,8 @@
 pub mod attempt;
 /// Completion derivation within a run (MOD-STATE).
 pub mod completion;
+/// Pure course-grade aggregation from selected assignment scores.
+pub mod course_grade;
 /// Pure evaluation of assignment-owned learner disclosure policy (WP-PROF-S4).
 pub mod disclosure_policy;
 /// Key-free deterministic workspace-draft prompt preview (MOD-WASM).
@@ -24,13 +26,28 @@ pub mod generator;
 pub mod item_analysis;
 /// Assignment configuration validation (MOD-CAP).
 pub mod policy;
+/// Pure non-mutating S5 -> S3 -> S4 preview composition (WP-PROF-T3).
+pub mod preview_plane;
 /// Continued-practice eligibility and shared run-model errors (MOD-RUN).
 pub mod run;
 /// Completed-run score selection and summary projection (MOD-SCORE).
 pub mod scoring;
 /// Retention-safe anonymous question-statistics aggregation (MOD-STATS).
 pub mod statistics;
+/// Pure group-membership and co-instructor authority validation (WP-PROF-T2).
+pub mod teaching_authority;
 /// Timer verdict for time-limited attempts (MOD-TIME).
 pub mod timing;
 /// Browser-safe student-response format validation (MOD-GRD boundary).
 pub mod validation;
+
+pub use crate::course_grade::{
+    CourseGradeAssignment, CourseGradeError, CourseGradeOutcome, CourseGradeUnavailableReason,
+    calculate_course_grade,
+};
+pub use crate::teaching_authority::{
+    CoInstructorInvitationAcceptance, CoInstructorInvitationError, DirectInstructorMembership,
+    InstructorAuthority, InstructorMembershipRemovalError, accept_co_instructor_invitation,
+    evaluate_course_instructor_authority, evaluate_multiple_membership, invitation_state,
+    refuse_final_instructor_removal, validate_instructor_approval,
+};

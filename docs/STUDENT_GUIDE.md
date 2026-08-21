@@ -44,14 +44,20 @@ The complete accessibility contract is in
 
 ## Complete the first run
 
-1. Open the assignment and activate **Start or resume practice**.
-2. Read the visible timer, then select a response and activate **Submit answer**.
-3. Read the visible feedback.
-4. Activate **Continue**.
-5. Correct the retry and continue to the completed summary.
+1. Open the assignment and read **Instructions** and **Delivery details**. Schedule times are already
+   resolved by the server and shown in the course time zone; the browser does not infer policy or a
+   deadline from its own clock.
+2. Activate **Start or resume practice**.
+3. Read the visible timer, then select a response and activate **Submit answer**.
+4. Read the visible feedback.
+5. Activate **Continue**.
+6. Correct the retry and continue to the completed summary.
 
 The student receives visible feedback, but answer keys and grading implementation remain on the
 server. The browser displays the countdown; the server decides whether a response arrived on time.
+When scoring is recalculating or has failed, the page reports that neutral state and omits numeric
+scores; it never presents a missing score as zero. Draft, closed, or otherwise unavailable work does
+not expose instructor policy or provenance through the learner route.
 
 ## Practice again
 

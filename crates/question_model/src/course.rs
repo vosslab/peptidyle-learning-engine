@@ -3,10 +3,12 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentDeliveryState, AssignmentId, AssignmentItemId, AssignmentReference,
-    AssignmentScoringMode, AssignmentSelectionGroupId, BackendCapabilities, CourseId,
-    CourseReference, EnrollmentId, LearnerDisclosurePolicy, PointValue, QuestionBackend,
-    QuestionId, RunPolicies, SelectionOrdering, StudentAssignmentSummary, StudentId, TenantId,
+    ActivityTimestamp, AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentId,
+    AssignmentInstructions, AssignmentItemId, AssignmentReference, AssignmentScoringMode,
+    AssignmentSelectionGroupId, BackendCapabilities, CourseId, CourseReference, EnrollmentId,
+    IanaTimeZone, LateSubmissionPolicy, LearnerDisclosurePolicy, PointValue, QuestionBackend,
+    QuestionId, RunPolicies, ScoringStatus, SelectionOrdering, StudentAssignmentSummary, StudentId,
+    TenantId,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -134,7 +136,7 @@ pub struct AssignmentSummary {
 /// disclosure policy, and other server authority inputs. Learner routes use
 /// it instead of [`AssignmentSummary`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LearnerAssignmentSummary {
     /// Durable assignment identity scoped by the authenticated route.
     pub id: AssignmentId,
@@ -142,6 +144,65 @@ pub struct LearnerAssignmentSummary {
     pub reference: AssignmentReference,
     /// Human-facing assignment title.
     pub title: String,
+}
+
+/// Whether the learner's currently accepted work is late under resolved policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LearnerLateStatus {
+    /// The work is on time, or no due instant applies.
+    OnTime,
+    /// Work after due remains accepted without a late mark.
+    AcceptedLate,
+    /// Work after due remains accepted and is marked late.
+    MarkedLate,
+}
+
+/// Server-resolved learner delivery limits for one authorized detail response.
+///
+/// These values are projections of the effective policy after group and
+/// individual adjustments. They are not editable base-policy authority.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LearnerAssignmentDelivery {
+    /// Resolved first instant at which the assignment may be opened.
+    pub available_at: Option<ActivityTimestamp>,
+    /// Resolved ordinary due instant.
+    pub due_at: Option<ActivityTimestamp>,
+    /// Resolved hard instant after which new work closes.
+    pub closes_at: Option<ActivityTimestamp>,
+    /// Resolved whole-run time limit when one applies.
+    pub time_limit_seconds: Option<std::num::NonZeroU32>,
+    /// Resolved maximum number of runs when one applies.
+    pub attempt_limit: Option<std::num::NonZeroU32>,
+    /// Resolved treatment of work after the ordinary due instant.
+    pub late_submission: LateSubmissionPolicy,
+    /// Server behavior at the resolved effective deadline.
+    pub deadline_behavior: AssignmentDeadlineBehavior,
+    /// Server-owned late condition for the learner's present work.
+    pub late_status: LearnerLateStatus,
+}
+
+/// Learner-safe assignment material for the dedicated detail route.
+///
+/// Paginated learner list rows deliberately omit this potentially large
+/// material. The server admits this detail only after the same effective
+/// policy gate used to issue a run.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LearnerAssignmentDetail {
+    /// Durable assignment identity scoped by the authenticated route.
+    pub id: AssignmentId,
+    /// Stable typed locator used in application navigation.
+    pub reference: AssignmentReference,
+    /// Human-facing assignment title.
+    pub title: String,
+    /// Validated learner-facing plain-text instructions.
+    pub instructions: AssignmentInstructions,
+    /// Authoritative IANA zone for displaying the server-resolved instants.
+    pub time_zone: IanaTimeZone,
+    /// Server-resolved delivery limits for this learner.
+    pub delivery: LearnerAssignmentDelivery,
     /// Ordered stable fixed items in the current assignment definition.
     pub items: Vec<AssignmentItemSummary>,
     /// Current random-selection groups with pinned immutable candidates.
@@ -154,6 +215,26 @@ impl From<AssignmentSummary> for LearnerAssignmentSummary {
             id: assignment.id,
             reference: assignment.reference,
             title: assignment.title,
+        }
+    }
+}
+
+impl LearnerAssignmentDetail {
+    /// Combines the editable assignment definition with its separately owned
+    /// teaching instructions for an authorized learner detail response.
+    pub fn from_summary(
+        assignment: AssignmentSummary,
+        instructions: AssignmentInstructions,
+        time_zone: IanaTimeZone,
+        delivery: LearnerAssignmentDelivery,
+    ) -> Self {
+        Self {
+            id: assignment.id,
+            reference: assignment.reference,
+            title: assignment.title,
+            instructions,
+            time_zone,
+            delivery,
             items: assignment.items,
             selection_groups: assignment.selection_groups,
         }
@@ -184,6 +265,8 @@ pub struct GradebookSummaryRow {
     pub assignment_title: String,
     /// Transactionally maintained compact activity and score projection.
     pub summary: StudentAssignmentSummary,
+    /// Current visibility and freshness of assignment scores.
+    pub scoring_status: ScoringStatus,
 }
 
 #[cfg(test)]
@@ -227,6 +310,82 @@ mod tests {
         let item = &value["items"][0];
         assert_eq!(item["questionId"], "7K3-M9QX");
         assert!(item.get("reference").is_none());
+        assert!(value.get("lifecycle").is_none());
+        assert!(value.get("instructions").is_none());
+
+        let learner = LearnerAssignmentSummary::from(AssignmentSummary {
+            id: AssignmentId::from_uuid(Uuid::from_u128(1)),
+            reference: crate::AssignmentReference::new(1).expect("valid reference"),
+            tenant: TenantId::from_uuid(Uuid::from_u128(2)),
+            course_id: CourseId::from_uuid(Uuid::from_u128(3)),
+            title: "Peptide bonds".to_string(),
+            items: Vec::new(),
+            selection_groups: Vec::new(),
+            disclosure_policy: LearnerDisclosurePolicy::default(),
+            policies: RunPolicies {
+                completion: CompletionRequirement::AllCorrect,
+                grade: GradePolicy::Highest,
+                continued_practice: ContinuedPractice::Unlimited,
+                variation: VariationPolicy::NewSeeds,
+            },
+        });
+        let learner_value = serde_json::to_value(learner).expect("learner serializes");
+        assert!(learner_value.get("instructions").is_none());
+        assert_eq!(learner_value["title"], "Peptide bonds");
+    }
+
+    #[test]
+    fn learner_detail_owns_large_material_and_server_resolved_delivery() {
+        let assignment = AssignmentSummary {
+            id: AssignmentId::from_uuid(Uuid::from_u128(1)),
+            reference: crate::AssignmentReference::new(1).expect("valid reference"),
+            tenant: TenantId::from_uuid(Uuid::from_u128(2)),
+            course_id: CourseId::from_uuid(Uuid::from_u128(3)),
+            title: "Peptide bonds".to_string(),
+            items: Vec::new(),
+            selection_groups: Vec::new(),
+            disclosure_policy: LearnerDisclosurePolicy::default(),
+            policies: RunPolicies {
+                completion: CompletionRequirement::AllCorrect,
+                grade: GradePolicy::Highest,
+                continued_practice: ContinuedPractice::Unlimited,
+                variation: VariationPolicy::NewSeeds,
+            },
+        };
+        let detail = LearnerAssignmentDetail::from_summary(
+            assignment,
+            AssignmentInstructions::try_new("Read the legend.".to_string())
+                .expect("valid instructions"),
+            IanaTimeZone::parse("America/Chicago").expect("known zone"),
+            LearnerAssignmentDelivery {
+                available_at: Some(ActivityTimestamp::from_unix_millis(1_000)),
+                due_at: Some(ActivityTimestamp::from_unix_millis(2_000)),
+                closes_at: Some(ActivityTimestamp::from_unix_millis(3_000)),
+                time_limit_seconds: None,
+                attempt_limit: None,
+                late_submission: LateSubmissionPolicy::MarkLate,
+                deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
+                late_status: LearnerLateStatus::MarkedLate,
+            },
+        );
+        let value = serde_json::to_value(&detail).expect("detail serializes");
+        assert_eq!(value["instructions"], "Read the legend.");
+        assert_eq!(value["timeZone"], "America/Chicago");
+        assert_eq!(value["delivery"]["lateStatus"], "markedLate");
+        assert!(
+            serde_json::from_value::<LearnerAssignmentDetail>(serde_json::json!({
+                "id": detail.id,
+                "reference": detail.reference,
+                "title": detail.title,
+                "instructions": "Read the legend.",
+                "timeZone": "America/Chicago",
+                "delivery": value["delivery"],
+                "items": [],
+                "selectionGroups": [],
+                "unexpected": true
+            }))
+            .is_err()
+        );
     }
 
     #[test]
@@ -243,6 +402,7 @@ mod tests {
                 TenantId::from_uuid(Uuid::from_u128(1)),
                 EnrollmentId::from_uuid(Uuid::from_u128(3)),
             ),
+            scoring_status: crate::ScoringStatus::Current,
         };
 
         let value = serde_json::to_value(row).expect("gradebook row should serialize");
@@ -253,6 +413,7 @@ mod tests {
             Some("Ada Learner")
         );
         assert!(value.get("summary").is_some());
+        assert_eq!(value["scoringStatus"], "current");
         assert!(value.get("bestScore").is_none());
     }
 }

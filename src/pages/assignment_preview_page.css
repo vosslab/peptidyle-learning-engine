@@ -1,0 +1,155 @@
+.assignment-preview-page {
+  max-width: 76rem;
+}
+.preview-only-cue {
+  position: sticky;
+  top: 0.4rem;
+  z-index: 1;
+  margin: 0 0 0.9rem;
+  padding: 0.65rem 0.85rem;
+  border-left: 0.3rem solid var(--ple-accent-strong);
+  background: var(--ple-card-surface);
+  color: var(--ple-ink);
+  font-weight: 750;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 10%);
+}
+.preview-status {
+  min-height: 1.5rem;
+  color: var(--ple-muted);
+}
+.preview-result-grid,
+.preview-before-after {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.preview-workspace {
+  display: grid;
+  gap: 0.5rem;
+}
+.preview-panel,
+.preview-result,
+.preview-accommodation {
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--ple-muted) 28%, transparent);
+  border-radius: 0.8rem;
+  background: var(--ple-card-surface);
+}
+.preview-result {
+  scroll-margin-top: 4.75rem;
+}
+.preview-panel h2,
+.preview-result h2,
+.preview-result h3,
+.preview-accommodation h3,
+.preview-accommodation h4 {
+  margin-top: 0;
+}
+.preview-field,
+.preview-panel fieldset label {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.8rem 0;
+}
+.preview-subject-form {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1.15fr) minmax(13rem, 0.9fr) minmax(16rem, 1.1fr) auto;
+  gap: 0.75rem 1rem;
+  align-items: end;
+}
+.preview-subject-form fieldset,
+.preview-subject-form .preview-field {
+  margin: 0;
+  min-width: 0;
+}
+.preview-subject-source,
+.preview-subject-target fieldset {
+  padding: 0.45rem 0.65rem;
+}
+.preview-panel .preview-subject-source label,
+.preview-panel .preview-subject-target fieldset label {
+  display: flex;
+  gap: 0.45rem;
+  align-items: flex-start;
+  margin: 0.35rem 0;
+}
+.preview-subject-source input,
+.preview-subject-target fieldset input {
+  flex: 0 0 auto;
+  margin-top: 0.18rem;
+}
+.preview-subject-target .preview-field {
+  margin: 0;
+}
+.preview-submit {
+  min-height: 2.75rem;
+  white-space: nowrap;
+}
+.preview-field span {
+  color: var(--ple-muted);
+  font-size: 0.88rem;
+}
+.preview-roster-table,
+.preview-schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.91rem;
+}
+.preview-roster-table th,
+.preview-roster-table td,
+.preview-schedule-table th,
+.preview-schedule-table td {
+  padding: 0.48rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--ple-muted) 20%, transparent);
+  text-align: left;
+  vertical-align: top;
+}
+.preview-source {
+  color: var(--ple-muted);
+  text-transform: capitalize;
+}
+.preview-disclosure-list {
+  display: grid;
+  gap: 0.55rem;
+  padding-left: 1.25rem;
+}
+.preview-disclosure-list strong {
+  display: inline-block;
+  min-width: 3.6rem;
+}
+@media (min-width: 761px) {
+  .preview-only-cue {
+    margin-bottom: 0.45rem;
+  }
+  .assignment-preview-page > .eyebrow {
+    margin: 0.35rem 0 0.15rem;
+  }
+  .assignment-preview-page > h1 {
+    margin: 0 0 0.3rem;
+  }
+  .preview-status {
+    min-height: 0;
+    margin: 0.35rem 0;
+  }
+  .preview-panel,
+  .preview-result {
+    padding: 0.75rem 0.9rem;
+  }
+}
+@media (max-width: 760px) {
+  .preview-result-grid,
+  .preview-before-after {
+    grid-template-columns: 1fr;
+  }
+  .preview-subject-form {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .preview-submit {
+    white-space: normal;
+  }
+  .preview-roster-table {
+    display: block;
+    overflow-x: auto;
+  }
+}

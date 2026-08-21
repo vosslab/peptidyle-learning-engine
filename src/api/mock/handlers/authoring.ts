@@ -1,19 +1,22 @@
 import { publishedProblemFixture } from "../../../../generated/fixtures/published_problem";
 import { fixtureLearnerAssignment, fixtureLearnerProgress } from "../fixture_contract";
 import type { AssignmentSummary } from "../../../../generated/api/AssignmentSummary";
-import type { AssignmentEditorInput } from "../../contracts";
+import type { InstructorAssignmentTeachingSettingsLocal } from "../../../../generated/api/InstructorAssignmentTeachingSettingsLocal";
+import type { InstructorAssignmentCurrentState } from "../../../../generated/api/InstructorAssignmentCurrentState";
 import type { LearnerDisclosurePolicy } from "../../../../generated/api/LearnerDisclosurePolicy";
 import {
   decodeAddAssignmentItemInput,
   decodeAssignmentCreateInput,
   decodeAssignmentEditorInput,
   decodeReplaceAssignmentItemQuestionInput,
+  decodeInstructorAssignmentTeachingSettingsLocal,
 } from "../../decoders";
 import { jsonResponse, methodNotAllowed, pathSegments } from "./shared";
 
 export interface MockAssignmentState {
   assignment: AssignmentSummary;
-  assignmentTiming: AssignmentEditorInput["assignmentTiming"];
+  teachingSettings: InstructorAssignmentTeachingSettingsLocal;
+  currentState: InstructorAssignmentCurrentState;
   revision: bigint;
   nextId: bigint;
   nextItemId: bigint;
@@ -31,7 +34,19 @@ export function createMockAssignmentState(): MockAssignmentState {
       ...structuredClone(publishedProblemFixture.assignment),
       disclosurePolicy: defaultDisclosurePolicy,
     },
-    assignmentTiming: { timeLimitSeconds: null },
+    teachingSettings: {
+      timeZone: "America/Chicago",
+      lifecycle: "published",
+      instructions: "",
+      availableAt: null,
+      dueAt: null,
+      closesAt: null,
+      timeLimitSeconds: null,
+      attemptLimit: null,
+      lateSubmission: "accept",
+      deadlineBehavior: "autoSubmit",
+    },
+    currentState: { state: "open" },
     revision: 1n,
     nextId: 60n,
     nextItemId: 160n,
@@ -42,7 +57,11 @@ function headers(revision: bigint): HeadersInit {
 }
 function response(state: MockAssignmentState, status = 200): Response {
   return jsonResponse(
-    { ...state.assignment, assignmentTiming: state.assignmentTiming },
+    {
+      ...state.assignment,
+      teachingSettings: state.teachingSettings,
+      currentState: state.currentState,
+    },
     status,
     headers(state.revision),
   );
@@ -119,7 +138,6 @@ export async function respondAuthoring(
         policies: input.policies,
         disclosurePolicy: input.disclosurePolicy,
       };
-      state.assignmentTiming = input.assignmentTiming;
       state.revision = 1n;
       return response(state, 201);
     } catch {
@@ -148,11 +166,40 @@ export async function respondAuthoring(
         policies: input.policies,
         disclosurePolicy: input.disclosurePolicy,
       };
-      state.assignmentTiming = input.assignmentTiming;
       state.revision += 1n;
       return response(state);
     } catch {
       return error(422, "assignment request is invalid");
+    }
+  }
+  if (
+    s[1] === "courses" &&
+    s[2] === course &&
+    s[3] === "assignments" &&
+    s[4] === state.assignment.id &&
+    s[5] === "teaching-settings" &&
+    s.length === 6
+  ) {
+    if (request.method !== "PUT") return methodNotAllowed(request);
+    const conflict = valid(request.headers.get("if-match"), state);
+    if (conflict !== undefined) return conflict;
+    try {
+      state.teachingSettings = decodeInstructorAssignmentTeachingSettingsLocal(
+        await json(request),
+        "request",
+      );
+      state.currentState =
+        state.teachingSettings.lifecycle === "draft"
+          ? { state: "draft" }
+          : state.teachingSettings.lifecycle === "closed"
+            ? { state: "closed", closedAt: null }
+            : state.teachingSettings.lifecycle === "archived"
+              ? { state: "archived" }
+              : { state: "open" };
+      state.revision += 1n;
+      return response(state);
+    } catch {
+      return error(422, "teaching settings are invalid");
     }
   }
   if (
@@ -238,7 +285,27 @@ export async function respondAuthoring(
     s.length === 4 &&
     request.method === "GET"
   )
-    return jsonResponse(fixtureLearnerAssignment(state.assignment));
+    return jsonResponse(
+      {
+        ...fixtureLearnerAssignment(state.assignment),
+        instructions: state.teachingSettings.instructions,
+        timeZone: state.teachingSettings.timeZone,
+        delivery: {
+          availableAt: null,
+          dueAt: null,
+          closesAt: null,
+          timeLimitSeconds: state.teachingSettings.timeLimitSeconds,
+          attemptLimit: state.teachingSettings.attemptLimit,
+          lateSubmission: state.teachingSettings.lateSubmission,
+          deadlineBehavior: state.teachingSettings.deadlineBehavior,
+          lateStatus: "onTime",
+        },
+        items: state.assignment.items,
+        selectionGroups: state.assignment.selectionGroups,
+      },
+      200,
+      { "cache-control": "no-store" },
+    );
   if (s[1] === "assignments" && s[2] === state.assignment.id && request.method === "GET")
     return response(state);
   return undefined;

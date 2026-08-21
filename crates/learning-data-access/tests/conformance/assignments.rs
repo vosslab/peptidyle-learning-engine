@@ -232,6 +232,8 @@ where
         tenant,
         course_id: course,
         title: "Ordered source selection".to_string(),
+        lifecycle: question_model::AssignmentLifecycle::Published,
+        instructions: question_model::AssignmentInstructions::default(),
         audience: question_model::AssignmentAudience::CourseWide,
         items: initial_items,
         selection_groups: vec![AssignmentSelectionGroup {
@@ -252,10 +254,10 @@ where
         policies: policies(),
     };
     let created = store
-        .create_untimed_assignment(context, initial.clone())
+        .create_assignment_with_default_policy(context, instructor, initial.clone())
         .await
         .expect("published and deprecated versions are assignable");
-    assert_eq!(created.revision.value(), 1);
+    assert_eq!(created.revision.value(), 2);
     assert_eq!(created.record, initial);
 
     let updated_policies = RunPolicies {
@@ -277,7 +279,7 @@ where
         policies: updated_policies,
     };
     let updated = store
-        .replace_assignment_preserving_timing(
+        .replace_assignment(
             context,
             course,
             assignment,
@@ -286,13 +288,13 @@ where
         )
         .await
         .expect("fresh assignment revision updates");
-    assert_eq!(updated.revision.value(), 2);
+    assert_eq!(updated.revision.value(), 3);
     assert_eq!(updated.record.items, update.items);
     assert_eq!(updated.record.policies, update.policies);
     assert_eq!(updated.record.title, update.title);
     assert_eq!(
         store
-            .replace_assignment_preserving_timing(
+            .replace_assignment(
                 context,
                 course,
                 assignment,
@@ -563,7 +565,7 @@ where
     };
     assert_eq!(
         store
-            .replace_assignment_preserving_timing(
+            .replace_assignment(
                 context,
                 wrong_course,
                 assignment,
@@ -576,7 +578,7 @@ where
     );
     assert_eq!(
         store
-            .replace_assignment_preserving_timing(
+            .replace_assignment(
                 foreign_context,
                 course,
                 assignment,
@@ -613,13 +615,16 @@ where
 
     assert!(matches!(
         store
-            .create_untimed_assignment(
+            .create_assignment_with_default_policy(
                 context,
+                instructor,
                 AssignmentRecord {
                     id: AssignmentId::from_uuid(uuid(70_201)),
                     tenant,
                     course_id: course,
                     title: "archived reference".to_string(),
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
                     audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![archived]),
                     selection_groups: Vec::new(),
@@ -632,13 +637,16 @@ where
     ));
     assert!(matches!(
         store
-            .create_untimed_assignment(
+            .create_assignment_with_default_policy(
                 foreign_context,
+                instructor,
                 AssignmentRecord {
                     id: AssignmentId::from_uuid(uuid(70_202)),
                     tenant: foreign_tenant,
                     course_id: foreign_course,
                     title: "hidden reference".to_string(),
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
                     audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![hidden]),
                     selection_groups: Vec::new(),
@@ -650,13 +658,16 @@ where
         Err(StoreError::InvalidRecord(_))
     ));
     let repeated = store
-        .create_untimed_assignment(
+        .create_assignment_with_default_policy(
             context,
+            instructor,
             AssignmentRecord {
                 id: AssignmentId::from_uuid(uuid(70_203)),
                 tenant,
                 course_id: course,
                 title: "Repeated immutable version positions".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Published,
+                instructions: question_model::AssignmentInstructions::default(),
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![published, published]),
                 selection_groups: Vec::new(),
@@ -676,13 +687,16 @@ where
     };
     assert!(matches!(
         store
-            .create_untimed_assignment(
+            .create_assignment_with_default_policy(
                 context,
+                instructor,
                 AssignmentRecord {
                     id: AssignmentId::from_uuid(uuid(70_204)),
                     tenant,
                     course_id: course,
                     title: "Invalid completion threshold".to_string(),
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
                     audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![published]),
                     selection_groups: Vec::new(),

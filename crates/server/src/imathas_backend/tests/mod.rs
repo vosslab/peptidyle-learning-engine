@@ -225,7 +225,7 @@ async fn fixture() -> Fixture {
         .await
         .expect("student roster membership");
     store
-        .create_untimed_assignment(
+        .create_assignment(
             context,
             AssignmentRecord {
                 id: assignment,
@@ -233,6 +233,8 @@ async fn fixture() -> Fixture {
                 course_id: course,
                 audience: question_model::AssignmentAudience::CourseWide,
                 title: "Recorded assignment".into(),
+                lifecycle: question_model::AssignmentLifecycle::Draft,
+                instructions: question_model::AssignmentInstructions::default(),
                 items: vec![question_model::AssignmentItem {
                     id: question_model::AssignmentItemId::from_uuid(id(10)),
                     reference,
@@ -250,9 +252,23 @@ async fn fixture() -> Fixture {
                     variation: question_model::VariationPolicy::NewSeeds,
                 },
             },
+            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("assignment");
+    crate::course::tests::fixtures::publish_assignment(
+        store.as_ref(),
+        context,
+        instructor,
+        course,
+        assignment,
+        question_model::AssignmentTeachingSettings {
+            lifecycle: question_model::AssignmentLifecycle::Published,
+            instructions: question_model::AssignmentInstructions::default(),
+            base_policy: question_model::BaseAssignmentPolicy::default(),
+        },
+    )
+    .await;
     let run = store
         .start_or_resume_run(context, actor, assignment, RunId::from_uuid(id(11)))
         .await

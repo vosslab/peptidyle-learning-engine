@@ -4,19 +4,22 @@ use std::num::NonZeroU32;
 
 use async_trait::async_trait;
 use domain::effective_assignment_policy::{
-    AssignmentLifecycleDenial, AssignmentLifecycleGate, BaseAssignmentPolicy, GroupAccommodation,
-    GroupScheduleOffset, IndividualPolicyException, PolicyModificationMode, PolicyPatch,
-    PolicyPatchSet, ResolveEffectivePolicyInput, ScheduleOffsetSeconds, resolve_effective_policy,
+    AssignmentLifecycleGate, BaseAssignmentPolicy, GroupAccommodation, GroupScheduleOffset,
+    IndividualPolicyException, PolicyModificationMode, PolicyPatch, PolicyPatchSet,
+    ResolveEffectivePolicyInput, ScheduleOffsetSeconds, assignment_lifecycle_gate,
+    resolve_effective_policy, validate_base_assignment_policy_for_course_term,
 };
 use question_model::{
     ActivityTimestamp, AssignmentDeadlineBehavior, AssignmentId, CourseGroupId, CourseId,
-    LateSubmissionPolicy, StudentId, TenantId,
+    CourseTerm, LateSubmissionPolicy, StudentId, TenantId,
 };
 use sqlx::types::Uuid;
 use sqlx::{Postgres, Row, Transaction};
 
 use super::*;
 use crate::*;
+
+mod preview_resolution;
 
 /// Recomputes the mutable effect of every active attempt while the caller
 /// already holds the assignment policy lock.  S5 is evaluated afresh for each
@@ -38,6 +41,7 @@ pub(super) async fn reresolve_active_attempts(
     .await
     .map_err(map_sqlx_error)?
     .ok_or(StoreError::NotFound)?;
+    let lifecycle_gate = assignment_lifecycle_gate(parse_assignment_lifecycle(&lifecycle)?);
     let attempts = sqlx::query("SELECT qa.attempt_id, qa.payload, qa.payload_sha256, qa.problem_id, qa.version_id, enrollment.student_id, run.run_number, floor(extract(epoch FROM run.started_at)*1000)::bigint AS run_started_at, floor(extract(epoch FROM qa.occurred_at)*1000)::bigint AS attempt_occurred_at FROM question_attempt qa JOIN assignment_run run ON run.tenant_id=qa.tenant_id AND run.run_id=qa.run_id JOIN enrollment enrollment ON enrollment.tenant_id=run.tenant_id AND enrollment.enrollment_id=run.enrollment_id WHERE qa.tenant_id=$1 AND enrollment.assignment_id=$3 AND qa.attempt_status='in_progress' ORDER BY qa.attempt_id FOR UPDATE OF qa")
         .bind(tenant.as_uuid()).bind(course.as_uuid()).bind(assignment.as_uuid()).fetch_all(&mut **tx).await.map_err(map_sqlx_error)?;
     for row in attempts {
@@ -51,7 +55,8 @@ pub(super) async fn reresolve_active_attempts(
                 .await?;
         let allowed = match entitlement {
             Some(domain::entitlement::EntitlementDecision::Granted(grant))
-                if grant.student() == student && lifecycle == "published" =>
+                if grant.student() == student
+                    && matches!(lifecycle_gate, AssignmentLifecycleGate::Open) =>
             {
                 let prior = u32::try_from(
                     row.try_get::<i64, _>("run_number")
@@ -62,7 +67,6 @@ pub(super) async fn reresolve_active_attempts(
                 let (decision, _) = resolve_granted_effective_policy(
                     tx,
                     grant,
-                    domain::effective_assignment_policy::AssignmentLifecycleGate::Open,
                     domain::effective_assignment_policy::AuthorizationGate::Authorized,
                     prior,
                 )
@@ -70,9 +74,14 @@ pub(super) async fn reresolve_active_attempts(
                 match decision {
                     domain::effective_assignment_policy::EffectivePolicyDecision::Allowed {
                         policy,
-                        ..
+                        start: domain::effective_assignment_policy::StartVerdict::MayStart { .. },
                     } => Some(policy),
-                    _ => None,
+                    domain::effective_assignment_policy::EffectivePolicyDecision::Allowed {
+                        ..
+                    }
+                    | domain::effective_assignment_policy::EffectivePolicyDecision::Denied {
+                        ..
+                    } => None,
                 }
             }
             _ => None,
@@ -128,6 +137,28 @@ pub(super) async fn reresolve_active_attempts(
             authored_timer.deadline,
             grace,
         )?;
+        let now = database_timestamp(tx).await?;
+        if timing
+            .effective_deadline
+            .is_some_and(|deadline| deadline < now)
+            || timing
+                .auto_submit_at
+                .is_some_and(|deadline| deadline <= now)
+        {
+            super::assignment_timing::cancel_postgres_effective_policy_job(tx, tenant, attempt)
+                .await?;
+            sqlx::query("UPDATE question_attempt SET attempt_status='auto_submitted', submitted_at=transaction_timestamp() WHERE tenant_id=$1 AND attempt_id=$2 AND attempt_status='in_progress'")
+                .bind(tenant.as_uuid()).bind(attempt.as_uuid()).execute(&mut **tx).await.map_err(map_sqlx_error)?;
+            sqlx::query(
+                "DELETE FROM attempt_effective_policy_current WHERE tenant_id=$1 AND attempt_id=$2",
+            )
+            .bind(tenant.as_uuid())
+            .bind(attempt.as_uuid())
+            .execute(&mut **tx)
+            .await
+            .map_err(map_sqlx_error)?;
+            continue;
+        }
         let next_generation = old_generation.checked_add(1).ok_or(StoreError::Conflict)?;
         super::effective_policy_receipts::append_sealed_effective_policy_receipt(
             tx,
@@ -154,6 +185,57 @@ pub(super) async fn reresolve_active_attempts(
             .bind(tenant.as_uuid()).bind(attempt.as_uuid()).bind(next_generation).bind(next_timing).bind(job.map(JobId::as_uuid)).execute(&mut **tx).await.map_err(map_sqlx_error)?;
     }
     Ok(())
+}
+
+pub(super) fn assignment_lifecycle_name(
+    value: question_model::AssignmentLifecycle,
+) -> &'static str {
+    match value {
+        question_model::AssignmentLifecycle::Draft => "draft",
+        question_model::AssignmentLifecycle::Published => "published",
+        question_model::AssignmentLifecycle::Closed => "closed",
+        question_model::AssignmentLifecycle::Archived => "archived",
+    }
+}
+
+pub(super) fn parse_assignment_lifecycle(
+    value: &str,
+) -> Result<question_model::AssignmentLifecycle, StoreError> {
+    match value {
+        "draft" => Ok(question_model::AssignmentLifecycle::Draft),
+        "published" => Ok(question_model::AssignmentLifecycle::Published),
+        "closed" => Ok(question_model::AssignmentLifecycle::Closed),
+        "archived" => Ok(question_model::AssignmentLifecycle::Archived),
+        _ => Err(StoreError::Unavailable(
+            "stored assignment lifecycle is invalid".to_string(),
+        )),
+    }
+}
+
+fn legal_lifecycle_transition(
+    current: question_model::AssignmentLifecycle,
+    next: question_model::AssignmentLifecycle,
+) -> bool {
+    use question_model::AssignmentLifecycle;
+    matches!(
+        (current, next),
+        (
+            AssignmentLifecycle::Draft,
+            AssignmentLifecycle::Draft
+                | AssignmentLifecycle::Published
+                | AssignmentLifecycle::Archived
+        ) | (
+            AssignmentLifecycle::Published,
+            AssignmentLifecycle::Published
+                | AssignmentLifecycle::Closed
+                | AssignmentLifecycle::Archived
+        ) | (
+            AssignmentLifecycle::Closed,
+            AssignmentLifecycle::Closed
+                | AssignmentLifecycle::Published
+                | AssignmentLifecycle::Archived
+        ) | (AssignmentLifecycle::Archived, AssignmentLifecycle::Archived)
+    )
 }
 
 async fn schedule_effective_policy_job(
@@ -189,30 +271,48 @@ impl crate::EffectivePolicyStore for PostgresStore {
         Ok(result)
     }
 
-    async fn put_base_assignment_policy_impl(
+    async fn put_assignment_teaching_settings_impl(
         &self,
         context: TenantContext,
-        command: PutBaseAssignmentPolicyCommand,
+        command: PutAssignmentTeachingSettingsCommand,
     ) -> Result<StoredBaseAssignmentPolicy, StoreError> {
-        retry_transaction(|| async move {
+        retry_transaction(|| {
+            let command = command.clone();
+            async move {
             let tenant = context.tenant_id();
             let mut tx = self.begin_tenant(context).await?;
             lock_policy(&mut tx, tenant, command.assignment).await?;
             authorize_editor(&mut tx, tenant, command.course, command.assignment, command.actor).await?;
+            let course_term = load_course_term_for_policy(&mut tx, tenant, command.course).await?;
+            validate_base_assignment_policy_for_course_term(command.settings.base_policy, &course_term).map_err(|error| {
+                StoreError::InvalidRecord(format!("invalid assignment teaching settings: {error:?}"))
+            })?;
             let revision = require_revision(&mut tx, tenant, command.assignment, command.course, command.expected_revision).await?;
+            let current_lifecycle: String = sqlx::query_scalar("SELECT lifecycle FROM assignment WHERE tenant_id=$1 AND assignment_id=$2 FOR UPDATE")
+                .bind(tenant.as_uuid()).bind(command.assignment.as_uuid()).fetch_one(&mut *tx).await.map_err(map_sqlx_error)?;
+            let previous = parse_assignment_lifecycle(&current_lifecycle)?;
+            if !legal_lifecycle_transition(previous, command.settings.lifecycle) {
+                return Err(StoreError::InvalidRecord("assignment lifecycle transition is invalid".to_string()));
+            }
+            sqlx::query("UPDATE assignment SET lifecycle=$3, instructions=$4, updated_at=transaction_timestamp() WHERE tenant_id=$1 AND assignment_id=$2")
+                .bind(tenant.as_uuid()).bind(command.assignment.as_uuid())
+                .bind(assignment_lifecycle_name(command.settings.lifecycle))
+                .bind(command.settings.instructions.as_str())
+                .execute(&mut *tx).await.map_err(map_sqlx_error)?;
             sqlx::query("INSERT INTO assignment_effective_policy_base \
                 (tenant_id, assignment_id, course_id, available_at, due_at, closes_at, late_submission_policy, deadline_behavior, time_limit_seconds, attempt_limit) \
                 VALUES ($1,$2,$3,to_timestamp($4::double precision / 1000),to_timestamp($5::double precision / 1000),to_timestamp($6::double precision / 1000),$7,$8,$9,$10) \
                 ON CONFLICT (tenant_id, assignment_id) DO UPDATE SET course_id=EXCLUDED.course_id, available_at=EXCLUDED.available_at, due_at=EXCLUDED.due_at, closes_at=EXCLUDED.closes_at, late_submission_policy=EXCLUDED.late_submission_policy, deadline_behavior=EXCLUDED.deadline_behavior, time_limit_seconds=EXCLUDED.time_limit_seconds, attempt_limit=EXCLUDED.attempt_limit, updated_at=transaction_timestamp()")
                 .bind(tenant.as_uuid()).bind(command.assignment.as_uuid()).bind(command.course.as_uuid())
-                .bind(millis(command.policy.available_at)).bind(millis(command.policy.due_at)).bind(millis(command.policy.closes_at))
-                .bind(late_name(command.policy.late_submission)).bind(deadline_name(command.policy.deadline_behavior))
-                .bind(command.policy.time_limit_seconds.map(|v| i32::try_from(v.get())).transpose().map_err(|_| StoreError::InvalidRecord("time limit exceeds PostgreSQL integer".to_string()))?)
-                .bind(command.policy.attempt_limit.map(|v| i32::try_from(v.get())).transpose().map_err(|_| StoreError::InvalidRecord("attempt limit exceeds PostgreSQL integer".to_string()))?)
+                .bind(millis(command.settings.base_policy.available_at)).bind(millis(command.settings.base_policy.due_at)).bind(millis(command.settings.base_policy.closes_at))
+                .bind(late_name(command.settings.base_policy.late_submission)).bind(deadline_name(command.settings.base_policy.deadline_behavior))
+                .bind(command.settings.base_policy.time_limit_seconds.map(|v| i32::try_from(v.get())).transpose().map_err(|_| StoreError::InvalidRecord("time limit exceeds PostgreSQL integer".to_string()))?)
+                .bind(command.settings.base_policy.attempt_limit.map(|v| i32::try_from(v.get())).transpose().map_err(|_| StoreError::InvalidRecord("attempt limit exceeds PostgreSQL integer".to_string()))?)
                 .execute(&mut *tx).await.map_err(map_sqlx_error)?;
             let next = bump_revision(&mut tx, tenant, command.assignment, command.expected_revision).await?;
             tx.commit().await.map_err(map_sqlx_error)?;
-            Ok(StoredBaseAssignmentPolicy { tenant, course: command.course, assignment: command.assignment, policy: command.policy, revision: next.max(revision) })
+            Ok(StoredBaseAssignmentPolicy { tenant, course: command.course, assignment: command.assignment, policy: command.settings.base_policy, revision: next.max(revision) })
+            }
         }).await
     }
 
@@ -274,11 +374,7 @@ impl crate::EffectivePolicyStore for PostgresStore {
         };
         let course = CourseId::from_uuid(assignment.try_get("course_id").map_err(map_sqlx_error)?);
         let lifecycle: String = assignment.try_get("lifecycle").map_err(map_sqlx_error)?;
-        let gate = match lifecycle.as_str() {
-            "published" => command.lifecycle,
-            "retired" => AssignmentLifecycleGate::Denied(AssignmentLifecycleDenial::Retired),
-            _ => AssignmentLifecycleGate::Denied(AssignmentLifecycleDenial::NotPublished),
-        };
+        let gate = assignment_lifecycle_gate(parse_assignment_lifecycle(&lifecycle)?);
         let denied = !matches!(gate, AssignmentLifecycleGate::Open)
             || matches!(
                 command.entitlement,
@@ -380,6 +476,36 @@ async fn authorize_editor(
     Ok(())
 }
 
+pub(super) async fn load_course_term_for_policy(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    course: CourseId,
+) -> Result<CourseTerm, StoreError> {
+    let row = sqlx::query(
+        "SELECT term_start_date::text AS term_start_date, term_end_date::text AS term_end_date, time_zone \
+         FROM course WHERE tenant_id=$1 AND course_id=$2 FOR KEY SHARE",
+    )
+    .bind(tenant.as_uuid())
+    .bind(course.as_uuid())
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(map_sqlx_error)?
+    .ok_or(StoreError::NotFound)?;
+    let start_date: String = row.try_get("term_start_date").map_err(map_sqlx_error)?;
+    let end_date: String = row.try_get("term_end_date").map_err(map_sqlx_error)?;
+    let time_zone: String = row.try_get("time_zone").map_err(map_sqlx_error)?;
+    CourseTerm::from_parts(&start_date, &end_date, &time_zone)
+        .map_err(|error| StoreError::Unavailable(format!("stored course term is invalid: {error}")))
+}
+
+pub(super) async fn load_course_term_for_preview(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    course: CourseId,
+) -> Result<CourseTerm, StoreError> {
+    preview_resolution::load_course_term_for_preview(tx, tenant, course).await
+}
+
 async fn require_revision(
     tx: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
@@ -477,6 +603,17 @@ async fn load_base(
         .transpose()
 }
 
+pub(super) async fn load_base_policy(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    assignment: AssignmentId,
+) -> Result<BaseAssignmentPolicy, StoreError> {
+    load_base(tx, tenant, assignment, false)
+        .await?
+        .map(|stored| stored.policy)
+        .ok_or(StoreError::NotFound)
+}
+
 fn decode_base(
     row: &sqlx::postgres::PgRow,
     tenant: TenantId,
@@ -545,7 +682,7 @@ fn decode_base(
     })
 }
 
-async fn load_inputs(
+pub(super) async fn load_inputs(
     tx: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
     assignment: AssignmentId,
@@ -591,12 +728,11 @@ async fn load_inputs(
 }
 
 /// Resolves an already-evaluated S5 grant inside the caller's transaction.
-/// The caller owns lifecycle/action authorization and materializes the grant
-/// only after this returns `MayStart`.
+/// PostgreSQL derives lifecycle from the stored assignment row, then evaluates
+/// one already-authorized S5 grant inside the caller's transaction.
 pub(super) async fn resolve_granted_effective_policy(
     tx: &mut Transaction<'_, Postgres>,
     grant: domain::entitlement::EntitlementGrant,
-    _lifecycle: AssignmentLifecycleGate,
     authorization: domain::effective_assignment_policy::AuthorizationGate,
     prior_run_count: u32,
 ) -> Result<
@@ -606,65 +742,36 @@ pub(super) async fn resolve_granted_effective_policy(
     ),
     StoreError,
 > {
-    let tenant = grant.tenant();
-    let assignment = grant.assignment();
-    let row = sqlx::query(
-        "SELECT revision, lifecycle FROM assignment WHERE tenant_id=$1 AND assignment_id=$2 FOR SHARE",
-    )
-    .bind(tenant.as_uuid())
-    .bind(assignment.as_uuid())
-    .fetch_optional(&mut **tx)
-    .await
-    .map_err(map_sqlx_error)?
-    .ok_or(StoreError::NotFound)?;
-    let lifecycle = match row
-        .try_get::<String, _>("lifecycle")
-        .map_err(map_sqlx_error)?
-        .as_str()
-    {
-        "published" => AssignmentLifecycleGate::Open,
-        "retired" => AssignmentLifecycleGate::Denied(AssignmentLifecycleDenial::Retired),
-        _ => AssignmentLifecycleGate::Denied(AssignmentLifecycleDenial::NotPublished),
-    };
-    let now = database_timestamp(tx).await?;
-    // Preserve the domain's G1 -> S5 -> G3 precedence in the persistence
-    // seam as well: a closed lifecycle or denied action must not observe
-    // mutable M1--M4 rows (nor bind the grant to those rows).  The pure
-    // resolver receives inert inputs solely to produce the typed gate denial.
-    let inputs = if matches!(lifecycle, AssignmentLifecycleGate::Open)
-        && matches!(
-            authorization,
-            domain::effective_assignment_policy::AuthorizationGate::Authorized
-        ) {
-        load_inputs(
-            tx,
-            tenant,
-            assignment,
-            Some(grant.student()),
-            Some(grant.applicable_policy_scopes()),
-        )
-        .await?
-    } else {
-        inert_inputs()?
-    };
-    let decision = resolve_effective_policy(ResolveEffectivePolicyInput {
-        lifecycle,
-        entitlement: domain::entitlement::EntitlementDecision::Granted(grant),
+    preview_resolution::resolve_granted_effective_policy_with_lock(
+        tx,
+        grant,
         authorization,
-        now,
         prior_run_count,
-        base: inputs.base,
-        group_schedule_offsets: inputs.schedule_offsets,
-        group_accommodations: inputs.accommodations,
-        individual_exception: inputs.individual,
-    })
-    .map_err(|error| {
-        StoreError::InvalidRecord(format!("invalid effective policy inputs: {error:?}"))
-    })?;
-    Ok((
-        decision,
-        AssignmentRevision::from_stored(row.try_get("revision").map_err(map_sqlx_error)?)?,
-    ))
+        true,
+    )
+    .await
+}
+
+pub(super) async fn resolve_granted_effective_policy_read_only(
+    tx: &mut Transaction<'_, Postgres>,
+    grant: domain::entitlement::EntitlementGrant,
+    authorization: domain::effective_assignment_policy::AuthorizationGate,
+    prior_run_count: u32,
+) -> Result<
+    (
+        domain::effective_assignment_policy::EffectivePolicyDecision,
+        AssignmentRevision,
+    ),
+    StoreError,
+> {
+    preview_resolution::resolve_granted_effective_policy_with_lock(
+        tx,
+        grant,
+        authorization,
+        prior_run_count,
+        false,
+    )
+    .await
 }
 
 fn mode(value: &str) -> Result<PolicyModificationMode, StoreError> {

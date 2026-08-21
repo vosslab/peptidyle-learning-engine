@@ -2,7 +2,7 @@
 
 export type CorpusRole = "instructor" | "student" | "shared";
 export type CorpusPipeline = "mock" | "live";
-export type CorpusCaptureOwner = "instructorMock" | "studentMock" | "live";
+export type CorpusCaptureOwner = "instructorMock" | "studentMock" | "t2Mock" | "live";
 export type CorpusViewport = "laptop" | "tablet" | "iphonePro" | "square";
 export type CorpusLiveReason = "requiresRealGrading" | "requiresRendererOutput";
 export type CorpusEvidencePurpose =
@@ -115,6 +115,21 @@ export const UI_CORPUS_MANIFEST = [
     artifacts: [artifact("instructor", "instructor_page_gradebook.png")],
   },
   {
+    surface: "courseGradeSettings",
+    route: "/instructor/courses/:courseRef/grade-settings",
+    role: "instructor",
+    pipeline: "mock",
+    captureOwner: "instructorMock",
+    evidencePurpose: "responsive",
+    requiredViewports: ["laptop", "tablet", "iphonePro", "square"],
+    artifacts: [
+      artifact("instructor", "course_grade/course_grade_settings_laptop.png", "laptop"),
+      artifact("instructor", "course_grade/course_grade_settings_tablet.png", "tablet"),
+      artifact("instructor", "course_grade/course_grade_settings_iphone_pro.png", "iphonePro"),
+      artifact("instructor", "course_grade/course_grade_settings_square.png", "square"),
+    ],
+  },
+  {
     surface: "courseAppearance",
     route: "/instructor/courses/:courseRef/appearance",
     role: "instructor",
@@ -158,6 +173,60 @@ export const UI_CORPUS_MANIFEST = [
     captureOwner: "instructorMock",
     evidencePurpose: "layout",
     artifacts: [artifact("instructor", "instructor_page_question_editor.png")],
+  },
+  {
+    surface: "teachingOperationsGroups",
+    route: "/instructor/courses/:courseRef/teaching-operations",
+    role: "instructor",
+    pipeline: "mock",
+    captureOwner: "t2Mock",
+    evidencePurpose: "layout",
+    artifacts: [artifact("instructor", "teaching_operations_groups.png")],
+  },
+  {
+    surface: "teachingOperationsTeam",
+    route: "/instructor/courses/:courseRef/teaching-operations",
+    role: "instructor",
+    pipeline: "mock",
+    captureOwner: "t2Mock",
+    evidencePurpose: "layout",
+    artifacts: [artifact("instructor", "teaching_operations_team.png")],
+  },
+  {
+    surface: "teachingOperationsRetention",
+    route: "/instructor/courses/:courseRef/teaching-operations",
+    role: "instructor",
+    pipeline: "mock",
+    captureOwner: "t2Mock",
+    evidencePurpose: "layout",
+    artifacts: [artifact("instructor", "teaching_operations_retention.png")],
+  },
+  {
+    surface: "accountPendingCoInstructorInvitation",
+    route: "/account/co-instructor-invitations",
+    role: "shared",
+    pipeline: "mock",
+    captureOwner: "t2Mock",
+    evidencePurpose: "accessBoundary",
+    artifacts: [artifact("shared", "account_pending_co_instructor_invitation.png")],
+  },
+  {
+    surface: "assignmentAccessAllowedPreview",
+    route: "/instructor/courses/:courseRef/assignments/:assignmentRef/access",
+    role: "instructor",
+    pipeline: "mock",
+    captureOwner: "t2Mock",
+    evidencePurpose: "layout",
+    artifacts: [artifact("instructor", "assignment_access_allowed_preview.png")],
+  },
+  {
+    surface: "assignmentAccessDeniedPreview",
+    route: "/instructor/courses/:courseRef/assignments/:assignmentRef/access",
+    role: "instructor",
+    pipeline: "mock",
+    captureOwner: "t2Mock",
+    evidencePurpose: "layout",
+    artifacts: [artifact("instructor", "assignment_access_denied_preview.png")],
   },
   {
     surface: "studentAllowedAssignmentOverview",

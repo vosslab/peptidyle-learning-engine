@@ -368,7 +368,7 @@ async fn flat_run_fixture() -> (Router, String, AssignmentId) {
         .await
         .expect("retry fixture student membership");
     store
-        .create_untimed_assignment(
+        .create_assignment(
             context,
             AssignmentRecord {
                 id: assignment,
@@ -376,6 +376,8 @@ async fn flat_run_fixture() -> (Router, String, AssignmentId) {
                 course_id: course,
                 audience: question_model::AssignmentAudience::CourseWide,
                 title: "Retry semantics".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Draft,
+                instructions: question_model::AssignmentInstructions::default(),
                 items: vec![AssignmentItem {
                     id: AssignmentItemId::from_uuid(uuid(123)),
                     reference,
@@ -393,9 +395,23 @@ async fn flat_run_fixture() -> (Router, String, AssignmentId) {
                     variation: VariationPolicy::NewSeeds,
                 },
             },
+            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("retry fixture assignment saves");
+    crate::course::tests::fixtures::publish_assignment(
+        store.as_ref(),
+        context,
+        instructor,
+        course,
+        assignment,
+        question_model::AssignmentTeachingSettings {
+            lifecycle: question_model::AssignmentLifecycle::Published,
+            instructions: question_model::AssignmentInstructions::default(),
+            base_policy: question_model::BaseAssignmentPolicy::default(),
+        },
+    )
+    .await;
     let subject = SessionSubject::new(tenant, student, "Retry student", vec![UserRole::Student])
         .expect("retry fixture session subject");
     let issued = crate::auth::issue_session(

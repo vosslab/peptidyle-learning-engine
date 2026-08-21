@@ -119,7 +119,14 @@ async function validateScreenshotPath(filePath: string): Promise<void> {
 function selectedCaptureOwner(): CorpusCaptureOwner | undefined {
   const value = process.env[CAPTURE_OWNER_ENVIRONMENT];
   if (value === undefined) return undefined;
-  if (value === "instructorMock" || value === "studentMock" || value === "live") return value;
+  if (
+    value === "instructorMock" ||
+    value === "studentMock" ||
+    value === "t2Mock" ||
+    value === "live"
+  ) {
+    return value;
+  }
   throw new Error(`${CAPTURE_OWNER_ENVIRONMENT} names an unknown capture owner`);
 }
 

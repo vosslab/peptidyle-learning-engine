@@ -15,6 +15,7 @@ import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
 import type { RunId } from "../../../generated/api/RunId";
+import type { TeachingOperationRevision } from "../../../generated/api/TeachingOperationRevision";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuestionDefinition";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
@@ -41,9 +42,10 @@ import {
   decodeAddAssignmentItemInput,
   decodeAssignmentEditorDetail,
   decodeAssignmentEditorInput,
+  decodeInstructorAssignmentTeachingSettingsLocal,
   decodeReplaceAssignmentItemQuestionInput,
   decodeAssignmentCreateInput,
-  decodeLearnerAssignmentSummary,
+  decodeLearnerAssignmentDetail,
   decodeFeedbackReleaseResponse,
   decodeIssuedPresentationEnvelope,
   decodePrefetchedNextQuestion,
@@ -61,6 +63,7 @@ import type {
   EnrollmentView,
   ExternalToolLaunch,
   FeedbackReleaseResponse,
+  LearnerQuestionAttempt,
   RunScreenData,
   RunSummaryResponse,
   SubmissionReceipt,
@@ -78,13 +81,15 @@ import {
   mockCourseAppearance,
   secondaryMockCourse,
   mockAttemptById,
+  mockLearnerAttempt,
   mockExternalToolSubmissionReceipt,
   prefetchFixtureAttempt,
   type MockFetch,
 } from "./handlers";
 import { timerVerdictInMock } from "./timer";
 import { createMockEnrollmentClient } from "./enrollment";
-
+import { createMockCourseGradeClient } from "./course_grade";
+import { createMockTeachingOperationsClient } from "./teaching_operations";
 async function expectSerialized<T>(responsePromise: Promise<Response>, expected: T): Promise<T> {
   const response = await responsePromise;
   const body = await response.text();
@@ -97,7 +102,6 @@ async function expectSerialized<T>(responsePromise: Promise<Response>, expected:
   }
   return expected;
 }
-
 async function decodeMockCatalogResponse<T>(
   responsePromise: Promise<Response>,
   path: string,
@@ -121,7 +125,6 @@ async function decodeMockCatalogResponse<T>(
   }
   return decoder(value, "response");
 }
-
 async function decodeMockPrefetch(
   responsePromise: Promise<Response>,
   attemptId: QuestionAttemptId,
@@ -164,6 +167,20 @@ export interface MockApiClientConfig {
   readonly assignmentAuthoring?: boolean;
   /** Course appearance mutation is denied unless an instructor fixture explicitly enables it. */
   readonly courseAppearanceAuthoring?: boolean;
+  /** Fixed fictional instructor fixture for built teaching-operations demonstrations only. */
+  readonly teachingOperationsAuthoring?: boolean;
+  /** Fixed role-neutral account with one target-bound pending teaching invitation. */
+  readonly teachingAccountPendingInvitation?: boolean;
+  /** Focused browser fixture: cause the next teaching modifier write to return 412. */
+  readonly teachingModifierConflictOnce?: boolean;
+  /** Focused browser fixture: cause the next retention write to return 412. */
+  readonly teachingRetentionConflictOnce?: boolean;
+  /** Focused browser fixture: cause a referenced-group deletion refusal. */
+  readonly teachingGroupDeleteConflictOnce?: boolean;
+  /** Focused browser fixture: cause an archive permission refusal. */
+  readonly teachingRetentionArchiveForbiddenOnce?: boolean;
+  /** Focused browser fixture: cause a delete unavailability refusal. */
+  readonly teachingRetentionDeleteUnavailableOnce?: boolean;
 }
 
 function requireMockNoStore(response: Response, path: string): void {
@@ -264,6 +281,22 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
   const mockFetch = config.fetch ?? createMockFetch();
   let workspaceDraft: DraftQuestionDefinition | undefined = publishedProblemFixture.draft;
   let workspaceRevision = 1;
+  const teachingOperationsInstructor = config.teachingOperationsAuthoring === true;
+  let teachingAssignmentRevision: TeachingOperationRevision = '"1"';
+  const teachingOperationsClient = createMockTeachingOperationsClient({
+    modifierConflictOnce: config.teachingModifierConflictOnce,
+    retentionConflictOnce: config.teachingRetentionConflictOnce,
+    groupDeleteConflictOnce: config.teachingGroupDeleteConflictOnce,
+    retentionArchiveForbiddenOnce: config.teachingRetentionArchiveForbiddenOnce,
+    retentionDeleteUnavailableOnce: config.teachingRetentionDeleteUnavailableOnce,
+    accountPendingInvitation: config.teachingAccountPendingInvitation,
+    onRevisionChange: (revision) => {
+      teachingAssignmentRevision = `"${revision}"`;
+    },
+  });
+  const fixtureCourse: CourseSummary = teachingOperationsInstructor
+    ? { ...publishedProblemFixture.course, role: "instructor" }
+    : publishedProblemFixture.course;
 
   function workspaceAuthoringError(): Error | undefined {
     return config.workspaceAuthoring === true
@@ -281,6 +314,10 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
     return config.courseAppearanceAuthoring === true
       ? undefined
       : new Error("Mock course appearance authoring is not authorized");
+  }
+
+  function previewPlaneUnavailable(): Promise<never> {
+    return Promise.reject(new ApiRequestError(404, "/api/preview-plane"));
   }
 
   function workspaceDetail(): WorkspaceDraftDetail {
@@ -320,7 +357,14 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
   }
 
   const client: ApiClient = {
+    ...createMockCourseGradeClient(),
+    ...teachingOperationsClient,
     ...createMockEnrollmentClient(),
+    // T3 acceptance uses the real PostgreSQL/server route. The generic fixture
+    // presents a closed unavailable boundary instead of simulating learner data.
+    listPreviewSchedule: () => previewPlaneUnavailable(),
+    constructSyntheticPreview: () => previewPlaneUnavailable(),
+    constructDerivedPreview: () => previewPlaneUnavailable(),
     resolveNavigation: (reference) => {
       if (reference === publishedProblemFixture.course.reference) {
         return Promise.resolve({ kind: "course", courseId: publishedProblemFixture.course.id });
@@ -358,11 +402,17 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
         tenant: publishedProblemFixture.enrollment.tenant,
         user: {
           id: publishedProblemFixture.enrollment.user,
-          displayName: "Fixture Student",
-          roles: ["student"],
+          displayName: teachingOperationsInstructor
+            ? "Fixture Instructor"
+            : config.teachingAccountPendingInvitation === true
+              ? "Invited Colleague"
+              : "Fixture Student",
+          roles: teachingOperationsInstructor ? ["instructor"] : ["student"],
         },
       };
-      return expectSerialized(mockFetch("/api/auth/session"), expected);
+      return teachingOperationsInstructor || config.teachingAccountPendingInvitation === true
+        ? Promise.resolve(expected)
+        : expectSerialized(mockFetch("/api/auth/session"), expected);
     },
     logout: async () => {
       await expectSerialized(mockFetch("/api/auth/logout", { method: "POST" }), {
@@ -512,6 +562,10 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
       return expectSerialized(mockFetch(`/api/taxonomy${suffix}`), expected);
     },
     listCourses: (cursor?: string) => {
+      if (teachingOperationsInstructor) {
+        if (cursor !== undefined) return Promise.resolve({ items: [], nextCursor: null });
+        return Promise.resolve({ items: [fixtureCourse], nextCursor: null });
+      }
       const expected = {
         items: [publishedProblemFixture.course],
         nextCursor: null,
@@ -532,13 +586,15 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
     getCourse: (courseId: CourseId) => {
       const expected =
         courseId === publishedProblemFixture.course.id
-          ? publishedProblemFixture.course
+          ? fixtureCourse
           : courseId === secondaryMockCourse.id
             ? secondaryMockCourse
             : undefined;
       if (expected === undefined)
         return Promise.reject(new Error(`Fixture has no course ${courseId}`));
-      return expectSerialized(mockFetch(`/api/courses/${courseId}`), expected);
+      return teachingOperationsInstructor && courseId === publishedProblemFixture.course.id
+        ? Promise.resolve(expected)
+        : expectSerialized(mockFetch(`/api/courses/${courseId}`), expected);
     },
     getCourseAppearance: (courseId: CourseId) =>
       requestMockCourseAppearance(
@@ -617,14 +673,16 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
     },
     getAssignment: (assignmentId: AssignmentId) => {
       const path = `/api/assignments/${assignmentId}/learner`;
-      return decodeMockCatalogResponse(mockFetch(path), path, decodeLearnerAssignmentSummary);
+      return decodeMockCatalogResponse(mockFetch(path), path, decodeLearnerAssignmentDetail);
     },
-    getAssignmentEditor: (assignmentId: AssignmentId) =>
-      requestMockAssignment(
+    getAssignmentEditor: async (assignmentId: AssignmentId) => ({
+      ...(await requestMockAssignment(
         mockFetch(`/api/assignments/${assignmentId}`),
         `/api/assignments/${assignmentId}`,
         { assignmentId },
-      ),
+      )),
+      revision: teachingAssignmentRevision,
+    }),
     createAssignment: (courseId: CourseId, input) => {
       const authorizationError = assignmentAuthoringError();
       if (authorizationError !== undefined) return Promise.reject(authorizationError);
@@ -655,6 +713,25 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
       }
       const body = decodeAssignmentEditorInput(input, "request");
       const path = `/api/courses/${courseId}/assignments/${assignmentId}`;
+      return requestMockAssignment(
+        mockFetch(path, {
+          method: "PUT",
+          headers: { "content-type": "application/json", "if-match": revision },
+          body: JSON.stringify(body),
+        }),
+        path,
+        { courseId, assignmentId },
+      );
+    },
+    saveAssignmentTeachingSettings: (courseId, assignmentId, settings, revision) => {
+      const authorizationError = assignmentAuthoringError();
+      if (authorizationError !== undefined) return Promise.reject(authorizationError);
+      if (!validMockAssignmentRevision(revision))
+        return Promise.reject(
+          new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
+        );
+      const body = decodeInstructorAssignmentTeachingSettingsLocal(settings, "request");
+      const path = `/api/courses/${courseId}/assignments/${assignmentId}/teaching-settings`;
       return requestMockAssignment(
         mockFetch(path, {
           method: "PUT",
@@ -775,9 +852,11 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
     },
     listAttempts: (runId: RunId, cursor?: string) => {
       const expected = {
-        items: publishedProblemFixture.attempts.filter((attempt) => attempt.run === runId),
+        items: publishedProblemFixture.attempts
+          .filter((attempt) => attempt.run === runId)
+          .map(mockLearnerAttempt),
         nextCursor: null,
-      } satisfies CursorPage<(typeof publishedProblemFixture)["attempts"][number]>;
+      } satisfies CursorPage<LearnerQuestionAttempt>;
       const suffix = cursor === undefined ? "" : `?cursor=${encodeURIComponent(cursor)}`;
       return expectSerialized(mockFetch(`/api/runs/${runId}/attempts${suffix}`), expected);
     },
@@ -788,7 +867,7 @@ export function createMockApiClient(config: MockApiClientConfig = {}): ApiClient
       if (attempt === undefined) {
         return Promise.reject(new Error(`Fixture has no attempt ${attemptId}`));
       }
-      return expectSerialized(mockFetch(`/api/attempts/${attemptId}`), attempt);
+      return expectSerialized(mockFetch(`/api/attempts/${attemptId}`), mockLearnerAttempt(attempt));
     },
     getIssuedQuestion: (attemptId: QuestionAttemptId): Promise<QuestionEnvelope> => {
       const attempt = mockAttemptById(attemptId);

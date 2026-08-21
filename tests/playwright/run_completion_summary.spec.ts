@@ -99,6 +99,7 @@ test.beforeAll(async () => {
           rejectStaleRunScreenQuery = false;
           const learnerProgress = {
             scoreState: "available",
+            scoringStatus: "current",
             currentScore: 1,
             bestScore: 1,
             latestScore: 1,
@@ -117,6 +118,7 @@ test.beforeAll(async () => {
                 accepted: true,
                 attempt: { ...attempt, response: { kind: "multipleChoice", selected: ["carbonyl"] } },
                 feedback: { correctness: true },
+                scoringStatus: "current",
                 nextIssued: null,
                 nextPending: false,
               });
@@ -132,7 +134,7 @@ test.beforeAll(async () => {
               });
             }
             if (request.method === "GET" && path === "/api/runs/" + runId + "/attempts") {
-              return json({ items: [attempt], nextCursor: null });
+              return json({ items: [{ ...attempt, scoringStatus: "current" }], nextCursor: null });
             }
             if (request.method === "GET" && path === "/api/assignments/" + screen.assignment.id) {
               return json(screen.assignment);

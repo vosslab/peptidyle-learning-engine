@@ -467,6 +467,17 @@ impl RetentionWorkerStore for MemoryStore {
                     })
                     .collect::<BTreeSet<_>>();
 
+                // Course-grade configuration and both synchronous-export audit
+                // streams are course student-record adjuncts. Keep Memory's
+                // cleanup parity with the normalized PostgreSQL retention path.
+                state.course_grade_schemes.remove(&(tenant, course));
+                state
+                    .course_grade_export_audits
+                    .retain(|_, audit| !(audit.tenant == tenant && audit.course == course));
+                state
+                    .manual_grade_export_audits
+                    .retain(|_, audit| !(audit.0 == tenant && audit.1 == course));
+
                 state
                     .feedback_releases
                     .retain(|(tenant_id, attempt_id), _| {

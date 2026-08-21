@@ -595,10 +595,16 @@ def test_confirmed_reset_removes_manifest_after_empty_cleanup_proof(
 ) -> None:
 	"""A confirmed reset clears its replay record after label discovery is empty."""
 	selected_target = target(tmp_path)
-	manifest_path = tmp_path / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE
-	manifest_path.parent.mkdir()
-	manifest_path.write_text("{}", encoding="ascii")
-	manifest_path.chmod(0o600)
+	base_course_manifest = (
+		selected_target.env_file.parent
+		/ local_stack_control.models.DEFAULT_BASE_COURSE_MANIFEST_FILE
+	)
+	chapter_manifest = tmp_path / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE
+	base_course_manifest.parent.mkdir(parents=True)
+	chapter_manifest.parent.mkdir(parents=True, exist_ok=True)
+	for manifest_path in (base_course_manifest, chapter_manifest):
+		manifest_path.write_text("{}", encoding="ascii")
+		manifest_path.chmod(0o600)
 	snapshot = local_stack_control.models.ProjectSnapshot(
 		"containers",
 		(),
@@ -613,7 +619,8 @@ def test_confirmed_reset_removes_manifest_after_empty_cleanup_proof(
 
 	local_stack_control.commands.execute_cleanup(plan, selected_target, runner, False)
 
-	assert not manifest_path.exists()
+	assert not base_course_manifest.exists()
+	assert not chapter_manifest.exists()
 
 
 #============================================
@@ -623,10 +630,16 @@ def test_confirmed_reset_keeps_manifest_when_labelled_data_remains(
 ) -> None:
 	"""The replay record remains available when Compose cleanup leaves owned data."""
 	selected_target = target(tmp_path)
-	manifest_path = tmp_path / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE
-	manifest_path.parent.mkdir()
-	manifest_path.write_text("{}", encoding="ascii")
-	manifest_path.chmod(0o600)
+	base_course_manifest = (
+		selected_target.env_file.parent
+		/ local_stack_control.models.DEFAULT_BASE_COURSE_MANIFEST_FILE
+	)
+	chapter_manifest = tmp_path / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE
+	base_course_manifest.parent.mkdir(parents=True)
+	chapter_manifest.parent.mkdir(parents=True, exist_ok=True)
+	for manifest_path in (base_course_manifest, chapter_manifest):
+		manifest_path.write_text("{}", encoding="ascii")
+		manifest_path.chmod(0o600)
 	snapshot = local_stack_control.models.ProjectSnapshot(
 		"containers",
 		(),
@@ -641,7 +654,30 @@ def test_confirmed_reset_keeps_manifest_when_labelled_data_remains(
 	with pytest.raises(local_stack_control.models.ControllerError, match="resources remain"):
 		local_stack_control.commands.execute_cleanup(plan, selected_target, runner, False)
 
-	assert manifest_path.exists()
+	assert base_course_manifest.exists()
+	assert chapter_manifest.exists()
+
+
+#============================================
+def test_reset_preview_owns_live_demo_private_records(tmp_path: pathlib.Path) -> None:
+	"""A reset preview names each local live-demo record before any mutation."""
+	selected_target = target(tmp_path)
+	snapshot = local_stack_control.models.ProjectSnapshot(
+		"containers",
+		(),
+		(local_stack_control.models.VolumeResource("containers_ple_pgdata", "containers"),),
+		(),
+	)
+
+	plan = local_stack_control.cleanup.reset_plan(selected_target, snapshot, "containers", True)
+
+	assert plan.host_paths_to_remove == (
+		selected_target.env_file.parent
+		/ local_stack_control.models.DEFAULT_BASE_COURSE_MANIFEST_FILE,
+		selected_target.env_file.parent
+		/ local_stack_control.models.DEFAULT_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE,
+		tmp_path / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE,
+	)
 
 
 #============================================

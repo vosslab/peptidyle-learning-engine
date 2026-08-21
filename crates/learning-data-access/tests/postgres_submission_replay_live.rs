@@ -2,6 +2,10 @@
 
 //! Disposable PostgreSQL oracle for immutable idempotent submission receipts.
 
+#[path = "fixtures/published_assignment.rs"]
+mod published_assignment;
+use published_assignment::create_published_assignment;
+
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AssignmentRecord, AssignmentUpdate, CatalogStore, CourseRecord, CourseRosterStore,
@@ -267,26 +271,30 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
     let reference = publish_question(&store, context, tenant, instructor).await;
     let (presentation_binding, presentation) = receipt_presentation(reference, 1);
     let assignment = AssignmentId::from_uuid(id());
-    store
-        .create_untimed_assignment(
-            context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                title: "Receipt snapshot practice".to_string(),
-                audience: question_model::AssignmentAudience::CourseWide,
-                items: vec![
-                    assignment_item_at(reference, 0),
-                    assignment_item_at(reference, 1),
-                ],
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: policies(),
-            },
-        )
-        .await
-        .expect("create receipt snapshot assignment");
+    create_published_assignment(
+        &store,
+        context,
+        instructor,
+        AssignmentRecord {
+            id: assignment,
+            tenant,
+            course_id: course,
+            title: "Receipt snapshot practice".to_string(),
+            lifecycle: question_model::AssignmentLifecycle::Published,
+            instructions: question_model::AssignmentInstructions::default(),
+            audience: question_model::AssignmentAudience::CourseWide,
+            items: vec![
+                assignment_item_at(reference, 0),
+                assignment_item_at(reference, 1),
+            ],
+            selection_groups: Vec::new(),
+            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            policies: policies(),
+        },
+        question_model::BaseAssignmentPolicy::default(),
+    )
+    .await
+    .expect("create receipt snapshot assignment");
     store
         .upsert_course_member(
             context,
@@ -439,7 +447,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         .expect("read current assignment before the disclosure-only revision")
         .expect("receipt assignment exists");
     store
-        .replace_assignment_preserving_timing(
+        .replace_assignment(
             context,
             course,
             assignment,

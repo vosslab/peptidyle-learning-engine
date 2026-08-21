@@ -1,6 +1,7 @@
 // assignment_editor_repository.ts - QID-only assignment editor browser adapter.
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
+import type { InstructorAssignmentTeachingSettingsLocal } from "../../generated/api/InstructorAssignmentTeachingSettingsLocal";
 import type { CourseId } from "../../generated/api/CourseId";
 import type {
   AssignmentCreateInput,
@@ -22,6 +23,12 @@ export interface AssignmentEditorRepository {
     course: CourseId,
     assignment: AssignmentId,
     input: AssignmentEditorInput,
+    revision: string,
+  ) => Promise<AssignmentEditorDetail>;
+  readonly saveTeachingSettings: (
+    course: CourseId,
+    assignment: AssignmentId,
+    settings: InstructorAssignmentTeachingSettingsLocal,
     revision: string,
   ) => Promise<AssignmentEditorDetail>;
   readonly add: (
@@ -70,6 +77,8 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
     create: async (course, input) => await client.createAssignment(course, input),
     save: async (course, assignment, input, revision) =>
       await client.saveAssignment(course, assignment, input, revision),
+    saveTeachingSettings: async (course, assignment, settings, revision) =>
+      await client.saveAssignmentTeachingSettings(course, assignment, settings, revision),
     add: async (course, assignment, input, revision) =>
       await client.addAssignmentItem(course, assignment, input, revision),
     remove: async (course, assignment, itemId, revision) =>
@@ -102,19 +111,22 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
         if (page.nextCursor === null || assignments.length >= 100) break;
         cursor = page.nextCursor;
       }
-      return assignments
-        .filter((assignment) => assignment.id !== exclude)
-        .slice(0, 100)
-        .map((assignment) => ({
-          title: assignment.title,
-          questions: assignment.items
-            .filter((item) => item.deliveryState === "active")
-            .map((item) => ({
-              questionId: item.questionId,
-              title: item.title,
-              backend: item.backend,
-            })),
-        }));
+      const details = await Promise.all(
+        assignments
+          .filter((assignment) => assignment.id !== exclude)
+          .slice(0, 100)
+          .map(async (assignment) => await client.getAssignmentEditor(assignment.id)),
+      );
+      return details.map((assignment) => ({
+        title: assignment.title,
+        questions: assignment.items
+          .filter((item) => item.deliveryState === "active")
+          .map((item) => ({
+            questionId: item.questionId,
+            title: item.title,
+            backend: item.backend,
+          })),
+      }));
     },
   };
 }

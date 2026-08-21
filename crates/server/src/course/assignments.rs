@@ -1,30 +1,34 @@
 use axum::Json;
-use axum::body::Bytes;
-use axum::extract::{Path, State};
-use axum::http::header::{ETAG, IF_MATCH};
+use axum::body::{Bytes, to_bytes};
+use axum::extract::{Path, Request, State};
+use axum::http::header::{CONTENT_TYPE, ETAG, IF_MATCH};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use learning_data_access::{
-    AddAssignmentFixedItemCommand, AssignmentRecord, AssignmentRevision, CatalogStore,
-    CourseRecordsAccessStore, RemoveAssignmentFixedItemCommand, ReplaceAssignmentFixedItemCommand,
-    SessionStore, Store, StoreError, StoredAssignment,
+    AddAssignmentFixedItemCommand, AssignmentRecord, AssignmentRevision, AuthoritativeTimeStore,
+    CatalogStore, CourseRecordsAccessStore, RemoveAssignmentFixedItemCommand,
+    ReplaceAssignmentFixedItemCommand, SessionStore, Store, StoreError, StoredAssignment,
 };
 use question_model::{
-    AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId, AssignmentScoringMode,
-    Capability, CourseId, PointValue, ProblemVersionRef, QuestionId,
+    AssignmentDeliveryState, AssignmentId, AssignmentInstructions, AssignmentItem,
+    AssignmentItemId, AssignmentLifecycle, AssignmentScoringMode, AssignmentTeachingSettings,
+    BaseAssignmentPolicy, Capability, CourseId, PointValue, ProblemVersionRef, QuestionId,
 };
 use serde::Serialize;
 
 use super::policy::require_course_access;
 use super::projection::{error_response, store_error_response};
 use super::routing::{
-    AddAssignmentItemRequest, AssignmentItemUpdateRequest, CourseRouteState,
-    CreateAssignmentRequest, ReplaceAssignmentItemQuestionRequest, UpdateAssignmentRequest,
-    strict_assignment_request,
+    AddAssignmentItemRequest, AssignmentItemUpdateRequest, AssignmentTeachingSettingsRequest,
+    CourseRouteState, CreateAssignmentRequest, ReplaceAssignmentItemQuestionRequest,
+    UpdateAssignmentRequest, strict_assignment_request,
 };
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
 mod learner;
+mod teaching_settings;
+
+pub(super) use teaching_settings::put_teaching_settings;
 
 pub(super) use learner::{get_assignment_summary, get_learner_assignment};
 
@@ -35,7 +39,12 @@ pub(super) async fn create_assignment<S>(
     Json(value): Json<serde_json::Value>,
 ) -> Response
 where
-    S: Store + CatalogStore + CourseRecordsAccessStore + SessionStore + 'static,
+    S: Store
+        + AuthoritativeTimeStore
+        + CatalogStore
+        + CourseRecordsAccessStore
+        + SessionStore
+        + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -70,6 +79,8 @@ where
         tenant: authenticated.tenant_context.tenant_id(),
         course_id: course,
         title: request.title,
+        lifecycle: AssignmentLifecycle::Draft,
+        instructions: AssignmentInstructions::default(),
         audience: question_model::AssignmentAudience::CourseWide,
         items: assignment_items(publications, None),
         selection_groups: Vec::new(),
@@ -83,10 +94,10 @@ where
     }
     match state
         .store
-        .create_assignment_with_timing(
+        .create_assignment(
             authenticated.tenant_context,
             assignment,
-            request.assignment_timing,
+            BaseAssignmentPolicy::default(),
         )
         .await
     {
@@ -103,7 +114,12 @@ pub(super) async fn get_assignment<S>(
     Path(assignment): Path<AssignmentId>,
 ) -> Response
 where
-    S: Store + CatalogStore + CourseRecordsAccessStore + SessionStore + 'static,
+    S: Store
+        + AuthoritativeTimeStore
+        + CatalogStore
+        + CourseRecordsAccessStore
+        + SessionStore
+        + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -138,7 +154,12 @@ pub(super) async fn update_assignment<S>(
     Json(value): Json<serde_json::Value>,
 ) -> Response
 where
-    S: Store + CatalogStore + CourseRecordsAccessStore + SessionStore + 'static,
+    S: Store
+        + AuthoritativeTimeStore
+        + CatalogStore
+        + CourseRecordsAccessStore
+        + SessionStore
+        + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -200,6 +221,8 @@ where
         tenant: authenticated.tenant_context.tenant_id(),
         course_id: course,
         title: request.title.clone(),
+        lifecycle: current.record.lifecycle,
+        instructions: current.record.instructions.clone(),
         audience: current.record.audience.clone(),
         items: items.clone(),
         selection_groups: current.record.selection_groups.clone(),
@@ -213,21 +236,18 @@ where
     }
     match state
         .store
-        .replace_assignment_with_timing(
+        .replace_assignment(
             authenticated.tenant_context,
             course,
             assignment,
             expected_revision,
-            learning_data_access::AssignmentEditorUpdate {
-                assignment: learning_data_access::AssignmentUpdate {
-                    title: request.title,
-                    audience: current.record.audience,
-                    items,
-                    selection_groups: current.record.selection_groups,
-                    disclosure_policy: request.disclosure_policy,
-                    policies: request.policies,
-                },
-                assignment_timing: request.assignment_timing,
+            learning_data_access::AssignmentUpdate {
+                title: request.title,
+                audience: current.record.audience,
+                items,
+                selection_groups: current.record.selection_groups,
+                disclosure_policy: request.disclosure_policy,
+                policies: request.policies,
             },
         )
         .await
@@ -249,7 +269,12 @@ pub(super) async fn add_assignment_item<S>(
     Json(value): Json<serde_json::Value>,
 ) -> Response
 where
-    S: Store + CatalogStore + CourseRecordsAccessStore + SessionStore + 'static,
+    S: Store
+        + AuthoritativeTimeStore
+        + CatalogStore
+        + CourseRecordsAccessStore
+        + SessionStore
+        + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -332,7 +357,12 @@ pub(super) async fn remove_assignment_item<S>(
     body: Bytes,
 ) -> Response
 where
-    S: Store + CatalogStore + CourseRecordsAccessStore + SessionStore + 'static,
+    S: Store
+        + AuthoritativeTimeStore
+        + CatalogStore
+        + CourseRecordsAccessStore
+        + SessionStore
+        + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -394,7 +424,12 @@ pub(super) async fn replace_assignment_item_question<S>(
     Json(value): Json<serde_json::Value>,
 ) -> Response
 where
-    S: Store + CatalogStore + CourseRecordsAccessStore + SessionStore + 'static,
+    S: Store
+        + AuthoritativeTimeStore
+        + CatalogStore
+        + CourseRecordsAccessStore
+        + SessionStore
+        + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(authenticated) => authenticated,
@@ -507,14 +542,15 @@ async fn assignment_response<S>(
     assignment: StoredAssignment,
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store + AuthoritativeTimeStore + CatalogStore + SessionStore + 'static,
 {
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
     struct AssignmentEditorResponse {
         #[serde(flatten)]
         assignment: question_model::AssignmentSummary,
-        assignment_timing: question_model::AssignmentRunTiming,
+        teaching_settings: question_model::assignment::InstructorAssignmentTeachingSettingsLocal,
+        current_state: question_model::InstructorAssignmentCurrentState,
     }
     let public_id = match state
         .store
@@ -529,6 +565,15 @@ where
         Ok(None) => return error_response(StatusCode::NOT_FOUND, "assignment not found"),
         Err(error) => return store_error_response(error),
     };
+    let course = match state
+        .store
+        .get_course(authenticated.tenant_context, assignment.record.course_id)
+        .await
+    {
+        Ok(Some(course)) => course,
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "course not found"),
+        Err(error) => return store_error_response(error),
+    };
     let (items, selection_groups) =
         match assignment_summary_items(state, authenticated.tenant_context, &assignment.record)
             .await
@@ -536,13 +581,33 @@ where
             Ok(value) => value,
             Err(response) => return response,
         };
+    let settings = AssignmentTeachingSettings {
+        lifecycle: assignment.record.lifecycle,
+        instructions: assignment.record.instructions.clone(),
+        base_policy: assignment.base_policy,
+    };
+    let now = match state
+        .store
+        .authoritative_time(authenticated.tenant_context)
+        .await
+    {
+        Ok(now) => now,
+        Err(error) => return store_error_response(error),
+    };
     let mut response = (
         status,
         Json(AssignmentEditorResponse {
             assignment: assignment
                 .record
                 .summary(public_id, items, selection_groups),
-            assignment_timing: assignment.assignment_timing,
+        teaching_settings: match question_model::assignment::InstructorAssignmentTeachingSettingsLocal::from_absolute(&course.term, &settings) {
+            Ok(settings) => settings,
+            Err(_) => return error_response(StatusCode::SERVICE_UNAVAILABLE, "assignment teaching settings are invalid"),
+        },
+        current_state: match question_model::derive_instructor_assignment_current_state(&course.term, &settings, now) {
+            Ok(value) => value,
+            Err(_) => return error_response(StatusCode::SERVICE_UNAVAILABLE, "assignment teaching settings are invalid"),
+        },
         }),
     )
         .into_response();

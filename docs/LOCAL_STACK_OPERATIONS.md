@@ -143,10 +143,14 @@ with the same names do not create split credentials.
 
 The lifecycle returns success only after `postgres`, `minio`,
 `webwork-renderer`, `api`, `worker`, and `gateway` are running, every declared
-health check is healthy, and the required one-shot services have exited with
-status zero. Live/full-stack Playwright starts only after that success. The
-ordinary mock-preview browser suite is a separate offline behavior lane and
-does not claim Podman-stack acceptance.
+health check is healthy, the required one-shot services have exited with status
+zero, a project-wide pre-start reconciliation has replaced every prior project
+container and removed Compose orphans without deleting named volumes, and
+every image not used by a current container has been pruned. The active full
+suite protects its current images; obsolete application, renderer, gateway,
+base, and intermediate builds do not accumulate. Live/full-stack Playwright
+starts only after that success. The local demo-preview browser suite is a
+separate behavior lane and does not claim Podman-stack acceptance.
 
 The recovery screen accepts either generated value from the ignored
 `containers/local-login.txt`. The browser sends it once to the same-origin
@@ -442,8 +446,8 @@ discovery proves the Compose resources and volumes are gone, it removes that
 private Chapter 1 manifest so the next lifecycle run publishes a fresh
 database-bound corpus. It retains host credentials such as
 `containers/env.local`, `containers/local-login.txt`, and mode-0600 capability
-files. Global Podman image stores and disposable walkthrough targets remain
-with their dedicated lifecycle commands.
+files. The reset itself does not mutate the global image store. The next
+successful ordinary start prunes every image not used by a current container.
 
 Disposable E2E runners use their own private manifest plus a runner-held
 cleanup capability through private `local_stack_control/_consumer_cli.py`; that adapter is not a

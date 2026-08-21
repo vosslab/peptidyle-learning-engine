@@ -5,14 +5,18 @@
 //! Store commands create the educational state.  SQL is limited to the
 //! PostgreSQL-only promises: closed columns, forced RLS, and retention fences.
 
+#[path = "fixtures/published_assignment.rs"]
+mod published_assignment;
+use published_assignment::create_published_assignment;
+
 use domain::disclosure_policy::evaluate_learner_disclosure;
 use domain::effective_assignment_policy::{
-    AssignmentLifecycleGate, AuthorizationGate, BaseAssignmentPolicy, EffectivePolicyDecision,
+    AuthorizationGate, BaseAssignmentPolicy, EffectivePolicyDecision,
 };
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AssignmentRecord, AssignmentUpdate, CatalogStore, CourseRecord, CourseRosterStore,
-    CreateCourseCommand, DraftRecord, PutBaseAssignmentPolicyCommand,
+    CreateCourseCommand, DraftRecord, PutAssignmentTeachingSettingsCommand,
     ResolveEffectivePolicyCommand, Store, StoreError, TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
@@ -25,14 +29,15 @@ use question_model::run_policy::{
 use question_model::taxonomy::License;
 use question_model::{
     ActivityTimestamp, AssignmentAudience, AssignmentDeliveryState, AssignmentId, AssignmentItem,
-    AssignmentItemId, AssignmentRunTiming, AssignmentScoringMode, BackendCapabilities, Capability,
-    CourseId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
-    LearnerDisclosurePolicy, LearnerDisclosureTiming, PointValue, ProblemId, ProblemVersionRef,
-    PublicationScope, QuestionMetadata, QuestionSource, ResponseDefinition, TenantId, UserId,
-    VersionId, WorkspaceId,
+    AssignmentItemId, AssignmentScoringMode, BackendCapabilities, Capability, CourseId,
+    DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, LearnerDisclosurePolicy,
+    LearnerDisclosureTiming, PointValue, ProblemId, ProblemVersionRef, PublicationScope,
+    QuestionMetadata, QuestionSource, ResponseDefinition, TenantId, UserId, VersionId, WorkspaceId,
 };
 use sqlx::Row;
 use uuid::Uuid;
+
+const TERM_BASE_MILLIS: i64 = 1_787_590_800_000;
 
 fn id() -> Uuid {
     let mut bytes = [0_u8; 16];
@@ -141,6 +146,8 @@ fn assignment(
         tenant,
         course_id: course,
         title: "S4 disclosure live fixture".to_string(),
+        lifecycle: question_model::AssignmentLifecycle::Published,
+        instructions: question_model::AssignmentInstructions::default(),
         audience: AssignmentAudience::CourseWide,
         items: vec![AssignmentItem {
             id: AssignmentItemId::from_uuid(id()),
@@ -208,14 +215,15 @@ async fn postgres_assignment_disclosure_policy_is_closed_revisioned_current_and_
         .expect("create S4 learner membership");
     let reference = publish_question(&store, context, tenant, instructor).await;
 
-    let created = store
-        .create_assignment_with_timing(
-            context,
-            assignment(tenant, course, assignment_id, reference),
-            AssignmentRunTiming::default(),
-        )
-        .await
-        .expect("create explicit disclosure policy");
+    let created = create_published_assignment(
+        &store,
+        context,
+        instructor,
+        assignment(tenant, course, assignment_id, reference),
+        BaseAssignmentPolicy::default(),
+    )
+    .await
+    .expect("create explicit disclosure policy");
     assert_eq!(created.record.disclosure_policy, disclosure_policy());
 
     let row = sqlx::query(
@@ -286,7 +294,7 @@ async fn postgres_assignment_disclosure_policy_is_closed_revisioned_current_and_
         policies: created.record.policies,
     };
     let updated = store
-        .replace_assignment_preserving_timing(
+        .replace_assignment(
             context,
             course,
             assignment_id,
@@ -298,34 +306,36 @@ async fn postgres_assignment_disclosure_policy_is_closed_revisioned_current_and_
     assert_eq!(updated.record.disclosure_policy, changed_policy);
     assert_eq!(
         store
-            .replace_assignment_preserving_timing(
-                context,
-                course,
-                assignment_id,
-                created.revision,
-                update,
-            )
+            .replace_assignment(context, course, assignment_id, created.revision, update,)
             .await,
         Err(StoreError::Conflict),
         "stale revision cannot overwrite disclosure policy"
     );
 
     store
-        .put_base_assignment_policy(
+        .put_assignment_teaching_settings(
             context,
-            PutBaseAssignmentPolicyCommand {
+            PutAssignmentTeachingSettingsCommand {
                 actor: instructor,
                 course,
                 assignment: assignment_id,
                 expected_revision: updated.revision,
-                policy: BaseAssignmentPolicy {
-                    available_at: Some(ActivityTimestamp::from_unix_millis(0)),
-                    due_at: Some(ActivityTimestamp::from_unix_millis(1_000)),
-                    closes_at: Some(ActivityTimestamp::from_unix_millis(2_000)),
-                    time_limit_seconds: None,
-                    attempt_limit: None,
-                    late_submission: question_model::LateSubmissionPolicy::Accept,
-                    deadline_behavior: question_model::AssignmentDeadlineBehavior::AutoSubmit,
+                settings: question_model::AssignmentTeachingSettings {
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    base_policy: BaseAssignmentPolicy {
+                        available_at: Some(ActivityTimestamp::from_unix_millis(TERM_BASE_MILLIS)),
+                        due_at: Some(ActivityTimestamp::from_unix_millis(
+                            TERM_BASE_MILLIS + 1_000,
+                        )),
+                        closes_at: Some(ActivityTimestamp::from_unix_millis(
+                            TERM_BASE_MILLIS + 2_000,
+                        )),
+                        time_limit_seconds: None,
+                        attempt_limit: None,
+                        late_submission: question_model::LateSubmissionPolicy::Accept,
+                        deadline_behavior: question_model::AssignmentDeadlineBehavior::AutoSubmit,
+                    },
                 },
             },
         )
@@ -340,10 +350,9 @@ async fn postgres_assignment_disclosure_policy_is_closed_revisioned_current_and_
             context,
             ResolveEffectivePolicyCommand {
                 assignment: assignment_id,
-                lifecycle: AssignmentLifecycleGate::Open,
                 entitlement: entitlement.clone(),
                 authorization: AuthorizationGate::Authorized,
-                now: ActivityTimestamp::from_unix_millis(999),
+                now: ActivityTimestamp::from_unix_millis(TERM_BASE_MILLIS + 999),
                 prior_run_count: 0,
             },
         )
@@ -353,8 +362,8 @@ async fn postgres_assignment_disclosure_policy_is_closed_revisioned_current_and_
     let before = evaluate_learner_disclosure(
         updated.record.disclosure_policy,
         &before_due.decision,
-        ActivityTimestamp::from_unix_millis(999),
-        Some(ActivityTimestamp::from_unix_millis(10)),
+        ActivityTimestamp::from_unix_millis(TERM_BASE_MILLIS + 999),
+        Some(ActivityTimestamp::from_unix_millis(TERM_BASE_MILLIS + 10)),
     )
     .expect("S3/S5 allowed decision evaluates disclosure");
     assert!(!before.score && !before.per_item_correctness);
@@ -364,10 +373,9 @@ async fn postgres_assignment_disclosure_policy_is_closed_revisioned_current_and_
             context,
             ResolveEffectivePolicyCommand {
                 assignment: assignment_id,
-                lifecycle: AssignmentLifecycleGate::Open,
                 entitlement,
                 authorization: AuthorizationGate::Authorized,
-                now: ActivityTimestamp::from_unix_millis(2_000),
+                now: ActivityTimestamp::from_unix_millis(TERM_BASE_MILLIS + 2_000),
                 prior_run_count: 0,
             },
         )
@@ -377,8 +385,8 @@ async fn postgres_assignment_disclosure_policy_is_closed_revisioned_current_and_
     let after = evaluate_learner_disclosure(
         updated.record.disclosure_policy,
         &after_close.decision,
-        ActivityTimestamp::from_unix_millis(2_000),
-        Some(ActivityTimestamp::from_unix_millis(10)),
+        ActivityTimestamp::from_unix_millis(TERM_BASE_MILLIS + 2_000),
+        Some(ActivityTimestamp::from_unix_millis(TERM_BASE_MILLIS + 10)),
     )
     .expect("S3/S5 allowed decision evaluates disclosure");
     assert!(after.score && after.per_item_correctness);

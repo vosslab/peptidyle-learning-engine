@@ -92,9 +92,11 @@ test.beforeAll(async () => {
           submittedAt: 1786000004400 + index,
           response: publishedProblemFixture.attempts[0].response,
           feedback: null,
+          scoringStatus: "current",
         }));
         const learnerProgress = {
           scoreState: "available",
+          scoringStatus: "current",
           currentScore: 1,
           bestScore: 1,
           latestScore: 1,

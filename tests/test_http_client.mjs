@@ -96,20 +96,12 @@ test("learner assignment transport rejects server authority inputs", () => {
     id: publishedProblemFixture.assignment.id,
     reference: publishedProblemFixture.assignment.reference,
     title: publishedProblemFixture.assignment.title,
-    items: publishedProblemFixture.assignment.items,
-    selectionGroups: publishedProblemFixture.assignment.selectionGroups,
   };
   assert.deepEqual(
     decodeLearnerAssignmentSummary(learnerAssignment, "learner", true),
     learnerAssignment,
   );
-  for (const forbidden of [
-    "tenant",
-    "courseId",
-    "disclosurePolicy",
-    "policies",
-    "assignmentTiming",
-  ]) {
+  for (const forbidden of ["tenant", "courseId", "disclosurePolicy", "policies"]) {
     assert.throws(
       () =>
         decodeLearnerAssignmentSummary(
@@ -127,6 +119,7 @@ test("learner enrollment transport accepts only its key-free two-field envelope"
   const valid = {
     enrollment: publishedProblemFixture.enrollment,
     summary: {
+      scoringStatus: "current",
       scoreState: "available",
       currentScore: 0.75,
       bestScore: 0.9,
@@ -406,6 +399,7 @@ test("external-tool submissions use the protected child route and validate outbo
       result: null,
     },
     feedback: null,
+    scoringStatus: "current",
     nextIssued: null,
     nextPending: false,
   };
@@ -926,7 +920,12 @@ test("a refresh heals one pending successor on its exact incomplete run without 
     fetch: async (input, init) => {
       const url = new URL(input.toString(), "https://client.example.test");
       if (url.pathname === `/api/runs/${run.id}/attempts`) {
-        return jsonResponse({ items: healed ? attempts : [], nextCursor: null });
+        return jsonResponse({
+          items: healed
+            ? attempts.map((attempt) => ({ ...attempt, scoringStatus: "current" }))
+            : [],
+          nextCursor: null,
+        });
       }
       if (url.pathname === "/api/runs" && (init?.method ?? "GET") === "POST") {
         resumeCalls += 1;

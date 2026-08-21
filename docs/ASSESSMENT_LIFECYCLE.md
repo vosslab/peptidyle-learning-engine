@@ -108,8 +108,13 @@ checksum. The publication authorization and object rules are in
 ### 4. Build an assignment from versions
 
 An assignment stores ordered references to published versions, alongside its
-completion, grade, continued-practice, variation, feedback, timing, and access
-policies. These policies are intentionally independent in the domain model.
+completion, grade, continued-practice, variation, disclosure, and one
+revisioned teaching-settings aggregate. New assignments are Draft. The
+instructor explicitly publishes the aggregate after setting instructions,
+availability/due/close, whole-run and attempt limits, late behavior, and
+deadline behavior. Course-local input is resolved by the server through the
+stored IANA zone; only the resulting absolute base policy is durable. These
+policies are intentionally independent in the domain model.
 The instructor UI can present teaching-oriented assignment types while storing
 their explicit policy values.
 
@@ -122,9 +127,13 @@ interchangeable.
 ### 5. Create or resume a run
 
 The server starts the initial run or resumes the one active run that belongs to
-the enrollment. It assigns server timestamps, one-based run number, and the
-variation policy actually used. Completion is derived from attempt states; it
-is not a mutable Boolean that can disagree with the attempt history.
+the enrollment only after current S5 entitlement and S3 resolution. Stored
+Published lifecycle is the sole open G1 state; Draft, Closed, and Archived do
+not start learner work. It assigns server timestamps, one-based run number, and
+the variation policy actually used. Completion is derived from attempt states;
+it is not a mutable Boolean that can disagree with the attempt history. Attempt
+limits count completed runs, so the final allowed active run remains resumable
+instead of denying itself.
 
 Completion is a milestone, not a lockout. When the policy permits continued
 practice, the learner can start another run with fresh variation. For a typical
@@ -230,7 +239,11 @@ delivery has not; recovery may finish that single pending delivery, while a
 replay never resubmits or consults changed catalog/backend state. Withheld
 feedback remains withheld even though the result is persisted. An instructor or
 gradebook view reads the summary projection and lazily paged history rather
-than recomputing a grade by scanning all attempts.
+than recomputing a grade by scanning all attempts. A separate scoring freshness
+state can mark the maintained summary Recalculating or Failed; learner routes
+then omit aggregate and run scores, attempt results, and disclosed point values
+until it is Current, without changing the learner's semantic
+activity/disclosure state.
 
 The attempt state machine, feedback policy, timer rule, and summary projection
 are detailed in [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md). The narrow current and

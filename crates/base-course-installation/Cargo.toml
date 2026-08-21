@@ -1,0 +1,18 @@
+# Product-owned deterministic installation of the ordinary Base Course.
+[package]
+name = "base-course-installation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+adapter_native.workspace = true
+domain.workspace = true
+grading.workspace = true
+learning-data-access = { workspace = true, features = ["postgres"] }
+question_model = { workspace = true, features = ["generate"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+uuid.workspace = true

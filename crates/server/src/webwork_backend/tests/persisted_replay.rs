@@ -110,7 +110,7 @@ async fn persist_attempt(
         .expect("student roster membership");
     backend
         .sources
-        .create_untimed_assignment(
+        .create_assignment(
             context,
             AssignmentRecord {
                 id: assignment,
@@ -118,6 +118,8 @@ async fn persist_attempt(
                 course_id: course,
                 audience: question_model::AssignmentAudience::CourseWide,
                 title: "Recorded WeBWorK assignment".into(),
+                lifecycle: question_model::AssignmentLifecycle::Draft,
+                instructions: question_model::AssignmentInstructions::default(),
                 items: vec![AssignmentItem {
                     id: AssignmentItemId::from_uuid(id(23)),
                     reference: reference(),
@@ -135,9 +137,23 @@ async fn persist_attempt(
                     variation: VariationPolicy::NewSeeds,
                 },
             },
+            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("assignment");
+    crate::course::tests::fixtures::publish_assignment(
+        backend.sources.as_ref(),
+        context,
+        instructor,
+        course,
+        assignment,
+        question_model::AssignmentTeachingSettings {
+            lifecycle: question_model::AssignmentLifecycle::Published,
+            instructions: question_model::AssignmentInstructions::default(),
+            base_policy: question_model::BaseAssignmentPolicy::default(),
+        },
+    )
+    .await;
     let run = backend
         .sources
         .start_or_resume_run(context, actor, assignment, RunId::from_uuid(id(26)))

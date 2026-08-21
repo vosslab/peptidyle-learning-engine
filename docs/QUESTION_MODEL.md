@@ -258,6 +258,26 @@ required, highest score kept, practice allowed after completion with fresh
 seeds", which is the behavior students were observed using. A single combined
 mode enum would offer a fixed menu instead.
 
+Assignment teaching operations form a separate closed contract.
+`AssignmentTeachingSettings` stores one `AssignmentLifecycle`, validated
+plain-text `AssignmentInstructions`, and the absolute `BaseAssignmentPolicy`.
+New assignments default to Draft and therefore are not learner-visible until an
+instructor explicitly publishes them. The instructor transport uses
+`InstructorAssignmentTeachingSettingsLocal`: local timestamps include
+milliseconds and the exact course IANA zone, but the server performs every
+DST, term, ordering, and integer-bound conversion before storage.
+`InstructorAssignmentCurrentState` is a separate closed server projection for
+Draft, scheduled, open, closed, or archived at one authoritative instant. Its
+scheduled and clock-closed variants carry only the matching course-local
+boundary, so a browser displays current state without inferring it.
+
+Learners receive `LearnerAssignmentDetail`, not the instructor aggregate. Its
+delivery values are already resolved and omit lifecycle intent, base-policy
+provenance, tenant/course identifiers, and evaluation clocks. `ScoringStatus`
+is also independent: Current allows the otherwise authorized score projection;
+Recalculating and Failed retain the semantic score state while omitting every
+numeric learner score, attempt result, and disclosed point value.
+
 ### Generation
 
 `Seed` plus `RandomizationDefinition` fully determine a variant. A seeded
@@ -314,14 +334,15 @@ and catalog projections therefore continue to use the shared question model
 regardless of whether the author wrote PLE JSON or imported a supported QTI
 profile.
 
-Version 1 is the immutable compatibility source for exactly-one
-`singleChoice`. Version 2 is a separate closed source shape with eight native
-families: `singleChoice`, `multipleAnswer`, `fillIn`, `multiFillIn`, `numeric`,
-`matching`, `ordering`, and `hotspot`. Both versions are answer-bearing input
-to the private native compiler, not learner payloads. Neither version claims
-file-upload or external-tool authoring support. The compiler emits an
-answer-free draft/public model and separately checksummed grader-only key and
-feedback material.
+The former flat-question v1 `singleChoice` reader and source contract are
+retired and unsupported. There is no v1 compatibility reader, source-byte
+fallback, or compatibility behavior. Version 2 is the only current native
+source shape: a closed contract with eight families, `singleChoice`,
+`multipleAnswer`, `fillIn`, `multiFillIn`, `numeric`, `matching`, `ordering`,
+and `hotspot`. V2 input is answer-bearing private authoring material, not a
+learner payload. It does not claim file-upload or external-tool authoring
+support. The compiler emits an answer-free draft/public model and separately
+checksummed grader-only key and feedback material.
 
 The distinction matters when evolving either contract: the source format owns
 author ergonomics, stable choice IDs, answers, and private feedback; this crate

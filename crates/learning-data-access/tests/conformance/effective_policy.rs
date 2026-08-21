@@ -1,14 +1,14 @@
 use super::*;
 use domain::effective_assignment_policy::{
-    AssignmentLifecycleDenial, AssignmentLifecycleGate, AuthorizationDenial, AuthorizationGate,
-    BaseAssignmentPolicy, EffectivePolicyDecision, GateDenial, GroupAccommodation,
-    GroupScheduleOffset, IndividualPolicyException, PolicyGate, PolicyModificationMode,
-    PolicyPatch, PolicyPatchSet, PolicySource, ScheduleOffsetSeconds,
+    AssignmentLifecycleDenial, AuthorizationDenial, AuthorizationGate, BaseAssignmentPolicy,
+    EffectivePolicyDecision, GateDenial, GroupAccommodation, GroupScheduleOffset,
+    IndividualPolicyException, PolicyGate, PolicyModificationMode, PolicyPatch, PolicyPatchSet,
+    PolicySource, ScheduleOffsetSeconds,
 };
 use learning_data_access::{
-    PutBaseAssignmentPolicyCommand, PutGroupAccommodationCommand, PutGroupScheduleOffsetCommand,
-    PutIndividualPolicyExceptionCommand, ResolveEffectivePolicyCommand,
-    StoredIndividualPolicyException,
+    PutAssignmentTeachingSettingsCommand, PutGroupAccommodationCommand,
+    PutGroupScheduleOffsetCommand, PutIndividualPolicyExceptionCommand,
+    ResolveEffectivePolicyCommand, StoredIndividualPolicyException,
 };
 use std::num::NonZeroU32;
 
@@ -17,6 +17,7 @@ pub(crate) struct EffectivePolicyFixture {
     pub instructor: UserId,
     pub course: CourseId,
     pub assignment: AssignmentId,
+    pub assignment_revision: learning_data_access::AssignmentRevision,
     pub attempt: QuestionAttemptId,
     pub receipt: learning_data_access::IssuedEffectivePolicyReceipt,
 }
@@ -137,13 +138,16 @@ where
     let assignment_a = AssignmentId::from_uuid(uuid(99_011));
     let assignment_b = AssignmentId::from_uuid(uuid(99_012));
     let mut revision = store
-        .create_untimed_assignment(
+        .create_assignment_with_default_policy(
             context,
+            instructor,
             AssignmentRecord {
                 id: assignment_a,
                 tenant,
                 course_id: course,
                 title: "Policy target".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Draft,
+                instructions: question_model::AssignmentInstructions::default(),
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![reference]),
                 selection_groups: Vec::new(),
@@ -155,13 +159,16 @@ where
         .expect("assignment A")
         .revision;
     store
-        .create_untimed_assignment(
+        .create_assignment_with_default_policy(
             context,
+            instructor,
             AssignmentRecord {
                 id: assignment_b,
                 tenant,
                 course_id: course,
                 title: "Grant source".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Draft,
+                instructions: question_model::AssignmentInstructions::default(),
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![reference]),
                 selection_groups: Vec::new(),
@@ -266,21 +273,25 @@ where
         .await
         .expect("other-student exception");
     let closed = store
-        .put_base_assignment_policy(
+        .put_assignment_teaching_settings(
             context,
-            PutBaseAssignmentPolicyCommand {
+            PutAssignmentTeachingSettingsCommand {
                 actor: instructor,
                 course,
                 assignment: assignment_a,
                 expected_revision: revision,
-                policy: BaseAssignmentPolicy {
-                    available_at: Some(ActivityTimestamp::from_unix_millis(10_000)),
-                    due_at: None,
-                    closes_at: None,
-                    time_limit_seconds: None,
-                    attempt_limit: None,
-                    late_submission: question_model::LateSubmissionPolicy::Accept,
-                    deadline_behavior: question_model::AssignmentDeadlineBehavior::AutoSubmit,
+                settings: question_model::AssignmentTeachingSettings {
+                    lifecycle: question_model::AssignmentLifecycle::Draft,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    base_policy: BaseAssignmentPolicy {
+                        available_at: Some(ActivityTimestamp::from_unix_millis(1_787_590_800_000)),
+                        due_at: None,
+                        closes_at: None,
+                        time_limit_seconds: None,
+                        attempt_limit: None,
+                        late_submission: question_model::LateSubmissionPolicy::Accept,
+                        deadline_behavior: question_model::AssignmentDeadlineBehavior::AutoSubmit,
+                    },
                 },
             },
         )
@@ -300,7 +311,6 @@ where
             context,
             ResolveEffectivePolicyCommand {
                 assignment: assignment_a,
-                lifecycle: AssignmentLifecycleGate::Denied(AssignmentLifecycleDenial::NotPublished),
                 entitlement: grant_b.clone(),
                 authorization: AuthorizationGate::Authorized,
                 now: ActivityTimestamp::from_unix_millis(0),
@@ -322,7 +332,6 @@ where
             context,
             ResolveEffectivePolicyCommand {
                 assignment: assignment_a,
-                lifecycle: AssignmentLifecycleGate::Open,
                 entitlement: grant_b.clone(),
                 authorization: AuthorizationGate::Denied(AuthorizationDenial::ActionNotPermitted),
                 now: ActivityTimestamp::from_unix_millis(0),
@@ -330,13 +339,13 @@ where
             },
         )
         .await
-        .expect("authorization denial must precede grant binding")
+        .expect("stored lifecycle denial must precede caller-supplied authorization")
         .expect("assignment exists");
     assert!(matches!(
         authorization_denied.decision,
         EffectivePolicyDecision::Denied {
-            gate: PolicyGate::Authorization,
-            reason: GateDenial::Authorization(AuthorizationDenial::ActionNotPermitted),
+            gate: PolicyGate::Lifecycle,
+            reason: GateDenial::Lifecycle(AssignmentLifecycleDenial::NotPublished),
         }
     ));
     assert!(matches!(
@@ -345,15 +354,18 @@ where
                 context,
                 ResolveEffectivePolicyCommand {
                     assignment: assignment_a,
-                    lifecycle: AssignmentLifecycleGate::Open,
                     entitlement: grant_b,
                     authorization: AuthorizationGate::Authorized,
                     now: ActivityTimestamp::from_unix_millis(0),
                     prior_run_count: 0,
                 },
             )
-            .await,
-        Err(StoreError::InvalidRecord(_))
+            .await
+            .map(|value| value.expect("assignment exists").decision),
+        Ok(EffectivePolicyDecision::Denied {
+            gate: PolicyGate::Lifecycle,
+            reason: GateDenial::Lifecycle(AssignmentLifecycleDenial::NotPublished),
+        })
     ));
 
     let proposed_run = RunId::from_uuid(uuid(99_030));
@@ -415,21 +427,25 @@ where
         .await
         .expect("store applicable M4 exception");
     let open = store
-        .put_base_assignment_policy(
+        .put_assignment_teaching_settings(
             context,
-            PutBaseAssignmentPolicyCommand {
+            PutAssignmentTeachingSettingsCommand {
                 actor: instructor,
                 course,
                 assignment: assignment_a,
                 expected_revision: revision,
-                policy: BaseAssignmentPolicy {
-                    available_at: None,
-                    due_at: None,
-                    closes_at: None,
-                    time_limit_seconds: Some(NonZeroU32::new(120).expect("positive limit")),
-                    attempt_limit: None,
-                    late_submission: question_model::LateSubmissionPolicy::Accept,
-                    deadline_behavior: question_model::AssignmentDeadlineBehavior::AutoSubmit,
+                settings: question_model::AssignmentTeachingSettings {
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    base_policy: BaseAssignmentPolicy {
+                        available_at: None,
+                        due_at: None,
+                        closes_at: None,
+                        time_limit_seconds: Some(NonZeroU32::new(120).expect("positive limit")),
+                        attempt_limit: None,
+                        late_submission: question_model::LateSubmissionPolicy::Accept,
+                        deadline_behavior: question_model::AssignmentDeadlineBehavior::AutoSubmit,
+                    },
                 },
             },
         )
@@ -444,7 +460,6 @@ where
             context,
             ResolveEffectivePolicyCommand {
                 assignment: assignment_a,
-                lifecycle: AssignmentLifecycleGate::Open,
                 entitlement: allowed_grant,
                 authorization: AuthorizationGate::Authorized,
                 now: ActivityTimestamp::from_unix_millis(0),
@@ -503,6 +518,7 @@ where
         instructor,
         course,
         assignment: assignment_a,
+        assignment_revision: open.revision,
         attempt: issued.id,
         receipt,
     }
@@ -519,26 +535,35 @@ async fn memory_effective_policy_gate_and_materialization_conformance() {
         .expect("read current authored policy")
         .expect("authored policy exists");
     store
-        .put_base_assignment_policy(
+        .put_assignment_teaching_settings(
             fixture.context,
-            PutBaseAssignmentPolicyCommand {
+            PutAssignmentTeachingSettingsCommand {
                 actor: fixture.instructor,
                 course: fixture.course,
                 assignment: fixture.assignment,
                 expected_revision: current.revision,
-                policy: BaseAssignmentPolicy {
-                    time_limit_seconds: Some(NonZeroU32::new(180).expect("positive edit limit")),
-                    ..current.policy
+                settings: question_model::AssignmentTeachingSettings {
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    base_policy: BaseAssignmentPolicy {
+                        time_limit_seconds: Some(
+                            NonZeroU32::new(180).expect("positive edit limit"),
+                        ),
+                        ..current.policy
+                    },
                 },
             },
         )
         .await
         .expect("edit future policy");
+    let current = store
+        .get_issued_effective_policy_receipt(fixture.context, fixture.attempt)
+        .await
+        .expect("read re-resolved current receipt")
+        .expect("active attempt keeps a current receipt");
+    assert_eq!(current.generation, fixture.receipt.generation + 1);
     assert_eq!(
-        store
-            .get_issued_effective_policy_receipt(fixture.context, fixture.attempt)
-            .await
-            .expect("read historical receipt"),
-        Some(fixture.receipt)
+        current.policy.time_limit_seconds.source,
+        fixture.receipt.policy.time_limit_seconds.source
     );
 }

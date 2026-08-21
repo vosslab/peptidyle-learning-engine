@@ -17,11 +17,12 @@ use crate::{
     BeginEmailAuthentication, BeginWebauthnCeremony, BrowserBindingHash,
     CompleteEmailAuthentication, CompleteEmailAuthenticationAndCreateSession,
     CompleteEmailChangeAndRevokeUserSessions, CompletePasskeyAuthenticationAndCreateSession,
-    CompletedAccountSession, CompletedEmailAuthentication, CompletedPasskeySession,
-    ConsumeAuthenticationRateLimit, CredentialIdHash, EmailAuthenticationChallenge,
-    EmailAuthenticationPurpose, EmailChallengeId, EmailChallengeSecretHash, Page, PageRequest,
-    PasskeyId, PasskeyRecord, RegisterPasskey, StoreError, WebauthnCeremony, WebauthnCeremonyId,
-    WebauthnCeremonyKind, WebauthnState, validated_account_display_name,
+    CompleteSeededSysadminOwnership, CompletedAccountSession, CompletedEmailAuthentication,
+    CompletedPasskeySession, ConsumeAuthenticationRateLimit, CredentialIdHash,
+    EmailAuthenticationChallenge, EmailAuthenticationPurpose, EmailChallengeId,
+    EmailChallengeSecretHash, Page, PageRequest, PasskeyId, PasskeyRecord, RegisterPasskey,
+    StoreError, WebauthnCeremony, WebauthnCeremonyId, WebauthnCeremonyKind, WebauthnState,
+    validated_account_display_name,
 };
 
 const AUTH_EXPIRY_CLEANUP_BATCH: i64 = 128;
@@ -340,6 +341,40 @@ impl AccountIdentityStore for PostgresStore {
         Ok(Some(result))
     }
 
+    async fn get_webauthn_ceremony(
+        &self,
+        id: WebauthnCeremonyId,
+        browser_binding: BrowserBindingHash,
+    ) -> Result<Option<WebauthnCeremony>, StoreError> {
+        let mut transaction = self.begin_auth().await?;
+        let row = sqlx::query(
+            "SELECT ceremony_id, ceremony_kind, user_id, browser_binding_hash, state, \
+                    floor(extract(epoch FROM expires_at) * 1000)::bigint AS expires_at_millis \
+             FROM webauthn_ceremony \
+             WHERE ceremony_id = $1 AND browser_binding_hash = $2 \
+               AND expires_at > transaction_timestamp()",
+        )
+        .bind(id.as_uuid())
+        .bind(browser_binding.as_bytes().to_vec())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let ceremony = row.as_ref().map(decode_ceremony).transpose()?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(ceremony)
+    }
+
+    async fn seeded_sysadmin_ownership_available(&self, user: UserId) -> Result<bool, StoreError> {
+        super::seeded_sysadmin_ownership::seeded_sysadmin_ownership_available(self, user).await
+    }
+
+    async fn complete_seeded_sysadmin_ownership(
+        &self,
+        command: CompleteSeededSysadminOwnership,
+    ) -> Result<CompletedPasskeySession, StoreError> {
+        super::seeded_sysadmin_ownership::complete_seeded_sysadmin_ownership(self, command).await
+    }
+
     async fn insert_passkey(&self, command: RegisterPasskey) -> Result<PasskeyRecord, StoreError> {
         let mut transaction = self.begin_auth().await?;
         let row = sqlx::query(
@@ -564,7 +599,7 @@ async fn delete_expired_webauthn_ceremonies(
     Ok(())
 }
 
-async fn delete_expired_account_sessions(
+pub(super) async fn delete_expired_account_sessions(
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<(), StoreError> {
     sqlx::query(
@@ -653,7 +688,7 @@ async fn complete_email_authentication_in_transaction(
     Ok(CompletedEmailAuthentication { account, created })
 }
 
-async fn insert_account_session(
+pub(super) async fn insert_account_session(
     transaction: &mut Transaction<'_, Postgres>,
     token_hash: AccountSessionTokenHash,
     user: UserId,
@@ -732,7 +767,7 @@ async fn insert_account(
     decode_account(&row)
 }
 
-fn decode_account(row: &PgRow) -> Result<AccountRecord, StoreError> {
+pub(super) fn decode_account(row: &PgRow) -> Result<AccountRecord, StoreError> {
     let normalized: String = row.try_get("normalized_email").map_err(map_sqlx_error)?;
     let delivery: String = row.try_get("delivery_email").map_err(map_sqlx_error)?;
     let Json(platform_roles): Json<Vec<UserRole>> =
@@ -847,7 +882,7 @@ fn decode_ceremony(row: &PgRow) -> Result<WebauthnCeremony, StoreError> {
     })
 }
 
-fn decode_passkey(row: &PgRow) -> Result<PasskeyRecord, StoreError> {
+pub(super) fn decode_passkey(row: &PgRow) -> Result<PasskeyRecord, StoreError> {
     let Json(credential): Json<Value> = row.try_get("credential").map_err(map_sqlx_error)?;
     Ok(PasskeyRecord {
         id: PasskeyId::from_uuid(row.try_get("passkey_id").map_err(map_sqlx_error)?),
@@ -916,7 +951,7 @@ fn decode_ceremony_kind(
     }
 }
 
-fn json_value(state: &WebauthnState) -> Result<Value, StoreError> {
+pub(super) fn json_value(state: &WebauthnState) -> Result<Value, StoreError> {
     serde_json::from_slice(state.as_bytes())
         .map_err(|error| StoreError::InvalidRecord(error.to_string()))
 }

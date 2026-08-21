@@ -470,13 +470,13 @@ async fn retention_end_route_is_replayable_and_requires_exact_empty_body() {
     let first = end_retention(&app, Some(&instructor_cookie), course, "").await;
     assert_eq!(first.status(), StatusCode::OK);
     let first_payload = response_json(first).await;
-    let revision = first_payload["revision"].as_u64().expect("revision");
+    let revision = first_payload["revision"].as_str().expect("revision");
 
     let replay = end_retention(&app, Some(&instructor_cookie), course, "").await;
     assert_eq!(replay.status(), StatusCode::OK);
     let replay_payload = response_json(replay).await;
     assert_eq!(
-        replay_payload["revision"].as_u64().expect("revision"),
+        replay_payload["revision"].as_str().expect("revision"),
         revision
     );
     assert_private_projection_fields(&replay_payload);
@@ -556,7 +556,7 @@ async fn retention_get_route_hides_private_fields_and_emits_etag_and_notificatio
         assert!(notification["createdAt"].is_number());
     }
     assert_private_projection_fields(&viewed);
-    let revision = viewed["revision"].as_u64().expect("revision");
+    let revision = viewed["revision"].as_str().expect("revision");
     assert_eq!(etag, format!("\"{}\"", revision));
 }
 
@@ -727,7 +727,7 @@ async fn retention_archive_route_replays_scheduled_with_no_duplicate_jobs_and_co
     assert_eq!(first.status(), StatusCode::ACCEPTED);
     let first = response_json(first).await;
     assert_eq!(first["outcome"], serde_json::json!("scheduled"));
-    let revision = first["revision"].as_u64().expect("revision");
+    let revision = first["revision"].as_str().expect("revision");
 
     let stale_replay = archive_retention(
         &app,

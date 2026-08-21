@@ -1,4 +1,8 @@
 use crate::CreateCourseCommand;
+use crate::{
+    CourseGroupMembershipWarning, CourseGroupPurposePolicyRevision, CourseGroupView,
+    StoredCourseGroupPurposePolicy, UpdateCourseGroupPurposePolicyCommand,
+};
 use async_trait::async_trait;
 
 use super::*;
@@ -27,6 +31,15 @@ impl crate::CourseStore for MemoryStore {
             course_id,
             command.initial_instructor,
         )?;
+        for purpose in ALL_GROUP_PURPOSES {
+            state.course_group_purpose_policies.insert(
+                (tenant, course_id, purpose),
+                StoredCourseGroupPurposePolicy {
+                    policy: question_model::CourseGroupPurposePolicy::default_for_purpose(purpose),
+                    revision: CourseGroupPurposePolicyRevision::INITIAL,
+                },
+            );
+        }
         state
             .course_appearances
             .entry((tenant, course_id))
@@ -128,26 +141,38 @@ impl crate::CourseStore for MemoryStore {
         {
             return Err(StoreError::Conflict);
         }
-        if let Some(existing) = state.course_groups.get(&key)
-            && existing == &command.record
-        {
-            return Ok(StoredCourseGroup {
-                record: existing.clone(),
-                revision: state
-                    .course_group_revisions
-                    .get(&key)
-                    .copied()
-                    .ok_or(StoreError::NotFound)?,
-            });
-        }
         let revision = match state.course_group_revisions.get(&key).copied() {
-            Some(current) if command.expected_revision == Some(current) => current.next()?,
+            Some(current) if command.expected_revision == Some(current) => {
+                if state.course_groups.get(&key) == Some(&command.record) {
+                    return Ok(StoredCourseGroup {
+                        record: command.record,
+                        revision: current,
+                    });
+                }
+                current.next()?
+            }
             Some(_) => return Err(StoreError::Conflict),
             None if command.expected_revision.is_none() => CourseGroupRevision::INITIAL,
             None => return Err(StoreError::Conflict),
         };
+        let snapshot = state.clone();
+        validate_group_purpose_transition(&state, tenant, &command.record)?;
+        super::navigation_references::ensure_course_group_reference(
+            &mut state,
+            tenant,
+            command.record.id,
+        )?;
         state.course_groups.insert(key, command.record.clone());
         state.course_group_revisions.insert(key, revision);
+        if let Err(error) = reresolve_group_affected_assignments(
+            &mut state,
+            tenant,
+            command.record.course,
+            command.record.id,
+        ) {
+            *state = snapshot;
+            return Err(error);
+        }
         Ok(StoredCourseGroup {
             record: command.record,
             revision,
@@ -171,5 +196,364 @@ impl crate::CourseStore for MemoryStore {
                 .copied()
                 .ok_or(StoreError::NotFound)?,
         }))
+    }
+}
+
+#[async_trait]
+impl crate::CourseGroupManagementStore for MemoryStore {
+    async fn list_course_groups(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        course: CourseId,
+        page: PageRequest,
+    ) -> Result<Page<CourseGroupView>, StoreError> {
+        let state = self.read_state()?;
+        require_group_manager(&state, context.tenant_id(), course, actor)?;
+        let records = state
+            .course_groups
+            .iter()
+            .filter(|((tenant, _), record)| {
+                *tenant == context.tenant_id() && record.course == course
+            })
+            .map(|((tenant, id), record)| {
+                let reference = state
+                    .course_group_references
+                    .get(&(*tenant, *id))
+                    .copied()
+                    .ok_or(StoreError::NotFound)?;
+                let revision = state
+                    .course_group_revisions
+                    .get(&(*tenant, *id))
+                    .copied()
+                    .ok_or(StoreError::NotFound)?;
+                Ok((
+                    format!("{:010}", reference.number()),
+                    CourseGroupView {
+                        reference,
+                        group: StoredCourseGroup {
+                            record: record.clone(),
+                            revision,
+                        },
+                    },
+                ))
+            })
+            .collect::<Result<Vec<_>, StoreError>>()?;
+        Ok(page_records(records, &page))
+    }
+
+    async fn get_course_group_by_reference(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        course: CourseId,
+        reference: question_model::CourseGroupReference,
+    ) -> Result<Option<CourseGroupView>, StoreError> {
+        let state = self.read_state()?;
+        require_group_manager(&state, context.tenant_id(), course, actor)?;
+        let tenant = context.tenant_id();
+        let Some(group) = state
+            .course_groups_by_reference
+            .get(&(tenant, reference))
+            .copied()
+        else {
+            return Ok(None);
+        };
+        let Some(record) = state
+            .course_groups
+            .get(&(tenant, group))
+            .filter(|record| record.course == course)
+        else {
+            return Ok(None);
+        };
+        let revision = state
+            .course_group_revisions
+            .get(&(tenant, group))
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        Ok(Some(CourseGroupView {
+            reference,
+            group: StoredCourseGroup {
+                record: record.clone(),
+                revision,
+            },
+        }))
+    }
+
+    async fn get_course_group_by_id_for_instructor(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        course: CourseId,
+        group: CourseGroupId,
+    ) -> Result<Option<CourseGroupView>, StoreError> {
+        let state = self.read_state()?;
+        let tenant = context.tenant_id();
+        require_group_manager(&state, tenant, course, actor)?;
+        let Some(record) = state
+            .course_groups
+            .get(&(tenant, group))
+            .filter(|record| record.course == course)
+        else {
+            return Ok(None);
+        };
+        let reference = state
+            .course_group_references
+            .get(&(tenant, group))
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        let revision = state
+            .course_group_revisions
+            .get(&(tenant, group))
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        Ok(Some(CourseGroupView {
+            reference,
+            group: StoredCourseGroup {
+                record: record.clone(),
+                revision,
+            },
+        }))
+    }
+
+    async fn delete_course_group(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        course: CourseId,
+        group: CourseGroupId,
+        expected_revision: CourseGroupRevision,
+    ) -> Result<bool, StoreError> {
+        let tenant = context.tenant_id();
+        let mut state = self.write_state()?;
+        require_group_manager(&state, tenant, course, actor)?;
+        let key = (tenant, group);
+        let Some(record) = state.course_groups.get(&key) else {
+            return Ok(false);
+        };
+        if record.course != course {
+            return Ok(false);
+        }
+        if state.course_group_revisions.get(&key).copied() != Some(expected_revision) {
+            return Err(StoreError::Conflict);
+        }
+        if group_is_referenced(&state, tenant, group) {
+            return Err(StoreError::Conflict);
+        }
+        state.course_groups.remove(&key);
+        state.course_group_revisions.remove(&key);
+        let reference = state
+            .course_group_references
+            .remove(&key)
+            .ok_or(StoreError::NotFound)?;
+        state
+            .course_groups_by_reference
+            .remove(&(tenant, reference));
+        Ok(true)
+    }
+
+    async fn get_course_group_purpose_policy(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        course: CourseId,
+        purpose: question_model::CourseGroupPurpose,
+    ) -> Result<Option<StoredCourseGroupPurposePolicy>, StoreError> {
+        let state = self.read_state()?;
+        require_group_manager(&state, context.tenant_id(), course, actor)?;
+        Ok(state
+            .course_group_purpose_policies
+            .get(&(context.tenant_id(), course, purpose))
+            .copied())
+    }
+
+    async fn update_course_group_purpose_policy(
+        &self,
+        context: TenantContext,
+        command: UpdateCourseGroupPurposePolicyCommand,
+    ) -> Result<StoredCourseGroupPurposePolicy, StoreError> {
+        let tenant = context.tenant_id();
+        let mut state = self.write_state()?;
+        require_group_manager(&state, tenant, command.course, command.actor)?;
+        let key = (tenant, command.course, command.policy.purpose);
+        let current = state
+            .course_group_purpose_policies
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        if current.revision != command.expected_revision {
+            return Err(StoreError::Conflict);
+        }
+        let stored = StoredCourseGroupPurposePolicy {
+            policy: command.policy,
+            revision: current.revision.next()?,
+        };
+        state.course_group_purpose_policies.insert(key, stored);
+        Ok(stored)
+    }
+
+    async fn course_group_membership_warnings(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        course: CourseId,
+    ) -> Result<Vec<CourseGroupMembershipWarning>, StoreError> {
+        let state = self.read_state()?;
+        let tenant = context.tenant_id();
+        require_group_manager(&state, tenant, course, actor)?;
+        Ok(membership_warnings(&state, tenant, course))
+    }
+}
+
+const ALL_GROUP_PURPOSES: [question_model::CourseGroupPurpose; 5] = [
+    question_model::CourseGroupPurpose::Section,
+    question_model::CourseGroupPurpose::Lab,
+    question_model::CourseGroupPurpose::Cohort,
+    question_model::CourseGroupPurpose::Accommodation,
+    question_model::CourseGroupPurpose::Work,
+];
+
+fn require_group_manager(
+    state: &State,
+    tenant: TenantId,
+    course: CourseId,
+    actor: UserId,
+) -> Result<(), StoreError> {
+    if !state.courses.contains_key(&(tenant, course))
+        || super::entitlement::current_course_role(state, tenant, course, actor)
+            != Some(CourseMembershipRole::Instructor)
+    {
+        return Err(StoreError::NotFound);
+    }
+    require_course_records_accessible(state, tenant, course)
+}
+
+fn group_is_referenced(state: &State, tenant: TenantId, group: CourseGroupId) -> bool {
+    state.assignments.values().any(|assignment| {
+        assignment.tenant == tenant && audience_mentions(&assignment.audience, group)
+    }) || state
+        .assignment_group_schedule_offsets
+        .keys()
+        .any(|(record_tenant, _, candidate)| *record_tenant == tenant && *candidate == group)
+        || state
+            .assignment_group_accommodations
+            .keys()
+            .any(|(record_tenant, _, candidate)| *record_tenant == tenant && *candidate == group)
+}
+
+fn validate_group_purpose_transition(
+    state: &State,
+    tenant: TenantId,
+    proposed: &CourseGroupRecord,
+) -> Result<(), StoreError> {
+    let Some(existing) = state.course_groups.get(&(tenant, proposed.id)) else {
+        return Ok(());
+    };
+    if existing.purpose == proposed.purpose {
+        return Ok(());
+    }
+    let capabilities = question_model::GroupPurposeCapabilities::for_purpose(proposed.purpose);
+    let audience_used = state.assignments.values().any(|assignment| {
+        assignment.tenant == tenant
+            && assignment.course_id == proposed.course
+            && audience_mentions(&assignment.audience, proposed.id)
+    });
+    let schedule_used = state
+        .assignment_group_schedule_offsets
+        .keys()
+        .any(|(record_tenant, _, group)| *record_tenant == tenant && *group == proposed.id);
+    let accommodation_used = state
+        .assignment_group_accommodations
+        .keys()
+        .any(|(record_tenant, _, group)| *record_tenant == tenant && *group == proposed.id);
+    if (audience_used && !capabilities.assignment_audience)
+        || (schedule_used && !capabilities.schedule_scope)
+        || (accommodation_used && !capabilities.accommodation_scope)
+    {
+        return Err(StoreError::Conflict);
+    }
+    Ok(())
+}
+
+fn membership_warnings(
+    state: &State,
+    tenant: TenantId,
+    course: CourseId,
+) -> Vec<CourseGroupMembershipWarning> {
+    let mut counts = std::collections::BTreeMap::new();
+    for group in state
+        .course_groups
+        .values()
+        .filter(|group| group.tenant == tenant && group.course == course)
+    {
+        for membership in &group.members {
+            *counts.entry((*membership, group.purpose)).or_insert(0_u32) += 1;
+        }
+    }
+    counts
+        .into_iter()
+        .map(|((membership, purpose), membership_count)| {
+            let policy = state
+                .course_group_purpose_policies
+                .get(&(tenant, course, purpose))
+                .expect("course creation initializes all purpose policies");
+            CourseGroupMembershipWarning {
+                membership,
+                purpose,
+                membership_count,
+                disposition: domain::teaching_authority::evaluate_multiple_membership(
+                    policy.policy,
+                    usize::try_from(membership_count).expect("u32 membership count fits usize"),
+                ),
+            }
+        })
+        .filter(|warning| {
+            matches!(
+                warning.disposition,
+                question_model::MultipleMembershipDisposition::AllowedWithWarning
+            )
+        })
+        .collect()
+}
+
+fn reresolve_group_affected_assignments(
+    state: &mut State,
+    tenant: TenantId,
+    course: CourseId,
+    group: CourseGroupId,
+) -> Result<(), StoreError> {
+    let assignments = state
+        .assignments
+        .values()
+        .filter(|assignment| assignment.tenant == tenant && assignment.course_id == course)
+        .filter(|assignment| {
+            audience_mentions(&assignment.audience, group)
+                || state.assignment_group_schedule_offsets.contains_key(&(
+                    tenant,
+                    assignment.id,
+                    group,
+                ))
+                || state.assignment_group_accommodations.contains_key(&(
+                    tenant,
+                    assignment.id,
+                    group,
+                ))
+        })
+        .map(|assignment| assignment.id)
+        .collect::<Vec<_>>();
+    for assignment in assignments {
+        super::course_policy::reresolve_active_assignment_attempts(
+            state, tenant, course, assignment,
+        )?;
+    }
+    Ok(())
+}
+
+fn audience_mentions(audience: &question_model::AssignmentAudience, group: CourseGroupId) -> bool {
+    match audience {
+        question_model::AssignmentAudience::CourseWide => false,
+        question_model::AssignmentAudience::AnyOfGroups(groups) => {
+            groups.iter().any(|candidate| candidate == group)
+        }
     }
 }

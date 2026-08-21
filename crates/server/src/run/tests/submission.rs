@@ -546,7 +546,7 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
     let mut disclosure_policy = stored.record.disclosure_policy;
     disclosure_policy.score = question_model::LearnerDisclosureTiming::Never;
     store
-        .replace_assignment_preserving_timing(
+        .replace_assignment(
             context,
             stored.record.course_id,
             assignment,

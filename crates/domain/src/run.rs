@@ -23,7 +23,7 @@ pub enum RunModelError {
         /// Rejected threshold.
         fraction: f64,
     },
-    /// A score was non-finite or outside `0.0..=1.0`.
+    /// A score was non-finite or outside `-1000.0..=1000.0`.
     InvalidScore {
         /// Rejected score.
         score: f64,

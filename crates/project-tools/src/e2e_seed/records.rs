@@ -35,9 +35,12 @@ pub(super) fn seed_replay_state(
 ) -> Result<SeedReplayState> {
     match (course_marker_exists, assignment_marker_exists) {
         (false, false) => Ok(SeedReplayState::Fresh),
-        (true, true) => Ok(SeedReplayState::Replay),
-        _ => bail!(
+        (true, false) => bail!(
             "{seed_name} has an incomplete deterministic marker state; reset the disposable database before seeding"
+        ),
+        (true, true) => Ok(SeedReplayState::Replay),
+        (false, true) => bail!(
+            "{seed_name} has an invalid deterministic marker state; the assignment exists without its course"
         ),
     }
 }
@@ -109,32 +112,24 @@ impl WebworkPilotSeedIds {
 
 impl SeedIds {
     pub(super) fn fresh_for_tenant(tenant: TenantId) -> Self {
+        let id = |label| derived_uuid(tenant, label);
         Self {
             workspace: WorkspaceId::generate(),
             problem: ProblemId::generate(),
             version: VersionId::generate(),
-            course: CourseId::from_uuid(derived_uuid(tenant, "course")),
-            assignment: AssignmentId::from_uuid(derived_uuid(tenant, "assignment")),
-            assignment_item: AssignmentItemId::from_uuid(derived_uuid(tenant, "assignment-item")),
-            run: RunId::from_uuid(derived_uuid(tenant, "run")),
-            attempt: QuestionAttemptId::from_uuid(derived_uuid(tenant, "attempt")),
-            concurrent_run: RunId::from_uuid(derived_uuid(tenant, "concurrent-run")),
-            concurrent_attempt: QuestionAttemptId::from_uuid(derived_uuid(
-                tenant,
-                "concurrent-attempt",
-            )),
-            support_run: RunId::from_uuid(derived_uuid(tenant, "support-run")),
-            support_attempt: QuestionAttemptId::from_uuid(derived_uuid(tenant, "support-attempt")),
-            support_replacement: QuestionAttemptId::from_uuid(derived_uuid(
-                tenant,
-                "support-replacement",
-            )),
-            retirement_run: RunId::from_uuid(derived_uuid(tenant, "retirement-run")),
-            retirement_attempt: QuestionAttemptId::from_uuid(derived_uuid(
-                tenant,
-                "retirement-attempt",
-            )),
-            post_retirement_run: RunId::from_uuid(derived_uuid(tenant, "post-retirement-run")),
+            course: CourseId::from_uuid(id("course")),
+            assignment: AssignmentId::from_uuid(id("assignment")),
+            assignment_item: AssignmentItemId::from_uuid(id("assignment-item")),
+            run: RunId::from_uuid(id("run")),
+            attempt: QuestionAttemptId::from_uuid(id("attempt")),
+            concurrent_run: RunId::from_uuid(id("concurrent-run")),
+            concurrent_attempt: QuestionAttemptId::from_uuid(id("concurrent-attempt")),
+            support_run: RunId::from_uuid(id("support-run")),
+            support_attempt: QuestionAttemptId::from_uuid(id("support-attempt")),
+            support_replacement: QuestionAttemptId::from_uuid(id("support-replacement")),
+            retirement_run: RunId::from_uuid(id("retirement-run")),
+            retirement_attempt: QuestionAttemptId::from_uuid(id("retirement-attempt")),
+            post_retirement_run: RunId::from_uuid(id("post-retirement-run")),
         }
     }
 
@@ -181,7 +176,7 @@ fn webwork_pilot_scaffold_uuid(tenant: TenantId, label: &str) -> Uuid {
     Uuid::from_bytes(bytes)
 }
 
-pub(super) fn native_draft(workspace: WorkspaceId) -> DraftQuestionDefinition {
+pub(super) fn replica_native_draft(workspace: WorkspaceId) -> DraftQuestionDefinition {
     let mut parameters = BTreeMap::new();
     parameters.insert(
         "residue".to_string(),

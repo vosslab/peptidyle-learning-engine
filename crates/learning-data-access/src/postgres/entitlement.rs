@@ -82,12 +82,11 @@ impl EntitlementStore for PostgresStore {
                 // whether that currently entitled learner may see/start this
                 // assignment; only an allowed candidate consumes page space.
                 let prior_runs: i64 = sqlx::query_scalar(
-                    "SELECT count(*) FROM assignment_run run JOIN enrollment enrollment ON enrollment.tenant_id=run.tenant_id AND enrollment.enrollment_id=run.enrollment_id WHERE run.tenant_id=$1 AND enrollment.assignment_id=$2 AND enrollment.student_id=$3",
+                    "SELECT count(*) FROM assignment_run run JOIN enrollment enrollment ON enrollment.tenant_id=run.tenant_id AND enrollment.enrollment_id=run.enrollment_id WHERE run.tenant_id=$1 AND enrollment.assignment_id=$2 AND enrollment.student_id=$3 AND run.completed_at IS NOT NULL",
                 ).bind(context.tenant_id().as_uuid()).bind(assignment.as_uuid()).bind(grant.student().as_uuid()).fetch_one(&mut *transaction).await.map_err(map_sqlx_error)?;
                 let (policy, _) = super::course_policy::resolve_granted_effective_policy(
                     &mut transaction,
                     grant,
-                    domain::effective_assignment_policy::AssignmentLifecycleGate::Open,
                     domain::effective_assignment_policy::AuthorizationGate::Authorized,
                     u32::try_from(prior_runs).map_err(|_| {
                         StoreError::Unavailable("run count exceeds policy range".to_string())
@@ -234,12 +233,14 @@ pub(super) async fn materialize(
         })
         .transpose()?;
 
-    let audience = load_audience(transaction, tenant, command.assignment(), &assignment).await?;
+    let audience =
+        load_audience(transaction, tenant, command.assignment(), &assignment, true).await?;
     let groups = load_current_groups(
         transaction,
         tenant,
         command.course(),
         membership.map(|value| value.id),
+        true,
     )
     .await?;
     let decision = evaluate_assignment_entitlement(EntitlementFacts {
@@ -324,6 +325,27 @@ pub(super) async fn evaluate_current(
     course: question_model::CourseId,
     assignment: question_model::AssignmentId,
 ) -> Result<EntitlementDecision, StoreError> {
+    evaluate_current_with_lock(transaction, tenant, learner, course, assignment, true).await
+}
+
+pub(super) async fn evaluate_current_read_only(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    learner: UserId,
+    course: question_model::CourseId,
+    assignment: question_model::AssignmentId,
+) -> Result<EntitlementDecision, StoreError> {
+    evaluate_current_with_lock(transaction, tenant, learner, course, assignment, false).await
+}
+
+async fn evaluate_current_with_lock(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    learner: UserId,
+    course: question_model::CourseId,
+    assignment: question_model::AssignmentId,
+    lock: bool,
+) -> Result<EntitlementDecision, StoreError> {
     let exists: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM course WHERE tenant_id = $1 AND course_id = $2)",
     )
@@ -366,12 +388,13 @@ pub(super) async fn evaluate_current(
             })
         })
         .transpose()?;
-    let audience = load_audience(transaction, tenant, assignment, &row).await?;
+    let audience = load_audience(transaction, tenant, assignment, &row, lock).await?;
     let groups = load_current_groups(
         transaction,
         tenant,
         course,
         membership.map(|member| member.id),
+        lock,
     )
     .await?;
     Ok(evaluate_assignment_entitlement(EntitlementFacts {
@@ -454,23 +477,28 @@ async fn load_audience(
     tenant: TenantId,
     assignment: question_model::AssignmentId,
     row: &sqlx::postgres::PgRow,
+    lock: bool,
 ) -> Result<AssignmentAudience, StoreError> {
     let kind: String = row.try_get("audience_kind").map_err(map_sqlx_error)?;
     match kind.as_str() {
         "course_wide" => Ok(AssignmentAudience::CourseWide),
         "any_of_groups" => {
-            let groups = sqlx::query_scalar::<_, Uuid>(
+            let query = if lock {
                 "SELECT course_group_id FROM assignment_audience_group \
-                 WHERE tenant_id = $1 AND assignment_id = $2 ORDER BY course_group_id FOR UPDATE",
-            )
-            .bind(tenant.as_uuid())
-            .bind(assignment.as_uuid())
-            .fetch_all(&mut **transaction)
-            .await
-            .map_err(map_sqlx_error)?
-            .into_iter()
-            .map(CourseGroupId::from_uuid)
-            .collect();
+                 WHERE tenant_id = $1 AND assignment_id = $2 ORDER BY course_group_id FOR UPDATE"
+            } else {
+                "SELECT course_group_id FROM assignment_audience_group \
+                 WHERE tenant_id = $1 AND assignment_id = $2 ORDER BY course_group_id"
+            };
+            let groups = sqlx::query_scalar::<_, Uuid>(query)
+                .bind(tenant.as_uuid())
+                .bind(assignment.as_uuid())
+                .fetch_all(&mut **transaction)
+                .await
+                .map_err(map_sqlx_error)?
+                .into_iter()
+                .map(CourseGroupId::from_uuid)
+                .collect();
             AssignmentAudience::any_of_groups(groups).map_err(|error| {
                 StoreError::Unavailable(format!("stored assignment audience is invalid: {error:?}"))
             })
@@ -486,25 +514,35 @@ async fn load_current_groups(
     tenant: TenantId,
     course: question_model::CourseId,
     membership: Option<CourseMembershipId>,
+    lock: bool,
 ) -> Result<Vec<(CourseGroupId, CourseGroupPurpose)>, StoreError> {
     let Some(membership) = membership else {
         return Ok(Vec::new());
     };
-    let rows = sqlx::query(
+    let query = if lock {
         "SELECT groups.course_group_id, groups.purpose FROM course_group_member AS member \
          JOIN course_group AS groups \
            ON groups.tenant_id = member.tenant_id \
           AND groups.course_id = member.course_id \
           AND groups.course_group_id = member.course_group_id \
          WHERE member.tenant_id = $1 AND member.course_id = $2 \
-         AND member.course_membership_id = $3 FOR UPDATE OF member, groups",
-    )
-    .bind(tenant.as_uuid())
-    .bind(course.as_uuid())
-    .bind(membership.as_uuid())
-    .fetch_all(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
+         AND member.course_membership_id = $3 FOR UPDATE OF member, groups"
+    } else {
+        "SELECT groups.course_group_id, groups.purpose FROM course_group_member AS member \
+         JOIN course_group AS groups \
+           ON groups.tenant_id = member.tenant_id \
+          AND groups.course_id = member.course_id \
+          AND groups.course_group_id = member.course_group_id \
+         WHERE member.tenant_id = $1 AND member.course_id = $2 \
+         AND member.course_membership_id = $3"
+    };
+    let rows = sqlx::query(query)
+        .bind(tenant.as_uuid())
+        .bind(course.as_uuid())
+        .bind(membership.as_uuid())
+        .fetch_all(&mut **transaction)
+        .await
+        .map_err(map_sqlx_error)?;
     rows.iter()
         .map(|row| {
             Ok((

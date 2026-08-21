@@ -676,6 +676,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "base-course-installation"
+version = "26.8.0"
+dependencies = [
+ "adapter_native",
+ "domain",
+ "grading",
+ "learning-data-access",
+ "question_model",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "uuid",
+]
+
+[[package]]
 name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1143,6 +1158,7 @@ name = "domain"
 version = "26.8.0"
 dependencies = [
  "chrono",
+ "chrono-tz",
  "question_model",
  "rand_chacha 0.10.0",
  "serde",
@@ -2500,6 +2516,7 @@ dependencies = [
  "adapter_native",
  "adapter_webwork",
  "anyhow",
+ "base-course-installation",
  "base64 0.23.1",
  "csv",
  "domain",

@@ -351,6 +351,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
             assignment_id,
             assignment_title: "Peptide bond mastery".to_string(),
             summary: summary.clone(),
+            scoring_status: question_model::ScoringStatus::Current,
         }],
         summary,
     })

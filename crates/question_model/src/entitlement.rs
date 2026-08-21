@@ -4,15 +4,81 @@
 //! server to perform an action; it never receives a reusable authority token
 //! or a roster/group explanation.
 
+use serde::{Deserialize, Serialize};
+
 use crate::{ActivityTimestamp, CourseGroupId, CourseMembershipId, EnrollmentId, UserId};
 /// Closed meaning of a course group.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum CourseGroupPurpose {
     Section,
     Lab,
     Cohort,
     Accommodation,
     Work,
+}
+
+/// Closed outcome policy when one learner belongs to multiple groups of a purpose.
+///
+/// This policy informs an instructor about a potentially surprising roster
+/// shape. It never changes the validity of a membership write or entitlement.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MultipleMembershipPolicy {
+    /// Preserve the membership and report no informational warning.
+    Allow,
+    /// Preserve the membership and report an informational warning.
+    Warn,
+}
+
+impl MultipleMembershipPolicy {
+    /// Returns the closed default for a group purpose.
+    pub const fn default_for_purpose(purpose: CourseGroupPurpose) -> Self {
+        match purpose {
+            CourseGroupPurpose::Section => Self::Warn,
+            CourseGroupPurpose::Lab
+            | CourseGroupPurpose::Cohort
+            | CourseGroupPurpose::Accommodation
+            | CourseGroupPurpose::Work => Self::Allow,
+        }
+    }
+}
+
+/// One course-owned policy value for one closed group purpose.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CourseGroupPurposePolicy {
+    /// Purpose whose memberships this policy evaluates.
+    pub purpose: CourseGroupPurpose,
+    /// Informational behavior for multiple memberships of that purpose.
+    pub multiple_membership: MultipleMembershipPolicy,
+}
+
+impl CourseGroupPurposePolicy {
+    /// Constructs the default policy for one purpose.
+    pub const fn default_for_purpose(purpose: CourseGroupPurpose) -> Self {
+        Self {
+            purpose,
+            multiple_membership: MultipleMembershipPolicy::default_for_purpose(purpose),
+        }
+    }
+}
+
+/// Deterministic, non-blocking result of evaluating a membership write.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MultipleMembershipDisposition {
+    /// The valid membership write needs no informational warning.
+    Allowed,
+    /// The valid membership write is retained and should show a warning.
+    AllowedWithWarning,
+}
+
+impl MultipleMembershipDisposition {
+    /// Whether the valid membership write remains permitted.
+    pub const fn permits_write(self) -> bool {
+        true
+    }
 }
 
 /// Total, non-persisted capability mapping for a group purpose.
@@ -152,15 +218,40 @@ mod tests {
 
     #[test]
     fn purpose_capabilities_are_closed_and_total() {
-        assert!(
-            GroupPurposeCapabilities::for_purpose(CourseGroupPurpose::Section).assignment_audience
+        assert_eq!(
+            GroupPurposeCapabilities::for_purpose(CourseGroupPurpose::Section),
+            GroupPurposeCapabilities {
+                assignment_audience: true,
+                schedule_scope: true,
+                accommodation_scope: false,
+                learner_visible: true,
+            }
         );
-        assert!(
-            GroupPurposeCapabilities::for_purpose(CourseGroupPurpose::Accommodation)
-                .accommodation_scope
+        assert_eq!(
+            GroupPurposeCapabilities::for_purpose(CourseGroupPurpose::Lab),
+            GroupPurposeCapabilities::for_purpose(CourseGroupPurpose::Section)
         );
-        assert!(
-            !GroupPurposeCapabilities::for_purpose(CourseGroupPurpose::Work).assignment_audience
+        assert_eq!(
+            GroupPurposeCapabilities::for_purpose(CourseGroupPurpose::Cohort),
+            GroupPurposeCapabilities::for_purpose(CourseGroupPurpose::Section)
+        );
+        assert_eq!(
+            GroupPurposeCapabilities::for_purpose(CourseGroupPurpose::Accommodation),
+            GroupPurposeCapabilities {
+                assignment_audience: false,
+                schedule_scope: false,
+                accommodation_scope: true,
+                learner_visible: false,
+            }
+        );
+        assert_eq!(
+            GroupPurposeCapabilities::for_purpose(CourseGroupPurpose::Work),
+            GroupPurposeCapabilities {
+                assignment_audience: false,
+                schedule_scope: false,
+                accommodation_scope: false,
+                learner_visible: false,
+            }
         );
     }
 
@@ -175,5 +266,21 @@ mod tests {
             AssignmentAudience::any_of_groups(vec![group, group]),
             Err(AssignmentAudienceError::Duplicate)
         );
+    }
+
+    #[test]
+    fn purpose_policy_is_a_closed_strict_wire_shape() {
+        let policy = CourseGroupPurposePolicy::default_for_purpose(CourseGroupPurpose::Section);
+        assert_eq!(
+            serde_json::to_string(&policy).expect("policy should serialize"),
+            r#"{"purpose":"section","multipleMembership":"warn"}"#
+        );
+        assert!(
+            serde_json::from_str::<CourseGroupPurposePolicy>(
+                r#"{"purpose":"section","multipleMembership":"warn","extra":true}"#
+            )
+            .is_err()
+        );
+        assert!(serde_json::from_str::<MultipleMembershipPolicy>(r#""block""#).is_err());
     }
 }

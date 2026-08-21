@@ -2,9 +2,153 @@ use super::*;
 use learning_data_access::{
     AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore,
     CourseItemAnalysisCommitOutcome, CourseItemAnalysisWorkerCommand,
-    CourseItemAnalysisWorkerStore, EnqueueJob, JobClaimFilter, JobLeaseDuration, JobPayload,
-    JobStore,
+    CourseItemAnalysisWorkerStore, EnqueueJob, JobClaimFilter, JobFailureKind, JobLeaseDuration,
+    JobPayload, JobStore,
 };
+
+#[tokio::test]
+async fn non_current_scoring_redacts_every_learner_item_http_surface() {
+    let (store, _backend, app, student_cookie, _outsider_cookie, assignment) =
+        native_feedback_fixture().await;
+    let first = active_attempt_for(&app, assignment, &student_cookie).await;
+    let choice = presented_choice_id(&app, first.id, &student_cookie, 1).await;
+    let submission_request = || {
+        Request::builder()
+            .method("POST")
+            .uri(format!("/api/submissions/{}", first.id))
+            .header("cookie", &student_cookie)
+            .header("content-type", "application/json")
+            .header("idempotency-key", "t1-scoring-redaction")
+            .body(Body::from(
+                serde_json::json!({
+                    "response": { "kind": "multipleChoice", "selected": [choice] }
+                })
+                .to_string(),
+            ))
+            .expect("submission request")
+    };
+    assert_eq!(
+        app.clone()
+            .oneshot(submission_request())
+            .await
+            .expect("initial submission")
+            .status(),
+        StatusCode::OK
+    );
+
+    for (expected_status, points) in [("recalculating", 3), ("failed", 4)] {
+        set_assignment_item_points(store.as_ref(), assignment, points).await;
+        if expected_status == "failed" {
+            fail_assignment_scoring_job(store.as_ref(), assignment).await;
+        }
+
+        let receipt = json(
+            app.clone()
+                .oneshot(submission_request())
+                .await
+                .expect("idempotent receipt"),
+        )
+        .await;
+        assert_redacted_item_surface(&receipt, expected_status, "receipt");
+
+        let list = json(
+            app.clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(format!("/api/runs/{}/attempts", first.run))
+                        .header("cookie", &student_cookie)
+                        .body(Body::empty())
+                        .expect("attempt-list request"),
+                )
+                .await
+                .expect("attempt-list response"),
+        )
+        .await;
+        assert_redacted_item_surface(&list["items"][0], expected_status, "attempt list");
+
+        let detail = json(
+            app.clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(format!("/api/attempts/{}", first.id))
+                        .header("cookie", &student_cookie)
+                        .body(Body::empty())
+                        .expect("attempt-detail request"),
+                )
+                .await
+                .expect("attempt-detail response"),
+        )
+        .await;
+        assert_redacted_item_surface(&detail, expected_status, "attempt detail");
+
+        let summary = run_summary(&app, first.run, &student_cookie).await;
+        assert_eq!(summary["summary"]["scoringStatus"], expected_status);
+        assert!(summary["run"]["score"].is_null());
+        assert!(summary["summary"]["currentScore"].is_null());
+        let outcome = &summary["outcomes"]["items"][0];
+        assert_eq!(outcome["scoringStatus"], expected_status);
+        assert!(outcome["feedback"]["pointsEarned"].is_null());
+        assert!(outcome["feedback"]["pointsPossible"].is_null());
+    }
+}
+
+fn assert_redacted_item_surface(value: &serde_json::Value, status: &str, surface: &str) {
+    assert_eq!(value["scoringStatus"], status, "{surface} status");
+    let attempt = value.get("attempt").unwrap_or(value);
+    assert!(
+        attempt["result"].is_null(),
+        "{surface} result must be absent"
+    );
+    if let Some(feedback) = value.get("feedback") {
+        assert!(
+            feedback["pointsEarned"].is_null(),
+            "{surface} earned points"
+        );
+        assert!(
+            feedback["pointsPossible"].is_null(),
+            "{surface} possible points"
+        );
+    }
+}
+
+async fn fail_assignment_scoring_job(store: &MemoryStore, assignment: AssignmentId) {
+    loop {
+        let claim = store
+            .claim_next_job(
+                &JobClaimFilter::all(),
+                JobLeaseDuration::from_seconds(30).expect("lease"),
+            )
+            .await
+            .expect("claim job")
+            .expect("pending assignment scoring job");
+        match claim.payload {
+            JobPayload::RecalculateAssignment {
+                assignment: candidate,
+                ..
+            } if candidate == assignment => {
+                store
+                    .fail_job(claim.id, claim.lease_token, JobFailureKind::Permanent)
+                    .await
+                    .expect("permanent score-worker failure");
+                let context =
+                    TenantContext::from_authenticated_session(TenantId::from_uuid(id(201)));
+                let status = store
+                    .get_assignment_for_edit(context, assignment)
+                    .await
+                    .expect("assignment scoring read")
+                    .expect("fixture assignment")
+                    .scoring_status;
+                if matches!(status, question_model::ScoringStatus::Failed) {
+                    return;
+                }
+            }
+            _ => store
+                .complete_job(claim.id, claim.lease_token)
+                .await
+                .expect("complete unrelated job"),
+        }
+    }
+}
 
 #[tokio::test]
 async fn mixed_assignment_disclosure_projects_each_field_at_http_boundary() {
@@ -128,7 +272,7 @@ async fn mixed_assignment_disclosure_projects_each_field_at_http_boundary() {
         .oneshot(
             Request::builder()
                 .uri(format!("/api/runs/{}/summary", first.run))
-                .header("cookie", instructor_cookie)
+                .header("cookie", &instructor_cookie)
                 .body(Body::empty())
                 .expect("instructor summary request"),
         )
@@ -136,6 +280,7 @@ async fn mixed_assignment_disclosure_projects_each_field_at_http_boundary() {
         .expect("instructor summary response");
     assert_eq!(instructor.status(), StatusCode::OK);
     let instructor = json(instructor).await;
+    assert_eq!(instructor["scoringStatus"], "current");
     assert!(instructor["run"]["score"].is_number());
     assert!(instructor["summary"]["currentScore"].is_number());
     assert!(instructor["summary"].get("tenant").is_some());
@@ -144,6 +289,26 @@ async fn mixed_assignment_disclosure_projects_each_field_at_http_boundary() {
     for forbidden in ["answerKey", "checker", "provider", "source", "launchUrl"] {
         assert!(!instructor.to_string().contains(forbidden));
     }
+
+    set_assignment_item_points(store.as_ref(), assignment, 3).await;
+    let recalculating = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/runs/{}/summary", first.run))
+                .header("cookie", &instructor_cookie)
+                .body(Body::empty())
+                .expect("recalculating instructor summary request"),
+        )
+        .await
+        .expect("recalculating instructor summary response");
+    assert_eq!(recalculating.status(), StatusCode::OK);
+    let recalculating = json(recalculating).await;
+    assert_eq!(recalculating["scoringStatus"], "recalculating");
+    assert!(recalculating["run"]["score"].is_null());
+    assert!(recalculating["summary"]["currentScore"].is_null());
+    assert!(recalculating["summary"]["bestScore"].is_null());
+    assert!(recalculating["summary"]["latestScore"].is_null());
 
     let outsider = app
         .clone()
@@ -540,7 +705,7 @@ async fn replace_disclosure_policy(
         .expect("assignment read")
         .expect("fixture assignment");
     store
-        .replace_assignment_preserving_timing(
+        .replace_assignment(
             context,
             stored.record.course_id,
             assignment,
@@ -570,7 +735,7 @@ async fn set_assignment_item_points(store: &MemoryStore, assignment: AssignmentI
         item.points_possible = question_model::PointValue::from_whole(points);
     }
     store
-        .replace_assignment_preserving_timing(
+        .replace_assignment(
             context,
             stored.record.course_id,
             assignment,

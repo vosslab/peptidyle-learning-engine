@@ -42,10 +42,15 @@ function formatActivity(timestamp: number | null): string {
   }).format(new Date(timestamp));
 }
 
-function formatRunStatus(run: AssignmentRun): string {
+function formatRunStatus(
+  run: AssignmentRun,
+  scoringStatus: GradebookSummaryRow["scoringStatus"],
+): string {
   if (run.completedAt === null) {
     return "In progress";
   }
+  if (scoringStatus === "recalculating") return "Completed, recalculating";
+  if (scoringStatus === "failed") return "Completed, score unavailable";
   return run.score === null ? "Completed" : `Completed, ${formatPercentScore(run.score)}`;
 }
 
@@ -59,6 +64,12 @@ function gradebookRowKey(row: GradebookSummaryRow): string {
 
 function gradebookHistoryControlId(row: GradebookSummaryRow): string {
   return `gradebook-history-control-${gradebookRowKey(row)}`;
+}
+
+function gradebookScore(row: GradebookSummaryRow, value: number | null): string {
+  if (row.scoringStatus === "recalculating") return "Recalculating";
+  if (row.scoringStatus === "failed") return "Unavailable";
+  return value === null ? "No score" : formatPercentScore(value);
 }
 
 interface GradebookCoursePageProps {
@@ -309,8 +320,10 @@ function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
                             {row.assignmentTitle}
                           </th>
                           <td data-label="Learner">{row.learnerName}</td>
-                          <td data-label="Best">{formatPercentScore(row.summary.bestScore)}</td>
-                          <td data-label="Latest">{formatPercentScore(row.summary.latestScore)}</td>
+                          <td data-label="Best">{gradebookScore(row, row.summary.bestScore)}</td>
+                          <td data-label="Latest">
+                            {gradebookScore(row, row.summary.latestScore)}
+                          </td>
                           <td data-label="Completed">{row.summary.completedRunCount}</td>
                           <td data-label="Last activity">
                             {formatActivity(row.summary.lastActivityAt)}
@@ -393,7 +406,7 @@ function GradebookCoursePage(props: GradebookCoursePageProps): JSX.Element {
                                 {(run) => (
                                   <li>
                                     <strong>Run {run.runNumber}</strong>
-                                    <span>{formatRunStatus(run)}</span>
+                                    <span>{formatRunStatus(run, row().scoringStatus)}</span>
                                     <span>Started {formatActivity(run.startedAt)}</span>
                                   </li>
                                 )}

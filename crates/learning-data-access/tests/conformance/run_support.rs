@@ -73,13 +73,16 @@ where
     let support_assignment = AssignmentId::from_uuid(uuid(89_972 + fixture_offset));
     let support_run_id = RunId::from_uuid(uuid(89_974 + fixture_offset));
     store
-        .create_untimed_assignment(
+        .create_assignment_with_default_policy(
             context,
+            publisher,
             AssignmentRecord {
                 id: support_assignment,
                 tenant,
                 course_id: course,
                 title: "Attempt support fixture".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Published,
+                instructions: question_model::AssignmentInstructions::default(),
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![
                     ProblemVersionRef { problem, version },

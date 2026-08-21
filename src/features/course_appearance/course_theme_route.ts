@@ -37,6 +37,9 @@ export function courseThemeRouteRequest(pathname: string): CourseThemeRouteReque
     if (segments.length === 4 && segments[3] === "gradebook") {
       return { kind: "course", courseReference: reference };
     }
+    if (segments.length === 4 && segments[3] === "grade-settings") {
+      return { kind: "course", courseReference: reference };
+    }
     if (segments.length === 4 && segments[3] === "appearance") {
       return { kind: "course", courseReference: reference };
     }
@@ -49,6 +52,25 @@ export function courseThemeRouteRequest(pathname: string): CourseThemeRouteReque
       segments[4] !== undefined &&
       segments[5] === "edit"
     ) {
+      return { kind: "course", courseReference: reference };
+    }
+    if (
+      segments.length === 6 &&
+      segments[3] === "assignments" &&
+      segments[4] !== undefined &&
+      segments[5] === "delivery-check"
+    ) {
+      return { kind: "course", courseReference: reference };
+    }
+    if (
+      segments.length === 6 &&
+      segments[3] === "assignments" &&
+      segments[4] !== undefined &&
+      segments[5] === "access"
+    ) {
+      return { kind: "course", courseReference: reference };
+    }
+    if (segments.length === 4 && segments[3] === "teaching-operations") {
       return { kind: "course", courseReference: reference };
     }
   }

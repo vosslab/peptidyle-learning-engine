@@ -38,6 +38,7 @@ function isPublicAccountRoute(pathname: string): boolean {
   const routeId = routeContractForPathname(pathname)?.id;
   return (
     routeId === "signIn" ||
+    routeId === "liveDemoSysadminSetup" ||
     routeId === "emailAuthenticationComplete" ||
     routeId === "emailChangeComplete" ||
     routeId === "courseInvitation"
@@ -193,6 +194,9 @@ export function App(props: RouteSectionProps): JSX.Element {
           <Show when={session.state().kind === "authenticated"}>
             <A href="/account/security" activeClass="active">
               Account
+            </A>
+            <A href="/account/co-instructor-invitations" activeClass="active">
+              Invitations
             </A>
             <button
               class="nav-action"

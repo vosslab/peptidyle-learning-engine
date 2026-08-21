@@ -18,13 +18,19 @@ export interface RouteContract {
     | "assignmentCreate"
     | "assignmentEditor"
     | "gradebook"
+    | "courseGradeSettings"
     | "courseAppearance"
     | "signIn"
+    | "liveDemoSysadminSetup"
     | "emailAuthenticationComplete"
     | "emailChangeComplete"
     | "courseInvitation"
     | "accountSecurity"
-    | "courseRoster";
+    | "courseRoster"
+    | "teachingOperations"
+    | "assignmentAccess"
+    | "assignmentPreview"
+    | "pendingCoInstructorInvitations";
   readonly path: string;
   readonly surface: string;
   readonly requiredRoles: ReadonlyArray<InstructorRouteRole>;
@@ -42,6 +48,12 @@ export const ROUTE_CONTRACT = [
     id: "signIn",
     path: "/sign-in",
     surface: "Passwordless account sign-in",
+    requiredRoles: [],
+  },
+  {
+    id: "liveDemoSysadminSetup",
+    path: "/live-demo/sysadmin-setup",
+    surface: "Operator-discovered live-demo administrator setup",
     requiredRoles: [],
   },
   {
@@ -66,6 +78,12 @@ export const ROUTE_CONTRACT = [
     id: "accountSecurity",
     path: "/account/security",
     surface: "Multiple-passkey account management",
+    requiredRoles: [],
+  },
+  {
+    id: "pendingCoInstructorInvitations",
+    path: "/account/co-instructor-invitations",
+    surface: "Account-owned pending co-instructor invitations",
     requiredRoles: [],
   },
   {
@@ -129,9 +147,27 @@ export const ROUTE_CONTRACT = [
     requiredRoles: ["instructor", "sysadmin"],
   },
   {
+    id: "assignmentAccess",
+    path: "/instructor/courses/:courseRef/assignments/:assignmentRef/access",
+    surface: "Assignment access modifiers and server preview",
+    requiredRoles: ["instructor", "sysadmin"],
+  },
+  {
+    id: "assignmentPreview",
+    path: "/instructor/courses/:courseRef/assignments/:assignmentRef/delivery-check",
+    surface: "Instructor-only assignment delivery check",
+    requiredRoles: ["instructor", "sysadmin"],
+  },
+  {
     id: "gradebook",
     path: "/instructor/courses/:courseRef/gradebook",
     surface: "Summary-row gradebook",
+    requiredRoles: ["instructor", "sysadmin"],
+  },
+  {
+    id: "courseGradeSettings",
+    path: "/instructor/courses/:courseRef/grade-settings",
+    surface: "Course grade settings and projected totals",
     requiredRoles: ["instructor", "sysadmin"],
   },
   {
@@ -144,6 +180,12 @@ export const ROUTE_CONTRACT = [
     id: "courseRoster",
     path: "/instructor/courses/:courseRef/students",
     surface: "Course roster, invitations, import, and grade export",
+    requiredRoles: ["instructor", "sysadmin"],
+  },
+  {
+    id: "teachingOperations",
+    path: "/instructor/courses/:courseRef/teaching-operations",
+    surface: "Course teaching operations hub",
     requiredRoles: ["instructor", "sysadmin"],
   },
 ] as const satisfies ReadonlyArray<RouteContract>;

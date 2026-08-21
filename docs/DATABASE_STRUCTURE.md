@@ -29,11 +29,11 @@ capabilities.
 
 ## Migration ledger
 
-The checked-in chain has 40 migrations. The immutable accepted baseline is the first seven
+The checked-in chain has 43 migrations. The immutable accepted baseline is the first seven
 migrations and its historical inventory is 80 top-level relations: the first six are the accepted
 pre-data baseline, and `2026080907_course_appearance.sql` is the first accepted forward migration.
-That 80-relation number is not the current schema size. Later migrations through 1804 are also
-present, and the complete 40-migration chain requires the current disposable PostgreSQL baseline.
+That 80-relation number is not the current schema size. Later migrations through 1807 are also
+present, and the complete 43-migration chain requires the current disposable PostgreSQL baseline.
 Owning product packages that remain open are identified below; a successful migration gate does not
 silently accept them. SQLx's ledger and runtime-created partition children are excluded from the
 historical inventory. Relation counts are drift checks, not capacity metrics or a reason to avoid a
@@ -48,6 +48,13 @@ necessary normalized relation.
 | 2026080805 | [operations analytics](../schemas/migrations/2026080805_operations_analytics.sql) | Accepted baseline | Worker queue, timing, export, analytics, staging, object delivery     |
 | 2026080806 | [retention](../schemas/migrations/2026080806_retention.sql)                       | Accepted baseline | Archive/delete lifecycle and frozen cleanup manifests                 |
 | 2026080907 | [course appearance](../schemas/migrations/2026080907_course_appearance.sql)       | Accepted forward  | Course theme and banner candidate/current presentation state          |
+
+Migration `2026081805_assignment_learner_disclosure_policy.sql` is accepted and immutable as
+WP-PROF-S4. Migration `2026081806_course_grade_scheme.sql` is accepted and immutable as
+WP-PROF-S6. Migration `2026081807_teaching_operations.sql` is accepted and immutable as
+WP-PROF-T2. WP-PROF-T1 allocates no migration: it uses the accepted assignment lifecycle,
+instructions, and normalized S3 base-policy relations from `2026081804` through one current Store
+contract rather than adding a shadow timing or teaching-settings relation.
 
 `2026080908_secure_question_grading_payloads.sql` is checked in as the WP-P2
 prerequisite, but is not an accepted migration or a claim about a deployed database. It
@@ -117,7 +124,9 @@ unfinished migration allocation, while the active release plan owns package acce
 | 2026081802 | WP-PROF-S7       | Positive public scalar for course groups; immutable validated public byline on published versions and catalog projection | Accepted and immutable; fresh PostgreSQL 17 baseline and RLS oracle passed |
 | 2026081803 | WP-PROF-S5       | Canonical membership episodes, derived entitlement, typed group purposes/audiences, sealed materialization provenance, and typed assignment summaries | Accepted and immutable; fresh PostgreSQL 17 baseline and RLS oracle passed |
 | 2026081804 | WP-PROF-S3       | Normalized base policy, group offsets/accommodations, individual exceptions, sealed per-attempt effective-policy receipts, field provenance, and current pointer | Accepted and immutable; fresh PostgreSQL 17 baseline and exact normalized resolver/RLS oracle passed |
-| 2026081805 | WP-PROF-S4       | Assignment-owned five-field learner disclosure policy and removal of retired coarse disclosure columns | File present; live migration and RLS evidence pending |
+| 2026081805 | WP-PROF-S4       | Assignment-owned five-field learner disclosure policy and removal of retired coarse disclosure columns | Accepted and immutable; fresh PostgreSQL 17 baseline and RLS oracle passed |
+| 2026081806 | WP-PROF-S6       | Course-owned total-points and weighted-category schemes, normalized categories and letter bands, compact-summary totals, and PII-free export audit | Accepted and immutable |
+| 2026081807 | WP-PROF-T2       | Purpose-aware course-group membership policy, global non-authorizing Instructor approval, target-bound co-instructor invitations, safe public teaching references, final-Instructor protection, and modifier reference guards | Accepted and immutable; fresh PostgreSQL 17 upgrade, group, authority, RLS, and concurrency oracles passed |
 
 The 2026080931 and 2026080935 entries describe superseded pre-production migration behavior. The
 current WP-R2 schema contract uses one immutable Question ID per publication, fresh hidden
@@ -150,6 +159,11 @@ student exception are normalized assignment relations. Each attempt receipt reco
 fields and their ordered sources, seals only after complete provenance exists, and is selected by a
 current pointer that can reference only a sealed generation. The schema therefore preserves why an
 issued policy applied without reconstructing historical timing from changed current inputs.
+WP-PROF-T1 makes that normalized base row the only stored schedule/limit/late/deadline authority and
+uses the existing assignment lifecycle and instructions columns. A teaching-settings write locks the
+assignment, validates the authoritative course term, updates lifecycle, instructions, and base policy
+under one revision, then re-resolves active attempts in the same transaction. No legacy
+`AssignmentRunTiming`, defaulted compatibility column, or parallel browser-owned clock is retained.
 
 `2026081805_assignment_learner_disclosure_policy.sql` makes assignment disclosure the one current
 authority. It adds non-null, checked `score_disclosure`,
@@ -161,6 +175,28 @@ writes choose every value. It drops `assignment.feedback_disclosure`,
 `submission_receipt_snapshot.feedback_disclosure`; no legacy disclosure column remains as a
 reader or writer surface. `feedback_release` remains separate immutable audit evidence under its
 retention fence, not a disclosure authority.
+
+`2026081806_course_grade_scheme.sql` adds the course-owned `course_grade_scheme`, normalized
+`course_grade_category`, `course_grade_category_assignment`, and `course_grade_letter_band`
+relations plus `course_total_export_audit`. The mode check is closed to total points and weighted
+categories; completion-based grading is not represented. The scheme revision is positive and
+strong-CAS updates replace the whole title-free assignment setting, while scheme reads project
+the current server-owned assignment titles. Course totals read one scheme snapshot and maintained
+compact assignment summaries; the browser receives no email, learner identity, or raw summary
+payload. Export rows are synchronous and ephemeral; only bounded, PII-free audit metadata is
+durable. All new relations use tenant keys, forced RLS, and retention reachability.
+
+`2026081807_teaching_operations.sql` adds one course-owned membership policy for each of the five
+group purposes. Multiple Section membership warns without blocking; the other defaults allow it.
+Global Instructor approval is eligibility evidence only and grants no course or platform authority.
+Co-instructor invitations are target-bound, contain no email address, expire after 30 days, and
+recheck approval when accepted. Positive public `U-`, `M-`, and `CI-` references are minted and
+resolved only through narrow session-, operator-, target-, or exact-course-Instructor capabilities;
+the browser never receives account UUIDs or email. Restrictive M2/M3 references, deferred purpose
+guards, and the serialized final-active-Instructor guard preserve assignment and roster invariants.
+The added relations use forced RLS and least-privilege broker functions; active-attempt S5
+entitlement and S3 effective-policy re-resolution remains an atomic Store transaction with the
+group or modifier mutation.
 
 The unaccepted `2026080930_account_presentation_preference.sql` derives presentation
 preference reads and writes only from a live, opaque 32-byte account-session hash.
@@ -184,6 +220,7 @@ are not stored in these relations.
 | Course activity            | `course`, `course_member`, `tenant_learner_identity`, `course_roster_*`, `course_invitation`, `assignment`, `assignment_item`, `enrollment`            | Tenant/course configuration, protected roster PII, membership, and enrollment.                                              |
 | Learner evidence           | `assignment_run`, `assignment_run_item`, `question_attempt`, `attempt_effective_policy_receipt`, `attempt_effective_policy_receipt_field_source`, `submission`, `submission_evaluation` | Tenant-owned educational records; effective-policy evidence is append-only and sealed. |
 | Current projections        | `attempt_score_current`, `student_assignment_summary`, `course_item_analysis_current`                                                                  | Recomputed/published current state; not a substitute for source evidence.                                                   |
+| Course grading             | `course_grade_scheme`, `course_grade_category`, `course_grade_category_assignment`, `course_grade_letter_band`, `course_total_export_audit`          | Course-owned scheme and normalized membership; export audit stores only actor/course/revision/mode/rounding/count metadata. |
 | Protected delivery/audit   | `asset_delivery`, `student_export_*`, `record_access_log`, `audit_event`                                                                               | Explicitly authorized and retention-bound record access/evidence.                                                           |
 
 Publication pins an assignment to an exact `(problem_id, version_id)` and an issued run item

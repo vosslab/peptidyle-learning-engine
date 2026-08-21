@@ -387,10 +387,11 @@ hyphens; Rust import and module names use underscores:
 | --------------------- | -------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------- |
 | Learning data access  | `crates/learning-data-access`                | `learning_data_access` | Typed persistence contracts, authorization-aware queries, PostgreSQL, migrations, and RLS             |
 | In-memory data access | `crates/learning-data-access/src/in_memory*` | `in_memory`            | Database-free implementation used by conformance and server behavior tests                            |
-| Project tools         | `crates/project-tools`                       | Cargo-only binary      | Repository-only generation, fixtures, database operations, and E2E seeding invoked with `cargo tools` |
+| Base Course installation | `crates/base-course-installation`          | `base_course_installation` | Focused product recipe, typed request/receipt, and deterministic Base Course orchestration; no HTTP or server-start hook |
+| Project tools         | `crates/project-tools`                       | Cargo-only binary      | Direct `base-course` CLI adapter plus repository-only generation, fixtures, database operations, and E2E seeding invoked with `cargo tools` |
 
-These names were migrated atomically with all callers, manifests, tests,
-scripts, and documentation. The former `cargo xtask` alias is retired.
+`base_course_installation` owns the installed Base Course recipe and deterministic lifecycle;
+`project-tools` is its direct CLI adapter. The former `cargo xtask` alias is retired.
 
 ```text
 browser                     ALB          stateless replicas
@@ -481,10 +482,16 @@ matching this column satisfies the boundary by construction.
 | `crates/grading`                           | **Answer keys, checkers, correctness decisions**                                                                        | `question_model`, `domain`                       |
 | `crates/objects`                           | `ObjectStore` trait, S3 and MinIO backends, key construction, checksums                                                 | `question_model`                                 |
 | `crates/learning-data-access`              | `Store` trait, PostgreSQL backends, migrations, RLS context management                                                  | `question_model`, `domain`, `objects`            |
+| `crates/base-course-installation`          | Typed Base Course request/receipt, ordinary recipe, deterministic orchestration; no SQL, lock, migration, HTTP, or server start | `adapter_native`, `domain`, `grading`, `learning-data-access`, `question_model` |
 | `crates/adapters/{native,webwork,qti,h5p}` | Per-engine load, generate, grade delegation, capability declaration                                                     | `question_model`, `domain`, `grading`, `objects` |
 | `crates/export`                            | Print model, DOCX and PDF writers                                                                                       | `question_model`, `objects`                      |
 | `crates/wasm`                              | `wasm-bindgen` bridge, delegating every call to `domain`                                                                | `question_model`, `domain`                       |
 | `crates/server`                            | axum routes, auth, worker mode, composition root                                                                        | Every crate above                                |
+
+`learning-data-access` remains the sole owner of Base Course SQL, PostgreSQL locking, durable
+install-state transitions, migrations, and Store implementation. `project-tools` calls the focused
+product crate directly as a CLI adapter; neither it nor the installer crate belongs in the server
+composition root.
 
 Two load-bearing properties follow from that table. `crates/domain` reaches only
 `question_model`, so it has no clock and no database, which lets it run in a browser and makes the

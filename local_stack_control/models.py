@@ -18,6 +18,8 @@ DISPOSABLE_CAPABILITY_SETTING = "PLE_DISPOSABLE_CAPABILITY_SHA256"
 
 DEFAULT_PROJECT = "containers"
 DEFAULT_ENV_FILE = "containers/env.local"
+DEFAULT_BASE_COURSE_MANIFEST_FILE = ".runtime/base-course.json"
+DEFAULT_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE = ".runtime/live-demo-sysadmin-claim-context.json"
 DEFAULT_CHAPTER_ONE_MANIFEST_FILE = "containers/local-chapter-one-pilot.json"
 PRIMARY_COMPOSE_FILE = "containers/compose.yaml"
 SMTP_COMPOSE_FILE = "containers/compose.smtp.yaml"
@@ -104,6 +106,12 @@ DISPOSABLE_OWNER_POLICIES = (
 		owner="chapter-one-pilot",
 		project_prefix="ple_chapter_one_pilot_",
 		project_pattern=re.compile(r"^ple_chapter_one_pilot_[A-Za-z0-9]+$"),
+		compose_relative_paths=("tests/e2e/compose.course-appearance.yaml",),
+	),
+	DisposableOwnerPolicy(
+		owner="live-demo-baseline",
+		project_prefix="ple_live_demo_baseline_",
+		project_pattern=re.compile(r"^ple_live_demo_baseline_[A-Za-z0-9]+$"),
 		compose_relative_paths=("tests/e2e/compose.course-appearance.yaml",),
 	),
 	DisposableOwnerPolicy(

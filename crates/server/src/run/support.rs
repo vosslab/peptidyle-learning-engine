@@ -9,10 +9,10 @@ pub(super) use axum::http::{HeaderMap, StatusCode};
 pub(super) use axum::response::{IntoResponse, Response};
 pub(super) use learning_data_access::{
     AuthoritativeTimeStore, CatalogStore, CourseAppearanceStore, CourseItemAnalysisStore, Cursor,
-    IssueQuestionAttemptCommand, ManualGradingStore, PageRequest, PageSize, PaginationError,
-    PresentationCapability, ReceiptNextAttempt, ReceiptPresentationSnapshot,
-    ResolveEffectivePolicyCommand, SessionStore, Store, StoreError, SubmissionIdempotencyKey,
-    SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext,
+    IssueQuestionAttemptCommand, LearnerAssignmentSummarySnapshot, ManualGradingStore, PageRequest,
+    PageSize, PaginationError, PresentationCapability, ReceiptNextAttempt,
+    ReceiptPresentationSnapshot, ResolveEffectivePolicyCommand, SessionStore, Store, StoreError,
+    SubmissionIdempotencyKey, SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext,
 };
 #[cfg(test)]
 pub(super) use question_model::UserRole;
@@ -31,7 +31,7 @@ pub(super) use serde::{Deserialize, Serialize};
 pub(super) use crate::auth::{
     AuthenticatedSession, auth_error_response, no_store, resolve_request_session,
 };
-pub(super) use crate::feedback::project_feedback;
+pub(super) use crate::feedback::{project_feedback, score_current_disclosure};
 
 use super::contracts::RunBackendError;
 
@@ -40,6 +40,26 @@ pub(super) const INTERNAL_ATTEMPT_PAGE_SIZE: u16 = PageSize::MAX;
 pub(super) const MAX_SUBMISSION_BODY_BYTES: usize = 64 * 1024;
 const IDEMPOTENCY_HEADER: &str = "idempotency-key";
 pub(super) const MAX_JSON_SAFE_INTEGER: u64 = (1_u64 << 53) - 1;
+
+/// Reads the atomic learner summary/status snapshot. A transient absence is
+/// deliberately treated as failed for learner projections, never as current.
+pub(super) async fn learner_scoring_status<S: Store>(
+    store: &S,
+    authenticated: &AuthenticatedSession,
+    enrollment: question_model::EnrollmentId,
+) -> question_model::ScoringStatus {
+    store
+        .learner_get_summary(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            enrollment,
+        )
+        .await
+        .ok()
+        .flatten()
+        .map(|snapshot| snapshot.scoring_status)
+        .unwrap_or(question_model::ScoringStatus::Failed)
+}
 
 pub(super) struct RunRouteState<S, B> {
     pub(super) store: Arc<S>,
@@ -80,10 +100,21 @@ pub(super) struct SubmissionReceipt {
     pub(super) accepted: bool,
     pub(super) attempt: QuestionAttempt,
     pub(super) feedback: Option<DisclosedFeedback>,
+    pub(super) scoring_status: question_model::ScoringStatus,
     pub(super) next_issued: Option<NextIssuedAttempt>,
     /// The durable receipt exists, but a successor has not yet been issued or
     /// delivered. The learner keeps feedback rather than retrying the answer.
     pub(super) next_pending: bool,
+}
+
+/// Learner attempt routes carry freshness separately from the attempt itself;
+/// `QuestionAttempt` remains the shared raw record used by instructor paths.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct LearnerAttemptProjection {
+    #[serde(flatten)]
+    pub(super) attempt: QuestionAttempt,
+    pub(super) scoring_status: question_model::ScoringStatus,
 }
 
 /// Browser-safe identity binding for a just-issued next attempt.
@@ -119,6 +150,7 @@ pub(super) struct RunSummaryOutcome {
     pub(super) submitted_at: Option<question_model::ActivityTimestamp>,
     pub(super) response: Option<StudentResponse>,
     pub(super) feedback: Option<DisclosedFeedback>,
+    pub(super) scoring_status: question_model::ScoringStatus,
 }
 
 #[derive(Debug, Serialize)]
@@ -143,6 +175,7 @@ pub(super) struct InstructorRunSummaryResponse {
     pub(super) course: CourseRouteData,
     pub(super) run: AssignmentRun,
     pub(super) summary: StudentAssignmentSummary,
+    pub(super) scoring_status: question_model::ScoringStatus,
     pub(super) practice_allowed: bool,
     pub(super) outcomes: learning_data_access::Page<RunSummaryOutcome>,
 }
@@ -175,8 +208,9 @@ pub(crate) async fn learner_assignment_progress<
     store: &S,
     authenticated: &AuthenticatedSession,
     enrollment: &AssignmentEnrollment,
-    summary: &StudentAssignmentSummary,
+    snapshot: &LearnerAssignmentSummarySnapshot,
 ) -> Result<(LearnerAssignmentProgress, bool), Response> {
+    let summary = &snapshot.summary;
     let assignment = store
         .get_assignment(authenticated.tenant_context, enrollment.assignment)
         .await
@@ -211,7 +245,6 @@ pub(crate) async fn learner_assignment_progress<
             authenticated.tenant_context,
             ResolveEffectivePolicyCommand {
                 assignment: assignment.id,
-                lifecycle: domain::effective_assignment_policy::AssignmentLifecycleGate::Open,
                 entitlement,
                 authorization: domain::effective_assignment_policy::AuthorizationGate::Authorized,
                 now,
@@ -236,7 +269,8 @@ pub(crate) async fn learner_assignment_progress<
             .flatten(),
     )
     .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "assignment not found"))?;
-    let mut progress = LearnerAssignmentProgress::from_summary(summary, decision.score);
+    let mut progress =
+        LearnerAssignmentProgress::from_summary(summary, decision.score, snapshot.scoring_status);
     if decision.class_statistics {
         progress.class_statistics = Some(
             store

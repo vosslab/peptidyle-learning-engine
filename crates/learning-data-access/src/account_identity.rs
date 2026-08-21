@@ -14,7 +14,7 @@ use question_model::{
 };
 use uuid::Uuid;
 
-use crate::{Page, PageRequest, StoreError};
+use crate::{Page, PageRequest, SessionTokenHash, StoreError};
 
 /// Maximum accepted authentication-email length after whitespace removal.
 pub const MAX_AUTHENTICATION_EMAIL_BYTES: usize = 320;
@@ -635,6 +635,35 @@ pub struct CompletedPasskeySession {
     pub session: AccountSessionRecord,
 }
 
+/// Atomic completion of the seeded Sysadmin's one-time ownership setup.
+///
+/// The server supplies a credential only after WebAuthn has verified it
+/// against the persisted registration ceremony. The Store consumes that
+/// browser-bound ceremony while it records the first credential and creates
+/// the ordinary account-authentication session.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompleteSeededSysadminOwnership {
+    /// Deployment-configured seeded Sysadmin target, supplied by trusted
+    /// server configuration rather than request data.
+    pub target: UserId,
+    pub ceremony_id: WebauthnCeremonyId,
+    pub browser_binding: BrowserBindingHash,
+    pub passkey: RegisterPasskey,
+    pub session_token_hash: AccountSessionTokenHash,
+    pub session_lifetime: AccountSessionLifetime,
+    /// The exact account-session proof presented by the completing browser.
+    ///
+    /// This capability-scoped optional hash lets ownership completion replace
+    /// only that proof atomically; absent or malformed browser cookies never
+    /// expand the transaction's authority.
+    pub presented_account_session: Option<AccountSessionTokenHash>,
+    /// The exact tenant-session proof presented by the completing browser.
+    ///
+    /// This is revoked atomically with the new account proof so no failed
+    /// response can strand an authenticated tenant session.
+    pub presented_tenant_session: Option<SessionTokenHash>,
+}
+
 impl std::fmt::Debug for PasskeyRecord {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
@@ -742,11 +771,44 @@ pub trait AccountIdentityStore: Send + Sync {
         command: BeginWebauthnCeremony,
     ) -> Result<WebauthnCeremony, StoreError>;
 
+    /// Reads one current browser-bound ceremony without consuming it.
+    ///
+    /// The authentication server uses this state to complete WebAuthn
+    /// cryptography before a later atomic completion rechecks and consumes
+    /// the same ceremony.
+    async fn get_webauthn_ceremony(
+        &self,
+        id: WebauthnCeremonyId,
+        browser_binding: BrowserBindingHash,
+    ) -> Result<Option<WebauthnCeremony>, StoreError>;
+
+    /// Reports whether the exact configured Sysadmin remains eligible for the
+    /// one-time seeded ownership ceremony without exposing account or
+    /// credential details.
+    ///
+    /// A historical passkey, including a revoked passkey, permanently makes
+    /// this capability unavailable.
+    async fn seeded_sysadmin_ownership_available(&self, user: UserId) -> Result<bool, StoreError>;
+
     async fn take_webauthn_ceremony(
         &self,
         id: WebauthnCeremonyId,
         browser_binding: BrowserBindingHash,
     ) -> Result<Option<WebauthnCeremony>, StoreError>;
+
+    /// Completes initial ownership for one seeded Sysadmin only.
+    ///
+    /// Implementations require exact equality among the trusted configured
+    /// target, registration-ceremony subject, passkey user, and resulting
+    /// account-session user. They reread the persisted target account,
+    /// require its exact Sysadmin platform role, reject every historical
+    /// passkey (including a revoked one), consume the browser-bound
+    /// registration ceremony, and issue only an ordinary account-
+    /// authentication session in one atomic transaction.
+    async fn complete_seeded_sysadmin_ownership(
+        &self,
+        command: CompleteSeededSysadminOwnership,
+    ) -> Result<CompletedPasskeySession, StoreError>;
 
     async fn insert_passkey(&self, command: RegisterPasskey) -> Result<PasskeyRecord, StoreError>;
 

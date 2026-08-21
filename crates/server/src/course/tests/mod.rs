@@ -1,6 +1,8 @@
 use super::*;
 
+mod assignment_lifecycle;
 mod assignment_revision;
 mod course_creation;
-mod fixtures;
+pub(crate) mod fixtures;
+mod gradebook;
 mod roster;

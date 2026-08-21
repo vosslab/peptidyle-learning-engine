@@ -5,6 +5,7 @@ import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import type { LearnerAssignmentSummary } from "../../generated/api/LearnerAssignmentSummary";
+import type { LearnerAssignmentDetail } from "../../generated/api/LearnerAssignmentDetail";
 import { publishedProblemFixture } from "../../generated/fixtures/published_problem";
 import { respondCatalog } from "../../src/api/mock/handlers/catalog";
 import {
@@ -26,14 +27,31 @@ const SECONDARY_COURSE_REFERENCE = "C-2";
 const RUN_REFERENCE = "R-4";
 
 function learnerAssignment(): LearnerAssignmentSummary {
-  const {
-    tenant: _tenant,
-    courseId: _courseId,
-    disclosurePolicy: _disclosurePolicy,
-    policies: _policies,
-    ...assignment
-  } = publishedProblemFixture.assignment;
-  return assignment;
+  const { id, reference, title } = publishedProblemFixture.assignment;
+  return { id, reference, title };
+}
+
+function learnerAssignmentDetail(): LearnerAssignmentDetail {
+  const { id, reference, title, items, selectionGroups } = publishedProblemFixture.assignment;
+  return {
+    id,
+    reference,
+    title,
+    instructions: "Use the course materials to explain your reasoning.",
+    timeZone: publishedProblemFixture.course.term.timeZone,
+    delivery: {
+      availableAt: null,
+      dueAt: null,
+      closesAt: null,
+      timeLimitSeconds: null,
+      attemptLimit: null,
+      lateSubmission: "accept",
+      deadlineBehavior: "autoSubmit",
+      lateStatus: "onTime",
+    },
+    items,
+    selectionGroups,
+  };
 }
 
 async function navigateWithinSpa(page: Page, pathname: string): Promise<void> {
@@ -156,6 +174,34 @@ test("instructor editor, gradebook, and settings use the authorized course theme
     if (path === `/api/courses/${COURSE_ID}/gradebook`) {
       return await json(route, { items: [], nextCursor: null });
     }
+    if (path === `/api/courses/${COURSE_ID}/grade-scheme`) {
+      return await json(
+        route,
+        {
+          scheme: {
+            mode: "totalPoints",
+            rounding: "fourDecimalPlacesHalfAwayFromZero",
+            categories: [],
+            letterBands: [],
+          },
+          assignments: [],
+        },
+        200,
+        { "cache-control": "no-store", etag: '"1"' },
+      );
+    }
+    if (path === `/api/courses/${COURSE_ID}/gradebook-totals`) {
+      return await json(
+        route,
+        {
+          mode: "totalPoints",
+          rounding: "fourDecimalPlacesHalfAwayFromZero",
+          rows: [],
+        },
+        200,
+        { "cache-control": "no-store" },
+      );
+    }
     return await json(route, { error: `unexpected instructor scope request ${path}` }, 500);
   });
   await page.addInitScript(() => {
@@ -173,6 +219,7 @@ test("instructor editor, gradebook, and settings use the authorized course theme
       "assignmentEditor",
     ],
     [`/instructor/courses/${COURSE_REFERENCE}/gradebook`, "gradebook"],
+    [`/instructor/courses/${COURSE_REFERENCE}/grade-settings`, "courseGradeSettings"],
     [`/instructor/courses/${COURSE_REFERENCE}/appearance`, "courseAppearance"],
   ] as const) {
     await navigateWithinSpa(page, path);
@@ -222,7 +269,7 @@ test("the authorized banner and text title render only at course entry", async (
       return await json(route, { items: [learnerAssignment()], nextCursor: null });
     }
     if (path === `/api/assignments/${assignment.id}/learner`)
-      return await json(route, learnerAssignment());
+      return await json(route, learnerAssignmentDetail());
     if (path === `/api/assets/${BANNER_ID}/delivery`) {
       expect(request.method()).toBe("POST");
       return await json(

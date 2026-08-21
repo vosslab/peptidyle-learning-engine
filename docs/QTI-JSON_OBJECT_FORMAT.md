@@ -265,10 +265,11 @@ Whitespace and JSON object-member order do not change the canonical checksum.
 
 ## Evolution and QTI adapters
 
-Version 1 and version 2 are never silently reinterpreted. Additive optional
-fields require a review of old-reader behavior; an incompatible later change
-uses a new explicit version with an upcaster or republishing path and a
-committed historical fixture.
+Version 2 is the only current native source and reader. Its closed shape is
+parsed exactly: no legacy native flat-question v1 reader, upcaster, source-byte
+fallback, or republishing path is retained. Additive optional members require
+review against the v2 contract; incompatible future semantics use a new explicit
+version with its own reader and migration plan rather than reinterpreting v2 bytes.
 
 Canvas QTI and Blackboard QTI remain separate import/export profiles. Each
 adapter may map the supported flat subset into the same public/private compiler

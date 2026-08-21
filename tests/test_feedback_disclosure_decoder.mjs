@@ -6,12 +6,15 @@ import test from "node:test";
 import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeDisclosedFeedback,
+  decodeLearnerQuestionAttempt,
+  decodeQuestionAttempt,
   decodeRunSummaryResponse,
   decodeSubmissionReceipt,
 } from "../src/api/decoders.ts";
 import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
 
 const learnerProgress = {
+  scoringStatus: "current",
   scoreState: "available",
   currentScore: 0,
   bestScore: 1,
@@ -28,6 +31,34 @@ test("disclosed feedback preserves allowed accessible blocks and optional omissi
   };
   assert.deepEqual(decodeDisclosedFeedback(feedback), feedback);
   assert.deepEqual(decodeDisclosedFeedback({}), {});
+});
+
+test("learner attempts require score freshness and redact stale numeric results", () => {
+  const attempt = structuredClone(publishedProblemFixture.attempts[0]);
+  const current = { ...attempt, scoringStatus: "current" };
+  assert.deepEqual(decodeLearnerQuestionAttempt(current), current);
+  assert.throws(
+    () => decodeQuestionAttempt(current),
+    DecodeError,
+    "the storage attempt decoder must stay exact",
+  );
+
+  for (const scoringStatus of ["recalculating", "failed"]) {
+    const redacted = { ...attempt, result: null, scoringStatus };
+    assert.deepEqual(decodeLearnerQuestionAttempt(redacted), redacted);
+    assert.throws(
+      () => decodeLearnerQuestionAttempt({ ...redacted, result: attempt.result }),
+      DecodeError,
+      `${scoringStatus} must reject a numeric result`,
+    );
+  }
+
+  const { scoringStatus: _scoringStatus, ...missingStatus } = current;
+  assert.throws(() => decodeLearnerQuestionAttempt(missingStatus), DecodeError);
+  assert.throws(
+    () => decodeLearnerQuestionAttempt({ ...attempt, scoringStatus: "stale" }),
+    DecodeError,
+  );
 });
 
 test("run summary decoder accepts only its compact redacted wire shape", () => {
@@ -48,6 +79,7 @@ test("run summary decoder accepts only its compact redacted wire shape", () => {
           submittedAt: 1,
           response: null,
           feedback: null,
+          scoringStatus: "current",
         },
       ],
       nextCursor: null,
@@ -81,6 +113,7 @@ test("submission receipts require an exact feedback field and reject hostile nes
     accepted: true,
     attempt: publishedProblemFixture.attempts[0],
     feedback: { correctness: true },
+    scoringStatus: "current",
     nextIssued: null,
     nextPending: false,
   };
@@ -89,6 +122,24 @@ test("submission receipts require an exact feedback field and reject hostile nes
     () => decodeSubmissionReceipt({ ...receipt, feedback: { correctness: true, token: "no" } }),
     DecodeError,
   );
+
+  for (const scoringStatus of ["recalculating", "failed"]) {
+    const redacted = structuredClone(receipt);
+    redacted.scoringStatus = scoringStatus;
+    redacted.attempt.result = null;
+    redacted.feedback = { correctness: true };
+    assert.deepEqual(decodeSubmissionReceipt(redacted), redacted);
+
+    const resultLeak = structuredClone(redacted);
+    resultLeak.attempt.result = receipt.attempt.result;
+    assert.throws(() => decodeSubmissionReceipt(resultLeak), DecodeError);
+
+    const pointLeak = structuredClone(redacted);
+    pointLeak.feedback = { correctness: true, pointsEarned: 1, pointsPossible: 1 };
+    assert.throws(() => decodeSubmissionReceipt(pointLeak), DecodeError);
+  }
+  const { scoringStatus: _scoringStatus, ...withoutScoringStatus } = receipt;
+  assert.throws(() => decodeSubmissionReceipt(withoutScoringStatus), DecodeError);
   for (const [path, forbidden] of [
     ["answerKey", "answerKey"],
     ["timer.key", "key"],

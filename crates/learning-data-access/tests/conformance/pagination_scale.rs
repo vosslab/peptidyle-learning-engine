@@ -70,13 +70,16 @@ where
     for offset in 0..ROW_COUNT {
         let assignment = AssignmentId::from_uuid(uuid(80_200 + offset));
         store
-            .create_untimed_assignment(
+            .create_assignment_with_default_policy(
                 context,
+                instructor,
                 AssignmentRecord {
                     id: assignment,
                     tenant,
                     course_id: course,
                     title: format!("Pagination assignment {offset}"),
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
                     audience: question_model::AssignmentAudience::CourseWide,
                     items: fixed_items(vec![reference]),
                     selection_groups: Vec::new(),

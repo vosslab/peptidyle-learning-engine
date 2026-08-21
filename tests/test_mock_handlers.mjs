@@ -56,6 +56,7 @@ test("gradebook mock serves compact summary rows through the course route", asyn
     "courseId",
     "enrollmentId",
     "learnerName",
+    "scoringStatus",
     "studentId",
     "summary",
     "tenant",
@@ -341,8 +342,10 @@ test("run summary stays bounded, cursor-paged, and contains only server-redacted
     "attempt",
     "feedback",
     "response",
+    "scoringStatus",
     "submittedAt",
   ]);
+  assert.equal(firstPayload.outcomes.items[0].scoringStatus, "current");
   const next = await mockFetch(`/api/runs/${runId}/summary?pageSize=30&cursor=summary%3A30`);
   const nextPayload = await next.json();
   assert.equal(nextPayload.outcomes.items.length, 1);

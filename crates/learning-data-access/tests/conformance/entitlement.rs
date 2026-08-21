@@ -1,6 +1,6 @@
 use super::*;
 use domain::effective_assignment_policy::BaseAssignmentPolicy;
-use learning_data_access::PutBaseAssignmentPolicyCommand;
+use learning_data_access::PutAssignmentTeachingSettingsCommand;
 
 #[tokio::test]
 async fn memory_entitlement_pages_only_over_visible_assignments() {
@@ -93,13 +93,16 @@ async fn memory_entitlement_pages_only_over_visible_assignments() {
         ),
     ] {
         store
-            .create_untimed_assignment(
+            .create_assignment_with_default_policy(
                 context,
+                instructor,
                 AssignmentRecord {
                     id,
                     tenant,
                     course_id: course,
                     title: format!("Assignment {id}"),
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
                     audience,
                     items: fixed_items(vec![reference]),
                     selection_groups: Vec::new(),
@@ -116,21 +119,25 @@ async fn memory_entitlement_pages_only_over_visible_assignments() {
         .expect("read default policy")
         .expect("assignment owns an S3 base policy");
     store
-        .put_base_assignment_policy(
+        .put_assignment_teaching_settings(
             context,
-            PutBaseAssignmentPolicyCommand {
+            PutAssignmentTeachingSettingsCommand {
                 actor: instructor,
                 course,
                 assignment: policy_denied,
                 expected_revision: default_policy.revision,
-                policy: BaseAssignmentPolicy {
-                    available_at: Some(ActivityTimestamp::from_unix_millis(10_000)),
-                    due_at: None,
-                    closes_at: None,
-                    time_limit_seconds: None,
-                    attempt_limit: None,
-                    late_submission: question_model::LateSubmissionPolicy::Accept,
-                    deadline_behavior: question_model::AssignmentDeadlineBehavior::AutoSubmit,
+                settings: question_model::AssignmentTeachingSettings {
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    base_policy: BaseAssignmentPolicy {
+                        available_at: Some(ActivityTimestamp::from_unix_millis(1_787_590_800_000)),
+                        due_at: None,
+                        closes_at: None,
+                        time_limit_seconds: None,
+                        attempt_limit: None,
+                        late_submission: question_model::LateSubmissionPolicy::Accept,
+                        deadline_behavior: question_model::AssignmentDeadlineBehavior::AutoSubmit,
+                    },
                 },
             },
         )
@@ -222,13 +229,16 @@ async fn memory_entitlement_materialization_enforces_closed_authority_matrix() {
     .await;
     let assignment = AssignmentId::from_uuid(uuid(98_211));
     store
-        .create_untimed_assignment(
+        .create_assignment_with_default_policy(
             context,
+            instructor,
             AssignmentRecord {
                 id: assignment,
                 tenant,
                 course_id: course,
                 title: "Authority matrix".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Published,
+                instructions: question_model::AssignmentInstructions::default(),
                 audience: question_model::AssignmentAudience::CourseWide,
                 items: fixed_items(vec![reference]),
                 selection_groups: Vec::new(),

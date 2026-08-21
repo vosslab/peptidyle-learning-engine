@@ -4,16 +4,21 @@ use axum::extract::{Path, Request, State};
 use axum::http::header::CONTENT_TYPE;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
-use learning_data_access::{RetentionApiStore, RetentionStore, SessionStore, Store};
-use question_model::CourseId;
+use learning_data_access::{
+    AssignmentDefinitionDisposition, RetentionApiStore, RetentionDays, RetentionStore,
+    SessionStore, Store,
+};
+use question_model::{
+    CourseId, RetentionArchiveRequest, RetentionDispositionView, RetentionExtendRequest,
+};
 
 use crate::auth::{auth_error_response, resolve_request_session};
 
 use super::RetentionRouteState;
 use super::access::require_course_retention_authority;
 use super::parsing::{
-    ArchiveRequest, ExtendRequest, IfMatchError, is_application_json_content_type,
-    parse_strict_json, read_body, required_if_match_revision,
+    IfMatchError, is_application_json_content_type, parse_strict_json, read_body,
+    required_if_match_revision,
 };
 use super::projection::{
     error_response, retention_action_response, retention_response, route_store_error,
@@ -143,7 +148,7 @@ where
         Ok(body) => body,
         Err(response) => return response,
     };
-    let request = match parse_strict_json::<ArchiveRequest>(body) {
+    let request = match parse_strict_json::<RetentionArchiveRequest>(body) {
         Ok(request) => request,
         Err(()) => {
             return error_response(
@@ -159,7 +164,7 @@ where
             authenticated.record.token_hash,
             course,
             expected_revision,
-            request.disposition(),
+            archive_disposition(request.assignment_definitions),
         )
         .await
     {
@@ -258,7 +263,7 @@ where
         Ok(body) => body,
         Err(response) => return response,
     };
-    let request = match parse_strict_json::<ExtendRequest>(body) {
+    let request = match parse_strict_json::<RetentionExtendRequest>(body) {
         Ok(request) => request,
         Err(()) => {
             return error_response(
@@ -267,10 +272,7 @@ where
             );
         }
     };
-    let additional_days = match request.additional_days() {
-        Ok(days) => days,
-        Err(message) => return error_response(StatusCode::UNPROCESSABLE_ENTITY, message),
-    };
+    let additional_days = retention_days(request.additional_days);
     match state
         .store
         .extend_retention_if_revision(
@@ -285,6 +287,20 @@ where
         Ok(retention) => retention_response(StatusCode::OK, retention, None),
         Err(error) => route_store_error(error),
     }
+}
+
+fn archive_disposition(disposition: RetentionDispositionView) -> AssignmentDefinitionDisposition {
+    match disposition {
+        RetentionDispositionView::Retain => AssignmentDefinitionDisposition::Retain,
+        RetentionDispositionView::Delete => AssignmentDefinitionDisposition::Delete,
+    }
+}
+
+fn retention_days(additional_days: question_model::RetentionAdditionalDays) -> RetentionDays {
+    let days = u16::try_from(additional_days.get())
+        .expect("question-model retention extension bound must fit retention days");
+    RetentionDays::new(days)
+        .expect("question-model retention extension bound must satisfy retention policy")
 }
 
 fn expected_revision(

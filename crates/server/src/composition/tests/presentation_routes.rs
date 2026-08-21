@@ -1,44 +1,17 @@
 use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode};
 use base64::Engine;
-use learning_data_access::{
-    AccountIdentityStore, AccountSessionLifetime, AccountSessionStore, AccountSessionTokenHash,
-    AuthenticationEmail, AuthenticationRateLimitKey, BeginEmailAuthentication, BrowserBindingHash,
-    CompleteEmailAuthentication, EmailAuthenticationPurpose, EmailChallengeId,
-    EmailChallengeLifetime,
-};
+use learning_data_access::{AccountSessionLifetime, AccountSessionStore, AccountSessionTokenHash};
 use question_model::UserId;
 use tower::ServiceExt;
 
-use super::composed_memory_router_and_store;
+use super::{account_fixture, composed_memory_router_and_store};
 
 #[tokio::test]
 async fn final_route_policy_allows_authenticated_account_presentation_read_and_save() {
     let (app, store) = composed_memory_router_and_store(false);
     let user = UserId::from_uuid(uuid::Uuid::from_u128(0x936));
-    let challenge = learning_data_access::EmailChallengeSecretHash::compute(b"presentation");
-    let binding = BrowserBindingHash::compute(b"presentation-binding");
-    store
-        .begin_email_authentication(BeginEmailAuthentication {
-            id: EmailChallengeId::from_uuid(uuid::Uuid::from_u128(0x937)),
-            token_hash: challenge,
-            browser_binding: binding,
-            email_rate_limit_key: AuthenticationRateLimitKey::compute(b"presentation-limit"),
-            email: AuthenticationEmail::parse("presentation@example.edu").expect("email"),
-            purpose: EmailAuthenticationPurpose::SignInOrRegister,
-            lifetime: EmailChallengeLifetime::from_seconds(600).expect("lifetime"),
-        })
-        .await
-        .expect("account challenge");
-    store
-        .complete_email_authentication(CompleteEmailAuthentication {
-            token_hash: challenge,
-            browser_binding: binding,
-            proposed_user: user,
-            proposed_display_name: "Presentation User".to_string(),
-        })
-        .await
-        .expect("account");
+    account_fixture::provision_account(store.as_ref(), user, "Presentation User").await;
     let account_secret = [0xa7; 32];
     store
         .create_account_session(

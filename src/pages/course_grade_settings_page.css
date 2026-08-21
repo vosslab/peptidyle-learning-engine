@@ -1,0 +1,68 @@
+/* Course-grade configuration and audited export surface. */
+
+.course-grade-settings form,
+.course-grade-settings section {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.course-grade-settings fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: end;
+  padding: 0.85rem;
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-group);
+}
+
+.course-grade-settings label {
+  display: grid;
+  gap: 0.25rem;
+  font-weight: 620;
+}
+
+.course-grade-settings input,
+.course-grade-settings select {
+  min-height: 2.45rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.course-grade-errors {
+  padding: 0.8rem 1rem;
+  border-left: 0.3rem solid var(--ple-danger, #a81f3b);
+  border-radius: var(--ple-radius-group);
+  background: var(--ple-surface-soft);
+}
+
+.course-grade-settings table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.course-grade-settings th,
+.course-grade-settings td {
+  padding: 0.55rem;
+  text-align: left;
+  border-bottom: 1px solid var(--ple-border);
+}
+
+.course-grade-settings :focus-visible {
+  outline: 3px solid var(--ple-accent-strong);
+  outline-offset: 2px;
+}
+
+@media (max-width: 520px) {
+  .course-grade-settings fieldset {
+    display: grid;
+  }
+
+  .course-grade-settings table {
+    font-size: 0.87rem;
+  }
+
+  .course-grade-settings th,
+  .course-grade-settings td {
+    padding: 0.4rem;
+  }
+}

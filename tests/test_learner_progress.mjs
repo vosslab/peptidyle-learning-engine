@@ -9,6 +9,7 @@ import { learnerProgressSummary, learnerScoreValue } from "../src/learner_progre
 
 const available = {
   scoreState: "available",
+  scoringStatus: "current",
   currentScore: 0.75,
   bestScore: 0.9,
   latestScore: 0.8,
@@ -72,6 +73,7 @@ test("learner class statistics are an exact, optional safe union", () => {
 test("learner score copy distinguishes no activity, withheld, and available nulls", () => {
   const noActivity = {
     scoreState: "noActivity",
+    scoringStatus: "current",
     currentScore: null,
     bestScore: null,
     latestScore: null,
@@ -93,4 +95,16 @@ test("learner score copy distinguishes no activity, withheld, and available null
   );
   assert.equal(learnerScoreValue(null), "No score yet");
   assert.match(learnerProgressSummary(decodeLearnerAssignmentProgress(available)), /75%/);
+  assert.match(
+    learnerProgressSummary(
+      decodeLearnerAssignmentProgress({
+        ...available,
+        scoringStatus: "recalculating",
+        currentScore: null,
+        bestScore: null,
+        latestScore: null,
+      }),
+    ),
+    /recalculating/i,
+  );
 });

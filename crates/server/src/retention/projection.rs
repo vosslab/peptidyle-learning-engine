@@ -5,38 +5,17 @@ use axum::http::StatusCode;
 use axum::http::header::ETAG;
 use axum::response::{IntoResponse, Response};
 use learning_data_access::{
-    CourseRetentionView, RETENTION_ARCHIVE_NOTIFICATION_COPY, RetentionNotificationIntent,
-    RetentionNotificationView, RetentionRequestOutcome, RetentionRequestResult, StoreError,
+    AssignmentDefinitionDisposition, CourseRetentionState, CourseRetentionView,
+    RETENTION_ARCHIVE_NOTIFICATION_COPY, RetentionNotificationIntent, RetentionRequestOutcome,
+    RetentionRequestResult, StoreError,
 };
-use question_model::ActivityTimestamp;
-use serde::Serialize;
+use question_model::{
+    RetentionActionOutcomeView, RetentionActionResponse, RetentionDispositionView,
+    RetentionNotificationIntentView, RetentionNotificationView, RetentionReadView,
+    RetentionStateView, TeachingOperationRevision,
+};
 
 use crate::auth::no_store;
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct RetentionNotificationProjection {
-    intent: RetentionNotificationIntent,
-    created_at: ActivityTimestamp,
-    copy: &'static str,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct RetentionViewResponse {
-    #[serde(flatten)]
-    retention: CourseRetentionView,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    notification: Option<RetentionNotificationProjection>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct RetentionActionResponse {
-    #[serde(flatten)]
-    retention: CourseRetentionView,
-    outcome: RetentionRequestOutcome,
-}
 
 pub(super) fn retention_action_response(result: RetentionRequestResult) -> Response {
     let status = match result.outcome {
@@ -46,16 +25,13 @@ pub(super) fn retention_action_response(result: RetentionRequestResult) -> Respo
         RetentionRequestOutcome::Completed => StatusCode::OK,
     };
     let revision = result.retention.revision.value();
-    let mut response = no_store(
-        (
-            status,
-            Json(RetentionActionResponse {
-                retention: result.retention,
-                outcome: result.outcome,
-            }),
-        )
-            .into_response(),
-    );
+    let response_body = RetentionActionResponse {
+        state: retention_state(result.retention.state),
+        assignment_definitions: retention_disposition(result.retention.assignment_definitions),
+        revision: teaching_revision(revision),
+        outcome: retention_action_outcome(result.outcome),
+    };
+    let mut response = no_store((status, Json(response_body)).into_response());
     add_retention_etag(&mut response, revision);
     response
 }
@@ -63,26 +39,62 @@ pub(super) fn retention_action_response(result: RetentionRequestResult) -> Respo
 pub(super) fn retention_response(
     status: StatusCode,
     retention: CourseRetentionView,
-    notification: Option<RetentionNotificationView>,
+    notification: Option<learning_data_access::RetentionNotificationView>,
 ) -> Response {
-    let notification = notification.map(|notification| RetentionNotificationProjection {
-        intent: notification.intent,
+    let notification = notification.map(|notification| RetentionNotificationView {
+        intent: retention_notification_intent(notification.intent),
         created_at: notification.created_at,
-        copy: RETENTION_ARCHIVE_NOTIFICATION_COPY,
+        copy: RETENTION_ARCHIVE_NOTIFICATION_COPY.to_owned(),
     });
     let revision = retention.revision.value();
-    let mut response = no_store(
-        (
-            status,
-            Json(RetentionViewResponse {
-                retention,
-                notification,
-            }),
-        )
-            .into_response(),
-    );
+    let response_body = RetentionReadView {
+        state: retention_state(retention.state),
+        assignment_definitions: retention_disposition(retention.assignment_definitions),
+        revision: teaching_revision(revision),
+        notification,
+    };
+    let mut response = no_store((status, Json(response_body)).into_response());
     add_retention_etag(&mut response, revision);
     response
+}
+
+fn retention_state(state: CourseRetentionState) -> RetentionStateView {
+    match state {
+        CourseRetentionState::Active => RetentionStateView::Active,
+        CourseRetentionState::NotificationDue => RetentionStateView::NotificationDue,
+        CourseRetentionState::StudentRecordsArchived => RetentionStateView::StudentRecordsArchived,
+        CourseRetentionState::StudentRecordsDeleted => RetentionStateView::StudentRecordsDeleted,
+    }
+}
+
+fn retention_disposition(disposition: AssignmentDefinitionDisposition) -> RetentionDispositionView {
+    match disposition {
+        AssignmentDefinitionDisposition::Retain => RetentionDispositionView::Retain,
+        AssignmentDefinitionDisposition::Delete => RetentionDispositionView::Delete,
+    }
+}
+
+fn retention_notification_intent(
+    intent: RetentionNotificationIntent,
+) -> RetentionNotificationIntentView {
+    match intent {
+        RetentionNotificationIntent::Archive => RetentionNotificationIntentView::Archive,
+        RetentionNotificationIntent::Delete => RetentionNotificationIntentView::Delete,
+        RetentionNotificationIntent::Extend => RetentionNotificationIntentView::Extend,
+    }
+}
+
+fn retention_action_outcome(outcome: RetentionRequestOutcome) -> RetentionActionOutcomeView {
+    match outcome {
+        RetentionRequestOutcome::Scheduled => RetentionActionOutcomeView::Scheduled,
+        RetentionRequestOutcome::InProgress => RetentionActionOutcomeView::InProgress,
+        RetentionRequestOutcome::Completed => RetentionActionOutcomeView::Completed,
+    }
+}
+
+fn teaching_revision(revision: u64) -> TeachingOperationRevision {
+    TeachingOperationRevision::new(revision)
+        .expect("retention revision must be a positive PostgreSQL-safe teaching revision")
 }
 
 fn add_retention_etag(response: &mut Response, revision: u64) {

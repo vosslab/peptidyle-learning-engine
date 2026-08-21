@@ -14,7 +14,9 @@ fn random_membership_id() -> Result<Uuid, StoreError> {
     Ok(Uuid::from_bytes(bytes))
 }
 
-fn encode_course_group_purpose(purpose: question_model::CourseGroupPurpose) -> &'static str {
+pub(super) fn encode_course_group_purpose(
+    purpose: question_model::CourseGroupPurpose,
+) -> &'static str {
     match purpose {
         question_model::CourseGroupPurpose::Section => "section",
         question_model::CourseGroupPurpose::Lab => "lab",
@@ -24,7 +26,7 @@ fn encode_course_group_purpose(purpose: question_model::CourseGroupPurpose) -> &
     }
 }
 
-fn decode_course_group_purpose(
+pub(super) fn decode_course_group_purpose(
     value: String,
 ) -> Result<question_model::CourseGroupPurpose, StoreError> {
     match value.as_str() {
@@ -338,36 +340,29 @@ impl crate::CourseStore for PostgresStore {
                 {
                     return Err(StoreError::Conflict);
                 }
-                if existing.as_ref().is_some_and(|stored| {
-                    stored.record.purpose == question_model::CourseGroupPurpose::Accommodation
-                        && command.record.purpose
-                            != question_model::CourseGroupPurpose::Accommodation
-                }) {
-                    let has_policy_exception: bool = sqlx::query_scalar(
-                        "SELECT EXISTS(SELECT 1 FROM assignment_group_schedule_offset \
-                         WHERE tenant_id = $1 AND course_group_id = $2) OR \
-                     EXISTS(SELECT 1 FROM assignment_group_accommodation \
-                         WHERE tenant_id = $1 AND course_group_id = $2)",
+                if existing
+                    .as_ref()
+                    .is_some_and(|stored| stored.record.purpose != command.record.purpose)
+                {
+                    super::course_groups::validate_group_purpose_transition(
+                        &mut transaction,
+                        tenant,
+                        command.record.course,
+                        command.record.id,
+                        command.record.purpose,
                     )
-                    .bind(tenant.as_uuid())
-                    .bind(command.record.id.as_uuid())
-                    .fetch_one(&mut *transaction)
-                    .await
-                    .map_err(map_sqlx_error)?;
-                    if has_policy_exception {
-                        return Err(StoreError::InvalidRecord(
-                            "a group with assignment accommodations remains an accommodation scope"
-                                .to_string(),
-                        ));
-                    }
+                    .await?;
                 }
                 let affected = sqlx::query_scalar::<_, Uuid>(
-                    "SELECT assignment_id FROM assignment_group_schedule_offset \
-             WHERE tenant_id = $1 AND course_group_id = $2 UNION \
+                    "SELECT assignment_id FROM assignment_audience_group \
+             WHERE tenant_id = $1 AND course_id = $2 AND course_group_id = $3 UNION \
+             SELECT assignment_id FROM assignment_group_schedule_offset \
+             WHERE tenant_id = $1 AND course_id = $2 AND course_group_id = $3 UNION \
              SELECT assignment_id FROM assignment_group_accommodation \
-             WHERE tenant_id = $1 AND course_group_id = $2 ORDER BY assignment_id",
+             WHERE tenant_id = $1 AND course_id = $2 AND course_group_id = $3 ORDER BY assignment_id",
                 )
                 .bind(tenant.as_uuid())
+                .bind(command.record.course.as_uuid())
                 .bind(command.record.id.as_uuid())
                 .fetch_all(&mut *transaction)
                 .await

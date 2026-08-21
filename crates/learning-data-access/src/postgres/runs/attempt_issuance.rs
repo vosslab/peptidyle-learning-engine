@@ -73,7 +73,6 @@ pub(super) async fn issue_or_resume_question_attempt(
         super::super::course_policy::resolve_granted_effective_policy(
             transaction,
             grant.clone(),
-            domain::effective_assignment_policy::AssignmentLifecycleGate::Open,
             domain::effective_assignment_policy::AuthorizationGate::Authorized,
             run.run_number.saturating_sub(1),
         )

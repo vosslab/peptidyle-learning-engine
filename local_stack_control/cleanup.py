@@ -161,13 +161,21 @@ def reset_plan(
 		target,
 		["down", "--volumes", "--remove-orphans"],
 	)
-	manifest_path = target.repo_root / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE
+	base_course_manifest = (
+		target.env_file.parent / local_stack_control.models.DEFAULT_BASE_COURSE_MANIFEST_FILE
+	)
+	claim_context = (
+		target.env_file.parent / local_stack_control.models.DEFAULT_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE
+	)
+	chapter_manifest = (
+		target.repo_root / local_stack_control.models.DEFAULT_CHAPTER_ONE_MANIFEST_FILE
+	)
 	plan = local_stack_control.models.CleanupPlan(
 		project=target.project,
 		snapshot=snapshot,
 		argv=tuple(argv),
 		removes_volumes=True,
-		host_paths_to_remove=(manifest_path,),
+		host_paths_to_remove=(base_course_manifest, claim_context, chapter_manifest),
 	)
 	return plan
 

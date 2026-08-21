@@ -485,7 +485,7 @@ impl crate::ActivityStore for PostgresStore {
         context: TenantContext,
         actor: UserId,
         enrollment: EnrollmentId,
-    ) -> Result<Option<StudentAssignmentSummary>, StoreError> {
+    ) -> Result<Option<crate::LearnerAssignmentSummarySnapshot>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         if learner_enrollment_for_update(&mut transaction, context.tenant_id(), actor, enrollment)
             .await?
@@ -494,8 +494,16 @@ impl crate::ActivityStore for PostgresStore {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(None);
         }
-        let row = sqlx::query("SELECT tenant_id, enrollment_id, current_score, best_score, latest_score, completed_run_count, total_question_attempts, floor(extract(epoch FROM last_activity_at) * 1000)::bigint AS last_activity_at_millis FROM student_assignment_summary WHERE tenant_id = $1 AND enrollment_id = $2").bind(context.tenant_id().as_uuid()).bind(enrollment.as_uuid()).fetch_optional(&mut *transaction).await.map_err(map_sqlx_error)?;
-        let record = row.as_ref().map(decode_summary_row).transpose()?;
+        let row = sqlx::query("SELECT summary.tenant_id, summary.enrollment_id, summary.current_score, summary.best_score, summary.latest_score, summary.completed_run_count, summary.total_question_attempts, floor(extract(epoch FROM summary.last_activity_at) * 1000)::bigint AS last_activity_at_millis, assignment.scoring_status FROM student_assignment_summary AS summary JOIN enrollment ON enrollment.tenant_id=summary.tenant_id AND enrollment.enrollment_id=summary.enrollment_id JOIN assignment ON assignment.tenant_id=enrollment.tenant_id AND assignment.assignment_id=enrollment.assignment_id WHERE summary.tenant_id = $1 AND summary.enrollment_id = $2").bind(context.tenant_id().as_uuid()).bind(enrollment.as_uuid()).fetch_optional(&mut *transaction).await.map_err(map_sqlx_error)?;
+        let record = row
+            .as_ref()
+            .map(|value| {
+                Ok::<_, StoreError>(crate::LearnerAssignmentSummarySnapshot {
+                    summary: decode_summary_row(value)?,
+                    scoring_status: decode_scoring_status(value)?,
+                })
+            })
+            .transpose()?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(record)
     }

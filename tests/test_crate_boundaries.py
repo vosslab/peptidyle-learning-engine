@@ -210,10 +210,34 @@ def _workspace_closure(root_package: str) -> set[str]:
 def test_contributor_facing_crates_have_descriptive_package_names() -> None:
 	"""Keep terse compatibility package names from returning."""
 	members = _workspace_members()
+	assert "base-course-installation" in members
 	assert "learning-data-access" in members
 	assert "project-tools" in members
 	assert "store" not in members
 	assert "xtask" not in members
+
+
+#============================================
+def test_base_course_installer_has_one_focused_native_product_boundary() -> None:
+	"""Keep the installer on Store contracts and out of server/HTTP/tool layers."""
+	members = _workspace_members()
+	aliases = _workspace_dependency_aliases()
+	direct = _local_dependencies(members["base-course-installation"], members, aliases)
+	assert direct == {
+		"adapter_native",
+		"domain",
+		"grading",
+		"learning-data-access",
+		"question_model",
+	}
+	closure = _workspace_closure("base-course-installation")
+	assert closure.isdisjoint({
+		"adapter_webwork",
+		"export",
+		"project-tools",
+		"server_core",
+		"wasm_bridge",
+	})
 
 
 #============================================

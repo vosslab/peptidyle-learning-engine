@@ -59,7 +59,7 @@ async function signInAndOpenGradebook(
   });
 
   const assignmentLink = page.locator(
-    `a[href="/courses/${inputs.courseReference}/assignments/${inputs.masteryAssignmentReference}"]`,
+    `a[href="/instructor/courses/${inputs.courseReference}/assignments/${inputs.masteryAssignmentReference}/edit"]`,
   );
   await tabToTargetThroughVisiblePagination(page, {
     target: assignmentLink,
@@ -68,7 +68,7 @@ async function signInAndOpenGradebook(
       page
         .locator(".course-card")
         .nth(index)
-        .getByRole("link", { name: "Start assignment", exact: true }),
+        .getByRole("link", { name: "Edit assignment", exact: true }),
     itemName: "assignments",
   });
   await expect(assignmentLink).toHaveCount(1);

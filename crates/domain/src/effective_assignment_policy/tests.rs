@@ -1,10 +1,12 @@
 use super::*;
 use crate::entitlement::{
-    ActiveStudentMembership, EntitlementFacts, evaluate_assignment_entitlement,
+    ActiveStudentMembership, EntitlementFacts, SyntheticPreviewEntitlementFacts,
+    evaluate_assignment_entitlement, evaluate_synthetic_preview_entitlement,
 };
+use chrono::TimeZone;
 use question_model::{
-    AssignmentAudience, AssignmentId, CourseGroupPurpose, CourseId, CourseMembershipId, TenantId,
-    UserId,
+    AssignmentAudience, AssignmentId, AssignmentLifecycle, CourseGroupPurpose, CourseId,
+    CourseMembershipId, TenantId, UserId,
 };
 use uuid::Uuid;
 
@@ -59,6 +61,28 @@ fn input(groups: Vec<(CourseGroupId, CourseGroupPurpose)>) -> ResolveEffectivePo
     }
 }
 
+fn synthetic_input(
+    groups: Vec<(CourseGroupId, CourseGroupPurpose)>,
+) -> ResolveSyntheticPreviewPolicyInput {
+    ResolveSyntheticPreviewPolicyInput {
+        lifecycle: AssignmentLifecycleGate::Open,
+        entitlement: evaluate_synthetic_preview_entitlement(SyntheticPreviewEntitlementFacts::new(
+            TenantId::from_uuid(Uuid::from_u128(1)),
+            CourseId::from_uuid(Uuid::from_u128(2)),
+            AssignmentId::from_uuid(Uuid::from_u128(3)),
+            AssignmentAudience::CourseWide,
+            groups,
+        )),
+        authorization: AuthorizationGate::Authorized,
+        now: stamp(20_000),
+        prior_run_count: 0,
+        base: base(),
+        group_schedule_offsets: Vec::new(),
+        group_accommodations: Vec::new(),
+        hypothetical_individual_exception: None,
+    }
+}
+
 #[test]
 fn gates_short_circuit_before_modifier_validation() {
     let mut value = input(Vec::new());
@@ -73,6 +97,130 @@ fn gates_short_circuit_before_modifier_validation() {
             gate: PolicyGate::Lifecycle,
             reason: GateDenial::Lifecycle(AssignmentLifecycleDenial::NotPublished)
         })
+    );
+}
+
+#[test]
+fn lifecycle_intent_maps_to_the_first_policy_gate() {
+    assert_eq!(
+        assignment_lifecycle_gate(AssignmentLifecycle::Published),
+        AssignmentLifecycleGate::Open
+    );
+    assert_eq!(
+        assignment_lifecycle_gate(AssignmentLifecycle::Draft),
+        AssignmentLifecycleGate::Denied(AssignmentLifecycleDenial::NotPublished)
+    );
+    for lifecycle in [AssignmentLifecycle::Closed, AssignmentLifecycle::Archived] {
+        assert_eq!(
+            assignment_lifecycle_gate(lifecycle),
+            AssignmentLifecycleGate::Denied(AssignmentLifecycleDenial::Retired)
+        );
+    }
+}
+
+#[test]
+fn lifecycle_transitions_are_closed_and_archival_is_terminal() {
+    use AssignmentLifecycle::{Archived, Closed, Draft, Published};
+
+    for lifecycle in [Draft, Published, Closed, Archived] {
+        assert!(is_legal_assignment_lifecycle_transition(
+            lifecycle, lifecycle
+        ));
+    }
+    for transition in [
+        (Draft, Published),
+        (Draft, Archived),
+        (Published, Closed),
+        (Published, Archived),
+        (Closed, Published),
+        (Closed, Archived),
+    ] {
+        assert!(is_legal_assignment_lifecycle_transition(
+            transition.0,
+            transition.1
+        ));
+    }
+    for transition in [
+        (Published, Draft),
+        (Closed, Draft),
+        (Archived, Draft),
+        (Archived, Published),
+        (Archived, Closed),
+    ] {
+        assert!(!is_legal_assignment_lifecycle_transition(
+            transition.0,
+            transition.1
+        ));
+    }
+}
+
+#[test]
+fn base_policy_validation_rejects_unpersistable_limits_and_schedule_order() {
+    let mut invalid_schedule = base();
+    invalid_schedule.available_at = Some(stamp(30_001));
+    assert_eq!(
+        validate_base_assignment_policy(invalid_schedule),
+        Err(EffectivePolicyError::InvalidScheduleOrder)
+    );
+
+    let mut invalid_time_limit = base();
+    invalid_time_limit.time_limit_seconds =
+        NonZeroU32::new(question_model::MAX_ASSIGNMENT_TIME_LIMIT_SECONDS + 1);
+    assert_eq!(
+        validate_base_assignment_policy(invalid_time_limit),
+        Err(EffectivePolicyError::BaseTimeLimitOutOfRange)
+    );
+
+    let mut invalid_attempt_limit = base();
+    invalid_attempt_limit.attempt_limit =
+        NonZeroU32::new(question_model::MAX_ASSIGNMENT_ATTEMPT_LIMIT + 1);
+    assert_eq!(
+        validate_base_assignment_policy(invalid_attempt_limit),
+        Err(EffectivePolicyError::BaseAttemptLimitOutOfRange)
+    );
+
+    let mut postgres_boundary = base();
+    postgres_boundary.time_limit_seconds =
+        NonZeroU32::new(question_model::MAX_ASSIGNMENT_TIME_LIMIT_SECONDS);
+    postgres_boundary.attempt_limit = NonZeroU32::new(question_model::MAX_ASSIGNMENT_ATTEMPT_LIMIT);
+    assert_eq!(validate_base_assignment_policy(postgres_boundary), Ok(()));
+}
+
+#[test]
+fn absolute_base_schedule_stays_inside_the_course_term_in_its_authoritative_zone() {
+    let term =
+        question_model::CourseTerm::from_parts("2026-08-24", "2026-08-24", "America/Chicago")
+            .expect("one-day course term");
+    let zone = chrono_tz::America::Chicago;
+    let valid = ActivityTimestamp::from_unix_millis(
+        zone.with_ymd_and_hms(2026, 8, 24, 23, 59, 59)
+            .single()
+            .expect("unambiguous local instant")
+            .timestamp_millis(),
+    );
+    let mut policy = base();
+    policy.available_at = Some(valid);
+    policy.due_at = Some(valid);
+    policy.closes_at = Some(valid);
+    assert_eq!(
+        validate_base_assignment_policy_for_course_term(policy, &term),
+        Ok(())
+    );
+
+    let previous_day = ActivityTimestamp::from_unix_millis(
+        zone.with_ymd_and_hms(2026, 8, 23, 23, 59, 59)
+            .single()
+            .expect("unambiguous local instant")
+            .timestamp_millis(),
+    );
+    policy.available_at = Some(previous_day);
+    policy.due_at = Some(valid);
+    policy.closes_at = Some(valid);
+    assert_eq!(
+        validate_base_assignment_policy_for_course_term(policy, &term),
+        Err(EffectivePolicyError::BaseTimestampOutsideCourseTerm(
+            PolicyField::AvailableAt
+        ))
     );
 }
 
@@ -217,6 +365,104 @@ fn individual_exception_for_the_granted_student_applies_without_receipt_authorit
     assert_eq!(
         policy.closes_at.source,
         PolicySource::IndividualException(student(6))
+    );
+}
+
+#[test]
+fn synthetic_policy_shares_learner_base_m2_and_m3_precedence() {
+    let schedule = group(10);
+    let accommodation = group(11);
+    let groups = vec![
+        (schedule, CourseGroupPurpose::Section),
+        (accommodation, CourseGroupPurpose::Accommodation),
+    ];
+    let offsets = vec![GroupScheduleOffset {
+        group: schedule,
+        offset_seconds: seconds(100),
+    }];
+    let accommodations = vec![GroupAccommodation {
+        group: accommodation,
+        mode: PolicyModificationMode::ExtendOnly,
+        patch: PolicyPatchSet {
+            attempt_limit: PolicyPatch::Unrestricted,
+            ..PolicyPatchSet::INHERIT
+        },
+    }];
+    let mut learner = input(groups.clone());
+    learner.group_schedule_offsets = offsets.clone();
+    learner.group_accommodations = accommodations.clone();
+    let mut synthetic = synthetic_input(groups);
+    synthetic.group_schedule_offsets = offsets;
+    synthetic.group_accommodations = accommodations;
+    assert_eq!(
+        resolve_effective_policy(learner),
+        resolve_synthetic_preview_policy(synthetic)
+    );
+}
+
+#[test]
+fn hypothetical_individual_modifier_uses_the_existing_policy_rules() {
+    let mut extend_only = synthetic_input(Vec::new());
+    extend_only.hypothetical_individual_exception = Some(HypotheticalIndividualPolicyException {
+        mode: PolicyModificationMode::ExtendOnly,
+        patch: PolicyPatchSet {
+            closes_at: PolicyPatch::Set(stamp(25_000)),
+            ..PolicyPatchSet::INHERIT
+        },
+    });
+    assert_eq!(
+        resolve_synthetic_preview_policy(extend_only),
+        Err(EffectivePolicyError::ExtendOnlyViolation {
+            field: PolicyField::ClosesAt,
+            source: ModifierSource::HypotheticalIndividual,
+        })
+    );
+
+    let mut override_value = synthetic_input(Vec::new());
+    override_value.hypothetical_individual_exception =
+        Some(HypotheticalIndividualPolicyException {
+            mode: PolicyModificationMode::Override,
+            patch: PolicyPatchSet {
+                closes_at: PolicyPatch::Set(stamp(25_000)),
+                ..PolicyPatchSet::INHERIT
+            },
+        });
+    let Ok(EffectivePolicyDecision::Allowed { policy, .. }) =
+        resolve_synthetic_preview_policy(override_value)
+    else {
+        panic!("hypothetical override should resolve");
+    };
+    assert_eq!(
+        policy.closes_at.source,
+        PolicySource::HypotheticalIndividualException
+    );
+
+    let mut invalid_schedule = synthetic_input(Vec::new());
+    invalid_schedule.hypothetical_individual_exception =
+        Some(HypotheticalIndividualPolicyException {
+            mode: PolicyModificationMode::Override,
+            patch: PolicyPatchSet {
+                closes_at: PolicyPatch::Set(stamp(15_000)),
+                ..PolicyPatchSet::INHERIT
+            },
+        });
+    assert_eq!(
+        resolve_synthetic_preview_policy(invalid_schedule),
+        Err(EffectivePolicyError::InvalidScheduleOrder)
+    );
+}
+
+#[test]
+fn synthetic_policy_rejects_unapproved_scopes_without_learner_authority() {
+    let outsider = group(99);
+    let mut value = synthetic_input(Vec::new());
+    value.group_schedule_offsets.push(GroupScheduleOffset {
+        group: outsider,
+        offset_seconds: seconds(1),
+    });
+    assert_eq!(
+        resolve_synthetic_preview_policy(value),
+        Err(EffectivePolicyError::UnapprovedScheduleScope(outsider))
     );
 }
 

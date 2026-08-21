@@ -494,7 +494,11 @@ fn generate_struct(item: &syn::ItemStruct) -> Result<Generated> {
                 let marker = if optional { "?" } else { "" };
                 lines.push(format!("  {name}{marker}: {mapped};"));
             }
-            format!("{{\n{}\n}}", lines.join("\n"))
+            if lines.is_empty() {
+                "Record<string, never>".to_string()
+            } else {
+                format!("{{\n{}\n}}", lines.join("\n"))
+            }
         }
         Fields::Unit => "Record<string, never>".to_string(),
         Fields::Unnamed(_) => bail!("tuple structs with more than one field are not mapped"),
@@ -787,6 +791,17 @@ mod tests {
         };
         let generated = generate_struct(&item).expect("generation should succeed");
         assert!(generated.body.contains("label: string | null;"));
+    }
+
+    #[test]
+    fn empty_named_struct_maps_to_an_exact_empty_record() {
+        let item: syn::ItemStruct = syn::parse_quote! {
+            #[derive(Serialize)]
+            pub struct EmptyRequest {}
+        };
+        let generated = generate_struct(&item).expect("generation should succeed");
+        assert_eq!(generated.body, "Record<string, never>");
+        assert!(generated.dependencies.is_empty());
     }
 
     #[test]

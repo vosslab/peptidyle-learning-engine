@@ -36,9 +36,12 @@ When composing an assignment, prefer **Reuse questions from an existing assignme
 add the whole set or select questions from its checklist. For direct lookup, copy a visible
 `AAA-BBBB` ID with **Copy ID** from the library. The editor accepts IDs separated by commas or new
 lines and resolves each to that exact published question; it never resolves a successor or "latest"
-version. Confirm the selected list contains the WeBWorK MC,
-WeBWorK MATCH, PLE flat MC, and PLE flat MATCH questions, then keep **Timed** selected with **15** minutes per
-practice run before creating the assignment. UUIDs are not an instructor input. A malformed,
+version. Confirm the selected list contains the WeBWorK MC, WeBWorK MATCH, PLE flat MC, and PLE
+flat MATCH questions, then create the Draft assignment. Open its **Teaching operations** panel to
+add student instructions, publish it, and set the course-local availability/due/close schedule,
+**15** minutes per run, attempt limit, late behavior, and deadline behavior. This separate revisioned
+save converts local timestamps on the server using the course IANA zone; it never trusts the browser
+clock. UUIDs are not an instructor input. A malformed,
 unavailable, unauthorized, or already-selected ID leaves both the pasted text and the assignment
 unchanged so the instructor can correct and retry it.
 
@@ -130,12 +133,31 @@ finish without skips and preserve a conflicting caller-owned stack by refusing b
 
 - [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md) follows visible course creation, canonical no-contact
   roster membership/enrollment for the fictional learner, corpus-backed assignment construction, and
-  gradebook review. Local-file configuration authenticates the fictional actor only.
+  gradebook review. It also documents the accepted WP-PROF-S6 grade-settings, compact-total, and
+  synchronous audited CSV workflow. Local-file configuration authenticates the fictional actor only.
 - [STUDENT_GUIDE.md](STUDENT_GUIDE.md) follows the keyboard-only take, score, correction, and fresh
   practice loop.
 
 Both guides describe the bounded local no-email pilot. They do not claim email registration or a
 production deployment.
+
+## Course-grade routes
+
+The instructor course-grade boundary is mounted at these same-origin paths:
+
+- `GET/PUT /api/courses/{course}/grade-scheme` reads and revision-CAS saves the title-free scheme
+  settings. Reads include current server-owned assignment titles. The selector currently offers total
+  points and weighted categories with drop-lowest; completion-based grading is deferred.
+- `GET /api/courses/{course}/gradebook-totals` returns compact server-calculated totals from one scheme
+  snapshot and maintained assignment summaries. The no-store response excludes email and raw summary
+  data and preserves explicit unavailable states.
+- `POST /api/courses/{course}/grade-export.csv` accepts an empty body and synchronously returns a
+  bounded CSV. The response is no-store; only PII-free audit metadata is durable.
+
+These routes are the accepted WP-PROF-S6 capability. The ordinary `containers` demo, live
+PostgreSQL/browser evidence, and all seven aggregate acceptance lanes are green. Use the local
+full-stack demo when testing the networked service boundary; fast offline checks remain deterministic
+test gates only.
 
 ## Opt-in UI walkthrough
 
@@ -211,12 +233,13 @@ require WebWork2 source pins, render-course credentials, or a MariaDB password.
 ./build.sh                 # Rust, Wasm, generated contracts, fixtures, and Solid bundle
 ./check_codebase.sh        # vendored TypeScript and browser gate
 ./check_rust.sh            # repository-owned Cargo and Rust gate
-./run_playwright_tests.sh --build       # ordinary mock-backed browser suite
+./run_playwright_tests.sh --build       # ordinary demo-environment browser suite
 source source_me.sh && python3 local_stack.py acceptance   # complete opt-in Playwright validation suite
 ```
 
-The ordinary Playwright command uses the mock preview server and proves built-browser behavior, not
-the Podman stack. It finishes with zero skipped tests: real-stack, walkthrough, and visual cases
+The ordinary Playwright command uses the local demo preview server, which is internally backed by
+mock transport handlers, and proves built-browser behavior rather than the Podman stack. It finishes
+with zero skipped tests: real-stack, walkthrough, and visual cases
 are deliberately not ordinary collection. Use it for the daily browser gate, even when a local
 stack happens to be running.
 

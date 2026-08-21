@@ -35,7 +35,7 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 
 - Compose pages around the teaching task, not around individually padded components. Review
   typography, spacing, alignment, borders, controls, navigation, content width, and information
-  grouping together. 
+  grouping together.
 - Optimize instructor workflows first for a 1280 by 800 CSS-pixel laptop viewport. Assignment
   authoring, problem selection and organization, gradebook, roster, course management, workspace,
   and library pages should use most of the useful width when it improves scanning or editing. Four
@@ -363,7 +363,7 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   reluctantly, use deliberately, and purge predictably under the course
   retention policy.
 
-- Store the opaque authentication credential in one host-only HttpOnly cookie. 
+- Store the opaque authentication credential in one host-only HttpOnly cookie.
   JavaScript must never be able to read the bearer credential.
 - Use the cookie only for authentication, session security, expiration, and
   revocation needed to provide the signed-in service.
@@ -389,7 +389,7 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 ## Security design decisions
 
 - Encrypt PostgreSQL, object storage, backups, and deployment volumes at rest
-  with managed encryption and scoped KMS keys. 
+  with managed encryption and scoped KMS keys.
   Use application AEAD selectively for stored secrets such
   as external-tool launch state.
 - Security concealment and accessible teaching guidance are complementary:

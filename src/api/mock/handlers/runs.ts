@@ -5,6 +5,7 @@ import type { QuestionAttempt } from "../../../../generated/api/QuestionAttempt"
 import type { QuestionEnvelope } from "../../../../generated/api/QuestionEnvelope";
 import type { PresentationEnvelopeV1 } from "../../../../generated/api/PresentationEnvelopeV1";
 import type {
+  LearnerQuestionAttempt,
   PrefetchedNextQuestion,
   RunSummaryResponse,
   SubmissionReceipt,
@@ -108,6 +109,7 @@ export function mockPrefetchSubmissionReceipt(): SubmissionReceipt {
       status: "submitted",
     },
     feedback: { correctness: true },
+    scoringStatus: "current",
     nextIssued: {
       id: prefetchedFixtureAttempt.id,
       run: prefetchedFixtureAttempt.run,
@@ -134,6 +136,7 @@ export function mockExternalToolSubmissionReceipt(): SubmissionReceipt {
       result: null,
     },
     feedback: null,
+    scoringStatus: "current",
     nextIssued: null,
     nextPending: false,
   };
@@ -146,6 +149,11 @@ export function mockAttemptById(attemptId: string): QuestionAttempt | undefined 
     (attemptId === prefetchFixtureAttempt.id ? prefetchFixtureAttempt : undefined) ??
     (attemptId === prefetchedFixtureAttempt.id ? prefetchedFixtureAttempt : undefined)
   );
+}
+
+/** Browser-safe current-score wrapper used by learner attempt routes. */
+export function mockLearnerAttempt(attempt: QuestionAttempt): LearnerQuestionAttempt {
+  return { ...attempt, scoringStatus: "current" };
 }
 
 /**
@@ -212,7 +220,7 @@ function responseForAttempt(attemptId: string | undefined): Response {
   const attempt = attemptId === undefined ? undefined : mockAttemptById(attemptId);
   return attempt === undefined
     ? jsonResponse({ error: `Unknown fixture attempt ${attemptId ?? ""}` }, 404)
-    : jsonResponse(attempt);
+    : jsonResponse(mockLearnerAttempt(attempt));
 }
 
 function responseForIssuedQuestion(attemptId: string | undefined): Response {
@@ -264,6 +272,7 @@ function mockRunSummary(
       submittedAt: template.timer.submittedAt,
       response: template.response,
       feedback,
+      scoringStatus: "current" as const,
     };
   });
   const items = outcomes.slice(start, start + pageSize);
@@ -292,6 +301,7 @@ function preprojectedSubmissionReceipt(attempt: QuestionAttempt): SubmissionRece
     accepted: true,
     attempt,
     feedback: fixture?.feedback ?? null,
+    scoringStatus: "current",
     nextIssued: null,
     nextPending: false,
   };
@@ -387,7 +397,7 @@ export async function respondRun(request: Request): Promise<Response> {
     const runAttempts = publishedProblemFixture.attempts.filter(
       (attempt) => attempt.run === segments[2],
     );
-    return jsonResponse({ items: runAttempts, nextCursor: null });
+    return jsonResponse({ items: runAttempts.map(mockLearnerAttempt), nextCursor: null });
   }
   if (resource === "runs") {
     if (segments[3] === "summary" && request.method === "GET") {

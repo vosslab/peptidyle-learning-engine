@@ -1,8 +1,9 @@
 # Student page visuals
 
 This document defines the permanent student and access-evidence contract and embeds the current
-deterministic built-app evidence. Browser behavior and no-transport assertions remain the authority
-for access control; screenshots show the student-visible composition.
+deterministic built-app demo environment. It uses fictional students and sample course data that
+people can evaluate without implying a real deployment. Browser behavior and no-transport
+assertions remain the authority for access control; screenshots show the student-visible composition.
 
 ## Evidence contract
 
@@ -28,9 +29,10 @@ an instructor-only route must receive the same denial and no instructor transpor
 
 ## Current visual evidence
 
-The first four images show the allowed assignment overview. The next four show the same student
-session denied access to the representative instructor gradebook route. Each set follows the table's
-laptop, portrait tablet, iPhone Pro, and square order.
+The first four images show the allowed assignment overview with plain-text instructions and
+server-resolved course-zone delivery details. The next four show the same student session denied
+access to the representative instructor gradebook route. Each set follows the table's laptop,
+portrait tablet, iPhone Pro, and square order.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 ![Student assignment overview at the 1280 by 800 laptop viewport](screenshots/student/access/allowed_assignment_overview/student_assignment_overview_laptop.png)
@@ -51,9 +53,9 @@ From the repository root, refresh the manifest-owned nested student artifacts an
 node tests/playwright/capture_student_access_visuals.mjs
 ```
 
-The launcher builds and serves the current browser application, captures the deterministic student
-fixture, and writes the manifest-owned files under `docs/screenshots/student/access/` with their
-provenance record.
+The launcher builds and serves the current browser application, captures the deterministic demo
+student and sample data, and writes the manifest-owned files under `docs/screenshots/student/access/`
+with their provenance record.
 
 For Validation, exercise the same capture and checks without changing retained evidence:
 
@@ -93,8 +95,9 @@ alone do not establish current acceptance.
 
 ## Validation handoff
 
-The S4 implementation must add behavior-named browser tests for allowed student projection,
-fail-closed route denial, direct route probes, and no-transport denial. The visual capture and
-inspection gate runs after those tests. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the
+The retained T1 evidence adds resolved instructions and delivery details to the already accepted S4
+student/access matrix. Behavior-named browser tests cover the allowed learner projection,
+fail-closed direct-route denial, and no instructor transport; the visual capture and native
+inspection gate follows those tests. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the
 repository-wide Validation test suite and [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) for the durable
 viewport decision.

@@ -150,7 +150,7 @@ pub(super) async fn seed_chapter_one_pilot(
     learning_data_access::postgres::apply_migrations(&pool)
         .await
         .context("applying embedded migrations for Chapter 1 pilot seed")?;
-    let store = question_id_store(pool)?;
+    let store = crate::postgres_store::configured_postgres_store(pool)?;
     let context = TenantContext::from_authenticated_session(arguments.tenant);
     let resumed = select_chapter_one_resume_manifest(
         &store,
@@ -267,11 +267,17 @@ pub(super) async fn seed_chapter_one_pilot(
         ensure_webwork_pilot_assignment(
             &store,
             context,
+            arguments.instructor,
             AssignmentRecord {
                 id: assignment_id,
                 tenant: arguments.tenant,
                 course_id,
                 title: chapter.assignment_title.clone(),
+                lifecycle: question_model::AssignmentLifecycle::Published,
+                instructions: question_model::AssignmentInstructions::try_new(
+                    "Use the evidence in each prompt to support your answer.".to_string(),
+                )
+                .expect("Chapter 1 instructions are valid"),
                 audience: question_model::AssignmentAudience::CourseWide,
                 disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                 items,

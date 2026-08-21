@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
 use super::*;
+use crate::LearnerAssignmentSummarySnapshot;
 
 #[async_trait]
 impl crate::ActivityStore for MemoryStore {
@@ -496,7 +497,7 @@ impl crate::ActivityStore for MemoryStore {
         context: TenantContext,
         actor: UserId,
         enrollment: EnrollmentId,
-    ) -> Result<Option<StudentAssignmentSummary>, StoreError> {
+    ) -> Result<Option<LearnerAssignmentSummarySnapshot>, StoreError> {
         let state = self.read_state()?;
         let Some(record) = state.enrollments.get(&(context.tenant_id(), enrollment)) else {
             return Ok(None);
@@ -515,10 +516,22 @@ impl crate::ActivityStore for MemoryStore {
         {
             return Ok(None);
         }
-        Ok(state
+        let Some(summary) = state
             .summaries
             .get(&(context.tenant_id(), enrollment))
-            .cloned())
+            .cloned()
+        else {
+            return Ok(None);
+        };
+        let scoring_status = state
+            .assignment_scoring
+            .get(&(context.tenant_id(), assignment.id))
+            .ok_or(StoreError::NotFound)?
+            .1;
+        Ok(Some(LearnerAssignmentSummarySnapshot {
+            summary,
+            scoring_status,
+        }))
     }
 }
 

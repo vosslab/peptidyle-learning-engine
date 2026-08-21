@@ -83,21 +83,30 @@ browser-visible assessment transition.
 | Component                | Location                                                                                  | Responsibility                                                                                                                                                                                    |
 | ------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Question model           | [crates/question_model/](../crates/question_model/)                                       | Question taxonomy, typed public references, immutable public bylines, mandatory course-term values, capabilities, browser-safe presentations, learner-progress projections, and response schemas. |
-| Domain                   | [crates/domain/](../crates/domain/)                                                       | Run state, pure effective-policy and learner-disclosure evaluation after entitlement, seeded generation, timing inputs, and validation without a database or wall clock.                          |
+| Domain                   | [crates/domain/](../crates/domain/)                                                       | Run state, pure effective-policy and learner-disclosure evaluation after entitlement, the two shipped course-grade evaluators, seeded generation, timing inputs, and validation without a database or wall clock. |
 | Grading                  | [crates/grading/](../crates/grading/)                                                     | Answer-bearing checkers and correctness decisions; server-side only.                                                                                                                              |
-| Learning data access     | [crates/learning-data-access/](../crates/learning-data-access/)                           | Store contracts, in-memory and PostgreSQL implementations, current receipt/projection boundaries, migrations, forced RLS context, capability roles, and conformance tests.                        |
+| Learning data access     | [crates/learning-data-access/](../crates/learning-data-access/)                           | Store contracts, isolated course-grade capability with Memory/PostgreSQL implementations, current receipt/projection boundaries, migrations, forced RLS context, capability roles, and conformance tests. |
+| Base Course installation | `crates/base-course-installation/`                                                        | Focused product crate for typed Base Course request/receipt, ordinary recipe, and deterministic orchestration. It has no HTTP route or server-start hook. |
 | Object storage           | [crates/objects/](../crates/objects/)                                                     | Typed object keys, checksums, strict image ingress validation, and MinIO/S3-compatible implementations.                                                                                           |
 | Native adapter           | [crates/adapters/native/](../crates/adapters/native/)                                     | First-party generated questions and static flat-question compilation.                                                                                                                             |
 | External adapters        | [crates/adapters/](../crates/adapters/)                                                   | Bounded QTI, H5P, iMathAS, and WeBWorK integration behind declared capabilities.                                                                                                                  |
-| Server                   | [crates/server/](../crates/server/)                                                       | Axum routes, passwordless auth, authorization, learner aggregate and per-item redaction, adapter selection, API composition, ordinary worker, and public-asset publisher process.                 |
+| Server                   | [crates/server/](../crates/server/)                                                       | Axum routes, passwordless auth, authorization, instructor course-grade routes, learner aggregate and per-item redaction, adapter selection, API composition, ordinary worker, and public-asset publisher process. |
 | Browser and WebAssembly  | [src/](../src/) and [crates/wasm/](../crates/wasm/)                                       | SolidJS interaction layer, strict browser decoder/editor boundary, and answer-free browser bridge to shared domain logic.                                                                         |
-| Export and project tools | [crates/export/](../crates/export/) and [crates/project-tools/](../crates/project-tools/) | Print/export generation plus repository-only code generation, migration, fixture, pilot-content validation, and seed commands.                                                                    |
+| Export and project tools | [crates/export/](../crates/export/) and [crates/project-tools/](../crates/project-tools/) | Print/export generation plus repository-only code generation, migration, fixture, pilot-content validation, E2E seed commands, and the direct `base-course` CLI adapter.                           |
 | Deployment configuration | `deploy/opentofu/`                                                                        | AWS network, edge, compute, database, storage, IAM, observability, and WAF definitions.                                                                                                           |
 
 The Cargo dependency graph is a security control: `crates/domain/` depends only
 on the question model, while `crates/wasm/` does not depend on `crates/grading/`.
 The server composition root selects concrete stores, object backends, identity
 providers, and adapters.
+
+For Base Course installation, `learning-data-access` remains the sole SQL, PostgreSQL
+lock, durable install-state, migration, and Store owner. `base_course_installation` orchestrates
+only through LDA's public contracts, and `project-tools` calls it directly as a CLI adapter. The
+installer is not a server component and does not gain an HTTP route or a server-start hook. Evidence
+stays KISS: pure installer-crate tests cover typed request/receipt/recipe convergence; the existing
+LDA PostgreSQL live oracle covers schema and locking; and
+`tests/e2e/e2e_live_demo_baseline.py` covers the connected lifecycle.
 
 Course-term ownership is deliberately vertical and singular. `question_model` validates exact
 calendar dates, ordered inclusive bounds, and case-sensitive IANA membership; `CourseRecord` and
@@ -157,6 +166,60 @@ per-field provenance as immutable historical attempt evidence. S4 disclosure
 projections instead use the current S3-resolved effective-policy verdict with
 the current assignment-owned disclosure policy; no attempt-level receipt is a
 learner-disclosure authority.
+
+WP-PROF-T1 makes the assignment's teaching intent one revisioned aggregate:
+`AssignmentTeachingSettings` contains the closed lifecycle, validated plain-text
+instructions, and the S3 base policy. The browser edit transport uses
+`InstructorAssignmentTeachingSettingsLocal`; the server alone converts its
+millisecond-precise wall-clock fields through the course's stored IANA zone and
+inclusive term. Memory and PostgreSQL validate the same aggregate, apply it
+atomically with the assignment revision, and re-resolve active attempts. Only
+stored `Published` lifecycle opens G1; Draft is not implicitly published,
+Closed and Archived are unavailable for learner starts, and Archived cannot
+reopen.
+
+Instructor editor reads keep durable intent and derived state distinct. The
+server returns `teachingSettings` alongside a closed `currentState` union
+computed from backend-authoritative time and the same schedule boundaries. A
+Published assignment can therefore read as scheduled, open, or closed since a
+course-local boundary without storing a second lifecycle or consulting a
+browser clock.
+
+The learner does not receive that intent record. The dedicated learner-detail
+route runs current S5 entitlement and the current S3 resolver first, then emits
+only instructions and resolved delivery facts such as the course zone,
+availability/due/close instants, limits, deadline behavior, and neutral late
+status. Draft, closed, attempt-limited, or otherwise denied assignments share a
+non-enumerating result. `ScoringStatus` is independent of disclosure and
+activity: Recalculating or Failed suppresses learner aggregate scores, run
+scores, attempt results, and feedback point values until the maintained summary
+is Current.
+
+## Course-grade flow
+
+WP-PROF-S6 adds one isolated `CourseGradebookStore` capability. The pure domain evaluator supports
+only the two shipped modes: total points and weighted categories with optional drop-lowest. A
+completion-based mode is deferred to a later package and is absent from the model, migration, and
+HTTP selector. Memory and PostgreSQL implementors share the same validation and conformance cases.
+
+```text
+Instructor GET /grade-scheme
+  -> one course scheme snapshot + current server-owned assignment titles
+Instructor PUT /grade-scheme with If-Match
+  -> title-free whole-scheme replacement under a positive revision CAS
+Instructor GET /gradebook-totals
+  -> server evaluator + maintained compact assignment summaries
+  -> compact no-store totals and explicit unavailable reasons
+Instructor POST /grade-export.csv (empty body)
+  -> bounded synchronous rows + PII-free durable audit metadata
+```
+
+Totals use one scheme snapshot and never ask the browser to recompute a score. The compact totals
+response omits email and raw learner-summary data. Export rows may carry ephemeral roster email and
+display name for the direct instructor, while `course_total_export_audit` stores only course, actor,
+revision, mode, rounding, row count, and timestamps. The local full-stack demo, live PostgreSQL and
+browser evidence, and all seven aggregate acceptance lanes are green; this is the accepted S6
+capability boundary.
 
 ## Learner disclosure and progress projection
 

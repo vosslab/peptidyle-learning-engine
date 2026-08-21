@@ -1,7 +1,8 @@
 use super::*;
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
-    CatalogStore, DraftRecord, PublishDraftCommand, SessionLifetime, SessionSubject, TenantContext,
+    CatalogStore, DraftRecord, PublishDraftCommand, PutAssignmentTeachingSettingsCommand,
+    SessionLifetime, SessionSubject, Store, TenantContext,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -13,9 +14,9 @@ use question_model::run_policy::{
 };
 use question_model::taxonomy::License;
 use question_model::{
-    BackendCapabilities, Capability, DraftQuestionDefinition, DraftQuestionSource,
-    GradingDefinition, ProblemId, PublicationScope, QuestionMetadata, QuestionSource, TenantId,
-    UserId, VersionId, WorkspaceId,
+    AssignmentId, AssignmentTeachingSettings, BackendCapabilities, Capability, CourseId,
+    DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, ProblemId, PublicationScope,
+    QuestionMetadata, QuestionSource, TenantId, UserId, VersionId, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -49,7 +50,7 @@ pub(super) async fn issued_cookie_for_tenant(
         .to_string()
 }
 
-pub(super) async fn publish_fixture(
+pub(crate) async fn publish_fixture(
     store: &MemoryStore,
     context: TenantContext,
     tenant: TenantId,
@@ -129,11 +130,45 @@ pub(super) async fn publish_fixture_with_identity(
     ProblemVersionRef { problem, version }
 }
 
-pub(super) fn policies() -> RunPolicies {
+pub(crate) fn policies() -> RunPolicies {
     RunPolicies {
         completion: CompletionRequirement::AllCorrect,
         grade: GradePolicy::Highest,
         continued_practice: ContinuedPractice::Unlimited,
         variation: VariationPolicy::NewSeeds,
     }
+}
+
+/// Publishes a freshly created draft through the public revision-checked Store
+/// command. Test fixtures use this rather than constructing published rows.
+pub(crate) async fn publish_assignment(
+    store: &MemoryStore,
+    context: TenantContext,
+    actor: UserId,
+    course: CourseId,
+    assignment: AssignmentId,
+    settings: AssignmentTeachingSettings,
+) {
+    let stored = store
+        .get_assignment_for_edit(context, assignment)
+        .await
+        .expect("fixture assignment read")
+        .expect("fixture assignment exists");
+    assert_eq!(
+        stored.record.lifecycle,
+        question_model::AssignmentLifecycle::Draft
+    );
+    store
+        .put_assignment_teaching_settings(
+            context,
+            PutAssignmentTeachingSettingsCommand {
+                actor,
+                course,
+                assignment,
+                expected_revision: stored.revision,
+                settings,
+            },
+        )
+        .await
+        .expect("fixture assignment publish");
 }

@@ -397,16 +397,15 @@ Peptidyle's distinguishing facts: repeated practice is a feature, not an excepti
 completion or a perfect score must not end practice; assignments already carry a completion policy
 and an attempt selection policy; items already support extra credit and exclusion.
 
-Version 1 therefore offers three aggregation modes, one selected per course:
+Version 1 ships two aggregation modes, one selected per course:
 
 1. **Total points** (default, no configuration): sum of included assignment scores over sum of
    points possible, using each assignment's own attempt-selection policy.
 2. **Weighted categories**: ordered categories, each with a percentage weight and a set of
    assignments; optional drop-lowest-N inside a category.
-3. **Completion-based**: the course total is the count of assignments meeting their own completion
-   policy, over a required count. This mode exists because a practice-first course whose grade is
-   "complete 12 of 15 practice sets" is a first-class Peptidyle use, and no other product in this
-   comparison supports it cleanly.
+3. **Completion-based (deferred)**: a possible later-package mode would count assignments meeting
+   their own completion policy over a required count. It is retained here as design work only; it is
+   not part of the shipped S6 selector, domain enum, migration, Store contract, or HTTP API.
 
 Completion mode needs its interactions settled before it ships, because "count completed over
 required" meets several existing features:
@@ -421,15 +420,15 @@ required" meets several existing features:
 | Assignment grade override | override sets completion explicitly and says so on the row |
 | Required count exceeds available assignments | refused at configuration time with a clear message |
 
-Total points and weighted categories are the two **guaranteed** modes. Completion mode is
-conditional: lane C works three representative courses end to end (a pure practice course, a mixed
-practice-plus-exam course, and a course that adds an assignment mid-term), and if any example needs
-a rule outside the table above, completion mode leaves M1 as its own later package.
+Total points and weighted categories are the two shipped modes. Completion mode is deferred: lane C
+keeps the three representative-course examples (a pure practice course, a mixed practice-plus-exam
+course, and a course that adds an assignment mid-term) as later-package design work. If any example
+needs a rule outside the table above, completion remains a separate package.
 
-Nothing downstream may assume the third mode exists. `WP-PROF-S6`, the gradebook, the course export,
-`WP-PROF-G2`, and the M6 journey are complete and acceptable with the two guaranteed modes; the course
-export names whichever mode produced the file. If completion mode ships later it adds a mode to an
-existing selector and changes no consumer contract.
+Nothing downstream may assume completion mode exists. `WP-PROF-S6`, the gradebook, the course export,
+`WP-PROF-G2`, and the M6 journey are scoped to the two shipped modes; the course export names the mode
+that produced the file. If completion mode ships later it adds a mode to an existing selector and
+changes no consumer contract.
 
 All modes share: an explicit rounding rule reusing the existing score rounding decisions, optional
 letter bands, an included/excluded flag per assignment (`gradebook_included`), and one course-level
@@ -640,6 +639,140 @@ is audited like any other.
 This replaces ADAPT's test student and `login-as`, which create a fake enrollment inside the FERPA
 record set and then filter it out downstream. Structural impossibility is the safer contract.
 
+### WP-PROF-LD1 live-demo installation lifecycle contract
+
+WP-PROF-LD1 implements only the durable lifecycle that makes the approved
+[live-demo specification](../../LIVE_DEMO_SPEC.md) an ordinary PLE installation with seeded baseline
+data. It is allocated `2026081808_live_demo_install_state.sql` in the shared
+[implementation-status registry](../implementation_status.md). The package creates one durable
+installation state with only `installing` and `complete` states and takes one advisory lock for
+single-writer first-install coordination.
+
+While the state is `installing`, deterministic Base Course seeding is resumable after an
+interruption and retries reuse the same generation-bound storage receipt. A fresh PostgreSQL and
+object-storage pair is required for this path. A retained `complete` pair starts normally without
+seed writes, storage inspection, or equality scans. A pre-marker database or mixed database/storage
+pair fails closed and directs fresh regeneration of both stores; no partial baseline is adopted as
+retained live data. Fresh database and storage regeneration restores the baseline.
+
+LD1 owns the migration and live lifecycle evidence for first install, interruption/resume, retained
+restart, fail-closed mixed-state handling, and fresh regeneration. `learning-data-access` is the
+sole SQL, PostgreSQL-lock, durable install-state, migration, and Store owner. It does not add
+account, demo persona, role, session, passkey, authentication, origin, or replica behavior or
+schema. WP-RC8 retains those account and security boundaries. The Base Course itself is ordinary
+live data after provisioning.
+
+The focused product crate `crates/base-course-installation/` (`base_course_installation`) owns the
+narrow typed request/receipt API, ordinary Base Course recipe, and deterministic installation
+orchestration. `project-tools` is only the direct `cargo tools base-course` CLI adapter; the product
+crate has no HTTP route or server-start hook. The baseline recipe, install-state transitions, and
+command contract are product-crate owned.
+
+Evidence stays KISS: pure product-crate tests cover typed request, receipt, recipe, and deterministic
+convergence; the existing LDA PostgreSQL live oracle covers schema and lock behavior; and the existing
+`tests/e2e/e2e_live_demo_baseline.py` covers the connected lifecycle. LD1 does not add a second
+product-specific PostgreSQL harness or an exhaustive live matrix.
+
+### WP-PROF-LD2 seeded demo entry contract
+
+WP-PROF-LD2 follows accepted WP-PROF-LD1 and the
+necessary existing WP-RC8 account-session/passkey/origin contracts. LD2 can implement and validate
+the seeded-entry seams against those contracts while unrelated WP-RC8 provider, mailbox,
+multi-replica, security, and HCI gates remain open. It adds a deployment-controlled Student/Instructor
+persona selector that resolves only to seeded ordinary accounts and then follows the normal
+account-session and course/role-selection path. It extends, rather than replaces, WP-RC8's production
+authentication boundary. Its claim, passkey, and selector seams are non-schema. A completed boundary
+review allocated `2026081809` only for the new least-privilege PostgreSQL broker function needed for
+safe Sysadmin approval-candidate discovery. Sysadmin remains a normal account-ownership and passkey
+flow with full ordinary Sysadmin capabilities.
+
+The approved live-demo handoff is `WP-PROF-LD1` -> `WP-PROF-LD2`; `WP-PROF-T3` remains separate and
+parked until that live-demo goal is delivered.
+
+### WP-PROF-T3 preview contract
+
+WP-PROF-T3 implements the non-mutating preview plane. The only permitted durable effect is one
+private `audit_event` atomically appended after a successful learner-derived subject construction.
+WP-PROF-T4 alone owns the later rehearsal run. T3 does not create or change an enrollment, run,
+attempt, receipt, gradebook row, analysis observation, catalog contribution, export, job, session,
+membership, retention record, or preview record.
+
+T3 implements the currently ready preview families:
+
+- an Instructor-only entitlement and schedule inspection table;
+- an accommodation comparison with Before and After effective values;
+- disclosure projections at Now, Due, and Close; and
+- entitlement evaluation with safe reasons and effective-policy provenance.
+
+The contract leaves typed extension seams for the WP-PROF-T5 pool-draw sample and the later
+WP-PROF-B2 clone and term-shift preview. Those packages are not implemented or accepted by T3.
+
+**Inspection and subject boundary.** The exact-course, direct-Instructor inspection plane may show
+safe `M-` references and display labels in its schedule or entitlement table. It is a FERPA-authorized
+diagnostic view, not a preview subject or a rehearsal input. At an authenticated route boundary, an
+instructor can select one active learner reference and derive a `PreviewSubject`. The Store resolves
+the learner, assignment, entitlement, effective policy, and required prior-run facts in one writable
+repeatable-read snapshot; it atomically records the private record-read audit and returns only the
+sanitized subject. The learner reference is discarded before serialization.
+
+`PreviewSubject` is a closed, ephemeral, self-contained serializable value. It contains only its
+synthetic or derived kind, bounded group-role and group-purpose facts, compatible modifier values,
+resolved value/source-layer labels, selected moment, assignment reference revision, and any bounded
+prior-run fact required by policy. It contains no `U-`, `M-`, `CI-`, or `PV-` locator; `UserId`,
+`StudentId`, membership ID, name, email, UUID, history, answer, score, audit ID, enrollment, run, or
+attempt reference. A derived label names a role or layer, never a person. The subject is neither
+persisted nor signed: it conveys only hypothetical values and grants no authority. Caller-controlled
+source labels grant no rights. The assignment/reference revision and selected moment bind evaluation;
+stale revision requests fail instead of silently reusing a subject.
+
+Synthetic construction validates active course-local groups, group purposes, and compatible modifier
+combinations. It cannot supply arbitrary identifiers or assert learner entitlement. Derived
+construction alone crosses an `M-` reference, only after exact-course direct-Instructor authorization
+and assignment-to-course binding. Denied, malformed, foreign, inactive, or unauthorized derivation
+does not append an audit. The successful audit is private and checksum-protected: it records actor,
+course, assignment, internal target, action, schema version, and no student name, email, public
+reference, group membership, policy value, entitlement outcome, answer, response, feedback, or score.
+
+**Evaluation and transport.** The server owns the ordered S5 entitlement, S3 effective-policy, and
+S4 disclosure evaluation with authoritative course-zone time. The browser renders a strict closed
+projection and never reconstructs entitlement, precedence, timing, or disclosure. Every route is
+`no-store`, uses strict closed allowlists, authorizes the direct Instructor and course/assignment
+binding before body or learner-reference parsing, and conceals protected data on denial. A denial
+union carries no resolved time, policy, provenance, disclosure, or subject metadata.
+
+**Instructor task model.** The professor enters from an assignment to diagnose delivery. A persistent
+"Preview only - no learner work or grades are created" cue remains visible while the professor scans
+the schedule/entitlement table, derives a role-only subject or constructs a synthetic subject,
+compares accommodation Before and After, and scrubs Now, Due, and Close disclosure moments. The page
+shows safe provenance and explicit shown/withheld text. Failures and stale revisions preserve the
+hypothetical draft and provide a focused retry or reload. The route is keyboard-complete, compact at
+1280x800, and responsive at the project corpus widths. Learner and outsider direct navigation mounts
+no protected transport.
+
+**Installed Base Course.** After WP-PROF-LD1 accepts its lifecycle contract, every standard fresh
+installation provisions the persistent simulated Base Course through the ordinary migration and
+first-run setup path. Its fictional Instructor, existing students, assignments, attempts, and grades
+exercise the same PostgreSQL, RLS, server, and browser boundaries used by an ongoing course. T3
+connected acceptance selects its derived learner from those persisted course memberships and
+preserves the course across repeated check-ins. Focused test-double coverage remains a subordinate
+engineering lane.
+
+**Schema and acceptance.** T3 receives no migration allocation. It reuses forced-RLS `audit_event`
+and the existing writable repeatable-read snapshot; accepted
+`2026081807_teaching_operations.sql` remains immutable. Acceptance requires:
+
+| Layer | Required evidence |
+| --- | --- |
+| Domain and qmodel | Closed subject/result types reject identity and answer-bearing fields; S5 -> S3 -> S4 parity, revision refusal, source labels, denied union, and disclosure moments are covered. |
+| Memory | Direct-Instructor derivation creates exactly one PII-minimal audit and no other state change; synthetic construction creates none; authorization, foreign, inactive, malformed, and denied paths create none. |
+| PostgreSQL live | Fresh baseline proves forced RLS, atomic audit snapshot, checksum and PII-free payload, concealment probes, and table-count proof of zero enrollment/run/attempt/grade/export/job mutation. |
+| Server | Authorization precedes decode and lookup; exact-course binding, `no-store`, strict decoders, denial allowlist, and no identity/answer/score/audit transport are covered. |
+| Browser | A real-stack Instructor journey covers schedule scan, derived and synthetic subjects, Before/After, Now/Due/Close, recovery, and keyboard behavior; Playwright, accessibility, and fresh screenshots cover the required viewports and direct-route no-transport denial. Test-double tests remain subordinate and do not count as connected acceptance. |
+| Independent review | Architecture, security/privacy, HCI, and documentation/evidence reviewers find no unresolved P0--P3 issue. |
+
+The existing named T2 policy-preview remains an Instructor teaching-operations inspection surface.
+T3 does not rebrand, remove, or use it as its identity-free subject contract.
+
 ## 9. Discovery, curation, and assembly
 
 - Repair the current search contract: full-text plus trigram matching; exact Question ID first, then
@@ -814,7 +947,7 @@ may prepare and review a candidate baseline earlier, but it must not replace the
         +--> lane B  WP-PROF-S5 entitlement and typed group purposes
         |                |
         |                +--> lane A  WP-PROF-S3 resolver  --> WP-PROF-S4 disclosure
-        +--> lane C  WP-PROF-S6 grade scheme, three modes, worked course examples
+        +--> lane C  WP-PROF-S6 grade scheme, two shipped modes, deferred completion examples
 ```
 
 - The serial core is deliberately small: the decisions, the course term, and the shared types,
@@ -834,10 +967,10 @@ may prepare and review a candidate baseline earlier, but it must not replace the
 Exit: the entitlement component is the single source of the entitlement verdict and its reason; the
 resolver is the single source of window, limit, and lateness, consuming that verdict as gate G2 and
 returning both with per-field provenance; disclosure is evaluated server-side for every learner
-projection; grade totals compute in the two guaranteed modes with documented rounding; Alpha records
-cannot participate in any enrollment relationship. Completion mode is evaluated against its three
-worked examples during lane C and either joins WP-PROF-S6 or leaves as its own later package; M1 exits
-either way. Three lanes after the serial core.
+projection; grade totals compute in the two shipped modes with documented rounding; Alpha records
+cannot participate in any enrollment relationship. Completion-mode examples remain deferred design
+work and do not enter the S6 evaluator or consumer contracts; M1 exits with the two shipped modes.
+Three lanes after the serial core.
 
 ### M2 Teaching projection
 
@@ -898,10 +1031,12 @@ P1 finding.
 | WP-PROF-S3 | Expert coder | Accepted 2026-08-19: effective-policy resolver, ordered gates, grant-filtered modifiers, per-field provenance, and sealed attempt receipts (lane A); full Validation and three independent final reviews passed | WP-PROF-S2, WP-PROF-S7, WP-PROF-S5 |
 | WP-PROF-S4 | Expert coder | Accepted 2026-08-19: assignment-owned five-field disclosure, learner-safe projections, fail-closed student access, class-statistics privacy, and the four-viewport role-based visual contract; full Validation and independent final reviews passed | WP-PROF-S3 |
 | WP-PROF-S5 | Expert coder | Accepted 2026-08-19: entitlement authority, typed decision/reasons and applicable group-purpose scopes, derived authority, and materialization (lane B); full Validation and three independent final reviews passed | WP-PROF-S2, WP-PROF-S7 |
-| WP-PROF-S6 | Expert coder | Grade scheme, shipped modes, worked examples, export (lane C) | WP-PROF-S2, WP-PROF-S7 |
+| WP-PROF-S6 | Expert coder | Accepted 2026-08-19: two-mode course-grade scheme, deferred completion examples, totals, and audited export; full Validation and three independent final reviews passed | WP-PROF-S2, WP-PROF-S7 |
 | WP-PROF-T1 | Expert coder | Lifecycle, schedule, late policy, instructions, scoring status | WP-PROF-S3 |
 | WP-PROF-T2 | Expert coder | Groups, entitlement, accommodations, co-instructors, retention | WP-PROF-S5, WP-PROF-T1 |
-| WP-PROF-T3 | Expert coder | Preview plane | WP-PROF-S4, WP-PROF-T1 |
+| WP-PROF-LD1 | Integrator | Accepted 2026-08-20: `base_course_installation`, LDA-owned SQL/lock/migration lifecycle, deterministic product evidence, and real-stack lifecycle proof | WP-PROF-T2 accepted |
+| WP-PROF-LD2 | Expert coder | Seeded Student/Instructor entry and initial Sysadmin claim through ordinary WP-RC8 account-session paths; `2026081809` only for least-privilege Sysadmin candidate discovery | WP-PROF-LD1 accepted; necessary existing WP-RC8 account-session/passkey/origin contracts |
+| WP-PROF-T3 | Expert coder | Preview plane; separate and parked until the approved live-demo goal is delivered, then returns as current handoff | WP-PROF-S4, WP-PROF-T1, WP-PROF-LD1 accepted, WP-PROF-LD2 accepted, approved live-demo goal delivered |
 | WP-PROF-T4 | Expert coder | Rehearsal runs on the preview plane | WP-PROF-T3 |
 | WP-PROF-T5 | Coder | Item pool authoring over selection groups | WP-PROF-T1 |
 | WP-PROF-D1 | Expert coder | Search metadata, usage index, validity contract, quality signal | WP-PROF-S7, WP-R2 |
@@ -917,10 +1052,50 @@ P1 finding.
 | WP-PROF-E1 | Playwright | Behavior-named professor journeys and live-stack evidence | all behavior WPs |
 | WP-PROF-E2 | Integrator | Final gates, visual review, docs, changelog, baseline procedure | WP-PROF-E1 |
 
-Each package owns its capability modules. Only the six named M1 schema packages have the reservations
-recorded in the shared registry; every later schema package receives a release-integrator allocation
-before implementation, and non-schema packages receive no migration implicitly. Shared route
-registration and migration ordering belong to the integrator.
+Each package owns its capability modules. The six named M1 schema packages and the accepted
+post-M1 WP-PROF-LD1 allocation are recorded in the shared registry; WP-PROF-LD2 has the narrow
+`2026081809` broker allocation. Every later schema package
+receives a release-integrator allocation before implementation, and non-schema packages receive no
+migration implicitly. Shared route registration and migration ordering belong to the integrator.
+
+**WP-PROF-T1 current contract.** One revisioned `AssignmentTeachingSettings` aggregate owns the
+closed Draft/Published/Closed/Archived lifecycle, validated learner instructions, and the absolute S3
+base policy for availability, due, close, whole-run and attempt limits, late behavior, and deadline
+behavior. New assignments are Draft and only stored Published opens G1. The instructor HTTP boundary
+accepts strict course-local timestamps with the course IANA zone; the server authorizes and checks the
+current revision before body interpretation, converts DST/term/order/bounds centrally, and commits
+the aggregate plus active-attempt re-resolution atomically. Content edits remain a separate mutation
+under the same assignment revision. Instructor reads return stored intent plus a closed current-state
+union derived from authoritative time, including the course-local boundary for a scheduled or
+clock-closed Published assignment; the browser performs no time comparison. Learners receive only the dedicated S5/S3-authorized detail with
+plain-text instructions and resolved delivery facts, never policy intent, provenance, tenant/course
+keys, or clocks. Recalculating/Failed scoring status suppresses every learner aggregate, run,
+attempt-result, and disclosed-point numeric without
+changing the semantic disclosure/activity state. The package allocates no migration and directly
+removes the historical `AssignmentTimingPolicy`/`assignmentTiming` API.
+
+**WP-PROF-T2 contract.** The shared migration allocation and package disposition are owned by
+[implementation status](../implementation_status.md); this plan owns the frozen contract and
+acceptance criteria. Course-group membership remains many-to-many. Each course persists an
+`allow | warn` multiple-membership policy per group purpose:
+Section defaults to `warn` and Lab, Cohort, Accommodation, and Work default to `allow`. A warning
+never blocks a valid write. Deleting a group refuses while an assignment audience or policy modifier
+references it. Group membership or purpose writes and M2--M4 modifier writes atomically re-evaluate
+current S5 entitlement and S3 effective policy for affected active work while preserving sealed
+evidence.
+
+Global Instructor approval is a separate operator-owned eligibility record, never a platform role or
+course authority. A co-instructor invitation targets an existing approved account, stores no email
+in course authorization state, is bound to that account, expires 30 days after creation, and remains
+visible and acceptable from the authenticated account's pending-invitations surface without email
+delivery.
+Acceptance rechecks current approval and atomically creates an ordinary direct Instructor membership.
+Sysadmin status grants no ambient course authority, and no command may remove the final active
+Instructor from a course.
+
+T2 browser pages consume the existing retention engine and server-derived S5 entitlement and S3
+effective-policy previews. They neither duplicate retention lifecycle state nor reconstruct
+entitlement, modifier precedence, or provenance in the browser.
 
 **WP-R2 acceptance.** Remove the Memory and PostgreSQL successor/propagation mechanisms, including
 the pre-production trigger and exceptional correction authority, instead of adding a compatibility
@@ -1038,7 +1213,7 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   insufficient-evidence answer contributing nothing to ranking.
 - Domain tests: resolver precedence and provenance for every gate and modifier combination,
   extend-only accommodation semantics, disclosure evaluation across the time axis, grade computation
-  in all three modes with rounding and drop rules, relative-calendar scheduling and DST refusal,
+  in both shipped modes with rounding and drop rules, relative-calendar scheduling and DST refusal,
   pool draw determinism by algorithm version, clone manifest normalization, fast-forward eligibility,
   quality-signal computation with insufficient-sample behavior, and issued-run structural locks.
 - Memory conformance: ordinary crate tests cover entitlement, group purposes and exclusivity policy,
@@ -1137,8 +1312,8 @@ One narrative journey, run live, exercising the architecture as a system rather 
   no-local-re-derivation rule.
 - **Precedence sprawl**: new policy layers added ad hoc; mitigated by the fixed gate/modifier model,
   per-field provenance, and one conformance suite every surface must pass.
-- **Grade-scheme creep**: requests for formulas and curves; mitigated by the closed three-mode scope
-  and an explicit non-goal.
+- **Grade-scheme creep**: requests for formulas, curves, or completion grading; mitigated by the
+  closed two-mode scope and explicit non-goals.
 - **Rehearsal leakage**: implementing rehearsal as a filtered ordinary run; mitigated by structural
   impossibility at the store boundary and conformance tests on every aggregate.
 - **Evidence misreading**: professors treating small or non-comparable samples as fact; mitigated by
@@ -1188,9 +1363,9 @@ One narrative journey, run live, exercising the architecture as a system rather 
   intent. Workers own only non-derivable effects and write a durable receipt for each.
 - A rehearsal's subject is a `PreviewSubject` of resolved policy values and group roles, never a
   learner identity; deriving one from a learner is an audited record read.
-- Grade scheme version 1 offers total points (default) and weighted categories with drop-lowest;
-  completion-based totals ship only after three worked course examples pass, otherwise they become
-  their own package. Letter bands and rounding are shared across modes.
+- Grade scheme version 1 ships total points (default) and weighted categories with drop-lowest;
+  completion-based totals remain a later package while the three worked examples stay as design
+  evidence. Letter bands and rounding are shared across the shipped modes.
 - Assisted tagging is optional and off the critical path; the architecture must succeed with
   human-managed taxonomy.
 - Improvement threads have exactly the fields, states, visibility, and propagation rules in section

@@ -25,6 +25,7 @@ ENV_FILE=""
 MANIFEST_FILE=""
 CAPABILITY_FILE=""
 PROJECT_NAME=""
+POSTGRES_VOLUME_NAME=""
 
 fail() {
 	echo "database baseline E2E: $*" >&2
@@ -34,6 +35,56 @@ fail() {
 record_failure() {
 	echo "database baseline E2E: FAIL: $*" >&2
 	GATE_FAILURES=$((GATE_FAILURES + 1))
+}
+
+capture_postgres_volume() {
+	local container_ids container_id volume_projects
+	container_ids="$(podman ps -aq \
+		--filter "label=io.podman.compose.project=$PROJECT_NAME" \
+		--filter 'label=io.podman.compose.service=postgres')"
+	if [ "$(printf '%s\n' "$container_ids" | sed '/^$/d' | wc -l | tr -d ' ')" -ne 1 ]; then
+		echo "database baseline E2E: could not resolve exactly one labelled postgres container" >&2
+		return 1
+	fi
+	container_id="$container_ids"
+	POSTGRES_VOLUME_NAME="$(podman inspect --format \
+		'{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' \
+		"$container_id")"
+	if [ -z "$POSTGRES_VOLUME_NAME" ]; then
+		echo "database baseline E2E: postgres container has no data volume" >&2
+		return 1
+	fi
+	if ! podman volume inspect "$POSTGRES_VOLUME_NAME" >/dev/null 2>&1; then
+		echo "database baseline E2E: inspected postgres data volume is unavailable" >&2
+		return 1
+	fi
+	volume_projects="$(podman volume inspect "$POSTGRES_VOLUME_NAME" --format \
+		'{{index .Labels "io.podman.compose.project"}}|{{index .Labels "com.docker.compose.project"}}')"
+	case "$POSTGRES_VOLUME_NAME" in
+		containers_ple_pgdata|containers_ple_miniodata|containers_ple_identity_runtime)
+			echo "database baseline E2E: refused to claim an ordinary containers volume" >&2
+			return 1
+			;;
+	esac
+	case "$volume_projects" in
+		*'|containers|'*)
+			echo "database baseline E2E: refused to claim an ordinary containers volume" >&2
+			return 1
+			;;
+	esac
+	echo "database baseline E2E: captured disposable postgres volume $POSTGRES_VOLUME_NAME"
+}
+
+remove_postgres_volume() {
+	if [ -z "$POSTGRES_VOLUME_NAME" ]; then
+		return 0
+	fi
+	if podman volume inspect "$POSTGRES_VOLUME_NAME" >/dev/null 2>&1; then
+		podman volume rm "$POSTGRES_VOLUME_NAME" >/dev/null || {
+			echo "database baseline E2E: could not remove disposable postgres volume $POSTGRES_VOLUME_NAME" >&2
+			return 1
+		}
+	fi
 }
 
 require_command() {
@@ -50,10 +101,14 @@ cleanup() {
 	if [ "${PLE_E2E_KEEP:-0}" = "1" ]; then
 		echo "database baseline E2E: preserving disposable project $PROJECT_NAME (manifest $MANIFEST_FILE)"
 	else
+		if [ -z "$POSTGRES_VOLUME_NAME" ] && [ "$COMPOSE_STARTED" = "1" ] && [ -n "$PROJECT_NAME" ]; then
+			capture_postgres_volume || cleanup_failed=1
+		fi
 		if [ "$COMPOSE_STARTED" = "1" ]; then
 			python3 -m local_stack_control._consumer_cli cleanup --manifest "$MANIFEST_FILE" \
 				|| cleanup_failed=1
 		fi
+		remove_postgres_volume || cleanup_failed=1
 		if [ "$cleanup_failed" = "0" ] && [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
 			rm -rf -- "$TEMP_DIR"
 		fi
@@ -242,6 +297,7 @@ write_private_target
 echo "database baseline E2E: starting isolated project $PROJECT_NAME on loopback port $E2E_PORT"
 COMPOSE_STARTED=1
 compose up -d postgres
+capture_postgres_volume || fail "could not resolve the disposable PostgreSQL data volume"
 wait_for_postgres
 
 psql_in_container -d postgres -c "CREATE DATABASE $DATABASE_NAME"
@@ -412,6 +468,51 @@ run_live_cargo_test "mixed automatic/manual generation fence" env PLE_TEST_DATAB
 	postgres_mixed_automatic_and_manual_grading_is_generation_fenced \
 	-- --ignored --exact --test-threads=1
 
+echo "database baseline E2E: course-grade scheme, compact totals, export audit, and RLS"
+run_live_cargo_test "course-grade scheme, compact totals, export audit, and RLS" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_course_grade_scheme_live \
+	postgres_course_grade_scheme_is_migrated_defaulted_revisioned_bounded_and_rls_fenced \
+	-- --ignored --exact --test-threads=1
+
+echo "database baseline E2E: course-grade upgrade backfill and retention wrapper"
+run_live_cargo_test "course-grade upgrade backfill and retention wrapper" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_course_grade_upgrade_retention_live \
+	postgres_course_grade_upgrade_backfill_and_retention_wrapper_are_lifecycle_safe \
+	-- --ignored --exact --test-threads=1
+
+echo "database baseline E2E: assignment teaching lifecycle, policy, receipt, and RLS"
+run_live_cargo_test "assignment teaching lifecycle, policy, receipt, and RLS" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_assignment_teaching_projection_live \
+	postgres_assignment_teaching_projection_is_atomic_current_and_rls_bound \
+	-- --ignored --exact --test-threads=1
+
+echo "database baseline E2E: T2 teaching-operations upgrade and schema"
+run_live_cargo_test "T2 teaching-operations upgrade and schema" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_teaching_operations_upgrade_live \
+	-- --ignored --test-threads=1
+
+echo "database baseline E2E: T2 course groups and current policy receipts"
+run_live_cargo_test "T2 course groups and current policy receipts" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_course_group_live_oracle \
+	-- --ignored --test-threads=1
+
+echo "database baseline E2E: T2 teaching authority, approval, invitation, and concurrency"
+run_live_cargo_test "T2 teaching authority, approval, invitation, and concurrency" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_teaching_authority_live \
+	-- --ignored --test-threads=1
+
+echo "database baseline E2E: seeded Sysadmin ownership is atomic and irreversible"
+run_live_cargo_test "seeded Sysadmin ownership is atomic and irreversible" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_seeded_sysadmin_ownership_live \
+	postgres_seeded_sysadmin_ownership_is_atomic_and_irreversible \
+	-- --ignored --exact --test-threads=1
+
+echo "database baseline E2E: T3 preview plane authorization, atomic audit, and identity-free subject"
+run_live_cargo_test "T3 preview plane authorization, atomic audit, and identity-free subject" env PLE_TEST_DATABASE_URL="$DATABASE_URL" cargo test -p learning-data-access --features postgres \
+	--test postgres_preview_plane_live \
+	postgres_preview_plane_live_oracle_is_authorized_atomic_and_identity_free \
+	-- --ignored --exact --test-threads=1
+
 TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ple-database-baseline.XXXXXX")"
 cp -R "$REPO_ROOT/schemas/migrations" "$TEMP_DIR/migrations"
 first_migration="$(find "$TEMP_DIR/migrations" -maxdepth 1 -type f -name '*.sql' | sort | head -n 1)"
@@ -487,7 +588,14 @@ echo "database baseline E2E: explicitly unprotected public tables"
 psql_in_container -d "$DATABASE_NAME" -c \
 	"SELECT relname FROM pg_class WHERE relkind IN ('r', 'p') AND relnamespace = 'public'::regnamespace AND NOT relispartition AND NOT relrowsecurity ORDER BY relname"
 unexpected_unprotected="$(psql_in_container -d "$DATABASE_NAME" -At -c "
-WITH allowed(relname) AS (VALUES ('_sqlx_migrations'), ('question_statistics_aggregate'))
+-- _sqlx_migrations is the migration ledger; instructor_approval is global operator-owned
+-- Instructor eligibility rather than tenant or course authority; statistics are identity-free.
+WITH allowed(relname) AS (
+    VALUES
+        ('_sqlx_migrations'),
+        ('instructor_approval'),
+        ('question_statistics_aggregate')
+)
 SELECT count(*)
 FROM pg_class AS relation
 LEFT JOIN allowed ON allowed.relname = relation.relname

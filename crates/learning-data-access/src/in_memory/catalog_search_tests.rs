@@ -255,6 +255,8 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
         tenant,
         course_id: CourseId::from_uuid(Uuid::from_u128(72_006)),
         title: "Statistics completion fixture".to_string(),
+        lifecycle: question_model::AssignmentLifecycle::Draft,
+        instructions: question_model::AssignmentInstructions::default(),
         audience: question_model::AssignmentAudience::CourseWide,
         items: [a, b, a]
             .into_iter()

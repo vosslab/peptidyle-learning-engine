@@ -110,13 +110,16 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
     let automatic_item = items[0].id;
     let manual_item = items[1].id;
     store
-        .create_untimed_assignment(
+        .create_assignment_with_default_policy(
             context,
+            instructor,
             AssignmentRecord {
                 id: assignment,
                 tenant,
                 course_id: course,
                 title: "Item analysis assignment".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Published,
+                instructions: question_model::AssignmentInstructions::default(),
                 audience: question_model::AssignmentAudience::CourseWide,
                 items,
                 selection_groups: Vec::new(),

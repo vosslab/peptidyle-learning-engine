@@ -36,6 +36,7 @@ impl crate::EntitlementStore for MemoryStore {
                 .values()
                 .filter(|run| {
                     run.tenant == tenant
+                        && run.completed_at.is_some()
                         && state
                             .enrollments
                             .get(&(tenant, run.enrollment))
@@ -359,6 +360,15 @@ pub(super) fn ensure_course_membership_id(
     state
         .active_course_membership_by_user
         .insert((tenant, course, user), id);
+    if let Err(error) =
+        super::navigation_references::ensure_course_membership_reference(state, tenant, id)
+    {
+        state.course_memberships.remove(&(tenant, id));
+        state
+            .active_course_membership_by_user
+            .remove(&(tenant, course, user));
+        return Err(error);
+    }
     Ok(id)
 }
 
@@ -399,6 +409,15 @@ pub(super) fn create_initial_instructor_membership(
     state
         .active_course_membership_by_user
         .insert((tenant, course, user), id);
+    if let Err(error) =
+        super::navigation_references::ensure_course_membership_reference(state, tenant, id)
+    {
+        state.course_memberships.remove(&(tenant, id));
+        state
+            .active_course_membership_by_user
+            .remove(&(tenant, course, user));
+        return Err(error);
+    }
     Ok(id)
 }
 

@@ -6,7 +6,6 @@ import {
   assignmentCreateInput,
   assignmentInput,
   createMasteryAssignmentDraft,
-  minutesToRunTimeLimit,
   moveAssignmentItem,
   parseExactProblemDisplayReferences,
 } from "../src/pages/assignment_editor_model.ts";
@@ -47,13 +46,4 @@ test("ordinary editing preserves assigned item identity while changing only orde
     assignmentInput(moved).items.map((item) => item.id),
     [second.id, first.id],
   );
-});
-
-test("run timing preserves exact seconds and rejects fractional-second durations", () => {
-  assert.deepEqual(minutesToRunTimeLimit("1.5", true), { seconds: 90, error: null });
-  assert.equal(
-    minutesToRunTimeLimit("0.016", true).error,
-    "Enter minutes that convert to a whole number of seconds.",
-  );
-  assert.deepEqual(minutesToRunTimeLimit("", false), { seconds: null, error: null });
 });

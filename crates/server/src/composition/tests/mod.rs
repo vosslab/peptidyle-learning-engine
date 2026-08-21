@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::body::Body;
+use axum::http::header::SET_COOKIE;
 use axum::http::{HeaderValue, Request, StatusCode};
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{SessionLifetime, SessionSubject};
@@ -23,6 +24,8 @@ use super::*;
 use crate::auth::{CookieTransport, IdentityProviderError};
 use crate::catalog::ReviewGateError;
 
+mod account_fixture;
+mod live_demo_sysadmin_settings;
 mod presentation_routes;
 mod production_router;
 
@@ -99,6 +102,14 @@ pub(super) fn composed_memory_router_and_store_with_session_config(
     legacy_login: bool,
     session_config: SessionConfig,
 ) -> (Router, Arc<MemoryStore>) {
+    composed_memory_router_and_store_with_live_demo_selector(legacy_login, session_config, None)
+}
+
+pub(super) fn composed_memory_router_and_store_with_live_demo_selector(
+    legacy_login: bool,
+    session_config: SessionConfig,
+    live_demo_selector: Option<crate::auth::SeededAccountSelectorConfig>,
+) -> (Router, Arc<MemoryStore>) {
     let (store, grader) = MemoryStore::with_flat_question_grader();
     let store = Arc::new(store);
     let objects = Arc::new(MemoryObjectStore::default());
@@ -159,6 +170,8 @@ pub(super) fn composed_memory_router_and_store_with_session_config(
             Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery),
             crate::auth::PasswordlessRateLimitIssuer::unavailable(),
             crate::auth::ClientAddressPolicy::direct(),
+            live_demo_selector,
+            None,
             Some(
                 crate::auth::PasswordlessWebauthn::new(
                     "localhost",
@@ -182,6 +195,8 @@ pub(super) fn composed_memory_router_and_store_with_session_config(
             Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery),
             crate::auth::PasswordlessRateLimitIssuer::unavailable(),
             crate::auth::ClientAddressPolicy::direct(),
+            live_demo_selector,
+            None,
             Some(
                 crate::auth::PasswordlessWebauthn::new(
                     "localhost",
@@ -195,6 +210,39 @@ pub(super) fn composed_memory_router_and_store_with_session_config(
         )
     };
     (router, store)
+}
+
+#[tokio::test]
+async fn deployment_enabled_selector_reaches_the_complete_route_composition() {
+    let users = [
+        UserId::from_uuid(uuid::Uuid::from_u128(1)),
+        UserId::from_uuid(uuid::Uuid::from_u128(2)),
+        UserId::from_uuid(uuid::Uuid::from_u128(3)),
+        UserId::from_uuid(uuid::Uuid::from_u128(4)),
+    ];
+    let selector = crate::auth::SeededAccountSelectorConfig::new(
+        Arc::from("https://demo.example.test"),
+        users,
+    )
+    .expect("selector configuration");
+    let (app, store) = composed_memory_router_and_store_with_live_demo_selector(
+        false,
+        session_config(),
+        Some(selector),
+    );
+    for (user, name) in users.into_iter().zip(["Elena", "Mary", "Jack", "Avery"]) {
+        account_fixture::provision_account(store.as_ref(), user, name).await;
+    }
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/auth/live-demo/accounts")
+                .body(Body::empty())
+                .expect("selector availability request"),
+        )
+        .await
+        .expect("selector availability response");
+    assert_eq!(response.status(), StatusCode::OK);
 }
 
 #[tokio::test]
@@ -405,6 +453,8 @@ fn production_settings() -> ProductionSettings {
                 .expect("test browser boundary"),
         ),
         client_address_policy: crate::auth::ClientAddressPolicy::direct(),
+        live_demo_selector: None,
+        live_demo_sysadmin_ownership: None,
     }
 }
 
@@ -882,6 +932,14 @@ async fn local_provider_only_accepts_canonical_fixed_identity_login() {
         .await
         .expect("login response");
     assert_eq!(accepted.status(), StatusCode::OK);
+    let cookies = accepted
+        .headers()
+        .get_all(SET_COOKIE)
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .collect::<Vec<_>>();
+    assert_eq!(cookies.len(), 1);
+    assert!(cookies[0].starts_with("ple_session="));
 
     let injection = app
         .oneshot(

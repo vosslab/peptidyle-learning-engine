@@ -72,6 +72,7 @@ impl crate::StatisticsStore for MemoryStore {
                         assignment_id: assignment.id,
                         assignment_title: assignment.title.clone(),
                         summary,
+                        scoring_status: state.assignment_scoring.get(&(tenant, assignment.id))?.1,
                     },
                 ))
             })

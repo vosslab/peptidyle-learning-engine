@@ -1,0 +1,51 @@
+/* Deployment-gated live-demo authentication panels share the ordinary auth layout. */
+
+.live-demo-panel {
+  grid-column: 1 / -1;
+}
+
+.live-demo-persona-list {
+  display: grid;
+  gap: var(--ple-space-2);
+  margin-block: var(--ple-space-3);
+}
+
+.live-demo-persona-action {
+  display: grid;
+  gap: 0.15rem;
+  min-height: 2.75rem;
+  justify-content: flex-start;
+  padding: 0.55rem 0.72rem;
+  text-align: left;
+  white-space: normal;
+}
+
+.live-demo-persona-action small {
+  color: var(--ple-muted);
+  font-weight: 400;
+}
+
+.live-demo-status {
+  margin: 0;
+}
+
+.sysadmin-setup-page {
+  width: min(100%, 42rem);
+}
+
+.sysadmin-setup-form {
+  display: grid;
+  gap: var(--ple-space-2);
+}
+
+.sysadmin-setup-form .primary-action {
+  min-height: 2.75rem;
+  justify-self: start;
+}
+
+@media (max-width: 30rem) {
+  .live-demo-persona-action,
+  .sysadmin-setup-form .primary-action {
+    width: 100%;
+  }
+}

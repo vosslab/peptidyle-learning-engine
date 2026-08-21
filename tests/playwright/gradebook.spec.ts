@@ -15,7 +15,10 @@ function json(route: Route, value: unknown, headers: Record<string, string> = {}
   });
 }
 
-async function openGradebook(page: Page): Promise<void> {
+async function openGradebook(
+  page: Page,
+  scoringStatus: "current" | "recalculating" | "failed" = "current",
+): Promise<void> {
   const course = { ...publishedProblemFixture.course, role: "instructor" };
   await page.addInitScript(() => {
     Object.defineProperty(window, "__PLE_USE_MOCK_API__", {
@@ -55,7 +58,10 @@ async function openGradebook(page: Page): Promise<void> {
       );
     }
     if (path === `/api/courses/${course.id}/gradebook`) {
-      return await json(route, { items: publishedProblemFixture.gradebook, nextCursor: null });
+      return await json(route, {
+        items: publishedProblemFixture.gradebook.map((row) => ({ ...row, scoringStatus })),
+        nextCursor: null,
+      });
     }
     if (path.startsWith("/api/enrollments/") && path.endsWith("/runs")) {
       return await json(route, { items: publishedProblemFixture.runs, nextCursor: null });
@@ -102,3 +108,24 @@ test("gradebook reflows into labeled records on a narrow viewport", async ({ pag
   );
   await expect(page.getByRole("button", { name: "View run history" })).toBeVisible();
 });
+
+for (const scoringStatus of ["recalculating", "failed"] as const) {
+  test(`gradebook keeps run-history scores neutral while ${scoringStatus}`, async ({ page }) => {
+    await openGradebook(page, scoringStatus);
+    await expect(
+      page
+        .getByRole("cell", {
+          name: scoringStatus === "recalculating" ? "Recalculating" : "Unavailable",
+        })
+        .first(),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "View run history" }).press("Enter");
+    const history = page.getByRole("region", { name: /run history for learner/i });
+    await expect(history).toContainText(
+      scoringStatus === "recalculating"
+        ? "Completed, recalculating"
+        : "Completed, score unavailable",
+    );
+    await expect(history).not.toContainText("100%");
+  });
+}

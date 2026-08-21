@@ -1,11 +1,18 @@
 import { publishedProblemFixture } from "../../../../generated/fixtures/published_problem";
 import type { CourseAppearance } from "../../../../generated/api/CourseAppearance";
 import type { CourseAppearanceUpdate } from "../../../../generated/api/CourseAppearanceUpdate";
+import type { CourseGradeSchemeView } from "../../../../generated/api/CourseGradeSchemeView";
+import type { CourseGradeSchemeUpdateView } from "../../../../generated/api/CourseGradeSchemeUpdateView";
+import type { CourseGradebookTotalsView } from "../../../../generated/api/CourseGradebookTotalsView";
 import type { CourseSummary } from "../../../../generated/api/CourseSummary";
 import type { CourseCreateInput } from "../../contracts";
 import { DecodeError } from "../../decoder";
 import { createMockAssignmentState, respondAuthoring } from "./authoring";
-import { decodeCourseAppearanceUpdate, decodeCourseCreateInput } from "../../decoders";
+import {
+  decodeCourseAppearanceUpdate,
+  decodeCourseCreateInput,
+  decodeCourseGradeSchemeUpdateView,
+} from "../../decoders";
 import {
   handlesResource,
   hasDuplicateJsonObjectMember,
@@ -52,6 +59,46 @@ interface MockCourseAppearanceState {
   nextBanner: bigint;
 }
 
+interface MockCourseGradeState {
+  readonly schemes: Map<string, CourseGradeSchemeView>;
+  readonly revisions: Map<string, bigint>;
+}
+
+function defaultGradeScheme(includePublishedAssignment = false): CourseGradeSchemeView {
+  return {
+    scheme: {
+      mode: "totalPoints",
+      rounding: "fourDecimalPlacesHalfAwayFromZero",
+      categories: [],
+      letterBands: [],
+    },
+    assignments: includePublishedAssignment
+      ? [
+          {
+            assignment: publishedProblemFixture.assignment.id,
+            title: publishedProblemFixture.assignment.title,
+            included: true,
+            category: null,
+            position: null,
+          },
+        ]
+      : [],
+  };
+}
+
+export function createMockCourseGradeState(): MockCourseGradeState {
+  return {
+    schemes: new Map([
+      [publishedProblemFixture.course.id, defaultGradeScheme(true)],
+      [secondaryMockCourse.id, defaultGradeScheme()],
+    ]),
+    revisions: new Map([
+      [publishedProblemFixture.course.id, 1n],
+      [secondaryMockCourse.id, 1n],
+    ]),
+  };
+}
+
 export function createMockCourseAppearanceState(): MockCourseAppearanceState {
   return {
     appearances: new Map([
@@ -90,6 +137,19 @@ async function courseCreateInput(request: Request): Promise<CourseCreateInput | 
     const text = await request.text();
     if (hasDuplicateJsonObjectMember(text)) return undefined;
     return decodeCourseCreateInput(JSON.parse(text), "request");
+  } catch (error: unknown) {
+    if (error instanceof DecodeError || error instanceof SyntaxError) return undefined;
+    throw error;
+  }
+}
+
+async function gradeSchemeInput(
+  request: Request,
+): Promise<CourseGradeSchemeUpdateView | undefined> {
+  try {
+    const text = await request.text();
+    if (hasDuplicateJsonObjectMember(text)) return undefined;
+    return decodeCourseGradeSchemeUpdateView(JSON.parse(text), "request");
   } catch (error: unknown) {
     if (error instanceof DecodeError || error instanceof SyntaxError) return undefined;
     throw error;
@@ -171,6 +231,7 @@ export async function respondCourse(
   request: Request,
   assignmentState: import("./authoring").MockAssignmentState = createMockAssignmentState(),
   appearanceState = createMockCourseAppearanceState(),
+  gradeState = createMockCourseGradeState(),
 ): Promise<Response> {
   const segments = pathSegments(request);
   const resource = segments[1];
@@ -218,6 +279,71 @@ export async function respondCourse(
       return await saveMockCourseAppearance(request, appearanceState, courseId, appearance);
     }
     return methodNotAllowed(request);
+  }
+  if (
+    resource === "courses" &&
+    segments.length === 4 &&
+    gradeState.schemes.has(segments[2] ?? "") &&
+    segments[3] === "grade-scheme"
+  ) {
+    const courseId = segments[2]!;
+    const current = gradeState.schemes.get(courseId)!;
+    const revision = gradeState.revisions.get(courseId)!;
+    if (request.method === "GET") return jsonResponse(current, 200, noStoreHeaders(revision));
+    if (request.method !== "PUT") return methodNotAllowed(request);
+    if (request.headers.get("if-match") !== `"${revision}"`)
+      return appearanceError(412, "course grade settings changed");
+    const update = await gradeSchemeInput(request);
+    if (update === undefined) return appearanceError(422, "course grade settings are invalid");
+    const assignments = update.assignments.map((item) => ({
+      ...item,
+      title: "Fixture assignment",
+    }));
+    const next = { scheme: update.scheme, assignments } satisfies CourseGradeSchemeView;
+    const nextRevision = revision + 1n;
+    gradeState.schemes.set(courseId, next);
+    gradeState.revisions.set(courseId, nextRevision);
+    return jsonResponse(next, 200, noStoreHeaders(nextRevision));
+  }
+  if (
+    resource === "courses" &&
+    segments.length === 4 &&
+    gradeState.schemes.has(segments[2] ?? "") &&
+    segments[3] === "gradebook-totals"
+  ) {
+    if (request.method !== "GET") return methodNotAllowed(request);
+    const scheme = gradeState.schemes.get(segments[2]!)!.scheme;
+    const totals: CourseGradebookTotalsView = {
+      mode: scheme.mode,
+      rounding: scheme.rounding,
+      rows: [
+        {
+          rosterId: ".student-01",
+          displayName: "Student One",
+          outcome: { status: "unavailable", reason: "recalculating" },
+        },
+      ],
+    };
+    return jsonResponse(totals, 200, noStoreHeaders());
+  }
+  if (
+    resource === "courses" &&
+    segments.length === 4 &&
+    gradeState.schemes.has(segments[2] ?? "") &&
+    segments[3] === "grade-export.csv"
+  ) {
+    if (request.method !== "POST") return methodNotAllowed(request);
+    const csv =
+      "record_type,aggregation_mode,rounding_rule,roster_id,email,display_name,course_total,letter,unavailable_status\\r\\nmetadata,totalPoints,fourDecimalPlacesHalfAwayFromZero,,,,,,\\r\\nstudent,,,student-01,,Student One,,,recalculating\\r\\n";
+    return new Response(csv, {
+      status: 200,
+      headers: {
+        "cache-control": "no-store",
+        "content-type": "text/csv",
+        "content-disposition": "attachment; filename=ple-course-grade-export.csv",
+        "x-ple-course-grade-export-id": "0198e000-0000-7000-8000-000000000099",
+      },
+    });
   }
   if (
     resource === "courses" &&

@@ -15,6 +15,71 @@ fn next_reference(counter: &mut u32) -> Result<u64, StoreError> {
     Ok(u64::from(*counter))
 }
 
+pub(super) fn ensure_account_reference(
+    state: &mut State,
+    user: UserId,
+) -> Result<question_model::AccountReference, StoreError> {
+    if let Some(reference) = state.account_references.get(&user).copied() {
+        return Ok(reference);
+    }
+    let reference =
+        question_model::AccountReference::new(next_reference(&mut state.next_account_reference)?)
+            .ok_or_else(|| StoreError::Unavailable("invalid account reference".into()))?;
+    state.account_references.insert(user, reference);
+    state.accounts_by_reference.insert(reference, user);
+    Ok(reference)
+}
+
+pub(super) fn ensure_course_membership_reference(
+    state: &mut State,
+    tenant: TenantId,
+    membership: question_model::CourseMembershipId,
+) -> Result<question_model::CourseMembershipReference, StoreError> {
+    if let Some(reference) = state
+        .course_membership_references
+        .get(&(tenant, membership))
+        .copied()
+    {
+        return Ok(reference);
+    }
+    let reference = question_model::CourseMembershipReference::new(next_reference(
+        &mut state.next_course_membership_reference,
+    )?)
+    .ok_or_else(|| StoreError::Unavailable("invalid course membership reference".into()))?;
+    state
+        .course_membership_references
+        .insert((tenant, membership), reference);
+    state
+        .course_memberships_by_reference
+        .insert((tenant, reference), membership);
+    Ok(reference)
+}
+
+pub(super) fn ensure_co_instructor_invitation_reference(
+    state: &mut State,
+    tenant: TenantId,
+    invitation: question_model::CoInstructorInvitationId,
+) -> Result<question_model::CoInstructorInvitationReference, StoreError> {
+    if let Some(reference) = state
+        .co_instructor_invitation_references
+        .get(&(tenant, invitation))
+        .copied()
+    {
+        return Ok(reference);
+    }
+    let reference = question_model::CoInstructorInvitationReference::new(next_reference(
+        &mut state.next_co_instructor_invitation_reference,
+    )?)
+    .ok_or_else(|| StoreError::Unavailable("invalid co-instructor invitation reference".into()))?;
+    state
+        .co_instructor_invitation_references
+        .insert((tenant, invitation), reference);
+    state
+        .co_instructor_invitations_by_reference
+        .insert((tenant, reference), invitation);
+    Ok(reference)
+}
+
 pub(super) fn ensure_course_reference(
     state: &mut State,
     tenant: TenantId,
@@ -54,6 +119,27 @@ pub(super) fn ensure_assignment_reference(
     state
         .assignments_by_reference
         .insert((tenant, reference), assignment);
+    Ok(reference)
+}
+
+pub(super) fn ensure_course_group_reference(
+    state: &mut State,
+    tenant: TenantId,
+    group: crate::CourseGroupId,
+) -> Result<question_model::CourseGroupReference, StoreError> {
+    if let Some(reference) = state.course_group_references.get(&(tenant, group)).copied() {
+        return Ok(reference);
+    }
+    let reference = question_model::CourseGroupReference::new(next_reference(
+        &mut state.next_course_group_reference,
+    )?)
+    .ok_or_else(|| StoreError::Unavailable("invalid course group reference".into()))?;
+    state
+        .course_group_references
+        .insert((tenant, group), reference);
+    state
+        .course_groups_by_reference
+        .insert((tenant, reference), group);
     Ok(reference)
 }
 pub(super) fn ensure_run_reference(

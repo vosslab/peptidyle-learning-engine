@@ -7,6 +7,9 @@ async fn memory_store_conforms() {
     exercise_navigation_reference_authority(&store).await;
     exercise_durable_publication_assignment_contract(&store).await;
     exercise_course_pagination_scale(&store).await;
+    group_store_memory::exercise_course_group_management_contract(&store).await;
+    co_instructor_memory::exercise_co_instructor_authority_contract(&store).await;
+    co_instructor_memory::exercise_memory_co_instructor_expiry(&store).await;
 }
 
 #[tokio::test]

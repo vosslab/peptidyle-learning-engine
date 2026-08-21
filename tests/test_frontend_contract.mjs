@@ -23,6 +23,7 @@ const EXPECTED_ROUTE_PATHS = [
   "/auth/account/email/complete",
   "/course-invitations/redeem",
   "/account/security",
+  "/account/co-instructor-invitations",
   "/courses/:courseRef",
   "/courses/:courseRef/assignments/:assignmentRef",
   "/runs/:runRef",
@@ -33,9 +34,13 @@ const EXPECTED_ROUTE_PATHS = [
   "/workspace/:workspaceRef",
   "/instructor/courses/:courseRef/assignments/new",
   "/instructor/courses/:courseRef/assignments/:assignmentRef/edit",
+  "/instructor/courses/:courseRef/assignments/:assignmentRef/access",
+  "/instructor/courses/:courseRef/assignments/:assignmentRef/delivery-check",
   "/instructor/courses/:courseRef/gradebook",
+  "/instructor/courses/:courseRef/grade-settings",
   "/instructor/courses/:courseRef/appearance",
   "/instructor/courses/:courseRef/students",
+  "/instructor/courses/:courseRef/teaching-operations",
 ];
 
 const INSTRUCTOR_ROUTE_IDS = [
@@ -45,9 +50,13 @@ const INSTRUCTOR_ROUTE_IDS = [
   "workspaceEditor",
   "assignmentCreate",
   "assignmentEditor",
+  "assignmentAccess",
+  "assignmentPreview",
   "gradebook",
+  "courseGradeSettings",
   "courseAppearance",
   "courseRoster",
+  "teachingOperations",
 ];
 
 function materializeRoutePath(routePath) {
@@ -258,8 +267,11 @@ test("course browse carries membership role and safe Question ID assignment summ
   assert.equal("courseId" in assignment, false);
   assert.equal("tenant" in assignment, false);
   assert.equal("disclosurePolicy" in assignment, false);
+  assert.deepEqual(Object.keys(assignment).toSorted(), ["id", "reference", "title"]);
+
+  const detail = await client.getAssignment(assignment.id);
   assert.deepEqual(
-    assignment.items.map((item) => item.questionId),
+    detail.items.map((item) => item.questionId),
     [publishedProblemFixture.catalogProblem.questionId],
   );
   assert.equal("prompt" in assignment, false);

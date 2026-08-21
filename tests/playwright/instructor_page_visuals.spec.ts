@@ -121,12 +121,24 @@ const assignments = [
 
 const assignmentEditor = {
   ...assignments[0],
-  assignmentTiming: { timeLimitSeconds: 900 },
+  teachingSettings: {
+    timeZone: "America/Chicago",
+    lifecycle: "published",
+    instructions: "",
+    availableAt: null,
+    dueAt: null,
+    closesAt: null,
+    timeLimitSeconds: 900,
+    attemptLimit: null,
+    lateSubmission: "accept",
+    deadlineBehavior: "autoSubmit",
+  },
+  currentState: { state: "open" },
 };
 
 const fixtureGradebookRow = publishedProblemFixture.gradebook[0];
 if (fixtureGradebookRow === undefined) {
-  throw new Error("The simulated instructor corpus needs one gradebook source row.");
+  throw new Error("The instructor demo corpus needs one gradebook source row.");
 }
 
 function gradebookRow(
@@ -147,6 +159,7 @@ function gradebookRow(
     learnerName,
     assignmentId: assignment.id,
     assignmentTitle: assignment.title,
+    scoringStatus: "current",
     summary: {
       ...publishedProblemFixture.summary,
       enrollment: enrollmentId,
@@ -166,6 +179,67 @@ const gradebook = [
   gradebookRow("Mary Fake Student", 1, 2, 0.9, 0.9),
   gradebookRow("Jack Fake Student", 1, 3, 0.8, 0.8),
 ];
+
+const laboratoryCategoryId = fixtureUuid(370);
+const examinationCategoryId = fixtureUuid(371);
+const courseGradeScheme = {
+  scheme: {
+    mode: "weightedCategories",
+    rounding: "fourDecimalPlacesHalfAwayFromZero",
+    categories: [
+      {
+        id: laboratoryCategoryId,
+        title: "Laboratory practice",
+        position: 0,
+        weightBasisPoints: 4_000,
+        dropLowest: 1,
+      },
+      {
+        id: examinationCategoryId,
+        title: "Examinations",
+        position: 1,
+        weightBasisPoints: 6_000,
+        dropLowest: 0,
+      },
+    ],
+    letterBands: [
+      { label: "A", minimumBasisPoints: 9_000 },
+      { label: "B", minimumBasisPoints: 8_000 },
+      { label: "C", minimumBasisPoints: 7_000 },
+    ],
+  },
+  assignments: assignments.map((assignment, position) => ({
+    assignment: assignment.id,
+    title: assignment.title,
+    included: true,
+    category: position < 2 ? laboratoryCategoryId : examinationCategoryId,
+    position: position < 2 ? position : 0,
+  })),
+} as const;
+
+const courseGradeTotals = {
+  mode: "weightedCategories",
+  rounding: "fourDecimalPlacesHalfAwayFromZero",
+  rows: [
+    {
+      rosterId: "BIO-1042",
+      displayName: "Mary Fake Student",
+      outcome: {
+        status: "available",
+        score: 0.94,
+        letter: "A",
+        droppedAssignmentIds: [assignments[1].id],
+        totalEarned: null,
+        totalPossible: null,
+      },
+    },
+    {
+      rosterId: "BIO-1043",
+      displayName: "Jack Fake Student",
+      outcome: { status: "unavailable", reason: "recalculating" },
+    },
+  ],
+} as const;
 
 const roster = {
   rosterMode: "emailEnrollment",
@@ -337,6 +411,15 @@ async function installSimulatedInstructorApi(page: Page): Promise<void> {
     if (path === `/api/courses/${courseId}/gradebook`) {
       return await json(route, { items: gradebook, nextCursor: null });
     }
+    if (path === `/api/courses/${courseId}/grade-scheme`) {
+      return await json(route, courseGradeScheme, 200, {
+        "cache-control": "no-store",
+        etag: '"4"',
+      });
+    }
+    if (path === `/api/courses/${courseId}/gradebook-totals`) {
+      return await json(route, courseGradeTotals, 200, { "cache-control": "no-store" });
+    }
     if (path === `/api/courses/${courseId}/roster`) return await json(route, roster);
     if (path === "/api/problems/search") {
       return await json(route, {
@@ -443,7 +526,7 @@ async function capture(
   await captureDocumentationScreenshot(page, name, anchor, undefined, outputDirectory);
 }
 
-test("captures the simulated instructor page corpus", async ({ page }) => {
+test("captures the instructor demo-environment page corpus", async ({ page }) => {
   test.skip(outputDirectory === undefined, "requires the dedicated instructor visual launcher");
   if (outputDirectory === undefined) return;
   test.setTimeout(120_000);
@@ -485,6 +568,22 @@ test("captures the simulated instructor page corpus", async ({ page }) => {
   await navigate(page, `/instructor/courses/${courseReference}/gradebook`, "gradebook");
   await expect(page.getByRole("table")).toBeVisible();
   await capture(page, "instructor_page_gradebook.png");
+
+  await navigate(
+    page,
+    `/instructor/courses/${courseReference}/grade-settings`,
+    "courseGradeSettings",
+  );
+  await expect(page.getByRole("radio", { name: "Weighted categories" })).toBeChecked();
+  await expect(page.getByText("Weight total: 100.00% of 100.00%.")).toBeVisible();
+  for (const name of [
+    "course_grade_settings_laptop.png",
+    "course_grade_settings_tablet.png",
+    "course_grade_settings_iphone_pro.png",
+    "course_grade_settings_square.png",
+  ]) {
+    await capture(page, name);
+  }
 
   await navigate(page, `/instructor/courses/${courseReference}/appearance`, "courseAppearance");
   await capture(page, "instructor_page_course_appearance.png");
