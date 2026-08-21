@@ -86,6 +86,7 @@ if [[ "$MODE" == "context" ]]; then
 	exit 0
 fi
 
+pip install -U graphifyy[ollama,sql,terraform]
 ollama pull $MODEL
 
 echo "Building Graphify graph for: $(basename "$GIT_ROOT") ($MODE)"
