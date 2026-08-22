@@ -1,9 +1,9 @@
 # Container port mapping
 
 This document maps the supported local Podman ports. The executable source of
-truth is [containers/compose.yaml](../containers/compose.yaml) plus
-`containers/compose.local-development.yaml`; the typed `local_stack_control`
-lifecycle selects the gateway host port.
+truth is [containers/compose.yaml](../containers/compose.yaml), with
+`containers/compose.smtp.yaml` as the optional external-provider overlay. The
+typed `local_stack_control` lifecycle selects the gateway host port.
 
 All published ports bind to `127.0.0.1`. They are local-development access
 points, not services exposed to the LAN.
@@ -20,14 +20,11 @@ points, not services exposed to the LAN.
 | `webwork-renderer` | PG renderer `3000` | none | API-only private renderer endpoint. |
 | `worker` | no supported HTTP listener | none | Background process, not a browser endpoint. |
 
-The default gateway host port is controlled by `PLE_GATEWAY_HOST_PORT`. The
-lifecycle resolves a one-run inherited value first, then an explicit ignored
-`containers/env.local` value, then the `8080` default. It does not silently
-replace a prior local value such as `3001`. A free inherited override leaves
-the local file unchanged and supplies a matching local WebAuthn origin for that
-launch. If the selected port is occupied, the lifecycle records a free gateway
-port from the reserved range. Always use the lifecycle-printed URL or read
-`PLE_GATEWAY_HOST_PORT` before opening the browser.
+The base topology uses `PLE_GATEWAY_HOST_PORT` and defaults to `8080`. The
+fixed `ple-live-demo-browser` lifecycle instead selects private loopback ports
+for its HTTPS gateway and prints the resulting origin. No caller-selected
+project or browser/service owner is accepted. Always use the lifecycle-printed
+URL for a fixed-owner browser, screenshot, or service-oracle run.
 
 ## Internal port reuse
 
@@ -70,17 +67,19 @@ guide.
 ## Inspecting the live stack
 
 ```bash
-podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
+podman compose -f containers/compose.yaml \
   --env-file containers/env.local ps
 gateway_port="$(awk -F= '$1 == "PLE_GATEWAY_HOST_PORT" {print $2}' containers/env.local)"
 curl -s "http://127.0.0.1:${gateway_port:-8080}/health"
 ```
 
 The first command shows host-published mappings. The second uses the recorded
-gateway selection rather than assuming a port. See
-[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for startup, health,
-and recovery commands, and [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md)
-for network and service ownership.
+gateway selection rather than assuming a port. Add `-f containers/compose.smtp.yaml`
+when the optional SMTP overlay is enabled. See
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for startup, health, and
+recovery commands. The fixed production-auth browser, screenshot, and
+service-oracle owner uses its own HTTPS origin and lifecycle commands; it does
+not use this raw Compose inspection path.
 
 ## AWS baseline mapping
 

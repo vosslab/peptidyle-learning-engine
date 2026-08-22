@@ -1,6 +1,6 @@
-# Applied only by local_stack.py start --with-smtp. PLE connects to an
-# operator-selected external SMTP submission service; this overlay does not
-# run a mail server or add a mail-deliverability component to the stack.
+# Optional deployment topology for an operator-selected external SMTP
+# submission service. The fixed developer/browser stack does not select this
+# overlay, and the overlay runs no mail server or deliverability component.
 services:
   smtp-secret-init:
     image: docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256:?set PLE_SECRET_INIT_IMAGE_SHA256 to the selected official Alpine Linux image manifest digest}

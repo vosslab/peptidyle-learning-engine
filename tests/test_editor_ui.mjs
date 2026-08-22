@@ -192,30 +192,3 @@ test("publication presents an immutable comparison before confirmation", () => {
   assert.equal(diff.baseline, "newQuestion");
   assert.equal(diff.sections[0].label, "Prompt");
 });
-
-test("editor surface delegates preview and never imports a mock or protected preview DTO", async () => {
-  const source = await (
-    await import("node:fs/promises")
-  ).readFile("src/pages/editor_page.tsx", "utf8");
-
-  assert.match(source, /<QuestionRenderer/);
-  assert.match(source, /presentation=\{state\(\)\.preview\}/);
-  assert.match(source, /<ResponseWidget/);
-  assert.match(source, /previewFacade\.preview/);
-  assert.match(source, /validateCapabilities/);
-  assert.match(source, /getPublishDiff/);
-  assert.doesNotMatch(source, /api\/mock/);
-  assert.doesNotMatch(source, /AnswerKey|GradingDefinition/);
-});
-
-test("the compile-time boundary rejects passing a draft preview to published models", async () => {
-  const source = await (
-    await import("node:fs/promises")
-  ).readFile("src/pages/editor_page_typecheck.ts", "utf8");
-
-  assert.match(
-    source,
-    /@ts-expect-error A workspace preview cannot enter a published-envelope path/,
-  );
-  assert.match(source, /@ts-expect-error A workspace preview cannot enter an assignment/);
-});

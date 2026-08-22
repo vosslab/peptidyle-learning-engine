@@ -67,8 +67,8 @@ pub use crate::activity::{
     AttemptProvenance, AttemptResult, AttemptStatus, AttemptTimerRecord, CourseGroupId, CourseId,
     CourseMembershipId, EnrollmentId, EnrollmentStatus, ImplementationVersion,
     IssuedAttemptCapabilityV1, LearnerAssignmentProgress, LearnerScoreState, QuestionAttempt,
-    QuestionAttemptId, RunId, RunMode, SourceArtifact, StudentAssignmentSummary, StudentId,
-    TenantId,
+    QuestionAttemptId, RunCompletionStatus, RunId, RunMode, SourceArtifact,
+    StudentAssignmentSummary, StudentId, TenantId,
 };
 pub use crate::assignment::{
     AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentInstructions,

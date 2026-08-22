@@ -7,26 +7,74 @@ import pytest
 import local_stack_control.consumer
 import local_stack_control.models
 import local_stack_control._consumer_cli
+import local_stack_control.process
+
+
+class CountRunner(local_stack_control.process.CommandRunner):
+	"""Capture the one bounded count command without invoking an engine."""
+
+	def __init__(self, stdout: str) -> None:
+		"""Select one deterministic psql response."""
+		self.stdout = stdout
+		self.calls: list[tuple[list[str], str | None]] = []
+
+	#============================================
+	def run(
+		self,
+		argv: list[str],
+		environment: dict[str, str] | None = None,
+		cwd: pathlib.Path | None = None,
+		stdin: str | None = None,
+	) -> local_stack_control.models.CommandResult:
+		"""Record the closed argv and SQL stdin, then return the selected count."""
+		self.calls.append((argv, stdin))
+		return local_stack_control.models.CommandResult(tuple(argv), 0, self.stdout, "")
+
+	#============================================
+	def stream(
+		self,
+		argv: list[str],
+		environment: dict[str, str] | None = None,
+		cwd: pathlib.Path | None = None,
+	) -> int:
+		"""Reject a streamed command because the count result must be captured."""
+		raise AssertionError("bounded count must not stream a subprocess")
 
 
 #============================================
-def disposable_target() -> local_stack_control.models.DisposableComposeTarget:
-	"""Build typed replica ownership without consulting the current checkout."""
+def fixed_replica_target(
+	root: pathlib.Path,
+	profile: local_stack_control.models.LiveDemoProfile = (
+		local_stack_control.models.LiveDemoProfile.REPLICA_RESTART
+	),
+) -> local_stack_control.models.DisposableComposeTarget:
+	"""Build one fixed profile target with its exact private database selection."""
+	policy = local_stack_control.models.live_demo_profile_policy(profile)
+	compose_files = tuple(root / relative for relative in policy.compose_relative_paths)
+	for path in compose_files:
+		path.parent.mkdir(parents=True, exist_ok=True)
+		path.write_text("services: {}\n", encoding="ascii")
+	environment = root / "env.local"
+	environment.write_text(
+		"POSTGRES_USER=ple_live_demo_browser\nPOSTGRES_DB=ple_live_demo_browser\n",
+		encoding="ascii",
+	)
 	target = local_stack_control.models.ComposeTarget(
-		repo_root=pathlib.Path("/repository"),
-		project="ple-replica-e2e-0123456789",
-		env_file=pathlib.Path("/private/compose.env"),
-		compose_files=(pathlib.Path("/repository/compose.yaml"),),
+		repo_root=root,
+		project=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+		env_file=environment,
+		compose_files=compose_files,
 		provider=local_stack_control.models.ComposeProvider(("compose",), "compose"),
 		with_smtp=False,
-		env_setting_names=(),
+		env_setting_names=("POSTGRES_USER", "POSTGRES_DB"),
 	)
 	return local_stack_control.models.DisposableComposeTarget(
 		target=target,
-		owner_policy="replica-restart",
-		capability_file=pathlib.Path("/private/cleanup.capability"),
-		project_prefix="ple-replica-e2e-",
-		private_environment_file=target.env_file,
+		owner_policy=local_stack_control.models.LIVE_DEMO_BROWSER_OWNER,
+		capability_file=root / "capability",
+		project_prefix=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+		private_environment_file=environment,
+		live_demo_profile=profile,
 	)
 
 
@@ -36,7 +84,7 @@ def api_container(identifier: str) -> local_stack_control.models.ContainerResour
 	return local_stack_control.models.ContainerResource(
 		id=identifier,
 		names=(),
-		project="ple-replica-e2e-0123456789",
+		project=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
 		service="api",
 		state="running",
 		running=True,
@@ -48,10 +96,12 @@ def api_container(identifier: str) -> local_stack_control.models.ContainerResour
 
 
 #============================================
-def test_replica_stop_refuses_a_single_api_instance() -> None:
+def test_fixed_replica_profile_refuses_stopping_the_only_api_instance(
+	tmp_path: pathlib.Path,
+) -> None:
 	"""The outage cannot remove the only running API in its project."""
 	snapshot = local_stack_control.models.ProjectSnapshot(
-		project="ple-replica-e2e-0123456789",
+		project=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
 		containers=(api_container("0123456789ab" + "0" * 52),),
 		volumes=(),
 		networks=(),
@@ -59,7 +109,7 @@ def test_replica_stop_refuses_a_single_api_instance() -> None:
 
 	with pytest.raises(local_stack_control.models.ControllerError):
 		local_stack_control.consumer.replica_stop_container(
-			disposable_target(), snapshot, "api", "0123456789ab"
+			fixed_replica_target(tmp_path), snapshot, "api", "0123456789ab"
 		)
 
 
@@ -108,3 +158,89 @@ def test_replica_compose_success_forwards_stdout_and_stderr(
 	captured = capsys.readouterr()
 	assert captured.out == "1|1|1|1|1\n"
 	assert captured.err == "compose warning\n"
+
+
+#============================================
+def test_fixed_replica_count_is_one_closed_profile_gated_sql_action(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The child supplies only scoped UUIDs to one fixed five-table count statement."""
+	tenant = "00000000-0000-0000-0000-000000000100"
+	attempt = "00000000-0000-4000-8000-000000000200"
+	argv, environment, sql = local_stack_control.consumer.postgresql_count_command(
+		fixed_replica_target(tmp_path), tenant, attempt
+	)
+	assert argv[-17:] == [
+		"exec", "-T", "postgres", "psql", "-v", "ON_ERROR_STOP=1",
+		"-v", f"tenant_id={tenant}", "-v", f"attempt_id={attempt}",
+		"-U", "ple_live_demo_browser", "-d", "ple_live_demo_browser", "-tA", "-F", "|",
+	]
+	assert sql.count("SELECT count(*)") == 5
+	assert tenant not in sql and attempt not in sql
+	assert environment["COMPOSE_PROJECT_NAME"] == "ple-live-demo-browser"
+
+
+#============================================
+def test_postgresql_count_rejects_other_fixed_profiles(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The browser profile does not grant the replica durability query."""
+	target = fixed_replica_target(tmp_path, local_stack_control.models.LiveDemoProfile.BROWSER)
+	with pytest.raises(
+		local_stack_control.models.ControllerError, match="fixed replica profile"
+	):
+		local_stack_control.consumer.postgresql_count_command(
+			target,
+			"00000000-0000-0000-0000-000000000100",
+			"00000000-0000-4000-8000-000000000200",
+		)
+
+
+#============================================
+def test_postgresql_count_rejects_noncanonical_uuid(tmp_path: pathlib.Path) -> None:
+	"""A SQL metavariable cannot carry arbitrary text or alternate UUID spelling."""
+	with pytest.raises(local_stack_control.models.ControllerError, match="canonical UUID"):
+		local_stack_control.consumer.postgresql_count_command(
+			fixed_replica_target(tmp_path),
+			"00000000-0000-0000-0000-000000000100'::uuid; SELECT 1; --",
+			"00000000-0000-4000-8000-000000000200",
+		)
+
+
+#============================================
+def test_postgresql_count_cli_has_no_generic_sql_or_compose_tail() -> None:
+	"""The adapter parser admits only the manifest and two typed scope values."""
+	args = local_stack_control._consumer_cli.parse_args(
+		[
+			"postgresql-count",
+			"--manifest", "/private/manifest",
+			"--tenant-id", "00000000-0000-0000-0000-000000000100",
+			"--attempt-id", "00000000-0000-4000-8000-000000000200",
+		]
+	)
+	assert set(vars(args)) == {"action", "manifest", "tenant_id", "attempt_id"}
+
+
+#============================================
+def test_postgresql_count_cli_emits_only_the_five_counts(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+	capsys: pytest.CaptureFixture[str],
+) -> None:
+	"""A successful adapter call forwards one exact bounded count row and nothing else."""
+	target = fixed_replica_target(tmp_path)
+	runner = CountRunner("1|1|1|1|1\n")
+	monkeypatch.setattr(
+		local_stack_control.consumer,
+		"require_current_resource_capability",
+		lambda selected_runner, disposable: None,
+	)
+	result = local_stack_control._consumer_cli.run_postgresql_count(
+		runner,
+		target,
+		"00000000-0000-0000-0000-000000000100",
+		"00000000-0000-4000-8000-000000000200",
+	)
+	assert result == 0 and capsys.readouterr().out == "1|1|1|1|1\n"
+	assert len(runner.calls) == 1
+	assert runner.calls[0][1] is not None and runner.calls[0][1].count("SELECT count(*)") == 5

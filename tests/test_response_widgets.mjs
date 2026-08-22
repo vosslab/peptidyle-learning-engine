@@ -9,6 +9,7 @@ import {
   createSubmissionController,
   handleWidgetKeyDown,
   isExternalToolReadyMessage,
+  isSafeExternalToolLaunchPath,
   numericResponseFromInput,
   validateResponseLocally,
 } from "../src/components/response_widget.tsx";
@@ -37,6 +38,7 @@ test("invalid input is locally checked and issues no submission request", async 
       onEscape: () => undefined,
       onSubmit: async () => {
         submitCalls += 1;
+        return { kind: "accepted" };
       },
     }),
   );
@@ -71,6 +73,7 @@ test("blank numeric input stays invalid and never submits zero", async () => {
       onEscape: () => undefined,
       onSubmit: async () => {
         submitCalls += 1;
+        return { kind: "accepted" };
       },
     }),
   );
@@ -110,6 +113,7 @@ test("initial controlled responses are checked before a learner edits them", asy
         onEscape: () => undefined,
         onSubmit: async () => {
           submitCalls += 1;
+          return { kind: "accepted" };
         },
       },
       initialOrder,
@@ -137,6 +141,7 @@ test("initial controlled responses are checked before a learner edits them", asy
         onEscape: () => undefined,
         onSubmit: async () => {
           invalidSubmitCalls += 1;
+          return { kind: "accepted" };
         },
       },
       { kind: "ordering", order: ["first", "first"] },
@@ -164,7 +169,7 @@ test("a fresh issued empty response stays neutral until the learner interacts", 
           },
         },
         onEscape: () => undefined,
-        onSubmit: async () => undefined,
+        onSubmit: async () => ({ kind: "accepted" }),
       },
       { kind: "numeric", value: Number.NaN },
     ),
@@ -245,6 +250,7 @@ test("an in-flight submission locks the response and cannot issue a duplicate re
       onSubmit: async () => {
         submitCalls += 1;
         await submission;
+        return { kind: "accepted" };
       },
     }),
   );
@@ -283,6 +289,7 @@ test("reset replaces a stale format check with the restored local response witho
       onEscape: () => undefined,
       onSubmit: async () => {
         submitCalls += 1;
+        return { kind: "accepted" };
       },
     }),
   );
@@ -298,6 +305,44 @@ test("reset replaces a stale format check with the restored local response witho
   assert.equal(submitCalls, 0);
 });
 
+test("a rejected submission keeps the response editable for a corrected resubmission", async () => {
+  const submitted = [];
+  const controller = createRoot(() =>
+    createSubmissionController({
+      attemptId: "attempt-corrected-submission",
+      definition: numericDefinition,
+      validator: {
+        mode: "wasm",
+        validateResponseFormat: async () => ({ violations: [] }),
+      },
+      onEscape: () => undefined,
+      onSubmit: async (response) => {
+        submitted.push(response);
+        return submitted.length === 1
+          ? { kind: "rejected", message: "The submitted response was refused (422). Correct it." }
+          : { kind: "accepted" };
+      },
+    }),
+  );
+  const refused = { kind: "numeric", value: 7 };
+  const corrected = { kind: "numeric", value: 8 };
+
+  await controller.validate(refused);
+  await controller.submit(refused);
+
+  assert.equal(controller.phase().kind, "failed");
+  assert.equal(controller.invalid(), true);
+  assert.equal(controller.locked(), false);
+  assert.equal(controller.canReset(), true);
+
+  await controller.validate(corrected);
+  assert.equal(controller.canSubmit(), true);
+  await controller.submit(corrected);
+
+  assert.equal(controller.phase().kind, "submitted");
+  assert.deepEqual(submitted, [refused, corrected]);
+});
+
 test("external-tool readiness and route values admit only the narrow browser contract", () => {
   const attemptId = "attempt-external";
   assert.equal(
@@ -311,5 +356,27 @@ test("external-tool readiness and route values admit only the narrow browser con
     { kind: "ple.externalTool.complete", attemptId },
   ]) {
     assert.equal(isExternalToolReadyMessage(message, attemptId), false);
+  }
+  const origin = "https://client.example.test";
+  assert.equal(
+    isSafeExternalToolLaunchPath(
+      "/api/attempts/attempt-external/external-tool/launch",
+      attemptId,
+      origin,
+    ),
+    true,
+  );
+  for (const unsafe of [
+    "https://client.example.test/api/attempts/attempt-external/external-tool/launch",
+    "https://foreign.example/api/attempts/attempt-external/external-tool/launch",
+    "//foreign.example/api/attempts/attempt-external/external-tool/launch",
+    "/api/attempts/user:password@foreign/external-tool/launch",
+    "/api/attempts/attempt-external/external-tool/launch?token=secret",
+    "/api/attempts/attempt-external/external-tool/launch#fragment",
+    "/api/attempts/../foreign/external-tool/launch",
+    "/api/attempts/%2e%2e/foreign/external-tool/launch",
+    "/api/attempts/attempt-external\\external-tool\\launch",
+  ]) {
+    assert.equal(isSafeExternalToolLaunchPath(unsafe, attemptId, origin), false, unsafe);
   }
 });

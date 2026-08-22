@@ -124,7 +124,7 @@ async fn issued_cookie(store: &MemoryStore, user: UserId, roles: Vec<UserRole>) 
         .expect("fixture identity"),
         crate::auth::SessionConfig::new(
             SessionLifetime::from_seconds(3_600).expect("valid fixture lifetime"),
-            crate::auth::CookieTransport::LocalHttp,
+            crate::auth::CookieTransport::FirstPartyHttps,
         ),
     )
     .await

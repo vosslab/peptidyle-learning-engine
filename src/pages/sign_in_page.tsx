@@ -1,7 +1,7 @@
 // PLE-owned passwordless sign-in, email completion, and account course selection.
 
 import { A, useNavigate } from "@solidjs/router";
-import { For, Show, createSignal, onMount, type JSX } from "solid-js";
+import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { AccountCourse } from "../api/enrollment";
 import {
@@ -60,6 +60,7 @@ export function SignInPage(): JSX.Element {
   const [seededDemo, setSeededDemo] = createSignal<SeededDemoState>({ kind: "loading" });
   let courseHeading: HTMLHeadingElement | undefined;
   let seededDemoRetry: HTMLButtonElement | undefined;
+  let passkeyAuthentication: AbortController | undefined;
 
   async function loadCourses(focusCourses = false): Promise<void> {
     setState({ kind: "busy", message: "Opening your account..." });
@@ -77,12 +78,20 @@ export function SignInPage(): JSX.Element {
   }
 
   async function signInWithPasskey(): Promise<void> {
+    // The visible button owns its browser ceremony and cancels it when this page leaves.
+    passkeyAuthentication?.abort();
+    const controller = new AbortController();
+    passkeyAuthentication = controller;
     setState({ kind: "busy", message: "Waiting for your passkey..." });
     try {
-      await authenticatePasskeyWithBrowser(runtime.client);
+      await authenticatePasskeyWithBrowser(runtime.client, controller.signal);
       await loadCourses();
     } catch {
-      setState(accountError("Passkey sign-in did not finish. You can retry or use email."));
+      if (!controller.signal.aborted) {
+        setState(accountError("Passkey sign-in did not finish. You can retry or use email."));
+      }
+    } finally {
+      if (passkeyAuthentication === controller) passkeyAuthentication = undefined;
     }
   }
 
@@ -142,6 +151,7 @@ export function SignInPage(): JSX.Element {
   }
 
   onMount(() => void loadSeededDemoAccounts());
+  onCleanup(() => passkeyAuthentication?.abort());
 
   return (
     <section class="page auth-page" data-route-surface="signIn">

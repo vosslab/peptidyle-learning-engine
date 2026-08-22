@@ -155,7 +155,7 @@ async fn issued_cookie(store: &MemoryStore, tenant: TenantId, user: UserId) -> S
         .expect("fixture subject"),
         SessionConfig::new(
             SessionLifetime::from_seconds(3_600).expect("session lifetime"),
-            CookieTransport::LocalHttp,
+            CookieTransport::FirstPartyHttps,
         ),
     )
     .await

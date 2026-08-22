@@ -456,7 +456,7 @@ mod tests {
             subject,
             crate::auth::SessionConfig::new(
                 SessionLifetime::from_seconds(3_600).expect("positive lifetime"),
-                crate::auth::CookieTransport::LocalHttp,
+                crate::auth::CookieTransport::FirstPartyHttps,
             ),
         )
         .await

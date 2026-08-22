@@ -1,8 +1,10 @@
 // run_page_recovery.ts - page-local session restoration delivery helper.
 
+import type { SubmissionOutcome } from "../features/attempt/attempt_state";
+
 export interface ReauthenticationAttemptMachine {
   readonly resumeAfterReauthentication: () => void;
-  readonly submit: () => Promise<void>;
+  readonly submit: () => Promise<SubmissionOutcome>;
 }
 
 /**
@@ -13,8 +15,8 @@ export interface ReauthenticationAttemptMachine {
 export async function resumeSessionAndRetry(
   getSession: () => Promise<unknown>,
   machine: ReauthenticationAttemptMachine,
-): Promise<void> {
+): Promise<SubmissionOutcome> {
   await getSession();
   machine.resumeAfterReauthentication();
-  await machine.submit();
+  return machine.submit();
 }

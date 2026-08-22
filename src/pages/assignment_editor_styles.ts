@@ -1,6 +1,22 @@
 // assignment_editor_styles.ts - compact desktop-first instructor workspace.
 
 export const ASSIGNMENT_EDITOR_STYLES = `
+.assignment-editor-save-result {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0 0 var(--ple-section-gap, 0.75rem);
+  padding: var(--ple-panel-padding, 0.85rem);
+  border-inline-start: 0.35rem solid var(--ple-success, #237447);
+  border-radius: var(--ple-radius-group, 0.7rem);
+  background: color-mix(in srgb, var(--ple-success, #237447) 12%, var(--ple-card-surface));
+  box-shadow: var(--ple-shadow);
+}
+
+.assignment-editor-save-result h2,
+.assignment-editor-save-result p {
+  margin: 0;
+}
+
 .assignment-editor-grid {
   display: grid;
   grid-template-columns:

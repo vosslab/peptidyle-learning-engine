@@ -176,11 +176,10 @@ pub struct CourseGradeExportId(Uuid);
 impl CourseGradeExportId {
     /// Mints a durable audit identifier without exposing roster data.
     pub fn generate() -> Result<Self, StoreError> {
-        let mut bytes = [0_u8; 16];
-        getrandom::fill(&mut bytes).map_err(|error| {
+        crate::random_uuid::random_uuid_v4(|error| {
             StoreError::Unavailable(format!("course grade export ID unavailable: {error}"))
-        })?;
-        Ok(Self(Uuid::from_bytes(bytes)))
+        })
+        .map(Self)
     }
 
     /// Rebuilds an audit identifier read from durable storage.

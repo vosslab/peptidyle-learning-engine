@@ -1,8 +1,9 @@
 # Student guide
 
-This guide follows one local Mastery assignment from its overview through completion and fresh
-practice. The browser path uses visible controls and the platform keyboard model; it does not call a
-private API or inspect an answer key. Start the local system first with [USAGE.md](USAGE.md).
+This guide follows one account-authenticated Mastery assignment from its overview through
+completion and fresh practice. The browser path uses visible controls and the platform keyboard
+model; it does not call a private API or inspect an answer key. Start the local system first with
+[USAGE.md](USAGE.md).
 
 All people and course records shown in these captures are simulated. The fixed labels
 `Dr. Fake Professor`, `Mary Fake Student`, and `Jack Fake Student` are intentionally unmistakable
@@ -10,27 +11,26 @@ placeholders.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Student course assignment list showing Genetics Chapter 1 Mastery with keyboard focus on Review assignment](screenshots/student/student_assignment_list.png)
+![Student course assignment list showing Genetics Chapter 1 Mastery with keyboard focus on Review assignment](screenshots/student/delivery/01_assignment_list.png)
 
-![Student assignment overview for Genetics Chapter 1 Mastery with keyboard focus on Start or resume practice](screenshots/student/genetics_chapter_one_overview.png)
+![Student assignment overview for Genetics Chapter 1 Mastery with keyboard focus on Start or resume practice](screenshots/student/delivery/03_problem_ready.png)
 
-![Student Genetics Chapter 1 problem showing the server-authoritative countdown and keyboard-focused response](screenshots/student/student_timed_problem.png)
+![Student Genetics Chapter 1 problem showing the server-authoritative countdown and keyboard-focused response](screenshots/student/delivery/04_response_selected.png)
 
-![Student completed-run summary showing a correct score and keyboard focus on Start another practice run](screenshots/student/student_fresh_practice.png)
+![Student completed-run summary showing a correct score and keyboard focus on Start another practice run](screenshots/student/delivery/06_completion.png)
 
-![Student Mastery practice run 2 showing a reset 15-minute timer and an unanswered focused response](screenshots/student/student_retake_fresh_problem.png)
+![Student Mastery practice run 2 showing a reset 15-minute timer and an unanswered focused response](screenshots/student/delivery/07_repeat_run.png)
 <!-- screenshots:end -->
 
 ## Before you begin
 
-- Use the student value from the ignored `containers/local-login.txt` file.
-- Ask the instructor to confirm that the local learner is active in the course roster.
-- Open the course and assignment through their visible cards.
-
-This local pilot deliberately avoids email registration, invitation delivery, and activation.
-Production student accounts and canonical onboarding are separate from the teaching-loop evidence
-shown here. Fastmail is intended for a future external-email integration, but it is not configured
-or required for this pilot.
+- Open the local stack's HTTPS URL and use the visible PLE account page.
+- Sign in with the canonical passwordless email path, or use an ordinary passkey after the account
+  has one. When the deployment enables it, the seeded persona selector enters the seeded learner
+  account through the same PLE account/session path.
+- If you are not using the seeded selector, ask the instructor to create an invitation and share its
+  one-time copy link through the trusted course channel. Claim it after authenticating your PLE
+  account, then open the course and assignment through their visible cards.
 
 ## Use the keyboard path
 

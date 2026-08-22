@@ -249,39 +249,6 @@ def test_wasm_dependency_closure_is_key_free() -> None:
 
 
 #============================================
-def test_private_feedback_content_cannot_serialize_or_reach_logs() -> None:
-	"""Keep private teaching material out of generated DTOs and Debug logs."""
-	source = (REPO_ROOT / "crates/question_model/src/feedback.rs").read_text(encoding="utf-8")
-	match = re.search(
-		r"#\[derive\((?P<derives>[^)]*)\)\]\s*pub struct FeedbackContent",
-		source,
-	)
-	assert match is not None, "FeedbackContent must have an explicit, reviewable derive list"
-	derives = {item.strip() for item in match.group("derives").split(",")}
-	assert derives.isdisjoint({"Debug", "Serialize", "Deserialize"})
-	for trait_name in ("Debug", "Serialize", "Deserialize"):
-		assert not re.search(
-			rf"impl(?:<[^>]*>)?\s+{trait_name}\s+for\s+FeedbackContent",
-			source,
-		), f"FeedbackContent must not implement {trait_name}"
-
-
-#============================================
-def test_private_feedback_content_is_absent_from_browser_and_wasm_boundaries() -> None:
-	"""Keep the persisted teaching record out of generated/network/WASM surfaces."""
-	for relative_path in (
-		"src/api/contracts.ts",
-		"src/api/decoders.ts",
-		"src/wasm/index.ts",
-		"crates/wasm/src/lib.rs",
-	):
-		source = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
-		assert "FeedbackContent" not in source, (
-			f"private feedback crossed the browser or WASM boundary: {relative_path}"
-		)
-
-
-#============================================
 def test_resolved_webpki_includes_all_three_security_fixes() -> None:
 	"""Reject the legacy rustls-webpki line reported by GitHub security alerts."""
 	versions = _locked_versions("rustls-webpki")

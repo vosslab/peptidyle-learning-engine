@@ -5,17 +5,7 @@ import { createEffect, createSignal, ErrorBoundary, Show, type JSX } from "solid
 
 import { useSessionBootstrap, type SessionBootstrapState } from "./auth/session_context";
 import { rolesMayAccessRoute, routeContractForPathname, type RouteId } from "./route_contract";
-import { LocalDevelopmentSignIn } from "./auth/local_development";
 import { PresentationContrastProvider } from "./presentation/contrast_context";
-
-declare global {
-  interface Window {
-    /** Playwright-only one-shot fault injector for the route-boundary behavior gate. */
-    __PLE_ROUTE_FAILURE_TEST__?: () => boolean;
-    /** Test-server-only fixture transport switch, set before `main.tsx` loads. */
-    __PLE_USE_MOCK_API__?: boolean;
-  }
-}
 
 function canUseAuthoringTools(state: SessionBootstrapState): boolean {
   return canAccessRoute(state, "workspaceList");
@@ -52,14 +42,7 @@ function SessionContent(props: ScopedRouteSectionProps): JSX.Element {
   return (
     <Show
       when={state().kind === "authenticated"}
-      fallback={
-        <SessionRecovery
-          state={state()}
-          retry={session.retry}
-          localCredentialSignInAvailable={session.localCredentialSignInAvailable}
-          signInWithLocalCredential={session.signInWithLocalCredential}
-        />
-      }
+      fallback={<SessionRecovery state={state()} retry={session.retry} />}
     >
       <PresentationContrastProvider>{props.children}</PresentationContrastProvider>
     </Show>
@@ -67,18 +50,12 @@ function SessionContent(props: ScopedRouteSectionProps): JSX.Element {
 }
 
 function RouteContent(props: ScopedRouteSectionProps): JSX.Element {
-  const testFailure = window.__PLE_ROUTE_FAILURE_TEST__;
-  if (testFailure?.() === true) {
-    throw new Error("route-boundary-test-sentinel");
-  }
   return isPublicAccountRoute(props.pathname) ? props.children : <SessionContent {...props} />;
 }
 
 interface SessionRecoveryProps {
   readonly state: SessionBootstrapState;
   readonly retry: () => Promise<void>;
-  readonly localCredentialSignInAvailable: boolean;
-  readonly signInWithLocalCredential: (credential: string) => Promise<boolean>;
 }
 
 function SessionRecovery(props: SessionRecoveryProps): JSX.Element {
@@ -118,9 +95,6 @@ function SessionRecovery(props: SessionRecoveryProps): JSX.Element {
         <p>
           <A href="/sign-in">Sign in with a passkey or email</A>
         </p>
-        <Show when={props.localCredentialSignInAvailable && LocalDevelopmentSignIn !== undefined}>
-          <LocalDevelopmentSignIn signIn={props.signInWithLocalCredential} />
-        </Show>
       </Show>
       <div class="action-row">
         <button class="primary-action" type="button" onClick={() => void props.retry()}>

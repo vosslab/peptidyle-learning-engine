@@ -69,15 +69,11 @@ def build_parser() -> argparse.ArgumentParser:
 	logs.add_argument("services", nargs="*")
 	logs.set_defaults(handler=local_stack_control.commands.logs)
 
-	start = subparsers.add_parser("start", help="initialize and start the local teaching stack")
-	add_target_options(start)
-	start.add_argument("--release", action="store_true")
-	start.add_argument("--skip-build", action="store_true")
+	start = subparsers.add_parser("start", help="start the fixed production-browser developer session")
 	start.add_argument("--no-open", action="store_true")
 	start.set_defaults(handler=local_stack_control.commands.start)
 
-	stop = subparsers.add_parser("stop", help="stop the default stack and retain data")
-	add_target_options(stop)
+	stop = subparsers.add_parser("stop", help="clean up the fixed production-browser developer session")
 	stop.set_defaults(handler=local_stack_control.commands.stop)
 
 	restart = subparsers.add_parser("restart", help="restart api, worker, gateway, or webwork-renderer")

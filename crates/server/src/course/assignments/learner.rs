@@ -7,7 +7,8 @@ use axum::response::{IntoResponse, Response};
 use domain::entitlement::EntitlementDecision;
 use learning_data_access::{
     AuthoritativeTimeStore, CatalogStore, CourseItemAnalysisStore, CourseRecordsAccessStore,
-    ResolveEffectivePolicyCommand, SessionStore, Store, StoredAssignment,
+    LearnerAssignmentSummarySnapshot, ResolveEffectivePolicyCommand, SessionStore, Store,
+    StoreError, StoredAssignment,
 };
 use question_model::AssignmentId;
 
@@ -191,7 +192,33 @@ where
         )
         .await;
     }
-    learner_assignment_response(&state, &authenticated, assignment).await
+    let course = match state
+        .store
+        .get_course(authenticated.tenant_context, assignment.record.course_id)
+        .await
+    {
+        Ok(Some(course)) => course,
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "assignment not found"),
+        Err(error) => return store_error_response(error),
+    };
+    let base_policy = assignment.base_policy;
+    learner_assignment_detail_response(
+        &state,
+        &authenticated,
+        assignment,
+        course.term.time_zone().clone(),
+        question_model::course::LearnerAssignmentDelivery {
+            available_at: base_policy.available_at,
+            due_at: base_policy.due_at,
+            closes_at: base_policy.closes_at,
+            time_limit_seconds: base_policy.time_limit_seconds,
+            attempt_limit: base_policy.attempt_limit,
+            late_submission: base_policy.late_submission,
+            deadline_behavior: base_policy.deadline_behavior,
+            late_status: question_model::course::LearnerLateStatus::OnTime,
+        },
+    )
+    .await
 }
 
 async fn learner_assignment_detail_response<S>(
@@ -257,31 +284,6 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    let assignment_record = match state
-        .store
-        .get_assignment(authenticated.tenant_context, assignment)
-        .await
-    {
-        Ok(Some(record)) => record,
-        Ok(None) => return error_response(StatusCode::NOT_FOUND, "assignment summary not found"),
-        Err(error) => return store_error_response(error),
-    };
-    match state
-        .store
-        .evaluate_assignment_entitlement(
-            authenticated.tenant_context,
-            authenticated.record.subject.user(),
-            assignment_record.course_id,
-            assignment,
-        )
-        .await
-    {
-        Ok(EntitlementDecision::Granted(_)) => {}
-        Ok(EntitlementDecision::Denied(_)) => {
-            return error_response(StatusCode::NOT_FOUND, "assignment summary not found");
-        }
-        Err(error) => return store_error_response(error),
-    }
     let enrollment = match state
         .store
         .learner_get_enrollment_for_assignment(
@@ -292,68 +294,78 @@ where
         .await
     {
         Ok(Some(enrollment)) => enrollment,
-        Ok(None) => return error_response(StatusCode::NOT_FOUND, "assignment summary not found"),
+        Ok(None) => {
+            return match learner_assignment_progress(
+                state.store.as_ref(),
+                &authenticated,
+                assignment,
+                None,
+            )
+            .await
+            {
+                Ok((summary, _)) => no_store(Json(summary).into_response()),
+                Err(response) => response,
+            };
+        }
         Err(error) => return store_error_response(error),
     };
-    match state
-        .store
-        .learner_get_summary(
-            authenticated.tenant_context,
-            authenticated.record.subject.user(),
-            enrollment.id,
-        )
-        .await
+    let summary = match required_materialized_summary(
+        state
+            .store
+            .learner_get_summary(
+                authenticated.tenant_context,
+                authenticated.record.subject.user(),
+                enrollment.id,
+            )
+            .await,
+    ) {
+        MaterializedSummaryLookup::Found(summary) => summary,
+        MaterializedSummaryLookup::Failed(response) => return response,
+    };
+    match learner_assignment_progress(
+        state.store.as_ref(),
+        &authenticated,
+        assignment,
+        Some(&summary),
+    )
+    .await
     {
-        Ok(Some(summary)) => match learner_assignment_progress(
-            state.store.as_ref(),
-            &authenticated,
-            &enrollment,
-            &summary,
-        )
-        .await
-        {
-            Ok((summary, _)) => no_store(Json(summary).into_response()),
-            Err(response) => response,
-        },
-        Ok(None) => error_response(StatusCode::NOT_FOUND, "summary not found"),
-        Err(error) => store_error_response(error),
+        Ok((summary, _)) => no_store(Json(summary).into_response()),
+        Err(response) => response,
     }
 }
 
-pub(super) async fn learner_assignment_response<S>(
-    state: &CourseRouteState<S>,
-    authenticated: &crate::auth::AuthenticatedSession,
-    assignment: StoredAssignment,
-) -> Response
-where
-    S: Store + CatalogStore + SessionStore + 'static,
-{
-    let public_id = match state
-        .store
-        .assignment_reference(
-            authenticated.tenant_context,
-            authenticated.record.subject.user(),
-            assignment.record.id,
-        )
-        .await
-    {
-        Ok(Some(public_id)) => public_id,
-        Ok(None) => return error_response(StatusCode::NOT_FOUND, "assignment not found"),
-        Err(error) => return store_error_response(error),
-    };
-    let (items, selection_groups) =
-        match assignment_summary_items(state, authenticated.tenant_context, &assignment.record)
-            .await
-        {
-            Ok(value) => value,
-            Err(response) => return response,
+enum MaterializedSummaryLookup {
+    Found(LearnerAssignmentSummarySnapshot),
+    Failed(Response),
+}
+
+fn required_materialized_summary(
+    result: Result<Option<LearnerAssignmentSummarySnapshot>, StoreError>,
+) -> MaterializedSummaryLookup {
+    match result {
+        Ok(Some(summary)) => MaterializedSummaryLookup::Found(summary),
+        Ok(None) => MaterializedSummaryLookup::Failed(error_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "assignment summary unavailable",
+        )),
+        Err(error) => MaterializedSummaryLookup::Failed(store_error_response(error)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn materialized_enrollment_without_summary_is_a_service_failure() {
+        let response = match required_materialized_summary(Ok(None)) {
+            MaterializedSummaryLookup::Found(_) => {
+                panic!("missing materialized summary must fail")
+            }
+            MaterializedSummaryLookup::Failed(response) => response,
         };
-    no_store(
-        Json(question_model::LearnerAssignmentSummary::from(
-            assignment
-                .record
-                .summary(public_id, items, selection_groups),
-        ))
-        .into_response(),
-    )
+
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
 }

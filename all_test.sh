@@ -2,15 +2,11 @@
 
 set -euo pipefail
 
-# Aggregate Validation: fast checks first, then one suite-owned real-stack acceptance run.
-source source_me.sh
-pytest tests/
+SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$SCRIPT_DIRECTORY"
 
-# Keep this explicit production-artifact receipt distinct from the disposable
-# browser suite's fresh build of the target it owns.
-./build.sh
+# Aggregate Validation: run the four final gates in their authoritative order.
 ./check_rust.sh
 ./check_codebase.sh
+source source_me.sh && python3 -m pytest tests/
 source source_me.sh && python3 local_stack.py acceptance
-git diff --check
-git diff --cached --check

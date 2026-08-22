@@ -126,7 +126,7 @@ async fn session_cookie(
         SessionSubject::new(tenant, user, label, roles).expect("session subject should validate"),
         crate::auth::SessionConfig::new(
             SessionLifetime::from_seconds(3 * 3_600).expect("session lifetime should validate"),
-            crate::auth::CookieTransport::LocalHttp,
+            crate::auth::CookieTransport::FirstPartyHttps,
         ),
     )
     .await
@@ -333,11 +333,12 @@ where
         "a protected GET must not authorize or append an audit event"
     );
 
-    let current_delivery = asset_app
+    let current_delivery = fixture
+        .app
         .clone()
         .oneshot(request(
             Method::POST,
-            format!("/api/assets/{first_banner}/delivery"),
+            format!("/api/course-banners/{first_banner}/delivery"),
             &fixture.student_cookie,
             Body::empty(),
         ))
@@ -345,13 +346,20 @@ where
         .expect("current protected delivery should run");
     assert_eq!(current_delivery.status(), StatusCode::OK);
     assert_eq!(current_delivery.headers()[CACHE_CONTROL], "no-store");
-    let current_delivery: serde_json::Value = response_json(current_delivery).await;
-    assert!(
-        current_delivery["url"]
-            .as_str()
-            .is_some_and(|url| !url.is_empty()),
-        "protected delivery should return an opaque signed URL"
+    assert_eq!(current_delivery.headers()[CONTENT_TYPE], BANNER_MEDIA_TYPE);
+    assert_eq!(
+        current_delivery.headers()["x-content-type-options"],
+        "nosniff"
     );
+    assert_eq!(
+        current_delivery.headers()["cross-origin-resource-policy"],
+        "same-origin"
+    );
+    assert_eq!(current_delivery.headers()[REFERRER_POLICY], "no-referrer");
+    let delivered = to_bytes(current_delivery.into_body(), MAX_BANNER_UPLOAD_BYTES)
+        .await
+        .expect("protected banner bytes should be bounded");
+    assert_eq!(delivered.as_ref(), stored.bytes.as_slice());
     assert_eq!(
         fixture
             .store
@@ -429,10 +437,12 @@ where
         .expect("superseded protected GET should run");
     assert_eq!(superseded.status(), StatusCode::NOT_FOUND);
 
-    let superseded_delivery = asset_app
+    let superseded_delivery = fixture
+        .app
+        .clone()
         .oneshot(request(
             Method::POST,
-            format!("/api/assets/{first_banner}/delivery"),
+            format!("/api/course-banners/{first_banner}/delivery"),
             &fixture.student_cookie,
             Body::empty(),
         ))

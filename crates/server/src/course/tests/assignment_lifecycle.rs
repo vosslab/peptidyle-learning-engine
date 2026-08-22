@@ -361,6 +361,17 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
     )
     .await;
 
+    super::pre_activity_progress::assert_read_only_no_activity(
+        &app,
+        store.as_ref(),
+        context,
+        student,
+        assignment,
+        &student_cookie,
+        &outsider_cookie,
+    )
+    .await;
+
     let stale = app
         .clone()
         .oneshot(

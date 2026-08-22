@@ -351,7 +351,7 @@ async fn http_submit_translates_rendered_webwork_choice_without_rerendering() {
         .expect("student session subject"),
         crate::auth::SessionConfig::new(
             SessionLifetime::from_seconds(3_600).expect("session lifetime"),
-            crate::auth::CookieTransport::LocalHttp,
+            crate::auth::CookieTransport::FirstPartyHttps,
         ),
     )
     .await

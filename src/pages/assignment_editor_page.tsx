@@ -3,6 +3,7 @@
 import { A } from "@solidjs/router";
 import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js";
 import type { AssignmentId } from "../../generated/api/AssignmentId";
+import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseReference } from "../../generated/api/CourseReference";
 import type { TenantId } from "../../generated/api/TenantId";
@@ -30,7 +31,10 @@ import type { AssignmentEditorDetail } from "../api/contracts";
 import type { AssignmentEditorRepository } from "./assignment_editor_repository";
 import type { ReusableAssignment } from "./assignment_editor_repository";
 import { AssignmentEditorPolicyPanel } from "./assignment_editor_policy_panel";
-import { AssignmentTeachingOperationsPanel } from "./assignment_teaching_operations_panel";
+import {
+  AssignmentTeachingOperationsPanel,
+  assignmentCurrentStateCopy,
+} from "./assignment_teaching_operations_panel";
 import { assignmentRouteReference, courseRouteReference } from "../navigation/public_route";
 
 export type AssignmentEditorMode =
@@ -41,6 +45,7 @@ export interface AssignmentEditorPageProps {
   readonly courseReference: CourseReference;
   readonly mode: AssignmentEditorMode;
   readonly tenant: TenantId;
+  readonly refreshCourseAssignmentList: () => Promise<void>;
 }
 type EditorState = { readonly message?: string } & (
   | { readonly kind: "loading" }
@@ -82,11 +87,15 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
     ReadonlyArray<import("../api/contracts").AssignmentCapabilityViolation>
   >([]);
   const [created, setCreated] = createSignal<AssignmentEditorDetail>();
+  // This is server-issued state, so a learner-facing route never exists for an unsaved draft.
+  const [savedAssignmentReference, setSavedAssignmentReference] =
+    createSignal<AssignmentReference>();
   const [teachingSettings, setTeachingSettings] =
     createSignal<AssignmentEditorDetail["teachingSettings"]>();
   const [teachingCurrentState, setTeachingCurrentState] =
     createSignal<AssignmentEditorDetail["currentState"]>();
   const [teachingMessage, setTeachingMessage] = createSignal("");
+  const [teachingSaveResult, setTeachingSaveResult] = createSignal<string>();
   const [teachingFailureField, setTeachingFailureField] = createSignal<string>();
   const [latestTeachingSettings, setLatestTeachingSettings] =
     createSignal<AssignmentEditorDetail["teachingSettings"]>();
@@ -115,6 +124,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
         const draft = createMasteryAssignmentDraft(props.courseId);
         setState({ kind: "ready", draft });
         setCreated(undefined);
+        setSavedAssignmentReference(undefined);
         setMessage("Choose a title and Question IDs.");
         return;
       }
@@ -126,6 +136,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
       )
         throw new Error("The editor received an unrelated assignment.");
       setState({ kind: "ready", draft: draftFrom(detail) });
+      setSavedAssignmentReference(detail.reference);
       setTeachingSettings(detail.teachingSettings);
       setTeachingCurrentState(detail.currentState);
       setMessage("Assignment loaded.");
@@ -155,12 +166,20 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
         settings,
         current.draft.revision,
       );
+      await props.refreshCourseAssignmentList();
       // Teaching operations are a separate transaction; keep ordinary content
       // edits in the browser and only advance their shared revision.
       setState({ kind: "ready", draft: { ...current.draft, revision: saved.revision } });
       setTeachingSettings(saved.teachingSettings);
       setTeachingCurrentState(saved.currentState);
       setLatestTeachingSettings(undefined);
+      setTeachingSaveResult(
+        `${current.draft.title} is saved. ${assignmentCurrentStateCopy(
+          saved.teachingSettings.lifecycle,
+          saved.currentState,
+          saved.teachingSettings.timeZone,
+        )}`,
+      );
       setTeachingMessage("Teaching operations saved.");
     } catch (error: unknown) {
       if (error instanceof AssignmentTeachingSettingsValidationError) {
@@ -343,6 +362,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
         current.draft.revision,
       );
       setState({ kind: "ready", draft: draftFrom(saved) });
+      setSavedAssignmentReference(saved.reference);
       setMessage("Question added. Add and remove are available before student work begins.");
     } catch (error: unknown) {
       handleError(error, "The question was not added. Your typed Question ID is still here.");
@@ -372,6 +392,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
         current.draft.revision,
       );
       setState({ kind: "ready", draft: draftFrom(saved) });
+      setSavedAssignmentReference(saved.reference);
       setSelected(undefined);
       setTargetItemId(undefined);
       setMessage(
@@ -395,6 +416,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
         current.draft.revision,
       );
       setState({ kind: "ready", draft: draftFrom(saved) });
+      setSavedAssignmentReference(saved.reference);
       setMessage("Question removed before student work began.");
     } catch (error: unknown) {
       handleError(error, "The question was not removed. Reload to review the current assignment.");
@@ -416,7 +438,9 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
               assignmentInput(current.draft),
               current.draft.revision,
             );
+      await props.refreshCourseAssignmentList();
       setState({ kind: "ready", draft: draftFrom(saved) });
+      setSavedAssignmentReference(saved.reference);
       if (props.mode.kind === "create") {
         setCreated(saved);
         setMessage("Assignment created. Open it to review the student-facing course link.");
@@ -468,6 +492,39 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
         courseReference={props.courseReference}
         active={props.mode.kind === "create" ? "newAssignment" : "assignments"}
       />
+      <Show when={teachingSaveResult()}>
+        {(result) => (
+          <section class="success-state assignment-editor-save-result" role="status">
+            <h2>Teaching operations saved</h2>
+            {/* ASVS 1.2.1: the server-derived saved state remains a text node. */}
+            <p>{result()}</p>
+          </section>
+        )}
+      </Show>
+      <Show when={savedAssignmentReference()}>
+        {(assignmentReference) => (
+          <>
+            <p>
+              <A
+                class="quiet-link"
+                // ASVS 1.2.2: validated, server-issued references construct this internal route.
+                href={`/courses/${courseRouteReference(props.courseReference)}/assignments/${assignmentRouteReference(assignmentReference())}`}
+              >
+                View learner-facing assignment overview
+              </A>
+            </p>
+            <p>
+              <A
+                class="quiet-link"
+                // ASVS 1.2.2: validated, server-issued references construct this internal route.
+                href={`/instructor/courses/${courseRouteReference(props.courseReference)}/assignments/${assignmentRouteReference(assignmentReference())}/delivery-check`}
+              >
+                Check assignment delivery
+              </A>
+            </p>
+          </>
+        )}
+      </Show>
       <p role="status" aria-live="polite">
         {message()}
       </p>

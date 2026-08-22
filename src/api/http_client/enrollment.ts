@@ -14,7 +14,6 @@ import {
   decodeClaimedCourseInvitation,
   decodeCourseEnrollmentPolicyResult,
   decodeCourseInvitationAccepted,
-  decodeLocalTeachingMemberAccepted,
   decodeCourseRosterPage,
   decodeEmailAuthenticationAccepted,
   decodePasskeyAuthenticated,
@@ -167,22 +166,23 @@ export async function registerWebauthnWithBrowser<T>(
   return complete(started.ceremonyId, label, json);
 }
 
-/** See registrationOptions; this is the matching discoverable-login boundary. */
+/**
+ * Build an explicit button-initiated discoverable-login request.
+ *
+ * The server owns the challenge and relying-party policy inside `publicKey`.
+ * The browser owns mediation because this interaction begins with the visible
+ * sign-in button. Conditional mediation is for an autofill field and leaves a
+ * button-initiated request pending until a browser UI selection occurs.
+ */
 function authenticationOptions(value: Readonly<Record<string, unknown>>): CredentialRequestOptions &
   Readonly<{
     publicKey: PublicKeyCredentialRequestOptions;
-    mediation: "conditional";
+    mediation: "required";
   }> {
-  const mediation = value.mediation;
-  if (mediation !== "conditional") {
-    throw new ApiProtocolError(
-      "WebAuthn authentication options must require conditional mediation",
-    );
-  }
   const publicKey = PublicKeyCredential.parseRequestOptionsFromJSON(
     webauthnPublicKeyOptions(value) as unknown as PublicKeyCredentialRequestOptionsJSON,
   );
-  return { publicKey, mediation };
+  return { publicKey, mediation: "required" };
 }
 
 export async function registerPasskeyWithBrowser(
@@ -197,12 +197,18 @@ export async function registerPasskeyWithBrowser(
   );
 }
 
-export async function authenticatePasskeyWithBrowser(client: CourseRosterClient): Promise<void> {
+export async function authenticatePasskeyWithBrowser(
+  client: CourseRosterClient,
+  signal?: AbortSignal,
+): Promise<void> {
   if (!("credentials" in navigator) || !("PublicKeyCredential" in globalThis)) {
     throw new ApiProtocolError("This browser does not support passkeys");
   }
   const started = await client.startPasskeyAuthentication();
-  const credential = await navigator.credentials.get(authenticationOptions(started.options));
+  const request = authenticationOptions(started.options);
+  const credential = await navigator.credentials.get(
+    signal === undefined ? request : { ...request, signal },
+  );
   const json = credentialJson(credential);
   if (!isAuthenticationResponse(json)) {
     throw new ApiProtocolError("The authenticator returned an unexpected sign-in response");
@@ -330,21 +336,6 @@ export function createEnrollmentClient(
         }`,
         decodeCourseRosterPage,
       ),
-    addLocalTeachingMember: async (
-      courseId,
-      learnerAlias,
-    ): ReturnType<CourseRosterClient["addLocalTeachingMember"]> => {
-      const path = `/api/courses/${encodedId(courseId)}/local-teaching-members`;
-      const result = await rosterMutation(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeLocalTeachingMemberAccepted,
-        { method: "POST", body: { learnerAlias } },
-      );
-      verifyNumericEtag(result.response, result.body.rosterRevision, path);
-      return result.body;
-    },
     inviteCourseMember: async (
       courseId,
       email,

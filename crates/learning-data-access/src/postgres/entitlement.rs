@@ -825,9 +825,7 @@ async fn insert_receipt(
 }
 
 fn random_uuid() -> Result<Uuid, StoreError> {
-    let mut bytes = [0; 16];
-    getrandom::fill(&mut bytes).map_err(|error| {
+    crate::random_uuid::random_uuid_v4(|error| {
         StoreError::Unavailable(format!("entitlement ID randomness unavailable: {error}"))
-    })?;
-    Ok(Uuid::from_bytes(bytes))
+    })
 }

@@ -20,7 +20,8 @@
 #   rust:       cargo build (recompiles dependencies on next invocation)
 #   swift:      dependencies re-fetch automatically on next build
 set -euo pipefail
-cd "$(git rev-parse --show-toplevel)"
+SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$SCRIPT_DIRECTORY/.."
 
 DELETED=()
 
@@ -45,7 +46,6 @@ delete_find_matches() {
 # Generic build outputs (any language).
 delete_path dist
 delete_path dist-single
-delete_path dist_browser_test
 delete_path dist_wasm
 delete_path generated
 delete_path _site

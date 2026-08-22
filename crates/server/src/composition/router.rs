@@ -18,96 +18,8 @@ pub(super) async fn verify_application_schema_bounded(
     }
 }
 
-/// Test-only legacy-provider composition used to prove the real local route
-/// graph. Production cannot compile this helper or its provider login merge.
-#[cfg(all(test, feature = "local-development-auth"))]
-#[allow(clippy::too_many_arguments)]
-pub(super) fn compose_router<S, O, C, B, P, R>(
-    store: Arc<S>,
-    objects: Arc<O>,
-    public_assets: Arc<C>,
-    backends: Arc<B>,
-    native_adapter: Arc<adapter_native::NativeAdapter>,
-    identity_provider: Arc<P>,
-    review_gate: Arc<R>,
-    session_config: SessionConfig,
-    invitation_issuer: crate::course::CourseInvitationIssuer,
-    passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
-    passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
-    client_address_policy: crate::auth::ClientAddressPolicy,
-    live_demo_selector: Option<crate::auth::SeededAccountSelectorConfig>,
-    live_demo_sysadmin_ownership: Option<crate::auth::SeededSysadminOwnershipConfig>,
-    webauthn: Option<crate::auth::PasswordlessWebauthn>,
-    health: Arc<HealthState>,
-) -> Router
-where
-    S: Store
-        + CatalogStore
-        + learning_data_access::FlatQuestionAssetStore
-        + FlatQuestionStore
-        + FlatImportProvenanceStore
-        + CourseItemAnalysisStore
-        + ExportJobStore
-        + ManualGradingStore
-        + QtiImportApiStore
-        + QtiImportStore
-        + RetentionStore
-        + RetentionApiStore
-        + CourseRecordsAccessStore
-        + learning_data_access::CourseRosterStore
-        + learning_data_access::CourseInvitationDeliveryStore
-        + learning_data_access::ManualGradeExportStore
-        + learning_data_access::CourseGradebookStore
-        + learning_data_access::CourseGroupManagementStore
-        + learning_data_access::AccountIdentityStore
-        + learning_data_access::AccountSessionStore
-        + learning_data_access::LiveDemoInstallationStore
-        + SessionStore
-        + learning_data_access::TeachingAuthorityStore
-        + learning_data_access::TeachingAuthorityReferenceStore
-        + learning_data_access::NavigationReferenceStore
-        + learning_data_access::PreviewPlaneStore
-        + AssetStore
-        + CourseAppearanceStore
-        + AuthoritativeTimeStore
-        + 'static,
-    O: objects::ObjectStore + 'static,
-    C: PublicAssetUrlResolver + 'static,
-    B: BackendRegistry + RunBackend + 'static,
-    P: IdentityProvider + 'static,
-    P::Presentation: serde::de::DeserializeOwned + Send + Sync + 'static,
-    R: PublicReviewGate + 'static,
-{
-    crate::http_security::apply_api_security_headers(
-        compose_passwordless_router(
-            Arc::clone(&store),
-            objects,
-            public_assets,
-            backends,
-            native_adapter,
-            review_gate,
-            session_config,
-            invitation_issuer,
-            passwordless_email_delivery,
-            passwordless_rate_limit_issuer,
-            client_address_policy,
-            live_demo_selector,
-            live_demo_sysadmin_ownership,
-            webauthn,
-            None,
-            health,
-        )
-        .merge(crate::auth::provider_login_router(
-            identity_provider,
-            store,
-            session_config,
-        )),
-    )
-}
-
 /// Merges every route that uses PLE-owned account authentication or no
-/// identity provider at all. Production uses this composition directly so it
-/// cannot accidentally read or expose the local-file development login path.
+/// identity at all.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn compose_passwordless_router<S, O, C, B, R>(
     store: Arc<S>,
@@ -124,7 +36,6 @@ pub(super) fn compose_passwordless_router<S, O, C, B, R>(
     live_demo_selector: Option<crate::auth::SeededAccountSelectorConfig>,
     live_demo_sysadmin_ownership: Option<crate::auth::SeededSysadminOwnershipConfig>,
     webauthn: Option<crate::auth::PasswordlessWebauthn>,
-    local_teaching_roster: Option<Arc<crate::course::LocalTeachingRosterDirectory>>,
     health: Arc<HealthState>,
 ) -> Router
 where
@@ -222,10 +133,9 @@ where
             Arc::clone(&store),
             native_adapter,
         ))
-        .merge(crate::course::router_with_invitations_and_local_teaching(
+        .merge(crate::course::router_with_invitations(
             Arc::clone(&store),
             invitation_issuer,
-            local_teaching_roster,
         ))
         .merge(crate::navigation::router(Arc::clone(&store)))
         .merge(crate::course_appearance::router(

@@ -9,6 +9,7 @@ import shlex
 
 import local_stack_control.cleanup
 import local_stack_control.acceptance_lanes
+import local_stack_control.browser_suite_developer
 import local_stack_control.compose
 import local_stack_control.consumer
 import local_stack_control.discovery
@@ -281,22 +282,32 @@ def start(
 	runner: local_stack_control.process.CommandRunner,
 	repo_root: pathlib.Path,
 ) -> int:
-	"""Initialize and start the selected default local stack in process."""
-	target = target_from_args(args, runner, repo_root, allow_missing_env=True)
-	authorize_start_target(target)
-	result = local_stack_control.lifecycle.start_lifecycle(
-		target,
-		runner,
-		repo_root,
-		local_stack_control.lifecycle.LifecycleOptions(
-			DEFAULT_LIFECYCLE_TIMEOUT_SECONDS,
-			not args.skip_build,
-			args.release,
-			not args.no_open,
-		),
-	)
-	print(f"Local stack ready: {result.gateway_url}")
+	"""Start the fixed production-browser developer session."""
+	result = local_stack_control.browser_suite_developer.start_developer_session(repo_root)
+	if not args.no_open:
+		open_developer_origin(runner, repo_root, result.origin)
+	print(f"Developer browser ready: {result.origin}")
+	print(f"Project: {result.project}")
+	print("Stop with: python3 local_stack.py stop")
 	return 0
+
+
+#============================================
+def open_developer_origin(
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+	origin: str,
+) -> None:
+	"""Open the owner-proven HTTPS origin through the injected command runner."""
+	environment = local_stack_control.env_file.sanitized_runtime_environment(
+		local_stack_control.process.current_environment()
+	)
+	result = runner.run(["open", origin], environment, repo_root)
+	if result.ok():
+		return
+	fallback = runner.run(["xdg-open", origin], environment, repo_root)
+	if not fallback.ok():
+		raise local_stack_control.models.ControllerError("could not open developer browser")
 
 
 #============================================
@@ -336,11 +347,10 @@ def stop(
 	runner: local_stack_control.process.CommandRunner,
 	repo_root: pathlib.Path,
 ) -> int:
-	"""Stop the default stack and retain named data."""
-	target = target_from_args(args, runner, repo_root)
-	snapshot = local_stack_control.discovery.discover_snapshot(runner, repo_root, target.project)
-	plan = local_stack_control.cleanup.stop_plan(target, snapshot)
-	return execute_cleanup(plan, target, runner, False)
+	"""Request authenticated cleanup from the fixed developer browser owner."""
+	result = local_stack_control.browser_suite_developer.request_stop(repo_root)
+	print(f"Developer browser stopped: {result.project}")
+	return 0
 
 
 #============================================

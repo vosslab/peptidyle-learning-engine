@@ -1,4 +1,4 @@
-// editor_page_model.ts - browser-safe contracts for the mock editor surface.
+// editor_page_model.ts - browser-safe contracts for the workspace editor surface.
 
 import type { Capability } from "../../generated/api/Capability";
 import type { ContentBlock } from "../../generated/api/ContentBlock";
@@ -95,7 +95,7 @@ export type PublishOutcome =
     }
   | { readonly kind: "error"; readonly message: string };
 
-/** Injected workspace boundary. The mock is an implementation, not an import in this feature. */
+/** Injected workspace boundary supplied by the active runtime composition. */
 export interface EditorRepository {
   readonly listDrafts: (cursor?: string) => Promise<WorkspaceDraftPage>;
   readonly getDraft: (workspace: WorkspaceId) => Promise<EditorDraft>;

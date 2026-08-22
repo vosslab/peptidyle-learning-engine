@@ -1,18 +1,16 @@
 //! Atomic Memory implementation of T2 operator approvals and co-instructor invitations.
 
-use async_trait::async_trait;
-use question_model::{
-    CoInstructorInvitation, CoInstructorInvitationId, CoInstructorInvitationState,
-    CourseMembershipId, CourseMembershipRole, UserId, UserRole,
-};
-use uuid::Uuid;
-
 use super::*;
 use crate::{
     ApproveInstructorAccount, CoInstructorInvitationRevision, CreateCoInstructorInvitation,
     DirectInstructorMembershipView, InstructorApprovalRevision, RemoveDirectInstructorMembership,
     RespondToCoInstructorInvitation, RevokeCoInstructorInvitation, RevokeInstructorApproval,
     StoredCoInstructorInvitation, StoredInstructorApproval, TeachingAuthorityStore,
+};
+use async_trait::async_trait;
+use question_model::{
+    CoInstructorInvitation, CoInstructorInvitationId, CoInstructorInvitationState,
+    CourseMembershipId, CourseMembershipRole, UserId, UserRole,
 };
 
 #[async_trait]
@@ -500,13 +498,12 @@ fn invitation_acceptance_view(
 }
 
 fn fresh_invitation_id() -> Result<CoInstructorInvitationId, StoreError> {
-    let mut bytes = [0_u8; 16];
-    getrandom::fill(&mut bytes).map_err(|error| {
+    crate::random_uuid::random_uuid_v4(|error| {
         StoreError::Unavailable(format!(
             "co-instructor invitation ID randomness unavailable: {error}"
         ))
-    })?;
-    Ok(CoInstructorInvitationId::from_uuid(Uuid::from_bytes(bytes)))
+    })
+    .map(CoInstructorInvitationId::from_uuid)
 }
 
 fn domain_error(error: domain::teaching_authority::CoInstructorInvitationError) -> StoreError {

@@ -48,36 +48,19 @@ selected MC/MATCH Blackboard record shape, strict PLE flat v2 compilation, CC BY
 answer-free public definitions, private-key binding, and correct-versus-wrong server grading for
 all four static questions.
 
-Run the disposable publication oracle separately:
+The fixed live-demo seed/manifest and Rust behavior tests own Chapter One
+publication, exact rerun, and grading semantics. The one disposable live-demo
+lifecycle installs that reviewed baseline into PostgreSQL and MinIO; Chapter
+One no longer creates a separately named stack or browser owner. Historical
+pilot evidence used `P-...-v1` references, but current instructor-facing IDs use
+canonical `AAA-BBBB` Crockford Question IDs while immutable snapshots stay
+internal for grading and provenance.
+
+Browser learner behavior is selected only through the canonical wrapper:
 
 ```bash
-source source_me.sh && python3 tests/e2e/e2e_chapter_one_pilot.py
+./run_playwright_tests.sh --build
 ```
 
-It starts a uniquely named PostgreSQL and MinIO project, publishes eight immutable questions and
-two four-item Mastery assignments, then reruns the seed without mutation. Historical
-pilot evidence used `P-...-v1` references; that superseded public identity is not the current
-contract. Current instructor-facing IDs use canonical `AAA-BBBB` Crockford Question IDs, while
-immutable snapshots stay internal for grading and provenance. The reviewed WeBWorK sources directly
-admit immediate correctness without disclosing answer material. The oracle checks the
-four-native/four-WeBWorK inventory, source artifacts, and absence of synthetic predecessors. It
-removes only its own disposable containers and volumes. The normal local launcher uses this same
-host-only seed path and writes its answer-free manifest to
-`containers/local-chapter-one-pilot.json`.
-
-The legacy pilot shell entry point is a logic-free compatibility `exec` facade. Python owns the
-disposable lifecycle and private manifest publication boundary.
-
-Run the complete built-browser learner gate separately:
-
-```bash
-source source_me.sh && python3 tests/e2e/e2e_chapter_one_browser.py
-```
-
-It builds the browser artifacts, starts a uniquely named complete PLE stack, publishes
-the same two assignments, and has the local student complete all eight questions through visible
-keyboard controls without consulting answer keys. After each submission it requires the visible
-feedback region to show either released feedback or the policy-correct recorded-response state. It
-also requires the fresh-practice control after each four-question chapter, then removes only its own
-stack and volumes. The canonical UI walkthrough visibly constructs the Genetics assignment in J13
-but does not run this all-eight learner sweep; this complete two-chapter gate remains the release oracle.
+That wrapper owns the production `dist/` build, HTTPS stack, browser selection,
+fixed owner lease, and exact cleanup.

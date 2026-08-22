@@ -1,6 +1,8 @@
 # Tests
 
-This folder holds three test tiers, each with its own execution model. Pytest runs the fast lane under 1 second; the other two tiers run directly and may take longer.
+This folder holds three test tiers, each with its own execution model. Permanent
+pytest tests are individually subsecond and stay in the fast lane; the other
+two tiers run directly and may take longer.
 
 ## Layout
 
@@ -9,21 +11,17 @@ tests/
   test_*.py              fast pytest unit/integration (collected by pytest)
   test_*.mjs             pure Node tests, no browser (rare)
   conftest.py            pytest config; declares collect_ignore
-  conftest.py includes:  collect_ignore = ["e2e", "playwright", "walkthrough"]
+  conftest.py includes:  collect_ignore = ["e2e", "playwright"]
   playwright/            browser-driven tests (Playwright)
     test_*.mjs           smoke/layout/regression
-    repo_root.mjs        shared helper: exports REPO_ROOT (centrally propagated)
     helpers.mjs          shared test utilities
-    e2e/                 OPTIONAL: full-path browser walkthroughs
+    e2e/                 full-path browser scenarios and service orchestration
       test_*.mjs
   e2e/                   non-browser whole-system E2E (shell/Python/Node)
     e2e_*.sh             shell orchestration
     e2e_*.py             Python orchestration
     e2e_*.mjs            Node/build orchestration
     e2e_run_all.sh       run all non-browser E2E tests
-  walkthrough/           opt-in instructor-to-student teaching-loop runner
-    run_ui_walkthrough.sh canonical shell entrypoint
-    walklib/             importable orchestration library
 ```
 
 ## How to run
@@ -38,8 +36,8 @@ tests/
 The canonical Playwright front door builds production `dist/` and serves it through a fresh
 suite-owned HTTPS gateway connected to the real PLE services. Its scenarios use visible PLE workflows
 to create namespaced state; the fixture owns only the declared seeded baseline and infrastructure
-controls. Aggregate acceptance also retains two transitional visual-fixture lanes until V1 moves
-canonical screenshot provenance to this real origin.
+controls. Screenshot capture and browser-free service oracles use the same fixed
+`ple-live-demo-browser` lifecycle, seeded production authentication, and owner cleanup boundary.
 
 ## Why two folders for E2E
 
@@ -47,35 +45,27 @@ Playwright is a tool; E2E is a scope. Not every Playwright test is end-to-end (a
 
 - `tests/playwright/` -- browser-driven tests (Playwright; future tools like Cypress would get their own tool-named folder)
 - `tests/e2e/` -- non-browser whole-system orchestration (CLIs, build pipelines, multi-suite runners)
-- `tests/walkthrough/` -- opt-in cross-actor teaching-loop orchestration
 
-The optional `tests/playwright/e2e/` subfolder groups full-path browser walkthroughs separately from smoke tests and regression checks.
+The optional `tests/playwright/e2e/` subfolder groups full-path browser journeys separately from smoke tests and regression checks.
 
 ## Disposable stack ownership
 
 The Podman-backed adapter E2Es do not select Compose projects from shell
 arguments. Their runner creates a private mode-0600 manifest with a declared
 owner, isolated project, private environment path, and runner-held cleanup
-capability. The private `python3 -m local_stack_control._consumer_cli` adapter and
-`local_stack_control/_consumer_cli.py` then
-enforce a closed owner policy:
+capability. The private `python3 -m local_stack_control._consumer_cli` adapter
+then enforces a closed owner policy:
 
-- `course-appearance`, `chapter-one-pilot`, and `database-baseline` use their
-  isolated data-stack Compose definition.
-- `chapter-one-browser` owns its isolated full teaching stack and derived
-  gateway image.
-- `webwork-browser` owns its isolated full teaching stack, private browser
-  identity fixture, renderer-outage action, and derived gateway image.
-- `live-demo-browser` owns the disposable production-auth HTTPS connected E2E.
-  Its canonical runner, `run_playwright_tests.sh`, selects the typed suite
-  owner, runs `tests/playwright/e2e/live_demo.spec.ts`, and performs typed
-  cleanup. `tests/e2e/e2e_live_demo_browser.py` remains a compatibility entry
-  while the retirement inventory is completed.
-- `wp-r2-host-seed-renderer` owns its isolated host-seed and renderer stack.
-- `replica-restart` owns the replica Compose overlay and may stop one exact API
-  replica only after it proves a peer remains running.
-- The UI walkthrough uses controller primitives directly with its own private
-  state and cleanup capability; it is not a generic adapter consumer.
+- Browser-free data and security oracles, including `course-appearance` and
+  `database-baseline`, use their named isolated definitions and never launch
+  Playwright.
+- `live-demo-browser` is the one fixed connected-browser owner. Its closed
+  profiles run the production-browser suite, screenshot capture, WebWork
+  service oracle, and two-API/one-PostgreSQL replica oracle serially against a
+  freshly regenerated stack. Its canonical runner, `run_playwright_tests.sh`,
+  selects the typed suite owner, runs registered
+  `tests/playwright/e2e/*.spec.ts` scenarios, and performs typed cleanup.
+  Developer sessions use the same fixed owner and lease.
 
 The shared adapter controls provider selection, environment sanitization,
 label discovery, scoped diagnostics, and cleanup. It also allocates and later
@@ -88,7 +78,7 @@ label-resolved target instead of deleting the receipt or broadening cleanup.
 ## How pytest stays fast
 
 `tests/conftest.py` declares
-`collect_ignore = ["e2e", "playwright", "walkthrough"]`, so pytest never
+`collect_ignore = ["e2e", "playwright"]`, so pytest never
 collects test functions from those subtrees, regardless of filename inside
 them. The filename conventions (`e2e_*` prefix in `tests/e2e/`, `test_*.mjs`
 for Playwright) are a readability layer on top of this active guard.

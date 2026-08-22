@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  classifyFailureHint,
-  parseFailureTriageInput,
-} from "./playwright/simulator/failure_triage.ts";
+import { classifyFailureHint, parseFailureTriageInput } from "./support/failure_triage.ts";
 
 const CASES = [
   {
@@ -29,7 +26,7 @@ const CASES = [
   },
 ];
 
-test("fixed walkthrough failure inputs receive their advisory category", () => {
+test("fixed failure inputs receive their advisory category", () => {
   for (const testCase of CASES) {
     assert.deepEqual(classifyFailureHint(testCase.input), { category: testCase.category });
   }

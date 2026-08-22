@@ -107,22 +107,6 @@ impl StorageRuntime {
         })
     }
 
-    #[cfg(feature = "local-development-auth")]
-    pub(super) const fn local_development_api() -> Self {
-        Self {
-            role: ProcessRole::Api,
-            topology: StorageTopology::DisposableLocal,
-        }
-    }
-
-    #[cfg(feature = "local-development-auth")]
-    pub(super) const fn local_development_worker() -> Self {
-        Self {
-            role: ProcessRole::Worker,
-            topology: StorageTopology::DisposableLocal,
-        }
-    }
-
     pub(super) fn database_variable(self) -> &'static str {
         match (self.role, self.topology) {
             (ProcessRole::Worker, StorageTopology::AwsWorkload) => "PLE_WORKER_DATABASE_URL",
@@ -348,7 +332,7 @@ pub(super) struct ProductionSettings {
     pub(super) enrollment_secret: Option<EnrollmentSecretSettings>,
     pub(super) enrollment_email: Option<EnrollmentEmailSettings>,
     pub(super) webauthn: crate::auth::PasswordlessWebauthn,
-    pub(super) browser_boundary: Option<crate::auth::ProductionBrowserBoundary>,
+    pub(super) browser_boundary: crate::auth::ProductionBrowserBoundary,
     pub(super) client_address_policy: crate::auth::ClientAddressPolicy,
     pub(super) live_demo_selector: Option<crate::auth::SeededAccountSelectorConfig>,
     pub(super) live_demo_sysadmin_ownership: Option<crate::auth::SeededSysadminOwnershipConfig>,
@@ -378,40 +362,18 @@ pub(super) struct WebworkRendererSettings {
 
 impl ProductionSettings {
     pub(super) fn from_env(runtime: StorageRuntime) -> Result<Self> {
-        Self::from_api_env(runtime, ApiSettingsMode::Production)
-    }
-
-    #[cfg(feature = "local-development-auth")]
-    pub(super) fn from_local_development_env(runtime: StorageRuntime) -> Result<Self> {
-        Self::from_api_env(runtime, ApiSettingsMode::LocalDevelopment)
-    }
-
-    fn from_api_env(runtime: StorageRuntime, mode: ApiSettingsMode) -> Result<Self> {
         if runtime.role != ProcessRole::Api {
             bail!("persistent API dependencies require the API process role");
         }
-        let public_asset_base_url = match mode {
-            #[cfg(feature = "local-development-auth")]
-            ApiSettingsMode::LocalDevelopment => {
-                PublicAssetBaseUrl::local_development(required_env("PLE_PUBLIC_ASSET_BASE_URL")?)
-            }
-            ApiSettingsMode::Production => {
-                PublicAssetBaseUrl::new(required_env("PLE_PUBLIC_ASSET_BASE_URL")?)
-            }
-        }
-        .map_err(|_| anyhow::anyhow!("PLE_PUBLIC_ASSET_BASE_URL is invalid"))?;
-        let client_address_policy = match mode {
-            #[cfg(feature = "local-development-auth")]
-            ApiSettingsMode::LocalDevelopment => crate::auth::ClientAddressPolicy::direct(),
-            ApiSettingsMode::Production => {
-                crate::auth::ClientAddressPolicy::behind_trusted_proxies(&required_env(
-                    "PLE_TRUSTED_PROXY_CIDRS",
-                )?)
-                .map_err(anyhow::Error::msg)?
-            }
-        };
+        let public_asset_base_url =
+            PublicAssetBaseUrl::new(required_env("PLE_PUBLIC_ASSET_BASE_URL")?)
+                .map_err(|_| anyhow::anyhow!("PLE_PUBLIC_ASSET_BASE_URL is invalid"))?;
+        let client_address_policy = crate::auth::ClientAddressPolicy::behind_trusted_proxies(
+            &required_env("PLE_TRUSTED_PROXY_CIDRS")?,
+        )
+        .map_err(anyhow::Error::msg)?;
         let webauthn_origin = required_env("PLE_WEBAUTHN_ORIGIN")?;
-        let browser_boundary = browser_boundary_for(mode, &webauthn_origin)?;
+        let browser_boundary = browser_boundary_for(&webauthn_origin)?;
         let live_demo_selector = live_demo_selector_from_env(&webauthn_origin)?;
         let live_demo_sysadmin_ownership = live_demo_sysadmin_ownership_from_env(&webauthn_origin)?;
         validate_live_demo_identity_config(
@@ -556,26 +518,9 @@ impl ProductionSettings {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum ApiSettingsMode {
-    Production,
-    #[cfg(feature = "local-development-auth")]
-    LocalDevelopment,
-}
-
-pub(super) fn browser_boundary_for(
-    mode: ApiSettingsMode,
-    origin: &str,
-) -> Result<Option<crate::auth::ProductionBrowserBoundary>> {
-    match mode {
-        ApiSettingsMode::Production => {
-            crate::auth::ProductionBrowserBoundary::new(Arc::from(origin.to_string()))
-                .map(Some)
-                .map_err(anyhow::Error::msg)
-        }
-        #[cfg(feature = "local-development-auth")]
-        ApiSettingsMode::LocalDevelopment => Ok(None),
-    }
+pub(super) fn browser_boundary_for(origin: &str) -> Result<crate::auth::ProductionBrowserBoundary> {
+    crate::auth::ProductionBrowserBoundary::new(Arc::from(origin.to_string()))
+        .map_err(anyhow::Error::msg)
 }
 
 const LIVE_DEMO_SELECTOR_USER_ID_ENV: [&str; 4] = [
@@ -779,14 +724,8 @@ pub(super) fn invitation_delivery_worker_from_env() -> Result<
     Ok(Some((issuer, delivery)))
 }
 
-pub(super) fn invitation_delivery_worker_database_url_from_env(
-    local_development: bool,
-) -> Result<String> {
-    required_env(if local_development {
-        "DATABASE_URL"
-    } else {
-        "PLE_INVITATION_DELIVERY_DATABASE_URL"
-    })
+pub(super) fn invitation_delivery_worker_database_url_from_env() -> Result<String> {
+    required_env("PLE_INVITATION_DELIVERY_DATABASE_URL")
 }
 
 impl EnrollmentSecretSettings {

@@ -202,6 +202,10 @@ def test_storage_command_binds_label_bucket_key_and_receipt_stdin(
 		"private-content",
 		"ple/live-demo/base-course-install-receipt.json",
 	]
+	assert "mktemp /tmp/base-course-storage-receipt.XXXXXX" in argv[-4]
+	assert 'chmod 600 "$receipt_file"' in argv[-4]
+	assert 'mc cp --disable-multipart "$receipt_file" "local/$1/$2"' in argv[-4]
+	assert "mc pipe" not in argv[-4]
 	assert stdin == receipt.storage_receipt_json
 
 
@@ -484,54 +488,6 @@ def test_claim_context_preserves_matching_generation_and_rotates_new_generation(
 		"00000000-0000-0000-0000-000000000007",
 	)
 	assert rotated.ownership_proof != first.ownership_proof
-	assert stat.S_IMODE(path.stat().st_mode) == 0o600
-
-
-#============================================
-def test_default_bootstrap_does_not_create_demo_claim_context(
-	tmp_path: pathlib.Path,
-) -> None:
-	"""Ordinary bootstrap keeps the public base free of live-demo ownership inputs."""
-	target = lifecycle_target(tmp_path)
-	target.env_file.parent.mkdir()
-	template = (pathlib.Path(__file__).parents[1] / "containers/env.example").read_text(encoding="utf-8")
-	target.env_file.write_text(template, encoding="ascii")
-	target.env_file.chmod(0o600)
-	local_stack_control.lifecycle.bootstrap_default_state(target)
-	values = local_stack_control.lifecycle.validate_static(target)
-
-	assert "PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE" not in values
-
-
-#============================================
-def test_live_demo_browser_bootstrap_creates_its_selected_pending_claim_source(
-	tmp_path: pathlib.Path,
-) -> None:
-	"""The connected browser owner reaches static validation before Compose mutation."""
-	target = lifecycle_target(
-		tmp_path,
-		"ple-live-demo-browser-0123456789ab",
-		live_demo_browser_compose_files(tmp_path),
-	)
-	target.env_file.parent.mkdir(exist_ok=True)
-	template = (pathlib.Path(__file__).parents[1] / "containers/env.example").read_text(encoding="utf-8")
-	target.env_file.write_text(template, encoding="ascii")
-	target.env_file.chmod(0o600)
-	disposable = local_stack_control.models.DisposableComposeTarget(
-		target=target,
-		owner_policy="live-demo-browser",
-		capability_file=tmp_path / "capability",
-		project_prefix="ple-live-demo-browser-",
-		private_environment_file=target.env_file,
-	)
-
-	local_stack_control.lifecycle.bootstrap_default_state(disposable)
-	local_stack_control.lifecycle.validate_static(target)
-	values = local_stack_control.env_file.env_settings(target.env_file)
-	path = local_stack_control.lifecycle.absolute_value_path(
-		target.repo_root, values["PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE"]
-	)
-
 	assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
 

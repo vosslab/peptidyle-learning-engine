@@ -303,22 +303,25 @@ impl crate::PreviewPlaneStore for MemoryStore {
             before,
             after,
         })?;
-        // The only durable T3 side effect, after every validation and projection succeeds.
-        let payload = format!(
-            "previewSubjectDerived:v1:{}:{}:{}",
-            actor, course, assignment
-        );
-        state
-            .preview_subject_audits
-            .push(crate::PreviewSubjectAudit {
-                actor,
-                course,
-                assignment: request.assignment,
-                target_membership: membership_id,
-                action: "preview.subject.derived",
-                schema_version: 1,
-                payload_sha256: Sha256Digest::compute(payload.as_bytes()),
-            });
+        if matches!(result.evaluation, PreviewEvaluation::Allowed { .. }) {
+            // The only durable T3 side effect, after every validation and
+            // successful projection succeeds.
+            let payload = format!(
+                "previewSubjectDerived:v1:{}:{}:{}",
+                actor, course, assignment
+            );
+            state
+                .preview_subject_audits
+                .push(crate::PreviewSubjectAudit {
+                    actor,
+                    course,
+                    assignment: request.assignment,
+                    target_membership: membership_id,
+                    action: "preview.subject.derived",
+                    schema_version: 1,
+                    payload_sha256: Sha256Digest::compute(payload.as_bytes()),
+                });
+        }
         Ok(result)
     }
 }
@@ -583,7 +586,7 @@ fn preview_result(input: PreviewResultInput<'_>) -> Result<crate::PreviewPlaneRe
             .map(|(_, purpose)| *purpose)
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
-            .map(|purpose| PreviewGroupFact { purpose })
+            .map(PreviewGroupFact::from_purpose)
             .collect(),
         policy,
         PreviewPriorRunCount::try_from(prior).map_err(|e| StoreError::InvalidRecord(e.into()))?,

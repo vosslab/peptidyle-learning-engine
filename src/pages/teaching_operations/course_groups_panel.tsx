@@ -83,7 +83,10 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
   const [editing, setEditing] = createSignal<CourseGroupSummaryView>();
   const [members, setMembers] = createSignal<ReadonlyArray<CourseGroupMemberView>>([]);
   const [message, setMessage] = createSignal("");
-  const [busy, setBusy] = createSignal(false);
+  // Group operations and policy operations have separate ownership. Their
+  // initial reads intentionally run concurrently without blocking each other.
+  const [groupBusy, setGroupBusy] = createSignal(false);
+  const [policyBusy, setPolicyBusy] = createSignal(false);
   const [policyPurpose, setPolicyPurpose] = createSignal<CourseGroupPurpose>("section");
   const [policy, setPolicy] = createSignal<"allow" | "warn">("warn");
   const [policyRevision, setPolicyRevision] = createSignal<TeachingOperationRevision>();
@@ -162,7 +165,7 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
   async function loadMore(): Promise<void> {
     const cursor = nextCursor();
     if (cursor === null) return;
-    setBusy(true);
+    setGroupBusy(true);
     try {
       const page = await props.runtime.client.listCourseGroups(props.courseId, cursor, 100);
       setGroups((current) => appendGroupPage(current, page.groups));
@@ -172,11 +175,11 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
       setMessage("More course groups could not load. Try Load more groups again.");
       focusStatus();
     } finally {
-      setBusy(false);
+      setGroupBusy(false);
     }
   }
   async function openGroup(group: CourseGroupSummaryView): Promise<void> {
-    setBusy(true);
+    setGroupBusy(true);
     try {
       const detail = await props.runtime.client.getCourseGroup(
         props.courseId,
@@ -203,7 +206,7 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
       );
       focusStatus();
     } finally {
-      setBusy(false);
+      setGroupBusy(false);
     }
   }
   async function save(): Promise<void> {
@@ -214,7 +217,7 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
       return;
     }
     const request = { title, purpose: draft().purpose, members: [...draft().members] };
-    setBusy(true);
+    setGroupBusy(true);
     try {
       const current = editing();
       if (current === undefined) {
@@ -240,11 +243,11 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
       );
       focusStatus();
     } finally {
-      setBusy(false);
+      setGroupBusy(false);
     }
   }
   async function loadPolicy(): Promise<void> {
-    setBusy(true);
+    setPolicyBusy(true);
     try {
       const view = await props.runtime.client.getCourseGroupPurposePolicy(
         props.courseId,
@@ -256,7 +259,7 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
     } catch {
       setMessage("The membership policy could not load.");
     } finally {
-      setBusy(false);
+      setPolicyBusy(false);
     }
   }
   async function loadWarnings(): Promise<void> {
@@ -279,7 +282,7 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
       await loadPolicy();
       return;
     }
-    setBusy(true);
+    setPolicyBusy(true);
     try {
       const saved = await props.runtime.client.updateCourseGroupPurposePolicy(
         props.courseId,
@@ -297,13 +300,13 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
           : "The membership policy could not be saved.",
       );
     } finally {
-      setBusy(false);
+      setPolicyBusy(false);
     }
   }
   async function deleteGroup(): Promise<void> {
     const group = pendingDelete();
     if (group === undefined) return;
-    setBusy(true);
+    setGroupBusy(true);
     try {
       await props.runtime.client.deleteCourseGroup(props.courseId, group.reference, group.revision);
       closeDeleteDialog(false);
@@ -323,7 +326,7 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
       setDeleteMessage(failure);
       focusDeleteError();
     } finally {
-      setBusy(false);
+      setGroupBusy(false);
     }
   }
   onMount(() => {
@@ -369,16 +372,22 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
                 <For each={groups()}>
                   {(group) => (
                     <li>
-                      <button type="button" disabled={busy()} onClick={() => void openGroup(group)}>
-                        {group.title}
-                      </button>
-                      <span>
-                        {purposeLabel(group.purpose)}; {group.memberCount} members
-                      </span>
+                      <div class="teaching-operations-group-summary">
+                        <button
+                          type="button"
+                          disabled={groupBusy()}
+                          onClick={() => void openGroup(group)}
+                        >
+                          {group.title}
+                        </button>
+                        <span>
+                          {purposeLabel(group.purpose)}; {group.memberCount} members
+                        </span>
+                      </div>
                       <button
                         type="button"
                         class="teaching-operations-danger-link"
-                        disabled={busy()}
+                        disabled={groupBusy()}
                         onClick={(event) => openDeleteDialog(group, event.currentTarget)}
                       >
                         Delete {group.title}
@@ -389,32 +398,35 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
               </ul>
             </Show>
             <Show when={nextCursor() !== null}>
-              <button type="button" disabled={busy()} onClick={() => void loadMore()}>
+              <button type="button" disabled={groupBusy()} onClick={() => void loadMore()}>
                 Load more groups
               </button>
             </Show>
           </div>
           <form
             class="teaching-operations-form"
+            aria-labelledby="course-group-editor-heading"
             onSubmit={(event) => {
               event.preventDefault();
               void save();
             }}
           >
-            <h3>{editing() === undefined ? "Create group" : "Edit group"}</h3>
+            <h3 id="course-group-editor-heading">
+              {editing() === undefined ? "Create group" : "Edit group"}
+            </h3>
             <label>
               Group name
               <input
                 value={draft().title}
-                disabled={busy()}
+                disabled={groupBusy()}
                 onInput={(event) => setDraft({ ...draft(), title: event.currentTarget.value })}
               />
             </label>
             <label>
-              Purpose
+              Group purpose
               <select
                 value={draft().purpose}
-                disabled={busy()}
+                disabled={groupBusy()}
                 onChange={(event) =>
                   setDraft({ ...draft(), purpose: courseGroupPurpose(event.currentTarget.value) })
                 }
@@ -425,11 +437,11 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
               </select>
             </label>
             <label>
-              Members
+              Group members
               <select
                 multiple
                 value={[...draft().members]}
-                disabled={busy()}
+                disabled={groupBusy()}
                 aria-describedby="group-members-help"
                 onChange={(event) => setDraft({ ...draft(), members: selectedReferences(event) })}
               >
@@ -443,10 +455,10 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
               {memberLabels(members()) || "none"}.
             </p>
             <div class="teaching-operations-actions">
-              <button type="submit" disabled={busy()}>
+              <button type="submit" disabled={groupBusy()}>
                 {editing() === undefined ? "Create group" : "Save group"}
               </button>
-              <button type="button" disabled={busy()} onClick={resetEditor}>
+              <button type="button" disabled={groupBusy()} onClick={resetEditor}>
                 Clear editor
               </button>
             </div>
@@ -458,7 +470,7 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
             Group purpose
             <select
               value={policyPurpose()}
-              disabled={busy()}
+              disabled={policyBusy()}
               onChange={(event) => selectPolicyPurpose(event.currentTarget.value)}
             >
               <For each={COURSE_GROUP_PURPOSES}>
@@ -470,7 +482,7 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
             Policy
             <select
               value={policy()}
-              disabled={busy()}
+              disabled={policyBusy()}
               onChange={(event) => setPolicy(membershipPolicy(event.currentTarget.value))}
             >
               <option value="allow">Allow</option>
@@ -485,10 +497,10 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
             {(copy) => <p>{copy()}</p>}
           </Show>
           <div class="teaching-operations-actions">
-            <button type="button" disabled={busy()} onClick={() => void loadPolicy()}>
+            <button type="button" disabled={policyBusy()} onClick={() => void loadPolicy()}>
               Reload policy
             </button>
-            <button type="button" disabled={busy()} onClick={() => void savePolicy()}>
+            <button type="button" disabled={policyBusy()} onClick={() => void savePolicy()}>
               Save policy
             </button>
           </div>
@@ -533,14 +545,14 @@ export function CourseGroupsPanel(props: CourseGroupsPanelProps): JSX.Element {
             <div class="teaching-operations-actions">
               <button
                 type="button"
-                disabled={busy() || deleteName() !== group.title}
+                disabled={groupBusy() || deleteName() !== group.title}
                 onClick={() => void deleteGroup()}
               >
                 Confirm delete
               </button>
               <button
                 type="button"
-                disabled={busy()}
+                disabled={groupBusy()}
                 ref={(element) => {
                   deleteCancel = element;
                 }}

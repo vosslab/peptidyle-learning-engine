@@ -344,14 +344,11 @@ remains authoritative whenever browser and server could disagree.
 
 [containers/compose.yaml](../containers/compose.yaml) defines the common
 topology: gateway, API, worker, PostgreSQL, MinIO, a private renderer, and
-one-shot setup services. The ordinary local teaching stack adds
-`containers/compose.local-development.yaml`
-for local-file authentication and local-worker behavior. The disposable
-live-demo browser lane instead adds
+one-shot setup services. The fixed developer/browser session adds
 `tests/e2e/compose.live-demo-browser.yaml`
-for production authentication, local storage, and the TLS gateway. The gateway
-is the browser entry point. Local PostgreSQL and MinIO retain named-volume
-state; application services are replaceable.
+for production authentication, disposable storage, and the TLS gateway. The
+gateway is the browser entry point. The owner lease serializes developer and
+browser sessions and verifies exact cleanup.
 [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md) and
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) document its topology
 and operation.
@@ -363,33 +360,38 @@ provider selection, environment-file metadata and inherited-environment
 sanitization, label-based Podman discovery, semantic service status, and
 project-scoped cleanup plans. Focused Python modules own lifecycle sequencing:
 `lifecycle.py` coordinates typed start, validation, and restart requests;
-`local_environment.py`, `local_identity.py`, and `private_files.py` own default-only
-private state; `private_state.py` owns mode-0700 repository-target run directories,
+`local_environment.py` and `private_files.py` own default-only private state;
+`browser_suite_developer.py`, `browser_suite_lease.py`, and `browser_suite_reset.py`
+own the fixed developer/browser lifecycle; `private_state.py` owns mode-0700
+repository-target run directories,
 replacement-resistant descriptor access, and cross-process cleanup receipts for remote Podman
 bind sources; `renderer.py` owns selected-renderer OCI configuration-ID provenance;
 and lifecycle validation, waits, and diagnostics retain semantic readiness and safe failures.
 
-`local_stack_control/chapter_one.py` owns the Chapter 1 subprocess boundary and protected,
-same-directory atomic manifest publication used by both canonical Python E2E runners. The typed
-lifecycle owner delegates this publication without reimplementing replay or temporary-file state.
+`local_stack_control/chapter_one.py` owns Chapter One subprocess and protected,
+same-directory atomic manifest publication inside the selected lifecycle. The
+fixed live-demo owner delegates this baseline installation without creating a
+separate stack or browser route.
 
 The controller discovers resources by Compose labels rather than generated
 names. Read-only commands may inspect a named project. Default mutations are
-restricted to the `containers` project. A separate closed disposable-owner
-adapter (`python3 -m local_stack_control._consumer_cli`) forms
-temporary E2E targets only from a private mode-0600 manifest and a runner-held
-cleanup capability. The closed owners are `course-appearance`, `chapter-one-pilot`,
-`database-baseline`, `chapter-one-browser`, `webwork-browser`, `live-demo-browser`,
-`wp-r2-host-seed-renderer`, and `replica-restart`; each fixes its project namespace and Compose
-files before any action is formed. `live-demo-browser` is the owner-locked, disposable HTTPS
-production-auth connected E2E only; it is neither a general local target nor a public production
-deployment. The adapter
+restricted to fixed owner policies. A separate closed disposable-owner
+adapter (`python3 -m local_stack_control._consumer_cli`) forms temporary service
+targets only from a private mode-0600 manifest and a runner-held cleanup
+capability. The retained narrow database/service owners are `course-appearance`,
+`live-demo-baseline`, `database-baseline`, `wp-r2-postgres-rls`, and
+`wp-rc8-postgres-outbox`. Browser, WebWork, and replica profiles instead share
+the fixed `live-demo-browser` owner; each profile fixes its Compose files and
+capabilities before any action is formed. `live-demo-browser` is the
+owner-locked, disposable HTTPS production-auth E2E and developer session; it is neither a
+caller-selected local target nor a public production deployment. The adapter
 allows scoped Compose actions, diagnostics, or the policy-declared outage action,
 while cleanup requires the private capability and label-derived
 snapshot. It cannot accept a caller-selected target or generic removal command.
-The canonical walkthrough imports the controller's discovery and cleanup
-primitives while retaining its separate private inputs, fixed-port checks,
-visible-action evidence, and report boundary.
+The browser scenario, screenshot, and service-oracle owners import the controller's
+discovery and cleanup primitives while retaining their private inputs, fixed-port
+checks, visible-action evidence, and report boundaries. All three use the fixed
+`ple-live-demo-browser` lifecycle and seeded production authentication.
 
 `python3 local_stack.py acceptance` is the public aggregate acceptance
 entry point. It delegates stack-conflict preflight and child-environment

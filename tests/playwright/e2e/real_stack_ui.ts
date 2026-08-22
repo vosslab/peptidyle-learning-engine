@@ -26,6 +26,11 @@ export async function selectVisibleCourse(page: Page, title: string): Promise<vo
   await expect(page.getByRole("main")).toBeVisible();
 }
 
+export async function restoreViewportOrigin(page: Page): Promise<void> {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect.poll(() => page.evaluate(() => [window.scrollX, window.scrollY])).toEqual([0, 0]);
+}
+
 export async function signOutVisible(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(

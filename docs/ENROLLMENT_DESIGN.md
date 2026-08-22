@@ -26,12 +26,13 @@ receipt with its typed empty summary and immutable provenance. Roster and
 assignment writes do not eagerly create learner records.
 
 **Current startable composition:** `production_router_from_env` builds the
-persistent dependencies and composes the provider-free PLE passwordless/
-account/session graph with an eight-hour `FirstPartyHttps` policy and explicit
-`ReviewNotRequired`. It does not read local identity settings or mount
-`/api/auth/login`. The separately callable local-development launcher retains
-the explicit `local-file` `IdentityProvider` and tenant-scoped session only
-through the exact development flag; it is not a PLE-account bootstrap.
+persistent dependencies and composes the PLE passwordless/account/session graph
+with an eight-hour `FirstPartyHttps` policy and explicit `ReviewNotRequired`.
+The local browser uses that same graph: email authentication is canonical,
+ordinary passkeys are optional shortcuts, and a seeded persona selector is
+available only when its deployment configuration is complete. The selector
+enters the same persisted account/session state; it is not a separate identity
+or membership model.
 
 **Production acceptance still open:** canonical email-authentication evidence
 needs a live operator-selected external SMTP provider test account. Optional-
@@ -136,11 +137,12 @@ The original missing seam was visible at three boundaries:
   creates a course with the authenticated creator as instructor; the focused
   roster routes now add learners afterward.
 
-The Store remains the authority beneath HTTP. `CourseAssignmentStore` owns
-`create_enrollment_impl`, and both backends enforce the important compound
-write. The PostgreSQL implementation first verifies that the target user is a
-student member of the assignment's course, then inserts both `enrollment` and
-`student_assignment_summary` before committing.
+The Store remains the authority beneath HTTP. Roster commands create or update
+membership and its course-local profile. The entitlement evaluator derives
+assignment access from that current membership, the assignment audience, and
+typed group membership. Only its bounded `StartRun`, `GradeBearingAction`, and
+`InstructorIssue` transitions may atomically create an `enrollment` and its
+typed empty `student_assignment_summary`.
 
 The existing whole-course `upsert_course` operation is not the roster
 mutation. It replaces the complete member list and has no browser-facing
@@ -156,16 +158,11 @@ account across courses and institutions; it is not issued by an instructor,
 course, university, or email provider. Course membership and tenant-scoped RLS
 control access to educational records.
 
-The existing `IdentityProvider` trait remains the credential-verification
-boundary for the ordinary local tenant-session login route. The direct
-passwordless email/passkey route family has its own account-session boundary
-and mints a tenant `__Host-ple_session` only after an authorized course relationship
-is chosen or claimed. `production_router_from_env` composes that provider-free
-PLE account graph with an eight-hour `FirstPartyHttps` policy and explicit
-`ReviewNotRequired`; it does not read local identity settings or mount
-`/api/auth/login`. The separately callable local launcher retains the
-local-file provider only when the exact development flag selects it. The
-production direction is:
+The direct passwordless email/passkey route family owns the account-session
+boundary and mints a tenant `__Host-ple_session` only after an authorized course
+relationship is chosen or claimed. The deployment-gated seeded persona selector
+uses the same account/session records for connected local evidence. The product
+direction is:
 
 - email authentication is the canonical registration and sign-in path;
 - passkeys are optional convenience credentials for the same account;
@@ -211,33 +208,29 @@ retains an independently scoped pedagogical record. The current
 context while deriving it only from an authorized course or tenant
 relationship, never from a browser-supplied tenant identifier.
 
-### Production and local session boundary
+### Account and local browser session boundary
 
-Production uses the PLE-owned account contract; the separately callable local
-composition uses the local-file contract only for development:
+The local browser and deployed product use the same PLE-owned account contract:
 
 | Session | Issuer and purpose | What it establishes |
 | --- | --- | --- |
-| `__Host-ple_session` | Production PLE account selection/claim, or explicit local-file development sign-in | One tenant-scoped `SessionSubject` for course, assignment, run, and roster actions |
-| `__Host-ple_account_session` | Production passwordless email or an already registered passkey | One tenant-independent PLE account backed by persisted account and account-session records |
+| `__Host-ple_session` | PLE account course selection or invitation claim after email, passkey, or deployment-gated seeded-persona entry | One tenant-scoped `SessionSubject` for course, assignment, run, and roster actions |
+| `__Host-ple_account_session` | Passwordless email, an already registered passkey, or the deployment-gated seeded selector | One tenant-independent PLE account backed by persisted account and account-session records |
 
-Invitation redemption requires the second contract. A local-file login creates
-the tenant session only; it does not provision a PLE account or account session.
-Passkey registration likewise begins from an authenticated PLE account, so a
-passkey can shorten later sign-in but cannot bootstrap the first account by
-itself. The local process can expose passwordless endpoints, but email start
-fails closed unless both the invitation-token secret and a complete external
-SMTP configuration are present. Mounting a route is therefore not evidence of
-a live email-authentication ceremony.
+Invitation redemption requires the account session before the tenant session.
+Passkey registration begins from an authenticated PLE account, so a passkey can
+shorten later sign-in but cannot bootstrap the first account by itself. The
+seeded selector is disabled when its deployment settings are absent. Email
+start fails closed unless both the invitation-token secret and a complete
+external SMTP configuration are present; mounting a route is not evidence of a
+live email-authentication ceremony.
 
 ENR6 therefore uses canonical email authentication to create or restore the PLE
 account before invitation redemption. Copy-link delivery removes SMTP from the
-invitation handoff, but it does not replace account authentication. A future
-local-development bootstrap may support the same walkthrough only if it creates
-the real account and account-session records through a reviewed development
-adapter rather than a parallel identity or invitation path. The production
-passwordless composition is implemented; it is never silently substituted by a
-local-file tenant session.
+invitation handoff, but it does not replace account authentication. The local
+browser exercises the real account and account-session records; the seeded
+selector is a deployment convenience for connected evidence, not a parallel
+identity or invitation path.
 
 ### Person, course, and email
 
@@ -399,31 +392,32 @@ membership or educational-record access described in
 
 ## Store invariants
 
-The Store owns the invariant that connects the otherwise separate records:
+The Store owns three connected but intentionally separate invariants:
 
-> Every current student course member has exactly one enrollment and one
-> summary for every current assignment in that course.
+1. Active course membership, assignment audience, and typed group membership
+   are the sole inputs to current assignment entitlement.
+2. Merely joining a course, creating an assignment, listing work, or reading a
+   summary creates no assignment receipt.
+3. The first bounded entitlement-bearing transition atomically creates one
+   enrollment and one typed empty summary with its sealed grant and provenance.
 
-The following operations preserve it:
+The following operations preserve them:
 
 | Operation | Atomic effect |
 | --- | --- |
-| Claim invitation | Consume the invitation, resolve the authenticated account, bind the roster identifier, add membership, and add all missing assignment enrollments and summaries |
-| Create assignment | Create assignment, then add enrollment and summary for every current student member |
-| Retry an accepted add | Return the existing member/enrollment result without duplicates |
-| Remove student access | Remove current membership and group membership; retain educational records for authorized grade, audit, and retention workflows |
-| Re-add former student | Reuse learner identity and existing assignment enrollments; create only genuinely missing pairs |
+| Claim invitation | Consume the invitation, resolve the authenticated account, bind the roster identifier, and create the membership episode and profile |
+| Create assignment | Store the assignment and its explicit audience; create no learner activity rows |
+| Read entitled pre-activity summary | Return a key-free `noActivity` projection without creating an enrollment or summary |
+| Start run, grade-bearing action, or instructor issue | Re-evaluate entitlement and atomically create or reuse the enrollment and summary receipt |
+| Remove student access | Remove current membership and group membership; retain existing educational records for authorized grade, audit, and retention workflows |
+| Re-add former student | Reuse learner identity and existing activity while deriving current access from the new membership episode |
 
-Memory uses one write lock and rollback snapshot for the compound change.
-PostgreSQL uses one transaction and a consistent course-level lock before it
-reads either the roster or the assignment set. Both add-member and
-create-assignment acquire that lock in the same order so neither race can leave
-a missing cell in the member-by-assignment cross product.
-
-The database retains unique constraints for both `(tenant, assignment,
-student)` and `(tenant, assignment, user)`. Inserting an enrollment and its
-empty summary remains one transaction. No route or migration may hand-write
-only the enrollment row.
+Memory uses one write lock and rollback snapshot for compound transitions.
+PostgreSQL uses one transaction and a consistent lock order when materializing
+the first receipt. The database retains unique constraints for both `(tenant,
+assignment, student)` and `(tenant, assignment, user)`. Once materialization
+begins, inserting the enrollment and its empty summary remains one transaction;
+no route or migration may hand-write only one side.
 
 ## HTTP contract
 
@@ -548,7 +542,8 @@ not a series of unrelated browser requests.
 5. Commit uses the staged import ID, its strong revision, and an idempotency
    key. PLE commits the selected ready rows atomically.
 6. Each committed row invokes the same Store command as one-member addition;
-   it cannot omit an assignment summary or bypass authorization.
+   it creates the membership/profile boundary without bypassing authorization
+   or pre-materializing assignment activity.
 
 The initial bounds are one MiB, 500 data rows, and a closed UTF-8 CSV grammar.
 The implementation keeps those limits as constants covered at their boundary.
@@ -638,8 +633,8 @@ The strongest ADAPT ideas for PLE are:
 - let the authenticated learner claim an invitation;
 - validate LMS-backed membership against the LMS roster when that integration
   is configured; and
-- create the per-assignment state as part of enrollment rather than waiting for
-  the first answer.
+- derive assignment access immediately from membership while materializing
+  per-assignment activity only at the first bounded educational event.
 
 PLE intentionally improves several implementation details:
 
@@ -651,7 +646,7 @@ PLE intentionally improves several implementation details:
 | `student_id` is stored on the global ADAPT user. | Store an institution-provided roster identifier only on the protected course roster/export mapping. |
 | Domain whitelist validation uses substring matching. | Compare a parsed, normalized complete domain or an explicitly configured subdomain boundary. |
 | Access codes are visible, reusable course/invitation values. | Use random, expiring, single-purpose invitation secrets stored only as hashes. |
-| Course enrollment and assignment distribution are coupled procedurally. | Keep membership and assignment enrollment as typed records connected by one atomic invariant. |
+| Course enrollment and assignment distribution are coupled procedurally. | Keep current membership/entitlement separate from lazily materialized assignment activity. |
 | Unenrollment can permanently remove submissions and scores. | Revoke access while retaining educational records until the explicit retention workflow acts. |
 | Section is a second course subdivision. | Treat a PLE `CourseId` as the current course or section boundary; add another hierarchy only from demonstrated need. |
 
@@ -834,8 +829,8 @@ acceptance remains open.
 - Persist course-scoped roster email, roster identifier, allowed domains, and
   invitation lifecycle with the learner-record retention boundary.
 - Add a roster revision and course-level lock order.
-- Reconcile the full student-member by assignment cross product.
-- Extend assignment creation to enroll all current student members atomically.
+- Derive assignment entitlement from current membership, audience, and groups.
+- Materialize enrollment and summary together only at a bounded first event.
 
 ### ENR3: Single-member HTTP - implemented
 
@@ -870,9 +865,9 @@ acceptance remains open.
   learner-work, and gradebook action is walked through the supported surface.
 - Exercise copy-link invitation handoff without a PLE-owned mail system. Use a
   test account at the operator-selected SMTP provider for the canonical
-  email-authentication ceremony. The local-file tenant session is not an
-  account-bootstrap substitute, and the optional passkey path applies only
-  after the learner account exists.
+  email-authentication ceremony. For connected local evidence, the deployment-
+  gated seeded persona selector may enter a seeded account, and the ordinary
+  passkey path applies only after the learner account exists.
 - Prove gradebook, item analysis, learner isolation, assignment creation after
   roster creation, and roster addition after assignment creation.
 - Keep LTI Names and Roles roster synchronization in its separately authorized
@@ -900,13 +895,14 @@ Permanent behavior and contract tests must prove:
 - course roster IDs are unique inside the course, absent from account lookup,
   and present in the intended manual grade export;
 - Student membership cannot create Instructor or Sysadmin authority;
-- adding a member creates all missing enrollments and summaries atomically;
-- creating an assignment creates all required enrollments and summaries;
-- both operation orders produce the same complete cross product;
-- concurrent add-member and create-assignment operations leave no missing or
-  duplicate enrollment;
+- adding a member creates the membership episode and profile without assignment
+  activity rows;
+- creating an assignment stores its audience without creating learner rows;
+- pre-activity summary reads return `noActivity` without a write;
+- concurrent first-event materialization creates exactly one enrollment and
+  summary receipt;
 - Memory and PostgreSQL implement the same idempotent behavior;
-- a failed summary insert rolls back membership and enrollment changes;
+- a failed summary insert rolls back first-receipt enrollment creation;
 - removal revokes access without deleting educational records;
 - re-addition reuses the learner identity and existing activity;
 - bulk preview is bounded and commit is revisioned and idempotent;
@@ -914,8 +910,8 @@ Permanent behavior and contract tests must prove:
   boundary;
 - error bodies, exports, and logs exclude provider subjects, passkey metadata,
   invitation secrets, raw CSV cells, and unrelated learner data; and
-- current gradebook reads succeed immediately for newly created empty
-  summaries.
+- current gradebook reads remain empty until an educational event creates a
+  summary.
 
 Disposable integration evidence must prove:
 
@@ -930,7 +926,7 @@ Disposable integration evidence must prove:
 - the instructor downloads a protected manual grade export whose roster IDs
   match the imported rows and whose contents exclude account email and global
   `UserId`; and
-- the local provider, implemented PLE passwordless production composition,
+- the deployment-gated seeded persona selector, PLE passwordless composition,
   optional OIDC/SAML connector, and future LTI adapter converge on the same
   `UserId`, session, and Store operation rather than implementing separate
   roster semantics.
@@ -968,9 +964,10 @@ Before changing enrollment behavior, verify:
    context from an authorized course relationship rather than browser input?
 3. Does an email remain a verified, mutable authentication attribute rather
    than becoming account identity or course authority?
-4. Does one Store transaction preserve membership, every required enrollment,
-   and every empty summary?
-5. Does creating an assignment preserve the same cross-product invariant?
+4. Does membership remain sufficient to derive current assignment entitlement
+   without creating learner activity rows?
+5. Does only a bounded first event atomically create the enrollment, empty
+   summary, grant basis, scopes, and provenance?
 6. Does removal revoke access while retention remains authoritative for
    records?
 7. Are bulk and single paths the same command with the same idempotency and

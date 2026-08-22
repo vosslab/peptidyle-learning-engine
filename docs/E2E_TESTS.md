@@ -4,10 +4,12 @@ End-to-end (E2E) testing conventions for this repo.
 
 ## Two E2E homes
 
-This repo supports two distinct E2E execution models, each with its own folder:
+This repo has one browser home and one browser-free service home:
 
-- `tests/playwright/` (and optional `tests/playwright/e2e/` sub-grouping) - **browser-based E2E**: full Playwright walkthroughs and browser-driven tests. TypeScript repos include `PLAYWRIGHT_USAGE.md` in their propagated `docs/` folder.
-- `tests/e2e/` - **non-browser E2E**: shell/Python orchestration for whole-system testing: CLIs, builds, services, multi-suite coordination. This doc focuses on the non-browser model.
+- `tests/playwright/e2e/` - **browser-based E2E** owned by `run_playwright_tests.sh`, using the
+  production `dist/` bundle through one disposable HTTPS gateway and fixed real-stack owner.
+- `tests/e2e/` - **non-browser E2E**: shell/Python orchestration for whole-system service claims,
+  such as publication, renderer/cache/outage, database/RLS, and lifecycle cleanup.
 
 Both are excluded from `pytest tests/` via `collect_ignore = ["e2e", "playwright"]` in `tests/conftest.py`.
 
@@ -17,7 +19,8 @@ This repo organizes tests in four tiers, all under the `tests/` umbrella:
 
 - `tests/test_*.py` - fast pytest unit and integration tests. Run with `pytest tests/`.
 - `tests/test_*.mjs` - pure Node tests, if any (rare; not browser-driven).
-- `tests/playwright/` (with optional `tests/playwright/e2e/` subfolder) - browser-driven Playwright tests. TypeScript repos include `PLAYWRIGHT_USAGE.md` in their propagated `docs/` folder.
+- `tests/playwright/e2e/` - browser-driven Playwright scenarios, selected through the canonical
+  owner. TypeScript repos include `PLAYWRIGHT_USAGE.md` in their propagated `docs/` folder.
 - `tests/e2e/` - non-browser whole-system E2E. Shell/Python orchestration (`e2e_*.sh`, `e2e_*.py`). Run directly, not via pytest.
 
 ## Why tests/e2e/ is excluded from pytest
@@ -53,7 +56,9 @@ the `e2e_*` prefix as a secondary, human-readable convention.
 - Run a single Python runner: `source source_me.sh && python3 tests/e2e/e2e_<name>.py`.
 - Run all E2E tests: provide a `tests/e2e/run_all.sh` that iterates over the
   `e2e_*` files and reports pass/fail for each.
-- For browser-driven Playwright runs, TypeScript repos include `PLAYWRIGHT_USAGE.md` in their propagated `docs/` folder.
+- Run browser-driven scenarios only through `./run_playwright_tests.sh`; use `--screenshots` via
+  `./capture_screenshots.sh`. A focused selection gets a fresh fixed stack; an acceptance run has
+  one browser-suite invocation.
 - Do not invoke E2E tests from `pytest tests/`. Keep the two suites separate.
 
 ## Naming conventions test
@@ -73,7 +78,9 @@ File naming conventions are enforced by `tests/test_test_naming_conventions.py`
   check the produced files or exit code.
 - I/O round trips: encode a file with one script, decode with another,
   compare to the original.
-- Integration with external tools where mocking would defeat the point.
+- Integration with external tools where a fake integration would defeat the point. Retained service oracles
+  stay browser-free and must not launch Chromium, import a browser configuration, or claim a UI
+  journey.
 - Anything that needs user input or read/write to files (the `assert` rules
   forbid asserts in plain scripts entirely; cover that behavior here instead;
   see [PYTHON_STYLE.md](PYTHON_STYLE.md#assert)).
@@ -84,6 +91,9 @@ File naming conventions are enforced by `tests/test_test_naming_conventions.py`
 - Anything fast enough to live in pytest. If a check finishes in under a
   second and does not touch the real filesystem in a meaningful way, it is a
   unit test, not an E2E test.
+
+The canonical instructor scenario visibly asserts the `WebAssembly` runtime mode. Decoder,
+serialization, strict transport, and failure-mapping checks remain narrow browser-free unit tests.
 
 ## Asserts and failures
 

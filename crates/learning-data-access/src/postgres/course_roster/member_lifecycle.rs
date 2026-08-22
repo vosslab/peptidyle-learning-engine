@@ -170,9 +170,7 @@ async fn upsert_student_membership(
 }
 
 fn random_uuid(label: &str) -> Result<Uuid, StoreError> {
-    let mut bytes = [0_u8; 16];
-    getrandom::fill(&mut bytes).map_err(|error| {
+    crate::random_uuid::random_uuid_v4(|error| {
         StoreError::Unavailable(format!("{label} randomness unavailable: {error}"))
-    })?;
-    Ok(Uuid::from_bytes(bytes))
+    })
 }

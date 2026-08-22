@@ -7,8 +7,8 @@ import pytest
 import file_utils
 
 # Insert the repo root onto sys.path so top-level modules import from any test
-# file without installing the package first. file_utils.get_repo_root() uses
-# git rev-parse --show-toplevel under the hood.
+# file without installing the package first. file_utils.get_repo_root() is
+# anchored to this repository's tests/ directory.
 _repo_root = file_utils.get_repo_root()
 if _repo_root not in sys.path:
 	sys.path.insert(0, _repo_root)
@@ -29,9 +29,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 # Exclude all opt-in end-to-end tiers from pytest collection. tests/playwright/
 # holds browser-driven tests, tests/e2e/ holds generic whole-system runners,
-# and tests/walkthrough/ owns the instructor-to-student orchestration. They run outside pytest -- see
+# and tests/e2e/ owns generic whole-system orchestration. They run outside pytest -- see
 # docs/PLAYWRIGHT_USAGE.md and docs/E2E_TESTS.md.
-collect_ignore = ["e2e", "playwright", "walkthrough"]
+collect_ignore = ["e2e", "playwright"]
 
 
 # REPO_HYGIENE_FILTERS is the repo-local hygiene-exclusion registry (Layer 2).

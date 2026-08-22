@@ -57,40 +57,49 @@ function AssignmentCard(props: AssignmentCardProps): JSX.Element {
     <article class="course-card">
       <p class="card-kicker">Mastery practice</p>
       <h2>{props.assignment.title}</h2>
-      <p>Open this assignment to review its instructions and delivery details.</p>
+      <p class="course-card-description">
+        Open this assignment to review its instructions and delivery details.
+      </p>
       <Show when={!props.canManageAssignment}>
-        <Suspense fallback={<p>Progress loading...</p>}>
-          <Show when={progress()} fallback={<p>Progress unavailable.</p>}>
-            {(assignmentProgress) => <p>{learnerProgressSummary(assignmentProgress())}</p>}
+        <Suspense fallback={<p class="course-card-progress">Progress loading...</p>}>
+          <Show
+            when={progress()}
+            fallback={<p class="course-card-progress">Progress unavailable.</p>}
+          >
+            {(assignmentProgress) => (
+              <p class="course-card-progress">{learnerProgressSummary(assignmentProgress())}</p>
+            )}
           </Show>
         </Suspense>
       </Show>
-      <A
-        class="quiet-link"
-        href={
-          props.canManageAssignment
-            ? `/instructor/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}/edit`
-            : `/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}`
-        }
-        id={assignmentLinkId(props.assignment)}
-        ref={(element) => props.registerLink(props.assignment, element)}
-      >
-        {props.canManageAssignment ? "Edit assignment" : "Start assignment"}
-      </A>
-      <Show when={props.canManageAssignment}>
+      <div class="course-card-actions">
         <A
           class="quiet-link"
-          href={`/instructor/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}/access`}
+          href={
+            props.canManageAssignment
+              ? `/instructor/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}/edit`
+              : `/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}`
+          }
+          id={assignmentLinkId(props.assignment)}
+          ref={(element) => props.registerLink(props.assignment, element)}
         >
-          Access and modifiers
+          {props.canManageAssignment ? "Edit assignment" : "Start assignment"}
         </A>
-        <A
-          class="quiet-link"
-          href={`/instructor/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}/delivery-check`}
-        >
-          Check assignment delivery
-        </A>
-      </Show>
+        <Show when={props.canManageAssignment}>
+          <A
+            class="quiet-link"
+            href={`/instructor/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}/access`}
+          >
+            Access and modifiers
+          </A>
+          <A
+            class="quiet-link"
+            href={`/instructor/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}/delivery-check`}
+          >
+            Check assignment delivery
+          </A>
+        </Show>
+      </div>
     </article>
   );
 }

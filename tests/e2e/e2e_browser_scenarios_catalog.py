@@ -2,16 +2,37 @@
 
 from e2e_browser_scenario_contract import ScenarioContract
 import e2e_browser_scenarios_auth as auth
+import e2e_browser_scenarios_assignment_replacement as assignment_replacement
+import e2e_browser_scenarios_conflict as conflict
+import e2e_browser_scenarios_failure as failure
 import e2e_browser_scenarios_instructor as instructor
 import e2e_browser_scenarios_learner as learner
-import e2e_browser_scenarios_legacy_live_demo as legacy_live_demo
+import e2e_browser_scenarios_preview as preview
+import e2e_browser_scenarios_qti as qti
+import e2e_browser_scenario_webwork_delivery as webwork_delivery
 
 
 def contracts() -> tuple[ScenarioContract, ...]:
-	"""Return legacy first, then the three future family providers in fixed order."""
+	"""Return real-stack scenario families in fixed execution order."""
 	return (
-		legacy_live_demo.contracts()
-		+ auth.contracts()
+		auth.contracts()
 		+ instructor.contracts()
+		+ preview.contracts()
+		+ assignment_replacement.contracts()
+		+ conflict.contracts()
 		+ learner.contracts()
+		+ (
+			ScenarioContract(
+				scenario_id=webwork_delivery.SCENARIO_ID,
+				spec_path="tests/playwright/e2e/webwork_delivery.spec.ts",
+				personas=("elena_instructor", "mary_student"),
+				baseline_reads=("base_course",),
+				ui_creates=("course", "assignment", "invitation", "response"),
+				sysadmin_requirement="not_required",
+				visible_observation="visible_webwork_completion_persists_in_a_fresh_session",
+				service_receipt="renderer_delivery",
+			),
+		)
+		+ failure.contracts()
+		+ qti.contracts()
 	)

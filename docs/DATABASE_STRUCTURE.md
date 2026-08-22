@@ -140,11 +140,13 @@ learner file responses fail closed. See the
 The fresh pre-production `2026080909_passwordless_identity.sql` schema owns the one
 canonical course-roster workflow. Migration `2026081803` makes `course_member` the sole current
 membership-episode authority and keeps display/contact evidence in the subordinate
-`course_roster_profile`; neither relation is an assignment receipt. The local-file development
-adapter authenticates a fictional actor only; the disposable no-contact learner seed uses the
-same course-membership and evaluator/materialization Store capabilities as runtime code. Because
-this checked-in schema is pre-production-only, a changed migration baseline requires
-a clean disposable PostgreSQL volume rather than an in-place ledger edit.
+`course_roster_profile`; neither relation is an assignment receipt. Local browser entry uses the
+same account/session records as the deployed product: passwordless account authentication and
+ordinary passkeys are the normal paths, while a deployment-gated seeded persona selector may
+enter one of the seeded accounts for connected local evidence. The selector does not introduce a
+second identity or membership model. Because this checked-in schema is pre-production-only, a
+changed migration baseline requires a clean disposable PostgreSQL volume rather than an in-place
+ledger edit.
 
 `2026081801_course_term.sql` keeps the term's three atomic attributes on `public.course` because
 they depend on the course key and have no independent lifecycle. Native `date` columns preserve

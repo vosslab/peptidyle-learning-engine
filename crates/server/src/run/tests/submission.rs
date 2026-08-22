@@ -1,6 +1,59 @@
 use super::*;
 
 #[tokio::test]
+async fn exhausted_incorrect_all_correct_run_reports_in_progress_without_a_successor() {
+    let (_store, _backend, app, student_cookie, _, assignment, enrollment) =
+        fixture_with_attempt_policy(
+            ResponseDefinition::Numeric {
+                tolerance: NumericTolerance::Absolute { epsilon: 0.1 },
+                unit: None,
+            },
+            false,
+            Some(1),
+        )
+        .await;
+    let attempt = active_attempt_for(&app, assignment, &student_cookie).await;
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/submissions/{}", attempt.id))
+                .header("cookie", &student_cookie)
+                .header("content-type", "application/json")
+                .header("idempotency-key", "one-wrong-attempt")
+                .body(Body::from(
+                    serde_json::json!({
+                        "response": { "kind": "numeric", "value": 19.0 }
+                    })
+                    .to_string(),
+                ))
+                .expect("submission request"),
+        )
+        .await
+        .expect("submission response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let receipt = json(response).await;
+    assert_eq!(receipt["runCompletionStatus"], "inProgress");
+    assert!(receipt["nextIssued"].is_null());
+    assert_eq!(receipt["nextPending"], false);
+
+    let summary_response = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/grading/summaries/{enrollment}"))
+                .header("cookie", student_cookie)
+                .body(Body::empty())
+                .expect("summary request"),
+        )
+        .await
+        .expect("summary response");
+    let summary = json(summary_response).await;
+    assert_eq!(summary["completedRunCount"], 0);
+    assert_eq!(summary["totalQuestionAttempts"], 1);
+}
+
+#[tokio::test]
 async fn file_upload_submission_refuses_untrusted_object_key_before_backend_or_store_mutation() {
     let (store, backend, app, student_cookie, _outsider_cookie, assignment, _enrollment) =
         fixture_with_response(

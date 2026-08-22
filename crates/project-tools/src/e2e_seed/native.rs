@@ -26,6 +26,7 @@ async fn seed_native_records(
     arguments: &SeedArguments,
     marker: SeedIds,
 ) -> Result<Manifest> {
+    let student = arguments.course_student()?;
     let existing_course = store
         .get_course(context, marker.course)
         .await
@@ -99,7 +100,7 @@ async fn seed_native_records(
         &store,
         context,
         arguments.instructor,
-        arguments.student,
+        student,
         ids.course,
         ids.assignment,
         "Replica E2E learner",
@@ -112,13 +113,14 @@ async fn seed_native_records(
             &store,
             context,
             arguments.instructor,
-            arguments.student,
+            student,
             ids,
             assignment,
         )
         .await?;
     }
     Ok(Manifest {
+        course_id: ids.course,
         assignment_id: ids.assignment,
         enrollment_id: enrollment.id,
         question_id: published.question_id,

@@ -1,4 +1,5 @@
 mod archive_fence;
+mod catalog_identity;
 mod external_projection;
 mod feedback;
 mod imathas_launch;
@@ -384,139 +385,11 @@ fn assignment_items(references: Vec<ProblemVersionRef>) -> Vec<question_model::A
         .collect()
 }
 
-/// Deliberately violates the immutable catalog identity contract to prove
-/// that run routes stop before any trusted backend can expose or grade it.
-#[derive(Debug)]
-struct MismatchedCatalogTestStore {
-    record: PublishedProblemRecord,
-}
-
-#[async_trait]
-impl CatalogStore for MismatchedCatalogTestStore {
-    async fn publish_draft(
-        &self,
-        _context: TenantContext,
-        _actor: UserId,
-        _command: PublishDraftCommand,
-    ) -> Result<PublishedProblemRecord, StoreError> {
-        Err(StoreError::InvalidRecord(
-            "test catalog is read-only".to_string(),
-        ))
-    }
-
-    async fn get_catalog_problem(
-        &self,
-        _context: TenantContext,
-        _reference: ProblemVersionRef,
-    ) -> Result<Option<PublishedProblemRecord>, StoreError> {
-        Ok(Some(self.record.clone()))
-    }
-
-    async fn resolve_catalog_problem(
-        &self,
-        _context: TenantContext,
-        _reference: question_model::ProblemDisplayRef,
-    ) -> Result<Option<PublishedProblemRecord>, StoreError> {
-        Err(StoreError::InvalidRecord(
-            "mismatched catalog test store only supports exact immutable lookups".to_string(),
-        ))
-    }
-
-    async fn list_catalog(
-        &self,
-        _context: TenantContext,
-        _page: PageRequest,
-    ) -> Result<Page<CatalogProblemSummary>, StoreError> {
-        Err(StoreError::InvalidRecord(
-            "test catalog is read-only".to_string(),
-        ))
-    }
-
-    async fn list_catalog_taxonomy(
-        &self,
-        _context: TenantContext,
-        _page: PageRequest,
-    ) -> Result<Page<question_model::taxonomy::TaxonomyTerm>, StoreError> {
-        Err(StoreError::InvalidRecord(
-            "test catalog is read-only".to_string(),
-        ))
-    }
-
-    async fn search_catalog(
-        &self,
-        _context: TenantContext,
-        _query: CatalogSearchQuery,
-    ) -> Result<CatalogSearchPage, StoreError> {
-        Err(StoreError::InvalidRecord(
-            "mismatched catalog test store does not support catalog search".to_string(),
-        ))
-    }
-
-    async fn transition_catalog_problem(
-        &self,
-        _context: TenantContext,
-        _actor: UserId,
-        _reference: ProblemVersionRef,
-        _transition: CatalogTransition,
-    ) -> Result<PublishedProblemRecord, StoreError> {
-        Err(StoreError::InvalidRecord(
-            "test catalog is read-only".to_string(),
-        ))
-    }
-}
-
-fn authenticated_for_test(context: TenantContext) -> AuthenticatedSession {
-    let subject = SessionSubject::new(
-        context.tenant_id(),
-        UserId::from_uuid(id(2)),
-        "Route test student",
-        vec![UserRole::Student],
-    )
-    .expect("test session subject");
-    AuthenticatedSession {
-        record: SessionRecord {
-            token_hash: SessionTokenHash::compute(b"run-route-test-session"),
-            subject,
-            created_at: ActivityTimestamp::from_unix_millis(10_000),
-            expires_at: ActivityTimestamp::from_unix_millis(20_000),
-        },
-        tenant_context: context,
-        session_hash: SessionTokenHash::compute(b"run-route-test-session"),
-    }
-}
-
 #[test]
 fn fresh_server_seeds_fit_the_exact_json_integer_range() {
     for _ in 0..128 {
         assert!(fresh_seed().expect("OS random seed") <= MAX_JSON_SAFE_INTEGER);
     }
-}
-
-#[tokio::test]
-async fn mismatched_published_identity_never_reaches_envelope_or_grading() {
-    let (store, _, _, _, _, _, _) = fixture().await;
-    let context = TenantContext::from_authenticated_session(TenantId::from_uuid(id(1)));
-    let reference = ProblemVersionRef {
-        problem: ProblemId::from_uuid(id(8)),
-        version: VersionId::from_uuid(id(9)),
-    };
-    let mut record = store
-        .get_catalog_problem(context, reference)
-        .await
-        .expect("catalog read")
-        .expect("fixture published question");
-    record.question.problem = ProblemId::from_uuid(id(99));
-    let malformed_catalog = MismatchedCatalogTestStore { record };
-
-    let response = load_run_question(
-        &malformed_catalog,
-        &authenticated_for_test(context),
-        reference,
-    )
-    .await
-    .expect_err("mismatched immutable question IDs must be refused");
-
-    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 async fn fixture() -> (
@@ -541,6 +414,22 @@ async fn fixture() -> (
 async fn fixture_with_response(
     response: ResponseDefinition,
     external_tool_launch_ready: bool,
+) -> (
+    Arc<MemoryStore>,
+    Arc<NumericBackend>,
+    Router,
+    String,
+    String,
+    AssignmentId,
+    EnrollmentId,
+) {
+    fixture_with_attempt_policy(response, external_tool_launch_ready, None).await
+}
+
+async fn fixture_with_attempt_policy(
+    response: ResponseDefinition,
+    external_tool_launch_ready: bool,
+    max_attempts: Option<u32>,
 ) -> (
     Arc<MemoryStore>,
     Arc<NumericBackend>,
@@ -575,7 +464,7 @@ async fn fixture_with_response(
                 markdown: "What is the molar mass of water?".to_string(),
             }],
             response,
-            attempt_policy: AttemptPolicy { max_attempts: None },
+            attempt_policy: AttemptPolicy { max_attempts },
             timing_policy: TimingPolicy::Untimed,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },

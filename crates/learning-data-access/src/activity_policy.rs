@@ -3,17 +3,17 @@
 use crate::score_precision;
 use crate::{
     ActivityTransition, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssignmentRecord,
-    CourseGroupRecord, CourseRecord, StoreError, TenantContext, current_attempt_points,
+    COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseGroupRecord, CourseRecord, StoreError,
+    TenantContext, current_attempt_points,
 };
-use domain::completion::{
-    RequiredQuestionState, WithinRunCompletion, derive_within_run_completion,
-};
+use domain::completion::{RequiredQuestionState, derive_within_run_completion};
 use domain::run::RunModelError;
 use domain::scoring::RunTransition;
 use objects::{Bucket, ObjectCategory, ObjectKey, ObjectRecord};
 use question_model::{
     ActivityTimestamp, AssignmentEnrollment, AssignmentItemId, AssignmentRunItem, AttemptResult,
-    GradePolicy, QuestionAttempt, QuestionAttemptId, RunId, StudentAssignmentSummary, TenantId,
+    GradePolicy, QuestionAttempt, QuestionAttemptId, RunCompletionStatus, RunId,
+    StudentAssignmentSummary, TenantId,
 };
 
 pub(crate) fn grade_policy(assignment: &AssignmentRecord) -> GradePolicy {
@@ -461,7 +461,10 @@ pub(crate) fn validate_asset_delivery(record: &AssetDeliveryRecord) -> Result<()
             && *course == *key_course
             && *banner == *key_banner
             && record.object.bucket == Bucket::PrivateContent
-            && record.object.category == ObjectCategory::CourseContent => {}
+            && record.object.category == ObjectCategory::CourseContent
+            && record.object.media_type == "image/webp"
+            && record.intrinsic_width == Some(COURSE_BANNER_WIDTH)
+            && record.intrinsic_height == Some(COURSE_BANNER_HEIGHT) => {}
         _ => {
             return Err(StoreError::InvalidRecord(
                 "only matching catalog, student-record, and current course-banner objects may be delivered"
@@ -603,7 +606,7 @@ pub(crate) fn completed_run_score(
             }
         })
         .collect();
-    if derive_within_run_completion(&completion, requirement)? == WithinRunCompletion::InProgress {
+    if derive_within_run_completion(&completion, requirement)? == RunCompletionStatus::InProgress {
         return Ok(None);
     }
     let earned: f64 = questions

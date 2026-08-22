@@ -62,8 +62,10 @@ while [ "$#" -gt 0 ]; do
 	esac
 done
 
-# Preflight (no summary on failure)
-cd "$(git rev-parse --show-toplevel)"
+# Preflight (no summary on failure). The script location is the repository
+# contract, so this works from any caller directory without a VCS checkout.
+SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$SCRIPT_DIRECTORY"
 
 if ! command -v node >/dev/null 2>&1; then
 	echo "ERROR: node not found on PATH." >&2

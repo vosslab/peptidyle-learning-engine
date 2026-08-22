@@ -42,9 +42,6 @@ const DEFAULT_TS_OUT_DIR: &str = "generated/api";
 /// Where intentional, tracked fixture evidence lives.
 const DEFAULT_FIXTURE_DIR: &str = "tests/fixtures/published_problem";
 
-/// Where the derivative TypeScript fixture projection is generated.
-const DEFAULT_FIXTURE_TS: &str = "generated/fixtures/published_problem.ts";
-
 pub(crate) fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(command) = args.first() else {
@@ -73,14 +70,10 @@ fn run_fixtures(args: &[String]) -> Result<()> {
         _ => bail!("usage: cargo tools fixtures <--check|--write>"),
     };
 
-    let report = fixtures::run(
-        Path::new(DEFAULT_FIXTURE_DIR),
-        Path::new(DEFAULT_FIXTURE_TS),
-        mode,
-    )?;
+    let report = fixtures::run(Path::new(DEFAULT_FIXTURE_DIR), mode)?;
     println!(
-        "fixtures: {} {} tracked file(s); wrote {}",
-        report.action, report.tracked_files, DEFAULT_FIXTURE_TS
+        "fixtures: {} {} tracked file(s)",
+        report.action, report.tracked_files
     );
     Ok(())
 }

@@ -1,7 +1,7 @@
 // library_page.tsx - injected catalog browse surface; route wiring follows the server contract.
 
 import { A } from "@solidjs/router";
-import { For, Show, createSignal, onMount, type JSX } from "solid-js";
+import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import { CopyableQuestionId } from "../components/copyable_question_id";
 import "./library_page.css";
@@ -15,7 +15,9 @@ import {
   type CatalogBrowseState,
 } from "./library_page_model";
 
-const FALLBACK_ROW_HEIGHT_PX = 104;
+/* Each virtual row reserves room for a title, two-line summary, byline, and taxonomy.
+ * Keep this fallback aligned with --ple-catalog-row-block-size in src/style.css. */
+const FALLBACK_ROW_HEIGHT_PX = 132;
 const OVERSCAN_ROWS = 5;
 
 function catalogLink(row: CatalogBrowseRow): string {
@@ -97,10 +99,17 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   }
 
   onMount(() => {
-    const configured = Number.parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue("--ple-catalog-row-block-size"),
-    );
-    if (Number.isFinite(configured) && configured > 0) setRowHeightPx(configured);
+    function refreshRowHeight(): void {
+      const configured = Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue("--ple-catalog-row-block-size"),
+      );
+      if (Number.isFinite(configured) && configured > 0) setRowHeightPx(configured);
+    }
+
+    refreshRowHeight();
+    const observer = new ResizeObserver(refreshRowHeight);
+    observer.observe(document.documentElement);
+    onCleanup(() => observer.disconnect());
     void session.reset(query());
   });
 
@@ -210,9 +219,11 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                 {(row) => (
                   <article class="catalog-row" style={{ height: `${rowHeightPx()}px` }}>
                     <h2>{row.title}</h2>
-                    <p>{row.summary}</p>
-                    <p aria-label="Published by">By {row.byline.join(", ")}</p>
-                    <p class="card-kicker">{row.taxonomy.join(" / ")}</p>
+                    <p class="catalog-row-summary">{row.summary}</p>
+                    <p class="catalog-row-byline" aria-label="Published by">
+                      By {row.byline.join(", ")}
+                    </p>
+                    <p class="catalog-row-taxonomy card-kicker">{row.taxonomy.join(" / ")}</p>
                     <CopyableQuestionId displayId={row.displayId} />
                     <A class="quiet-link" href={catalogLink(row)}>
                       Open question

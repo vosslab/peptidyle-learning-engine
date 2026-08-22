@@ -35,14 +35,14 @@ access to the representative instructor gradebook route. Each set follows the ta
 portrait tablet, iPhone Pro, and square order.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
-![Student assignment overview at the 1280 by 800 laptop viewport](screenshots/student/access/allowed_assignment_overview/student_assignment_overview_laptop.png)
-![Student assignment overview at the 800 by 1280 portrait-tablet viewport](screenshots/student/access/allowed_assignment_overview/student_assignment_overview_tablet.png)
-![Student assignment overview at the 393 by 852 iPhone Pro viewport](screenshots/student/access/allowed_assignment_overview/student_assignment_overview_iphone_pro.png)
-![Student assignment overview at the 800 by 800 square viewport](screenshots/student/access/allowed_assignment_overview/student_assignment_overview_square.png)
-![Student denied the instructor gradebook route at the 1280 by 800 laptop viewport](screenshots/student/access/instructor_route_denial/student_instructor_route_denial_laptop.png)
-![Student denied the instructor gradebook route at the 800 by 1280 portrait-tablet viewport](screenshots/student/access/instructor_route_denial/student_instructor_route_denial_tablet.png)
-![Student denied the instructor gradebook route at the 393 by 852 iPhone Pro viewport](screenshots/student/access/instructor_route_denial/student_instructor_route_denial_iphone_pro.png)
-![Student denied the instructor gradebook route at the 800 by 800 square viewport](screenshots/student/access/instructor_route_denial/student_instructor_route_denial_square.png)
+![Student assignment overview at the 1280 by 800 laptop viewport](screenshots/student/access/allowed_assignment_overview/01_assignment_overview_laptop.png)
+![Student assignment overview at the 800 by 1280 portrait-tablet viewport](screenshots/student/access/allowed_assignment_overview/01_assignment_overview_tablet.png)
+![Student assignment overview at the 393 by 852 iPhone Pro viewport](screenshots/student/access/allowed_assignment_overview/01_assignment_overview_iphone_pro.png)
+![Student assignment overview at the 800 by 800 square viewport](screenshots/student/access/allowed_assignment_overview/01_assignment_overview_square.png)
+![Student denied the instructor gradebook route at the 1280 by 800 laptop viewport](screenshots/student/access/instructor_route_denial/01_student_instructor_denial_laptop.png)
+![Student denied the instructor gradebook route at the 800 by 1280 portrait-tablet viewport](screenshots/student/access/instructor_route_denial/01_student_instructor_denial_tablet.png)
+![Student denied the instructor gradebook route at the 393 by 852 iPhone Pro viewport](screenshots/student/access/instructor_route_denial/01_student_instructor_denial_iphone_pro.png)
+![Student denied the instructor gradebook route at the 800 by 800 square viewport](screenshots/student/access/instructor_route_denial/01_student_instructor_denial_square.png)
 <!-- screenshots:end -->
 
 ## Refreshing evidence

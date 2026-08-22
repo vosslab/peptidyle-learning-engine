@@ -419,7 +419,7 @@ async fn flat_run_fixture() -> (Router, String, AssignmentId) {
         subject,
         crate::auth::SessionConfig::new(
             SessionLifetime::from_seconds(3_600).expect("retry fixture session lifetime"),
-            crate::auth::CookieTransport::LocalHttp,
+            crate::auth::CookieTransport::FirstPartyHttps,
         ),
     )
     .await

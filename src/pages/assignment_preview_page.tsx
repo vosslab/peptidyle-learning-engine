@@ -10,7 +10,7 @@ import type { PreviewPlaneResponse } from "../../generated/api/PreviewPlaneRespo
 import type { PreviewScheduleProjection } from "../../generated/api/PreviewScheduleProjection";
 import type { TeachingOperationRevision } from "../../generated/api/TeachingOperationRevision";
 import type { CourseRouteData } from "../api/contracts";
-import { PreviewPlaneConflictError } from "../api/http_client";
+import { ApiRequestError, PreviewPlaneConflictError } from "../api/http_client";
 import { useApiRuntime } from "../api/runtime";
 import {
   courseRouteData,
@@ -18,18 +18,23 @@ import {
 } from "../features/course_appearance/course_theme_context";
 import { parseAssignmentReference } from "../navigation/public_route";
 import { resolveAssignmentRoute } from "../navigation/resolved_route";
+import {
+  emptyPatchDraft,
+  policyRequest,
+  type ModifierMode,
+  type ModifierPatchDraft,
+} from "./assignment_access/model";
 import "./assignment_preview_page.css";
 
-type PageState = "loading" | "ready" | "unavailable" | "offline";
+type PageState = "loading" | "ready" | "unavailable" | "offline" | "error";
 type BuilderKind = "derived" | "synthetic";
 
-const INHERIT_PATCH = {
-  availableAt: { kind: "inherit" },
-  dueAt: { kind: "inherit" },
-  closesAt: { kind: "inherit" },
-  timeLimitSeconds: { kind: "inherit" },
-  attemptLimit: { kind: "inherit" },
-} as const;
+function failureState(error: unknown): PageState {
+  if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403))
+    return "unavailable";
+  if (error instanceof TypeError || !navigator.onLine) return "offline";
+  return "error";
+}
 
 function courseMoment(startDate: string): string {
   return `${startDate}T09:00:00.000`;
@@ -39,6 +44,18 @@ function canonicalMoment(value: string): string {
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/u.test(value)) return `${value}:00.000`;
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/u.test(value)) return `${value}.000`;
   return value;
+}
+
+function safeModifierError(error: unknown): string {
+  if (
+    error instanceof Error &&
+    /^(Whole-run seconds|Attempt limit) (must be a positive whole number|is too large)\.$/u.test(
+      error.message,
+    )
+  ) {
+    return error.message;
+  }
+  return "Enter valid whole-run seconds and attempt-limit values, or leave them blank.";
 }
 
 /** Assignment-editor ETags retain HTTP quotes; preview requests use the generated decimal revision. */
@@ -141,6 +158,17 @@ function PreviewResult(props: {
             {titleCase(evaluation.subject.kind)} subject; entitlement:{" "}
             {titleCase(evaluation.entitlement)}.
           </p>
+          <Show
+            when={evaluation.subject.groups.length > 0}
+            fallback={<p>This is a course-wide subject with no specific group.</p>}
+          >
+            <h4>Role-only groups</h4>
+            <ul aria-label="Role-only subject groups">
+              <For each={evaluation.subject.groups}>
+                {(group) => <li>{titleCase(group.role)}</li>}
+              </For>
+            </ul>
+          </Show>
           <ScheduleTable
             label="Resolved delivery schedule and source layers"
             schedule={evaluation.schedule}
@@ -210,8 +238,11 @@ export function AssignmentPreviewPage(): JSX.Element {
   const [membership, setMembership] = createSignal("");
   const [selectedGroups, setSelectedGroups] = createSignal<Array<string>>([]);
   const [moment, setMoment] = createSignal("");
+  const [modifierMode, setModifierMode] = createSignal<ModifierMode>("extendOnly");
+  const [modifierDraft, setModifierDraft] = createSignal<ModifierPatchDraft>(emptyPatchDraft());
   const [result, setResult] = createSignal<PreviewPlaneResponse>();
   const [message, setMessage] = createSignal("");
+  const [modifierError, setModifierError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [needsReload, setNeedsReload] = createSignal(false);
   let resultHeading: HTMLHeadingElement | undefined;
@@ -264,7 +295,7 @@ export function AssignmentPreviewPage(): JSX.Element {
       setState("ready");
     } catch (error: unknown) {
       setMessage("The delivery check could not load. Try again.");
-      setState(error instanceof TypeError || !navigator.onLine ? "offline" : "unavailable");
+      setState(failureState(error));
     }
   }
 
@@ -284,6 +315,29 @@ export function AssignmentPreviewPage(): JSX.Element {
     );
   }
 
+  function updateModifierLimit(field: "timeLimitSeconds" | "attemptLimit", value: string): void {
+    if (field === "timeLimitSeconds") {
+      setModifierDraft((current) => ({
+        ...current,
+        timeLimitSeconds: value.length === 0 ? { kind: "inherit", value } : { kind: "set", value },
+      }));
+      return;
+    }
+    setModifierDraft((current) => ({
+      ...current,
+      attemptLimit: value.length === 0 ? { kind: "inherit", value } : { kind: "set", value },
+    }));
+  }
+
+  function buildSyntheticModifierRequest(): ReturnType<typeof policyRequest> | undefined {
+    try {
+      return policyRequest(modifierMode(), modifierDraft());
+    } catch (error: unknown) {
+      setModifierError(safeModifierError(error));
+      return undefined;
+    }
+  }
+
   async function resolvePreview(): Promise<void> {
     const selectedCourse = course();
     const selectedAssignment = assignment();
@@ -297,28 +351,33 @@ export function AssignmentPreviewPage(): JSX.Element {
     const selectedMoment = canonicalMoment(moment());
     setBusy(true);
     setMessage("");
+    setModifierError("");
     try {
-      const response =
-        builder() === "derived"
-          ? await runtime.client.constructDerivedPreview(
-              selectedCourse.reference,
-              selectedAssignment,
-              activeRevision,
-              {
-                membership: membership(),
-                selectedMoment: { value: selectedMoment, timeZone: selectedCourse.term.timeZone },
-              },
-            )
-          : await runtime.client.constructSyntheticPreview(
-              selectedCourse.reference,
-              selectedAssignment,
-              activeRevision,
-              {
-                groups: selectedGroups(),
-                selectedMoment: { value: selectedMoment, timeZone: selectedCourse.term.timeZone },
-                modifiers: { mode: "extendOnly", patch: INHERIT_PATCH },
-              },
-            );
+      let response: PreviewPlaneResponse;
+      if (builder() === "derived") {
+        response = await runtime.client.constructDerivedPreview(
+          selectedCourse.reference,
+          selectedAssignment,
+          activeRevision,
+          {
+            membership: membership(),
+            selectedMoment: { value: selectedMoment, timeZone: selectedCourse.term.timeZone },
+          },
+        );
+      } else {
+        const modifiers = buildSyntheticModifierRequest();
+        if (modifiers === undefined) return;
+        response = await runtime.client.constructSyntheticPreview(
+          selectedCourse.reference,
+          selectedAssignment,
+          activeRevision,
+          {
+            groups: selectedGroups(),
+            selectedMoment: { value: selectedMoment, timeZone: selectedCourse.term.timeZone },
+            modifiers,
+          },
+        );
+      }
       setResult(response);
       queueMicrotask(() => {
         resultHeading?.scrollIntoView({ block: "start" });
@@ -380,6 +439,12 @@ export function AssignmentPreviewPage(): JSX.Element {
         </Match>
         <Match when={state() === "unavailable"}>
           <p role="alert">This assignment delivery check is unavailable.</p>
+        </Match>
+        <Match when={state() === "error"}>
+          <p role="alert">The assignment delivery check could not load.</p>
+          <button class="primary-action" type="button" onClick={() => void load()}>
+            Try again
+          </button>
         </Match>
         <Match when={state() === "ready"}>
           <div class="preview-workspace">
@@ -498,6 +563,73 @@ export function AssignmentPreviewPage(): JSX.Element {
                     </label>
                   </Show>
                 </div>
+                <Show when={builder() === "synthetic"}>
+                  <fieldset class="preview-modifier-controls">
+                    <legend>Hypothetical accommodation</legend>
+                    <p id="preview-modifier-help">
+                      Dates inherit the assignment policy. Leave either numeric value blank to
+                      inherit it too.
+                    </p>
+                    <fieldset>
+                      <legend>Accommodation mode</legend>
+                      <label>
+                        <input
+                          type="radio"
+                          name="preview-modifier-mode"
+                          value="extendOnly"
+                          checked={modifierMode() === "extendOnly"}
+                          onInput={() => setModifierMode("extendOnly")}
+                        />{" "}
+                        Extend only
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          name="preview-modifier-mode"
+                          value="override"
+                          checked={modifierMode() === "override"}
+                          onInput={() => setModifierMode("override")}
+                        />{" "}
+                        Override
+                      </label>
+                    </fieldset>
+                    <label class="preview-field">
+                      Whole-run seconds
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        inputmode="numeric"
+                        value={modifierDraft().timeLimitSeconds.value}
+                        aria-describedby="preview-modifier-help preview-modifier-error"
+                        aria-invalid={modifierError().length > 0}
+                        onInput={(event) =>
+                          updateModifierLimit("timeLimitSeconds", event.currentTarget.value)
+                        }
+                      />
+                    </label>
+                    <label class="preview-field">
+                      Attempt limit
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        inputmode="numeric"
+                        value={modifierDraft().attemptLimit.value}
+                        aria-describedby="preview-modifier-help preview-modifier-error"
+                        aria-invalid={modifierError().length > 0}
+                        onInput={(event) =>
+                          updateModifierLimit("attemptLimit", event.currentTarget.value)
+                        }
+                      />
+                    </label>
+                    <Show when={modifierError()}>
+                      <p id="preview-modifier-error" role="alert">
+                        {modifierError()}
+                      </p>
+                    </Show>
+                  </fieldset>
+                </Show>
                 <button
                   class="primary-action preview-submit"
                   type="button"

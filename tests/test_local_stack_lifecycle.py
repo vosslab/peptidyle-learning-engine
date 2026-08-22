@@ -81,6 +81,94 @@ def lifecycle_target(tmp_path: pathlib.Path, project: str, env_name: str) -> loc
 
 
 #============================================
+def live_demo_target(
+	tmp_path: pathlib.Path,
+	profile: local_stack_control.models.LiveDemoProfile,
+) -> local_stack_control.models.DisposableComposeTarget:
+	"""Build one fixed live-demo target with closed profile metadata."""
+	selected = lifecycle_target(
+		tmp_path,
+		local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+		"live/env.local",
+	)
+	disposable = local_stack_control.models.DisposableComposeTarget(
+		target=selected,
+		owner_policy=local_stack_control.models.LIVE_DEMO_BROWSER_OWNER,
+		capability_file=tmp_path / "capability",
+		project_prefix=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+		private_environment_file=selected.env_file,
+		live_demo_profile=profile,
+	)
+	return disposable
+
+
+#============================================
+def readiness_container(
+	service: str,
+	identifier: int,
+	*,
+	healthy: bool = True,
+) -> local_stack_control.models.ContainerResource:
+	"""Build one deterministic required-service readiness observation."""
+	one_shot = service in local_stack_control.models.BASE_ONE_SHOT_SERVICES
+	running = healthy and not one_shot
+	state = "exited" if one_shot else "running"
+	health: str | None = "healthy"
+	if service == "worker" or one_shot:
+		health = None
+	if not healthy:
+		state = "exited"
+		health = None
+	container = local_stack_control.models.ContainerResource(
+		id=f"{service}-{identifier}",
+		names=(),
+		project=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+		service=service,
+		state=state,
+		running=running,
+		exit_code=0 if healthy else 1,
+		health=health,
+		image="local/image",
+		ports=(),
+	)
+	return container
+
+
+#============================================
+def replica_readiness_snapshot(
+	api_instances: int,
+	*,
+	unhealthy_api: int | None = None,
+	postgres_instances: int = 1,
+) -> local_stack_control.models.ProjectSnapshot:
+	"""Build the complete fixed replica topology without invoking Compose."""
+	containers: list[local_stack_control.models.ContainerResource] = []
+	for service in local_stack_control.models.BASE_ONE_SHOT_SERVICES:
+		containers.append(readiness_container(service, 0))
+	for service in local_stack_control.models.BASE_LONG_RUNNING_SERVICES:
+		instances = 1
+		if service == "api":
+			instances = api_instances
+		elif service == "postgres":
+			instances = postgres_instances
+		for identifier in range(instances):
+			containers.append(
+				readiness_container(
+					service,
+					identifier,
+					healthy=service != "api" or identifier != unhealthy_api,
+				)
+			)
+	snapshot = local_stack_control.models.ProjectSnapshot(
+		local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+		tuple(containers),
+		(),
+		(),
+	)
+	return snapshot
+
+
+#============================================
 def test_validation_rejects_invalid_selected_env_before_any_process(tmp_path: pathlib.Path) -> None:
 	"""Read-only validation refuses malformed selected configuration without a child effect."""
 	target = lifecycle_target(tmp_path, "custom", "custom.env")
@@ -191,30 +279,44 @@ def test_completed_requested_one_shot_does_not_wait_for_later_initializers(
 
 
 #============================================
-@pytest.mark.parametrize("teaching_profile", (False, True))
+@pytest.mark.parametrize(
+	"teaching_profile",
+	(False, True, local_stack_control.models.LiveDemoProfile.REPLICA_RESTART),
+)
 def test_start_orders_required_effects_before_semantic_readiness(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
-	teaching_profile: bool,
+	teaching_profile: bool | local_stack_control.models.LiveDemoProfile,
 ) -> None:
 	"""A start classifies migrated data before storage and preserves later dependencies."""
-	base_target = lifecycle_target(
-		tmp_path,
-		"ple-ui-walkthrough-test" if teaching_profile else "containers",
-		"walk/env.local" if teaching_profile else "containers/env.local",
+	replica_profile = (
+		teaching_profile is local_stack_control.models.LiveDemoProfile.REPLICA_RESTART
 	)
-	target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget = base_target
-	if teaching_profile:
+	if replica_profile:
+		target = live_demo_target(tmp_path, teaching_profile)
+		base_target = target.target
+	else:
+		base_target = lifecycle_target(
+			tmp_path,
+			"ple_live_demo_baseline_test" if teaching_profile else "containers",
+			"walk/env.local" if teaching_profile else "containers/env.local",
+		)
+		target = base_target
+	if teaching_profile is True:
 		target = local_stack_control.models.DisposableComposeTarget(
 			target=base_target,
-			owner_policy="ui-walkthrough",
+			owner_policy="live-demo-baseline",
 			capability_file=tmp_path / "capability",
-			project_prefix="ple-ui-walkthrough-",
+			project_prefix="ple_live_demo_baseline_",
 			private_environment_file=base_target.env_file,
 		)
 	options = local_stack_control.lifecycle.LifecycleOptions(1.0, False, False, False)
 	events: list[str] = []
 	compose_arguments: list[list[str]] = []
+	readiness_targets: list[
+		local_stack_control.models.ComposeTarget
+		| local_stack_control.models.DisposableComposeTarget
+	] = []
 	values = {"PLE_WEBWORK_RENDERER_IMAGE": "localhost/renderer:tag"}
 
 	def mark(name: str) -> None:
@@ -264,7 +366,18 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	monkeypatch.setattr(local_stack_control.lifecycle, "attest_renderer", lambda target, runner, root, values, identity: mark("renderer-probed"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "publish_chapter_one", lambda runner, root, target, values, environment: mark("chapter-one"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "run_api_initializers", lambda target, runner, options: mark("api-initializers"))
-	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_complete_ready", lambda target, runner, options: mark("ready") or "http://127.0.0.1:8080/")
+	def mark_ready(
+		selected_target: local_stack_control.models.ComposeTarget
+		| local_stack_control.models.DisposableComposeTarget,
+		runner: local_stack_control.process.CommandRunner,
+		selected_options: local_stack_control.lifecycle.LifecycleOptions,
+	) -> str:
+		del runner, selected_options
+		readiness_targets.append(selected_target)
+		mark("ready")
+		return "http://127.0.0.1:8080/"
+
+	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_complete_ready", mark_ready)
 	monkeypatch.setattr(
 		local_stack_control.image_cleanup,
 		"prune_superseded_images",
@@ -283,6 +396,7 @@ def test_start_orders_required_effects_before_semantic_readiness(
 		assert events.index("renderer-probed") < events.index("api-initializers")
 		assert events.index("ready") < events.index("image-prune")
 	assert events.index("api-initializers") < events.index("api") < events.index("ready")
+	assert readiness_targets == [target]
 	application_start = next(
 		arguments
 		for arguments in compose_arguments
@@ -314,6 +428,109 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	assert "--force-recreate" in application_start
 	assert "--remove-orphans" not in application_start
 	assert "--no-deps" in application_start
+	if replica_profile:
+		assert application_start == [
+			"up", "-d", "--force-recreate", "--no-deps",
+			"--scale", "api=2", "api", "worker", "gateway",
+		]
+	else:
+		assert "--scale" not in application_start
+
+
+#============================================
+@pytest.mark.parametrize(
+	("profile", "expected_api_instances"),
+	(
+		(local_stack_control.models.LiveDemoProfile.BROWSER, 1),
+		(local_stack_control.models.LiveDemoProfile.WEBWORK_RENDER_RPC, 1),
+		(local_stack_control.models.LiveDemoProfile.REPLICA_RESTART, 2),
+	),
+)
+def test_live_demo_profiles_own_their_expected_api_cardinality(
+	tmp_path: pathlib.Path,
+	profile: local_stack_control.models.LiveDemoProfile,
+	expected_api_instances: int,
+) -> None:
+	"""Each closed profile determines readiness cardinality without a caller knob."""
+	target = live_demo_target(tmp_path, profile)
+	count = local_stack_control.lifecycle_profiles.expected_long_running_count(
+		target, "api"
+	)
+
+	assert count == expected_api_instances
+
+
+#============================================
+def test_replica_profile_accepts_exactly_two_healthy_api_instances(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The complete fixed replica topology is ready with two healthy APIs."""
+	target = live_demo_target(
+		tmp_path, local_stack_control.models.LiveDemoProfile.REPLICA_RESTART
+	)
+	report = local_stack_control.status.build_target_report(
+		target, replica_readiness_snapshot(2)
+	)
+	api = next(service for service in report.services if service.service == "api")
+
+	assert report.ok and api.instances == 2 and api.healthy
+
+
+#============================================
+@pytest.mark.parametrize(
+	("api_instances", "expected_state", "expected_service_state"),
+	((1, "partially-active", "missing"), (3, "failed", "ambiguous")),
+)
+def test_replica_profile_rejects_api_cardinality_below_or_above_two(
+	tmp_path: pathlib.Path,
+	api_instances: int,
+	expected_state: str,
+	expected_service_state: str,
+) -> None:
+	"""Replica readiness distinguishes missing and unexpected extra API instances."""
+	target = live_demo_target(
+		tmp_path, local_stack_control.models.LiveDemoProfile.REPLICA_RESTART
+	)
+	report = local_stack_control.status.build_target_report(
+		target, replica_readiness_snapshot(api_instances)
+	)
+	api = next(service for service in report.services if service.service == "api")
+
+	assert report.state == expected_state and api.state == expected_service_state
+
+
+#============================================
+def test_replica_profile_requires_every_api_instance_healthy(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""One unhealthy API keeps an exact two-instance observation unready."""
+	target = live_demo_target(
+		tmp_path, local_stack_control.models.LiveDemoProfile.REPLICA_RESTART
+	)
+	report = local_stack_control.status.build_target_report(
+		target, replica_readiness_snapshot(2, unhealthy_api=1)
+	)
+	api = next(service for service in report.services if service.service == "api")
+
+	assert not report.ok and not api.healthy
+
+
+#============================================
+def test_replica_profile_still_requires_one_postgres_instance(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The API exception does not weaken duplicate protection for PostgreSQL."""
+	target = live_demo_target(
+		tmp_path, local_stack_control.models.LiveDemoProfile.REPLICA_RESTART
+	)
+	report = local_stack_control.status.build_target_report(
+		target, replica_readiness_snapshot(2, postgres_instances=2)
+	)
+	postgres = next(
+		service for service in report.services if service.service == "postgres"
+	)
+
+	assert report.state == "failed" and postgres.state == "ambiguous"
 
 
 #============================================
@@ -357,6 +574,74 @@ def test_smtp_delivery_restart_refreshes_credential_copy_before_recreate(
 	)
 
 	assert events.index("smtp-copy") < events.index("delivery-recreated") < events.index("ready")
+
+
+#============================================
+def test_replica_api_restart_preserves_scale_and_typed_readiness(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""A fixed replica restart recreates two APIs and retains its profile for readiness."""
+	target = live_demo_target(
+		tmp_path, local_stack_control.models.LiveDemoProfile.REPLICA_RESTART
+	)
+	options = local_stack_control.lifecycle.LifecycleOptions(1.0, False, False, False)
+	compose_arguments: list[list[str]] = []
+	readiness_targets: list[
+		local_stack_control.models.ComposeTarget
+		| local_stack_control.models.DisposableComposeTarget
+	] = []
+	values = {"PLE_WEBWORK_RENDERER_IMAGE": "localhost/renderer:tag"}
+
+	monkeypatch.setattr(local_stack_control.lifecycle, "require_disposable_ownership", lambda target: None)
+	monkeypatch.setattr(local_stack_control.env_file, "require_mutation_env_file", lambda path: None)
+	monkeypatch.setattr(local_stack_control.lifecycle, "validate_static", lambda target: values)
+	monkeypatch.setattr(local_stack_control.lifecycle_validation, "require_mutation_engine", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.lifecycle, "require_restart_baseline", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.lifecycle, "child_environment", lambda target: {})
+	monkeypatch.setattr(local_stack_control.renderer, "inspect_renderer_oci_id", lambda *args: "sha256:" + "a" * 64)
+	monkeypatch.setattr(local_stack_control.lifecycle, "require_attested_running_renderer", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.lifecycle, "probe_renderer", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.lifecycle, "run_api_initializers", lambda *args: None)
+	monkeypatch.setattr(
+		local_stack_control.lifecycle,
+		"compose_run",
+		lambda selected, runner, arguments: compose_arguments.append(arguments),
+	)
+	monkeypatch.setattr(
+		local_stack_control.lifecycle,
+		"wait_for_complete_ready",
+		lambda selected, runner, selected_options: (
+			readiness_targets.append(selected) or "https://localhost:55001/"
+		),
+	)
+
+	local_stack_control.lifecycle.restart_lifecycle(
+		target, UnexpectedRunner(), tmp_path, "api", options
+	)
+
+	assert compose_arguments == [[
+		"up", "-d", "--force-recreate", "--no-deps",
+		"--scale", "api=2", "api",
+	]]
+	assert readiness_targets == [target]
+
+
+#============================================
+def test_webwork_profile_renderer_restart_arguments_have_no_scale(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The WebWork profile recreates its singleton renderer without scaling."""
+	target = live_demo_target(
+		tmp_path, local_stack_control.models.LiveDemoProfile.WEBWORK_RENDER_RPC
+	)
+	arguments = local_stack_control.lifecycle_profiles.recreate_arguments(
+		target, "webwork-renderer"
+	)
+
+	assert arguments == [
+		"up", "-d", "--force-recreate", "--no-deps", "webwork-renderer",
+	]
 
 
 #============================================
@@ -518,7 +803,17 @@ def test_renderer_restart_checks_existing_provenance_before_recreate(
 	target = lifecycle_target(tmp_path, "containers", "containers/env.local")
 	options = local_stack_control.lifecycle.LifecycleOptions(1.0, False, False, False)
 	events: list[str] = []
+	compose_arguments: list[list[str]] = []
 	values = {"PLE_WEBWORK_RENDERER_IMAGE": "localhost/renderer:tag"}
+
+	def mark_compose(
+		selected: local_stack_control.models.ComposeTarget,
+		runner: local_stack_control.process.CommandRunner,
+		arguments: list[str],
+	) -> None:
+		del selected, runner
+		compose_arguments.append(arguments)
+		events.append("recreate")
 
 	monkeypatch.setattr(local_stack_control.env_file, "require_mutation_env_file", lambda path: None)
 	monkeypatch.setattr(local_stack_control.lifecycle, "validate_static", lambda selected: values)
@@ -527,7 +822,7 @@ def test_renderer_restart_checks_existing_provenance_before_recreate(
 	monkeypatch.setattr(local_stack_control.lifecycle, "child_environment", lambda selected: {})
 	monkeypatch.setattr(local_stack_control.renderer, "inspect_renderer_oci_id", lambda runner, root, reference, environment: events.append("image") or "sha256:" + "a" * 64)
 	monkeypatch.setattr(local_stack_control.lifecycle, "require_renderer_restart_provenance", lambda selected, selected_values, oci_id: events.append("provenance"))
-	monkeypatch.setattr(local_stack_control.lifecycle, "compose_run", lambda selected, runner, arguments: events.append("recreate"))
+	monkeypatch.setattr(local_stack_control.lifecycle, "compose_run", mark_compose)
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_renderer_ready", lambda selected, runner, selected_options, oci_id: events.append("renderer-ready"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "attest_renderer", lambda selected, runner, root, selected_values, oci_id: events.append("attest"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_complete_ready", lambda selected, runner, selected_options: events.append("ready") or "http://127.0.0.1:8080/")
@@ -536,6 +831,9 @@ def test_renderer_restart_checks_existing_provenance_before_recreate(
 		target, UnexpectedRunner(), tmp_path, "webwork-renderer", options
 	)
 	assert events.index("provenance") < events.index("recreate") < events.index("renderer-ready") < events.index("attest")
+	assert compose_arguments == [[
+		"up", "-d", "--force-recreate", "--no-deps", "webwork-renderer",
+	]]
 
 
 #============================================
@@ -549,18 +847,18 @@ def test_renderer_provenance_is_replaceable_private_attestation(tmp_path: pathli
 
 
 #============================================
-def test_closed_walkthrough_owner_is_a_teaching_profile_but_custom_target_is_not(tmp_path: pathlib.Path) -> None:
-	"""Only the declared disposable walkthrough owner receives teaching bootstrap authority."""
+def test_closed_teaching_owner_is_a_teaching_profile_but_custom_target_is_not(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""Only the declared disposable teaching owner receives bootstrap authority."""
 	target = lifecycle_target(tmp_path, "walk", "walk.env")
 	disposable = local_stack_control.models.DisposableComposeTarget(
-		target=target, owner_policy="ui-walkthrough", capability_file=tmp_path / "capability",
-		project_prefix="ple-ui-walkthrough-", private_environment_file=target.env_file,
+		target=target, owner_policy="live-demo-baseline", capability_file=tmp_path / "capability",
+		project_prefix="ple_live_demo_baseline_", private_environment_file=target.env_file,
 	)
 	assert local_stack_control.lifecycle_profiles.uses_local_teaching_state(disposable)
-	assert local_stack_control.lifecycle_profiles.uses_local_auth_state(disposable)
 	assert not local_stack_control.lifecycle_profiles.uses_live_demo_sysadmin_claim_context(disposable)
 	assert not local_stack_control.lifecycle_profiles.uses_local_teaching_state(target)
-	assert not local_stack_control.lifecycle_profiles.uses_local_auth_state(target)
 	assert not local_stack_control.lifecycle_profiles.uses_live_demo_sysadmin_claim_context(target)
 
 
@@ -569,7 +867,7 @@ def test_live_teaching_bootstrap_keeps_seed_inputs_without_local_auth_files(
 	tmp_path: pathlib.Path,
 ) -> None:
 	"""The TLS owner creates seed inputs without introducing local-file credentials."""
-	target = lifecycle_target(tmp_path, "ple-live-demo-browser-0123456789ab", "live/env.local")
+	target = lifecycle_target(tmp_path, "ple-live-demo-browser", "live/env.local")
 	target.env_file.parent.mkdir()
 	target.env_file.write_text(
 		"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE=live/.runtime/claim-context.json\n",
@@ -580,17 +878,20 @@ def test_live_teaching_bootstrap_keeps_seed_inputs_without_local_auth_files(
 		target=target,
 		owner_policy="live-demo-browser",
 		capability_file=tmp_path / "capability",
-		project_prefix="ple-live-demo-browser-",
+		project_prefix="ple-live-demo-browser",
 		private_environment_file=target.env_file,
+		live_demo_profile=local_stack_control.models.LiveDemoProfile.BROWSER,
 	)
 
 	local_stack_control.lifecycle.bootstrap_default_state(disposable, GatewayPortRunner((), False))
 	values = local_stack_control.env_file.env_settings(target.env_file)
-	credential_path, identity_path, invitation_path, question_path, _ = local_stack_control.lifecycle.private_runtime_paths(
-		tmp_path, target.env_file
-	)
+	secret_directory = target.env_file.parent / ".secrets"
+	invitation_path = secret_directory / "invitation_token_secret"
+	question_path = secret_directory / "question_id_secret"
 
-	assert "PLE_LOCAL_AUTH_HOST_FILE" not in values and not credential_path.exists() and not identity_path.exists()
+	assert "PLE_LOCAL_AUTH_HOST_FILE" not in values
+	assert not (target.env_file.parent / "local-login.txt").exists()
+	assert not (target.env_file.parent / "local-identities.json").exists()
 	assert invitation_path.is_file() and question_path.is_file()
 
 
@@ -603,7 +904,11 @@ def test_busy_default_port_selects_first_free_teaching_port_or_keeps_running_gat
 	running = GatewayPortRunner(("8080",), True)
 	assert local_stack_control.lifecycle.choose_default_gateway_port(target, values, available) == "8000"
 	assert local_stack_control.lifecycle.choose_default_gateway_port(target, values, running) == "8080"
-	custom = lifecycle_target(tmp_path, "ple-ui-walkthrough-test", "walk/env.local")
+	custom = lifecycle_target(
+		tmp_path,
+		"custom-project",
+		"walk/env.local",
+	)
 	with pytest.raises(local_stack_control.models.ControllerError):
 		local_stack_control.lifecycle.choose_default_gateway_port(custom, values, available)
 
@@ -658,11 +963,15 @@ def test_unspecified_private_values_keep_failure_detail_generic() -> None:
 #============================================
 def test_teaching_environment_paths_follow_the_selected_private_environment(tmp_path: pathlib.Path) -> None:
 	"""Teaching-profile defaults keep secrets and identity projection beside its selected env file."""
-	target = lifecycle_target(tmp_path, "ple-ui-walkthrough-test", "walk/env.local")
+	target = lifecycle_target(
+		tmp_path,
+		"ple_live_demo_baseline_test",
+		"walk/env.local",
+	)
 	target.env_file.parent.mkdir()
 	target.env_file.write_text("PLE_GATEWAY_HOST_PORT=8123\n", encoding="ascii")
 	target.env_file.chmod(0o600)
 	local_stack_control.lifecycle.configure_default_environment(target, None)
 	values = target.env_file.read_text(encoding="ascii")
 	assert str(target.env_file.parent / ".secrets/invitation_token_secret") in values
-	assert str(target.env_file.parent / "local-identities.json") in values
+	assert "PLE_LOCAL_AUTH_HOST_FILE" not in values

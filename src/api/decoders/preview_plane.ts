@@ -9,6 +9,8 @@ import type { InstructorPreviewScheduleRow } from "../../../generated/api/Instru
 import type { PreviewAccommodationComparison } from "../../../generated/api/PreviewAccommodationComparison";
 import type { PreviewDisclosureProjection } from "../../../generated/api/PreviewDisclosureProjection";
 import type { PreviewEvaluation } from "../../../generated/api/PreviewEvaluation";
+import type { PreviewGroupFact } from "../../../generated/api/PreviewGroupFact";
+import type { PreviewGroupRole } from "../../../generated/api/PreviewGroupRole";
 import type { PreviewPlaneResponse } from "../../../generated/api/PreviewPlaneResponse";
 import type { PreviewScheduleProjection } from "../../../generated/api/PreviewScheduleProjection";
 import type { PreviewSelectedMoment } from "../../../generated/api/PreviewSelectedMoment";
@@ -34,6 +36,20 @@ const POLICY_SOURCES = [
   "individualException",
 ] as const;
 const GROUP_PURPOSES = ["section", "lab", "cohort", "accommodation", "work"] as const;
+const GROUP_ROLES = [
+  "sectionMember",
+  "labMember",
+  "cohortMember",
+  "accommodationRecipient",
+  "workGroupMember",
+] as const;
+const GROUP_ROLE_BY_PURPOSE = {
+  section: "sectionMember",
+  lab: "labMember",
+  cohort: "cohortMember",
+  accommodation: "accommodationRecipient",
+  work: "workGroupMember",
+} as const satisfies Record<(typeof GROUP_PURPOSES)[number], PreviewGroupRole>;
 const DISCLOSURE_MOMENTS = ["now", "due", "close"] as const;
 
 function closed(
@@ -176,6 +192,17 @@ function schedule(value: unknown, path: string): PreviewScheduleProjection {
   };
 }
 
+function groupFact(value: unknown, path: string): PreviewGroupFact {
+  const record = closed(value, path, ["role", "purpose"]);
+  const role = decodeStringEnum(record.role, `${path}.role`, GROUP_ROLES);
+  const purpose = decodeStringEnum(record.purpose, `${path}.purpose`, GROUP_PURPOSES);
+  // ASVS 1.5.2, 2.2.1, 2.2.3: allowlist both values and reject invalid paired facts.
+  if (role !== GROUP_ROLE_BY_PURPOSE[purpose]) {
+    throw new DecodeError(path, "a group role matching its purpose");
+  }
+  return { role, purpose };
+}
+
 function subject(value: unknown, path: string): PreviewSubject {
   const record = closed(value, path, [
     "kind",
@@ -190,10 +217,7 @@ function subject(value: unknown, path: string): PreviewSubject {
     record.groups,
     `${path}.groups`,
     MAX_PREVIEW_SUBJECT_GROUPS,
-    (entry, entryPath) => {
-      const fact = closed(entry, entryPath, ["purpose"]);
-      return { purpose: decodeStringEnum(fact.purpose, `${entryPath}.purpose`, GROUP_PURPOSES) };
-    },
+    groupFact,
   );
   if (new Set(groups.map((group) => group.purpose)).size !== groups.length) {
     throw new DecodeError(`${path}.groups`, "unique identity-free group purposes");

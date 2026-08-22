@@ -1,9 +1,8 @@
 # Instructor guide
 
-This guide follows the supported local no-email teaching loop: create a course, add a configured
-fictional student through a visible roster control, build a timed Mastery assignment from the
-published problem corpus, and confirm learning in the gradebook. Start the local system first with
-[USAGE.md](USAGE.md).
+This guide follows the supported browser teaching loop: create a course, invite a learner through
+the course roster, build a timed Mastery assignment from the published problem corpus, and confirm
+learning in the gradebook. Start the local system first with [USAGE.md](USAGE.md).
 
 All people and course records shown in these captures are simulated. The fixed labels
 `Dr. Fake Professor`, `Mary Fake Student`, and `Jack Fake Student` are intentionally unmistakable
@@ -11,29 +10,32 @@ placeholders.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Instructor course overview showing the Assignments page and course-management navigation](screenshots/instructor/instructor_course_overview.png)
+![Instructor course overview showing the Assignments page and course-management navigation](screenshots/instructor/course_authoring/02_course_assignments.png)
 
-![Instructor roster showing Mary Fake Student and Jack Fake Student as active local course members](screenshots/instructor/instructor_roster_active_student.png)
+![Instructor roster showing active course members](screenshots/instructor/course_management/01_instructor_active_roster.png)
 
-![Instructor published problem catalog showing human-readable Question IDs and Copy ID controls](screenshots/instructor/instructor_problem_catalog.png)
+![Instructor published problem catalog showing human-readable Question IDs and Copy ID controls](screenshots/instructor/content_authoring/05_library.png)
 
-![Instructor assignment editor showing four selected Genetics Chapter 1 immutable versions and Mastery run policies](screenshots/instructor/instructor_assignment_settings.png)
+![Instructor assignment editor showing four selected Genetics Chapter 1 immutable versions and Mastery run policies](screenshots/instructor/course_authoring/06_assignment_editor.png)
 
-![Instructor Assignment created confirmation showing Genetics Chapter 1 Practice and its Open assignment link](screenshots/instructor/instructor_assignment_created.png)
+![Instructor Assignment created confirmation showing Genetics Chapter 1 Practice and its Open assignment link](screenshots/instructor/course_authoring/05_assignment_created.png)
 
-![Instructor Genetics Chapter 1 Practice gradebook showing Best and Latest at 100 percent, two completed runs, and keyboard focus on View run history](screenshots/instructor/instructor_gradebook_mastery_loop.png)
+![Instructor Genetics Chapter 1 Practice gradebook showing Best and Latest at 100 percent, two completed runs, and keyboard focus on View run history](screenshots/instructor/grading/01_instructor_gradebook.png)
 <!-- screenshots:end -->
 
 ## Before you begin
 
-- Launch the normal local stack and open its loopback URL.
-- Use the instructor value from the ignored `containers/local-login.txt` file.
-- Use local-development identity only for this pilot. It does not require, configure, or test email
-  delivery. Fastmail is a future provider decision, not a configured part of this teaching loop.
+- Launch the local stack and open its HTTPS URL.
+- Sign in through the visible PLE account page. Email is the canonical passwordless path; an
+  ordinary passkey is an optional shortcut for an existing account.
+- When the deployment enables the seeded persona selector, choose the seeded instructor account.
+  It enters the same PLE account/session state and is unavailable when that deployment gate is not
+  configured.
 
 ## Create a course
 
-1. Sign in through the visible local-development form.
+1. Sign in through the visible PLE account page with email, an ordinary passkey, or the enabled
+   seeded instructor selector.
 2. Enter a descriptive title in **Course title**.
 3. Enter the inclusive **Start date** and **End date** for the teaching term.
 4. Enter the exact case-sensitive **Time zone (IANA)**, such as `America/Chicago`.
@@ -44,16 +46,16 @@ The created course is a real PostgreSQL-backed course. It is not a browser fixtu
 arrangement. The form never guesses a browser time zone. If a term value is invalid, it preserves
 all four inputs, announces and focuses the field to correct, and supports an immediate retry.
 
-## Add the local student
+## Invite a student
 
 1. Open **Students** from the course navigation.
-2. Activate **Add Mary Fake Student**. The page also offers **Add Jack Fake Student** when a second
-   simulated learner is useful.
-3. Confirm that the focused roster row reports **active**.
-
-These buttons resolve only the configured local fictional learners and add canonical course
-membership. They are intentionally not an alias-entry, invitation, or email-activation workflow.
-Production enrollment and email identity remain separate work.
+2. Enter the learner's **Institutional email** and course-scoped **Institutional student ID**.
+3. Activate **Create invitation**.
+4. In **Share this invitation**, copy the one-time link and share it through the trusted LMS or
+   another trusted course channel. Configured SMTP may deliver the same link, but the copy-link
+   path remains available.
+5. Confirm the roster reports **Invitation pending** until the learner authenticates their PLE
+   account and claims the invitation; after claiming, confirm the member reports **Active**.
 
 ## Build an assignment
 
@@ -69,7 +71,7 @@ Production enrollment and email identity remain separate work.
 7. In **What students can see**, choose a timing for each independent field: **Score**,
    **Per-item correctness**, **Feedback text**, **Correct answer or solution**, and **Class
    statistics**. Each offers During attempt, After submit, After due, After close, and Never.
-   After due and After close remain withheld when the matching boundary is not set. For the pilot,
+   After due and After close remain withheld when the matching boundary is not set. For this guide,
    use After submit for the first four fields and Never for class statistics.
 8. Activate **Create assignment** and open the resulting course assignment. A new assignment is a
    Draft and is not yet available to students.

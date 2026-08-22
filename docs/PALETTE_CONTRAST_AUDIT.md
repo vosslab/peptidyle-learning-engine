@@ -73,15 +73,10 @@ course-scope CSS, and component styles. The durable behavior gates are:
 - [`tests/test_course_theme_scope.mjs`](../tests/test_course_theme_scope.mjs)
   checks the exact 15 IDs, complete tokens, 5.5:1 text pairs, and 3:1
   focus/boundary pairs directly from catalog values.
-- [`tests/playwright/course_theme_scope.spec.ts`](../tests/playwright/course_theme_scope.spec.ts)
-  renders every catalog theme and asserts 5.5:1 for ink, muted text, links,
-  actions, hover actions, and card text; it asserts 3:1 for focus and
-  boundaries against both the canvas and card surface.
-- [`tests/playwright/course_appearance_visual.spec.ts`](../tests/playwright/course_appearance_visual.spec.ts)
-  regenerates `palette_metrics.json` and the 15-theme contact sheet, then
-  reasserts those rendered thresholds and OKLab theme differentiation. The
-  generated files are intentionally ignored, so their accepted-run SHA-256
-  digests and command are recorded in the
+- The canonical real-stack `learner_delivery` scenario saves and reloads a
+  course appearance and publishes its nested production-origin screenshot.
+  The earlier 15-theme rendered comparison remains one-time evidence rather
+  than a parallel browser suite. Its accepted SHA-256 digests are recorded in the
   [course-appearance implementation handoff](active_plans/workstreams/course_appearance_implementation.md#visual-artifacts).
 
 Run the durable gates and, when a fresh visual artifact is needed, regenerate

@@ -297,7 +297,7 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
         .expect("session subject"),
         SessionConfig::new(
             SessionLifetime::from_seconds(3600).expect("lifetime"),
-            CookieTransport::LocalHttp,
+            CookieTransport::FirstPartyHttps,
         ),
     )
     .await

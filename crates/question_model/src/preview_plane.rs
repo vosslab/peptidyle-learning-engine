@@ -115,9 +115,52 @@ pub const fn preview_group_role(purpose: CourseGroupPurpose) -> PreviewGroupRole
 
 /// Identity-free group fact preserved in a portable preview subject.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(
+    rename_all = "camelCase",
+    try_from = "PreviewGroupFactWire",
+    deny_unknown_fields
+)]
 pub struct PreviewGroupFact {
-    pub purpose: CourseGroupPurpose,
+    role: PreviewGroupRole,
+    purpose: CourseGroupPurpose,
+}
+
+impl PreviewGroupFact {
+    /// Constructs the only role and purpose pair admitted by the closed mapping.
+    pub const fn from_purpose(purpose: CourseGroupPurpose) -> Self {
+        Self {
+            role: preview_group_role(purpose),
+            purpose,
+        }
+    }
+
+    pub const fn role(&self) -> PreviewGroupRole {
+        self.role
+    }
+
+    pub const fn purpose(&self) -> CourseGroupPurpose {
+        self.purpose
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PreviewGroupFactWire {
+    role: PreviewGroupRole,
+    purpose: CourseGroupPurpose,
+}
+
+impl TryFrom<PreviewGroupFactWire> for PreviewGroupFact {
+    type Error = &'static str;
+
+    fn try_from(value: PreviewGroupFactWire) -> Result<Self, Self::Error> {
+        // ASVS 1.5.2 and 2.2.3: deserialize through a closed shape and validate the pair.
+        let fact = Self::from_purpose(value.purpose);
+        if value.role != fact.role {
+            return Err("preview group role must match its purpose");
+        }
+        Ok(fact)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -628,9 +671,7 @@ mod tests {
             "A-9".parse().unwrap(),
             TeachingOperationRevision::new(4).unwrap(),
             selected(),
-            vec![PreviewGroupFact {
-                purpose: CourseGroupPurpose::Lab,
-            }],
+            vec![PreviewGroupFact::from_purpose(CourseGroupPurpose::Lab)],
             policy,
             PreviewPriorRunCount::try_from(0).unwrap(),
         )
@@ -642,12 +683,45 @@ mod tests {
             assert!(!wire.contains(forbidden), "{forbidden} leaked: {wire}");
         }
         let mut malformed: serde_json::Value = serde_json::from_str(&wire).unwrap();
-        malformed["groups"] = serde_json::json!([{"purpose":"lab"}, {"purpose":"lab"}]);
+        malformed["groups"] = serde_json::json!([
+            {"role":"labMember", "purpose":"lab"},
+            {"role":"labMember", "purpose":"lab"}
+        ]);
         assert!(serde_json::from_value::<PreviewSubject>(malformed).is_err());
         assert_eq!(
             preview_group_role(CourseGroupPurpose::Work),
             PreviewGroupRole::WorkGroupMember
         );
+    }
+
+    #[test]
+    fn group_fact_wire_accepts_only_the_closed_role_and_purpose_pairs() {
+        let pairs = [
+            (CourseGroupPurpose::Section, PreviewGroupRole::SectionMember),
+            (CourseGroupPurpose::Lab, PreviewGroupRole::LabMember),
+            (CourseGroupPurpose::Cohort, PreviewGroupRole::CohortMember),
+            (
+                CourseGroupPurpose::Accommodation,
+                PreviewGroupRole::AccommodationRecipient,
+            ),
+            (CourseGroupPurpose::Work, PreviewGroupRole::WorkGroupMember),
+        ];
+        for (purpose, role) in pairs {
+            let fact = PreviewGroupFact::from_purpose(purpose);
+            assert_eq!(fact.role(), role);
+            assert_eq!(fact.purpose(), purpose);
+            let wire = serde_json::to_value(fact).unwrap();
+            assert_eq!(
+                serde_json::from_value::<PreviewGroupFact>(wire).unwrap(),
+                fact
+            );
+        }
+        assert_eq!(
+            serde_json::to_value(PreviewGroupFact::from_purpose(CourseGroupPurpose::Lab)).unwrap(),
+            serde_json::json!({"role":"labMember", "purpose":"lab"})
+        );
+        let mismatched = serde_json::json!({"role":"sectionMember", "purpose":"lab"});
+        assert!(serde_json::from_value::<PreviewGroupFact>(mismatched).is_err());
     }
 
     #[test]

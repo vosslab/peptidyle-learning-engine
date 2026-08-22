@@ -6,6 +6,7 @@ use super::*;
 /// catalog binding that the production WebWork backend later resolves. This is
 /// an opt-in host tool: no HTTP route or browser-supplied storage value exists.
 pub(super) async fn seed_webwork_pilot(arguments: &SeedArguments) -> Result<Manifest> {
+    let student = arguments.course_student()?;
     let storage = arguments
         .webwork_pilot
         .as_ref()
@@ -102,12 +103,13 @@ pub(super) async fn seed_webwork_pilot(arguments: &SeedArguments) -> Result<Mani
         &store,
         context,
         arguments.instructor,
-        arguments.student,
+        student,
         ids.course,
         ids.assignment,
     )
     .await?;
     Ok(Manifest {
+        course_id: ids.course,
         assignment_id: ids.assignment,
         enrollment_id: enrollment.id,
         question_id: published.question_id.clone(),
@@ -220,11 +222,7 @@ pub(super) async fn put_webwork_pilot_source(
     reference: ProblemVersionRef,
     object: ObjectId,
 ) -> Result<objects::ObjectRecord> {
-    if objects::Sha256Digest::compute(WEBWORK_PILOT_SOURCE).to_string()
-        != WEBWORK_PILOT_SOURCE_SHA256
-    {
-        bail!("tracked WebWork pilot source digest differs from its recorded provenance");
-    }
+    validate_webwork_pilot_source_provenance(WEBWORK_PILOT_SOURCE)?;
     let access_key_id = required_secret_environment("AWS_ACCESS_KEY_ID")?;
     let secret_access_key = required_secret_environment("AWS_SECRET_ACCESS_KEY")?;
     let client = objects::minio::client(&objects::minio::EndpointConfig {
@@ -276,6 +274,16 @@ pub(super) async fn put_webwork_pilot_source(
         bail!("existing WebWork pilot source does not match its immutable provenance record");
     }
     Ok(record)
+}
+
+/// Checks the tracked source against the reviewed digest before any private
+/// object write. This keeps provenance admission explicit and fail-closed
+/// (ASVS 2.2.1).
+pub(super) fn validate_webwork_pilot_source_provenance(source: &[u8]) -> Result<()> {
+    if objects::Sha256Digest::compute(source).to_string() != WEBWORK_PILOT_SOURCE_SHA256 {
+        bail!("tracked WebWork pilot source digest differs from its recorded provenance");
+    }
+    Ok(())
 }
 
 pub(super) fn required_secret_environment(name: &str) -> Result<String> {

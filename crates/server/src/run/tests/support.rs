@@ -19,7 +19,7 @@ pub(super) async fn issued_cookie_for(
         subject,
         crate::auth::SessionConfig::new(
             SessionLifetime::from_seconds(3_600).expect("session lifetime"),
-            crate::auth::CookieTransport::LocalHttp,
+            crate::auth::CookieTransport::FirstPartyHttps,
         ),
     )
     .await

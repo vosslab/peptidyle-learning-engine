@@ -3,7 +3,7 @@
 An open platform for mastery teaching across question formats. Students retry varied problems until they can solve them consistently, then keep practicing fresh versions after completion, while grading and answer keys stay securely on the server.
 
 **Project status: advanced implementation, not ready for production deployment.** Core learning,
-privacy, browser, and local-development paths work together, including a bounded external WeBWorK PG
+privacy, browser, and developer paths work together, including a bounded external WeBWorK PG
 renderer. Read the [current implementation handoff](docs/active_plans/implementation_status.md)
 for verified current scope and the [implementation plan](docs/active_plans/implementation_plan.md) for
 planned work.
@@ -21,18 +21,18 @@ that implement it.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Instructor assignment editor showing four selected Genetics Chapter 1 immutable versions and Mastery run policies](docs/screenshots/instructor/instructor_assignment_settings.png)
+![Instructor assignment editor showing four selected Genetics Chapter 1 immutable versions and Mastery run policies](docs/screenshots/instructor/course_authoring/06_assignment_editor.png)
 
-![Instructor Assignment created confirmation showing Genetics Chapter 1 Practice and its Open assignment link](docs/screenshots/instructor/instructor_assignment_created.png)
+![Instructor Assignment created confirmation showing Genetics Chapter 1 Practice and its Open assignment link](docs/screenshots/instructor/course_authoring/05_assignment_created.png)
 
-![Student Genetics Chapter 1 problem showing the server-authoritative countdown and keyboard-focused response](docs/screenshots/student/student_timed_problem.png)
+![Student Genetics Chapter 1 problem showing the server-authoritative countdown and keyboard-focused response](docs/screenshots/student/delivery/03_problem_ready.png)
 
-![Student completed-run summary showing a correct score and keyboard focus on Start another practice run](docs/screenshots/student/student_fresh_practice.png)
+![Student completed-run summary showing a correct score and keyboard focus on Start another practice run](docs/screenshots/student/delivery/06_completion.png)
 
-![Student Practice run 2 showing a reset 15-minute timer and an unanswered focused response](docs/screenshots/student/student_retake_fresh_problem.png)
+![Student Practice run 2 showing a reset 15-minute timer and an unanswered focused response](docs/screenshots/student/delivery/07_repeat_run.png)
 <!-- screenshots:end -->
 
-These are fresh real-stack captures from the accepted local no-email teaching-loop walkthrough. See
+These are real-stack captures from the accepted teaching workflow. See
 the dedicated [instructor guide](docs/INSTRUCTOR_GUIDE.md) and
 [student guide](docs/STUDENT_GUIDE.md) for the complete visible workflow. It demonstrates the local
 pilot rather than a production deployment; every displayed person and course record is simulated.
@@ -142,44 +142,34 @@ for the ownership map.
 
 ## Quick start
 
-For the first complete local teaching-system result, install the prerequisites in
+For the first complete developer result, install the prerequisites in
 [docs/INSTALL.md](docs/INSTALL.md), then clone the repository, install browser dependencies, and
-start the explicit local Podman project:
+start the fixed production-auth browser session:
 
 ```bash
 git clone https://github.com/vosslab/peptidyle-learning-engine.git
 cd peptidyle-learning-engine
 npm run setup
 source source_me.sh && python3 local_stack.py start
+source source_me.sh && python3 local_stack.py start --no-open
 ```
 
-The controller builds the local artifacts, creates ignored local credentials when needed, migrates
-and seeds the disposable pre-production data, starts the supported services, waits for semantic
-health, and opens the browser. Paste an instructor or student value from
-`containers/local-login.txt` into the local sign-in form. The normal stack includes native questions
-and the private external PG renderer. Its live accepted scope is the bounded, authored
-`content/pilot/webwork/which_hydrophobic-simple.pgml` `RadioButtons` fixture; this is not a broad
-OPL compatibility claim.
+`start` builds the production `dist/` bundle, creates a fresh disposable
+`ple-live-demo-browser` HTTPS stack, waits for production-auth readiness, and opens
+the canonical browser origin. `--no-open` keeps the same stack and prints the
+origin without opening a browser. Follow the visible seeded production-auth flow.
 
-Start with read-only inspection when diagnosing a local stack, and use the controller rather than
-ad hoc Compose commands for routine lifecycle work:
+Stop the session through its authenticated owner:
 
 ```bash
-source source_me.sh && python3 local_stack.py doctor
-source source_me.sh && python3 local_stack.py status
 source source_me.sh && python3 local_stack.py stop
-source source_me.sh && python3 local_stack.py reset --dry-run
 ```
 
-`doctor` and `status` inspect only. `stop` retains local data for the next start. `reset --dry-run`
-shows the exact project-scoped destructive command and its targets; use the explicit confirmation
-form only when intentionally recreating local data. See
+`stop` authenticates to the active owner, cleans its containers, volumes, networks,
+workspace, and private receipts, and refuses an unrelated or already-finished
+session. Developer and browser tests serialize through the same owner lease. See
 [docs/LOCAL_STACK_OPERATIONS.md](docs/LOCAL_STACK_OPERATIONS.md) for the controller contract and
 [docs/USAGE.md](docs/USAGE.md) for detailed everyday workflows.
-
-Focused `local_stack_control` Python modules own lifecycle sequencing, private local state, renderer
-provenance, and readiness behind the controller. Use `validate`, `start --no-open`, or `restart SERVICE`
-through the public controller for recovery; `validate` is read-only.
 
 For the smallest complete offline first success, install current Rust through `rustup`. The
 repository's [rust-toolchain.toml](rust-toolchain.toml) selects stable Rust, rustfmt, Clippy, and the
@@ -285,8 +275,7 @@ Start with a local run and the system map:
 
 - [docs/INSTALL.md](docs/INSTALL.md) - required tools, setup, verification, and the optional
   private WeBWorK profile.
-- [docs/USAGE.md](docs/USAGE.md) - native local-stack walkthrough, sign-in, health, and validation
-  commands.
+- [docs/USAGE.md](docs/USAGE.md) - fixed developer session, sign-in, health, and validation commands.
 - [docs/INSTRUCTOR_GUIDE.md](docs/INSTRUCTOR_GUIDE.md) and
   [docs/STUDENT_GUIDE.md](docs/STUDENT_GUIDE.md) - role-focused course setup, assignment practice,
   scoring, and repeat-workflow guides with real-stack screenshots.

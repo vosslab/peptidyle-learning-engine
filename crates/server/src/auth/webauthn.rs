@@ -774,7 +774,7 @@ mod tests {
             ClientAddressPolicy::direct(),
             SessionConfig::new(
                 learning_data_access::SessionLifetime::from_seconds(60).expect("session lifetime"),
-                super::super::CookieTransport::LocalHttp,
+                super::super::CookieTransport::FirstPartyHttps,
             ),
         )
         .layer(MockConnectInfo(SocketAddr::from(([192, 0, 2, 91], 443))));
@@ -798,7 +798,7 @@ mod tests {
         );
         assert!(response.headers().get_all(SET_COOKIE).iter().any(|value| {
             value.to_str().is_ok_and(|value| {
-                value.starts_with("ple_webauthn_binding=") && value.contains("HttpOnly")
+                value.starts_with("__Host-ple_webauthn_binding=") && value.contains("HttpOnly")
             })
         }));
         let body = to_bytes(response.into_body(), MAX_PASSKEY_BODY_BYTES)

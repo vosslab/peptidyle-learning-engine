@@ -14,6 +14,12 @@ import {
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
 import { resolveAssignmentRoute } from "../navigation/resolved_route";
+import {
+  courseRouteReference,
+  parseAssignmentReference,
+  type AssignmentRouteReference,
+  type CourseRouteReference,
+} from "../navigation/public_route";
 import { AssignmentAccessPage } from "./assignment_access_page";
 
 type Gate =
@@ -23,6 +29,8 @@ type Gate =
       readonly courseId: CourseId;
       readonly assignmentId: AssignmentId;
       readonly revision: TeachingOperationRevision;
+      readonly courseReference: CourseRouteReference;
+      readonly assignmentReference: AssignmentRouteReference;
     }
   | { readonly kind: "denied" }
   | { readonly kind: "unavailable" };
@@ -74,6 +82,11 @@ export function AssignmentAccessLivePage(): JSX.Element {
       return;
     }
     try {
+      const assignmentReference = parseAssignmentReference(params["assignmentRef"] ?? "");
+      if (assignmentReference === null) {
+        setGate({ kind: "unavailable" });
+        return;
+      }
       const assignment = await resolveAssignmentRoute(runtime.client, params["assignmentRef"]);
       if (assignment.courseId !== course.id) {
         setGate({ kind: "unavailable" });
@@ -89,6 +102,8 @@ export function AssignmentAccessLivePage(): JSX.Element {
         courseId: course.id,
         assignmentId: assignment.assignmentId,
         revision: editor.revision,
+        courseReference: courseRouteReference(course.reference),
+        assignmentReference,
       });
     } catch {
       setGate({ kind: "unavailable" });
@@ -118,6 +133,8 @@ export function AssignmentAccessLivePage(): JSX.Element {
           courseId={allowed.courseId}
           assignmentId={allowed.assignmentId}
           initialRevision={allowed.revision}
+          courseReference={allowed.courseReference}
+          assignmentReference={allowed.assignmentReference}
           reloadAssignmentRevision={async () => {
             const editor = await runtime.client.getAssignmentEditor(allowed.assignmentId);
             if (editor.id !== allowed.assignmentId || editor.courseId !== allowed.courseId) {

@@ -1,5 +1,4 @@
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
-import type { AssetId } from "../../../generated/api/AssetId";
 import type { AssignmentRun } from "../../../generated/api/AssignmentRun";
 import type { CatalogProblemDetail } from "../../../generated/api/CatalogProblemDetail";
 import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
@@ -9,6 +8,7 @@ import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type { CourseGradeSchemeView } from "../../../generated/api/CourseGradeSchemeView";
 import type { CourseGradebookTotalsView } from "../../../generated/api/CourseGradebookTotalsView";
 import type { CourseId } from "../../../generated/api/CourseId";
+import type { CourseBannerId } from "../../../generated/api/CourseBannerId";
 import type { EnrollmentId } from "../../../generated/api/EnrollmentId";
 import type { GradebookSummaryRow } from "../../../generated/api/GradebookSummaryRow";
 import type { QuestionId } from "../../../generated/api/QuestionId";
@@ -17,7 +17,6 @@ import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
 import type { RunId } from "../../../generated/api/RunId";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import type { ApiClient } from "../client";
-import { DecodeError, decodeNonemptyString, decodeRecord } from "../decoder";
 import type {
   CursorPage,
   EnrollmentView,
@@ -70,22 +69,46 @@ import {
 
 export const MAX_RESPONSE_CHARACTERS = 4 * 1_024 * 1_024;
 
-function decodeProtectedAssetDelivery(value: unknown, path = "response"): string {
-  const record = decodeRecord(value, path);
-  const raw = decodeNonemptyString(record.url, `${path}.url`);
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch (_error: unknown) {
-    throw new DecodeError(`${path}.url`, "an absolute HTTP(S) URL");
-  }
+const MAX_COURSE_BANNER_DELIVERY_BYTES = 2 * 1_024 * 1_024;
+
+async function fetchCourseBanner(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  bannerId: CourseBannerId,
+): Promise<Blob> {
+  const path = `/api/course-banners/${encodedId(bannerId)}/delivery`;
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    method: "POST",
+    headers: { accept: "image/webp" },
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  requireNoStore(response, path);
+  // ASVS 3.2.1, 3.4.4, 4.1.1, and 14.3.2: accept only the closed normalized
+  // banner response and reject cache, sniffing, or cross-origin policy drift.
+  if (response.headers.get("content-type") !== "image/webp")
+    throw new ApiProtocolError(`API response ${path} must be normalized image/webp`);
   if (
-    (url.protocol !== "https:" && url.protocol !== "http:") ||
-    url.username !== "" ||
-    url.password !== ""
+    response.headers.get("content-disposition") !== 'attachment; filename="ple-course-banner.webp"'
   )
-    throw new DecodeError(`${path}.url`, "an absolute HTTP(S) URL");
-  return url.href;
+    throw new ApiProtocolError(`API response ${path} must use the protected banner disposition`);
+  if (response.headers.get("x-content-type-options") !== "nosniff")
+    throw new ApiProtocolError(`API response ${path} must prevent content sniffing`);
+  if (response.headers.get("cross-origin-resource-policy") !== "same-origin")
+    throw new ApiProtocolError(`API response ${path} must remain same-origin`);
+  if (response.headers.get("referrer-policy") !== "no-referrer")
+    throw new ApiProtocolError(`API response ${path} must suppress referrers`);
+  const contentLength = response.headers.get("content-length");
+  if (contentLength === null || !/^[1-9][0-9]*$/u.test(contentLength))
+    throw new ApiProtocolError(`API response ${path} must include a positive Content-Length`);
+  const expectedBytes = Number(contentLength);
+  if (!Number.isSafeInteger(expectedBytes) || expectedBytes > MAX_COURSE_BANNER_DELIVERY_BYTES)
+    throw new ApiProtocolError(`API response ${path} exceeds the course banner byte limit`);
+  const blob = await response.blob();
+  if (blob.type !== "image/webp" || blob.size !== expectedBytes)
+    throw new ApiProtocolError(`API response ${path} body does not match its banner metadata`);
+  return blob;
 }
 
 function issuedQuestionForAttempt(
@@ -298,7 +321,7 @@ export function createResponseClient(
   | "beginExternalToolLaunch"
   | "getSummary"
   | "getRunScreen"
-  | "issueProtectedAssetDelivery"
+  | "fetchCourseBanner"
   | "assetUrl"
 > {
   return {
@@ -496,7 +519,7 @@ export function createResponseClient(
         fetchImplementation,
         basePath,
         `/api/attempts/${encodedId(attemptId)}/external-tool/launch`,
-        decodeExternalToolLaunch,
+        (value, path = "response") => decodeExternalToolLaunch(value, path, attemptId),
         { method: "POST" },
       ),
     getSummary: (enrollmentId) =>
@@ -560,14 +583,7 @@ export function createResponseClient(
       verifyRunScreen(screen);
       return screen;
     },
-    issueProtectedAssetDelivery: (assetId: AssetId) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        `/api/assets/${encodedId(assetId)}/delivery`,
-        decodeProtectedAssetDelivery,
-        { method: "POST" },
-      ),
+    fetchCourseBanner: (bannerId) => fetchCourseBanner(fetchImplementation, basePath, bannerId),
     assetUrl: (assetId) => requestPath(basePath, `/api/assets/${encodedId(assetId)}`),
   };
 }

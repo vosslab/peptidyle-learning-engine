@@ -4,39 +4,9 @@ use axum::http::Request;
 use axum::middleware;
 use axum::routing::post;
 use learning_data_access::in_memory::MemoryStore;
-use learning_data_access::{
-    AccountIdentityStore, AuthenticationEmail, AuthenticationRateLimitKey,
-    BeginEmailAuthentication, BrowserBindingHash, CompleteEmailAuthentication,
-    EmailAuthenticationPurpose, EmailChallengeId, EmailChallengeLifetime, EmailChallengeSecretHash,
-};
 use question_model::{TenantId, UserId, UserRole};
 use tower::ServiceExt;
 use uuid::Uuid;
-
-struct FixtureProvider {
-    subject: SessionSubject,
-}
-
-#[derive(serde::Deserialize)]
-struct FixturePresentation {
-    assertion: String,
-}
-
-#[async_trait]
-impl IdentityProvider for FixtureProvider {
-    type Presentation = FixturePresentation;
-
-    async fn verify(
-        &self,
-        presentation: &Self::Presentation,
-    ) -> Result<SessionSubject, IdentityProviderError> {
-        if presentation.assertion == "valid fixture assertion" {
-            Ok(self.subject.clone())
-        } else {
-            Err(IdentityProviderError::Rejected)
-        }
-    }
-}
 
 fn subject() -> SessionSubject {
     SessionSubject::new(
@@ -55,75 +25,11 @@ fn config(transport: CookieTransport) -> SessionConfig {
     )
 }
 
-async fn provision_account(store: &MemoryStore, user: UserId) {
-    let challenge = EmailChallengeSecretHash::compute(b"provider-login-account");
-    let binding = BrowserBindingHash::compute(b"provider-login-binding");
-    store
-        .begin_email_authentication(BeginEmailAuthentication {
-            id: EmailChallengeId::from_uuid(Uuid::from_u128(0x103)),
-            token_hash: challenge,
-            browser_binding: binding,
-            email_rate_limit_key: AuthenticationRateLimitKey::compute(b"provider-login-rate-limit"),
-            email: AuthenticationEmail::parse("provider-login@example.edu").expect("fixture email"),
-            purpose: EmailAuthenticationPurpose::SignInOrRegister,
-            lifetime: EmailChallengeLifetime::from_seconds(600).expect("fixture lifetime"),
-        })
-        .await
-        .expect("account challenge");
-    store
-        .complete_email_authentication(CompleteEmailAuthentication {
-            token_hash: challenge,
-            browser_binding: binding,
-            proposed_user: user,
-            proposed_display_name: "Fixture Student".to_string(),
-        })
-        .await
-        .expect("fixture account");
-}
-
 fn cookie_request_header(set_cookie: &str) -> &str {
     set_cookie
         .split(';')
         .next()
         .expect("Set-Cookie should begin with a cookie pair")
-}
-
-#[tokio::test]
-async fn provider_login_on_one_replica_resolves_on_another() {
-    let issuer = MemoryStore::default();
-    let next_replica = issuer.clone();
-    let provider = FixtureProvider { subject: subject() };
-    let issued = authenticate_with_provider(
-        &provider,
-        &FixturePresentation {
-            assertion: "valid fixture assertion".to_string(),
-        },
-        &issuer,
-        config(CookieTransport::FirstPartyHttps),
-    )
-    .await
-    .expect("provider login should issue a session");
-    let authenticated = resolve_session(
-        &next_replica,
-        Some(cookie_request_header(&issued.set_cookie)),
-    )
-    .await
-    .expect("another replica should resolve the database session");
-
-    assert_eq!(authenticated.record, issued.record);
-    assert_eq!(authenticated.tenant_context.tenant_id(), subject().tenant());
-    assert_eq!(
-        serde_json::to_value(authenticated.response()).expect("response should serialize"),
-        serde_json::json!({
-            "authenticated": true,
-            "tenant": subject().tenant(),
-            "user": {
-                "id": subject().user(),
-                "displayName": "Fixture Student",
-                "roles": ["student"]
-            }
-        })
-    );
 }
 
 #[tokio::test]
@@ -159,7 +65,7 @@ async fn issued_session_debug_redacts_the_set_cookie_credential() {
 }
 
 #[test]
-fn cookie_attributes_match_the_selected_transport() {
+fn cookie_attributes_match_first_party_https() {
     let token = SessionToken([7; SESSION_TOKEN_BYTES]);
     let first_party = session_cookie(&token, config(CookieTransport::FirstPartyHttps));
     assert_eq!(first_party.http_only(), Some(true));
@@ -171,11 +77,6 @@ fn cookie_attributes_match_the_selected_transport() {
     assert_eq!(first_party.expires(), None);
     assert!(!first_party.value().contains('='));
     assert_eq!(first_party.name(), "__Host-ple_session");
-
-    let local = session_cookie(&token, config(CookieTransport::LocalHttp));
-    assert_eq!(local.secure(), Some(false));
-    assert_eq!(local.same_site(), Some(SameSite::Lax));
-    assert_eq!(local.name(), "ple_session");
 }
 
 #[test]
@@ -384,142 +285,4 @@ async fn malformed_unknown_and_duplicate_cookies_share_one_failure() {
             Err(AuthError::Unauthenticated)
         ));
     }
-}
-
-#[tokio::test]
-async fn rejected_provider_credentials_create_no_session() {
-    let store = MemoryStore::default();
-    let provider = FixtureProvider { subject: subject() };
-    assert!(matches!(
-        authenticate_with_provider(
-            &provider,
-            &FixturePresentation {
-                assertion: "wrong fixture assertion".to_string(),
-            },
-            &store,
-            config(CookieTransport::FirstPartyHttps),
-        )
-        .await,
-        Err(AuthError::ProviderRejected)
-    ));
-}
-
-#[tokio::test]
-async fn auth_http_routes_preserve_the_replica_boundary() {
-    let issuer = Arc::new(MemoryStore::default());
-    provision_account(issuer.as_ref(), subject().user()).await;
-    let next_replica = Arc::new(issuer.as_ref().clone());
-    let provider = Arc::new(FixtureProvider { subject: subject() });
-    let issuer_app = provider_login_router(
-        Arc::clone(&provider),
-        Arc::clone(&issuer),
-        config(CookieTransport::LocalHttp),
-    )
-    .merge(session_router(issuer, config(CookieTransport::LocalHttp)));
-    let replica_app = provider_login_router(
-        provider,
-        Arc::clone(&next_replica),
-        config(CookieTransport::LocalHttp),
-    )
-    .merge(session_router(
-        next_replica,
-        config(CookieTransport::LocalHttp),
-    ));
-    let login = issuer_app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/api/auth/login")
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    serde_json::json!({ "assertion": "valid fixture assertion" }).to_string(),
-                ))
-                .expect("login request"),
-        )
-        .await
-        .expect("login response");
-    assert_eq!(login.status(), StatusCode::OK);
-    assert_eq!(
-        login.headers().get(CACHE_CONTROL),
-        Some(&HeaderValue::from_static("no-store"))
-    );
-    let cookies = login
-        .headers()
-        .get_all(SET_COOKIE)
-        .iter()
-        .map(|cookie| {
-            cookie
-                .to_str()
-                .expect("cookie header should be text")
-                .to_string()
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(cookies.len(), 2);
-    assert!(
-        cookies
-            .iter()
-            .any(|cookie| cookie.starts_with("ple_session="))
-    );
-    assert!(
-        cookies
-            .iter()
-            .any(|cookie| cookie.starts_with("ple_account_session="))
-    );
-    let browser_cookies = cookies
-        .iter()
-        .map(|cookie| cookie_request_header(cookie))
-        .collect::<Vec<_>>()
-        .join("; ");
-
-    let resumed = replica_app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri("/api/auth/session")
-                .header(COOKIE, &browser_cookies)
-                .body(Body::empty())
-                .expect("session request"),
-        )
-        .await
-        .expect("session response");
-    assert_eq!(resumed.status(), StatusCode::OK);
-    assert_eq!(
-        resumed.headers().get(CACHE_CONTROL),
-        Some(&HeaderValue::from_static("no-store"))
-    );
-
-    let logout = replica_app
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/api/auth/logout")
-                .header(COOKIE, &browser_cookies)
-                .body(Body::empty())
-                .expect("logout request"),
-        )
-        .await
-        .expect("logout response");
-    assert_eq!(logout.status(), StatusCode::OK);
-    assert!(
-        logout
-            .headers()
-            .get(SET_COOKIE)
-            .expect("logout should clear the cookie")
-            .to_str()
-            .expect("clear-cookie header should be text")
-            .contains("Max-Age=0")
-    );
-
-    let revoked = issuer_app
-        .oneshot(
-            Request::builder()
-                .uri("/api/auth/session")
-                .header(COOKIE, &browser_cookies)
-                .body(Body::empty())
-                .expect("revoked session request"),
-        )
-        .await
-        .expect("revoked session response");
-    assert_eq!(revoked.status(), StatusCode::UNAUTHORIZED);
 }

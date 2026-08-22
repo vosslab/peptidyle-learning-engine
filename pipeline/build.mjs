@@ -26,58 +26,21 @@ import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import * as esbuild from "esbuild";
 import { solidPlugin } from "esbuild-plugin-solid";
 
-const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
-  encoding: "utf8",
-}).trim();
+// This pipeline is part of the shipped build boundary. Its own stable location
+// anchors the repository even when invoked from an arbitrary directory or an
+// exported source tree with no version-control metadata.
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const skipWasm = process.argv.includes("--skip-wasm");
 
-const localDevelopmentAuth = process.env.PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH ?? "0";
-if (!["0", "1"].includes(localDevelopmentAuth)) {
-  throw new Error("PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH must be unset, 0, or exactly 1");
-}
-const browserTestTransport = process.env.PLE_BROWSER_TEST_TRANSPORT ?? "0";
-if (!["0", "1"].includes(browserTestTransport)) {
-  throw new Error("PLE_BROWSER_TEST_TRANSPORT must be unset, 0, or exactly 1");
-}
-
-// Tests may direct an isolated build and machine-readable dependency graph
-// elsewhere. Ordinary builds use dist/ and do not emit the diagnostic graph.
-const configuredOutputDirectory = process.env.PLE_BROWSER_OUTPUT_DIRECTORY;
-const distDir =
-  configuredOutputDirectory === undefined
-    ? path.join(repoRoot, "dist")
-    : path.resolve(repoRoot, configuredOutputDirectory);
-const configuredMetafilePath = process.env.PLE_BROWSER_METAFILE_PATH;
-const metafilePath =
-  configuredMetafilePath === undefined ? undefined : path.resolve(repoRoot, configuredMetafilePath);
-if (
-  metafilePath !== undefined &&
-  path.relative(distDir, metafilePath).split(path.sep).includes("..")
-) {
-  throw new Error("PLE_BROWSER_METAFILE_PATH must remain inside the browser output directory");
-}
+const distDir = path.join(repoRoot, "dist");
 const srcDir = path.join(repoRoot, "src");
 const wasmWebDir = path.join(repoRoot, "dist_wasm", "web");
-const fixtureProjectionPath = path.join(repoRoot, "generated", "fixtures", "published_problem.ts");
-const localDevelopmentBoundary = path.join(
-  srcDir,
-  "auth",
-  localDevelopmentAuth === "0"
-    ? "local_development_disabled.tsx"
-    : browserTestTransport === "1"
-      ? "local_development_browser_test.tsx"
-      : "local_development.tsx",
-);
-const browserClientBoundary = path.join(
-  srcDir,
-  "api",
-  browserTestTransport === "1" ? "browser_client_browser_test.ts" : "browser_client.ts",
-);
 
 //============================================
 
@@ -137,41 +100,6 @@ function copyWasmBridge() {
 //============================================
 
 /**
- * The browser reference app uses the same logical asset endpoint as production.  Its static
- * preview therefore emits the generated fixture bytes at that route so asset-bearing questions
- * exercise a real image load instead of silently accepting an HTTP 404.
- *
- * The generated projection intentionally stores this map as a TypeScript object literal. Reading
- * it here avoids adding a second hand-maintained asset corpus solely for the static mock preview.
- *
- * @returns {void}
- */
-function copyBrowserTestAssets() {
-  const projection = fs.readFileSync(fixtureProjectionPath, "utf8");
-  const marker = "export const publishedProblemAssetBodies: Readonly<Record<string, string>> = ";
-  const start = projection.indexOf(marker);
-  if (start < 0) throw new Error("generated fixture asset map is missing");
-  const objectStart = start + marker.length;
-  const objectEnd = projection.indexOf("\n};", objectStart) + 2;
-  if (objectEnd < objectStart) throw new Error("generated fixture asset map is incomplete");
-  const expression = projection.slice(objectStart, objectEnd);
-  // Generated TypeScript may use either quote style after Prettier, so JSON.parse is insufficient.
-  const evaluateFixtureMap = Function(`"use strict"; return (${expression});`);
-  const bodies = evaluateFixtureMap();
-  if (typeof bodies !== "object" || bodies === null || Array.isArray(bodies)) {
-    throw new Error("generated fixture asset map must be an object");
-  }
-  const assetDir = path.join(distDir, "api", "assets");
-  fs.mkdirSync(assetDir, { recursive: true });
-  for (const [assetId, body] of Object.entries(bodies)) {
-    if (typeof body !== "string") throw new Error(`fixture asset ${assetId} is not text`);
-    fs.writeFileSync(path.join(assetDir, assetId), body);
-  }
-}
-
-//============================================
-
-/**
  * Copies index.html into dist/, fingerprinting the script and stylesheet URLs.
  *
  * Cachebusting is not cosmetic here: a stale bundle served from cache is the
@@ -216,7 +144,7 @@ async function main() {
   fs.mkdirSync(distDir, { recursive: true });
 
   console.log("==> bundle");
-  const buildResult = await esbuild.build({
+  await esbuild.build({
     entryPoints: [path.join(repoRoot, entry)],
     outfile: path.join(distDir, "main.js"),
     bundle: true,
@@ -225,32 +153,9 @@ async function main() {
     platform: "browser",
     minify: true,
     sourcemap: true,
-    metafile: metafilePath !== undefined,
     logLevel: "info",
-    plugins: [
-      {
-        name: "local-development-browser-boundary",
-        setup(build) {
-          build.onResolve({ filter: /^\.\/auth\/local_development$/ }, () => ({
-            path: localDevelopmentBoundary,
-          }));
-        },
-      },
-      {
-        name: "browser-client-boundary",
-        setup(build) {
-          build.onResolve({ filter: /^\.\/api\/browser_client$/ }, () => ({
-            path: browserClientBoundary,
-          }));
-        },
-      },
-      solidPlugin(),
-    ],
+    plugins: [solidPlugin()],
   });
-  if (metafilePath !== undefined && buildResult.metafile !== undefined) {
-    fs.writeFileSync(metafilePath, `${JSON.stringify(buildResult.metafile, null, 2)}\n`);
-  }
-
   const bundleBytes = fs.readFileSync(path.join(distDir, "main.js"));
   const bundleHash = crypto.createHash("sha256").update(bundleBytes).digest("hex").slice(0, 8);
   const componentStylesheetBytes = fs.readFileSync(path.join(distDir, "main.css"));
@@ -270,9 +175,6 @@ async function main() {
   fs.copyFileSync(path.join(srcDir, "style.css"), path.join(distDir, "style.css"));
 
   copyWasmBridge();
-  if (browserTestTransport === "1") {
-    copyBrowserTestAssets();
-  }
 
   for (const required of ["index.html", "main.js", "main.css", "style.css"]) {
     if (!fs.existsSync(path.join(distDir, required))) {

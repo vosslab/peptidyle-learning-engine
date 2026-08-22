@@ -196,6 +196,19 @@ pub enum RunMode {
     Practice,
 }
 
+/// Authoritative completion state of one run.
+///
+/// Successor availability is deliberately separate: a run can have no next
+/// attempt because it completed or because it exhausted its attempt policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RunCompletionStatus {
+    /// The run has not satisfied its assignment completion requirement.
+    InProgress,
+    /// The run has satisfied its assignment completion requirement.
+    Completed,
+}
+
 /// One pass through an assignment.
 ///
 /// There is deliberately no stored `complete` boolean. The domain derives
@@ -224,6 +237,17 @@ pub struct AssignmentRun {
     pub mode: RunMode,
     /// Variation policy applied when this run was issued.
     pub variation: VariationPolicy,
+}
+
+impl AssignmentRun {
+    /// Returns the completion state recorded by the authoritative run projection.
+    pub fn completion_status(&self) -> RunCompletionStatus {
+        if self.completed_at.is_some() {
+            RunCompletionStatus::Completed
+        } else {
+            RunCompletionStatus::InProgress
+        }
+    }
 }
 
 /// Immutable question selection and issued order for one run.
@@ -461,6 +485,23 @@ pub struct LearnerAssignmentProgress {
 }
 
 impl LearnerAssignmentProgress {
+    /// Projects an entitled learner's assignment before the first durable
+    /// educational receipt exists. Reading progress must not create an
+    /// enrollment merely to represent the valid no-activity state.
+    pub fn no_activity(scoring_status: crate::ScoringStatus) -> Self {
+        Self {
+            score_state: LearnerScoreState::NoActivity,
+            scoring_status,
+            current_score: None,
+            best_score: None,
+            latest_score: None,
+            completed_run_count: 0,
+            total_question_attempts: 0,
+            last_activity_at: None,
+            class_statistics: None,
+        }
+    }
+
     /// Projects the internal summary after the server has made its disclosure
     /// decision. No-activity takes precedence over the disclosure setting.
     pub fn from_summary(
@@ -529,6 +570,20 @@ mod tests {
 
     #[test]
     fn learner_progress_distinguishes_no_activity_withheld_and_available_scores() {
+        assert_eq!(
+            LearnerAssignmentProgress::no_activity(crate::ScoringStatus::Current),
+            LearnerAssignmentProgress {
+                score_state: LearnerScoreState::NoActivity,
+                scoring_status: crate::ScoringStatus::Current,
+                current_score: None,
+                best_score: None,
+                latest_score: None,
+                completed_run_count: 0,
+                total_question_attempts: 0,
+                last_activity_at: None,
+                class_statistics: None,
+            }
+        );
         let mut summary = StudentAssignmentSummary::empty(
             TenantId::from_uuid(Uuid::from_u128(1)),
             EnrollmentId::from_uuid(Uuid::from_u128(2)),

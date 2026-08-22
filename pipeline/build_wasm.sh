@@ -22,7 +22,8 @@
 #   --debug   build the unoptimized profile (faster, much larger artifact)
 
 set -euo pipefail
-cd "$(git rev-parse --show-toplevel)"
+SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$SCRIPT_DIRECTORY/.."
 
 CARGO_PROFILE="release"
 PROFILE_DIR="release"

@@ -7,14 +7,19 @@ import local_stack_control.models
 
 #============================================
 def is_tls_target(target: local_stack_control.models.ComposeTarget) -> bool:
-	"""Recognize only the declared two-file live-demo TLS topology."""
-	try:
-		expected = local_stack_control.compose.disposable_policy_compose_files(
-			target.repo_root, "live-demo-browser"
-		)
-	except local_stack_control.models.ControllerError:
-		return False
-	return target.compose_files == expected
+	"""Recognize only one of the closed production-auth live-demo topologies."""
+	for profile in local_stack_control.models.LiveDemoProfile:
+		try:
+			expected = local_stack_control.compose.disposable_policy_compose_files(
+				target.repo_root,
+				local_stack_control.models.LIVE_DEMO_BROWSER_OWNER,
+				profile,
+			)
+		except local_stack_control.models.ControllerError:
+			continue
+		if target.compose_files == expected:
+			return True
+	return False
 
 
 #============================================

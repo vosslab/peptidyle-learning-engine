@@ -43,7 +43,8 @@ while [ "$#" -gt 0 ]; do
 	esac
 done
 
-cd "$(git rev-parse --show-toplevel)"
+SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$SCRIPT_DIRECTORY"
 
 if ! command -v cargo >/dev/null 2>&1; then
 	echo "ERROR: cargo not found on PATH." >&2

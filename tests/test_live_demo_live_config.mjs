@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { liveDemoInputsFromEnvironment } from "../tests/playwright/live_demo_live_config.ts";
-import { liveModeActivationFromEnvironment } from "../tests/playwright/live_mode_activation.ts";
+import { liveDemoInputsFromEnvironment } from "../tests/playwright/browser_suite_live_config.ts";
 
 const proof = "A".repeat(42) + "E";
 
@@ -96,11 +95,64 @@ test("V2 parser accepts only closed service receipt identifiers", () => {
   }
 });
 
-test("live modes are mutually exclusive", () => {
+test("V2 parser accepts only the owner-declared gateway fault transition", () => {
+  const base = validInput({
+    scenarioId: "learner_gateway_recovery",
+    namespace: "bs1-0123456789ab-learner_gateway_recovery",
+    sysadminRequirement: "not_required",
+  });
+  delete base.sysadminOwnershipProof;
+  const valid = {
+    schemaVersion: base.schemaVersion,
+    scenarioId: base.scenarioId,
+    namespace: base.namespace,
+    baseUrl: base.baseUrl,
+    personas: base.personas,
+    baselineReads: base.baselineReads,
+    sysadminRequirement: base.sysadminRequirement,
+    visibleObservation: base.visibleObservation,
+    faultTransition: "gateway_submit_outage",
+  };
+  assert.equal(parse(JSON.stringify(valid))?.faultTransition, "gateway_submit_outage");
+  assert.throws(() => parse(JSON.stringify({ ...valid, faultTransition: "renderer_outage" })));
+});
+
+test("V2 parser admits the full visual corpus input while retaining a bounded private ABI", () => {
+  const base = validInput({
+    scenarioId: "learner_delivery",
+    namespace: "bs1-0123456789ab-learner_delivery",
+    personas: ["elena_instructor", "mary_student"],
+    baselineReads: ["base_course"],
+    sysadminRequirement: "not_required",
+    visibleObservation: "learner_delivery",
+  });
+  delete base.sysadminOwnershipProof;
+  const artifacts = Array.from({ length: 64 }, (_, index) => ({
+    artifactId: `capture_${index + 1}`,
+    stateId: `state_${index + 1}`,
+  }));
+  const input = { ...base, screenshotCapture: { version: 1, artifacts } };
+  assert.equal(parse(JSON.stringify(input))?.screenshotCapture?.artifacts.length, 64);
   assert.throws(() =>
-    liveModeActivationFromEnvironment({
-      PLE_WEBWORK_LIVE_REQUIRED: "1",
-      PLE_LIVE_DEMO_BROWSER_REQUIRED: "1",
-    }),
+    parse(
+      JSON.stringify({
+        ...base,
+        screenshotCapture: {
+          version: 1,
+          artifacts: [...artifacts, { artifactId: "capture_65", stateId: "state_65" }],
+        },
+      }),
+    ),
+  );
+  assert.throws(() =>
+    parse(
+      JSON.stringify({
+        ...base,
+        screenshotCapture: {
+          version: 1,
+          artifacts: [...artifacts.slice(0, 63), artifacts[0]],
+        },
+      }),
+    ),
   );
 });

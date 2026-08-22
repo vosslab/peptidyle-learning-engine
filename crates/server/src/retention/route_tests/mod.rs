@@ -111,7 +111,7 @@ async fn issued_cookie(
         SessionSubject::new(tenant, user, "Retention fixture", roles).expect("fixture identity"),
         SessionConfig::new(
             SessionLifetime::from_seconds(3_600).expect("session lifetime"),
-            CookieTransport::LocalHttp,
+            CookieTransport::FirstPartyHttps,
         ),
     )
     .await

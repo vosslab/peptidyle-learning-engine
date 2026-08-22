@@ -482,7 +482,7 @@ async fn course_grade_export_emits_rectangular_inert_csv_rows_from_the_real_http
     );
     assert_eq!(records[2].get(7), Some("'=A"));
     assert_eq!(records[2].get(8), Some(""));
-    assert!(student_cookie.starts_with("ple_session="));
+    assert!(student_cookie.starts_with("__Host-ple_session="));
 }
 
 async fn created_assignment_id(response: axum::response::Response) -> String {

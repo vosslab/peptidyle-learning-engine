@@ -9,7 +9,8 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_ROOT="$(cd "$SCRIPT_DIRECTORY/../.." && pwd -P)"
 readonly REPO_ROOT
 readonly DATABASE_NAME="ple_e2e_baseline_$$"
 readonly TENANT_A="00000000-0000-4000-8000-0000000000a1"

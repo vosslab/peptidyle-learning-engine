@@ -29,7 +29,6 @@ test("session bootstrap retains only safe session state with direct narrow depen
   };
   const bootstrap = createSessionBootstrap(
     async () => session,
-    async () => session,
     async () => undefined,
   );
   await bootstrap.retry();

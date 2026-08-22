@@ -10,7 +10,6 @@ use super::*;
 
 fn injected_production_router() -> Router {
     let router = composed_memory_router_and_store_with_session_config(
-        false,
         super::super::backend::production_session_config(),
     )
     .0;
@@ -29,8 +28,8 @@ fn production_session_config_uses_first_party_https() {
 }
 
 #[tokio::test]
-async fn production_composition_has_passwordless_routes_without_local_login() {
-    let app = composed_memory_router_with_legacy_login(false);
+async fn production_composition_has_passwordless_routes_without_provider_login() {
+    let app = composed_memory_router();
     for (method, uri) in [
         ("POST", "/api/auth/passwordless/email/start"),
         ("POST", "/api/course-invitations/redeem"),
@@ -52,21 +51,21 @@ async fn production_composition_has_passwordless_routes_without_local_login() {
             .expect("production-style route response");
         assert_ne!(response.status(), StatusCode::NOT_FOUND, "{uri}");
     }
-    let local_login = app
+    let provider_login = app
         .oneshot(
             Request::builder()
                 .method("POST")
                 .uri("/api/auth/login")
                 .body(Body::from("{}"))
-                .expect("local login request"),
+                .expect("provider login request"),
         )
         .await
-        .expect("local login response");
-    assert_eq!(local_login.status(), StatusCode::NOT_FOUND);
+        .expect("provider login response");
+    assert_eq!(provider_login.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
-async fn injected_production_router_enforces_browser_cookie_contract_without_local_login() {
+async fn injected_production_router_enforces_browser_cookie_contract_without_provider_login() {
     let app = injected_production_router();
     let valid_logout = app
         .clone()
@@ -135,16 +134,16 @@ async fn injected_production_router_enforces_browser_cookie_contract_without_loc
         assert_eq!(response.status(), expected_status, "{host} {origin}");
     }
 
-    let legacy_login = app
+    let provider_login = app
         .oneshot(
             Request::builder()
                 .method("POST")
                 .uri("/api/auth/login")
                 .header("host", "learn.example.test")
                 .body(Body::from("{}"))
-                .expect("production local-login request"),
+                .expect("production provider-login request"),
         )
         .await
-        .expect("production local-login response");
-    assert_eq!(legacy_login.status(), StatusCode::NOT_FOUND);
+        .expect("production provider-login response");
+    assert_eq!(provider_login.status(), StatusCode::NOT_FOUND);
 }

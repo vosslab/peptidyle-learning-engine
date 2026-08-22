@@ -1,4 +1,4 @@
-// editor_page.tsx - injected, key-free workspace editor mock surface.
+// editor_page.tsx - key-free workspace editor with explicit runtime boundaries.
 
 import { ErrorBoundary, For, Show, createEffect, createSignal, onMount, type JSX } from "solid-js";
 
@@ -114,7 +114,7 @@ export interface EditorPageProps {
   readonly previewFacade: PreviewFacade;
   readonly responseValidator: WasmFacade;
   readonly initialWorkspace?: WorkspaceId;
-  /** Live routing may open a selected draft directly without changing fixture behavior. */
+  /** Live routing may open a selected draft without changing the editor's runtime boundaries. */
   readonly onOpenDraft?: (draft: WorkspaceDraftSummary) => void;
   /** The live workspace list can start a complete flat-question draft. */
   readonly onCreateFlatQuestion?: () => Promise<void>;
@@ -139,8 +139,8 @@ export function WasmEditorPage(
 }
 
 /**
- * A mock-backed instructor workflow. It deliberately takes every capability through injection so
- * routing the future authenticated API cannot make a fixture, credential, or evaluator implicit.
+ * The instructor workflow keeps repository, preview, and response-validation boundaries explicit
+ * at the production composition seam.
  */
 export function EditorPage(props: EditorPageProps): JSX.Element {
   const [page, setPage] = createSignal<PageState>({ kind: "loading" });
@@ -792,7 +792,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                           setSaveMessage(
                             "Preview checks response format only; it does not grade or record an answer.",
                           );
-                          return Promise.resolve();
+                          return Promise.resolve({ kind: "accepted" });
                         }}
                       />
                     </article>

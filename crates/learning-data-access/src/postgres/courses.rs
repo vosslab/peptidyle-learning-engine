@@ -5,13 +5,11 @@ use super::*;
 use crate::CourseMembershipRecord;
 
 fn random_membership_id() -> Result<Uuid, StoreError> {
-    let mut bytes = [0_u8; 16];
-    getrandom::fill(&mut bytes).map_err(|error| {
+    crate::random_uuid::random_uuid_v4(|error| {
         StoreError::Unavailable(format!(
             "course membership ID randomness unavailable: {error}"
         ))
-    })?;
-    Ok(Uuid::from_bytes(bytes))
+    })
 }
 
 pub(super) fn encode_course_group_purpose(

@@ -349,6 +349,68 @@ async fn during_attempt_class_statistics_are_projected_without_score_activity() 
     assert!(summary["summary"].get("disclosurePolicy").is_none());
 }
 
+#[tokio::test]
+async fn pre_receipt_assignment_summary_projects_policy_without_materializing() {
+    let (store, _backend, app, student_cookie, outsider_cookie, assignment) =
+        native_feedback_fixture().await;
+    replace_disclosure_policy(
+        store.as_ref(),
+        assignment,
+        question_model::LearnerDisclosurePolicy {
+            class_statistics: question_model::LearnerDisclosureTiming::DuringAttempt,
+            ..Default::default()
+        },
+    )
+    .await;
+    let tenant = TenantId::from_uuid(id(201));
+    let context = TenantContext::from_authenticated_session(tenant);
+    let student = UserId::from_uuid(id(203));
+    assert!(
+        store
+            .learner_get_enrollment_for_assignment(context, student, assignment)
+            .await
+            .expect("pre-receipt enrollment lookup")
+            .is_none()
+    );
+    let app = app.merge(crate::course::router(Arc::clone(&store)));
+    let summary = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/assignments/{assignment}/summary"))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("pre-receipt assignment summary request"),
+        )
+        .await
+        .expect("pre-receipt assignment summary response");
+    assert_eq!(summary.status(), StatusCode::OK);
+    let summary = json(summary).await;
+    assert_eq!(summary["scoreState"], "noActivity");
+    assert_eq!(
+        summary["classStatistics"],
+        serde_json::json!({ "state": "insufficientEvidence" })
+    );
+    assert!(
+        store
+            .learner_get_enrollment_for_assignment(context, student, assignment)
+            .await
+            .expect("post-projection enrollment lookup")
+            .is_none()
+    );
+    let denied = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/assignments/{assignment}/summary"))
+                .header("cookie", outsider_cookie)
+                .body(Body::empty())
+                .expect("denied assignment summary request"),
+        )
+        .await
+        .expect("denied assignment summary response");
+    assert_eq!(denied.status(), StatusCode::NOT_FOUND);
+}
+
 /// A five-learner cohort reaches this route only after ordinary HTTP attempts,
 /// the real scoring worker, and the real item-analysis worker have produced a
 /// current report.  Keep the fixture end-to-end so safe metrics cannot become

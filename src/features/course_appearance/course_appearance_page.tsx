@@ -1,16 +1,7 @@
 // course_appearance_page.tsx - instructor theme and entry-banner settings.
 
 import { A, revalidate } from "@solidjs/router";
-import {
-  For,
-  Show,
-  createEffect,
-  createMemo,
-  createResource,
-  createSignal,
-  onCleanup,
-  type JSX,
-} from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
 
 import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type { CourseBannerAlternativeText } from "../../../generated/api/CourseBannerAlternativeText";
@@ -28,6 +19,7 @@ import {
   useCourseThemePresentation,
   useCourseThemeRouteData,
 } from "./course_theme_context";
+import { createCourseBannerUrl } from "./course_banner_delivery";
 import {
   courseAppearanceBannerWillDisplay,
   courseAppearanceDraftAlternativeText,
@@ -160,10 +152,7 @@ export function CourseAppearancePage(): JSX.Element {
   const [errorMessage, setErrorMessage] = createSignal<string | null>(null);
   const [successMessage, setSuccessMessage] = createSignal<string | null>(null);
   const [conflict, setConflict] = createSignal(false);
-  const [savedBannerUrl] = createResource(
-    () => current().banner?.id ?? null,
-    (assetId) => runtime.client.issueProtectedAssetDelivery(assetId),
-  );
+  const savedBannerUrl = createCourseBannerUrl(() => current().banner?.id ?? null, runtime.client);
   let fileInput: HTMLInputElement | undefined;
   let errorHeading: HTMLHeadingElement | undefined;
 

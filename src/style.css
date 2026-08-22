@@ -46,7 +46,7 @@
   --ple-row-padding-inline: 0.62rem;
   --ple-dense-row-min-height: 3.6rem;
   --ple-catalog-window-block-size: min(65vh, 33rem);
-  --ple-catalog-row-block-size: 104px;
+  --ple-catalog-row-block-size: 132px;
   --ple-assignment-field-gap: 0.25rem;
   --ple-assignment-field-margin-block: 0.45rem;
   --ple-assignment-field-font-size: 0.9rem;
@@ -349,7 +349,8 @@ h3 {
   grid-template-areas:
     "kicker action"
     "title action"
-    "summary action";
+    "summary action"
+    "progress action";
   grid-template-columns: minmax(0, 1fr) auto;
   column-gap: var(--ple-space-5);
   align-items: center;
@@ -375,10 +376,15 @@ h3 {
   margin: 0;
 }
 
-.course-card p:not(.card-kicker) {
+.course-card .course-card-description {
   grid-area: summary;
   margin: var(--ple-space-1) 0 0;
   color: var(--ple-muted);
+}
+
+.course-card .course-card-progress {
+  grid-area: progress;
+  margin-top: var(--ple-space-1);
 }
 
 .course-card .primary-link {
@@ -387,6 +393,18 @@ h3 {
 
 .course-card .quiet-link {
   grid-area: action;
+}
+
+.course-card-actions {
+  grid-area: action;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ple-space-1);
+  align-items: stretch;
+}
+
+.course-card .course-card-actions .quiet-link {
+  grid-area: auto;
 }
 
 .course-create-form {
@@ -858,6 +876,7 @@ html[data-contrast="increased"] .course-theme-scope {
   .site-header {
     align-items: center;
     flex-direction: row;
+    flex-wrap: wrap;
     gap: var(--ple-mobile-header-gap);
   }
 
@@ -866,11 +885,12 @@ html[data-contrast="increased"] .course-theme-scope {
   }
 
   nav {
-    width: auto;
+    width: 100%;
     min-width: 0;
-    margin-inline-start: auto;
-    justify-content: flex-end;
-    overflow-x: auto;
+    margin-inline-start: 0;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
 
   nav a,
@@ -894,6 +914,7 @@ html[data-contrast="increased"] .course-theme-scope {
       "kicker"
       "title"
       "summary"
+      "progress"
       "action";
     grid-template-columns: minmax(0, 1fr);
   }
@@ -902,6 +923,15 @@ html[data-contrast="increased"] .course-theme-scope {
   .course-card .quiet-link {
     justify-self: start;
     margin-top: var(--ple-space-2);
+  }
+
+  .course-card-actions {
+    justify-self: start;
+    margin-top: var(--ple-space-2);
+  }
+
+  .course-card .course-card-actions .quiet-link {
+    margin-top: 0;
   }
 
   .course-create-form {
@@ -915,6 +945,12 @@ html[data-contrast="increased"] .course-theme-scope {
 
   .presentation-preference > div {
     grid-row: auto;
+  }
+}
+
+@media (max-width: 40rem) {
+  :root {
+    --ple-catalog-row-block-size: 184px;
   }
 }
 

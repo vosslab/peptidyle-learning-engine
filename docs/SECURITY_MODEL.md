@@ -174,10 +174,10 @@ single-use email ceremony creates or restores the opaque PLE account, and
 WebAuthn passkeys are optional additional credentials for that same account.
 PLE stores no password verifier. Email remains the recovery authority: loss or
 revocation of a passkey returns the learner to email sign-in, while a signed-in
-email change requires control of the current account. A local-file identity
-provider exists only in a binary built with the explicit
-`local-development-auth` feature and behind the explicit local-development
-launcher; production does not compile or mount its generic login route.
+email change requires control of the current account. The canonical browser
+entry uses seeded production authentication through the ordinary visible email
+and passkey flows; it has no local credential form, alternate credential transport, or
+alternate browser authentication path.
 
 Authentication uses one `__Host-` opaque session cookie. The raw 256-bit
 credential is generated from the operating-system random source, marked
@@ -189,7 +189,7 @@ revocation state.
 
 Production cookies are `Secure; HttpOnly; SameSite=Lax; Path=/` and have no
 `Domain` attribute. The `__Host-` prefix makes those host-only constraints
-browser-enforceable. Plain HTTP is limited to named local development. There
+browser-enforceable. The canonical browser path uses the HTTPS gateway. There
 is no production embedded `SameSite=None` mode: a future LTI integration must
 introduce and review a separate browser/session design rather than weaken the
 first-party session contract.

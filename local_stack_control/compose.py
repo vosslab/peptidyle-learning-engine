@@ -16,20 +16,24 @@ def repo_root_from_entrypoint(
 	entrypoint: pathlib.Path,
 	runner: local_stack_control.process.CommandRunner,
 ) -> pathlib.Path:
-	"""Return the Git repository root containing the package entry point."""
+	"""Return the repository root anchored by a controller module location."""
 	resolved_entrypoint = entrypoint.resolve(strict=True)
 	package_directory = resolved_entrypoint.parent
-	result = runner.run(
-		["git", "rev-parse", "--show-toplevel"],
-		cwd=package_directory,
-	)
-	if not result.ok() or result.stdout.strip() == "":
+	if resolved_entrypoint.name == "local_stack.py":
+		root = package_directory
+	elif package_directory.name == "local_stack_control":
+		root = package_directory.parent
+	else:
 		raise local_stack_control.models.ControllerError(
-			"local stack controller is not inside a Git work tree"
+			f"{resolved_entrypoint} is not a local-stack controller entry point"
 		)
-	root = pathlib.Path(result.stdout.strip()).resolve(strict=True)
+	root = root.resolve(strict=True)
 	public_entrypoint = root / "local_stack.py"
 	private_package = root / "local_stack_control"
+	if not public_entrypoint.is_file() or not private_package.is_dir():
+		raise local_stack_control.models.ControllerError(
+			f"{root} does not contain the local-stack controller layout"
+		)
 	if resolved_entrypoint != public_entrypoint and package_directory != private_package:
 		raise local_stack_control.models.ControllerError(
 			f"{resolved_entrypoint} is not a local-stack controller entry point"
@@ -74,10 +78,7 @@ def choose_provider(
 #============================================
 def compose_files(repo_root: pathlib.Path, with_smtp: bool) -> tuple[pathlib.Path, ...]:
 	"""Return explicit Compose files for the selected topology."""
-	files = [
-		repo_root / local_stack_control.models.PRIMARY_COMPOSE_FILE,
-		repo_root / local_stack_control.models.LOCAL_DEVELOPMENT_COMPOSE_FILE,
-	]
+	files = [repo_root / local_stack_control.models.PRIMARY_COMPOSE_FILE]
 	if with_smtp:
 		files.append(repo_root / local_stack_control.models.SMTP_COMPOSE_FILE)
 	result = tuple(files)
@@ -150,11 +151,25 @@ def require_default_mutation_target(target: local_stack_control.models.ComposeTa
 def disposable_policy_compose_files(
 	repo_root: pathlib.Path,
 	owner_policy: str,
+	live_demo_profile: local_stack_control.models.LiveDemoProfile | None = None,
 ) -> tuple[pathlib.Path, ...]:
 	"""Resolve one declared owner's exact Compose file sequence."""
 	policy = local_stack_control.models.disposable_owner_policy(owner_policy)
+	relative_paths = policy.compose_relative_paths
+	if owner_policy == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
+		if live_demo_profile is None:
+			raise local_stack_control.models.ControllerError(
+				"live-demo target must declare its closed profile"
+			)
+		relative_paths = local_stack_control.models.live_demo_profile_policy(
+			live_demo_profile
+		).compose_relative_paths
+	elif live_demo_profile is not None:
+		raise local_stack_control.models.ControllerError(
+			"only the fixed live-demo owner may declare a profile"
+		)
 	files: list[pathlib.Path] = []
-	for relative_path in policy.compose_relative_paths:
+	for relative_path in relative_paths:
 		path = repo_root / relative_path
 		if not path.is_file() or path.is_symlink():
 			raise local_stack_control.models.ControllerError(
@@ -168,6 +183,7 @@ def disposable_policy_compose_files(
 def require_disposable_target_policy(
 	target: local_stack_control.models.ComposeTarget,
 	owner_policy: str,
+	live_demo_profile: local_stack_control.models.LiveDemoProfile | None = None,
 ) -> local_stack_control.models.DisposableOwnerPolicy:
 	"""Require a declared owner, project grammar, and exact Compose topology."""
 	policy = local_stack_control.models.disposable_owner_policy(owner_policy)
@@ -175,7 +191,9 @@ def require_disposable_target_policy(
 		raise local_stack_control.models.ControllerError(
 			"disposable project does not match its declared owner format"
 		)
-	if target.compose_files != disposable_policy_compose_files(target.repo_root, owner_policy):
+	if target.compose_files != disposable_policy_compose_files(
+		target.repo_root, owner_policy, live_demo_profile
+	):
 		raise local_stack_control.models.ControllerError(
 			"disposable target Compose files do not match its declared owner policy"
 		)
@@ -205,9 +223,10 @@ def new_disposable_target(
 	target: local_stack_control.models.ComposeTarget,
 	capability_file: pathlib.Path,
 	owner_policy: str,
+	live_demo_profile: local_stack_control.models.LiveDemoProfile | None = None,
 ) -> local_stack_control.models.DisposableComposeTarget:
 	"""Create a typed disposable-owner contract for a private runner."""
-	policy = require_disposable_target_policy(target, owner_policy)
+	policy = require_disposable_target_policy(target, owner_policy, live_demo_profile)
 	local_stack_control.env_file.require_mutation_env_file(target.env_file)
 	require_disposable_capability_file(capability_file)
 	if (
@@ -232,6 +251,7 @@ def new_disposable_target(
 		capability_file=capability_file,
 		project_prefix=policy.project_prefix,
 		private_environment_file=target.env_file,
+		live_demo_profile=live_demo_profile,
 	)
 	require_disposable_no_pod_provider(disposable.target)
 	return disposable
@@ -280,7 +300,9 @@ def require_disposable_ownership(
 	disposable: local_stack_control.models.DisposableComposeTarget,
 ) -> None:
 	"""Verify runner-held capability commitment before a disposable mutation."""
-	policy = require_disposable_target_policy(disposable.target, disposable.owner_policy)
+	policy = require_disposable_target_policy(
+		disposable.target, disposable.owner_policy, disposable.live_demo_profile
+	)
 	require_disposable_no_pod_provider(disposable.target)
 	if disposable.project_prefix != policy.project_prefix:
 		raise local_stack_control.models.ControllerError(

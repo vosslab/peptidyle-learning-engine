@@ -207,11 +207,10 @@ macro_rules! opaque_id {
 
         impl $name {
             pub fn generate() -> Result<Self, StoreError> {
-                let mut bytes = [0_u8; 16];
-                getrandom::fill(&mut bytes).map_err(|error| {
+                crate::random_uuid::random_uuid_v4(|error| {
                     StoreError::Unavailable(format!("{} randomness unavailable: {error}", $label))
-                })?;
-                Ok(Self(Uuid::from_bytes(bytes)))
+                })
+                .map(Self)
             }
 
             pub fn from_uuid(value: Uuid) -> Self {

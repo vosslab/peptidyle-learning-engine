@@ -22,10 +22,6 @@ pub use invitation_capability::{
 pub use invitation_email::{
     SmtpCourseInvitationDelivery, SmtpCourseInvitationDeliveryConfig, SmtpTlsMode,
 };
-pub(crate) use roster::LocalTeachingRosterDirectory;
-#[cfg(any(feature = "local-development-auth", test))]
-pub(crate) use roster::LocalTeachingRosterIdentity;
-pub(crate) use routing::router_with_invitations_and_local_teaching;
 pub use routing::{router, router_with_invitations};
 
 #[cfg(test)]

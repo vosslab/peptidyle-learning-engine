@@ -1,5 +1,6 @@
 """Semantic project and service readiness classification."""
 
+import local_stack_control.lifecycle_profiles
 import local_stack_control.models
 
 
@@ -44,13 +45,14 @@ def service_containers(
 
 
 #============================================
-def absent_or_ambiguous_status(
+def cardinality_failure_status(
 	service: str,
 	instances: int,
+	expected_instances: int,
 ) -> local_stack_control.models.StackServiceStatus:
-	"""Build a missing or duplicate service result."""
+	"""Build a service result whose observed cardinality misses its contract."""
 	state = "missing"
-	if instances > 1:
+	if instances > expected_instances:
 		state = "ambiguous"
 	status = local_stack_control.models.StackServiceStatus(
 		service=service,
@@ -74,7 +76,7 @@ def one_shot_status(
 	"""Compute one-shot completion from inspected state."""
 	containers = service_containers(snapshot, service)
 	if len(containers) != 1:
-		return absent_or_ambiguous_status(service, len(containers))
+		return cardinality_failure_status(service, len(containers), 1)
 	container = containers[0]
 	complete = container.state == "exited" and container.exit_code == 0
 	status = local_stack_control.models.StackServiceStatus(
@@ -95,25 +97,43 @@ def one_shot_status(
 def long_running_status(
 	snapshot: local_stack_control.models.ProjectSnapshot,
 	service: str,
+	expected_instances: int,
 ) -> local_stack_control.models.StackServiceStatus:
 	"""Compute long-running health from inspected state."""
 	containers = service_containers(snapshot, service)
-	if len(containers) != 1:
-		return absent_or_ambiguous_status(service, len(containers))
-	container = containers[0]
-	healthy = container.running and container.health == "healthy"
+	if len(containers) != expected_instances:
+		return cardinality_failure_status(
+			service, len(containers), expected_instances
+		)
+	healthy = all(
+		container.running and container.health == "healthy"
+		for container in containers
+	)
 	if service in ("worker", "invitation-delivery-worker"):
-		healthy = container.running and container.health in (None, "", "disabled")
+		healthy = all(
+			container.running and container.health in (None, "", "disabled")
+			for container in containers
+		)
+	running = all(container.running for container in containers)
+	state = "running"
+	if not running:
+		state = next(container.state for container in containers if not container.running)
+	health_values = {container.health for container in containers}
+	health = containers[0].health if len(health_values) == 1 else "mixed"
+	exit_code = next(
+		(container.exit_code for container in containers if container.exit_code not in (None, 0)),
+		None,
+	)
 	status = local_stack_control.models.StackServiceStatus(
 		service=service,
-		instances=1,
+		instances=len(containers),
 		present=True,
-		running=container.running,
+		running=running,
 		healthy=healthy,
 		complete=False,
-		state=container.state,
-		health=container.health,
-		exit_code=container.exit_code,
+		state=state,
+		health=health,
+		exit_code=exit_code,
 	)
 	return status
 
@@ -144,12 +164,42 @@ def build_report(
 	snapshot: local_stack_control.models.ProjectSnapshot,
 ) -> local_stack_control.models.StatusReport:
 	"""Build meaningful readiness, inferring a persisted SMTP overlay safely."""
+	return _build_report(project, with_smtp, snapshot, None)
+
+
+#============================================
+def build_target_report(
+	target: local_stack_control.models.ComposeTarget
+	| local_stack_control.models.DisposableComposeTarget,
+	snapshot: local_stack_control.models.ProjectSnapshot,
+) -> local_stack_control.models.StatusReport:
+	"""Build readiness using the selected target's closed lifecycle profile."""
+	selected = local_stack_control.lifecycle_profiles.target_of(target)
+	report = _build_report(selected.project, selected.with_smtp, snapshot, target)
+	return report
+
+
+#============================================
+def _build_report(
+	project: str,
+	with_smtp: bool,
+	snapshot: local_stack_control.models.ProjectSnapshot,
+	target: local_stack_control.models.ComposeTarget
+	| local_stack_control.models.DisposableComposeTarget
+	| None,
+) -> local_stack_control.models.StatusReport:
+	"""Build readiness with default or closed target-derived cardinality."""
 	effective_with_smtp = with_smtp or smtp_topology_present(snapshot)
 	statuses: list[local_stack_control.models.StackServiceStatus] = []
 	for service in required_one_shots(effective_with_smtp):
 		statuses.append(one_shot_status(snapshot, service))
 	for service in required_long_running(effective_with_smtp):
-		statuses.append(long_running_status(snapshot, service))
+		expected_instances = 1
+		if target is not None:
+			expected_instances = local_stack_control.lifecycle_profiles.expected_long_running_count(
+				target, service
+			)
+		statuses.append(long_running_status(snapshot, service, expected_instances))
 
 	coarse_state = project_state(snapshot)
 	ok = len(statuses) > 0 and all(item.healthy for item in statuses)
@@ -161,10 +211,16 @@ def build_report(
 		message = "no active stack resources"
 	elif any(item.state == "ambiguous" for item in statuses):
 		state = "failed"
-		message = "a required service has duplicate instances"
-	elif any(item.present and item.state == "exited" and item.exit_code not in (None, 0) for item in statuses):
+		message = "a required service has unexpected extra instances"
+	elif any(
+		item.present and item.state == "exited" and item.exit_code not in (None, 0)
+		for item in statuses
+	):
 		state = "failed"
 		message = "a required service failed"
+	elif any(item.state == "missing" for item in statuses):
+		state = "partially-active"
+		message = "required service instances are missing"
 	elif all(item.present for item in statuses):
 		state = "starting"
 		message = "required services are not ready yet"

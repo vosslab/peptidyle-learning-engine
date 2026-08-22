@@ -15,6 +15,7 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			sysadmin_requirement="unclaimed",
 			visible_observation="sysadmin_passkey_reauthentication",
 			exclusive_seed_mutations=("sysadmin_first_claim",),
+			screenshot_states=("account_security_passkey",),
 		),
 		ScenarioContract(
 			scenario_id="auth_authorization",
@@ -26,9 +27,16 @@ def contracts() -> tuple[ScenarioContract, ...]:
 				"morgan_sysadmin",
 			),
 			baseline_reads=("base_course", "genetics_practice_course"),
-			ui_creates=("teaching_invitation",),
+			ui_creates=("course_group", "teaching_invitation"),
 			sysadmin_requirement="claimed",
 			visible_observation="seeded_sessions_avery_approval_and_course_boundaries",
 			exclusive_seed_mutations=("avery_instructor_approval",),
+			screenshot_states=(
+				"teaching_operations_groups",
+				"teaching_team_invited",
+				"teaching_operations_retention",
+				"pending_teaching_invitation",
+				"student_instructor_denial",
+			),
 		),
 	)

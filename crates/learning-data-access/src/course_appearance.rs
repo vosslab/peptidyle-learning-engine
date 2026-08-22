@@ -87,11 +87,11 @@ pub struct CourseBannerCleanupToken(Uuid);
 
 impl CourseBannerCleanupToken {
     pub(crate) fn generate() -> Result<Self, StoreError> {
-        let mut bytes = [0_u8; 16];
-        getrandom::fill(&mut bytes).map_err(|error| {
+        crate::random_uuid::random_128_bits(|error| {
             StoreError::Unavailable(format!("banner cleanup token generation failed: {error}"))
-        })?;
-        Ok(Self(Uuid::from_bytes(bytes)))
+        })
+        .map(crate::random_uuid::uuid_storage_from_128_random_bits)
+        .map(Self)
     }
 
     #[cfg(feature = "postgres")]

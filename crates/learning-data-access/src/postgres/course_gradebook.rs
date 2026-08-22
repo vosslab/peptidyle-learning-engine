@@ -394,11 +394,9 @@ fn decode_rounding(row: &PgRow) -> Result<CourseGradeRoundingRule, StoreError> {
     }
 }
 fn fresh_band_id() -> Result<Uuid, StoreError> {
-    let mut bytes = [0_u8; 16];
-    getrandom::fill(&mut bytes).map_err(|error| {
+    crate::random_uuid::random_uuid_v4(|error| {
         StoreError::Unavailable(format!("course letter-band ID unavailable: {error}"))
-    })?;
-    Ok(Uuid::from_bytes(bytes))
+    })
 }
 
 #[derive(Clone)]

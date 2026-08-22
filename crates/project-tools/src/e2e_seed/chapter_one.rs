@@ -140,6 +140,7 @@ fn pilot_question(question: crate::pilot_content::Question) -> Result<PilotQuest
 pub(super) async fn seed_chapter_one_pilot(
     arguments: &SeedArguments,
 ) -> Result<ChapterOnePilotManifest> {
+    let student = arguments.course_student()?;
     let chapter_specs = pilot_chapters()?;
     let storage = arguments
         .chapter_one_pilot
@@ -295,7 +296,7 @@ pub(super) async fn seed_chapter_one_pilot(
             &store,
             context,
             arguments.instructor,
-            arguments.student,
+            student,
             course_id,
             assignment_id,
         )

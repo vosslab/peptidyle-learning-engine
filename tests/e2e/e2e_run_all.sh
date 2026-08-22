@@ -15,7 +15,8 @@
 # Run: bash tests/e2e/e2e_run_all.sh
 
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel)" || exit 1
+SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$SCRIPT_DIRECTORY/../.." || exit 1
 
 PASSED=0
 FAILED=0
@@ -39,8 +40,8 @@ run_check wasm_bridge node tests/e2e/e2e_wasm_bridge.mjs
 # The processed Wasm artifact exposes only the explicitly reviewed bridge API.
 run_check wasm_export_allowlist node tests/e2e/e2e_wasm_export_allowlist.mjs
 
-# Production and local browser builds expose different authentication capabilities.
-run_check browser_local_auth_build node tests/e2e/e2e_browser_local_development_build.mjs
+# The shipped browser build has one production-authentication composition path.
+run_check browser_production_build node tests/e2e/e2e_browser_production_build.mjs
 
 # SQLx baseline, role grants, forced RLS, and disposable migration checksum proof.
 run_check database_baseline bash tests/e2e/e2e_database_baseline.sh

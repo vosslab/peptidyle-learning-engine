@@ -1,9 +1,10 @@
 // course_entry_identity.tsx - course title and optional entry-only banner.
 
-import { Show, createResource, type JSX } from "solid-js";
+import { Show, type JSX } from "solid-js";
 
 import type { CourseBannerAlternativeText } from "../../../generated/api/CourseBannerAlternativeText";
 import { useApiRuntime } from "../../api/runtime";
+import { createCourseBannerUrl } from "./course_banner_delivery";
 import { courseRouteData, useCourseThemeRouteData } from "./course_theme_context";
 
 const COURSE_ENTRY_IDENTITY_STYLES = `
@@ -38,10 +39,7 @@ export function CourseEntryIdentity(): JSX.Element {
   const runtime = useApiRuntime();
   const routeData = useCourseThemeRouteData();
   const banner = routeData === undefined ? null : courseRouteData(routeData).appearance.banner;
-  const [deliveryUrl] = createResource(
-    () => banner?.id ?? null,
-    (assetId) => runtime.client.issueProtectedAssetDelivery(assetId),
-  );
+  const deliveryUrl = createCourseBannerUrl(() => banner?.id ?? null, runtime.client);
   if (routeData === undefined) return <></>;
   const course = courseRouteData(routeData);
   return (

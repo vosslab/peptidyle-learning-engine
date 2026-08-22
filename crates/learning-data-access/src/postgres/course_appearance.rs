@@ -217,8 +217,8 @@ impl CourseAppearanceStore for PostgresStore {
                 let delivery = AssetDeliveryRecord {
                     id: AssetDeliveryId::from_course_banner(stored.banner),
                     object: promoted_object.clone(),
-                    intrinsic_width: None,
-                    intrinsic_height: None,
+                    intrinsic_width: Some(COURSE_BANNER_WIDTH),
+                    intrinsic_height: Some(COURSE_BANNER_HEIGHT),
                     scope: AssetDeliveryScope::CourseBanner {
                         tenant: context.tenant_id(),
                         course,

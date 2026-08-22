@@ -225,6 +225,24 @@ def test_source_file_line_limit_override_list(tmp_path: pathlib.Path) -> None:
 
 
 #============================================
+def test_source_file_discovery_excludes_generated_graphify_output(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""Keep generated Graphify reports out while retaining authored Markdown."""
+	generated_dir = tmp_path / "graphify-out"
+	generated_dir.mkdir()
+	(generated_dir / "GRAPH_REPORT.md").write_text("generated\n", encoding="utf-8")
+	authored_dir = tmp_path / "docs"
+	authored_dir.mkdir()
+	(authored_dir / "GRAPH_REPORT.md").write_text("authored\n", encoding="utf-8")
+
+	files = file_utils.discover_files(extensions=(".md",), repo_root=str(tmp_path))
+	relative_files = {file_utils.rel_to_root(path, str(tmp_path)) for path in files}
+	assert "graphify-out/GRAPH_REPORT.md" not in relative_files
+	assert "docs/GRAPH_REPORT.md" in relative_files
+
+
+#============================================
 @pytest.mark.parametrize("path", FILES, ids=file_utils.rel_id)
 def test_source_file_line_limit(path: str) -> None:
 	"""Fail when a tracked authored source file contains 1000 or more lines."""

@@ -50,23 +50,22 @@ class RecordingRunner(local_stack_control.process.CommandRunner):
 
 
 #============================================
-def test_reviewed_local_stack_prunes_every_unused_image(
+def test_reviewed_local_stack_prunes_stale_owned_image_and_preserves_active_image(
 	tmp_path: pathlib.Path,
 ) -> None:
-	"""Inactive disposable tags are removed before the pre-approved prune."""
+	"""Cleanup removes the stale project tag while retaining active and foreign images."""
 	runner = RecordingRunner(
 		(
 			(
 				0,
-				'[{"Image":"localhost/ple-ui-walkthrough-1111111111111111_gateway:latest"}]',
+				'[{"Image":"localhost/ple-live-demo-browser_gateway:latest"}]',
 			),
 			(
 				0,
 				"""[
 					{"Names":["localhost/containers_gateway:latest",
-					"localhost/ple-ui-walkthrough-1111111111111111_gateway:latest",
-					"localhost/ple-ui-walkthrough-2222222222222222_gateway:latest"]},
-					{"Names":["localhost/peptidyle-learning-engine:ple-webwork-browser-333333333333"]},
+					"localhost/ple-live-demo-browser_gateway:latest"]},
+					{"Names":["localhost/peptidyle-learning-engine:ple-live-demo-browser"]},
 					{"Repository":"<none>","Tag":"<none>"},
 					{"Names":["docker.io/library/postgres:17"]}
 				]""",
@@ -77,23 +76,17 @@ def test_reviewed_local_stack_prunes_every_unused_image(
 		)
 	)
 	local_stack_control.image_cleanup.prune_superseded_images(runner, tmp_path)
-	assert runner.calls == [
-		["podman", "ps", "--all", "--format", "json"],
-		["podman", "images", "--all", "--format", "json"],
-		[
-			"podman",
-			"image",
-			"rm",
-			"localhost/peptidyle-learning-engine:ple-webwork-browser-333333333333",
-		],
-		[
-			"podman",
-			"image",
-			"rm",
-			"localhost/ple-ui-walkthrough-2222222222222222_gateway:latest",
-		],
-		["podman", "image", "prune", "--all", "--force"],
-	]
+	removed = {
+		call[-1]
+		for call in runner.calls
+		if len(call) >= 3 and call[:3] == ["podman", "image", "rm"]
+	}
+	assert removed == {"localhost/peptidyle-learning-engine:ple-live-demo-browser"}
+	assert [
+		call for call in runner.calls
+		if len(call) >= 3 and call[:3] == ["podman", "image", "prune"]
+	] == [["podman", "image", "prune", "--all", "--force"]]
+	assert "localhost/ple-live-demo-browser_gateway:latest" not in removed
 
 
 #============================================

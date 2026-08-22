@@ -383,7 +383,7 @@ mod tests {
     fn session_config() -> SessionConfig {
         SessionConfig::new(
             learning_data_access::SessionLifetime::from_seconds(60).expect("positive lifetime"),
-            super::super::CookieTransport::LocalHttp,
+            super::super::CookieTransport::FirstPartyHttps,
         )
     }
 
@@ -449,10 +449,10 @@ mod tests {
             .get_all(SET_COOKIE)
             .iter()
             .filter_map(|value| value.to_str().ok())
-            .find(|value| value.starts_with("ple_account_session="))
+            .find(|value| value.starts_with("__Host-ple_account_session="))
             .and_then(|value| value.split(';').next())
             .expect("account session cookie")
-            .to_string()
+            .replacen("__Host-", "", 1)
     }
 
     fn account_token_hash(cookie_pair: &str) -> AccountSessionTokenHash {
@@ -687,10 +687,10 @@ mod tests {
         assert!(
             cookies
                 .iter()
-                .any(|value| value.starts_with("ple_account_session="))
+                .any(|value| value.starts_with("__Host-ple_account_session="))
                 && cookies
                     .iter()
-                    .any(|value| value.starts_with("ple_session=;"))
+                    .any(|value| value.starts_with("__Host-ple_session=;"))
         );
     }
 

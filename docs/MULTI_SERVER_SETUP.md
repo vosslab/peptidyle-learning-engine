@@ -3,20 +3,23 @@
 This document explains the implemented local multi-replica topology and the
 separate OpenTofu production baseline. It is an operations guide, not evidence
 that an AWS deployment has been accepted. The source contracts are
-[containers/compose.yaml](../containers/compose.yaml),
-`containers/compose.local-development.yaml`,
+[containers/compose.yaml](../containers/compose.yaml), the optional
+`containers/compose.smtp.yaml` overlay,
 [containers/Caddyfile](../containers/Caddyfile), and the server composition in
 [crates/server/src/composition.rs](../crates/server/src/composition.rs).
 
 ## Scope and status
 
-The supported local topology runs one Caddy gateway, one or more stateless API
-replicas, one or more durable-worker replicas, one PostgreSQL 17 instance, one
-MinIO instance, and one private external stateless PG renderer. The renderer supports the accepted,
+The supported local topology runs one Caddy gateway, one stateless API, one
+durable worker, one PostgreSQL 17 instance, one MinIO instance, and one private
+external stateless PG renderer. The fixed `ple-live-demo-browser` lifecycle
+also owns Playwright, screenshots, and service oracles with seeded production
+authentication. The renderer supports the accepted,
 deliberately bounded four-source Chapter 1 PGML MC/MATCH profile. It does not imply broad WeBWorK
 compatibility or production approval of that externally supplied image.
-A local two-API-replica restart test exists and has been used as the behavioral
-proof that a learner can continue after the issuing API replica stops.
+The closed `replica_restart` profile is the only two-API-replica topology. It
+uses one PostgreSQL instance and proves that a learner can continue after the
+issuing API replica stops. There is no generic random replica or service owner.
 
 The target AWS Fargate, ALB, RDS, S3, CloudFront, WAF, KMS, Secrets Manager,
 and OpenTofu deployment has a separate deployment acceptance contract. Its
@@ -75,8 +78,8 @@ not browser routes. The complete local container policy is in
 | Component          | Implemented role                                              | Network or host exposure                                       | Shared durable state                   | Scale rule                                                 |
 | ------------------ | ------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------- |
 | `gateway`          | Serves read-only `dist/`; proxies `/api`, `/api/*`, `/health` | Host `127.0.0.1:${PLE_GATEWAY_HOST_PORT}`; `gateway_api`       | None                                   | One local gateway; not an API session owner                |
-| `api`              | Axum HTTP routes, auth, issue, grade, and asset authorization | `default`, `gateway_api`, and `renderer_private`; no host port | PostgreSQL, S3-compatible object store | `--scale api=N`; each replica uses identical configuration |
-| `worker`           | Claims and completes bounded durable jobs                     | `default`; no host port                                        | PostgreSQL queue and object store      | `--scale worker=N`; each process claims one job at a time  |
+| `api`              | Axum HTTP routes, auth, issue, grade, and asset authorization | `default`, `gateway_api`, and `renderer_private`; no host port | PostgreSQL, S3-compatible object store | One normal API; two only in `replica_restart` |
+| `worker`           | Claims and completes bounded durable jobs                     | `default`; no host port                                        | PostgreSQL queue and object store      | One lifecycle-owned worker                          |
 | `postgres`         | Shared tenant records, sessions, attempts, idempotency, jobs  | `default`; loopback 5432 by default                            | `ple_pgdata`                           | One local instance; no local HA claim                      |
 | `minio`            | Shared S3-compatible object store                             | `default`; loopback 9000/9001 by default                       | `ple_miniodata`                        | One local instance; no local HA claim                      |
 | `createbuckets`    | Idempotently ensures the four required buckets exist          | `default`; no host port                                        | MinIO buckets                          | One-shot, not scaled                                       |
@@ -184,7 +187,6 @@ and credentials with mode 0600; never commit or reuse them outside local work.
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`                                     | Ignored local env; deployment secret store | Yes for API and worker                    | Object-store credentials                                             |
 | `PLE_PUBLIC_ASSET_BASE_URL`                                                      | Operator                                   | Yes for API                               | Safe public immutable asset base                                     |
 | `PLE_BIND_ADDR`                                                                  | Compose/API                                | Yes except binding address                | API listen address; `0.0.0.0:3000` remains internal                  |
-| `PLE_AUTH_PROVIDER`, `PLE_LOCAL_AUTH_FILE`                                       | Local development only                     | Yes for API                               | Development-only tenant-session provider and hash-only identity file |
 | `PLE_WEBAUTHN_RP_ID`, `PLE_WEBAUTHN_ORIGIN`, `PLE_WEBAUTHN_RP_NAME`              | Operator                                   | Yes for API                               | PLE passkey relying-party identity                                   |
 | `PLE_SMTP_*`, `PLE_PUBLIC_APP_BASE_URL`                                          | Operator, optional SMTP overlay            | Yes for API when delivery is enabled      | External-provider email authentication and invitation delivery       |
 | `PLE_WORKER_*`                                                                   | Operator                                   | Yes for workers                           | Bounded worker lease, deadline, and polling controls                 |
@@ -192,11 +194,9 @@ and credentials with mode 0600; never commit or reuse them outside local work.
 | `PLE_*_IMAGE_SHA256`                                                             | Operator/typed lifecycle                   | Applicable services                       | Immutable local image manifests                                      |
 | `PLE_WEBWORK_*`                                                                  | Opt-in profile operator                    | Yes for API and renderer where applicable | Private renderer identity, limits, and secrets                       |
 
-The API's `PLE_LOCAL_AUTH_FILE` is a read-only mount of hashes, not the adjacent
-local bearer credentials. It is a development-only tenant-session provider and
-not PLE's production account path. PLE owns the canonical email-authentication
-and account-session flow; WebAuthn passkeys are optional account shortcuts.
-The SMTP overlay is optional and connects to an operator-selected external
+PLE owns the canonical production account and session flow; WebAuthn passkeys
+are the visible authentication path used by the fixed browser lifecycle. The
+SMTP overlay is optional and connects to an operator-selected external
 provider using its credentials. A future SSO integration may link an account,
 but PLE does not require an institution as its identity authority.
 
@@ -211,50 +211,39 @@ equivalent bootstrap path.
 source source_me.sh && python3 local_stack.py start --no-open
 ```
 
-After the normal stack is ready, scale API and worker replicas with the same
-environment file. API replicas stay behind the gateway; workers remain private.
+The normal stack starts one API and one worker. The fixed `replica_restart`
+profile is the only supported two-API service oracle; it owns its exact
+production-auth Compose files, one PostgreSQL instance, and cleanup receipt.
+Do not scale the normal developer stack by hand.
 
 ```bash
-podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
-  --env-file containers/env.local \
-  up -d --scale api=2 api gateway
-podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
-  --env-file containers/env.local \
-  up -d --scale worker=2 worker
-podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
+podman compose -f containers/compose.yaml \
   --env-file containers/env.local ps
-podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
+podman compose -f containers/compose.yaml \
   --env-file containers/env.local logs -f api worker
 PLE_GATEWAY_HOST_PORT="$(awk -F= '$1 == "PLE_GATEWAY_HOST_PORT" { print $2 }' containers/env.local)"
 curl --fail --silent --show-error "http://127.0.0.1:${PLE_GATEWAY_HOST_PORT}/health"
 ```
 
-The renderer stays in the base topology while API and worker replicas scale. The reviewed Chapter 1
-matching sources have live single-stack acceptance; broader PG compatibility and multi-replica
-matching behavior require separate evidence:
+The renderer stays in the base topology. The replica oracle is the evidence for
+multi-API behavior; its fixed owner launches the exact profile and performs
+typed cleanup:
 
 ```bash
-podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
-  --env-file containers/env.local ps
-podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
-  --env-file containers/env.local \
-  up -d --scale api=2 --scale worker=2
-podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
-  --env-file containers/env.local \
-  logs -f api worker webwork-renderer
+node tests/e2e/e2e_replica_restart.mjs
 ```
 
 Normal teardown retains volumes:
 
 ```bash
-podman compose -f containers/compose.yaml -f containers/compose.local-development.yaml \
+podman compose -f containers/compose.yaml \
   --env-file containers/env.local \
   down --remove-orphans
 ```
 
-The lifecycle's final output is the authoritative gateway port if it selected a
-free port other than the default `8080`. Use that printed port for `curl` and
-browser access. See `docs/CONTAINER_PORT_MAPPING.md` for the local and
+The fixed developer/browser owner uses `source source_me.sh && python3
+local_stack.py stop` rather than raw Compose teardown. See
+[CONTAINER_PORT_MAPPING.md](CONTAINER_PORT_MAPPING.md) for the local and
 planned-AWS port boundaries.
 
 ## Failure behavior

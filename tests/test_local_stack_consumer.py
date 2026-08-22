@@ -38,15 +38,16 @@ def test_resource_capability_rejects_missing_or_foreign_digest(
 	compose_file = tmp_path / "containers" / "compose.yaml"
 	compose_file.parent.mkdir()
 	compose_file.write_text("services: {}\n", encoding="ascii")
-	local_development_compose_file = compose_file.with_name("compose.local-development.yaml")
-	local_development_compose_file.write_text("services: {}\n", encoding="ascii")
+	live_demo_compose_file = tmp_path / "tests" / "e2e" / "compose.live-demo-browser.yaml"
+	live_demo_compose_file.parent.mkdir(parents=True)
+	live_demo_compose_file.write_text("services: {}\n", encoding="ascii")
 	target = local_stack_control.models.ComposeTarget(
 		repo_root=tmp_path,
-		project="ple-chapter-one-browser-0123456789ab",
+		project=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
 		env_file=env_file,
 		compose_files=(
 			compose_file.resolve(strict=True),
-			local_development_compose_file.resolve(strict=True),
+			live_demo_compose_file.resolve(strict=True),
 		),
 		provider=local_stack_control.models.ComposeProvider(
 			("podman-compose", "--in-pod", "false"), "podman-compose"
@@ -56,10 +57,11 @@ def test_resource_capability_rejects_missing_or_foreign_digest(
 	)
 	disposable = local_stack_control.models.DisposableComposeTarget(
 		target=target,
-		owner_policy="chapter-one-browser",
+		owner_policy=local_stack_control.models.LIVE_DEMO_BROWSER_OWNER,
 		capability_file=capability_file,
-		project_prefix="ple-chapter-one-browser-",
+		project_prefix=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
 		private_environment_file=env_file,
+		live_demo_profile=local_stack_control.models.LiveDemoProfile.WEBWORK_RENDER_RPC,
 	)
 	snapshot = local_stack_control.models.ProjectSnapshot(
 		project=target.project,
@@ -88,7 +90,7 @@ def test_full_stack_lifecycle_request_is_closed_and_has_a_bounded_timeout(
 	env_file, capability_file = private_environment(tmp_path)
 	target = local_stack_control.models.ComposeTarget(
 		repo_root=tmp_path,
-		project="ple-chapter-one-browser-0123456789ab",
+		project=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
 		env_file=env_file,
 		compose_files=(),
 		provider=local_stack_control.models.ComposeProvider(("podman", "compose"), "podman compose"),
@@ -96,8 +98,9 @@ def test_full_stack_lifecycle_request_is_closed_and_has_a_bounded_timeout(
 		env_setting_names=(),
 	)
 	disposable = local_stack_control.models.DisposableComposeTarget(
-		target, "chapter-one-browser", capability_file,
-		"ple-chapter-one-browser-", env_file,
+		target, local_stack_control.models.LIVE_DEMO_BROWSER_OWNER, capability_file,
+		local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT, env_file,
+		local_stack_control.models.LiveDemoProfile.WEBWORK_RENDER_RPC,
 	)
 
 	options = local_stack_control.consumer.lifecycle_options(disposable, 60)

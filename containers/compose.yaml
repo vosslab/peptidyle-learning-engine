@@ -1,6 +1,9 @@
 # compose.yaml - common local and disposable stack topology.
 x-ple-disposable-capability-label: &ple-disposable-capability-label
   org.peptidyle.disposable.capability-sha256: "${PLE_DISPOSABLE_CAPABILITY_SHA256:-normal}"
+  # The browser overlay selects live-demo-browser. Ordinary local stacks retain
+  # this safe non-browser owner value.
+  org.peptidyle.e2e.owner: "${PLE_E2E_OWNER:-normal}"
 
 services:
   # Rootless Podman creates a new named volume with an engine-owned top-level
@@ -181,8 +184,8 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m,mode=1777
     cpus: "0.10"
-    # `mc pipe` is a Go client operation.  A 128 MiB cgroup can OOM-kill it
-    # while creating the generation receipt even though MinIO is healthy.
+    # Known-length bootstrap objects use a private tmpfs file and a single PUT.
+    # This keeps the Go client bounded without unknown-size multipart buffers.
     mem_limit: 256m
     pids_limit: 32
     restart: "no"

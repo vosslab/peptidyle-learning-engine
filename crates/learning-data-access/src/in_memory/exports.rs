@@ -230,11 +230,10 @@ impl ExportJobStore for MemoryStore {
 }
 
 fn fresh_export_object_id() -> Result<question_model::ObjectId, StoreError> {
-    let mut bytes = [0_u8; 16];
-    getrandom::fill(&mut bytes).map_err(|error| {
+    crate::random_uuid::random_uuid_v4(|error| {
         StoreError::Unavailable(format!("export object ID randomness unavailable: {error}"))
-    })?;
-    Ok(question_model::ObjectId::from_uuid(Uuid::from_bytes(bytes)))
+    })
+    .map(question_model::ObjectId::from_uuid)
 }
 
 fn export_view(export: ExportId, stored: &StoredExport) -> StudentExportView {

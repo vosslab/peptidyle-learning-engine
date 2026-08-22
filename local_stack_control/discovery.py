@@ -200,6 +200,9 @@ def container_from_json(
 		if isinstance(labels.get(local_stack_control.models.DISPOSABLE_CAPABILITY_LABEL), str)
 		else None,
 		image_id=canonical_oci_image_id(inspection.get("Image")),
+		owner=labels.get(local_stack_control.models.E2E_OWNER_LABEL)
+		if isinstance(labels.get(local_stack_control.models.E2E_OWNER_LABEL), str)
+		else None,
 	)
 	return container
 
@@ -215,6 +218,9 @@ def volume_from_json(raw: dict[str, object]) -> local_stack_control.models.Volum
 		name=name,
 		project=project,
 		capability_digest=capability if isinstance(capability, str) else None,
+		owner=labels.get(local_stack_control.models.E2E_OWNER_LABEL)
+		if isinstance(labels.get(local_stack_control.models.E2E_OWNER_LABEL), str)
+		else None,
 	)
 
 
@@ -233,6 +239,9 @@ def network_from_json(raw: dict[str, object]) -> local_stack_control.models.Netw
 		name=name_value,
 		project=project,
 		capability_digest=capability if isinstance(capability, str) else None,
+		owner=labels.get(local_stack_control.models.E2E_OWNER_LABEL)
+		if isinstance(labels.get(local_stack_control.models.E2E_OWNER_LABEL), str)
+		else None,
 	)
 
 

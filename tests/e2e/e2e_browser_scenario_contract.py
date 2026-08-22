@@ -29,9 +29,12 @@ RESOURCE_KINDS = frozenset(
 	{
 		"assignment",
 		"course",
+		"course_group",
+		"grade_scheme",
 		"invitation",
 		"passkey",
 		"question",
+		"qti_import",
 		"response",
 		"teaching_invitation",
 	}
@@ -41,6 +44,7 @@ EXCLUSIVE_SEED_MUTATIONS = frozenset(
 	{"sysadmin_first_claim", "avery_instructor_approval"}
 )
 SERVICE_RECEIPTS = frozenset({"renderer_delivery", "worker_completion"})
+FAULT_TRANSITIONS = frozenset({"gateway_submit_outage"})
 
 
 class ScenarioContractError(ValueError):
@@ -60,6 +64,9 @@ class ScenarioContract:
 	visible_observation: str
 	exclusive_seed_mutations: tuple[str, ...] = ()
 	service_receipt: str | None = None
+	fault_transition: str | None = None
+	# Closed visual states exposed only when the suite runs its screenshot corpus.
+	screenshot_states: tuple[str, ...] = ()
 	# Compatibility-only construction field; V2 consumers use sysadmin_requirement.
 	sysadmin_state: str | None = None
 
@@ -114,6 +121,9 @@ def validate_contract(contract: ScenarioContract) -> None:
 	_validate_sysadmin_requirement(contract)
 	_validate_visible_observation(contract.visible_observation)
 	_validate_service_receipt(contract.service_receipt)
+	_validate_fault_transition(contract.fault_transition)
+	if contract.screenshot_states:
+		_validate_screenshot_states(contract.screenshot_states)
 	_validate_exclusive_seed_mutations(contract.exclusive_seed_mutations)
 	_validate_sysadmin_dependency(contract)
 
@@ -213,6 +223,12 @@ def _validate_service_receipt(value: str | None) -> None:
 		raise ScenarioContractError("browser scenario service receipt is invalid")
 
 
+def _validate_fault_transition(value: str | None) -> None:
+	"""Allow only a checked-in lifecycle fault transition."""
+	if value is not None and value not in FAULT_TRANSITIONS:
+		raise ScenarioContractError("browser scenario fault transition is invalid")
+
+
 def _validate_exclusive_seed_mutations(values: tuple[str, ...]) -> None:
 	if len(values) != len(set(values)):
 		raise ScenarioContractError(
@@ -239,7 +255,20 @@ def _validate_sysadmin_dependency(contract: ScenarioContract) -> None:
 			raise ScenarioContractError(
 				"unclaimed Sysadmin scenario must own the visible first claim"
 			)
-	elif "sysadmin_first_claim" in contract.exclusive_seed_mutations:
+		return
+	if contract.sysadmin_requirement == "claimed":
+		if "morgan_sysadmin" not in contract.personas:
+			raise ScenarioContractError(
+				"claimed Sysadmin scenario must declare the Sysadmin persona"
+			)
+		if "passkey" in contract.ui_creates:
+			raise ScenarioContractError(
+				"claimed Sysadmin scenario consumes but does not create a passkey"
+			)
+	if (
+		contract.sysadmin_requirement != "unclaimed"
+		and "sysadmin_first_claim" in contract.exclusive_seed_mutations
+	):
 		raise ScenarioContractError(
 			"only unclaimed Sysadmin scenario can mutate first claim"
 		)
@@ -320,3 +349,11 @@ def _validate_closed_values(
 		raise ScenarioContractError(f"browser scenario {name} values are invalid")
 	if not set(values).issubset(allowed):
 		raise ScenarioContractError(f"browser scenario {name} values are invalid")
+
+
+def _validate_screenshot_states(values: tuple[str, ...]) -> None:
+	"""Keep provider states unique while the JSON corpus owns their closed inventory."""
+	if not values or len(values) != len(set(values)):
+		raise ScenarioContractError("browser scenario screenshot state values are invalid")
+	for value in values:
+		_validate_identifier(value)

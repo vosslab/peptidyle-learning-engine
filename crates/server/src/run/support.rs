@@ -101,6 +101,8 @@ pub(super) struct SubmissionReceipt {
     pub(super) attempt: QuestionAttempt,
     pub(super) feedback: Option<DisclosedFeedback>,
     pub(super) scoring_status: question_model::ScoringStatus,
+    /// Authoritative persisted run completion, independent of successor availability.
+    pub(super) run_completion_status: question_model::RunCompletionStatus,
     pub(super) next_issued: Option<NextIssuedAttempt>,
     /// The durable receipt exists, but a successor has not yet been issued or
     /// delivered. The learner keeps feedback rather than retrying the answer.
@@ -207,12 +209,11 @@ pub(crate) async fn learner_assignment_progress<
 >(
     store: &S,
     authenticated: &AuthenticatedSession,
-    enrollment: &AssignmentEnrollment,
-    snapshot: &LearnerAssignmentSummarySnapshot,
+    assignment_id: question_model::AssignmentId,
+    snapshot: Option<&LearnerAssignmentSummarySnapshot>,
 ) -> Result<(LearnerAssignmentProgress, bool), Response> {
-    let summary = &snapshot.summary;
     let assignment = store
-        .get_assignment(authenticated.tenant_context, enrollment.assignment)
+        .get_assignment_for_edit(authenticated.tenant_context, assignment_id)
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "assignment not found"))?;
@@ -220,8 +221,8 @@ pub(crate) async fn learner_assignment_progress<
         .evaluate_assignment_entitlement(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
-            assignment.course_id,
-            assignment.id,
+            assignment.record.course_id,
+            assignment.record.id,
         )
         .await
         .map_err(store_error_response)?;
@@ -244,41 +245,51 @@ pub(crate) async fn learner_assignment_progress<
         .resolve_effective_policy(
             authenticated.tenant_context,
             ResolveEffectivePolicyCommand {
-                assignment: assignment.id,
+                assignment: assignment.record.id,
                 entitlement,
                 authorization: domain::effective_assignment_policy::AuthorizationGate::Authorized,
                 now,
                 // S3 uses this input only for its start verdict; the resolved
                 // due/close policy consumed below is independent of it. The
                 // compact summary avoids an unbounded learner route scan.
-                prior_run_count: summary.completed_run_count,
+                prior_run_count: snapshot
+                    .map(|snapshot| snapshot.summary.completed_run_count)
+                    .unwrap_or(0),
             },
         )
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "assignment not found"))?;
     let decision = domain::disclosure_policy::evaluate_learner_disclosure(
-        assignment.disclosure_policy,
+        assignment.record.disclosure_policy,
         &resolution.decision,
         now,
         // Starting a run updates aggregate activity, but AfterSubmit needs
         // evidence of an actual submitted response. The compact summary has
         // that evidence without scanning attempts.
-        (summary.total_question_attempts > 0)
-            .then_some(summary.last_activity_at)
-            .flatten(),
+        snapshot.and_then(|snapshot| {
+            (snapshot.summary.total_question_attempts > 0)
+                .then_some(snapshot.summary.last_activity_at)
+                .flatten()
+        }),
     )
     .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "assignment not found"))?;
-    let mut progress =
-        LearnerAssignmentProgress::from_summary(summary, decision.score, snapshot.scoring_status);
+    let mut progress = match snapshot {
+        Some(snapshot) => LearnerAssignmentProgress::from_summary(
+            &snapshot.summary,
+            decision.score,
+            snapshot.scoring_status,
+        ),
+        None => LearnerAssignmentProgress::no_activity(assignment.scoring_status),
+    };
     if decision.class_statistics {
         progress.class_statistics = Some(
             store
                 .learner_class_statistics(
                     authenticated.tenant_context,
                     authenticated.record.subject.user(),
-                    assignment.course_id,
-                    assignment.id,
+                    assignment.record.course_id,
+                    assignment.record.id,
                 )
                 .await
                 .map_err(store_error_response)?,

@@ -47,7 +47,7 @@ async fn issued_cookie(
         SessionSubject::new(tenant, user, "Item analysis fixture", roles).expect("fixture subject"),
         crate::auth::SessionConfig::new(
             SessionLifetime::from_seconds(3_600).expect("positive lifetime"),
-            crate::auth::CookieTransport::LocalHttp,
+            crate::auth::CookieTransport::FirstPartyHttps,
         ),
     )
     .await

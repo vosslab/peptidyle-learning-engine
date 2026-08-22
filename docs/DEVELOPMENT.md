@@ -103,7 +103,7 @@ active work package.
 | TypeScript, browser lint, format, or tests | `./check_codebase.sh`                                       | The vendored TypeScript and Node gate.                                                    |
 | Repository documentation and hygiene       | `source source_me.sh && python3 -m pytest tests/`           | Fast Python hygiene and repository-rule checks.                                           |
 | Built-browser behavior                     | `./run_playwright_tests.sh --build`                         | A focused production `dist/` scenario through a fresh disposable HTTPS PLE stack.         |
-| Complete Playwright validation             | `source source_me.sh && python3 local_stack.py acceptance`  | One canonical real-stack browser lane plus transitional visual, walkthrough, and service receipts. |
+| Complete Playwright validation             | `source source_me.sh && python3 local_stack.py acceptance`  | One canonical real-stack browser lane plus browser-free service receipts. |
 | One browser scenario                       | `./run_playwright_tests.sh tests/playwright/<file>.spec.ts` | The selected production-browser scenario on a fresh disposable stack.                     |
 | Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                              | The named disposable whole-system oracle.                                                 |
 | Local stack diagnosis and lifecycle        | `source source_me.sh && python3 local_stack.py <command>`   | The scoped controller contract.                                                           |
@@ -128,13 +128,11 @@ browser claims:
 source source_me.sh && python3 local_stack.py acceptance
 ```
 
-Start from no existing default or retained walkthrough stack. The command refuses inherited live-target,
-credential, and Compose overrides; it invokes the canonical browser lane once with its documented
-private inputs. The two retained visual-fixture lanes are transitional receipts, not canonical
-screenshot provenance; V1 replaces them with real-origin capture. A failed or skipped required lane is red, so
-the suite is not green until every lane passes. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
-for the evidence boundary and [USAGE.md](USAGE.md#build-and-validation-commands) for operator
-preconditions.
+The command invokes the canonical browser lane once with its documented private
+inputs and retains only browser-free service receipts. A failed or skipped
+required lane is red, so the suite is not green until every lane passes. See
+[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the evidence boundary and
+[USAGE.md](USAGE.md#build-and-validation-commands) for operator preconditions.
 
 In-memory and other offline contract tests belong in the normal Rust and Node gates. PostgreSQL,
 MinIO, role/RLS, migration, restart, and private-renderer claims require their named E2E runner and
@@ -159,13 +157,11 @@ explicit argument, with each reader validating the file's schema and private
 filesystem boundary. Test that durable contract offline; record the real
 Podman/browser execution separately as one-time evidence.
 
-For the first teaching corpus, run `cargo tools pilot-content` for the tracked source/compiler
-contract and `source source_me.sh && python3 tests/e2e/e2e_chapter_one_pilot.py` for the disposable
-PostgreSQL/MinIO publication, exact two-by-four assignment matrix, human display identity, and
-idempotent-rerun contract. Run
-`source source_me.sh && python3 tests/e2e/e2e_chapter_one_browser.py` for the complete eight-question
-keyboard-driven learner path through the built PLE browser and private renderer. The remaining
-pilot shell file is only a compatibility `exec` facade; it does not own orchestration.
+For the first teaching corpus, run `cargo tools pilot-content` for the tracked
+source/compiler contract. Fixed seed/manifest and Rust behavior tests own its
+publication semantics; the canonical live-demo lifecycle installs that baseline.
+Browser scenarios are selected only through `./run_playwright_tests.sh`; it is
+the sole browser entry point.
 
 Chapter 1 replay is manifest-resume only. The answer-free host-only manifest records the assigned
 Question IDs and exact immutable internal references from the first publication; a replay resolves
@@ -174,52 +170,32 @@ manifest with a retained corpus: if it is missing, the local controller refuses 
 
 ## Run local services
 
-Use the controller when a work package needs the supported local PostgreSQL,
-MinIO, API, worker, gateway, and external stateless WeBWorK PG renderer:
+Use the fixed owner when a work package needs the supported PostgreSQL, MinIO,
+API, worker, gateway, and external stateless WeBWorK PG renderer:
 
 ```bash
-source source_me.sh && python3 local_stack.py doctor
-source source_me.sh && python3 local_stack.py validate
 source source_me.sh && python3 local_stack.py start --no-open
-source source_me.sh && python3 local_stack.py status
-source source_me.sh && python3 local_stack.py logs gateway api worker
-source source_me.sh && python3 local_stack.py restart api
 source source_me.sh && python3 local_stack.py stop
 ```
 
-`doctor`, `projects`, `status`, `logs`, and `validate` are read-only. `start`
-delegates the application bootstrap to the launcher; a default first start can
-create ignored local credentials and starts the supported stack. Do not copy
-those local secret files into source control. `stop` retains named volumes.
-`restart` is restricted to the stateless API, worker, gateway, and renderer
-services, and delegates back to the launcher for readiness verification.
+`start` always builds production `dist/`, regenerates the fixed
+`ple-live-demo-browser` disposable stack, and opens (or prints with
+`--no-open`) its HTTPS origin. `stop` authenticates to the active supervisor and
+verifies exact owner cleanup. Developer and browser tests serialize through the
+same owner lease; do not add project, environment, identity, SMTP, or build
+selectors.
 
-For deliberately disposable default data, run `reset --dry-run` first, inspect
-its exact labelled project/resource and database-bound
-`containers/local-chapter-one-pilot.json` preview, and then use
-`reset --confirm-project containers`. Once the labelled Compose resources and
-volumes are gone, reset removes that private Chapter 1 replay record. Reset
-retains local host credentials. An ordinary start first removes every container
-in its exact labelled project, including Compose orphans, while retaining the
-three named simulated-data volumes. It then recreates the complete designed
-service suite. After readiness, it prunes only dangling images carrying the
-reviewed PLE or local-renderer source label. Global Podman pruning and all other
-image cleanup retain their dedicated operator workflow. Raw Compose is a diagnosis or recovery
-interface only; normal changes use the controller's project and environment
-handling.
-
-The controller uses an already-built `webwork-pg-renderer` image rather than
-building a second WeBWorK platform or database. SMTP is an operator-selected
-external service enabled only with `--with-smtp`; status safely infers a
-persisted SMTP overlay from its labelled resources. [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md)
-documents the stack, configuration, recovery, and service commands.
+The fixed owner uses the reviewed standalone `webwork-pg-renderer` image rather
+than building a second WeBWorK platform or database. See
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for the owner and cleanup
+contract.
 
 ### Validation classes
 
 Keep controller parsing, ownership, confirmation, and topology behavior in
 fast deterministic permanent tests. Run Podman, PostgreSQL, MinIO, renderer,
-restart, visual, walkthrough, and browser evidence only through their named
-opt-in disposable/live commands. A focused probe while rebuilding a workflow
+restart, and browser evidence only through their named opt-in disposable/live
+commands. A focused probe while rebuilding a workflow
 is useful evidence, but does not become a permanent test unless it satisfies
 the repository checklist in [PYTEST_STYLE.md](PYTEST_STYLE.md#is-this-a-good-pytest).
 

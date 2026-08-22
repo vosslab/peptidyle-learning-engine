@@ -2,17 +2,15 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::body::Body;
-use axum::http::header::SET_COOKIE;
 use axum::http::{HeaderValue, Request, StatusCode};
+use learning_data_access::SessionLifetime;
 use learning_data_access::in_memory::MemoryStore;
-use learning_data_access::{SessionLifetime, SessionSubject};
 use objects::memory::MemoryObjectStore;
 use question_model::UserId;
-use sha2::{Digest, Sha256};
 use tower::ServiceExt;
 
 use super::router::{
-    HealthState, apply_e2e_replica_attribution, compose_passwordless_router, compose_router,
+    HealthState, apply_e2e_replica_attribution, compose_passwordless_router,
     e2e_replica_attribution_from_values, postgres_schema_probe,
 };
 use super::settings::{
@@ -21,30 +19,13 @@ use super::settings::{
     parse_secret32, required_env,
 };
 use super::*;
-use crate::auth::{CookieTransport, IdentityProviderError};
+use crate::auth::CookieTransport;
 use crate::catalog::ReviewGateError;
 
 mod account_fixture;
 mod live_demo_sysadmin_settings;
 mod presentation_routes;
 mod production_router;
-
-#[derive(Debug)]
-struct TestIdentity;
-
-#[async_trait]
-impl IdentityProvider for TestIdentity {
-    type Presentation = serde_json::Value;
-
-    async fn verify(
-        &self,
-        _presentation: &Self::Presentation,
-    ) -> Result<SessionSubject, IdentityProviderError> {
-        Err(IdentityProviderError::Unavailable(
-            "test identity is unavailable".to_string(),
-        ))
-    }
-}
 
 #[derive(Debug)]
 struct TestReview;
@@ -64,7 +45,7 @@ impl PublicReviewGate for TestReview {
 fn session_config() -> SessionConfig {
     SessionConfig::new(
         SessionLifetime::from_seconds(3_600).expect("positive lifetime"),
-        CookieTransport::LocalHttp,
+        CookieTransport::FirstPartyHttps,
     )
 }
 
@@ -87,26 +68,20 @@ fn postgres_readiness_requires_exact_schema_compatibility() {
 }
 
 fn composed_memory_router() -> Router {
-    composed_memory_router_with_legacy_login(true)
+    composed_memory_router_and_store().0
 }
 
-pub(super) fn composed_memory_router_with_legacy_login(legacy_login: bool) -> Router {
-    composed_memory_router_and_store(legacy_login).0
-}
-
-fn composed_memory_router_and_store(legacy_login: bool) -> (Router, Arc<MemoryStore>) {
-    composed_memory_router_and_store_with_session_config(legacy_login, session_config())
+pub(super) fn composed_memory_router_and_store() -> (Router, Arc<MemoryStore>) {
+    composed_memory_router_and_store_with_session_config(session_config())
 }
 
 pub(super) fn composed_memory_router_and_store_with_session_config(
-    legacy_login: bool,
     session_config: SessionConfig,
 ) -> (Router, Arc<MemoryStore>) {
-    composed_memory_router_and_store_with_live_demo_selector(legacy_login, session_config, None)
+    composed_memory_router_and_store_with_live_demo_selector(session_config, None)
 }
 
 pub(super) fn composed_memory_router_and_store_with_live_demo_selector(
-    legacy_login: bool,
     session_config: SessionConfig,
     live_demo_selector: Option<crate::auth::SeededAccountSelectorConfig>,
 ) -> (Router, Arc<MemoryStore>) {
@@ -156,59 +131,30 @@ pub(super) fn composed_memory_router_and_store_with_live_demo_selector(
         student_records_bucket: "student-records".to_string(),
         temp_processing_bucket: "temp-processing".to_string(),
     });
-    let router = if legacy_login {
-        compose_router(
-            Arc::clone(&store),
-            objects,
-            public_assets,
-            backends,
-            native_adapter,
-            Arc::new(TestIdentity),
-            Arc::new(TestReview),
-            session_config,
-            crate::course::CourseInvitationIssuer::unavailable(),
-            Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery),
-            crate::auth::PasswordlessRateLimitIssuer::unavailable(),
-            crate::auth::ClientAddressPolicy::direct(),
-            live_demo_selector,
-            None,
-            Some(
-                crate::auth::PasswordlessWebauthn::new(
-                    "localhost",
-                    "http://localhost:3000",
-                    "PLE local test",
-                )
-                .expect("valid test WebAuthn configuration"),
-            ),
-            health,
-        )
-    } else {
-        compose_passwordless_router(
-            Arc::clone(&store),
-            objects,
-            public_assets,
-            backends,
-            native_adapter,
-            Arc::new(TestReview),
-            session_config,
-            crate::course::CourseInvitationIssuer::unavailable(),
-            Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery),
-            crate::auth::PasswordlessRateLimitIssuer::unavailable(),
-            crate::auth::ClientAddressPolicy::direct(),
-            live_demo_selector,
-            None,
-            Some(
-                crate::auth::PasswordlessWebauthn::new(
-                    "localhost",
-                    "http://localhost:3000",
-                    "PLE local test",
-                )
-                .expect("valid test WebAuthn configuration"),
-            ),
-            None,
-            health,
-        )
-    };
+    let router = compose_passwordless_router(
+        Arc::clone(&store),
+        objects,
+        public_assets,
+        backends,
+        native_adapter,
+        Arc::new(TestReview),
+        session_config,
+        crate::course::CourseInvitationIssuer::unavailable(),
+        Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery),
+        crate::auth::PasswordlessRateLimitIssuer::unavailable(),
+        crate::auth::ClientAddressPolicy::direct(),
+        live_demo_selector,
+        None,
+        Some(
+            crate::auth::PasswordlessWebauthn::new(
+                "localhost",
+                "http://localhost:3000",
+                "PLE test",
+            )
+            .expect("valid test WebAuthn configuration"),
+        ),
+        health,
+    );
     (router, store)
 }
 
@@ -225,11 +171,8 @@ async fn deployment_enabled_selector_reaches_the_complete_route_composition() {
         users,
     )
     .expect("selector configuration");
-    let (app, store) = composed_memory_router_and_store_with_live_demo_selector(
-        false,
-        session_config(),
-        Some(selector),
-    );
+    let (app, store) =
+        composed_memory_router_and_store_with_live_demo_selector(session_config(), Some(selector));
     for (user, name) in users.into_iter().zip(["Elena", "Mary", "Jack", "Avery"]) {
         account_fixture::provision_account(store.as_ref(), user, name).await;
     }
@@ -246,18 +189,18 @@ async fn deployment_enabled_selector_reaches_the_complete_route_composition() {
 }
 
 #[tokio::test]
-async fn local_composition_retains_legacy_login_route() {
+async fn production_composition_does_not_mount_provider_login() {
     let response = composed_memory_router()
         .oneshot(
             Request::builder()
                 .method("POST")
                 .uri("/api/auth/login")
                 .body(Body::from("{}"))
-                .expect("local login request"),
+                .expect("provider login request"),
         )
         .await
-        .expect("local login response");
-    assert_ne!(response.status(), StatusCode::NOT_FOUND);
+        .expect("provider login response");
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
@@ -283,22 +226,6 @@ async fn composition_mounts_private_qti_profile_routes() {
             assert!(!response.status().is_success());
             assert_eq!(response.headers().get("cache-control"), Some(&HeaderValue::from_static("no-store")));
         }
-}
-
-fn local_provider() -> LocalFileIdentityProvider {
-    LocalFileIdentityProvider::from_json_bytes(
-            br#"{
-                "credentials": [{
-                    "credential_sha256": "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd",
-                    "learner_alias": "student-local",
-                    "tenant_id": "00000000-0000-0000-0000-000000000001",
-                    "user_id": "00000000-0000-0000-0000-000000000002",
-                    "display_name": "Local Student",
-                    "roles": ["student"]
-                }]
-            }"#,
-        )
-        .expect("valid local provider fixture")
 }
 
 async fn replica_attribution_header(
@@ -448,13 +375,13 @@ fn production_settings() -> ProductionSettings {
         webauthn: crate::auth::PasswordlessWebauthn::new(
             "localhost",
             "http://localhost:3000",
-            "PLE local test",
+            "PLE test",
         )
         .expect("valid test WebAuthn configuration"),
-        browser_boundary: Some(
-            crate::auth::ProductionBrowserBoundary::new(Arc::from("https://learn.example.test"))
-                .expect("test browser boundary"),
-        ),
+        browser_boundary: crate::auth::ProductionBrowserBoundary::new(Arc::from(
+            "https://learn.example.test",
+        ))
+        .expect("test browser boundary"),
         client_address_policy: crate::auth::ClientAddressPolicy::direct(),
         live_demo_selector: None,
         live_demo_sysadmin_ownership: None,
@@ -853,144 +780,4 @@ fn composition_uses_only_key_free_composite_backends() {
     ) {
     }
     let _ = accepts_only_composite;
-}
-
-#[test]
-fn local_identity_mode_is_explicit_and_other_modes_fail_closed() {
-    let Err(missing_flag) = local_development_authentication("local-file", "", "/does/not/matter")
-    else {
-        panic!("local mode requires its explicit development flag");
-    };
-    assert!(
-        missing_flag
-            .to_string()
-            .contains("PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH")
-    );
-
-    let Err(oidc) = local_development_authentication("oidc", "1", "/does/not/matter") else {
-        panic!("OIDC is not silently replaced with a local identity");
-    };
-    assert!(oidc.to_string().contains("OIDC"));
-
-    assert_eq!(
-        local_development_session_config().transport(),
-        CookieTransport::LocalHttp
-    );
-}
-
-#[tokio::test]
-async fn local_provider_hashes_raw_bearer_bytes_not_base64url_spelling() {
-    let provider = local_provider();
-    let credential = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8";
-    assert!(
-        provider
-            .verify(&LocalLoginPresentation {
-                credential: credential.to_string(),
-            })
-            .await
-            .is_ok()
-    );
-
-    let encoded_hash = Sha256::digest(credential.as_bytes())
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
-    let encoded_provider = LocalFileIdentityProvider::from_json_bytes(
-            format!(
-                r#"{{"credentials":[{{"credential_sha256":"{encoded_hash}","learner_alias":"student-local","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Local Student","roles":["student"]}}]}}"#
-            )
-            .as_bytes(),
-        )
-        .expect("encoded-spelling hash is syntactically valid configuration");
-    assert!(matches!(
-        encoded_provider
-            .verify(&LocalLoginPresentation {
-                credential: credential.to_string(),
-            })
-            .await,
-        Err(IdentityProviderError::Rejected)
-    ));
-}
-
-#[tokio::test]
-async fn local_provider_only_accepts_canonical_fixed_identity_login() {
-    let app = crate::auth::provider_login_router(
-        Arc::new(local_provider()),
-        Arc::new(MemoryStore::default()),
-        local_development_session_config(),
-    );
-    let credential = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8";
-    let accepted = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/api/auth/login")
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    serde_json::json!({ "credential": credential }).to_string(),
-                ))
-                .expect("login request"),
-        )
-        .await
-        .expect("login response");
-    assert_eq!(accepted.status(), StatusCode::OK);
-    let cookies = accepted
-        .headers()
-        .get_all(SET_COOKIE)
-        .iter()
-        .filter_map(|value| value.to_str().ok())
-        .collect::<Vec<_>>();
-    assert_eq!(cookies.len(), 1);
-    assert!(cookies[0].starts_with("ple_session="));
-
-    let injection = app
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/api/auth/login")
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    serde_json::json!({
-                        "credential": credential,
-                        "tenantId": "ffffffff-ffff-ffff-ffff-ffffffffffff"
-                    })
-                    .to_string(),
-                ))
-                .expect("injection request"),
-        )
-        .await
-        .expect("injection response");
-    assert_eq!(injection.status(), StatusCode::UNPROCESSABLE_ENTITY);
-
-    for invalid in [
-        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-        "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
-        "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh+",
-    ] {
-        assert!(matches!(
-            local_provider()
-                .verify(&LocalLoginPresentation {
-                    credential: invalid.to_string(),
-                })
-                .await,
-            Err(IdentityProviderError::Rejected)
-        ));
-    }
-}
-
-#[test]
-fn local_identity_file_rejects_invalid_records() {
-    for invalid in [
-            br#"{"credentials":[]}"#.as_slice(),
-            br#"{"credentials":[{"credential_sha256":"ABCDEF","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]}]}"#.as_slice(),
-            br#"{"credentials":[{"credential_sha256":"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd","tenant_id":"00000000-0000-0000-0000-000000000000","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]}]}"#.as_slice(),
-            br#"{"credentials":[{"credential_sha256":"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd","learner_alias":"not/an-alias","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]}]}"#.as_slice(),
-            br#"{"credentials":[{"credential_sha256":"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd","learner_alias":"student-local","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","display_name":"Student","roles":["student"]},{"credential_sha256":"1111111111111111111111111111111111111111111111111111111111111111","learner_alias":"student-local","tenant_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000003","display_name":"Other Student","roles":["student"]}]}"#.as_slice(),
-        ] {
-            assert!(matches!(
-                LocalFileIdentityProvider::from_json_bytes(invalid),
-                Err(IdentityProviderError::Unavailable(_))
-            ));
-        }
 }

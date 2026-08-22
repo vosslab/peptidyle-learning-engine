@@ -8,6 +8,7 @@
 
 set -euo pipefail
 
-cd "$(git rev-parse --show-toplevel)"
-source source_me.sh
-exec python3 tests/e2e/e2e_browser_suite_owner.py "$@"
+SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$SCRIPT_DIRECTORY"
+source "$SCRIPT_DIRECTORY/source_me.sh"
+exec python3 "$SCRIPT_DIRECTORY/tests/e2e/e2e_browser_suite_owner.py" "$@"

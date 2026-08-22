@@ -53,6 +53,10 @@ use native::*;
 mod webwork;
 use webwork::*;
 
+#[path = "e2e_seed/webwork_catalog.rs"]
+mod webwork_catalog;
+use webwork_catalog::*;
+
 #[path = "e2e_seed/chapter_one_identity.rs"]
 mod chapter_one_identity;
 use chapter_one_identity::*;
@@ -77,7 +81,7 @@ use scoring::*;
 mod records;
 use records::*;
 
-const USAGE: &str = "usage: cargo tools e2e-seed [--database-url <URL>] --tenant <UUID> (--instructor <UUID>|--user <UUID>) --student <UUID> --apply-migrations [--exercise-scoring] [(--webwork-pilot|--chapter-one-pilot) --s3-endpoint <URL> --s3-region <REGION> --private-content-bucket <BUCKET> [--chapter-one-existing-manifest <PATH>]] (database URL also reads PLE_MIGRATION_DATABASE_URL)";
+const USAGE: &str = "usage: cargo tools e2e-seed [--database-url <URL>] --tenant <UUID> (--instructor <UUID>|--user <UUID>) --apply-migrations [--student <UUID> [--exercise-scoring]] [(--webwork-pilot|--webwork-catalog-baseline|--chapter-one-pilot) --s3-endpoint <URL> --s3-region <REGION> --private-content-bucket <BUCKET> [--chapter-one-existing-manifest <PATH>]] (database URL also reads PLE_MIGRATION_DATABASE_URL)";
 const WEBWORK_PILOT_SOURCE_PATH: &str = "content/pilot/webwork/which_hydrophobic-simple.pgml";
 const WEBWORK_PILOT_SOURCE: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -95,6 +99,7 @@ const WEBWORK_PILOT_CONVERGENCE_ATTEMPTS: u8 = 3;
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Manifest {
+    course_id: CourseId,
     assignment_id: AssignmentId,
     enrollment_id: EnrollmentId,
     question_id: QuestionId,
@@ -107,12 +112,22 @@ struct SeedArguments {
     database_url: String,
     tenant: TenantId,
     instructor: UserId,
-    student: UserId,
+    student: Option<UserId>,
     apply_migrations: bool,
     exercise_scoring: bool,
     webwork_pilot: Option<WebworkPilotStorage>,
+    webwork_catalog_baseline: Option<WebworkPilotStorage>,
     chapter_one_pilot: Option<WebworkPilotStorage>,
     chapter_one_existing_manifest: Option<String>,
+}
+
+impl SeedArguments {
+    /// Returns the learner identity owned by a course-based seed mode.
+    fn course_student(&self) -> Result<UserId> {
+        self.student.ok_or_else(|| {
+            anyhow::anyhow!("--student is required for a course-based E2E seed; {USAGE}")
+        })
+    }
 }
 
 /// Non-secret host-only storage parameters for reviewed WeBWorK sources.
@@ -160,6 +175,7 @@ fn parse_arguments_with_database_url(
     let mut apply_migrations = false;
     let mut exercise_scoring = false;
     let mut webwork_pilot = false;
+    let mut webwork_catalog_baseline = false;
     let mut chapter_one_pilot = false;
     let mut s3_endpoint = None;
     let mut s3_region = None;
@@ -179,6 +195,10 @@ fn parse_arguments_with_database_url(
         }
         if flag == "--webwork-pilot" && !webwork_pilot {
             webwork_pilot = true;
+            continue;
+        }
+        if flag == "--webwork-catalog-baseline" && !webwork_catalog_baseline {
+            webwork_catalog_baseline = true;
             continue;
         }
         if flag == "--chapter-one-pilot" && !chapter_one_pilot {
@@ -207,14 +227,32 @@ fn parse_arguments_with_database_url(
             _ => bail!("unknown, duplicate, or misplaced argument {flag}; {USAGE}"),
         }
     }
-    if webwork_pilot && chapter_one_pilot {
-        bail!("--webwork-pilot and --chapter-one-pilot are mutually exclusive; {USAGE}");
+    if [webwork_pilot, webwork_catalog_baseline, chapter_one_pilot]
+        .into_iter()
+        .filter(|selected| *selected)
+        .count()
+        > 1
+    {
+        bail!(
+            "--webwork-pilot, --webwork-catalog-baseline, and --chapter-one-pilot are mutually exclusive; {USAGE}"
+        );
     }
     if chapter_one_existing_manifest.is_some() && !chapter_one_pilot {
         bail!("--chapter-one-existing-manifest requires --chapter-one-pilot; {USAGE}");
     }
+    if webwork_catalog_baseline && student.is_some() {
+        bail!(
+            "--webwork-catalog-baseline accepts no --student because it creates no product state; {USAGE}"
+        );
+    }
+    if webwork_catalog_baseline && exercise_scoring {
+        bail!("--exercise-scoring requires a course-based E2E seed; {USAGE}");
+    }
+    if !webwork_catalog_baseline && student.is_none() {
+        bail!("--student is required for a course-based E2E seed; {USAGE}");
+    }
     let storage = match (
-        webwork_pilot || chapter_one_pilot,
+        webwork_pilot || webwork_catalog_baseline || chapter_one_pilot,
         s3_endpoint,
         s3_region,
         private_content_bucket,
@@ -237,6 +275,8 @@ fn parse_arguments_with_database_url(
         ),
     };
     let webwork_pilot = webwork_pilot.then(|| storage.clone().expect("pilot storage is complete"));
+    let webwork_catalog_baseline =
+        webwork_catalog_baseline.then(|| storage.clone().expect("pilot storage is complete"));
     let chapter_one_pilot = chapter_one_pilot.then(|| storage.expect("pilot storage is complete"));
     let arguments = SeedArguments {
         database_url: database_url
@@ -245,14 +285,15 @@ fn parse_arguments_with_database_url(
         tenant: tenant.ok_or_else(|| anyhow::anyhow!("--tenant is required; {USAGE}"))?,
         instructor: instructor
             .ok_or_else(|| anyhow::anyhow!("--instructor is required; {USAGE}"))?,
-        student: student.ok_or_else(|| anyhow::anyhow!("--student is required; {USAGE}"))?,
+        student,
         apply_migrations,
         exercise_scoring,
         webwork_pilot,
+        webwork_catalog_baseline,
         chapter_one_pilot,
         chapter_one_existing_manifest,
     };
-    if arguments.instructor == arguments.student {
+    if arguments.student == Some(arguments.instructor) {
         bail!("--instructor and --student must identify different users for the E2E course");
     }
     if !arguments.apply_migrations {
@@ -296,6 +337,10 @@ async fn seed(arguments: SeedArguments) -> Result<serde_json::Value> {
     if arguments.webwork_pilot.is_some() {
         return serde_json::to_value(seed_webwork_pilot(&arguments).await?)
             .context("encoding WebWork pilot manifest");
+    }
+    if arguments.webwork_catalog_baseline.is_some() {
+        return serde_json::to_value(seed_webwork_catalog_baseline(&arguments).await?)
+            .context("encoding WebWork catalog baseline receipt");
     }
     serde_json::to_value(seed_native(arguments).await?).context("encoding native seed manifest")
 }

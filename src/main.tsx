@@ -10,7 +10,6 @@ import { Router } from "@solidjs/router";
 import { createBrowserApiClient } from "./api/browser_client";
 import { ApiRuntimeProvider, createApiRuntime } from "./api/runtime";
 import { App } from "./app";
-import { localCredentialLogin } from "./auth/local_development";
 import { SessionProvider } from "./auth/session_context";
 import { log } from "./log";
 import { appRoutes, notFoundRoute } from "./routes";
@@ -32,11 +31,7 @@ const apiRuntime = createApiRuntime(apiClient);
 render(
   () => (
     <ApiRuntimeProvider runtime={apiRuntime}>
-      <SessionProvider
-        getSession={apiClient.getSession}
-        logout={apiClient.logout}
-        loginWithLocalCredential={localCredentialLogin()}
-      >
+      <SessionProvider getSession={apiClient.getSession} logout={apiClient.logout}>
         <WasmRuntimeProvider
           formatFallback={apiClient.validateResponseFormatOnServer}
           timerFallback={apiClient.timerVerdictOnServer}

@@ -12,10 +12,9 @@ existing Compose launcher.
 
 - `production_router_from_env` constructs only `PersistentDependencies` and
   calls `production_router` ([composition.rs](../../../crates/server/src/composition.rs):80).
-  `ProductionSettings::from_env` does not read the three local-identity
-  variables; their reads remain confined to
-  `local_development_authentication_from_env`
-  ([local_identity.rs](../../../crates/server/src/composition/local_identity.rs):199).
+  `ProductionSettings::from_env` did not read the three local-identity
+  variables; their reads remained confined to the now-retired
+  `local_development_authentication_from_env` in `local_identity.rs`.
 - The shared router is factored once. Production uses
   `compose_passwordless_router`, while local development layers
   `crate::auth::router` on it ([backend.rs](../../../crates/server/src/composition/backend.rs):160).

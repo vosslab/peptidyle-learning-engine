@@ -13,13 +13,11 @@
 // Run: ./pipeline/build_wasm.sh && node tests/e2e/e2e_wasm_bridge.mjs
 
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
-  encoding: "utf8",
-}).trim();
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 const bridgePath = path.join(repoRoot, "dist_wasm", "node", "ple_bridge.js");
 

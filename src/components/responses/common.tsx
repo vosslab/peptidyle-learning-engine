@@ -6,6 +6,7 @@ import type { ContentBlock } from "../../../generated/api/ContentBlock";
 import type { ResponseDefinition } from "../../../generated/api/ResponseDefinition";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ExternalToolLaunch } from "../../api/contracts";
+import type { SubmissionOutcome } from "../../features/attempt/attempt_state";
 import type { ResponseFormatReport, ResponseFormatViolation, WasmFacade } from "../../wasm/index";
 
 export type MultipleChoiceDefinition = Extract<ResponseDefinition, { kind: "multipleChoice" }>;
@@ -24,6 +25,7 @@ type WidgetPhase =
   | { readonly kind: "restored" }
   | { readonly kind: "invalid"; readonly message: string }
   | { readonly kind: "submitting" }
+  | { readonly kind: "recoveryPending"; readonly message: string }
   | { readonly kind: "submitted" }
   | { readonly kind: "failed"; readonly message: string };
 
@@ -31,7 +33,7 @@ export interface ResponseWidgetBaseProps {
   readonly attemptId: string;
   /** Response controls require only the key-free local format validation capability. */
   readonly validator: Pick<WasmFacade, "validateResponseFormat">;
-  readonly onSubmit: (response: StudentResponse) => Promise<void>;
+  readonly onSubmit: (response: StudentResponse) => Promise<SubmissionOutcome>;
   readonly onEscape: () => void;
   readonly onResponseChange?: (response: StudentResponse, validation: ResponseFormatReport) => void;
   readonly beginExternalToolLaunch?: () => Promise<ExternalToolLaunch>;
@@ -146,6 +148,8 @@ function phaseMessage(phase: WidgetPhase): string {
       return phase.message;
     case "submitting":
       return "Submitting your response. Please wait.";
+    case "recoveryPending":
+      return phase.message;
     case "submitted":
       return "Answer submitted. Server feedback will appear when it is released.";
   }
@@ -161,7 +165,13 @@ export function createSubmissionController(
   let submissionRequest = 0;
 
   async function validate(response: StudentResponse): Promise<void> {
-    if (phase().kind === "submitting" || phase().kind === "submitted") return;
+    if (
+      phase().kind === "submitting" ||
+      phase().kind === "recoveryPending" ||
+      phase().kind === "submitted"
+    ) {
+      return;
+    }
     validationRequest += 1;
     const request = validationRequest;
     setPhase({ kind: "validating" });
@@ -182,7 +192,13 @@ export function createSubmissionController(
   }
 
   async function submit(response: StudentResponse): Promise<void> {
-    if (phase().kind === "submitting" || phase().kind === "submitted") return;
+    if (
+      phase().kind === "submitting" ||
+      phase().kind === "recoveryPending" ||
+      phase().kind === "submitted"
+    ) {
+      return;
+    }
     if (phase().kind !== "ready") {
       await validate(response);
       if (phase().kind !== "ready") return;
@@ -191,8 +207,19 @@ export function createSubmissionController(
     const request = submissionRequest;
     setPhase({ kind: "submitting" });
     try {
-      await props.onSubmit(response);
-      if (request === submissionRequest) setPhase({ kind: "submitted" });
+      const outcome = await props.onSubmit(response);
+      if (request !== submissionRequest) return;
+      switch (outcome.kind) {
+        case "accepted":
+          setPhase({ kind: "submitted" });
+          return;
+        case "recoveryPending":
+          setPhase({ kind: "recoveryPending", message: outcome.message });
+          return;
+        case "rejected":
+          setPhase({ kind: "failed", message: outcome.message });
+          return;
+      }
     } catch (error: unknown) {
       if (request !== submissionRequest) return;
       const message =
@@ -204,7 +231,13 @@ export function createSubmissionController(
   }
 
   async function reset(response: StudentResponse): Promise<void> {
-    if (phase().kind === "submitting" || phase().kind === "submitted") return;
+    if (
+      phase().kind === "submitting" ||
+      phase().kind === "recoveryPending" ||
+      phase().kind === "submitted"
+    ) {
+      return;
+    }
     // A restored response supersedes every earlier asynchronous format report.
     validationRequest += 1;
     const request = validationRequest;
@@ -233,10 +266,16 @@ export function createSubmissionController(
   return {
     phase,
     invalid: () => phase().kind === "invalid" || phase().kind === "failed",
-    pending: () => phase().kind === "submitting",
-    locked: () => phase().kind === "submitting" || phase().kind === "submitted",
+    pending: () => phase().kind === "submitting" || phase().kind === "recoveryPending",
+    locked: () =>
+      phase().kind === "submitting" ||
+      phase().kind === "recoveryPending" ||
+      phase().kind === "submitted",
     canSubmit: () => phase().kind === "ready" || phase().kind === "restored",
-    canReset: () => phase().kind !== "submitting" && phase().kind !== "submitted",
+    canReset: () =>
+      phase().kind !== "submitting" &&
+      phase().kind !== "recoveryPending" &&
+      phase().kind !== "submitted",
     validate,
     reset,
     submit,

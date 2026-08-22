@@ -59,6 +59,7 @@ mod publication_validation;
 mod qti;
 mod qti_ingress;
 mod question_id;
+mod random_uuid;
 /// Pure retention lifecycle policy; persistence and worker execution land in MOD-RETENTION R2+.
 pub mod retention;
 /// Explicit tenant context used by every educational-record operation.

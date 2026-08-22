@@ -136,10 +136,10 @@ be a tiny direct `exec` or `source` wrapper and may not become a second state ma
 environment handling, disposable-owner authority, process arguments, readiness, and cleanup. A
 parallel shell program drifts from those security and lifecycle contracts.
 
-**Consequence.** WP-R1 closes its Chapter One pilot/browser and aggregate-acceptance lanes in Python
-over `local_stack_control`. WP-PY-L1 now replaces `launch.sh`, `_restart.sh`, and
-`local_identity_bootstrap.sh` together with direct focused Python ownership rather than a wrapper or
-dual launcher. It was accepted on 2026-08-15 after final Validation and independent review.
+**Consequence.** Python `local_stack_control` owns lifecycle and aggregate acceptance. WP-PY-L1
+retired the former `launch.sh`, `_restart.sh`, and `local_identity_bootstrap.sh` launchers together
+in favor of direct focused Python ownership rather than a wrapper or dual launcher. It was accepted
+on 2026-08-15 after final Validation and independent review.
 
 **Planned closure.** Remaining E2E, developer, renderer-probe, and destructive-cleanup shell programs
 migrate only in later dependency-ordered packages. A retained wrapper stays logic-free.

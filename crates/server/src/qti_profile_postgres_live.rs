@@ -105,7 +105,7 @@ async fn issued_cookie(store: &PostgresStore, tenant: TenantId, user: UserId) ->
         .expect("fixture session subject"),
         SessionConfig::new(
             SessionLifetime::from_seconds(3_600).expect("fixture session lifetime"),
-            CookieTransport::LocalHttp,
+            CookieTransport::FirstPartyHttps,
         ),
     )
     .await

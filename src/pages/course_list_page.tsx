@@ -1,4 +1,4 @@
-// course_list_page.tsx - mock-backed first-success route.
+// course_list_page.tsx - runtime-backed course list and creation page.
 
 import { A, createAsync, revalidate } from "@solidjs/router";
 import { createMemo, createSignal, For, Show, Suspense, type JSX } from "solid-js";

@@ -819,9 +819,7 @@ fn random_student_id() -> Result<StudentId, StoreError> {
 }
 
 fn random_uuid(label: &str) -> Result<uuid::Uuid, StoreError> {
-    let mut bytes = [0_u8; 16];
-    getrandom::fill(&mut bytes).map_err(|error| {
+    crate::random_uuid::random_uuid_v4(|error| {
         StoreError::Unavailable(format!("{label} randomness unavailable: {error}"))
-    })?;
-    Ok(uuid::Uuid::from_bytes(bytes))
+    })
 }

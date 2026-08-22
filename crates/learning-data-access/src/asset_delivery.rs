@@ -198,9 +198,9 @@ pub(crate) fn validate_catalog_asset_delivery_scope(
     }
 }
 
-/// Audit payload appended before a protected signed URL is requested.
+/// Audit payload appended before a protected delivery is requested.
 ///
-/// It deliberately contains neither the signed URL nor session credentials.
+/// It deliberately contains neither delivery bytes, URLs, nor session credentials.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetAccessEvent {
@@ -210,9 +210,9 @@ pub struct AssetAccessEvent {
     pub actor: UserId,
     /// Stable route identifier requested by the actor.
     pub delivery: AssetDeliveryId,
-    /// Exact physical object whose URL may be issued.
+    /// Exact physical object selected for delivery.
     pub object: ObjectId,
-    /// Bucket whose fixed delivery lifetime applies.
+    /// Bucket containing the selected object.
     pub bucket: Bucket,
     /// Course that authorized this delivery access, when visible in learner records.
     pub course: Option<CourseId>,
@@ -220,7 +220,7 @@ pub struct AssetAccessEvent {
     pub occurred_at: ActivityTimestamp,
 }
 
-/// Protected object record and the timestamp used to bound its signed URL.
+/// Protected object record and its database-authoritative authorization time.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthorizedAssetDelivery {
     /// Exact immutable object record selected by the database registry.

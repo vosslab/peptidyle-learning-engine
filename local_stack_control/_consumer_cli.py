@@ -2,6 +2,7 @@
 
 import argparse
 import pathlib
+import re
 import shlex
 import sys
 
@@ -9,14 +10,8 @@ import local_stack_control.compose
 import local_stack_control.consumer
 import local_stack_control.discovery
 import local_stack_control.models
-import local_stack_control.private_state
 import local_stack_control.process
 import local_stack_control.lifecycle
-
-
-PRIVATE_STATE_ROOTS = {
-	"replica-restart": pathlib.Path("target") / "replica-e2e",
-}
 
 
 #============================================
@@ -43,6 +38,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	stop_outage.add_argument("--manifest", required=True, type=pathlib.Path)
 	evidence_logs = actions.add_parser("read-evidence-logs")
 	evidence_logs.add_argument("--manifest", required=True, type=pathlib.Path)
+	evidence_logs.add_argument(
+		"--claim", required=True, choices=("worker_completion", "renderer_delivery")
+	)
 	diagnostics = actions.add_parser("diagnostics")
 	diagnostics.add_argument("--manifest", required=True, type=pathlib.Path)
 	diagnostics.add_argument("--service", action="append", default=[])
@@ -50,11 +48,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	stop_instance.add_argument("--manifest", required=True, type=pathlib.Path)
 	stop_instance.add_argument("--service", required=True)
 	stop_instance.add_argument("--id-prefix", required=True)
-	prepare_state = actions.add_parser("prepare-state")
-	prepare_state.add_argument("--owner", required=True, choices=tuple(PRIVATE_STATE_ROOTS))
-	remove_state = actions.add_parser("remove-state")
-	remove_state.add_argument("--owner", required=True, choices=tuple(PRIVATE_STATE_ROOTS))
-	remove_state.add_argument("--directory", required=True, type=pathlib.Path)
+	postgresql_count = actions.add_parser("postgresql-count")
+	postgresql_count.add_argument("--manifest", required=True, type=pathlib.Path)
+	postgresql_count.add_argument("--tenant-id", required=True)
+	postgresql_count.add_argument("--attempt-id", required=True)
 	args = parser.parse_args(argv)
 	if args.action == "compose":
 		if len(args.arguments) > 0 and args.arguments[0] == "--":
@@ -126,15 +123,8 @@ def run_diagnostics(
 	services: tuple[str, ...],
 ) -> int:
 	"""Print bounded, redacted status and logs for the replica owner."""
-	selected = local_stack_control.consumer.diagnostic_services(disposable, services)
 	environment = local_stack_control.consumer.compose_environment(disposable)
-	commands = (
-		local_stack_control.consumer.compose_command(disposable, ["ps"])[0],
-		local_stack_control.consumer.compose_command(
-			disposable,
-			["logs", "--no-color", "--tail", "80", *selected],
-		)[0],
-	)
+	commands = local_stack_control.consumer.diagnostic_commands(disposable, services)
 	outputs: list[str] = []
 	ok = True
 	for argv in commands:
@@ -170,10 +160,13 @@ def write_compose_success_output(result: local_stack_control.models.CommandResul
 def read_evidence_logs(
 	runner: local_stack_control.process.CommandRunner,
 	disposable: local_stack_control.models.DisposableComposeTarget,
+	receipt_claim: str,
 ) -> int:
 	"""Read the policy-selected service logs through one redacted bounded action."""
-	local_stack_control.consumer.require_current_resource_capability(runner, disposable)
-	argv, environment = local_stack_control.consumer.evidence_log_command(disposable)
+	snapshot = local_stack_control.consumer.require_current_resource_capability(runner, disposable)
+	argv, environment = local_stack_control.consumer.evidence_log_command(
+		disposable, receipt_claim, snapshot
+	)
 	result = runner.run(argv, environment, disposable.target.repo_root)
 	private_values = local_stack_control.consumer.private_environment_values(
 		disposable.target.env_file
@@ -234,25 +227,38 @@ def stop_replica_instance(
 
 
 #============================================
+def run_postgresql_count(
+	runner: local_stack_control.process.CommandRunner,
+	disposable: local_stack_control.models.DisposableComposeTarget,
+	tenant_id: str,
+	attempt_id: str,
+) -> int:
+	"""Run and emit only the replica profile's five bounded durability counts."""
+	local_stack_control.consumer.require_current_resource_capability(runner, disposable)
+	argv, environment, sql = local_stack_control.consumer.postgresql_count_command(
+		disposable, tenant_id, attempt_id
+	)
+	result = runner.run(argv, environment, disposable.target.repo_root, sql)
+	if not result.ok():
+		raise local_stack_control.models.ControllerError(
+			"bounded PostgreSQL count did not complete"
+		)
+	counts = result.stdout.strip()
+	if re.fullmatch(r"[0-9]{1,10}(?:\|[0-9]{1,10}){4}", counts) is None:
+		raise local_stack_control.models.ControllerError(
+			"bounded PostgreSQL count returned an invalid result"
+		)
+	print(counts)
+	return 0
+
+
+#============================================
 def main() -> None:
 	"""Run a closed Compose call or one exact disposable cleanup."""
 	args = parse_args(sys.argv[1:])
 	try:
 		runner = local_stack_control.process.SubprocessRunner()
 		root = repo_root(runner)
-		if args.action == "prepare-state":
-			state = local_stack_control.private_state.prepare_persisted(
-				root, PRIVATE_STATE_ROOTS[args.owner]
-			)
-			print(state.directory)
-			raise SystemExit(0)
-		if args.action == "remove-state":
-			local_stack_control.private_state.remove_persisted(
-				root,
-				PRIVATE_STATE_ROOTS[args.owner],
-				args.directory.absolute(),
-			)
-			raise SystemExit(0)
 		manifest = local_stack_control.consumer.load_manifest(root, args.manifest)
 		disposable = local_stack_control.consumer.disposable_target(runner, root, manifest)
 		if args.action != "diagnostics":
@@ -304,12 +310,11 @@ def main() -> None:
 			print(f"Disposable stack ready: {result.gateway_url}")
 			raise SystemExit(0)
 		if args.action == "stop-outage-service":
-			local_stack_control.consumer.require_mutating_capability(runner, disposable)
-			argv, environment = local_stack_control.consumer.outage_stop_command(disposable)
-			result = runner.stream(argv, environment, root)
-			raise SystemExit(result)
+			completed = local_stack_control.consumer.stop_declared_outage_service(runner, disposable)
+			print(f"Disposable outage stopped: {completed.service}")
+			raise SystemExit(0)
 		if args.action == "read-evidence-logs":
-			result = read_evidence_logs(runner, disposable)
+			result = read_evidence_logs(runner, disposable, args.claim)
 			raise SystemExit(result)
 		if args.action == "diagnostics":
 			result = run_diagnostics(runner, disposable, tuple(args.service))
@@ -321,6 +326,14 @@ def main() -> None:
 				disposable,
 				args.service,
 				args.id_prefix,
+			)
+			raise SystemExit(result)
+		if args.action == "postgresql-count":
+			result = run_postgresql_count(
+				runner,
+				disposable,
+				args.tenant_id,
+				args.attempt_id,
 			)
 			raise SystemExit(result)
 

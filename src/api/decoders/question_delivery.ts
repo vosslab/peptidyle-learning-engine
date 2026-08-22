@@ -7,6 +7,7 @@ import type { QuestionDefinition } from "../../../generated/api/QuestionDefiniti
 import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ExternalToolLaunch, PublicationResult } from "../contracts";
+import { isCanonicalExternalToolLaunchPath } from "../external_tool_launch";
 import {
   DecodeError,
   decodeArray,
@@ -169,31 +170,18 @@ export function decodeQuestionEnvelope(value: unknown, path = "response"): Quest
 }
 
 /** Decodes the route-only external-tool broker projection. */
-export function decodeExternalToolLaunch(value: unknown, path = "response"): ExternalToolLaunch {
+export function decodeExternalToolLaunch(
+  value: unknown,
+  path: string,
+  attemptId: string,
+): ExternalToolLaunch {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["launchUrl"]);
   const launchUrl = decodeNonemptyString(field(record, "launchUrl", path), `${path}.launchUrl`);
-  const placeholderOrigin = "https://ple-invalid.example";
-  let parsed: URL;
-  try {
-    parsed = new URL(launchUrl, placeholderOrigin);
-  } catch {
-    throw new DecodeError(`${path}.launchUrl`, "a same-origin absolute path");
-  }
-  if (
-    !launchUrl.startsWith("/") ||
-    launchUrl.startsWith("//") ||
-    launchUrl.includes("?") ||
-    launchUrl.includes("#") ||
-    parsed.origin !== placeholderOrigin ||
-    parsed.username !== "" ||
-    parsed.password !== "" ||
-    parsed.search !== "" ||
-    parsed.hash !== ""
-  ) {
+  if (!isCanonicalExternalToolLaunchPath(launchUrl, attemptId, "https://ple-invalid.example")) {
     throw new DecodeError(
       `${path}.launchUrl`,
-      "a same-origin absolute path without query or fragment",
+      "the canonical same-origin broker path for this attempt",
     );
   }
   return { launchUrl };

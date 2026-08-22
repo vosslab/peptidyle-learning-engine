@@ -54,7 +54,6 @@ const fn mutation(path: &'static str, method: &'static str) -> RoutePolicy {
 /// that normal reads and state transitions retain their HTTP safety contract.
 pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     read("/health"),
-    mutation("/api/auth/login", "POST"),
     read("/api/auth/session"),
     mutation("/api/auth/logout", "POST"),
     mutation("/api/auth/passwordless/email/start", "POST"),
@@ -141,7 +140,6 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
         "/api/courses/{course}/assignments/{assignment}/grade-export.csv",
         "POST",
     ),
-    mutation("/api/courses/{course}/local-teaching-members", "POST"),
     mutation("/api/courses/{course}/invitations", "POST"),
     mutation("/api/courses/{course}/invitations/{invitation}", "DELETE"),
     mutation("/api/courses/{course}/enrollment-policy", "PUT"),
@@ -153,6 +151,7 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     read("/api/courses/{course}/appearance"),
     mutation("/api/courses/{course}/appearance", "PUT"),
     mutation("/api/courses/{course}/appearance/banner-candidates", "POST"),
+    mutation("/api/course-banners/{banner}/delivery", "POST"),
     read("/api/courses/{course}/assignments/{assignment}/item-analysis"),
     read("/api/courses/{course}/retention"),
     mutation("/api/courses/{course}/retention/end", "POST"),
@@ -386,6 +385,11 @@ mod tests {
             route_policy("/api/navigation/{reference}", "GET"),
             Some(RouteIntent::Representation),
         );
+    }
+
+    #[test]
+    fn retired_provider_login_has_no_route_authority() {
+        assert_eq!(route_policy("/api/auth/login", "POST"), None);
     }
 
     #[tokio::test]

@@ -22,6 +22,22 @@ Data created or modified while using the demo persists normally in the database 
 need to survive regeneration of the demo. Preserving the demo database and storage preserves the current live
 data.
 
+### WebWork catalog baseline
+
+The frozen baseline contains one reviewed WebWork catalog item, **Biochemistry: Identify hydrophobic compounds
+from formulas**. The host-only baseline installer validates the tracked source provenance and digest, writes its
+immutable private source, and reconciles the catalog publication. It provides the browser-suite owner only the
+public Question ID and title needed to find the item through the Library.
+
+This catalog publication is infrastructure bootstrap rather than teaching state. It creates no course,
+assignment, roster member, invitation, learner run, or submission. Instructor and Student journeys create those
+ordinary PLE records through the visible interface. The private source, object identity, renderer configuration,
+credentials, and answer material remain outside browser receipts and screenshots.
+
+The catalog-only installer accepts the tenant, publishing Instructor, migration/database, and private-storage
+coordinates required to reconcile that publication. It does not accept or retain a Student identity because no
+learner record belongs to this bootstrap boundary.
+
 ## Instructor perspective
 
 The demo should allow an Instructor to use the normal instructor workflows, including:

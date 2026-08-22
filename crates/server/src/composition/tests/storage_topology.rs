@@ -1,8 +1,7 @@
 //! Storage-topology behavior owned by the native composition root.
 
 use super::settings::{
-    ApiSettingsMode, ProcessRole, StorageRuntime, StorageSettings, StorageTopology,
-    browser_boundary_for,
+    ProcessRole, StorageRuntime, StorageSettings, StorageTopology, browser_boundary_for,
 };
 
 #[test]
@@ -70,11 +69,7 @@ fn disposable_local_api_keeps_the_production_browser_boundary() {
         topology: StorageTopology::DisposableLocal,
     };
     assert!(runtime.uses_disposable_local_storage());
-    assert!(
-        browser_boundary_for(ApiSettingsMode::Production, "https://learn.example.test")
-            .expect("valid production browser boundary")
-            .is_some()
-    );
+    browser_boundary_for("https://learn.example.test").expect("valid production browser boundary");
 }
 
 #[test]

@@ -3,7 +3,8 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_ROOT="$(cd "$SCRIPT_DIRECTORY/../.." && pwd -P)"
 readonly REPO_ROOT
 readonly POSTGRES_USER="ple_course_appearance"
 readonly POSTGRES_DB="ple_course_appearance"

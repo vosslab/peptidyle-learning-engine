@@ -1,360 +1,1411 @@
 {
-  "artifacts": {
-    "docs/screenshots/instructor/instructor_page_courses.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "2d53d15e67c6beb7323711bae64b91d82af6213b0537d785366030ec2be56e82",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+  "artifacts": [
+    {
+      "artifactId": "sysadmin_account_security_passkey",
+      "captureOrder": 1,
+      "height": 800,
+      "journey": "account",
+      "journeyStep": 1,
+      "path": "docs/screenshots/shared/account/01_account_security_passkey.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "shared",
+      "scenarioId": "sysadmin_first_claim",
+      "sha256": "08d2ee4815a3d9f5a38d2a33bbba4197ae8b08785ba0348efb0a477b5de2e1ab",
+      "stateId": "account_security_passkey",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/instructor_page_course_assignments.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "b40cd2ea747ce0d57be97564a6dd4394f71d34e1e1bc83895c32034daf48c9bd",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+    {
+      "artifactId": "auth_teaching_operations_groups",
+      "captureOrder": 2,
+      "height": 800,
+      "journey": "teaching_operations",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/teaching_operations/01_teaching_operations_groups.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "auth_authorization",
+      "sha256": "f97f91c94415d03f89b69406928e38ef7e983455eb7c86456e1feed3035c52ff",
+      "stateId": "teaching_operations_groups",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/instructor_page_assignment_overview.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "b40cd2ea747ce0d57be97564a6dd4394f71d34e1e1bc83895c32034daf48c9bd",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+    {
+      "artifactId": "auth_teaching_team_invited",
+      "captureOrder": 3,
+      "height": 800,
+      "journey": "teaching_operations",
+      "journeyStep": 2,
+      "path": "docs/screenshots/instructor/teaching_operations/02_teaching_team_invited.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "auth_authorization",
+      "sha256": "9975db81628eb467f44d3b5c80d9605d2a7ab9dce26c97a767969709d3f8e75a",
+      "stateId": "teaching_team_invited",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/instructor_page_assignment_create.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "6bd2ab23261d7cd7a428977468443891bbf4ddb6dcca1d053ac2b2b60b636442",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+    {
+      "artifactId": "auth_teaching_operations_retention",
+      "captureOrder": 4,
+      "height": 800,
+      "journey": "teaching_operations",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/teaching_operations/03_teaching_operations_retention.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "auth_authorization",
+      "sha256": "334726b6046dd8d586307ce520cea386cca912d0f77781333c1d714e6ce122fc",
+      "stateId": "teaching_operations_retention",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/instructor_page_assignment_edit.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "f7a24f29692b949f9e0a73a46a14a39cd64a38f033e0935eae79e051532a6dae",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+    {
+      "artifactId": "auth_pending_teaching_invitation",
+      "captureOrder": 5,
+      "height": 800,
+      "journey": "account",
+      "journeyStep": 2,
+      "path": "docs/screenshots/shared/account/02_pending_teaching_invitation.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "shared",
+      "scenarioId": "auth_authorization",
+      "sha256": "6a47e1e0cb7e08dd2cb4ac6f62488e2a4a3623dd0bdf8d1cc844a82389b55bda",
+      "stateId": "pending_teaching_invitation",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/instructor_page_roster.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "ca0e4b10b218341d1e95160c8f3f600112cceaebb1e12d56479297f0540bd1eb",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+    {
+      "artifactId": "auth_student_instructor_denial_laptop",
+      "captureOrder": 6,
+      "height": 800,
+      "journey": "access/instructor_route_denial",
+      "journeyStep": 1,
+      "path": "docs/screenshots/student/access/instructor_route_denial/01_student_instructor_denial_laptop.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "student",
+      "scenarioId": "auth_authorization",
+      "sha256": "5b330751fd294efe9df4497ff1a9804f732017a7be6b39546cee57baa090b106",
+      "stateId": "student_instructor_denial",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/instructor_page_gradebook.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "4a6e9fe9eed71466fec04bb0ff3a47975d1f1268ae0b1429923f99e2df938f69",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+    {
+      "artifactId": "auth_student_instructor_denial_tablet",
+      "captureOrder": 7,
+      "height": 1280,
+      "journey": "access/instructor_route_denial",
+      "journeyStep": 1,
+      "path": "docs/screenshots/student/access/instructor_route_denial/01_student_instructor_denial_tablet.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "student",
+      "scenarioId": "auth_authorization",
+      "sha256": "93fb9d0831e6a6ca538a1c317c71b0ddc244e4b42e9ea8d62128876dbdd67a76",
+      "stateId": "student_instructor_denial",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1280,
+        "name": "tablet",
+        "width": 800
+      },
+      "width": 800
     },
-    "docs/screenshots/instructor/instructor_page_course_appearance.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "23a12dda8e891c93a38e3c6732417d009267bf81566111374da0cfd448702a89",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+    {
+      "artifactId": "auth_student_instructor_denial_iphone_pro",
+      "captureOrder": 8,
+      "height": 852,
+      "journey": "access/instructor_route_denial",
+      "journeyStep": 1,
+      "path": "docs/screenshots/student/access/instructor_route_denial/01_student_instructor_denial_iphone_pro.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "student",
+      "scenarioId": "auth_authorization",
+      "sha256": "0870b1b1960e2f0f0927a5bf008a9ad22defd81d72bea547e74ca881c34cde92",
+      "stateId": "student_instructor_denial",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 852,
+        "name": "iphone_pro",
+        "width": 393
+      },
+      "width": 393
     },
-    "docs/screenshots/instructor/instructor_page_library.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "6b6faa498c0d205b6f8e0672f9ea500c9c715d308f693ee0dd6837aab3467963",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+    {
+      "artifactId": "auth_student_instructor_denial_square",
+      "captureOrder": 9,
+      "height": 800,
+      "journey": "access/instructor_route_denial",
+      "journeyStep": 1,
+      "path": "docs/screenshots/student/access/instructor_route_denial/01_student_instructor_denial_square.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "student",
+      "scenarioId": "auth_authorization",
+      "sha256": "4f9954ab4cccb14bfd618984b35769c5fea38a4946f575340de8e08b76a56e6c",
+      "stateId": "student_instructor_denial",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "square",
+        "width": 800
+      },
+      "width": 800
     },
-    "docs/screenshots/instructor/instructor_page_question_detail.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "f7dac877f1096018dd9cd184a3cd6bae8d89942007090f44dc555be9ed31b8d9",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+    {
+      "artifactId": "instructor_authoring_workspace",
+      "captureOrder": 10,
+      "height": 800,
+      "journey": "content_authoring",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/content_authoring/01_workspace.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "693adb32a748282437602b223193be34dcdaab4da806000feab8de7b3f36fab7",
+      "stateId": "workspace",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/instructor_page_workspace.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "254db4119afb919fdfbd6f6b32a92841b015fdc817d7253c15678725a7bab74d",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+    {
+      "artifactId": "instructor_authoring_question_editor",
+      "captureOrder": 11,
+      "height": 800,
+      "journey": "content_authoring",
+      "journeyStep": 2,
+      "path": "docs/screenshots/instructor/content_authoring/02_question_editor.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "ada3598c071740d32e2dba8e1c8ee57e080bb5e658bfd190af6d6aca7b5c7515",
+      "stateId": "question_editor",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/instructor_page_question_editor.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "71e45439f4d563af0b8f23410288fa74f69a581a68a9c4b889eaf9dbe8bed327",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+    {
+      "artifactId": "instructor_authoring_workspace_draft_saved",
+      "captureOrder": 12,
+      "height": 800,
+      "journey": "content_authoring",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/content_authoring/03_workspace_draft_saved.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "66ccb229362844324dc89a09399288e986a3d96e4011b7f589f018cd6acc0c80",
+      "stateId": "workspace_draft_saved",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/shared/instructor_page_account_security.png": {
-      "pipeline": "mock",
-      "captureOwner": "studentMock",
-      "captureGeneration": "b166e88f-e17e-495c-8777-ebed7b12715b",
-      "contentDigest": "7ed4c71c1a63b254e9916b8f0f4670c40713b7e3a90f31f92d0c187828537974",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-20T02:06:59.565Z"
+    {
+      "artifactId": "instructor_authoring_publication_success",
+      "captureOrder": 13,
+      "height": 800,
+      "journey": "content_authoring",
+      "journeyStep": 4,
+      "path": "docs/screenshots/instructor/content_authoring/04_publication_success.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "786dc773f46255dd09c4b649e331538d89b1657c0bfc761e18b8d6b39947aa5e",
+      "stateId": "publication_success",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/instructor_course_overview.png": {
-      "pipeline": "live",
-      "viewport": "laptop",
-      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
-      "capturedAt": "2026-08-12T19:14:28-05:00",
-      "derivedFromHistory": true
+    {
+      "artifactId": "instructor_authoring_library",
+      "captureOrder": 14,
+      "height": 800,
+      "journey": "content_authoring",
+      "journeyStep": 5,
+      "path": "docs/screenshots/instructor/content_authoring/05_library.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "19791668f75a6ad4e00bd40de01e82dcfa4cc01e966d3791f1117ccb6ed4897c",
+      "stateId": "library",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/instructor_roster_active_student.png": {
-      "pipeline": "live",
-      "viewport": "laptop",
-      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
-      "capturedAt": "2026-08-12T19:14:28-05:00",
-      "derivedFromHistory": true
+    {
+      "artifactId": "instructor_authoring_question_detail",
+      "captureOrder": 15,
+      "height": 800,
+      "journey": "content_authoring",
+      "journeyStep": 6,
+      "path": "docs/screenshots/instructor/content_authoring/06_question_detail.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "9b4437917b70d011d142db5a88fa09849bb46a615b7df5441f44c481a9b2041b",
+      "stateId": "question_detail",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/instructor_problem_catalog.png": {
-      "pipeline": "live",
-      "viewport": "laptop",
-      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
-      "capturedAt": "2026-08-12T19:14:28-05:00",
-      "derivedFromHistory": true
+    {
+      "artifactId": "instructor_authoring_course_created",
+      "captureOrder": 16,
+      "height": 800,
+      "journey": "course_authoring",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/course_authoring/01_course_created.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "410e7bc05415c0df8e718bcbdfd1621eae2db983479b786de20b456fa7dc000c",
+      "stateId": "course_created",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/instructor_assignment_settings.png": {
-      "pipeline": "live",
-      "viewport": "laptop",
-      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
-      "capturedAt": "2026-08-12T19:14:28-05:00",
-      "derivedFromHistory": true
+    {
+      "artifactId": "instructor_authoring_course_assignments",
+      "captureOrder": 17,
+      "height": 800,
+      "journey": "course_authoring",
+      "journeyStep": 2,
+      "path": "docs/screenshots/instructor/course_authoring/02_course_assignments.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "9aba4b6689464e732b041ffb50533c008faee3930ceefefa9fa4c18822890b5d",
+      "stateId": "course_assignments",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/instructor_assignment_created.png": {
-      "pipeline": "live",
-      "viewport": "laptop",
-      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
-      "capturedAt": "2026-08-12T19:14:28-05:00",
-      "derivedFromHistory": true
+    {
+      "artifactId": "instructor_authoring_assignment_create",
+      "captureOrder": 18,
+      "height": 800,
+      "journey": "course_authoring",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/course_authoring/03_assignment_create.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "77dcc7731cc68f628416c07cb6c5ac5284890a6fc78a470203c5a09fb6035e12",
+      "stateId": "assignment_create",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/instructor_gradebook_mastery_loop.png": {
-      "pipeline": "live",
-      "viewport": "laptop",
-      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
-      "capturedAt": "2026-08-12T19:14:28-05:00",
-      "derivedFromHistory": true
+    {
+      "artifactId": "instructor_authoring_problem_catalog",
+      "captureOrder": 19,
+      "height": 800,
+      "journey": "course_authoring",
+      "journeyStep": 4,
+      "path": "docs/screenshots/instructor/course_authoring/04_problem_catalog.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "e30b4faf1d27248734bcdba62fc6f35a76f8b6460ed98b01b088871c4dd9b85c",
+      "stateId": "problem_catalog",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/student/genetics_chapter_one_overview.png": {
-      "pipeline": "live",
-      "viewport": "laptop",
-      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
-      "capturedAt": "2026-08-12T19:14:28-05:00",
-      "derivedFromHistory": true
+    {
+      "artifactId": "instructor_authoring_assignment_created",
+      "captureOrder": 20,
+      "height": 800,
+      "journey": "course_authoring",
+      "journeyStep": 5,
+      "path": "docs/screenshots/instructor/course_authoring/05_assignment_created.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "bf770c840a64664143d81d19eaeba8c6b2218f75c175390bfe3864dc5badaeab",
+      "stateId": "assignment_created",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/student/student_assignment_list.png": {
-      "pipeline": "live",
-      "viewport": "laptop",
-      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
-      "capturedAt": "2026-08-12T19:14:28-05:00",
-      "derivedFromHistory": true
+    {
+      "artifactId": "instructor_authoring_assignment_editor",
+      "captureOrder": 21,
+      "height": 800,
+      "journey": "course_authoring",
+      "journeyStep": 6,
+      "path": "docs/screenshots/instructor/course_authoring/06_assignment_editor.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "f3472076b3ddbf804bb392c9c075536e7f0714e984d3e994369faff4189f8f3c",
+      "stateId": "assignment_editor",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/student/student_timed_problem.png": {
-      "pipeline": "live",
-      "viewport": "laptop",
-      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
-      "capturedAt": "2026-08-12T19:14:28-05:00",
-      "derivedFromHistory": true
+    {
+      "artifactId": "instructor_authoring_assignment_published",
+      "captureOrder": 22,
+      "height": 800,
+      "journey": "course_authoring",
+      "journeyStep": 7,
+      "path": "docs/screenshots/instructor/course_authoring/07_assignment_published.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "6fc640ccb986652454bf9e145d8a21f31bd58170dcdbef23820007a27ed49fbc",
+      "stateId": "assignment_published",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/student/student_fresh_practice.png": {
-      "pipeline": "live",
-      "viewport": "laptop",
-      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
-      "capturedAt": "2026-08-12T19:14:28-05:00",
-      "derivedFromHistory": true
+    {
+      "artifactId": "instructor_authoring_assignment_overview",
+      "captureOrder": 23,
+      "height": 800,
+      "journey": "course_authoring",
+      "journeyStep": 8,
+      "path": "docs/screenshots/instructor/course_authoring/08_assignment_overview.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "b92c16cbd42a43caa26b6bbdf3d38c7b0259c02a6936f0d2a4dc5266b14e0438",
+      "stateId": "assignment_overview",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/student/student_retake_fresh_problem.png": {
-      "pipeline": "live",
-      "viewport": "laptop",
-      "treeIdentity": "9967a39300fb7401210002ec0406ff8a4b1f217b",
-      "capturedAt": "2026-08-12T19:14:28-05:00",
-      "derivedFromHistory": true
+    {
+      "artifactId": "instructor_authoring_invitation_pending",
+      "captureOrder": 24,
+      "height": 800,
+      "journey": "roster",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/roster/01_invitation_pending.png",
+      "privacyChecks": [
+        "no_private_material",
+        "email_masked"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "153d1394c99ffd7d2d2787f810bc8a61042e0d8fc0bd1a11d0487a4e94ad1a1d",
+      "stateId": "invitation_pending",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/student/access/allowed_assignment_overview/student_assignment_overview_laptop.png": {
-      "pipeline": "mock",
-      "captureOwner": "studentMock",
-      "captureGeneration": "b166e88f-e17e-495c-8777-ebed7b12715b",
-      "contentDigest": "6fc397e7e235ad78e43ad7a4749960bf65e5e6beca534b0a539b41c0b0831b1c",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-20T02:06:59.565Z"
+    {
+      "artifactId": "instructor_authoring_fresh_session_assignment",
+      "captureOrder": 25,
+      "height": 800,
+      "journey": "course_authoring",
+      "journeyStep": 9,
+      "path": "docs/screenshots/instructor/course_authoring/09_fresh_session_assignment.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "instructor_authoring",
+      "sha256": "b1b6129ecb451ecff63866010f9280a09b54333fcf510b316fc75bc633c88932",
+      "stateId": "fresh_session_assignment",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/student/access/allowed_assignment_overview/student_assignment_overview_tablet.png": {
-      "pipeline": "mock",
-      "captureOwner": "studentMock",
-      "captureGeneration": "b166e88f-e17e-495c-8777-ebed7b12715b",
-      "contentDigest": "d6307c8aa49708c042b0c94d46d2ac2ce6a71bbec16e32acabd7fa905e5cf424",
-      "viewport": "tablet",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-20T02:06:59.565Z"
+    {
+      "artifactId": "learner_delivery_assignment_list",
+      "captureOrder": 26,
+      "height": 800,
+      "journey": "delivery",
+      "journeyStep": 1,
+      "path": "docs/screenshots/student/delivery/01_assignment_list.png",
+      "privacyChecks": [
+        "no_private_material",
+        "no_feedback"
+      ],
+      "role": "student",
+      "scenarioId": "learner_delivery",
+      "sha256": "c99c3da7cef64dd52a2ced19e761b096b35654b048bc1077f44de18a522f7bcb",
+      "stateId": "assignment_list",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/student/access/allowed_assignment_overview/student_assignment_overview_iphone_pro.png": {
-      "pipeline": "mock",
-      "captureOwner": "studentMock",
-      "captureGeneration": "b166e88f-e17e-495c-8777-ebed7b12715b",
-      "contentDigest": "a776703c9fe8a52548552148b6889dc8532cb6fb6412449d38533423743aa637",
-      "viewport": "iphonePro",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-20T02:06:59.565Z"
+    {
+      "artifactId": "learner_delivery_assignment_overview_laptop",
+      "captureOrder": 27,
+      "height": 800,
+      "journey": "access/allowed_assignment_overview",
+      "journeyStep": 1,
+      "path": "docs/screenshots/student/access/allowed_assignment_overview/01_assignment_overview_laptop.png",
+      "privacyChecks": [
+        "no_private_material",
+        "no_feedback"
+      ],
+      "role": "student",
+      "scenarioId": "learner_delivery",
+      "sha256": "10ad185a1e754f2bd77a6e8c03790cc464eff5b039f719045c551dac0cbcde1b",
+      "stateId": "assignment_overview",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/student/access/allowed_assignment_overview/student_assignment_overview_square.png": {
-      "pipeline": "mock",
-      "captureOwner": "studentMock",
-      "captureGeneration": "b166e88f-e17e-495c-8777-ebed7b12715b",
-      "contentDigest": "6eec0b8bc7c588c6dc7dd99381e7f80e1ab2697953d78d1e63f646d8d765f457",
-      "viewport": "square",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-20T02:06:59.565Z"
+    {
+      "artifactId": "learner_delivery_assignment_overview_tablet",
+      "captureOrder": 28,
+      "height": 1280,
+      "journey": "access/allowed_assignment_overview",
+      "journeyStep": 1,
+      "path": "docs/screenshots/student/access/allowed_assignment_overview/01_assignment_overview_tablet.png",
+      "privacyChecks": [
+        "no_private_material",
+        "no_feedback"
+      ],
+      "role": "student",
+      "scenarioId": "learner_delivery",
+      "sha256": "412c4c1c218b1a509fa9edc1c783f421dcc561d06a337ad8170a796687954aac",
+      "stateId": "assignment_overview",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1280,
+        "name": "tablet",
+        "width": 800
+      },
+      "width": 800
     },
-    "docs/screenshots/student/access/instructor_route_denial/student_instructor_route_denial_laptop.png": {
-      "pipeline": "mock",
-      "captureOwner": "studentMock",
-      "captureGeneration": "b166e88f-e17e-495c-8777-ebed7b12715b",
-      "contentDigest": "7186e02d94ab2a11f34a7880918b5a1789af4b95da8fe90f6650e5788280ecf8",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-20T02:06:59.565Z"
+    {
+      "artifactId": "learner_delivery_assignment_overview_iphone_pro",
+      "captureOrder": 29,
+      "height": 852,
+      "journey": "access/allowed_assignment_overview",
+      "journeyStep": 1,
+      "path": "docs/screenshots/student/access/allowed_assignment_overview/01_assignment_overview_iphone_pro.png",
+      "privacyChecks": [
+        "no_private_material",
+        "no_feedback"
+      ],
+      "role": "student",
+      "scenarioId": "learner_delivery",
+      "sha256": "6d5e08b4a5056d98973d6c80fa2b2734bb760be65c934999278c945f6a6cc175",
+      "stateId": "assignment_overview",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 852,
+        "name": "iphone_pro",
+        "width": 393
+      },
+      "width": 393
     },
-    "docs/screenshots/student/access/instructor_route_denial/student_instructor_route_denial_tablet.png": {
-      "pipeline": "mock",
-      "captureOwner": "studentMock",
-      "captureGeneration": "b166e88f-e17e-495c-8777-ebed7b12715b",
-      "contentDigest": "e9f97ea3c1e6980fe27e583bf15a2af2fae128e82f2a152794bcddd87dbb4ac2",
-      "viewport": "tablet",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-20T02:06:59.565Z"
+    {
+      "artifactId": "learner_delivery_assignment_overview_square",
+      "captureOrder": 30,
+      "height": 800,
+      "journey": "access/allowed_assignment_overview",
+      "journeyStep": 1,
+      "path": "docs/screenshots/student/access/allowed_assignment_overview/01_assignment_overview_square.png",
+      "privacyChecks": [
+        "no_private_material",
+        "no_feedback"
+      ],
+      "role": "student",
+      "scenarioId": "learner_delivery",
+      "sha256": "2d6f1a3f6da899f1edfb3c864f0375b0c3c83200a80aa847a735b183966cedf2",
+      "stateId": "assignment_overview",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "square",
+        "width": 800
+      },
+      "width": 800
     },
-    "docs/screenshots/student/access/instructor_route_denial/student_instructor_route_denial_iphone_pro.png": {
-      "pipeline": "mock",
-      "captureOwner": "studentMock",
-      "captureGeneration": "b166e88f-e17e-495c-8777-ebed7b12715b",
-      "contentDigest": "c0ed6fe1c4030d5adfdb17a4ca71765936ddd54336b5798296a96c99e807422e",
-      "viewport": "iphonePro",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-20T02:06:59.565Z"
+    {
+      "artifactId": "learner_delivery_problem_ready",
+      "captureOrder": 31,
+      "height": 800,
+      "journey": "delivery",
+      "journeyStep": 3,
+      "path": "docs/screenshots/student/delivery/03_problem_ready.png",
+      "privacyChecks": [
+        "no_private_material",
+        "no_feedback"
+      ],
+      "role": "student",
+      "scenarioId": "learner_delivery",
+      "sha256": "46ec65a676accbb12ab1bbd935587525e64db0979a0232fe7a336fc5958b1b90",
+      "stateId": "problem_ready",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/student/access/instructor_route_denial/student_instructor_route_denial_square.png": {
-      "pipeline": "mock",
-      "captureOwner": "studentMock",
-      "captureGeneration": "b166e88f-e17e-495c-8777-ebed7b12715b",
-      "contentDigest": "fed8ce1fe6276ac11e2d810a64cd6f49150b1d8737ea4d8cda13a58186cafee0",
-      "viewport": "square",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-20T02:06:59.565Z"
+    {
+      "artifactId": "learner_delivery_response_selected",
+      "captureOrder": 32,
+      "height": 800,
+      "journey": "delivery",
+      "journeyStep": 4,
+      "path": "docs/screenshots/student/delivery/04_response_selected.png",
+      "privacyChecks": [
+        "no_private_material",
+        "no_feedback"
+      ],
+      "role": "student",
+      "scenarioId": "learner_delivery",
+      "sha256": "8131e3032f00b6ef8afb1cb7adc18324061af1b708fd97af543667ec532a1be2",
+      "stateId": "response_selected",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/course_grade/course_grade_settings_laptop.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "4ba4fdce29caca16affb7a123e1aa24fb3556b1eab0c5485408d38859a7309eb",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+    {
+      "artifactId": "learner_delivery_feedback_correct",
+      "captureOrder": 33,
+      "height": 800,
+      "journey": "delivery",
+      "journeyStep": 5,
+      "path": "docs/screenshots/student/delivery/05_feedback_correct.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "student",
+      "scenarioId": "learner_delivery",
+      "sha256": "5fc2045c2e13bef8ec3a420583999eadb596d7e729588c18afc5e3f795c025bb",
+      "stateId": "feedback_correct",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/course_grade/course_grade_settings_tablet.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "060370a247246a2000f031244a950afa46552bd6e93db5397919665d7ce61e30",
-      "viewport": "tablet",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+    {
+      "artifactId": "learner_delivery_completion",
+      "captureOrder": 34,
+      "height": 800,
+      "journey": "delivery",
+      "journeyStep": 6,
+      "path": "docs/screenshots/student/delivery/06_completion.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "student",
+      "scenarioId": "learner_delivery",
+      "sha256": "135520b3cae64a439ebf75dc01e6b58b5cd301159685606458fe766e1fad50d2",
+      "stateId": "completion",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/course_grade/course_grade_settings_iphone_pro.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "9420cc78c43b562e0de27046e433c89c0c774568e623c35ea9b46d07f3f2525d",
-      "viewport": "iphonePro",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+    {
+      "artifactId": "learner_delivery_repeat_run",
+      "captureOrder": 35,
+      "height": 800,
+      "journey": "delivery",
+      "journeyStep": 7,
+      "path": "docs/screenshots/student/delivery/07_repeat_run.png",
+      "privacyChecks": [
+        "no_private_material",
+        "no_feedback"
+      ],
+      "role": "student",
+      "scenarioId": "learner_delivery",
+      "sha256": "edfdf5a733e70d03efb23aa105735a04542dcfbc9f1c99f50c44d4a8bf76ad9a",
+      "stateId": "repeat_run",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/course_grade/course_grade_settings_square.png": {
-      "pipeline": "mock",
-      "captureOwner": "instructorMock",
-      "captureGeneration": "7e97a5d2-2c0b-4811-880d-3e7bbbdbf182",
-      "contentDigest": "5746e756ead14fa19d00c362d1737ddbf55064ddaa8960a3ff3d633d9713865e",
-      "viewport": "square",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-19T20:27:52.652Z"
+    {
+      "artifactId": "learner_delivery_fresh_session_score",
+      "captureOrder": 36,
+      "height": 800,
+      "journey": "delivery",
+      "journeyStep": 8,
+      "path": "docs/screenshots/student/delivery/08_fresh_session_score.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "student",
+      "scenarioId": "learner_delivery",
+      "sha256": "f4069f5edf9399376ac09629c779c158f42c3ebf47b52113c8ed22765c2eb2b4",
+      "stateId": "fresh_session_score",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/teaching_operations_groups.png": {
-      "pipeline": "mock",
-      "captureOwner": "t2Mock",
-      "captureGeneration": "f2a1f365-e702-4950-873d-91e5b285a2de",
-      "contentDigest": "78bf1a3fb1148080d3d629d094b3390936bbca8f39dd7f8525fb4f8a761dd1e7",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-20T14:58:38.306Z"
+    {
+      "artifactId": "learner_delivery_instructor_active_roster",
+      "captureOrder": 37,
+      "height": 800,
+      "journey": "course_management",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/course_management/01_instructor_active_roster.png",
+      "privacyChecks": [
+        "no_private_material",
+        "email_masked"
+      ],
+      "role": "instructor",
+      "scenarioId": "learner_delivery",
+      "sha256": "149a5f4a11d76a319a84bd4f5caa36d745c884a8b1687fb3b8c0d01862a85350",
+      "stateId": "instructor_active_roster",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/teaching_operations_team.png": {
-      "pipeline": "mock",
-      "captureOwner": "t2Mock",
-      "captureGeneration": "f2a1f365-e702-4950-873d-91e5b285a2de",
-      "contentDigest": "f3f26816c61a36c725717654c78ebfff1b1e63925ddc384219062cfa02a2125e",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-20T14:58:38.306Z"
+    {
+      "artifactId": "learner_delivery_instructor_gradebook",
+      "captureOrder": 38,
+      "height": 800,
+      "journey": "grading",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/grading/01_instructor_gradebook.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "learner_delivery",
+      "sha256": "fa8ca7d1f70cd6db8285f6711a9533ff40a234c3d5c9293cb52b80b091fbd0dc",
+      "stateId": "instructor_gradebook",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/teaching_operations_retention.png": {
-      "pipeline": "mock",
-      "captureOwner": "t2Mock",
-      "captureGeneration": "f2a1f365-e702-4950-873d-91e5b285a2de",
-      "contentDigest": "cd572851ec6520df46b8a1c2eafc5e33ae1c5e26a07c7a4e9d3b3b8549314ccf",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-20T14:58:38.306Z"
+    {
+      "artifactId": "learner_delivery_appearance_saved",
+      "captureOrder": 39,
+      "height": 800,
+      "journey": "course_management",
+      "journeyStep": 2,
+      "path": "docs/screenshots/instructor/course_management/02_appearance_saved.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "learner_delivery",
+      "sha256": "eac9d08973fc6d4fb490ad6e0ceba7de11e481e4ef0011c94591f3b39773ac78",
+      "stateId": "appearance_saved",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/assignment_access_allowed_preview.png": {
-      "pipeline": "mock",
-      "captureOwner": "t2Mock",
-      "captureGeneration": "f2a1f365-e702-4950-873d-91e5b285a2de",
-      "contentDigest": "724428faefb30115ba8c94b3f4031b2b9c36fbb05b912f90e920258629bbdbda",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-20T14:58:38.306Z"
+    {
+      "artifactId": "learner_delivery_access_preview_allowed",
+      "captureOrder": 40,
+      "height": 800,
+      "journey": "assignment_access",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/assignment_access/01_access_preview_allowed.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "learner_delivery",
+      "sha256": "a39fa1c596b6bc9a9be47ef59faa3a79c063e0bf8d97468806ba510149a36d29",
+      "stateId": "access_preview_allowed",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/instructor/assignment_access_denied_preview.png": {
-      "pipeline": "mock",
-      "captureOwner": "t2Mock",
-      "captureGeneration": "f2a1f365-e702-4950-873d-91e5b285a2de",
-      "contentDigest": "9b174350c3fba952763c34ab85ef9be53b009c604b2ccc17b6dd66ba46d67107",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-20T14:58:38.306Z"
+    {
+      "artifactId": "learner_delivery_access_preview_denied",
+      "captureOrder": 41,
+      "height": 800,
+      "journey": "assignment_access",
+      "journeyStep": 2,
+      "path": "docs/screenshots/instructor/assignment_access/02_access_preview_denied.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "learner_delivery",
+      "sha256": "98ef24eedd8beb6243e0d2272f1a9f34e24fb37fe8c9ebaee2a056ff7be46e0c",
+      "stateId": "access_preview_denied",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
     },
-    "docs/screenshots/shared/account_pending_co_instructor_invitation.png": {
-      "pipeline": "mock",
-      "captureOwner": "t2Mock",
-      "captureGeneration": "f2a1f365-e702-4950-873d-91e5b285a2de",
-      "contentDigest": "e82ef2c81a67fde2a1a63556d9aafe368f837824da28b8d738bc8bea0758dcd3",
-      "viewport": "laptop",
-      "treeIdentity": "10def1365b0e950f8cc2afcd4247f969540446aa",
-      "capturedAt": "2026-08-20T14:58:38.306Z"
+    {
+      "artifactId": "grade_settings_conflict_detected",
+      "captureOrder": 42,
+      "height": 800,
+      "journey": "grade_settings_conflict",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/grade_settings_conflict/01_conflict_detected.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "grade_settings_conflict",
+      "sha256": "35ead4630d3858d6163cc39f5ff7350724b29f03ef067b7caec4d206a937bfc7",
+      "stateId": "conflict_detected",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "grade_settings_retry_saved",
+      "captureOrder": 43,
+      "height": 800,
+      "journey": "grade_settings_conflict",
+      "journeyStep": 2,
+      "path": "docs/screenshots/instructor/grade_settings_conflict/02_retry_saved.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "grade_settings_conflict",
+      "sha256": "8fdcdf16f46df29ca573351168f510ef7e8fa98172d3f21754262ae137c16e40",
+      "stateId": "retry_saved",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "grade_settings_remote_observed_laptop",
+      "captureOrder": 44,
+      "height": 800,
+      "journey": "grade_settings_conflict",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/grade_settings_conflict/03_remote_observed_laptop.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "grade_settings_conflict",
+      "sha256": "383344e0f01a019dc0073a1ea943d65eaef03aaecbea75742b8bb978a0bcc390",
+      "stateId": "remote_observed",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "grade_settings_remote_observed_tablet",
+      "captureOrder": 45,
+      "height": 1280,
+      "journey": "grade_settings_conflict",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/grade_settings_conflict/03_remote_observed_tablet.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "grade_settings_conflict",
+      "sha256": "b95243d49afe048afe9ac438080b515334474faf14798ba818666e0983914fa0",
+      "stateId": "remote_observed",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1280,
+        "name": "tablet",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "grade_settings_remote_observed_iphone_pro",
+      "captureOrder": 46,
+      "height": 852,
+      "journey": "grade_settings_conflict",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/grade_settings_conflict/03_remote_observed_iphone_pro.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "grade_settings_conflict",
+      "sha256": "08e22d0008680e8583c5aa07a4672eec757aafc1120c3b951a69f7f754e0f3ae",
+      "stateId": "remote_observed",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 852,
+        "name": "iphone_pro",
+        "width": 393
+      },
+      "width": 393
+    },
+    {
+      "artifactId": "grade_settings_remote_observed_square",
+      "captureOrder": 47,
+      "height": 800,
+      "journey": "grade_settings_conflict",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/grade_settings_conflict/03_remote_observed_square.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "grade_settings_conflict",
+      "sha256": "f30f68583bd5803e36076a7a9d9ef7ccef1f38432db2415c28b14dde04bd9a19",
+      "stateId": "remote_observed",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "square",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "learner_gateway_retry",
+      "captureOrder": 48,
+      "height": 800,
+      "journey": "gateway_recovery",
+      "journeyStep": 1,
+      "path": "docs/screenshots/student/gateway_recovery/01_gateway_retry.png",
+      "privacyChecks": [
+        "no_private_material",
+        "no_feedback"
+      ],
+      "role": "student",
+      "scenarioId": "learner_gateway_recovery",
+      "sha256": "111abd04ebe03b451d9023e2ae4eb81a2d8e0e6c09ae6cd6164d415e9b7eaf4f",
+      "stateId": "gateway_retry",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "learner_gateway_recovered_feedback",
+      "captureOrder": 49,
+      "height": 800,
+      "journey": "gateway_recovery",
+      "journeyStep": 2,
+      "path": "docs/screenshots/student/gateway_recovery/02_recovered_feedback.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "student",
+      "scenarioId": "learner_gateway_recovery",
+      "sha256": "02877a35653b47e06ca9868e0341b51a663a002e58f7b922607b2b07615973fe",
+      "stateId": "recovered_feedback",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "learner_gateway_recovered_completion",
+      "captureOrder": 50,
+      "height": 800,
+      "journey": "gateway_recovery",
+      "journeyStep": 3,
+      "path": "docs/screenshots/student/gateway_recovery/03_recovered_completion.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "student",
+      "scenarioId": "learner_gateway_recovery",
+      "sha256": "4ab8050f2b93c5ad4aeeb94b68f204583a0ee78cda0b90739b4f901954468018",
+      "stateId": "recovered_completion",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "learner_gateway_fresh_session_score",
+      "captureOrder": 51,
+      "height": 800,
+      "journey": "gateway_recovery",
+      "journeyStep": 4,
+      "path": "docs/screenshots/student/gateway_recovery/04_fresh_session_score.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "student",
+      "scenarioId": "learner_gateway_recovery",
+      "sha256": "1f52fc3a9edf4a01562c478bc3f90854c18cde09c2308c8425e44804dc8f19c0",
+      "stateId": "fresh_session_score",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "preview_plane_schedule_entitlement",
+      "captureOrder": 52,
+      "height": 800,
+      "journey": "assignment_preview",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/assignment_preview/01_schedule_entitlement.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "preview_plane",
+      "sha256": "5a461be0b7f349eddc3b036d846a8afd7202b6c7cba3656a64512b8af9703f5d",
+      "stateId": "schedule_entitlement",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "preview_plane_derived_resolved",
+      "captureOrder": 53,
+      "height": 800,
+      "journey": "assignment_preview",
+      "journeyStep": 2,
+      "path": "docs/screenshots/instructor/assignment_preview/02_derived_resolved.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "preview_plane",
+      "sha256": "613b65b63796dcd0047fb352e671ce69c28bce57cf8e433c0a657a001f13f728",
+      "stateId": "derived_resolved",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "preview_plane_revision_conflict",
+      "captureOrder": 54,
+      "height": 800,
+      "journey": "assignment_preview",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/assignment_preview/03_revision_conflict.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "preview_plane",
+      "sha256": "3f2f76ba46fcb23a448eedd27d8e90b015ea7df232d60da677160665fbae5d5d",
+      "stateId": "revision_conflict",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "preview_plane_revision_reloaded",
+      "captureOrder": 55,
+      "height": 800,
+      "journey": "assignment_preview",
+      "journeyStep": 4,
+      "path": "docs/screenshots/instructor/assignment_preview/04_revision_reloaded.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "preview_plane",
+      "sha256": "ee9f93c8fe14ac4954cec05d57b4f25732e1622bd668bbba509cd8ca91f5ce37",
+      "stateId": "revision_reloaded",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "preview_plane_synthetic_resolved_laptop",
+      "captureOrder": 56,
+      "height": 800,
+      "journey": "assignment_preview",
+      "journeyStep": 5,
+      "path": "docs/screenshots/instructor/assignment_preview/05_synthetic_resolved_laptop.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "preview_plane",
+      "sha256": "548e6a137ab6973861f371bcdef4b254d0f8625347cf0e6a9296df99b35f22bb",
+      "stateId": "synthetic_resolved",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "preview_plane_synthetic_resolved_tablet",
+      "captureOrder": 57,
+      "height": 1280,
+      "journey": "assignment_preview",
+      "journeyStep": 5,
+      "path": "docs/screenshots/instructor/assignment_preview/05_synthetic_resolved_tablet.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "preview_plane",
+      "sha256": "5e75573fab97a592a704d950b71e3181865d9b3b1bb14aeecb15655477384632",
+      "stateId": "synthetic_resolved",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1280,
+        "name": "tablet",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "preview_plane_synthetic_resolved_iphone_pro",
+      "captureOrder": 58,
+      "height": 852,
+      "journey": "assignment_preview",
+      "journeyStep": 5,
+      "path": "docs/screenshots/instructor/assignment_preview/05_synthetic_resolved_iphone_pro.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "preview_plane",
+      "sha256": "bb27d251dd608408c110f02dcd3cef44fef4f2f416a61ba96b35607ab77b7a22",
+      "stateId": "synthetic_resolved",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 852,
+        "name": "iphone_pro",
+        "width": 393
+      },
+      "width": 393
+    },
+    {
+      "artifactId": "preview_plane_synthetic_resolved_square",
+      "captureOrder": 59,
+      "height": 800,
+      "journey": "assignment_preview",
+      "journeyStep": 5,
+      "path": "docs/screenshots/instructor/assignment_preview/05_synthetic_resolved_square.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "preview_plane",
+      "sha256": "de06e23112419c2aaddc311fa28c9dbbe717a1a5379869366010483d624eef80",
+      "stateId": "synthetic_resolved",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "square",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "preview_plane_assignment_preview_denial_laptop",
+      "captureOrder": 60,
+      "height": 800,
+      "journey": "access/assignment_preview_denial",
+      "journeyStep": 1,
+      "path": "docs/screenshots/student/access/assignment_preview_denial/01_assignment_preview_denial_laptop.png",
+      "privacyChecks": [
+        "no_private_material",
+        "no_feedback"
+      ],
+      "role": "student",
+      "scenarioId": "preview_plane",
+      "sha256": "5b330751fd294efe9df4497ff1a9804f732017a7be6b39546cee57baa090b106",
+      "stateId": "assignment_preview_denial",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "preview_plane_assignment_preview_denial_tablet",
+      "captureOrder": 61,
+      "height": 1280,
+      "journey": "access/assignment_preview_denial",
+      "journeyStep": 1,
+      "path": "docs/screenshots/student/access/assignment_preview_denial/01_assignment_preview_denial_tablet.png",
+      "privacyChecks": [
+        "no_private_material",
+        "no_feedback"
+      ],
+      "role": "student",
+      "scenarioId": "preview_plane",
+      "sha256": "93fb9d0831e6a6ca538a1c317c71b0ddc244e4b42e9ea8d62128876dbdd67a76",
+      "stateId": "assignment_preview_denial",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1280,
+        "name": "tablet",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "preview_plane_assignment_preview_denial_iphone_pro",
+      "captureOrder": 62,
+      "height": 852,
+      "journey": "access/assignment_preview_denial",
+      "journeyStep": 1,
+      "path": "docs/screenshots/student/access/assignment_preview_denial/01_assignment_preview_denial_iphone_pro.png",
+      "privacyChecks": [
+        "no_private_material",
+        "no_feedback"
+      ],
+      "role": "student",
+      "scenarioId": "preview_plane",
+      "sha256": "0870b1b1960e2f0f0927a5bf008a9ad22defd81d72bea547e74ca881c34cde92",
+      "stateId": "assignment_preview_denial",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 852,
+        "name": "iphone_pro",
+        "width": 393
+      },
+      "width": 393
+    },
+    {
+      "artifactId": "preview_plane_assignment_preview_denial_square",
+      "captureOrder": 63,
+      "height": 800,
+      "journey": "access/assignment_preview_denial",
+      "journeyStep": 1,
+      "path": "docs/screenshots/student/access/assignment_preview_denial/01_assignment_preview_denial_square.png",
+      "privacyChecks": [
+        "no_private_material",
+        "no_feedback"
+      ],
+      "role": "student",
+      "scenarioId": "preview_plane",
+      "sha256": "4f9954ab4cccb14bfd618984b35769c5fea38a4946f575340de8e08b76a56e6c",
+      "stateId": "assignment_preview_denial",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "square",
+        "width": 800
+      },
+      "width": 800
     }
-  }
+  ],
+  "browserSuite": "ple-live-demo-browser",
+  "generationIdentity": "e4ad48316cc6b654c5e0ea5a8c88ad117a64ed401d1d99003bcbf9f3280ef5a6",
+  "origin": "https://localhost:55399",
+  "pipeline": "realStack",
+  "productionDistDigest": "5860e518e209ff6a18563b2522573754991602f6e7d71ac9392a22056fff4f79",
+  "schemaVersion": 2
 }

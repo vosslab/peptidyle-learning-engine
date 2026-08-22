@@ -1,5 +1,6 @@
 // assignment_access_page.tsx - course-scoped M2/M3/M4 access modifier workspace.
 
+import { A } from "@solidjs/router";
 import { For, Match, Show, Switch, createMemo, createSignal, onMount, type JSX } from "solid-js";
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
@@ -9,6 +10,8 @@ import type { TeachingOperationRevision } from "../../generated/api/TeachingOper
 import type { TeachingPreviewView } from "../../generated/api/TeachingPreviewView";
 import type { ApiClient } from "../api/client";
 import { ApiRequestError } from "../api/http_client/error";
+import { CourseManagementNav } from "../components/course_management_nav";
+import type { AssignmentRouteReference, CourseRouteReference } from "../navigation/public_route";
 import { ModifierDialog } from "./assignment_access/modifier_dialog";
 import {
   type ModifierMode,
@@ -24,6 +27,8 @@ export interface AssignmentAccessPageProps {
   readonly courseId: CourseId;
   readonly assignmentId: AssignmentId;
   readonly initialRevision: TeachingOperationRevision;
+  readonly courseReference: CourseRouteReference;
+  readonly assignmentReference: AssignmentRouteReference;
   /** Fetches the current strong revision after a compare-and-swap conflict. */
   readonly reloadAssignmentRevision: () => Promise<TeachingOperationRevision>;
   /** Route owners may supply the authorized course-members list when their projection supports it. */
@@ -265,6 +270,13 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
     >
       <p class="eyebrow">Instructor assignment settings</p>
       <h1>Access and modifiers</h1>
+      <CourseManagementNav courseReference={props.courseReference} active="assignments" />
+      <A
+        class="quiet-link"
+        href={`/instructor/courses/${props.courseReference}/assignments/${props.assignmentReference}/edit`}
+      >
+        Edit assignment
+      </A>
       <Switch>
         <Match when={state() === "loading"}>
           <p role="status">Loading assignment access settings...</p>

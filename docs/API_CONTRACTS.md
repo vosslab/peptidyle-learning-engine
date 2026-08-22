@@ -17,7 +17,7 @@ at the HTTP boundary.
 ## Status and authority
 
 The route registrations in [crates/server/src/composition/router.rs](../crates/server/src/composition/router.rs)
-are the executable authority for what is mounted. Route modules own their
+are the executable authority for what is available. Route modules own their
 extractors, limits, authorization, and HTTP status mapping. The corresponding
 browser method in [src/api/client.ts](../src/api/client.ts) and strict decoder
 under [src/api/decoders.ts](../src/api/decoders.ts) own the browser-facing
@@ -73,7 +73,7 @@ body limit, status response, and Rust type remain in the linked owner.
 | Family | Routes | Identity and payload boundary | Owner |
 | --- | --- | --- | --- |
 | Health | `GET /health` | Readiness only; it is not an authenticated API session probe. | [crates/server/src/composition/router.rs](../crates/server/src/composition/router.rs) |
-| Auth/session | production `POST /api/auth/passwordless/email/start` and `/complete`; account-email start/complete; passkey registration/authentication start/complete; passkey list/revoke; account course list/select; `GET /api/auth/session`; `POST /api/auth/logout`; local development additionally has legacy `POST /api/auth/login` | PLE-owned accounts use email as the canonical sign-in path and optional passkeys as shortcuts. Email and passkey completion issue a bounded HttpOnly `ple_account_session`; invitation claim or course selection then derives a tenant-scoped `ple_session` from an authorized relationship. Production composes this provider-free graph with an eight-hour `FirstPartyHttps` policy and does not mount the legacy route. | [crates/server/src/auth.rs](../crates/server/src/auth.rs), [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) |
+| Auth/session | production `POST /api/auth/passwordless/email/start` and `/complete`; account-email start/complete; passkey registration/authentication start/complete; passkey list/revoke; account course list/select; deployment-gated seeded-persona `GET/POST /api/auth/live-demo/accounts`; `GET /api/auth/session`; `POST /api/auth/logout` | PLE-owned accounts use email as the canonical sign-in path and ordinary passkeys as optional shortcuts. Email, passkey, and the deployment-gated seeded persona selector issue the same bounded HttpOnly `ple_account_session`; invitation claim or course selection then derives a tenant-scoped `ple_session` from an authorized relationship. The selector is unavailable unless its deployment configuration is complete. | [crates/server/src/auth.rs](../crates/server/src/auth.rs), [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) |
 | Catalog | `GET /api/problems`, `/search`, `/by-id/{reference}`, `/by-id/{reference}/detail`, `GET /api/taxonomy` | Browse, exact-ID lookup, and detail are browser-safe Question-ID projections with the immutable reviewed public byline. Source, private author-account IDs, private response/grading material, credentials, internal publication pairs, and student records are excluded. | [crates/server/src/catalog/routes.rs](../crates/server/src/catalog/routes.rs) |
 | Catalog lifecycle | `POST /api/problems/{workspace}/publish`, `POST /api/problems/by-id/{reference}/deprecate`, `/archive` | Publication mints one new immutable question with a fresh Question ID and hidden exact publication evidence. Lifecycle actions resolve the Question ID under authorization and retain protected historical evidence. | [crates/server/src/catalog/routes.rs](../crates/server/src/catalog/routes.rs) |
 | Course and assignment | `GET/POST /api/courses`, `GET/POST /api/courses/{course}/assignments`, `GET /api/courses/{course}`, `/gradebook`, instructor `GET /api/assignments/{assignment}`, content `PUT /api/courses/{course}/assignments/{assignment}`, `POST .../items`, `DELETE .../items/{item}`, `PUT .../items/{item}/question` | Course comes from path plus membership. Create and focused item mutations select Question IDs; the ordinary update changes content and run/disclosure choices without changing teaching operations. Item mutations use assignment `If-Match`; a revision conflict preserves the caller's input for reload and retry. | [crates/server/src/course/routing.rs](../crates/server/src/course/routing.rs) |
@@ -104,11 +104,10 @@ body limit, status response, and Rust type remain in the linked owner.
 The route table describes the shared application router assembled by
 [`crates/server/src/composition/router.rs`](../crates/server/src/composition/router.rs).
 It injects account and session Stores, the invitation issuer, passwordless
-email delivery and rate-limit issuer, and optional WebAuthn
-configuration. Local development additionally layers its `IdentityProvider`
-and legacy login route over that graph. This makes the account, passwordless,
-passkey, invitation, and roster route families independently testable without
-granting their route modules process-local authority.
+email delivery and rate-limit issuer, and optional WebAuthn configuration.
+The browser uses this same production-shaped graph through the disposable HTTPS
+gateway; no browser build or browser command selects a local credential form or
+legacy login route.
 
 `production_router_from_env` at
 [`crates/server/src/composition.rs`](../crates/server/src/composition.rs)
@@ -116,9 +115,8 @@ constructs persistent dependencies and composes the provider-free PLE
 passwordless/account/session graph. Its eight-hour `FirstPartyHttps` policy
 makes account, email-binding, and tenant-session cookies Secure, HttpOnly, and
 first-party `SameSite=Lax`; its explicit `ReviewNotRequired` gate leaves
-institutional review integration optional. It does not read
-`PLE_AUTH_PROVIDER`, `PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH`, or
-`PLE_LOCAL_AUTH_FILE`, and it does not mount `/api/auth/login`.
+institutional review integration optional. It mounts only the production
+account and session route families listed above.
 
 Production is a same-origin first-party application. It does not support an
 embedded `SameSite=None` session mode. A future LTI integration is a separate
@@ -146,16 +144,15 @@ The browser decoder treats all network JSON as hostile: it bounds bytes,
 checks content type, constructs null-prototype records, refuses duplicate or
 unknown fields and closed-discriminant misses, and checks requested/returned
 relationships before exposing a typed value. The server gives mutating
-Serde models the same closed-world posture. Browser types, mocks, and WASM
-are convenience projections, never authorization evidence.
+Serde models the same closed-world posture. Browser types and Wasm are
+convenience projections, never authorization evidence.
 
-The separately callable local-development launcher requires
-`PLE_AUTH_PROVIDER=local-file`, the explicit development flag, and an
-operator-owned identity file. That provider serves legacy `POST /api/auth/login`
-and issues a tenant-scoped `ple_session`; it does not bootstrap a PLE account.
-Only a binary explicitly built with the `local-development-auth` feature may
-select that launcher, and it does so only when
-`PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH=1`.
+Browser acceptance and developer browser entry use the visible PLE account page.
+The deployment-gated seeded selector and ordinary passkey remain within this
+account/session graph; no browser build or command selects an alternate
+credential form or login route. Any remaining service-only harness must be
+treated as browser-free infrastructure evidence and cannot become a browser
+authentication path.
 
 The established SMTP adapter is constructed only when the complete SMTP
 settings and `PLE_INVITATION_TOKEN_SECRET_FILE` are configured. It implements
@@ -211,12 +208,13 @@ The HTTP client treats a successful status as untrusted until it verifies:
 5. related records in a composed screen agree on tenant, course, run, attempt,
    version, and seed where relevant.
 
-The mock API implements the same `ApiClient` surface and checks serialized
-fixtures, so browser tests do not create a second unchecked protocol. The
-implementation is in [src/api/http_client.ts](../src/api/http_client.ts),
+Browser acceptance uses the production `ApiClient` over the disposable HTTPS
+gateway. Narrow browser-free unit tests check serialized decoder and transport
+fixtures without creating a second browser runtime. The implementation is in
+[src/api/http_client.ts](../src/api/http_client.ts),
 [src/api/http_client/request.ts](../src/api/http_client/request.ts),
-[src/api/http_client/response.ts](../src/api/http_client/response.ts), and
-[src/api/mock/handlers.ts](../src/api/mock/handlers.ts).
+[src/api/http_client/response.ts](../src/api/http_client/response.ts), with
+focused decoder and serialization tests under `tests/`.
 
 Server error status is part of the contract, but a client must not use a
 difference between `404`, `403`, malformed input, or a conflict as proof that
@@ -242,7 +240,7 @@ Versioning is therefore explicit at the boundary that evolves:
   not an unannounced route behavior change.
 
 Changing a route requires updating its Rust owner, browser `ApiClient` method,
-strict decoder, mock handler/fixture, focused behavior test, this map when the
+strict decoder, focused browser-free serialization/decoder tests, this map when the
 route-level rule changes, and [CONTRACTS.md](CONTRACTS.md) when module
 ownership changes. Keep a compatibility adapter only when an active consumer
 needs it, name its removal condition, and do not make browser-supplied copies

@@ -26,11 +26,10 @@ pub struct ExportId(Uuid);
 impl ExportId {
     /// Mints a server-side opaque export identity.
     pub fn generate() -> Result<Self, StoreError> {
-        let mut bytes = [0_u8; 16];
-        getrandom::fill(&mut bytes).map_err(|error| {
+        crate::random_uuid::random_uuid_v4(|error| {
             StoreError::Unavailable(format!("export ID randomness unavailable: {error}"))
-        })?;
-        Ok(Self(Uuid::from_bytes(bytes)))
+        })
+        .map(Self)
     }
 
     /// Reconstitutes an ID read from storage or a validated route parameter.
@@ -196,11 +195,10 @@ pub struct JobId(Uuid);
 impl JobId {
     /// Mints a server-side opaque queue identity.
     pub fn generate() -> Result<Self, StoreError> {
-        let mut bytes = [0_u8; 16];
-        getrandom::fill(&mut bytes).map_err(|error| {
+        crate::random_uuid::random_uuid_v4(|error| {
             StoreError::Unavailable(format!("job ID randomness unavailable: {error}"))
-        })?;
-        Ok(Self(Uuid::from_bytes(bytes)))
+        })
+        .map(Self)
     }
 
     /// Reconstitutes an ID read from storage.
@@ -231,11 +229,11 @@ pub struct JobLeaseToken(Uuid);
 impl JobLeaseToken {
     /// Creates an unpredictable worker-local claim token.
     pub fn generate() -> Result<Self, StoreError> {
-        let mut bytes = [0_u8; 16];
-        getrandom::fill(&mut bytes).map_err(|error| {
+        crate::random_uuid::random_128_bits(|error| {
             StoreError::Unavailable(format!("job lease randomness unavailable: {error}"))
-        })?;
-        Ok(Self(Uuid::from_bytes(bytes)))
+        })
+        .map(crate::random_uuid::uuid_storage_from_128_random_bits)
+        .map(Self)
     }
 
     /// Returns the database representation for the private broker call.

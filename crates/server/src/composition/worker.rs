@@ -92,23 +92,10 @@ pub async fn run_production_worker_from_env() -> Result<()> {
     run_worker_from_env(StorageRuntime::worker_from_env()?).await
 }
 
-/// Starts the worker against the explicit plaintext local-development stack.
-#[cfg(feature = "local-development-auth")]
-pub async fn run_local_development_worker_from_env() -> Result<()> {
-    run_worker_from_env(StorageRuntime::local_development_worker()).await
-}
-
 /// Starts the production invitation-delivery process. Its database login has
 /// only the outbox broker capability; it never constructs the generic Store.
 pub async fn run_production_invitation_delivery_worker_from_env() -> Result<()> {
-    run_invitation_delivery_worker_from_env(false).await
-}
-
-/// Starts the disposable-stack invitation-delivery process against its local
-/// database only. This mode is compiled solely with local development auth.
-#[cfg(feature = "local-development-auth")]
-pub async fn run_local_development_invitation_delivery_worker_from_env() -> Result<()> {
-    run_invitation_delivery_worker_from_env(true).await
+    run_invitation_delivery_worker_from_env().await
 }
 
 /// Starts the least-authority publisher process. It claims no educational
@@ -182,17 +169,13 @@ async fn run_worker_from_env(runtime: StorageRuntime) -> Result<()> {
         .context("production worker runtime failed")
 }
 
-async fn run_invitation_delivery_worker_from_env(local_development: bool) -> Result<()> {
+async fn run_invitation_delivery_worker_from_env() -> Result<()> {
     let settings = ProductionWorkerSettings::from_env()?;
-    let database_url = invitation_delivery_worker_database_url_from_env(local_development)?;
-    let pool = if local_development {
-        learning_data_access::postgres::lazy_pool(&database_url)
-    } else {
-        learning_data_access::postgres::production_pool(
-            &database_url,
-            learning_data_access::postgres::ProductionLoginProfile::InvitationDeliveryWorker,
-        )
-    }
+    let database_url = invitation_delivery_worker_database_url_from_env()?;
+    let pool = learning_data_access::postgres::production_pool(
+        &database_url,
+        learning_data_access::postgres::ProductionLoginProfile::InvitationDeliveryWorker,
+    )
     .map_err(|_| anyhow::anyhow!("database connection configuration was rejected"))?;
     verify_invitation_delivery_worker_schema(&pool).await?;
     let store =

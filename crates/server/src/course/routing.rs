@@ -18,7 +18,7 @@ use super::assignments::{
 };
 use super::invitation_capability::CourseInvitationIssuer;
 use super::queries::{create_course, get_course, list_assignments, list_courses, list_gradebook};
-use super::roster::{LocalTeachingRosterDirectory, roster_router};
+use super::roster::roster_router;
 
 pub(super) const DEFAULT_PAGE_SIZE: u16 = 50;
 pub(super) const MAX_COURSE_BODY_BYTES: usize = 64 * 1_024;
@@ -43,40 +43,11 @@ where
         + PreviewPlaneStore
         + 'static,
 {
-    router_with_invitations_and_local_teaching(store, CourseInvitationIssuer::unavailable(), None)
+    router_with_invitations(store, CourseInvitationIssuer::unavailable())
 }
 
 /// Builds course routes with a configured server-only invitation issuer.
 pub fn router_with_invitations<S>(store: Arc<S>, issuer: CourseInvitationIssuer) -> Router
-where
-    S: Store
-        + CatalogStore
-        + CourseItemAnalysisStore
-        + CourseRecordsAccessStore
-        + CourseRosterStore
-        + CourseInvitationDeliveryStore
-        + ManualGradeExportStore
-        + CourseGradebookStore
-        + CourseGroupManagementStore
-        + SessionStore
-        + TeachingAuthorityStore
-        + TeachingAuthorityReferenceStore
-        + AuthoritativeTimeStore
-        + NavigationReferenceStore
-        + PreviewPlaneStore
-        + 'static,
-{
-    router_with_invitations_and_local_teaching(store, issuer, None)
-}
-
-/// Builds the local-teaching course router with a server-owned learner directory.
-/// Production composition always passes `None`, so this route cannot be mounted
-/// outside the paired local authentication mode.
-pub(crate) fn router_with_invitations_and_local_teaching<S>(
-    store: Arc<S>,
-    issuer: CourseInvitationIssuer,
-    local_teaching_roster: Option<Arc<LocalTeachingRosterDirectory>>,
-) -> Router
 where
     S: Store
         + CatalogStore
@@ -152,11 +123,7 @@ where
             store: Arc::clone(&store),
         });
     course_routes
-        .merge(roster_router(
-            Arc::clone(&store),
-            issuer,
-            local_teaching_roster,
-        ))
+        .merge(roster_router(Arc::clone(&store), issuer))
         .merge(super::teaching_operations::router(store))
 }
 

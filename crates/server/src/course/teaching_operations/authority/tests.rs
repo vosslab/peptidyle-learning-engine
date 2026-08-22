@@ -50,7 +50,7 @@ async fn issued_cookie(
         subject,
         crate::auth::SessionConfig::new(
             learning_data_access::SessionLifetime::from_seconds(3_600).expect("lifetime"),
-            crate::auth::CookieTransport::LocalHttp,
+            crate::auth::CookieTransport::FirstPartyHttps,
         ),
     )
     .await

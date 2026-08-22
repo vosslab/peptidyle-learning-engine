@@ -11,7 +11,7 @@ import {
   decodeRunSummaryResponse,
   decodeSubmissionReceipt,
 } from "../src/api/decoders.ts";
-import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
+import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 
 const learnerProgress = {
   scoringStatus: "current",
@@ -114,6 +114,7 @@ test("submission receipts require an exact feedback field and reject hostile nes
     attempt: publishedProblemFixture.attempts[0],
     feedback: { correctness: true },
     scoringStatus: "current",
+    runCompletionStatus: "inProgress",
     nextIssued: null,
     nextPending: false,
   };
@@ -140,6 +141,8 @@ test("submission receipts require an exact feedback field and reject hostile nes
   }
   const { scoringStatus: _scoringStatus, ...withoutScoringStatus } = receipt;
   assert.throws(() => decodeSubmissionReceipt(withoutScoringStatus), DecodeError);
+  const { runCompletionStatus: _runCompletionStatus, ...withoutRunCompletionStatus } = receipt;
+  assert.throws(() => decodeSubmissionReceipt(withoutRunCompletionStatus), DecodeError);
   for (const [path, forbidden] of [
     ["answerKey", "answerKey"],
     ["timer.key", "key"],
@@ -181,6 +184,32 @@ test("submission receipts require an exact feedback field and reject hostile nes
           assignmentPosition: receipt.attempt.assignmentPosition + 1,
           renderedQuestionSha256: "b".repeat(64),
         },
+        nextPending: true,
+      }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeSubmissionReceipt({
+        ...receipt,
+        runCompletionStatus: "completed",
+        nextIssued: {
+          id: "0198e000-0000-7000-8000-000000000035",
+          run: receipt.attempt.run,
+          questionVersion: receipt.attempt.questionVersion,
+          seed: receipt.attempt.seed,
+          deadline: null,
+          assignmentPosition: receipt.attempt.assignmentPosition + 1,
+          renderedQuestionSha256: "b".repeat(64),
+        },
+      }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeSubmissionReceipt({
+        ...receipt,
+        runCompletionStatus: "completed",
         nextPending: true,
       }),
     DecodeError,

@@ -1,4 +1,4 @@
-// editor_page_styles.ts - local styles so the mock editor does not alter the application shell.
+// editor_page_styles.ts - local workspace-editor styles that do not alter the application shell.
 
 export const EDITOR_PAGE_STYLES = `
 .editor-grid { display:grid; gap:1rem; grid-template-columns:minmax(28rem, 1.25fr) minmax(23rem, .9fr); }

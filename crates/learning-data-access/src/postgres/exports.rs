@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use question_model::{AssignmentId, CourseId, ObjectId, TenantId, UserId};
-use sqlx::{Row, types::Uuid};
+use sqlx::Row;
 
 use super::course_roster::{lock_course_roster_cross_product, require_course_instructor};
 use super::{
@@ -239,11 +239,10 @@ impl ExportJobStore for PostgresStore {
 }
 
 fn fresh_export_object_id() -> Result<ObjectId, StoreError> {
-    let mut bytes = [0_u8; 16];
-    getrandom::fill(&mut bytes).map_err(|error| {
+    crate::random_uuid::random_uuid_v4(|error| {
         StoreError::Unavailable(format!("export object ID randomness unavailable: {error}"))
-    })?;
-    Ok(ObjectId::from_uuid(Uuid::from_bytes(bytes)))
+    })
+    .map(ObjectId::from_uuid)
 }
 
 fn export_artifact_kind_db(kind: ExportArtifactKind) -> &'static str {

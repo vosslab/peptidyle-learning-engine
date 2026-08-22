@@ -1,313 +1,178 @@
 # Test evidence model
 
-Peptidyle uses several kinds of evidence. They answer different questions and
-must not be promoted into stronger claims than they support. This distinction
-keeps the normal development loop fast while preserving the real-service,
-security, accessibility, and visual evidence that an educational platform
-needs.
+PLE uses evidence that matches the claim being made. Fast checks protect narrow
+logic; the canonical browser suite proves visible product behavior; service
+oracles prove the service boundaries that a browser cannot distinguish. This
+document classifies that evidence. The active
+[real_stack_browser_suite_plan.md](active_plans/active/real_stack_browser_suite_plan.md)
+owns each work package's exact acceptance scope and command list.
 
-This document explains how to classify evidence. It does not replace the
-acceptance gates in the active implementation plan. Read
-[PYTEST_STYLE.md](PYTEST_STYLE.md), [PLAYWRIGHT_TEST_STYLE.md](PLAYWRIGHT_TEST_STYLE.md),
-[E2E_TESTS.md](E2E_TESTS.md), and [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) before adding or
-changing a test.
+Read [PYTEST_STYLE.md](PYTEST_STYLE.md) before adding a Python test and
+[PLAYWRIGHT_TEST_STYLE.md](PLAYWRIGHT_TEST_STYLE.md) before changing a browser
+test. [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) defines the disposable live-demo
+baseline used by the browser suite.
 
 ## Validation test suite
 
-Every active goal or work package must name its Validation test suite before implementation reaches
-completion review. The suite is the complete set of permanent gates, scope-specific integration or
-live gates, one-time acceptance evidence, and required independent review that proves that goal's
-claims. The active plan owns the exact scope; a focused test used while editing does not replace it.
+Every work package names its complete Validation suite before completion. A
+goal is complete only when every required gate is green on the final material
+tree, including required live gates and independent review. `SKIP`, unrun, or
+unavailable required gates are not green.
 
-A goal may be marked complete only when the whole named suite is green on the final material tree:
-
-- Every required command exits zero and reports no failed test.
-- A required environment-backed or release gate passes; `SKIP`, unavailable, or unrun is not green.
-- Any material change after a passing run triggers the affected gate again.
-- Every required independent review has no unresolved blocking finding.
-- The handoff and `docs/CHANGELOG.md` record the commands, results, intentional optional skips, and
-  any acceptance evidence that is deliberately one-time.
-
-The repository aggregate Validation front door for executable behavior is:
+The repository aggregate front door is `./all_test.sh`. It fails fast through
+these four gates, in this order:
 
 ```bash
-./all_test.sh
+./check_rust.sh
+./check_codebase.sh
+source source_me.sh && python3 -m pytest tests/
+source source_me.sh && python3 local_stack.py acceptance
 ```
 
-It fails fast in this order: repository environment and pytest, a distinct
-production `dist/` build receipt, Rust checks, codebase checks, one
-`local_stack.py acceptance` invocation, the cached diff check, and the
-working-tree diff check. Run `./check_rust.sh` before `./check_codebase.sh`:
-the Rust gate owns the ignored `generated/` TypeScript API and fixture
-projections that the TypeScript gate consumes.
+The Rust gate precedes the codebase gate because it owns generated TypeScript
+inputs consumed by the latter. `local_stack.py acceptance` owns one canonical
+browser-suite invocation, then only distinct browser-free service oracles.
 
-`./run_playwright_tests.sh --build` remains the focused selector for the production browser suite.
-It creates a fresh disposable HTTPS stack and exercises production `dist/` through the real PLE
-gateway and services. `source source_me.sh && python3 local_stack.py acceptance` owns that focused
-browser lane once inside its complete connected validation. Its two retained visual-fixture lanes
-are transitional evidence until the screenshot migration supplies real-origin provenance; they do
-not establish canonical screenshot provenance. A required skip is red. Add a named
-`tests/e2e/` runner only for a PostgreSQL, MinIO, renderer, migration, restart, or other real-service
-claim that the aggregate does not already own. Documentation-only goals may name focused repository
-hygiene modules plus both diff checks when no executable, generated, configuration, or runtime
-contract changed.
+Run the full named suite again after any material change that affects a gate.
+When a plan requires repeat-run or cleanup evidence, rerun all four gates on
+the final material tree in the listed order; the second run is evidence only
+when it reports its own result and the required cleanup state.
 
-One-time probes may be required completion evidence without becoming permanent tests. Classify them
-under this document and apply the permanent-test checklist before retaining anything in the suite.
-When evidence is missing or a required gate is red, keep the goal active; use blocked status only
-under the repository's blocking rules. Never report "complete except for validation."
+Record commands, results, environment assumptions, one-time evidence, and
+intentional optional skips in the package handoff and
+[CHANGELOG.md](CHANGELOG.md). Do not report a goal complete while a required
+gate is red.
 
-## The five evidence classes
+## Evidence classes
 
-| Evidence class                                 | Kept in the repository?                        | Normal execution                                    | Answers                                                                                           | Does not answer                                                                                    |
-| ---------------------------------------------- | ---------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Permanent behavior, contract, or security test | Yes                                            | Regular automated gate                              | Does a stable, maintained behavior remain true?                                                   | Does a production-like dependent service work when the test uses a fake or memory backend?         |
-| Permanent architecture or hygiene gate         | Yes                                            | Regular automated gate                              | Does a durable repository rule remain true?                                                       | Does the application deliver the intended student or instructor experience?                        |
-| One-time implementation probe                  | No, except a concise result record when useful | Run only while investigating or rebuilding a slice  | Did this particular implementation, migration, or reconstruction behave as expected at that time? | Does the behavior remain protected from future regressions?                                        |
-| Opt-in disposable or live acceptance           | Yes, when it is a repeatable boundary oracle   | Explicit command and disposable/private environment | Does the named real boundary work under the declared environment?                                 | Does a different deployment, upstream version, browser, or institution configuration work?         |
-| Independent automated or agent review          | A concise review record may be kept            | Independently scoped automated or agent review      | Does the reviewed artifact meet its stated semantic, security, architecture, or visual criterion? | Does one review make every future change correct, or replace an optional human usability judgment? |
+- Permanent behavior, contract, or security tests are fast, deterministic
+  gates for maintained local behavior. They do not prove a dependent real
+  service.
+- Permanent architecture or hygiene gates protect durable engineering rules.
+  They do not prove a user workflow.
+- One-time implementation probes answer a narrow investigation or
+  reconstruction question. They do not protect behavior from regression.
+- Disposable acceptance proves its named boundary in a declared real-stack
+  environment. It does not prove every deployment or provider.
+- Independent review evaluates a stated artifact and criterion. It does not
+  make every later change correct.
 
-The word _test_ is therefore not enough. A passing test report must identify
-its class, backend or environment, and the exact claim it supports.
+A report identifies its class, exact claim, and environment. One evidence class
+does not gain the scope of another because it uses similar data or code.
 
-## 1. Permanent behavior, contract, and security tests
+### Permanent-test admission
 
-Keep a test permanently only when it protects behavior that will remain part
-of PLE. The [permanent-test checklist](PYTEST_STYLE.md#is-this-a-good-pytest)
-is the default rule: test logic that could plausibly be wrong; make it
-deterministic, offline, and quick; assert meaningful behavior rather than a
-count, field list, default value, or implementation layout. When uncertain,
-delete the proposed permanent test.
+Before a check becomes part of a permanent test lane, it must protect a behavior
+that can plausibly regress, have a stable contract independent of incidental
+names or file layout, produce a meaningful result, and run offline,
+deterministically, without sleeps, random values, current-time dependence, or
+real service/CLI calls. It writes only to test-owned temporary storage and is
+small enough for its owning lane. A check that merely inventories current
+source, counts artifacts, confirms an implementation choice, or records a
+migration snapshot is one-time closure evidence instead. Keep that evidence in
+the implementation handoff or acceptance receipt, then remove the probe when
+the investigation is complete. When in doubt, remove the test.
 
-### What this class proves
+The permanent suite contains callable unit, contract, security, and hygiene
+behavior checks, plus the explicitly owned real-stack browser and service
+gates. It does not preserve a superseded browser application's source inventory
+or a dated screenshot-path inventory as a regression contract.
 
-- A public or internal contract continues to reject invalid input or preserve
-  a stated outcome.
-- A security boundary continues to refuse an unauthorized, cross-tenant, or
-  answer-bearing action in the environment the test actually uses.
-- Two interchangeable implementations preserve the same documented behavior
-  when a conformance suite is deliberately shared between them.
-- A production browser built from the current source provides the user-visible
-  journey exercised through its declared real-stack scenario.
+## Focused unit evidence
 
-### What this class cannot prove
+Keep permanent tests small, deterministic, and close to the behavior they
+protect. Python, Node, and Rust unit or conformance tests own decoder,
+serialization, strict transport, failure mapping, validation, and other narrow
+logic. They may use inline fake values or isolated dependencies when those are
+part of the contract under test.
 
-- A memory-backed test cannot prove PostgreSQL roles, forced RLS, migrations,
-  transactions, restart behavior, or an object-store delivery policy.
-- An isolated decoder, serialization, or error-mapping test cannot prove the API, database, renderer,
-  or network integration beyond its declared local contract.
-- A recorded provider response cannot prove that the provider is currently
-  reachable, authenticates PLE, or has not changed its behavior.
-- A focused test does not prove an unrelated product workflow merely because
-  it uses the same type or helper.
+Focused tests do not prove the browser-to-server path, real authorization,
+PostgreSQL/RLS, object delivery, renderer behavior, or visible user outcome.
+They complement the canonical browser suite; they never provide a second
+browser application or a substitute browser runtime.
 
-### Location, naming, and collection
+Fast Python tests stay in `tests/test_*.py`; pure Node tests stay in the
+repository Node test lane; Rust tests stay with their owning crate. Slow
+browser and service work stays outside the pytest fast collection. A temporary
+probe belongs in ignored scratch space and is removed when its investigation
+ends unless it independently meets the permanent-test standard.
 
-- Fast Python tests belong in `tests/test_*.py` and are collected by
-  `pytest tests/`. They use no network, no real CLI round trip, no sleep, and
-  no filesystem beyond `tmp_path`.
-- Pure Node tests belong in the repository's `tests/test_*.mjs` lane and run
-  through the documented Node/check gate, not through pytest.
-- Rust unit, integration, and conformance tests live with their owning crate
-  and run through the focused Cargo command named by the work package.
-- Browser tests live only under `tests/playwright/`. The runner loads production
-  `dist/` through the suite-owned HTTPS gateway and uses visible, accessible
-  controls. They are excluded from the fast pytest collection.
-- Non-browser end-to-end orchestration lives only under `tests/e2e/`, with
-  `e2e_*.sh` or `e2e_*.py` names. It is also excluded from pytest.
+## Production browser evidence
 
-Do not use an ordinary `test_*` name for a temporary experiment, and do not
-put a slow or environment-dependent check in the pytest fast lane. The
-`collect_ignore` boundary is intentional, not a loophole for poorly located
-tests.
+PLE has one production `dist/` browser artifact and one fixed disposable
+real-stack browser path. [playwright.config.ts](../playwright.config.ts) is the
+canonical Playwright configuration. `./run_playwright_tests.sh --build` is the
+focused selector: the suite owner regenerates the fixed disposable stack,
+serves the production bundle through its HTTPS gateway, and runs the selected
+real-stack scenarios serially.
 
-### PLE examples
+The browser travels through the same-origin gateway to the real API,
+PostgreSQL, MinIO, worker, renderer, authentication, authorization, and
+seeded live-demo data. The suite accepts focused scenario, file, or grep
+selection only through that owner and its declared scenario contract. Each
+focused run receives a fresh baseline; a complete run shares one fixed stack
+while scenario namespaces keep its product state independent.
 
-| Example                                                   | Claim it permanently protects                                                                                                             | Limit of the claim                                                                                                       |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `tests/test_source_file_line_limit.py`                    | Maintained authored source stays below the repository's reviewed size boundary, except for narrowly approved immutable/history overrides. | It does not show that a refactor preserved runtime behavior. It is a durable architecture gate, not a learner-flow test. |
-| `crates/learning-data-access/tests/conformance.rs`        | The maintained `Store` behavior exercised by its cases is consistent for the configured conformance driver.                               | It does not by itself prove a live PostgreSQL role/RLS/migration boundary.                                               |
-| Rust and TypeScript response/decoder tests                | Wire values, response-shape handling, and invalid-input refusal keep their stated contract.                                               | They do not prove a full browser-to-server round trip.                                                                   |
-| `tests/playwright/student_keyboard_accessibility.spec.ts` | The built PLE browser surface preserves the specified keyboard journey and separately scoped shortcuts.                                   | It does not replace screen-reader, assistive-technology, or human usability review.                                      |
-| `tests/playwright/e2e/live_demo.spec.ts` through `run_playwright_tests.sh` | A visible fictional instructor journey uses the production browser, real authentication and authorization, and the disposable connected PLE stack. | It proves only the declared local seeded scenario; reload, a new session, or an authorized observer supplies persistence evidence for each behavior. |
+Playwright creates and changes product state through visible PLE workflows and
+asserts visible, accessible behavior. The frozen baseline, private bootstrap
+inputs, and induced infrastructure faults are harness setup, not product-state
+shortcuts. Favor reload, a second authorized session, or an authorized observer
+as the persistence proof for a user-visible result.
 
-## 2. Permanent architecture and hygiene gates
+An inventory of legacy behavior identifies the user or contract behavior worth
+keeping and assigns it to a canonical scenario, a focused unit test, or a
+browser-free service oracle. It does not require retention of a former runtime
+path merely because that path once exercised the behavior.
 
-Some permanent checks enforce an engineering boundary rather than a runtime
-story. Keep them only when the boundary itself is durable and inexpensive to
-check. They follow the same preference for meaningful behavior: a source-size
-gate protects modular ownership; an import boundary protects answer secrecy;
-a formatting gate protects a shared compilation surface. They must not turn
-into a long list of arbitrary tastes.
+Legacy source/consumer inventories, migration matrices, and the one-time
+mapping of superseded screenshot paths are closure evidence for this redesign.
+They are not recurring pytest or Node tests. The retained test protects the
+successor behavior; the inventory proves that the retired path no longer owns a
+claim.
 
-The source-file line-limit gate is the model. Its rule comes from the owner
-decision to move complete capabilities into focused modules before a file
-becomes an implementation warehouse. It is not an invitation to shuffle
-lines mechanically or add a test for every incidental file arrangement.
+## Visual evidence
 
-For hygiene reports, run the actual pytest module. A failure may write a
-`report_*.txt` at the repository root; a clean run removes stale reports.
-Those reports are diagnostics, not tracked test artifacts and not a substitute
-for examining the source change.
+`./capture_screenshots.sh` invokes the same suite owner with `--screenshots`.
+Screenshots therefore use the same disposable HTTPS origin, production `dist/`
+bundle, scenario contract, real UI-created state, and privacy boundary as
+browser acceptance.
 
-## 3. One-time implementation probes
+The manifest declares the nested artifact corpus. Capture stages artifacts,
+then the publisher atomically publishes them after verifying origin, bundle
+provenance, scenario metadata, paths, coverage, and privacy requirements.
+Screenshots are scenario evidence for the production browser path, not a
+separate application or visual test lane.
 
-A one-time probe reduces uncertainty while a feature is being built,
-reconstructed, or investigated. It is useful when it answers a question that
-is too environment-specific, too expensive, or too tied to the current
-implementation step to justify permanent maintenance.
+## Service-only acceptance
 
-Examples include:
+Some claims need a browser-free oracle because visible UI behavior cannot
+identify the underlying boundary. These commands remain distinct from the one
+browser invocation in `local_stack.py acceptance`:
 
-- an untracked symbol or line inventory used during a module decomposition;
-- a temporary SQL script that reconstructs one populated deletion graph;
-- a one-off migration checksum mutation or recovery rehearsal;
-- a short command that compares a newly generated payload to a known fixture;
-- a local browser network trace used to inspect a newly added secrecy boundary.
+- Catalog publication and replay use a named publication oracle for private
+  source and catalog installation, not a user journey.
+- PostgreSQL migrations, forced RLS, and disclosure semantics use a named
+  database oracle or a declared ignored database test. This is a disposable
+  database boundary, not deployment availability.
+- Renderer render, grade, cache, outage, and redaction use a named renderer or
+  worker oracle. This is a provider/service contract, not general
+  compatibility.
+- Replica restart uses two API replicas against one disposable PostgreSQL and
+  verifies exact durable replay after the serving replica is replaced. This is
+  a persistence and stateless-API oracle, not a second browser journey or a
+  concurrent stack.
+- Lifecycle, origin, and cleanup use suite receipts and narrow owner tests.
+  They prove harness ownership, not a second browser workflow.
 
-### Where a probe belongs
+Read-only database, object-store, worker, renderer, or network receipts appear
+only for a requirement about that service boundary. A service receipt does not
+replace the user-visible workflow; a successful browser journey does not prove
+an unrelated service guarantee.
 
-Run a probe from a temporary directory, an ignored scratch path, or an
-untracked `_temp.*` artifact. Do not put it in `tests/` merely because it has
-an assertion. Do not add fixture files, snapshots, test helpers, or permanent
-dependencies solely to support a probe.
+## Reviews and records
 
-If the result matters later, record the conclusion, scope, date, command or
-environment, and limitation in the relevant workstream report or durable
-policy document. Record enough to explain the decision, not a large command
-transcript. [RETENTION_POLICY.md](RETENTION_POLICY.md) is an example: it keeps
-the conclusion of a one-time populated purge and recovery rehearsal while
-making clear that the temporary SQL, helper, and shell harness were removed.
-
-### Delete rule
-
-Delete a temporary test or probe as soon as its implementation question is
-resolved unless it independently satisfies every permanent-test criterion.
-In particular, delete it when it depends on exact current file layout, exact
-counts, a private local service, an unrepeatable fixture, wall-clock timing,
-or a migration shape that will naturally change. Do not preserve a probe just
-because it caught a defect once.
-
-The 2026-08 test-policy review retired three representative anti-patterns:
-
-- pytests that sliced shell, Compose, Containerfile, or Caddy source and
-  asserted exact fragments;
-- a repository-wide lexical Rust/SQL scanner for `OFFSET` that took longer
-  than the complete fast-test budget for a single case; and
-- exact validators for dated walked-journey evidence rows and arrangement
-  lists.
-
-Use executable check-mode/E2E behavior for the first class, typed pagination
-contracts plus query-plan review for the second, and the live report parser
-plus the retained human evidence record for the third. Do not recreate these
-tests under new filenames.
-
-If a durable behavior was discovered, write the smallest independent test for
-that behavior in its proper owner and location. The replacement should not
-need the probe's incidental setup.
-
-## 4. Opt-in disposable and live acceptance
-
-Live acceptance is a maintained, repeatable oracle for a boundary that cannot
-be honestly proven offline. It is deliberately opt-in because it may create
-disposable containers, use private local credentials, wait for services, or
-exercise an external/private renderer.
-
-### What it proves
-
-Only the named environment and stated boundary. Depending on the runner, that
-can include SQLx migration application, PostgreSQL role grants and forced RLS,
-transaction behavior, MinIO/object delivery, a private provider render and
-grade round trip, a real PLE HTTP route, or a built browser speaking only to
-the PLE same-origin gateway.
-
-### What it cannot prove
-
-- It is not evidence of a deployed production SLA, institutional tenancy
-  configuration, or a different infrastructure provider.
-- A container readiness probe does not prove the learner workflow.
-- A direct provider probe does not prove PLE's gateway, secrecy, or browser
-  boundary.
-- A successful live run does not prove an unrelated service, deployment, or user journey.
-
-### Location, activation, and result discipline
-
-- Disposable shell/Python system oracles belong in `tests/e2e/` and run by an
-  explicit `bash tests/e2e/e2e_<name>.sh` or documented Python command.
-- Cargo fixtures requiring a disposable database declare the PostgreSQL
-  feature and use `#[ignore = "requires the disposable PostgreSQL acceptance database"]`.
-  They compile in the feature-enabled gate but run only when the documented
-  disposable database command selects them.
-- Rust checks that intentionally open a loopback HTTP listener or invoke an
-  installed PDF/DOCX reader are also `#[ignore]` and run only through their
-  named adapter or export acceptance command. They never execute in
-  `check_rust.sh`'s ordinary workspace tests.
-- Live Playwright specs remain in `tests/playwright/`, but must require
-  explicit configuration rather than silently contacting a real service.
-- `./run_playwright_tests.sh --build` owns a focused, fresh production-browser scenario against its
-  disposable HTTPS stack. Run `source source_me.sh && python3 local_stack.py acceptance` for the
-  complete browser Validation suite; it invokes that canonical lane once, retains two explicitly
-  transitional visual-fixture receipts, owns its dedicated real-service runners, and treats every
-  required skip as red.
-- Temporary screenshots, traces, recordings, and Playwright results belong in
-  ignored `test-results/` (or the runner's ignored output), not in permanent
-  fixtures unless their durable, reviewed role is explicitly established.
-
-Report the exact command, result, environment assumption, and any unrun gate.
-Never call a live gate "passed" because its source compiled, nor call an
-offline gate live because it used realistic fixture text.
-
-### PLE examples
-
-| Example                                                | Live claim                                                                                                                                             | Important boundary                                                                                              |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `tests/e2e/e2e_database_baseline.sh`                   | The named disposable PostgreSQL baseline applies migrations and runs its selected database acceptance cases.                                           | It is a disposable local oracle, not a production availability or backup claim.                                 |
-| `crates/learning-data-access/tests/postgres_*_live.rs` | A selected PostgreSQL behavior, including role/RLS or persistence semantics, works against `PLE_TEST_DATABASE_URL`.                                    | The fixtures are ignored by ordinary Cargo test runs and require their declared disposable environment.         |
-| `tests/e2e/e2e_webwork_render_rpc.sh`                  | An isolated, capability-cleaned PLE renderer gateway can issue, replay/cache, grade, handle outage, and avoid leaking protected renderer material for the supported fixture. | It is not a claim of unrestricted WeBWorK compatibility.                                                        |
-| `tests/playwright/webwork_run.spec.ts`                 | The configured live PLE/WebWork browser path uses visible learner controls and detects private upstream material in the browser trace.                 | It is opt-in acceptance for its licensed fixture and local configuration, not a generic provider certification. |
-
-## 5. Independent automated and agent review
-
-Independent review validates a defined artifact, fixture transition, architecture boundary, or
-captured visual result. Agent and automated reviewers record their scope, criteria, conclusions,
-limitations, and follow-up work, so packages have an autonomous completion path.
-
-An independent review should name its scope, artifact or environment,
-reviewer perspective, criteria, conclusions, limitations, and any follow-up
-work. A dated audit or screenshot is evidence for that reviewed snapshot, not
-ongoing proof. Preserve concise accepted findings in the durable document that
-owns the rule; keep detailed historical review material under
-`docs/active_plans/` when it explains a completed decision.
-
-For visual and interaction work, V1 captures declared viewport and state combinations from the
-production-browser scenario and applies automated image and interaction oracles. Until that
-migration completes, retained visual-fixture captures remain focused evidence and do not establish
-canonical screenshot provenance.
-
-The [no-mouse accessibility contract](NO_MOUSE_ACCESSIBILITY_CONTRACT.md)
-illustrates the division: automated primary-path and widget-extension tests
-guard repeatable keyboard behavior, while captured fixture states and agent
-review make completion reproducible. Optional human usability assessment can
-inform later product decisions; it is outside automated package completion.
-
-## Choosing the evidence before writing it
-
-Ask these questions in order:
-
-1. Is the behavior stable, maintained, deterministic, and cheap enough for a
-   permanent offline test? If yes, add the smallest behavior/contract/security
-   test in the owning test lane.
-2. Does the claim require PostgreSQL, MinIO, a private renderer, a built
-   browser, or another real boundary? If yes, use or extend the named opt-in
-   disposable/live oracle, while retaining offline tests for logic that can be
-   isolated.
-3. Is the check useful only to guide this implementation step? If yes, make it
-   a temporary probe, record its conclusion if it changes a durable decision,
-   and remove it.
-4. Does the acceptance criterion need an independent security, architecture,
-   interaction, or visual reading? If yes, schedule the scoped automated or
-   agent review with captured fixtures and suitable behavior evidence.
-
-This produces a small, honest evidence set: fast checks protect enduring
-behavior, live gates protect real boundaries, temporary probes guide current
-work, and independently reproducible review covers the declared completion criterion.
+Independent review names its artifact or environment, criteria, conclusion,
+limitations, and follow-up work. A dated review, screenshot, or probe applies
+to its reviewed snapshot rather than all future changes. Preserve concise
+accepted decisions in the appropriate plan, handoff, or durable policy record;
+use repository process documentation for review and release workflow details.

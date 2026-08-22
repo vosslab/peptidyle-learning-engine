@@ -72,9 +72,9 @@ property rather than an implementation convention.
 ### Browser Wasm boundary
 
 The browser package is `wasm_bridge`, built as a `cdylib` for
-`wasm32-unknown-unknown` by `./pipeline/build_wasm.sh`. The lockfile-matched
-bindgen tool emits the browser module at `dist_wasm/web/ple_bridge.js`; the
-sole handwritten host boundary is [`src/wasm/index.ts`](../src/wasm/index.ts).
+`wasm32-unknown-unknown` by the production build. The lockfile-matched bindgen
+tool emits the browser module under `dist/wasm/`; the sole handwritten host
+boundary is [`src/wasm/index.ts`](../src/wasm/index.ts).
 The generated JavaScript owns Wasm memory and strings. Rust owns the received
 JSON values and returns serialized safe reports. Malformed public JSON becomes
 a JavaScript string error; a structurally invalid but well-formed response
@@ -252,15 +252,16 @@ cargo test -p wasm_bridge --test flat_v2_response_format_native
 ./pipeline/build_wasm.sh
 node tests/e2e/e2e_wasm_bridge.mjs
 
-# Browser execution of deterministic vectors and that same flat-v2 response corpus.
-./devel/setup_wasm_tests.sh
-node tests/playwright/e2e_wasm_determinism.mjs
+# Browser-Wasm proof: the canonical production browser suite loads the Wasm
+# module from dist/ and the instructor scenario asserts visible wasm mode.
+./run_playwright_tests.sh --scenario instructor_authoring
 ```
 
 The fixed corpus is `crates/wasm/flat_v2_response_format_corpus.json`; native Rust,
-generated Node bindings, and browser Wasm consume it unchanged. These Wasm gates prove
-generated-parameter and key-free public-response parity,
-not end-to-end submission digest enforcement. Do not claim the planned compact
+generated Node bindings, and production browser Wasm consume it unchanged. The Node/Rust checks
+prove generated-parameter and key-free public-response parity; the canonical instructor scenario
+proves that the shipped `dist/` module initializes in Chromium and visibly reports `wasm` mode.
+These gates do not prove end-to-end submission digest enforcement. Do not claim the planned compact
 payload or one-RPC WeBWorK grade behavior from these checks. Those require the
 payload-plan integration gates, Store conformance, private-renderer
 request-count tests, and browser route tests specified in the active plan.

@@ -33,7 +33,9 @@ from this file map.
    +- chapter_one.py     Private atomic Chapter 1 publication boundary
    +- lifecycle.py       Typed lifecycle sequencing for start, validate, and restart
    +- local_environment.py Default-only private environment bootstrap
-   +- local_identity.py  Local credential and hash-only identity projection
+   +- browser_suite_developer.py Fixed production-browser developer owner
+   +- browser_suite_lease.py      Shared developer/browser lease boundary
+   +- browser_suite_reset.py      Fixed-owner resource reset and cleanup proof
    +- private_files.py   Atomic private-file creation and replacement boundary
    +- private_state.py   Descriptor-anchored repository-target E2E state owner
    +- renderer.py        Selected renderer OCI provenance and probe boundary
@@ -204,7 +206,6 @@ schemas/
 
 containers/
 +- compose.yaml       Common local and disposable topology, private networks, hardening, and one-shot setup
-+- compose.local-development.yaml Ordinary local authentication and worker overlay
 +- compose.smtp.yaml  Optional external SMTP-provider overlay
 +- Containerfile.api  Shared API, worker, and publisher image
 +- Containerfile.gateway Gateway image
@@ -261,8 +262,6 @@ tests/
 +- e2e/               Generic disposable whole-system runners
 |  +- `compose.live-demo-browser.yaml` Owner-locked disposable production-auth/TLS E2E overlay; not an operator production deployment
 |  `- `Caddyfile.live-demo-browser` Owner-locked disposable production-auth/TLS E2E gateway; not an operator production deployment
-+- walkthrough/       Teaching-loop entry points and fixed child processes
-|  `- walklib/        Importable runner configuration, contracts, and lifecycle
 `- fixtures/          Small checked-in fixture evidence
 
 generated/
@@ -271,10 +270,9 @@ generated/
 ```
 
 `dist/`, `dist_wasm/`, `target/`, `test-results/`, and Playwright report directories are reproducible
-ignored output. `dist/` is the production browser artifact used by local development, the canonical
-disposable browser suite, and connected acceptance. V1 moves canonical screenshot capture to that
-same origin; current visual-fixture lanes and retained images remain transitional evidence. Legacy
-alternate browser-test output remains ignored only until its retirement inventory completes. Checked-in fixtures under
+ignored output. `dist/` is the production browser artifact used by the fixed developer session,
+Playwright, screenshot capture, service oracles, and connected acceptance. Those consumers share the
+`ple-live-demo-browser` lifecycle and seeded production authentication. Checked-in fixtures under
 `tests/fixtures/` are source evidence and should change deliberately.
 
 Committed visual evidence lives under `docs/screenshots/`, organized by role and access boundary:

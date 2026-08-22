@@ -38,17 +38,34 @@
 }
 .teaching-operations-list li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.35rem 0.75rem;
+  grid-template-columns: minmax(0, 1fr) fit-content(14rem);
+  grid-template-areas: "summary action";
+  gap: 0.75rem;
   align-items: center;
-  min-height: 2.75rem;
+  min-height: 3.4rem;
   padding: 0.55rem;
   border-bottom: 1px solid var(--ple-border);
 }
-.teaching-operations-list li span {
+
+.teaching-operations-group-summary {
+  display: grid;
+  grid-area: summary;
+  min-width: 0;
+  gap: 0.12rem;
+  justify-items: start;
+}
+
+.teaching-operations-group-summary button {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.teaching-operations-group-summary span {
   display: block;
   color: var(--ple-muted);
   font-size: 0.9rem;
+  overflow-wrap: anywhere;
 }
 .sysadmin-instructor-approval {
   max-width: 52rem;
@@ -114,7 +131,8 @@
   background: var(--ple-danger) !important;
 }
 .teaching-operations-danger-link {
-  grid-column: 2;
+  grid-area: action;
+  justify-self: end;
 }
 .teaching-operations-policy,
 .teaching-operations-retention fieldset {
@@ -159,6 +177,15 @@
   }
   .teaching-operations-actions button {
     width: 100%;
+  }
+  .teaching-operations-list li {
+    grid-template-areas:
+      "summary"
+      "action";
+    grid-template-columns: 1fr;
+  }
+  .teaching-operations-danger-link {
+    justify-self: stretch;
   }
 }
 @media (min-width: 480px) and (max-width: 767px) {

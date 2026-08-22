@@ -8,9 +8,8 @@
 use question_model::{ContinuedPractice, StudentAssignmentSummary};
 
 // Compatibility path for WP-C3 consumers. MOD-STATE owns the implementation.
-pub use crate::completion::{
-    RequiredQuestionState, WithinRunCompletion, derive_within_run_completion,
-};
+pub use crate::completion::{RequiredQuestionState, derive_within_run_completion};
+pub use question_model::RunCompletionStatus;
 
 // Compatibility path for WP-C3 consumers. MOD-SCORE owns the implementation.
 pub use crate::scoring::{RunTransition, project_summary};

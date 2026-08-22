@@ -112,8 +112,10 @@ pub(crate) async fn exercise_preview_plane_memory_contract(store: &MemoryStore) 
     );
 
     let membership = match &first.rows[0] {
-        question_model::InstructorPreviewScheduleRow::Granted { membership, .. }
-        | question_model::InstructorPreviewScheduleRow::Denied { membership, .. } => *membership,
+        question_model::InstructorPreviewScheduleRow::Granted { membership, .. } => *membership,
+        question_model::InstructorPreviewScheduleRow::Denied { .. } => {
+            panic!("course-wide fixture grants the selected learner")
+        }
     };
     let no_audit_on_denial = store.preview_subject_audits().expect("audit seam");
     let before_refusals = store
@@ -162,6 +164,60 @@ pub(crate) async fn exercise_preview_plane_memory_contract(store: &MemoryStore) 
             .is_unchanged_from(&before_refusals),
         "authorization and stale-revision refusals preserve every Memory collection"
     );
+
+    let current = store
+        .get_assignment_for_edit(fixture.context, fixture.assignment)
+        .await
+        .expect("assignment lookup")
+        .expect("assignment");
+    let mut draft_record = current.record.clone();
+    draft_record.id = question_model::AssignmentId::from_uuid(uuid(99_045));
+    draft_record.lifecycle = question_model::AssignmentLifecycle::Draft;
+    let draft = store
+        .create_assignment_with_default_policy(fixture.context, fixture.instructor, draft_record)
+        .await
+        .expect("draft assignment");
+    let draft_assignment = store
+        .assignment_reference(fixture.context, fixture.instructor, draft.record.id)
+        .await
+        .expect("draft assignment reference lookup")
+        .expect("draft assignment reference");
+    let draft_revision =
+        question_model::TeachingOperationRevision::new(draft.revision.value()).expect("revision");
+    let before_lifecycle_denial = store
+        .preview_plane_state_effect_fingerprint()
+        .expect("state-effect fingerprint");
+    let lifecycle_denial = store
+        .construct_derived_preview(
+            fixture.context,
+            fixture.instructor,
+            fixture.course,
+            question_model::DerivedPreviewSubjectRequest {
+                assignment: draft_assignment,
+                revision: draft_revision,
+                selected_moment: selected_moment.clone(),
+                membership,
+            },
+        )
+        .await
+        .expect("draft lifecycle denial");
+    assert!(matches!(
+        lifecycle_denial.evaluation,
+        PreviewEvaluation::Denied { .. }
+    ));
+    assert_eq!(
+        store.preview_subject_audits().expect("audit seam"),
+        no_audit_on_denial,
+        "an entitled learner on a Draft assignment appends no audit"
+    );
+    assert!(
+        store
+            .preview_plane_state_effect_fingerprint()
+            .expect("state-effect fingerprint")
+            .is_unchanged_from(&before_lifecycle_denial),
+        "lifecycle denial preserves the full non-audit Memory state"
+    );
+
     let before_derived = store
         .preview_plane_state_effect_fingerprint()
         .expect("state-effect fingerprint");

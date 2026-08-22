@@ -664,7 +664,7 @@ fn preview_result(input: PreviewResultInput<'_>) -> Result<crate::PreviewPlaneRe
             .map(|(_, p)| *p)
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
-            .map(|purpose| PreviewGroupFact { purpose })
+            .map(PreviewGroupFact::from_purpose)
             .collect(),
         policy,
         PreviewPriorRunCount::try_from(prior).map_err(|e| StoreError::InvalidRecord(e.into()))?,

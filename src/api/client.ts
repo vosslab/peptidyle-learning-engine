@@ -24,6 +24,7 @@ import type { CourseGradeSchemeView } from "../../generated/api/CourseGradeSchem
 import type { CourseGradeSchemeUpdateView } from "../../generated/api/CourseGradeSchemeUpdateView";
 import type { CourseGradebookTotalsView } from "../../generated/api/CourseGradebookTotalsView";
 import type { CourseBannerCandidateReceipt } from "../../generated/api/CourseBannerCandidateReceipt";
+import type { CourseBannerId } from "../../generated/api/CourseBannerId";
 import type { GradebookSummaryRow } from "../../generated/api/GradebookSummaryRow";
 import type { EnrollmentId } from "../../generated/api/EnrollmentId";
 import type { QuestionId } from "../../generated/api/QuestionId";
@@ -436,8 +437,8 @@ export interface ApiClient extends CourseRosterClient {
   ) => Promise<FeedbackReleaseResponse>;
   readonly getSummary: (enrollmentId: EnrollmentId) => Promise<LearnerAssignmentProgress>;
   readonly getRunScreen: (runId: RunId) => Promise<RunScreenData>;
-  /** Same-origin POST that authorizes one protected asset and returns its short-lived URL. */
-  readonly issueProtectedAssetDelivery: (assetId: AssetId) => Promise<string>;
+  /** Same-origin POST that authorizes, audits, and returns one normalized course banner. */
+  readonly fetchCourseBanner: (bannerId: CourseBannerId) => Promise<Blob>;
   /** Public immutable catalog-asset redirect path; it never issues a capability. */
   readonly assetUrl: (assetId: AssetId) => string;
   readonly validateResponseFormatOnServer: FormatValidator;

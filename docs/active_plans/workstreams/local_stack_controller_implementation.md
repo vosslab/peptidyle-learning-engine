@@ -106,7 +106,7 @@ The following migration is part of this workstream and is not deferred:
 | --- | --- | --- |
 | `python3 local_stack.py` and operator docs | Provider selection, default-target/environment handling, labels, preflight, status, logs, stop, restart, reset, and typed lifecycle calls. | Human-facing command wording and normal `containers` target. |
 | `python3 local_stack.py acceptance` | Its PLE-stack conflict discovery/preflight and Python aggregate lane handoff use the shared project snapshot and typed preflight result. | Ordered browser lanes and their reports. It never deletes a stack it did not create. |
-| [../../../tests/walkthrough/walklib/runner.py](../../../tests/walkthrough/walklib/runner.py), `podman_preflight.py`, `podman_ownership.py`, and `stack_environment.py` | Compose-provider choice, sanitized private child environment, label discovery, fixed-port preflight, generated-project target construction, exact resource preview, and cleanup execution use the shared typed layer. | Random project identity, private credentials, user-visible walkthrough actions, report redaction, owned images, and failure receipt. The runner retains the cleanup capability and remains the sole authority to request its cleanup. |
+| The former `tests/walkthrough/walklib/runner.py`, `podman_preflight.py`, `podman_ownership.py`, and `stack_environment.py` | Compose-provider choice, sanitized private child environment, label discovery, fixed-port preflight, generated-project target construction, exact resource preview, and cleanup execution use the shared typed layer. | Random project identity, private credentials, user-visible walkthrough actions, report redaction, owned images, and failure receipt. The runner retains the cleanup capability and remains the sole authority to request its cleanup. |
 | [../../../tests/e2e/e2e_webwork_render_rpc.sh](../../../tests/e2e/e2e_webwork_render_rpc.sh) | Normal-stack provider/target resolution and the stateless renderer restart route through the controller or a thin explicit adapter around its public library. | WebWork render/grade assertions and its application-specific evidence. |
 | Other disposable E2E owners | Use the shared provider, environment, labelled snapshot, and disposable-target APIs when their own ownership contract is migrated in this workstream; each migration has an explicit target and focused acceptance. | Random ports, isolated seed/input, secrets, test semantics, and only the resources their runner created. |
 
@@ -149,7 +149,7 @@ script or test runner.
    preserves their report locations and exit propagation. It must not implement a second Podman
    lifecycle or delegate without checking the typed result. This package depends on packages 2 and 3; browser
    behavior remains a distinct consumer of the ready stack.
-5. **Disposable-owner migrations.** Migrate [../../../tests/walkthrough/walklib/runner.py](../../../tests/walkthrough/walklib/runner.py),
+5. **Disposable-owner migrations.** Migrate the former `tests/walkthrough/walklib/runner.py`,
    `podman_preflight.py`, `podman_ownership.py`, and `stack_environment.py` to the shared typed
    provider, environment, label, target, preview, and cleanup APIs. The generated walkthrough
    project, private credentials, random ports, seed/input, visible-action checks, report redaction,
@@ -157,7 +157,7 @@ script or test runner.
    migrate the WebWork,
    Chapter 1, course-appearance, database-baseline, and replica owners only where their mechanics
    match the shared contract; their application assertions remain distinct. Update
-   [../../../tests/walkthrough/README.md](../../../tests/walkthrough/README.md) and the
+   former `tests/walkthrough/README.md` and the
    `tests/e2e/` documentation when ownership changes. This
    package depends on packages 2 and 4 and is not deferred to a later cleanup project.
 6. **Durable proof, live evidence, and release handoff.** Add only permanent pure behavior tests to

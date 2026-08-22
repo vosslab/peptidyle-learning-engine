@@ -1,6 +1,6 @@
 // assignment_editor_live_page.tsx - session and course-role gate for assignment editing.
 
-import { useParams } from "@solidjs/router";
+import { revalidate, useParams } from "@solidjs/router";
 import { Show, createSignal, onMount, type JSX } from "solid-js";
 
 import type { CourseId } from "../../generated/api/CourseId";
@@ -69,6 +69,12 @@ function AuthenticatedAssignmentEditor(props: AuthenticatedAssignmentEditorProps
     return current.kind === "allowed" ? current : undefined;
   };
 
+  async function refreshCourseAssignmentList(): Promise<void> {
+    const selectedCourseId = courseId();
+    if (selectedCourseId === undefined) return;
+    await revalidate(runtime.queries.assignments.keyFor(selectedCourseId));
+  }
+
   async function checkCourseAccess(): Promise<void> {
     const selectedCourseId = courseId();
     if (selectedCourseId === undefined) {
@@ -136,6 +142,7 @@ function AuthenticatedAssignmentEditor(props: AuthenticatedAssignmentEditorProps
           courseReference={allowed.course.reference}
           mode={allowed.mode}
           tenant={props.session.tenant}
+          refreshCourseAssignmentList={refreshCourseAssignmentList}
         />
       )}
     </Show>

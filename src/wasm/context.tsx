@@ -37,10 +37,27 @@ export function WasmRuntimeProvider(props: WasmRuntimeProviderProps): JSX.Elemen
     >
       {(readyFacade) => (
         <WasmFacadeContext.Provider value={readyFacade()}>
-          <Show when={readyFacade().mode === "serverFallback"}>
-            <div class="degraded-banner" role="status">
-              Local response tools are unavailable. Format, timer, and assignment checks will use
-              the server and may take a little longer.
+          <Show
+            when={readyFacade().mode === "wasm"}
+            fallback={
+              <div
+                class="degraded-banner"
+                role="status"
+                aria-label="Response tools runtime: server fallback"
+                data-runtime-mode="serverFallback"
+              >
+                Local response tools are unavailable. Format, timer, and assignment checks will use
+                the server and may take a little longer.
+              </div>
+            }
+          >
+            <div
+              class="degraded-banner"
+              role="status"
+              aria-label="Response tools runtime: WebAssembly"
+              data-runtime-mode="wasm"
+            >
+              Response tools are running locally in this browser.
             </div>
           </Show>
           {props.children}

@@ -5,8 +5,10 @@ import os
 import pathlib
 import re
 import stat
+import uuid
 
 import local_stack_control.cleanup
+import local_stack_control.browser_suite_ownership
 import local_stack_control.compose
 import local_stack_control.discovery
 import local_stack_control.env_file
@@ -15,16 +17,19 @@ import local_stack_control.process
 
 
 MANIFEST_KEYS = ("OWNER", "PROJECT", "ENV_FILE", "CAPABILITY_FILE")
+LIVE_DEMO_MANIFEST_KEYS = (*MANIFEST_KEYS, "PROFILE")
 CONTAINER_ID_PREFIX_PATTERN = re.compile(r"^[a-f0-9]{12}$")
+POSTGRESQL_COUNT_FIELDS = (
+	"question_attempt",
+	"submission",
+	"submission_idempotency",
+	"submission_evaluation",
+	"attempt_score_current",
+)
 EVIDENCE_LOG_TAIL_LINES = 5_000
 EVIDENCE_LOG_MAX_CHARACTERS = 1_000_000
 CANONICAL_IMAGE_SELECTIONS_BY_OWNER = {
 	"course-appearance": (
-		"PLE_POSTGRES_IMAGE_SHA256",
-		"PLE_MINIO_IMAGE_SHA256",
-		"PLE_MINIO_MC_IMAGE_SHA256",
-	),
-	"chapter-one-pilot": (
 		"PLE_POSTGRES_IMAGE_SHA256",
 		"PLE_MINIO_IMAGE_SHA256",
 		"PLE_MINIO_MC_IMAGE_SHA256",
@@ -34,14 +39,9 @@ CANONICAL_IMAGE_SELECTIONS_BY_OWNER = {
 		"PLE_MINIO_IMAGE_SHA256",
 		"PLE_MINIO_MC_IMAGE_SHA256",
 	),
-	"database-baseline": ("PLE_POSTGRES_IMAGE_SHA256",),
 	"wp-r2-postgres-rls": ("PLE_POSTGRES_IMAGE_SHA256",),
 	"wp-rc8-postgres-outbox": ("PLE_POSTGRES_IMAGE_SHA256",),
-	"chapter-one-browser": (),
-	"webwork-browser": (),
-	"live-demo-browser": (),
-	"wp-r2-host-seed-renderer": (),
-	"replica-restart": (),
+	local_stack_control.models.LIVE_DEMO_BROWSER_OWNER: ("PLE_POSTGRES_IMAGE_SHA256",),
 }
 
 
@@ -53,6 +53,7 @@ class DisposableManifest:
 	project: str
 	env_file: pathlib.Path
 	capability_file: pathlib.Path
+	live_demo_profile: local_stack_control.models.LiveDemoProfile | None = None
 
 
 #============================================
@@ -91,12 +92,17 @@ def manifest_values(manifest_path: pathlib.Path) -> dict[str, str]:
 				f"disposable target manifest:{line_number} is not NAME=value"
 			)
 		name, value = line.split("=", 1)
-		if name not in MANIFEST_KEYS or value == "" or name in values:
+		if name not in LIVE_DEMO_MANIFEST_KEYS or value == "" or name in values:
 			raise local_stack_control.models.ControllerError(
 				f"disposable target manifest:{line_number} is not an allowed declaration"
 			)
 		values[name] = value
-	if tuple(sorted(values)) != tuple(sorted(MANIFEST_KEYS)):
+	expected_keys = (
+		LIVE_DEMO_MANIFEST_KEYS
+		if values.get("OWNER") == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER
+		else MANIFEST_KEYS
+	)
+	if tuple(sorted(values)) != tuple(sorted(expected_keys)):
 		raise local_stack_control.models.ControllerError(
 			"disposable target manifest must declare its complete ownership evidence"
 		)
@@ -113,11 +119,15 @@ def load_manifest(repo_root: pathlib.Path, manifest_path: pathlib.Path) -> Dispo
 	capability_path = pathlib.Path(values["CAPABILITY_FILE"])
 	if not capability_path.is_absolute():
 		capability_path = repo_root / capability_path
+	profile = None
+	if values["OWNER"] == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
+		profile = local_stack_control.models.live_demo_profile(values["PROFILE"])
 	manifest = DisposableManifest(
 		owner=values["OWNER"],
 		project=values["PROJECT"],
 		env_file=env_path.absolute(),
 		capability_file=capability_path.absolute(),
+		live_demo_profile=profile,
 	)
 	return manifest
 
@@ -138,7 +148,7 @@ def disposable_target(
 		CANONICAL_IMAGE_SELECTIONS_BY_OWNER[policy.owner],
 	)
 	compose_files = local_stack_control.compose.disposable_policy_compose_files(
-		repo_root, policy.owner
+		repo_root, policy.owner, manifest.live_demo_profile
 	)
 	provider = local_stack_control.compose.choose_provider(
 		runner,
@@ -158,6 +168,7 @@ def disposable_target(
 		target,
 		manifest.capability_file,
 		policy.owner,
+		manifest.live_demo_profile,
 	)
 	return result
 
@@ -217,20 +228,33 @@ def disposable_policy(
 
 
 #============================================
+def live_demo_profile_policy(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+) -> local_stack_control.models.LiveDemoProfilePolicy:
+	"""Require and return the fixed owner's selected closed profile policy."""
+	if disposable.owner_policy != local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
+		raise local_stack_control.models.ControllerError(
+			"this disposable owner does not use a live-demo profile"
+		)
+	if disposable.live_demo_profile is None:
+		raise local_stack_control.models.ControllerError(
+			"live-demo target must declare its closed profile"
+		)
+	return local_stack_control.models.live_demo_profile_policy(disposable.live_demo_profile)
+
+
+#============================================
 def lifecycle_options(
 	disposable: local_stack_control.models.DisposableComposeTarget,
 	timeout_seconds: int,
 ) -> "local_stack_control.lifecycle.LifecycleOptions":
 	"""Form the closed lifecycle request allowed to full-stack disposable owners."""
 	policy = disposable_policy(disposable)
-	launch_owners = {
-		"chapter-one-browser", "webwork-browser", "live-demo-browser",
-		"wp-r2-host-seed-renderer",
-	}
-	if policy.owner not in launch_owners:
+	if policy.owner != local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
 		raise local_stack_control.models.ControllerError(
 			"closed full-stack owners may use the structured launcher"
 		)
+	live_demo_profile_policy(disposable)
 	if timeout_seconds < 1 or timeout_seconds > 600:
 		raise local_stack_control.models.ControllerError(
 			"disposable launcher timeout must be between 1 and 600 seconds"
@@ -260,11 +284,16 @@ def restart_options(
 def outage_service(disposable: local_stack_control.models.DisposableComposeTarget) -> str:
 	"""Return the one deliberate outage service owned by this browser fixture."""
 	policy = disposable_policy(disposable)
-	if policy.outage_service is None:
+	if policy.owner != local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
 		raise local_stack_control.models.ControllerError(
 			"this disposable owner cannot create a service outage"
 		)
-	return policy.outage_service
+	service = live_demo_profile_policy(disposable).outage_service
+	if service is None:
+		raise local_stack_control.models.ControllerError(
+			"this disposable owner cannot create a service outage"
+		)
+	return service
 
 
 #============================================
@@ -275,6 +304,140 @@ def outage_stop_command(
 	service = outage_service(disposable)
 	argv = local_stack_control.compose.compose_argv(disposable.target, ["stop", service])
 	return argv, compose_environment(disposable)
+
+
+#============================================
+def require_declared_outage_snapshot(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+	snapshot: local_stack_control.models.ProjectSnapshot,
+) -> None:
+	"""Require a complete snapshot to describe only the selected labelled project."""
+	project = disposable.target.project
+	if snapshot.project != project:
+		raise local_stack_control.models.ControllerError(
+			"declared outage snapshot does not match its selected project"
+		)
+	resources = (*snapshot.containers, *snapshot.volumes, *snapshot.networks)
+	if any(resource.project != project for resource in resources):
+		raise local_stack_control.models.ControllerError(
+			"declared outage snapshot contains a foreign or malformed resource"
+		)
+	if disposable.owner_policy == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
+		if (
+			disposable.target.project != local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
+			or disposable.project_prefix != local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
+		):
+			raise local_stack_control.models.ControllerError(
+				"live-demo browser outage has an invalid fixed project selection"
+			)
+		local_stack_control.browser_suite_ownership.require_live_demo_browser_ownership(snapshot)
+
+
+#============================================
+def declared_outage_stop_plan(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+	snapshot: local_stack_control.models.ProjectSnapshot,
+) -> local_stack_control.models.ServiceStopPlan:
+	"""Select exactly one running policy-declared service from one owned snapshot."""
+	require_declared_outage_snapshot(disposable, snapshot)
+	service = outage_service(disposable)
+	selected = tuple(container for container in snapshot.containers if container.service == service)
+	if len(selected) != 1 or not selected[0].running:
+		raise local_stack_control.models.ControllerError(
+			"declared outage requires exactly one running labelled service instance"
+		)
+	argv, _environment = outage_stop_command(disposable)
+	return local_stack_control.models.ServiceStopPlan(
+		project=disposable.target.project,
+		service=service,
+		argv=tuple(argv),
+	)
+
+
+#============================================
+def persistent_scope(
+	snapshot: local_stack_control.models.ProjectSnapshot,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+	"""Return order-independent exact-project persistent resource identities."""
+	result = (
+		tuple(sorted(resource.name for resource in snapshot.volumes)),
+		tuple(sorted(resource.name for resource in snapshot.networks)),
+	)
+	return result
+
+
+#============================================
+def unrelated_containers(
+	snapshot: local_stack_control.models.ProjectSnapshot,
+	service: str,
+) -> tuple[local_stack_control.models.ContainerResource, ...]:
+	"""Return the complete unchanged-container comparison scope outside one service."""
+	result = tuple(sorted(
+		(container for container in snapshot.containers if container.service != service),
+		key=lambda container: container.id,
+	))
+	return result
+
+
+#============================================
+def require_declared_outage_stopped(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+	before: local_stack_control.models.ProjectSnapshot,
+	after: local_stack_control.models.ProjectSnapshot,
+	plan: local_stack_control.models.ServiceStopPlan,
+) -> None:
+	"""Prove only the selected declared service changed from running to stopped."""
+	require_declared_outage_snapshot(disposable, before)
+	require_declared_outage_snapshot(disposable, after)
+	if plan.project != disposable.target.project or plan.service != outage_service(disposable):
+		raise local_stack_control.models.ControllerError(
+			"declared outage plan does not match its selected policy"
+		)
+	expected_argv, _environment = outage_stop_command(disposable)
+	if plan.argv != tuple(expected_argv):
+		raise local_stack_control.models.ControllerError(
+			"declared outage plan does not match its closed command"
+		)
+	if persistent_scope(before) != persistent_scope(after):
+		raise local_stack_control.models.ControllerError(
+			"declared outage changed labelled persistent resource scope"
+		)
+	if unrelated_containers(before, plan.service) != unrelated_containers(after, plan.service):
+		raise local_stack_control.models.ControllerError(
+			"declared outage changed an unrelated labelled container"
+		)
+	stopped = tuple(
+		container for container in after.containers if container.service == plan.service
+	)
+	selected_before = tuple(
+		container for container in before.containers if container.service == plan.service
+	)
+	if len(selected_before) != 1 or not selected_before[0].running:
+		raise local_stack_control.models.ControllerError(
+			"declared outage preselection is not exactly one running labelled service"
+		)
+	if len(stopped) != 1 or stopped[0].running or stopped[0].id != selected_before[0].id:
+		raise local_stack_control.models.ControllerError(
+			"declared outage did not leave exactly one labelled service instance stopped"
+		)
+
+
+#============================================
+def stop_declared_outage_service(
+	runner: local_stack_control.process.CommandRunner,
+	disposable: local_stack_control.models.DisposableComposeTarget,
+) -> local_stack_control.models.DeclaredOutageStop:
+	"""Stop one policy-declared service and prove its exact labelled postcondition."""
+	before = require_current_resource_capability(runner, disposable)
+	plan = declared_outage_stop_plan(disposable, before)
+	environment = compose_environment(disposable)
+	result = runner.stream(list(plan.argv), environment, disposable.target.repo_root)
+	if result != 0:
+		raise local_stack_control.models.ControllerError("declared outage stop command failed")
+	after = require_current_resource_capability(runner, disposable)
+	require_declared_outage_stopped(disposable, before, after, plan)
+	completed = local_stack_control.models.DeclaredOutageStop(plan.project, plan.service)
+	return completed
 
 
 #============================================
@@ -290,12 +453,16 @@ def owned_project_images(
 	for Compose cleanup.
 	"""
 	policy = disposable_policy(disposable)
-	project = disposable.target.project
 	images: list[str] = []
-	if policy.removes_application_image:
-		images.append(f"localhost/peptidyle-learning-engine:{project}")
+	application_image: str | None = None
+	if policy.owner == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
+		application_image = live_demo_profile_policy(
+			disposable
+		).application_image
+	if application_image is not None:
+		images.append(application_image)
 	if policy.removes_gateway_image:
-		images.append(f"localhost/{project}_gateway:latest")
+		images.append(f"localhost/{disposable.target.project}_gateway:latest")
 	return tuple(images)
 
 
@@ -320,7 +487,10 @@ def replica_stop_container(
 ) -> local_stack_control.models.ContainerResource:
 	"""Resolve one running replica strictly within its typed labelled project."""
 	policy = disposable_policy(disposable)
-	if policy.stoppable_service is None or service != policy.stoppable_service:
+	stoppable_service = None
+	if policy.owner == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
+		stoppable_service = live_demo_profile_policy(disposable).stoppable_service
+	if stoppable_service is None or service != stoppable_service:
 		raise local_stack_control.models.ControllerError(
 			"this disposable owner cannot stop the requested service"
 		)
@@ -343,6 +513,82 @@ def replica_stop_container(
 			"replica stop requires one matching instance within at least two running API replicas"
 		)
 	return matches[0]
+
+
+#============================================
+def _canonical_uuid(value: str, label: str) -> str:
+	"""Require one canonical lowercase UUID before forming a PostgreSQL variable."""
+	# ASVS 1.2.4 and 2.2.1: only typed UUID values may reach the fixed SQL statement.
+	if not isinstance(value, str):
+		raise local_stack_control.models.ControllerError(f"{label} must be a canonical UUID")
+	try:
+		parsed = uuid.UUID(value)
+	except ValueError as error:
+		raise local_stack_control.models.ControllerError(
+			f"{label} must be a canonical UUID"
+		) from error
+	if str(parsed) != value:
+		raise local_stack_control.models.ControllerError(f"{label} must be a canonical UUID")
+	return value
+
+
+#============================================
+def postgresql_count_command(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+	tenant_id: str,
+	attempt_id: str,
+) -> tuple[list[str], dict[str, str], str]:
+	"""Form the replica profile's one fixed scoped durability-count query."""
+	# ASVS 8.2.2: this adapter exposes only the one oracle-scoped data projection.
+	if disposable.owner_policy != local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
+		raise local_stack_control.models.ControllerError(
+			"PostgreSQL count is limited to the fixed replica profile"
+		)
+	profile = live_demo_profile_policy(disposable)
+	if (
+		profile.profile is not local_stack_control.models.LiveDemoProfile.REPLICA_RESTART
+		or "postgresql_count" not in profile.child_capabilities
+	):
+		raise local_stack_control.models.ControllerError(
+			"PostgreSQL count is limited to the fixed replica profile"
+		)
+	tenant = _canonical_uuid(tenant_id, "PostgreSQL count tenant")
+	attempt = _canonical_uuid(attempt_id, "PostgreSQL count attempt")
+	values = local_stack_control.env_file.env_settings(disposable.target.env_file)
+	postgres_user = values.get("POSTGRES_USER")
+	postgres_database = values.get("POSTGRES_DB")
+	if not postgres_user or not postgres_database:
+		raise local_stack_control.models.ControllerError(
+			"PostgreSQL count target omits its database selection"
+		)
+	sql = "SELECT " + ",".join(
+		f"(SELECT count(*) FROM {table} "
+		"WHERE tenant_id = :'tenant_id'::uuid AND attempt_id = :'attempt_id'::uuid)"
+		for table in POSTGRESQL_COUNT_FIELDS
+	) + ";\n"
+	argv = local_stack_control.compose.compose_argv(
+		disposable.target,
+		[
+			"exec",
+			"-T",
+			"postgres",
+			"psql",
+			"-v",
+			"ON_ERROR_STOP=1",
+			"-v",
+			f"tenant_id={tenant}",
+			"-v",
+			f"attempt_id={attempt}",
+			"-U",
+			postgres_user,
+			"-d",
+			postgres_database,
+			"-tA",
+			"-F",
+			"|",
+		],
+	)
+	return argv, compose_environment(disposable), sql
 
 
 #============================================
@@ -385,23 +631,49 @@ def compose_command(
 
 
 #============================================
+def evidence_log_service(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+	receipt_claim: str,
+) -> str:
+	"""Resolve one receipt claim to its policy-owned service without a generic selector."""
+	if not isinstance(receipt_claim, str):
+		raise local_stack_control.models.ControllerError("evidence receipt claim is invalid")
+	policy = disposable_policy(disposable)
+	mapping: tuple[tuple[str, str], ...] = ()
+	if policy.owner == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
+		mapping = live_demo_profile_policy(disposable).evidence_log_services
+	claims = tuple(item[0] for item in mapping)
+	if len(claims) != len(set(claims)):
+		raise local_stack_control.models.ControllerError("evidence receipt policy is invalid")
+	for claim, service in mapping:
+		if claim == receipt_claim:
+			return service
+	raise local_stack_control.models.ControllerError(
+		"this disposable owner cannot read the requested evidence receipt"
+	)
+
+
 def evidence_log_command(
 	disposable: local_stack_control.models.DisposableComposeTarget,
+	receipt_claim: str,
+	snapshot: local_stack_control.models.ProjectSnapshot,
 ) -> tuple[list[str], dict[str, str]]:
-	"""Form the one bounded evidence-log read declared by an owner policy."""
-	service = disposable_policy(disposable).evidence_log_service
-	if service is None:
+	"""Read one claim-selected, label-resolved running container with bounded logs."""
+	service = evidence_log_service(disposable, receipt_claim)
+	if snapshot.project != disposable.target.project:
 		raise local_stack_control.models.ControllerError(
-			"this disposable owner cannot read application evidence logs"
+			"evidence-log snapshot does not match its selected project"
 		)
-	arguments = [
-		"logs",
-		"--no-color",
-		"--tail",
-		str(EVIDENCE_LOG_TAIL_LINES),
-		service,
-	]
-	argv = local_stack_control.compose.compose_argv(disposable.target, arguments)
+	selected = tuple(
+		container
+		for container in snapshot.containers
+		if container.service == service and container.running
+	)
+	if len(selected) != 1:
+		raise local_stack_control.models.ControllerError(
+			"evidence receipt requires exactly one running labelled service container"
+		)
+	argv = ["podman", "logs", "--tail", str(EVIDENCE_LOG_TAIL_LINES), selected[0].id]
 	return argv, compose_environment(disposable)
 
 
@@ -463,16 +735,31 @@ def diagnostic_services(
 ) -> tuple[str, ...]:
 	"""Validate the bounded service set exposed by replica diagnostics."""
 	policy = disposable_policy(disposable)
-	if policy.owner != "replica-restart":
+	if policy.owner != local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
 		raise local_stack_control.models.ControllerError(
 			"diagnostics are not available for this disposable owner"
 		)
-	allowed = {"api", "gateway"}
+	allowed = set(live_demo_profile_policy(disposable).diagnostic_services)
 	if len(services) == 0 or len(set(services)) != len(services) or not set(services) <= allowed:
 		raise local_stack_control.models.ControllerError(
 			"replica diagnostics require unique api or gateway services"
 		)
 	return services
+
+
+#============================================
+def diagnostic_commands(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+	services: tuple[str, ...],
+) -> tuple[list[str], list[str]]:
+	"""Form the two bounded replica diagnostic commands without generic authority."""
+	selected = diagnostic_services(disposable, services)
+	status = local_stack_control.compose.compose_argv(disposable.target, ["ps"])
+	logs = local_stack_control.compose.compose_argv(
+		disposable.target,
+		["logs", "--no-color", "--tail", "80", *selected],
+	)
+	return status, logs
 
 
 #============================================

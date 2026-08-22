@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
+import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 import { DecodeError } from "../src/api/decoder.ts";
 import { decodeCatalogProblemDetail, decodeCatalogSearchPage } from "../src/api/decoders.ts";
 import { ApiProtocolError, createHttpApiClient } from "../src/api/http_client.ts";

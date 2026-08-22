@@ -41,12 +41,16 @@ E2E/live. Fixtures require a stable serialized contract; otherwise use inline bu
 
 The active professor-capability roadmap applies this boundary to WP-R2. Offline Memory conformance belongs to
 `crates/learning-data-access/tests/conformance/publication.rs` and `assignments.rs`; disposable PostgreSQL/RLS
-persistence and role claims to `tests/e2e/e2e_wp_r2_postgres_rls.py`; manufactured manifest convergence to
-`crates/project-tools/src/e2e_seed/tests.rs`; and the disposable real host-seed/renderer claim to
-`tests/e2e/e2e_wp_r2_host_seed_renderer.py`. `tests/test_assignment_editor_ui.mjs` owns authored mock
-decoder/client/editor behavior, while `tests/playwright/assignment_editor.spec.ts` owns its mock-backed visible
-replacement behavior. `local_stack_control/acceptance_lanes.py` is the sole live browser replacement route and
-`tests/walkthrough/run_ui_walkthrough.py` the sole M6 composition journey. WP-R2 creates no fixture directory,
+persistence and role claims to `tests/e2e/e2e_wp_r2_postgres_rls.py`; and manufactured manifest convergence to
+`crates/project-tools/src/e2e_seed/tests.rs`. The canonical `webwork_delivery` and
+`assignment_question_replacement` scenarios retain browser-visible delivery and replacement behavior; the
+browser-free `tests/e2e/e2e_webwork_render_rpc.sh` and `tests/e2e/e2e_replica_restart.mjs` retain renderer
+and replica claims; fixed seed/manifest and Rust tests retain Chapter One publication semantics.
+`tests/test_assignment_editor_ui.mjs` owns only narrow decoder/client/model behavior. The canonical
+`assignment_question_replacement` and `instructor_authoring` scenarios own visible assignment
+behavior. `tests/e2e/e2e_browser_suite_owner.py`, dispatched by
+`local_stack_control/acceptance_lanes.py`, is the sole fixed live browser owner and supplies canonical
+M6 composition behavior. WP-R2 creates no fixture directory,
 predicts no assigned live Question ID, count, or hash. Durable M0 package evidence is in
 [implementation_status.md](../implementation_status.md) and [CHANGELOG.md](../../CHANGELOG.md);
 inventories/screenshots/timings are historical only, not an ignored scratch dependency. `generated/api/` remains ignored derivative output of `crates/project-tools/src/tsgen.rs`.
@@ -141,8 +145,7 @@ open; WP-PY-L1 is accepted on 2026-08-15 after final offline/live Validation and
 reviews with no P0-P3 finding. It replaces `local_stack_control/launch.sh`,
 `_restart.sh`, and `containers/local_identity_bootstrap.sh` all at once before M1; it deletes the shell
 implementation instead of shipping a Python wrapper or dual launcher. M1 retains its separate declared
-dependency gates. Later packages may migrate remaining E2E, developer, renderer-probe, and
-destructive-cleanup scripts.
+dependency gates. Later packages may migrate remaining E2E, developer, renderer-probe, and destructive-cleanup scripts.
 
 The remaining complex-script order is explicit: after WP-PY-L1, the canonical WeBWorK
 renderer/host-seed acceptance owner converts its stateful runner; the release-candidate composition
@@ -151,24 +154,23 @@ conversion, with a direct shell `exec` facade where a shell entry remains.
 
 ## Non-goals
 
-The out-of-scope ledger above is exhaustive for known exclusions. An implementer may not create a
-new non-goal to avoid an acceptance criterion. New product ideas enter a separate post-v1 plan only
-after WP-RC12 closes.
+The out-of-scope ledger above is exhaustive for known exclusions. An implementer may not create a new non-goal to
+avoid an acceptance criterion. New product ideas enter a separate post-v1 plan only after WP-RC12 closes.
 
 ## Architecture and ownership
 
-| Boundary                           | Authoritative owner                                             | Rule                                                                                                                                                                                          |
-| ---------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Product decisions and defaults     | `docs/HUMAN_GUIDANCE.md` plus this ledger                       | Code may expose configuration but must ship the decided defaults                                                                                                                              |
-| Public question and response types | `crates/question_model`                                         | Answer-free and generated to TypeScript                                                                                                                                                       |
-| Source interpretation              | `crates/adapters/native`, `qti`, `webwork`, `h5p`, `imathas`    | Each format has one strict versioned adapter                                                                                                                                                  |
-| Grading                            | `crates/grading` plus injected server-only adapter capabilities | Never in Wasm, generated TS, or browser JSON                                                                                                                                                  |
-| Persistence and RLS                | `crates/learning-data-access` and `schemas/migrations`          | Memory/PostgreSQL parity; PostgreSQL is production authority                                                                                                                                  |
-| Objects                            | `crates/objects`                                                | Typed keys, checksums, role-based delivery, inventory and reconciliation                                                                                                                      |
-| HTTP and workers                   | `crates/server`                                                 | Same-origin, bounded request handling; protected asset grants and external-tool launch are POST-only; durable jobs carry explicit least authority                                             |
-| Browser                            | `src/`                                                          | Strict decoders, accessible visible flows, no source archive parsing                                                                                                                          |
+| Boundary                           | Authoritative owner                                             | Rule                                                                                                                                                                                                                                                       |
+| ---------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product decisions and defaults     | `docs/HUMAN_GUIDANCE.md` plus this ledger                       | Code may expose configuration but must ship the decided defaults                                                                                                                                                                                           |
+| Public question and response types | `crates/question_model`                                         | Answer-free and generated to TypeScript                                                                                                                                                                                                                    |
+| Source interpretation              | `crates/adapters/native`, `qti`, `webwork`, `h5p`, `imathas`    | Each format has one strict versioned adapter                                                                                                                                                                                                               |
+| Grading                            | `crates/grading` plus injected server-only adapter capabilities | Never in Wasm, generated TS, or browser JSON                                                                                                                                                                                                               |
+| Persistence and RLS                | `crates/learning-data-access` and `schemas/migrations`          | Memory/PostgreSQL parity; PostgreSQL is production authority                                                                                                                                                                                               |
+| Objects                            | `crates/objects`                                                | Typed keys, checksums, role-based delivery, inventory and reconciliation                                                                                                                                                                                   |
+| HTTP and workers                   | `crates/server`                                                 | Same-origin, bounded request handling; protected asset grants and external-tool launch are POST-only; durable jobs carry explicit least authority                                                                                                          |
+| Browser                            | `src/`                                                          | Strict decoders, accessible visible flows, no source archive parsing                                                                                                                                                                                       |
 | Local stack                        | `local_stack_control/` and `containers/`                        | Python owns complex orchestration. WP-R1 converts Chapter One and aggregate acceptance; WP-PY-L1 was accepted 2026-08-15 after directly replacing the shell lifecycle with focused Python modules, final offline/live Validation, and named final reviews. |
-| Production deployment              | `deploy/opentofu/`                                              | Declarative, reviewable, drift-detectable, disposable before activation                                                                                                                       |
+| Production deployment              | `deploy/opentofu/`                                              | Declarative, reviewable, drift-detectable, disposable before activation                                                                                                                                                                                    |
 
 ## Dependency map
 
@@ -244,25 +246,23 @@ begins only after WP-P2 preserves the reserved migration ordering below.
 - **Status:** accepted on 2026-08-12. This is a cross-cutting acceptance package, not a claim that
   the broad release plan is complete. It replaces the insufficient standard of merely rendering a
   friendly label. Its visible instructor result is a deliberately constructed four-question
-  Genetics Chapter 1 assignment; the separate two-chapter eight-question publication and learner
-  sweep remains the RC5 release oracle.
+  Genetics Chapter 1 assignment; the separate two-chapter eight-question publication and learner sweep remains the RC5 release oracle.
 - **Depends on:** accepted catalog publication and the visible assignment editor. It must close
   before the corrected instructor walkthrough may again be called accepted and before RC5 claims
   that the Chapter 1 authoring workflow is accepted.
 - **Owners:** catalog/domain owner for the cross-boundary reference contract; browser/HCI owner for
-  copy/paste recovery; PostgreSQL owner for tenant lookup conformance; walkthrough owner for visible
-  evidence; independent architecture, security, and HCI reviewers.
+  copy/paste recovery and canonical suite evidence; PostgreSQL owner for tenant lookup conformance;
+  independent architecture, security, and HCI reviewers.
 - **Files:** `crates/question_model/src/catalog.rs`, the catalog migration and PostgreSQL resolver,
   generated public contracts and strict decoders, `src/api/`, `src/pages/assignment_editor_*`, mock
-  catalog handlers, focused Rust/TypeScript/Playwright tests, `tests/playwright/ui_walkthrough_instructor_setup.spec.ts`,
-  `tests/walkthrough/`, this plan, the walkthrough plan, status, and post-acceptance documentation.
+  catalog handlers, focused Rust/TypeScript/Playwright tests, canonical
+  `tests/playwright/e2e/` scenarios, this plan, status, and post-acceptance documentation.
 - **Behavior:** the editor displays and can copy a human reference, accepts pasted exact Question IDs in one
   obvious add-by-ID control, resolves the one immutable published question named by that ID under the current
   tenant, and changes the assignment only after a whole pasted batch resolves. It preserves pasted
   text and the existing draft for malformed, unavailable, unauthorized, duplicate, race, and network
   cases with labelled recovery. The browser accepts no UUID as a question identifier and exposes no
-  UUID-valued DOM helper solely for test extraction. Displayed Question IDs remain selectable and
-  copyable in canonical `AAA-BBBB` form.
+  UUID-valued DOM helper solely for test extraction. Displayed Question IDs remain selectable and copyable in canonical `AAA-BBBB` form.
 - **Numeric and endpoint contract:** use one seven-character Crockford Base32 Question ID, displayed
   as `AAA-BBBB`, rather than public number/version pairs. The server validates its HMAC-derived
   checksum before resolving that exact published question through tenant and actor authorization.
@@ -343,8 +343,7 @@ fixtures. This accepted package does not close the broader release plan.
 ### Pre-production design cleanup
 
 PLE has no users or durable production data. Complete this cleanup in order before the affected package or
-walkthrough acceptance. It removes provisional variants from the current design; it does not rewrite
-historical audit reports.
+walkthrough acceptance. It removes provisional variants from the current design; it does not rewrite historical audit reports.
 
 - [x] **Unify the roster model.** The code and focused review use the PLE-owned course roster as the single
       source for local and production flows: `2026080913_local_development_roster.sql`, its separate source,
@@ -575,11 +574,11 @@ tests/`; both diff checks. The contact sheet and exact theme inventory are not p
   `src/components/response_widget.tsx`; behavior tests beside each owner;
   `content/pilot/chapter_1_assignments.yaml` and copied, licensed source
   under `content/pilot/sources/`; `crates/project-tools/src/pilot_content.rs`;
-  `tests/e2e/e2e_chapter_one_pilot.py`; `tests/e2e/e2e_chapter_one_browser.py`;
-  `tests/playwright/chapter_one_run.spec.ts`; `docs/PILOT_CONTENT.md`.
+  its fixed seed/manifest tests; the canonical `assignment_question_replacement` scenario;
+  `docs/PILOT_CONTENT.md`.
 - **WeBWorK MATCH files:** the bounded Chapter 1 slice extends
   `crates/adapters/webwork/src/http_renderer/`, `renderer_contract.rs`, their contract tests, server
-  translation, and `tests/playwright/chapter_one_run.spec.ts` with the reviewed matching render and
+  translation, and the canonical `webwork_delivery` scenario with the reviewed matching render and
   grade path. Additional source shapes remain part of broader WP-RC5 acceptance.
 - **Behavior:** protected visual authoring now covers all eight version 2 families with stable
   semantic IDs, family-specific validation, keyboard-first editing, and an answer-free learner
@@ -978,6 +977,7 @@ development. They must pass, not skip, in WP-RC12 release evidence.
 - [ ] Production operator supplies email delivery and WebAuthn RP configuration; record optional SSO identities when enabled.
 - [ ] Institutional owner completes FERPA/legal/security sign-off.
 - [ ] Human fall-pilot accessibility and teaching walkthrough passes before student enrollment.
+
 ## Documentation close-out requirements
 
 Every package updates the changelog only after executable acceptance. Packages that change owner

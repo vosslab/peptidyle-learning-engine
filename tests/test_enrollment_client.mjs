@@ -10,7 +10,6 @@ import {
   decodeAccountPresentationPreference,
   decodeCourseInvitationAccepted,
   decodeCourseRosterPage,
-  decodeLocalTeachingMemberAccepted,
   decodeRosterImportCommitResult,
   decodeRosterImportPreview,
 } from "../src/api/enrollment.ts";
@@ -120,37 +119,6 @@ test("passwordless and roster decoders reject authority and secret fields", () =
   assert.throws(
     () => decodeCourseRosterPage({ ...roster, invitationToken: "must-not-cross" }),
     /field allowed by this response contract/u,
-  );
-
-  const localTeachingRoster = {
-    rosterMode: "localTeaching",
-    members: roster.members,
-    localTeachingLearners: [{ alias: "student-local", displayName: "Mary Fake Student" }],
-    nextCursor: null,
-    rosterRevision: 4,
-  };
-  assert.deepEqual(decodeCourseRosterPage(localTeachingRoster), localTeachingRoster);
-  assert.throws(
-    () =>
-      decodeCourseRosterPage({
-        ...localTeachingRoster,
-        pendingInvitations: [],
-      }),
-    /field allowed by this response contract/u,
-  );
-  assert.throws(
-    () =>
-      decodeCourseRosterPage({
-        ...localTeachingRoster,
-        localTeachingLearners: [
-          { alias: "student-local", displayName: "Mary Fake Student", userId: COURSE },
-        ],
-      }),
-    /field allowed by this response contract/u,
-  );
-  assert.deepEqual(
-    decodeLocalTeachingMemberAccepted({ member: roster.members[0], rosterRevision: 4 }),
-    { member: roster.members[0], rosterRevision: 4 },
   );
 
   const accepted = {
@@ -364,23 +332,6 @@ test("roster mutations preserve revisions idempotency and protected export heade
           202,
         );
       }
-      if (path.endsWith("/local-teaching-members")) {
-        return json(
-          {
-            member: {
-              memberId: "0198e000-0000-7000-8000-000000000602",
-              displayName: "Mary Fake Student",
-              rosterEmail: null,
-              rosterId: null,
-              role: "student",
-              status: "active",
-            },
-            rosterRevision: 4,
-          },
-          200,
-          { etag: '"4"' },
-        );
-      }
       if (path.endsWith("/roster-imports/preview")) {
         return json(
           {
@@ -422,7 +373,6 @@ test("roster mutations preserve revisions idempotency and protected export heade
   });
 
   await client.inviteCourseMember(COURSE, "student@example.edu", "900123456", "invite-once");
-  const activated = await client.addLocalTeachingMember(COURSE, "student-local");
   await client.previewRosterImport(
     COURSE,
     new Blob(["email,roster_id\nstudent@example.edu,900123456\n"], { type: "text/csv" }),
@@ -432,14 +382,11 @@ test("roster mutations preserve revisions idempotency and protected export heade
   const exported = await client.createManualGradeExport(COURSE, ASSIGNMENT);
 
   assert.equal(exported.exportId, EXPORT);
-  assert.equal(activated.member.displayName, "Mary Fake Student");
   assert.match(exported.csv.type, /^text\/csv(?:;|$)/u);
   assert.equal(requests[0]?.init.headers["idempotency-key"], "invite-once");
-  assert.deepEqual(JSON.parse(requests[1]?.init.body), { learnerAlias: "student-local" });
-  assert.equal(requests[1]?.init.headers["content-type"], "application/json");
-  assert.equal(requests[2]?.init.headers["if-match"], '"4"');
-  assert.equal(requests[2]?.init.headers["content-type"], "text/csv; charset=utf-8");
-  assert.equal(requests[3]?.init.body, undefined);
+  assert.equal(requests[1]?.init.headers["if-match"], '"4"');
+  assert.equal(requests[1]?.init.headers["content-type"], "text/csv; charset=utf-8");
+  assert.equal(requests[2]?.init.body, undefined);
 });
 
 test("one-time URL fragments are consumed into memory and immediately removed", () => {

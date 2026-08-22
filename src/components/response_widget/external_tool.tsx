@@ -2,7 +2,9 @@ import { createEffect, createSignal, on, onCleanup, onMount, Show, type JSX } fr
 
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ExternalToolLaunch } from "../../api/contracts";
+import type { SubmissionOutcome } from "../../features/attempt/attempt_state";
 import type { ResponseFormatReport } from "../../wasm/index";
+import { isCanonicalExternalToolLaunchPath } from "../../api/external_tool_launch";
 
 import { handleWidgetKeyDown } from "./keyboard";
 
@@ -13,6 +15,7 @@ type ExternalToolPhase =
   | { readonly kind: "ready" }
   | { readonly kind: "failed"; readonly message: string }
   | { readonly kind: "submitting" }
+  | { readonly kind: "recoveryPending"; readonly message: string }
   | { readonly kind: "submitted" };
 
 interface ExternalToolReadyMessage {
@@ -22,7 +25,7 @@ interface ExternalToolReadyMessage {
 
 export interface ExternalToolResponseProps {
   readonly attemptId: string;
-  readonly onSubmit: (response: StudentResponse) => Promise<void>;
+  readonly onSubmit: (response: StudentResponse) => Promise<SubmissionOutcome>;
   readonly onEscape: () => void;
   readonly onResponseChange?: (response: StudentResponse, validation: ResponseFormatReport) => void;
   readonly beginExternalToolLaunch?: () => Promise<ExternalToolLaunch>;
@@ -48,24 +51,17 @@ export function isExternalToolReadyMessage(
   );
 }
 
-/** Reject route-state that could navigate an embedded learner surface off-origin. */
-export function isSafeExternalToolLaunchPath(launchUrl: string): boolean {
-  if (
-    !launchUrl.startsWith("/") ||
-    launchUrl.startsWith("//") ||
-    launchUrl.includes("?") ||
-    launchUrl.includes("#")
-  ) {
-    return false;
-  }
-  const parsed = new URL(launchUrl, window.location.origin);
-  return (
-    parsed.origin === window.location.origin &&
-    parsed.username === "" &&
-    parsed.password === "" &&
-    parsed.search === "" &&
-    parsed.hash === ""
-  );
+/**
+ * Accept only a relative, same-origin broker path with no alternate URL syntax.
+ * The origin is explicit so this boundary remains a pure contract that can be
+ * tested without a browser global.
+ */
+export function isSafeExternalToolLaunchPath(
+  launchUrl: string,
+  attemptId: string,
+  origin: string,
+): boolean {
+  return isCanonicalExternalToolLaunchPath(launchUrl, attemptId, origin);
 }
 
 function externalToolStatus(phase: ExternalToolPhase): string {
@@ -82,6 +78,8 @@ function externalToolStatus(phase: ExternalToolPhase): string {
       return phase.message;
     case "submitting":
       return "Recording your external-tool response. Please wait.";
+    case "recoveryPending":
+      return phase.message;
     case "submitted":
       return "Response recorded. Server feedback will appear when it is released.";
   }
@@ -151,7 +149,13 @@ export function ExternalToolResponse(props: ExternalToolResponseProps): JSX.Elem
     try {
       const launchResult = await beginLaunch();
       if (request !== launchRequest) return;
-      if (!isSafeExternalToolLaunchPath(launchResult.launchUrl)) {
+      if (
+        !isSafeExternalToolLaunchPath(
+          launchResult.launchUrl,
+          props.attemptId,
+          window.location.origin,
+        )
+      ) {
         setPhase({ kind: "failed", message: "The learning tool route was not safe to open." });
         return;
       }
@@ -171,8 +175,18 @@ export function ExternalToolResponse(props: ExternalToolResponseProps): JSX.Elem
     if (phase().kind !== "ready") return;
     setPhase({ kind: "submitting" });
     try {
-      await props.onSubmit(marker());
-      setPhase({ kind: "submitted" });
+      const outcome = await props.onSubmit(marker());
+      switch (outcome.kind) {
+        case "accepted":
+          setPhase({ kind: "submitted" });
+          return;
+        case "recoveryPending":
+          setPhase({ kind: "recoveryPending", message: outcome.message });
+          return;
+        case "rejected":
+          setPhase({ kind: "failed", message: outcome.message });
+          return;
+      }
     } catch (error: unknown) {
       const detail = error instanceof Error ? ` ${error.message}` : "";
       setPhase({

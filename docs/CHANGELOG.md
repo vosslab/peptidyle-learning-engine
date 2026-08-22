@@ -1,9 +1,52 @@
 # Changelog
 
+## 2026-08-22
+
+### Fixes and Maintenance
+
+- Audited permanent-test admission against the repository test-style rules. The evidence model now
+  separates stable callable behavior checks from one-time source, migration, and screenshot-coverage
+  closure evidence; the active plan and test guidance describe the same boundary, and obsolete
+  mock-browser inventory language is no longer a permanent-test requirement.
+- Accepted `WP-PROF-BS1`: Playwright, canonical screenshot capture, direct browser development, and
+  aggregate acceptance now share one production `dist/` browser and the fixed disposable
+  `ple-live-demo-browser` HTTPS stack. The real Rust API, PostgreSQL, MinIO, worker, renderer,
+  production account/session authentication, authorization, and seeded live-demo baseline are the
+  sole connected browser path. Focused scenarios receive a fresh installation; the complete catalog
+  shares one stack and creates namespaced product state through visible PLE workflows.
+- Retired the alternate test-only browser artifact, mock transport/runtime graph, local-file
+  authentication and local-teaching activation, random browser/service owners, and superseded
+  walkthrough/Chapter One browser lanes. `run_playwright_tests.sh`, `capture_screenshots.sh`,
+  `local_stack.py acceptance`, and the four-gate `all_test.sh` front door now converge on the fixed
+  owner. Browser-free WebWork and two-API/one-PostgreSQL restart oracles remain only for their distinct
+  service claims and run serially after the one browser invocation.
+- Corrected the learner assignment-summary boundary discovered by the real UI journey. An entitled
+  learner with no materialized receipt now receives a key-free, read-only `noActivity` projection;
+  current entitlement and disclosure policy are still evaluated, denied and unknown assignments stay
+  concealed, and summary reads create no enrollment. A materialized enrollment without its required
+  summary remains a service failure rather than a valid empty state.
+- Published the JSON-authoritative 51-image screenshot corpus into nested role and journey folders
+  from the production HTTPS origin. The atomic publisher records production-bundle identity, scenario,
+  viewport, privacy checks, and SHA-256 for every artifact. Automated image review found one saved-
+  appearance timing defect; recapture now visibly includes `Course appearance saved.` and the selected
+  Forest theme, and the re-review closed the finding.
+- Hardened fixed-target Compose inspection around a closed `SafeLoader` subclass that retains only the
+  required `!reset` tag and rejects Python object constructors. The instructor guide now references the
+  manifest-owned active-roster capture, and the migrated-browser inventory checks meaningful visible
+  feedback sections without freezing their incidental order.
+- The complete nine-scenario browser catalog passed with same-origin receipts and exact cleanup. The
+  aggregate connected gate then passed the browser catalog, WebWork render/grade/cache/outage/redaction
+  oracle, and replica restart with two API replicas sharing one PostgreSQL instance. Final validation
+  completed the required four-command sequence twice on the recorded tree.
+
 ## 2026-08-21
 
 ### Fixes and Maintenance
 
+- Retired the obsolete mock UI-walkthrough/simulator browser graph and its aggregate acceptance
+  lane. The three proven narrow utilities now live under `tests/support/` with Node ownership;
+  simulator-only evidence grammars, private walkthrough configuration, orchestration, and exact
+  wrappers/tests were removed.
 - Accepted `WP-PROF-BS1-H0`: a typed shared `live_demo` browser-suite owner and wrapper now validate
   closed selection/configuration before allocation, create and validate generation-bound input before
   Chromium, sanitize the Playwright environment, and record truthful lifecycle plus typed-cleanup
@@ -25,6 +68,17 @@
   resources, private artifacts, and owner processes. Receipts expose safe metadata only; successful
   cleanup leaves each final ownership inventory empty.
 
+- Accepted `WP-PROF-BS1-I1`: the real production-browser instructor-authoring journey uses visible
+  PLE controls to create and publish a namespaced question, course, assignment, and roster
+  invitation. A roster reload plus a fresh Elena browser session visibly confirm the persisted
+  course, published assignment, and pending invitation. Real-stack validation corrected the
+  canonical-viewport interaction by focusing the accessible assignment-edit link and activating it
+  with Enter. The successful `ple-live-demo-browser-d12ad2600259` invocation verified the exact
+  disposable HTTPS gateway origin and removed its labelled containers, volumes, networks, generated
+  gateway image, and private run artifacts. Offline checks passed; correctness accepted the
+  `not_required` Sysadmin semantics as genuine scenario independence, and the focused security
+  review passed.
+
 - Accepted `WP-PROF-BS1-C0`: `all_test.sh` is the fail-fast aggregate front door, ordered as
   environment, pytest, build, Rust, codebase, one local-stack acceptance handoff, and both diff
   checks. Aggregate evidence has one canonical real-stack production-browser lane and two labelled
@@ -44,6 +98,84 @@
   issued-question secrecy checks without a fake server, retains no `src/api/mock/**` imports, and
   adds a deterministic consumer/allocation scanner that assigns every remaining mock-runtime marker
   to its later real-stack migration owner (`I1`, `L1`, `A1`, `S1`, `V1`, `F1`, or `R1`).
+
+- Accepted `WP-PROF-BS1-L1`: the real production-browser learner journey creates its namespaced
+  instructor prerequisites through visible PLE controls, then lets Mary visibly claim the invitation,
+  submit the UI-authored known-correct response, receive `Correct` feedback, and observe completion
+  plus `Current`, `Latest`, `Best`, and `This run` 100% score evidence. Mary starts a second practice
+  run; a fresh empty-storage learner session then signs in through the UI and confirms the completed
+  score state persists. The focused connected run used exact owner origin project
+  `ple-live-demo-browser-5596d9484f43` and completed owned-resource and private-state cleanup.
+  Real-stack corrections use the compact namespaced roster identifier and active second-run UI state.
+  Offline boundary gates passed; independent correctness accepted and security passed with no P0-P3
+  findings.
+
+- Accepted `WP-PROF-BS1-B1`: the unclaimed visible Sysadmin setup child now exports one strictly
+  validated, mode-0600 WebAuthn continuation; a fresh claimed child imports it into a new virtual
+  authenticator, signs in through the ordinary visible passkey path, and writes an owner-validated
+  acknowledgement. Public evidence records only truthful consumption state. The fixed-project
+  `auth_authorization` receipt proved the producer-to-consumer transition and reported
+  `webAuthnContinuationConsumed: true`; independent correctness and security accepted the boundary.
+
+- Accepted `WP-PROF-BS1-B2`: every browser invocation now owns the exact
+  `ple-live-demo-browser` project through one nonblocking checkout lease, one fixed private
+  workspace, and one exact owner-labelled reset before regeneration and during final cleanup. The
+  production entry acquires the lease before ports, provider, build, Podman, or PostgreSQL work;
+  reset authority requires that held lease; public reporting follows the final reset and fresh
+  process observation; and receipts expose no private locator or session material. Two serial real
+  runs regenerated the same seeded fixture and each left zero containers, volumes, networks,
+  workspace artifacts, or owner processes. Correctness and security reviews accepted the design.
+
+- Accepted `WP-PROF-BS1-A1`: real production-browser journeys visibly complete generation-bound
+  Sysadmin first claim and passkey reauthentication; Instructor and Student session entry/reentry;
+  Morgan's Genetics access and Avery approval; Elena's invitation; Avery's acceptance and fresh
+  teaching session; and Mary's safe cross-course and instructor-role denials. Product state changes
+  use visible PLE controls, the claimed scenario receives no first-claim proof, and no mock route or
+  backend product-state setup participates. Independent correctness/HCI and security reviews found
+  no P0-P3 issue.
+
+- Accepted `WP-PROF-BS1-X1`: two independent Elena sessions now create and mutate one namespaced
+  course through visible PLE controls, produce a real grade-settings revision conflict, preserve the
+  stale local draft, retry it by keyboard, and reload the authoritative result in the observing
+  session. The connected fixed-stack receipt proves each BrowserContext independently used the same
+  production HTTPS gateway; final reset left no project containers, volumes, networks, private
+  artifacts, or owner processes. Real-stack validation also corrected the scenario's status-region
+  locator and bounded its generated letter-band labels to the product's visible 32-character rule.
+  Independent correctness/HCI and security review accepted the final design.
+
+- Accepted `WP-PROF-BS1-S1`: reload, fresh authorized sessions, role observation, and protected
+  transport already provide the semantic persistence evidence required by the accepted instructor,
+  learner, and authorization journeys, so no schema-coupled Store or service receipt was added. The
+  three remaining S1 mock-browser behaviors now have machine-checked successors and explicit R1
+  retirement dispositions. External-tool launch and submission use one exact per-attempt route
+  contract with narrow client/widget and Rust service evidence; renderer safety remains under narrow
+  TypeScript and Rust projection tests plus the accepted real learner journey; and Canvas QTI import
+  now runs through Elena's visible production UI, real PostgreSQL/MinIO worker path, conversion, and
+  a fresh empty-storage Elena session. Its connected receipt proved separate exact HTTPS origins and
+  complete fixed-stack cleanup. Independent correctness/HCI and security review accepted the result.
+
+- Accepted `WP-PROF-BS1-F1`: the canonical production-browser owner now drives one typed gateway
+  outage at Mary's visible saved-response boundary. Elena and Mary create all product state through
+  the PLE UI; the learner retains her selected response, sees the real network-recovery state,
+  keyboard-activates the retry after owner-proven gateway readiness, and a fresh learner session
+  confirms the persisted score. The closed owner/Playwright-worker handshake uses one lease-owned
+  fixed AF_UNIX channel resource with authenticated bounded messages, mode-0600 visible-state
+  markers, process-group cleanup, and autonomous stale-channel recovery. The connected fixed-stack
+  receipt proved the declared fault was injected and recovered at one HTTPS origin, then left no
+  containers, volumes, networks, workspace artifacts, owner processes, or fault-channel directory.
+  Independent correctness/HCI and security review accepted the final design with no P0-P3 findings.
+
+- Converged the retained WebWork and replica/restart service oracles on the fixed
+  `ple-live-demo-browser` owner and seeded production authentication. Profile policy now owns the
+  exact two-API replica cardinality for both launch and restart while PostgreSQL remains singular.
+  The connected replica gate authenticated Mary, restarted across two distinct API instances,
+  verified exact-envelope durable replay, and completed an empty cleanup receipt for 10 containers,
+  3 volumes, 4 networks, both project images, the private workspace, and owner processes. That run
+  also exposed a shared Rust identifier defect: random product IDs had been stored as arbitrary
+  128-bit UUID-shaped values. `learning-data-access` now owns one cryptographically random UUID-v4
+  contract for identifiers, with exact byte-normalization tests, while three private lease/fencing
+  capabilities retain all 128 random bits through an explicit storage envelope. Focused Rust tests,
+  PostgreSQL-feature checks, strict Clippy, and independent re-review passed.
 
 - Restored the executable mode for `tests/e2e/e2e_live_demo_browser.py`, bringing its shebang
   into alignment with the repository executable-script contract.
@@ -120,6 +252,18 @@
   pyflakes, and both diff checks. Sequential real default and focused production-browser runs used
   distinct disposable HTTPS origins and removed their private state and all owned resources.
   Independent correctness returned ACCEPT and security returned PASS with no P0-P3 finding.
+
+- BS1-B1/B2/A1 connected acceptance ran `sysadmin_first_claim` and `auth_authorization` serially
+  through `./run_playwright_tests.sh --build --scenario ...`. Both used the exact fixed project;
+  the first origin was `https://localhost:55092/`, the regenerated second origin was
+  `https://localhost:55206/`, and all observed page/request origins matched their production HTTPS
+  gateway. The second receipt recorded the visible unclaimed producer and claimed consumer, a
+  validated WebAuthn acknowledgement, and the complete auth/authorization UI journey. All six
+  initial/final reset and final-empty facts were true for both runs; independent inventories were
+  empty between and after them, so no two PostgreSQL stacks overlapped. `target/` remained 12G.
+  The corrected material tree passed all 6,542 pytest cases plus two subtests, including the
+  repository function-typing gate; B2 focused correctness/security, B1/B2 runtime, and A1
+  correctness/HCI/security reviews all returned ACCEPT.
 
 - BS1-U1 passed the retained focused Node evidence: 52 named tests (53 file-level reported passes
   including its support module), ESLint, TypeScript, Prettier, and both diff checks. The current

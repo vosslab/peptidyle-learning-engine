@@ -190,7 +190,7 @@ export function FlatQuestionPreview(props: FlatQuestionPreviewProps): JSX.Elemen
           definition={props.preview.response}
           validator={props.validator}
           onEscape={() => undefined}
-          onSubmit={() => Promise.resolve()}
+          onSubmit={() => Promise.resolve({ kind: "accepted" })}
         />
       </article>
       <Show when={props.instructorAnswerCheck}>

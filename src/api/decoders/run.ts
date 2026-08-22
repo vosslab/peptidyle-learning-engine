@@ -26,6 +26,7 @@ import type { LearnerAssignmentProgress } from "../../../generated/api/LearnerAs
 import type { LearnerClassStatistics } from "../../../generated/api/LearnerClassStatistics";
 import type { LearnerScoreState } from "../../../generated/api/LearnerScoreState";
 import type { ScoringStatus } from "../../../generated/api/ScoringStatus";
+import type { RunCompletionStatus } from "../../../generated/api/RunCompletionStatus";
 import type { TaxonomyTerm } from "../../../generated/api/TaxonomyTerm";
 import type {
   AuthSession,
@@ -102,6 +103,10 @@ const SCORING_STATUSES = [
   "recalculating",
   "failed",
 ] as const satisfies ReadonlyArray<ScoringStatus>;
+const RUN_COMPLETION_STATUSES = [
+  "inProgress",
+  "completed",
+] as const satisfies ReadonlyArray<RunCompletionStatus>;
 
 const QUESTION_ATTEMPT_FIELDS = [
   "id",
@@ -678,6 +683,7 @@ export function decodeSubmissionReceipt(value: unknown, path = "response"): Subm
     "attempt",
     "feedback",
     "scoringStatus",
+    "runCompletionStatus",
     "nextIssued",
     "nextPending",
   ]);
@@ -694,6 +700,11 @@ export function decodeSubmissionReceipt(value: unknown, path = "response"): Subm
       `${path}.scoringStatus`,
       SCORING_STATUSES,
     ),
+    runCompletionStatus: decodeStringEnum(
+      field(record, "runCompletionStatus", path),
+      `${path}.runCompletionStatus`,
+      RUN_COMPLETION_STATUSES,
+    ),
     nextIssued: decodeNullable(
       field(record, "nextIssued", path),
       `${path}.nextIssued`,
@@ -706,6 +717,13 @@ export function decodeSubmissionReceipt(value: unknown, path = "response"): Subm
       path,
       "a submission receipt with either an issued successor or a pending successor",
     );
+  }
+  // ASVS 1.5.2 and 2.3.1: accept only coherent closed workflow states from the network.
+  if (
+    decoded.runCompletionStatus === "completed" &&
+    (decoded.nextIssued !== null || decoded.nextPending)
+  ) {
+    throw new DecodeError(path, "a completed run without successor delivery state");
   }
   if (decoded.scoringStatus !== "current" && decoded.attempt.result !== null) {
     throw new DecodeError(

@@ -5,6 +5,7 @@ import type { DisclosedFeedback } from "../../../generated/api/DisclosedFeedback
 import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
 import type { ResponseDefinition } from "../../../generated/api/ResponseDefinition";
 import type { RunId } from "../../../generated/api/RunId";
+import type { RunCompletionStatus } from "../../../generated/api/RunCompletionStatus";
 import type { Seed } from "../../../generated/api/Seed";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { TenantId } from "../../../generated/api/TenantId";
@@ -62,11 +63,31 @@ export type Feedback =
 export interface SubmissionAcknowledgement {
   readonly accepted: true;
   readonly attemptId: QuestionAttemptId;
+  /** Authoritative run completion, never inferred from successor availability. */
+  readonly runCompletionStatus: SubmissionReceipt["runCompletionStatus"];
   /** Immutable server-selected successor, if the submission has one. */
   readonly nextIssued: SubmissionReceipt["nextIssued"];
   /** Receipt state that keeps feedback visible while successor issuance recovers. */
   readonly nextPending: SubmissionReceipt["nextPending"];
 }
+
+/**
+ * The explicit delivery result shared with a response controller.
+ *
+ * A completed promise is not itself evidence that the server accepted an answer:
+ * the controller must distinguish durable acceptance, recovery that still owns a
+ * retained replay, and a request or receipt refusal the learner can correct.
+ * ASVS 2.3.1: a response advances only after its accepted receipt, while each
+ * recovery path retains its explicit sequential action.
+ */
+export type SubmissionOutcome =
+  | { readonly kind: "accepted" }
+  | {
+      readonly kind: "recoveryPending";
+      readonly reason: "offline" | "network" | "sessionExpired";
+      readonly message: string;
+    }
+  | { readonly kind: "rejected"; readonly message: string };
 
 interface StateBase {
   readonly context: AttemptContext;
@@ -81,6 +102,9 @@ interface StateBase {
   readonly envelope: QuestionEnvelope | null;
 }
 
+type RecoveryReason =
+  "offline" | "network" | "requestFailed" | "sessionExpired" | "advanceFailed" | "renderer";
+
 export type AttemptState =
   | (StateBase & { readonly phase: "loading" })
   | (StateBase & { readonly phase: "answering" })
@@ -92,19 +116,22 @@ export type AttemptState =
   | (StateBase & { readonly phase: "advancing" })
   | (StateBase & {
       readonly phase: "recovering";
-      readonly reason: "offline" | "network" | "sessionExpired" | "advanceFailed" | "renderer";
+      readonly reason: RecoveryReason;
       readonly message: string;
     })
   | (StateBase & { readonly phase: "expired"; readonly reason: "missingOrInvalidResponse" })
-  | (StateBase & { readonly phase: "completed" });
+  | (StateBase & {
+      readonly phase: "terminal";
+      readonly runCompletionStatus: RunCompletionStatus;
+    });
 
 export interface AttemptStateMachine {
   readonly state: () => AttemptState;
   /** Starts one issued attempt, validating any saved response against its exact issued definition. */
   readonly start: (definition?: ResponseDefinition) => void;
   readonly setResponse: (response: StudentResponse, validation: ResponseValidation) => void;
-  readonly submit: () => Promise<void>;
-  readonly retry: () => Promise<void>;
+  readonly submit: () => Promise<SubmissionOutcome>;
+  readonly retry: () => Promise<SubmissionOutcome>;
   /** Call when connectivity returns to perform the documented automatic retry. */
   readonly retryWhenOnline: () => Promise<void>;
   /** Retries only loading a prefetched next envelope after a committed submission. */
@@ -114,7 +141,7 @@ export interface AttemptStateMachine {
   readonly retryRenderer: () => void;
   readonly tick: () => void;
   readonly advance: (loadNext: () => Promise<NextAttempt>) => Promise<void>;
-  readonly complete: () => void;
+  readonly finish: (runCompletionStatus: RunCompletionStatus) => void;
   readonly dispose: () => void;
 }
 
@@ -136,6 +163,11 @@ export interface AttemptStateMachineOptions {
   ) => Promise<SubmissionReceipt>;
   /** Recognizes an authentication failure without coupling this state to an HTTP implementation. */
   readonly isSessionExpired: (error: unknown) => boolean;
+  /**
+   * Recognizes a browser transport failure without coupling attempt state to an HTTP client.
+   * Request refusals and response-contract failures remain actionable learner errors instead.
+   */
+  readonly isTransientTransportFailure: (error: unknown) => boolean;
   /** Browser-safe semantic validation for a persisted response before it reaches a controlled UI. */
   readonly validateSavedResponse?: FormatValidator;
   readonly onStateChange?: (state: AttemptState) => void;
@@ -303,6 +335,24 @@ function messageFor(error: unknown): string {
   return error instanceof Error ? error.message : "The request could not be completed.";
 }
 
+/**
+ * Recovery copy follows the classified failure, so browser transport details never replace the
+ * learner's durable next action while server and protocol failures retain their useful message.
+ */
+function recoveryMessageFor(reason: RecoveryReason, error: unknown): string {
+  switch (reason) {
+    case "offline":
+      return "Your response is retained in this browser. Reconnect, then retry submission.";
+    case "network":
+      return "Your response is retained in this browser. Retry submission after the service is restored.";
+    case "requestFailed":
+    case "sessionExpired":
+    case "advanceFailed":
+    case "renderer":
+      return messageFor(error);
+  }
+}
+
 function envelopeMatchesContext(envelope: QuestionEnvelope, context: AttemptContext): boolean {
   return envelope.version === context.questionVersion && envelope.seed === context.seed;
 }
@@ -462,15 +512,26 @@ export function createAttemptStateMachine(
     publish(state);
   }
 
-  async function submitBuffered(allowExpired: boolean): Promise<void> {
+  function rejected(message: string): SubmissionOutcome {
+    return { kind: "rejected", message };
+  }
+
+  function recoveryPending(
+    reason: "offline" | "network" | "sessionExpired",
+    message: string,
+  ): SubmissionOutcome {
+    return { kind: "recoveryPending", reason, message };
+  }
+
+  async function submitBuffered(allowExpired: boolean): Promise<SubmissionOutcome> {
     if (
       current.phase === "submitting" ||
-      current.phase === "completed" ||
+      current.phase === "terminal" ||
       current.phase === "feedback" ||
       current.phase === "advancing" ||
       (current.phase === "recovering" && current.reason === "advanceFailed")
     ) {
-      return;
+      return rejected("This response cannot be submitted from its current state.");
     }
     const response = current.response;
     if (response === null || !current.validation.valid) {
@@ -482,7 +543,7 @@ export function createAttemptStateMachine(
         } satisfies AttemptState;
         publish(state);
       }
-      return;
+      return rejected("Response format needs attention before submission.");
     }
     const buffer = saveBuffer(response);
     if (!options.network.isOnline()) {
@@ -490,10 +551,10 @@ export function createAttemptStateMachine(
         ...base({ response }),
         phase: "recovering" as const,
         reason: "offline" as const,
-        message: "Your response is saved locally and will be submitted when you reconnect.",
+        message: recoveryMessageFor("offline", null),
       } satisfies AttemptState;
       publish(state);
-      return;
+      return recoveryPending("offline", state.message);
     }
     requestNumber += 1;
     const request = requestNumber;
@@ -509,12 +570,15 @@ export function createAttemptStateMachine(
         response,
         buffer.idempotencyKey,
       );
-      if (disposed || request !== requestNumber) return;
+      if (disposed || request !== requestNumber) {
+        return rejected("This response is no longer current.");
+      }
       clearBuffer();
       const feedback = feedbackFor(receipt);
       const acknowledgement = {
         accepted: true as const,
         attemptId: receipt.attempt.id,
+        runCompletionStatus: receipt.runCompletionStatus,
         nextIssued: receipt.nextIssued,
         nextPending: receipt.nextPending,
       };
@@ -524,40 +588,56 @@ export function createAttemptStateMachine(
         acknowledgement,
       } satisfies AttemptState;
       publish(state);
+      return { kind: "accepted" };
     } catch (error: unknown) {
-      if (disposed || request !== requestNumber) return;
+      if (disposed || request !== requestNumber) {
+        return rejected("This response is no longer current.");
+      }
       const sessionExpired = options.isSessionExpired(error);
       const offline = !options.network.isOnline();
-      const reason = sessionExpired ? "sessionExpired" : offline ? "offline" : "network";
+      const transientTransportFailure = options.isTransientTransportFailure(error);
+      const reason = sessionExpired
+        ? "sessionExpired"
+        : offline
+          ? "offline"
+          : transientTransportFailure
+            ? "network"
+            : "requestFailed";
       const state = {
         ...base({ response }),
         phase: "recovering" as const,
         reason,
-        message: messageFor(error),
+        message: recoveryMessageFor(reason, error),
       } satisfies AttemptState;
       publish(state);
+      if (reason === "requestFailed") return rejected(state.message);
+      return recoveryPending(reason, state.message);
     }
   }
 
-  async function submit(): Promise<void> {
-    if (current.phase === "expired") return;
-    if (current.phase === "recovering" && current.reason === "advanceFailed") return;
+  async function submit(): Promise<SubmissionOutcome> {
+    if (current.phase === "expired") {
+      return rejected("This attempt has expired.");
+    }
+    if (current.phase === "recovering" && current.reason === "advanceFailed") {
+      return rejected("The next question is still being recovered.");
+    }
     const timedOut =
       context.deadline !== null && remainingMilliseconds(context, options.clock.now()) === 0;
-    await submitBuffered(timedOut);
+    return submitBuffered(timedOut);
   }
 
-  async function retry(): Promise<void> {
+  async function retry(): Promise<SubmissionOutcome> {
     if (
       current.phase !== "recovering" ||
-      current.reason === "sessionExpired" ||
-      current.reason === "renderer" ||
-      current.reason === "advanceFailed"
+      (current.reason !== "offline" && current.reason !== "network")
     ) {
-      return;
+      return rejected("This response is not waiting for a transport retry.");
     }
-    if (!options.network.isOnline()) return;
-    await submit();
+    if (!options.network.isOnline()) {
+      return recoveryPending("offline", current.message);
+    }
+    return submit();
   }
 
   async function retryWhenOnline(): Promise<void> {
@@ -582,7 +662,7 @@ export function createAttemptStateMachine(
   }
 
   function reportRendererFailure(message: string): void {
-    if (current.phase === "completed") return;
+    if (current.phase === "terminal") return;
     const state = {
       ...base({ rendererFailure: message }),
       phase: "recovering" as const,
@@ -603,7 +683,7 @@ export function createAttemptStateMachine(
 
   function tick(): void {
     if (
-      current.phase === "completed" ||
+      current.phase === "terminal" ||
       current.phase === "feedback" ||
       current.phase === "advancing"
     )
@@ -649,17 +729,18 @@ export function createAttemptStateMachine(
         ...base(),
         phase: "recovering" as const,
         reason: "advanceFailed" as const,
-        message: messageFor(error),
+        message: recoveryMessageFor("advanceFailed", error),
       } satisfies AttemptState;
       publish(state);
     }
   }
 
-  function complete(): void {
+  function finish(runCompletionStatus: RunCompletionStatus): void {
     clearBuffer();
     const state = {
       ...base({ response: null, feedback: { kind: "none" } }),
-      phase: "completed" as const,
+      phase: "terminal" as const,
+      runCompletionStatus,
     } satisfies AttemptState;
     publish(state);
   }
@@ -683,7 +764,7 @@ export function createAttemptStateMachine(
     retryRenderer,
     tick,
     advance,
-    complete,
+    finish,
     dispose,
   };
 }

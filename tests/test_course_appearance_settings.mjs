@@ -50,6 +50,20 @@ function appearanceResponse(value, status = 200, etag = `"${value.revision}"`) {
   });
 }
 
+function bannerResponse(bytes = new Uint8Array([82, 73, 70, 70]), headerChanges = {}) {
+  const headers = {
+    "cache-control": "no-store",
+    "content-disposition": 'attachment; filename="ple-course-banner.webp"',
+    "content-length": String(bytes.byteLength),
+    "content-type": "image/webp",
+    "cross-origin-resource-policy": "same-origin",
+    "referrer-policy": "no-referrer",
+    "x-content-type-options": "nosniff",
+    ...headerChanges,
+  };
+  return new Response(bytes, { headers });
+}
+
 test("theme and banner edits compile into one atomic update without server-private fields", () => {
   const initial = initialCourseAppearanceDraft(currentWithoutBanner);
   assert.equal(courseAppearanceDraftChanged(initial, currentWithoutBanner), false);
@@ -185,6 +199,43 @@ test("HTTP appearance client uploads opaque bytes then saves with exact CAS and 
   const saveBody = await save.text();
   assert.deepEqual(JSON.parse(saveBody), update);
   assert.equal(saveBody.includes("filename"), false);
+});
+
+test("HTTP course banner delivery stays same-origin and returns one bounded WebP Blob", async () => {
+  const requests = [];
+  const bytes = new Uint8Array([82, 73, 70, 70]);
+  const client = createHttpApiClient({
+    fetch: async (input, init) => {
+      requests.push(new Request(new URL(String(input), "https://ple.example"), init));
+      return bannerResponse(bytes);
+    },
+  });
+
+  const blob = await client.fetchCourseBanner(BANNER_ID);
+  assert.equal(blob.type, "image/webp");
+  assert.deepEqual(new Uint8Array(await blob.arrayBuffer()), bytes);
+  assert.equal(requests[0].url, `https://ple.example/api/course-banners/${BANNER_ID}/delivery`);
+  assert.equal(requests[0].method, "POST");
+  assert.equal(requests[0].credentials, "same-origin");
+  assert.equal(requests[0].cache, "no-store");
+  assert.equal(requests[0].headers.get("accept"), "image/webp");
+  assert.equal(await requests[0].text(), "");
+});
+
+test("HTTP course banner delivery rejects cache, type, origin, and length drift", async () => {
+  const invalidHeaders = [
+    { "cache-control": "private" },
+    { "content-type": "image/png" },
+    { "cross-origin-resource-policy": "cross-origin" },
+    { "x-content-type-options": "" },
+    { "content-length": "5" },
+  ];
+  for (const headerChanges of invalidHeaders) {
+    const client = createHttpApiClient({
+      fetch: () => Promise.resolve(bannerResponse(undefined, headerChanges)),
+    });
+    await assert.rejects(client.fetchCourseBanner(BANNER_ID), ApiProtocolError);
+  }
 });
 
 test("HTTP appearance client distinguishes stale state and rejects weak response metadata", async () => {

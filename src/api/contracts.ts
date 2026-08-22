@@ -13,6 +13,7 @@ import type { QuestionAttempt } from "../../generated/api/QuestionAttempt";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
 import type { ScoringStatus } from "../../generated/api/ScoringStatus";
+import type { RunCompletionStatus } from "../../generated/api/RunCompletionStatus";
 import type { RunId } from "../../generated/api/RunId";
 import type { LearnerAssignmentProgress } from "../../generated/api/LearnerAssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
@@ -154,6 +155,8 @@ export interface SubmissionReceipt {
   readonly accepted: true;
   readonly attempt: QuestionAttempt;
   readonly scoringStatus: ScoringStatus;
+  /** Persisted completion state; successor absence alone is not completion evidence. */
+  readonly runCompletionStatus: RunCompletionStatus;
   /** Server-redacted teaching material, or an explicit policy withholding it. */
   readonly feedback: DisclosedFeedback | null;
   readonly nextIssued: NextIssuedAttempt | null;

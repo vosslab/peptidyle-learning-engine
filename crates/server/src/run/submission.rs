@@ -460,6 +460,7 @@ pub(super) fn submission_response(
     next_pending: bool,
     scoring_status: question_model::ScoringStatus,
 ) -> Response {
+    let run_completion_status = record.run.completion_status();
     let decision = score_current_disclosure(record.disclosure.decision(), scoring_status);
     let feedback = feedback_projection(
         decision,
@@ -475,6 +476,7 @@ pub(super) fn submission_response(
             attempt,
             feedback,
             scoring_status,
+            run_completion_status,
             next_issued,
             next_pending,
         })

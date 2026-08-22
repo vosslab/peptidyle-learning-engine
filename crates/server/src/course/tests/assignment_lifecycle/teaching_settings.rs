@@ -134,5 +134,30 @@ pub(super) async fn publish_and_assert(
         );
     }
 
+    let instructor_detail = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/assignments/{assignment}/learner"))
+                .header("cookie", instructor_cookie)
+                .body(Body::empty())
+                .expect("instructor learner-facing detail request"),
+        )
+        .await
+        .expect("instructor learner-facing detail response");
+    assert_eq!(instructor_detail.status(), StatusCode::OK);
+    let body = to_bytes(instructor_detail.into_body(), 128 * 1024)
+        .await
+        .expect("instructor learner-facing detail body");
+    let instructor_detail: serde_json::Value =
+        serde_json::from_slice(&body).expect("instructor learner-facing detail JSON");
+    assert_eq!(instructor_detail["title"], student_detail["title"]);
+    assert_eq!(
+        instructor_detail["instructions"],
+        student_detail["instructions"]
+    );
+    assert_eq!(instructor_detail["timeZone"], student_detail["timeZone"]);
+    assert_eq!(instructor_detail["delivery"], student_detail["delivery"]);
+
     new_etag
 }

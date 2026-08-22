@@ -1,5 +1,6 @@
 """Exact project-scoped cleanup and acceptance preflight decisions."""
 
+import local_stack_control.browser_suite_ownership
 import local_stack_control.compose
 import local_stack_control.models
 
@@ -188,6 +189,12 @@ def disposable_cleanup_plan(
 		raise local_stack_control.models.ControllerError(
 			"disposable snapshot does not match its owned project"
 		)
+	if disposable.owner_policy == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
+		# ASVS 2.2.1 and 8.2.2: capability possession cannot enlarge the fixed
+		# owner's exact project, label, service, volume, or network authority.
+		local_stack_control.browser_suite_ownership.require_live_demo_browser_ownership(
+			snapshot
+		)
 	require_unambiguous_cleanup_snapshot(snapshot)
 	resources = (*snapshot.containers, *snapshot.volumes, *snapshot.networks)
 	if len(resources) == 0:
@@ -230,7 +237,7 @@ def conflict_preflight(
 def aggregate_acceptance_preflight(
 	snapshots: tuple[local_stack_control.models.ProjectSnapshot, ...],
 ) -> local_stack_control.models.ConflictPreflight:
-	"""Reject retained default or walkthrough containers before aggregate lanes.
+	"""Reject retained fixed-owner containers before aggregate lanes.
 
 	The aggregate suite owns neither target.  It deliberately blocks a stopped
 	container too: a later lane uses fixed ports and must not silently reconcile
@@ -238,14 +245,15 @@ def aggregate_acceptance_preflight(
 	projects do not block this preflight because they cannot bind a port or be
 	reused as a running acceptance target.
 	"""
+	protected_projects = {
+		local_stack_control.models.DEFAULT_PROJECT,
+		local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+	}
 	conflicts = tuple(
 		snapshot.project
 		for snapshot in snapshots
 		if len(snapshot.containers) > 0
-		and (
-			snapshot.project == local_stack_control.models.DEFAULT_PROJECT
-			or snapshot.project.startswith("ple-ui-walkthrough-")
-		)
+		and snapshot.project in protected_projects
 	)
 	return local_stack_control.models.ConflictPreflight(
 		conflicting_projects=tuple(sorted(conflicts)),

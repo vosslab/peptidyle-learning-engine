@@ -16,9 +16,7 @@ services:
     build:
       target: live-demo
     environment:
-      PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH: "0"
-      PLE_AUTH_PROVIDER: !reset null
-      PLE_LOCAL_AUTH_FILE: !reset null
+      PLE_QTI_RUNTIME_ENABLED: "1"
       PLE_STORAGE_TOPOLOGY: disposable-local
       PLE_TRUSTED_PROXY_CIDRS: ${PLE_TRUSTED_PROXY_CIDRS:?set by e2e_live_demo_browser.py}
       PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID: ${PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID:?set by e2e_live_demo_browser.py}

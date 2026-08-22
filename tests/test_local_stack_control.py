@@ -184,16 +184,14 @@ def test_start_authorization_allows_only_missing_exact_default_environment(
 ) -> None:
 	"""First start reaches lifecycle bootstrap only for the declared default environment."""
 	compose_file = tmp_path / "containers" / "compose.yaml"
-	local_compose_file = tmp_path / "containers" / "compose.local-development.yaml"
 	compose_file.parent.mkdir()
 	compose_file.write_text("services: {}\n", encoding="ascii")
-	local_compose_file.write_text("services: {}\n", encoding="ascii")
 	default_env = tmp_path / "containers" / "env.local"
 	selected = local_stack_control.models.ComposeTarget(
 		repo_root=tmp_path,
 		project="containers",
 		env_file=default_env,
-		compose_files=(compose_file, local_compose_file),
+		compose_files=(compose_file,),
 		provider=local_stack_control.models.ComposeProvider(("podman", "compose"), "podman compose"),
 		with_smtp=False,
 		env_setting_names=(),
@@ -754,10 +752,10 @@ def test_acceptance_environment_discards_lifecycle_overrides() -> None:
 
 
 #============================================
-def test_acceptance_preflight_blocks_retained_walkthrough_containers() -> None:
-	"""The aggregate cannot reuse or remove a prior walkthrough container set."""
+def test_acceptance_preflight_blocks_retained_fixed_owner_containers() -> None:
+	"""The aggregate cannot reuse or remove a prior fixed-owner container set."""
 	snapshot = local_stack_control.models.ProjectSnapshot(
-		project="ple-ui-walkthrough-owned",
+		project=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
 		containers=(container(
 			"gateway", running=False, health=None, state="exited", exit_code=0
 		),),
@@ -767,70 +765,38 @@ def test_acceptance_preflight_blocks_retained_walkthrough_containers() -> None:
 
 	preflight = local_stack_control.cleanup.aggregate_acceptance_preflight((snapshot,))
 
-	assert preflight.conflicting_projects == ("ple-ui-walkthrough-owned",)
+	assert preflight.conflicting_projects == (
+		local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+	)
 
 
 #============================================
 def test_acceptance_lanes_stop_after_the_first_nonzero_child(tmp_path: pathlib.Path) -> None:
 	"""A failed lane keeps its result and prevents later live state from starting."""
-	runner = ValidationLaneRunner((0, 0, 0, 17))
+	runner = ValidationLaneRunner((0, 17))
 	result = local_stack_control.acceptance_lanes.run(runner, tmp_path, {})
 
 	assert result == 17
 
 
 #============================================
-def test_acceptance_lanes_declare_one_canonical_browser_and_transitional_visuals(
-	tmp_path: pathlib.Path,
-	capsys: pytest.CaptureFixture[str],
-) -> None:
-	"""Aggregate receipts distinguish production behavior from visual-fixture migration work."""
-	declared_lanes = local_stack_control.acceptance_lanes.lanes("test-python")
-	canonical_browser_lanes = tuple(
-		lane
-		for lane in declared_lanes
-		if lane.evidence_boundary is local_stack_control.acceptance_lanes.EvidenceBoundary.CANONICAL_PRODUCTION_BROWSER
-	)
-	transitional_visual_lanes = tuple(
-		lane
-		for lane in declared_lanes
-		if lane.evidence_boundary is local_stack_control.acceptance_lanes.EvidenceBoundary.TRANSITIONAL_VISUAL_FIXTURE
-	)
-
-	assert tuple((lane.name, lane.argv) for lane in canonical_browser_lanes) == (
-		(
-			"canonical production-browser behavior",
-			("bash", "run_playwright_tests.sh", "--build"),
-		),
-	)
-	assert tuple(lane.name for lane in transitional_visual_lanes) == (
-		"transitional course-appearance visual fixture",
-		"transitional instructor-page visual fixture corpus",
-	)
-	assert all("e2e_live_demo_browser.py" not in lane.argv for lane in declared_lanes)
-	runner = ValidationLaneRunner(tuple(0 for _ in declared_lanes))
-	local_stack_control.acceptance_lanes.run(runner, tmp_path, {})
-
-	assert runner.streamed == [list(lane.argv) for lane in local_stack_control.acceptance_lanes.lanes()]
-	receipt = capsys.readouterr().out
-	assert receipt.count("Evidence boundary: canonical production-browser behavior") == 1
-	assert receipt.count("Evidence boundary: transitional visual-fixture evidence") == 2
-
-
-#============================================
 def disposable_target(tmp_path: pathlib.Path) -> local_stack_control.models.DisposableComposeTarget:
 	"""Build a private target with an opaque runner-held capability."""
-	selected_target = target(tmp_path, project="ple-ui-walkthrough-0123456789abcdef")
+	selected_target = target(
+		tmp_path,
+		project=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+	)
 	compose_file = tmp_path / "containers" / "compose.yaml"
-	local_compose_file = tmp_path / "containers" / "compose.local-development.yaml"
+	live_demo_compose_file = tmp_path / "tests" / "e2e" / "compose.live-demo-browser.yaml"
 	compose_file.parent.mkdir()
+	live_demo_compose_file.parent.mkdir(parents=True)
 	compose_file.write_text("services: {}\n", encoding="ascii")
-	local_compose_file.write_text("services: {}\n", encoding="ascii")
+	live_demo_compose_file.write_text("services: {}\n", encoding="ascii")
 	selected_target = dataclasses.replace(
 		selected_target,
 		compose_files=(
 			compose_file.resolve(strict=True),
-			local_compose_file.resolve(strict=True),
+			live_demo_compose_file.resolve(strict=True),
 		),
 		provider=local_stack_control.models.ComposeProvider(
 			("podman-compose",), "podman-compose"
@@ -849,37 +815,52 @@ def disposable_target(tmp_path: pathlib.Path) -> local_stack_control.models.Disp
 	return local_stack_control.compose.new_disposable_target(
 		selected_target,
 		capability_file,
-		"ui-walkthrough",
+		local_stack_control.models.LIVE_DEMO_BROWSER_OWNER,
+		local_stack_control.models.LiveDemoProfile.BROWSER,
 	)
 
 
 #============================================
-def test_default_compose_order_keeps_local_auth_before_optional_smtp(tmp_path: pathlib.Path) -> None:
-	"""The ordinary target layers SMTP after the local-development behavior."""
-	base, local = local_stack_control.compose.compose_files(tmp_path, False)
+def test_default_compose_order_keeps_base_before_optional_smtp(tmp_path: pathlib.Path) -> None:
+	"""The ordinary target uses base Compose and optionally layers SMTP."""
+	(base,) = local_stack_control.compose.compose_files(tmp_path, False)
 	with_smtp = local_stack_control.compose.compose_files(tmp_path, True)
 
-	assert (base, local) == (
-		tmp_path / local_stack_control.models.PRIMARY_COMPOSE_FILE,
-		tmp_path / local_stack_control.models.LOCAL_DEVELOPMENT_COMPOSE_FILE,
-	)
 	assert with_smtp == (
 		base,
-		local,
 		tmp_path / local_stack_control.models.SMTP_COMPOSE_FILE,
 	)
 
 
 #============================================
-def test_replica_owner_keeps_its_override_after_local_development() -> None:
-	"""The replica image target remains the final declared Compose override."""
-	policy = local_stack_control.models.disposable_owner_policy("replica-restart")
+@pytest.mark.parametrize(
+	"owner",
+	("chapter-one-pilot", "webwork-renderer-oracle", "replica-restart"),
+)
+def test_transitional_full_stack_owner_identities_are_rejected(owner: str) -> None:
+	"""Retired service identities cannot recover disposable policy authority."""
+	with pytest.raises(local_stack_control.models.ControllerError, match="supported owner policy"):
+		local_stack_control.models.disposable_owner_policy(owner)
 
-	assert policy.compose_relative_paths == (
-		local_stack_control.models.PRIMARY_COMPOSE_FILE,
-		local_stack_control.models.LOCAL_DEVELOPMENT_COMPOSE_FILE,
-		"tests/e2e/compose.replica-e2e.yaml",
+
+#============================================
+@pytest.mark.parametrize(
+	"project",
+	(
+		"ple_chapter_one_pilot_0123456789",
+		"ple-webwork-renderer-oracle",
+		"ple-replica-e2e-0123456789",
+	),
+)
+def test_fixed_full_stack_policy_rejects_transitional_projects(project: str) -> None:
+	"""The fixed owner cannot be redirected to either retired project grammar."""
+	policy = local_stack_control.models.disposable_owner_policy(
+		local_stack_control.models.LIVE_DEMO_BROWSER_OWNER
 	)
+	assert policy.project_pattern.fullmatch(
+		local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
+	) is not None
+	assert policy.project_pattern.fullmatch(project) is None
 
 
 #============================================
@@ -890,7 +871,9 @@ def test_disposable_cleanup_rejects_project_mismatch(tmp_path: pathlib.Path) -> 
 	with pytest.raises(local_stack_control.models.ControllerError):
 		local_stack_control.cleanup.disposable_cleanup_plan(
 			disposable,
-			local_stack_control.models.ProjectSnapshot("ple-ui-walkthrough-fedcba9876543210", (), (), ()),
+			local_stack_control.models.ProjectSnapshot(
+				"ple-live-demo-browser-other", (), (), ()
+			),
 		)
 
 
@@ -930,10 +913,10 @@ def test_disposable_cleanup_rejects_resource_without_runner_capability(
 	"""A project label alone cannot authorize removal of an extant resource."""
 	disposable = disposable_target(tmp_path)
 	snapshot = local_stack_control.models.ProjectSnapshot(
-		project="ple-ui-walkthrough-0123456789abcdef",
+		project=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
 		containers=(),
 		volumes=(local_stack_control.models.VolumeResource(
-			"owned-data", "ple-ui-walkthrough-0123456789abcdef"
+			"owned-data", local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
 		),),
 		networks=(),
 	)
@@ -943,11 +926,14 @@ def test_disposable_cleanup_rejects_resource_without_runner_capability(
 
 
 #============================================
-def test_walkthrough_owner_rejects_a_target_with_noncanonical_compose_files(
+def test_fixed_full_stack_owner_rejects_noncanonical_compose_files(
 	tmp_path: pathlib.Path,
 ) -> None:
-	"""A walkthrough capability cannot authorize an arbitrary Compose definition."""
-	selected_target = target(tmp_path, project="ple-ui-walkthrough-0123456789abcdef")
+	"""The fixed full-stack capability cannot authorize arbitrary Compose files."""
+	selected_target = target(
+		tmp_path,
+		project=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+	)
 	raw_capability = b"w" * 32
 	capability_file = tmp_path / "cleanup.capability"
 	capability_file.write_bytes(raw_capability)
@@ -959,12 +945,16 @@ def test_walkthrough_owner_rejects_a_target_with_noncanonical_compose_files(
 		encoding="ascii",
 	)
 	expected_compose_file = tmp_path / "containers" / "compose.yaml"
-	local_compose_file = tmp_path / "containers" / "compose.local-development.yaml"
+	live_demo_compose_file = tmp_path / "tests" / "e2e" / "compose.live-demo-browser.yaml"
 	expected_compose_file.parent.mkdir()
+	live_demo_compose_file.parent.mkdir(parents=True)
 	expected_compose_file.write_text("services: {}\n", encoding="ascii")
-	local_compose_file.write_text("services: {}\n", encoding="ascii")
+	live_demo_compose_file.write_text("services: {}\n", encoding="ascii")
 
 	with pytest.raises(local_stack_control.models.ControllerError, match="Compose files"):
 		local_stack_control.compose.new_disposable_target(
-			selected_target, capability_file, "ui-walkthrough"
+			selected_target,
+			capability_file,
+			local_stack_control.models.LIVE_DEMO_BROWSER_OWNER,
+			local_stack_control.models.LiveDemoProfile.WEBWORK_RENDER_RPC,
 		)

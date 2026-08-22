@@ -13,15 +13,6 @@ enum ProcessMode {
     Worker,
     InvitationDeliveryWorker,
     PublicAssetPublisher,
-    LocalDevelopmentWorker,
-    LocalDevelopmentInvitationDeliveryWorker,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ApiRouterMode {
-    Production,
-    #[cfg(feature = "local-development-auth")]
-    LocalDevelopment,
 }
 
 fn process_mode(arguments: &[String]) -> anyhow::Result<ProcessMode> {
@@ -33,33 +24,8 @@ fn process_mode(arguments: &[String]) -> anyhow::Result<ProcessMode> {
             Ok(ProcessMode::InvitationDeliveryWorker)
         }
         [flag] if flag == "--public-asset-publisher" => Ok(ProcessMode::PublicAssetPublisher),
-        [flag] if flag == "--local-worker" => Ok(ProcessMode::LocalDevelopmentWorker),
-        [flag] if flag == "--local-invitation-delivery-worker" => {
-            Ok(ProcessMode::LocalDevelopmentInvitationDeliveryWorker)
-        }
         _ => anyhow::bail!(
-            "usage: peptidyle-api [--health-probe|--worker|--invitation-delivery-worker|--public-asset-publisher|--local-worker|--local-invitation-delivery-worker]"
-        ),
-    }
-}
-
-fn api_router_mode(local_development_auth: Option<&str>) -> anyhow::Result<ApiRouterMode> {
-    match local_development_auth {
-        None | Some("0") => Ok(ApiRouterMode::Production),
-        Some("1") => {
-            #[cfg(feature = "local-development-auth")]
-            {
-                Ok(ApiRouterMode::LocalDevelopment)
-            }
-            #[cfg(not(feature = "local-development-auth"))]
-            {
-                anyhow::bail!(
-                    "PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH=1 requires a binary built with local-development-auth"
-                )
-            }
-        }
-        Some(value) => anyhow::bail!(
-            "PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH must be unset, 0, or exactly 1; got {value:?}"
+            "usage: peptidyle-api [--health-probe|--worker|--invitation-delivery-worker|--public-asset-publisher]"
         ),
     }
 }
@@ -84,22 +50,6 @@ pub(crate) async fn run() -> anyhow::Result<()> {
     if mode == ProcessMode::PublicAssetPublisher {
         return server_core::composition::run_public_asset_publisher_from_env().await;
     }
-    if mode == ProcessMode::LocalDevelopmentWorker {
-        #[cfg(feature = "local-development-auth")]
-        return server_core::composition::run_local_development_worker_from_env().await;
-        #[cfg(not(feature = "local-development-auth"))]
-        anyhow::bail!("--local-worker requires a binary built with local-development-auth");
-    }
-    if mode == ProcessMode::LocalDevelopmentInvitationDeliveryWorker {
-        #[cfg(feature = "local-development-auth")]
-        return server_core::composition::run_local_development_invitation_delivery_worker_from_env()
-            .await;
-        #[cfg(not(feature = "local-development-auth"))]
-        anyhow::bail!(
-            "--local-invitation-delivery-worker requires a binary built with local-development-auth"
-        );
-    }
-
     // Container health check mode. The same binary probes its own /health so
     // the runtime image needs no curl or wget, which keeps the attack surface
     // to one executable.
@@ -123,17 +73,7 @@ pub(crate) async fn run() -> anyhow::Result<()> {
     }
 
     let bind_addr = server_core::composition::bind_address_from_env()?;
-    let app = match api_router_mode(
-        std::env::var("PLE_ENABLE_LOCAL_DEVELOPMENT_AUTH")
-            .ok()
-            .as_deref(),
-    )? {
-        ApiRouterMode::Production => server_core::composition::production_router_from_env().await?,
-        #[cfg(feature = "local-development-auth")]
-        ApiRouterMode::LocalDevelopment => {
-            server_core::composition::local_development_router_from_env().await?
-        }
-    };
+    let app = server_core::composition::production_router_from_env().await?;
 
     let app = server_core::request_lifecycle::apply_request_lifecycle(app);
     let listener = tokio::net::TcpListener::bind(bind_addr).await?;
@@ -229,40 +169,21 @@ mod tests {
             ProcessMode::Worker
         );
         assert_eq!(
+            process_mode(&["--invitation-delivery-worker".to_string()])
+                .expect("invitation delivery worker"),
+            ProcessMode::InvitationDeliveryWorker
+        );
+        assert_eq!(
             process_mode(&["--public-asset-publisher".to_string()]).expect("publisher"),
             ProcessMode::PublicAssetPublisher
         );
-        assert_eq!(
-            process_mode(&["--local-worker".to_string()]).expect("local worker"),
-            ProcessMode::LocalDevelopmentWorker
-        );
         for invalid in [
             vec!["--unknown".to_string()],
+            vec!["--local-worker".to_string()],
+            vec!["--local-invitation-delivery-worker".to_string()],
             vec!["--worker".to_string(), "--health-probe".to_string()],
         ] {
             assert!(process_mode(&invalid).is_err());
-        }
-    }
-
-    #[test]
-    fn local_development_router_selection_is_exact_and_fail_closed() {
-        assert_eq!(
-            api_router_mode(None).expect("production default"),
-            ApiRouterMode::Production
-        );
-        assert_eq!(
-            api_router_mode(Some("0")).expect("production disabled"),
-            ApiRouterMode::Production
-        );
-        #[cfg(feature = "local-development-auth")]
-        assert_eq!(
-            api_router_mode(Some("1")).expect("explicit local development"),
-            ApiRouterMode::LocalDevelopment
-        );
-        #[cfg(not(feature = "local-development-auth"))]
-        assert!(api_router_mode(Some("1")).is_err());
-        for invalid in ["", "01", "true", "2"] {
-            assert!(api_router_mode(Some(invalid)).is_err(), "{invalid:?}");
         }
     }
 }

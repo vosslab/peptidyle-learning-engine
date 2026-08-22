@@ -7,10 +7,6 @@
 
 use std::sync::Arc;
 
-#[cfg(any(feature = "local-development-auth", test))]
-use async_trait::async_trait;
-#[cfg(any(feature = "local-development-auth", test))]
-use axum::extract::DefaultBodyLimit;
 use axum::extract::State;
 use axum::http::header::{CACHE_CONTROL, COOKIE, SET_COOKIE};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
@@ -18,16 +14,12 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use cookie::{Cookie, SameSite};
-#[cfg(any(feature = "local-development-auth", test))]
-use learning_data_access::AccountIdentityStore;
 use learning_data_access::{
     AccountSessionStore, SessionLifetime, SessionRecord, SessionStore, SessionSubject, StoreError,
     TenantContext,
 };
 use question_model::{TenantId, UserId, UserRole};
 use serde::Serialize;
-#[cfg(any(feature = "local-development-auth", test))]
-use serde::de::DeserializeOwned;
 
 #[path = "auth/browser_boundary.rs"]
 mod browser_boundary;
@@ -63,16 +55,11 @@ pub use webauthn::{PasswordlessWebauthn, passkey_router};
 const SESSION_COOKIE_NAME: &str = "ple_session";
 const SESSION_TOKEN_BYTES: usize = 32;
 const TOKEN_GENERATION_ATTEMPTS: usize = 3;
-#[cfg(any(feature = "local-development-auth", test))]
-const MAX_AUTH_PRESENTATION_BYTES: usize = 64 * 1_024;
-
 /// HTTP setting selected for the application's deployment context.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CookieTransport {
     /// Normal HTTPS navigation, protected against cross-site requests.
     FirstPartyHttps,
-    /// Explicit opt-out used only by local plain-HTTP development.
-    LocalHttp,
 }
 
 /// Validated cookie and database-session policy.
@@ -96,46 +83,18 @@ impl SessionConfig {
         self.lifetime
     }
 
-    /// Selected deployment transport; local identity is only paired with
-    /// [`CookieTransport::LocalHttp`] by the composition root.
+    /// Selected deployment transport.
     pub fn transport(self) -> CookieTransport {
         self.transport
     }
 
     fn secure(self) -> bool {
-        !matches!(self.transport, CookieTransport::LocalHttp)
+        true
     }
 
     fn same_site(self) -> SameSite {
         SameSite::Lax
     }
-}
-
-/// Provider-specific credential verification kept outside session mechanics.
-///
-/// OIDC, institutional SSO, LTI, or a local development provider can implement
-/// this boundary without changing cookie handling or persistence.
-#[cfg(any(feature = "local-development-auth", test))]
-#[async_trait]
-pub trait IdentityProvider: Send + Sync {
-    /// Credential presentation type owned by that provider.
-    type Presentation: Send + Sync + ?Sized;
-
-    /// Verifies credentials and returns a trusted application identity.
-    async fn verify(
-        &self,
-        presentation: &Self::Presentation,
-    ) -> Result<SessionSubject, IdentityProviderError>;
-}
-
-/// Credential-provider failure without exposing provider secrets to callers.
-#[cfg(any(feature = "local-development-auth", test))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum IdentityProviderError {
-    /// Credentials are absent, invalid, or no longer authorized.
-    Rejected,
-    /// The provider could not complete a verification request.
-    Unavailable(String),
 }
 
 /// Issued database session and the header value sent to the browser.
@@ -212,9 +171,6 @@ pub struct SignedOutResponse {
 pub enum AuthError {
     /// Missing, malformed, expired, revoked, or unknown cookie.
     Unauthenticated,
-    /// The configured credential provider rejected a login.
-    #[cfg(any(feature = "local-development-auth", test))]
-    ProviderRejected,
     /// A dependency needed for authentication was unavailable.
     Unavailable(String),
     /// The operating system could not supply cryptographic randomness.
@@ -225,8 +181,6 @@ impl std::fmt::Display for AuthError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unauthenticated => formatter.write_str("authentication required"),
-            #[cfg(any(feature = "local-development-auth", test))]
-            Self::ProviderRejected => formatter.write_str("authentication required"),
             Self::Unavailable(message) => {
                 write!(formatter, "authentication unavailable: {message}")
             }
@@ -236,34 +190,6 @@ impl std::fmt::Display for AuthError {
 }
 
 impl std::error::Error for AuthError {}
-
-/// Builds the provider-backed login route.
-///
-/// The provider owns the typed credential presentation and its anti-replay or
-/// anti-CSRF validation. Session resolution and logout are composed separately
-/// so production passwordless identity and local development share one
-/// complete session lifecycle without exposing the local login route.
-#[cfg(any(feature = "local-development-auth", test))]
-pub fn provider_login_router<P, S>(
-    provider: Arc<P>,
-    sessions: Arc<S>,
-    config: SessionConfig,
-) -> Router
-where
-    P: IdentityProvider + 'static,
-    P::Presentation: DeserializeOwned + Send + Sync + 'static,
-    S: AccountIdentityStore + AccountSessionStore + SessionStore + 'static,
-{
-    let state = AuthRouteState {
-        provider,
-        sessions,
-        config,
-    };
-    Router::new()
-        .route("/api/auth/login", post(login_handler::<P, S>))
-        .layer(DefaultBodyLimit::max(MAX_AUTH_PRESENTATION_BYTES))
-        .with_state(state)
-}
 
 /// Builds the provider-neutral session resolution and complete sign-out routes.
 pub fn session_router<S>(sessions: Arc<S>, config: SessionConfig) -> Router
@@ -275,24 +201,6 @@ where
         .route("/api/auth/session", get(session_handler::<S>))
         .route("/api/auth/logout", post(logout_handler::<S>))
         .with_state(state)
-}
-
-/// Verifies provider credentials and establishes a database session.
-#[cfg(any(feature = "local-development-auth", test))]
-pub async fn authenticate_with_provider<P: IdentityProvider>(
-    provider: &P,
-    presentation: &P::Presentation,
-    sessions: &dyn SessionStore,
-    config: SessionConfig,
-) -> Result<IssuedSession, AuthError> {
-    let subject = provider
-        .verify(presentation)
-        .await
-        .map_err(|error| match error {
-            IdentityProviderError::Rejected => AuthError::ProviderRejected,
-            IdentityProviderError::Unavailable(message) => AuthError::Unavailable(message),
-        })?;
-    issue_session(sessions, subject, config).await
 }
 
 /// Issues a session after a trusted provider has established the subject.
@@ -377,24 +285,6 @@ pub fn clear_session_cookie(config: SessionConfig) -> String {
         .to_string()
 }
 
-#[cfg(any(feature = "local-development-auth", test))]
-struct AuthRouteState<P, S> {
-    provider: Arc<P>,
-    sessions: Arc<S>,
-    config: SessionConfig,
-}
-
-#[cfg(any(feature = "local-development-auth", test))]
-impl<P, S> Clone for AuthRouteState<P, S> {
-    fn clone(&self) -> Self {
-        Self {
-            provider: Arc::clone(&self.provider),
-            sessions: Arc::clone(&self.sessions),
-            config: self.config,
-        }
-    }
-}
-
 struct SessionRouteState<S> {
     sessions: Arc<S>,
     config: SessionConfig,
@@ -407,65 +297,6 @@ impl<S> Clone for SessionRouteState<S> {
             config: self.config,
         }
     }
-}
-
-#[cfg(any(feature = "local-development-auth", test))]
-async fn login_handler<P, S>(
-    State(state): State<AuthRouteState<P, S>>,
-    Json(presentation): Json<P::Presentation>,
-) -> Response
-where
-    P: IdentityProvider + 'static,
-    P::Presentation: DeserializeOwned + Send + Sync + 'static,
-    S: AccountIdentityStore + AccountSessionStore + SessionStore + 'static,
-{
-    match authenticate_with_provider(
-        state.provider.as_ref(),
-        &presentation,
-        state.sessions.as_ref(),
-        state.config,
-    )
-    .await
-    {
-        Ok(issued) => {
-            let account_cookie = match issue_provider_account_session(
-                state.sessions.as_ref(),
-                issued.record.subject.user(),
-                state.config,
-            )
-            .await
-            {
-                Ok(cookie) => cookie,
-                Err(error) => return auth_error_response(error),
-            };
-            let mut cookies = vec![issued.set_cookie];
-            cookies.extend(account_cookie);
-            response_with_cookies(StatusCode::OK, cookies, session_response(&issued.record))
-        }
-        Err(error) => auth_error_response(error),
-    }
-}
-
-#[cfg(any(feature = "local-development-auth", test))]
-async fn issue_provider_account_session<S>(
-    sessions: &S,
-    user: UserId,
-    config: SessionConfig,
-) -> Result<Option<String>, AuthError>
-where
-    S: AccountIdentityStore + AccountSessionStore + ?Sized,
-{
-    // Course-only identities remain valid for isolated teaching fixtures.
-    // Installed local courses provision their matching account rows and
-    // receive this additive account capability.
-    match sessions.get_account(user).await {
-        Ok(Some(_)) => {}
-        Ok(None) => return Ok(None),
-        Err(error) => return Err(AuthError::Unavailable(error.to_string())),
-    }
-    passwordless::issue_account_session(sessions, user, config)
-        .await
-        .map(Some)
 }
 
 async fn session_handler<S>(
@@ -572,8 +403,6 @@ fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
 pub(crate) fn auth_error_response(error: AuthError) -> Response {
     let (status, message) = match error {
         AuthError::Unauthenticated => (StatusCode::UNAUTHORIZED, "authentication required"),
-        #[cfg(any(feature = "local-development-auth", test))]
-        AuthError::ProviderRejected => (StatusCode::UNAUTHORIZED, "authentication required"),
         AuthError::Unavailable(_) | AuthError::Randomness(_) => (
             StatusCode::SERVICE_UNAVAILABLE,
             "authentication unavailable",

@@ -619,7 +619,7 @@ mod tests {
             ClientAddressPolicy::direct(),
             SessionConfig::new(
                 learning_data_access::SessionLifetime::from_seconds(60).expect("lifetime"),
-                super::super::CookieTransport::LocalHttp,
+                super::super::CookieTransport::FirstPartyHttps,
             ),
         )
         .layer(MockConnectInfo(SocketAddr::from(([192, 0, 2, 9], 443))))
@@ -639,7 +639,7 @@ mod tests {
             ClientAddressPolicy::direct(),
             SessionConfig::new(
                 learning_data_access::SessionLifetime::from_seconds(60).expect("lifetime"),
-                super::super::CookieTransport::LocalHttp,
+                super::super::CookieTransport::FirstPartyHttps,
             ),
         )
         .layer(MockConnectInfo(SocketAddr::from(([192, 0, 2, 9], 443))))

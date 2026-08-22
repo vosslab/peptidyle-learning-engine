@@ -72,16 +72,14 @@ API runtime provider
 ```
 
 The API runtime and WASM facade are instantiated once in the composition root.
-Routes consume them through narrow context hooks. Components do not import mock
-fixtures directly; mock data stays behind the same client interface a future
-HTTP transport implements.
+Routes consume them through narrow context hooks. The shipped browser uses the
+production `ApiClient` and same-origin transport; browser-free fixtures belong
+only to narrow decoder and serialization tests.
 
-The ordinary browser build excludes the local-development credential form.
-The private typed local-stack lifecycle alone opts its build into that UI with the exact
-`PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH=1` build capability, matching the server's
-separately feature-gated local route composition. Production does not mount the
-endpoint or include the form or local-login transport in its emitted browser
-artifacts.
+Every browser build is the production build. The disposable HTTPS gateway
+serves `dist/` with seeded production authentication, so the browser bundle
+contains no local credential form, alternate credential transport, or alternate API
+client.
 
 ## Client contract
 
@@ -91,7 +89,7 @@ artifacts.
 | Queries         | `query` owns cache identity; `createAsync` owns route pending and result state   |
 | Mutations       | Typed methods carry idempotency keys and return explicit success or failure data |
 | Pagination      | List methods accept or return cursors; no offset appears in the client           |
-| Mocking         | `createMockApiClient` satisfies the same interface with no server process        |
+| Test seams      | Browser-free decoder and serialization tests use literal bounded inputs; they are not a browser runtime |
 | Generated types | Rust-owned browser-safe types live under ignored `generated/api/`                |
 
 `listProblems(cursor)` returns `CatalogProblemSummary` hot metadata rather
@@ -121,12 +119,10 @@ server can return the first committed result without grading twice.
 `/api/assets/{assetId}` route. The browser does not receive a bucket key and
 does not retain a signed URL. The production route redirects globally public
 content to its immutable CDN path. Protected content first requires a no-store
-same-origin POST that returns one bounded delivery URL. The mock handler serves
-fixture bytes directly as the offline stand-in for that public CDN behavior.
+same-origin POST that returns one bounded delivery URL. Browser acceptance
+exercises this production delivery route through the HTTPS gateway.
 
-The mock client verifies exact serialized handler responses against the typed
-fixture values before returning them. This keeps a server-free UI useful
-without an unchecked JSON cast. The real transport in `src/api/http_client.ts`
+The real transport in `src/api/http_client.ts`
 uses the same `ApiClient` interface, sends same-origin credentials with
 `no-store`, and decodes every successful JSON body from `unknown` through
 field-by-field runtime decoders. It rejects malformed IDs, timestamps, numeric
@@ -373,17 +369,16 @@ them.
 
 ## Validation gates
 
-The evidence below names what each lane proves. Focused route and dynamically
-mounted fixtures protect isolated component behavior. The canonical browser
-product-behavior claim comes from production `dist/` on the disposable real stack;
-fixture visual captures remain transitional until V1 establishes real-origin screenshot provenance.
+The evidence below names what each lane proves. The canonical browser
+product-behavior claim comes from production `dist/` on the disposable real
+stack. Screenshots use the same owner and carry production-origin provenance.
 
 | Evidence lane                          | Current evidence                                                                                                | What it proves                                                                                                                                                                                            | Boundary                                                                                                   | Status                                  |
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| Focused route and keyboard tests       | `tests/playwright/frontend_contract.spec.ts` and the student keyboard audit                                     | Isolated controls preserve the declared route and keyboard behavior with Tab, Shift+Tab, Space, explicit submission, and native link activation.                                                   | It does not exercise the live API, private renderer, or upstream WebWork.                                  | Complete for the focused component scope. |
-| Dynamically mounted component fixtures | `tests/playwright/student_keyboard_accessibility.spec.ts` and `tests/playwright/external_tool_response.spec.ts` | Production Solid response components isolate Arrow, digit, Enter-to-submit, Escape, and broker interactions so shortcut failures are classified separately.                                               | The fixture bundle is injected into a mock page, not mounted through a complete built route or live stack. | Complete for named widget extensions.   |
-| Source and contract evidence           | `src/wasm/index.ts`, `src/wasm/context.tsx`, `src/main.tsx`, and `tests/test_frontend_contract.mjs`             | The five-operation facade has one shared loader, typed fallbacks for three operations, unavailable-only preview and presentation-verification fallbacks, and no correctness field in local format reports. | Source and local-contract checks cannot prove a generated module or a deployed server behaved this way.     | Complete as implementation evidence.    |
-| Required live WebWork gate             | `tests/playwright/webwork_run.spec.ts` through `tests/e2e/e2e_webwork_render_rpc.sh`                            | The private live stack proves the browser calls PLE only, remains answer-free, supports keyboard completion, and receives correct/incorrect outcomes through PLE.                                         | It requires its declared private fixture and lifecycle inputs.                                              | Passed on 2026-08-10.                   |
+| Canonical production browser           | `run_playwright_tests.sh` -> `tests/e2e/e2e_browser_suite_owner.py` -> `playwright.config.ts` -> `tests/playwright/e2e/*.spec.ts` | Real visible journeys use the production bundle, HTTPS gateway, authentication, API, database, object store, worker, and renderer. | One fixed owner runs scenarios serially; a focused selection receives a fresh stack. | Required browser evidence. |
+| Visible browser-Wasm proof              | `tests/playwright/e2e/instructor_authoring.spec.ts` through the canonical owner | The instructor scenario sees `data-runtime-mode="wasm"` and the visible "Response tools are running locally in this browser." status. | Source and unit checks cannot prove that the production bundle initialized Wasm in Chromium. | Required for browser-Wasm claim. |
+| Browser-free unit and contract evidence | `src/wasm/index.ts`, `src/wasm/context.tsx`, `src/main.tsx`, and `tests/test_frontend_contract.mjs` | The facade has one shared loader, typed server fallbacks, unavailable-only preview behavior, and no correctness field in local reports. | It does not replace the production-browser proof. | Complete as narrow implementation evidence. |
+| Service-only oracles                  | Browser-free WebWork and replica restart commands | Renderer/cache/outage, durable replay, database/RLS, and lifecycle claims that are not visible UI journeys. | These commands do not launch Chromium or import a browser configuration. | Retained with explicit boundaries. |
 
 - Node tests freeze the route map, client behavior, and absence of
   answer-bearing generated names.

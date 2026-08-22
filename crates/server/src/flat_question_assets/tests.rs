@@ -112,7 +112,7 @@ async fn cookie(
         SessionSubject::new(tenant, user, "asset route fixture", roles).expect("fixture identity"),
         SessionConfig::new(
             SessionLifetime::from_seconds(3_600).expect("fixture lifetime"),
-            CookieTransport::LocalHttp,
+            CookieTransport::FirstPartyHttps,
         ),
     )
     .await

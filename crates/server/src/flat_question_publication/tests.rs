@@ -158,7 +158,7 @@ async fn issued_cookie_with_roles(
             .expect("fixture identity"),
         SessionConfig::new(
             SessionLifetime::from_seconds(3_600).expect("valid session lifetime"),
-            CookieTransport::LocalHttp,
+            CookieTransport::FirstPartyHttps,
         ),
     )
     .await

@@ -1,6 +1,6 @@
 //! Instructor-owned roster HTTP boundary with narrow audited Sysadmin support.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use axum::extract::{Path, Query, State};
@@ -16,9 +16,9 @@ use learning_data_access::{
     CourseRosterEntry, CourseRosterId, CourseRosterStore, CourseSignupPosture,
     CreateCourseInvitation, Cursor, PageRequest, PageSize, ReplaceCourseEnrollmentPolicy,
     RevokeCourseInvitation, RevokeCourseMember, RosterIdempotencyKey, RosterRevision, SessionStore,
-    Store, UpsertCourseMember,
+    Store,
 };
-use question_model::{ActivityTimestamp, CourseId, TenantId, UserId, UserRole};
+use question_model::{ActivityTimestamp, CourseId, UserRole};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
@@ -39,7 +39,6 @@ const IDEMPOTENCY_HEADER: &str = "idempotency-key";
 struct CourseRosterRouteState<S> {
     store: Arc<S>,
     issuer: CourseInvitationIssuer,
-    local_teaching_roster: Option<Arc<LocalTeachingRosterDirectory>>,
 }
 
 impl<S> Clone for CourseRosterRouteState<S> {
@@ -47,74 +46,11 @@ impl<S> Clone for CourseRosterRouteState<S> {
         Self {
             store: Arc::clone(&self.store),
             issuer: self.issuer.clone(),
-            local_teaching_roster: self.local_teaching_roster.clone(),
         }
     }
 }
 
-/// One local-auth-only human reference resolved before the roster Store boundary.
-#[derive(Clone)]
-pub(crate) struct LocalTeachingRosterIdentity {
-    pub(crate) tenant: TenantId,
-    pub(crate) user: UserId,
-    pub(crate) display_name: String,
-    pub(crate) roles: Vec<UserRole>,
-}
-
-/// The local teaching composition's configured, student-only alias directory.
-#[derive(Clone)]
-pub(crate) struct LocalTeachingRosterDirectory {
-    identities: BTreeMap<String, LocalTeachingRosterIdentity>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct LocalTeachingLearner {
-    alias: String,
-    display_name: String,
-}
-
-impl LocalTeachingRosterDirectory {
-    #[cfg_attr(not(feature = "local-development-auth"), allow(dead_code))]
-    pub(crate) fn new(
-        identities: impl IntoIterator<Item = (String, LocalTeachingRosterIdentity)>,
-    ) -> Option<Self> {
-        let mut resolved = BTreeMap::new();
-        for (alias, identity) in identities {
-            if resolved.insert(alias, identity).is_some() {
-                return None;
-            }
-        }
-        (!resolved.is_empty()).then_some(Self {
-            identities: resolved,
-        })
-    }
-
-    fn learner(&self, alias: &str, tenant: TenantId) -> Option<&LocalTeachingRosterIdentity> {
-        self.identities.get(alias).filter(|identity| {
-            identity.tenant == tenant && identity.roles.as_slice() == [UserRole::Student]
-        })
-    }
-
-    fn learners(&self, tenant: TenantId) -> Vec<LocalTeachingLearner> {
-        self.identities
-            .iter()
-            .filter(|(_, identity)| {
-                identity.tenant == tenant && identity.roles.as_slice() == [UserRole::Student]
-            })
-            .map(|(alias, identity)| LocalTeachingLearner {
-                alias: alias.clone(),
-                display_name: identity.display_name.clone(),
-            })
-            .collect()
-    }
-}
-
-pub(super) fn roster_router<S>(
-    store: Arc<S>,
-    issuer: CourseInvitationIssuer,
-    local_teaching_roster: Option<Arc<LocalTeachingRosterDirectory>>,
-) -> Router
+pub(super) fn roster_router<S>(store: Arc<S>, issuer: CourseInvitationIssuer) -> Router
 where
     S: Store
         + CourseRecordsAccessStore
@@ -124,7 +60,9 @@ where
         + SessionStore
         + 'static,
 {
-    let router = Router::new()
+    // ASVS 3.5.3, 4.1.4, 8.2.1-8.2.2, 8.3.1: expose only explicit methods whose
+    // handlers authenticate and authorize the course-scoped operation server-side.
+    Router::new()
         .route("/api/courses/{course}/roster", get(list_roster::<S>))
         .route(
             "/api/courses/{course}/members/{member}",
@@ -133,40 +71,28 @@ where
         .route(
             "/api/courses/{course}/assignments/{assignment}/grade-export.csv",
             post(export::create::<S>),
-        );
-    let router = if local_teaching_roster.is_some() {
-        router.route(
-            "/api/courses/{course}/local-teaching-members",
-            post(activate_local_teaching_member::<S>),
         )
-    } else {
-        router
-            .route(
-                "/api/courses/{course}/invitations",
-                post(create_invitation::<S>),
-            )
-            .route(
-                "/api/courses/{course}/invitations/{invitation}",
-                delete(revoke_invitation::<S>),
-            )
-            .route(
-                "/api/courses/{course}/enrollment-policy",
-                put(replace_policy::<S>),
-            )
-            .route(
-                "/api/courses/{course}/roster-imports/preview",
-                post(import::preview::<S>),
-            )
-            .route(
-                "/api/courses/{course}/roster-imports/{import}/commit",
-                post(import::commit::<S>),
-            )
-    };
-    router.with_state(CourseRosterRouteState {
-        store,
-        issuer,
-        local_teaching_roster,
-    })
+        .route(
+            "/api/courses/{course}/invitations",
+            post(create_invitation::<S>),
+        )
+        .route(
+            "/api/courses/{course}/invitations/{invitation}",
+            delete(revoke_invitation::<S>),
+        )
+        .route(
+            "/api/courses/{course}/enrollment-policy",
+            put(replace_policy::<S>),
+        )
+        .route(
+            "/api/courses/{course}/roster-imports/preview",
+            post(import::preview::<S>),
+        )
+        .route(
+            "/api/courses/{course}/roster-imports/{import}/commit",
+            post(import::commit::<S>),
+        )
+        .with_state(CourseRosterRouteState { store, issuer })
 }
 
 pub(super) async fn require_roster_support_access<S>(
@@ -229,16 +155,6 @@ enum SignupPostureRequest {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct LocalTeachingRosterResponse {
-    roster_mode: &'static str,
-    members: Vec<RosterMemberResponse>,
-    local_teaching_learners: Vec<LocalTeachingLearner>,
-    next_cursor: Option<String>,
-    roster_revision: u64,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
 struct EmailEnrollmentRosterResponse {
     roster_mode: &'static str,
     members: Vec<RosterMemberResponse>,
@@ -258,19 +174,6 @@ struct RosterMemberResponse {
     roster_id: Option<String>,
     role: &'static str,
     status: &'static str,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct ActivateLocalTeachingMemberRequest {
-    learner_alias: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct LocalTeachingMemberAcceptedResponse {
-    member: RosterMemberResponse,
-    roster_revision: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -335,70 +238,7 @@ where
         )
         .await
     {
-        Ok(roster) => roster_response(
-            StatusCode::OK,
-            roster,
-            state
-                .local_teaching_roster
-                .as_ref()
-                .map(|directory| directory.learners(authenticated.tenant_context.tenant_id())),
-        ),
-        Err(error) => store_error_response(error),
-    }
-}
-
-async fn activate_local_teaching_member<S>(
-    State(state): State<CourseRosterRouteState<S>>,
-    headers: HeaderMap,
-    Path(course): Path<CourseId>,
-    Json(request): Json<ActivateLocalTeachingMemberRequest>,
-) -> Response
-where
-    S: Store
-        + CourseRecordsAccessStore
-        + CourseRosterStore
-        + CourseInvitationDeliveryStore
-        + SessionStore
-        + 'static,
-{
-    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
-        Ok(authenticated) => authenticated,
-        Err(error) => return auth_error_response(error),
-    };
-    if let Err(response) =
-        require_course_access(state.store.as_ref(), &authenticated, course, true).await
-    {
-        return response;
-    }
-    let Some(directory) = &state.local_teaching_roster else {
-        return error_response(
-            StatusCode::NOT_FOUND,
-            "local teaching roster is unavailable",
-        );
-    };
-    let Some(learner) = directory.learner(
-        &request.learner_alias,
-        authenticated.tenant_context.tenant_id(),
-    ) else {
-        return error_response(
-            StatusCode::NOT_FOUND,
-            "configured local learner was not found",
-        );
-    };
-    match state
-        .store
-        .upsert_course_member(
-            authenticated.tenant_context,
-            UpsertCourseMember {
-                course,
-                user: learner.user,
-                display_name: learner.display_name.clone(),
-                roster_contact: None,
-            },
-        )
-        .await
-    {
-        Ok(accepted) => local_teaching_member_response(accepted),
+        Ok(roster) => roster_response(StatusCode::OK, roster),
         Err(error) => store_error_response(error),
     }
 }
@@ -701,11 +541,7 @@ where
     }
 }
 
-fn roster_response(
-    status: StatusCode,
-    roster: learning_data_access::CourseRosterPage,
-    local_teaching_learners: Option<Vec<LocalTeachingLearner>>,
-) -> Response {
+fn roster_response(status: StatusCode, roster: learning_data_access::CourseRosterPage) -> Response {
     let revision = roster.policy.revision;
     let mut members = Vec::new();
     let mut pending_invitations = Vec::new();
@@ -730,60 +566,23 @@ fn roster_response(
         .entries
         .next_cursor
         .map(|cursor| cursor.as_str().to_string());
-    match local_teaching_learners {
-        Some(local_teaching_learners) => response_with_revision(
-            status,
-            LocalTeachingRosterResponse {
-                roster_mode: "localTeaching",
-                members,
-                local_teaching_learners,
-                next_cursor,
-                roster_revision: revision.value(),
-            },
-            revision,
-        ),
-        None => response_with_revision(
-            status,
-            EmailEnrollmentRosterResponse {
-                roster_mode: "emailEnrollment",
-                members,
-                pending_invitations,
-                allowed_email_domains: roster
-                    .policy
-                    .allowed_domains
-                    .into_iter()
-                    .map(|rule| AllowedEmailDomainResponse {
-                        domain: rule.domain.as_str().to_string(),
-                        include_subdomains: rule.include_subdomains,
-                    })
-                    .collect(),
-                signup_posture: posture_name(roster.policy.signup_posture),
-                next_cursor,
-                roster_revision: revision.value(),
-            },
-            revision,
-        ),
-    }
-}
-
-fn local_teaching_member_response(
-    accepted: learning_data_access::ClaimedCourseMembership,
-) -> Response {
-    let revision = accepted.roster_revision;
-    let member = accepted.member;
     response_with_revision(
-        StatusCode::OK,
-        LocalTeachingMemberAcceptedResponse {
-            member: RosterMemberResponse {
-                member_id: member.id.as_uuid().to_string(),
-                display_name: member.display_name,
-                roster_email: member
-                    .roster_email
-                    .map(|email| email.delivery().to_string()),
-                roster_id: member.roster_id.map(|value| value.as_str().to_string()),
-                role: "student",
-                status: member_status(member.status),
-            },
+        status,
+        EmailEnrollmentRosterResponse {
+            roster_mode: "emailEnrollment",
+            members,
+            pending_invitations,
+            allowed_email_domains: roster
+                .policy
+                .allowed_domains
+                .into_iter()
+                .map(|rule| AllowedEmailDomainResponse {
+                    domain: rule.domain.as_str().to_string(),
+                    include_subdomains: rule.include_subdomains,
+                })
+                .collect(),
+            signup_posture: posture_name(roster.policy.signup_posture),
+            next_cursor,
             roster_revision: revision.value(),
         },
         revision,

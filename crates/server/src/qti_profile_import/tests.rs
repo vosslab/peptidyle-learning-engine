@@ -136,7 +136,7 @@ async fn cookie(store: &MemoryStore, tenant: TenantId, user: UserId, role: UserR
             .expect("fixture identity"),
         SessionConfig::new(
             SessionLifetime::from_seconds(3_600).expect("positive session lifetime"),
-            CookieTransport::LocalHttp,
+            CookieTransport::FirstPartyHttps,
         ),
     )
     .await

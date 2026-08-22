@@ -10,9 +10,6 @@ rust-version.workspace = true
 # Enables the disposable PostgreSQL/MinIO topology used by connected local
 # demonstrations. It does not enable the local file-backed identity provider.
 local-disposable-storage = []
-# The local bearer identity adapter is an explicit development artifact.  It
-# must never be present in the default production or publisher binary.
-local-development-auth = ["local-disposable-storage"]
 # Compiles the strictly opt-in response attribution used only by the
 # container-replica E2E harness.  Production images deliberately do not
 # enable it, and enabling the feature alone still exposes nothing.

@@ -248,7 +248,7 @@ test("shared browser WebAuthn conversion extracts webauthn-rs publicKey options"
     assert.deepEqual(calls[2].options, { challenge: "two" });
     assert.deepEqual(calls[3].options, {
       publicKey: { challenge: new Uint8Array([2]) },
-      mediation: "conditional",
+      mediation: "required",
     });
     assert.deepEqual(completed, [
       {
@@ -277,26 +277,18 @@ test("shared browser WebAuthn conversion extracts webauthn-rs publicKey options"
       ),
       /publicKey record/u,
     );
-    await assert.rejects(
-      authenticatePasskeyWithBrowser({
+    const cancellation = new AbortController();
+    await authenticatePasskeyWithBrowser(
+      {
         startPasskeyAuthentication: async () => ({
           ceremonyId: CEREMONY_ID,
           options: { publicKey: { challenge: "two" } },
         }),
         completePasskeyAuthentication: async () => ({ authenticated: true }),
-      }),
-      /conditional mediation/u,
+      },
+      cancellation.signal,
     );
-    await assert.rejects(
-      authenticatePasskeyWithBrowser({
-        startPasskeyAuthentication: async () => ({
-          ceremonyId: CEREMONY_ID,
-          options: { publicKey: { challenge: "two" }, mediation: "required" },
-        }),
-        completePasskeyAuthentication: async () => ({ authenticated: true }),
-      }),
-      /conditional mediation/u,
-    );
+    assert.equal(calls.at(-1).options.signal, cancellation.signal);
   } finally {
     if (navigatorDescriptor === undefined) delete globalThis.navigator;
     else Object.defineProperty(globalThis, "navigator", navigatorDescriptor);

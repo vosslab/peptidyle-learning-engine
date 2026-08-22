@@ -20,11 +20,10 @@ macro_rules! delivery_id_type {
 
         impl $name {
             pub fn generate() -> Result<Self, StoreError> {
-                let mut bytes = [0_u8; 16];
-                getrandom::fill(&mut bytes).map_err(|error| {
+                crate::random_uuid::random_uuid_v4(|error| {
                     StoreError::Unavailable(format!("{} randomness unavailable: {error}", $label))
-                })?;
-                Ok(Self(Uuid::from_bytes(bytes)))
+                })
+                .map(Self)
             }
 
             pub fn from_uuid(value: Uuid) -> Self {
@@ -39,10 +38,30 @@ macro_rules! delivery_id_type {
 }
 
 delivery_id_type!(CourseInvitationDeliveryId, "course invitation delivery ID");
-delivery_id_type!(
-    CourseInvitationDeliveryLeaseId,
-    "course invitation delivery lease ID"
-);
+
+/// Private per-attempt capability encoded in the existing UUID storage column.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CourseInvitationDeliveryLeaseId(Uuid);
+
+impl CourseInvitationDeliveryLeaseId {
+    pub fn generate() -> Result<Self, StoreError> {
+        crate::random_uuid::random_128_bits(|error| {
+            StoreError::Unavailable(format!(
+                "course invitation delivery lease ID randomness unavailable: {error}"
+            ))
+        })
+        .map(crate::random_uuid::uuid_storage_from_128_random_bits)
+        .map(Self)
+    }
+
+    pub fn from_uuid(value: Uuid) -> Self {
+        Self(value)
+    }
+
+    pub fn as_uuid(self) -> Uuid {
+        self.0
+    }
+}
 
 /// Deliberately closed retry budget. A new send requires a fresh invitation
 /// after this many leased attempts.

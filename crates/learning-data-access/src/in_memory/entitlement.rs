@@ -307,11 +307,10 @@ pub(super) fn require_current_enrollment_entitlement(
 }
 
 fn random_enrollment_id() -> Result<EnrollmentId, StoreError> {
-    let mut bytes = [0_u8; 16];
-    getrandom::fill(&mut bytes).map_err(|error| {
+    crate::random_uuid::random_uuid_v4(|error| {
         StoreError::Unavailable(format!("enrollment ID randomness unavailable: {error}"))
-    })?;
-    Ok(EnrollmentId::from_uuid(Uuid::from_bytes(bytes)))
+    })
+    .map(EnrollmentId::from_uuid)
 }
 
 pub(super) fn ensure_course_membership_id(
@@ -335,13 +334,12 @@ pub(super) fn ensure_course_membership_id(
             .then_some(id)
             .ok_or(StoreError::Conflict);
     }
-    let mut bytes = [0_u8; 16];
-    getrandom::fill(&mut bytes).map_err(|error| {
+    let id = crate::random_uuid::random_uuid_v4(|error| {
         StoreError::Unavailable(format!(
             "course membership ID randomness unavailable: {error}"
         ))
-    })?;
-    let id = CourseMembershipId::from_uuid(Uuid::from_bytes(bytes));
+    })
+    .map(CourseMembershipId::from_uuid)?;
     state.course_memberships.insert(
         (tenant, id),
         CourseMembershipRecord {
@@ -384,13 +382,12 @@ pub(super) fn create_initial_instructor_membership(
     {
         return Err(StoreError::Conflict);
     }
-    let mut bytes = [0_u8; 16];
-    getrandom::fill(&mut bytes).map_err(|error| {
+    let id = crate::random_uuid::random_uuid_v4(|error| {
         StoreError::Unavailable(format!(
             "course membership ID randomness unavailable: {error}"
         ))
-    })?;
-    let id = CourseMembershipId::from_uuid(Uuid::from_bytes(bytes));
+    })
+    .map(CourseMembershipId::from_uuid)?;
     state.course_memberships.insert(
         (tenant, id),
         CourseMembershipRecord {

@@ -1,28 +1,19 @@
 # Local stack architecture
 
 This document answers one operational question: why does each container in the
-PLE local stack exist? The ordinary local configuration is
-[containers/compose.yaml](../containers/compose.yaml) followed by
-`containers/compose.local-development.yaml`.
-The base defines common services, networks, hardening, and one-shot setup. The
-local-development overlay selects local-file authentication and local worker
-commands. The normal operator path is `source source_me.sh && python3 local_stack.py`.
-Focused private
-`local_stack_control` Python modules own bootstrap, startup, migration, seed,
-renderer provenance, polling, and readiness directly. This keeps Compose lifecycle
-discovery, scoped logs, confirmation, and acceptance preflight in one typed boundary.
+fixed developer stack exist? The owner uses
+[containers/compose.yaml](../containers/compose.yaml) plus
+`tests/e2e/compose.live-demo-browser.yaml`.
+The base defines common services, networks, hardening, and one-shot setup; the
+owner overlay selects seeded production authentication and the TLS gateway. The
+normal path is `source source_me.sh && python3 local_stack.py start`.
+Focused private `local_stack_control` modules and the canonical browser owner
+hold the lease through bootstrap, startup, migration, seed, renderer provenance,
+polling, readiness, and exact cleanup.
 
-The normal stack includes PLE's standalone WeBWorK PG renderer.
-[containers/compose.smtp.yaml](../containers/compose.smtp.yaml) is an optional
-third overlay because PLE connects to an external mail provider rather than
-operating a mail server. The disposable live-demo browser lane instead uses the
-base and its owner-locked TLS overlay; it uses production authentication and
-does not select the local-development overlay.
-
-This is intentionally an HTTP, loopback-only development topology. Caddy does
-not emit HSTS locally: a browser must not be instructed to require HTTPS for a
-development origin that intentionally has no local TLS endpoint. HSTS belongs
-to the production CloudFront edge.
+The stack includes PLE's standalone WeBWorK PG renderer. The owner serves the
+browser over HTTPS and uses production authentication; it does not select a
+alternate authentication or SMTP overlay.
 
 Before the API starts, the host typed lifecycle uses the production PostgreSQL and MinIO contracts to
 publish the reviewed Genetics and Biochemistry Chapter 1 assignments. This host-only bootstrap
@@ -56,7 +47,7 @@ one-shot `local-data-volume-permissions` helper starts as root inside the
 rootless Podman user namespace with only `CAP_CHOWN`, then exits after setting
 the PostgreSQL volume root and retained MinIO tree owners. These controls
 contain accidental service escape and resource exhaustion; they do not make a host or Podman-socket
-administrator unable to read local development data.
+administrator unable to read disposable developer data.
 
 ## One-shot services
 
@@ -70,19 +61,14 @@ permissions.
 | `postgres-major-guard`          | Reads an existing `PG_VERSION` before PostgreSQL starts.                                                                                   | Read-only volume, no network, and refusal when the retained volume is not PostgreSQL 17. It never migrates or deletes data.            |
 | `createbuckets`                 | Creates the four required MinIO buckets idempotently.                                                                                      | It exits after setup; API and worker do not need bucket-administration behavior.                                                       |
 | `identity-secret-init`          | Copies the host-owned invitation issuer and Question ID capabilities into an API-only runtime volume with the fixed API UID and mode 0600. | Networkless with a minimal capability set; raw host paths are not mounted into the API, and the worker does not receive this volume.   |
-| `smtp-secret-init`              | When the SMTP overlay is selected, copies an external provider credential into an API-readable runtime volume.                             | No network; PLE never starts a mail-transfer service.                                                                                  |
 
 Stopped successful one-shot containers may appear in `podman ps -a`. They are
 not failed daemons and consume no running CPU after completion.
 
-`python3 local_stack.py status` makes that distinction explicit. A required one-shot
-is complete only when it exited zero; a required long-running service is ready
-only when it is running and healthy, except that the worker is ready when its
-supervised process runs because it has no HTTP health check. The controller
-reports duplicate labelled service instances as a failure rather than choosing
-one. Selecting `--with-smtp` requires `smtp-secret-init`, and status also
-infers that overlay from its labelled initializer or runtime volume when the
-operator omitted the flag.
+The fixed owner reports success only after each required one-shot exits zero and
+every required daemon is healthy (the worker is supervised without an HTTP health
+check). It refuses duplicate owner-labelled service instances rather than choosing
+one.
 
 ## Volumes
 
@@ -91,27 +77,25 @@ operator omitted the flag.
 | `ple_pgdata`           | PostgreSQL                        | Durable relational authority. Preserve it across normal `down` and rebuild operations.                                                    |
 | `ple_miniodata`        | MinIO                             | Durable object bytes and metadata. Preserve it with the relational volume.                                                                |
 | `ple_identity_runtime` | Secret initializer and API        | Runtime-only permission-normalized invitation issuer and Question ID capability copies, mounted only by the API; not educational records. |
-| `ple_smtp_runtime`     | Optional SMTP initializer and API | Runtime-only external provider credential copy. Present only with the SMTP overlay.                                                       |
 
 PostgreSQL, MinIO, and `createbuckets` use fixed non-root identities, immutable
 container roots, empty capability sets, `no-new-privileges`, bounded resources,
 and bounded non-executable temporary filesystems. PostgreSQL writes only its
 data volume plus an ephemeral Unix-socket directory; MinIO writes only its data
 volume; `createbuckets` writes only temporary client configuration. The retained
-data volumes are deliberately local-development state, not a host-compromise
+data volumes are deliberately disposable developer state, not a host-compromise
 barrier: a user who controls the rootless Podman socket or host account can read
 them. Production protection is separately owned by managed database/object
 storage, IAM, and KMS controls.
 
-The normal stop command intentionally omits `--volumes`:
+The normal stop command is authenticated owner cleanup:
 
 ```bash
 source source_me.sh && python3 local_stack.py stop
 ```
 
-The controller requires `reset --confirm-project containers` before removing default-stack named
-volumes. An explicit backup or migration procedure should precede any operation that removes
-`ple_pgdata` or `ple_miniodata`.
+The owner verifies exact cleanup of its resources; do not remove unrelated
+projects or volumes with global Podman commands.
 
 ## Networks
 
@@ -150,9 +134,8 @@ whether the PLE lifecycle may manage a container.
   questions fail closed. Native questions and stored records remain intact.
 - Restarting or recreating the renderer requires no data recovery.
 - A supported full start reattaches PostgreSQL and MinIO to their named volumes.
-- The controller limits individual restart to the stateless API, worker,
-  gateway, and renderer services; it does not independently restart stateful
-  storage services.
+- The owner cleans and recreates its complete disposable stack rather than
+  exposing individual developer-project restart controls.
 - Worker failure leaves durable jobs available for a later worker lease.
 - Gateway failure removes browser reachability but does not mutate records.
 
@@ -167,28 +150,23 @@ Live container and browser behavior belongs in the explicit E2E lane:
 
 ```bash
 tests/e2e/e2e_webwork_render_rpc.sh
-source source_me.sh && python3 tests/e2e/e2e_chapter_one_pilot.py
-source source_me.sh && python3 tests/e2e/e2e_chapter_one_browser.py
+node tests/e2e/e2e_replica_restart.mjs
+./run_playwright_tests.sh --build
 ```
 
-The renderer acceptance script creates its licensed one-question WebWork fixture explicitly after
-the canonical typed lifecycle is ready. Its answer-free manifest is private temporary test state; the
-normal lifecycle and canonical teaching walkthrough publish only the reviewed Chapter 1 corpus.
+The renderer and replica commands are browser-free service checks. Browser
+behavior is selected only through `run_playwright_tests.sh`.
 
-The renderer gate exercises render, grade, cache, outage recovery, and browser non-disclosure. The
-Chapter 1 publication gate publishes the exact two-by-four release matrix into isolated PostgreSQL
-and MinIO, then proves an exact rerun. The Chapter 1 browser gate completes those eight questions
-through visible keyboard controls in a complete isolated PLE stack. They are explicit E2E evidence,
-not permanent pytest cases or a claim that every PG problem is compatible.
-
-Both Chapter 1 gates use the typed Python disposable-consumer adapter and the shared private,
-atomic manifest publisher. The retained pilot shell file is only a compatibility `exec` facade.
+The renderer gate exercises render, grade, cache, outage recovery, and
+non-disclosure. The replica gate replaces one of two API replicas and proves
+durable replay against the single PostgreSQL service. Chapter One publication
+semantics stay with the fixed seed/manifest and Rust behavior tests; installation
+occurs through the same live-demo lifecycle rather than a separate stack owner.
 
 The aggregate live browser command is
-`source source_me.sh && python3 local_stack.py acceptance`. It runs a read-only conflict preflight first and
-refuses default or walkthrough projects with retained containers, so it cannot
-silently reuse, stop, or delete another local run. The active plan names the
-full Validation test suite; [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite)
+`source source_me.sh && python3 local_stack.py acceptance`. The canonical owner
+lease serializes it with developer sessions and exact cleanup. The active plan
+names the full Validation test suite; [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite)
 defines why permanent offline checks and opt-in live acceptance remain separate.
 
 See [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for operating commands and

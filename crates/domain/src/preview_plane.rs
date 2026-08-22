@@ -428,8 +428,13 @@ mod tests {
             projected.deadline_behavior().value,
             AssignmentDeadlineBehavior::AutoSubmit
         );
+        assert_eq!(schedule.available_at, *projected.available_at());
+        assert_eq!(schedule.due_at, *projected.due_at());
+        assert_eq!(schedule.closes_at, *projected.closes_at());
         assert_eq!(schedule.time_limit_seconds, *projected.time_limit_seconds());
         assert_eq!(schedule.attempt_limit, *projected.attempt_limit());
+        assert_eq!(schedule.late_submission, *projected.late_submission());
+        assert_eq!(schedule.deadline_behavior, *projected.deadline_behavior());
 
         let wire = serde_json::to_string(&projected).unwrap();
         for forbidden in [
@@ -467,6 +472,8 @@ mod tests {
             individual_exception: None,
         })
         .unwrap();
+
+        assert!(matches!(&effective, EffectivePolicyDecision::Denied { .. }));
 
         assert_eq!(
             project_preview_entitlement(&entitlement),

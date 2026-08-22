@@ -64,10 +64,13 @@ fn random_secret_accepts_only_canonical_256_bit_values() {
 fn clear_session_cookie_remains_separate_from_account_proof() {
     let config = SessionConfig::new(
         learning_data_access::SessionLifetime::from_seconds(60).expect("lifetime"),
-        CookieTransport::LocalHttp,
+        CookieTransport::FirstPartyHttps,
     );
-    assert!(clear_session_cookie(config).starts_with("ple_session="));
-    assert!(clear_named_cookie(ACCOUNT_SESSION_COOKIE, config).starts_with("ple_account_session="));
+    assert!(clear_session_cookie(config).starts_with("__Host-ple_session="));
+    assert!(
+        clear_named_cookie(ACCOUNT_SESSION_COOKIE, config)
+            .starts_with("__Host-ple_account_session=")
+    );
 }
 
 #[test]
@@ -114,7 +117,7 @@ async fn repeated_email_starts_keep_uniform_response_and_stop_delivery_at_limit(
         ClientAddressPolicy::direct(),
         SessionConfig::new(
             learning_data_access::SessionLifetime::from_seconds(60).expect("session lifetime"),
-            CookieTransport::LocalHttp,
+            CookieTransport::FirstPartyHttps,
         ),
     )
     .layer(MockConnectInfo(SocketAddr::from(([192, 0, 2, 55], 443))));
@@ -210,7 +213,7 @@ async fn account_course_selection_derives_tenant_and_role_from_store_membership(
         .expect("course");
     let session_config = SessionConfig::new(
         learning_data_access::SessionLifetime::from_seconds(3_600).expect("session lifetime"),
-        CookieTransport::LocalHttp,
+        CookieTransport::FirstPartyHttps,
     );
     let app = passwordless_router(
         Arc::clone(&store),
@@ -267,7 +270,7 @@ async fn account_course_selection_derives_tenant_and_role_from_store_membership(
         .get_all(SET_COOKIE)
         .iter()
         .filter_map(|value| value.to_str().ok())
-        .find(|value| value.starts_with("ple_session="))
+        .find(|value| value.starts_with("__Host-ple_session="))
         .and_then(|value| value.split(';').next())
         .expect("course selection should issue tenant session")
         .to_string();
@@ -293,10 +296,10 @@ async fn account_course_selection_derives_tenant_and_role_from_store_membership(
         .filter_map(|value| value.to_str().ok())
         .collect::<Vec<_>>();
     for name in [
-        "ple_session=",
-        "ple_account_session=",
-        "ple_email_binding=",
-        "ple_webauthn_binding=",
+        "__Host-ple_session=",
+        "__Host-ple_account_session=",
+        "__Host-ple_email_binding=",
+        "__Host-ple_webauthn_binding=",
     ] {
         assert!(
             cleared
@@ -383,7 +386,7 @@ async fn signed_in_account_changes_email_only_after_new_address_verification() {
         ClientAddressPolicy::direct(),
         SessionConfig::new(
             learning_data_access::SessionLifetime::from_seconds(3_600).expect("session lifetime"),
-            CookieTransport::LocalHttp,
+            CookieTransport::FirstPartyHttps,
         ),
     )
     .layer(MockConnectInfo(SocketAddr::from(([192, 0, 2, 61], 443))));
@@ -408,9 +411,13 @@ async fn signed_in_account_changes_email_only_after_new_address_verification() {
         .iter()
         .filter_map(|value| value.to_str().ok())
         .find_map(|value| {
-            value
-                .starts_with(EMAIL_BINDING_COOKIE)
-                .then(|| value.split(';').next().expect("cookie pair").to_string())
+            value.starts_with("__Host-ple_email_binding=").then(|| {
+                value
+                    .split(';')
+                    .next()
+                    .expect("cookie pair")
+                    .replacen("__Host-", "", 1)
+            })
         })
         .expect("browser binding cookie");
     let (action, token) = delivery.take_last();
@@ -438,9 +445,13 @@ async fn signed_in_account_changes_email_only_after_new_address_verification() {
         .iter()
         .filter_map(|value| value.to_str().ok())
         .find_map(|value| {
-            value
-                .starts_with(ACCOUNT_SESSION_COOKIE)
-                .then(|| value.split(';').next().expect("cookie pair").to_string())
+            value.starts_with("__Host-ple_account_session=").then(|| {
+                value
+                    .split(';')
+                    .next()
+                    .expect("cookie pair")
+                    .replacen("__Host-", "", 1)
+            })
         })
         .expect("replacement account cookie");
     assert_eq!(
@@ -548,7 +559,7 @@ async fn account_email_change_has_principal_network_and_recoverable_retry_budget
         ClientAddressPolicy::direct(),
         SessionConfig::new(
             learning_data_access::SessionLifetime::from_seconds(3_600).expect("session lifetime"),
-            CookieTransport::LocalHttp,
+            CookieTransport::FirstPartyHttps,
         ),
     )
     .layer(MockConnectInfo(SocketAddr::from(([192, 0, 2, 63], 443))));

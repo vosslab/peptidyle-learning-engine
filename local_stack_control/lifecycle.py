@@ -14,7 +14,6 @@ import local_stack_control.lifecycle_validation
 import local_stack_control.lifecycle_wait
 import local_stack_control.lifecycle_diagnostics
 import local_stack_control.local_environment
-import local_stack_control.local_identity
 import local_stack_control.lifecycle_profiles
 import local_stack_control.models
 import local_stack_control.private_files
@@ -43,7 +42,6 @@ class LifecycleOptions:
 	build: bool
 	release: bool
 	open_browser: bool
-	local_development_browser_auth: bool = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -60,6 +58,10 @@ RendererPoll = collections.abc.Callable[[RendererStatusRead, float], local_stack
 
 
 BaseCourseLifecycleReceipt = local_stack_control.base_course_lifecycle.Receipt
+LifecycleTarget = (
+	local_stack_control.models.ComposeTarget
+	| local_stack_control.models.DisposableComposeTarget
+)
 
 
 #============================================
@@ -72,20 +74,6 @@ def target_of(
 	return target
 
 
-def private_runtime_paths(repo_root: pathlib.Path, env_file: pathlib.Path) -> tuple[pathlib.Path, ...]:
-	"""Return fixed local private paths beside one default or disposable environment."""
-	directory = env_file.parent
-	paths = (
-		directory / "local-login.txt",
-		directory / "local-identities.json",
-		directory / ".secrets" / "invitation_token_secret",
-		directory / ".secrets" / "question_id_secret",
-		directory / ".secrets",
-	)
-	return paths
-
-
-#============================================
 def bootstrap_default_state(
 	target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget,
 	runner: local_stack_control.process.CommandRunner | None = None,
@@ -107,21 +95,12 @@ def bootstrap_default_state(
 	# A new default is created mode 0600 before this point.  Every preexisting
 	# selected teaching environment is rejected before parsing or replacement.
 	local_stack_control.env_file.require_mutation_env_file(selected.env_file)
-	local_auth = local_stack_control.lifecycle_profiles.uses_local_auth_state(target)
-	configure_default_environment(selected, runner, local_auth)
-	credential_path, identity_path, invitation_path, question_path, _ = private_runtime_paths(
-		selected.repo_root, selected.env_file
-	)
+	configure_default_environment(selected, runner)
+	runtime_directory = selected.env_file.parent
+	secret_directory = runtime_directory / ".secrets"
+	invitation_path = secret_directory / "invitation_token_secret"
+	question_path = secret_directory / "question_id_secret"
 	values = local_stack_control.env_file.env_settings(selected.env_file)
-	if local_auth:
-		configuration = local_stack_control.local_identity.LocalIdentityConfiguration(
-			credential_file=credential_path,
-			identity_file=identity_path,
-			tenant_id=LOCAL_TENANT_ID,
-			instructor_id=LOCAL_INSTRUCTOR_ID,
-			student_id=LOCAL_MARY_ID,
-		)
-		local_stack_control.local_identity.bootstrap_local_identities(configuration)
 	local_stack_control.local_environment.bootstrap_secret32_file(invitation_path)
 	local_stack_control.local_environment.bootstrap_secret32_file(question_path)
 	if local_stack_control.lifecycle_profiles.uses_live_demo_sysadmin_claim_context(target):
@@ -135,7 +114,6 @@ def bootstrap_default_state(
 def configure_default_environment(
 	target: local_stack_control.models.ComposeTarget,
 	runner: local_stack_control.process.CommandRunner | None,
-	include_local_auth: bool = True,
 ) -> None:
 	"""Fill only missing or template default settings in the supported private environment."""
 	local_stack_control.env_file.require_mutation_env_file(target.env_file)
@@ -161,8 +139,6 @@ def configure_default_environment(
 		"PLE_WEBWORK_SESSION_JWT_SECRET": os.urandom(32).hex(),
 		"PLE_WEBWORK_RENDERER_ID": "vosslab-webwork-pg-renderer",
 	}
-	if include_local_auth:
-		defaults["PLE_LOCAL_AUTH_HOST_FILE"] = str(runtime_directory / "local-identities.json")
 	if local_stack_control.live_demo_gateway.is_tls_target(target):
 		defaults.update({
 			"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE": str(
@@ -252,14 +228,14 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 	values = local_stack_control.lifecycle_validation.validate_request(request)
 	required = (
 		"POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "MINIO_ROOT_USER",
-		"MINIO_ROOT_PASSWORD", "PLE_LOCAL_GRADER_PASSWORD", "PLE_LOCAL_AUTH_HOST_FILE",
+		"MINIO_ROOT_PASSWORD", "PLE_LOCAL_GRADER_PASSWORD",
 		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE", "PLE_QUESTION_ID_SECRET_HOST_FILE",
 		"PLE_WEBWORK_RENDERER_ID", "PLE_WEBWORK_PROBLEM_JWT_SECRET",
 		"PLE_WEBWORK_SESSION_JWT_SECRET",
 		"PLE_WEBWORK_PROVENANCE_FILE",
 	)
 	if local_stack_control.live_demo_gateway.is_tls_target(target):
-		required = tuple(name for name in required if name != "PLE_LOCAL_AUTH_HOST_FILE") + (
+		required = required + (
 			"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE",
 			"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID", "PLE_LIVE_DEMO_MARY_STUDENT_USER_ID",
 			"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID", "PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID",
@@ -373,11 +349,7 @@ def start_lifecycle(
 	oci_id = local_stack_control.renderer.inspect_renderer_oci_id(
 		runner, repo_root, values["PLE_WEBWORK_RENDERER_IMAGE"], environment
 	)
-	build_options = dataclasses.replace(
-		options,
-		local_development_browser_auth=not local_stack_control.live_demo_gateway.is_tls_target(selected),
-	)
-	build_artifacts(runner, repo_root, build_options)
+	build_artifacts(runner, repo_root, options)
 	# Reconcile the complete selected project before starting dependency stages.
 	# Podman Compose applies --remove-orphans to the services named by a partial
 	# `up`; using it with the later --no-deps application subset can remove the
@@ -409,15 +381,19 @@ def start_lifecycle(
 	if selected.with_smtp:
 		application_services.append("invitation-delivery-worker")
 	application_services.append("gateway")
+	application_scale_arguments = local_stack_control.lifecycle_profiles.application_scale_arguments(
+		target, tuple(application_services)
+	)
 	compose_run(
 		selected,
 		runner,
 		[
 			"up", "-d", "--force-recreate", "--no-deps",
+			*application_scale_arguments,
 			*application_services,
 		],
 	)
-	gateway_url = wait_for_complete_ready(selected, runner, options)
+	gateway_url = wait_for_complete_ready(target, runner, options)
 	if local_stack_control.lifecycle_profiles.is_default_target(selected):
 		local_stack_control.image_cleanup.prune_superseded_images(runner, repo_root)
 	if options.open_browser:
@@ -444,7 +420,7 @@ def restart_lifecycle(
 	local_stack_control.env_file.require_mutation_env_file(selected.env_file)
 	values = validate_static(selected)
 	local_stack_control.lifecycle_validation.require_mutation_engine(runner, repo_root, True)
-	require_restart_baseline(selected, runner, service)
+	require_restart_baseline(target, runner, service)
 	oci_id = local_stack_control.renderer.inspect_renderer_oci_id(
 		runner, repo_root, values["PLE_WEBWORK_RENDERER_IMAGE"], child_environment(selected)
 	)
@@ -458,11 +434,12 @@ def restart_lifecycle(
 		run_api_initializers(selected, runner, options)
 	if service == "invitation-delivery-worker":
 		run_smtp_initializer(selected, runner, options)
-	compose_run(selected, runner, ["up", "-d", "--force-recreate", "--no-deps", service])
+	arguments = local_stack_control.lifecycle_profiles.recreate_arguments(target, service)
+	compose_run(selected, runner, arguments)
 	if service == "webwork-renderer":
 		wait_for_renderer_ready(selected, runner, options, oci_id)
 		attest_renderer(selected, runner, repo_root, values, oci_id)
-	gateway_url = wait_for_complete_ready(selected, runner, options)
+	gateway_url = wait_for_complete_ready(target, runner, options)
 	return LifecycleResult(selected.project, gateway_url, oci_id)
 
 
@@ -517,7 +494,7 @@ def require_command(result: local_stack_control.models.CommandResult, operation:
 
 #============================================
 def build_artifacts(runner: local_stack_control.process.CommandRunner, repo_root: pathlib.Path, options: LifecycleOptions) -> None:
-	"""Build host artifacts or require both browser outputs before any storage mutation."""
+	"""Build the production browser artifact or require its complete reusable bundle."""
 	if not options.build:
 		if not (repo_root / "dist/index.html").is_file() or not (repo_root / "dist/main.js").is_file():
 			raise local_stack_control.models.ControllerError("reuse build requires a complete dist bundle")
@@ -526,7 +503,6 @@ def build_artifacts(runner: local_stack_control.process.CommandRunner, repo_root
 	environment = local_stack_control.env_file.sanitized_runtime_environment(
 		local_stack_control.process.current_environment()
 	)
-	environment["PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH"] = "1" if options.local_development_browser_auth else "0"
 	result = runner.run(["./build.sh", profile], environment, repo_root)
 	require_command(result, "host artifact build")
 
@@ -901,10 +877,16 @@ def run_smtp_initializer(target: local_stack_control.models.ComposeTarget, runne
 
 
 #============================================
-def status_report(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner) -> local_stack_control.models.StatusReport:
+def status_report(
+	target: LifecycleTarget,
+	runner: local_stack_control.process.CommandRunner,
+) -> local_stack_control.models.StatusReport:
 	"""Discover the selected target through existing label-derived ownership logic."""
-	snapshot = local_stack_control.discovery.discover_snapshot(runner, target.repo_root, target.project)
-	return local_stack_control.status.build_report(target.project, target.with_smtp, snapshot)
+	selected = target_of(target)
+	snapshot = local_stack_control.discovery.discover_snapshot(
+		runner, selected.repo_root, selected.project
+	)
+	return local_stack_control.status.build_target_report(target, snapshot)
 
 
 #============================================
@@ -921,14 +903,17 @@ def unavailable_report(target: local_stack_control.models.ComposeTarget) -> loca
 
 
 #============================================
-def require_complete_ready(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner) -> None:
+def require_complete_ready(
+	target: LifecycleTarget,
+	runner: local_stack_control.process.CommandRunner,
+) -> None:
 	"""Require one already-ready full stack before a stateless restart."""
 	local_stack_control.lifecycle_wait.require_ready(status_report(target, runner))
 
 
 #============================================
 def require_restart_baseline(
-	target: local_stack_control.models.ComposeTarget,
+	target: LifecycleTarget,
 	runner: local_stack_control.process.CommandRunner,
 	selected_service: str,
 ) -> None:
@@ -943,9 +928,9 @@ def require_restart_report(
 ) -> None:
 	"""Validate a restart baseline without treating the selected service as healthy."""
 	matching = tuple(item for item in report.services if item.service == selected_service)
-	if len(matching) != 1 or matching[0].instances > 1 or matching[0].state == "ambiguous":
+	if len(matching) != 1 or matching[0].state == "ambiguous":
 		raise local_stack_control.models.ControllerError(
-			"selected restart service is absent from the declared topology or has duplicate instances"
+			"selected restart service is absent or has unexpected instance cardinality"
 		)
 	for item in report.services:
 		if item.service != selected_service and not item.healthy:
@@ -955,14 +940,23 @@ def require_restart_report(
 
 
 #============================================
-def wait_for_complete_ready(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, options: LifecycleOptions) -> str:
+def wait_for_complete_ready(
+	target: LifecycleTarget,
+	runner: local_stack_control.process.CommandRunner,
+	options: LifecycleOptions,
+) -> str:
 	"""Require loopback gateway health and complete label-derived semantic readiness."""
-	url = local_stack_control.live_demo_gateway.gateway_url(target)
+	selected = target_of(target)
+	url = local_stack_control.live_demo_gateway.gateway_url(selected)
 	def read_report() -> local_stack_control.models.StatusReport:
-		result = runner.run(local_stack_control.live_demo_gateway.health_probe_argv(url), child_environment(target), target.repo_root)
+		result = runner.run(
+			local_stack_control.live_demo_gateway.health_probe_argv(url),
+			child_environment(selected),
+			selected.repo_root,
+		)
 		if result.ok():
 			return status_report(target, runner)
-		return unavailable_report(target)
+		return unavailable_report(selected)
 	local_stack_control.lifecycle_wait.poll_ready(read_report, options.timeout_seconds)
 	require_complete_ready(target, runner)
 	return url

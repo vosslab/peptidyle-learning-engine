@@ -4,7 +4,7 @@
 //! stored boolean. A stored flag could disagree with the attempts that
 //! produced it; deriving the value keeps those states inseparable.
 
-use question_model::CompletionRequirement;
+use question_model::{CompletionRequirement, RunCompletionStatus};
 
 use crate::run::{RunModelError, validate_fraction};
 
@@ -24,15 +24,6 @@ pub struct RequiredQuestionState {
     pub points_possible: f64,
 }
 
-/// Derived within-run completion state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WithinRunCompletion {
-    /// At least one completion condition remains unmet.
-    InProgress,
-    /// The current question states satisfy the completion policy.
-    Complete,
-}
-
 /// Derives within-run completion from current required-question states.
 ///
 /// An empty run is always in progress. Threshold completion requires every
@@ -45,9 +36,9 @@ pub enum WithinRunCompletion {
 pub fn derive_within_run_completion(
     questions: &[RequiredQuestionState],
     requirement: CompletionRequirement,
-) -> Result<WithinRunCompletion, RunModelError> {
+) -> Result<RunCompletionStatus, RunModelError> {
     if questions.is_empty() {
-        return Ok(WithinRunCompletion::InProgress);
+        return Ok(RunCompletionStatus::InProgress);
     }
 
     let all_answered = questions.iter().all(|question| question.answered);
@@ -64,9 +55,9 @@ pub fn derive_within_run_completion(
     };
 
     Ok(if complete {
-        WithinRunCompletion::Complete
+        RunCompletionStatus::Completed
     } else {
-        WithinRunCompletion::InProgress
+        RunCompletionStatus::InProgress
     })
 }
 
@@ -114,7 +105,7 @@ mod tests {
     fn empty_run_is_not_complete() {
         assert_eq!(
             derive_within_run_completion(&[], CompletionRequirement::AnswerAll),
-            Ok(WithinRunCompletion::InProgress)
+            Ok(RunCompletionStatus::InProgress)
         );
     }
 
@@ -123,7 +114,7 @@ mod tests {
         let states = [question(true, false, 0.0), question(false, false, 0.0)];
         assert_eq!(
             derive_within_run_completion(&states, CompletionRequirement::AnswerAll),
-            Ok(WithinRunCompletion::InProgress)
+            Ok(RunCompletionStatus::InProgress)
         );
     }
 
@@ -132,7 +123,7 @@ mod tests {
         let states = [question(true, true, 1.0), question(true, false, 0.0)];
         assert_eq!(
             derive_within_run_completion(&states, CompletionRequirement::AllCorrect),
-            Ok(WithinRunCompletion::InProgress)
+            Ok(RunCompletionStatus::InProgress)
         );
     }
 
@@ -144,7 +135,7 @@ mod tests {
                 &states,
                 CompletionRequirement::ScoreAtLeast { fraction: 0.5 }
             ),
-            Ok(WithinRunCompletion::InProgress)
+            Ok(RunCompletionStatus::InProgress)
         );
     }
 
@@ -156,7 +147,7 @@ mod tests {
                 &states,
                 CompletionRequirement::ScoreAtLeast { fraction: 0.5 }
             ),
-            Ok(WithinRunCompletion::Complete)
+            Ok(RunCompletionStatus::Completed)
         );
     }
 

@@ -149,7 +149,7 @@ async fn cookie(store: &MemoryStore, tenant: TenantId, user: UserId) -> String {
         subject,
         crate::auth::SessionConfig::new(
             SessionLifetime::from_seconds(3_600).expect("session lifetime"),
-            crate::auth::CookieTransport::LocalHttp,
+            crate::auth::CookieTransport::FirstPartyHttps,
         ),
     )
     .await
@@ -688,7 +688,7 @@ async fn protected_assets_are_concealed_on_get_and_post_issues_audited_capabilit
 #[tokio::test]
 async fn production_boundary_refuses_cross_origin_delivery_before_authorization() {
     let (store, app, student_cookie, _, _, institution, _) = fixture().await;
-    let production_cookie = student_cookie.replacen("ple_session=", "__Host-ple_session=", 1);
+    let production_cookie = student_cookie;
     let app = app.layer(middleware::from_fn_with_state(
         crate::auth::ProductionBrowserBoundary::new(Arc::from("https://learn.example.test"))
             .expect("production browser boundary"),
@@ -769,11 +769,6 @@ fn public_base_url_normalizes_one_fixed_safe_path_prefix() {
         PublicAssetBaseUrl::new("https://cdn.example.test/content/v1/")
             .expect("safe HTTPS CDN base"),
         PublicAssetBaseUrl("https://cdn.example.test/content/v1".to_string())
-    );
-    assert!(PublicAssetBaseUrl::local_development("http://127.0.0.1:9000/content").is_ok());
-    assert_eq!(
-        PublicAssetBaseUrl::local_development("https://cdn.example.test/content?token=secret"),
-        Err(PublicAssetUrlError)
     );
 }
 

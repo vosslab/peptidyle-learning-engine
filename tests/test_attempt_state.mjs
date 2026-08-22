@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createAttemptStateMachine } from "../src/features/attempt/attempt_state.ts";
+import { ApiProtocolError, ApiRequestError } from "../src/api/http_client/error.ts";
 import { validateSavedResponse } from "./http_client_test_support.mjs";
 
 function createStorage() {
@@ -45,6 +46,8 @@ function receipt() {
       provenance: { backend: "native", implementationVersion: "1", sourceChecksum: null },
     },
     feedback: null,
+    scoringStatus: "current",
+    runCompletionStatus: "inProgress",
     nextIssued: null,
     nextPending: false,
   };
@@ -75,6 +78,7 @@ function createMachine(overrides = {}) {
       return receipt();
     },
     isSessionExpired: (error) => error instanceof Error && error.message === "session expired",
+    isTransientTransportFailure: (error) => error instanceof TypeError,
     ...overrides,
   };
   const machine = createAttemptStateMachine(options);
@@ -103,7 +107,7 @@ test("a retry reuses one idempotency key for the logical response", async () => 
     submitResponse: async (attemptId, response, key) => {
       calls += 1;
       fixture.submissionCalls.push({ attemptId, response, key });
-      if (calls === 1) throw new Error("temporary outage");
+      if (calls === 1) throw new TypeError("temporary outage");
       return receipt();
     },
   });
@@ -167,12 +171,84 @@ test("offline submission keeps the controlled response locally and retries after
   await fixture.machine.submit();
   assert.equal(fixture.machine.state().phase, "recovering");
   assert.equal(fixture.machine.state().response.value, 11);
+  assert.equal(
+    fixture.machine.state().message,
+    "Your response is retained in this browser. Reconnect, then retry submission.",
+  );
   assert.equal(fixture.submissionCalls.length, 0);
 
   fixture.setOnline(true);
   await fixture.machine.retryWhenOnline();
   assert.equal(fixture.submissionCalls.length, 1);
   assert.equal(fixture.machine.state().phase, "feedback");
+});
+
+test("a browser transport outage retains the response and gives a stable restoration action", async () => {
+  const fixture = createMachine({
+    submitResponse: async () => {
+      throw new TypeError("gateway connection reset by peer");
+    },
+  });
+  ready(fixture.machine, numericResponse(11));
+
+  await fixture.machine.submit();
+
+  const state = fixture.machine.state();
+  assert.equal(state.phase, "recovering");
+  assert.equal(state.reason, "network");
+  assert.equal(state.response.value, 11);
+  assert.equal(
+    state.message,
+    "Your response is retained in this browser. Retry submission after the service is restored.",
+  );
+});
+
+test("a server refusal keeps its actionable API message instead of claiming a service outage", async () => {
+  const refusal = new ApiRequestError(422, "/api/submissions/attempt-a");
+  let calls = 0;
+  const fixture = createMachine({
+    submitResponse: async () => {
+      calls += 1;
+      throw refusal;
+    },
+  });
+  ready(fixture.machine, numericResponse(11));
+
+  const outcome = await fixture.machine.submit();
+
+  const state = fixture.machine.state();
+  assert.equal(state.phase, "recovering");
+  assert.equal(state.reason, "requestFailed");
+  assert.equal(state.message, refusal.message);
+  assert.equal(state.response.value, 11);
+  assert.deepEqual(outcome, { kind: "rejected", message: refusal.message });
+  await fixture.machine.retry();
+  assert.equal(calls, 1);
+});
+
+test("a submission receipt protocol failure keeps its correction message instead of claiming a service outage", async () => {
+  const protocolFailure = new ApiProtocolError(
+    "Submission receipt attempt does not match its request",
+  );
+  let calls = 0;
+  const fixture = createMachine({
+    submitResponse: async () => {
+      calls += 1;
+      throw protocolFailure;
+    },
+  });
+  ready(fixture.machine, numericResponse(11));
+
+  const outcome = await fixture.machine.submit();
+
+  const state = fixture.machine.state();
+  assert.equal(state.phase, "recovering");
+  assert.equal(state.reason, "requestFailed");
+  assert.equal(state.message, protocolFailure.message);
+  assert.equal(state.response.value, 11);
+  assert.deepEqual(outcome, { kind: "rejected", message: protocolFailure.message });
+  await fixture.machine.retry();
+  assert.equal(calls, 1);
 });
 
 test("reload restores the saved response and its existing replay key", async () => {
@@ -296,6 +372,30 @@ test("session expiry requests reauthentication without losing the response", asy
   assert.equal(fixture.machine.state().response.value, 4);
 });
 
+test("renderer recovery preserves the entered response and validation until the question display retries", () => {
+  const fixture = createMachine();
+  const response = numericResponse(4);
+  const validation = { valid: true, message: null };
+  fixture.machine.start();
+  fixture.machine.setResponse(response, validation);
+
+  fixture.machine.reportRendererFailure("Question diagram could not be displayed.");
+  const recovering = fixture.machine.state();
+  assert.equal(recovering.phase, "recovering");
+  assert.equal(recovering.reason, "renderer");
+  assert.equal(recovering.message, "Question diagram could not be displayed.");
+  assert.deepEqual(recovering.response, response);
+  assert.deepEqual(recovering.validation, validation);
+  assert.equal(recovering.rendererFailure, "Question diagram could not be displayed.");
+
+  fixture.machine.retryRenderer();
+  const answering = fixture.machine.state();
+  assert.equal(answering.phase, "answering");
+  assert.deepEqual(answering.response, response);
+  assert.deepEqual(answering.validation, validation);
+  assert.equal(answering.rendererFailure, null);
+});
+
 test("server deadline submits the last valid response exactly once", async () => {
   const fixture = createMachine({ context: createContext({ deadline: 1_200 }) });
   ready(fixture.machine);
@@ -320,7 +420,7 @@ test("a failed deadline delivery is retried only by an explicit recovery action"
     submitResponse: async (attemptId, response, key) => {
       calls += 1;
       fixture.submissionCalls.push({ attemptId, response, key });
-      if (calls === 1) throw new Error("temporary outage");
+      if (calls === 1) throw new TypeError("temporary outage");
       return receipt();
     },
   });
@@ -402,7 +502,7 @@ test("editing after a failed request does not reuse that request's key", async (
     submitResponse: async (attemptId, response, key) => {
       calls += 1;
       fixture.submissionCalls.push({ attemptId, response, key });
-      if (calls === 1) throw new Error("temporary outage");
+      if (calls === 1) throw new TypeError("temporary outage");
       return receipt();
     },
   });
@@ -508,6 +608,7 @@ test("storage exceptions retain accepted state without exposing a raw receipt", 
   assert.deepEqual(state.acknowledgement, {
     accepted: true,
     attemptId: "attempt-a",
+    runCompletionStatus: "inProgress",
     nextIssued: null,
     nextPending: false,
   });

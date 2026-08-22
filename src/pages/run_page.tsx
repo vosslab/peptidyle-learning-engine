@@ -35,10 +35,16 @@ import { FeedbackPanel, type FeedbackPresentation } from "../components/feedback
 import { ResponseWidget } from "../components/response_widget";
 import { resumeSessionAndRetry } from "./run_page_recovery";
 import {
+  runCompletionPresentation,
+  submissionAdvanceLabel,
+  type RunCompletionPresentation,
+} from "./run_completion_presentation";
+import {
   createAttemptStateMachine,
   type AttemptContext,
   type AttemptState,
   type AttemptStorage,
+  type SubmissionOutcome,
 } from "../features/attempt/attempt_state";
 import { prefetchMatchesIssuedSuccessor } from "../features/attempt/prefetch_binding";
 import { projectLearnerResponse } from "../features/attempt/learner_response";
@@ -79,6 +85,14 @@ function isSessionExpired(error: unknown): boolean {
   return error instanceof ApiRequestError && error.status === 401;
 }
 
+/**
+ * Fetch reports an unavailable browser transport as TypeError. HTTP refusals and decoded-response
+ * contract failures carry their own actionable messages and must not be presented as an outage.
+ */
+function isTransientTransportFailure(error: unknown): boolean {
+  return error instanceof TypeError;
+}
+
 function formatRemaining(milliseconds: number | null): string {
   if (milliseconds === null) return "Untimed";
   const seconds = Math.ceil(milliseconds / 1_000);
@@ -97,13 +111,6 @@ function matchesIssuedSuccessor(attempt: QuestionAttempt, receipt: NextIssuedAtt
     attempt.timer.deadline === receipt.deadline &&
     attempt.provenance.renderedQuestionSha256 === receipt.renderedQuestionSha256
   );
-}
-
-function completionHeading(summary: RunSummaryResponse | undefined): string {
-  if (summary === undefined) return "Run complete";
-  return summary.practiceAllowed
-    ? "Keep practicing with a fresh variation"
-    : "This run is complete";
 }
 
 /** Avoid turning an unusually image-heavy question into an unbounded background fetch. */
@@ -147,6 +154,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
     generateIdempotencyKey,
     submitResponse: runtime.client.submitResponse,
     isSessionExpired,
+    isTransientTransportFailure,
     validateSavedResponse: validator.validateResponseFormat,
     onStateChange: setState,
   });
@@ -167,22 +175,23 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
     });
   }
 
-  async function submit(response: StudentResponse): Promise<void> {
+  async function submit(response: StudentResponse): Promise<SubmissionOutcome> {
     // ResponseWidget reaches this callback only after its browser-local format validation.
     // This enables delivery, never local correctness or scoring.
     machine.setResponse(response, { valid: true, message: null });
-    await machine.submit();
+    return machine.submit();
   }
 
   async function continueAttempt(): Promise<void> {
     const acknowledgement = feedbackState()?.acknowledgement;
-    if (acknowledgement?.nextPending) {
+    if (acknowledgement === undefined) return;
+    if (acknowledgement.nextPending) {
       // The response is already durable. A refresh can recover only successor
       // delivery; it never resubmits or recreates the learner response.
       window.location.reload();
       return;
     }
-    const receiptNext = acknowledgement?.nextIssued ?? null;
+    const receiptNext = acknowledgement.nextIssued;
     const cached = prefetched();
     if (
       receiptNext !== null &&
@@ -208,7 +217,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
       return;
     }
     if (receiptNext === null) {
-      machine.complete();
+      machine.finish(acknowledgement.runCompletionStatus);
       setSummaryVisible(true);
       void loadSummary();
       return;
@@ -356,6 +365,15 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
   });
 
   const currentState = (): AttemptState | undefined => state();
+  const terminalState = (): Extract<AttemptState, { readonly phase: "terminal" }> | undefined => {
+    const candidate = state();
+    return candidate?.phase === "terminal" ? candidate : undefined;
+  };
+  const terminalPresentation = (): RunCompletionPresentation =>
+    runCompletionPresentation(
+      terminalState()?.runCompletionStatus ?? "inProgress",
+      runSummary()?.practiceAllowed,
+    );
   const currentEnvelope = (): QuestionEnvelope =>
     currentState()?.envelope ?? screen().issuedQuestion;
   // A cache-hit advance has a server-issued descriptor and envelope but not a
@@ -381,11 +399,11 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
         </span>
       </header>
 
-      <Show when={summaryVisible() || currentState()?.phase === "completed"}>
+      <Show when={summaryVisible() || currentState()?.phase === "terminal"}>
         <section class="attempt-summary" aria-labelledby="attempt-summary-heading">
-          <p class="eyebrow">Run complete</p>
-          <h2 id="attempt-summary-heading">{completionHeading(runSummary())}</h2>
-          <p>Your completed run is recorded.</p>
+          <p class="eyebrow">{terminalPresentation().eyebrow}</p>
+          <h2 id="attempt-summary-heading">{terminalPresentation().heading}</h2>
+          <p>{terminalPresentation().message}</p>
           <Show when={runSummary()}>
             {(summary) => (
               <>
@@ -438,7 +456,11 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
               </>
             )}
           </Show>
-          <Show when={runSummary()?.practiceAllowed}>
+          <Show
+            when={
+              terminalState()?.runCompletionStatus === "completed" && runSummary()?.practiceAllowed
+            }
+          >
             <button
               class="primary-action"
               type="button"
@@ -454,7 +476,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
         </section>
       </Show>
 
-      <Show when={!summaryVisible() && currentState()?.phase !== "completed"}>
+      <Show when={!summaryVisible() && currentState()?.phase !== "terminal"}>
         <article class="question-card">
           <div class="prompt-copy">
             <ErrorBoundary
@@ -562,11 +584,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
                         new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
                       }
                       onAdvance={() => void continueAttempt()}
-                      advanceLabel={
-                        feedback().acknowledgement.nextPending
-                          ? "Refresh for the next question"
-                          : undefined
-                      }
+                      advanceLabel={submissionAdvanceLabel(feedback().acknowledgement)}
                     />
                   )}
                 </Show>

@@ -1,9 +1,12 @@
 """Typed, non-secret evidence for one disposable browser-suite invocation."""
 
 import dataclasses
+import errno
 import json
 import pathlib
+import re
 import subprocess
+import time
 from urllib.parse import urlparse
 
 import local_stack_control.discovery
@@ -13,6 +16,50 @@ import local_stack_control.process
 
 class BrowserSuiteOracleError(local_stack_control.models.ControllerError):
 	"""One browser-suite receipt failed to prove its closed ownership contract."""
+
+
+class OwnerMarkerDescendantError(BrowserSuiteOracleError):
+	"""A private owner marker remains after all registered child groups were drained."""
+
+
+class OwnerProcessIdentitySpawnError(BrowserSuiteOracleError):
+	"""The command-free process identity probe could not start."""
+
+
+class OwnerProcessIdentitySpawnExhaustedError(OwnerProcessIdentitySpawnError):
+	"""The identity probe could not start before bounded resource-exhaustion retry ended."""
+
+
+class OwnerProcessIdentitySpawnPermissionError(OwnerProcessIdentitySpawnError):
+	"""The identity probe lacked permission to start."""
+
+
+class OwnerProcessIdentitySpawnUnavailableError(OwnerProcessIdentitySpawnError):
+	"""The identity probe executable was unavailable."""
+
+
+class OwnerProcessIdentitySpawnOtherError(OwnerProcessIdentitySpawnError):
+	"""The identity probe could not start for an unclassified OS reason."""
+
+
+class OwnerProcessIdentityOutputError(BrowserSuiteOracleError):
+	"""The command-free process identity probe could not return output safely."""
+
+
+class OwnerProcessIdentityExitError(BrowserSuiteOracleError):
+	"""The command-free process identity probe exited unsuccessfully."""
+
+
+class OwnerProcessIdentityDecodeError(BrowserSuiteOracleError):
+	"""The command-free process identity probe returned invalid numeric rows."""
+
+
+class OwnerProcessMarkerProbeError(BrowserSuiteOracleError):
+	"""The opaque owner-marker probe did not complete safely."""
+
+
+IDENTITY_PROBE_SPAWN_RETRY_SECONDS = 1.0
+IDENTITY_PROBE_SPAWN_RETRY_INTERVAL_SECONDS = 0.05
 
 
 @dataclasses.dataclass(frozen=True)
@@ -62,6 +109,16 @@ class OriginReceipt:
 	expected_origin: str
 	observed_page_origins: tuple[str, ...]
 	observed_request_origins: tuple[str, ...]
+	observed_contexts: tuple["ContextOriginReceipt", ...] = ()
+
+
+@dataclasses.dataclass(frozen=True)
+class ContextOriginReceipt:
+	"""One named BrowserContext's exact trusted-origin observations."""
+
+	name: str
+	observed_page_origins: tuple[str, ...]
+	observed_request_origins: tuple[str, ...]
 
 
 #============================================
@@ -100,27 +157,85 @@ def private_artifacts(directory: pathlib.Path) -> tuple[PrivateArtifact, ...]:
 def owner_processes(sessions: tuple[local_stack_control.process.ProcessSession, ...]) -> tuple[ProcessIdentity, ...]:
 	"""Return live members of owner-created process groups after parent reaping or reparenting."""
 	groups = {item.process_group_id for item in sessions if item.process_group_id > 0}
-	if not groups:
-		return ()
 	markers = {item.owner_marker for item in sessions if item.owner_marker != ""}
-	probe = subprocess.Popen(
-		["ps", "-axeww", "-o", "pid=,ppid=,pgid=,command="], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-	)
-	stdout, _stderr = probe.communicate()
-	if probe.returncode != 0:
-		raise BrowserSuiteOracleError("browser-suite process inventory could not read process identities")
-	rows: list[tuple[int, int, int]] = []
-	marked_processes: set[int] = set()
-	for line in stdout.splitlines():
-		parts = line.split(maxsplit=3)
-		if len(parts) != 4 or not all(item.isdigit() for item in parts[:3]):
-			raise BrowserSuiteOracleError("browser-suite process inventory returned an invalid identity")
-		pid, parent_pid, process_group_id = (int(item) for item in parts[:3])
-		rows.append((pid, parent_pid, process_group_id))
-		if any(marker in parts[3] for marker in markers):
-			marked_processes.add(pid)
-	result = processes_from_rows(rows, groups, probe.pid, marked_processes)
+	if not groups and not markers:
+		return ()
+	identity_probe = _spawn_identity_probe()
+	try:
+		identity_stdout, _stderr = identity_probe.communicate()
+	except (OSError, UnicodeError, subprocess.SubprocessError) as error:
+		raise OwnerProcessIdentityOutputError("browser-suite process identity probe could not return output") from error
+	if identity_probe.returncode != 0:
+		raise OwnerProcessIdentityExitError("browser-suite process identity probe exited unsuccessfully")
+	try:
+		rows = _process_identity_rows(identity_stdout)
+	except BrowserSuiteOracleError as error:
+		raise OwnerProcessIdentityDecodeError("browser-suite process identity data is invalid") from error
+	try:
+		marker_probe = subprocess.Popen(
+			["ps", "-axeww", "-o", "command="], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+		)
+		marker_stdout, _stderr = marker_probe.communicate()
+	except (OSError, UnicodeError, subprocess.SubprocessError) as error:
+		raise OwnerProcessMarkerProbeError("browser-suite owner-marker probe failed") from error
+	if marker_probe.returncode != 0:
+		raise OwnerProcessMarkerProbeError("browser-suite owner-marker probe failed")
+	if _marker_descendant_present(marker_stdout, markers):
+		raise OwnerMarkerDescendantError("browser-suite owner marker descendant remains")
+	result = processes_from_rows(rows, groups, identity_probe.pid, set())
 	return tuple(sorted(result, key=lambda item: item.pid))
+
+
+#============================================
+def _process_identity_rows(stdout: str) -> list[tuple[int, int, int]]:
+	"""Decode command-free numeric ownership data without command-text ambiguity."""
+	result: list[tuple[int, int, int]] = []
+	for line in stdout.splitlines():
+		parts = line.split()
+		if len(parts) != 3 or not all(item.isdigit() for item in parts):
+			raise BrowserSuiteOracleError("browser-suite process inventory returned an invalid identity")
+		result.append((int(parts[0]), int(parts[1]), int(parts[2])))
+	return result
+
+
+#============================================
+def _identity_spawn_error(error: OSError) -> OwnerProcessIdentitySpawnError:
+	"""Classify one OS spawn failure without formatting OS-provided text."""
+	if error.errno in (errno.EAGAIN, errno.ENOMEM):
+		return OwnerProcessIdentitySpawnExhaustedError("browser-suite process identity probe exhausted resources")
+	if error.errno in (errno.EACCES, errno.EPERM):
+		return OwnerProcessIdentitySpawnPermissionError("browser-suite process identity probe permission was denied")
+	if error.errno == errno.ENOENT:
+		return OwnerProcessIdentitySpawnUnavailableError("browser-suite process identity probe is unavailable")
+	return OwnerProcessIdentitySpawnOtherError("browser-suite process identity probe could not start")
+
+
+#============================================
+def _spawn_identity_probe() -> subprocess.Popen[str]:
+	"""Start one command-free probe, retrying only transient process-resource exhaustion."""
+	deadline = time.monotonic() + IDENTITY_PROBE_SPAWN_RETRY_SECONDS
+	while True:
+		try:
+			result = subprocess.Popen(
+				["ps", "-ax", "-o", "pid=,ppid=,pgid="], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+			)
+			return result
+		except OSError as error:
+			classified = _identity_spawn_error(error)
+			if (
+				isinstance(classified, OwnerProcessIdentitySpawnExhaustedError)
+				and time.monotonic() < deadline
+			):
+				time.sleep(IDENTITY_PROBE_SPAWN_RETRY_INTERVAL_SECONDS)
+				continue
+			raise classified from error
+
+
+#============================================
+def _marker_descendant_present(stdout: str, markers: set[str]) -> bool:
+	"""Find any opaque private marker without parsing arbitrary command text."""
+	result = any(marker in stdout for marker in markers)
+	return result
 
 
 #============================================
@@ -203,7 +318,10 @@ def origin_receipt_from_file(path: pathlib.Path, expected_origin: str) -> Origin
 		value = json.loads(contents)
 	except json.JSONDecodeError as error:
 		raise BrowserSuiteOracleError("browser-suite origin receipt is not valid JSON") from error
-	if not isinstance(value, dict) or set(value) != {"pageOrigins", "requestOrigins"}:
+	if not isinstance(value, dict) or set(value) not in (
+		{"pageOrigins", "requestOrigins"},
+		{"pageOrigins", "requestOrigins", "contexts"},
+	):
 		raise BrowserSuiteOracleError("browser-suite origin receipt has an invalid shape")
 	page_origins = value["pageOrigins"]
 	request_origins = value["requestOrigins"]
@@ -218,15 +336,57 @@ def origin_receipt_from_file(path: pathlib.Path, expected_origin: str) -> Origin
 	expected = canonical_origin(expected_origin)
 	observed_pages = tuple(sorted(set(page_origins)))
 	observed_requests = tuple(sorted(set(request_origins)))
-	for item in (*observed_pages, *observed_requests):
+	_validate_observed_origins(observed_pages, observed_requests, expected)
+	contexts = _decode_context_origins(value.get("contexts"), expected)
+	result = OriginReceipt(expected, observed_pages, observed_requests, contexts)
+	return result
+
+
+def _decode_context_origins(
+	value: object,
+	expected: str,
+) -> tuple[ContextOriginReceipt, ...]:
+	"""Validate optional per-context evidence while retaining legacy receipt compatibility."""
+	if value is None:
+		return ()
+	if not isinstance(value, dict) or not value:
+		raise BrowserSuiteOracleError("browser-suite origin receipt has an invalid shape")
+	result: list[ContextOriginReceipt] = []
+	for name, item in sorted(value.items()):
+		if not isinstance(name, str) or re.fullmatch(r"[a-z][a-z0-9_]{0,31}", name) is None:
+			raise BrowserSuiteOracleError("browser-suite origin receipt has an invalid shape")
+		if not isinstance(item, dict) or set(item) != {"pageOrigins", "requestOrigins"}:
+			raise BrowserSuiteOracleError("browser-suite origin receipt has an invalid shape")
+		pages = item["pageOrigins"]
+		requests = item["requestOrigins"]
+		if (
+			not isinstance(pages, list)
+			or not isinstance(requests, list)
+			or not pages
+			or not requests
+			or not all(isinstance(origin, str) for origin in [*pages, *requests])
+		):
+			raise BrowserSuiteOracleError("browser-suite origin receipt has an invalid shape")
+		observed_pages = tuple(sorted(set(pages)))
+		observed_requests = tuple(sorted(set(requests)))
+		_validate_observed_origins(observed_pages, observed_requests, expected)
+		result.append(ContextOriginReceipt(name, observed_pages, observed_requests))
+	return tuple(result)
+
+
+def _validate_observed_origins(
+	pages: tuple[str, ...],
+	requests: tuple[str, ...],
+	expected: str,
+) -> None:
+	"""Require every captured page and request to use the one HTTPS gateway."""
+	for item in (*pages, *requests):
 		try:
 			observed = canonical_origin(item)
 		except BrowserSuiteOracleError as error:
 			raise BrowserSuiteOracleError("Chromium observed an origin outside the production HTTPS gateway") from error
 		if observed != expected:
 			raise BrowserSuiteOracleError("Chromium observed an origin outside the production HTTPS gateway")
-	result = OriginReceipt(expected, observed_pages, observed_requests)
-	return result
 
 
 #============================================

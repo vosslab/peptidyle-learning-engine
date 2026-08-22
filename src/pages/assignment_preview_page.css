@@ -38,6 +38,9 @@
 .preview-result {
   scroll-margin-top: 4.75rem;
 }
+.preview-result > h2 {
+  scroll-margin-top: 4.75rem;
+}
 .preview-panel h2,
 .preview-result h2,
 .preview-result h3,
@@ -53,9 +56,12 @@
 }
 .preview-subject-form {
   display: grid;
-  grid-template-columns: minmax(16rem, 1.15fr) minmax(13rem, 0.9fr) minmax(16rem, 1.1fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
   gap: 0.75rem 1rem;
-  align-items: end;
+  align-items: start;
+}
+.preview-subject-form > * {
+  min-width: 0;
 }
 .preview-subject-form fieldset,
 .preview-subject-form .preview-field {
@@ -83,6 +89,7 @@
 }
 .preview-submit {
   min-height: 2.75rem;
+  align-self: end;
   white-space: nowrap;
 }
 .preview-field span {
@@ -146,6 +153,7 @@
     align-items: stretch;
   }
   .preview-submit {
+    align-self: stretch;
     white-space: normal;
   }
   .preview-roster-table {

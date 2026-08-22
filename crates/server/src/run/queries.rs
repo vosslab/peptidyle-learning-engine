@@ -151,11 +151,11 @@ where
             let (summary, score_disclosed) = match learner_assignment_progress(
                 state.store.as_ref(),
                 &authenticated,
-                &enrollment,
-                &learning_data_access::LearnerAssignmentSummarySnapshot {
+                enrollment.assignment,
+                Some(&learning_data_access::LearnerAssignmentSummarySnapshot {
                     summary: page.summary.clone(),
                     scoring_status: page.scoring_status,
-                },
+                }),
             )
             .await
             {
@@ -508,8 +508,8 @@ where
         let (summary, _) = match learner_assignment_progress(
             state.store.as_ref(),
             &authenticated,
-            &enrollment,
-            &summary,
+            enrollment.assignment,
+            Some(&summary),
         )
         .await
         {
@@ -569,8 +569,8 @@ where
             match learner_assignment_progress(
                 state.store.as_ref(),
                 &authenticated,
-                &enrollment,
-                &summary,
+                enrollment.assignment,
+                Some(&summary),
             )
             .await
             {
@@ -641,8 +641,8 @@ where
                 let (_, score_disclosed) = match learner_assignment_progress(
                     state.store.as_ref(),
                     &authenticated,
-                    &enrollment,
-                    &summary,
+                    enrollment.assignment,
+                    Some(&summary),
                 )
                 .await
                 {
@@ -729,7 +729,8 @@ async fn redact_learner_run_score<S: Store + AuthoritativeTimeStore + CourseItem
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "summary not found"))?;
     let (_, score_disclosed) =
-        learner_assignment_progress(store, authenticated, &enrollment, &summary).await?;
+        learner_assignment_progress(store, authenticated, enrollment.assignment, Some(&summary))
+            .await?;
     if !score_disclosed {
         run.score = None;
     }

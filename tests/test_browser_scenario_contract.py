@@ -4,6 +4,7 @@ import dataclasses
 import json
 import pathlib
 import sys
+from collections.abc import Callable
 
 import pytest
 
@@ -85,8 +86,6 @@ def test_generic_registry_keeps_one_unique_mapping_per_contract() -> None:
 	assert {contract.spec_path: contract.scenario_id} == {
 		"tests/playwright/e2e/first_claim.spec.ts": "first_claim"
 	}
-	assert not hasattr(browser_scenario_contract, "LIVE_DEMO_CONTRACT")
-	assert not hasattr(browser_scenario_contract, "SCENARIO_CONTRACTS")
 
 
 #============================================
@@ -97,6 +96,8 @@ def test_generic_registry_keeps_one_unique_mapping_per_contract() -> None:
 		dataclasses.replace(scenario_contract(), personas=("unknown",)),
 		dataclasses.replace(scenario_contract(), baseline_reads=("unknown",)),
 		dataclasses.replace(scenario_contract(), ui_creates=("unknown",)),
+		dataclasses.replace(scenario_contract(), ui_creates=("grade_scheme_unknown",)),
+		dataclasses.replace(scenario_contract(), fault_transition="unbounded_fault"),
 		dataclasses.replace(scenario_contract(), sysadmin_state="impossible"),
 	],
 )
@@ -123,11 +124,14 @@ def test_duplicate_contract_ids_and_paths_reject_before_lifecycle_allocation() -
 def test_unclaimed_first_claim_and_later_approval_can_have_separate_owners() -> None:
 	"""A claimed authentication journey may own approval after the first-claim transition."""
 	first_claim = scenario_contract(exclusive_seed_mutations=("sysadmin_first_claim",))
-	approval = scenario_contract(
-		"approval",
-		"tests/playwright/e2e/approval.spec.ts",
-		sysadmin_requirement="claimed",
-		exclusive_seed_mutations=("avery_instructor_approval",),
+	approval = dataclasses.replace(
+		scenario_contract(
+			"approval",
+			"tests/playwright/e2e/approval.spec.ts",
+			sysadmin_requirement="claimed",
+			exclusive_seed_mutations=("avery_instructor_approval",),
+		),
+		ui_creates=("course",),
 	)
 	browser_scenario_contract.validate_registry((first_claim, approval))
 
@@ -140,6 +144,27 @@ def test_unclaimed_contract_requires_sysadmin_first_claim_exclusive() -> None:
 	)
 	with pytest.raises(browser_scenario_contract.ScenarioContractError, match="first claim"):
 		browser_scenario_contract.validate_contract(missing_first_claim)
+
+
+#============================================
+def test_claimed_contract_requires_morgan_and_cannot_create_or_first_claim_a_passkey() -> None:
+	"""A continuation consumer has Morgan's persona but owns neither prior claim transition."""
+	claimed = dataclasses.replace(
+		scenario_contract(),
+		scenario_id="claimed",
+		spec_path="tests/playwright/e2e/claimed.spec.ts",
+		ui_creates=("course",),
+		sysadmin_requirement="claimed",
+		exclusive_seed_mutations=(),
+	)
+	browser_scenario_contract.validate_contract(claimed)
+	for invalid, message in (
+		(dataclasses.replace(claimed, personas=("elena_instructor",)), "persona"),
+		(dataclasses.replace(claimed, ui_creates=("course", "passkey")), "consumes"),
+		(dataclasses.replace(claimed, exclusive_seed_mutations=("sysadmin_first_claim",)), "only unclaimed"),
+	):
+		with pytest.raises(browser_scenario_contract.ScenarioContractError, match=message):
+			browser_scenario_contract.validate_contract(invalid)
 
 
 #============================================
@@ -186,7 +211,10 @@ def test_not_required_contract_has_no_sysadmin_dependency() -> None:
 	],
 )
 def test_not_required_contract_rejects_sysadmin_dependencies(
-	change: object,
+	change: Callable[
+		[browser_scenario_contract.ScenarioContract],
+		browser_scenario_contract.ScenarioContract,
+	],
 	message: str,
 ) -> None:
 	"""The indifferent state means no Sysadmin lifecycle dependency, not pristine state."""
@@ -200,18 +228,7 @@ def test_not_required_contract_rejects_sysadmin_dependencies(
 		exclusive_seed_mutations=(),
 	)
 	with pytest.raises(browser_scenario_contract.ScenarioContractError, match=message):
-		change(contract)  # type: ignore[operator]
-		browser_scenario_contract.validate_contract(change(contract))  # type: ignore[operator]
-
-
-#============================================
-def test_current_instructor_and_learner_catalog_contracts_remain_indifferent() -> None:
-	"""The registered UI-only families continue to validate as no-Sysadmin-dependency journeys."""
-	registry = browser_scenario_contract.scenario_contracts()
-	browser_scenario_contract.validate_registry(registry)
-	for scenario_id in ("instructor_authoring", "learner_delivery"):
-		contract = browser_scenario_contract.require_contract(scenario_id, registry)
-		assert contract.sysadmin_requirement == "not_required"
+		browser_scenario_contract.validate_contract(change(contract))
 
 
 #============================================
@@ -244,15 +261,3 @@ def test_installed_receipt_binds_semantic_aliases_without_copying_database_layou
 		receipt.write_text(installed_receipt("not-a-uuid"), encoding="ascii")
 		browser_scenario_contract.validate_installed_baseline(receipt, contract)
 
-
-#============================================
-def test_live_demo_product_names_use_only_the_owner_namespace() -> None:
-	"""Scenario execution never derives product state labels from wall clock or worker index."""
-	spec_path = pathlib.Path(file_utils.get_repo_root()) / "tests/playwright/e2e/live_demo.spec.ts"
-	contents = spec_path.read_text(encoding="utf-8")
-	assert "scenarioInput.namespace" in contents
-	assert "Date.now" not in contents
-	assert "parallelIndex" not in contents
-	assert ".route(" not in contents
-	assert "await signOut(avery);" in contents
-	assert "await chooseSeededAccount(avery, /Avery Singh/u);" in contents

@@ -78,6 +78,31 @@ pub(super) struct WebworkPilotSeedIds {
     pub(super) assignment_item: AssignmentItemId,
 }
 
+/// Immutable catalog-only identities for the frozen WebWork baseline.
+///
+/// This record intentionally excludes every course, assignment, roster, and
+/// learner identity. The host seed owns immutable provider material; visible
+/// PLE workflows own teaching and learner state.
+#[derive(Clone, Copy)]
+pub(super) struct WebworkCatalogBaselineIds {
+    pub(super) workspace: WorkspaceId,
+    pub(super) problem: ProblemId,
+    pub(super) version: VersionId,
+    pub(super) source_object: ObjectId,
+}
+
+impl WebworkCatalogBaselineIds {
+    pub(super) fn for_tenant(tenant: TenantId) -> Self {
+        let id = |label| webwork_catalog_baseline_uuid(tenant, label);
+        Self {
+            workspace: WorkspaceId::from_uuid(id("workspace")),
+            problem: ProblemId::from_uuid(id("problem")),
+            version: VersionId::from_uuid(id("version")),
+            source_object: ObjectId::from_uuid(id("source-object")),
+        }
+    }
+}
+
 impl WebworkPilotSeedIds {
     pub(super) fn fresh_for_tenant(tenant: TenantId) -> Self {
         let id = |label| webwork_pilot_scaffold_uuid(tenant, label);
@@ -166,6 +191,21 @@ pub(super) fn derived_uuid(tenant: TenantId, label: &str) -> Uuid {
 fn webwork_pilot_scaffold_uuid(tenant: TenantId, label: &str) -> Uuid {
     let mut hasher = Sha256::new();
     hasher.update(b"ple-webwork-pilot-e2e-scaffold-v1:");
+    hasher.update(tenant.as_uuid().as_bytes());
+    hasher.update(label.as_bytes());
+    let digest = hasher.finalize();
+    let mut bytes = [0_u8; 16];
+    bytes.copy_from_slice(&digest[..16]);
+    bytes[6] = (bytes[6] & 0x0f) | 0x50;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    Uuid::from_bytes(bytes)
+}
+
+/// Derives the immutable provider-only identity from one tenant and reviewed
+/// baseline label. No browser input participates in this identity.
+fn webwork_catalog_baseline_uuid(tenant: TenantId, label: &str) -> Uuid {
+    let mut hasher = Sha256::new();
+    hasher.update(b"ple-webwork-catalog-baseline-v1:");
     hasher.update(tenant.as_uuid().as_bytes());
     hasher.update(label.as_bytes());
     let digest = hasher.finalize();

@@ -45,7 +45,7 @@ async fn cookie(store: &MemoryStore, tenant: TenantId, user: UserId, role: UserR
         subject,
         crate::auth::SessionConfig::new(
             learning_data_access::SessionLifetime::from_seconds(3_600).expect("lifetime"),
-            crate::auth::CookieTransport::LocalHttp,
+            crate::auth::CookieTransport::FirstPartyHttps,
         ),
     )
     .await

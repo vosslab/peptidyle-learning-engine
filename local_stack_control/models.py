@@ -1,6 +1,7 @@
 """Typed data models for local Compose lifecycle control."""
 
 import dataclasses
+import enum
 import pathlib
 import re
 
@@ -15,13 +16,18 @@ COMPOSE_SERVICE_LABELS = (
 )
 DISPOSABLE_CAPABILITY_LABEL = "org.peptidyle.disposable.capability-sha256"
 DISPOSABLE_CAPABILITY_SETTING = "PLE_DISPOSABLE_CAPABILITY_SHA256"
+E2E_OWNER_LABEL = "org.peptidyle.e2e.owner"
+LIVE_DEMO_BROWSER_OWNER = "live-demo-browser"
 
 DEFAULT_PROJECT = "containers"
+LIVE_DEMO_BROWSER_PROJECT = "ple-live-demo-browser"
+LIVE_DEMO_REPLICA_APPLICATION_IMAGE = (
+	"localhost/peptidyle-learning-engine:ple-live-demo-browser"
+)
 DEFAULT_ENV_FILE = "containers/env.local"
 DEFAULT_BASE_COURSE_MANIFEST_FILE = ".runtime/base-course.json"
 DEFAULT_CHAPTER_ONE_MANIFEST_FILE = "containers/local-chapter-one-pilot.json"
 PRIMARY_COMPOSE_FILE = "containers/compose.yaml"
-LOCAL_DEVELOPMENT_COMPOSE_FILE = "containers/compose.local-development.yaml"
 SMTP_COMPOSE_FILE = "containers/compose.smtp.yaml"
 DISPOSABLE_COMPOSE_PROVIDER = "podman-compose"
 DISPOSABLE_PROVIDER_GLOBAL_ARGS = ("--in-pod", "false")
@@ -44,6 +50,104 @@ SMTP_ONE_SHOT_SERVICES = ("smtp-secret-init",)
 CLEANUP_ONLY_SERVICES = ("postgres-major-guard",)
 RESTARTABLE_SERVICES = ("api", "worker", "gateway", "webwork-renderer")
 STOPPABLE_SERVICES = ("webwork-renderer",)
+
+
+class ControllerError(RuntimeError):
+	"""A concise operator-facing controller failure."""
+
+
+class LiveDemoProfile(enum.StrEnum):
+	"""Closed fixed-stack topology selected by a lifecycle owner."""
+
+	BROWSER = "browser"
+	WEBWORK_RENDER_RPC = "webwork_render_rpc"
+	REPLICA_RESTART = "replica_restart"
+	DATABASE_BASELINE = "database_baseline"
+
+
+@dataclasses.dataclass(frozen=True)
+class LiveDemoProfilePolicy:
+	"""Exact topology and bounded child authority for one fixed-stack profile."""
+
+	profile: LiveDemoProfile
+	compose_relative_paths: tuple[str, ...]
+	child_capabilities: tuple[str, ...]
+	evidence_log_services: tuple[tuple[str, str], ...] = ()
+	outage_service: str | None = None
+	stoppable_service: str | None = None
+	diagnostic_services: tuple[str, ...] = ()
+	application_image: str | None = None
+	service_replica_counts: tuple[tuple[str, int], ...] = ()
+
+
+LIVE_DEMO_PROFILE_POLICIES = (
+	LiveDemoProfilePolicy(
+		profile=LiveDemoProfile.BROWSER,
+		compose_relative_paths=(
+			PRIMARY_COMPOSE_FILE,
+			"tests/e2e/compose.live-demo-browser.yaml",
+		),
+		child_capabilities=("canonical_browser_lifecycle",),
+		evidence_log_services=(
+			("worker_completion", "worker"),
+			("renderer_delivery", "api"),
+		),
+		outage_service="gateway",
+	),
+	LiveDemoProfilePolicy(
+		profile=LiveDemoProfile.WEBWORK_RENDER_RPC,
+		compose_relative_paths=(
+			PRIMARY_COMPOSE_FILE,
+			"tests/e2e/compose.live-demo-browser.yaml",
+		),
+		child_capabilities=("bounded_renderer_log", "webwork_service_client"),
+		evidence_log_services=(("renderer_delivery", "api"),),
+		outage_service="webwork-renderer",
+	),
+	LiveDemoProfilePolicy(
+		profile=LiveDemoProfile.REPLICA_RESTART,
+		compose_relative_paths=(
+			PRIMARY_COMPOSE_FILE,
+			"tests/e2e/compose.live-demo-browser.yaml",
+			"tests/e2e/compose.replica-e2e.yaml",
+		),
+		child_capabilities=(
+			"bounded_replica_restart",
+			"postgresql_count",
+			"replica_service_client",
+		),
+		stoppable_service="api",
+		diagnostic_services=("api", "gateway"),
+		application_image=LIVE_DEMO_REPLICA_APPLICATION_IMAGE,
+		service_replica_counts=(("api", 2),),
+	),
+	LiveDemoProfilePolicy(
+		profile=LiveDemoProfile.DATABASE_BASELINE,
+		compose_relative_paths=("tests/e2e/compose.database-baseline.yaml",),
+		child_capabilities=("database_baseline_oracle",),
+	),
+)
+
+
+#============================================
+def live_demo_profile(value: str) -> LiveDemoProfile:
+	"""Parse one exact fixed-stack profile name at the manifest boundary."""
+	try:
+		profile = LiveDemoProfile(value)
+	except ValueError as error:
+		raise ControllerError("live-demo target does not declare a supported profile") from error
+	return profile
+
+
+#============================================
+def live_demo_profile_policy(profile: LiveDemoProfile) -> LiveDemoProfilePolicy:
+	"""Return the exact topology and capabilities for one closed profile."""
+	if not isinstance(profile, LiveDemoProfile):
+		raise ControllerError("live-demo target does not declare a supported profile")
+	for policy in LIVE_DEMO_PROFILE_POLICIES:
+		if policy.profile is profile:
+			return policy
+	raise ControllerError("live-demo target does not declare a supported profile")
 
 DECLARED_BASE_VOLUMES = (
 	"ple_pgdata",
@@ -72,10 +176,6 @@ def restartable_services(with_smtp: bool) -> tuple[str, ...]:
 	return services
 
 
-class ControllerError(RuntimeError):
-	"""A concise operator-facing controller failure."""
-
-
 @dataclasses.dataclass(frozen=True)
 class DisposableOwnerPolicy:
 	"""One closed E2E owner namespace, project grammar, and Compose topology."""
@@ -85,10 +185,6 @@ class DisposableOwnerPolicy:
 	project_pattern: re.Pattern[str]
 	compose_relative_paths: tuple[str, ...]
 	removes_gateway_image: bool = False
-	removes_application_image: bool = False
-	stoppable_service: str | None = None
-	outage_service: str | None = None
-	evidence_log_service: str | None = None
 	allows_generic_compose: bool = True
 
 
@@ -103,22 +199,10 @@ DISPOSABLE_OWNER_POLICIES = (
 		compose_relative_paths=("tests/e2e/compose.course-appearance.yaml",),
 	),
 	DisposableOwnerPolicy(
-		owner="chapter-one-pilot",
-		project_prefix="ple_chapter_one_pilot_",
-		project_pattern=re.compile(r"^ple_chapter_one_pilot_[A-Za-z0-9]+$"),
-		compose_relative_paths=("tests/e2e/compose.course-appearance.yaml",),
-	),
-	DisposableOwnerPolicy(
 		owner="live-demo-baseline",
 		project_prefix="ple_live_demo_baseline_",
 		project_pattern=re.compile(r"^ple_live_demo_baseline_[A-Za-z0-9]+$"),
 		compose_relative_paths=("tests/e2e/compose.course-appearance.yaml",),
-	),
-	DisposableOwnerPolicy(
-		owner="database-baseline",
-		project_prefix="ple_database_baseline_",
-		project_pattern=re.compile(r"^ple_database_baseline_[A-Za-z0-9]+$"),
-		compose_relative_paths=("tests/e2e/compose.database-baseline.yaml",),
 	),
 	DisposableOwnerPolicy(
 		owner="wp-r2-postgres-rls",
@@ -133,59 +217,15 @@ DISPOSABLE_OWNER_POLICIES = (
 		compose_relative_paths=("tests/e2e/compose.database-baseline.yaml",),
 	),
 	DisposableOwnerPolicy(
-		owner="chapter-one-browser",
-		project_prefix="ple-chapter-one-browser-",
-		project_pattern=re.compile(r"^ple-chapter-one-browser-[a-f0-9]{12}$"),
-		compose_relative_paths=(PRIMARY_COMPOSE_FILE, LOCAL_DEVELOPMENT_COMPOSE_FILE),
-		removes_gateway_image=True,
-	),
-	DisposableOwnerPolicy(
-		owner="webwork-browser",
-		project_prefix="ple-webwork-browser-",
-		project_pattern=re.compile(r"^ple-webwork-browser-[a-f0-9]{12}$"),
-		compose_relative_paths=(PRIMARY_COMPOSE_FILE, LOCAL_DEVELOPMENT_COMPOSE_FILE),
-		removes_gateway_image=True,
-		outage_service="webwork-renderer",
-		evidence_log_service="api",
-		allows_generic_compose=False,
-	),
-	DisposableOwnerPolicy(
-		owner="live-demo-browser",
-		project_prefix="ple-live-demo-browser-",
-		project_pattern=re.compile(r"^ple-live-demo-browser-[a-f0-9]{12}$"),
+		owner=LIVE_DEMO_BROWSER_OWNER,
+		project_prefix=LIVE_DEMO_BROWSER_PROJECT,
+		project_pattern=re.compile(r"^ple-live-demo-browser$"),
 		compose_relative_paths=(
 			PRIMARY_COMPOSE_FILE,
 			"tests/e2e/compose.live-demo-browser.yaml",
 		),
 		removes_gateway_image=True,
-		evidence_log_service="worker",
 		allows_generic_compose=False,
-	),
-	DisposableOwnerPolicy(
-		owner="wp-r2-host-seed-renderer",
-		project_prefix="ple-wp-r2-host-seed-renderer-",
-		project_pattern=re.compile(r"^ple-wp-r2-host-seed-renderer-[a-f0-9]{12}$"),
-		compose_relative_paths=(PRIMARY_COMPOSE_FILE, LOCAL_DEVELOPMENT_COMPOSE_FILE),
-		removes_gateway_image=True,
-	),
-	DisposableOwnerPolicy(
-		owner="replica-restart",
-		project_prefix="ple-replica-e2e-",
-		project_pattern=re.compile(r"^ple-replica-e2e-[a-f0-9]{10}$"),
-		compose_relative_paths=(
-			PRIMARY_COMPOSE_FILE,
-			LOCAL_DEVELOPMENT_COMPOSE_FILE,
-			"tests/e2e/compose.replica-e2e.yaml",
-		),
-		removes_gateway_image=True,
-		removes_application_image=True,
-		stoppable_service="api",
-	),
-	DisposableOwnerPolicy(
-		owner="ui-walkthrough",
-		project_prefix="ple-ui-walkthrough-",
-		project_pattern=re.compile(r"^ple-ui-walkthrough-[a-f0-9]{16}$"),
-		compose_relative_paths=(PRIMARY_COMPOSE_FILE, LOCAL_DEVELOPMENT_COMPOSE_FILE),
 	),
 )
 
@@ -245,6 +285,7 @@ class DisposableComposeTarget:
 	capability_file: pathlib.Path
 	project_prefix: str
 	private_environment_file: pathlib.Path
+	live_demo_profile: LiveDemoProfile | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -273,6 +314,7 @@ class ContainerResource:
 	ports: tuple[PortBinding, ...]
 	capability_digest: str | None = None
 	image_id: str | None = None
+	owner: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -282,6 +324,7 @@ class VolumeResource:
 	name: str
 	project: str | None
 	capability_digest: str | None = None
+	owner: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -291,6 +334,7 @@ class NetworkResource:
 	name: str
 	project: str | None
 	capability_digest: str | None = None
+	owner: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -361,6 +405,14 @@ class ServiceStopPlan:
 	project: str
 	service: str
 	argv: tuple[str, ...]
+
+
+@dataclasses.dataclass(frozen=True)
+class DeclaredOutageStop:
+	"""Completed policy-declared service stop proved against labelled state."""
+
+	project: str
+	service: str
 
 
 @dataclasses.dataclass(frozen=True)

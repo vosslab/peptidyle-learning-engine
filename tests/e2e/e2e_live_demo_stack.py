@@ -251,8 +251,11 @@ class DisposableStack:
 		"""Write one object through the real MinIO Client boundary."""
 		script = (
 			'mc alias set local http://minio:9000 "$MINIO_ROOT_USER" '
-			'"$MINIO_ROOT_PASSWORD" >/dev/null; printf "%s" "$3" | '
-			'mc pipe "local/$1/$2" >/dev/null'
+			'"$MINIO_ROOT_PASSWORD" >/dev/null; object_file=; '
+			'trap \'rm -f "$object_file"\' EXIT; '
+			'object_file=$(mktemp /tmp/live-demo-object.XXXXXX); '
+			'chmod 600 "$object_file"; printf "%s" "$3" >"$object_file"; '
+			'mc cp --disable-multipart "$object_file" "local/$1/$2" >/dev/null'
 		)
 		self.minio_shell(script, [bucket, key, content])
 

@@ -53,7 +53,7 @@ function allowedEvaluation() {
       assignment,
       revision,
       selectedMoment,
-      groups: [{ purpose: "lab" }],
+      groups: [{ role: "labMember", purpose: "lab" }],
       policy: schedule("groupAccommodation"),
       priorRunCount: 0,
     },
@@ -127,6 +127,25 @@ test("preview decoders accept the closed server projections", () => {
     decodeDerivedPreviewSubjectRequest({ assignment, revision, selectedMoment, membership: "M-9" }),
     { assignment, revision, selectedMoment, membership: "M-9" },
   );
+});
+
+test("preview group facts accept only closed role and purpose pairs", () => {
+  const pairs = [
+    ["sectionMember", "section"],
+    ["labMember", "lab"],
+    ["cohortMember", "cohort"],
+    ["accommodationRecipient", "accommodation"],
+    ["workGroupMember", "work"],
+  ];
+  for (const [role, purpose] of pairs) {
+    const response = previewResponse();
+    response.evaluation.subject.groups = [{ role, purpose }];
+    assert.deepEqual(decodePreviewPlaneResponse(response), response);
+  }
+
+  const mismatched = previewResponse();
+  mismatched.evaluation.subject.groups = [{ role: "sectionMember", purpose: "lab" }];
+  assert.throws(() => decodePreviewPlaneResponse(mismatched), DecodeError);
 });
 
 test("preview decoders reject unknown and protected fields at closed boundaries", () => {

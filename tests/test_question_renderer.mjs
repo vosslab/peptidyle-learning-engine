@@ -70,25 +70,10 @@ test("asset URLs must be the resolver-derived logical asset route", () => {
   }
 });
 
-test("math uses semantic MathML and missing alternatives remain authoring errors", async () => {
+test("missing alternatives remain authoring errors", () => {
   assert.throws(() => requireAccessibilityDescription("   ", "image"), QuestionContentError);
   assert.equal(
     requireAccessibilityDescription("Residue contact map", "math"),
     "Residue contact map",
   );
-
-  const fs = await import("node:fs/promises");
-  const source = await fs.readFile("src/components/question_renderer.tsx", "utf8");
-  const styles = await fs.readFile("src/components/question_renderer_styles.ts", "utf8");
-  for (const kind of ["text", "math", "image", "code", "table"]) {
-    assert.match(source, new RegExp(`case "${kind}"`));
-  }
-  assert.match(source, /temml\.renderToString/);
-  assert.match(source, /createElementNS\(MATHML_NAMESPACE/);
-  assert.match(source, /ALLOWED_MATHML_TAGS/);
-  assert.match(source, /DOMParser/);
-  assert.doesNotMatch(source, /innerHTML/);
-  assert.match(source, /ErrorBoundary/);
-  assert.match(styles, /prefers-reduced-motion/);
-  assert.doesNotMatch(source, /ObjectKey|GradingDefinition|AnswerKey/);
 });

@@ -22,7 +22,7 @@ pub(super) struct PersistentDependencies {
     passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
     passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
     webauthn: crate::auth::PasswordlessWebauthn,
-    browser_boundary: Option<crate::auth::ProductionBrowserBoundary>,
+    browser_boundary: crate::auth::ProductionBrowserBoundary,
     client_address_policy: crate::auth::ClientAddressPolicy,
     live_demo_selector: Option<crate::auth::SeededAccountSelectorConfig>,
     live_demo_sysadmin_ownership: Option<crate::auth::SeededSysadminOwnershipConfig>,
@@ -44,14 +44,6 @@ pub(super) struct ConfiguredImathas {
 impl PersistentDependencies {
     pub(super) async fn from_env(runtime: StorageRuntime) -> Result<Self> {
         let settings = ProductionSettings::from_env(runtime)?;
-        let dependencies = Self::from_settings(&settings).await?;
-        dependencies.verify_startup_schema().await?;
-        Ok(dependencies)
-    }
-
-    #[cfg(feature = "local-development-auth")]
-    pub(super) async fn from_local_development_env(runtime: StorageRuntime) -> Result<Self> {
-        let settings = ProductionSettings::from_local_development_env(runtime)?;
         let dependencies = Self::from_settings(&settings).await?;
         dependencies.verify_startup_schema().await?;
         Ok(dependencies)
@@ -158,29 +150,19 @@ impl PersistentDependencies {
     /// Composes the production route graph with PLE-owned account identity.
     ///
     /// The direct passwordless routes own account sessions and tenant-session
-    /// selection, so this graph intentionally has no provider-backed legacy
-    /// `/api/auth/login` route and does not inspect local-development setup.
+    /// selection. The optional deployment-gated selector enters that same
+    /// account/session graph.
     pub(super) fn production_router(&self) -> Result<Router> {
-        let browser_boundary = self
-            .browser_boundary
-            .clone()
-            .context("production browser boundary is unavailable")?;
         Ok(complete_production_router(
             self.passwordless_router(
                 Arc::new(crate::catalog::ReviewNotRequired),
                 production_session_config(),
-                None,
             ),
-            browser_boundary,
+            self.browser_boundary.clone(),
         ))
     }
 
-    fn passwordless_router<R>(
-        &self,
-        review_gate: Arc<R>,
-        session_config: SessionConfig,
-        local_teaching_roster: Option<Arc<crate::course::LocalTeachingRosterDirectory>>,
-    ) -> Router
+    fn passwordless_router<R>(&self, review_gate: Arc<R>, session_config: SessionConfig) -> Router
     where
         R: PublicReviewGate + 'static,
     {
@@ -229,7 +211,6 @@ impl PersistentDependencies {
             self.live_demo_selector.clone(),
             self.live_demo_sysadmin_ownership.clone(),
             Some(self.webauthn.clone()),
-            local_teaching_roster,
             Arc::clone(&self.health),
         );
         if let Some(imathas) = &self.imathas {
@@ -240,29 +221,6 @@ impl PersistentDependencies {
             ));
         }
         router
-    }
-
-    #[cfg(feature = "local-development-auth")]
-    pub(super) fn local_development_router<R>(
-        &self,
-        local_authentication: LocalDevelopmentAuthentication,
-        review_gate: Arc<R>,
-    ) -> Router
-    where
-        R: PublicReviewGate + 'static,
-    {
-        crate::http_security::apply_api_security_headers(
-            self.passwordless_router(
-                review_gate,
-                local_authentication.session_config,
-                Some(local_authentication.teaching_roster_directory),
-            )
-            .merge(crate::auth::provider_login_router(
-                local_authentication.provider,
-                Arc::clone(&self.store),
-                local_authentication.session_config,
-            )),
-        )
     }
 }
 

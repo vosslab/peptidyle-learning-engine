@@ -239,14 +239,8 @@ async fn production_boundary_allows_only_capability_bound_sandbox_activity_posts
         .next()
         .expect("launch cookie pair")
         .to_owned();
-    let production_student_cookie =
-        fixture
-            .student_cookie
-            .replacen("ple_session=", "__Host-ple_session=", 1);
-    let production_outsider_cookie =
-        fixture
-            .outsider_cookie
-            .replacen("ple_session=", "__Host-ple_session=", 1);
+    let production_student_cookie = fixture.student_cookie;
+    let production_outsider_cookie = fixture.outsider_cookie;
     let app = fixture.app.clone().layer(middleware::from_fn_with_state(
         crate::auth::ProductionBrowserBoundary::new(Arc::from("https://learn.example.edu"))
             .expect("production origin"),

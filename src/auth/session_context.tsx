@@ -11,8 +11,6 @@ import {
 
 import type { AuthSession } from "../api/contracts";
 
-export type LocalCredentialLogin = (credential: string) => Promise<AuthSession>;
-
 /**
  * Browser-visible session state deliberately contains identity and roles only.
  * The HttpOnly credential, response content, and grading data stay outside it.
@@ -28,18 +26,14 @@ export interface SessionBootstrap {
   readonly state: Accessor<SessionBootstrapState>;
   readonly retry: () => Promise<void>;
   readonly signOut: () => Promise<boolean>;
-  readonly localCredentialSignInAvailable: boolean;
-  readonly signInWithLocalCredential: (credential: string) => Promise<boolean>;
 }
 
 /** Creates a retryable, injected session bootstrap without coupling it to HTTP. */
 export function createSessionBootstrap(
   getSession: () => Promise<AuthSession>,
-  loginWithLocalCredential?: LocalCredentialLogin,
   logout: () => Promise<void> = () => Promise.reject(new Error("sign-out unavailable")),
 ): SessionBootstrap {
   const [state, setState] = createSignal<SessionBootstrapState>({ kind: "loading" });
-  const localCredentialSignInAvailable = loginWithLocalCredential !== undefined;
 
   async function retry(): Promise<void> {
     setState({ kind: "loading" });
@@ -48,21 +42,6 @@ export function createSessionBootstrap(
       setState({ kind: "authenticated", session });
     } catch (error: unknown) {
       setState(sessionFailureState(error));
-    }
-  }
-
-  async function signInWithLocalCredential(credential: string): Promise<boolean> {
-    if (loginWithLocalCredential === undefined) {
-      return false;
-    }
-    setState({ kind: "loading" });
-    try {
-      const session = await loginWithLocalCredential(credential);
-      setState({ kind: "authenticated", session });
-      return true;
-    } catch (error: unknown) {
-      setState(sessionFailureState(error));
-      return false;
     }
   }
 
@@ -80,8 +59,6 @@ export function createSessionBootstrap(
     state,
     retry,
     signOut,
-    localCredentialSignInAvailable,
-    signInWithLocalCredential,
   };
 }
 
@@ -105,17 +82,12 @@ const SessionContext = createContext<SessionBootstrap>();
 export interface SessionProviderProps {
   readonly getSession: () => Promise<AuthSession>;
   readonly logout: () => Promise<void>;
-  readonly loginWithLocalCredential?: LocalCredentialLogin;
   readonly children: JSX.Element;
 }
 
 /** Installs the one session bootstrap at the application composition root. */
 export function SessionProvider(props: SessionProviderProps): JSX.Element {
-  const bootstrap = createSessionBootstrap(
-    props.getSession,
-    props.loginWithLocalCredential,
-    props.logout,
-  );
+  const bootstrap = createSessionBootstrap(props.getSession, props.logout);
   onMount(() => {
     void bootstrap.retry();
   });

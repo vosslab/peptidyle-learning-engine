@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { publishedProblemFixture } from "../generated/fixtures/published_problem.ts";
+import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 import {
   createQtiProfileImportClient,
   QtiProfileImportConflictError,

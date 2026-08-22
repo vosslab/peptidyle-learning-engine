@@ -8,10 +8,7 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use cookie::Cookie;
 use learning_data_access::SessionTokenHash;
 
-use super::{
-    CookieTransport, SESSION_COOKIE_NAME, SESSION_TOKEN_BYTES, SessionConfig, passwordless,
-    webauthn,
-};
+use super::{SESSION_COOKIE_NAME, SESSION_TOKEN_BYTES, SessionConfig, passwordless, webauthn};
 
 #[derive(Clone, PartialEq, Eq)]
 pub(super) struct SessionToken(pub(super) [u8; SESSION_TOKEN_BYTES]);
@@ -56,10 +53,7 @@ pub(super) fn session_cookie(token: &SessionToken, config: SessionConfig) -> Coo
     .build()
 }
 
-pub(super) fn wire_cookie_name(name: &'static str, config: SessionConfig) -> &'static str {
-    if config.transport() == CookieTransport::LocalHttp {
-        return name;
-    }
+pub(super) fn wire_cookie_name(name: &'static str, _config: SessionConfig) -> &'static str {
     match name {
         SESSION_COOKIE_NAME => "__Host-ple_session",
         passwordless::ACCOUNT_SESSION_COOKIE => "__Host-ple_account_session",

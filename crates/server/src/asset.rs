@@ -15,13 +15,10 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use learning_data_access::{
-    AssetDeliveryId, AssetStore, CourseAppearanceStore, SessionStore, StoreError,
-};
+use learning_data_access::{AssetDeliveryId, AssetStore, SessionStore, StoreError};
 use objects::{
     Bucket, ObjectCategory, ObjectKey, ObjectRecord, ObjectStore, ObjectStoreError, SignedUrl,
 };
-use question_model::CourseBannerId;
 use serde::Serialize;
 use url::Url;
 
@@ -47,19 +44,10 @@ pub struct PublicAssetBaseUrl(String);
 impl PublicAssetBaseUrl {
     /// Validates a production public-asset base. Production always uses HTTPS.
     pub fn new(value: impl Into<String>) -> Result<Self, PublicAssetUrlError> {
-        Self::parse(value.into(), false)
+        Self::parse(value.into())
     }
 
-    /// Validates the explicit local-development public-asset base.
-    ///
-    /// HTTP is accepted only through this typed local-development constructor;
-    /// production configuration must use [`Self::new`].
-    #[cfg_attr(not(feature = "local-development-auth"), allow(dead_code))]
-    pub(crate) fn local_development(value: impl Into<String>) -> Result<Self, PublicAssetUrlError> {
-        Self::parse(value.into(), true)
-    }
-
-    fn parse(value: String, allow_http: bool) -> Result<Self, PublicAssetUrlError> {
+    fn parse(value: String) -> Result<Self, PublicAssetUrlError> {
         // Whitespace and URL normalizations are configuration mistakes, not
         // something a security boundary should silently reinterpret.
         if value.is_empty() || value.trim() != value {
@@ -67,8 +55,7 @@ impl PublicAssetBaseUrl {
         }
         let parsed = Url::parse(&value).map_err(|_| PublicAssetUrlError)?;
         if parsed.cannot_be_a_base()
-            || !matches!(parsed.scheme(), "https" | "http")
-            || (parsed.scheme() == "http" && !allow_http)
+            || parsed.scheme() != "https"
             || parsed.host_str().is_none()
             || !parsed.username().is_empty()
             || parsed.password().is_some()
@@ -155,7 +142,7 @@ impl std::error::Error for PublicAssetUrlError {}
 /// Builds the asset-delivery route around independent metadata and byte stores.
 pub fn router<S, O, C>(store: Arc<S>, objects: Arc<O>, public_assets: Arc<C>) -> Router
 where
-    S: AssetStore + CourseAppearanceStore + SessionStore + 'static,
+    S: AssetStore + SessionStore + 'static,
     O: ObjectStore + 'static,
     C: PublicAssetUrlResolver + 'static,
 {
@@ -193,7 +180,7 @@ async fn get_asset<S, O, C>(
     Path(raw_id): Path<String>,
 ) -> Response
 where
-    S: AssetStore + CourseAppearanceStore + SessionStore + 'static,
+    S: AssetStore + SessionStore + 'static,
     O: ObjectStore + 'static,
     C: PublicAssetUrlResolver + 'static,
 {
@@ -241,7 +228,7 @@ async fn issue_protected_delivery<S, O, C>(
     Path(raw_id): Path<String>,
 ) -> Response
 where
-    S: AssetStore + CourseAppearanceStore + SessionStore + 'static,
+    S: AssetStore + SessionStore + 'static,
     O: ObjectStore + 'static,
     C: PublicAssetUrlResolver + 'static,
 {
@@ -271,21 +258,7 @@ where
         .await
     {
         Ok(authorized) => authorized,
-        Err(StoreError::NotFound) => {
-            let banner = CourseBannerId::from_uuid(delivery.as_uuid());
-            match state
-                .store
-                .authorize_course_banner_delivery(
-                    authenticated.tenant_context,
-                    authenticated.record.token_hash,
-                    banner,
-                )
-                .await
-            {
-                Ok(authorized) => authorized,
-                Err(error) => return store_error_response(error),
-            }
-        }
+        Err(StoreError::NotFound) => return store_error_response(StoreError::NotFound),
         Err(error) => return store_error_response(error),
     };
     let signed = match state

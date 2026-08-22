@@ -2,14 +2,17 @@
 
 use std::sync::Arc;
 
-use axum::body::to_bytes;
+use axum::body::{Body, to_bytes};
 use axum::extract::{Path, Request, State};
-use axum::http::header::{CONTENT_TYPE, ETAG, IF_MATCH};
+use axum::http::header::{
+    CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_TYPE, ETAG, IF_MATCH, PRAGMA, REFERRER_POLICY,
+};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use learning_data_access::{
+    AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetPublication,
     AuthoritativeTimeStore, CourseAppearanceStore, CourseBannerCleanupBatch,
     RegisterCourseBannerCandidate, SaveCourseAppearance, SessionStore, StoreError, TenantContext,
 };
@@ -22,6 +25,7 @@ use question_model::{
     CourseBannerCandidateId, CourseBannerCandidateReceipt, CourseBannerId, CourseBannerMutation,
     CourseId, UserRole,
 };
+use uuid::Uuid;
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
@@ -53,6 +57,10 @@ where
         .route(
             "/api/courses/{course}/appearance/banner-candidates",
             post(upload_banner_candidate::<S, O>),
+        )
+        .route(
+            "/api/course-banners/{banner}/delivery",
+            post(deliver_course_banner::<S, O>),
         )
         .with_state(CourseAppearanceRouteState { store, objects })
 }
@@ -108,6 +116,130 @@ where
         }
         Err(error) => appearance_store_error(error),
     }
+}
+
+async fn deliver_course_banner<S, O>(
+    State(state): State<CourseAppearanceRouteState<S, O>>,
+    headers: HeaderMap,
+    Path(raw_banner): Path<String>,
+) -> Response
+where
+    S: AuthoritativeTimeStore + CourseAppearanceStore + SessionStore + 'static,
+    O: ObjectStore + 'static,
+{
+    let Ok(banner) = Uuid::parse_str(&raw_banner).map(CourseBannerId::from_uuid) else {
+        return banner_not_found();
+    };
+    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
+        Ok(authenticated) => authenticated,
+        Err(error) => return auth_error_response(error),
+    };
+    // ASVS 3.5.3, 8.2.2, and 8.3.1: the POST is protected by the production
+    // origin boundary and the trusted store rechecks the active session,
+    // tenant, membership, retention state, and exact current banner pointer.
+    let authorized = match state
+        .store
+        .authorize_course_banner_delivery(
+            authenticated.tenant_context,
+            authenticated.record.token_hash,
+            banner,
+        )
+        .await
+    {
+        Ok(authorized) => authorized,
+        Err(StoreError::NotFound | StoreError::TenantMismatch | StoreError::Forbidden) => {
+            return banner_not_found();
+        }
+        Err(error) => return appearance_store_error(error),
+    };
+    if !authorized_banner_record_matches(&authorized.record, authenticated.tenant_context, banner) {
+        return error_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "banner delivery is unavailable",
+        );
+    }
+    let stored = match state.objects.get(&authorized.record.object.key).await {
+        Ok(stored) => stored,
+        Err(error) => return object_error_response(error),
+    };
+    if stored.record != authorized.record.object
+        || stored.bytes.is_empty()
+        || u64::try_from(stored.bytes.len()) != Ok(stored.record.size_bytes)
+        || Sha256Digest::compute(&stored.bytes) != stored.record.sha256
+    {
+        return error_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "banner delivery is unavailable",
+        );
+    }
+    banner_delivery_response(stored)
+}
+
+fn authorized_banner_record_matches(
+    record: &AssetDeliveryRecord,
+    context: TenantContext,
+    banner: CourseBannerId,
+) -> bool {
+    let AssetDeliveryScope::CourseBanner {
+        tenant,
+        course,
+        banner: scoped_banner,
+    } = record.scope
+    else {
+        return false;
+    };
+    matches!(
+        record.object.key,
+        ObjectKey::CourseBanner {
+            tenant: key_tenant,
+            course: key_course,
+            banner: key_banner,
+        } if key_tenant == tenant && key_course == course && key_banner == banner
+    ) && tenant == context.tenant_id()
+        && scoped_banner == banner
+        && record.id == AssetDeliveryId::from_course_banner(banner)
+        && record.object.bucket == objects::Bucket::PrivateContent
+        && record.object.category == ObjectCategory::CourseContent
+        && record.object.media_type == BANNER_MEDIA_TYPE
+        && record.object.license == BANNER_LICENSE
+        && record.object.provenance == PROMOTED_PROVENANCE
+        && record.object.size_bytes > 0
+        && record.object.size_bytes <= MAX_BANNER_UPLOAD_BYTES as u64
+        && record.intrinsic_width == Some(learning_data_access::COURSE_BANNER_WIDTH)
+        && record.intrinsic_height == Some(learning_data_access::COURSE_BANNER_HEIGHT)
+        && record.publication == AssetPublication::Ready
+        && record.pending_source.is_none()
+}
+
+fn banner_delivery_response(stored: StoredObject) -> Response {
+    let content_length = HeaderValue::from_str(&stored.record.size_bytes.to_string())
+        .expect("validated bounded banner size must form Content-Length");
+    // ASVS 3.2.1, 3.4.4, 4.1.1, 14.2.3, and 14.3.2: the response uses one
+    // closed server-owned media type, remains on the application origin, and
+    // cannot be sniffed, embedded cross-origin, or retained in a cache.
+    let mut response = no_store((StatusCode::OK, Body::from(stored.bytes)).into_response());
+    let headers = response.headers_mut();
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static(BANNER_MEDIA_TYPE));
+    headers.insert(CONTENT_LENGTH, content_length);
+    headers.insert(
+        CONTENT_DISPOSITION,
+        HeaderValue::from_static("attachment; filename=\"ple-course-banner.webp\""),
+    );
+    headers.insert(PRAGMA, HeaderValue::from_static("no-cache"));
+    headers.insert(REFERRER_POLICY, HeaderValue::from_static("no-referrer"));
+    headers.insert(
+        "x-content-type-options",
+        HeaderValue::from_static("nosniff"),
+    );
+    headers.insert(
+        "cross-origin-resource-policy",
+        HeaderValue::from_static("same-origin"),
+    );
+    response
+}
+
+fn banner_not_found() -> Response {
+    error_response(StatusCode::NOT_FOUND, "course banner not found")
 }
 
 async fn upload_banner_candidate<S, O>(

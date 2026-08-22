@@ -1,83 +1,54 @@
 """Own one selected production-browser journey in a disposable PLE stack."""
-
 import argparse
-import base64
 import dataclasses
-import hashlib
 import json
 import os
 import pathlib
 import re
 import secrets
 import sys
+import time
 from collections.abc import Callable, Mapping, Sequence
-
 SCRIPT_REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_REPOSITORY_ROOT))
-
 import local_stack_control.consumer
 import local_stack_control.env_file
 import local_stack_control.live_demo_claim_context
+import local_stack_control.live_demo_target
 import local_stack_control.lifecycle
 import local_stack_control.models
 import local_stack_control.private_state
 import local_stack_control.process
-
 import e2e_browser_scenario_contract
+import e2e_browser_screenshot_contract
+import e2e_browser_screenshot_owner
+import e2e_browser_screenshot_publisher
+import e2e_browser_suite_input
+import e2e_browser_suite_evidence
+import e2e_browser_fault_orchestrator
 import e2e_browser_suite_oracles
-
+import e2e_browser_webauthn_continuation
+import e2e_browser_scenario_webwork_delivery
 browser_scenario_contract = e2e_browser_scenario_contract
 browser_suite_oracles = e2e_browser_suite_oracles
-
-
-POSTGRES_USER = "ple_live_demo_browser"
-POSTGRES_DATABASE = "ple_live_demo_browser"
+browser_webauthn_continuation = e2e_browser_webauthn_continuation
+webwork_delivery = e2e_browser_scenario_webwork_delivery
 PRIVATE_STATE_RELATIVE_DIRECTORY = pathlib.Path("target") / "live-demo-browser"
 PRIVATE_STATE_DIRECTORY_PREFIX = "run-"
-LOCAL_SYSADMIN_ID = "00000000-0000-0000-0000-000000000105"
-LIVE_DEMO_SCENARIO = "live_demo"
-LIVE_DEMO_SPEC_PATH = "tests/playwright/e2e/live_demo.spec.ts"
+LOCAL_SYSADMIN_ID = local_stack_control.live_demo_target.LOCAL_SYSADMIN_ID
 MAXIMUM_TITLE_FILTER_CHARACTERS = 180
 TITLE_FILTER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ,.:_-]*$")
-PRIVATE_INPUT_MAXIMUM_BYTES = 1_024
-PRIVATE_PROOF_PATTERN = re.compile(r"^[A-Za-z0-9_-]{43}$")
-REQUIRED_SELECTION_NAMES = (
-	"PLE_WEBWORK_RENDERER_IMAGE",
-	"PLE_WEBWORK_RENDERER_BASE_URL",
-	"PLE_WEBWORK_RENDERER_ID",
-	"PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS",
-	"PLE_WEBWORK_MAX_RESPONSE_BYTES",
-	"PLE_GATEWAY_IMAGE_SHA256",
-	"PLE_POSTGRES_IMAGE_SHA256",
-	"PLE_MINIO_IMAGE_SHA256",
-	"PLE_MINIO_MC_IMAGE_SHA256",
-	"PLE_SECRET_INIT_IMAGE_SHA256",
-)
 PLAYWRIGHT_RUNTIME_ENVIRONMENT_NAMES = (
-	"HOME",
-	"LANG",
-	"LC_ALL",
-	"LC_CTYPE",
-	"PATH",
-	"TEMP",
-	"TMP",
-	"TMPDIR",
+	"HOME", "LANG", "LC_ALL", "LC_CTYPE", "PATH", "TEMP", "TMP", "TMPDIR",
 )
-
-
+WEBWORK_SEED_RUNTIME_ENVIRONMENT_NAMES = (
+	"PATH", "HOME", "CARGO_HOME", "RUSTUP_HOME", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE",
+)
 class BrowserSuiteError(local_stack_control.models.ControllerError):
 	"""A concise production-browser suite infrastructure failure."""
-
-
-StateFactory = Callable[
-	[pathlib.Path, pathlib.Path, str], local_stack_control.private_state.PrivateState
-]
-InputWriter = Callable[
-	[pathlib.Path, int, pathlib.Path, browser_scenario_contract.ScenarioContract], None
-]
-PortChecker = Callable[
-	[tuple[int, int, int, int], local_stack_control.process.CommandRunner, pathlib.Path], None
-]
+StateFactory = Callable[[pathlib.Path, pathlib.Path, str], local_stack_control.private_state.PrivateState]
+InputWriter = Callable[[pathlib.Path, int, pathlib.Path, browser_scenario_contract.ScenarioContract], None]
+PortChecker = Callable[[tuple[int, int, int, int], local_stack_control.process.CommandRunner, pathlib.Path], None]
 LifecycleValidator = Callable[
 	[local_stack_control.process.CommandRunner, pathlib.Path, pathlib.Path], None
 ]
@@ -105,22 +76,34 @@ InventoryReader = Callable[
 	],
 	browser_suite_oracles.SuiteInventory,
 ]
-
-
+WebworkCatalogSeeder = Callable[
+	[
+		local_stack_control.process.CommandRunner,
+		pathlib.Path,
+		pathlib.Path,
+		int,
+	],
+	webwork_delivery.CatalogBaseline,
+]
+EvidenceLogReader = Callable[
+	[
+		local_stack_control.process.CommandRunner,
+		pathlib.Path,
+		pathlib.Path,
+	],
+	str,
+]
 @dataclasses.dataclass(frozen=True)
 class BrowserSuiteSelection:
 	"""One closed visible-journey selection owned by this real-stack runner."""
-
 	scenario: str | None
 	title_filter: str | None
 	build_requested: bool
 	spec_path: str | None = None
-
-
+	screenshots: bool = False
 @dataclasses.dataclass(frozen=True)
 class BrowserSuiteReceipt:
 	"""Non-secret evidence for one owned browser-suite lifecycle."""
-
 	scenario: str
 	origin: str
 	project: str
@@ -135,60 +118,69 @@ class BrowserSuiteReceipt:
 	launched_inventory: browser_suite_oracles.SuiteInventory
 	after_inventory: browser_suite_oracles.SuiteInventory
 	scenario_receipts: tuple["ScenarioRunReceipt", ...] = ()
-
+	final_fixture_evidence: e2e_browser_suite_evidence.FinalFixtureEvidence | None = None
+	owner_process_sessions: tuple[local_stack_control.process.ProcessSession, ...] = dataclasses.field(default_factory=tuple, repr=False, compare=False)
+	screenshot_evidence: e2e_browser_screenshot_publisher.ScreenshotEvidence | None = None
 	def as_json(self) -> str:
 		"""Encode stable public lifecycle evidence without private inputs."""
 		value = {
 			"scenario": self.scenario,
 			"origin": self.origin,
 			"project": self.project,
-			"privateStateDirectory": self.private_state_directory,
 			"lifecycleLaunchAttempted": self.lifecycle_launch_attempted,
 			"lifecycleLaunchCompleted": self.lifecycle_launch_completed,
 			"cleanupAttempted": self.cleanup_attempted,
 			"cleanupCompleted": self.cleanup_completed,
 			"privateStateRemoved": self.private_state_removed,
-			"originReceipt": {
-				"expectedOrigin": self.origin_receipt.expected_origin,
-				"observedPageOrigins": self.origin_receipt.observed_page_origins,
-				"observedRequestOrigins": self.origin_receipt.observed_request_origins,
-			},
+			"originReceipt": e2e_browser_suite_evidence.origin_value(self.origin_receipt),
 			"beforeInventory": browser_suite_oracles.public_inventory(self.before_inventory),
 			"launchedInventory": browser_suite_oracles.public_inventory(self.launched_inventory),
 			"afterInventory": browser_suite_oracles.public_inventory(self.after_inventory),
 			"scenarioReceipts": [item.as_value() for item in self.scenario_receipts],
+			"finalFixtureEvidence": None if self.final_fixture_evidence is None else self.final_fixture_evidence.as_value(),
+			"screenshotEvidence": None if self.screenshot_evidence is None else self.screenshot_evidence.as_value(),
 		}
-		result = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-		return result
-
-
+		return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 @dataclasses.dataclass(frozen=True)
 class ScenarioRunReceipt:
 	"""Public evidence for exactly one child projection in a shared lifecycle."""
-
 	scenario_id: str
 	namespace: str
 	expected_origin: str
 	observed_page_origins: tuple[str, ...]
 	observed_request_origins: tuple[str, ...]
 	child_succeeded: bool
-
+	observed_contexts: tuple[browser_suite_oracles.ContextOriginReceipt, ...] = ()
+	webauthn_continuation_consumed: bool = False
+	fault_transition: str | None = None
+	fault_injected: bool = False
+	fault_recovered: bool = False
+	screenshot_artifacts: tuple[e2e_browser_screenshot_publisher.ScreenshotArtifactEvidence, ...] = ()
+	renderer_call_witness: webwork_delivery.RendererCallWitness | None = None
 	def as_value(self) -> dict[str, object]:
 		"""Return the stable public representation stored in the suite receipt."""
-		return {
+		result: dict[str, object] = {
 			"scenario": self.scenario_id,
 			"namespace": self.namespace,
 			"expectedOrigin": self.expected_origin,
 			"observedPageOrigins": self.observed_page_origins,
 			"observedRequestOrigins": self.observed_request_origins,
+			"observedContexts": e2e_browser_suite_evidence.context_origins_value(
+				self.observed_contexts
+			),
 			"childSucceeded": self.child_succeeded,
+			"webAuthnContinuationConsumed": self.webauthn_continuation_consumed,
+			"faultTransition": self.fault_transition,
+			"faultInjected": self.fault_injected,
+			"faultRecovered": self.fault_recovered,
+			"screenshotArtifacts": [item.as_value() for item in self.screenshot_artifacts],
 		}
-
-
+		if self.renderer_call_witness is not None:
+			result["rendererCallWitness"] = self.renderer_call_witness.as_value()
+		return result
 @dataclasses.dataclass(frozen=True)
 class BrowserSuiteDependencies:
 	"""Explicit external boundaries for production code and deterministic owner tests."""
-
 	root: pathlib.Path
 	runner: local_stack_control.process.CommandRunner
 	selections: Mapping[str, str]
@@ -204,16 +196,15 @@ class BrowserSuiteDependencies:
 	origin_checker: Callable[[pathlib.Path, str], browser_suite_oracles.OriginReceipt]
 	cleanup_checker: Callable[[browser_suite_oracles.SuiteInventory], None]
 	receipt_reporter: Callable[[BrowserSuiteReceipt], None]
-
-
-#============================================
+	webwork_catalog_seeder: WebworkCatalogSeeder
+	evidence_log_reader: EvidenceLogReader
+	# The lease owner installs this private hand-off while it holds the fixed
+	# workspace.  It is deliberately separate from the public receipt so image
+	# bytes can never reach a reporter, JSON projection, repr, or comparison.
+	_screenshot_collector: Callable[[e2e_browser_screenshot_publisher.PendingScreenshotPublication], None] | None = None
 def repo_root() -> pathlib.Path:
 	"""Return the checkout owning this disposable browser suite."""
-	result = pathlib.Path(__file__).resolve().parents[2]
-	return result
-
-
-#============================================
+	return pathlib.Path(__file__).resolve().parents[2]
 def private_file(path: pathlib.Path, content: str | bytes) -> None:
 	"""Create one exact mode-0600 private ASCII file."""
 	file_descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -222,24 +213,31 @@ def private_file(path: pathlib.Path, content: str | bytes) -> None:
 			output.write(content.encode("ascii"))
 		else:
 			output.write(content)
+def require_webauthn(function: Callable[..., object], *arguments: object) -> object:
+	"""Map the focused private transition contract to the public suite error boundary."""
+	try:
+		return function(*arguments)
+	except browser_webauthn_continuation.BrowserWebAuthnContinuationError as error:
+		raise BrowserSuiteError(str(error)) from error
+def require_webauthn_path(function: Callable[..., object], *arguments: object) -> pathlib.Path:
+	"""Require a private WebAuthn helper to return the expected path value."""
+	value = require_webauthn(function, *arguments)
+	if not isinstance(value, pathlib.Path):
+		raise BrowserSuiteError("browser suite WebAuthn helper returned an invalid path")
+	return value
 
 
-#============================================
-def random_port(base: int) -> int:
-	"""Select one bounded owner-local loopback port."""
-	result = base + secrets.randbelow(400)
-	return result
-
-
-#============================================
-def canonical_secret32() -> str:
-	"""Return one unpadded base64url encoding of exactly 32 random bytes."""
-	encoded = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("ascii")
-	result = encoded.rstrip("=")
-	return result
-
-
-#============================================
+def require_webwork_catalog_baseline(
+	function: Callable[..., object], *arguments: object
+) -> webwork_delivery.CatalogBaseline:
+	"""Keep provider receipt decoding behind the owner's non-secret error boundary."""
+	try:
+		value = function(*arguments)
+	except webwork_delivery.WebworkDeliveryEvidenceError as error:
+		raise BrowserSuiteError("WebWork catalog baseline receipt is invalid") from error
+	if not isinstance(value, webwork_delivery.CatalogBaseline):
+		raise BrowserSuiteError("WebWork catalog baseline receipt is invalid")
+	return value
 def adapter_argv(
 	action: str,
 	manifest_path: pathlib.Path,
@@ -256,9 +254,6 @@ def adapter_argv(
 	]
 	result.extend(arguments)
 	return result
-
-
-#============================================
 def selection_parser() -> argparse.ArgumentParser:
 	"""Create the small public selection interface for the canonical browser suite."""
 	result = argparse.ArgumentParser(
@@ -266,10 +261,11 @@ def selection_parser() -> argparse.ArgumentParser:
 		description="Run the selected PLE production-browser journey in a fresh disposable stack.",
 	)
 	result.add_argument(
-		"--build",
+	"--build",
 		action="store_true",
 		help="request the production dist/ build owned by the disposable lifecycle",
 	)
+	result.add_argument("--screenshots", action="store_true", help="capture the closed real-stack visual corpus")
 	result.add_argument(
 		"--scenario", help="run one named canonical scenario",
 	)
@@ -284,9 +280,6 @@ def selection_parser() -> argparse.ArgumentParser:
 		help="run one approved focused file",
 	)
 	return result
-
-
-#============================================
 def require_title_filter(value: str | None) -> str | None:
 	"""Accept a readable literal title filter rather than arbitrary Playwright arguments."""
 	if value is None:
@@ -294,9 +287,6 @@ def require_title_filter(value: str | None) -> str | None:
 	if len(value) > MAXIMUM_TITLE_FILTER_CHARACTERS or TITLE_FILTER_PATTERN.fullmatch(value) is None:
 		raise BrowserSuiteError("browser suite title filter must be a short literal test-title substring")
 	return value
-
-
-#============================================
 def parse_selection(argv: Sequence[str]) -> BrowserSuiteSelection:
 	"""Resolve public selection through the explicit catalog before allocation."""
 	args = selection_parser().parse_args(list(argv))
@@ -305,11 +295,9 @@ def parse_selection(argv: Sequence[str]) -> BrowserSuiteSelection:
 		args.title_filter,
 		args.build,
 		args.spec_path,
+		args.screenshots,
 	)
 	return validate_selection(selection)
-
-
-#============================================
 def validate_selection(selection: BrowserSuiteSelection) -> BrowserSuiteSelection:
 	"""Validate every caller path before it can allocate ports or private state."""
 	if not isinstance(selection.build_requested, bool):
@@ -318,6 +306,13 @@ def validate_selection(selection: BrowserSuiteSelection) -> BrowserSuiteSelectio
 		raise BrowserSuiteError("browser suite selection is invalid")
 	if not isinstance(selection.spec_path, (str, type(None))):
 		raise BrowserSuiteError("browser suite selection is invalid")
+	if not isinstance(selection.screenshots, bool):
+		raise BrowserSuiteError("browser suite selection is invalid")
+	if selection.screenshots:
+		if selection.scenario is not None or selection.spec_path is not None or selection.title_filter is not None:
+			raise BrowserSuiteError("browser screenshot capture owns the complete closed selection")
+		e2e_browser_screenshot_contract.validate()
+		return BrowserSuiteSelection(None, None, True, None, True)
 	try:
 		browser_scenario_contract.resolve_selection(
 			selection.scenario,
@@ -331,10 +326,8 @@ def validate_selection(selection: BrowserSuiteSelection) -> BrowserSuiteSelectio
 		require_title_filter(selection.title_filter),
 		selection.build_requested,
 		selection.spec_path,
+		False,
 	)
-
-
-#============================================
 def playwright_argv(
 	contract: browser_scenario_contract.ScenarioContract | BrowserSuiteSelection,
 	title_filter: str | None = None,
@@ -356,9 +349,6 @@ def playwright_argv(
 	if title_filter is not None:
 		result.extend(("--grep", re.escape(title_filter)))
 	return result
-
-
-#============================================
 def run_command(
 	runner: local_stack_control.process.CommandRunner,
 	argv: list[str],
@@ -368,9 +358,6 @@ def run_command(
 	"""Stream one external boundary while retaining command arguments as an array."""
 	result = local_stack_control.process.stream_in_owner_session(runner, argv, environment, root)
 	return result
-
-
-#============================================
 def require_command_success(
 	result: local_stack_control.process.SessionCommandResult,
 	argv: list[str],
@@ -380,80 +367,12 @@ def require_command_success(
 	sessions.append(result.session)
 	if result.returncode != 0:
 		raise BrowserSuiteError("production browser-suite command failed: " + argv[0])
-
-
-#============================================
-def write_private_target(
-	directory: pathlib.Path,
-	postgres_port: int,
-	minio_port: int,
-	minio_console_port: int,
-	gateway_port: int,
-	selections: Mapping[str, str],
-) -> tuple[str, pathlib.Path, pathlib.Path]:
-	"""Create the ordinary-stack environment with production authentication."""
-	project = "ple-live-demo-browser-" + secrets.token_hex(6)
-	capability_path = directory / "disposable.capability"
-	capability = secrets.token_bytes(32)
-	private_file(capability_path, capability)
-	capability_digest = hashlib.sha256(capability).hexdigest()
-	invitation_path = directory / "invitation-secret"
-	question_path = directory / "question-id-secret"
-	private_file(invitation_path, canonical_secret32())
-	private_file(question_path, canonical_secret32())
-	renderer_provenance_path = directory / "webwork-renderer.provenance"
-	claim_context_path = directory / "live-demo-sysadmin-claim-context.json"
-	env_path = directory / "env.local"
-	env_content = (
-		f"POSTGRES_USER={POSTGRES_USER}\nPOSTGRES_PASSWORD={secrets.token_hex(24)}\n"
-		f"POSTGRES_DB={POSTGRES_DATABASE}\nPLE_POSTGRES_HOST_PORT={postgres_port}\n"
-		"MINIO_ROOT_USER=ple-live-demo-browser\n"
-		f"MINIO_ROOT_PASSWORD={secrets.token_hex(24)}\n"
-		f"PLE_MINIO_API_HOST_PORT={minio_port}\nPLE_MINIO_CONSOLE_HOST_PORT={minio_console_port}\n"
-		f"PLE_GATEWAY_HOST_PORT={gateway_port}\nPLE_LOCAL_GRADER_PASSWORD={secrets.token_hex(24)}\n"
-		f"PLE_PUBLIC_ASSET_BASE_URL=https://localhost:{gateway_port}/public-assets\n"
-		"PLE_WEBAUTHN_RP_ID=localhost\nPLE_WEBAUTHN_RP_NAME=Peptidyle Learning Engine\n"
-		f"PLE_WEBAUTHN_ORIGIN=https://localhost:{gateway_port}\n"
-		"PLE_TRUSTED_PROXY_CIDRS=172.30.255.0/29\nPLE_STORAGE_TOPOLOGY=disposable-local\n"
-		f"PLE_INVITATION_TOKEN_SECRET_HOST_FILE={invitation_path}\n"
-		f"PLE_QUESTION_ID_SECRET_HOST_FILE={question_path}\n"
-		f"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE={claim_context_path}\n"
-		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID=00000000-0000-0000-0000-000000000101\n"
-		"PLE_LIVE_DEMO_MARY_STUDENT_USER_ID=00000000-0000-0000-0000-000000000102\n"
-		"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID=00000000-0000-0000-0000-000000000103\n"
-		"PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID=00000000-0000-0000-0000-000000000104\n"
-		f"PLE_LIVE_DEMO_SYSADMIN_USER_ID={LOCAL_SYSADMIN_ID}\n"
-		f"PLE_WEBWORK_RENDERER_IMAGE={selections['PLE_WEBWORK_RENDERER_IMAGE']}\n"
-		f"PLE_WEBWORK_RENDERER_BASE_URL={selections['PLE_WEBWORK_RENDERER_BASE_URL']}\n"
-		f"PLE_WEBWORK_RENDERER_ID={selections['PLE_WEBWORK_RENDERER_ID']}\n"
-		f"PLE_WEBWORK_PROVENANCE_FILE={renderer_provenance_path}\n"
-		f"PLE_WEBWORK_PROBLEM_JWT_SECRET={secrets.token_hex(32)}\n"
-		f"PLE_WEBWORK_SESSION_JWT_SECRET={secrets.token_hex(32)}\n"
-		f"PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS={selections['PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS']}\n"
-		f"PLE_WEBWORK_MAX_RESPONSE_BYTES={selections['PLE_WEBWORK_MAX_RESPONSE_BYTES']}\n"
-		f"PLE_GATEWAY_IMAGE_SHA256={selections['PLE_GATEWAY_IMAGE_SHA256']}\n"
-		f"PLE_POSTGRES_IMAGE_SHA256={selections['PLE_POSTGRES_IMAGE_SHA256']}\n"
-		f"PLE_MINIO_IMAGE_SHA256={selections['PLE_MINIO_IMAGE_SHA256']}\n"
-		f"PLE_MINIO_MC_IMAGE_SHA256={selections['PLE_MINIO_MC_IMAGE_SHA256']}\n"
-		f"PLE_SECRET_INIT_IMAGE_SHA256={selections['PLE_SECRET_INIT_IMAGE_SHA256']}\n"
-		f"PLE_DISPOSABLE_CAPABILITY_SHA256={capability_digest}\n"
-	)
-	private_file(env_path, env_content)
-	manifest_path = directory / "disposable.manifest"
-	manifest_content = (
-		"OWNER=live-demo-browser\n"
-		f"PROJECT={project}\n"
-		f"ENV_FILE={env_path}\n"
-		f"CAPABILITY_FILE={capability_path}\n"
-	)
-	private_file(manifest_path, manifest_content)
-	result = project, manifest_path, claim_context_path
-	return result
-
-
-#============================================
-def playwright_environment(input_path: pathlib.Path) -> dict[str, str]:
-	"""Pass a small runtime allowlist and one private input path to Playwright."""
+def playwright_environment(
+	input_path: pathlib.Path,
+	webauthn_continuation: pathlib.Path | None = None,
+	webauthn_continuation_acknowledgement: pathlib.Path | None = None,
+) -> dict[str, str]:
+	"""Pass a small runtime allowlist and owner-selected private paths to Playwright."""
 	inherited = local_stack_control.process.current_environment()
 	environment = {
 		name: inherited[name]
@@ -462,10 +381,11 @@ def playwright_environment(input_path: pathlib.Path) -> dict[str, str]:
 	}
 	environment["PLE_LIVE_DEMO_BROWSER_REQUIRED"] = "1"
 	environment["PLE_LIVE_DEMO_BROWSER_INPUT_FILE"] = str(input_path)
+	if webauthn_continuation is not None:
+		environment["PLE_BROWSER_SUITE_WEBAUTHN_CONTINUATION_FILE"] = str(webauthn_continuation)
+	if webauthn_continuation_acknowledgement is not None:
+		environment["PLE_BROWSER_SUITE_WEBAUTHN_CONTINUATION_ACK_FILE"] = str(webauthn_continuation_acknowledgement)
 	return environment
-
-
-#============================================
 def write_browser_input(
 	path: pathlib.Path,
 	gateway_port: int,
@@ -490,142 +410,137 @@ def write_browser_input(
 	}
 	if contract.service_receipt is not None:
 		value["serviceReceipt"] = contract.service_receipt
+	if contract.fault_transition is not None:
+		value["faultTransition"] = contract.fault_transition
 	if contract.sysadmin_requirement == "unclaimed":
 		value["sysadminOwnershipProof"] = context.ownership_proof
 	content = json.dumps(value, separators=(",", ":"), ensure_ascii=True)
 	private_file(path, content)
-
-
-#============================================
 def validate_browser_input(
 	path: pathlib.Path,
 	gateway_port: int,
 	contract: browser_scenario_contract.ScenarioContract,
+	screenshot_mode: bool = False,
 ) -> None:
 	"""Confirm the private Playwright ABI before Chromium can start."""
-	local_stack_control.consumer.require_private_regular_file(path, "browser-suite input")
-	contents = path.read_text(encoding="ascii")
-	if len(contents.encode("ascii")) > PRIVATE_INPUT_MAXIMUM_BYTES:
-		raise BrowserSuiteError("browser-suite input is too large")
 	try:
-		value = json.loads(contents)
-	except json.JSONDecodeError as error:
-		raise BrowserSuiteError("browser-suite input is not valid JSON") from error
-	if not isinstance(value, dict):
-		raise BrowserSuiteError("browser-suite input has an invalid shape")
-	required_keys = {
-		"schemaVersion",
-		"scenarioId",
-		"namespace",
-		"baseUrl",
-		"personas",
-		"baselineReads",
-		"sysadminRequirement",
-		"visibleObservation",
-	}
-	expected_keys = set(required_keys)
-	if contract.service_receipt is not None:
-		expected_keys.add("serviceReceipt")
-	if contract.sysadmin_requirement == "unclaimed":
-		expected_keys.add("sysadminOwnershipProof")
-	if set(value) != expected_keys:
-		raise BrowserSuiteError("browser-suite input has an invalid shape")
-	expected_origin = f"https://localhost:{gateway_port}/"
-	if (
-		value["schemaVersion"] != browser_scenario_contract.SCHEMA_VERSION
-		or value["scenarioId"] != contract.scenario_id
-		or value["baseUrl"] != expected_origin
-		or not isinstance(value["namespace"], str)
-		or browser_scenario_contract.NAMESPACE_PATTERN.fullmatch(value["namespace"])
-		is None
-		or not value["namespace"].endswith("-" + contract.scenario_id)
-	):
-		raise BrowserSuiteError("browser-suite input has an invalid shape")
-	if (
-		not isinstance(value["personas"], list)
-		or tuple(value["personas"]) != contract.personas
-		or not isinstance(value["baselineReads"], list)
-		or tuple(value["baselineReads"]) != contract.baseline_reads
-		or value["sysadminRequirement"] != contract.sysadmin_requirement
-		or value["visibleObservation"] != contract.visible_observation
-		or value.get("serviceReceipt") != contract.service_receipt
-	):
-		raise BrowserSuiteError("browser-suite input has an invalid shape")
-	proof = value.get("sysadminOwnershipProof")
-	if contract.sysadmin_requirement == "unclaimed":
-		if (
-			not isinstance(proof, str)
-			or PRIVATE_PROOF_PATTERN.fullmatch(proof) is None
-		):
-			raise BrowserSuiteError("browser-suite input has an invalid shape")
-		try:
-			decoded = base64.urlsafe_b64decode(proof + "=")
-		except ValueError as error:
-			raise BrowserSuiteError("browser-suite input has an invalid shape") from error
-		canonical_proof = base64.urlsafe_b64encode(decoded).decode("ascii").rstrip("=")
-		if len(decoded) != 32 or canonical_proof != proof:
-			raise BrowserSuiteError("browser-suite input has an invalid shape")
-	elif proof is not None:
-		raise BrowserSuiteError("browser-suite input has an invalid shape")
-	canonical_value: dict[str, object] = {
-		"schemaVersion": value["schemaVersion"],
-		"scenarioId": value["scenarioId"],
-		"namespace": value["namespace"],
-		"baseUrl": value["baseUrl"],
-		"personas": value["personas"],
-		"baselineReads": value["baselineReads"],
-		"sysadminRequirement": value["sysadminRequirement"],
-		"visibleObservation": value["visibleObservation"],
-	}
-	if contract.service_receipt is not None:
-		canonical_value["serviceReceipt"] = value["serviceReceipt"]
-	if contract.sysadmin_requirement == "unclaimed":
-		canonical_value["sysadminOwnershipProof"] = value["sysadminOwnershipProof"]
-	canonical = json.dumps(canonical_value, separators=(",", ":"), ensure_ascii=True)
-	if contents != canonical:
-		raise BrowserSuiteError("browser-suite input must use canonical ASCII JSON")
-
-
-#============================================
+		e2e_browser_suite_input.validate(path, gateway_port, contract, screenshot_mode)
+	except e2e_browser_suite_input.BrowserSuiteInputError as error:
+		raise BrowserSuiteError(str(error)) from error
 def require_worker_ready(
 	runner: local_stack_control.process.CommandRunner,
 	manifest_path: pathlib.Path,
 	root: pathlib.Path,
 ) -> None:
 	"""Require the production worker readiness receipt before Chromium starts."""
-	result = runner.run(adapter_argv("read-evidence-logs", manifest_path), cwd=root)
+	result = runner.run(
+		adapter_argv("read-evidence-logs", manifest_path, ["--claim", "worker_completion"]),
+		cwd=root,
+	)
 	readiness_output = result.stdout + result.stderr
 	readiness_marker = "peptidyle worker ready with 6 supported job families"
 	if not result.ok() or readiness_marker not in readiness_output:
 		raise BrowserSuiteError("live-demo worker did not reach its production-ready state")
 
 
-#============================================
+def webwork_catalog_seed_argv(minio_port: int) -> list[str]:
+	"""Form the catalog-only publication command without private values in argv."""
+	return [
+		"cargo",
+		"tools",
+		"e2e-seed",
+		"--webwork-catalog-baseline",
+		"--apply-migrations",
+		"--tenant",
+		local_stack_control.lifecycle.LOCAL_TENANT_ID,
+		"--instructor",
+		local_stack_control.lifecycle.LOCAL_INSTRUCTOR_ID,
+		"--s3-endpoint",
+		f"http://127.0.0.1:{minio_port}",
+		"--s3-region",
+		"us-east-1",
+		"--private-content-bucket",
+		"private-content",
+	]
+
+
+def webwork_catalog_seed_environment(directory: pathlib.Path) -> dict[str, str]:
+	"""Grant the host publisher only the private capabilities it needs."""
+	values = local_stack_control.env_file.env_settings(directory / "env.local")
+	question_secret = pathlib.Path(values["PLE_QUESTION_ID_SECRET_HOST_FILE"])
+	local_stack_control.consumer.require_private_regular_file(
+		question_secret, "WebWork catalog Question ID secret"
+	)
+	base = local_stack_control.env_file.sanitized_runtime_environment(dict(os.environ))
+	environment = {
+		name: base[name]
+		for name in WEBWORK_SEED_RUNTIME_ENVIRONMENT_NAMES
+		if name in base
+	}
+	environment["PLE_MIGRATION_DATABASE_URL"] = local_stack_control.lifecycle.database_url(values)
+	environment["PLE_QUESTION_ID_SECRET_FILE"] = str(question_secret)
+	environment["AWS_ACCESS_KEY_ID"] = values["MINIO_ROOT_USER"]
+	environment["AWS_SECRET_ACCESS_KEY"] = values["MINIO_ROOT_PASSWORD"]
+	return environment
+
+
+def seed_webwork_catalog_baseline(
+	runner: local_stack_control.process.CommandRunner,
+	root: pathlib.Path,
+	directory: pathlib.Path,
+	minio_port: int,
+) -> webwork_delivery.CatalogBaseline:
+	"""Publish the irreducible reviewed catalog baseline after the real stack is ready."""
+	result = runner.run(
+		webwork_catalog_seed_argv(minio_port),
+		webwork_catalog_seed_environment(directory),
+		root,
+	)
+	if not result.ok():
+		raise BrowserSuiteError("WebWork catalog baseline publication failed")
+	try:
+		return webwork_delivery.decode_catalog_baseline_receipt(result.stdout)
+	except webwork_delivery.WebworkDeliveryEvidenceError as error:
+		raise BrowserSuiteError("WebWork catalog baseline receipt is invalid") from error
+
+
+def redacted_renderer_evidence_logs(contents: str) -> str:
+	"""Project service output to content-free renderer event markers only.
+
+	ASVS 15.3.1 and 16.4.2: the suite retains no request, source, provider,
+	answer, route, credential, or general log content in its scenario evidence.
+	"""
+	if not isinstance(contents, str):
+		raise BrowserSuiteError("WebWork evidence logs are invalid")
+	markers: list[str] = []
+	for line in contents.splitlines():
+		markers.extend(
+			'ple.webwork.cache event="renderer_call"'
+			for _match in webwork_delivery.RENDERER_CALL_PATTERN.finditer(line)
+		)
+	return "\n".join(markers)
+
+
+def read_webwork_renderer_evidence_logs(
+	runner: local_stack_control.process.CommandRunner,
+	root: pathlib.Path,
+	manifest_path: pathlib.Path,
+) -> str:
+	"""Read the label-resolved bounded API log window without forwarding raw logs."""
+	argv = adapter_argv("read-evidence-logs", manifest_path, ["--claim", "renderer_delivery"])
+	result = runner.run(argv, cwd=root)
+	if not result.ok():
+		raise BrowserSuiteError("WebWork renderer evidence log read failed")
+	return redacted_renderer_evidence_logs(result.stdout + result.stderr)
 def validate_live_compose_render(
 	runner: local_stack_control.process.CommandRunner,
 	root: pathlib.Path,
 	manifest_path: pathlib.Path,
 ) -> None:
-	"""Parse the live provider topology before disposable services start."""
-	manifest = local_stack_control.consumer.load_manifest(root, manifest_path)
-	disposable = local_stack_control.consumer.disposable_target(runner, root, manifest)
-	local_stack_control.lifecycle.bootstrap_default_state(disposable)
-	values = local_stack_control.env_file.env_settings(disposable.target.env_file)
-	if "PLE_LOCAL_AUTH_HOST_FILE" in values:
-		raise BrowserSuiteError("live-demo environment selected local-file authentication")
-	rendered = local_stack_control.lifecycle.validate_lifecycle(disposable, runner, root)
-	if "PLE_LOCAL_AUTH_HOST_FILE" in rendered or "/run/ple/local-identities.json" in rendered:
-		raise BrowserSuiteError("live-demo Compose render retained a local-auth setting")
-
-
-#============================================
-def require_live_demo_selection(scenario: str) -> None:
-	"""Select the one H0 production journey before lifecycle creation begins."""
-	if scenario != LIVE_DEMO_SCENARIO:
-		raise BrowserSuiteError("browser suite scenario must be live_demo")
-
-
-#============================================
+	"""Parse the shared production-auth topology before disposable services start."""
+	local_stack_control.live_demo_target.validate_production_auth_render(
+		runner, root, manifest_path
+	)
 def provider_receipt_for(
 	runner: local_stack_control.process.CommandRunner,
 	root: pathlib.Path,
@@ -636,35 +551,18 @@ def provider_receipt_for(
 	target = local_stack_control.consumer.disposable_target(runner, root, manifest)
 	result = browser_suite_oracles.provider_receipt(target)
 	return result
-
-
-#============================================
 def require_canonical_selections(selections: Mapping[str, str]) -> None:
 	"""Accept the complete line-safe canonical selection shape before allocation."""
-	for name in REQUIRED_SELECTION_NAMES:
-		try:
-			value = selections[name]
-		except KeyError as error:
-			raise BrowserSuiteError("browser suite selections omit " + name) from error
-		if not isinstance(value, str) or value == "" or value.strip() != value:
-			raise BrowserSuiteError("browser suite selection is unsafe: " + name)
-		if "\n" in value or "\r" in value or "\x00" in value:
-			raise BrowserSuiteError("browser suite selection is unsafe: " + name)
-		try:
-			value.encode("ascii")
-		except UnicodeEncodeError as error:
-			raise BrowserSuiteError("browser suite selection is unsafe: " + name) from error
-
-
-#============================================
+	try:
+		local_stack_control.live_demo_target.require_canonical_selections(selections)
+	except local_stack_control.models.ControllerError as error:
+		raise BrowserSuiteError(str(error)) from error
 def raise_lifecycle_failures(failures: list[BaseException]) -> None:
 	"""Raise one failure directly or every simultaneous lifecycle failure together."""
 	if len(failures) == 1:
 		raise failures[0]
 	if failures:
 		raise BaseExceptionGroup("browser suite lifecycle failures", failures)
-
-
 def ordered_execution_contracts(
 	contracts: Sequence[browser_scenario_contract.ScenarioContract],
 	registry: Sequence[browser_scenario_contract.ScenarioContract] | None = None,
@@ -693,13 +591,10 @@ def ordered_execution_contracts(
 	if not transition_added:
 		result.append(transition)
 	return tuple(result)
-
-
-#============================================
 def default_dependencies() -> BrowserSuiteDependencies:
 	"""Create the real external boundaries owned by the standalone runner."""
 	root = repo_root()
-	ports = (random_port(53500), random_port(54000), random_port(54500), random_port(55000))
+	ports = local_stack_control.live_demo_target.random_ports().as_tuple()
 	result = BrowserSuiteDependencies(
 		root,
 		local_stack_control.process.SubprocessRunner(),
@@ -716,11 +611,10 @@ def default_dependencies() -> BrowserSuiteDependencies:
 		browser_suite_oracles.origin_receipt_from_file,
 		browser_suite_oracles.empty_after_cleanup,
 		lambda receipt: print("Browser-suite receipt: " + receipt.as_json()),
+		seed_webwork_catalog_baseline,
+		read_webwork_renderer_evidence_logs,
 	)
 	return result
-
-
-#============================================
 def run_selection(
 	selection: BrowserSuiteSelection,
 	dependencies: BrowserSuiteDependencies,
@@ -733,6 +627,10 @@ def run_selection(
 		selection.spec_path,
 		selection.title_filter,
 	)
+	if selection.screenshots:
+		contracts = e2e_browser_screenshot_contract.ordered_contracts(
+			browser_scenario_contract.scenario_contracts()
+		)
 	execution_contracts = ordered_execution_contracts(contracts)
 	require_canonical_selections(dependencies.selections)
 	dependencies.port_checker(dependencies.ports, dependencies.runner, dependencies.root)
@@ -740,6 +638,9 @@ def run_selection(
 		dependencies.root,
 		PRIVATE_STATE_RELATIVE_DIRECTORY,
 		PRIVATE_STATE_DIRECTORY_PREFIX,
+	)
+	continuation_path = require_webauthn_path(
+		browser_webauthn_continuation.continuation_path, state.directory
 	)
 	project = "not-created"
 	origin = f"https://localhost:{dependencies.ports[3]}/"
@@ -758,13 +659,23 @@ def run_selection(
 	origin_receipt = browser_suite_oracles.unavailable_origin_receipt(origin)
 	scenario_receipts: list[ScenarioRunReceipt] = []
 	sessions: list[local_stack_control.process.ProcessSession] = []
+	screenshot_staging = e2e_browser_screenshot_owner.prepare_staging(
+		state.directory, selection.screenshots
+	)
+	pending_screenshots: e2e_browser_screenshot_publisher.PendingScreenshotPublication | None = None
+	capture_dist_digest: str | None = None
+	webwork_catalog_baseline: webwork_delivery.CatalogBaseline | None = None
 	failures: list[BaseException] = []
 	try:
-		project, manifest_path, claim_context_path = write_private_target(
+		live_target = local_stack_control.live_demo_target.write_private_target(
 			state.directory,
-			*dependencies.ports,
+			local_stack_control.models.LiveDemoProfile.BROWSER,
+			local_stack_control.live_demo_target.ports_from_tuple(dependencies.ports),
 			dependencies.selections,
 		)
+		project = live_target.project
+		manifest_path = live_target.manifest_path
+		claim_context_path = live_target.claim_context_path
 		provider = dependencies.provider_reader(dependencies.runner, dependencies.root, manifest_path)
 		before_inventory = dependencies.inventory_reader(
 			project,
@@ -792,6 +703,9 @@ def run_selection(
 		require_command_success(launch_result, launch_argv, sessions)
 		lifecycle_launch_completed = True
 		dependencies.worker_readiness_checker(dependencies.runner, manifest_path, dependencies.root)
+		capture_dist_digest = e2e_browser_screenshot_owner.capture_dist_digest(
+			dependencies.root, selection.screenshots
+		)
 		launched_inventory = dependencies.inventory_reader(
 			project,
 			state.directory,
@@ -808,23 +722,140 @@ def run_selection(
 			)
 			input_path = state.directory / f"playwright-input-{contract.scenario_id}.json"
 			origin_receipt_path = state.directory / f"browser-origin-receipt-{contract.scenario_id}.json"
+			webwork_catalog_input_path: pathlib.Path | None = None
+			webwork_issuance_acknowledgement_path: pathlib.Path | None = None
+			webwork_before_logs: str | None = None
+			webwork_observation_started: float | None = None
+			if contract.scenario_id == webwork_delivery.SCENARIO_ID:
+				if webwork_catalog_baseline is None:
+					webwork_catalog_baseline = require_webwork_catalog_baseline(
+						dependencies.webwork_catalog_seeder,
+						dependencies.runner,
+						dependencies.root,
+						state.directory,
+						dependencies.ports[1],
+					)
+				webwork_catalog_input_path = state.directory / "webwork-catalog-baseline-input.json"
+				webwork_delivery.write_catalog_baseline_input(
+					webwork_catalog_input_path, webwork_catalog_baseline
+				)
+				webwork_delivery.validate_catalog_baseline_input(webwork_catalog_input_path)
+				webwork_issuance_acknowledgement_path = (
+					state.directory / "webwork-renderer-issuance-acknowledgement.json"
+				)
 			dependencies.input_writer(input_path, dependencies.ports[3], claim_context_path, contract)
-			validate_browser_input(input_path, dependencies.ports[3], contract)
+			if selection.screenshots:
+				e2e_browser_screenshot_owner.add_capture_input(input_path, contract)
+			validate_browser_input(input_path, dependencies.ports[3], contract, selection.screenshots)
 			namespace = json.loads(input_path.read_text(encoding="ascii"))["namespace"]
 			print("Browser-suite: executing visible scenario " + contract.scenario_id)
-			child_environment = playwright_environment(input_path)
+			if contract.sysadmin_requirement == "claimed":
+				require_webauthn(
+					browser_webauthn_continuation.validate_continuation,
+					continuation_path,
+					dependencies.ports[3],
+				)
+			acknowledgement_path = (
+				require_webauthn_path(
+					browser_webauthn_continuation.acknowledgement_path,
+					state.directory,
+					contract.scenario_id,
+				)
+				if contract.sysadmin_requirement == "claimed"
+				else None
+			)
+			continuation_for_child = (
+				continuation_path
+				if contract.sysadmin_requirement in ("unclaimed", "claimed")
+				else None
+			)
+			child_environment = playwright_environment(
+				input_path,
+				continuation_for_child,
+				acknowledgement_path,
+			)
 			child_environment["PLE_LIVE_DEMO_BROWSER_ORIGIN_RECEIPT_FILE"] = str(origin_receipt_path)
+			if webwork_catalog_input_path is not None and webwork_issuance_acknowledgement_path is not None:
+				webwork_before_logs = dependencies.evidence_log_reader(
+					dependencies.runner, dependencies.root, manifest_path
+				)
+				webwork_observation_started = time.monotonic()
+				child_environment["PLE_WEBWORK_CATALOG_BASELINE_INPUT_FILE"] = str(
+					webwork_catalog_input_path
+				)
+				child_environment["PLE_WEBWORK_RENDERER_ISSUANCE_ACK_FILE"] = str(
+					webwork_issuance_acknowledgement_path
+				)
+			if screenshot_staging is not None:
+				child_environment["PLE_BROWSER_SUITE_SCREENSHOT_STAGING"] = str(screenshot_staging)
 			child_title_filter = selection.title_filter if contract in contracts else None
 			playwright_command = playwright_argv(contract, child_title_filter)
 			try:
-				child_result = dependencies.command_runner(
-					dependencies.runner,
-					playwright_command,
-					dependencies.root,
-					child_environment,
-				)
-				require_command_success(child_result, playwright_command, sessions)
+				fault_result: e2e_browser_fault_orchestrator.FaultScenarioResult | None = None
+				if contract.fault_transition is None:
+					child_result = dependencies.command_runner(
+						dependencies.runner,
+						playwright_command,
+						dependencies.root,
+						child_environment,
+					)
+					require_command_success(child_result, playwright_command, sessions)
+				else:
+					fault_request = e2e_browser_fault_orchestrator.FaultScenarioRequest(
+						dependencies.root,
+						state.directory,
+						manifest_path,
+						contract.scenario_id,
+						namespace,
+						playwright_command,
+						child_environment,
+					)
+					def run_fault_command(arguments: list[str]) -> local_stack_control.process.SessionCommandResult:
+						action = arguments[0]
+						adapter_arguments = arguments[1:]
+						adapter_command = adapter_argv(action, manifest_path, adapter_arguments)
+						result = dependencies.command_runner(
+							dependencies.runner, adapter_command, dependencies.root, None
+						)
+						sessions.append(result.session)
+						return result
+					fault_result = e2e_browser_fault_orchestrator.run_gateway_submit_outage(
+						fault_request, run_fault_command, record_session=sessions.append
+					)
 				origin_receipt = dependencies.origin_checker(origin_receipt_path, origin)
+				if contract.sysadmin_requirement == "unclaimed":
+					require_webauthn(
+						browser_webauthn_continuation.validate_continuation,
+						continuation_path,
+						dependencies.ports[3],
+					)
+				if acknowledgement_path is not None:
+					require_webauthn(
+						browser_webauthn_continuation.validate_acknowledgement,
+						acknowledgement_path,
+						dependencies.ports[3],
+						contract,
+						namespace,
+					)
+				renderer_call_witness: webwork_delivery.RendererCallWitness | None = None
+				if webwork_issuance_acknowledgement_path is not None:
+					if webwork_before_logs is None or webwork_observation_started is None:
+						raise BrowserSuiteError("WebWork renderer evidence window is incomplete")
+					try:
+						webwork_delivery.validate_visible_issuance_acknowledgement(
+							webwork_issuance_acknowledgement_path, namespace
+						)
+					except webwork_delivery.WebworkDeliveryEvidenceError as error:
+						raise BrowserSuiteError(
+							"WebWork visible issuance acknowledgement is invalid"
+						) from error
+					elapsed_seconds = max(1, int(time.monotonic() - webwork_observation_started) + 1)
+					webwork_after_logs = dependencies.evidence_log_reader(
+						dependencies.runner, dependencies.root, manifest_path
+					)
+					renderer_call_witness = webwork_delivery.renderer_call_witness(
+						webwork_before_logs, webwork_after_logs, elapsed_seconds
+					)
 				scenario_receipts.append(
 					ScenarioRunReceipt(
 						contract.scenario_id,
@@ -833,6 +864,13 @@ def run_selection(
 						origin_receipt.observed_page_origins,
 						origin_receipt.observed_request_origins,
 						True,
+						origin_receipt.observed_contexts,
+						acknowledgement_path is not None,
+						None if fault_result is None else fault_result.fault_transition,
+						False if fault_result is None else fault_result.fault_injected,
+						False if fault_result is None else fault_result.fault_recovered,
+						(),
+						renderer_call_witness,
 					)
 				)
 			except BaseException as error:
@@ -842,7 +880,22 @@ def run_selection(
 				message = "browser scenario failed: " + contract.scenario_id + ": " + str(error)
 				failures.append(BrowserSuiteError(message))
 				break
-		print("Browser-suite: PASS")
+		if screenshot_staging is not None and not failures:
+			try:
+				pending_screenshots = e2e_browser_screenshot_owner.pending_after_capture(
+					dependencies.root, screenshot_staging, origin, capture_dist_digest
+				)
+			except e2e_browser_screenshot_publisher.ScreenshotPublicationError as error:
+				raise BrowserSuiteError(str(error)) from error
+			scenario_receipts = [
+				dataclasses.replace(
+					receipt,
+					screenshot_artifacts=e2e_browser_screenshot_owner.artifact_evidence_for_scenario(
+						pending_screenshots, receipt.scenario_id
+					),
+				)
+				for receipt in scenario_receipts
+			]
 	except BaseException as error:
 		failures.append(error)
 	if lifecycle_launch_attempted:
@@ -893,36 +946,39 @@ def run_selection(
 		launched_inventory,
 		after_inventory,
 		tuple(scenario_receipts),
+		None,
+		tuple(sessions),
+		None if pending_screenshots is None else e2e_browser_screenshot_publisher.evidence_for(pending_screenshots),
 	)
+	if pending_screenshots is not None:
+		if dependencies._screenshot_collector is None:
+			failures.append(BrowserSuiteError("screenshot capture requires the lease-owned lifecycle"))
+		else:
+			try:
+				dependencies._screenshot_collector(pending_screenshots)
+			except BaseException as error:
+				failures.append(error)
+	# The pending bundle is intentionally retained only by the private collector.
+	pending_screenshots = None
 	try:
 		dependencies.receipt_reporter(receipt)
 	except BaseException as error:
 		failures.append(error)
 	raise_lifecycle_failures(failures)
 	return receipt
-
-
-#============================================
 def run_selected_scenario(
 	scenario: str,
 	dependencies: BrowserSuiteDependencies,
 ) -> BrowserSuiteReceipt:
 	"""Keep H0 callers on the default unfiltered canonical journey."""
 	selection = BrowserSuiteSelection(scenario, None, False)
-	result = run_selection(selection, dependencies)
-	return result
-
-
-#============================================
+	return run_selection(selection, dependencies)
 def main(argv: Sequence[str] | None = None) -> None:
 	"""Run a closed public selection through the shared production-stack owner."""
 	arguments = sys.argv[1:] if argv is None else argv
 	selection = parse_selection(arguments)
-	dependencies = default_dependencies()
-	run_selection(selection, dependencies)
-
-
-#============================================
+	import e2e_browser_suite_lifecycle
+	e2e_browser_suite_lifecycle.run_owned_selection(selection, default_dependencies)
 def command_line_main() -> None:
 	"""Present closed-selection errors without allocating a stack or printing a traceback."""
 	try:
@@ -930,7 +986,5 @@ def command_line_main() -> None:
 	except BrowserSuiteError as error:
 		print("ERROR: " + str(error), file=sys.stderr)
 		raise SystemExit(2) from error
-
-
 if __name__ == "__main__":
 	command_line_main()

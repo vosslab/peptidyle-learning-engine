@@ -9,7 +9,7 @@ use super::{account_fixture, composed_memory_router_and_store};
 
 #[tokio::test]
 async fn final_route_policy_allows_authenticated_account_presentation_read_and_save() {
-    let (app, store) = composed_memory_router_and_store(false);
+    let (app, store) = composed_memory_router_and_store();
     let user = UserId::from_uuid(uuid::Uuid::from_u128(0x936));
     account_fixture::provision_account(store.as_ref(), user, "Presentation User").await;
     let account_secret = [0xa7; 32];
