@@ -1,46 +1,31 @@
 // Production-stack instructor authoring journey. Product state is created through visible PLE UI.
+//
+// Selector contract:
+// - src/wasm/context.tsx:46 owns the WebAssembly runtime status label and data attribute.
+// - src/features/flat_question_authoring/flat_question_editor_page.tsx:535 owns the editor fields,
+//   publication buttons, and published status.
+// - src/pages/library_page.tsx:117 and src/pages/problem_detail_page.tsx:24 own library search,
+//   question cards, and prompt regions.
+// - src/pages/course_list_page.tsx:330, src/pages/course_assignments_page.tsx:324, and
+//   src/pages/assignment_editor_page.tsx:481 own course and assignment authoring controls.
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
-import { writeFileSync } from "node:fs";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { liveDemoOriginReceiptPathFromEnvironment } from "../browser_suite_live_config";
 import {
   chooseSeededIdentity,
+  configureContextAndPage,
   observeContextOrigins,
+  relativeIsoDate,
   requireScenarioInput,
   restoreViewportOrigin,
   selectVisibleCourse,
+  writeOriginReceipt,
 } from "./real_stack_ui";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 
 const maryEmail = "mary.okafor@live-demo.ple.example";
 const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 300_000;
-
-function isoDate(offsetDays: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
-}
-
-function configure(context: BrowserContext, page: Page): void {
-  context.setDefaultTimeout(actionTimeoutMs);
-  context.setDefaultNavigationTimeout(actionTimeoutMs);
-  page.setDefaultTimeout(actionTimeoutMs);
-  page.setDefaultNavigationTimeout(actionTimeoutMs);
-}
-
-function writeOriginReceipt(pageOrigins: Set<string>, requestOrigins: Set<string>): void {
-  const receiptPath = liveDemoOriginReceiptPathFromEnvironment(process.env);
-  writeFileSync(
-    receiptPath,
-    JSON.stringify({
-      pageOrigins: [...pageOrigins].sort(),
-      requestOrigins: [...requestOrigins].sort(),
-    }),
-    { encoding: "ascii", flag: "wx", mode: 0o600 },
-  );
-}
 
 async function captureInstructorState(
   page: Page,
@@ -86,7 +71,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
       contexts.push(initialContext);
       observeContextOrigins(initialContext, pageOrigins, requestOrigins);
       const elena = await initialContext.newPage();
-      configure(initialContext, elena);
+      configureContextAndPage(initialContext, elena, actionTimeoutMs);
 
       await chooseSeededIdentity(elena, /Elena Rivera/u);
       await selectVisibleCourse(elena, "Biochemistry Base Course");
@@ -162,8 +147,8 @@ test.describe("instructor authoring on the production PLE stack", () => {
       ).toBeVisible();
       await elena.getByRole("link", { name: "Courses" }).click();
       await elena.getByLabel("Course title").fill(courseTitle);
-      await elena.getByLabel("Start date").fill(isoDate(-30));
-      await elena.getByLabel("End date").fill(isoDate(365));
+      await elena.getByLabel("Start date").fill(relativeIsoDate(-30));
+      await elena.getByLabel("End date").fill(relativeIsoDate(365));
       await elena.getByLabel("Time zone (IANA)").fill("America/Chicago");
       await elena.getByRole("button", { name: "Create course" }).click();
       const courseCard = elena
@@ -271,7 +256,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
       contexts.push(freshElenaContext);
       observeContextOrigins(freshElenaContext, pageOrigins, requestOrigins);
       const freshElena = await freshElenaContext.newPage();
-      configure(freshElenaContext, freshElena);
+      configureContextAndPage(freshElenaContext, freshElena, actionTimeoutMs);
       await chooseSeededIdentity(freshElena, /Elena Rivera/u);
       await selectVisibleCourse(freshElena, courseTitle);
       await freshElena.getByRole("link", { name: "Assignments" }).click();

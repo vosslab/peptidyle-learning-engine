@@ -35,8 +35,10 @@ The authentication completion pages, invitation redemption, and student run page
 instructor-workspace gallery. The approved end-to-end teaching loop remains in
 [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md) and [STUDENT_GUIDE.md](STUDENT_GUIDE.md).
 
-The committed files are owned by `tests/playwright/ui_corpus_manifest.ts`, the sole screenshot
-ownership authority. A screenshot is acceptance evidence only after a fresh capture and inspection;
+`tests/e2e/browser_screenshot_corpus.json` owns the committed artifact corpus.
+`tests/playwright/ui_corpus_manifest.ts` and
+`tests/e2e/e2e_browser_screenshot_contract.py` strictly consume that source.
+A screenshot is acceptance evidence only after a fresh capture and inspection;
 the retained gallery does not claim that a current implementation has passed its acceptance gate.
 Keep private instructor evidence separate from public or learner evidence under `docs/screenshots/`.
 
@@ -69,27 +71,18 @@ course theme or teaching behavior.
 
 ## Refreshing the corpus
 
-Run the repository-owned capture launcher from the repository root:
+Run the repository-owned publication gate from the repository root whenever an
+instructor UI, corpus, or viewport change requires fresh visual evidence:
 
 ```bash
-node tests/playwright/capture_instructor_page_visuals.mjs
+./capture_screenshots.sh
 ```
 
-The launcher builds and serves the current browser application, creates a private temporary capture
-directory, runs the demo instructor with its deterministic sample data, verifies the exact screenshot
-set and each manifest-owned dimension, and atomically refreshes `docs/screenshots/instructor/`. The
-capture test is opt-in, so the ordinary browser suite checks its code without rewriting documentation
+The gate uses the fixed real-stack browser owner, stages the dynamic
+manifest-owned corpus, verifies origin and provenance, and atomically publishes
+the resulting `docs/screenshots/` artifacts. `./all_test.sh` exercises the
+same stack's behavior and contract gates without rewriting documentation
 assets.
-
-For the Validation test suite, use the same capture and validation path without refreshing the
-retained screenshots:
-
-```bash
-node tests/playwright/capture_instructor_page_visuals.mjs --verify-only
-```
-
-`--verify-only` creates a mode-0700 directory under `/private/tmp`, validates the capture there,
-and removes it after the check. It never writes `docs/screenshots/`.
 
 Review the regenerated images together after shared layout, theme, typography, or navigation changes.
 Behavior-focused browser tests remain the authority for interaction, authorization, answer secrecy,

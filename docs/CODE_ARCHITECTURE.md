@@ -217,8 +217,10 @@ Instructor POST /grade-export.csv (empty body)
 Totals use one scheme snapshot and never ask the browser to recompute a score. The compact totals
 response omits email and raw learner-summary data. Export rows may carry ephemeral roster email and
 display name for the direct instructor, while `course_total_export_audit` stores only course, actor,
-revision, mode, rounding, row count, and timestamps. The local full-stack demo, live PostgreSQL and
-browser evidence, and all seven aggregate acceptance lanes are green; this is the accepted S6
+revision, mode, rounding, row count, and timestamps. Connected evidence runs
+under the fixed `ple-live-demo-browser` owner: one canonical production-browser
+invocation is followed serially by the distinct WebWork renderer and
+two-API/one-PostgreSQL replica service oracles. This is the accepted S6
 capability boundary.
 
 ## Learner disclosure and progress projection
@@ -378,11 +380,11 @@ names. Read-only commands may inspect a named project. Default mutations are
 restricted to fixed owner policies. A separate closed disposable-owner
 adapter (`python3 -m local_stack_control._consumer_cli`) forms temporary service
 targets only from a private mode-0600 manifest and a runner-held cleanup
-capability. The retained narrow database/service owners are `course-appearance`,
-`live-demo-baseline`, `database-baseline`, `wp-r2-postgres-rls`, and
-`wp-rc8-postgres-outbox`. Browser, WebWork, and replica profiles instead share
-the fixed `live-demo-browser` owner; each profile fixes its Compose files and
-capabilities before any action is formed. `live-demo-browser` is the
+capability. The retained narrow release/service owners are `course-appearance`,
+`live-demo-baseline`, `wp-r2-postgres-rls`, and `wp-rc8-postgres-outbox`.
+Browser, WebWork, replica, and `DATABASE_BASELINE` profiles share the fixed
+`live-demo-browser` owner; each profile fixes its Compose files and capabilities
+before any action is formed. `live-demo-browser` is the
 owner-locked, disposable HTTPS production-auth E2E and developer session; it is neither a
 caller-selected local target nor a public production deployment. The adapter
 allows scoped Compose actions, diagnostics, or the policy-declared outage action,
@@ -393,11 +395,33 @@ discovery and cleanup primitives while retaining their private inputs, fixed-por
 checks, visible-action evidence, and report boundaries. All three use the fixed
 `ple-live-demo-browser` lifecycle and seeded production authentication.
 
-`python3 local_stack.py acceptance` is the public aggregate acceptance
-entry point. It delegates stack-conflict preflight and child-environment
-sanitization to the controller, then invokes `local_stack_control/acceptance_lanes.py`. That Python
-module keeps the fixed fail-fast browser and real-stack sequence but does not duplicate lifecycle
-policy. The retained shell validation-lane entry point is only a compatibility `exec` facade.
+The `DATABASE_BASELINE` profile is a browser-free PostgreSQL oracle under that
+same fixed `ple-live-demo-browser` lease and project. It runs serially and
+resets the owner afterward; it is not an independently named stack.
+
+### Assignment delivery preview
+
+The preview plane keeps delivery-policy authority on the server. Its route
+authenticates the direct instructor and binds the requested course before it
+decodes a request. A synthetic or derived subject is identity-free. The server
+then owns the ordered S5 authorization, S3 effective-policy resolution, and S4
+disclosure projection. A successful derived preview records exactly one
+PII-minimal audit; synthetic and denied requests do not add a derived audit.
+The browser uses strict relative same-origin `no-store` transport and renders
+the returned result. The canonical real-stack scenario creates and changes the
+needed assignment, group, and policy state through visible PLE controls before
+asserting the instructor result, persistence, revision recovery, and access
+boundaries.
+
+`python3 local_stack.py acceptance` is the public aggregate acceptance entry
+point. It delegates stack-conflict preflight and child-environment
+sanitization to the controller, then invokes
+`local_stack_control/acceptance_lanes.py`. That Python module runs exactly one
+canonical production-browser invocation, followed serially by the distinct
+browser-free WebWork renderer and two-API/one-PostgreSQL replica service
+oracles under the fixed `ple-live-demo-browser` owner; it does not duplicate
+lifecycle policy. The retained shell validation-lane entry point is only a
+compatibility `exec` facade.
 
 `deploy/opentofu/` identifies the production deployment target:
 CloudFront and WAF at the edge, a CloudFront-restricted application load
@@ -417,9 +441,11 @@ evidence that an AWS account has been provisioned or operated correctly.
   require the disposable acceptance database. Their exact selectors run from
   [tests/e2e/e2e_database_baseline.sh](../tests/e2e/e2e_database_baseline.sh),
   which is the database-baseline runner rather than a fast offline gate.
-- [tests/playwright/](../tests/playwright/) exercises built browser behavior and
-  accessibility over HTTP. Its normal suite is distinct from the opt-in live
-  aggregate and lane runner.
+- [tests/playwright/](../tests/playwright/) contains production-browser
+  scenarios and accessibility checks. Every Playwright E2E selection runs only
+  through [run_playwright_tests.sh](../run_playwright_tests.sh) and its fixed
+  owner; aggregate acceptance invokes the canonical scenario catalog once,
+  then runs its distinct browser-free service oracles serially.
 - [tests/e2e/](../tests/e2e/) contains disposable PostgreSQL, replica,
   WebAssembly, local-stack, and publication evidence.
 - `tests/test_local_stack_control.py` is an offline behavior suite for typed

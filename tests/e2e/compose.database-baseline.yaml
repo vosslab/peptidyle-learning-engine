@@ -9,7 +9,7 @@ x-ple-disposable-capability-label: &ple-disposable-capability-label
   org.peptidyle.disposable.capability-sha256: "${PLE_DISPOSABLE_CAPABILITY_SHA256:?set by the disposable owner}"
 
 x-ple-e2e-owner-label: &ple-e2e-owner-label
-  org.peptidyle.e2e.owner: "${PLE_E2E_OWNER:?set by the fixed browser-suite owner}"
+  org.peptidyle.e2e.owner: "${PLE_E2E_OWNER:-database-baseline}"
 
 services:
   postgres:

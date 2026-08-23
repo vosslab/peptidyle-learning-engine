@@ -1,15 +1,26 @@
 // Connected WebWork delivery proof. All teaching and learner state uses the visible PLE UI.
+//
+// Selector contract:
+// - src/pages/library_page.tsx:117 owns published-question search, cards, and question IDs.
+// - src/pages/course_list_page.tsx:330, src/pages/course_assignments_page.tsx:324, and
+//   src/pages/assignment_editor_page.tsx:481 own course and assignment creation controls.
+// - src/pages/course_roster_page.tsx:423 owns student invitation fields and the invitation link.
+// - src/pages/course_invitation_page.tsx:62 and src/pages/assignment_overview_page.tsx:114 own
+//   learner claiming and practice entry.
+// - src/pages/run_page.tsx:387 and src/components/responses/common.tsx:301 own run visibility,
+//   answer controls, feedback, and completion navigation.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { writeFileSync } from "node:fs";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { liveDemoOriginReceiptPathFromEnvironment } from "../browser_suite_live_config";
 import {
   chooseSeededIdentity,
+  configureContextAndPage,
   observeContextOrigins,
+  relativeIsoDate,
   requireScenarioInput,
   selectVisibleCourse,
   signOutVisible,
+  writeOriginReceipt,
 } from "./real_stack_ui";
 import {
   requireWebworkCatalogBaselineInput,
@@ -20,30 +31,6 @@ const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 360_000;
 const maryEmail = "mary.okafor@live-demo.ple.example";
 const contextOptions = { viewport: { width: 1280, height: 800 }, ignoreHTTPSErrors: true };
-
-function isoDate(offsetDays: number): string {
-  const value = new Date();
-  value.setDate(value.getDate() + offsetDays);
-  return value.toISOString().slice(0, 10);
-}
-
-function configure(context: BrowserContext, page: Page): void {
-  context.setDefaultTimeout(actionTimeoutMs);
-  context.setDefaultNavigationTimeout(actionTimeoutMs);
-  page.setDefaultTimeout(actionTimeoutMs);
-  page.setDefaultNavigationTimeout(actionTimeoutMs);
-}
-
-function writeOriginReceipt(pageOrigins: Set<string>, requestOrigins: Set<string>): void {
-  writeFileSync(
-    liveDemoOriginReceiptPathFromEnvironment(process.env),
-    JSON.stringify({
-      pageOrigins: [...pageOrigins].sort(),
-      requestOrigins: [...requestOrigins].sort(),
-    }),
-    { encoding: "ascii", flag: "wx", mode: 0o600 },
-  );
-}
 
 async function findCatalogQuestion(page: Page, title: string, questionId: string): Promise<void> {
   await page.getByRole("link", { name: "Library", exact: true }).click();
@@ -63,8 +50,8 @@ async function createCourseAssignmentAndInvitation(
 ): Promise<string> {
   await page.getByRole("link", { name: "Courses", exact: true }).click();
   await page.getByLabel("Course title").fill(courseTitle);
-  await page.getByLabel("Start date").fill(isoDate(-30));
-  await page.getByLabel("End date").fill(isoDate(365));
+  await page.getByLabel("Start date").fill(relativeIsoDate(-30));
+  await page.getByLabel("End date").fill(relativeIsoDate(365));
   await page.getByLabel("Time zone (IANA)").fill("America/Chicago");
   await page.getByRole("button", { name: "Create course", exact: true }).click();
   const course = page
@@ -188,8 +175,8 @@ test("WebWork delivery: Elena assigns reviewed catalog material and Mary complet
     for (const context of contexts) observeContextOrigins(context, pageOrigins, requestOrigins);
     const elena = await elenaContext.newPage();
     const mary = await maryContext.newPage();
-    configure(elenaContext, elena);
-    configure(maryContext, mary);
+    configureContextAndPage(elenaContext, elena, actionTimeoutMs);
+    configureContextAndPage(maryContext, mary, actionTimeoutMs);
 
     await chooseSeededIdentity(elena, /Elena Rivera/u);
     await selectVisibleCourse(elena, "Biochemistry Base Course");
@@ -218,7 +205,7 @@ test("WebWork delivery: Elena assigns reviewed catalog material and Mary complet
     observeContextOrigins(freshMaryContext, pageOrigins, requestOrigins);
     expect(await freshMaryContext.storageState()).toEqual({ cookies: [], origins: [] });
     const freshMary = await freshMaryContext.newPage();
-    configure(freshMaryContext, freshMary);
+    configureContextAndPage(freshMaryContext, freshMary, actionTimeoutMs);
     await observeCompletionInFreshSession(freshMary, courseTitle, assignmentTitle);
     await signOutVisible(freshMary);
     await freshMaryContext.close();

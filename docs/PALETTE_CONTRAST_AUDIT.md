@@ -74,28 +74,25 @@ course-scope CSS, and component styles. The durable behavior gates are:
   checks the exact 15 IDs, complete tokens, 5.5:1 text pairs, and 3:1
   focus/boundary pairs directly from catalog values.
 - The canonical real-stack `learner_delivery` scenario saves and reloads a
-  course appearance and publishes its nested production-origin screenshot.
-  The earlier 15-theme rendered comparison remains one-time evidence rather
-  than a parallel browser suite. Its accepted SHA-256 digests are recorded in the
-  [course-appearance implementation handoff](active_plans/workstreams/course_appearance_implementation.md#visual-artifacts).
+  course appearance through the production HTTPS origin. Screenshot publication
+  is a separate deliberate operation, not a parallel browser suite.
 
-Run the durable gates and, when a fresh visual artifact is needed, regenerate
-the ignored evidence:
+Run the durable behavior gates:
 
 ```bash
 node --import tsx --test tests/test_course_theme_scope.mjs
-npx playwright test tests/playwright/course_theme_scope.spec.ts
-PLE_CAPTURE_COURSE_APPEARANCE_VISUALS=1 \
-  npx playwright test tests/playwright/course_appearance_visual.spec.ts
+./run_playwright_tests.sh --scenario learner_delivery
 ```
 
-The direct command intentionally refreshes ignored generated evidence. For a disposable Validation
-test-suite check that validates PNG dimensions, nonempty regular files, and palette metrics without
-changing `generated/ui/`, run:
+When a fresh published screenshot corpus is deliberately required, run:
 
 ```bash
-node tests/playwright/verify_course_appearance_visuals.mjs
+./capture_screenshots.sh
 ```
+
+`./all_test.sh` validates the current system without publishing or rewriting screenshots. The
+earlier 15-theme rendered comparison is accepted historical evidence, not a generated verifier or
+current Validation command.
 
 This document therefore does not claim a single white-background ratio for
 every raw course swatch. The catalog table preserves the source palette; the

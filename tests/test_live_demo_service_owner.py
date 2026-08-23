@@ -904,7 +904,11 @@ def test_child_environment_has_one_service_oracle_control(
 	monkeypatch: pytest.MonkeyPatch,
 ) -> None:
 	"""Ambient PLE and Compose settings cannot add authority to an assertion child."""
+	monkeypatch.setenv("COMPOSE_FILE", "ambient-compose.yaml")
 	monkeypatch.setenv("NODE_TLS_REJECT_UNAUTHORIZED", "0")
+	monkeypatch.setenv("PLE_UNSAFE_CONTROL", "ambient")
+	monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "ambient")
+	monkeypatch.setenv("PYTHONUNBUFFERED", "ambient")
 	environment = service_owner.child_environment(tmp_path / "input.json")
 	controls = {
 		name: value
@@ -914,4 +918,11 @@ def test_child_environment_has_one_service_oracle_control(
 	assert controls == {
 		service_owner.ORACLE_INPUT_ENVIRONMENT_NAME: str(tmp_path / "input.json")
 	}
-	assert "NODE_TLS_REJECT_UNAUTHORIZED" not in environment
+	assert (
+		{
+			"PYTHONDONTWRITEBYTECODE": environment["PYTHONDONTWRITEBYTECODE"],
+			"PYTHONUNBUFFERED": environment["PYTHONUNBUFFERED"],
+		},
+		{"COMPOSE_FILE", "NODE_TLS_REJECT_UNAUTHORIZED", "PLE_UNSAFE_CONTROL"}
+		& set(environment),
+	) == (service_owner.OWNER_RUNTIME_PYTHON_ENVIRONMENT, set())

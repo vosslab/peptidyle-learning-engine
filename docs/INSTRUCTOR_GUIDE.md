@@ -126,8 +126,10 @@ failed, empty after drop, or zero possible points. The browser does not recomput
 name are used only in the ephemeral instructor download; the durable export audit stores no learner
 PII, only course, actor, revision, mode, rounding, row count, and timestamp metadata.
 
-This is an accepted capability. The full ordinary `containers` demo, live PostgreSQL and browser
-evidence, and all seven aggregate acceptance lanes are green.
+This is an accepted capability. Connected evidence runs under the fixed
+`ple-live-demo-browser` owner: one canonical production-browser invocation is
+followed serially by the distinct WebWork renderer and two-API/one-PostgreSQL
+replica service oracles.
 
 ## Review learning
 

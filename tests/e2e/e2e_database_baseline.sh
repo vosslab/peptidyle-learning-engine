@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # e2e_database_baseline.sh - disposable live PostgreSQL baseline acceptance gate.
 #
-# This runner owns a distinct Compose project, database, and volume. It never
-# connects to a developer's configured application database and removes only
-# its own project unless PLE_E2E_KEEP=1 is set for diagnosis.
+# The public entry delegates lifecycle ownership to the same fixed live-demo
+# lease used by browser acceptance. Its private child owns only the PostgreSQL
+# oracle and cannot select a Compose project.
 #
 # Run: bash tests/e2e/e2e_database_baseline.sh
 
@@ -12,10 +12,59 @@ set -euo pipefail
 SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$SCRIPT_DIRECTORY/../.." && pwd -P)"
 readonly REPO_ROOT
-readonly DATABASE_NAME="ple_e2e_baseline_$$"
+
+if [ "${1:-}" != "--owned-child" ]; then
+	cd "$REPO_ROOT"
+	exec python3 -m local_stack_control.database_baseline_owner
+fi
+shift
+[ "$#" -eq 0 ] || {
+	echo "database baseline E2E: private child received unexpected arguments" >&2
+	exit 2
+}
+OWNER_INPUT="${PLE_DATABASE_BASELINE_OWNER_INPUT:-}"
+WORKSPACE="${PLE_DATABASE_BASELINE_WORKSPACE:-}"
+E2E_PORT="${PLE_DATABASE_BASELINE_PORT:-}"
+[ -n "$OWNER_INPUT" ] && [ -n "$WORKSPACE" ] && [ -n "$E2E_PORT" ] || {
+	echo "database baseline E2E: private child requires owner-created input" >&2
+	exit 2
+}
+if ! python3 - "$OWNER_INPUT" "$WORKSPACE" "$E2E_PORT" <<'PY'
+import os
+import pathlib
+import stat
+import sys
+
+input_path = pathlib.Path(sys.argv[1])
+workspace = pathlib.Path(sys.argv[2])
+port_text = sys.argv[3]
+metadata = input_path.lstat()
+workspace_metadata = workspace.lstat()
+if (
+    not input_path.is_file()
+    or input_path.is_symlink()
+    or input_path.parent != workspace
+    or metadata.st_uid != os.getuid()
+    or stat.S_IMODE(metadata.st_mode) != 0o600
+    or workspace.is_symlink()
+    or not workspace.is_dir()
+    or workspace_metadata.st_uid != os.getuid()
+    or stat.S_IMODE(workspace_metadata.st_mode) != 0o700
+    or not port_text.isdecimal()
+    or not 1024 <= int(port_text) <= 65535
+):
+    raise SystemExit(1)
+PY
+then
+	echo "database baseline E2E: private child owner input is invalid" >&2
+	exit 2
+fi
+unset PLE_DATABASE_BASELINE_OWNER_INPUT PLE_DATABASE_BASELINE_WORKSPACE PLE_DATABASE_BASELINE_PORT
+
+readonly DATABASE_NAME="ple_e2e_baseline"
 readonly TENANT_A="00000000-0000-4000-8000-0000000000a1"
 readonly TENANT_B="00000000-0000-4000-8000-0000000000b2"
-readonly E2E_PORT="${PLE_DATABASE_E2E_PORT:-$((48000 + RANDOM % 1000))}"
+readonly E2E_PORT
 readonly POSTGRES_USER="ple_e2e_migrator"
 readonly POSTGRES_DB="postgres"
 
@@ -99,25 +148,17 @@ compose() {
 cleanup() {
 	local status="$?"
 	local cleanup_failed=0
-	if [ "${PLE_E2E_KEEP:-0}" = "1" ]; then
-		echo "database baseline E2E: preserving disposable project $PROJECT_NAME (manifest $MANIFEST_FILE)"
-	else
-		if [ -z "$POSTGRES_VOLUME_NAME" ] && [ "$COMPOSE_STARTED" = "1" ] && [ -n "$PROJECT_NAME" ]; then
-			capture_postgres_volume || cleanup_failed=1
-		fi
-		if [ "$COMPOSE_STARTED" = "1" ]; then
-			python3 -m local_stack_control._consumer_cli cleanup --manifest "$MANIFEST_FILE" \
-				|| cleanup_failed=1
-		fi
-		remove_postgres_volume || cleanup_failed=1
-		if [ "$cleanup_failed" = "0" ] && [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
-			rm -rf -- "$TEMP_DIR"
-		fi
-		if [ "$cleanup_failed" = "0" ]; then
-			[ -n "$ENV_FILE" ] && rm -f -- "$ENV_FILE"
-			[ -n "$MANIFEST_FILE" ] && rm -f -- "$MANIFEST_FILE"
-			[ -n "$CAPABILITY_FILE" ] && rm -f -- "$CAPABILITY_FILE"
-		fi
+	if [ "$COMPOSE_STARTED" = "1" ]; then
+		python3 -m local_stack_control._consumer_cli cleanup --manifest "$MANIFEST_FILE" \
+			|| cleanup_failed=1
+	fi
+	if [ "$cleanup_failed" = "0" ] && [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
+		rm -rf -- "$TEMP_DIR"
+	fi
+	if [ "$cleanup_failed" = "0" ]; then
+		[ -n "$ENV_FILE" ] && rm -f -- "$ENV_FILE"
+		[ -n "$MANIFEST_FILE" ] && rm -f -- "$MANIFEST_FILE"
+		[ -n "$CAPABILITY_FILE" ] && rm -f -- "$CAPABILITY_FILE"
 	fi
 	if [ "$cleanup_failed" = "1" ]; then
 		echo "database baseline E2E: cleanup failed; inspect project $PROJECT_NAME with manifest $MANIFEST_FILE" >&2
@@ -132,23 +173,24 @@ psql_in_container() {
 }
 
 write_private_target() {
-	local project_token capability_digest
-	project_token="$(python3 -c 'import secrets; print(secrets.token_hex(12))')"
-	PROJECT_NAME="ple_database_baseline_${project_token}"
-	ENV_FILE="$(mktemp "${TMPDIR:-/tmp}/ple-database-baseline.XXXXXX.env")"
-	MANIFEST_FILE="$(mktemp "${TMPDIR:-/tmp}/ple-database-baseline.XXXXXX.manifest")"
-	CAPABILITY_FILE="$(mktemp "${TMPDIR:-/tmp}/ple-database-baseline.XXXXXX.capability")"
-	capability_digest="$(python3 -c 'import hashlib, os, secrets, sys; raw = secrets.token_bytes(32); fd = os.open(sys.argv[1], os.O_WRONLY | os.O_TRUNC, 0o600); os.write(fd, raw); os.close(fd); os.chmod(sys.argv[1], 0o600); print(hashlib.sha256(raw).hexdigest())' "$CAPABILITY_FILE")"
-	chmod 600 "$ENV_FILE" "$MANIFEST_FILE" "$CAPABILITY_FILE"
+	local capability_digest
+	PROJECT_NAME="ple-live-demo-browser"
+	ENV_FILE="$WORKSPACE/database-baseline.env"
+	MANIFEST_FILE="$WORKSPACE/database-baseline.manifest"
+	CAPABILITY_FILE="$WORKSPACE/database-baseline.capability"
+	capability_digest="$(python3 -c 'import hashlib, os, secrets, sys; raw = secrets.token_bytes(32); fd = os.open(sys.argv[1], os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600); os.write(fd, raw); os.close(fd); print(hashlib.sha256(raw).hexdigest())' "$CAPABILITY_FILE")"
+	umask 077
 	printf '%s\n' \
 		"POSTGRES_USER=$POSTGRES_USER" \
 		"POSTGRES_PASSWORD=$POSTGRES_PASSWORD" \
 		"POSTGRES_DB=$POSTGRES_DB" \
 		"PLE_POSTGRES_HOST_PORT=$E2E_PORT" \
+		"PLE_E2E_OWNER=live-demo-browser" \
 		"PLE_DISPOSABLE_CAPABILITY_SHA256=$capability_digest" >"$ENV_FILE"
 	printf '%s\n' \
-		"OWNER=database-baseline" \
+		"OWNER=live-demo-browser" \
 		"PROJECT=$PROJECT_NAME" \
+		"PROFILE=database_baseline" \
 		"ENV_FILE=$ENV_FILE" \
 		"CAPABILITY_FILE=$CAPABILITY_FILE" >"$MANIFEST_FILE"
 }
@@ -514,7 +556,8 @@ run_live_cargo_test "T3 preview plane authorization, atomic audit, and identity-
 	postgres_preview_plane_live_oracle_is_authorized_atomic_and_identity_free \
 	-- --ignored --exact --test-threads=1
 
-TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ple-database-baseline.XXXXXX")"
+TEMP_DIR="$WORKSPACE/migration-checksum"
+mkdir "$TEMP_DIR"
 cp -R "$REPO_ROOT/schemas/migrations" "$TEMP_DIR/migrations"
 first_migration="$(find "$TEMP_DIR/migrations" -maxdepth 1 -type f -name '*.sql' | sort | head -n 1)"
 [ -n "$first_migration" ] || fail "copied migration directory is empty"

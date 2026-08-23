@@ -1,43 +1,30 @@
 // Real-stack issued-work contract: visible replacement changes future runs, not issued work.
+//
+// Selector contract:
+// - src/features/flat_question_authoring/flat_question_editor_page.tsx:535 owns question editing,
+//   publication, and the question field labels.
+// - src/pages/course_list_page.tsx:330 and src/pages/course_assignments_page.tsx:324 own course
+//   creation and assignment navigation.
+// - src/pages/assignment_editor_page.tsx:481 and src/pages/course_roster_page.tsx:423 own
+//   assignment teaching settings and invitation controls.
+// - src/pages/assignment_overview_page.tsx:114 and src/pages/run_page.tsx:387 own learner
+//   assignment and attempt surfaces.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { writeFileSync } from "node:fs";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { liveDemoOriginReceiptPathFromEnvironment } from "../browser_suite_live_config";
 import {
   chooseSeededIdentity,
+  configureContextAndPage,
   observeContextOrigins,
+  relativeIsoDate,
   requireScenarioInput,
   selectVisibleCourse,
+  writeOriginReceipt,
 } from "./real_stack_ui";
 
 const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 300_000;
 const maryEmail = "mary.okafor@live-demo.ple.example";
-
-function isoDate(offsetDays: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
-}
-
-function configure(context: BrowserContext, page: Page): void {
-  context.setDefaultTimeout(actionTimeoutMs);
-  context.setDefaultNavigationTimeout(actionTimeoutMs);
-  page.setDefaultTimeout(actionTimeoutMs);
-  page.setDefaultNavigationTimeout(actionTimeoutMs);
-}
-
-function writeOriginReceipt(pageOrigins: Set<string>, requestOrigins: Set<string>): void {
-  writeFileSync(
-    liveDemoOriginReceiptPathFromEnvironment(process.env),
-    JSON.stringify({
-      pageOrigins: [...pageOrigins].sort(),
-      requestOrigins: [...requestOrigins].sort(),
-    }),
-    { encoding: "ascii", flag: "wx", mode: 0o600 },
-  );
-}
 
 async function createPublishedQuestion(
   page: Page,
@@ -79,8 +66,8 @@ async function createPublishedAssignmentAndInvitation(
 ): Promise<string> {
   await page.getByRole("link", { name: "Courses", exact: true }).click();
   await page.getByLabel("Course title").fill(courseTitle);
-  await page.getByLabel("Start date").fill(isoDate(-30));
-  await page.getByLabel("End date").fill(isoDate(365));
+  await page.getByLabel("Start date").fill(relativeIsoDate(-30));
+  await page.getByLabel("End date").fill(relativeIsoDate(365));
   await page.getByLabel("Time zone (IANA)").fill("America/Chicago");
   await page.getByRole("button", { name: "Create course", exact: true }).click();
   const courseCard = page
@@ -224,9 +211,9 @@ test.describe("assignment question replacement on the production PLE stack", () 
       const elena = await elenaContext.newPage();
       const mary = await maryContext.newPage();
       const replacingElena = await replacingElenaContext.newPage();
-      configure(elenaContext, elena);
-      configure(maryContext, mary);
-      configure(replacingElenaContext, replacingElena);
+      configureContextAndPage(elenaContext, elena, actionTimeoutMs);
+      configureContextAndPage(maryContext, mary, actionTimeoutMs);
+      configureContextAndPage(replacingElenaContext, replacingElena, actionTimeoutMs);
 
       await chooseSeededIdentity(elena, /Elena Rivera/u);
       await selectVisibleCourse(elena, "Biochemistry Base Course");

@@ -10,13 +10,14 @@ assignment platform: the renderer is a private stateless engine, not WebWork2.
 Build and open the local stack:
 
 ```bash
-source source_me.sh && python3 local_stack.py start
-source source_me.sh && python3 local_stack.py start --no-open
+./run_live_demo.sh
 ```
 
-The first command opens the canonical HTTPS origin. The second keeps the
-browser closed and prints the origin. Follow the visible seeded production-auth
-flow; this entry point has no alternate credential form or auth switch.
+The root shortcut delegates to the fixed local-stack owner and opens the
+canonical HTTPS origin. For a headless alternative, run
+`./run_live_demo.sh --no-open`; it keeps the browser closed and prints the
+origin. Follow the visible seeded production-auth flow; this entry point has no
+alternate credential form or auth switch.
 
 When creating a teaching course, enter its title, inclusive start and end calendar dates, and the
 exact case-sensitive IANA time zone used for that course (for example, `America/Chicago`). The form
@@ -62,7 +63,7 @@ and waits for HTTPS readiness. `stop` authenticates to the active supervisor,
 then verifies owner-scoped cleanup.
 
 ```bash
-source source_me.sh && python3 local_stack.py stop
+./run_live_demo.sh stop
 ```
 
 Developer and browser tests serialize through the same fixed owner lease. Do not
@@ -74,14 +75,17 @@ resources. Do not use a project selector or global Podman cleanup to recover a
 developer session; preserve the private failure receipt and follow
 [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
-Run the complete live browser Validation test suite through its canonical owner:
+Run the complete connected Validation test suite through its canonical owner:
 
 ```bash
 source source_me.sh && python3 local_stack.py acceptance
 ```
 
-This is the only public aggregate command; it requires every live lane to
-finish without skips and preserve a conflicting caller-owned stack by refusing before mutation.
+This is the public aggregate command. It runs exactly one canonical
+production-browser invocation first, then runs the distinct browser-free
+WebWork renderer and two-API/one-PostgreSQL replica service oracles serially,
+all under the fixed owner. Every required check must finish without skips. A
+conflicting caller-owned stack is preserved by refusing before mutation.
 
 ## Instructor and student guides
 
@@ -107,10 +111,13 @@ The instructor course-grade boundary is mounted at these same-origin paths:
 - `POST /api/courses/{course}/grade-export.csv` accepts an empty body and synchronously returns a
   bounded CSV. The response is no-store; only PII-free audit metadata is durable.
 
-These routes are the accepted WP-PROF-S6 capability. The ordinary `containers` demo, live
-PostgreSQL/browser evidence, and all seven aggregate acceptance lanes are green. Use the local
-full-stack demo when testing the networked service boundary; fast offline checks remain deterministic
-test gates only.
+These routes are the accepted WP-PROF-S6 capability. The fixed
+`ple-live-demo-browser` production stack supplies the connected PostgreSQL and
+browser evidence. Its aggregate acceptance runs one canonical production
+browser invocation, followed serially by the distinct WebWork renderer and
+two-API/one-PostgreSQL replica service oracles. Use the local full-stack demo
+when testing the networked service boundary; fast offline checks remain
+deterministic test gates only.
 
 ## Configuration preflight
 
@@ -124,11 +131,11 @@ The normal typed lifecycle starts PLE with the private external PG renderer, wai
 render-and-grade probe, publishes only the exact two-assignment Chapter 1 teaching corpus, and then
 starts the application. The browser
 communicates with PLE only; it does not receive renderer credentials, source, or upstream state.
-The renderer image must already be available locally under the reviewed name
-selected by `PLE_WEBWORK_RENDERER_IMAGE` (normally
-`localhost/pg-renderer:reviewed`), having been built or obtained from the
-separate `webwork-pg-renderer` project. Build that sibling under that designated
-name. The lifecycle resolves its OCI configuration ID before startup, confirms
+For the reviewed local selection (`localhost/pg-renderer:reviewed`), build-mode
+lifecycle startup reuses an existing image or reconstructs a missing image from
+the maintained sibling `webwork-pg-renderer` checkout. An immutable published
+selection is pulled by digest when absent. Read-only validation and skipped-build
+startup require the selected image to exist. The lifecycle resolves its OCI configuration ID before startup, confirms
 the renderer container uses the same ID, and atomically records the selected
 name plus ID as renderer-version provenance. A published deployment may select
 a pullable `repository@sha256:<64-lowercase-hex>` value through the same
@@ -148,7 +155,7 @@ require WebWork2 source pins, render-course credentials, or a MariaDB password.
 ./check_codebase.sh        # vendored TypeScript and browser gate
 ./check_rust.sh            # repository-owned Cargo and Rust gate
 ./run_playwright_tests.sh --build       # canonical production-browser selection
-source source_me.sh && python3 local_stack.py acceptance   # complete no-skip validation suite
+source source_me.sh && python3 local_stack.py acceptance   # complete connected validation suite
 ```
 
 The focused Playwright command owns a fresh disposable HTTPS PLE stack and runs production `dist/`
@@ -156,10 +163,11 @@ through the gateway, real authentication and authorization, API, PostgreSQL, Min
 renderer. It finishes with zero skipped tests and creates its scenario state through visible PLE
 workflows. Use it for a selected browser behavior without reusing a locally running stack.
 
-`source source_me.sh && python3 local_stack.py acceptance` is the complete Playwright Validation test suite.
-It invokes the canonical browser selection and the browser-free service lanes;
-every required lane must pass with no skips. Browser selection remains through
-`run_playwright_tests.sh`, which owns the production HTTPS stack and cleanup.
+`source source_me.sh && python3 local_stack.py acceptance` is the complete connected Validation test
+suite. It invokes exactly one canonical production-browser selection, followed serially by the
+browser-free WebWork renderer and two-API/one-PostgreSQL replica service oracles; every required
+check must pass with no skips. Browser selection remains through `run_playwright_tests.sh`, which
+owns the production HTTPS stack and cleanup.
 
 Use a focused `cargo test -p <package> <filter>` while editing one Rust behavior, then run
 `./check_rust.sh` for the complete offline Rust acceptance gate.

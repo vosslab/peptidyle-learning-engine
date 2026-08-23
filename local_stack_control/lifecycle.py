@@ -322,11 +322,7 @@ def validate_lifecycle(
 	local_stack_control.renderer.inspect_renderer_oci_id(
 		runner, repo_root, values["PLE_WEBWORK_RENDERER_IMAGE"], child_environment(selected)
 	)
-	compose_result = runner.run(
-		local_stack_control.compose.compose_argv(selected, ["config"]), child_environment(selected), repo_root
-	)
-	require_command(compose_result, "Compose configuration validation")
-	return compose_result.stdout
+	return validate_compose(selected, runner, repo_root)
 
 
 #============================================
@@ -346,10 +342,10 @@ def start_lifecycle(
 	local_stack_control.lifecycle_validation.require_mutation_engine(runner, repo_root, True)
 	validate_compose(selected, runner, repo_root)
 	environment = child_environment(selected)
-	oci_id = local_stack_control.renderer.inspect_renderer_oci_id(
-		runner, repo_root, values["PLE_WEBWORK_RENDERER_IMAGE"], environment
-	)
 	build_artifacts(runner, repo_root, options)
+	oci_id = local_stack_control.renderer.ensure_renderer_oci_id(
+		runner, repo_root, values["PLE_WEBWORK_RENDERER_IMAGE"], environment, options.build
+	)
 	# Reconcile the complete selected project before starting dependency stages.
 	# Podman Compose applies --remove-orphans to the services named by a partial
 	# `up`; using it with the later --no-deps application subset can remove the
@@ -444,12 +440,13 @@ def restart_lifecycle(
 
 
 #============================================
-def validate_compose(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, repo_root: pathlib.Path) -> None:
-	"""Validate selected Compose interpolation after the mutation engine is proven."""
+def validate_compose(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, repo_root: pathlib.Path) -> str:
+	"""Validate selected Compose interpolation and return its rendered topology."""
 	compose_result = runner.run(
 		local_stack_control.compose.compose_argv(target, ["config"]), child_environment(target), repo_root
 	)
 	require_command(compose_result, "Compose configuration validation")
+	return compose_result.stdout
 
 
 #============================================

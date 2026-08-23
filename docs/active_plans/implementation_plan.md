@@ -30,10 +30,12 @@ recorded in [implementation_status.md](implementation_status.md) and the changel
 accepted on 2026-08-15. The professor roadmap records M0 as accepted from the four evidenced
 release-truth packages; its subsequent work follows the professor dependency queue.
 
-The separately active `docs/active_plans/peptidyle-walkthrough-plan.md` owns its corrected M8-M11
-acceptance sequence. It proves visible instructor course, local roster, and corpus-backed assignment
-setup followed by student keyboard take/score/repeat. Production email and canonical onboarding are
-separate release work and do not gate that walkthrough.
+The accepted historical [peptidyle-walkthrough-plan.md](peptidyle-walkthrough-plan.md) preserves its
+corrected M8-M11 evidence: visible instructor course, local roster, corpus-backed assignment setup,
+and student keyboard take/score/repeat. Current browser evidence is owned by the
+[real_stack_browser_suite_plan.md](active/real_stack_browser_suite_plan.md); the sole current-package
+handoff remains in [implementation_status.md](implementation_status.md). Production email and
+canonical onboarding remain separate release work and do not gate that historical walkthrough.
 
 The completed local-stack lifecycle controller foundation is recorded in
 `docs/active_plans/workstreams/local_stack_controller_implementation.md`.
@@ -476,8 +478,9 @@ activation leaves the asset unavailable rather than public or partially committe
 
 Crates and their forbidden dependencies:
 
-Each crate's dependency list is exhaustive: the allowed set is the whole set, so a `Cargo.toml`
-matching this column satisfies the boundary by construction.
+This table records the current designed dependencies rather than an exhaustive permanent allowlist;
+composition boundaries are permanent only where the architecture requires them, with the exact
+`crates/wasm` dependency closure retained as a security gate that keeps answer-bearing grading outside browser builds.
 
 | Crate                                      | Owns                                                                                                                            | Depends only on                                                                 |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |

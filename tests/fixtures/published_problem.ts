@@ -1,4 +1,4 @@
-// Literal public fixture for narrow Node and legacy Playwright tests.
+// Literal public fixture for focused Node and Playwright boundary tests.
 //
 // This test-owned data is intentionally independent of Rust fixture generation,
 // the browser source tree, and every production build artifact. It carries no

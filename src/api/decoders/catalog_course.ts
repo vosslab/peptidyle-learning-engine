@@ -549,7 +549,7 @@ export function decodeCourseBannerCandidateReceipt(
   return { candidate: decodeUuid(field(record, "candidate", path), `${path}.candidate`) };
 }
 
-/** Strict atomic course-appearance update used by mocks and boundary tests. */
+/** Strict atomic course-appearance update at the request decoder boundary. */
 export function decodeCourseAppearanceUpdate(
   value: unknown,
   path = "request",

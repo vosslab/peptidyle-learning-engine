@@ -619,12 +619,33 @@ def compose_command(
 	disposable: local_stack_control.models.DisposableComposeTarget,
 	arguments: list[str],
 ) -> tuple[list[str], dict[str, str]]:
-	"""Form one safe generic Compose invocation for a proven target."""
-	if not disposable_policy(disposable).allows_generic_compose:
+	"""Form one policy-authorized Compose invocation for a proven target."""
+	policy = disposable_policy(disposable)
+	require_safe_compose_arguments(arguments)
+	if policy.owner == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
+		profile = live_demo_profile_policy(disposable)
+		if (
+			profile.profile is not local_stack_control.models.LiveDemoProfile.DATABASE_BASELINE
+			or "database_baseline_oracle" not in profile.child_capabilities
+		):
+			raise local_stack_control.models.ControllerError(
+				"this fixed live-demo profile cannot use generic Compose commands"
+			)
+		if arguments == ["up", "-d", "postgres"]:
+			pass
+		elif (
+			len(arguments) >= 5
+			and arguments[:4] == ["exec", "-T", "postgres", "psql"]
+		):
+			pass
+		else:
+			raise local_stack_control.models.ControllerError(
+				"database baseline Compose commands are limited to PostgreSQL startup and psql"
+			)
+	elif not policy.allows_generic_compose:
 		raise local_stack_control.models.ControllerError(
 			"this disposable owner cannot use generic Compose commands"
 		)
-	require_safe_compose_arguments(arguments)
 	argv = local_stack_control.compose.compose_argv(disposable.target, arguments)
 	environment = compose_environment(disposable)
 	return argv, environment

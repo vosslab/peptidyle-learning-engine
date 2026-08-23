@@ -158,7 +158,7 @@ authority.
 
 ```text
 src/
-+- api/             Strict decoders, HTTP client, generated contracts, and mocks
++- api/             Strict decoders, HTTP client, and generated contracts
 |  `- decoders/assignment_policy.ts Exact five-field assignment-policy decoder
 +- auth/            Account and course-session browser state
 +- components/      Reusable prompt, response, feedback, and accessibility UI
@@ -259,6 +259,7 @@ tests/
 +- test_local_stack_control.py Offline typed local-stack controller contracts
 +- test_*.mjs         Deterministic browser-contract checks without a browser
 +- playwright/        Production-browser scenarios and private live-validation helpers
+|  `- e2e/*.spec.ts    Catalog-owned scenarios selected by run_playwright_tests.sh
 +- e2e/               Generic disposable whole-system runners
 |  +- `compose.live-demo-browser.yaml` Owner-locked disposable production-auth/TLS E2E overlay; not an operator production deployment
 |  `- `Caddyfile.live-demo-browser` Owner-locked disposable production-auth/TLS E2E gateway; not an operator production deployment
@@ -285,22 +286,29 @@ docs/screenshots/
 `- shared/            Evidence shared by instructor and student surfaces
 ```
 
-`tests/playwright/ui_corpus_manifest.ts` is the sole screenshot ownership authority. The directories
-describe evidence boundaries; the manifest owns artifact names, routes, roles, pipelines, viewports,
-and evidence purposes. A retained image is not canonical acceptance evidence until V1 captures it
-from the real origin and its provenance verifier and visual review pass.
+`tests/e2e/browser_screenshot_corpus.json` is the sole screenshot ownership authority.
+`tests/playwright/ui_corpus_manifest.ts` and
+`tests/e2e/e2e_browser_screenshot_contract.py` strictly consume its artifact
+names, routes, roles, pipelines, viewports, and evidence purposes. The
+directories describe evidence boundaries. A retained image is not canonical
+acceptance evidence until V1 captures it from the real origin and its
+provenance verifier and visual review pass.
 
-`python3 local_stack.py acceptance` is the explicit live aggregate entry point. It
-hands lifecycle conflict detection and environment sanitization to the controller, then
-`local_stack_control/acceptance_lanes.py` runs the maintained browser and real-stack lanes in a
-fixed fail-fast order. `tests/playwright/run_validation_lanes.sh` is only a compatibility `exec`
-facade back to that public Python command. Those opt-in commands are live acceptance evidence, not
-part of the fast offline `pytest tests/` suite.
+`source source_me.sh && python3 local_stack.py acceptance` is the explicit live aggregate entry
+point. `local_stack_control/commands.py` owns conflict preflight and environment sanitization;
+`local_stack_control/acceptance_lanes.py` then runs the maintained browser and real-stack lanes in
+a fixed fail-fast order. These opt-in commands are live acceptance evidence, not part of the fast
+offline `pytest tests/` suite.
 
 `tests/e2e/e2e_database_baseline.sh` selects the ignored PostgreSQL catalog
 Store, disclosure, and qualitative plan suites by exact test name. It creates
-the disposable database baseline and is live acceptance evidence, not a fast
-offline test.
+the `DATABASE_BASELINE` profile of the fixed `ple-live-demo-browser` shared
+lease and project. It is live acceptance evidence, not a fast offline test.
+
+`./capture_screenshots.sh` is the explicit publication gate when UI, corpus,
+or viewport changes require fresh visual evidence. `./all_test.sh` validates
+the aggregate behavior and contracts without rewriting checked-in screenshots;
+both commands use the same fixed stack.
 
 ## Documentation map
 

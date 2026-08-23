@@ -37,7 +37,7 @@ export interface CatalogBrowsePage {
 }
 
 /**
- * The future generated client adapts to this narrow boundary. A hostile result is
+ * The production catalog repository adapts to this narrow boundary. A hostile result is
  * intentional: this module owns browser-side validation before any row reaches JSX.
  */
 export interface CatalogBrowseRepository {
@@ -352,81 +352,4 @@ export class CatalogBrowseSession {
       }
     }
   }
-}
-
-export interface CatalogSyntheticRepository extends CatalogBrowseRepository {
-  readonly requests: ReadonlyArray<Readonly<{ query: CatalogBrowseQuery; cursor: string | null }>>;
-}
-
-/** Deterministic, bounded test/mock source; it materializes rows only for requested pages. */
-export function createSyntheticCatalogRepository(
-  totalRows = 10_000,
-  pageSize = 40,
-): CatalogSyntheticRepository {
-  if (
-    !Number.isSafeInteger(totalRows) ||
-    totalRows < 0 ||
-    !Number.isSafeInteger(pageSize) ||
-    pageSize < 1 ||
-    pageSize > 100
-  ) {
-    throw new Error("synthetic catalog requires bounded integer sizes");
-  }
-  const requests: Array<Readonly<{ query: CatalogBrowseQuery; cursor: string | null }>> = [];
-  const aggregates: ReadonlyArray<CatalogFacetAggregate> = [
-    { group: "taxonomy", value: "Biochemistry", count: totalRows },
-    { group: "capability", value: "algorithmic", count: totalRows },
-    { group: "license", value: "CC BY 4.0", count: totalRows },
-    { group: "statistic", value: "k-anonymous", count: totalRows },
-  ];
-  const crockford = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-  function syntheticQuestionId(value: number): string {
-    let remaining = value;
-    let compact = "";
-    for (let index = 0; index < 6; index += 1) {
-      compact = `${crockford[remaining % 32] ?? "0"}${compact}`;
-      remaining = Math.floor(remaining / 32);
-    }
-    compact += crockford[value % 32] ?? "0";
-    return `${compact.slice(0, 3)}-${compact.slice(3)}`;
-  }
-  function parseCursor(cursor: string | null): number {
-    if (cursor === null) {
-      return 0;
-    }
-    const match = /^synthetic:(\d+)$/.exec(cursor);
-    if (match?.[1] === undefined) {
-      throw new Error("synthetic catalog received an invalid opaque cursor");
-    }
-    const start = Number(match[1]);
-    if (!Number.isSafeInteger(start) || start < 0 || start > totalRows) {
-      throw new Error("synthetic catalog cursor is out of range");
-    }
-    return start;
-  }
-  return {
-    requests,
-    search(query: CatalogBrowseQuery, cursor: string | null): Promise<unknown> {
-      requests.push({ query, cursor });
-      const start = parseCursor(cursor);
-      const end = Math.min(start + pageSize, totalRows);
-      const items = Array.from({ length: end - start }, (_, offset) => {
-        const number = start + offset + 1;
-        return {
-          displayId: syntheticQuestionId(number),
-          title: `Synthetic problem ${number}`,
-          summary: "A browser-safe synthetic catalog record for virtual-list behavior checks.",
-          byline: ["Synthetic Instructor"],
-          taxonomy: ["Biochemistry"],
-          capabilities: ["algorithmic"],
-          license: "CC BY 4.0",
-        } satisfies CatalogBrowseRow;
-      });
-      return Promise.resolve({
-        items,
-        nextCursor: end < totalRows ? `synthetic:${end}` : null,
-        aggregates,
-      } satisfies CatalogBrowsePage);
-    },
-  };
 }

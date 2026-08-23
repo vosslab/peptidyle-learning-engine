@@ -98,7 +98,7 @@ export interface ApiRuntimeProviderProps {
   readonly children: JSX.Element;
 }
 
-/** Makes the injected client available without exposing its mock implementation. */
+/** Makes the injected API client and query identities available to routed pages. */
 export function ApiRuntimeProvider(props: ApiRuntimeProviderProps): JSX.Element {
   return (
     <ApiRuntimeContext.Provider value={props.runtime}>{props.children}</ApiRuntimeContext.Provider>

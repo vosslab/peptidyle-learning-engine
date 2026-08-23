@@ -1,4 +1,4 @@
-// catalog_query.ts - one strict request boundary shared by live and mock catalog clients.
+// catalog_query.ts - one strict request boundary for the production client and boundary tests.
 
 import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery";
 

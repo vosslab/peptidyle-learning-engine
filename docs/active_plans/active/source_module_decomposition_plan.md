@@ -7,6 +7,13 @@ violations, stable facades preserve the public boundaries, and the permanent siz
 Independent PostgreSQL, server-security, provider-security, TypeScript/HCI, test, size-policy, and
 final architecture reviews found no unresolved P0/P1 issue.
 
+> **Historical/accepted plan notice (2026-08-22).** The commands below are dated implementation
+> evidence for this accepted decomposition, not the current validation runbook. Current Validation
+> starts with [`all_test.sh`](../../../all_test.sh) under
+> [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md); current browser evidence is owned by
+> [real_stack_browser_suite_plan.md](real_stack_browser_suite_plan.md). Preserve the historical
+> commands below rather than rewriting them to current command spellings.
+
 ## Context
 
 `docs/HUMAN_GUIDANCE.md` requires every maintained source file to stay below 1,000 lines by moving

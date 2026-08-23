@@ -104,7 +104,7 @@ active work package.
 | Repository documentation and hygiene       | `source source_me.sh && python3 -m pytest tests/`           | Fast Python hygiene and repository-rule checks.                                           |
 | Built-browser behavior                     | `./run_playwright_tests.sh --build`                         | A focused production `dist/` scenario through a fresh disposable HTTPS PLE stack.         |
 | Complete Playwright validation             | `source source_me.sh && python3 local_stack.py acceptance`  | One canonical real-stack browser lane plus browser-free service receipts. |
-| One browser scenario                       | `./run_playwright_tests.sh tests/playwright/<file>.spec.ts` | The selected production-browser scenario on a fresh disposable stack.                     |
+| One browser scenario                       | `./run_playwright_tests.sh tests/playwright/e2e/<file>.spec.ts` | The selected catalog-owned production-browser scenario on a fresh disposable stack.         |
 | Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                              | The named disposable whole-system oracle.                                                 |
 | Local stack diagnosis and lifecycle        | `source source_me.sh && python3 local_stack.py <command>`   | The scoped controller contract.                                                           |
 

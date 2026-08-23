@@ -66,6 +66,25 @@ def disposable(
 
 
 #============================================
+def database_baseline_disposable(
+	tmp_path: pathlib.Path,
+) -> local_stack_control.models.DisposableComposeTarget:
+	"""Build the fixed owner with only its PostgreSQL baseline profile."""
+	compose_file = tmp_path / "tests" / "e2e" / "compose.database-baseline.yaml"
+	compose_file.parent.mkdir(parents=True, exist_ok=True)
+	compose_file.write_text("services: {}\n", encoding="ascii")
+	selected = target(tmp_path, (compose_file.resolve(),))
+	return local_stack_control.models.DisposableComposeTarget(
+		target=selected,
+		owner_policy=local_stack_control.models.LIVE_DEMO_BROWSER_OWNER,
+		capability_file=tmp_path / "capability",
+		project_prefix=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+		private_environment_file=selected.env_file,
+		live_demo_profile=local_stack_control.models.LiveDemoProfile.DATABASE_BASELINE,
+	)
+
+
+#============================================
 def cleanup_disposable(
 	tmp_path: pathlib.Path,
 ) -> local_stack_control.models.DisposableComposeTarget:
@@ -196,6 +215,31 @@ def test_live_demo_browser_owns_only_typed_tls_launch_and_evidence_receipts(
 	assert environment["COMPOSE_PROJECT_NAME"] == "ple-live-demo-browser"
 	with pytest.raises(local_stack_control.models.ControllerError, match="generic Compose"):
 		local_stack_control.consumer.compose_command(selected, ["exec", "api", "env"])
+
+
+#============================================
+def test_database_baseline_profile_allows_only_its_postgres_oracle_commands(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The PostgreSQL-only profile cannot become an arbitrary fixed-stack shell."""
+	selected = database_baseline_disposable(tmp_path)
+	argv, environment = local_stack_control.consumer.compose_command(
+		selected, ["up", "-d", "postgres"]
+	)
+	assert argv[-3:] == ["up", "-d", "postgres"]
+	assert environment["COMPOSE_PROJECT_NAME"] == "ple-live-demo-browser"
+	argv, _ = local_stack_control.consumer.compose_command(
+		selected, ["exec", "-T", "postgres", "psql", "-d", "postgres", "-c", "SELECT 1"]
+	)
+	assert argv[-8:] == ["exec", "-T", "postgres", "psql", "-d", "postgres", "-c", "SELECT 1"]
+	for arguments in (
+		["up", "-d", "api"],
+		["restart", "postgres"],
+		["exec", "-T", "api", "psql", "-d", "postgres"],
+		["exec", "-T", "postgres", "sh"],
+	):
+		with pytest.raises(local_stack_control.models.ControllerError, match="database baseline Compose"):
+			local_stack_control.consumer.compose_command(selected, arguments)
 
 
 #============================================

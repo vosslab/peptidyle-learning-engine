@@ -275,9 +275,3 @@ export function decodeLearnerAssignmentDetail(
     ),
   };
 }
-
-/**
- * Decode the exact mutable assignment body before it leaves the browser and
- * when a mock validates a request. This keeps request and response drift
- * visible instead of silently dropping a new field.
- */

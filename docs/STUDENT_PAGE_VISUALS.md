@@ -47,24 +47,18 @@ portrait tablet, iPhone Pro, and square order.
 
 ## Refreshing evidence
 
-From the repository root, refresh the manifest-owned nested student artifacts and their provenance:
+From the repository root, publish fresh visual evidence whenever a student UI,
+corpus, or viewport change requires it:
 
 ```bash
-node tests/playwright/capture_student_access_visuals.mjs
+./capture_screenshots.sh
 ```
 
-The launcher builds and serves the current browser application, captures the deterministic demo
-student and sample data, and writes the manifest-owned files under `docs/screenshots/student/access/`
-with their provenance record.
-
-For Validation, exercise the same capture and checks without changing retained evidence:
-
-```bash
-node tests/playwright/capture_student_access_visuals.mjs --verify-only
-```
-
-`--verify-only` uses a private temporary directory under `/private/tmp`, removes it after checking,
-and does not write `docs/screenshots/` or the provenance record.
+The gate uses the fixed real-stack browser owner, stages the dynamic
+manifest-owned corpus, verifies origin and provenance, and atomically publishes
+the resulting `docs/screenshots/` artifacts. `./all_test.sh` exercises the
+same stack's behavior and contract gates without rewriting documentation
+assets.
 
 ## Planned surfaces
 
@@ -76,9 +70,11 @@ and does not write `docs/screenshots/` or the provenance record.
 | Roster denial probe | Student/access | No instructor transport | `docs/screenshots/student/access/` |
 | Gradebook denial probe | Student/access | No instructor transport | `docs/screenshots/student/access/` |
 
-The manifest at `tests/playwright/ui_corpus_manifest.ts` is the sole screenshot ownership authority.
-Capture pipelines must derive artifact names, role, route, viewport, and evidence purpose from that
-manifest; this page does not create a second list of executable ownership.
+`tests/e2e/browser_screenshot_corpus.json` is the sole screenshot ownership
+authority. `tests/playwright/ui_corpus_manifest.ts` and
+`tests/e2e/e2e_browser_screenshot_contract.py` strictly consume it; capture
+pipelines derive artifact names, role, route, viewport, and evidence purpose
+from it. This page does not create a second executable ownership list.
 
 ## Evidence boundaries
 

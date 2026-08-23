@@ -4,10 +4,55 @@
 
 ### Fixes and Maintenance
 
+- Split the canonical browser-suite owner into explicit launch, visible-scenario execution,
+  cleanup, receipt, and screenshot-transfer responsibilities. Shared Playwright helpers now own
+  timeout setup, relative dates, and origin receipts instead of duplicating those contracts across
+  production-stack scenarios.
+- Made build-mode local lifecycle startup self-sufficient after image pruning: it reconstructs the
+  canonical reviewed renderer from the maintained sibling checkout, or pulls a published renderer
+  only by immutable digest. Production-auth topology inspection remains read-only and renderer OCI
+  identity is still proven before any renderer container starts.
+- Applied the six-pass post-acceptance audit cleanup: removed unused controller parameters, made
+  permanent comments and developer callback contracts describe current behavior, documented each
+  production Playwright selector contract, pruned replica pytest assertions tied to SQL layout, and
+  routed the course-appearance audit through the canonical browser and screenshot front doors.
+- Made the external-SMTP overlay the sole Compose owner of the invitation-delivery worker. The
+  canonical non-SMTP browser stack now reconciles only services it can launch, while SMTP-selected
+  stacks retain the worker's complete runtime, security, network, and cleanup contract.
+- Started the persistent developer live-demo supervisor in its own session so the fixed
+  `ple-live-demo-browser` owner continues after the short-lived root start command exits.
+- Made the developer live-demo parent reap an early-exited process-like supervisor immediately
+  when it has not published its authenticated readiness receipt, then run the established exact
+  fixed-owner recovery sequence instead of consuming the full start budget.
+- Derived the live-demo developer start and supervisor-termination budgets from the canonical
+  240-second lifecycle launch budget plus a bounded handoff/cleanup margin, while retaining the
+  20-second authenticated stop budget so a clean production build can finish before recovery owns
+  its fixed disposable stack.
+- Added root `run_live_demo.sh` shortcut for the canonical production build,
+  readiness, HTTPS open, headless start, and owner-scoped stop commands.
+- Pinned the live-demo service-owner child environments to unbuffered Python with bytecode writing
+  disabled, preserving the closed runtime allowlist while preventing aggregate service oracles from
+  recreating repository `__pycache__` artifacts.
+- Accepted `WP-PROF-T3`: the preview plane now authorizes the direct Instructor before decoding an
+  identity-free learner-derived subject, evaluates through the accepted S5 -> S3 -> S4 chain, and
+  atomically appends the sole successful PII-minimal audit event. Memory and PostgreSQL prove that
+  audit/no-mutation boundary; the fixed serial `DATABASE_BASELINE` profile under
+  `ple-live-demo-browser` applied and verified 46 migrations. The focused `preview_plane` scenario
+  exercised the production browser at the real HTTPS origin. The 63-image canonical corpus includes
+  12 nested T3 images from that same origin with full origin and empty-cleanup receipts; architecture,
+  security, HCI, and documentation reviews found no unresolved P0-P3 issue. Screenshot publication is
+  the explicit `capture_screenshots.sh` gate; `all_test.sh` validates the same system without
+  rewriting published artifacts. Final Validation passed: Rust, codebase (5/5), pytest (6,417), ten
+  production-browser scenarios at one HTTPS origin, WebWork, replica restart, and every lane's exact
+  cleanup receipt are green.
 - Audited permanent-test admission against the repository test-style rules. The evidence model now
   separates stable callable behavior checks from one-time source, migration, and screenshot-coverage
   closure evidence; the active plan and test guidance describe the same boundary, and obsolete
   mock-browser inventory language is no longer a permanent-test requirement.
+- Completed the post-acceptance audit: preview UI state is namespaced, the obsolete wrapper, synthetic
+  source, and QTI snapshot are retired, and current documentation routes validation and browser
+  evidence to their canonical plans. The exact Wasm secrecy gate remains preserved while the Base
+  Course boundary stays adaptable.
 - Accepted `WP-PROF-BS1`: Playwright, canonical screenshot capture, direct browser development, and
   aggregate acceptance now share one production `dist/` browser and the fixed disposable
   `ple-live-demo-browser` HTTPS stack. The real Rust API, PostgreSQL, MinIO, worker, renderer,

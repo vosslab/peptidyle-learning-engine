@@ -15,6 +15,8 @@ LOCAL_REFERENCE = re.compile(r"^localhost/[a-z0-9][a-z0-9._/-]*:[A-Za-z0-9][A-Za
 IMMUTABLE_REFERENCE = re.compile(r"^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$")
 OCI_ID = re.compile(r"^sha256:[0-9a-f]{64}$")
 PROVENANCE_NAME = "webwork-renderer.provenance"
+LOCAL_REVIEWED_REFERENCE = "localhost/pg-renderer:reviewed"
+LOCAL_SOURCE_DIRECTORY_NAME = "webwork-pg-renderer"
 
 
 #============================================
@@ -46,6 +48,64 @@ def inspect_renderer_oci_id(
 	if not result.ok() or OCI_ID.fullmatch(oci_id) is None:
 		raise local_stack_control.models.ControllerError("selected renderer image has no valid OCI ID")
 	return oci_id
+
+
+#============================================
+def ensure_renderer_oci_id(
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+	reference: str,
+	environment: dict[str, str],
+	build: bool,
+) -> str:
+	"""Return the selected image identity, creating a missing build-mode image."""
+	validate_renderer_reference(reference)
+	if not build:
+		return inspect_renderer_oci_id(runner, repo_root, reference, environment)
+	exists = runner.run(["podman", "image", "exists", reference], environment, repo_root)
+	if exists.returncode == 0:
+		return inspect_renderer_oci_id(runner, repo_root, reference, environment)
+	if exists.returncode != 1:
+		raise local_stack_control.models.ControllerError(
+			"selected renderer image availability could not be determined"
+		)
+	if reference == LOCAL_REVIEWED_REFERENCE:
+		build_local_renderer(runner, repo_root, reference, environment)
+	else:
+		# ASVS 3.4.2: immutable digest validation occurs before a registry pull.
+		result = runner.stream(["podman", "pull", reference], environment, repo_root)
+		if result != 0:
+			raise local_stack_control.models.ControllerError(
+				"selected immutable renderer image could not be pulled"
+			)
+	return inspect_renderer_oci_id(runner, repo_root, reference, environment)
+
+
+#============================================
+def build_local_renderer(
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+	reference: str,
+	environment: dict[str, str],
+) -> None:
+	"""Build the canonical reviewed local image from its maintained sibling."""
+	source = repo_root.parent / LOCAL_SOURCE_DIRECTORY_NAME
+	dockerfile = source / "Dockerfile"
+	if source.is_symlink() or not source.is_dir() or not dockerfile.is_file():
+		raise local_stack_control.models.ControllerError(
+			"canonical renderer source checkout is unavailable beside the PLE repository"
+		)
+	# ASVS 13.3.2: the fixed sibling path and selected local tag form the complete
+	# build authority; private stack state and caller-provided build contexts stay out.
+	result = runner.stream(
+		["podman", "build", "--tag", reference, "--file", str(dockerfile), str(source)],
+		environment,
+		repo_root,
+	)
+	if result != 0:
+		raise local_stack_control.models.ControllerError(
+			"canonical reviewed renderer image build failed"
+		)
 
 
 #============================================

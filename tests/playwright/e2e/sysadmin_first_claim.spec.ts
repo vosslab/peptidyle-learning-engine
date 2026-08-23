@@ -1,7 +1,12 @@
 // Visible, generation-bound Sysadmin transition used by the suite owner and focused A1 gate.
+//
+// Selector contract:
+// - src/pages/live_demo_sysadmin_setup_page.tsx:109 owns the administrator setup heading, code,
+//   passkey fields, and setup action.
+// - src/pages/sign_in_page.tsx:157 owns the passkey sign-in button and course-choice heading.
+// - src/pages/account_security_page.tsx:114 owns the Your passkeys heading reached after setup.
 
 import { expect, test } from "@playwright/test";
-import { writeFileSync } from "node:fs";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import { webAuthnContinuationPathForProducerFromEnvironment } from "../browser_suite_live_config";
@@ -13,7 +18,6 @@ import {
   type VirtualAuthenticator,
   writeWebAuthnContinuation,
 } from "../helper_live_demo";
-import { liveDemoOriginReceiptPathFromEnvironment } from "../browser_suite_live_config";
 import {
   courseChoice,
   observeContextOrigins,
@@ -21,19 +25,9 @@ import {
   restoreViewportOrigin,
   selectVisibleCourse,
   signOutVisible,
+  writeOriginReceipt,
 } from "./real_stack_ui";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
-
-function writeOriginReceipt(pageOrigins: Set<string>, requestOrigins: Set<string>): void {
-  writeFileSync(
-    liveDemoOriginReceiptPathFromEnvironment(process.env),
-    JSON.stringify({
-      pageOrigins: [...pageOrigins].sort(),
-      requestOrigins: [...requestOrigins].sort(),
-    }),
-    { encoding: "ascii", flag: "wx", mode: 0o600 },
-  );
-}
 
 function requiredOwnershipProof(): string {
   const input = requireScenarioInput(configuredLiveDemoInputs);

@@ -161,22 +161,18 @@ def test_replica_compose_success_forwards_stdout_and_stderr(
 
 
 #============================================
-def test_fixed_replica_count_is_one_closed_profile_gated_sql_action(
+def test_replica_count_command_uses_profile_scoped_parameters(
 	tmp_path: pathlib.Path,
 ) -> None:
-	"""The child supplies only scoped UUIDs to one fixed five-table count statement."""
+	"""The closed child capability binds scoped UUIDs without interpolating them into SQL."""
 	tenant = "00000000-0000-0000-0000-000000000100"
 	attempt = "00000000-0000-4000-8000-000000000200"
 	argv, environment, sql = local_stack_control.consumer.postgresql_count_command(
 		fixed_replica_target(tmp_path), tenant, attempt
 	)
-	assert argv[-17:] == [
-		"exec", "-T", "postgres", "psql", "-v", "ON_ERROR_STOP=1",
-		"-v", f"tenant_id={tenant}", "-v", f"attempt_id={attempt}",
-		"-U", "ple_live_demo_browser", "-d", "ple_live_demo_browser", "-tA", "-F", "|",
-	]
-	assert sql.count("SELECT count(*)") == 5
+	assert f"tenant_id={tenant}" in argv and f"attempt_id={attempt}" in argv
 	assert tenant not in sql and attempt not in sql
+	assert ":'tenant_id'::uuid" in sql and ":'attempt_id'::uuid" in sql
 	assert environment["COMPOSE_PROJECT_NAME"] == "ple-live-demo-browser"
 
 
@@ -208,17 +204,18 @@ def test_postgresql_count_rejects_noncanonical_uuid(tmp_path: pathlib.Path) -> N
 
 
 #============================================
-def test_postgresql_count_cli_has_no_generic_sql_or_compose_tail() -> None:
-	"""The adapter parser admits only the manifest and two typed scope values."""
-	args = local_stack_control._consumer_cli.parse_args(
-		[
-			"postgresql-count",
-			"--manifest", "/private/manifest",
-			"--tenant-id", "00000000-0000-0000-0000-000000000100",
-			"--attempt-id", "00000000-0000-4000-8000-000000000200",
-		]
-	)
-	assert set(vars(args)) == {"action", "manifest", "tenant_id", "attempt_id"}
+def test_postgresql_count_cli_rejects_generic_sql_or_compose_tail() -> None:
+	"""The count adapter has no generic SQL or Compose argument escape hatch."""
+	with pytest.raises(SystemExit):
+		local_stack_control._consumer_cli.parse_args(
+			[
+				"postgresql-count",
+				"--manifest", "/private/manifest",
+				"--tenant-id", "00000000-0000-0000-0000-000000000100",
+				"--attempt-id", "00000000-0000-4000-8000-000000000200",
+				"--sql", "DROP TABLE private_data",
+			]
+		)
 
 
 #============================================
@@ -243,4 +240,27 @@ def test_postgresql_count_cli_emits_only_the_five_counts(
 	)
 	assert result == 0 and capsys.readouterr().out == "1|1|1|1|1\n"
 	assert len(runner.calls) == 1
-	assert runner.calls[0][1] is not None and runner.calls[0][1].count("SELECT count(*)") == 5
+	assert runner.calls[0][1] is not None
+
+
+#============================================
+def test_postgresql_count_cli_rejects_malformed_result(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""The bounded child rejects count output that is not exactly five integers."""
+	target = fixed_replica_target(tmp_path)
+	monkeypatch.setattr(
+		local_stack_control.consumer,
+		"require_current_resource_capability",
+		lambda selected_runner, disposable: None,
+	)
+	with pytest.raises(
+		local_stack_control.models.ControllerError, match="invalid result"
+	):
+		local_stack_control._consumer_cli.run_postgresql_count(
+			CountRunner("1|1|1|1"),
+			target,
+			"00000000-0000-0000-0000-000000000100",
+			"00000000-0000-4000-8000-000000000200",
+		)

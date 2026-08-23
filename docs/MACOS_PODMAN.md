@@ -87,9 +87,9 @@ These references are not all runtime images. `postgres`, `minio`,
 images. `api` builds the shared local application image from
 `containers/Containerfile.api`, and `worker` consumes that exact image;
 `gateway` is built locally from `containers/Containerfile.gateway` using the
-pinned Caddy build argument. The `webwork-renderer` is an existing external-project image. Build
-that sibling as `localhost/pg-renderer:reviewed`, the tracked local selection in
-`containers/env.example`. PLE resolves that selected name to its OCI
+pinned Caddy build argument. The `webwork-renderer` is an external-project image. Build-mode PLE
+startup reuses the tracked `localhost/pg-renderer:reviewed` selection or rebuilds
+it from the maintained sibling checkout when pruning removed it. PLE resolves that selected name to its OCI
 configuration ID, confirms the container runs that ID, and records both as
 renderer-version provenance. A published deployment can select a pullable
 `repository@sha256:<64-lowercase-hex>` value through the same configuration

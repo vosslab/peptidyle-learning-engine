@@ -20,7 +20,7 @@ import e2e_browser_suite_oracles
 
 
 class _FixedWorkspaceState:
-	"""Expose the legacy owner state seam through the held fixed workspace."""
+	"""Expose the lease-owned state seam through the fixed workspace."""
 
 	def __init__(
 		self,

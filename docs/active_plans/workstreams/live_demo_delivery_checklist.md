@@ -1,5 +1,14 @@
 # Live demo delivery checklist
 
+> **Historical and superseded browser record (2026-08-22).** This checklist preserves its dated
+> delivery evidence and acceptance claims. The checked browser-test artifact, test-double transport,
+> `tests/playwright/e2e/live_demo.spec.ts` journey, and eight-lane result are historical evidence;
+> they are not the supported browser architecture or current catalog and command contract. For
+> current browser owner, catalog, commands, and lane truth, follow the
+> [real-stack browser suite plan](../active/real_stack_browser_suite_plan.md),
+> [implementation status](../implementation_status.md), and
+> [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md).
+
 ## Product contract
 
 The live demo is a fully functional PLE instance, not a fixed walkthrough or read-only

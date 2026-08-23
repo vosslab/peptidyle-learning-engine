@@ -137,11 +137,19 @@ Screenshots therefore use the same disposable HTTPS origin, production `dist/`
 bundle, scenario contract, real UI-created state, and privacy boundary as
 browser acceptance.
 
-The manifest declares the nested artifact corpus. Capture stages artifacts,
+`tests/e2e/browser_screenshot_corpus.json` is the canonical nested artifact
+corpus. The TypeScript `tests/playwright/ui_corpus_manifest.ts` and Python
+`tests/e2e/e2e_browser_screenshot_contract.py` are strict consumers of that
+source; neither defines a competing artifact list. Capture stages artifacts,
 then the publisher atomically publishes them after verifying origin, bundle
 provenance, scenario metadata, paths, coverage, and privacy requirements.
 Screenshots are scenario evidence for the production browser path, not a
 separate application or visual test lane.
+
+`./capture_screenshots.sh` is the separate explicit publication gate whenever
+the UI, corpus, or viewport contract changes. `./all_test.sh` validates
+behavior and contracts without rewriting checked-in documentation artifacts.
+Both commands use the same fixed `ple-live-demo-browser` stack and suite owner.
 
 ## Service-only acceptance
 

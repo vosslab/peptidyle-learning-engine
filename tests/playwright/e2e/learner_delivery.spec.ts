@@ -1,15 +1,25 @@
 // Connected learner delivery proof. Product state is created through the visible production UI.
+//
+// Selector contract:
+// - src/pages/course_assignments_page.tsx:324 owns the assignments surface and assignment links.
+// - src/features/flat_question_authoring/flat_question_editor_page.tsx:535 owns question creation
+//   fields and publication controls used to seed the journey.
+// - src/pages/course_list_page.tsx:330, src/pages/assignment_editor_page.tsx:481, and
+//   src/pages/course_roster_page.tsx:423 own course, assignment, and invitation controls.
+// - src/pages/course_invitation_page.tsx:62 and src/pages/assignment_overview_page.tsx:114 own
+//   learner claiming and assignment entry; data-route-surface is defined at
+//   course_assignments_page.tsx:324.
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
-import { writeFileSync } from "node:fs";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { liveDemoOriginReceiptPathFromEnvironment } from "../browser_suite_live_config";
 import {
   chooseSeededIdentity,
   observeContextOrigins,
+  relativeIsoDate,
   requireScenarioInput,
   selectVisibleCourse,
   signOutVisible,
+  writeOriginReceipt,
 } from "./real_stack_ui";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 
@@ -65,13 +75,6 @@ async function createDeterministicBannerPng(page: Page): Promise<Buffer> {
   return Buffer.from(encoded, "base64");
 }
 
-function relativeIsoDate(offsetDays: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  const result = date.toISOString().slice(0, 10);
-  return result;
-}
-
 function configureContext(context: BrowserContext): void {
   context.setDefaultTimeout(actionTimeoutMs);
   context.setDefaultNavigationTimeout(actionTimeoutMs);
@@ -85,15 +88,6 @@ function configurePage(page: Page): void {
 async function openCourseAssignments(page: Page): Promise<void> {
   await page.getByRole("link", { name: "Assignments", exact: true }).click();
   await expect(page.locator("[data-route-surface=courseAssignments]")).toBeVisible();
-}
-
-function writeOriginReceipt(pageOrigins: Set<string>, requestOrigins: Set<string>): void {
-  const receiptPath = liveDemoOriginReceiptPathFromEnvironment(process.env);
-  const value = {
-    pageOrigins: [...pageOrigins].sort(),
-    requestOrigins: [...requestOrigins].sort(),
-  };
-  writeFileSync(receiptPath, JSON.stringify(value), { encoding: "ascii", flag: "wx", mode: 0o600 });
 }
 
 async function captureVisibleState(

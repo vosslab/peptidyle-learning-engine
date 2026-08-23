@@ -14,7 +14,6 @@ import local_stack_control.process
 #============================================
 def repo_root_from_entrypoint(
 	entrypoint: pathlib.Path,
-	runner: local_stack_control.process.CommandRunner,
 ) -> pathlib.Path:
 	"""Return the repository root anchored by a controller module location."""
 	resolved_entrypoint = entrypoint.resolve(strict=True)

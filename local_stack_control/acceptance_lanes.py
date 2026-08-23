@@ -25,7 +25,7 @@ class ValidationLane:
 
 
 #============================================
-def lanes(python_executable: str | None = None) -> tuple[ValidationLane, ...]:
+def lanes() -> tuple[ValidationLane, ...]:
 	"""Return the closed ordered validation contract without lifecycle authority."""
 	result = (
 		ValidationLane(

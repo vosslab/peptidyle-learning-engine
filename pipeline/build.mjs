@@ -1,4 +1,4 @@
-// build.mjs - production build for the Solid browser client (WP-F3).
+// build.mjs - production build for the Solid browser client.
 //
 // Why the esbuild JS-API instead of the CLI: Solid compiles JSX to real DOM
 // operations through a Babel preset, and that preset is delivered as an esbuild

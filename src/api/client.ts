@@ -108,7 +108,7 @@ export interface SysadminInstructorCandidateClient {
   ) => Promise<SysadminInstructorCandidateSearchPage>;
 }
 
-/** Browser-safe client contract. A future HTTP transport implements this interface. */
+/** Browser-safe client contract implemented by the current same-origin HTTP transport. */
 export interface ApiClient extends CourseRosterClient {
   readonly listCourseGroups: (
     courseId: CourseId,

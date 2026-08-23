@@ -28,7 +28,7 @@ export interface LibraryPageProps {
   readonly repository: CatalogBrowseRepository;
 }
 
-/** Mock-ready catalog UI. Production routes inject the generated-client repository after P0 exists. */
+/** Catalog UI with the production repository injected by the route composition. */
 export function LibraryPage(props: LibraryPageProps): JSX.Element {
   const [query, setQuery] = createSignal<CatalogBrowseQuery>(EMPTY_CATALOG_QUERY);
   const [state, setState] = createSignal<CatalogBrowseState>({

@@ -1,7 +1,15 @@
 // UI-first ordinary session and boundary proof after the owner's visible Sysadmin setup child.
+//
+// Selector contract:
+// - src/pages/sign_in_page.tsx:157 owns passkey sign-in and course-choice headings.
+// - src/pages/teaching_operations_page.tsx:95 and
+//   src/pages/teaching_operations/course_groups_panel.tsx:340 own teaching-team, approval, and
+//   group controls.
+// - src/pages/account_pending_invitations_page.tsx:121 and src/pages/account_security_page.tsx:114
+//   own invitation acceptance and passkey headings.
+// - src/pages/course_list_page.tsx:330 owns the course heading and return-to-courses controls.
 
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { writeFileSync } from "node:fs";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import {
@@ -12,7 +20,6 @@ import {
   importWebAuthnContinuation,
   writeWebAuthnContinuationAcknowledgement,
 } from "../helper_live_demo";
-import { liveDemoOriginReceiptPathFromEnvironment } from "../browser_suite_live_config";
 import {
   chooseSeededIdentity,
   observeContextOrigins,
@@ -20,19 +27,9 @@ import {
   restoreViewportOrigin,
   selectVisibleCourse,
   signOutVisible,
+  writeOriginReceipt,
 } from "./real_stack_ui";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
-
-function writeOriginReceipt(pageOrigins: Set<string>, requestOrigins: Set<string>): void {
-  writeFileSync(
-    liveDemoOriginReceiptPathFromEnvironment(process.env),
-    JSON.stringify({
-      pageOrigins: [...pageOrigins].sort(),
-      requestOrigins: [...requestOrigins].sort(),
-    }),
-    { encoding: "ascii", flag: "wx", mode: 0o600 },
-  );
-}
 
 async function enterThenReenter(page: Page, name: RegExp, course: string): Promise<void> {
   await chooseSeededIdentity(page, name);

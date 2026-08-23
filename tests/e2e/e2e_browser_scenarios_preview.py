@@ -1,4 +1,4 @@
-"""WP-PROF-T3 assignment-delivery preview scenario facts."""
+"""Assignment-delivery preview scenario facts."""
 
 from e2e_browser_scenario_contract import ScenarioContract
 

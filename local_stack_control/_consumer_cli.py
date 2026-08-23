@@ -62,9 +62,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 #============================================
-def repo_root(runner: local_stack_control.process.CommandRunner) -> pathlib.Path:
+def repo_root() -> pathlib.Path:
 	"""Anchor this private entry point to its repository checkout."""
-	return local_stack_control.compose.repo_root_from_entrypoint(pathlib.Path(__file__), runner)
+	return local_stack_control.compose.repo_root_from_entrypoint(pathlib.Path(__file__))
 
 
 #============================================
@@ -258,7 +258,7 @@ def main() -> None:
 	args = parse_args(sys.argv[1:])
 	try:
 		runner = local_stack_control.process.SubprocessRunner()
-		root = repo_root(runner)
+		root = repo_root()
 		manifest = local_stack_control.consumer.load_manifest(root, args.manifest)
 		disposable = local_stack_control.consumer.disposable_target(runner, root, manifest)
 		if args.action != "diagnostics":

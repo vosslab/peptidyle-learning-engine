@@ -1,16 +1,28 @@
 // A real learner retry remains visible and durable while the owner recovers the gateway.
+//
+// Selector contract:
+// - src/features/flat_question_authoring/flat_question_editor_page.tsx:535 owns question creation
+//   fields and publication controls used to seed the recovery journey.
+// - src/pages/course_list_page.tsx:330, src/pages/assignment_editor_page.tsx:481, and
+//   src/pages/course_roster_page.tsx:423 own course, assignment, and invitation controls.
+// - src/pages/course_invitation_page.tsx:62 and src/pages/assignment_overview_page.tsx:114 own
+//   learner claiming and the Start assignment control.
+// - src/pages/run_page.tsx:387 and src/components/responses/common.tsx:301 own the attempt surface
+//   and visible response controls.
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
-import { writeFileSync } from "node:fs";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { liveDemoOriginReceiptPathFromEnvironment } from "../browser_suite_live_config";
 import { faultHandshakeFromEnvironment } from "./fault_handshake";
 import {
   chooseSeededIdentity,
+  configureContextAndPage,
+  expectObservedOrigin,
   observeContextOrigins,
+  relativeIsoDate,
   requireScenarioInput,
   selectVisibleCourse,
   signOutVisible,
+  writeContextOriginReceipt,
 } from "./real_stack_ui";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 
@@ -18,55 +30,6 @@ const maryEmail = "mary.okafor@live-demo.ple.example";
 const timeoutMs = 600_000;
 const actionTimeoutMs = 30_000;
 const contextOptions = { viewport: { width: 1280, height: 800 }, ignoreHTTPSErrors: true };
-
-interface ObservedOrigins {
-  readonly pageOrigins: Set<string>;
-  readonly requestOrigins: Set<string>;
-}
-
-function isoDate(offset: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + offset);
-  return date.toISOString().slice(0, 10);
-}
-
-function configure(context: BrowserContext, page: Page): void {
-  context.setDefaultTimeout(actionTimeoutMs);
-  context.setDefaultNavigationTimeout(actionTimeoutMs);
-  page.setDefaultTimeout(actionTimeoutMs);
-  page.setDefaultNavigationTimeout(actionTimeoutMs);
-}
-
-function writeOriginReceipt(contexts: Readonly<Record<string, ObservedOrigins>>): void {
-  const pages = new Set<string>();
-  const requests = new Set<string>();
-  for (const value of Object.values(contexts)) {
-    for (const origin of value.pageOrigins) pages.add(origin);
-    for (const origin of value.requestOrigins) requests.add(origin);
-  }
-  writeFileSync(
-    liveDemoOriginReceiptPathFromEnvironment(process.env),
-    JSON.stringify({
-      pageOrigins: [...pages].sort(),
-      requestOrigins: [...requests].sort(),
-      contexts: Object.fromEntries(
-        Object.entries(contexts).map(([name, value]) => [
-          name,
-          {
-            pageOrigins: [...value.pageOrigins].sort(),
-            requestOrigins: [...value.requestOrigins].sort(),
-          },
-        ]),
-      ),
-    }),
-    { encoding: "ascii", flag: "wx", mode: 0o600 },
-  );
-}
-
-function expectOrigin(value: ObservedOrigins, expected: string): void {
-  expect([...value.pageOrigins].sort()).toEqual([expected]);
-  expect([...value.requestOrigins].sort()).toEqual([expected]);
-}
 
 async function createQuestion(page: Page, title: string, answer: string): Promise<string> {
   await page.getByRole("link", { name: "Workspace" }).click();
@@ -106,8 +69,8 @@ async function createCourseAssignment(
 ): Promise<string> {
   await page.getByRole("link", { name: "Courses" }).click();
   await page.getByLabel("Course title").fill(course);
-  await page.getByLabel("Start date").fill(isoDate(-30));
-  await page.getByLabel("End date").fill(isoDate(365));
+  await page.getByLabel("Start date").fill(relativeIsoDate(-30));
+  await page.getByLabel("End date").fill(relativeIsoDate(365));
   await page.getByLabel("Time zone (IANA)").fill("America/Chicago");
   await page.getByRole("button", { name: "Create course" }).click();
   const courseCard = page
@@ -210,8 +173,8 @@ test("learner gateway recovery: a saved response retries after the owner restore
     );
     const instructor = await instructorContext.newPage();
     const learner = await learnerContext.newPage();
-    configure(instructorContext, instructor);
-    configure(learnerContext, learner);
+    configureContextAndPage(instructorContext, instructor, actionTimeoutMs);
+    configureContextAndPage(learnerContext, learner, actionTimeoutMs);
     await chooseSeededIdentity(instructor, /Elena Rivera/u);
     await selectVisibleCourse(instructor, "Biochemistry Base Course");
     const question = await createQuestion(
@@ -266,18 +229,18 @@ test("learner gateway recovery: a saved response retries after the owner restore
     );
     expect(await freshContext.storageState()).toEqual({ cookies: [], origins: [] });
     const fresh = await freshContext.newPage();
-    configure(freshContext, fresh);
+    configureContextAndPage(freshContext, fresh, actionTimeoutMs);
     const freshScore = await observeFreshScore(fresh, course, assignment);
     await freshScore.scrollIntoViewIfNeeded();
     await captureRealStackScreenshot(fresh, scenarioInput, "learner_gateway_fresh_session_score");
-    expectOrigin(origins.instructor, expected);
-    expectOrigin(origins.learner, expected);
-    expectOrigin(origins.fresh_learner, expected);
+    expectObservedOrigin(origins.instructor, expected);
+    expectObservedOrigin(origins.learner, expected);
+    expectObservedOrigin(origins.fresh_learner, expected);
     originEvidence = true;
     handshake.notify("completed");
   } finally {
     handshake.close();
     await Promise.all(contexts.map(async (context) => context.close()));
-    if (originEvidence) writeOriginReceipt(origins);
+    if (originEvidence) writeContextOriginReceipt(origins);
   }
 });

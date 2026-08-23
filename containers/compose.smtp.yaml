@@ -46,10 +46,26 @@ services:
         read_only: true
 
   invitation-delivery-worker:
+    # The SMTP overlay owns this complete service. Non-SMTP stacks therefore
+    # neither launch it nor reconcile a container that cannot exist.
+    labels:
+      org.peptidyle.disposable.capability-sha256: "${PLE_DISPOSABLE_CAPABILITY_SHA256:-normal}"
+      org.peptidyle.e2e.owner: "${PLE_E2E_OWNER:-normal}"
+    image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
+    command: ["--invitation-delivery-worker"]
     depends_on:
+      postgres:
+        condition: service_healthy
+      identity-secret-init:
+        condition: service_completed_successfully
       smtp-secret-init:
         condition: service_completed_successfully
     environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-peptidyle}
+      PLE_WORKER_LEASE_SECONDS: ${PLE_WORKER_LEASE_SECONDS:-120}
+      PLE_WORKER_PREPARATION_TIMEOUT_SECONDS: ${PLE_WORKER_PREPARATION_TIMEOUT_SECONDS:-90}
+      PLE_WORKER_POLL_MILLIS: ${PLE_WORKER_POLL_MILLIS:-500}
+      PLE_INVITATION_TOKEN_SECRET_FILE: /run/ple-secrets/invitation_token_secret
       PLE_SMTP_RELAY: ${PLE_SMTP_RELAY:?set PLE_SMTP_RELAY to the provider SMTP hostname}
       PLE_SMTP_PORT: ${PLE_SMTP_PORT:?set PLE_SMTP_PORT to the provider submission port}
       PLE_SMTP_TLS_MODE: ${PLE_SMTP_TLS_MODE:?set PLE_SMTP_TLS_MODE to starttls or implicit-tls}
@@ -59,9 +75,28 @@ services:
       PLE_PUBLIC_APP_BASE_URL: ${PLE_PUBLIC_APP_BASE_URL:?set PLE_PUBLIC_APP_BASE_URL to the public HTTPS PLE origin}
     volumes:
       - type: volume
+        source: ple_identity_runtime
+        target: /run/ple-secrets
+        read_only: true
+      - type: volume
         source: ple_smtp_runtime
         target: /run/ple-smtp-secrets
         read_only: true
+    restart: on-failure
+    stop_grace_period: 100s
+    healthcheck:
+      disable: true
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m,mode=1777
+    cpus: "0.5"
+    mem_limit: 256m
+    pids_limit: 64
     networks:
       - default
       - api_outbound

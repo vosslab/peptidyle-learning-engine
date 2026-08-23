@@ -30,7 +30,12 @@ RESULT_NAME = "developer-result.json"
 SOCKET_NAME = "developer-control.sock"
 SOCKET_DIRECTORY = pathlib.Path("/private/tmp") / "ple-live-demo-browser-control"
 MAXIMUM_CONTROL_BYTES = 1024
-DEFAULT_WAIT_SECONDS = 20.0
+LIFECYCLE_LAUNCH_TIMEOUT_SECONDS = 240.0
+DEVELOPER_STOP_WAIT_SECONDS = 20.0
+DEVELOPER_START_HANDOFF_CLEANUP_MARGIN_SECONDS = 20.0
+DEVELOPER_START_WAIT_SECONDS = (
+	LIFECYCLE_LAUNCH_TIMEOUT_SECONDS + DEVELOPER_START_HANDOFF_CLEANUP_MARGIN_SECONDS
+)
 
 
 class DeveloperBrowserSuiteError(local_stack_control.models.ControllerError):
@@ -382,7 +387,10 @@ def _validate_stop_request(content: bytes, receipt: DeveloperControlReceipt) -> 
 
 
 #============================================
-def request_stop(repository_root: pathlib.Path, timeout_seconds: float = DEFAULT_WAIT_SECONDS) -> DeveloperStartReceipt:
+def request_stop(
+	repository_root: pathlib.Path,
+	timeout_seconds: float = DEVELOPER_STOP_WAIT_SECONDS,
+) -> DeveloperStartReceipt:
 	"""Request a bounded authenticated shutdown and wait for owner-validated cleanup."""
 	if timeout_seconds <= 0:
 		raise DeveloperBrowserSuiteError("developer browser stop timeout is invalid")
@@ -462,11 +470,12 @@ def _require_worker_ready(
 #============================================
 def default_operations() -> DeveloperOperations:
 	"""Use the same production manifest, gateway, auth, and worker path as Playwright."""
-	def start(
+	def start_stack(
 		lease: local_stack_control.browser_suite_lease.BrowserSuiteLease,
 		root: pathlib.Path,
 		workspace: pathlib.Path,
 	) -> RunningDeveloperStack:
+		"""Start the production browser stack and wait for worker readiness."""
 		runner = local_stack_control.process.SubprocessRunner()
 		selections = local_stack_control.env_file.canonical_stack_selections(root)
 		ports = local_stack_control.live_demo_target.random_ports()
@@ -483,7 +492,7 @@ def default_operations() -> DeveloperOperations:
 			runner, root, target.manifest_path
 		)
 		argv = _adapter_argv(
-			"launch", target.manifest_path, ("--timeout-seconds", "240")
+			"launch", target.manifest_path, ("--timeout-seconds", str(int(LIFECYCLE_LAUNCH_TIMEOUT_SECONDS)))
 		)
 		result = local_stack_control.process.stream_in_owner_session(
 			runner, argv, None, root
@@ -493,7 +502,8 @@ def default_operations() -> DeveloperOperations:
 		_require_worker_ready(runner, target.manifest_path, root)
 		return RunningDeveloperStack(target.manifest_path, target.origin)
 
-	def stop(running: RunningDeveloperStack, root: pathlib.Path) -> None:
+	def stop_stack(running: RunningDeveloperStack, root: pathlib.Path) -> None:
+		"""Stop the production browser stack and report cleanup failures."""
 		result = local_stack_control.process.stream_in_owner_session(
 			local_stack_control.process.SubprocessRunner(),
 			_adapter_argv("cleanup", running.manifest_path),
@@ -503,10 +513,11 @@ def default_operations() -> DeveloperOperations:
 		if result.returncode != 0:
 			raise DeveloperBrowserSuiteError("developer browser stack cleanup failed")
 
-	def verify_empty(
+	def verify_empty_workspace(
 		lease: local_stack_control.browser_suite_lease.BrowserSuiteLease,
 		root: pathlib.Path,
 	) -> None:
+		"""Verify that owned resources and private workspace artifacts are absent."""
 		snapshot = local_stack_control.browser_suite_reset.reset_live_demo_browser(
 			lease, local_stack_control.process.SubprocessRunner(), root
 		)
@@ -516,7 +527,7 @@ def default_operations() -> DeveloperOperations:
 		if tuple(workspace.iterdir()):
 			raise DeveloperBrowserSuiteError("developer browser cleanup left private workspace artifacts")
 
-	return DeveloperOperations(start, stop, verify_empty)
+	return DeveloperOperations(start_stack, stop_stack, verify_empty_workspace)
 
 
 #============================================
@@ -543,15 +554,16 @@ def run_supervisor(
 	stop_requested = False
 	failures: list[BaseException] = []
 
-	def request_termination(_signal_number: int, _frame: object) -> None:
+	def request_supervisor_termination(_signal_number: int, _frame: object) -> None:
+		"""Request supervisor cleanup after receiving a termination signal."""
 		nonlocal stop_requested
 		stop_requested = True
 
 	previous_int: object | None = None
 	previous_term: object | None = None
 	if install_signal_handlers:
-		previous_int = signal.signal(signal.SIGINT, request_termination)
-		previous_term = signal.signal(signal.SIGTERM, request_termination)
+		previous_int = signal.signal(signal.SIGINT, request_supervisor_termination)
+		previous_term = signal.signal(signal.SIGTERM, request_supervisor_termination)
 	try:
 		local_stack_control.browser_suite_reset.reset_live_demo_browser(
 			lease, local_stack_control.process.SubprocessRunner(), repository_root
@@ -683,9 +695,16 @@ def _recover_failed_start(repository_root: pathlib.Path) -> None:
 
 
 #============================================
+def _child_exited_before_ready(child: object) -> bool:
+	"""Return whether a process-like supervisor exited before its ready receipt."""
+	poll = getattr(child, "poll", None)
+	return callable(poll) and poll() is not None
+
+
+#============================================
 def start_developer_session(
 	repository_root: pathlib.Path,
-	timeout_seconds: float = DEFAULT_WAIT_SECONDS,
+	timeout_seconds: float = DEVELOPER_START_WAIT_SECONDS,
 	spawn: Callable[[pathlib.Path, local_stack_control.browser_suite_lease.BrowserSuiteLease], object] | None = None,
 	child_terminator: Callable[[object, float], None] = _terminate_child,
 ) -> DeveloperStartReceipt:
@@ -731,6 +750,7 @@ def start_developer_session(
 			stderr=subprocess.DEVNULL,
 			close_fds=True,
 			pass_fds=descriptors,
+			start_new_session=True,
 		)
 	launcher = default_spawn if spawn is None else spawn
 	handoff_started = False
@@ -755,6 +775,8 @@ def start_developer_session(
 			break
 		except DeveloperBrowserSuiteError as error:
 			failure = error
+			if _child_exited_before_ready(child):
+				break
 			time.sleep(0.05)
 	if result is not None:
 		return result

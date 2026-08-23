@@ -1,5 +1,13 @@
 # Local stack controller workstream
 
+> **Historical and superseded browser record (2026-08-22).** This workstream preserves the dated
+> WP-PY-L1 controller evidence and acceptance. Its browser ledger, including the `202` ordinary
+> mock-preview tests and seven legacy lanes, is historical evidence only and does not define the
+> supported browser architecture, catalog, commands, or lane ownership. For current truth, follow
+> the [real-stack browser suite plan](../active/real_stack_browser_suite_plan.md),
+> [implementation status](../implementation_status.md), and
+> [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md).
+
 ## Status
 
 The controller foundation is complete as of 2026-08-14. WP-PY-L1 was accepted on 2026-08-15: focused

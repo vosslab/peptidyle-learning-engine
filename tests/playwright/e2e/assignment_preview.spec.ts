@@ -1,4 +1,4 @@
-// WP-PROF-T3 assignment delivery checks on the one production PLE stack.
+// Assignment delivery checks on the one production PLE stack.
 //
 // Selector contract:
 // - src/pages/course_assignments_page.tsx:86 owns assignment cards and editor/preview links.
@@ -6,26 +6,25 @@
 // - src/pages/assignment_preview_page.tsx:409 owns the preview cue, builder, and results.
 // - src/pages/teaching_operations/course_groups_panel.tsx:336 owns visible group creation.
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
-import { writeFileSync } from "node:fs";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { liveDemoOriginReceiptPathFromEnvironment } from "../browser_suite_live_config";
 import { CORPUS_VIEWPORT_SIZES } from "../ui_corpus_manifest";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 import {
   chooseSeededIdentity,
+  configureContextAndPage,
+  expectObservedOrigin,
   observeContextOrigins,
   requireScenarioInput,
   restoreViewportOrigin,
   selectVisibleCourse,
+  writeContextOriginReceipt,
 } from "./real_stack_ui";
 
 const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 300_000;
 const baseCourseTitle = "Biochemistry Base Course";
 const seededQuestionTitle = "Peptide bond resonance and planarity";
-const scenarioAssignmentTitle = "Peptide Bond Structure Practice";
-const scenarioGroupTitle = "Extended-time learners";
 const previewMoment = "2080-01-01T09:00";
 const dueAt = "2090-06-01T17:00";
 const closesAt = "2090-06-02T17:00";
@@ -43,40 +42,6 @@ const denialArtifacts = [
   { artifactId: "preview_plane_assignment_preview_denial_iphone_pro", viewport: "iphone_pro" },
   { artifactId: "preview_plane_assignment_preview_denial_square", viewport: "square" },
 ] as const;
-
-interface ObservedOrigins {
-  readonly pageOrigins: Set<string>;
-  readonly requestOrigins: Set<string>;
-}
-
-function configure(context: BrowserContext, page: Page): void {
-  context.setDefaultTimeout(actionTimeoutMs);
-  context.setDefaultNavigationTimeout(actionTimeoutMs);
-  page.setDefaultTimeout(actionTimeoutMs);
-  page.setDefaultNavigationTimeout(actionTimeoutMs);
-}
-
-function writeOriginReceipt(contexts: Readonly<Record<string, ObservedOrigins>>): void {
-  const pageOrigins = new Set<string>();
-  const requestOrigins = new Set<string>();
-  for (const origins of Object.values(contexts)) {
-    for (const origin of origins.pageOrigins) pageOrigins.add(origin);
-    for (const origin of origins.requestOrigins) requestOrigins.add(origin);
-  }
-  writeFileSync(
-    liveDemoOriginReceiptPathFromEnvironment(process.env),
-    JSON.stringify({
-      pageOrigins: [...pageOrigins].sort(),
-      requestOrigins: [...requestOrigins].sort(),
-    }),
-    { encoding: "ascii", flag: "wx", mode: 0o600 },
-  );
-}
-
-function expectScenarioOrigin(origins: ObservedOrigins, expectedOrigin: string): void {
-  expect([...origins.pageOrigins].sort()).toEqual([expectedOrigin]);
-  expect([...origins.requestOrigins].sort()).toEqual([expectedOrigin]);
-}
 
 function assignmentCard(page: Page, assignmentTitle: string): Locator {
   return page
@@ -340,8 +305,8 @@ test.describe("assignment delivery preview on the production PLE stack", () => {
     const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
     expect(scenarioInput.scenarioId).toBe("preview_plane");
     expect(scenarioInput.sysadminRequirement).toBe("not_required");
-    const assignmentTitle = scenarioAssignmentTitle;
-    const groupTitle = scenarioGroupTitle;
+    const assignmentTitle = `Peptide Bond Structure Practice ${scenarioInput.namespace}`;
+    const groupTitle = `Extended-time learners ${scenarioInput.namespace}`;
     const expectedOrigin = new URL(scenarioInput.baseUrl).origin;
     const origins = {
       local: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },
@@ -361,7 +326,7 @@ test.describe("assignment delivery preview on the production PLE stack", () => {
       contexts.push(localContext);
       observeContextOrigins(localContext, origins.local.pageOrigins, origins.local.requestOrigins);
       const local = await localContext.newPage();
-      configure(localContext, local);
+      configureContextAndPage(localContext, local, actionTimeoutMs);
 
       await test.step("Elena creates scenario-owned teaching state through the visible Base Course UI", async () => {
         await chooseSeededIdentity(local, /Elena Rivera/u);
@@ -409,7 +374,7 @@ test.describe("assignment delivery preview on the production PLE stack", () => {
           origins.remote.requestOrigins,
         );
         const remote = await remoteContext.newPage();
-        configure(remoteContext, remote);
+        configureContextAndPage(remoteContext, remote, actionTimeoutMs);
         await chooseSeededIdentity(remote, /Elena Rivera/u);
         await selectVisibleCourse(remote, baseCourseTitle);
         await enterAssignmentEditorFromList(remote, assignmentTitle);
@@ -471,7 +436,7 @@ test.describe("assignment delivery preview on the production PLE stack", () => {
         observeContextOrigins(maryContext, origins.mary.pageOrigins, origins.mary.requestOrigins);
         const maryCalls = observeProtectedPreviewCalls(maryContext);
         const mary = await maryContext.newPage();
-        configure(maryContext, mary);
+        configureContextAndPage(maryContext, mary, actionTimeoutMs);
         await chooseSeededIdentity(mary, /Mary Okafor/u);
         await selectVisibleCourse(mary, baseCourseTitle);
         await assertProtectedPreviewDenied(mary, previewUrl, maryCalls);
@@ -489,19 +454,19 @@ test.describe("assignment delivery preview on the production PLE stack", () => {
         );
         const outsiderCalls = observeProtectedPreviewCalls(outsiderContext);
         const outsider = await outsiderContext.newPage();
-        configure(outsiderContext, outsider);
+        configureContextAndPage(outsiderContext, outsider, actionTimeoutMs);
         await assertUnauthenticatedPreviewBoundary(outsider, previewUrl, outsiderCalls);
       });
 
       for (const observed of Object.values(origins)) {
-        expectScenarioOrigin(observed, expectedOrigin);
+        expectObservedOrigin(observed, expectedOrigin);
       }
       originEvidenceVerified = true;
     } finally {
       try {
         await Promise.all(contexts.map((context) => context.close()));
       } finally {
-        if (originEvidenceVerified) writeOriginReceipt(origins);
+        if (originEvidenceVerified) writeContextOriginReceipt(origins, false);
       }
     }
   });

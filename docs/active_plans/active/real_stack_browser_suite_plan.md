@@ -17,9 +17,10 @@ unique namespace through visible PLE workflows, and observes its own results wit
 The live-demo E2E owner becomes the shared browser-suite owner. Narrow decoder, serialization, and
 error-mapping tests remain fast unit tests outside the product browser runtime graph.
 
-This package was accepted on 2026-08-22. `WP-PROF-T3` is the current frozen-scope successor;
-`WP-PROF-T4` follows T3. The changing handoff is recorded only in
-[implementation_status.md](../implementation_status.md).
+This package and its frozen-scope successor, `WP-PROF-T3`, were accepted on 2026-08-22. The sole
+current professor package is recorded only in [implementation_status.md](../implementation_status.md),
+which currently names `WP-PROF-T4`. The accepted BS1 closure remains the historical nine-scenario,
+51-artifact record; T3 separately extends that evidence to ten scenarios and 63 artifacts.
 
 ## Evidence and boundaries
 

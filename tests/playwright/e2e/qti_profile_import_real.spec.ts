@@ -1,62 +1,28 @@
 // Elena imports the tracked Canvas QTI fixture through the visible production PLE interface.
+//
+// Selector contract:
+// - src/features/flat_question_authoring/flat_question_editor_page.tsx:535 owns the seed draft
+//   editor and question title field.
+// - src/features/qti_profile_import/qti_profile_import_page.tsx:381 owns the QTI archive input,
+//   import actions, report heading, item selection, and conversion controls.
+// - src/features/flat_question_authoring/flat_question_editor_page.tsx:535 owns the converted
+//   question editor surface and disabled/editable title behavior.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { writeFileSync } from "node:fs";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { liveDemoOriginReceiptPathFromEnvironment } from "../browser_suite_live_config";
 import {
   chooseSeededIdentity,
+  configureContextAndPage,
+  expectObservedOrigin,
   observeContextOrigins,
   requireScenarioInput,
   selectVisibleCourse,
+  writeContextOriginReceipt,
 } from "./real_stack_ui";
 import { canvasQtiFixtureArchive } from "./qti_fixture_archive";
 
 const actionTimeoutMs = 30_000;
 const qtiReadyTimeoutMs = 180_000;
-
-interface ObservedOrigins {
-  readonly pageOrigins: Set<string>;
-  readonly requestOrigins: Set<string>;
-}
-
-function configure(context: BrowserContext, page: Page): void {
-  context.setDefaultTimeout(actionTimeoutMs);
-  context.setDefaultNavigationTimeout(actionTimeoutMs);
-  page.setDefaultTimeout(actionTimeoutMs);
-  page.setDefaultNavigationTimeout(actionTimeoutMs);
-}
-
-function writeOriginReceipt(contexts: Readonly<Record<string, ObservedOrigins>>): void {
-  const pageOrigins = new Set<string>();
-  const requestOrigins = new Set<string>();
-  for (const origins of Object.values(contexts)) {
-    for (const origin of origins.pageOrigins) pageOrigins.add(origin);
-    for (const origin of origins.requestOrigins) requestOrigins.add(origin);
-  }
-  writeFileSync(
-    liveDemoOriginReceiptPathFromEnvironment(process.env),
-    JSON.stringify({
-      pageOrigins: [...pageOrigins].sort(),
-      requestOrigins: [...requestOrigins].sort(),
-      contexts: Object.fromEntries(
-        Object.entries(contexts).map(([name, origins]) => [
-          name,
-          {
-            pageOrigins: [...origins.pageOrigins].sort(),
-            requestOrigins: [...origins.requestOrigins].sort(),
-          },
-        ]),
-      ),
-    }),
-    { encoding: "ascii", flag: "wx", mode: 0o600 },
-  );
-}
-
-function expectScenarioOrigin(origins: ObservedOrigins, expectedOrigin: string): void {
-  expect([...origins.pageOrigins].sort()).toEqual([expectedOrigin]);
-  expect([...origins.requestOrigins].sort()).toEqual([expectedOrigin]);
-}
 
 async function createPrivateWorkspace(page: Page, namespace: string): Promise<void> {
   await page.getByRole("link", { name: "Workspace", exact: true }).click();
@@ -146,7 +112,7 @@ test.describe("QTI profile import on the production PLE stack", () => {
         origins.initial.requestOrigins,
       );
       const elena = await elenaContext.newPage();
-      configure(elenaContext, elena);
+      configureContextAndPage(elenaContext, elena, actionTimeoutMs);
 
       await chooseSeededIdentity(elena, /Elena Rivera/u);
       await selectVisibleCourse(elena, "Biochemistry Base Course");
@@ -166,7 +132,7 @@ test.describe("QTI profile import on the production PLE stack", () => {
       );
       await expect(freshElenaContext.storageState()).resolves.toEqual({ cookies: [], origins: [] });
       const freshElena = await freshElenaContext.newPage();
-      configure(freshElenaContext, freshElena);
+      configureContextAndPage(freshElenaContext, freshElena, actionTimeoutMs);
       await chooseSeededIdentity(freshElena, /Elena Rivera/u);
       await selectVisibleCourse(freshElena, "Biochemistry Base Course");
       await freshElena.getByRole("link", { name: "Workspace", exact: true }).click();
@@ -174,14 +140,14 @@ test.describe("QTI profile import on the production PLE stack", () => {
       await freshElena.getByRole("button", { name: /^Favorite color\b/u }).click();
       await expect(freshElena.getByLabel("Question title")).toHaveValue("Favorite color");
 
-      expectScenarioOrigin(origins.initial, expectedOrigin);
-      expectScenarioOrigin(origins.fresh, expectedOrigin);
+      expectObservedOrigin(origins.initial, expectedOrigin);
+      expectObservedOrigin(origins.fresh, expectedOrigin);
       originEvidenceVerified = true;
     } finally {
       try {
         await Promise.all(contexts.map((context) => context.close()));
       } finally {
-        if (originEvidenceVerified) writeOriginReceipt(origins);
+        if (originEvidenceVerified) writeContextOriginReceipt(origins);
       }
     }
   });

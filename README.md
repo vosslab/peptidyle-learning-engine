@@ -150,19 +150,21 @@ start the fixed production-auth browser session:
 git clone https://github.com/vosslab/peptidyle-learning-engine.git
 cd peptidyle-learning-engine
 npm run setup
-source source_me.sh && python3 local_stack.py start
-source source_me.sh && python3 local_stack.py start --no-open
+./run_live_demo.sh
 ```
 
-`start` builds the production `dist/` bundle, creates a fresh disposable
+`run_live_demo.sh` delegates to the canonical local-stack owner. It builds the
+production `dist/` bundle, creates a fresh disposable
 `ple-live-demo-browser` HTTPS stack, waits for production-auth readiness, and opens
-the canonical browser origin. `--no-open` keeps the same stack and prints the
-origin without opening a browser. Follow the visible seeded production-auth flow.
+the canonical browser origin. For a headless alternative, run
+`./run_live_demo.sh --no-open`; it keeps the same stack and prints the origin
+without opening a browser. Use `./run_live_demo.sh stop` for owner-scoped cleanup.
+Follow the visible seeded production-auth flow.
 
 Stop the session through its authenticated owner:
 
 ```bash
-source source_me.sh && python3 local_stack.py stop
+./run_live_demo.sh stop
 ```
 
 `stop` authenticates to the active owner, cleans its containers, volumes, networks,

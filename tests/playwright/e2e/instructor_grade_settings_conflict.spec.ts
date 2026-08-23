@@ -1,16 +1,24 @@
 // Two ordinary instructor sessions resolve a real optimistic-concurrency conflict through PLE.
+//
+// Selector contract:
+// - src/components/course_management_nav.tsx:31 owns the Grade settings navigation link.
+// - src/pages/course_grade_settings_page.tsx:319 owns the settings heading, labels, letter-band
+//   controls, save action, reload action, and status surface.
+// - src/pages/course_list_page.tsx:330 owns course creation and the course card/open control.
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
-import { writeFileSync } from "node:fs";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import { CORPUS_VIEWPORT_SIZES } from "../ui_corpus_manifest";
-import { liveDemoOriginReceiptPathFromEnvironment } from "../browser_suite_live_config";
 import {
   chooseSeededIdentity,
+  configureContextAndPage,
+  expectObservedOrigin,
   observeContextOrigins,
+  relativeIsoDate,
   requireScenarioInput,
   restoreViewportOrigin,
   selectVisibleCourse,
+  writeContextOriginReceipt,
 } from "./real_stack_ui";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 
@@ -22,55 +30,6 @@ const remoteObservedResponsiveArtifacts = [
   { artifactId: "grade_settings_remote_observed_iphone_pro", viewport: "iphone_pro" },
   { artifactId: "grade_settings_remote_observed_square", viewport: "square" },
 ] as const;
-
-interface ObservedOrigins {
-  readonly pageOrigins: Set<string>;
-  readonly requestOrigins: Set<string>;
-}
-
-function isoDate(offsetDays: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
-}
-
-function configure(context: BrowserContext, page: Page): void {
-  context.setDefaultTimeout(actionTimeoutMs);
-  context.setDefaultNavigationTimeout(actionTimeoutMs);
-  page.setDefaultTimeout(actionTimeoutMs);
-  page.setDefaultNavigationTimeout(actionTimeoutMs);
-}
-
-function writeOriginReceipt(contexts: Readonly<Record<string, ObservedOrigins>>): void {
-  const pageOrigins = new Set<string>();
-  const requestOrigins = new Set<string>();
-  for (const origins of Object.values(contexts)) {
-    for (const origin of origins.pageOrigins) pageOrigins.add(origin);
-    for (const origin of origins.requestOrigins) requestOrigins.add(origin);
-  }
-  writeFileSync(
-    liveDemoOriginReceiptPathFromEnvironment(process.env),
-    JSON.stringify({
-      pageOrigins: [...pageOrigins].sort(),
-      requestOrigins: [...requestOrigins].sort(),
-      contexts: Object.fromEntries(
-        Object.entries(contexts).map(([name, origins]) => [
-          name,
-          {
-            pageOrigins: [...origins.pageOrigins].sort(),
-            requestOrigins: [...origins.requestOrigins].sort(),
-          },
-        ]),
-      ),
-    }),
-    { encoding: "ascii", flag: "wx", mode: 0o600 },
-  );
-}
-
-function expectScenarioOrigin(origins: ObservedOrigins, expectedOrigin: string): void {
-  expect([...origins.pageOrigins].sort()).toEqual([expectedOrigin]);
-  expect([...origins.requestOrigins].sort()).toEqual([expectedOrigin]);
-}
 
 async function openGradeSettings(page: Page): Promise<void> {
   await page.getByRole("link", { name: "Grade settings", exact: true }).click();
@@ -160,16 +119,16 @@ test.describe("instructor grade-settings conflicts on the production PLE stack",
       );
       const local = await localContext.newPage();
       const remote = await remoteContext.newPage();
-      configure(localContext, local);
-      configure(remoteContext, remote);
+      configureContextAndPage(localContext, local, actionTimeoutMs);
+      configureContextAndPage(remoteContext, remote, actionTimeoutMs);
 
       await test.step("Elena creates and opens this scenario's course through the visible UI", async () => {
         await chooseSeededIdentity(local, /Elena Rivera/u);
         await selectVisibleCourse(local, "Biochemistry Base Course");
         await local.getByRole("link", { name: "Courses", exact: true }).click();
         await local.getByLabel("Course title").fill(courseTitle);
-        await local.getByLabel("Start date").fill(isoDate(-30));
-        await local.getByLabel("End date").fill(isoDate(365));
+        await local.getByLabel("Start date").fill(relativeIsoDate(-30));
+        await local.getByLabel("End date").fill(relativeIsoDate(365));
         await local.getByLabel("Time zone (IANA)").fill("America/Chicago");
         await local.getByRole("button", { name: "Create course" }).click();
         const createdCourse = local
@@ -219,14 +178,14 @@ test.describe("instructor grade-settings conflicts on the production PLE stack",
         await expect(gradeSettingsStatus(remote)).toHaveText("");
         await captureRemoteObservedResponsiveStates(remote, scenarioInput, localLabel);
       });
-      expectScenarioOrigin(origins.local, expectedOrigin);
-      expectScenarioOrigin(origins.remote, expectedOrigin);
+      expectObservedOrigin(origins.local, expectedOrigin);
+      expectObservedOrigin(origins.remote, expectedOrigin);
       originEvidenceVerified = true;
     } finally {
       try {
         await Promise.all(contexts.map((context) => context.close()));
       } finally {
-        if (originEvidenceVerified) writeOriginReceipt(origins);
+        if (originEvidenceVerified) writeContextOriginReceipt(origins);
       }
     }
   });

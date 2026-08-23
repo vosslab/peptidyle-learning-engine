@@ -1,5 +1,11 @@
 # Plan: Instructor-to-student assignment walkthrough
 
+> **Historical/accepted plan notice (2026-08-22).** This is an accepted historical plan. Its
+> objectives and dated evidence below remain a record of the corrected walkthrough scope; they are
+> not the current browser runbook or current-package handoff. Current browser evidence is owned by
+> [real_stack_browser_suite_plan.md](active/real_stack_browser_suite_plan.md), and
+> [implementation_status.md](implementation_status.md) records the sole current package.
+
 ## Context
 
 The repository owner has corrected the walkthrough charter. Its purpose is to

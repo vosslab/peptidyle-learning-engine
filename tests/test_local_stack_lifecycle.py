@@ -344,7 +344,11 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	monkeypatch.setattr(local_stack_control.lifecycle_validation, "require_mutation_engine", lambda runner, root, start: mark("engine"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "validate_compose", lambda target, runner, root: mark("compose-validation"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "child_environment", lambda target: {})
-	monkeypatch.setattr(local_stack_control.renderer, "inspect_renderer_oci_id", lambda runner, root, reference, environment: "sha256:" + "a" * 64)
+	monkeypatch.setattr(
+		local_stack_control.renderer,
+		"ensure_renderer_oci_id",
+		lambda runner, root, reference, environment, build: mark("renderer-image") or "sha256:" + "a" * 64,
+	)
 	monkeypatch.setattr(local_stack_control.lifecycle, "build_artifacts", lambda runner, root, options: mark("build"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "compose_run", compose_mark)
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_one_shot", lambda target, runner, options, service: mark("storage-ready" if service == "createbuckets" else "api-initialized"))
@@ -389,6 +393,7 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	assert events.index("prepared") < events.index("storage-ready")
 	assert events.index("storage-ready") < events.index("seeded")
 	assert events.index("renderer-ready") < events.index("renderer-probed")
+	assert events.index("build") < events.index("renderer-image") < events.index("maintenance")
 	if teaching_profile:
 		assert events.index("renderer-probed") < events.index("chapter-one") < events.index("api-initializers")
 		assert "image-prune" not in events

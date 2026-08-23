@@ -353,5 +353,8 @@ def validate_production_auth_render(
 		raise local_stack_control.models.ControllerError(
 			"live-demo environment selected local-file authentication"
 		)
-	rendered = local_stack_control.lifecycle.validate_lifecycle(disposable, runner, repo_root)
+	selected = disposable.target
+	local_stack_control.lifecycle.validate_static(selected)
+	local_stack_control.process.require_rootless_local_engine(runner, repo_root)
+	rendered = local_stack_control.lifecycle.validate_compose(selected, runner, repo_root)
 	require_production_auth_topology(rendered)

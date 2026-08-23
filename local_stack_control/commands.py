@@ -541,7 +541,8 @@ def acceptance(
 	if not preflight.ok:
 		projects = ", ".join(preflight.conflicting_projects)
 		raise local_stack_control.models.ControllerError(
-			"acceptance requires no existing default or walkthrough containers; "
+			"acceptance requires no existing default or fixed live-demo browser "
+			"(ple-live-demo-browser) containers; "
 			f"stop and remove only the projects you own, then retry: {projects}"
 		)
 	environment = local_stack_control.env_file.sanitized_acceptance_environment(

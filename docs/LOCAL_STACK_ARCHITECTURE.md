@@ -111,9 +111,11 @@ runtime integration is the smaller external PG renderer.
 
 ## External components
 
-The image named by `PLE_WEBWORK_RENDERER_IMAGE` is built or obtained from the
-separate `webwork-pg-renderer` project. The local selection is the reviewed
-`localhost/pg-renderer:reviewed` name; PLE resolves it to an OCI configuration
+The image named by `PLE_WEBWORK_RENDERER_IMAGE` comes from the separate
+`webwork-pg-renderer` project. Build-mode local lifecycle startup reconstructs
+an absent reviewed `localhost/pg-renderer:reviewed` image from the maintained
+sibling checkout; it pulls an absent published selection only by immutable
+digest. PLE resolves the selected image to an OCI configuration
 ID, verifies that the container uses that exact ID, records both observations,
 probes real render and grade behavior, and consumes its documented API. PLE
 does not copy the renderer implementation into this repository.

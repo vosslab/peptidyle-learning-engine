@@ -13,7 +13,6 @@ import local_stack_control.browser_suite_reset
 import local_stack_control.models
 
 
-#============================================
 def _receipt() -> local_stack_control.browser_suite_developer.DeveloperControlReceipt:
 	"""Return one fixed private receipt used only to exercise protocol decoding."""
 	return local_stack_control.browser_suite_developer.DeveloperControlReceipt(
@@ -119,11 +118,11 @@ def test_stale_private_control_receipt_never_owns_the_suite_lease(tmp_path: path
 
 
 #============================================
-def test_start_timeout_terminates_child_then_exact_resets_fixed_owner(
+def test_start_early_supervisor_exit_terminates_child_then_exact_resets_fixed_owner(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-	"""An unready child cannot leave an invisible lease holder or disposable effects behind."""
+	"""An exited unready supervisor immediately yields its lease to exact cleanup."""
 	events: list[str] = []
 	empty = local_stack_control.models.ProjectSnapshot("ple-live-demo-browser", (), (), ())
 	monkeypatch.setattr(
@@ -131,15 +130,21 @@ def test_start_timeout_terminates_child_then_exact_resets_fixed_owner(
 		"reset_live_demo_browser",
 		lambda _lease, _runner, _root: (events.append("reset"), empty)[1],
 	)
-	child = object()
+	class ExitedChild:
+		"""Minimal process-like supervisor that reports one early exit."""
+
+		def poll(self) -> int:
+			events.append("poll")
+			return 1
+
+	child = ExitedChild()
 	with pytest.raises(local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError):
 		local_stack_control.browser_suite_developer.start_developer_session(
 			tmp_path,
-			0.05,
+			0.5,
 			lambda _root, _lease: child,
 			lambda observed, _timeout: events.append("terminated") if observed is child else None,
 		)
-	assert events == ["terminated", "reset"]
+	assert events == ["poll", "terminated", "reset"]
 	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path) as lease:
 		assert tuple(lease.reset_workspace().iterdir()) == ()
-

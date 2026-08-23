@@ -57,6 +57,10 @@ OWNER_RUNTIME_ENVIRONMENT_NAMES = (
 	"TMP",
 	"TMPDIR",
 )
+OWNER_RUNTIME_PYTHON_ENVIRONMENT = {
+	"PYTHONDONTWRITEBYTECODE": "1",
+	"PYTHONUNBUFFERED": "1",
+}
 LIFECYCLE_CLEANUP_FAILURE = "service-oracle lifecycle cleanup did not complete"
 FINAL_RESET_INVENTORY_FAILURE = "service-oracle final reset/inventory verification did not complete"
 FINAL_WORKSPACE_FAILURE = "service-oracle final workspace verification did not complete"
@@ -321,6 +325,8 @@ def _runtime_environment() -> dict[str, str]:
 		local_stack_control.process.current_environment()
 	)
 	result = {name: base[name] for name in OWNER_RUNTIME_ENVIRONMENT_NAMES if name in base}
+	# Keep every Python child from creating repository bytecode or buffering test output.
+	result.update(OWNER_RUNTIME_PYTHON_ENVIRONMENT)
 	return result
 
 

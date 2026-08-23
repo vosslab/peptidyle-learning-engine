@@ -345,47 +345,6 @@ services:
     networks:
       - default
 
-  # Dedicated local outbox dispatcher. It has no generic educational-job or
-  # object-store capability; the SMTP overlay is the only place that gives it
-  # outbound provider access.
-  invitation-delivery-worker:
-    labels: *ple-disposable-capability-label
-    image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
-    command: ["--invitation-delivery-worker"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-      identity-secret-init:
-        condition: service_completed_successfully
-    environment:
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-peptidyle}
-      PLE_WORKER_LEASE_SECONDS: ${PLE_WORKER_LEASE_SECONDS:-120}
-      PLE_WORKER_PREPARATION_TIMEOUT_SECONDS: ${PLE_WORKER_PREPARATION_TIMEOUT_SECONDS:-90}
-      PLE_WORKER_POLL_MILLIS: ${PLE_WORKER_POLL_MILLIS:-500}
-      PLE_INVITATION_TOKEN_SECRET_FILE: /run/ple-secrets/invitation_token_secret
-    volumes:
-      - type: volume
-        source: ple_identity_runtime
-        target: /run/ple-secrets
-        read_only: true
-    restart: on-failure
-    stop_grace_period: 100s
-    healthcheck:
-      disable: true
-    user: "10001:10001"
-    read_only: true
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=128m,mode=1777
-    cpus: "0.5"
-    mem_limit: 256m
-    pids_limit: 64
-    networks:
-      - default
-
   gateway:
     labels: *ple-disposable-capability-label
     build:

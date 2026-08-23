@@ -7,10 +7,11 @@ import pathlib
 import re
 import secrets
 import sys
-import time
 from collections.abc import Callable, Mapping, Sequence
+
 SCRIPT_REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_REPOSITORY_ROOT))
+
 import local_stack_control.consumer
 import local_stack_control.env_file
 import local_stack_control.live_demo_claim_context
@@ -19,17 +20,18 @@ import local_stack_control.lifecycle
 import local_stack_control.models
 import local_stack_control.private_state
 import local_stack_control.process
+
 import e2e_browser_scenario_contract
+import e2e_browser_scenario_execution
 import e2e_browser_screenshot_contract
 import e2e_browser_screenshot_owner
 import e2e_browser_screenshot_publisher
-import e2e_browser_suite_input
 import e2e_browser_suite_evidence
-import e2e_browser_fault_orchestrator
 import e2e_browser_suite_oracles
 import e2e_browser_webauthn_continuation
 import e2e_browser_scenario_webwork_delivery
 browser_scenario_contract = e2e_browser_scenario_contract
+browser_scenario_execution = e2e_browser_scenario_execution
 browser_suite_oracles = e2e_browser_suite_oracles
 browser_webauthn_continuation = e2e_browser_webauthn_continuation
 webwork_delivery = e2e_browser_scenario_webwork_delivery
@@ -38,14 +40,11 @@ PRIVATE_STATE_DIRECTORY_PREFIX = "run-"
 LOCAL_SYSADMIN_ID = local_stack_control.live_demo_target.LOCAL_SYSADMIN_ID
 MAXIMUM_TITLE_FILTER_CHARACTERS = 180
 TITLE_FILTER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ,.:_-]*$")
-PLAYWRIGHT_RUNTIME_ENVIRONMENT_NAMES = (
-	"HOME", "LANG", "LC_ALL", "LC_CTYPE", "PATH", "TEMP", "TMP", "TMPDIR",
-)
 WEBWORK_SEED_RUNTIME_ENVIRONMENT_NAMES = (
 	"PATH", "HOME", "CARGO_HOME", "RUSTUP_HOME", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE",
 )
-class BrowserSuiteError(local_stack_control.models.ControllerError):
-	"""A concise production-browser suite infrastructure failure."""
+BrowserSuiteError = browser_scenario_execution.BrowserSuiteError
+ScenarioRunReceipt = browser_scenario_execution.ScenarioRunReceipt
 StateFactory = Callable[[pathlib.Path, pathlib.Path, str], local_stack_control.private_state.PrivateState]
 InputWriter = Callable[[pathlib.Path, int, pathlib.Path, browser_scenario_contract.ScenarioContract], None]
 PortChecker = Callable[[tuple[int, int, int, int], local_stack_control.process.CommandRunner, pathlib.Path], None]
@@ -142,43 +141,6 @@ class BrowserSuiteReceipt:
 		}
 		return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 @dataclasses.dataclass(frozen=True)
-class ScenarioRunReceipt:
-	"""Public evidence for exactly one child projection in a shared lifecycle."""
-	scenario_id: str
-	namespace: str
-	expected_origin: str
-	observed_page_origins: tuple[str, ...]
-	observed_request_origins: tuple[str, ...]
-	child_succeeded: bool
-	observed_contexts: tuple[browser_suite_oracles.ContextOriginReceipt, ...] = ()
-	webauthn_continuation_consumed: bool = False
-	fault_transition: str | None = None
-	fault_injected: bool = False
-	fault_recovered: bool = False
-	screenshot_artifacts: tuple[e2e_browser_screenshot_publisher.ScreenshotArtifactEvidence, ...] = ()
-	renderer_call_witness: webwork_delivery.RendererCallWitness | None = None
-	def as_value(self) -> dict[str, object]:
-		"""Return the stable public representation stored in the suite receipt."""
-		result: dict[str, object] = {
-			"scenario": self.scenario_id,
-			"namespace": self.namespace,
-			"expectedOrigin": self.expected_origin,
-			"observedPageOrigins": self.observed_page_origins,
-			"observedRequestOrigins": self.observed_request_origins,
-			"observedContexts": e2e_browser_suite_evidence.context_origins_value(
-				self.observed_contexts
-			),
-			"childSucceeded": self.child_succeeded,
-			"webAuthnContinuationConsumed": self.webauthn_continuation_consumed,
-			"faultTransition": self.fault_transition,
-			"faultInjected": self.fault_injected,
-			"faultRecovered": self.fault_recovered,
-			"screenshotArtifacts": [item.as_value() for item in self.screenshot_artifacts],
-		}
-		if self.renderer_call_witness is not None:
-			result["rendererCallWitness"] = self.renderer_call_witness.as_value()
-		return result
-@dataclasses.dataclass(frozen=True)
 class BrowserSuiteDependencies:
 	"""Explicit external boundaries for production code and deterministic owner tests."""
 	root: pathlib.Path
@@ -213,31 +175,10 @@ def private_file(path: pathlib.Path, content: str | bytes) -> None:
 			output.write(content.encode("ascii"))
 		else:
 			output.write(content)
-def require_webauthn(function: Callable[..., object], *arguments: object) -> object:
-	"""Map the focused private transition contract to the public suite error boundary."""
-	try:
-		return function(*arguments)
-	except browser_webauthn_continuation.BrowserWebAuthnContinuationError as error:
-		raise BrowserSuiteError(str(error)) from error
-def require_webauthn_path(function: Callable[..., object], *arguments: object) -> pathlib.Path:
-	"""Require a private WebAuthn helper to return the expected path value."""
-	value = require_webauthn(function, *arguments)
-	if not isinstance(value, pathlib.Path):
-		raise BrowserSuiteError("browser suite WebAuthn helper returned an invalid path")
-	return value
-
-
-def require_webwork_catalog_baseline(
-	function: Callable[..., object], *arguments: object
-) -> webwork_delivery.CatalogBaseline:
-	"""Keep provider receipt decoding behind the owner's non-secret error boundary."""
-	try:
-		value = function(*arguments)
-	except webwork_delivery.WebworkDeliveryEvidenceError as error:
-		raise BrowserSuiteError("WebWork catalog baseline receipt is invalid") from error
-	if not isinstance(value, webwork_delivery.CatalogBaseline):
-		raise BrowserSuiteError("WebWork catalog baseline receipt is invalid")
-	return value
+require_webauthn_path = browser_scenario_execution.require_webauthn_path
+require_command_success = browser_scenario_execution.require_command_success
+playwright_environment = browser_scenario_execution.playwright_environment
+validate_browser_input = browser_scenario_execution.validate_browser_input
 def adapter_argv(
 	action: str,
 	manifest_path: pathlib.Path,
@@ -344,10 +285,7 @@ def playwright_argv(
 			raise BrowserSuiteError("browser suite child argv requires one scenario")
 		title_filter = selection.title_filter
 		contract = resolved[0]
-	browser_scenario_contract.validate_contract(contract)
-	result = ["npx", "playwright", "test", contract.spec_path, "--workers=1"]
-	if title_filter is not None:
-		result.extend(("--grep", re.escape(title_filter)))
+	result = browser_scenario_execution.playwright_command(contract, title_filter)
 	return result
 def run_command(
 	runner: local_stack_control.process.CommandRunner,
@@ -358,34 +296,6 @@ def run_command(
 	"""Stream one external boundary while retaining command arguments as an array."""
 	result = local_stack_control.process.stream_in_owner_session(runner, argv, environment, root)
 	return result
-def require_command_success(
-	result: local_stack_control.process.SessionCommandResult,
-	argv: list[str],
-	sessions: list[local_stack_control.process.ProcessSession],
-) -> None:
-	"""Record every launched owner session before a nonzero command becomes a suite failure."""
-	sessions.append(result.session)
-	if result.returncode != 0:
-		raise BrowserSuiteError("production browser-suite command failed: " + argv[0])
-def playwright_environment(
-	input_path: pathlib.Path,
-	webauthn_continuation: pathlib.Path | None = None,
-	webauthn_continuation_acknowledgement: pathlib.Path | None = None,
-) -> dict[str, str]:
-	"""Pass a small runtime allowlist and owner-selected private paths to Playwright."""
-	inherited = local_stack_control.process.current_environment()
-	environment = {
-		name: inherited[name]
-		for name in PLAYWRIGHT_RUNTIME_ENVIRONMENT_NAMES
-		if name in inherited
-	}
-	environment["PLE_LIVE_DEMO_BROWSER_REQUIRED"] = "1"
-	environment["PLE_LIVE_DEMO_BROWSER_INPUT_FILE"] = str(input_path)
-	if webauthn_continuation is not None:
-		environment["PLE_BROWSER_SUITE_WEBAUTHN_CONTINUATION_FILE"] = str(webauthn_continuation)
-	if webauthn_continuation_acknowledgement is not None:
-		environment["PLE_BROWSER_SUITE_WEBAUTHN_CONTINUATION_ACK_FILE"] = str(webauthn_continuation_acknowledgement)
-	return environment
 def write_browser_input(
 	path: pathlib.Path,
 	gateway_port: int,
@@ -416,17 +326,6 @@ def write_browser_input(
 		value["sysadminOwnershipProof"] = context.ownership_proof
 	content = json.dumps(value, separators=(",", ":"), ensure_ascii=True)
 	private_file(path, content)
-def validate_browser_input(
-	path: pathlib.Path,
-	gateway_port: int,
-	contract: browser_scenario_contract.ScenarioContract,
-	screenshot_mode: bool = False,
-) -> None:
-	"""Confirm the private Playwright ABI before Chromium can start."""
-	try:
-		e2e_browser_suite_input.validate(path, gateway_port, contract, screenshot_mode)
-	except e2e_browser_suite_input.BrowserSuiteInputError as error:
-		raise BrowserSuiteError(str(error)) from error
 def require_worker_ready(
 	runner: local_stack_control.process.CommandRunner,
 	manifest_path: pathlib.Path,
@@ -610,11 +509,306 @@ def default_dependencies() -> BrowserSuiteDependencies:
 		browser_suite_oracles.inventory_for,
 		browser_suite_oracles.origin_receipt_from_file,
 		browser_suite_oracles.empty_after_cleanup,
-		lambda receipt: print("Browser-suite receipt: " + receipt.as_json()),
+		report_receipt,
 		seed_webwork_catalog_baseline,
 		read_webwork_renderer_evidence_logs,
 	)
 	return result
+
+
+def report_receipt(receipt: BrowserSuiteReceipt) -> None:
+	"""Print one public-safe browser-suite receipt."""
+	print("Browser-suite receipt: " + receipt.as_json())
+
+
+@dataclasses.dataclass
+class BrowserSuiteLifecycleState:
+	"""Mutable private state for one launch, scenario run, and cleanup sequence."""
+
+	private_state: local_stack_control.private_state.PrivateState
+	continuation_path: pathlib.Path
+	origin: str
+	project: str
+	provider: browser_suite_oracles.ProviderReceipt
+	before_inventory: browser_suite_oracles.SuiteInventory
+	launched_inventory: browser_suite_oracles.SuiteInventory
+	after_inventory: browser_suite_oracles.SuiteInventory
+	origin_receipt: browser_suite_oracles.OriginReceipt
+	scenario_receipts: list[ScenarioRunReceipt]
+	sessions: list[local_stack_control.process.ProcessSession]
+	screenshot_staging: pathlib.Path | None
+	pending_screenshots: (
+		e2e_browser_screenshot_publisher.PendingScreenshotPublication | None
+	)
+	capture_dist_digest: str | None
+	failures: list[BaseException]
+	manifest_path: pathlib.Path | None = None
+	claim_context_path: pathlib.Path | None = None
+	lifecycle_launch_attempted: bool = False
+	lifecycle_launch_completed: bool = False
+	cleanup_attempted: bool = False
+	cleanup_completed: bool = False
+	private_state_removed: bool = False
+
+
+def prepare_lifecycle_state(
+	selection: BrowserSuiteSelection,
+	dependencies: BrowserSuiteDependencies,
+) -> BrowserSuiteLifecycleState:
+	"""Allocate private suite state after every public input boundary has passed."""
+	private_state = dependencies.state_factory(
+		dependencies.root,
+		PRIVATE_STATE_RELATIVE_DIRECTORY,
+		PRIVATE_STATE_DIRECTORY_PREFIX,
+	)
+	continuation_path = require_webauthn_path(
+		browser_webauthn_continuation.continuation_path, private_state.directory
+	)
+	project = "not-created"
+	origin = f"https://localhost:{dependencies.ports[3]}/"
+	provider = browser_suite_oracles.ProviderReceipt("unavailable", (), False)
+	empty_inventory = browser_suite_oracles.SuiteInventory(
+		project, (), (), (), (), (), provider
+	)
+	result = BrowserSuiteLifecycleState(
+		private_state=private_state,
+		continuation_path=continuation_path,
+		origin=origin,
+		project=project,
+		provider=provider,
+		before_inventory=empty_inventory,
+		launched_inventory=empty_inventory,
+		after_inventory=empty_inventory,
+		origin_receipt=browser_suite_oracles.unavailable_origin_receipt(origin),
+		scenario_receipts=[],
+		sessions=[],
+		screenshot_staging=e2e_browser_screenshot_owner.prepare_staging(
+			private_state.directory, selection.screenshots
+		),
+		pending_screenshots=None,
+		capture_dist_digest=None,
+		failures=[],
+	)
+	return result
+
+
+def require_target_path(path: pathlib.Path | None, description: str) -> pathlib.Path:
+	"""Require one target path after private target generation succeeds."""
+	if path is None:
+		raise BrowserSuiteError("browser suite target has no " + description)
+	return path
+
+
+def launch_production_stack(
+	selection: BrowserSuiteSelection,
+	dependencies: BrowserSuiteDependencies,
+	lifecycle: BrowserSuiteLifecycleState,
+) -> tuple[pathlib.Path, pathlib.Path]:
+	"""Generate the private target and launch its production services."""
+	live_target = local_stack_control.live_demo_target.write_private_target(
+		lifecycle.private_state.directory,
+		local_stack_control.models.LiveDemoProfile.BROWSER,
+		local_stack_control.live_demo_target.ports_from_tuple(dependencies.ports),
+		dependencies.selections,
+	)
+	lifecycle.project = live_target.project
+	lifecycle.manifest_path = live_target.manifest_path
+	lifecycle.claim_context_path = live_target.claim_context_path
+	manifest_path = require_target_path(lifecycle.manifest_path, "manifest")
+	claim_context_path = require_target_path(
+		lifecycle.claim_context_path, "claim context"
+	)
+	lifecycle.provider = dependencies.provider_reader(
+		dependencies.runner, dependencies.root, manifest_path
+	)
+	lifecycle.before_inventory = dependencies.inventory_reader(
+		lifecycle.project,
+		lifecycle.private_state.directory,
+		dependencies.runner,
+		dependencies.root,
+		lifecycle.provider,
+		tuple(lifecycle.sessions),
+	)
+	if selection.build_requested:
+		print("Browser-suite: --build uses the production dist/ lifecycle build")
+	else:
+		print("Browser-suite: lifecycle builds the production dist/ bundle")
+	print("Browser-suite: parsing the production-auth Compose topology")
+	dependencies.topology_validator(dependencies.runner, dependencies.root, manifest_path)
+	print("Browser-suite: starting the isolated production PLE stack")
+	lifecycle.lifecycle_launch_attempted = True
+	launch_argv = adapter_argv("launch", manifest_path, ["--timeout-seconds", "240"])
+	launch_result = dependencies.command_runner(
+		dependencies.runner,
+		launch_argv,
+		dependencies.root,
+		None,
+	)
+	require_command_success(launch_result, launch_argv, lifecycle.sessions)
+	lifecycle.lifecycle_launch_completed = True
+	dependencies.worker_readiness_checker(
+		dependencies.runner, manifest_path, dependencies.root
+	)
+	lifecycle.capture_dist_digest = e2e_browser_screenshot_owner.capture_dist_digest(
+		dependencies.root, selection.screenshots
+	)
+	lifecycle.launched_inventory = dependencies.inventory_reader(
+		lifecycle.project,
+		lifecycle.private_state.directory,
+		dependencies.runner,
+		dependencies.root,
+		lifecycle.provider,
+		tuple(lifecycle.sessions),
+	)
+	result = manifest_path, claim_context_path
+	return result
+
+
+def execute_visible_scenarios(
+	selection: BrowserSuiteSelection,
+	contracts: Sequence[browser_scenario_contract.ScenarioContract],
+	execution_contracts: Sequence[browser_scenario_contract.ScenarioContract],
+	manifest_path: pathlib.Path,
+	claim_context_path: pathlib.Path,
+	dependencies: BrowserSuiteDependencies,
+	lifecycle: BrowserSuiteLifecycleState,
+) -> None:
+	"""Execute the selected browser children inside the launched real stack."""
+	scenario_dependencies = browser_scenario_execution.ScenarioExecutionDependencies(
+		dependencies.root,
+		dependencies.runner,
+		dependencies.ports,
+		dependencies.input_writer,
+		dependencies.command_runner,
+		dependencies.origin_checker,
+		dependencies.webwork_catalog_seeder,
+		dependencies.evidence_log_reader,
+		adapter_argv,
+	)
+	scenario_request = browser_scenario_execution.ScenarioExecutionRequest(
+		tuple(execution_contracts),
+		tuple(contracts),
+		selection.title_filter,
+		lifecycle.private_state.directory,
+		manifest_path,
+		claim_context_path,
+		lifecycle.continuation_path,
+		lifecycle.origin,
+		selection.screenshots,
+		lifecycle.screenshot_staging,
+		lifecycle.capture_dist_digest,
+		lifecycle.sessions,
+		scenario_dependencies,
+	)
+	scenario_result = browser_scenario_execution.execute_scenarios(scenario_request)
+	lifecycle.origin_receipt = scenario_result.origin_receipt
+	lifecycle.scenario_receipts = list(scenario_result.scenario_receipts)
+	lifecycle.pending_screenshots = scenario_result.pending_screenshots
+	if scenario_result.failure is not None:
+		lifecycle.failures.append(scenario_result.failure)
+
+
+def cleanup_and_observe(
+	dependencies: BrowserSuiteDependencies,
+	lifecycle: BrowserSuiteLifecycleState,
+) -> None:
+	"""Clean the launched stack, remove private state, and inspect final ownership."""
+	if lifecycle.lifecycle_launch_attempted:
+		lifecycle.cleanup_attempted = True
+		try:
+			manifest_path = require_target_path(lifecycle.manifest_path, "manifest")
+			cleanup_argv = adapter_argv("cleanup", manifest_path)
+			cleanup_result = dependencies.command_runner(
+				dependencies.runner,
+				cleanup_argv,
+				dependencies.root,
+				None,
+			)
+			require_command_success(
+				cleanup_result, cleanup_argv, lifecycle.sessions
+			)
+			lifecycle.cleanup_completed = True
+		except BaseException as error:
+			lifecycle.failures.append(error)
+	if not lifecycle.cleanup_attempted or lifecycle.cleanup_completed:
+		try:
+			lifecycle.private_state.remove()
+			lifecycle.private_state_removed = True
+		except BaseException as error:
+			lifecycle.failures.append(error)
+	try:
+		lifecycle.after_inventory = dependencies.inventory_reader(
+			lifecycle.project,
+			lifecycle.private_state.directory,
+			dependencies.runner,
+			dependencies.root,
+			lifecycle.provider,
+			tuple(lifecycle.sessions),
+		)
+		if lifecycle.cleanup_completed and lifecycle.private_state_removed:
+			dependencies.cleanup_checker(lifecycle.after_inventory)
+	except BaseException as error:
+		lifecycle.failures.append(error)
+
+
+def lifecycle_receipt(
+	contracts: Sequence[browser_scenario_contract.ScenarioContract],
+	lifecycle: BrowserSuiteLifecycleState,
+) -> BrowserSuiteReceipt:
+	"""Project private lifecycle state into the stable public receipt."""
+	screenshot_evidence = (
+		None
+		if lifecycle.pending_screenshots is None
+		else e2e_browser_screenshot_publisher.evidence_for(
+			lifecycle.pending_screenshots
+		)
+	)
+	result = BrowserSuiteReceipt(
+		contracts[0].scenario_id if len(contracts) == 1 else "all",
+		lifecycle.origin,
+		lifecycle.project,
+		str(lifecycle.private_state.directory),
+		lifecycle.lifecycle_launch_attempted,
+		lifecycle.lifecycle_launch_completed,
+		lifecycle.cleanup_attempted,
+		lifecycle.cleanup_completed,
+		lifecycle.private_state_removed,
+		lifecycle.origin_receipt,
+		lifecycle.before_inventory,
+		lifecycle.launched_inventory,
+		lifecycle.after_inventory,
+		tuple(lifecycle.scenario_receipts),
+		None,
+		tuple(lifecycle.sessions),
+		screenshot_evidence,
+	)
+	return result
+
+
+def collect_screenshots_and_report(
+	receipt: BrowserSuiteReceipt,
+	dependencies: BrowserSuiteDependencies,
+	lifecycle: BrowserSuiteLifecycleState,
+) -> None:
+	"""Transfer private screenshots to the lease owner and report public evidence."""
+	if lifecycle.pending_screenshots is not None:
+		if dependencies._screenshot_collector is None:
+			lifecycle.failures.append(
+				BrowserSuiteError("screenshot capture requires the lease-owned lifecycle")
+			)
+		else:
+			try:
+				dependencies._screenshot_collector(lifecycle.pending_screenshots)
+			except BaseException as error:
+				lifecycle.failures.append(error)
+	# The pending bundle is intentionally retained only by the private collector.
+	lifecycle.pending_screenshots = None
+	try:
+		dependencies.receipt_reporter(receipt)
+	except BaseException as error:
+		lifecycle.failures.append(error)
+
+
 def run_selection(
 	selection: BrowserSuiteSelection,
 	dependencies: BrowserSuiteDependencies,
@@ -634,337 +828,26 @@ def run_selection(
 	execution_contracts = ordered_execution_contracts(contracts)
 	require_canonical_selections(dependencies.selections)
 	dependencies.port_checker(dependencies.ports, dependencies.runner, dependencies.root)
-	state = dependencies.state_factory(
-		dependencies.root,
-		PRIVATE_STATE_RELATIVE_DIRECTORY,
-		PRIVATE_STATE_DIRECTORY_PREFIX,
-	)
-	continuation_path = require_webauthn_path(
-		browser_webauthn_continuation.continuation_path, state.directory
-	)
-	project = "not-created"
-	origin = f"https://localhost:{dependencies.ports[3]}/"
-	lifecycle_launch_attempted = False
-	lifecycle_launch_completed = False
-	cleanup_attempted = False
-	cleanup_completed = False
-	private_state_removed = False
-	provider = browser_suite_oracles.ProviderReceipt("unavailable", (), False)
-	empty_inventory = browser_suite_oracles.SuiteInventory(
-		project, (), (), (), (), (), provider
-	)
-	before_inventory = empty_inventory
-	launched_inventory = empty_inventory
-	after_inventory = empty_inventory
-	origin_receipt = browser_suite_oracles.unavailable_origin_receipt(origin)
-	scenario_receipts: list[ScenarioRunReceipt] = []
-	sessions: list[local_stack_control.process.ProcessSession] = []
-	screenshot_staging = e2e_browser_screenshot_owner.prepare_staging(
-		state.directory, selection.screenshots
-	)
-	pending_screenshots: e2e_browser_screenshot_publisher.PendingScreenshotPublication | None = None
-	capture_dist_digest: str | None = None
-	webwork_catalog_baseline: webwork_delivery.CatalogBaseline | None = None
-	failures: list[BaseException] = []
+	lifecycle = prepare_lifecycle_state(selection, dependencies)
 	try:
-		live_target = local_stack_control.live_demo_target.write_private_target(
-			state.directory,
-			local_stack_control.models.LiveDemoProfile.BROWSER,
-			local_stack_control.live_demo_target.ports_from_tuple(dependencies.ports),
-			dependencies.selections,
+		manifest_path, claim_context_path = launch_production_stack(
+			selection, dependencies, lifecycle
 		)
-		project = live_target.project
-		manifest_path = live_target.manifest_path
-		claim_context_path = live_target.claim_context_path
-		provider = dependencies.provider_reader(dependencies.runner, dependencies.root, manifest_path)
-		before_inventory = dependencies.inventory_reader(
-			project,
-			state.directory,
-			dependencies.runner,
-			dependencies.root,
-			provider,
-			tuple(sessions),
+		execute_visible_scenarios(
+			selection,
+			contracts,
+			execution_contracts,
+			manifest_path,
+			claim_context_path,
+			dependencies,
+			lifecycle,
 		)
-		if selection.build_requested:
-			print("Browser-suite: --build uses the production dist/ lifecycle build")
-		else:
-			print("Browser-suite: lifecycle builds the production dist/ bundle")
-		print("Browser-suite: parsing the production-auth Compose topology")
-		dependencies.topology_validator(dependencies.runner, dependencies.root, manifest_path)
-		print("Browser-suite: starting the isolated production PLE stack")
-		lifecycle_launch_attempted = True
-		launch_argv = adapter_argv("launch", manifest_path, ["--timeout-seconds", "240"])
-		launch_result = dependencies.command_runner(
-			dependencies.runner,
-			launch_argv,
-			dependencies.root,
-			None,
-		)
-		require_command_success(launch_result, launch_argv, sessions)
-		lifecycle_launch_completed = True
-		dependencies.worker_readiness_checker(dependencies.runner, manifest_path, dependencies.root)
-		capture_dist_digest = e2e_browser_screenshot_owner.capture_dist_digest(
-			dependencies.root, selection.screenshots
-		)
-		launched_inventory = dependencies.inventory_reader(
-			project,
-			state.directory,
-			dependencies.runner,
-			dependencies.root,
-			provider,
-			tuple(sessions),
-		)
-		for contract in execution_contracts:
-			baseline_receipt = state.directory / ".runtime" / "base-course.json"
-			browser_scenario_contract.validate_installed_baseline(
-				baseline_receipt,
-				contract,
-			)
-			input_path = state.directory / f"playwright-input-{contract.scenario_id}.json"
-			origin_receipt_path = state.directory / f"browser-origin-receipt-{contract.scenario_id}.json"
-			webwork_catalog_input_path: pathlib.Path | None = None
-			webwork_issuance_acknowledgement_path: pathlib.Path | None = None
-			webwork_before_logs: str | None = None
-			webwork_observation_started: float | None = None
-			if contract.scenario_id == webwork_delivery.SCENARIO_ID:
-				if webwork_catalog_baseline is None:
-					webwork_catalog_baseline = require_webwork_catalog_baseline(
-						dependencies.webwork_catalog_seeder,
-						dependencies.runner,
-						dependencies.root,
-						state.directory,
-						dependencies.ports[1],
-					)
-				webwork_catalog_input_path = state.directory / "webwork-catalog-baseline-input.json"
-				webwork_delivery.write_catalog_baseline_input(
-					webwork_catalog_input_path, webwork_catalog_baseline
-				)
-				webwork_delivery.validate_catalog_baseline_input(webwork_catalog_input_path)
-				webwork_issuance_acknowledgement_path = (
-					state.directory / "webwork-renderer-issuance-acknowledgement.json"
-				)
-			dependencies.input_writer(input_path, dependencies.ports[3], claim_context_path, contract)
-			if selection.screenshots:
-				e2e_browser_screenshot_owner.add_capture_input(input_path, contract)
-			validate_browser_input(input_path, dependencies.ports[3], contract, selection.screenshots)
-			namespace = json.loads(input_path.read_text(encoding="ascii"))["namespace"]
-			print("Browser-suite: executing visible scenario " + contract.scenario_id)
-			if contract.sysadmin_requirement == "claimed":
-				require_webauthn(
-					browser_webauthn_continuation.validate_continuation,
-					continuation_path,
-					dependencies.ports[3],
-				)
-			acknowledgement_path = (
-				require_webauthn_path(
-					browser_webauthn_continuation.acknowledgement_path,
-					state.directory,
-					contract.scenario_id,
-				)
-				if contract.sysadmin_requirement == "claimed"
-				else None
-			)
-			continuation_for_child = (
-				continuation_path
-				if contract.sysadmin_requirement in ("unclaimed", "claimed")
-				else None
-			)
-			child_environment = playwright_environment(
-				input_path,
-				continuation_for_child,
-				acknowledgement_path,
-			)
-			child_environment["PLE_LIVE_DEMO_BROWSER_ORIGIN_RECEIPT_FILE"] = str(origin_receipt_path)
-			if webwork_catalog_input_path is not None and webwork_issuance_acknowledgement_path is not None:
-				webwork_before_logs = dependencies.evidence_log_reader(
-					dependencies.runner, dependencies.root, manifest_path
-				)
-				webwork_observation_started = time.monotonic()
-				child_environment["PLE_WEBWORK_CATALOG_BASELINE_INPUT_FILE"] = str(
-					webwork_catalog_input_path
-				)
-				child_environment["PLE_WEBWORK_RENDERER_ISSUANCE_ACK_FILE"] = str(
-					webwork_issuance_acknowledgement_path
-				)
-			if screenshot_staging is not None:
-				child_environment["PLE_BROWSER_SUITE_SCREENSHOT_STAGING"] = str(screenshot_staging)
-			child_title_filter = selection.title_filter if contract in contracts else None
-			playwright_command = playwright_argv(contract, child_title_filter)
-			try:
-				fault_result: e2e_browser_fault_orchestrator.FaultScenarioResult | None = None
-				if contract.fault_transition is None:
-					child_result = dependencies.command_runner(
-						dependencies.runner,
-						playwright_command,
-						dependencies.root,
-						child_environment,
-					)
-					require_command_success(child_result, playwright_command, sessions)
-				else:
-					fault_request = e2e_browser_fault_orchestrator.FaultScenarioRequest(
-						dependencies.root,
-						state.directory,
-						manifest_path,
-						contract.scenario_id,
-						namespace,
-						playwright_command,
-						child_environment,
-					)
-					def run_fault_command(arguments: list[str]) -> local_stack_control.process.SessionCommandResult:
-						action = arguments[0]
-						adapter_arguments = arguments[1:]
-						adapter_command = adapter_argv(action, manifest_path, adapter_arguments)
-						result = dependencies.command_runner(
-							dependencies.runner, adapter_command, dependencies.root, None
-						)
-						sessions.append(result.session)
-						return result
-					fault_result = e2e_browser_fault_orchestrator.run_gateway_submit_outage(
-						fault_request, run_fault_command, record_session=sessions.append
-					)
-				origin_receipt = dependencies.origin_checker(origin_receipt_path, origin)
-				if contract.sysadmin_requirement == "unclaimed":
-					require_webauthn(
-						browser_webauthn_continuation.validate_continuation,
-						continuation_path,
-						dependencies.ports[3],
-					)
-				if acknowledgement_path is not None:
-					require_webauthn(
-						browser_webauthn_continuation.validate_acknowledgement,
-						acknowledgement_path,
-						dependencies.ports[3],
-						contract,
-						namespace,
-					)
-				renderer_call_witness: webwork_delivery.RendererCallWitness | None = None
-				if webwork_issuance_acknowledgement_path is not None:
-					if webwork_before_logs is None or webwork_observation_started is None:
-						raise BrowserSuiteError("WebWork renderer evidence window is incomplete")
-					try:
-						webwork_delivery.validate_visible_issuance_acknowledgement(
-							webwork_issuance_acknowledgement_path, namespace
-						)
-					except webwork_delivery.WebworkDeliveryEvidenceError as error:
-						raise BrowserSuiteError(
-							"WebWork visible issuance acknowledgement is invalid"
-						) from error
-					elapsed_seconds = max(1, int(time.monotonic() - webwork_observation_started) + 1)
-					webwork_after_logs = dependencies.evidence_log_reader(
-						dependencies.runner, dependencies.root, manifest_path
-					)
-					renderer_call_witness = webwork_delivery.renderer_call_witness(
-						webwork_before_logs, webwork_after_logs, elapsed_seconds
-					)
-				scenario_receipts.append(
-					ScenarioRunReceipt(
-						contract.scenario_id,
-						namespace,
-						origin,
-						origin_receipt.observed_page_origins,
-						origin_receipt.observed_request_origins,
-						True,
-						origin_receipt.observed_contexts,
-						acknowledgement_path is not None,
-						None if fault_result is None else fault_result.fault_transition,
-						False if fault_result is None else fault_result.fault_injected,
-						False if fault_result is None else fault_result.fault_recovered,
-						(),
-						renderer_call_witness,
-					)
-				)
-			except BaseException as error:
-				scenario_receipts.append(
-					ScenarioRunReceipt(contract.scenario_id, namespace, origin, (), (), False)
-				)
-				message = "browser scenario failed: " + contract.scenario_id + ": " + str(error)
-				failures.append(BrowserSuiteError(message))
-				break
-		if screenshot_staging is not None and not failures:
-			try:
-				pending_screenshots = e2e_browser_screenshot_owner.pending_after_capture(
-					dependencies.root, screenshot_staging, origin, capture_dist_digest
-				)
-			except e2e_browser_screenshot_publisher.ScreenshotPublicationError as error:
-				raise BrowserSuiteError(str(error)) from error
-			scenario_receipts = [
-				dataclasses.replace(
-					receipt,
-					screenshot_artifacts=e2e_browser_screenshot_owner.artifact_evidence_for_scenario(
-						pending_screenshots, receipt.scenario_id
-					),
-				)
-				for receipt in scenario_receipts
-			]
 	except BaseException as error:
-		failures.append(error)
-	if lifecycle_launch_attempted:
-		cleanup_attempted = True
-		try:
-			cleanup_argv = adapter_argv("cleanup", manifest_path)
-			cleanup_result = dependencies.command_runner(
-				dependencies.runner,
-				cleanup_argv,
-				dependencies.root,
-				None,
-			)
-			require_command_success(cleanup_result, cleanup_argv, sessions)
-			cleanup_completed = True
-		except BaseException as error:
-			failures.append(error)
-	if not cleanup_attempted or cleanup_completed:
-		try:
-			state.remove()
-			private_state_removed = True
-		except BaseException as error:
-			failures.append(error)
-	try:
-		after_inventory = dependencies.inventory_reader(
-			project,
-			state.directory,
-			dependencies.runner,
-			dependencies.root,
-			provider,
-			tuple(sessions),
-		)
-		if cleanup_completed and private_state_removed:
-			dependencies.cleanup_checker(after_inventory)
-	except BaseException as error:
-		failures.append(error)
-	receipt = BrowserSuiteReceipt(
-		contracts[0].scenario_id if len(contracts) == 1 else "all",
-		origin,
-		project,
-		str(state.directory),
-		lifecycle_launch_attempted,
-		lifecycle_launch_completed,
-		cleanup_attempted,
-		cleanup_completed,
-		private_state_removed,
-		origin_receipt,
-		before_inventory,
-		launched_inventory,
-		after_inventory,
-		tuple(scenario_receipts),
-		None,
-		tuple(sessions),
-		None if pending_screenshots is None else e2e_browser_screenshot_publisher.evidence_for(pending_screenshots),
-	)
-	if pending_screenshots is not None:
-		if dependencies._screenshot_collector is None:
-			failures.append(BrowserSuiteError("screenshot capture requires the lease-owned lifecycle"))
-		else:
-			try:
-				dependencies._screenshot_collector(pending_screenshots)
-			except BaseException as error:
-				failures.append(error)
-	# The pending bundle is intentionally retained only by the private collector.
-	pending_screenshots = None
-	try:
-		dependencies.receipt_reporter(receipt)
-	except BaseException as error:
-		failures.append(error)
-	raise_lifecycle_failures(failures)
+		lifecycle.failures.append(error)
+	cleanup_and_observe(dependencies, lifecycle)
+	receipt = lifecycle_receipt(contracts, lifecycle)
+	collect_screenshots_and_report(receipt, dependencies, lifecycle)
+	raise_lifecycle_failures(lifecycle.failures)
 	return receipt
 def run_selected_scenario(
 	scenario: str,
