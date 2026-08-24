@@ -527,12 +527,13 @@ where
                 state.store.as_ref(),
                 state.backend.as_ref(),
                 &authenticated,
+                learner_work_binding,
                 *record,
                 SuccessorIssuance::Deferred,
             )
             .await;
         }
-        Ok(learning_data_access::SubmissionPreparation::Grade(prepared)) => *prepared,
+        Ok(learning_data_access::SubmissionPreparation::FirstEffect(prepared)) => *prepared,
         Err(error) => return store_error_response(error),
     };
     let issued_question_snapshot = prepared.issued_question_snapshot;
@@ -581,6 +582,7 @@ where
         state.store.as_ref(),
         state.backend.as_ref(),
         &authenticated,
+        learner_work_binding,
         record,
         SuccessorIssuance::Deferred,
     )

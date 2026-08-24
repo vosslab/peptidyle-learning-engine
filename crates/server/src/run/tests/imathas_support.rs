@@ -435,6 +435,8 @@ pub(super) async fn contracted_route_fixture(
                 presentation: None,
                 presentation_snapshot: None,
                 grading_envelope: None,
+                native_execution_envelope_capability:
+                    learning_data_access::NativeExecutionEnvelopeCapability::NotApplicable,
                 flat_grading: None,
                 flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
                 webwork_grading: None,
@@ -460,7 +462,12 @@ pub(super) async fn contracted_route_fixture(
         proxy_calls: AtomicUsize::new(0),
         submission_calls: AtomicUsize::new(0),
     });
-    let app = router(Arc::clone(&store), Arc::clone(&route_backend)).merge(external_tool_router(
+    let app = router(
+        Arc::clone(&store),
+        Arc::clone(&route_backend),
+        sealed_memory(&store),
+    )
+    .merge(external_tool_router(
         Arc::clone(&store),
         Arc::clone(&route_backend),
         Arc::clone(&aead),

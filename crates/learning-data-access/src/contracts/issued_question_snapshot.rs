@@ -122,14 +122,27 @@ impl IssuedQuestionSnapshotV1 {
 
     /// Returns the canonical JSON payload and SHA-256 used by both stores.
     pub fn canonical_payload(&self) -> Result<(serde_json::Value, String), StoreError> {
+        let (bytes, digest) = self.canonical_payload_bytes()?;
+        let value = serde_json::from_slice(&bytes).map_err(|error| {
+            StoreError::InvalidRecord(format!(
+                "issued snapshot canonical bytes are invalid: {error}"
+            ))
+        })?;
+        Ok((value, digest.to_string()))
+    }
+
+    /// Returns the authoritative stored representation and its raw SHA-256.
+    ///
+    /// The persistence boundary stores these exact bytes in `bytea`; it never
+    /// hashes a PostgreSQL-normalized JSON projection.  ASVS 1.5.2 and 2.2.1:
+    /// the same closed Rust schema validates before serialization and after
+    /// decoding, so a database row cannot change meaning between layers.
+    pub fn canonical_payload_bytes(&self) -> Result<(Vec<u8>, Sha256Digest), StoreError> {
         self.validate_shape()?;
-        let value = serde_json::to_value(self).map_err(|error| {
+        let bytes = serde_json::to_vec(self).map_err(|error| {
             StoreError::InvalidRecord(format!("issued snapshot encode failed: {error}"))
         })?;
-        let bytes = serde_json::to_vec(&value).map_err(|error| {
-            StoreError::InvalidRecord(format!("issued snapshot encode failed: {error}"))
-        })?;
-        Ok((value, Sha256Digest::compute(&bytes).to_string()))
+        Ok((bytes.clone(), Sha256Digest::compute(&bytes)))
     }
 
     /// Returns the checksum of the exact canonical V1 payload.
@@ -147,15 +160,49 @@ impl IssuedQuestionSnapshotV1 {
                 "stored issued snapshot checksum is invalid".to_string(),
             ));
         }
-        let bytes = serde_json::to_vec(&payload).map_err(|error| {
-            StoreError::Unavailable(format!("stored issued snapshot encode failed: {error}"))
+        let expected_sha256 = decode_sha256(expected_sha256)?;
+        // PostgreSQL stores this boundary as JSONB, so object-member order is
+        // not recoverable at this API.  Decode the value into the closed
+        // schema first, then verify the digest over the authoritative Rust
+        // serialization.  The exact-byte API above remains the stronger
+        // check when raw persistence bytes are available.
+        let value: Self = serde_json::from_value(payload.clone()).map_err(|error| {
+            StoreError::Unavailable(format!("stored issued snapshot decode failed: {error}"))
         })?;
-        if Sha256Digest::compute(&bytes).to_string() != expected_sha256 {
+        value.validate_shape().map_err(|_| {
+            StoreError::Unavailable("stored issued snapshot is invalid".to_string())
+        })?;
+        let (canonical, digest) = value.canonical_payload_bytes().map_err(|_| {
+            StoreError::Unavailable("stored issued snapshot is invalid".to_string())
+        })?;
+        if *digest.as_bytes() != expected_sha256 {
             return Err(StoreError::Unavailable(
                 "stored issued snapshot checksum mismatch".to_string(),
             ));
         }
-        let value: Self = serde_json::from_value(payload.clone()).map_err(|error| {
+        let canonical_payload: serde_json::Value =
+            serde_json::from_slice(&canonical).map_err(|_| {
+                StoreError::Unavailable("stored issued snapshot is invalid".to_string())
+            })?;
+        if canonical_payload != payload {
+            return Err(StoreError::Unavailable(
+                "stored issued snapshot contains unknown fields".to_string(),
+            ));
+        }
+        Ok(value)
+    }
+
+    /// Decodes exact persisted bytes after validating their raw 32-byte hash.
+    pub fn decode_checked_bytes(
+        bytes: &[u8],
+        expected_sha256: &[u8; 32],
+    ) -> Result<Self, StoreError> {
+        if *Sha256Digest::compute(bytes).as_bytes() != *expected_sha256 {
+            return Err(StoreError::Unavailable(
+                "stored issued snapshot checksum mismatch".to_string(),
+            ));
+        }
+        let value: Self = serde_json::from_slice(bytes).map_err(|error| {
             StoreError::Unavailable(format!("stored issued snapshot decode failed: {error}"))
         })?;
         value.validate_shape().map_err(|_| {
@@ -165,10 +212,10 @@ impl IssuedQuestionSnapshotV1 {
         // accepts its own additive fields. Re-encoding and requiring exact
         // value equality makes V1 closed recursively as well: an unknown
         // nested field is stripped by serde and therefore fails this check.
-        let (canonical, _) = value.canonical_payload().map_err(|_| {
+        let (canonical, _) = value.canonical_payload_bytes().map_err(|_| {
             StoreError::Unavailable("stored issued snapshot is invalid".to_string())
         })?;
-        if canonical != payload {
+        if canonical != bytes {
             return Err(StoreError::Unavailable(
                 "stored issued snapshot contains unknown fields".to_string(),
             ));
@@ -251,8 +298,9 @@ impl IssuedQuestionSnapshotV1 {
         Ok(())
     }
 
-    /// Refuses duplicate physical-asset authority when an existing immutable
-    /// issued presentation already retains the selected bindings.
+    /// Validates that a browser-safe presentation is only an ObjectId-free
+    /// derivative of the canonical issued native authority.  The snapshot,
+    /// not the presentation, owns physical asset selection.
     pub fn validate_for_issuance_context(
         &self,
         flat_grading: FlatGradingCapability,
@@ -388,6 +436,24 @@ fn is_lower_sha256(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
 }
 
+fn decode_sha256(value: &str) -> Result<[u8; 32], StoreError> {
+    if !is_lower_sha256(value) {
+        return Err(StoreError::Unavailable(
+            "stored issued snapshot checksum is invalid".to_string(),
+        ));
+    }
+    let mut bytes = [0_u8; 32];
+    for (index, chunk) in value.as_bytes().chunks_exact(2).enumerate() {
+        let text = std::str::from_utf8(chunk).map_err(|_| {
+            StoreError::Unavailable("stored issued snapshot checksum is invalid".to_string())
+        })?;
+        bytes[index] = u8::from_str_radix(text, 16).map_err(|_| {
+            StoreError::Unavailable("stored issued snapshot checksum is invalid".to_string())
+        })?;
+    }
+    Ok(bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use question_model::{
@@ -476,6 +542,29 @@ mod tests {
                 question_model::ProblemId::from_uuid(Uuid::from_u128(4)),
                 snapshot.question().version
             ),
+            Err(StoreError::Unavailable(_))
+        ));
+    }
+
+    #[test]
+    fn exact_bytes_are_the_persistence_authority() {
+        let snapshot = IssuedQuestionSnapshotV1::new(
+            question(),
+            IssuedQuestionFamilyWitnessV1::Native {
+                physical_asset_bindings: Vec::new(),
+            },
+        )
+        .expect("valid native snapshot");
+        let (bytes, digest) = snapshot.canonical_payload_bytes().expect("canonical bytes");
+        assert_eq!(
+            IssuedQuestionSnapshotV1::decode_checked_bytes(&bytes, digest.as_bytes())
+                .expect("exact persisted bytes decode"),
+            snapshot
+        );
+        let mut changed = bytes;
+        changed.push(b' ');
+        assert!(matches!(
+            IssuedQuestionSnapshotV1::decode_checked_bytes(&changed, digest.as_bytes()),
             Err(StoreError::Unavailable(_))
         ));
     }

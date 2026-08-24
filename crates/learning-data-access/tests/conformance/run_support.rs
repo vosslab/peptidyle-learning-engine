@@ -1,9 +1,14 @@
 use super::run_receipts::receipt_presentation;
 use super::*;
+use learning_data_access::SealedPrivateExecutionStore;
 
-pub(super) async fn exercise_attempt_support<S>(store: &S, fixture: &RunApiFixture)
-where
+pub(super) async fn exercise_attempt_support<S, P>(
+    store: &S,
+    sealed_private_execution: &P,
+    fixture: &RunApiFixture,
+) where
     S: Store + CatalogStore + JobStore + AssignmentScoringWorkerStore,
+    P: SealedPrivateExecutionStore,
 {
     let fixture_offset = fixture.fixture_offset;
     let tenant = fixture.tenant;
@@ -70,6 +75,18 @@ where
         ),
     )
     .expect("published WebWork fixture has an immutable grading definition");
+    let support_issued_question_snapshot = learning_data_access::IssuedQuestionSnapshotV1::new(
+        question_model::QuestionDefinition::from_draft(
+            draft.question.clone(),
+            problem,
+            version,
+            QuestionSource::Webwork {
+                pg_path: "Library/PLE/replay-contract.pg".to_string(),
+            },
+        ),
+        learning_data_access::IssuedQuestionFamilyWitnessV1::Webwork {},
+    )
+    .expect("published WebWork fixture has an immutable issued snapshot");
     let support_assignment = AssignmentId::from_uuid(uuid(89_972 + fixture_offset));
     let support_run_id = RunId::from_uuid(uuid(89_974 + fixture_offset));
     store
@@ -133,15 +150,20 @@ where
         assignment_position: 0,
         problem,
         question_version: version,
+        issued_question_snapshot: support_issued_question_snapshot.clone(),
         seed: 999,
         presentation_capability: PresentationCapability::EnvelopeV1,
         presentation: Some(support_presentation),
         presentation_snapshot: Some(support_snapshot),
         grading_envelope: Some(grading_envelope(version, 999)),
+        native_execution_envelope_capability:
+            learning_data_access::NativeExecutionEnvelopeCapability::NotApplicable,
         flat_grading: None,
         flat_grading_capability: FlatGradingCapability::NotApplicable,
         webwork_grading: Some(support_webwork_grading.clone()),
         webwork_grading_capability: WebworkGradingCapability::Required,
+        qti_grading: None,
+        qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
         parameter_hash: "force-submit-active".to_string(),
         provenance: support_provenance.clone(),
         webwork_replay: Some(support_replay.clone()),
@@ -190,13 +212,53 @@ where
     let learning_data_access::IssuedAttemptRead::Active(stored_evidence) = stored_evidence else {
         panic!("fresh WebWork attempt returns active issued evidence");
     };
-    let stored_replay = stored_evidence
-        .webwork_replay()
-        .expect("issued replay state exists");
-    assert_eq!(stored_replay.mapping, support_replay);
+    assert!(
+        stored_evidence.presentation_snapshot().is_some(),
+        "ordinary issued evidence retains only its answer-free presentation projection"
+    );
+    let sealed_idempotency_key = SubmissionIdempotencyKey::parse("sealed-support-preparation")
+        .expect("valid sealed preparation key");
+    let ordinary_preparation = store
+        .prepare_question_submission(
+            context,
+            student_user,
+            LearnerWorkRoutingBinding::new(course, support_assignment),
+            support_attempt.id,
+            response,
+            &sealed_idempotency_key,
+        )
+        .await
+        .expect("ordinary store authorizes first effect without private execution material");
+    let learning_data_access::SubmissionPreparation::FirstEffect(authorized_intent) =
+        ordinary_preparation
+    else {
+        panic!("fresh support attempt authorizes a first grading effect");
+    };
+    let sealed_preparation = sealed_private_execution
+        .prepare_sealed_private_execution(
+            context,
+            student_user,
+            LearnerWorkRoutingBinding::new(course, support_assignment),
+            *authorized_intent,
+            response,
+            &sealed_idempotency_key,
+        )
+        .await
+        .expect("sealed grader capability projects private WebWork execution material");
+    let learning_data_access::SealedPrivateExecutionPreparation::Grade(prepared_submission) =
+        sealed_preparation
+    else {
+        panic!("fresh sealed support preparation is a grading effect");
+    };
+    let sealed_replay = prepared_submission
+        .webwork_replay
+        .as_ref()
+        .expect("sealed WebWork preparation retains replay authority");
+    assert_eq!(sealed_replay.mapping, support_replay);
     assert_eq!(
-        stored_replay.presentation_digest,
-        support_presentation.digest()
+        sealed_replay.presentation_digest,
+        support_presentation.digest(),
+        "the sealed replay mapping stays bound to the issued presentation"
     );
     assert_eq!(
         store
@@ -468,15 +530,20 @@ where
                 assignment_position: 0,
                 problem,
                 question_version: version,
+                issued_question_snapshot: support_issued_question_snapshot.clone(),
                 seed: 1_000,
                 presentation_capability: PresentationCapability::EnvelopeV1,
                 presentation: Some(replacement_presentation),
                 presentation_snapshot: Some(replacement_snapshot),
                 grading_envelope: Some(grading_envelope(version, 1_000)),
+                native_execution_envelope_capability:
+                    learning_data_access::NativeExecutionEnvelopeCapability::NotApplicable,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_grading: Some(support_webwork_grading.clone()),
                 webwork_grading_capability: WebworkGradingCapability::Required,
+                qti_grading: None,
+                qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
                 parameter_hash: "replacement-after-clear".to_string(),
                 provenance: support_provenance.clone(),
                 webwork_replay: Some(support_replay.clone()),
@@ -495,8 +562,7 @@ where
                 replacement_attempt.id,
             )
             .await,
-        Ok(learning_data_access::IssuedAttemptRead::Active(ref evidence))
-            if evidence.webwork_replay().is_some()
+        Ok(learning_data_access::IssuedAttemptRead::Active(_))
     ));
     store
         .submit_question_attempt(
@@ -587,15 +653,20 @@ where
                 assignment_position: 0,
                 problem,
                 question_version: version,
+                issued_question_snapshot: support_issued_question_snapshot,
                 seed: 1_001,
                 presentation_capability: PresentationCapability::EnvelopeV1,
                 presentation: Some(post_clear_presentation),
                 presentation_snapshot: Some(post_clear_snapshot),
                 grading_envelope: Some(grading_envelope(version, 1_001)),
+                native_execution_envelope_capability:
+                    learning_data_access::NativeExecutionEnvelopeCapability::NotApplicable,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_grading: Some(support_webwork_grading),
                 webwork_grading_capability: WebworkGradingCapability::Required,
+                qti_grading: None,
+                qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
                 parameter_hash: "replacement-after-scored-clear".to_string(),
                 provenance: support_provenance,
                 webwork_replay: Some(support_replay),

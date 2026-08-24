@@ -113,14 +113,16 @@ use learning_data_access::{
     Cursor, DeleteAndRegradeAssignmentItemCommand, DraftRecord, EvaluationRevision,
     FlatGradingCapability, ForceSubmitAttemptCommand, IssueQuestionAttemptCommand,
     LearnerWorkRoutingBinding, ManualCredit, ManualGradeActionId, ManualGradingStore,
-    MaterializeAssignmentEntitlementCommand, NavigationReferenceStore, PageRequest, PageSize,
-    PrefetchedQuestion, PresentationCapability, PublishDraftCommand, PublishedSourceArtifact,
-    PutCourseGroupCommand, ReleaseAttemptFeedbackCommand, RemoveAssignmentFixedItemCommand,
-    ReplaceAssignmentCommand, ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand,
-    RunRouteIdentity, SessionLifetime, SessionStore, SessionSubject, SessionTokenHash,
-    SetManualGradeCommand, Store, StoreError, SubmissionIdempotencyKey,
-    SubmitPendingManualQuestionAttemptCommand, SubmitQuestionAttemptCommand, TenantContext,
-    WebworkGradingCapability, WebworkReplayControlV1, WebworkReplayMappingV1,
+    MaterializeAssignmentEntitlementCommand, NativeExecutionEnvelopeCapability,
+    NavigationReferenceStore, PageRequest, PageSize, PrefetchedPrivateExecutionV1,
+    PrefetchedQuestionDescriptorV1, PresentationCapability, PublishDraftCommand,
+    PublishedSourceArtifact, PutCourseGroupCommand, QtiGradingCapability,
+    ReleaseAttemptFeedbackCommand, RemoveAssignmentFixedItemCommand, ReplaceAssignmentCommand,
+    ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand, RunRouteIdentity,
+    SessionLifetime, SessionStore, SessionSubject, SessionTokenHash, SetManualGradeCommand, Store,
+    StoreError, SubmissionIdempotencyKey, SubmitPendingManualQuestionAttemptCommand,
+    SubmitQuestionAttemptCommand, TenantContext, WebworkGradingCapability, WebworkReplayControlV1,
+    WebworkReplayMappingV1,
 };
 use learning_data_access::{
     BeginExternalToolGradeCommand, CommitVerifiedExternalToolSubmissionCommand,
@@ -161,10 +163,10 @@ use question_model::{
     EntitlementPurpose, FeedbackContent, GeneratorReference, GradePolicy, GradingDefinition,
     ImplementationVersion, LearnerDisclosurePolicy, LearnerDisclosureTiming, ObjectId, PointValue,
     ProblemDisplayRef, ProblemId, ProblemVersionRef, PublicAuthorName, PublicByline,
-    PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionMetadata,
-    QuestionSource, RenderedItemIdV1, ResponseDefinition, RunId, RunPolicies, SelectionOrdering,
-    SourceArtifact, TenantId, UserId, UserRole, VariationPolicy, VersionId, WorkspaceId,
-    WorkspaceImportId,
+    PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionDefinition,
+    QuestionMetadata, QuestionSource, RenderedItemIdV1, ResponseDefinition, RunId, RunPolicies,
+    SelectionOrdering, SourceArtifact, TenantId, UserId, UserRole, VariationPolicy, VersionId,
+    WorkspaceId, WorkspaceImportId,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 use uuid::Uuid;
@@ -326,6 +328,25 @@ fn published_source() -> QuestionSource {
     }
 }
 
+fn native_issued_question_snapshot(
+    workspace: WorkspaceId,
+    problem: ProblemId,
+    version: VersionId,
+) -> learning_data_access::IssuedQuestionSnapshotV1 {
+    learning_data_access::IssuedQuestionSnapshotV1::new(
+        QuestionDefinition::from_draft(
+            draft_question(workspace),
+            problem,
+            version,
+            published_source(),
+        ),
+        learning_data_access::IssuedQuestionFamilyWitnessV1::Native {
+            physical_asset_bindings: Vec::new(),
+        },
+    )
+    .expect("construct exact native issued-question snapshot")
+}
+
 fn reviewed_byline() -> PublicByline {
     PublicByline::new(vec![
         PublicAuthorName::new("Peptidyle Test Author".to_string()).expect("valid test byline"),
@@ -392,11 +413,12 @@ struct RunApiFixture {
     context: TenantContext,
     publisher: UserId,
     student_user: UserId,
+    workspace: WorkspaceId,
     problem: ProblemId,
     version: VersionId,
     course: CourseId,
     assignment: AssignmentId,
-    reservation: PrefetchedQuestion,
+    reservation: PrefetchedQuestionDescriptorV1,
     response: StudentResponse,
     run: AssignmentRun,
 }

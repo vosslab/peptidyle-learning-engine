@@ -6,9 +6,9 @@ use domain::effective_assignment_policy::{
     PolicyPatchSet,
 };
 use learning_data_access::{
-    AssignmentRevision, DeleteIndividualPolicyExceptionCommand,
+    AssignmentRevision, CourseGroupPurposePolicyRevision, DeleteIndividualPolicyExceptionCommand,
     PutIndividualPolicyExceptionCommand, RevokeCourseMember, SessionLifetime, SessionStore,
-    SessionSubject, StoredIndividualPolicyException,
+    SessionSubject, StoredIndividualPolicyException, UpdateCourseGroupPurposePolicyCommand,
 };
 use question_model::StudentId;
 

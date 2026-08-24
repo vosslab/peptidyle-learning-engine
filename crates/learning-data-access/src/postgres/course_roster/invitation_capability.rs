@@ -67,7 +67,8 @@ pub(super) async fn claim(
         "SELECT tenant_id, course_id, invitation_id, claimed_user_id, student_id, \
                 record_id, user_id, member_role, status, roster_id, created_at_millis, \
                 revoked_at_millis, display_name, normalized_email, delivery_email, \
-                invitation_status, invitation_claimed_user_id, replayed, delivery_cancelled, \
+                invitation_status, invitation_claimed_user_id, replayed, delivery_state, \
+                delivery_outcome_code, delivery_terminal_at_millis, delivery_accepted_at_millis, \
                 roster_revision \
          FROM public.ple_claim_course_invitation_v1($1,$2,$3,$4,$5)",
     )
@@ -109,10 +110,19 @@ pub(super) async fn claim(
         .try_get::<Option<bool>, _>("replayed")
         .map_err(map_sqlx_error)?
         .ok_or_else(invalid)?;
-    let delivery_cancelled = row
-        .try_get::<Option<bool>, _>("delivery_cancelled")
+    let delivery_state = row
+        .try_get::<Option<String>, _>("delivery_state")
         .map_err(map_sqlx_error)?
         .ok_or_else(invalid)?;
+    let delivery_outcome = row
+        .try_get::<Option<String>, _>("delivery_outcome_code")
+        .map_err(map_sqlx_error)?;
+    let delivery_terminal_at = row
+        .try_get::<Option<i64>, _>("delivery_terminal_at_millis")
+        .map_err(map_sqlx_error)?;
+    let delivery_accepted_at = row
+        .try_get::<Option<i64>, _>("delivery_accepted_at_millis")
+        .map_err(map_sqlx_error)?;
     let invitation_status = row
         .try_get::<Option<String>, _>("invitation_status")
         .map_err(map_sqlx_error)?
@@ -144,7 +154,12 @@ pub(super) async fn claim(
         || member.roster_email.as_ref() != Some(&command.verified_email)
         || member.roster_id.is_none()
         || invitation_status != "claimed"
-        || !delivery_cancelled
+        || !valid_terminal_delivery(
+            &delivery_state,
+            delivery_outcome.as_deref(),
+            delivery_terminal_at,
+            delivery_accepted_at,
+        )
         || revision.value() == 0
         || (!replayed && revision.value() < 2)
     {
@@ -156,6 +171,29 @@ pub(super) async fn claim(
         member,
         roster_revision: revision,
     })
+}
+
+fn valid_terminal_delivery(
+    state: &str,
+    outcome: Option<&str>,
+    terminal_at: Option<i64>,
+    accepted_at: Option<i64>,
+) -> bool {
+    match state {
+        "cancelled" => {
+            outcome == Some("cancelled") && terminal_at.is_some() && accepted_at.is_none()
+        }
+        "accepted_by_provider" => {
+            outcome == Some("accepted") && terminal_at.is_some() && accepted_at.is_some()
+        }
+        "permanent_failed" => {
+            outcome == Some("permanent_failure") && terminal_at.is_some() && accepted_at.is_none()
+        }
+        "ambiguous" => {
+            outcome == Some("ambiguous_transport") && terminal_at.is_some() && accepted_at.is_none()
+        }
+        _ => false,
+    }
 }
 
 pub(super) async fn revoke(
@@ -215,4 +253,49 @@ pub(super) async fn claimed_membership(
     command: &ClaimCourseInvitation,
 ) -> Result<ClaimedCourseMembership, StoreError> {
     claim(transaction, command).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::valid_terminal_delivery;
+
+    #[test]
+    fn terminal_delivery_witness_preserves_each_truthful_terminal_state() {
+        for (state, outcome, terminal_at, accepted_at) in [
+            ("cancelled", Some("cancelled"), Some(1), None),
+            ("accepted_by_provider", Some("accepted"), Some(2), Some(3)),
+            ("permanent_failed", Some("permanent_failure"), Some(3), None),
+            ("ambiguous", Some("ambiguous_transport"), Some(4), None),
+        ] {
+            assert!(valid_terminal_delivery(
+                state,
+                outcome,
+                terminal_at,
+                accepted_at
+            ));
+        }
+    }
+
+    #[test]
+    fn terminal_delivery_witness_rejects_false_cancellation_shapes() {
+        assert!(!valid_terminal_delivery(
+            "accepted_by_provider",
+            Some("accepted"),
+            Some(1),
+            None
+        ));
+        assert!(!valid_terminal_delivery(
+            "accepted_by_provider",
+            Some("accepted"),
+            None,
+            Some(2)
+        ));
+        assert!(!valid_terminal_delivery(
+            "permanent_failed",
+            Some("permanent_failure"),
+            Some(1),
+            Some(2)
+        ));
+        assert!(!valid_terminal_delivery("pending", None, None, None));
+    }
 }

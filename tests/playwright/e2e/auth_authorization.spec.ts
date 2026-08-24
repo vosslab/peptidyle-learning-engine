@@ -71,7 +71,6 @@ test("authentication and authorization: sessions, approval, and course boundarie
     const mary = await maryContext.newPage();
     const morgan = await morganContext.newPage();
     const avery = await averyContext.newPage();
-
     await test.step("Elena enters and reenters her Base Course session", async () => {
       await enterThenReenter(elena, /Elena Rivera/u, "Biochemistry Base Course");
     });
@@ -115,6 +114,7 @@ test("authentication and authorization: sessions, approval, and course boundarie
       const groupTitle = `Auth course group ${scenarioInput.namespace}`;
       const groups = elena.getByRole("region", { name: "Groups and sections" });
       await expect(groups).toBeVisible();
+      await expect(groups.getByLabel("Group name")).toBeVisible();
       await groups.getByLabel("Group name").fill(groupTitle);
       await groups.getByRole("button", { name: "Create group" }).click();
       await expect(groups.getByRole("button", { name: groupTitle, exact: true })).toBeVisible();

@@ -1,80 +1,41 @@
 //! Rehearsal start subject resolution and creation.
 
 use domain::{
-    RehearsalGenesisContext, RehearsalLifecycleSnapshot, RehearsalStartDecision, decide_start,
-    evidence_genesis_head, fingerprint_resolved_preview_subject,
+    RehearsalGenesisContext, evidence_genesis_head, fingerprint_resolved_preview_subject,
 };
+use objects::Sha256Digest;
 use question_model::{PreviewEvaluation, RehearsalRunId, RehearsalSubjectStart};
+use serde::Deserialize;
+use sqlx::Row;
 
 use super::super::*;
-use super::{auth, hydration};
+use super::{auth, frozen, hydration, material};
 
-pub(super) async fn start(
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StartStructuralWitness {
+    rehearsal_reference: u64,
+}
+
+/// Store-owned, durable route start.  This is the one boundary which turns a
+/// public request into private aggregate identities and an immutable safe
+/// receipt; handlers never manufacture a run UUID, source digest, locator, or
+/// browser projection.
+pub(super) async fn start_from_route(
     store: &PostgresStore,
     context: TenantContext,
-    command: crate::StartRehearsalCommand,
-) -> Result<question_model::RehearsalRunReceipt, StoreError> {
+    command: crate::StartRehearsalRouteCommand,
+) -> Result<crate::StartRehearsalRouteResult, StoreError> {
     let tenant = context.tenant_id();
     let mut tx = store.begin_tenant(context).await?;
     let ResolvedStartSubject { prepared, subject } =
         prepare_and_resolve_subject(&mut tx, tenant, &command).await?;
-    let source = prepared.source();
-    let fingerprint =
-        fingerprint_resolved_preview_subject(command.assignment, command.revision, &subject)
-            .map_err(|_| StoreError::InvalidRecord("invalid resolved rehearsal subject".into()))?;
-    // Lock and fully verify the latest owner aggregate before asking the
-    // capability to resume or replace an active run.  ASVS 2.3.3: a source
-    // lock plus canonical aggregate proof makes the state transition atomic.
-    let prior_locator = prepared.latest_reference.zip(prepared.latest_revision);
-    // Retain the exact, canonically hydrated owner aggregate as the optimistic
-    // witness for the one live start capability.  Do not return from Rust for
-    // resume or completed-state refusal: the broker is the sole mutation
-    // authority and must make every persisted start decision.  ASVS 2.3.3,
-    // 2.3.4.
-    let (expected_latest_run, prior_receipt, decision) = if let Some((reference, prior_revision)) =
-        prior_locator
-    {
-        let locator = crate::RehearsalLocator {
-            actor: command.actor,
-            course: command.course,
-            assignment: command.assignment,
-            revision: prior_revision,
-            rehearsal: reference,
-        };
-        let prior = hydration::load_authorized(&mut tx, tenant, locator, &source).await?;
-        (
-            Some(
-                prepared
-                    .latest_run
-                    .ok_or_else(|| {
-                        StoreError::InvalidRecord("missing prepared latest rehearsal run".into())
-                    })?
-                    .as_uuid(),
-            ),
-            Some(prior.run.receipt.clone()),
-            decide_start(
-                Some(RehearsalLifecycleSnapshot {
-                    lifecycle: prior.run.receipt.lifecycle,
-                    revision: prior.run.receipt.revision,
-                    subject_fingerprint: prior.run.subject_fingerprint,
-                }),
-                command.revision,
-                fingerprint,
-                command.start_new_after_completion,
-            ),
-        )
-    } else {
-        (
-            None,
-            None,
-            decide_start(
-                None,
-                command.revision,
-                fingerprint,
-                command.start_new_after_completion,
-            ),
-        )
-    };
+    let fingerprint = fingerprint_resolved_preview_subject(
+        command.assignment,
+        command.expected_revision,
+        &subject,
+    )
+    .map_err(|_| StoreError::InvalidRecord("invalid resolved rehearsal subject".into()))?;
     let run_id = RehearsalRunId::from_uuid(crate::random_uuid::random_uuid_v4(|error| {
         StoreError::Unavailable(format!("rehearsal ID randomness unavailable: {error}"))
     })?);
@@ -83,54 +44,156 @@ pub(super) async fn start(
         tenant,
         course: command.course,
         assignment: command.assignment,
-        direct_instructor_membership: source.owner,
-        revision: command.revision,
+        direct_instructor_membership: prepared.owner,
+        revision: command.expected_revision,
         subject_fingerprint: fingerprint,
     });
-    let reference: Option<i64> =
-        // The fixed-shape capability holds the durable workflow decision;
-        // every value is separately bound (ASVS 1.2.4).
-        sqlx::query_scalar(
-            "SELECT ple_rehearsal_start($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
-        )
-            .bind(tenant.as_uuid())
-            .bind(command.actor.as_uuid())
-            .bind(command.course.as_uuid())
-            .bind(source.assignment.as_uuid())
-            .bind(i32::try_from(command.assignment.number()).map_err(|_| {
-                StoreError::InvalidRecord("assignment reference exceeds database range".into())
-            })?)
-            .bind(i64::try_from(command.revision.value()).map_err(|_| {
-                StoreError::InvalidRecord("teaching revision exceeds database range".into())
-            })?)
-            .bind(serde_json::to_value(&subject).map_err(|_| {
-                StoreError::InvalidRecord("rehearsal subject serialization failed".into())
-            })?)
-            .bind(fingerprint.as_bytes().to_vec())
-            .bind(genesis.digest().as_bytes().to_vec())
-            .bind(run_id.as_uuid())
-            .bind(command.start_new_after_completion)
-            .bind(expected_latest_run)
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-    let reference = reference
-        .and_then(|v| question_model::RehearsalReference::new(u64::try_from(v).ok()?))
+    let row = sqlx::query("SELECT * FROM ple_prepare_rehearsal_start_idempotent($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)")
+        .bind(tenant.as_uuid())
+        .bind(command.actor.as_uuid())
+        .bind(command.course.as_uuid())
+        .bind(prepared.assignment.as_uuid())
+        .bind(i32::try_from(command.assignment.number()).map_err(|_| StoreError::InvalidRecord("assignment reference exceeds database range".into()))?)
+        .bind(i64::try_from(command.expected_revision.value()).map_err(|_| StoreError::InvalidRecord("teaching revision exceeds database range".into()))?)
+        .bind(serde_json::to_value(&subject).map_err(|_| StoreError::InvalidRecord("rehearsal subject serialization failed".into()))?)
+        .bind(fingerprint.as_bytes().to_vec())
+        .bind(genesis.digest().as_bytes().to_vec())
+        .bind(run_id.as_uuid())
+        .bind(command.start_new_after_completion)
+        .bind(command.idempotency_key.as_str())
+        .bind(command.request_fingerprint.as_bytes().to_vec())
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?
         .ok_or(StoreError::Conflict)?;
+    let kind: String = row.try_get("result_kind").map_err(map_sqlx_error)?;
+    if kind == "conflict" {
+        return Err(StoreError::Conflict);
+    }
+    if kind == "replay" {
+        let response: serde_json::Value =
+            row.try_get("response_projection").map_err(map_sqlx_error)?;
+        let receipt = serde_json::from_value(response).map_err(|_| {
+            StoreError::InvalidRecord("invalid persisted rehearsal start receipt".into())
+        })?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        return Ok(crate::StartRehearsalRouteResult {
+            receipt,
+            replayed: true,
+        });
+    }
+    if kind != "apply" {
+        return Err(StoreError::InvalidRecord(
+            "invalid rehearsal route start result".into(),
+        ));
+    }
+    let witness: serde_json::Value = row.try_get("structural_witness").map_err(map_sqlx_error)?;
+    let witness: StartStructuralWitness = serde_json::from_value(witness)
+        .map_err(|_| StoreError::InvalidRecord("invalid rehearsal start witness".into()))?;
+    let rehearsal = question_model::RehearsalReference::new(witness.rehearsal_reference)
+        .ok_or_else(|| StoreError::InvalidRecord("invalid rehearsal start reference".into()))?;
     let locator = crate::RehearsalLocator {
         actor: command.actor,
         course: command.course,
         assignment: command.assignment,
-        revision: command.revision,
-        rehearsal: reference,
+        revision: command.expected_revision,
+        rehearsal,
     };
+    // An exact idempotent replay returned above without looking at the
+    // mutable assignment catalog or a private grading key.  For a new
+    // operation, this broker binds and locks the complete ordinary source
+    // inventory to this nonce and transaction before Rust constructs any
+    // frozen bytes.  The finalizer consumes that same inventory.
+    let operation: uuid::Uuid = row.try_get("operation_id").map_err(map_sqlx_error)?;
+    let nonce: uuid::Uuid = row.try_get("prepare_nonce").map_err(map_sqlx_error)?;
+    let locked_sources = material::resolve_locked_normal_assignment_sources(
+        &mut tx,
+        material::LockedAssignmentSourceRequest {
+            tenant,
+            actor: command.actor,
+            course: command.course,
+            assignment_reference: command.assignment,
+            revision: command.expected_revision,
+            assignment: prepared.assignment,
+            operation,
+            nonce,
+        },
+    )
+    .await?;
+    for locked in &locked_sources {
+        locked.validate_for_freeze()?;
+    }
+    let source = prepared.source();
+    // Freeze every real, already locked assignment item before finalizing the
+    // route receipt.  These are normal `rehearsal_frozen_item`/evidence rows,
+    // not an alternate rehearsal catalog.  ASVS 2.3.1 and 2.3.3.
+    let mut frozen_items = Vec::with_capacity(locked_sources.len());
+    for (ordinal, locked) in locked_sources.iter().enumerate() {
+        let millis: i64 = sqlx::query_scalar("SELECT public.ple_rehearsal_now_millis()")
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error)?;
+        let content = serde_json::to_vec(&locked.question).map_err(|_| {
+            StoreError::InvalidRecord("cannot canonicalize locked rehearsal question".into())
+        })?;
+        let frozen = question_model::RehearsalFrozenItemEvidence {
+            attempt: question_model::RehearsalAttemptId::from_uuid(
+                crate::random_uuid::random_uuid_v4(|error| {
+                    StoreError::Unavailable(format!(
+                        "rehearsal attempt randomness unavailable: {error}"
+                    ))
+                })?,
+            ),
+            problem: question_model::ProblemVersionRef {
+                problem: locked.question.problem,
+                version: locked.question.version,
+            },
+            response_definition: locked.question.response.clone(),
+            canonical_content_digest: question_model::RehearsalEvidenceDigest::from_bytes(
+                *Sha256Digest::compute(&content).as_bytes(),
+            ),
+            frozen_at: question_model::ActivityTimestamp::from_unix_millis(millis),
+        };
+        frozen::append_in_tx(
+            &mut tx,
+            tenant,
+            locator,
+            frozen.clone(),
+            operation,
+            nonce,
+            i32::try_from(ordinal).map_err(|_| {
+                StoreError::InvalidRecord("frozen ordinal exceeds database range".into())
+            })?,
+        )
+        .await?;
+        frozen_items.push(frozen);
+    }
     let receipt = hydration::load_authorized(&mut tx, tenant, locator, &source)
         .await?
         .run
         .receipt;
-    require_capability_outcome(decision, prior_receipt.as_ref(), &receipt)?;
+    let witness_digest: Vec<u8> = row
+        .try_get("structural_witness_digest")
+        .map_err(map_sqlx_error)?;
+    material::finalize_start_freeze(
+        &mut tx,
+        material::FinalizeStartFreeze {
+            tenant,
+            operation,
+            nonce,
+            witness_digest,
+            receipt: &receipt,
+            subject: &subject,
+        },
+        &locked_sources,
+        &frozen_items,
+    )
+    .await?;
     tx.commit().await.map_err(map_sqlx_error)?;
-    Ok(receipt)
+    Ok(crate::StartRehearsalRouteResult {
+        receipt,
+        replayed: false,
+    })
 }
 
 /// Couples a replayable browser candidate to the broker's locked start
@@ -142,7 +205,7 @@ pub(super) async fn start(
 async fn prepare_and_resolve_subject(
     tx: &mut Transaction<'_, Postgres>,
     tenant: question_model::TenantId,
-    command: &crate::StartRehearsalCommand,
+    command: &crate::StartRehearsalRouteCommand,
 ) -> Result<ResolvedStartSubject, StoreError> {
     match &command.subject {
         RehearsalSubjectStart::Synthetic { request } => {
@@ -152,7 +215,7 @@ async fn prepare_and_resolve_subject(
                 command.actor,
                 command.course,
                 command.assignment,
-                command.revision,
+                command.expected_revision,
                 None,
             )
             .await?;
@@ -162,7 +225,7 @@ async fn prepare_and_resolve_subject(
                 command.course,
                 question_model::SyntheticPreviewSubjectRequest {
                     assignment: command.assignment,
-                    revision: command.revision,
+                    revision: command.expected_revision,
                     selected_moment: request.selected_moment.clone(),
                     groups: request.groups.clone(),
                     modifiers: request.modifiers.clone(),
@@ -182,7 +245,7 @@ async fn prepare_and_resolve_subject(
                 command.actor,
                 command.course,
                 command.assignment,
-                command.revision,
+                command.expected_revision,
                 Some(matched.membership),
             )
             .await?;
@@ -195,7 +258,7 @@ async fn prepare_and_resolve_subject(
                     tenant,
                     command.course,
                     command.assignment,
-                    command.revision,
+                    command.expected_revision,
                     matched.reference,
                     candidate.selected_moment.clone(),
                 )
@@ -222,38 +285,13 @@ struct DerivedMembershipCandidate {
     reference: question_model::CourseMembershipReference,
 }
 
-/// Reject a broker result which does not agree with the aggregate verified
-/// under the source locks immediately before the call.  This is a consistency
-/// assertion, not an alternate authorization or mutation path: a successful
-/// result is always the durable SQL capability outcome (ASVS 2.3.1, 2.3.3).
-fn require_capability_outcome(
-    decision: RehearsalStartDecision,
-    prior: Option<&question_model::RehearsalRunReceipt>,
-    receipt: &question_model::RehearsalRunReceipt,
-) -> Result<(), StoreError> {
-    let matches = match decision {
-        RehearsalStartDecision::Resume => prior == Some(receipt),
-        RehearsalStartDecision::Create | RehearsalStartDecision::DiscardByNewSubjectThenCreate => {
-            receipt.lifecycle.is_active()
-                && prior.is_none_or(|prior_receipt| prior_receipt.rehearsal != receipt.rehearsal)
-        }
-        RehearsalStartDecision::RequireExplicitRestart
-        | RehearsalStartDecision::DiscardStaleRevision => false,
-    };
-    matches.then_some(()).ok_or_else(|| {
-        StoreError::InvalidRecord(
-            "rehearsal start capability outcome disagrees with aggregate".into(),
-        )
-    })
-}
-
 async fn find_unique_derived_membership(
     tx: &mut Transaction<'_, Postgres>,
     tenant: question_model::TenantId,
-    command: &crate::StartRehearsalCommand,
+    command: &crate::StartRehearsalRouteCommand,
     candidate: &question_model::PreviewSubject,
 ) -> Result<DerivedMembershipCandidate, StoreError> {
-    domain::validate_subject_binding(command.assignment, command.revision, candidate)
+    domain::validate_subject_binding(command.assignment, command.expected_revision, candidate)
         .map_err(|_| StoreError::NotFound)?;
     let assignment_id = sqlx::query_scalar::<_, sqlx::types::Uuid>(
         "SELECT assignment_id FROM assignment WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3 AND revision=$4",
@@ -261,7 +299,7 @@ async fn find_unique_derived_membership(
     .bind(tenant.as_uuid())
     .bind(command.course.as_uuid())
     .bind(i64::from(command.assignment.number()))
-    .bind(i64::try_from(command.revision.value()).map_err(|_| StoreError::InvalidRecord("teaching revision exceeds database range".into()))?)
+    .bind(i64::try_from(command.expected_revision.value()).map_err(|_| StoreError::InvalidRecord("teaching revision exceeds database range".into()))?)
     .fetch_optional(&mut **tx)
     .await
     .map_err(map_sqlx_error)?
@@ -296,7 +334,7 @@ async fn find_unique_derived_membership(
                 tenant,
                 command.course,
                 command.assignment,
-                command.revision,
+                command.expected_revision,
                 reference,
                 candidate.selected_moment.clone(),
             )
@@ -395,7 +433,7 @@ mod tests {
             .find("pub(super) async fn resolve_derived_preview_by_membership_read_only_bound")
             .expect("bound plain resolver");
         let end = source[start..]
-            .find("#[allow(clippy::too_many_arguments)]")
+            .find("/// Current-fact resolution result")
             .map(|offset| start + offset)
             .expect("resolver boundary");
         let resolver = &source[start..end];

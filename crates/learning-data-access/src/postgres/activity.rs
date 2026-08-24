@@ -2,13 +2,16 @@ use async_trait::async_trait;
 
 use super::*;
 
-async fn learner_enrollment_for_update(
+/// Authorizes a learner-owned enrollment for a projection. Mutation brokers
+/// own serialization; browser reads must not acquire locks on their source
+/// membership, audience, enrollment, or run rows.
+async fn learner_enrollment_for_read(
     transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     tenant: TenantId,
     actor: UserId,
     enrollment_id: EnrollmentId,
 ) -> Result<Option<AssignmentEnrollment>, StoreError> {
-    let enrollment = match load_enrollment_for_update(transaction, tenant, enrollment_id).await {
+    let enrollment = match load_postgres_enrollment(transaction, tenant, enrollment_id).await {
         Ok(value) => value,
         Err(StoreError::NotFound) => return Ok(None),
         Err(error) => return Err(error),
@@ -36,7 +39,7 @@ async fn learner_enrollment_for_update(
     .map_err(map_sqlx_error)?
     .map(CourseId::from_uuid)
     .ok_or(StoreError::NotFound)?;
-    let decision = super::entitlement::evaluate_current(
+    let decision = super::entitlement::evaluate_current_read_only(
         transaction,
         tenant,
         actor,
@@ -51,7 +54,7 @@ async fn learner_enrollment_for_update(
     Ok(Some(enrollment))
 }
 
-async fn learner_enrollment_for_assignment_for_update(
+async fn learner_enrollment_for_assignment_read(
     transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     tenant: TenantId,
     actor: UserId,
@@ -68,15 +71,20 @@ async fn learner_enrollment_for_assignment_for_update(
     let Some(course) = course.map(CourseId::from_uuid) else {
         return Ok(None);
     };
-    let decision =
-        super::entitlement::evaluate_current(transaction, tenant, actor, course, assignment)
-            .await?;
+    let decision = super::entitlement::evaluate_current_read_only(
+        transaction,
+        tenant,
+        actor,
+        course,
+        assignment,
+    )
+    .await?;
     let domain::entitlement::EntitlementDecision::Granted(grant) = decision else {
         return Ok(None);
     };
     let enrollment_id = sqlx::query_scalar::<_, Uuid>(
         "SELECT enrollment_id FROM enrollment \
-         WHERE tenant_id = $1 AND assignment_id = $2 AND student_id = $3 FOR UPDATE",
+         WHERE tenant_id = $1 AND assignment_id = $2 AND student_id = $3",
     )
     .bind(tenant.as_uuid())
     .bind(assignment.as_uuid())
@@ -88,7 +96,7 @@ async fn learner_enrollment_for_assignment_for_update(
         return Ok(None);
     };
     let enrollment =
-        load_enrollment_for_update(transaction, tenant, EnrollmentId::from_uuid(enrollment_id))
+        load_postgres_enrollment(transaction, tenant, EnrollmentId::from_uuid(enrollment_id))
             .await?;
     let course_accessible: bool = sqlx::query_scalar(
         "SELECT public.ple_course_records_accessible(a.tenant_id, a.course_id) \
@@ -143,8 +151,7 @@ impl crate::ActivityStore for PostgresStore {
     ) -> Result<Option<AssignmentEnrollment>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         let record =
-            match load_enrollment_for_update(&mut transaction, context.tenant_id(), enrollment)
-                .await
+            match load_postgres_enrollment(&mut transaction, context.tenant_id(), enrollment).await
             {
                 Ok(record) => record,
                 Err(StoreError::NotFound) => return Ok(None),
@@ -187,7 +194,7 @@ impl crate::ActivityStore for PostgresStore {
     ) -> Result<Option<AssignmentEnrollment>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         let record =
-            learner_enrollment_for_update(&mut transaction, context.tenant_id(), actor, enrollment)
+            learner_enrollment_for_read(&mut transaction, context.tenant_id(), actor, enrollment)
                 .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(record)
@@ -199,7 +206,7 @@ impl crate::ActivityStore for PostgresStore {
         assignment: AssignmentId,
     ) -> Result<Option<AssignmentEnrollment>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        let record = learner_enrollment_for_assignment_for_update(
+        let record = learner_enrollment_for_assignment_read(
             &mut transaction,
             context.tenant_id(),
             actor,
@@ -216,7 +223,7 @@ impl crate::ActivityStore for PostgresStore {
         run: RunId,
     ) -> Result<Option<AssignmentRun>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        let run = load_run_for_update(&mut transaction, context.tenant_id(), run).await;
+        let run = load_postgres_run(&mut transaction, context.tenant_id(), run).await;
         let Ok(run) = run else {
             return match run {
                 Err(StoreError::NotFound) => Ok(None),
@@ -224,14 +231,9 @@ impl crate::ActivityStore for PostgresStore {
                 Ok(_) => unreachable!(),
             };
         };
-        if learner_enrollment_for_update(
-            &mut transaction,
-            context.tenant_id(),
-            actor,
-            run.enrollment,
-        )
-        .await?
-        .is_none()
+        if learner_enrollment_for_read(&mut transaction, context.tenant_id(), actor, run.enrollment)
+            .await?
+            .is_none()
         {
             return Ok(None);
         }
@@ -309,8 +311,7 @@ impl crate::ActivityStore for PostgresStore {
     ) -> Result<Option<Page<AssignmentRun>>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         let record =
-            match load_enrollment_for_update(&mut transaction, context.tenant_id(), enrollment)
-                .await
+            match load_postgres_enrollment(&mut transaction, context.tenant_id(), enrollment).await
             {
                 Ok(record) => record,
                 Err(StoreError::NotFound) => return Ok(None),
@@ -332,7 +333,7 @@ impl crate::ActivityStore for PostgresStore {
         let assignment =
             load_assignment(&mut transaction, context.tenant_id(), record.assignment).await?;
         if matches!(
-            super::entitlement::evaluate_current(
+            super::entitlement::evaluate_current_read_only(
                 &mut transaction,
                 context.tenant_id(),
                 actor,
@@ -369,7 +370,7 @@ impl crate::ActivityStore for PostgresStore {
         page: PageRequest,
     ) -> Result<Option<Page<AssignmentRun>>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if learner_enrollment_for_update(&mut transaction, context.tenant_id(), actor, enrollment)
+        if learner_enrollment_for_read(&mut transaction, context.tenant_id(), actor, enrollment)
             .await?
             .is_none()
         {
@@ -426,25 +427,27 @@ impl crate::ActivityStore for PostgresStore {
         attempt: QuestionAttemptId,
     ) -> Result<Option<QuestionAttempt>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        let run_id: Option<Uuid> = sqlx::query_scalar("SELECT run_id FROM question_attempt WHERE tenant_id = $1 AND attempt_id = $2 FOR UPDATE").bind(context.tenant_id().as_uuid()).bind(attempt.as_uuid()).fetch_optional(&mut *transaction).await.map_err(map_sqlx_error)?;
+        let run_id: Option<Uuid> = sqlx::query_scalar(
+            "SELECT run_id FROM question_attempt WHERE tenant_id = $1 AND attempt_id = $2",
+        )
+        .bind(context.tenant_id().as_uuid())
+        .bind(attempt.as_uuid())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
         let Some(run_id) = run_id else {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(None);
         };
-        let run = load_run_for_update(
+        let run = load_postgres_run(
             &mut transaction,
             context.tenant_id(),
             RunId::from_uuid(run_id),
         )
         .await?;
-        if learner_enrollment_for_update(
-            &mut transaction,
-            context.tenant_id(),
-            actor,
-            run.enrollment,
-        )
-        .await?
-        .is_none()
+        if learner_enrollment_for_read(&mut transaction, context.tenant_id(), actor, run.enrollment)
+            .await?
+            .is_none()
         {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(None);
@@ -487,7 +490,7 @@ impl crate::ActivityStore for PostgresStore {
         enrollment: EnrollmentId,
     ) -> Result<Option<crate::LearnerAssignmentSummarySnapshot>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if learner_enrollment_for_update(&mut transaction, context.tenant_id(), actor, enrollment)
+        if learner_enrollment_for_read(&mut transaction, context.tenant_id(), actor, enrollment)
             .await?
             .is_none()
         {
@@ -506,5 +509,23 @@ impl crate::ActivityStore for PostgresStore {
             .transpose()?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(record)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn activity_projection_capabilities_do_not_request_mutation_locks() {
+        // ActivityStore exposes reads plus the explicit transition writer.
+        // Transition serialization lives below its brokered write path; the
+        // projection module must remain usable by the SELECT-only app role.
+        let source = include_str!("activity.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .expect("production activity source precedes its tests");
+        assert!(!source.contains("FOR UPDATE"));
+        assert!(!source.contains("load_enrollment_for_update"));
+        assert!(!source.contains("load_run_for_update"));
+        assert!(!source.contains("entitlement::evaluate_current("));
     }
 }

@@ -11,9 +11,8 @@ use crate::postgres::{
     decode_current_attempt_row, decode_presentation_binding_row, decode_summary_row, map_sqlx_error,
 };
 use crate::{
-    AssignmentEnrollment, AssignmentRecord, IssuedFlatGradingContract, IssuedQtiGradingContractV1,
-    IssuedWebworkGradingContract, PresentationCapability, ReceiptPresentationSnapshot, StoreError,
-    WebworkGradeReplayStateV1,
+    AssignmentEnrollment, AssignmentRecord, PresentationCapability, ReceiptPresentationSnapshot,
+    StoreError,
 };
 
 /// One exact aggregate hydrated while the broker's locks remain retained.
@@ -28,10 +27,6 @@ pub(in crate::postgres) struct PreparedStudentAttemptWork {
     pub(in crate::postgres) presentation_capability: PresentationCapability,
     pub(in crate::postgres) presentation: Option<ReceiptPresentationSnapshot>,
     pub(in crate::postgres) grading_envelope: Option<question_model::QuestionEnvelope>,
-    pub(in crate::postgres) flat_grading: Option<IssuedFlatGradingContract>,
-    pub(in crate::postgres) webwork_grading: Option<IssuedWebworkGradingContract>,
-    pub(in crate::postgres) issued_qti_grading: Option<IssuedQtiGradingContractV1>,
-    pub(in crate::postgres) webwork_replay: Option<WebworkGradeReplayStateV1>,
 }
 
 /// Hydrates only rows named by the strictly decoded witness. All queries are
@@ -117,11 +112,6 @@ pub(in crate::postgres) async fn hydrate_prepared_student_attempt_work(
                 presentation_descriptor_version, presentation_nonce, presentation_digest, \
                 presentation_capability, presentation_payload, presentation_payload_sha256, \
                 grading_envelope_payload, grading_envelope_payload_sha256, \
-                flat_grading_required, flat_grading_payload, flat_grading_payload_sha256, \
-                webwork_grading_required, webwork_grading_payload, \
-                webwork_grading_payload_sha256, \
-                qti_grading_required, issued_qti_grading_payload, \
-                issued_qti_grading_payload_sha256, \
                 issued_question_snapshot_payload, issued_question_snapshot_payload_sha256 \
            FROM question_attempt AS attempt \
            LEFT JOIN attempt_effective_policy_current AS current_effect \
@@ -182,47 +172,35 @@ pub(in crate::postgres) async fn hydrate_prepared_student_attempt_work(
         stored_presentation.as_ref(),
         grading_envelope.as_ref(),
     )?;
-    let flat_grading = crate::postgres::runs::attempt_issuance::validate_attempt_flat_grading(
-        &attempt_row,
-        &attempt,
-    )?;
-    let webwork_grading =
-        crate::postgres::runs::attempt_issuance::validate_attempt_webwork_grading(
-            &attempt_row,
-            &attempt,
-        )?;
     let issued_question_snapshot =
         crate::postgres::runs::attempt_issuance::decode_issued_question_snapshot(&attempt_row)?;
     issued_question_snapshot.validate_for_attempt(attempt.problem, attempt.question_version)?;
     issued_question_snapshot.validate_for_issuance_context(
-        crate::postgres::runs::attempt_issuance::flat_grading_capability_from_row(&attempt_row)?,
-        crate::postgres::runs::attempt_issuance::webwork_grading_capability_from_row(&attempt_row)?,
-        crate::postgres::runs::attempt_issuance::qti_grading_capability_from_row(&attempt_row)?,
+        if matches!(
+            attempt.issued_capability,
+            question_model::IssuedAttemptCapabilityV1::FlatPresentation
+        ) {
+            crate::FlatGradingCapability::Required
+        } else {
+            crate::FlatGradingCapability::NotApplicable
+        },
+        if matches!(
+            attempt.issued_capability,
+            question_model::IssuedAttemptCapabilityV1::WebworkPresentation
+        ) {
+            crate::WebworkGradingCapability::Required
+        } else {
+            crate::WebworkGradingCapability::NotApplicable
+        },
+        if matches!(
+            attempt.issued_capability,
+            question_model::IssuedAttemptCapabilityV1::QtiPresentation
+        ) {
+            crate::QtiGradingCapability::Required
+        } else {
+            crate::QtiGradingCapability::NotApplicable
+        },
         presentation.as_ref(),
-    )?;
-    let issued_qti_grading = crate::postgres::runs::attempt_issuance::validate_attempt_qti_grading(
-        &attempt_row,
-        &attempt,
-        &issued_question_snapshot,
-    )?;
-    if flat_grading
-        .as_ref()
-        .is_some_and(|contract| contract.question() != issued_question_snapshot.question())
-        || webwork_grading
-            .as_ref()
-            .is_some_and(|contract| contract.question() != issued_question_snapshot.question())
-    {
-        return Err(StoreError::Unavailable(
-            "specialized grading authority disagrees with issued question snapshot".to_string(),
-        ));
-    }
-    let webwork_replay = load_webwork_replay(transaction, source.tenant, &attempt).await?;
-    validate_private_shape(
-        capability,
-        &attempt,
-        presentation_binding,
-        &webwork_grading,
-        &webwork_replay,
     )?;
 
     let summary_row = sqlx::query(
@@ -257,61 +235,7 @@ pub(in crate::postgres) async fn hydrate_prepared_student_attempt_work(
         presentation_capability: capability,
         presentation,
         grading_envelope,
-        flat_grading,
-        webwork_grading,
-        issued_qti_grading,
-        webwork_replay,
     })
-}
-
-async fn load_webwork_replay(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: question_model::TenantId,
-    attempt: &question_model::QuestionAttempt,
-) -> Result<Option<WebworkGradeReplayStateV1>, StoreError> {
-    let row = sqlx::query(
-        "SELECT replay.problem_id, replay.version_id, replay.source_object_id, \
-                replay.source_sha256, replay.seed::text AS seed, replay.renderer_id, \
-                replay.renderer_version, replay.presentation_digest AS replay_presentation_digest, \
-                replay.mapping, replay.mapping_sha256 \
-           FROM webwork_grade_replay_state AS replay \
-          WHERE replay.tenant_id=$1 AND replay.attempt_id=$2",
-    )
-    .bind(tenant.as_uuid())
-    .bind(attempt.id.as_uuid())
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    row.as_ref()
-        .map(crate::postgres::runs::decode_webwork_replay_state)
-        .transpose()
-}
-
-fn validate_private_shape(
-    capability: PresentationCapability,
-    attempt: &question_model::QuestionAttempt,
-    binding: Option<question_model::PresentationBindingV1>,
-    webwork_grading: &Option<IssuedWebworkGradingContract>,
-    replay: &Option<WebworkGradeReplayStateV1>,
-) -> Result<(), StoreError> {
-    let webwork_required = matches!(
-        attempt.issued_capability,
-        question_model::IssuedAttemptCapabilityV1::WebworkPresentation
-    );
-    if webwork_required != (webwork_grading.is_some() && replay.is_some()) {
-        return Err(StoreError::Unavailable(
-            "stored WebWork submission authority is incomplete".to_string(),
-        ));
-    }
-    if let Some(replay) = replay {
-        crate::validate_persisted_webwork_replay_state(attempt, binding, replay)?;
-    }
-    if capability.requires_snapshot() != binding.is_some() {
-        return Err(StoreError::Unavailable(
-            "stored presentation binding capability disagrees".to_string(),
-        ));
-    }
-    Ok(())
 }
 
 fn invalid(name: &'static str) -> StoreError {

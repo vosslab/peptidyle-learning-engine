@@ -120,6 +120,60 @@ REVOKE ALL ON FUNCTION public.ple_remove_assignment_fixed_item(uuid, uuid, uuid,
 DROP FUNCTION public.ple_replace_assignment_fixed_item(uuid, uuid, uuid, bigint, uuid, uuid, uuid);
 DROP FUNCTION public.ple_add_assignment_fixed_item(uuid, uuid, uuid, bigint, uuid, integer, uuid, uuid, numeric, text, text);
 DROP FUNCTION public.ple_remove_assignment_fixed_item(uuid, uuid, uuid, bigint, uuid);
+
+-- Transfer the existing immutable-content trigger boundary to the consolidated
+-- assignment mutator.  A reference change still requires both this exact
+-- NOLOGIN broker identity and the narrow transaction-local operation marker;
+-- setting the marker as ple_app never grants write authority.
+CREATE OR REPLACE FUNCTION public.ple_guard_assignment_content_lock() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'pg_catalog', 'public'
+    AS $$
+DECLARE row_tenant uuid := COALESCE(NEW.tenant_id, OLD.tenant_id);
+DECLARE row_assignment uuid := COALESCE(NEW.assignment_id, OLD.assignment_id);
+DECLARE content_changed boolean;
+DECLARE is_assignment_replacement_broker boolean := current_user = 'ple_assignment_mutator_broker'
+    AND COALESCE(current_setting('ple.assignment_edit_kind', true), '') = 'replace_fixed_item';
+BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        IF TG_TABLE_NAME = 'assignment_item' THEN
+            IF NEW.assignment_item_id IS DISTINCT FROM OLD.assignment_item_id THEN
+                RAISE EXCEPTION 'assignment item identities are immutable'
+                    USING ERRCODE = '55000';
+            END IF;
+        ELSIF TG_TABLE_NAME = 'assignment_selection_candidate' THEN
+            IF NEW.candidate_id IS DISTINCT FROM OLD.candidate_id THEN
+                RAISE EXCEPTION 'assignment item identities are immutable'
+                    USING ERRCODE = '55000';
+            END IF;
+        END IF;
+        content_changed := (NEW.problem_id, NEW.version_id)
+            IS DISTINCT FROM (OLD.problem_id, OLD.version_id);
+        IF content_changed AND NOT is_assignment_replacement_broker THEN
+            RAISE EXCEPTION 'assignment item references change through the focused replacement capability'
+                USING ERRCODE = '55000';
+        END IF;
+    ELSE
+        content_changed := true;
+    END IF;
+    IF content_changed AND NOT is_assignment_replacement_broker AND EXISTS (
+        SELECT 1 FROM public.assignment_run run
+         JOIN public.enrollment enrollment
+           ON enrollment.tenant_id = run.tenant_id
+          AND enrollment.enrollment_id = run.enrollment_id
+         WHERE enrollment.tenant_id = row_tenant
+           AND enrollment.assignment_id = row_assignment
+    ) THEN
+        RAISE EXCEPTION 'assignment content is locked after the first student run'
+            USING ERRCODE = '55000';
+    END IF;
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    RETURN NEW;
+END
+$$;
+
 ALTER FUNCTION public.ple_invalidate_rehearsals_for_assignment(uuid, uuid, uuid, uuid, bigint, bigint)
     RENAME TO ple_invalidate_rehearsals_for_assignment_legacy_actor;
 REVOKE ALL ON FUNCTION public.ple_invalidate_rehearsals_for_assignment_legacy_actor(uuid, uuid, uuid, uuid, bigint, bigint) FROM PUBLIC, ple_app;
@@ -375,8 +429,10 @@ BEGIN
     IF NOT FOUND THEN RAISE EXCEPTION 'assignment item is unavailable' USING ERRCODE='42501'; END IF;
     SELECT public.ple_lock_assignable_problem_version(p_problem,p_version) INTO lifecycle;
     IF lifecycle NOT IN ('published','deprecated') THEN RAISE EXCEPTION 'assignment publication is unavailable' USING ERRCODE='42501'; END IF;
+    PERFORM set_config('ple.assignment_edit_kind','replace_fixed_item',true);
     UPDATE public.assignment_item SET problem_id=p_problem, version_id=p_version, revision=revision+1,
        updated_at=transaction_timestamp() WHERE tenant_id=p_tenant AND assignment_item_id=p_current_item;
+    PERFORM set_config('ple.assignment_edit_kind','',true);
     RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision,p_locked_rehearsal_count);
 END
 $$;

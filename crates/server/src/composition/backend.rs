@@ -196,11 +196,21 @@ impl PersistentDependencies {
             backends = backends.with_qti(qti.clone());
         }
         let backends = Arc::new(backends);
+        let sealed_execution: Arc<dyn learning_data_access::SealedPrivateExecutionStore> =
+            self.grader.clone();
+        let rehearsal_sealed: Arc<dyn learning_data_access::SealedRehearsalDeliveryExecutionStore> =
+            self.grader.clone();
+        let rehearsal_coordinator = Arc::new(crate::rehearsal::RehearsalExecutionCoordinator::new(
+            Arc::clone(&backends),
+            rehearsal_sealed,
+        ));
         let mut router = compose_passwordless_router(
             Arc::clone(&self.store),
             Arc::clone(&self.objects),
             Arc::clone(&self.public_assets),
             Arc::clone(&backends),
+            sealed_execution,
+            rehearsal_coordinator,
             native_adapter,
             review_gate,
             session_config,

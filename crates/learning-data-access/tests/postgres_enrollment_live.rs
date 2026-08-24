@@ -7,7 +7,7 @@ use learning_data_access::{
     AccountIdentityStore, AccountSessionLifetime, AccountSessionStore, AccountSessionTokenHash,
     AuthenticationEmail, AuthenticationRateLimitDecision, AuthenticationRateLimitKey,
     AuthenticationRateLimitPolicy, AuthenticationRateLimitScope, BeginEmailAuthentication,
-    BeginWebauthnCeremony, BrowserBindingHash, CommitCourseRosterImport,
+    BeginWebauthnCeremony, BrowserBindingHash, ClaimCourseInvitation, CommitCourseRosterImport,
     CompleteEmailAuthentication, CompleteEmailChangeAndRevokeUserSessions,
     CompletePasskeyAuthenticationAndCreateSession, ConsumeAuthenticationRateLimit,
     CourseInvitationDeliveryState, CourseInvitationDeliveryStore, CourseInvitationLifetime,
@@ -43,4 +43,5 @@ include!("postgres_enrollment_live/account_course_context.rs");
 include!("postgres_enrollment_live/email_change_rollback.rs");
 include!("postgres_enrollment_live/enrollment_capability.rs");
 include!("postgres_enrollment_live/expired_invitation_replay.rs");
+include!("postgres_enrollment_live/invitation_claim_broker.rs");
 include!("postgres_enrollment_live/passwordless_challenge.rs");

@@ -40,7 +40,16 @@ async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
     assert_eq!(cached["predecessor"], serde_json::json!(first.id));
     assert_eq!(cached["run"], serde_json::json!(first.run));
     let cached_json = cached.to_string();
-    for forbidden in ["answer", "key", "provider", "provenance"] {
+    for forbidden in [
+        "answer",
+        "key",
+        "provider",
+        "provenance",
+        "flatGrading",
+        "webworkReplay",
+        "webworkGrading",
+        "qtiGrading",
+    ] {
         assert!(
             !cached_json.contains(forbidden),
             "prefetch projection must not disclose {forbidden}"
@@ -218,8 +227,9 @@ async fn prefetch_preserves_a_backend_owned_render_hash() {
     let (store, backend, _app, student_cookie, _outsider_cookie, assignment) =
         native_feedback_fixture().await;
     let app = router(
-        store,
+        Arc::clone(&store),
         Arc::new(OpaqueRenderedHashBackend { inner: backend }),
+        sealed_memory(&store),
     );
     let first = active_attempt_for(
         &app,
@@ -411,6 +421,7 @@ async fn successor_delivery_failure_returns_the_durable_receipt_without_regradin
             inner: Arc::clone(&backend),
             fail_next_issue: AtomicBool::new(true),
         }),
+        sealed_memory(&store),
     );
     let submit = || {
         Request::builder()

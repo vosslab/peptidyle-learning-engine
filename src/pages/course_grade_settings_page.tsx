@@ -258,10 +258,16 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
       setServerDraft(next);
       setAssignmentTitles(new Map(saved.assignments.map((item) => [item.assignment, item.title])));
       setRevision(saved.revision);
-      setTotals(await runtime.client.getCourseGradebookTotals(props.courseId));
       setState("ready");
       setHasConflict(false);
       setMessage("Grade settings saved.");
+      try {
+        setTotals(await runtime.client.getCourseGradebookTotals(props.courseId));
+      } catch {
+        setMessage(
+          "Grade settings saved, but totals could not refresh. Use Reload current settings to try again.",
+        );
+      }
     } catch (error: unknown) {
       setState("ready");
       if (error instanceof CourseGradeSchemeConflictError) {

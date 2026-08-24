@@ -14,12 +14,14 @@ use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_applicatio
 use learning_data_access::{
     AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateAssignmentCommand,
     CreateCourseCommand, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
-    LearnerWorkRoutingBinding, PresentationCapability, PutAssignmentTeachingSettingsCommand, Store,
-    StoreError, TenantContext, UpsertCourseMember, WebworkGradingCapability,
+    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, LearnerWorkRoutingBinding,
+    NativeExecutionEnvelopeCapability, PresentationCapability,
+    PutAssignmentTeachingSettingsCommand, QtiGradingCapability, Store, StoreError, TenantContext,
+    UpsertCourseMember, WebworkGradingCapability,
 };
 use question_model::answer::NumericTolerance;
-use question_model::envelope::ContentBlock;
-use question_model::generation::RandomizationDefinition;
+use question_model::envelope::{ContentBlock, QuestionEnvelope};
+use question_model::generation::{RandomizationDefinition, Seed};
 use question_model::run_policy::{
     AttemptPolicy, CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies,
     TimingPolicy, VariationPolicy,
@@ -136,50 +138,80 @@ fn settings(
     }
 }
 
-fn issue(
+struct IssueFixture<'a> {
+    store: &'a PostgresStore,
+    context: TenantContext,
     learner: UserId,
     run: RunId,
     attempt: QuestionAttemptId,
     reference: ProblemVersionRef,
     course: CourseId,
     assignment: AssignmentId,
-) -> IssueQuestionAttemptCommand {
-    IssueQuestionAttemptCommand {
-        actor: learner,
-        binding: LearnerWorkRoutingBinding::new(course, assignment),
-        attempt,
-        run,
-        assignment_position: 0,
-        problem: reference.problem,
-        question_version: reference.version,
-        seed: 1,
-        presentation_capability: PresentationCapability::NotApplicable,
-        presentation: None,
-        presentation_snapshot: None,
-        grading_envelope: None,
-        flat_grading: None,
-        flat_grading_capability: FlatGradingCapability::NotApplicable,
-        webwork_grading: None,
-        webwork_grading_capability: WebworkGradingCapability::NotApplicable,
-        parameter_hash: "t1-live".to_string(),
-        provenance: question_model::AttemptProvenance {
-            adapter: ImplementationVersion {
-                id: "t1-live".to_string(),
-                version: "1".to_string(),
+}
+
+impl IssueFixture<'_> {
+    async fn build(self) -> IssueQuestionAttemptCommand {
+        let published = self
+            .store
+            .get_catalog_problem(self.context, self.reference)
+            .await
+            .expect("read the published teaching-projection question")
+            .expect("published teaching-projection question exists");
+        let issued_question_snapshot = IssuedQuestionSnapshotV1::new(
+            published.question.clone(),
+            IssuedQuestionFamilyWitnessV1::Native {
+                physical_asset_bindings: Vec::new(),
             },
-            renderer: None,
-            generator: None,
-            source_artifact: None,
-            asset_objects: Vec::new(),
-            grading: ImplementationVersion {
-                id: "t1-live-grade".to_string(),
-                version: "1".to_string(),
+        )
+        .expect("construct exact teaching-projection native question snapshot");
+        let grading_envelope = QuestionEnvelope {
+            version: published.version,
+            seed: Seed::new(1),
+            title: published.question.metadata.title.clone(),
+            prompt: published.question.prompt.clone(),
+            response: published.question.response.clone(),
+        };
+        IssueQuestionAttemptCommand {
+            actor: self.learner,
+            binding: LearnerWorkRoutingBinding::new(self.course, self.assignment),
+            attempt: self.attempt,
+            run: self.run,
+            assignment_position: 0,
+            problem: self.reference.problem,
+            question_version: self.reference.version,
+            issued_question_snapshot,
+            seed: 1,
+            presentation_capability: PresentationCapability::NotApplicable,
+            presentation: None,
+            presentation_snapshot: None,
+            grading_envelope: Some(grading_envelope),
+            native_execution_envelope_capability: NativeExecutionEnvelopeCapability::Required,
+            flat_grading: None,
+            flat_grading_capability: FlatGradingCapability::NotApplicable,
+            webwork_grading: None,
+            webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+            qti_grading: None,
+            qti_grading_capability: QtiGradingCapability::NotApplicable,
+            parameter_hash: "t1-live".to_string(),
+            provenance: question_model::AttemptProvenance {
+                adapter: ImplementationVersion {
+                    id: "t1-live".to_string(),
+                    version: "1".to_string(),
+                },
+                renderer: None,
+                generator: None,
+                source_artifact: None,
+                asset_objects: Vec::new(),
+                grading: ImplementationVersion {
+                    id: "t1-live-grade".to_string(),
+                    version: "1".to_string(),
+                },
+                rendered_question_sha256: "t1-live-render".to_string(),
             },
-            rendered_question_sha256: "t1-live-render".to_string(),
-        },
-        webwork_replay: None,
-        prefetched: None,
-        predecessor_submission: None,
+            webwork_replay: None,
+            prefetched: None,
+            predecessor_submission: None,
+        }
     }
 }
 
@@ -318,14 +350,18 @@ async fn postgres_assignment_teaching_projection_is_atomic_current_and_rls_bound
     let issued = store
         .issue_or_resume_question_attempt(
             context,
-            issue(
+            IssueFixture {
+                store: &store,
+                context,
                 learner,
-                run.id,
-                QuestionAttemptId::from_uuid(id()),
+                run: run.id,
+                attempt: QuestionAttemptId::from_uuid(id()),
                 reference,
                 course,
                 assignment,
-            ),
+            }
+            .build()
+            .await,
         )
         .await
         .expect("issue receipt");

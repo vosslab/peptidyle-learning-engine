@@ -27,6 +27,7 @@ async fn postgres_co_instructor_target_search_oracle() {
     create_account_named(&store, target, &target_display).await;
     let sysadmin_session = session(&store, tenant, sysadmin, vec![UserRole::Sysadmin]).await;
     let instructor_session = session(&store, tenant, instructor, vec![UserRole::Instructor]).await;
+    let target_session = session(&store, tenant, target, vec![UserRole::Instructor]).await;
     let course = CourseId::from_uuid(id());
     store
         .create_course(
@@ -73,6 +74,7 @@ async fn postgres_co_instructor_target_search_oracle() {
         .create_co_instructor_invitation(
             context,
             CreateCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 target,
@@ -242,7 +244,7 @@ async fn postgres_teaching_authority_is_target_bound_atomic_and_least_privilege(
         !approval_target_exists_for_app(&pool, UserId::from_uuid(id())).await,
         "the broker preserves the Store's missing-target distinction"
     );
-    insert_approved_invitation_for_app(&pool, tenant, course, target, instructor).await;
+    direct_invitation_insert_is_denied_for_app(&pool, tenant, course, target, instructor).await;
     assert!(
         store
             .approve_instructor_account(
@@ -367,6 +369,7 @@ async fn postgres_teaching_authority_is_target_bound_atomic_and_least_privilege(
         .create_co_instructor_invitation(
             context,
             CreateCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 target,
@@ -481,6 +484,7 @@ async fn postgres_teaching_authority_is_target_bound_atomic_and_least_privilege(
         .create_co_instructor_invitation(
             context,
             CreateCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 target,
@@ -656,6 +660,7 @@ async fn postgres_teaching_authority_is_target_bound_atomic_and_least_privilege(
         .create_co_instructor_invitation(
             context,
             CreateCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 target: other,

@@ -48,6 +48,7 @@ pub(super) fn native_issue_command(
     snapshot.validate_for_issuance_context(
         learning_data_access::FlatGradingCapability::NotApplicable,
         learning_data_access::WebworkGradingCapability::NotApplicable,
+        learning_data_access::QtiGradingCapability::NotApplicable,
         Some(&presentation),
     )?;
     Ok(IssueQuestionAttemptCommand {
@@ -64,11 +65,15 @@ pub(super) fn native_issue_command(
         presentation: Some(presentation_binding),
         presentation_snapshot: Some(presentation),
         grading_envelope: Some(grading_envelope),
+        native_execution_envelope_capability:
+            learning_data_access::NativeExecutionEnvelopeCapability::Required,
         flat_grading: None,
         flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
         webwork_grading: None,
         webwork_grading_capability: learning_data_access::WebworkGradingCapability::NotApplicable,
         webwork_replay: None,
+        qti_grading: None,
+        qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
         parameter_hash,
         provenance,
         prefetched: None,

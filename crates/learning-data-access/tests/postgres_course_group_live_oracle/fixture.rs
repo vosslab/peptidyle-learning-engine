@@ -14,6 +14,52 @@ pub(super) fn policies() -> RunPolicies {
     }
 }
 
+fn draft_question(problem: ProblemId) -> DraftQuestionDefinition {
+    DraftQuestionDefinition {
+        workspace: WorkspaceId::from_uuid(problem.as_uuid()),
+        source: DraftQuestionSource::Native {
+            family: "molar_mass".into(),
+        },
+        prompt: vec![ContentBlock::Text {
+            markdown: "T2 group fixture".into(),
+        }],
+        response: ResponseDefinition::Numeric {
+            tolerance: NumericTolerance::Relative { fraction: 0.01 },
+            unit: None,
+        },
+        attempt_policy: AttemptPolicy { max_attempts: None },
+        timing_policy: TimingPolicy::Untimed,
+        randomization: RandomizationDefinition::Static,
+        grading: GradingDefinition::AllOrNothing { points: 1.0 },
+        metadata: QuestionMetadata {
+            title: "T2 fixture".into(),
+            tags: vec![],
+            taxonomy: vec![],
+            license: License::CcBy,
+            language: "en-US".into(),
+        },
+    }
+}
+
+fn issued_question_snapshot(
+    reference: ProblemVersionRef,
+) -> learning_data_access::IssuedQuestionSnapshotV1 {
+    learning_data_access::IssuedQuestionSnapshotV1::new(
+        question_model::QuestionDefinition::from_draft(
+            draft_question(reference.problem),
+            reference.problem,
+            reference.version,
+            QuestionSource::Native {
+                family: "molar_mass".into(),
+            },
+        ),
+        learning_data_access::IssuedQuestionFamilyWitnessV1::Native {
+            physical_asset_bindings: vec![],
+        },
+    )
+    .expect("exact published native question snapshot")
+}
+
 pub(super) async fn publish(
     store: &PostgresStore,
     context: TenantContext,
@@ -26,30 +72,7 @@ pub(super) async fn publish(
     };
     let draft = DraftRecord {
         tenant,
-        question: DraftQuestionDefinition {
-            workspace: WorkspaceId::from_uuid(id()),
-            source: DraftQuestionSource::Native {
-                family: "molar_mass".into(),
-            },
-            prompt: vec![ContentBlock::Text {
-                markdown: "T2 group fixture".into(),
-            }],
-            response: ResponseDefinition::Numeric {
-                tolerance: NumericTolerance::Relative { fraction: 0.01 },
-                unit: None,
-            },
-            attempt_policy: AttemptPolicy { max_attempts: None },
-            timing_policy: TimingPolicy::Untimed,
-            randomization: RandomizationDefinition::Static,
-            grading: GradingDefinition::AllOrNothing { points: 1.0 },
-            metadata: QuestionMetadata {
-                title: "T2 fixture".into(),
-                tags: vec![],
-                taxonomy: vec![],
-                license: License::CcBy,
-                language: "en-US".into(),
-            },
-        },
+        question: draft_question(reference.problem),
         derived_from: None,
     };
     let saved = store
@@ -100,15 +123,20 @@ pub(super) fn issue(
         assignment_position: 0,
         problem: reference.problem,
         question_version: reference.version,
+        issued_question_snapshot: issued_question_snapshot(reference),
         seed: 1,
         presentation_capability: PresentationCapability::NotApplicable,
         presentation: None,
         presentation_snapshot: None,
         grading_envelope: None,
+        native_execution_envelope_capability:
+            learning_data_access::NativeExecutionEnvelopeCapability::Required,
         flat_grading: None,
         flat_grading_capability: FlatGradingCapability::NotApplicable,
         webwork_grading: None,
         webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+        qti_grading: None,
+        qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
         parameter_hash: "t2".into(),
         provenance: question_model::AttemptProvenance {
             adapter: ImplementationVersion {

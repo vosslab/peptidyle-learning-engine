@@ -9,6 +9,11 @@ mod entitlement;
 mod issued_question_snapshot;
 mod preview_plane;
 mod rehearsal;
+mod rehearsal_delivery_material;
+mod rehearsal_issued_execution;
+mod rehearsal_operations;
+mod rehearsal_route_mutations;
+mod rehearsal_submission_execution;
 mod runs;
 mod store;
 mod store_capabilities;
@@ -24,12 +29,17 @@ pub use entitlement::*;
 pub use issued_question_snapshot::*;
 pub use preview_plane::*;
 pub use rehearsal::*;
+pub use rehearsal_delivery_material::*;
+pub use rehearsal_issued_execution::*;
+pub use rehearsal_operations::*;
+pub use rehearsal_route_mutations::*;
+pub use rehearsal_submission_execution::*;
 pub use runs::*;
 pub use store::Store;
-pub use store_capabilities::CourseGroupManagementStore;
 pub(crate) use store_capabilities::{
     ActivityStore, AuthoringStore, CourseAssignmentStore, CourseStore, EffectivePolicyStore,
     FeedbackStore, RunStore, StatisticsStore,
 };
+pub use store_capabilities::{CourseGroupManagementStore, SealedPrivateExecutionStore};
 pub use store_error::StoreError;
 pub use workers::*;

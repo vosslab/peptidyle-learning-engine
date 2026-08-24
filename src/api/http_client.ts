@@ -29,6 +29,7 @@ export {
   WorkspaceConflictError,
 } from "./http_client/error";
 export type { ApiFetch, HttpApiClientConfig } from "./http_client/request";
+export { browserFetch };
 
 /** Creates the strict same-origin transport from independently owned capabilities. */
 export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryBrowserApiClient {

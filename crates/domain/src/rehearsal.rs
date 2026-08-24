@@ -17,27 +17,43 @@ const EVIDENCE_PAYLOAD_DOMAIN: &[u8] = b"ple:rehearsal:evidence:payload:v2\0";
 const EVIDENCE_ENTRY_DOMAIN: &[u8] = b"ple:rehearsal:evidence:entry:v3\0";
 const FROZEN_RESPONSE_SCHEMA_DOMAIN: &[u8] = b"ple:rehearsal:frozen-response-schema:v1\0";
 const SUBMISSION_REQUEST_DOMAIN: &[u8] = b"ple:rehearsal:submission-request:v1\0";
+const RENDERED_CLAIM_INPUT_DOMAIN: &[u8] = b"ple:rehearsal:rendered-claim-input:v1\0";
 
+mod accepted_evidence;
 mod claims;
 mod inventory;
 /// Private, versioned persistence reconstruction for rehearsal evidence.
 pub mod persistence;
+mod progression;
+mod timing;
 
 pub use claims::{
     DispatchedClaimHandle, PreparedClaimHandle, RehearsalClaimCompletionError,
     RehearsalClaimCompletionMaterial, RehearsalClaimCompletionProofError, RehearsalClaimGeneration,
     RehearsalClaimHandleError, RehearsalClaimHydrationError, RehearsalClaimReclaimError,
-    RehearsalClaimRoot, RehearsalClaimRootVerificationError, RehearsalClaimTransitionEvent,
-    RehearsalPersistedClaimRoot, RehearsalPreDispatchAbandonReason,
+    RehearsalClaimRoot, RehearsalClaimRootVerificationError, RehearsalClaimSubmissionInput,
+    RehearsalClaimTransitionEvent, RehearsalPersistedClaimRoot, RehearsalPreDispatchAbandonReason,
     RehearsalPreDispatchAbandonment, RehearsalSubmissionClaimDecision,
     RehearsalSubmissionClaimPhase, RehearsalSubmissionClaimSnapshot, RehearsalSubmissionClaimState,
     VerifiedRehearsalClaimCompletionProof, abandon_rehearsal_submission_before_dispatch,
     decide_submission_claim, hydrate_claim_history, mark_rehearsal_submission_dispatched,
-    validate_claim_completion, verify_rehearsal_claim_completion_proof,
+    restore_sealed_dispatched_claim_handle, validate_claim_completion,
+    verify_rehearsal_claim_completion_proof,
 };
 pub use inventory::{
     RehearsalFrozenInventoryEntry, RehearsalInventoryError, VerifiedRehearsalAcceptedEvidenceOwner,
     rehearsal_accepted_evidence_owner, verify_rehearsal_inventory,
+};
+pub use progression::{
+    RehearsalDerivedProgress, RehearsalProgressError, RehearsalProgressFrozenAttempt,
+    RehearsalProgressOpenAttempt, RehearsalProgressOpenPhase, RehearsalProgressSnapshot,
+    derive_rehearsal_progress,
+};
+pub use timing::{
+    RehearsalDeadlineSourceV1, RehearsalTimingDispatchDecisionV1, RehearsalTimingError,
+    RehearsalTimingInputsV1, RehearsalTimingVerdictV1, RehearsalTimingWitnessV1,
+    decide_rehearsal_timing_dispatch, derive_rehearsal_timing_witness,
+    rehearsal_retry_is_available, rehearsal_timing_verdict, verify_rehearsal_timing_witness,
 };
 
 /// A canonical, private digest of exactly one validated grading input.
@@ -162,6 +178,40 @@ pub struct RehearsalValidatedSubmissionEvidence {
 }
 
 impl RehearsalValidatedSubmissionEvidence {
+    /// Completes a sealed grading operation while preserving the original
+    /// claim input as immutable rehearsal evidence. For a rendered live claim,
+    /// `durable_request` is server-only translation output and is never stored
+    /// as if it had arrived from the browser.
+    pub fn try_complete_with_claim_input(
+        root: &RehearsalClaimRoot,
+        durable_request: RehearsalValidatedSubmissionRequest,
+        frozen: &RehearsalFrozenItemEvidence,
+        result: RehearsalPrivateGradingResult,
+        accepted_at: question_model::ActivityTimestamp,
+    ) -> Result<Self, RehearsalEvidenceValidationError> {
+        root.submission_input()
+            .validate_for_completion(&durable_request, frozen)?;
+        validate_grading_result(&result)?;
+        let original_response = root.submission_input().original_response();
+        if private_submission_bytes(original_response, &result)
+            > question_model::MAX_REHEARSAL_ACCEPTED_SUBMISSION_BYTES
+        {
+            return Err(RehearsalEvidenceValidationError::AcceptedSubmissionTooLarge);
+        }
+        if private_submission_entries(original_response, &result)
+            > question_model::MAX_REHEARSAL_ACCEPTED_SUBMISSION_ENTRIES
+        {
+            return Err(RehearsalEvidenceValidationError::TooManyAcceptedSubmissionEntries);
+        }
+        Ok(Self {
+            claim_binding: root.binding,
+            attempt: durable_request.attempt(),
+            submitted_response: original_response.clone(),
+            result,
+            accepted_at,
+        })
+    }
+
     /// Completes a sealed grading request only against the exact frozen
     /// evidence record locked by the Store for this attempt.
     pub fn try_complete_with_frozen_attempt(
@@ -171,25 +221,7 @@ impl RehearsalValidatedSubmissionEvidence {
         result: RehearsalPrivateGradingResult,
         accepted_at: question_model::ActivityTimestamp,
     ) -> Result<Self, RehearsalEvidenceValidationError> {
-        request.validate_frozen_attempt(frozen)?;
-        validate_grading_result(&result)?;
-        if private_submission_bytes(request.submitted_response(), &result)
-            > question_model::MAX_REHEARSAL_ACCEPTED_SUBMISSION_BYTES
-        {
-            return Err(RehearsalEvidenceValidationError::AcceptedSubmissionTooLarge);
-        }
-        if private_submission_entries(request.submitted_response(), &result)
-            > question_model::MAX_REHEARSAL_ACCEPTED_SUBMISSION_ENTRIES
-        {
-            return Err(RehearsalEvidenceValidationError::TooManyAcceptedSubmissionEntries);
-        }
-        Ok(Self {
-            claim_binding: root.binding,
-            attempt: request.attempt(),
-            submitted_response: request.submitted_response,
-            result,
-            accepted_at,
-        })
+        Self::try_complete_with_claim_input(root, request, frozen, result, accepted_at)
     }
 
     pub fn attempt(&self) -> question_model::RehearsalAttemptId {
@@ -430,6 +462,36 @@ pub fn rehearsal_submission_request_fingerprint(
     ))
 }
 
+/// Fingerprints the exact tagged claim input. Durable test-support requests
+/// preserve their established V1 fingerprint domain; a live rendered input
+/// additionally commits to the full authenticated presentation and the
+/// original rendered response before server-only translation.
+pub fn rehearsal_claim_submission_input_fingerprint(
+    context: RehearsalGenesisContext,
+    frozen: &RehearsalFrozenItemEvidence,
+    input: &RehearsalClaimSubmissionInput,
+) -> Result<RehearsalSubmissionRequestFingerprint, RehearsalEvidenceValidationError> {
+    match input {
+        RehearsalClaimSubmissionInput::Durable(request) => {
+            rehearsal_submission_request_fingerprint(context, frozen, request)
+        }
+        RehearsalClaimSubmissionInput::Rendered(rendered) => {
+            let mut e = Encoder::new();
+            e.raw(&evidence_genesis_digest(context).as_bytes());
+            e.uuid(frozen.attempt.as_uuid().as_bytes());
+            e.uuid(frozen.problem.problem.as_uuid().as_bytes());
+            e.uuid(frozen.problem.version.as_uuid().as_bytes());
+            e.raw(&frozen.canonical_content_digest.as_bytes());
+            e.raw(&frozen_response_schema_digest(&frozen.response_definition).as_bytes());
+            e.raw(&rendered.presentation_commitment().as_bytes());
+            encode_response(&mut e, rendered.response());
+            Ok(RehearsalSubmissionRequestFingerprint(
+                digest(RENDERED_CLAIM_INPUT_DOMAIN, e.finish()).as_bytes(),
+            ))
+        }
+    }
+}
+
 /// Binds genesis to immutable run, tenant, course, direct-Instructor membership, revision, and subject.
 pub fn evidence_genesis_digest(context: RehearsalGenesisContext) -> RehearsalEvidenceDigest {
     let mut e = Encoder::new();
@@ -488,22 +550,6 @@ pub fn private_payload_digest(payload: &RehearsalEvidencePayload) -> RehearsalEv
         }
     }
     digest(EVIDENCE_PAYLOAD_DOMAIN, e.finish())
-}
-
-/// Canonically commits the browser-safe completion projection only. Private
-/// response, provider receipt, and timestamps are deliberately absent.
-pub fn rehearsal_public_receipt_digest(
-    receipt: &question_model::RehearsalPublicOutcome,
-) -> RehearsalEvidenceDigest {
-    let mut e = Encoder::new();
-    match receipt {
-        question_model::RehearsalPublicOutcome::Submitted { feedback } => {
-            e.u8(1);
-            encode_feedback(&mut e, feedback);
-        }
-        _ => unreachable!("accepted rehearsal evidence has only terminal receipt projections"),
-    }
-    digest(b"ple:rehearsal:browser-receipt:v1\0", e.finish())
 }
 
 /// A collision-resistant digest of the exact response schema persisted with an
@@ -908,7 +954,9 @@ fn encode_blocks(e: &mut Encoder, values: &[ContentBlock]) {
 }
 
 #[cfg(test)]
-mod claims_tests;
+mod claims_replay_tests;
+#[cfg(test)]
+pub(super) mod claims_tests;
 #[cfg(test)]
 mod inventory_tests;
 #[cfg(test)]

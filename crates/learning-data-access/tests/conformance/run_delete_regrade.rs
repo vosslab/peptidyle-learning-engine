@@ -20,6 +20,20 @@ where
         ProblemVersionRef { problem, version },
         ProblemVersionRef { problem, version },
     ]);
+    let issued_question_snapshot = store
+        .get_catalog_problem(context, ProblemVersionRef { problem, version })
+        .await
+        .expect("Delete and Regrade published question")
+        .map(|published| {
+            learning_data_access::IssuedQuestionSnapshotV1::new(
+                published.question,
+                learning_data_access::IssuedQuestionFamilyWitnessV1::Native {
+                    physical_asset_bindings: Vec::new(),
+                },
+            )
+        })
+        .expect("Delete and Regrade published question exists")
+        .expect("Delete and Regrade native question snapshot");
     let retired_item = delete_items[0].id;
     let retained_item = delete_items[1].id;
     store
@@ -62,15 +76,20 @@ where
                 assignment_position: 0,
                 problem,
                 question_version: version,
+                issued_question_snapshot: issued_question_snapshot.clone(),
                 seed: 997,
                 presentation_capability: PresentationCapability::NotApplicable,
                 presentation: None,
                 presentation_snapshot: None,
                 grading_envelope: None,
+                native_execution_envelope_capability:
+                    learning_data_access::NativeExecutionEnvelopeCapability::Required,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_grading: None,
                 webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
                 parameter_hash: "delete-and-regrade-active".to_string(),
                 provenance: reservation.provenance.clone(),
                 webwork_replay: None,
@@ -232,15 +251,20 @@ where
                 assignment_position: 1,
                 problem,
                 question_version: version,
+                issued_question_snapshot,
                 seed: 998,
                 presentation_capability: PresentationCapability::NotApplicable,
                 presentation: None,
                 presentation_snapshot: None,
                 grading_envelope: None,
+                native_execution_envelope_capability:
+                    learning_data_access::NativeExecutionEnvelopeCapability::Required,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_grading: None,
                 webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
                 parameter_hash: "delete-and-regrade-unaffected".to_string(),
                 provenance: reservation.provenance.clone(),
                 webwork_replay: None,

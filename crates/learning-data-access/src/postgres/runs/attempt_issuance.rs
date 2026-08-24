@@ -6,8 +6,8 @@ use question_model::{
 use sqlx::{Postgres, Row, Transaction};
 
 use crate::{
-    FlatGradingCapability, IssueQuestionAttemptCommand, IssuedQuestionSnapshotV1, JobId,
-    JobPayload, PrefetchedQuestionDescriptorV1, PresentationCapability, ReceiptNextAttempt,
+    IssueQuestionAttemptCommand, IssuedQuestionSnapshotV1, JobId, JobPayload,
+    PrefetchedQuestionDescriptorV1, PresentationCapability, ReceiptNextAttempt,
     ReceiptPresentationSnapshot, StoreError, TenantContext, WebworkReplayMappingV1,
     issued_attempt_capability_from_issue, validate_issued_flat_grading,
     validate_issued_presentation, validate_issued_qti_grading, validate_issued_webwork_grading,
@@ -23,9 +23,6 @@ use super::super::transaction_context::database_timestamp;
 use super::authored_timing::{issued_timer, validate_postgres_assignment_position};
 use super::learner_transition::{
     lock_prepared_predecessor_for_learner_run, record_submission_successor,
-};
-pub(in crate::postgres) use super::qti_contracts::{
-    decode_attempt_qti_grading, qti_grading_capability_from_row, validate_attempt_qti_grading,
 };
 
 #[cfg(feature = "postgres")]
@@ -117,10 +114,6 @@ pub(super) async fn issue_or_resume_question_attempt(
                 qa.presentation_descriptor_version, qa.presentation_nonce, qa.presentation_digest, \
                 qa.presentation_capability, qa.presentation_payload, qa.presentation_payload_sha256, \
                 qa.grading_envelope_payload, qa.grading_envelope_payload_sha256, \
-                qa.flat_grading_required, qa.flat_grading_payload, qa.flat_grading_payload_sha256, \
-                qa.webwork_grading_required, qa.webwork_grading_payload, \
-                qa.webwork_grading_payload_sha256, qa.qti_grading_required, \
-                qa.issued_qti_grading_payload, qa.issued_qti_grading_payload_sha256, \
                 qa.issued_question_snapshot_payload, \
                 qa.issued_question_snapshot_payload_sha256, \
                 qa.attempt_status AS current_attempt_status, \
@@ -150,21 +143,18 @@ pub(super) async fn issue_or_resume_question_attempt(
             let active_capability = presentation_capability_from_row(&row)?;
             let active_snapshot = decode_attempt_presentation_snapshot(&row, active_capability)?;
             let active_grading_envelope = decode_attempt_grading_envelope(&row, active_capability)?;
-            let active_flat_grading = decode_attempt_flat_grading(&row)?;
             let active_issued_question_snapshot = decode_issued_question_snapshot(&row)?;
-            let active_qti_grading =
-                decode_attempt_qti_grading(&row, &active_issued_question_snapshot)?;
             if active_capability != command.presentation_capability
                 || active_issued_question_snapshot != command.issued_question_snapshot
                 || active_snapshot.as_ref() != command.presentation_snapshot.as_ref()
                 || active_grading_envelope.as_ref() != command.grading_envelope.as_ref()
-                || active_flat_grading.as_ref() != command.flat_grading.as_ref()
-                || flat_grading_capability_from_row(&row)? != command.flat_grading_capability
-                || decode_attempt_webwork_grading(&row)?.as_ref()
-                    != command.webwork_grading.as_ref()
-                || webwork_grading_capability_from_row(&row)? != command.webwork_grading_capability
-                || active_qti_grading.as_ref() != command.qti_grading.as_ref()
-                || qti_grading_capability_from_row(&row)? != command.qti_grading_capability
+                || !super::private_execution::attempt_private_execution_matches(
+                    transaction,
+                    tenant,
+                    active.id,
+                    &command,
+                )
+                .await?
             {
                 return Err(StoreError::Conflict);
             }
@@ -447,40 +437,15 @@ pub(super) async fn issue_or_resume_question_attempt(
         .map_or((None, None), |(payload, checksum)| {
             (Some(payload), Some(checksum))
         });
-    let (flat_grading_payload, flat_grading_payload_sha256) = flat_grading
-        .map(encode_payload)
-        .transpose()?
-        .map_or((None, None), |(payload, checksum)| {
-            (Some(payload), Some(checksum))
-        });
-    let (webwork_grading_payload, webwork_grading_payload_sha256) = webwork_grading
-        .map(encode_payload)
-        .transpose()?
-        .map_or((None, None), |(payload, checksum)| {
-            (Some(payload), Some(checksum))
-        });
-    let (issued_qti_grading_payload, issued_qti_grading_payload_sha256) = qti_grading
-        .map(|contract| {
-            let payload = contract.payload()?;
-            Ok::<_, StoreError>((
-                Some(payload.bytes().to_vec()),
-                Some(payload.sha256().to_string()),
-            ))
-        })
-        .transpose()?
-        .unwrap_or((None, None));
     sqlx::query(
         "INSERT INTO question_attempt \
          (tenant_id, attempt_id, run_id, problem_id, version_id, assignment_position, \
           occurred_at, payload, payload_sha256, presentation_descriptor_version, \
           presentation_nonce, presentation_digest, presentation_capability, presentation_payload, \
           presentation_payload_sha256, grading_envelope_payload, grading_envelope_payload_sha256, \
-          flat_grading_required, flat_grading_payload, flat_grading_payload_sha256, \
-          webwork_grading_required, webwork_grading_payload, webwork_grading_payload_sha256, \
-          qti_grading_required, issued_qti_grading_payload, issued_qti_grading_payload_sha256, \
           issued_question_snapshot_payload, issued_question_snapshot_payload_sha256, \
           authored_timing_deadline, authored_timing_grace_seconds) \
-          VALUES ($1, $2, $3, $4, $5, $6, transaction_timestamp(), $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, TIMESTAMPTZ 'epoch' + $28::bigint * INTERVAL '1 millisecond', $29)",
+          VALUES ($1, $2, $3, $4, $5, $6, transaction_timestamp(), $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, TIMESTAMPTZ 'epoch' + $19::bigint * INTERVAL '1 millisecond', $20)",
     )
     .bind(tenant.as_uuid())
     .bind(attempt.id.as_uuid())
@@ -498,15 +463,6 @@ pub(super) async fn issue_or_resume_question_attempt(
     .bind(presentation_payload_sha256)
     .bind(grading_envelope_payload)
     .bind(grading_envelope_payload_sha256)
-    .bind(flat_grading_capability.requires_contract())
-    .bind(flat_grading_payload)
-    .bind(flat_grading_payload_sha256)
-    .bind(webwork_grading_capability.requires_contract())
-    .bind(webwork_grading_payload)
-    .bind(webwork_grading_payload_sha256)
-    .bind(qti_grading_capability.requires_contract())
-    .bind(issued_qti_grading_payload)
-    .bind(issued_qti_grading_payload_sha256)
     .bind(issued_question_snapshot_payload)
     .bind(issued_question_snapshot_payload_sha256)
     .bind(
@@ -517,6 +473,16 @@ pub(super) async fn issue_or_resume_question_attempt(
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
+    let private_written = super::private_execution::attempt_private_execution_matches(
+        transaction,
+        tenant,
+        attempt.id,
+        &command,
+    )
+    .await?;
+    if !private_written {
+        return Err(StoreError::Conflict);
+    }
     if webwork_grading_capability.requires_contract() {
         let mapping = webwork_replay.ok_or_else(|| {
             StoreError::InvalidRecord("WeBWorK replay mapping is missing".to_string())
@@ -578,16 +544,20 @@ pub(super) async fn issue_or_resume_question_attempt(
     sqlx::query("INSERT INTO attempt_effective_policy_current (tenant_id,attempt_id,attempt_occurred_at,assignment_id,course_id,receipt_generation,timing_generation,job_id) SELECT $1,$2,occurred_at,$3,$4,$5,$6,$7 FROM question_attempt WHERE tenant_id=$1 AND attempt_id=$2")
         .bind(tenant.as_uuid()).bind(attempt.id.as_uuid()).bind(assignment.id.as_uuid()).bind(assignment.course_id.as_uuid()).bind(receipt_generation).bind(i64::try_from(timing_generation).map_err(|_| StoreError::Conflict)?).bind(timing_job.map(JobId::as_uuid)).execute(&mut **transaction).await.map_err(map_sqlx_error)?;
     if let Some(prefetched) = prefetched {
-        sqlx::query(
-            "DELETE FROM question_prefetch WHERE tenant_id = $1 AND run_id = $2 AND predecessor_attempt_id = $3 AND assignment_position = $4",
+        let promoted: bool = sqlx::query_scalar(
+            "SELECT public.ple_promote_prefetch_private_execution($1,$2,$3,$4,$5)",
         )
         .bind(tenant.as_uuid())
+        .bind(attempt.id.as_uuid())
         .bind(command.run.as_uuid())
         .bind(prefetched.predecessor.as_uuid())
         .bind(assignment_position)
-        .execute(&mut **transaction)
+        .fetch_one(&mut **transaction)
         .await
         .map_err(map_sqlx_error)?;
+        if !promoted {
+            return Err(StoreError::Conflict);
+        }
     }
     if let Some(predecessor) = command.predecessor_submission {
         let next = ReceiptNextAttempt::from_attempt(&attempt);
@@ -764,157 +734,6 @@ pub(in crate::postgres) fn decode_attempt_grading_envelope(
             "presentation-bearing attempt lacks its private grading envelope".to_string(),
         )),
     }
-}
-
-/// Decodes the checksummed private flat-question authority retained at issue.
-/// Its explicit capability prevents a missing payload from silently becoming
-/// a non-flat compatibility case during replay.
-pub(in crate::postgres) fn flat_grading_capability_from_row(
-    row: &sqlx::postgres::PgRow,
-) -> Result<FlatGradingCapability, StoreError> {
-    let required: bool = row
-        .try_get("flat_grading_required")
-        .map_err(map_sqlx_error)?;
-    Ok(if required {
-        FlatGradingCapability::Required
-    } else {
-        FlatGradingCapability::NotApplicable
-    })
-}
-
-pub(in crate::postgres) fn decode_attempt_flat_grading(
-    row: &sqlx::postgres::PgRow,
-) -> Result<Option<crate::IssuedFlatGradingContract>, StoreError> {
-    let payload: Option<serde_json::Value> = row
-        .try_get("flat_grading_payload")
-        .map_err(map_sqlx_error)?;
-    let checksum: Option<String> = row
-        .try_get("flat_grading_payload_sha256")
-        .map_err(map_sqlx_error)?;
-    match (flat_grading_capability_from_row(row)?, payload, checksum) {
-        (FlatGradingCapability::NotApplicable, None, None) => Ok(None),
-        (FlatGradingCapability::Required, Some(payload), Some(checksum)) => {
-            let bytes = serde_json::to_vec(&payload).map_err(|error| {
-                StoreError::Unavailable(format!(
-                    "stored private flat grading encode failed: {error}"
-                ))
-            })?;
-            if Sha256Digest::compute(&bytes).to_string() != checksum {
-                return Err(StoreError::Unavailable(
-                    "stored private flat grading checksum mismatch".to_string(),
-                ));
-            }
-            let contract: crate::IssuedFlatGradingContract = serde_json::from_value(payload)
-                .map_err(|error| {
-                    StoreError::Unavailable(format!(
-                        "stored private flat grading decode failed: {error}"
-                    ))
-                })?;
-            contract.validate()?;
-            Ok(Some(contract))
-        }
-        _ => Err(StoreError::Unavailable(
-            "stored private flat grading capability and payload disagree".to_string(),
-        )),
-    }
-}
-
-/// Verifies that private flat authority belongs to the persisted attempt.
-/// All receipt and issuance readers call this alongside presentation checks so
-/// deleting a required server-only contract fails closed before any replay.
-pub(in crate::postgres) fn validate_attempt_flat_grading(
-    row: &sqlx::postgres::PgRow,
-    attempt: &QuestionAttempt,
-) -> Result<Option<crate::IssuedFlatGradingContract>, StoreError> {
-    let capability = flat_grading_capability_from_row(row)?;
-    let expected_required = matches!(
-        attempt.issued_capability,
-        question_model::IssuedAttemptCapabilityV1::FlatPresentation
-    );
-    if capability.requires_contract() != expected_required {
-        return Err(StoreError::Unavailable(
-            "stored flat grading capability disagrees with its checksummed attempt".to_string(),
-        ));
-    }
-    let contract = decode_attempt_flat_grading(row)?;
-    if let Some(contract) = &contract
-        && (contract.question().problem != attempt.problem
-            || contract.question().version != attempt.question_version)
-    {
-        return Err(StoreError::Unavailable(
-            "stored private flat grading disagrees with its attempt".to_string(),
-        ));
-    }
-    Ok(contract)
-}
-
-pub(in crate::postgres) fn webwork_grading_capability_from_row(
-    row: &sqlx::postgres::PgRow,
-) -> Result<crate::WebworkGradingCapability, StoreError> {
-    let required: bool = row
-        .try_get("webwork_grading_required")
-        .map_err(map_sqlx_error)?;
-    Ok(if required {
-        crate::WebworkGradingCapability::Required
-    } else {
-        crate::WebworkGradingCapability::NotApplicable
-    })
-}
-
-pub(in crate::postgres) fn decode_attempt_webwork_grading(
-    row: &sqlx::postgres::PgRow,
-) -> Result<Option<crate::IssuedWebworkGradingContract>, StoreError> {
-    let payload: Option<serde_json::Value> = row
-        .try_get("webwork_grading_payload")
-        .map_err(map_sqlx_error)?;
-    let checksum: Option<String> = row
-        .try_get("webwork_grading_payload_sha256")
-        .map_err(map_sqlx_error)?;
-    match (webwork_grading_capability_from_row(row)?, payload, checksum) {
-        (crate::WebworkGradingCapability::NotApplicable, None, None) => Ok(None),
-        (crate::WebworkGradingCapability::Required, Some(payload), Some(checksum)) => {
-            let bytes = serde_json::to_vec(&payload).map_err(|error| {
-                StoreError::Unavailable(format!(
-                    "stored WeBWorK grading contract encode failed: {error}"
-                ))
-            })?;
-            if Sha256Digest::compute(&bytes).to_string() != checksum {
-                return Err(StoreError::Unavailable(
-                    "stored WeBWorK grading contract checksum mismatch".to_string(),
-                ));
-            }
-            serde_json::from_value(payload).map(Some).map_err(|error| {
-                StoreError::Unavailable(format!(
-                    "stored WeBWorK grading contract decode failed: {error}"
-                ))
-            })
-        }
-        _ => Err(StoreError::Unavailable(
-            "stored WeBWorK grading capability and payload disagree".to_string(),
-        )),
-    }
-}
-
-/// Validates immutable WebWork grading authority against its owning attempt.
-pub(in crate::postgres) fn validate_attempt_webwork_grading(
-    row: &sqlx::postgres::PgRow,
-    attempt: &QuestionAttempt,
-) -> Result<Option<crate::IssuedWebworkGradingContract>, StoreError> {
-    let capability = webwork_grading_capability_from_row(row)?;
-    let expected_required = matches!(
-        attempt.issued_capability,
-        question_model::IssuedAttemptCapabilityV1::WebworkPresentation
-    );
-    if capability.requires_contract() != expected_required {
-        return Err(StoreError::Unavailable(
-            "stored WeBWorK grading capability disagrees with its checksummed attempt".to_string(),
-        ));
-    }
-    let contract = decode_attempt_webwork_grading(row)?;
-    if let Some(contract) = &contract {
-        contract.validate_for_attempt(attempt)?;
-    }
-    Ok(contract)
 }
 
 async fn insert_webwork_grade_replay_state(

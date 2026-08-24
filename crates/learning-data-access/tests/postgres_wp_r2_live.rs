@@ -87,21 +87,24 @@ async fn postgres_wp_r2_persistence_rls_and_no_drift() {
         .await
         .expect("restricted foreign read executes");
     assert_eq!(visible, 0, "forced RLS conceals tenant A from tenant B");
-    let changed = sqlx::query("UPDATE course SET title = $1 WHERE course_id = $2")
+    let mutation_error = sqlx::query("UPDATE course SET title = $1 WHERE course_id = $2")
         .bind("foreign mutation")
         .bind(course_a)
         .execute(&mut *foreign)
         .await
-        .expect("restricted foreign mutation is filtered by RLS")
-        .rows_affected();
+        .expect_err("the application role has no direct course mutation capability");
     assert_eq!(
-        changed, 0,
-        "foreign tenant cannot mutate tenant A through ple_app"
+        mutation_error
+            .as_database_error()
+            .and_then(|error| error.code())
+            .as_deref(),
+        Some("42501"),
+        "foreign tenant mutation is denied at the role boundary"
     );
     foreign
-        .commit()
+        .rollback()
         .await
-        .expect("foreign probe commits without a mutation");
+        .expect("foreign probe rolls back after the expected permission denial");
 
     let row = sqlx::query("SELECT title FROM course WHERE tenant_id = $1 AND course_id = $2")
         .bind(tenant_a)
@@ -184,5 +187,5 @@ async fn postgres_wp_r2_persistence_rls_and_no_drift() {
     // the focused conformance suites; this live owner additionally proves the
     // database authority those commands depend on: migration convergence,
     // actual restricted role, forced RLS, global version uniqueness, and
-    // rollback-free foreign mutation refusal.
+    // direct application-role mutation refusal.
 }

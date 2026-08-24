@@ -40,7 +40,7 @@ fn decode_multiple_membership(value: String) -> Result<MultipleMembershipPolicy,
 fn map_purpose_policy_broker_error(error: sqlx::Error) -> StoreError {
     if let sqlx::Error::Database(database_error) = &error {
         match database_error.code().as_deref() {
-            Some("40001")
+            Some("55000")
                 if database_error.message() == "course group purpose policy revision conflict" =>
             {
                 return StoreError::Conflict;
@@ -115,7 +115,7 @@ async fn ensure_complete_policy_rows(
 ) -> Result<(), StoreError> {
     let rows = sqlx::query(
         "SELECT purpose, multiple_membership, revision FROM course_group_membership_policy \
-         WHERE tenant_id=$1 AND course_id=$2 ORDER BY purpose FOR KEY SHARE",
+         WHERE tenant_id=$1 AND course_id=$2 ORDER BY purpose",
     )
     .bind(tenant.as_uuid())
     .bind(course.as_uuid())
@@ -150,7 +150,7 @@ async fn load_purpose_policy(
 ) -> Result<StoredCourseGroupPurposePolicy, StoreError> {
     let row = sqlx::query(
         "SELECT purpose, multiple_membership, revision FROM course_group_membership_policy \
-         WHERE tenant_id=$1 AND course_id=$2 AND purpose=$3 FOR KEY SHARE",
+         WHERE tenant_id=$1 AND course_id=$2 AND purpose=$3",
     )
     .bind(tenant.as_uuid())
     .bind(course.as_uuid())

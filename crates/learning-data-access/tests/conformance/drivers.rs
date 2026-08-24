@@ -37,9 +37,16 @@ async fn memory_run_api_store_conforms() {
         ),
     ] {
         let store = MemoryStore::default();
+        let sealed_private_execution = store.sealed_private_execution_store();
         store
             .set_authoritative_time(ActivityTimestamp::from_unix_millis(500))
             .expect("memory clock");
-        exercise_run_api_store(&store, disclosure_policy, fixture_offset).await;
+        exercise_run_api_store(
+            &store,
+            &sealed_private_execution,
+            disclosure_policy,
+            fixture_offset,
+        )
+        .await;
     }
 }

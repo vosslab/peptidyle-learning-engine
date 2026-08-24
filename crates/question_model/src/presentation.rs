@@ -9,6 +9,7 @@ mod binding;
 mod builder;
 mod codec;
 mod model;
+mod response_translation;
 
 pub use binding::PresentationBindingV1;
 pub use builder::{
@@ -24,6 +25,9 @@ pub use model::{
     LearnerRunScreenV1, PresentationDigestTokenV1, PresentationEnvelopeV1, PresentationNonceV1,
     PresentedBlankV1, PresentedChoiceV1, PresentedHotspotRegionV1, PresentedHotspotSurfaceV1,
     RenderedItemIdV1, ResponseSchemaV1,
+};
+pub use response_translation::{
+    RenderedResponseTranslationErrorV1, translate_rendered_response_v1,
 };
 
 #[cfg(test)]

@@ -15,9 +15,9 @@ use learning_data_access::{
     CreateCourseCommand, DraftRecord, EvaluationRevision, FlatGradingCapability,
     IssueQuestionAttemptCommand, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1,
     JobClaimFilter, JobLeaseDuration, JobPayload, JobStore, LearnerWorkRoutingBinding,
-    ManualCredit, ManualGradeActionId, ManualGradingStore, PresentationCapability,
-    PublishDraftCommand, QtiGradingCapability, SetManualGradeCommand, Store, StoreError,
-    SubmissionIdempotencyKey, SubmitPendingManualQuestionAttemptCommand,
+    ManualCredit, ManualGradeActionId, ManualGradingStore, NativeExecutionEnvelopeCapability,
+    PresentationCapability, PublishDraftCommand, QtiGradingCapability, SetManualGradeCommand,
+    Store, StoreError, SubmissionIdempotencyKey, SubmitPendingManualQuestionAttemptCommand,
     SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
@@ -203,6 +203,8 @@ async fn issue_attempt(
                 presentation: None,
                 presentation_snapshot: None,
                 grading_envelope: None,
+                native_execution_envelope_capability:
+                    NativeExecutionEnvelopeCapability::NotApplicable,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_grading: None,

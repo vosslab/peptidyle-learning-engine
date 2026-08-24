@@ -25,12 +25,15 @@ use super::{auth, rows};
 pub(super) struct HydratedRehearsal {
     pub(super) run: rows::HydratedRun,
     pub(super) frozen: Vec<question_model::RehearsalFrozenItemEvidence>,
+    #[cfg(feature = "test-support")]
     pub(super) evidence: Vec<RehearsalEvidenceChainEntry>,
     pub(super) claims: Vec<HydratedClaim>,
 }
 
 pub(super) struct HydratedClaim {
     pub(super) idempotency_key: String,
+    #[cfg(feature = "test-support")]
+    pub(super) attempt: question_model::RehearsalAttemptId,
     pub(super) root: RehearsalClaimRoot,
     pub(super) snapshot: RehearsalSubmissionClaimSnapshot,
     pub(super) outcome: Option<question_model::RehearsalPublicOutcome>,
@@ -61,6 +64,42 @@ pub(super) async fn read(
 ) -> Result<question_model::RehearsalRunReceipt, StoreError> {
     let tenant = context.tenant_id();
     let mut tx = store.begin_tenant(context).await?;
+    let source = auth::lock_source(
+        &mut tx,
+        tenant,
+        locator.actor,
+        locator.course,
+        locator.assignment,
+        locator.revision,
+    )
+    .await?;
+    let aggregate = load_authorized(&mut tx, tenant, locator, &source).await?;
+    let receipt = aggregate.run.receipt.clone();
+    tx.commit().await.map_err(map_sqlx_error)?;
+    Ok(receipt)
+}
+
+/// Hydrate a rehearsal from its route-visible reference.  The reference is
+/// resolved before protected JSON is read; its bound revision is then used
+/// only inside this Store to acquire the normal direct-Instructor source lock.
+pub(super) async fn read_from_route(
+    store: &PostgresStore,
+    context: TenantContext,
+    command: crate::ReadRehearsalRouteCommand,
+) -> Result<question_model::RehearsalRunReceipt, StoreError> {
+    let tenant = context.tenant_id();
+    let mut tx = store.begin_tenant(context).await?;
+    let public = load_locator(&mut tx, tenant, command.rehearsal).await?;
+    if public.course != command.course || public.assignment != command.assignment {
+        return Err(StoreError::NotFound);
+    }
+    let locator = crate::RehearsalLocator {
+        actor: command.actor,
+        course: command.course,
+        assignment: command.assignment,
+        revision: public.revision,
+        rehearsal: command.rehearsal,
+    };
     let source = auth::lock_source(
         &mut tx,
         tenant,
@@ -116,6 +155,7 @@ async fn load_complete(
     let frozen = load_frozen(tx, &run).await?;
     let context = genesis(&run);
     let mut roots = load_roots(tx, &run, &frozen, context).await?;
+    verify_claim_delivery_bindings(tx, &run, &roots).await?;
     let evidence = load_evidence(tx, &run, &frozen, &roots).await?;
     verify_evidence_chain(context, run.head, &evidence).map_err(invalid)?;
     let claims = hydrate_claims(tx, &run, &evidence, &mut roots, context).await?;
@@ -139,9 +179,112 @@ async fn load_complete(
     Ok(HydratedRehearsal {
         run,
         frozen,
+        #[cfg(feature = "test-support")]
         evidence,
         claims,
     })
+}
+
+/// A route-submitted claim is permanently tied to exactly one issued screen.
+/// The binding is authenticated independently of the mutable route request so
+/// a later delivery generation can never be substituted during recovery.
+async fn verify_claim_delivery_bindings(
+    tx: &mut Transaction<'_, Postgres>,
+    run: &rows::HydratedRun,
+    roots: &[RootState],
+) -> Result<(), StoreError> {
+    let database_rows = sqlx::query("SELECT binding.claim_id,binding.delivery_root_id,binding.delivery_generation,binding.delivery_operation_id,binding.issued_screen_digest,binding.binding_digest,event_row.prepared_delivery_binding_digest,claim.request_fingerprint,claim.attempt_id FROM rehearsal_submission_claim_delivery_binding binding JOIN rehearsal_submission_claim_root claim ON claim.tenant_id=binding.tenant_id AND claim.rehearsal_run_id=binding.rehearsal_run_id AND claim.claim_id=binding.claim_id JOIN rehearsal_submission_claim_event event_row ON event_row.tenant_id=claim.tenant_id AND event_row.rehearsal_run_id=claim.rehearsal_run_id AND event_row.claim_id=claim.claim_id AND event_row.sequence=1 AND event_row.phase='prepared' JOIN rehearsal_delivery_operation_generation generation_row ON generation_row.tenant_id=binding.tenant_id AND generation_row.rehearsal_run_id=binding.rehearsal_run_id AND generation_row.root_id=binding.delivery_root_id AND generation_row.generation=binding.delivery_generation AND generation_row.operation_id=binding.delivery_operation_id JOIN rehearsal_delivery_receipt receipt ON receipt.tenant_id=generation_row.tenant_id AND receipt.rehearsal_run_id=generation_row.rehearsal_run_id AND receipt.root_id=generation_row.root_id AND receipt.generation=generation_row.generation AND receipt.operation_id=generation_row.operation_id AND receipt.result_kind='issued' AND receipt.frozen_attempt_id=claim.attempt_id AND receipt.screen_digest=binding.issued_screen_digest JOIN rehearsal_delivery_issued_execution_artifact artifact ON artifact.tenant_id=generation_row.tenant_id AND artifact.rehearsal_run_id=generation_row.rehearsal_run_id AND artifact.root_id=generation_row.root_id AND artifact.generation=generation_row.generation AND artifact.operation_id=generation_row.operation_id WHERE binding.tenant_id=$1 AND binding.rehearsal_run_id=$2 ORDER BY binding.claim_id").bind(run.tenant.as_uuid()).bind(run.id.as_uuid()).fetch_all(&mut **tx).await.map_err(map_sqlx_error)?;
+    if database_rows.len() != roots.len() {
+        return Err(StoreError::InvalidRecord(
+            "rehearsal claim delivery binding inventory mismatch".into(),
+        ));
+    }
+    for row in database_rows {
+        let claim =
+            RehearsalSubmissionClaimId::from_uuid(row.try_get("claim_id").map_err(map_sqlx_error)?);
+        let root = roots
+            .iter()
+            .find(|candidate| candidate.root.claim() == claim)
+            .ok_or_else(|| {
+                StoreError::InvalidRecord("delivery binding has no claim root".into())
+            })?;
+        let digest: [u8; 32] = row
+            .try_get::<Vec<u8>, _>("binding_digest")
+            .map_err(map_sqlx_error)?
+            .try_into()
+            .map_err(|_| {
+                StoreError::InvalidRecord("invalid rehearsal claim delivery binding digest".into())
+            })?;
+        let fingerprint: [u8; 32] = row
+            .try_get::<Vec<u8>, _>("request_fingerprint")
+            .map_err(map_sqlx_error)?
+            .try_into()
+            .map_err(|_| {
+                StoreError::InvalidRecord("invalid rehearsal claim request fingerprint".into())
+            })?;
+        let screen: [u8; 32] = row
+            .try_get::<Vec<u8>, _>("issued_screen_digest")
+            .map_err(map_sqlx_error)?
+            .try_into()
+            .map_err(|_| StoreError::InvalidRecord("invalid issued screen digest".into()))?;
+        let expected = claim_delivery_binding_digest(ClaimDeliveryBindingDigestInput {
+            tenant: run.tenant.as_uuid(),
+            run: run.id.as_uuid(),
+            claim: claim.as_uuid(),
+            fingerprint,
+            attempt: row.try_get("attempt_id").map_err(map_sqlx_error)?,
+            delivery_root: row.try_get("delivery_root_id").map_err(map_sqlx_error)?,
+            generation: row.try_get("delivery_generation").map_err(map_sqlx_error)?,
+            operation: row
+                .try_get("delivery_operation_id")
+                .map_err(map_sqlx_error)?,
+            screen,
+        });
+        if digest != expected
+            || row
+                .try_get::<Vec<u8>, _>("prepared_delivery_binding_digest")
+                .map_err(map_sqlx_error)?
+                .as_slice()
+                != digest
+            || root.attempt.as_uuid()
+                != row
+                    .try_get::<uuid::Uuid, _>("attempt_id")
+                    .map_err(map_sqlx_error)?
+        {
+            return Err(StoreError::InvalidRecord(
+                "rehearsal claim delivery binding mismatch".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub(super) struct ClaimDeliveryBindingDigestInput {
+    pub(super) tenant: uuid::Uuid,
+    pub(super) run: uuid::Uuid,
+    pub(super) claim: uuid::Uuid,
+    pub(super) fingerprint: [u8; 32],
+    pub(super) attempt: uuid::Uuid,
+    pub(super) delivery_root: uuid::Uuid,
+    pub(super) generation: i32,
+    pub(super) operation: uuid::Uuid,
+    pub(super) screen: [u8; 32],
+}
+
+pub(super) fn claim_delivery_binding_digest(input: ClaimDeliveryBindingDigestInput) -> [u8; 32] {
+    let mut bytes = Vec::with_capacity(32 * 3 + 16 * 6 + 4 + 48);
+    bytes.extend_from_slice(b"ple.rehearsal.claim-delivery-binding.v1\0");
+    for value in [input.tenant, input.run, input.claim] {
+        bytes.extend_from_slice(value.as_bytes());
+    }
+    bytes.extend_from_slice(&input.fingerprint);
+    for value in [input.attempt, input.delivery_root] {
+        bytes.extend_from_slice(value.as_bytes());
+    }
+    bytes.extend_from_slice(&input.generation.to_be_bytes());
+    bytes.extend_from_slice(input.operation.as_bytes());
+    bytes.extend_from_slice(&input.screen);
+    *objects::Sha256Digest::compute(&bytes).as_bytes()
 }
 
 /// Hydrate a run whose non-private locator has already been locked by a
@@ -211,6 +354,7 @@ async fn load_frozen(
 
 struct RootState {
     key: String,
+    attempt: question_model::RehearsalAttemptId,
     root: RehearsalClaimRoot,
 }
 
@@ -220,7 +364,7 @@ async fn load_roots(
     frozen: &[question_model::RehearsalFrozenItemEvidence],
     context: RehearsalGenesisContext,
 ) -> Result<Vec<RootState>, StoreError> {
-    let database_rows = sqlx::query("SELECT claim_id, idempotency_key, attempt_id, request_fingerprint, sealed_request FROM rehearsal_submission_claim_root WHERE tenant_id=$1 AND rehearsal_run_id=$2 ORDER BY claim_id").bind(run.tenant.as_uuid()).bind(run.id.as_uuid()).fetch_all(&mut **tx).await.map_err(map_sqlx_error)?;
+    let database_rows = sqlx::query("SELECT claim.claim_id,claim.idempotency_key,claim.attempt_id,claim.request_fingerprint,claim.submission_input,receipt.screen_projection,receipt.screen_digest FROM rehearsal_submission_claim_root claim LEFT JOIN rehearsal_submission_claim_delivery_binding binding ON binding.tenant_id=claim.tenant_id AND binding.rehearsal_run_id=claim.rehearsal_run_id AND binding.claim_id=claim.claim_id LEFT JOIN rehearsal_delivery_receipt receipt ON receipt.tenant_id=binding.tenant_id AND receipt.rehearsal_run_id=binding.rehearsal_run_id AND receipt.root_id=binding.delivery_root_id AND receipt.generation=binding.delivery_generation AND receipt.operation_id=binding.delivery_operation_id AND receipt.result_kind='issued' WHERE claim.tenant_id=$1 AND claim.rehearsal_run_id=$2 ORDER BY claim.claim_id").bind(run.tenant.as_uuid()).bind(run.id.as_uuid()).fetch_all(&mut **tx).await.map_err(map_sqlx_error)?;
     let mut roots = Vec::with_capacity(database_rows.len());
     for row in database_rows {
         let attempt = question_model::RehearsalAttemptId::from_uuid(
@@ -235,9 +379,27 @@ async fn load_roots(
         let claim =
             RehearsalSubmissionClaimId::from_uuid(row.try_get("claim_id").map_err(map_sqlx_error)?);
         let bytes: Vec<u8> = row.try_get("request_fingerprint").map_err(map_sqlx_error)?;
-        let sealed = row.try_get("sealed_request").map_err(map_sqlx_error)?;
-        let persisted = domain::rehearsal::persistence::decode_persisted_claim_root(
-            run.id, claim, &bytes, &sealed, frozen, attempt,
+        let submission_input = row.try_get("submission_input").map_err(map_sqlx_error)?;
+        let screen = match (
+            row.try_get::<Option<serde_json::Value>, _>("screen_projection")
+                .map_err(map_sqlx_error)?,
+            row.try_get::<Option<Vec<u8>>, _>("screen_digest")
+                .map_err(map_sqlx_error)?,
+        ) {
+            (Some(projection), Some(digest)) => {
+                Some(super::operations::active_screen_with_commitment(projection, digest)?.0)
+            }
+            (None, None) => None,
+            _ => return Err(invalid("incomplete rehearsal claim delivery screen")),
+        };
+        let persisted = domain::rehearsal::persistence::decode_persisted_claim_root_with_screen(
+            run.id,
+            claim,
+            &bytes,
+            &submission_input,
+            frozen,
+            attempt,
+            screen.as_ref(),
         )
         .map_err(invalid)?;
         let root =
@@ -250,7 +412,7 @@ async fn load_roots(
         {
             return Err(invalid("duplicate rehearsal claim root"));
         }
-        roots.push(RootState { key, root });
+        roots.push(RootState { key, attempt, root });
     }
     Ok(roots)
 }
@@ -295,7 +457,7 @@ async fn load_evidence(
                     .filter_map(|root| {
                         frozen
                             .iter()
-                            .find(|item| item.attempt == root.root.sealed_request().attempt())
+                            .find(|item| item.attempt == root.attempt)
                             .and_then(|item| {
                                 domain::rehearsal::persistence::decode_accepted_evidence_payload(
                                     &payload, &root.root, item, at,
@@ -400,6 +562,8 @@ async fn hydrate_claims(
         let snapshot = hydrate_claim_history(&state.root, &history, proof).map_err(invalid)?;
         result.push(HydratedClaim {
             idempotency_key: state.key,
+            #[cfg(feature = "test-support")]
+            attempt: state.attempt,
             root: state.root,
             snapshot,
             outcome,

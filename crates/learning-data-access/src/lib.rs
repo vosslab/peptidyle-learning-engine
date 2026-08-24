@@ -98,14 +98,48 @@ pub use crate::asset_delivery::{
     AssetStore, AuthorizedAssetDelivery, CatalogAssetBinding, PublicAssetPublicationStore,
 };
 pub use crate::contracts::CourseGroupManagementStore;
+#[cfg(feature = "test-support")]
+pub use crate::contracts::RehearsalPreDispatchCompensationStore;
+#[cfg(not(feature = "test-support"))]
+#[allow(hidden_glob_reexports)]
+pub(crate) use crate::contracts::RehearsalPreDispatchCompensationStore;
+#[cfg(feature = "test-support")]
 pub use crate::contracts::{
-    AbandonRehearsalSubmissionBeforeDispatchCommand, AppendRehearsalFrozenItemCommand,
-    ClaimRehearsalSubmissionCommand, ClaimedRehearsalSubmission,
-    CompleteRehearsalSubmissionCommand, IssuedNativeAssetBindingV1, IssuedQuestionFamilyWitnessV1,
-    IssuedQuestionSnapshotV1, MarkRehearsalSubmissionDispatchedCommand, PreviewPlaneResult,
-    PreviewPlaneStore, PreviewSubjectAudit, RehearsalLocator,
-    RehearsalPreDispatchCompensationStore, RehearsalStore, RehearsalSubmissionClaimResult,
-    RehearsalSubmissionIdempotencyKey, RehearsalSubmissionReceipt, StartRehearsalCommand,
+    AbandonRehearsalSubmissionBeforeDispatchCommand, ClaimRehearsalSubmissionCommand,
+    ClaimedRehearsalSubmission, CompleteRehearsalSubmissionCommand,
+    MarkRehearsalSubmissionDispatchedCommand, RehearsalTestSupportStore,
+};
+#[cfg(all(not(feature = "test-support"), feature = "postgres"))]
+#[allow(hidden_glob_reexports)]
+pub(crate) use crate::contracts::{
+    AbandonRehearsalSubmissionBeforeDispatchCommand, ClaimRehearsalSubmissionCommand,
+    ClaimedRehearsalSubmission, MarkRehearsalSubmissionDispatchedCommand,
+};
+pub use crate::contracts::{
+    ClaimRehearsalDeliveryRouteCommand, ClaimRehearsalSubmissionRouteCommand,
+    CompleteRehearsalDeliveryRouteCommand, DiscardRehearsalRouteCommand,
+    IssuedNativeAssetBindingV1, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1,
+    PreviewPlaneResult, PreviewPlaneStore, PreviewSubjectAudit, ReadRehearsalRouteCommand,
+    RehearsalDeliveryClaimResult, RehearsalDeliveryExecutionContractV1,
+    RehearsalDeliveryIssueDescriptorV1, RehearsalDeliveryMaterialStore,
+    RehearsalDeliveryPreDispatchAbandonReason, RehearsalDeliveryPreDispatchCompensationStore,
+    RehearsalIdempotentProjectionResult, RehearsalIssuedExecutionArtifactV1,
+    RehearsalIssuedExecutionCommitCapability, RehearsalIssuedExecutionFamilyV1, RehearsalLocator,
+    RehearsalOperationDigest, RehearsalOperationId, RehearsalOperationNonce,
+    RehearsalPrivateExecutionCapabilityV1, RehearsalRouteIdentity, RehearsalRouteMutationStore,
+    RehearsalSafeProjection, RehearsalStore, RehearsalSubmissionClaimResult,
+    RehearsalSubmissionIdempotencyKey, RehearsalSubmissionReceipt,
+    SealedRehearsalDeliveryExecution, SealedRehearsalDeliveryExecutionStore,
+    SealedRehearsalDeliveryIssuePreparation, SealedRehearsalDeliveryIssueWork,
+    SealedRehearsalGradingParts, SealedRehearsalSubmissionCompletion,
+    SealedRehearsalSubmissionExecutionPreparation, SealedRehearsalSubmissionExecutionStore,
+    SealedRehearsalSubmissionExecutionWork, StartRehearsalRouteCommand, StartRehearsalRouteResult,
+    VerifyRehearsalDeliveryMaterialRouteCommand,
+};
+#[cfg(feature = "test-support")]
+pub use crate::contracts::{
+    RehearsalDeliveryCompletionCommand, RehearsalDeliveryRequest, RehearsalDiscardOperationCommand,
+    RehearsalOperationStore,
 };
 pub use crate::course_appearance::{
     COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseAppearanceStore, CourseBannerCleanupBatch,
@@ -264,6 +298,12 @@ pub(crate) use publication_validation::{
 };
 
 mod contracts;
+#[cfg(not(feature = "test-support"))]
+#[allow(hidden_glob_reexports)]
+pub(crate) use crate::contracts::{
+    RehearsalDeliveryCompletionCommand, RehearsalDeliveryRequest, RehearsalDiscardOperationCommand,
+    RehearsalOperationStore,
+};
 pub use contracts::*;
 pub(crate) use contracts::{
     ActivityStore, AuthoringStore, CourseAssignmentStore, CourseStore, EffectivePolicyStore,

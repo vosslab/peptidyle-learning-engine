@@ -81,7 +81,7 @@ pub async fn target_session_subject_for_app(
     subject
 }
 
-pub async fn insert_approved_invitation_for_app(
+pub async fn direct_invitation_insert_is_denied_for_app(
     pool: &PgPool,
     tenant: TenantId,
     course: CourseId,
@@ -101,7 +101,7 @@ pub async fn insert_approved_invitation_for_app(
         .execute(&mut *tx)
         .await
         .expect("direct invitation tenant context");
-    let inserted = sqlx::query(concat!(
+    let error = sqlx::query(concat!(
         "INSERT INTO public.course_instructor_invitation (tenant_id, course_id, invitation_id, ",
         "target_user_id, invited_by_membership_id) SELECT $1, $2, $3, $4, ",
         "course_membership_id FROM public.course_member WHERE tenant_id=$1 AND course_id=$2 ",
@@ -114,9 +114,14 @@ pub async fn insert_approved_invitation_for_app(
     .bind(inviter.as_uuid())
     .execute(&mut *tx)
     .await
-    .expect("ple_app can insert an invitation for a globally approved target")
-    .rows_affected();
-    assert_eq!(inserted, 1, "the fixture instructor is a direct member");
+    .expect_err("ple_app cannot insert an invitation outside the session-derived broker");
+    assert_eq!(
+        error
+            .as_database_error()
+            .and_then(|value| value.code())
+            .as_deref(),
+        Some("42501")
+    );
     tx.rollback()
         .await
         .expect("direct invitation insert rollback");

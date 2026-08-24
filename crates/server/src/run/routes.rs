@@ -10,7 +10,8 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use learning_data_access::{
     AuthoritativeTimeStore, CatalogStore, CourseAppearanceStore, CourseItemAnalysisStore,
-    LearnerWorkRoutingBinding, ManualGradingStore, SessionStore, Store,
+    LearnerWorkRoutingBinding, ManualGradingStore, SealedPrivateExecutionStore, SessionStore,
+    Store,
 };
 use question_model::{AssignmentId, CourseId, RunId};
 
@@ -29,7 +30,15 @@ use super::support::{
 };
 
 /// Builds the authenticated run route group around a shared store and backend registry.
-pub fn router<S, B>(store: Arc<S>, backend: Arc<B>) -> Router
+/// Builds the authenticated run route group with an explicitly injected
+/// sealed private-execution facade. Production composition uses this entry
+/// point so browser-adjacent application persistence cannot accidentally
+/// become grader authority.
+pub fn router<S, B>(
+    store: Arc<S>,
+    backend: Arc<B>,
+    sealed_execution: Arc<dyn SealedPrivateExecutionStore>,
+) -> Router
 where
     S: Store
         + CatalogStore
@@ -81,7 +90,11 @@ where
             MAX_SUBMISSION_BODY_BYTES,
         ))
         .layer(middleware::map_response(no_store_response))
-        .with_state(RunRouteState { store, backend })
+        .with_state(RunRouteState {
+            store,
+            backend,
+            sealed_execution,
+        })
 }
 
 async fn start_run<S, B>(

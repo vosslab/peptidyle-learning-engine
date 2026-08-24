@@ -1,5 +1,28 @@
 use super::*;
 
+async fn issued_native_snapshot<S>(
+    store: &S,
+    context: TenantContext,
+    reference: ProblemVersionRef,
+) -> learning_data_access::IssuedQuestionSnapshotV1
+where
+    S: CatalogStore + ?Sized,
+{
+    let question = store
+        .get_catalog_problem(context, reference)
+        .await
+        .expect("assignment fixture catalog lookup")
+        .expect("assignment fixture publication")
+        .question;
+    learning_data_access::IssuedQuestionSnapshotV1::new(
+        question,
+        learning_data_access::IssuedQuestionFamilyWitnessV1::Native {
+            physical_asset_bindings: Vec::new(),
+        },
+    )
+    .expect("assignment fixture native issued snapshot")
+}
+
 pub(super) async fn publish_assignment_version<S>(
     store: &S,
     context: TenantContext,
@@ -11,13 +34,42 @@ pub(super) async fn publish_assignment_version<S>(
 where
     S: Store + CatalogStore,
 {
+    publish_assignment_version_with_timing(
+        store,
+        context,
+        tenant,
+        author,
+        seed,
+        scope,
+        question_model::run_policy::TimingPolicy::Untimed,
+    )
+    .await
+}
+
+/// Publishes ordinary native material with an authored timing policy.  Timing
+/// conformance uses this normal draft/publication path rather than mutating a
+/// frozen rehearsal record.
+pub(super) async fn publish_assignment_version_with_timing<S>(
+    store: &S,
+    context: TenantContext,
+    tenant: TenantId,
+    author: UserId,
+    seed: u128,
+    scope: PublicationScope,
+    timing_policy: question_model::run_policy::TimingPolicy,
+) -> ProblemVersionRef
+where
+    S: Store + CatalogStore,
+{
     let reference = ProblemVersionRef {
         problem: ProblemId::from_uuid(uuid(seed)),
         version: VersionId::from_uuid(uuid(seed + 1)),
     };
+    let mut question = draft_question(WorkspaceId::from_uuid(uuid(seed + 2)));
+    question.timing_policy = timing_policy;
     let draft = DraftRecord {
         tenant,
-        question: draft_question(WorkspaceId::from_uuid(uuid(seed + 2))),
+        question,
         derived_from: None,
     };
     let saved = store
@@ -438,6 +490,12 @@ where
                 assignment_position: 0,
                 problem: replacement_reference.problem,
                 question_version: replacement_reference.version,
+                issued_question_snapshot: issued_native_snapshot(
+                    store,
+                    context,
+                    replacement_reference,
+                )
+                .await,
                 seed: 42,
                 parameter_hash: "assignment-snapshot".to_string(),
                 provenance: AttemptProvenance {
@@ -453,11 +511,14 @@ where
                 presentation: None,
                 presentation_snapshot: None,
                 grading_envelope: None,
+                native_execution_envelope_capability: NativeExecutionEnvelopeCapability::Required,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_replay: None,
                 webwork_grading: None,
                 webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: QtiGradingCapability::NotApplicable,
                 prefetched: None,
                 predecessor_submission: None,
             },
@@ -468,6 +529,11 @@ where
         (old_run_attempt.problem, old_run_attempt.question_version),
         (replacement_reference.problem, replacement_reference.version)
     );
+    let issued_policy_before_replacement = store
+        .get_issued_effective_policy_receipt(context, old_run_attempt.id)
+        .await
+        .expect("read issued policy before content replacement")
+        .expect("issued attempt has an immutable policy receipt");
     let post_run_replacement = store
         .replace_assignment_fixed_item(
             context,
@@ -486,6 +552,15 @@ where
     assert_eq!(
         post_run_replacement.record.items[0].reference,
         post_run_replacement_reference
+    );
+    let issued_policy_after_replacement = store
+        .get_issued_effective_policy_receipt(context, old_run_attempt.id)
+        .await
+        .expect("read issued policy after content replacement")
+        .expect("content replacement preserves the issued policy receipt");
+    assert_eq!(
+        issued_policy_after_replacement, issued_policy_before_replacement,
+        "future-content replacement must not create a new timing-policy generation"
     );
     let receipt = store
         .submit_question_attempt(
@@ -528,6 +603,12 @@ where
                 assignment_position: 0,
                 problem: post_run_replacement_reference.problem,
                 question_version: post_run_replacement_reference.version,
+                issued_question_snapshot: issued_native_snapshot(
+                    store,
+                    context,
+                    post_run_replacement_reference,
+                )
+                .await,
                 seed: 43,
                 parameter_hash: "future-assignment-snapshot".to_string(),
                 provenance: AttemptProvenance {
@@ -543,11 +624,14 @@ where
                 presentation: None,
                 presentation_snapshot: None,
                 grading_envelope: None,
+                native_execution_envelope_capability: NativeExecutionEnvelopeCapability::Required,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_replay: None,
                 webwork_grading: None,
                 webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: QtiGradingCapability::NotApplicable,
                 prefetched: None,
                 predecessor_submission: None,
             },

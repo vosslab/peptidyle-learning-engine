@@ -554,6 +554,8 @@ async fn issue_attempt(
                 presentation: Some(issued.presentation),
                 presentation_snapshot: Some(issued.presentation_snapshot.clone()),
                 grading_envelope: Some(issued.envelope.clone()),
+                native_execution_envelope_capability:
+                    learning_data_access::NativeExecutionEnvelopeCapability::Required,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_grading: None,

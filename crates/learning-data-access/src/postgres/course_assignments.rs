@@ -62,6 +62,13 @@ impl crate::CourseAssignmentStore for PostgresStore {
             update,
         } = command;
         let mut transaction = self.begin_tenant(context).await?;
+        let previous = load_assignment_on_course_path(
+            &mut transaction,
+            context.tenant_id(),
+            course,
+            assignment,
+        )
+        .await?;
         let witness = prepare_assignment_rehearsal_verification(
             &mut transaction,
             context,
@@ -71,10 +78,6 @@ impl crate::CourseAssignmentStore for PostgresStore {
             expected_revision,
         )
         .await?;
-        let previous = load_assignment(&mut transaction, context.tenant_id(), assignment).await?;
-        if previous.course_id != course {
-            return Err(StoreError::NotFound);
-        }
         let assignment = AssignmentRecord {
             id: assignment,
             tenant: context.tenant_id(),
@@ -110,6 +113,13 @@ impl crate::CourseAssignmentStore for PostgresStore {
         command: ReplaceAssignmentFixedItemCommand,
     ) -> Result<StoredAssignment, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
+        let current = load_assignment_on_course_path(
+            &mut transaction,
+            context.tenant_id(),
+            command.course,
+            command.assignment,
+        )
+        .await?;
         let witness = prepare_assignment_rehearsal_verification(
             &mut transaction,
             context,
@@ -119,11 +129,6 @@ impl crate::CourseAssignmentStore for PostgresStore {
             command.expected_revision,
         )
         .await?;
-        let current =
-            load_assignment(&mut transaction, context.tenant_id(), command.assignment).await?;
-        if current.course_id != command.course {
-            return Err(StoreError::NotFound);
-        }
         let replacement = current
             .items
             .iter()
@@ -147,7 +152,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
             ..current.clone()
         };
         validate_postgres_assignment_references(&mut transaction, context, &updated).await?;
-        sqlx::query_scalar::<_, ()>(
+        let returned = sqlx::query_scalar::<_, i64>(
             "SELECT ple_replace_assignment_fixed_item($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(context.tenant_id().as_uuid())
@@ -165,15 +170,11 @@ impl crate::CourseAssignmentStore for PostgresStore {
         let stored =
             load_fixed_item_assignment(&mut transaction, context.tenant_id(), command.assignment)
                 .await?;
-        super::course_policy::reresolve_post_mutation_active_attempts(
-            &mut transaction,
-            context,
-            command.actor,
-            command.course,
-            command.assignment,
-            stored.revision,
-        )
-        .await?;
+        validate_focused_mutation_revision(command.expected_revision, returned, stored.revision)?;
+        // A focused replacement changes content for future runs only. Issued
+        // work retains both its exact question evidence and its effective
+        // policy receipt, so this content mutation must not enter the
+        // timing-policy re-resolution pipeline.
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(stored)
     }
@@ -184,6 +185,13 @@ impl crate::CourseAssignmentStore for PostgresStore {
         command: AddAssignmentFixedItemCommand,
     ) -> Result<StoredAssignment, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
+        let current = load_assignment_on_course_path(
+            &mut transaction,
+            context.tenant_id(),
+            command.course,
+            command.assignment,
+        )
+        .await?;
         let witness = prepare_assignment_rehearsal_verification(
             &mut transaction,
             context,
@@ -193,11 +201,6 @@ impl crate::CourseAssignmentStore for PostgresStore {
             command.expected_revision,
         )
         .await?;
-        let current =
-            load_assignment(&mut transaction, context.tenant_id(), command.assignment).await?;
-        if current.course_id != command.course {
-            return Err(StoreError::NotFound);
-        }
         if current.items.iter().any(|item| item.id == command.item.id) {
             return Err(StoreError::InvalidRecord(
                 "new fixed item uses a fresh assignment item identity".to_string(),
@@ -221,7 +224,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
         updated.items.push(command.item.clone());
         validate_assignment(&updated)?;
         validate_postgres_assignment_references(&mut transaction, context, &updated).await?;
-        sqlx::query_scalar::<_, ()>(
+        let returned = sqlx::query_scalar::<_, i64>(
             "SELECT ple_add_assignment_fixed_item($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::numeric, $11, $12, $13)",
         )
         .bind(context.tenant_id().as_uuid())
@@ -243,6 +246,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
         let stored =
             load_fixed_item_assignment(&mut transaction, context.tenant_id(), command.assignment)
                 .await?;
+        validate_focused_mutation_revision(command.expected_revision, returned, stored.revision)?;
         super::course_policy::reresolve_post_mutation_active_attempts(
             &mut transaction,
             context,
@@ -262,6 +266,13 @@ impl crate::CourseAssignmentStore for PostgresStore {
         command: RemoveAssignmentFixedItemCommand,
     ) -> Result<StoredAssignment, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
+        let current = load_assignment_on_course_path(
+            &mut transaction,
+            context.tenant_id(),
+            command.course,
+            command.assignment,
+        )
+        .await?;
         let witness = prepare_assignment_rehearsal_verification(
             &mut transaction,
             context,
@@ -271,11 +282,6 @@ impl crate::CourseAssignmentStore for PostgresStore {
             command.expected_revision,
         )
         .await?;
-        let current =
-            load_assignment(&mut transaction, context.tenant_id(), command.assignment).await?;
-        if current.course_id != command.course {
-            return Err(StoreError::NotFound);
-        }
         let removed = current
             .items
             .iter()
@@ -295,7 +301,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
             }
         }
         validate_assignment(&updated)?;
-        sqlx::query_scalar::<_, ()>(
+        let returned = sqlx::query_scalar::<_, i64>(
             "SELECT ple_remove_assignment_fixed_item($1, $2, $3, $4, $5, $6, $7)",
         )
         .bind(context.tenant_id().as_uuid())
@@ -311,6 +317,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
         let stored =
             load_fixed_item_assignment(&mut transaction, context.tenant_id(), command.assignment)
                 .await?;
+        validate_focused_mutation_revision(command.expected_revision, returned, stored.revision)?;
         super::course_policy::reresolve_post_mutation_active_attempts(
             &mut transaction,
             context,
@@ -581,12 +588,40 @@ async fn load_fixed_item_assignment(
     })
 }
 
+/// Resolves the public course/assignment route before entering a mutation
+/// broker. The broker then locks and revalidates the same route and expected
+/// revision, so concealment does not weaken transaction authority.
+async fn load_assignment_on_course_path(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    course: CourseId,
+    assignment: AssignmentId,
+) -> Result<AssignmentRecord, StoreError> {
+    let record = load_assignment(transaction, tenant, assignment).await?;
+    if record.course_id != course {
+        return Err(StoreError::NotFound);
+    }
+    Ok(record)
+}
+
 async fn load_base_policy(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
     assignment: AssignmentId,
 ) -> Result<question_model::BaseAssignmentPolicy, StoreError> {
     super::course_policy::load_base_policy(transaction, tenant, assignment).await
+}
+
+fn validate_focused_mutation_revision(
+    expected: AssignmentRevision,
+    returned: i64,
+    reloaded: AssignmentRevision,
+) -> Result<(), StoreError> {
+    let returned = AssignmentRevision::from_stored(returned)?;
+    if returned != expected.next()? || reloaded != returned {
+        return Err(StoreError::Conflict);
+    }
+    Ok(())
 }
 
 pub(super) async fn load_assignment_scoring_status(
@@ -608,6 +643,8 @@ pub(super) async fn load_assignment_scoring_status(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn assignment_edit_and_post_capability_reload_do_not_request_app_share_locks() {
         // 1812 intentionally revokes `assignment` UPDATE from `ple_app`.
@@ -626,5 +663,40 @@ mod tests {
             .expect("post-capability reload remains a discrete helper");
         assert!(!edit_fetch.contains("FOR SHARE"));
         assert!(!post_capability_reload.contains("FOR SHARE"));
+    }
+
+    #[test]
+    fn fixed_item_replacement_does_not_reresolve_issued_attempt_policy() {
+        let source = include_str!("course_assignments.rs");
+        let replacement = source
+            .split("async fn replace_assignment_fixed_item_impl")
+            .nth(1)
+            .and_then(|section| {
+                section
+                    .split("async fn add_assignment_fixed_item_impl")
+                    .next()
+            })
+            .expect("focused replacement remains a discrete store method");
+        assert!(replacement.contains("ple_replace_assignment_fixed_item"));
+        assert!(!replacement.contains("reresolve_post_mutation_active_attempts"));
+    }
+
+    #[test]
+    fn focused_mutation_revision_requires_one_consistent_advance() {
+        let expected = AssignmentRevision::from_stored(7).expect("valid expected revision");
+        let advanced = AssignmentRevision::from_stored(8).expect("valid advanced revision");
+        let ahead = AssignmentRevision::from_stored(9).expect("valid later revision");
+        assert_eq!(
+            validate_focused_mutation_revision(expected, 8, advanced),
+            Ok(())
+        );
+        assert_eq!(
+            validate_focused_mutation_revision(expected, 7, advanced),
+            Err(StoreError::Conflict)
+        );
+        assert_eq!(
+            validate_focused_mutation_revision(expected, 8, ahead),
+            Err(StoreError::Conflict)
+        );
     }
 }

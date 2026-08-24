@@ -9,19 +9,19 @@ use uuid::Uuid;
 fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
 }
-fn claim(value: u128) -> RehearsalSubmissionClaimId {
+pub(super) fn claim(value: u128) -> RehearsalSubmissionClaimId {
     RehearsalSubmissionClaimId::from_uuid(id(value))
 }
-fn operation(value: u128) -> RehearsalGradeOperationId {
+pub(super) fn operation(value: u128) -> RehearsalGradeOperationId {
     RehearsalGradeOperationId::from_uuid(id(value))
 }
 fn revision(value: u64) -> TeachingOperationRevision {
     TeachingOperationRevision::new(value).unwrap()
 }
-fn fingerprint(value: u8) -> RehearsalSubmissionRequestFingerprint {
+pub(super) fn fingerprint(value: u8) -> RehearsalSubmissionRequestFingerprint {
     RehearsalSubmissionRequestFingerprint([value; 32])
 }
-fn rehearsal_context(run: u128) -> RehearsalGenesisContext {
+pub(super) fn rehearsal_context(run: u128) -> RehearsalGenesisContext {
     RehearsalGenesisContext {
         rehearsal: RehearsalRunId::from_uuid(id(run)),
         tenant: TenantId::from_uuid(id(2)),
@@ -32,7 +32,7 @@ fn rehearsal_context(run: u128) -> RehearsalGenesisContext {
         subject_fingerprint: RehearsalSubjectFingerprint([5; 32]),
     }
 }
-fn frozen() -> RehearsalFrozenItemEvidence {
+pub(super) fn frozen() -> RehearsalFrozenItemEvidence {
     RehearsalFrozenItemEvidence {
         attempt: RehearsalAttemptId::from_uuid(id(6)),
         problem: ProblemVersionRef {
@@ -47,7 +47,7 @@ fn frozen() -> RehearsalFrozenItemEvidence {
         frozen_at: ActivityTimestamp::from_unix_millis(10),
     }
 }
-fn request(
+pub(super) fn request(
     frozen: &RehearsalFrozenItemEvidence,
     value: f64,
 ) -> RehearsalValidatedSubmissionRequest {
@@ -58,7 +58,7 @@ fn request(
     )
     .unwrap()
 }
-fn claim_root(
+pub(super) fn claim_root(
     context: RehearsalGenesisContext,
     claim_id: RehearsalSubmissionClaimId,
     request: RehearsalValidatedSubmissionRequest,
@@ -72,7 +72,7 @@ fn claim_root(
     )
     .unwrap()
 }
-fn event(
+pub(super) fn event(
     root: &RehearsalClaimRoot,
     sequence: u64,
     operation: RehearsalGradeOperationId,
@@ -126,7 +126,7 @@ fn evidence_entries(
     let frozen = frozen();
     let accepted = RehearsalValidatedSubmissionEvidence::try_complete_with_frozen_attempt(
         root,
-        root.sealed_request().clone(),
+        root.submission_input().durable_request().unwrap().clone(),
         &frozen,
         graded_result(),
         ActivityTimestamp::from_unix_millis(12),
@@ -180,7 +180,7 @@ fn evidence_head(entries: &[RehearsalEvidenceChainEntry]) -> RehearsalEvidenceHe
         |entry| RehearsalEvidenceHead::from_persisted(entry.record.digest, entry.record.sequence),
     )
 }
-fn proof(
+pub(super) fn proof(
     context: RehearsalGenesisContext,
     root: &RehearsalClaimRoot,
 ) -> VerifiedRehearsalClaimCompletionProof {
@@ -340,7 +340,11 @@ fn persisted_root_must_verify_sealed_request_before_prepared_or_dispatched_histo
         context.rehearsal,
         claim(1),
         fingerprint(42),
-        verified.sealed_request().clone(),
+        verified
+            .submission_input()
+            .durable_request()
+            .unwrap()
+            .clone(),
     );
     assert!(matches!(
         RehearsalClaimRoot::verify_persisted(context, &frozen, tampered_fingerprint),
@@ -446,7 +450,7 @@ fn completion_proof_rejects_cross_run_fingerprint_and_duplicate_accepted_evidenc
         context.rehearsal,
         claim(1),
         fingerprint(42),
-        root.sealed_request().clone(),
+        root.submission_input().durable_request().unwrap().clone(),
     );
     assert!(matches!(
         RehearsalClaimRoot::verify_persisted(context, &frozen, wrong_root),
@@ -485,7 +489,7 @@ fn completion_proof_requires_one_frozen_attempt_strictly_before_accepted_submiss
     let root = claim_root(context, claim(1), request(&frozen, 1.0));
     let accepted = RehearsalValidatedSubmissionEvidence::try_complete_with_frozen_attempt(
         &root,
-        root.sealed_request().clone(),
+        root.submission_input().durable_request().unwrap().clone(),
         &frozen,
         graded_result(),
         ActivityTimestamp::from_unix_millis(12),
@@ -542,7 +546,7 @@ fn completion_proof_with_later_frozen_attempt_cannot_hydrate_completed_or_replay
     let one = RehearsalClaimGeneration::first();
     let accepted = RehearsalValidatedSubmissionEvidence::try_complete_with_frozen_attempt(
         &root,
-        root.sealed_request().clone(),
+        root.submission_input().durable_request().unwrap().clone(),
         &frozen,
         graded_result(),
         ActivityTimestamp::from_unix_millis(12),
@@ -568,9 +572,11 @@ fn completion_proof_with_later_frozen_attempt_cannot_hydrate_completed_or_replay
     let asserted_material = RehearsalClaimCompletionMaterial::from_persisted(
         u64::from(later_frozen[0].record.sequence),
         later_frozen[0].record.digest,
-        rehearsal_public_receipt_digest(&question_model::RehearsalPublicOutcome::Submitted {
-            feedback: question_model::DisclosedFeedback::empty(),
-        }),
+        persistence::persisted_rehearsal_receipt_digest(
+            &question_model::RehearsalPublicOutcome::Submitted {
+                feedback: question_model::DisclosedFeedback::empty(),
+            },
+        ),
     )
     .unwrap();
     // Even a fully rehashed, persisted-looking completion material cannot

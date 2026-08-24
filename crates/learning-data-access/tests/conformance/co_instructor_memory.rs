@@ -272,6 +272,7 @@ where
             .create_co_instructor_invitation(
                 context,
                 CreateCoInstructorInvitation {
+                    session: non_admin_session,
                     actor: outsider,
                     course,
                     target
@@ -286,6 +287,7 @@ where
                 .create_co_instructor_invitation(
                     context,
                     CreateCoInstructorInvitation {
+                        session: admin_session,
                         actor: sysadmin,
                         course,
                         target
@@ -302,6 +304,7 @@ where
                 .create_co_instructor_invitation(
                     context,
                     CreateCoInstructorInvitation {
+                        session: instructor_session,
                         actor: instructor,
                         course,
                         target: other_target
@@ -313,10 +316,25 @@ where
         "existing but unapproved target cannot be invited"
     );
     let page = PageRequest::first(PageSize::new(10).expect("page"));
+    assert!(matches!(
+        store
+            .create_co_instructor_invitation(
+                context,
+                CreateCoInstructorInvitation {
+                    session: target_session,
+                    actor: instructor,
+                    course,
+                    target,
+                },
+            )
+            .await,
+        Err(StoreError::NotFound)
+    ));
     let invitation = store
         .create_co_instructor_invitation(
             context,
             CreateCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 target,
@@ -429,6 +447,7 @@ where
             .create_co_instructor_invitation(
                 context,
                 CreateCoInstructorInvitation {
+                    session: instructor_session,
                     actor: instructor,
                     course,
                     target
@@ -710,6 +729,7 @@ where
         .create_co_instructor_invitation(
             context,
             CreateCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 target: other_target,
@@ -761,6 +781,7 @@ where
         .create_co_instructor_invitation(
             context,
             CreateCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 target: other_target,
@@ -768,10 +789,26 @@ where
         )
         .await
         .expect("revocable invitation");
+    assert!(matches!(
+        store
+            .revoke_co_instructor_invitation(
+                context,
+                learning_data_access::RevokeCoInstructorInvitation {
+                    session: target_session,
+                    actor: instructor,
+                    course,
+                    invitation: revoked.invitation.id,
+                    expected_revision: revoked.revision,
+                },
+            )
+            .await,
+        Err(StoreError::NotFound)
+    ));
     store
         .revoke_co_instructor_invitation(
             context,
             learning_data_access::RevokeCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 invitation: revoked.invitation.id,
@@ -785,6 +822,7 @@ where
             .revoke_co_instructor_invitation(
                 context,
                 learning_data_access::RevokeCoInstructorInvitation {
+                    session: instructor_session,
                     actor: instructor,
                     course,
                     invitation: revoked.invitation.id,
@@ -798,6 +836,7 @@ where
         .create_co_instructor_invitation(
             context,
             CreateCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 target: other_target,

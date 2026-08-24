@@ -51,6 +51,16 @@ use uuid::Uuid;
 use crate::imathas_backend::{ExternalToolSubmissionBackend, ImathasBackend};
 use crate::native_backend::NativeBackend;
 
+/// Test-only explicit injection mirrors production's separated grader
+/// capability; tests never let the ordinary MemoryStore stand in for it.
+fn sealed_memory(
+    store: &Arc<MemoryStore>,
+) -> Arc<dyn learning_data_access::SealedPrivateExecutionStore> {
+    Arc::new(
+        learning_data_access::in_memory::MemorySealedPrivateExecutionStore::new(Arc::clone(store)),
+    )
+}
+
 #[derive(Debug, Default)]
 struct NumericBackend {
     grade_calls: AtomicUsize,
@@ -70,6 +80,46 @@ struct CountingNativeBackend {
 
 struct OpaqueRenderedHashBackend {
     inner: Arc<CountingNativeBackend>,
+}
+
+/// Observes the otherwise opaque sealed boundary without reimplementing its
+/// authority rules. This lets route tests prove the ordering invariant rather
+/// than merely inferring it from backend counters.
+struct CountingSealedExecution {
+    inner: Arc<dyn learning_data_access::SealedPrivateExecutionStore>,
+    calls: AtomicUsize,
+    refuse: AtomicBool,
+}
+
+#[async_trait]
+impl learning_data_access::SealedPrivateExecutionStore for CountingSealedExecution {
+    async fn prepare_sealed_private_execution(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        binding: learning_data_access::LearnerWorkRoutingBinding,
+        intent: learning_data_access::AuthorizedSubmissionIntent,
+        response: &StudentResponse,
+        idempotency_key: &learning_data_access::SubmissionIdempotencyKey,
+    ) -> Result<
+        learning_data_access::SealedPrivateExecutionPreparation,
+        learning_data_access::StoreError,
+    > {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        if self.refuse.load(Ordering::SeqCst) {
+            return Err(learning_data_access::StoreError::Forbidden);
+        }
+        self.inner
+            .prepare_sealed_private_execution(
+                context,
+                actor,
+                binding,
+                intent,
+                response,
+                idempotency_key,
+            )
+            .await
+    }
 }
 
 /// Fails the one successor-issuance operation after a first answer has been
@@ -631,7 +681,11 @@ async fn fixture_with_attempt_policy(
         external_tool_launch_ready,
         ..NumericBackend::default()
     });
-    let app = router(Arc::clone(&store), Arc::clone(&backend));
+    let app = router(
+        Arc::clone(&store),
+        Arc::clone(&backend),
+        sealed_memory(&store),
+    );
     (
         store,
         backend,
@@ -896,7 +950,11 @@ async fn native_feedback_fixture() -> (
         ),
         submissions: AtomicUsize::new(0),
     });
-    let app = router(Arc::clone(&store), Arc::clone(&backend));
+    let app = router(
+        Arc::clone(&store),
+        Arc::clone(&backend),
+        sealed_memory(&store),
+    );
     (
         store,
         backend,

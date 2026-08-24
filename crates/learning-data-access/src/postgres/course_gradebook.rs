@@ -15,7 +15,7 @@ use sqlx::Row;
 use super::course_roster::require_course_instructor;
 use super::*;
 use crate::course_gradebook::{
-    course_grade_assignment_points, validate_course_grade_scheme_update,
+    course_grade_assignment_points, validate_course_grade_scheme_update_shape,
 };
 use crate::{
     AuthenticationEmail, CourseGradeAssignmentMembership, CourseGradeAssignmentRecord,
@@ -50,8 +50,7 @@ impl CourseGradebookStore for PostgresStore {
         retry_transaction(|| async {
             let tenant = context.tenant_id();
             let mut tx = self.begin_tenant(context).await?;
-            let assignment_ids = lock_assignment_ids(&mut tx, tenant, command.course).await?;
-            validate_course_grade_scheme_update(&command, &assignment_ids)?;
+            validate_course_grade_scheme_update_shape(&command)?;
             let payload = grade_scheme_replacement_payload(&command)?;
             let row = sqlx::query(
                 "SELECT tenant_id,actor_id,course_id,scheme_revision,mode,rounding \
@@ -432,15 +431,6 @@ fn validate_stored_memberships(
         }
     }
     Ok(())
-}
-
-async fn lock_assignment_ids(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-) -> Result<std::collections::BTreeSet<AssignmentId>, StoreError> {
-    let rows=sqlx::query_scalar::<_,Uuid>("SELECT assignment_id FROM assignment WHERE tenant_id=$1 AND course_id=$2 ORDER BY assignment_id FOR UPDATE").bind(tenant.as_uuid()).bind(course.as_uuid()).fetch_all(&mut **tx).await.map_err(map_sqlx_error)?;
-    Ok(rows.into_iter().map(AssignmentId::from_uuid).collect())
 }
 
 fn mode_name(mode: CourseGradeMode) -> &'static str {

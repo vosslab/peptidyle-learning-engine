@@ -53,8 +53,11 @@ current restrictions. It never rereads a withdrawn catalog definition or adds a 
 field, table, or migration allocation. This summary delegates changing package handoff and migration
 allocation state to [implementation_status.md](implementation_status.md). The same focused plan
 depends on the separately allocated `2026081821_rehearsal_operation_idempotency.sql` durable
-start/delivery/discard protocol; the shared registry remains authoritative for its mutable chain
-position and closed scope.
+start/delivery/discard protocol and `2026081822_rehearsal_delivery_material.sql` immutable rehearsal
+source-material boundary. The latter freezes append-only answer-free source snapshots and
+forced-RLS grader-only private execution siblings at rehearsal start, then supplies a separate
+route-scoped preload facade; it never reconstructs delivery from mutable catalog content. The shared
+registry remains authoritative for their mutable chain position and closed scope.
 
 The completed local-stack lifecycle controller foundation is recorded in
 `docs/active_plans/workstreams/local_stack_controller_implementation.md`.

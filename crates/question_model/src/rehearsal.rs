@@ -4,6 +4,20 @@
 //! an ordinary learner run and do not carry a learner identity.  Public DTOs
 //! remain answer-free; private evidence is intentionally not serializable.
 
+mod issued_presentation;
+mod public_wire;
+mod validated_submission;
+
+pub use issued_presentation::*;
+pub use public_wire::*;
+pub use validated_submission::*;
+
+#[cfg(test)]
+mod public_wire_tests;
+
+#[cfg(test)]
+mod validated_submission_tests;
+
 use std::{num::NonZeroU32, str::FromStr};
 
 use serde::{Deserialize, Serialize};
@@ -229,13 +243,6 @@ pub struct RehearsalStartRequest {
     pub start_new_after_completion: bool,
 }
 
-/// An answer-free request to discard the instructor's current rehearsal.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct RehearsalDiscardRequest {
-    pub revision: TeachingOperationRevision,
-}
-
 /// A browser-safe summary of one rehearsal run.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -399,13 +406,13 @@ pub struct RehearsalEvidenceRecord {
     pub recorded_at: ActivityTimestamp,
 }
 
-/// Browser-safe terminal or recoverable attempt outcome.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(
-    tag = "kind",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
+/// Closed Store/domain result for one rehearsal submission operation.
+///
+/// This is deliberately not a browser contract and does not implement serde.
+/// The domain persistence module owns its closed, versioned receipt projection
+/// so durable evidence can remain compatible without making this internal
+/// operation result available to TypeScript generation or HTTP handlers.
+#[derive(Debug, Clone, PartialEq)]
 pub enum RehearsalPublicOutcome {
     Submitted { feedback: DisclosedFeedback },
     AttemptExpired,
@@ -432,12 +439,14 @@ mod tests {
     }
 
     #[test]
-    fn public_outcomes_are_closed_and_answer_free() {
-        let submitted = serde_json::to_string(&RehearsalPublicOutcome::Submitted {
+    fn operation_outcome_is_closed_while_start_requests_remain_strict() {
+        let submitted = RehearsalPublicOutcome::Submitted {
             feedback: DisclosedFeedback::empty(),
-        })
-        .unwrap();
-        assert!(!submitted.contains("needsManualGrading"));
+        };
+        assert!(matches!(
+            submitted,
+            RehearsalPublicOutcome::Submitted { .. }
+        ));
         assert!(
             serde_json::from_value::<RehearsalStartRequest>(serde_json::json!({
                 "assignment": "A-1",

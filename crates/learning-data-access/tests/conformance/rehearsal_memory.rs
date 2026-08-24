@@ -7,15 +7,21 @@ use learning_data_access::PutAssignmentTeachingSettingsCommand;
 #[cfg(feature = "test-support")]
 use learning_data_access::in_memory::MemoryRehearsalIntegrityTestCorruption;
 use learning_data_access::{
-    AbandonRehearsalSubmissionBeforeDispatchCommand, AppendRehearsalFrozenItemCommand,
-    ClaimRehearsalSubmissionCommand, CompleteRehearsalSubmissionCommand,
-    MarkRehearsalSubmissionDispatchedCommand, RehearsalLocator,
+    AbandonRehearsalSubmissionBeforeDispatchCommand, ClaimRehearsalSubmissionCommand,
+    CompleteRehearsalSubmissionCommand, MarkRehearsalSubmissionDispatchedCommand,
+    ReadRehearsalRouteCommand, RehearsalLocator, RehearsalOperationDigest,
     RehearsalPreDispatchCompensationStore, RehearsalStore, RehearsalSubmissionClaimResult,
-    RehearsalSubmissionIdempotencyKey, StartRehearsalCommand,
+    RehearsalSubmissionIdempotencyKey, RehearsalTestSupportStore,
+    SealedRehearsalDeliveryExecutionStore, StartRehearsalRouteCommand,
 };
 #[cfg(feature = "test-support")]
 use question_model::RehearsalEvidenceDigest;
 use question_model::answer::NumericTolerance;
+use question_model::presentation::build_presentation_v1;
+use question_model::{
+    AttemptProvenance, ImplementationVersion, PresentationBindingV1, QuestionEnvelope,
+    generation::Seed,
+};
 use question_model::{
     AttemptResult, CourseLocalDateTime, DisclosedFeedback, IanaTimeZone, PreviewSelectedMoment,
     PreviewSyntheticGroupReferences, RehearsalAttemptId, RehearsalFrozenItemEvidence,
@@ -24,6 +30,7 @@ use question_model::{
     SyntheticPreviewModifiers, TeachingAttemptLimitFieldPatch, TeachingLimitFieldPatch,
     TeachingOperationRevision, TeachingTimeFieldPatch,
 };
+use std::sync::atomic::{AtomicU64, Ordering};
 
 fn deterministic_grade() -> RehearsalPrivateGradingResult {
     RehearsalPrivateGradingResult::Graded {
@@ -40,16 +47,168 @@ fn deterministic_grade() -> RehearsalPrivateGradingResult {
     }
 }
 
+/// Legacy-shaped fixtures are intentionally test-local while the production
+/// Store exposes only route-owned start-and-freeze.  Keeping the adapter here
+/// lets integrity tests describe impossible historic state without granting a
+/// production caller an append capability.
+#[derive(Clone)]
+struct StartRehearsalCommand {
+    actor: question_model::UserId,
+    course: question_model::CourseId,
+    assignment: question_model::AssignmentReference,
+    revision: TeachingOperationRevision,
+    subject: RehearsalSubjectStart,
+    start_new_after_completion: bool,
+}
+
+#[derive(Clone)]
+struct AppendRehearsalFrozenItemCommand {
+    locator: RehearsalLocator,
+    frozen: RehearsalFrozenItemEvidence,
+}
+
+#[async_trait::async_trait]
+trait RehearsalFixtureStore {
+    async fn start_rehearsal(
+        &self,
+        context: TenantContext,
+        command: StartRehearsalCommand,
+    ) -> Result<question_model::RehearsalRunReceipt, StoreError>;
+
+    async fn append_rehearsal_frozen_item(
+        &self,
+        context: TenantContext,
+        command: AppendRehearsalFrozenItemCommand,
+    ) -> Result<(), StoreError>;
+}
+
+static FIXTURE_START_KEY: AtomicU64 = AtomicU64::new(1);
+
+fn issued_artifact_for_test(
+    work: &learning_data_access::SealedRehearsalDeliveryIssueWork,
+) -> learning_data_access::RehearsalIssuedExecutionArtifactV1 {
+    let question = work.issued_snapshot().question();
+    let envelope = QuestionEnvelope {
+        version: question.version,
+        seed: Seed::new(work.descriptor().deterministic_seed()),
+        title: question.metadata.title.clone(),
+        prompt: question.prompt.clone(),
+        response: question.response.clone(),
+    };
+    let rendered_question_sha256 =
+        objects::Sha256Digest::compute(&serde_json::to_vec(&envelope).expect("envelope bytes"))
+            .to_string();
+    let presentation = build_presentation_v1(&envelope, &[]).expect("presentation");
+    learning_data_access::RehearsalIssuedExecutionArtifactV1::from_issue_work(
+        work,
+        envelope,
+        work.descriptor().frozen_content_digest().to_hex(),
+        AttemptProvenance {
+            adapter: ImplementationVersion {
+                id: "memory-native".into(),
+                version: "1".into(),
+            },
+            renderer: None,
+            generator: None,
+            source_artifact: None,
+            asset_objects: Vec::new(),
+            grading: ImplementationVersion {
+                id: "memory-grader".into(),
+                version: "1".into(),
+            },
+            rendered_question_sha256,
+        },
+        PresentationBindingV1::new(
+            presentation.envelope.presentation_nonce,
+            presentation.digest,
+        ),
+        learning_data_access::ReceiptPresentationSnapshot {
+            envelope: presentation.envelope,
+            asset_bindings: presentation.asset_bindings,
+        },
+    )
+    .expect("valid sealed issued artifact")
+}
+
+async fn commit_issued_screen_for_test(
+    store: &MemoryStore,
+    context: TenantContext,
+    dispatched: &learning_data_access::DispatchedRehearsalDelivery,
+) -> question_model::RehearsalActiveScreenV1 {
+    let sealed = store.sealed_private_execution_store();
+    let learning_data_access::SealedRehearsalDeliveryIssuePreparation::IssueWork(work) = sealed
+        .prepare_or_resume_issued_execution(context, dispatched)
+        .await
+        .expect("issue work")
+    else {
+        panic!("fresh dispatch needs issue work")
+    };
+    let artifact = issued_artifact_for_test(&work);
+    sealed
+        .commit_issued_execution(context, *work, artifact)
+        .await
+        .expect("commit artifact")
+        .active_screen()
+        .expect("issued screen")
+}
+
+#[async_trait::async_trait]
+impl RehearsalFixtureStore for MemoryStore {
+    async fn start_rehearsal(
+        &self,
+        context: TenantContext,
+        command: StartRehearsalCommand,
+    ) -> Result<question_model::RehearsalRunReceipt, StoreError> {
+        let key = RehearsalSubmissionIdempotencyKey::new(format!(
+            "fixture-route-start-{}",
+            FIXTURE_START_KEY.fetch_add(1, Ordering::Relaxed)
+        ))?;
+        self.start_rehearsal_from_route(
+            context,
+            StartRehearsalRouteCommand {
+                actor: command.actor,
+                course: command.course,
+                assignment: command.assignment,
+                expected_revision: command.revision,
+                subject: command.subject,
+                start_new_after_completion: command.start_new_after_completion,
+                idempotency_key: key,
+                request_fingerprint: RehearsalOperationDigest::from_bytes([0xA5; 32]),
+            },
+        )
+        .await
+        .map(|result| result.receipt)
+    }
+
+    async fn append_rehearsal_frozen_item(
+        &self,
+        context: TenantContext,
+        command: AppendRehearsalFrozenItemCommand,
+    ) -> Result<(), StoreError> {
+        self.inject_rehearsal_frozen_item_for_test(context, command.locator, command.frozen)
+    }
+}
+
 #[path = "rehearsal_memory/derived.rs"]
 mod derived;
 #[path = "rehearsal_memory/integrity.rs"]
 mod integrity;
 #[path = "rehearsal_memory/lifecycle.rs"]
 mod lifecycle;
+#[path = "rehearsal_memory/material.rs"]
+mod material;
+#[path = "rehearsal_memory/operations.rs"]
+mod operations;
 #[path = "rehearsal_memory/response_shapes.rs"]
 mod response_shapes;
 #[path = "rehearsal_memory/retention.rs"]
 mod retention;
+#[path = "rehearsal_memory/sealed_submission.rs"]
+mod sealed_submission;
+#[path = "rehearsal_memory/timing.rs"]
+mod timing;
+#[path = "rehearsal_memory/timing_integrity.rs"]
+mod timing_integrity;
 
 fn synthetic_start() -> RehearsalSubjectStart {
     RehearsalSubjectStart::Synthetic {
@@ -118,31 +277,9 @@ async fn start_and_freeze(
         revision,
         rehearsal: receipt.rehearsal,
     };
-    let assignment_record = store
-        .get_assignment_for_edit(fixture.context, fixture.assignment)
-        .await
-        .expect("record")
-        .expect("assignment");
-    let frozen = RehearsalFrozenItemEvidence {
-        attempt: RehearsalAttemptId::from_uuid(uuid(850_001)),
-        problem: assignment_record.record.items[0].reference,
-        response_definition: ResponseDefinition::Numeric {
-            tolerance: NumericTolerance::Exact,
-            unit: None,
-        },
-        canonical_content_digest: question_model::RehearsalEvidenceDigest::from_bytes([8; 32]),
-        frozen_at: ActivityTimestamp::from_unix_millis(500),
-    };
-    store
-        .append_rehearsal_frozen_item(
-            fixture.context,
-            AppendRehearsalFrozenItemCommand {
-                locator,
-                frozen: frozen.clone(),
-            },
-        )
-        .await
-        .expect("freeze");
+    let frozen = store
+        .frozen_rehearsal_item_for_test(fixture.context, receipt.rehearsal)
+        .expect("canonical route material");
     (fixture, locator, frozen)
 }
 

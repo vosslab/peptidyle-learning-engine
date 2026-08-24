@@ -1,6 +1,103 @@
 use super::*;
 
 #[tokio::test]
+async fn replay_returns_before_the_sealed_private_execution_facade() {
+    let (store, backend, _app, student_cookie, _, assignment, _) = fixture().await;
+    let sealed = Arc::new(CountingSealedExecution {
+        inner: sealed_memory(&store),
+        calls: AtomicUsize::new(0),
+        refuse: AtomicBool::new(false),
+    });
+    let app = router(Arc::clone(&store), Arc::clone(&backend), sealed.clone());
+    let attempt = active_attempt_for(
+        &app,
+        CourseId::from_uuid(id(5)),
+        assignment,
+        &student_cookie,
+    )
+    .await;
+    let request = || {
+        Request::builder()
+            .method("POST")
+            .uri(submission_path(
+                CourseId::from_uuid(id(5)),
+                assignment,
+                attempt.id,
+            ))
+            .header("cookie", &student_cookie)
+            .header("content-type", "application/json")
+            .header("idempotency-key", "sealed-replay")
+            .body(Body::from(
+                serde_json::json!({ "response": { "kind": "numeric", "value": 18.0 } }).to_string(),
+            ))
+            .expect("submission request")
+    };
+
+    let first = app
+        .clone()
+        .oneshot(request())
+        .await
+        .expect("first submission");
+    assert_eq!(first.status(), StatusCode::OK);
+    let first_receipt = json(first).await;
+    assert_eq!(first_receipt["runCompletionStatus"], "completed");
+    assert!(first_receipt["nextIssued"].is_null());
+    assert_eq!(first_receipt["nextPending"], false);
+    assert_eq!(sealed.calls.load(Ordering::SeqCst), 1);
+    assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 1);
+
+    let replay = app.oneshot(request()).await.expect("replay submission");
+    assert_eq!(replay.status(), StatusCode::OK);
+    let replay_receipt = json(replay).await;
+    assert_eq!(replay_receipt["runCompletionStatus"], "completed");
+    assert!(replay_receipt["nextIssued"].is_null());
+    assert_eq!(replay_receipt["nextPending"], false);
+    assert_eq!(sealed.calls.load(Ordering::SeqCst), 1);
+    assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn sealed_execution_denial_blocks_backend_grading() {
+    let (store, backend, _app, student_cookie, _, assignment, _) = fixture().await;
+    let sealed = Arc::new(CountingSealedExecution {
+        inner: sealed_memory(&store),
+        calls: AtomicUsize::new(0),
+        refuse: AtomicBool::new(true),
+    });
+    let app = router(Arc::clone(&store), Arc::clone(&backend), sealed.clone());
+    let attempt = active_attempt_for(
+        &app,
+        CourseId::from_uuid(id(5)),
+        assignment,
+        &student_cookie,
+    )
+    .await;
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(submission_path(
+                    CourseId::from_uuid(id(5)),
+                    assignment,
+                    attempt.id,
+                ))
+                .header("cookie", student_cookie)
+                .header("content-type", "application/json")
+                .header("idempotency-key", "sealed-denied")
+                .body(Body::from(
+                    serde_json::json!({ "response": { "kind": "numeric", "value": 18.0 } })
+                        .to_string(),
+                ))
+                .expect("submission request"),
+        )
+        .await
+        .expect("denied response");
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    assert_eq!(sealed.calls.load(Ordering::SeqCst), 1);
+    assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
 async fn exhausted_incorrect_all_correct_run_reports_in_progress_without_a_successor() {
     let (_store, _backend, app, student_cookie, _, assignment, enrollment) =
         fixture_with_attempt_policy(

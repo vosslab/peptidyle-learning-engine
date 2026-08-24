@@ -455,10 +455,7 @@ async fn deleting_assignment_sources_fences_matching_active_runs_and_preserves_c
     let first_snapshot = store
         .rehearsal_test_snapshot(fixture.context.tenant_id(), first_locator.rehearsal)
         .expect("retained completed archive snapshot");
-    assert_eq!(
-        first_snapshot.lifecycle,
-        RehearsalLifecycle::DiscardedSourceContextRemoved
-    );
+    assert_eq!(first_snapshot.lifecycle, RehearsalLifecycle::Completed);
     assert_eq!(
         first_snapshot.claims[0].phase,
         domain::RehearsalSubmissionClaimPhase::Completed,
@@ -560,7 +557,7 @@ async fn corrupt_rehearsal_aborts_the_prepared_source_deletion_without_partial_r
 #[tokio::test]
 async fn tenant_a_source_deletion_never_fences_a_same_shaped_foreign_rehearsal() {
     let store = MemoryStore::default();
-    let (fixture, target_locator, target_frozen) = start_and_freeze(&store).await;
+    let (fixture, target_locator, _) = start_and_freeze(&store).await;
     establish_retention_session(&store, &fixture).await;
 
     let foreign_tenant = TenantId::from_uuid(uuid(990_000));
@@ -599,7 +596,19 @@ async fn tenant_a_source_deletion_never_fences_a_same_shaped_foreign_rehearsal()
         .await
         .expect("target assignment read")
         .expect("target assignment");
-    let foreign_assignment = AssignmentId::from_uuid(fixture.assignment.as_uuid());
+    // The foreign course owns its own published native problem.  Starting
+    // through the route admission boundary freezes that ordinary item; this
+    // test never fabricates cross-tenant rehearsal material.
+    let foreign_problem = publish_assignment_version(
+        &store,
+        foreign_context,
+        foreign_tenant,
+        foreign_instructor,
+        990_010,
+        question_model::PublicationScope::Public,
+    )
+    .await;
+    let foreign_assignment = AssignmentId::from_uuid(uuid(990_011));
     let foreign_stored = store
         .create_assignment(
             foreign_context,
@@ -610,6 +619,7 @@ async fn tenant_a_source_deletion_never_fences_a_same_shaped_foreign_rehearsal()
                     tenant: foreign_tenant,
                     course_id: foreign_course,
                     lifecycle: question_model::AssignmentLifecycle::Draft,
+                    items: fixed_items(vec![foreign_problem]),
                     ..target_assignment.record.clone()
                 },
                 base_policy: question_model::BaseAssignmentPolicy::default(),
@@ -650,19 +660,25 @@ async fn tenant_a_source_deletion_never_fences_a_same_shaped_foreign_rehearsal()
     )
     .expect("foreign revision");
     let foreign_receipt = store
-        .start_rehearsal(
+        .start_rehearsal_from_route(
             foreign_context,
-            StartRehearsalCommand {
+            StartRehearsalRouteCommand {
                 actor: foreign_instructor,
                 course: foreign_course,
                 assignment: foreign_reference,
-                revision: foreign_revision,
+                expected_revision: foreign_revision,
                 subject: synthetic_start(),
                 start_new_after_completion: false,
+                idempotency_key: RehearsalSubmissionIdempotencyKey::new(
+                    "foreign-retention-rehearsal".into(),
+                )
+                .expect("foreign rehearsal key"),
+                request_fingerprint: RehearsalOperationDigest::from_bytes([0x99; 32]),
             },
         )
         .await
-        .expect("foreign active rehearsal");
+        .expect("foreign active rehearsal")
+        .receipt;
     let foreign_locator = RehearsalLocator {
         actor: foreign_instructor,
         course: foreign_course,
@@ -670,20 +686,6 @@ async fn tenant_a_source_deletion_never_fences_a_same_shaped_foreign_rehearsal()
         revision: foreign_revision,
         rehearsal: foreign_receipt.rehearsal,
     };
-    store
-        .append_rehearsal_frozen_item(
-            foreign_context,
-            AppendRehearsalFrozenItemCommand {
-                locator: foreign_locator,
-                frozen: RehearsalFrozenItemEvidence {
-                    attempt: RehearsalAttemptId::from_uuid(uuid(990_003)),
-                    ..target_frozen
-                },
-            },
-        )
-        .await
-        .expect("freeze foreign rehearsal");
-
     delete_student_records(&store, &fixture, AssignmentDefinitionDisposition::Delete).await;
 
     assert!(

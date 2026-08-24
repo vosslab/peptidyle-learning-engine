@@ -1,8 +1,10 @@
 //! PostgreSQL parity for the identity-free T3 preview plane.
 //!
 //! The derived path deliberately uses a writable repeatable-read snapshot: it
-//! reads the same S5 -> S3 -> S4 facts it projects, then appends its one
-//! private record-read audit as the final statement before commit.
+//! reads one consistent set of S5 -> S3 -> S4 facts, retains the internal IDs
+//! bound by those reads, then appends its one private record-read audit as the
+//! final statement before commit. Source mutation brokers own serialization;
+//! this application-role projection never acquires mutation row locks.
 
 use async_trait::async_trait;
 use domain::effective_assignment_policy::{
@@ -170,8 +172,8 @@ impl crate::PreviewPlaneStore for PostgresStore {
     ) -> Result<crate::PreviewPlaneResult, StoreError> {
         let tenant = context.tenant_id();
         let mut tx = self.begin_tenant_writable_snapshot(context).await?;
-        require_direct_instructor(&mut tx, tenant, course, actor).await?;
-        let result = resolve_derived_preview_by_membership_locked(
+        require_direct_instructor_read_only(&mut tx, tenant, course, actor).await?;
+        let resolved = resolve_derived_preview_by_membership_read_only_bound(
             &mut tx,
             tenant,
             course,
@@ -181,11 +183,21 @@ impl crate::PreviewPlaneStore for PostgresStore {
             request.selected_moment.clone(),
         )
         .await?;
-        if matches!(result.evaluation, PreviewEvaluation::Allowed { .. }) {
-            let (assignment, membership) =
-                derived_preview_audit_source_locked(&mut tx, tenant, course, request).await?;
-            append_audit(&mut tx, tenant, actor, course, assignment, membership).await?;
+        if matches!(
+            resolved.result.evaluation,
+            PreviewEvaluation::Allowed { .. }
+        ) {
+            append_audit(
+                &mut tx,
+                tenant,
+                actor,
+                course,
+                resolved.assignment,
+                resolved.membership,
+            )
+            .await?;
         }
+        let result = resolved.result;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
     }
@@ -198,46 +210,24 @@ pub(super) async fn resolve_synthetic_preview_read_only(
     course: CourseId,
     request: SyntheticPreviewSubjectRequest,
 ) -> Result<crate::PreviewPlaneResult, StoreError> {
-    resolve_synthetic_preview_with_lock_mode(tx, tenant, course, request, false).await
-}
-
-async fn resolve_synthetic_preview_with_lock_mode(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-    request: SyntheticPreviewSubjectRequest,
-    lock_sources: bool,
-) -> Result<crate::PreviewPlaneResult, StoreError> {
-    let (assignment, record) = if lock_sources {
-        preview_assignment(tx, tenant, course, request.assignment, request.revision).await?
-    } else {
+    let (assignment, record) =
         preview_assignment_read_only(tx, tenant, course, request.assignment, request.revision)
-            .await?
-    };
-    let term = if lock_sources {
-        course_policy::load_course_term_for_policy(tx, tenant, course).await?
-    } else {
-        course_policy::load_course_term_for_preview(tx, tenant, course).await?
-    };
+            .await?;
+    let term = course_policy::load_course_term_for_preview(tx, tenant, course).await?;
     let now = selected_moment(&request.selected_moment, &term)?;
     let mut groups = Vec::new();
     for reference in request.groups.as_slice() {
-        let query = if lock_sources {
-            concat!(
-                "SELECT course_group_id, purpose FROM course_group ",
-                "WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3 FOR KEY SHARE"
-            )
-        } else {
-            "SELECT course_group_id, purpose FROM course_group WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3"
-        };
-        let row = sqlx::query(query)
-            .bind(tenant.as_uuid())
-            .bind(course.as_uuid())
-            .bind(i64::from(reference.number()))
-            .fetch_optional(&mut **tx)
-            .await
-            .map_err(map_sqlx_error)?
-            .ok_or(StoreError::NotFound)?;
+        let row = sqlx::query(
+            "SELECT course_group_id, purpose FROM course_group \
+             WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3",
+        )
+        .bind(tenant.as_uuid())
+        .bind(course.as_uuid())
+        .bind(i64::from(reference.number()))
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
         groups.push((
             CourseGroupId::from_uuid(row.try_get("course_group_id").map_err(map_sqlx_error)?),
             decode_group_purpose(row.try_get("purpose").map_err(map_sqlx_error)?)?,
@@ -304,38 +294,11 @@ async fn resolve_synthetic_preview_with_lock_mode(
 
 /// Resolves a derived preview from the route-owned membership reference.
 ///
-/// This helper does not receive or return a learner locator. It resolves the
-/// active membership and all policy facts under the caller's writable locks,
-/// but deliberately has no audit side effect so rehearsal can reuse it.
-/// // ASVS 2.2.1, 2.3.1, 2.3.3
-pub(super) async fn resolve_derived_preview_by_membership_locked(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-    assignment: AssignmentReference,
-    revision: TeachingOperationRevision,
-    membership: question_model::CourseMembershipReference,
-    selected_moment_value: question_model::PreviewSelectedMoment,
-) -> Result<crate::PreviewPlaneResult, StoreError> {
-    Ok(resolve_derived_preview_by_membership_with_source_locked(
-        tx,
-        tenant,
-        course,
-        assignment,
-        revision,
-        membership,
-        selected_moment_value,
-        true,
-    )
-    .await?
-    .result)
-}
-
 /// Resolves a derived preview with the internal membership identity that the
-/// public reference selected.  Rehearsal uses this only after its broker
-/// preparation witness has locked that exact membership, so this remains a
-/// plain, answer-free read path.  The returned internal identity prevents a
-/// changed public reference from being mistaken for the audited learner.
+/// public reference selected. Rehearsal uses this after its broker preparation
+/// witness has locked that exact membership. The preview plane instead relies
+/// on its repeatable-read snapshot. In both cases, the returned internal IDs
+/// prevent changed public references from being mistaken for audited sources.
 /// // ASVS 2.2.1, 2.3.1, 8.2.2, 8.3.1
 pub(super) async fn resolve_derived_preview_by_membership_read_only_bound(
     tx: &mut Transaction<'_, Postgres>,
@@ -346,42 +309,11 @@ pub(super) async fn resolve_derived_preview_by_membership_read_only_bound(
     membership: question_model::CourseMembershipReference,
     selected_moment_value: question_model::PreviewSelectedMoment,
 ) -> Result<DerivedPreviewResolution, StoreError> {
-    resolve_derived_preview_by_membership_with_source_locked(
-        tx,
-        tenant,
-        course,
-        assignment,
-        revision,
-        membership,
-        selected_moment_value,
-        false,
-    )
-    .await
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn resolve_derived_preview_by_membership_with_source_locked(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-    assignment: AssignmentReference,
-    revision: TeachingOperationRevision,
-    membership: question_model::CourseMembershipReference,
-    selected_moment_value: question_model::PreviewSelectedMoment,
-    lock_sources: bool,
-) -> Result<DerivedPreviewResolution, StoreError> {
-    let (assignment_id, record) = if lock_sources {
-        preview_assignment(tx, tenant, course, assignment, revision).await?
-    } else {
-        preview_assignment_read_only(tx, tenant, course, assignment, revision).await?
-    };
-    let term = if lock_sources {
-        course_policy::load_course_term_for_policy(tx, tenant, course).await?
-    } else {
-        course_policy::load_course_term_for_preview(tx, tenant, course).await?
-    };
+    let (assignment_id, record) =
+        preview_assignment_read_only(tx, tenant, course, assignment, revision).await?;
+    let term = course_policy::load_course_term_for_preview(tx, tenant, course).await?;
     let now = selected_moment(&selected_moment_value, &term)?;
-    let row = sqlx::query(if lock_sources { "SELECT course_membership_id, user_id, student_id FROM course_member WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3 AND role='student' AND status='active' AND student_id IS NOT NULL FOR KEY SHARE" } else { "SELECT course_membership_id, user_id, student_id FROM course_member WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3 AND role='student' AND status='active' AND student_id IS NOT NULL" })
+    let row = sqlx::query("SELECT course_membership_id, user_id, student_id FROM course_member WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3 AND role='student' AND status='active' AND student_id IS NOT NULL")
         .bind(tenant.as_uuid()).bind(course.as_uuid()).bind(i64::from(membership.number()))
         .fetch_optional(&mut **tx).await.map_err(map_sqlx_error)?.ok_or(StoreError::NotFound)?;
     let membership = CourseMembershipId::from_uuid(
@@ -391,14 +323,12 @@ async fn resolve_derived_preview_by_membership_with_source_locked(
     let learner = UserId::from_uuid(row.try_get("user_id").map_err(map_sqlx_error)?);
     let student =
         question_model::StudentId::from_uuid(row.try_get("student_id").map_err(map_sqlx_error)?);
-    let entitlement = if lock_sources {
-        entitlement::evaluate_current(tx, tenant, learner, course, assignment_id).await?
-    } else {
-        entitlement::evaluate_current_read_only(tx, tenant, learner, course, assignment_id).await?
-    };
+    let entitlement =
+        entitlement::evaluate_current_read_only(tx, tenant, learner, course, assignment_id).await?;
     let domain::entitlement::EntitlementDecision::Granted(grant) = entitlement else {
         return Ok(DerivedPreviewResolution {
             result: denied(PreviewDenialReason::NotEntitled),
+            assignment: assignment_id,
             membership,
         });
     };
@@ -451,6 +381,7 @@ async fn resolve_derived_preview_by_membership_with_source_locked(
             before,
             after,
         })?,
+        assignment: assignment_id,
         membership,
     })
 }
@@ -459,46 +390,8 @@ async fn resolve_derived_preview_by_membership_with_source_locked(
 /// constructs the standard preview projection.
 pub(super) struct DerivedPreviewResolution {
     pub(super) result: crate::PreviewPlaneResult,
+    pub(super) assignment: AssignmentId,
     pub(super) membership: CourseMembershipId,
-}
-
-async fn derived_preview_audit_source_locked(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-    request: DerivedPreviewSubjectRequest,
-) -> Result<(AssignmentId, CourseMembershipId), StoreError> {
-    let assignment: Option<Uuid> = sqlx::query_scalar(
-        "SELECT assignment_id FROM assignment WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3 FOR KEY SHARE",
-    )
-    .bind(tenant.as_uuid())
-    .bind(course.as_uuid())
-    .bind(i64::from(request.assignment.number()))
-    .fetch_optional(&mut **tx)
-    .await
-    .map_err(map_sqlx_error)?;
-    let membership: Option<Uuid> = sqlx::query_scalar(
-        "SELECT course_membership_id FROM course_member WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3 AND role='student' AND status='active' FOR KEY SHARE",
-    )
-    .bind(tenant.as_uuid())
-    .bind(course.as_uuid())
-    .bind(i64::from(request.membership.number()))
-    .fetch_optional(&mut **tx)
-    .await
-    .map_err(map_sqlx_error)?;
-    Ok((
-        AssignmentId::from_uuid(assignment.ok_or(StoreError::NotFound)?),
-        CourseMembershipId::from_uuid(membership.ok_or(StoreError::NotFound)?),
-    ))
-}
-
-async fn require_direct_instructor(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-    actor: UserId,
-) -> Result<(), StoreError> {
-    require_direct_instructor_with_lock(tx, tenant, course, actor, true).await
 }
 
 async fn require_direct_instructor_read_only(
@@ -507,48 +400,19 @@ async fn require_direct_instructor_read_only(
     course: CourseId,
     actor: UserId,
 ) -> Result<(), StoreError> {
-    require_direct_instructor_with_lock(tx, tenant, course, actor, false).await
-}
-
-async fn require_direct_instructor_with_lock(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-    actor: UserId,
-    lock: bool,
-) -> Result<(), StoreError> {
-    let query = if lock {
-        concat!(
-            "SELECT course_membership_id FROM course_member ",
-            "WHERE tenant_id=$1 AND course_id=$2 AND user_id=$3 ",
-            "AND role='instructor' AND status='active' FOR KEY SHARE"
-        )
-    } else {
-        concat!(
-            "SELECT course_membership_id FROM course_member ",
-            "WHERE tenant_id=$1 AND course_id=$2 AND user_id=$3 ",
-            "AND role='instructor' AND status='active'"
-        )
-    };
-    let found: Option<Uuid> = sqlx::query_scalar(query)
-        .bind(tenant.as_uuid())
-        .bind(course.as_uuid())
-        .bind(actor.as_uuid())
-        .fetch_optional(&mut **tx)
-        .await
-        .map_err(map_sqlx_error)?;
+    let found: Option<Uuid> = sqlx::query_scalar(
+        "SELECT course_membership_id FROM course_member \
+         WHERE tenant_id=$1 AND course_id=$2 AND user_id=$3 \
+         AND role='instructor' AND status='active'",
+    )
+    .bind(tenant.as_uuid())
+    .bind(course.as_uuid())
+    .bind(actor.as_uuid())
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(map_sqlx_error)?;
     found.map(|_| ()).ok_or(StoreError::NotFound)
 }
-async fn preview_assignment(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-    reference: AssignmentReference,
-    revision: TeachingOperationRevision,
-) -> Result<(AssignmentId, crate::AssignmentRecord), StoreError> {
-    preview_assignment_with_lock(tx, tenant, course, reference, revision, true).await
-}
-
 async fn preview_assignment_read_only(
     tx: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
@@ -556,32 +420,16 @@ async fn preview_assignment_read_only(
     reference: AssignmentReference,
     revision: TeachingOperationRevision,
 ) -> Result<(AssignmentId, crate::AssignmentRecord), StoreError> {
-    preview_assignment_with_lock(tx, tenant, course, reference, revision, false).await
-}
-
-async fn preview_assignment_with_lock(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-    reference: AssignmentReference,
-    revision: TeachingOperationRevision,
-    lock: bool,
-) -> Result<(AssignmentId, crate::AssignmentRecord), StoreError> {
-    let query = if lock {
-        concat!(
-            "SELECT assignment_id FROM assignment ",
-            "WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3 FOR KEY SHARE"
-        )
-    } else {
-        "SELECT assignment_id FROM assignment WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3"
-    };
-    let id: Option<Uuid> = sqlx::query_scalar(query)
-        .bind(tenant.as_uuid())
-        .bind(course.as_uuid())
-        .bind(i64::from(reference.number()))
-        .fetch_optional(&mut **tx)
-        .await
-        .map_err(map_sqlx_error)?;
+    let id: Option<Uuid> = sqlx::query_scalar(
+        "SELECT assignment_id FROM assignment \
+         WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3",
+    )
+    .bind(tenant.as_uuid())
+    .bind(course.as_uuid())
+    .bind(i64::from(reference.number()))
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(map_sqlx_error)?;
     let assignment = id
         .map(AssignmentId::from_uuid)
         .ok_or(StoreError::NotFound)?;

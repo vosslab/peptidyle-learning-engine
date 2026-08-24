@@ -1,4 +1,6 @@
-//! Completion after a verified dispatched claim.
+//! Test-support completion after a verified durable dispatched claim.
+
+#![cfg(feature = "test-support")]
 
 use domain::{
     RehearsalEvidencePayload, RehearsalValidatedSubmissionEvidence, evidence_entry_digest,
@@ -8,8 +10,7 @@ use domain::{
 use super::super::*;
 use super::{auth, hydration, integrity};
 
-const COMPLETE_CLAIM_SQL: &str =
-    "SELECT ple_rehearsal_complete_claim($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)";
+const COMPLETE_CLAIM_SQL: &str = "SELECT ple_rehearsal_route_complete_claim($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)";
 
 pub(super) async fn complete(
     store: &PostgresStore,
@@ -18,9 +19,19 @@ pub(super) async fn complete(
 ) -> Result<crate::RehearsalSubmissionReceipt, StoreError> {
     let tenant = context.tenant_id();
     let mut tx = store.begin_tenant(context).await?;
-    let witness = auth::prepare_operation(&mut tx, tenant, command.locator).await?;
+    let result = complete_in_tx(&mut tx, tenant, command).await?;
+    tx.commit().await.map_err(map_sqlx_error)?;
+    Ok(result)
+}
+
+pub(super) async fn complete_in_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    tenant: question_model::TenantId,
+    command: crate::CompleteRehearsalSubmissionCommand,
+) -> Result<crate::RehearsalSubmissionReceipt, StoreError> {
+    let witness = auth::prepare_operation(tx, tenant, command.locator).await?;
     let source = witness.source();
-    let aggregate = hydration::load_authorized(&mut tx, tenant, command.locator, &source).await?;
+    let aggregate = hydration::load_authorized(tx, tenant, command.locator, &source).await?;
     if aggregate.run.id != witness.run {
         return Err(StoreError::NotFound);
     }
@@ -33,21 +44,31 @@ pub(super) async fn complete(
         && claim.snapshot.generation() == generation
         && claim.snapshot.state() == domain::RehearsalSubmissionClaimState::GradingDispatched;
     if !expected {
-        return Err(StoreError::Conflict);
+        return Err(StoreError::NotFound);
     }
     validate_claim_completion(aggregate.run.receipt.lifecycle, true, command.handle)
         .map_err(|_| StoreError::Conflict)?;
     let frozen = aggregate
-        .frozen(claim.root.sealed_request().attempt())
+        .frozen(claim.attempt)
         .ok_or(StoreError::NotFound)?;
     let millis: i64 = sqlx::query_scalar("SELECT ple_rehearsal_now_millis()")
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await
         .map_err(map_sqlx_error)?;
     let accepted_at = question_model::ActivityTimestamp::from_unix_millis(millis);
-    let evidence = RehearsalValidatedSubmissionEvidence::try_complete_with_frozen_attempt(
+    // Durable requests are retained only by generic test-support claims. A
+    // live rendered claim must be translated again from its authenticated
+    // issued artifact at this sealed completion boundary; no browser input is
+    // accepted here.
+    let durable_request = claim
+        .root
+        .submission_input()
+        .durable_request()
+        .cloned()
+        .ok_or(StoreError::Conflict)?;
+    let evidence = RehearsalValidatedSubmissionEvidence::try_complete_with_claim_input(
         &claim.root,
-        claim.root.sealed_request().clone(),
+        durable_request,
         frozen,
         command.grading,
         accepted_at,
@@ -88,7 +109,8 @@ pub(super) async fn complete(
         verify_rehearsal_claim_completion_proof(aggregate.genesis(), head, &claim.root, &staged)
             .map_err(invalid)?;
     let outcome = proof.replay_receipt();
-    let receipt_digest = domain::rehearsal::persistence::public_outcome_digest(&outcome);
+    let receipt_digest =
+        domain::rehearsal::persistence::persisted_rehearsal_receipt_digest(&outcome);
     let stored: bool = sqlx::query_scalar(COMPLETE_CLAIM_SQL)
         .bind(tenant.as_uuid())
         .bind(command.locator.actor.as_uuid())
@@ -106,17 +128,15 @@ pub(super) async fn complete(
         ))
         .bind(private_payload_digest(&payload).as_bytes().to_vec())
         .bind(millis)
-        .bind(serde_json::to_value(&outcome).map_err(|_| {
-            StoreError::InvalidRecord("rehearsal receipt serialization failed".into())
-        })?)
+        .bind(domain::rehearsal::persistence::encode_persisted_rehearsal_receipt(&outcome))
         .bind(receipt_digest.as_bytes().to_vec())
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await
         .map_err(map_sqlx_error)?;
     if !stored {
         return Err(StoreError::Conflict);
     }
-    let after = hydration::load_authorized(&mut tx, tenant, command.locator, &source).await?;
+    let after = hydration::load_authorized(tx, tenant, command.locator, &source).await?;
     let completed = after.claim(claim_id).ok_or(StoreError::NotFound)?;
     if completed.snapshot.state() != domain::RehearsalSubmissionClaimState::Completed
         || completed.outcome.as_ref() != Some(&outcome)
@@ -127,7 +147,6 @@ pub(super) async fn complete(
             "rehearsal completion did not verify after mutation".into(),
         ));
     }
-    tx.commit().await.map_err(map_sqlx_error)?;
     Ok(crate::RehearsalSubmissionReceipt {
         outcome,
         replayed: false,

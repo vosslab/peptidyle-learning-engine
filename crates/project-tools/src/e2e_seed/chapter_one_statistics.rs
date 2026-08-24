@@ -182,6 +182,8 @@ pub(super) async fn seed_chapter_one_statistics(
                         },
                     ),
                     grading_envelope: Some(issued.envelope.clone()),
+                    native_execution_envelope_capability:
+                        learning_data_access::NativeExecutionEnvelopeCapability::NotApplicable,
                     flat_grading: Some(
                         IssuedFlatGradingContract::new(question.question.clone(), grading.clone())
                             .context("binding Chapter 1 flat grading at issuance")?,
@@ -191,6 +193,9 @@ pub(super) async fn seed_chapter_one_statistics(
                     webwork_grading_capability:
                         learning_data_access::WebworkGradingCapability::NotApplicable,
                     webwork_replay: None,
+                    qti_grading: None,
+                    qti_grading_capability:
+                        learning_data_access::QtiGradingCapability::NotApplicable,
                     parameter_hash: issued.parameter_hash,
                     provenance: issued.provenance,
                     prefetched: None,
@@ -243,6 +248,7 @@ fn chapter_one_statistics_snapshot(
         .validate_for_issuance_context(
             learning_data_access::FlatGradingCapability::Required,
             learning_data_access::WebworkGradingCapability::NotApplicable,
+            learning_data_access::QtiGradingCapability::NotApplicable,
             None,
         )
         .context("validating Chapter 1 statistics issued question authority")?;

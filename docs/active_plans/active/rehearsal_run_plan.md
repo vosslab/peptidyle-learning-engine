@@ -28,8 +28,9 @@ rehearsal receives neither a learner locator nor any identifying field.
 
 The live demonstration remains the real application described by
 [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md). Its seeded Instructor may use rehearsal through the
-ordinary authenticated production path; the workflow creates normal T4 rehearsal data only, never
-special demo behavior or a parallel browser application.
+ordinary authenticated production path over ordinary live courses, assignments, published
+questions, and deterministic graders. The workflow retains only its immutable execution and audit
+evidence outside learner records; it does not create a second content source or application.
 
 ## Contract
 
@@ -105,7 +106,8 @@ The shared ledger reserves the ordered T4 migration sequence before code:
 `2026081818_course_creation_authority.sql`,
 `2026081819_course_grade_control_capabilities.sql`, and
 `2026081820_scoring_commit_source_preparation.sql`, followed by
-`2026081821_rehearsal_operation_idempotency.sql`. The first creates only the rehearsal namespace
+`2026081821_rehearsal_operation_idempotency.sql`, then
+`2026081822_rehearsal_delivery_material.sql`. The first creates only the rehearsal namespace
 and forced RLS. It binds tenant, course, assignment, direct Instructor-course membership, and
 assignment revision, but has no foreign key to enrollment or ordinary activity records. The second
 owns the assignment-mutation authority substrate and private stale-rehearsal invalidator. The third
@@ -145,6 +147,96 @@ integration. `2026081811_rehearsal_runs.sql` remains the existing 999-line rehea
 migration; `2026081815_rehearsal_start_intent.sql` remains start-intent preparation. The durable
 protocol is only `2026081821_rehearsal_operation_idempotency.sql`. These forward-only brokers never
 restore broad `ple_app` source-row update authority and remain unaccepted.
+
+The twelfth migration owns canonical immutable rehearsal delivery material. A successful
+Store-owned start/freeze transaction writes one append-only answer-free source snapshot and one
+forced-RLS grader-only private-execution sibling for every selected frozen attempt, then verifies
+the complete frozen inventory before committing its start receipt. The source snapshot contains the
+checksummed `IssuedQuestionSnapshotV1` and exact family witness; the private sibling contains the
+checksummed closed execution contract sufficient for deterministic issue, render, and grade. It
+adds the dedicated source-freeze and route-scoped verification broker authority, the Store-owned ordered-progression
+decision, exact delivery-to-frozen-attempt binding, and atomic final-item completion. It grants no
+`ple_app` private-sibling read and preserves `1811`, `1815`, and `1821` as separate aggregate,
+decision, and operation owners. Material is immutable rehearsal evidence, not a cache or a
+live-demo sidecar. Missing, malformed, unsupported, or inconsistent material fails closed;
+delivery never reconstructs it from the mutable catalog, renderer, provider, client progress
+state, or a compatibility path.
+
+### Rehearsal delivery material
+
+`RehearsalDeliveryMaterialStore` is the separate server-only facade for route-scoped verification. It
+is not added to `RehearsalStore`, ordinary `Store`, or `CatalogStore`. Its
+`verify_rehearsal_delivery_material_from_route` command validates the complete immutable material
+inventory for early fail-closed feedback and returns only `Result<(), StoreError>`. It exposes no
+candidates, binding digest, locator, IDs, source payload, selection, private material, or JSON to
+routes or browser DTOs.
+
+The verification transaction checks the active rehearsal, assignment revision, frozen inventory,
+answer-free source snapshots, private siblings, and checksums before delivery proceeds. The later
+atomic Store claim independently authorizes and locks the route, verifies the relevant persisted
+material and bindings, derives the lowest unresolved frozen ordinal, and mints the opaque issue
+handle. Replay, pending, stale, foreign, discarded, fenced, and source-removed paths perform no
+new claim, material execution, or backend effect. Selection authority exists only in that Store
+claim; verification never preloads or selects a candidate.
+
+### Ordered assignment progression
+
+The frozen material set is the rehearsal assignment. Its zero-based ordinal is contiguous and
+authoritative. The Store derives progress from immutable frozen material, delivery operations,
+submission claims, accepted evidence, and run lifecycle; it does not persist a mutable
+`current_ordinal`, accept a browser item index, or consult a rehearsal catalog.
+
+- The next item is the lowest frozen ordinal without accepted evidence.
+- Exactly one item may be unresolved at a time. Prepared, dispatched, issued,
+  submission-pending, or expired work prevents selection of a later item.
+- Resume and exact replay return the persisted answer-free screen or pending state without a
+  backend call. Retry retains the same frozen ordinal and snapshot in a new issue cycle only after
+  the previous unsubmitted capability is explicitly expired or abandoned.
+- The route-bound submission broker derives the sole current issued item and its presentation
+  digest. The browser submits a bounded response and idempotency key, never a rehearsal attempt ID.
+- An accepted item is terminal. The final accepted submission appends its immutable evidence and
+  receipt, proves accepted coverage of every frozen ordinal, and transitions the rehearsal to
+  `completed` in the same transaction.
+
+`2026081822_rehearsal_delivery_material.sql` owns this progression authority because lawful next
+selection depends on its frozen ordinal and material binding. `2026081821` remains the generic
+append-only idempotency/event/receipt protocol; no additional migration, parallel progress table,
+or compatibility path is introduced. WP-PROF-T5 may later choose a concrete deterministic pool
+variation before freezing, while the T4 progression contract remains unchanged.
+
+### Rehearsal timing authority
+
+Ordinary issued-attempt timing is learner-record authority. Rehearsal never reads or writes learner
+attempts, effective-policy receipts or current pointers, or timer jobs. Instead, `1822` persists an
+immutable `RehearsalTimingWitnessV1` for each dispatched issue cycle. Its binding contains the
+persisted `PreviewSubject` fingerprint, the frozen `QuestionDefinition` snapshot digest,
+`rehearsal_run.started_at`, database/server `issued_at`, the derived deadline, and the derived
+grace, plus the selected `PerQuestion`, `PerAttempt`, or `SubjectLimit` deadline source. The Store
+creates and verifies that witness in the same serialized transaction that changes `prepared` to
+`issueDispatched`; it never rereads current catalog or ordinary timing rows.
+
+- `PerQuestion` derives from `issued_at`; `PerAttempt` and the subject time limit derive from
+  `rehearsal_run.started_at`; `Untimed` has no question deadline.
+- If both a question deadline and subject time limit exist, the earlier deadline wins. Question
+  grace applies only when the question deadline wins. An untimed question with no subject limit
+  never expires.
+- The selected preview moment's `available`, `due`, and `close` values decide whether Start is
+  eligible. They never become a later rehearsal deadline or arbitrary rehearsal TTL.
+- The Store appends exactly one immutable `issueDispatched -> expired` event only after the
+  deadline plus inclusive grace. Expiry and a first submission claim use the same serialization
+  boundary, so exactly one lawful outcome wins.
+- Retry is route-, revision-, and idempotency-bound. It accepts no attempt identity, consumes only
+  a current generation whose immutable selected deadline source is `PerQuestion`, and creates the
+  next issue cycle for the same frozen ordinal, snapshot, private material, and seed. Expiry whose
+  source is `PerAttempt` or `SubjectLimit` returns the visible, replayable `RunTimeExhausted` state
+  without a successor or screen. A per-question retry prepared before a run-wide cap is rechecked
+  at dispatch; if that cap has elapsed, the Store appends and replays the same pre-dispatch terminal
+  state without issuing a screen. Continue never advances an expired or run-exhausted generation.
+
+The timing witness is immutable rehearsal evidence rather than a rehearsal content sidecar or a
+policy cache. No arbitrary TTL, mutable current ordinal, timer worker, or new migration is added.
+Malformed fingerprints or snapshots, overflow, a negative grace, or an impossible deadline fail
+closed as `Unavailable` without an ordinary timing read, catalog fallback, or reissue path.
 
 ### Issued question snapshot
 
@@ -187,8 +279,10 @@ Submission, replay, and external activity retain this order:
 
 Live authorization, disclosure, deadlines, revocation, assignment policy, launch-proof expiry, and
 broker lease state are deliberately not snapshotted. A valid snapshot never grants access by itself.
-For an active issued attempt, the existing locked attempt-local authored deadline and non-negative
-grace are the immutable definition-derived timing baseline. PostgreSQL reads
+The following issued-attempt timing rule governs ordinary learner attempts only; it does not govern
+or supply authority to rehearsal. For an active issued learner attempt, the existing locked
+attempt-local authored deadline and non-negative grace are the immutable definition-derived timing
+baseline. PostgreSQL reads
 `attempt_timing_current.authored_deadline` and `authored_grace_seconds`; Memory reads the equivalent
 `MemoryAttemptTiming` values. They are established at issuance and remain distinct from current live
 course, group, accommodation, assignment, entitlement, and revocation policy. Re-resolution uses
@@ -341,7 +435,9 @@ Assignment-definition mutation performs that invalidation within its existing st
 transaction. Rehearsal start, read, issue, submit, and resume repeat the locked revision check, so
 an old-revision issue or grade cannot win a concurrent mutation. There is no arbitrary rehearsal
 TTL. A rehearsal is resumable while its owner remains a direct authorized Instructor and the frozen
-revision remains current. Normal timing and issue expiry produce typed recoverable outcomes.
+revision remains current. `1822` derives any operational deadline from the immutable timing witness,
+not from the selected preview moment or an ordinary learner record. Normal issue expiry produces a
+typed recoverable `Expired` outcome; Retry issues the same frozen item in a new cycle.
 Course, assignment, and direct-Instructor-membership removal take the separate source-removal fence
 under the same source locks before their delete. Student deletion and a source operation that does
 not remove one of those bindings do not take that fence.
@@ -349,16 +445,50 @@ not remove one of those bindings do not take that fence.
 ### Delivery, grading, and records
 
 T4 admits deterministic native server-owned grading and the existing trusted renderer path only
-when the isolated rehearsal transaction can call `RunBackend::issue` and `RunBackend::grade`.
-The browser gets an answer-free presentation envelope, response definition, public timing and
-disclosure data, and server-projected feedback.
+through a rehearsal-specific execution capability over Store-minted frozen work. The capability
+shares the ordinary native adapter and presentation primitives, but it does not manufacture a
+learner `QuestionAttempt`, call an ordinary learner `RunStore`, or reread mutable catalog or asset
+state. Native and flat question families are admitted only when their exact frozen family witness
+and private execution sibling agree; every other family fails closed until its isolated rehearsal
+contract exists. The browser gets an answer-free presentation envelope, response definition,
+public timing and disclosure data, and server-projected feedback.
+
+Each dispatched generation commits one closed, immutable issued-execution artifact before its
+screen receipt. The artifact is rehearsal execution and audit evidence, never a question source,
+cache, alternate bank, or simulated content row. It retains the exact generated grading envelope,
+parameter hash, attempt provenance, answer-free presentation snapshot and binding, plus digests of
+the sole frozen source/private siblings and Store-minted generation. It does not duplicate the
+frozen question snapshot. Canonical bounded bytes are append-only: exact replay resumes the same
+artifact without invoking the adapter again, while substitution or a different second result fails
+closed. Current V1 admits only no-asset native and flat execution; asset-bearing rehearsal remains
+unsupported until frozen physical rendition bindings and opaque rehearsal asset tokens have an
+explicit versioned contract.
+
+The Store persists only rehearsal-local execution evidence: the immutable artifact, validated
+`RehearsalActiveScreenV1`, timing witness, accepted evidence, and receipts. The screen's
+server-derived full 32-byte commitment covers the complete typed
+`RehearsalQuestionPresentationV1`; the browser receives only the commitment's 128-bit public token
+as a stale-screen check. Persistence reads, replay, delivery claims, and submission claims rehydrate
+the artifact and typed presentation, rederive the full commitment, and fail closed on any mismatch.
+A route or browser never supplies authoritative screen JSON, full commitment, artifact, source
+snapshot, durable item mapping, or grading metadata.
+
+Submission recovery uses a separate sealed grader preparation keyed by the already-authorized
+route and submission idempotency key. After `gradingDispatched`, a retry rehydrates the same request,
+claim-to-delivery binding, issued artifact, frozen source, and private grading sibling; it never
+reclaims a new logical operation or depends on a cached browser handle. The canonical presentation
+mapper translates rendered response IDs back to durable grading IDs only inside this sealed
+boundary. Exact completion races return the immutable receipt, while a merely prepared concurrent
+claim returns pending without calling a grader.
 
 The following outcomes are part of the closed contract:
 
 - An unsupported external backend, including iMathAS until its isolation contract exists, returns
   `422 rehearsal_delivery_unsupported` before delivery.
-- `NeedsManualGrading` is a rehearsal-only receipt with no score, gradebook, or manual-grading
-  queue entry; the page states that manual rehearsal grading is unavailable.
+- A manual or otherwise non-deterministically gradeable question is unsupported rehearsal source
+  material. Start fails closed before creating the rehearsal run, frozen material, delivery
+  capability, accepted-response evidence, or receipt. T4 has no `NeedsManualGrading` outcome,
+  manual-grading queue, or compatibility path.
 - Upload response families are rejected before upload body or object acceptance. A later dedicated
   package must own rehearsal-upload authorization, immutable evidence, retention, and deletion.
 
@@ -414,9 +544,9 @@ ordinary run, Store, or page owners.
 | --- | --- |
 | `question_model` | Closed rehearsal IDs, lifecycle, request, receipt, and strict serde shapes |
 | `domain` | Pure lifecycle, subject fingerprint, revision, idempotency, and no-projection invariants |
-| `learning-data-access` | Rehearsal Store append/verified-read contract, Memory and PostgreSQL parity, SQL migration, RLS, append-only evidence constraints, invalidation transaction |
+| `learning-data-access` | Rehearsal aggregate contracts and `RehearsalDeliveryMaterialStore`; Memory/PostgreSQL source-freeze, route-scoped verification, Store-owned claim/progression, immutable timing-witness, expiry/retry, per-generation issued-execution artifact, sealed crash-recoverable submission preparation, and atomic-completion parity; SQL migration, RLS, grader-only private material, append-only evidence, and invalidation transactions |
 | ordinary run issuance | `IssuedQuestionSnapshotV1`, canonical serialization/checksum, attempt/prefetch promotion, and Memory/PostgreSQL preparation parity; active-attempt timing reads its existing authored baseline |
-| `server` | Direct-Instructor route composition, authorization, DTO conversion, no-store/error mapping, neutral execution helper |
+| `server` | Direct-Instructor route composition, coordinator injection, route-scoped material verification, rehearsal-specific Native/Flat issue and grade capabilities over ordinary adapter primitives, exact artifact issue/resume, DTO conversion, no-store/error mapping, and typed unsupported/unavailable execution outcomes |
 | generated API and Solid | Closed TypeScript decoders, rehearsal client, namespaced attempt state, focused Instructor page |
 | real-stack evidence | Browser journey, Python declaration, screenshot manifest entries, privacy-safe corpus publication |
 
@@ -424,15 +554,18 @@ ordinary run, Store, or page owners.
 
 1. Freeze the closed question-model, domain, Store, lifecycle, error, backend-support, and wire
    contracts after the shared allocation is recorded.
-2. Implement Memory/PostgreSQL parity and the ordered eleven-migration persistence boundary:
+2. Implement Memory/PostgreSQL parity and the ordered twelve-migration persistence boundary:
    rehearsal/RLS, assignment-mutation authority substrate, source-removal fence integration, then
    actor-authorized assignment-definition create and complete normalized replacement with the
    incomplete scalar replacement retired, followed by explicit rehearsal start intent and
    execute-only course-group mutation capabilities with exact affected-assignment witnesses,
    learner-work source preparation with `IssuedQuestionSnapshotV1`, closed course-provisioning
-   authority, grade-control capabilities, scoring-commit preparation, and the durable rehearsal
-   operation protocol. The latter forward-adds idempotent start/delivery/discard roots, events,
-   receipts, and revocation integration; it does not amend the existing 1811 aggregate.
+   authority, grade-control capabilities, scoring-commit preparation, the durable rehearsal
+   operation protocol, and immutable delivery material. The operation protocol forward-adds
+   idempotent start/delivery/discard roots, events, receipts, and revocation integration; the
+   material migration forward-adds source snapshots, grader-only private siblings, source-freeze
+   brokers, and route-scoped verification. Neither amends the existing 1811 aggregate or permits a
+   mutable-catalog fallback.
 3. After the `1818` completion handoff, implement the snapshot contract in one storage-contract
    batch (`1817`, `contracts/runs.rs`, issued contracts, and attempt issuance), then one data-access
    parity batch (Memory/PostgreSQL issuance, prepared-attempt hydration, and the active-attempt
@@ -441,8 +574,11 @@ ordinary run, Store, or page owners.
    recognition before snapshot hydration; remove post-issue catalog hydration; and replace the
    PostgreSQL timing reread with its locked existing authored deadline/grace baseline. The
    course-policy owner does not add a parallel timing payload or snapshot field.
-4. Extract only the neutral selection/backend-preparation seam; add server routes and generated
-   closed DTOs.
+4. Keep ordinal selection and opaque issue-handle minting in the atomic Store claim. Implement the
+   rehearsal-specific execution capability, per-generation issued-execution artifact, canonical
+   rendered-response translation, and sealed crash-recoverable submission preparation before
+   adding server routes and generated closed DTOs. Reuse ordinary adapter primitives without
+   constructing learner attempts or widening ordinary learner Store authority.
 5. Implement the Instructor rehearsal page and recovery behavior; add the one canonical real-stack
    journey and the corresponding corpus entries.
 6. Obtain independent architecture, security/privacy, HCI, and documentation reviews. Resolve every
@@ -455,9 +591,15 @@ Focused validation proves the behavioral boundary before broad final validation:
 - qmodel/domain closed-shape, lifecycle, fingerprint, revision, and idempotency tests;
 - Memory/PostgreSQL RehearsalStore conformance, including assignment revision invalidation,
   evidence-chain verification, and refusal of accepted-evidence update, delete, or replacement;
-- fresh-chain PostgreSQL/RLS proof through 1821 that 1811 remains unchanged at 999 lines and that
-  only 1821 establishes durable start/delivery/discard replay, broker-only mutation, append-only
-  receipt/event integrity, and stale/source/terminal revocation integration;
+- fresh-chain PostgreSQL/RLS proof through 1822 that 1811 remains unchanged at 999 lines, 1821
+  alone establishes durable start/delivery/discard replay, broker-only mutation, append-only
+  receipt/event integrity, and stale/source/terminal revocation integration, and 1822 alone
+  establishes immutable rehearsal source snapshots, forced-RLS grader-only private siblings,
+  source-freeze brokers, and the unit-returning route-scoped verification seam plus its independent
+  atomic Store claim, including lowest-unresolved-ordinal derivation and opaque issue-handle minting;
+  it also proves source-owned timing/artifact verifier chains, grader-only artifact preparation and
+  commit, forced-RLS append-only issued artifacts, exact commit/replay/conflict behavior, required
+  artifact binding before screen or submission persistence, and no application artifact authority;
 - Memory/PostgreSQL source-removal conformance: student-only deletion preserves active rehearsal
   evidence; assignment/course/direct-Instructor removal fences matching runs atomically, appends
   required claim revocations, retains completed evidence, removes only the active-run projection,
@@ -472,7 +614,9 @@ Focused validation proves the behavioral boundary before broad final validation:
   append-only mutation guards, retention-broker authority, and tenant-delete refusal while retained
   rehearsal data exists;
 - server authorization-before-decode, strict decoder, no-store, concealment, key-free response,
-  deterministic native issue/grade, and explicit unsupported-backend tests;
+  deterministic native issue/grade, explicit unsupported-backend tests, and atomic start refusal
+  for manual or otherwise non-deterministically gradeable source material with no rehearsal record,
+  evidence, receipt, Store selection, material execution, backend call, or ordinary learner trace;
 - focused issued-snapshot Memory parity for every configured family: issue a complete contract,
   withdraw catalog visibility, prove a first effect, and prove exact replay without catalog or
   backend access; PostgreSQL fresh migration, forced-RLS/grant, checksum, and cross-row-tamper
@@ -488,6 +632,30 @@ Focused validation proves the behavioral boundary before broad final validation:
   outcomes retain their current authority; missing or corrupt authored timing fails closed as
   `Unavailable` with no catalog read or timer-job mutation; and exact replay remains receipt-only
   without hydrating timing or snapshot state;
+- rehearsal source-material parity: every selected attempt atomically receives exactly one frozen
+  evidence row, answer-free snapshot, and grader-only private sibling; independently tampered
+  question/version/response/content/seed/algorithm, public checksum, private checksum, and family
+  witness fail closed before Store selection, material execution, or backend work; source edit,
+  replacement, or removal after
+  start preserves reproducibility from frozen material or fences the rehearsal, never selecting
+  current catalog content; and replay, pending, stale, and foreign routes invoke neither Store
+  selection, material execution, nor backend;
+- ordered-progression Memory/PostgreSQL parity: frozen ordinals are exact and contiguous; the Store
+  selects only the lowest unresolved ordinal; one open delivery or submission prevents later-item
+  selection; concurrent Continue and Submit produce one backend effect and one accepted evidence
+  entry; resume returns the exact persisted screen; expiry and Retry retain the same frozen item;
+  and the last accepted submission atomically commits its receipt, accepted-item integrity entry,
+  complete coverage proof, and `completed` run lifecycle;
+- rehearsal timing-witness Memory/PostgreSQL parity: each issue cycle binds the persisted subject
+  fingerprint, frozen snapshot digest, run start, and database/server issue time; untimed work with
+  no subject limit remains resumable; per-question time anchors to issue, per-attempt and subject
+  limits anchor to run start, and the earlier deadline with its lawful grace wins; selected-moment
+  due and close affect only preview eligibility; expiry and first submission serialize to one
+  outcome; only per-question expiry permits Retry; per-attempt, subject-limit, and cap-elapsed-before-
+  dispatch paths return one persisted, replayable `RunTimeExhausted` state without a screen; lawful
+  Retry preserves the frozen ordinal, seed, snapshot, and private digests while changing only the
+  cycle and screen capability; and every trace proves zero learner attempt, effective-policy
+  receipt/current-pointer, timer-job, learner-run, submission, score, and gradebook effects;
 - browser-free external, renderer, and replica service oracles proving no provider or renderer call
   on replay, plus one canonical production HTTPS journey that creates state through visible UI,
   withdraws content through an authorized visible workflow, and completes issued work without

@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
+import { createBrowserSessionBoundary } from "../src/auth/browser_session_boundary.ts";
 import { createSessionBootstrap, sessionFailureState } from "../src/auth/session_context.tsx";
 import { prefetchMatchesIssuedSuccessor } from "../src/features/attempt/prefetch_binding.ts";
 import {
@@ -27,15 +28,89 @@ test("session bootstrap retains only safe session state with direct narrow depen
     tenant: "tenant-a",
     user: { id: "user-a", displayName: "Ada", roles: ["student"] },
   };
-  const bootstrap = createSessionBootstrap(
+  const boundaryStates = [];
+  let bootstrap;
+  bootstrap = createSessionBootstrap(
     async () => session,
     async () => undefined,
+    () => boundaryStates.push(bootstrap.state().kind),
   );
   await bootstrap.retry();
   assert.equal(bootstrap.state().kind, "authenticated");
   assert.equal("credential" in bootstrap.state(), false);
   assert.equal(await bootstrap.signOut(), true);
+  await bootstrap.retry();
+  assert.deepEqual(boundaryStates, ["authenticated", "loading"]);
   assert.deepEqual(sessionFailureState({ status: 401 }), { kind: "expired" });
+});
+
+test("browser session generations abort old requests and clear cached projections", async () => {
+  const signals = [];
+  let cacheClears = 0;
+  const boundary = createBrowserSessionBoundary(
+    async (_input, init) => {
+      signals.push(init?.signal);
+      return new Response(null, { status: 204 });
+    },
+    () => {
+      cacheClears += 1;
+    },
+  );
+
+  await boundary.fetch("/first");
+  const firstSignal = signals.at(-1);
+  assert.equal(firstSignal?.aborted, false);
+  boundary.advance();
+  assert.equal(firstSignal?.aborted, true);
+  assert.equal(cacheClears, 1);
+
+  await boundary.fetch("/second");
+  const secondSignal = signals.at(-1);
+  assert.notEqual(secondSignal, firstSignal);
+  assert.equal(secondSignal?.aborted, false);
+
+  const request = new AbortController();
+  await boundary.fetch("/third", { signal: request.signal });
+  const combinedSignal = signals.at(-1);
+  request.abort();
+  assert.equal(combinedSignal?.aborted, true);
+  assert.equal(secondSignal?.aborted, false);
+});
+
+test("a stale session lookup cannot overwrite a newer authenticated generation", async () => {
+  let releaseFirst;
+  let calls = 0;
+  const firstSession = new Promise((resolve) => {
+    releaseFirst = resolve;
+  });
+  const newerSession = {
+    authenticated: true,
+    tenant: "tenant-new",
+    user: { id: "user-new", displayName: "New session", roles: ["student"] },
+  };
+  let advances = 0;
+  const bootstrap = createSessionBootstrap(
+    async () => {
+      calls += 1;
+      return calls === 1 ? firstSession : newerSession;
+    },
+    async () => undefined,
+    () => {
+      advances += 1;
+    },
+  );
+
+  const stale = bootstrap.retry();
+  await bootstrap.retry();
+  assert.deepEqual(bootstrap.state(), { kind: "authenticated", session: newerSession });
+  releaseFirst({
+    authenticated: true,
+    tenant: "tenant-old",
+    user: { id: "user-old", displayName: "Old session", roles: ["student"] },
+  });
+  await stale;
+  assert.deepEqual(bootstrap.state(), { kind: "authenticated", session: newerSession });
+  assert.equal(advances, 1);
 });
 
 test("the generated browser surface excludes answer-bearing type names", () => {

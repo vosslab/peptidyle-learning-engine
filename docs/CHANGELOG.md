@@ -1,5 +1,92 @@
 # Changelog
 
+## 2026-08-24
+
+### Fixes and Maintenance
+
+- Restored whole-course grade-settings mutation after assignment writes moved behind their dedicated
+  broker. PostgreSQL now performs the exact assignment-set validation and serialization inside the
+  grade-control capability; the application adapter validates only the closed request shape. Hand-
+  raised T4 expected-revision and immutable-witness conflicts no longer masquerade as retryable
+  database serialization failures, so stale grade drafts reach the browser as the intended preserved
+  412 workflow. The settings page also keeps a successful save acknowledged when its subsequent
+  totals refresh fails and names the visible recovery action.
+- Advanced the current `WP-PROF-T4` rehearsal package over ordinary live courses, assignments,
+  published questions, and deterministic graders. Store-owned start now freezes the real ordered
+  assignment source, derives four-item progression without a mutable client ordinal, binds
+  submissions to the issued answer-free screen, and preserves receipt-only terminal replay.
+- Retired the application-visible frozen-material preload and the normal-build direct rehearsal
+  claim APIs. Route verification now returns only an integrity result, requires an active authorized
+  rehearsal, and discloses no candidate identity, question payload, snapshot, or grading material.
+  Fresh PostgreSQL 17 tests prove active success, terminal concealment, internally checksummed
+  corruption refusal, least-privilege function shape, ordered completion, and replay behavior.
+- Kept rehearsal as a live operating mode rather than a parallel demo data source. Its dedicated
+  persistence contains immutable execution and audit evidence outside learner records; the current
+  T4 package remains unaccepted pending production routes, visible UI, canonical HTTPS evidence,
+  and complete Validation.
+- Bound every issued rehearsal screen to a server-derived full commitment over the complete typed,
+  answer-free presentation; browser submissions carry only its public stale-screen token. Memory
+  and PostgreSQL now rehydrate and rederive that commitment before replay, read, claim, or submit,
+  and fail closed on corrupted screen content or evidence.
+- Completed immutable rehearsal timing authority without learner timers or a mutable current-item
+  pointer. Database/server time and frozen ordinary material derive the canonical witness;
+  per-question expiry alone permits same-item Retry, while per-attempt and subject limits persist a
+  replayable no-screen terminal. Fresh PostgreSQL 17 migration convergence and the focused live
+  rehearsal matrix passed 1/1 and 17/17; Memory rehearsal conformance passed 43/43, and strict
+  production-profile checks are warning-free.
+- Replaced the Base Course freshness broker's migration-order-dependent public-table scan with an
+  explicit, locked relation-domain registry and a separate sealed-rehearsal witness. Fresh installs
+  now fail closed on missing coverage, unsafe ownership, role, ACL, RLS, column, sequence, or
+  function authority; the delivery-material migration remains one atomic transaction. Base Course
+  completion now derives its transaction-local tenant context from the locked installation state
+  before invoking the sealed learner-work shape verifier. Corrected the invitation-broker catalog
+  oracle to include its intentional roster-state bootstrap insert.
+- Bound browser HTTP requests and Solid Router query entries to one abortable session generation.
+  Confirmed logout and subsequent session establishment now retire pending work before another
+  account can load, while the production-browser course picker waits for visible course identity
+  instead of treating the persistent application shell as route readiness.
+- Kept learner assignment discovery and explicit entitlement inspection on the read-only S5 path.
+  These projections no longer request mutation locks that the application role intentionally lacks;
+  later learner writes continue to reauthorize through their server-owned transactional capability.
+- Split learner activity projection hydration from mutation locking. Assignment-overview progress,
+  enrollments, runs, attempts, summaries, and instructor history now use plain snapshot reads and the
+  read-only entitlement evaluator; brokered activity transitions remain the sole owners of write
+  serialization. This restores the live learner assignment entry without broadening application-role
+  privileges.
+- Kept post-start run items, attempt lists, prefetched-question lookups, and pending-submission
+  projections on that same read boundary. Server-owned attempt issuance continues through the 1817
+  learner-work broker witness, while ordinary run navigation no longer tries to lock teaching source
+  rows through the application role.
+- Made public course, assignment, run, and workspace reference resolution uniformly projection-only.
+  Learner run-reference authorization now evaluates current entitlement without mutation locks, so a
+  newly issued run can open through its opaque public route under the least-privilege application role.
+- Separated future-content replacement from active-attempt timing-policy mutation. A revision-checked
+  fixed-item replacement now updates the assignment definition for future runs while leaving issued
+  question evidence and effective-policy receipts untouched, matching the immutable issued-work
+  contract and avoiding a false assignment conflict when learner work is active.
+- Completed the focused assignment-mutation boundary around that replacement. The consolidated
+  broker trigger now admits only its transaction-scoped operation marker, Rust verifies the exact
+  revision advance returned by every focused mutation, wrong course/tenant routes are concealed
+  before broker entry and revalidated under its lock, and repeated ordered positions may reference
+  the same immutable publication without weakening reference validation.
+- Bound successor-receipt reads and finalization to the explicit learner course/assignment route.
+  Receipt replay, issued-presentation validation, and completed-run summaries are lock-free
+  projections; successor mutation remains owned by the learner-work preparation broker. Completed
+  public receipts now always suppress successor delivery state, including idempotent replay, while
+  wrong routes remain concealed and cannot alter immutable receipt evidence.
+- Kept assignment delivery preview source reads on the same least-privilege projection boundary.
+  Derived previews now bind their internal assignment and membership evidence inside one consistent
+  repeatable-read snapshot and append the private audit as the final statement, without acquiring
+  teaching-data mutation locks through the application role.
+- Restored teaching-operations projections under the same least-privilege rule: instructor checks
+  and course-group policy reads now remain plain application-role reads, while the dedicated
+  server-owned mutation brokers retain locking and current-authority revalidation. The live browser
+  journey now waits for the visible group editor before attempting its first mutation.
+- Closed co-instructor invitation mutation authority with session-derived database capabilities for
+  create, revoke, and decline, completed the existing acceptance broker's lock privileges, and
+  revoked direct application-role invitation writes and sequence access. Memory and PostgreSQL now
+  reject an actor that disagrees with the presented active session.
+
 ## 2026-08-23
 
 ### Fixes and Maintenance

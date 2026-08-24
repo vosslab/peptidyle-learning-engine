@@ -48,6 +48,84 @@ pub(super) struct ClaimRootBinding {
     pub(super) fingerprint: RehearsalSubmissionRequestFingerprint,
 }
 
+/// The exact private input committed by an idempotent rehearsal submission claim.
+///
+/// Live route claims retain the browser's authenticated rendered response until
+/// the sealed grading boundary translates it.  Durable requests exist only for
+/// generic test-support and internal claims that already own durable IDs.
+/// This is deliberately non-serde: persistence uses the closed codec in
+/// [`super::persistence`].
+pub enum RehearsalClaimSubmissionInput {
+    Rendered(question_model::ValidatedRehearsalRenderedSubmissionV1),
+    Durable(RehearsalValidatedSubmissionRequest),
+}
+
+impl PartialEq for RehearsalClaimSubmissionInput {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Rendered(left), Self::Rendered(right)) => {
+                left.response() == right.response()
+                    && left.presentation_commitment() == right.presentation_commitment()
+            }
+            (Self::Durable(left), Self::Durable(right)) => left == right,
+            _ => false,
+        }
+    }
+}
+
+impl From<RehearsalValidatedSubmissionRequest> for RehearsalClaimSubmissionInput {
+    fn from(value: RehearsalValidatedSubmissionRequest) -> Self {
+        Self::Durable(value)
+    }
+}
+
+impl RehearsalClaimSubmissionInput {
+    pub fn rendered(value: question_model::ValidatedRehearsalRenderedSubmissionV1) -> Self {
+        Self::Rendered(value)
+    }
+
+    pub fn durable(value: RehearsalValidatedSubmissionRequest) -> Self {
+        Self::Durable(value)
+    }
+
+    /// The exact original response retained as private claim evidence.
+    pub fn original_response(&self) -> &question_model::StudentResponse {
+        match self {
+            Self::Rendered(value) => value.response(),
+            Self::Durable(value) => value.submitted_response(),
+        }
+    }
+
+    pub fn presentation_commitment(&self) -> Option<question_model::RehearsalPresentationDigestV1> {
+        match self {
+            Self::Rendered(value) => Some(value.presentation_commitment()),
+            Self::Durable(_) => None,
+        }
+    }
+
+    pub fn durable_request(&self) -> Option<&RehearsalValidatedSubmissionRequest> {
+        match self {
+            Self::Rendered(_) => None,
+            Self::Durable(value) => Some(value),
+        }
+    }
+
+    pub(super) fn validate_for_completion(
+        &self,
+        durable_request: &RehearsalValidatedSubmissionRequest,
+        frozen: &RehearsalFrozenItemEvidence,
+    ) -> Result<(), question_model::RehearsalEvidenceValidationError> {
+        durable_request.validate_frozen_attempt(frozen)?;
+        match self {
+            Self::Rendered(_) => Ok(()),
+            Self::Durable(value) if value == durable_request => Ok(()),
+            Self::Durable(_) => {
+                Err(question_model::RehearsalEvidenceValidationError::ResponseDefinitionMismatch)
+            }
+        }
+    }
+}
+
 /// Raw private material decoded from or retained for the locked claim-root row.
 ///
 /// This is deliberately not a usable aggregate capability: it cannot restore
@@ -55,10 +133,10 @@ pub(super) struct ClaimRootBinding {
 /// move this value across a Store boundary, but it must be verified against the
 /// locked aggregate genesis and exact frozen attempt before domain operations
 /// can use it.
-#[derive(Clone, PartialEq)]
+#[derive(PartialEq)]
 pub struct RehearsalPersistedClaimRoot {
     pub(super) binding: ClaimRootBinding,
-    sealed_request: RehearsalValidatedSubmissionRequest,
+    submission_input: RehearsalClaimSubmissionInput,
 }
 
 impl RehearsalPersistedClaimRoot {
@@ -69,7 +147,7 @@ impl RehearsalPersistedClaimRoot {
         rehearsal: question_model::RehearsalRunId,
         claim: question_model::RehearsalSubmissionClaimId,
         fingerprint: RehearsalSubmissionRequestFingerprint,
-        sealed_request: RehearsalValidatedSubmissionRequest,
+        submission_input: impl Into<RehearsalClaimSubmissionInput>,
     ) -> Self {
         Self {
             binding: ClaimRootBinding {
@@ -77,7 +155,7 @@ impl RehearsalPersistedClaimRoot {
                 claim,
                 fingerprint,
             },
-            sealed_request,
+            submission_input: submission_input.into(),
         }
     }
     pub const fn rehearsal(&self) -> question_model::RehearsalRunId {
@@ -89,8 +167,8 @@ impl RehearsalPersistedClaimRoot {
     pub const fn fingerprint(&self) -> RehearsalSubmissionRequestFingerprint {
         self.binding.fingerprint
     }
-    pub const fn sealed_request(&self) -> &RehearsalValidatedSubmissionRequest {
-        &self.sealed_request
+    pub const fn submission_input(&self) -> &RehearsalClaimSubmissionInput {
+        &self.submission_input
     }
 }
 
@@ -101,7 +179,8 @@ impl RehearsalPersistedClaimRoot {
 #[derive(PartialEq)]
 pub struct RehearsalClaimRoot {
     pub(super) binding: ClaimRootBinding,
-    sealed_request: RehearsalValidatedSubmissionRequest,
+    submission_input: RehearsalClaimSubmissionInput,
+    verified_attempt: RehearsalFrozenAttemptCommitment,
 }
 
 impl RehearsalClaimRoot {
@@ -119,15 +198,19 @@ impl RehearsalClaimRoot {
         if persisted.binding.rehearsal != context.rehearsal {
             return Err(RehearsalClaimRootVerificationError::ContextRunMismatch);
         }
-        let fingerprint =
-            rehearsal_submission_request_fingerprint(context, frozen, &persisted.sealed_request)
-                .map_err(RehearsalClaimRootVerificationError::SealedRequestMismatch)?;
+        let fingerprint = rehearsal_claim_submission_input_fingerprint(
+            context,
+            frozen,
+            &persisted.submission_input,
+        )
+        .map_err(RehearsalClaimRootVerificationError::SubmissionInputMismatch)?;
         if fingerprint != persisted.binding.fingerprint {
             return Err(RehearsalClaimRootVerificationError::FingerprintMismatch);
         }
         Ok(Self {
             binding: persisted.binding,
-            sealed_request: persisted.sealed_request,
+            submission_input: persisted.submission_input,
+            verified_attempt: RehearsalFrozenAttemptCommitment::from_frozen(frozen),
         })
     }
 
@@ -136,7 +219,7 @@ impl RehearsalClaimRoot {
     pub fn into_persisted(self) -> RehearsalPersistedClaimRoot {
         RehearsalPersistedClaimRoot {
             binding: self.binding,
-            sealed_request: self.sealed_request,
+            submission_input: self.submission_input,
         }
     }
     pub const fn rehearsal(&self) -> question_model::RehearsalRunId {
@@ -148,8 +231,14 @@ impl RehearsalClaimRoot {
     pub const fn fingerprint(&self) -> RehearsalSubmissionRequestFingerprint {
         self.binding.fingerprint
     }
-    pub const fn sealed_request(&self) -> &RehearsalValidatedSubmissionRequest {
-        &self.sealed_request
+    pub const fn submission_input(&self) -> &RehearsalClaimSubmissionInput {
+        &self.submission_input
+    }
+
+    /// Confirms that restored accepted evidence is tied to the exact frozen
+    /// attempt authenticated while this root became operational.
+    pub(super) fn verified_attempt_matches(&self, frozen: &RehearsalFrozenItemEvidence) -> bool {
+        self.verified_attempt.matches_frozen(frozen)
     }
 
     /// Restores one transition that is physically scoped by this exact root.
@@ -324,6 +413,28 @@ pub fn mark_rehearsal_submission_dispatched(
 ) -> DispatchedClaimHandle {
     DispatchedClaimHandle(prepared.0)
 }
+
+/// Restores a dispatched handle only after a sealed persistence capability has
+/// verified the claim root, immutable delivery binding, and append-only phase.
+/// It is intentionally not a route constructor: callers must keep all values
+/// server-private and perform that verification in the same database call.
+pub fn restore_sealed_dispatched_claim_handle(
+    rehearsal: question_model::RehearsalRunId,
+    claim: question_model::RehearsalSubmissionClaimId,
+    fingerprint: RehearsalSubmissionRequestFingerprint,
+    operation: question_model::RehearsalGradeOperationId,
+    generation: RehearsalClaimGeneration,
+) -> DispatchedClaimHandle {
+    DispatchedClaimHandle(ClaimIdentity {
+        binding: ClaimRootBinding {
+            rehearsal,
+            claim,
+            fingerprint,
+        },
+        operation,
+        generation,
+    })
+}
 pub fn abandon_rehearsal_submission_before_dispatch(
     prepared: PreparedClaimHandle,
     reason: RehearsalPreDispatchAbandonReason,
@@ -456,7 +567,7 @@ pub enum RehearsalClaimHydrationError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RehearsalClaimRootVerificationError {
     ContextRunMismatch,
-    SealedRequestMismatch(question_model::RehearsalEvidenceValidationError),
+    SubmissionInputMismatch(question_model::RehearsalEvidenceValidationError),
     FingerprintMismatch,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -484,30 +595,6 @@ pub fn verify_rehearsal_claim_completion_proof(
     }
     verify_evidence_chain(context, expected_head, entries)
         .map_err(RehearsalClaimCompletionProofError::EvidenceIntegrity)?;
-    let frozen: Vec<(&RehearsalEvidenceChainEntry, &RehearsalFrozenItemEvidence)> = entries
-        .iter()
-        .filter_map(|entry| match &entry.payload {
-            RehearsalEvidencePayload::FrozenItem(item)
-                if item.attempt == root.sealed_request().attempt() =>
-            {
-                Some((entry, item))
-            }
-            _ => None,
-        })
-        .collect();
-    if frozen.is_empty() {
-        return Err(RehearsalClaimCompletionProofError::FrozenAttemptMissing);
-    }
-    if frozen.len() != 1 {
-        return Err(RehearsalClaimCompletionProofError::DuplicateFrozenAttempt);
-    }
-    let (frozen_entry, frozen) = frozen[0];
-    let fingerprint =
-        rehearsal_submission_request_fingerprint(context, frozen, root.sealed_request())
-            .map_err(|_| RehearsalClaimCompletionProofError::FingerprintMismatch)?;
-    if fingerprint != root.fingerprint() {
-        return Err(RehearsalClaimCompletionProofError::FingerprintMismatch);
-    }
     let accepted: Vec<(
         &RehearsalEvidenceChainEntry,
         &RehearsalValidatedSubmissionEvidence,
@@ -528,11 +615,33 @@ pub fn verify_rehearsal_claim_completion_proof(
     if accepted.len() != 1 {
         return Err(RehearsalClaimCompletionProofError::DuplicateAcceptedSubmission);
     }
+    let frozen: Vec<(&RehearsalEvidenceChainEntry, &RehearsalFrozenItemEvidence)> = entries
+        .iter()
+        .filter_map(|entry| match &entry.payload {
+            RehearsalEvidencePayload::FrozenItem(item) if item.attempt == value.attempt() => {
+                Some((entry, item))
+            }
+            _ => None,
+        })
+        .collect();
+    let frozen_count = frozen.len();
+    let Some((frozen_entry, frozen)) = frozen.first().copied() else {
+        return Err(RehearsalClaimCompletionProofError::FrozenAttemptMissing);
+    };
+    if frozen_count != 1 {
+        return Err(RehearsalClaimCompletionProofError::DuplicateFrozenAttempt);
+    }
+    let fingerprint =
+        rehearsal_claim_submission_input_fingerprint(context, frozen, root.submission_input())
+            .map_err(|_| RehearsalClaimCompletionProofError::FingerprintMismatch)?;
+    if fingerprint != root.fingerprint() {
+        return Err(RehearsalClaimCompletionProofError::FingerprintMismatch);
+    }
     if frozen_entry.record.sequence >= entry.record.sequence {
         return Err(RehearsalClaimCompletionProofError::FrozenAttemptNotBeforeAcceptedSubmission);
     }
     if value.attempt() != frozen.attempt
-        || value.submitted_response() != root.sealed_request().submitted_response()
+        || value.submitted_response() != root.submission_input().original_response()
     {
         return Err(RehearsalClaimCompletionProofError::AcceptedSubmissionRequestMismatch);
     }
@@ -542,7 +651,7 @@ pub fn verify_rehearsal_claim_completion_proof(
         material: RehearsalClaimCompletionMaterial {
             accepted_evidence_sequence: u64::from(entry.record.sequence),
             accepted_evidence_digest: entry.record.digest,
-            receipt_digest: rehearsal_public_receipt_digest(&receipt),
+            receipt_digest: persistence::persisted_rehearsal_receipt_digest(&receipt),
         },
         receipt,
     })
@@ -729,6 +838,19 @@ pub fn decide_submission_claim(
     new_root: &RehearsalClaimRoot,
     new_operation: question_model::RehearsalGradeOperationId,
 ) -> RehearsalSubmissionClaimDecision {
+    if let Some(existing) = existing {
+        if existing.fingerprint() != requested {
+            return RehearsalSubmissionClaimDecision::Conflict;
+        }
+        if existing.state() == RehearsalSubmissionClaimState::Completed {
+            return RehearsalSubmissionClaimDecision::Replay {
+                receipt: existing
+                    .completion_proof()
+                    .expect("completed snapshot has proof")
+                    .replay_receipt(),
+            };
+        }
+    }
     if !revision_is_current {
         return RehearsalSubmissionClaimDecision::StaleRevision;
     }
@@ -747,16 +869,8 @@ pub fn decide_submission_claim(
             }),
         };
     };
-    if existing.fingerprint() != requested {
-        return RehearsalSubmissionClaimDecision::Conflict;
-    }
     match existing.state() {
-        RehearsalSubmissionClaimState::Completed => RehearsalSubmissionClaimDecision::Replay {
-            receipt: existing
-                .completion_proof()
-                .expect("completed snapshot has proof")
-                .replay_receipt(),
-        },
+        RehearsalSubmissionClaimState::Completed => unreachable!("completed replay returns first"),
         RehearsalSubmissionClaimState::Prepared
         | RehearsalSubmissionClaimState::GradingDispatched => {
             RehearsalSubmissionClaimDecision::Pending

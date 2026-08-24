@@ -5,6 +5,7 @@ use crate::{LearnerWorkRoutingBinding, PrefetchedQuestionDescriptorV1, ReceiptNe
 
 mod attempt_issuance;
 mod issued_contracts;
+mod private_execution;
 pub(super) mod submission_preparation;
 
 pub(super) use attempt_issuance::effective_attempt_deadline;
@@ -12,8 +13,7 @@ mod learner_reads;
 mod pending_submissions;
 
 pub(super) use issued_contracts::{
-    load_issued_flat_grading, load_issued_presentation, load_issued_receipt_evidence,
-    load_issued_webwork_grading, load_submission_record,
+    load_issued_presentation, load_issued_receipt_evidence, load_submission_record,
 };
 
 #[async_trait]
@@ -326,35 +326,9 @@ impl crate::RunStore for MemoryStore {
             grading_envelope,
         );
         match current_attempt.status {
-            AttemptStatus::InProgress => {
-                let flat_grading = load_issued_flat_grading(&state, tenant, record)?;
-                let webwork_grading = load_issued_webwork_grading(&state, tenant, record)?;
-                let replay = state.webwork_grade_replay.get(&(tenant, attempt)).cloned();
-                if let Some(replay) = replay.as_ref() {
-                    crate::validate_persisted_webwork_replay_state(
-                        record,
-                        presentation_binding,
-                        replay,
-                    )?;
-                }
-                let webwork_required = matches!(
-                    record.issued_capability,
-                    question_model::IssuedAttemptCapabilityV1::WebworkPresentation
-                );
-                if webwork_required != (webwork_grading.is_some() && replay.is_some()) {
-                    return Err(StoreError::Unavailable(
-                        "stored active WebWork issued evidence is incomplete".to_string(),
-                    ));
-                }
-                Ok(crate::IssuedAttemptRead::Active(Box::new(
-                    crate::ActiveIssuedAttemptEvidence::new(
-                        receipt,
-                        flat_grading,
-                        webwork_grading,
-                        replay,
-                    ),
-                )))
-            }
+            AttemptStatus::InProgress => Ok(crate::IssuedAttemptRead::Active(Box::new(
+                crate::ActiveIssuedAttemptEvidence::new(receipt),
+            ))),
             AttemptStatus::Submitted => {
                 let stored = state.submissions.get(&(tenant, attempt)).ok_or_else(|| {
                     StoreError::Unavailable(
@@ -475,14 +449,17 @@ impl crate::RunStore for MemoryStore {
         );
         if let Some(existing) = state.prefetched_questions.get(&key) {
             return if existing == &reservation
-                && state.prefetched_private_execution.get(&key) == Some(&private_execution) {
+                && state.prefetched_private_execution.get(&key) == Some(&private_execution)
+            {
                 Ok(existing.clone())
             } else {
                 Err(StoreError::Conflict)
             };
         }
         state.prefetched_questions.insert(key, reservation.clone());
-        state.prefetched_private_execution.insert(key, private_execution);
+        state
+            .prefetched_private_execution
+            .insert(key, private_execution);
         Ok(reservation)
     }
     async fn get_prefetched_question_impl(
@@ -536,6 +513,7 @@ impl crate::RunStore for MemoryStore {
         &self,
         context: TenantContext,
         actor: UserId,
+        binding: LearnerWorkRoutingBinding,
         predecessor: QuestionAttemptId,
     ) -> Result<SubmissionNextAttempt, StoreError> {
         let state = self.read_state()?;
@@ -549,6 +527,9 @@ impl crate::RunStore for MemoryStore {
             .ok_or(StoreError::NotFound)?;
         let enrollment = enrollment_record(&state, context.tenant_id(), run.enrollment)?;
         let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
+        if LearnerWorkRoutingBinding::new(assignment.course_id, assignment.id) != binding {
+            return Err(StoreError::NotFound);
+        }
         require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
         require_attempt_owner(&state, context.tenant_id(), attempt, actor)?;
         if !state
@@ -588,6 +569,7 @@ impl crate::RunStore for MemoryStore {
         &self,
         context: TenantContext,
         actor: UserId,
+        binding: LearnerWorkRoutingBinding,
         predecessor: QuestionAttemptId,
         next: Option<QuestionAttemptId>,
     ) -> Result<(), StoreError> {
@@ -604,6 +586,9 @@ impl crate::RunStore for MemoryStore {
             .ok_or(StoreError::NotFound)?;
         let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
         let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
+        if LearnerWorkRoutingBinding::new(assignment.course_id, assignment.id) != binding {
+            return Err(StoreError::NotFound);
+        }
         require_course_records_accessible(&state, tenant, assignment.course_id)?;
         require_attempt_owner(&state, tenant, &attempt, actor)?;
         if !state.submissions.contains_key(&(tenant, predecessor)) {
@@ -793,7 +778,7 @@ pub(super) fn submit_question_attempt_locked(
         &command.idempotency_key,
     )? {
         crate::SubmissionPreparation::Replay(record) => return Ok(*record),
-        crate::SubmissionPreparation::Grade(_) => {}
+        crate::SubmissionPreparation::FirstEffect(_) => {}
     }
     let base = state
         .attempts

@@ -326,6 +326,11 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
             Arc::clone(&grader),
             Arc::clone(&objects),
         )),
+        Arc::new(
+            learning_data_access::in_memory::MemorySealedPrivateExecutionStore::new(Arc::clone(
+                &store,
+            )),
+        ),
     );
     let run = app
         .clone()

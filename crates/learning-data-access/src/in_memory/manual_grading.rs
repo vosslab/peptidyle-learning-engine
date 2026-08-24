@@ -139,7 +139,7 @@ fn submit_pending_manual_question_attempt_locked(
         &command.idempotency_key,
     )? {
         crate::SubmissionPreparation::Replay(record) => return Ok(*record),
-        crate::SubmissionPreparation::Grade(_) => {}
+        crate::SubmissionPreparation::FirstEffect(_) => {}
     }
     let base = state
         .attempts

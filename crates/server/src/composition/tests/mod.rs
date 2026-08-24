@@ -131,11 +131,24 @@ pub(super) fn composed_memory_router_and_store_with_live_demo_selector(
         student_records_bucket: "student-records".to_string(),
         temp_processing_bucket: "temp-processing".to_string(),
     });
+    let sealed_memory = Arc::new(
+        learning_data_access::in_memory::MemorySealedPrivateExecutionStore::new(Arc::clone(&store)),
+    );
+    let sealed_execution: Arc<dyn learning_data_access::SealedPrivateExecutionStore> =
+        sealed_memory.clone();
+    let rehearsal_sealed: Arc<dyn learning_data_access::SealedRehearsalDeliveryExecutionStore> =
+        sealed_memory;
+    let rehearsal_coordinator = Arc::new(crate::rehearsal::RehearsalExecutionCoordinator::new(
+        Arc::clone(&backends),
+        rehearsal_sealed,
+    ));
     let router = compose_passwordless_router(
         Arc::clone(&store),
         objects,
         public_assets,
         backends,
+        sealed_execution,
+        rehearsal_coordinator,
         native_adapter,
         Arc::new(TestReview),
         session_config,

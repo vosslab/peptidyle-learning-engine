@@ -93,6 +93,23 @@ where
         )
         .await
         .expect("external-tool publication");
+    let issued_question = store
+        .get_catalog_problem(context, reference)
+        .await
+        .expect("external-tool published question")
+        .expect("external-tool publication exists")
+        .question;
+    let issued_question_snapshot = learning_data_access::IssuedQuestionSnapshotV1::new(
+        issued_question,
+        learning_data_access::IssuedQuestionFamilyWitnessV1::External {
+            source_artifact: SourceArtifact {
+                object: source_object,
+                sha256: source_sha256.clone(),
+            },
+            integration_profile_identity: "institution-default".to_string(),
+        },
+    )
+    .expect("construct exact external-tool issued question snapshot");
     store
         .create_course(
             context,
@@ -182,15 +199,20 @@ where
                 assignment_position: 0,
                 problem,
                 question_version: version,
+                issued_question_snapshot,
                 seed: binding.seed,
                 presentation_capability: PresentationCapability::NotApplicable,
                 presentation: None,
                 presentation_snapshot: None,
                 grading_envelope: None,
+                native_execution_envelope_capability:
+                    NativeExecutionEnvelopeCapability::NotApplicable,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_grading: None,
                 webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: QtiGradingCapability::NotApplicable,
                 parameter_hash: "external-tool-parameters".to_string(),
                 provenance: AttemptProvenance {
                     adapter: implementation("imathas"),

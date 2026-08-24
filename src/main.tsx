@@ -5,11 +5,13 @@
 // ends up rendering a static snapshot that never updates.
 
 import { render } from "solid-js/web";
-import { Router } from "@solidjs/router";
+import { query, Router } from "@solidjs/router";
 
 import { createBrowserApiClient } from "./api/browser_client";
+import { browserFetch } from "./api/http_client";
 import { ApiRuntimeProvider, createApiRuntime } from "./api/runtime";
 import { App } from "./app";
+import { createBrowserSessionBoundary } from "./auth/browser_session_boundary";
 import { SessionProvider } from "./auth/session_context";
 import { log } from "./log";
 import { appRoutes, notFoundRoute } from "./routes";
@@ -25,13 +27,18 @@ if (mountPoint === null) {
 
 log.info("peptidyle client booting");
 
-const apiClient = createBrowserApiClient();
+const sessionBoundary = createBrowserSessionBoundary(browserFetch, query.clear);
+const apiClient = createBrowserApiClient({ fetch: sessionBoundary.fetch });
 const apiRuntime = createApiRuntime(apiClient);
 
 render(
   () => (
     <ApiRuntimeProvider runtime={apiRuntime}>
-      <SessionProvider getSession={apiClient.getSession} logout={apiClient.logout}>
+      <SessionProvider
+        getSession={apiClient.getSession}
+        logout={apiClient.logout}
+        advanceSessionBoundary={sessionBoundary.advance}
+      >
         <WasmRuntimeProvider
           formatFallback={apiClient.validateResponseFormatOnServer}
           timerFallback={apiClient.timerVerdictOnServer}

@@ -1,4 +1,4 @@
-//! Shared policy resolution for locked consumers and read-only T3 previews.
+//! Shared read-only policy resolution for learner and T3 projections.
 
 use super::*;
 
@@ -25,12 +25,11 @@ pub(super) async fn load_course_term_for_preview(
         .map_err(|error| StoreError::Unavailable(format!("stored course term is invalid: {error}")))
 }
 
-pub(super) async fn resolve_granted_effective_policy_with_lock(
+pub(super) async fn resolve_granted_effective_policy_read_only(
     tx: &mut Transaction<'_, Postgres>,
     grant: domain::entitlement::EntitlementGrant,
     authorization: domain::effective_assignment_policy::AuthorizationGate,
     prior_run_count: u32,
-    lock: bool,
 ) -> Result<
     (
         domain::effective_assignment_policy::EffectivePolicyDecision,
@@ -40,21 +39,15 @@ pub(super) async fn resolve_granted_effective_policy_with_lock(
 > {
     let tenant = grant.tenant();
     let assignment = grant.assignment();
-    let query = if lock {
-        concat!(
-            "SELECT revision, lifecycle FROM assignment ",
-            "WHERE tenant_id=$1 AND assignment_id=$2 FOR SHARE"
-        )
-    } else {
-        "SELECT revision, lifecycle FROM assignment WHERE tenant_id=$1 AND assignment_id=$2"
-    };
-    let row = sqlx::query(query)
-        .bind(tenant.as_uuid())
-        .bind(assignment.as_uuid())
-        .fetch_optional(&mut **tx)
-        .await
-        .map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
+    let row = sqlx::query(
+        "SELECT revision, lifecycle FROM assignment WHERE tenant_id=$1 AND assignment_id=$2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(assignment.as_uuid())
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(map_sqlx_error)?
+    .ok_or(StoreError::NotFound)?;
     let lifecycle = assignment_lifecycle_gate(parse_assignment_lifecycle(
         &row.try_get::<String, _>("lifecycle")
             .map_err(map_sqlx_error)?,

@@ -1,19 +1,17 @@
 use async_trait::async_trait;
-use objects::Sha256Digest;
-use question_model::{ImplementationVersion, ObjectId, SourceArtifact};
 use sqlx::types::Uuid;
 use sqlx::{Postgres, Row, Transaction};
 
 use super::*;
 use crate::{
-    LearnerWorkRoutingBinding, PrefetchedQuestionDescriptorV1, ReceiptNextAttempt, WebworkGradeReplayStateV1,
-    WebworkReplayMappingV1,
+    LearnerWorkRoutingBinding, PrefetchedQuestionDescriptorV1, ReceiptNextAttempt,
+    validate_issued_flat_grading, validate_issued_webwork_grading, validate_issued_webwork_replay,
 };
 
 pub(super) mod attempt_issuance;
 pub(super) mod authored_timing;
 pub(super) mod learner_transition;
-pub(super) mod qti_contracts;
+pub(super) mod private_execution;
 pub(super) use authored_timing::add_seconds;
 
 /// Hydrates the authorized current delivery lifecycle and immutable issuance
@@ -30,9 +28,7 @@ async fn hydrate_issued_attempt_evidence(
         "SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, \
                 presentation_digest, presentation_capability, presentation_payload, \
                 presentation_payload_sha256, grading_envelope_payload, \
-                grading_envelope_payload_sha256, flat_grading_required, flat_grading_payload, \
-                flat_grading_payload_sha256, webwork_grading_required, \
-                webwork_grading_payload, webwork_grading_payload_sha256, \
+                grading_envelope_payload_sha256, \
                 attempt_status AS current_attempt_status, \
                 floor(extract(epoch FROM submitted_at) * 1000)::bigint AS current_submitted_at \
            FROM question_attempt \
@@ -75,106 +71,123 @@ async fn hydrate_issued_attempt_evidence(
         presentation_snapshot,
         grading_envelope,
     );
+    // A submission receipt is immutable evidence rather than a projection
+    // cache.  Read it for every lifecycle state so a clear or other terminal
+    // transition cannot turn a corrupted receipt into invisible history.
+    // The decoder verifies every retained receipt checksum before this state
+    // machine chooses a browser-safe projection (ASVS 2.3.1, 2.3.3, 11.4.3).
+    let submission_receipt = super::submission::load_submission_receipt_snapshot(
+        transaction,
+        witness.source.tenant,
+        witness.attempt,
+    )
+    .await?;
+    let receipt_requirement = SubmissionReceiptRequirement::for_status(current_attempt.status);
+    let receipt_presentation = validate_submission_receipt_for_issued_attempt(
+        submission_receipt,
+        receipt_requirement,
+        witness,
+        &receipt,
+    )?;
     match current_attempt.status {
-        AttemptStatus::InProgress => {
-            let flat_grading =
-                attempt_issuance::validate_attempt_flat_grading(&row, &current_attempt)?;
-            let webwork_grading =
-                attempt_issuance::validate_attempt_webwork_grading(&row, &current_attempt)?;
-            let webwork_replay =
-                load_issued_webwork_replay(transaction, witness.source.tenant, &current_attempt)
-                    .await?;
-            let webwork_required = matches!(
-                current_attempt.issued_capability,
-                question_model::IssuedAttemptCapabilityV1::WebworkPresentation
-            );
-            if webwork_required != (webwork_grading.is_some() && webwork_replay.is_some()) {
-                return Err(StoreError::Unavailable(
-                    "stored active WebWork issued evidence is incomplete".to_string(),
-                ));
-            }
-            if let Some(replay) = &webwork_replay {
-                crate::validate_persisted_webwork_replay_state(
-                    &current_attempt,
-                    presentation_binding,
-                    replay,
-                )?;
-            }
-            Ok(crate::IssuedAttemptRead::Active(Box::new(
-                crate::ActiveIssuedAttemptEvidence::new(
-                    receipt,
-                    flat_grading,
-                    webwork_grading,
-                    webwork_replay,
-                ),
-            )))
-        }
-        AttemptStatus::Submitted => {
-            let (receipt_run, _receipt_summary, receipt_presentation) =
-                super::submission::load_submission_receipt_snapshot(
-                    transaction,
-                    witness.source.tenant,
-                    witness.attempt,
-                )
-                .await?
-                .ok_or_else(|| {
-                    StoreError::Unavailable(
-                        "submitted attempt lacks its immutable receipt".to_string(),
-                    )
-                })?;
-            if receipt_run.id != witness.run
-                || receipt_run.tenant != witness.source.tenant
-                || receipt_presentation != receipt.presentation_snapshot().cloned()
-            {
-                return Err(StoreError::Unavailable(
-                    "submitted receipt disagrees with issued evidence".to_string(),
-                ));
-            }
-            Ok(crate::IssuedAttemptRead::Submitted(Box::new(
-                crate::SubmittedIssuedAttemptRead::new(
-                    receipt,
-                    crate::SubmittedQuestionReceipt::new(receipt_presentation),
-                ),
-            )))
-        }
+        AttemptStatus::InProgress => Ok(crate::IssuedAttemptRead::Active(Box::new(
+            crate::ActiveIssuedAttemptEvidence::new(receipt),
+        ))),
+        AttemptStatus::Submitted => Ok(crate::IssuedAttemptRead::Submitted(Box::new(
+            crate::SubmittedIssuedAttemptRead::new(
+                receipt,
+                crate::SubmittedQuestionReceipt::new(receipt_presentation),
+            ),
+        ))),
         status => Ok(crate::IssuedAttemptRead::TerminalWithoutReceipt(Box::new(
             crate::TerminalIssuedAttemptRead::new(receipt, status),
         ))),
     }
 }
 
-async fn load_issued_webwork_replay(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    attempt: &QuestionAttempt,
-) -> Result<Option<WebworkGradeReplayStateV1>, StoreError> {
-    let row = sqlx::query(
-        "SELECT problem_id, version_id, source_object_id, source_sha256, seed::text AS seed, \
-                renderer_id, renderer_version, presentation_digest AS replay_presentation_digest, \
-                mapping, mapping_sha256 \
-           FROM webwork_grade_replay_state \
-          WHERE tenant_id = $1 AND attempt_id = $2",
-    )
-    .bind(tenant.as_uuid())
-    .bind(attempt.id.as_uuid())
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    row.as_ref().map(decode_webwork_replay_state).transpose()
+/// Whether an issued-attempt lifecycle can legitimately have a submission
+/// receipt. This keeps receipt integrity independent from the public read
+/// projection: a terminal status may retain a previously submitted response.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SubmissionReceiptRequirement {
+    Absent,
+    Required,
+    Optional,
 }
 
-async fn require_active_learner_run(
+impl SubmissionReceiptRequirement {
+    fn for_status(status: AttemptStatus) -> Self {
+        match status {
+            AttemptStatus::InProgress => Self::Absent,
+            AttemptStatus::Submitted => Self::Required,
+            // A normal pending-grade submission retains a receipt, while an
+            // instructor force-submit can enter this terminal status without
+            // fabricating a learner response. Both forms remain valid; a
+            // retained receipt is still verified below.
+            AttemptStatus::NeedsManualGrading
+            | AttemptStatus::AutoSubmitted
+            | AttemptStatus::Cleared
+            | AttemptStatus::Exempt => Self::Optional,
+        }
+    }
+}
+
+/// Confirms a stored immutable submission receipt is the receipt for this
+/// exact issued attempt. `load_submission_receipt_snapshot` has already
+/// verified all receipt payload digests; this binds its immutable run and
+/// presentation evidence to the broker-authorized attempt evidence.
+fn validate_submission_receipt_for_issued_attempt(
+    submission_receipt: Option<(
+        AssignmentRun,
+        StudentAssignmentSummary,
+        Option<crate::ReceiptPresentationSnapshot>,
+    )>,
+    requirement: SubmissionReceiptRequirement,
+    witness: &super::learner_work_preparation::StudentAttemptPreparationWitness,
+    issued_receipt: &crate::IssuedAttemptReceiptEvidence,
+) -> Result<Option<crate::ReceiptPresentationSnapshot>, StoreError> {
+    match submission_receipt {
+        None if requirement == SubmissionReceiptRequirement::Required => {
+            Err(StoreError::Unavailable(
+                "submission-backed issued attempt lacks its immutable receipt".to_string(),
+            ))
+        }
+        None => Ok(None),
+        Some(_) if requirement == SubmissionReceiptRequirement::Absent => {
+            Err(StoreError::Unavailable(
+                "active issued attempt unexpectedly has an immutable submission receipt"
+                    .to_string(),
+            ))
+        }
+        Some((receipt_run, _receipt_summary, receipt_presentation)) => {
+            if receipt_run.id != witness.run
+                || receipt_run.tenant != witness.source.tenant
+                || receipt_presentation != issued_receipt.presentation_snapshot().cloned()
+            {
+                return Err(StoreError::Unavailable(
+                    "immutable submission receipt disagrees with issued evidence".to_string(),
+                ));
+            }
+            Ok(receipt_presentation)
+        }
+    }
+}
+
+/// Authorizes one active learner run for a projection without acquiring
+/// mutation locks. Attempt issuance and submission transitions use the 1817
+/// broker-prepared witnesses instead of escalating this read capability.
+async fn active_learner_run_for_read(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
     actor: UserId,
     run: RunId,
 ) -> Result<Option<AssignmentRun>, StoreError> {
-    let record = match load_run_for_update(transaction, tenant, run).await {
+    let record = match load_postgres_run(transaction, tenant, run).await {
         Ok(value) => value,
         Err(StoreError::NotFound) => return Ok(None),
         Err(error) => return Err(error),
     };
-    let enrollment = load_enrollment_for_update(transaction, tenant, record.enrollment).await?;
+    let enrollment = load_postgres_enrollment(transaction, tenant, record.enrollment).await?;
     let assignment = load_assignment(transaction, tenant, enrollment.assignment).await?;
     let accessible: bool =
         sqlx::query_scalar("SELECT public.ple_course_records_accessible($1, $2)")
@@ -186,7 +199,7 @@ async fn require_active_learner_run(
     if !accessible {
         return Err(StoreError::NotFound);
     }
-    let decision = super::entitlement::evaluate_current(
+    let decision = super::entitlement::evaluate_current_read_only(
         transaction,
         tenant,
         actor,
@@ -284,7 +297,7 @@ impl crate::RunStore for PostgresStore {
         run: RunId,
     ) -> Result<Option<Vec<AssignmentRunItem>>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if require_active_learner_run(&mut transaction, context.tenant_id(), actor, run)
+        if active_learner_run_for_read(&mut transaction, context.tenant_id(), actor, run)
             .await?
             .is_none()
         {
@@ -416,6 +429,21 @@ impl crate::RunStore for PostgresStore {
             reservation.qti_grading_capability,
             private_execution.qti_grading.as_ref(),
         )?;
+        validate_issued_flat_grading(
+            reservation.issued_question_snapshot.question(),
+            reservation.presentation_capability,
+            reservation.flat_grading_capability,
+            private_execution.flat_grading.as_ref(),
+        )?;
+        validate_issued_webwork_grading(
+            reservation.issued_question_snapshot.question(),
+            reservation.webwork_grading_capability,
+            private_execution.webwork_grading.as_ref(),
+        )?;
+        validate_issued_webwork_replay(
+            reservation.webwork_grading_capability,
+            private_execution.webwork_replay.as_ref(),
+        )?;
         let mut transaction = self.begin_tenant(context).await?;
         learner_transition::lock_predecessor_for_learner_run(
             &mut transaction,
@@ -489,8 +517,15 @@ impl crate::RunStore for PostgresStore {
                     "stored prefetch presentation disagrees with its columns".to_string(),
                 ));
             }
+            let private_matches = private_execution::prefetch_private_execution_matches(
+                &mut transaction,
+                context.tenant_id(),
+                &reservation,
+                &private_execution,
+            )
+            .await?;
             transaction.commit().await.map_err(map_sqlx_error)?;
-            return if existing == reservation {
+            return if existing == reservation && private_matches {
                 Ok(existing)
             } else {
                 Err(StoreError::Conflict)
@@ -501,6 +536,16 @@ impl crate::RunStore for PostgresStore {
             .bind(context.tenant_id().as_uuid()).bind(reservation.run.as_uuid()).bind(reservation.predecessor.as_uuid()).bind(i32::try_from(reservation.assignment_position).map_err(|_| StoreError::InvalidRecord("prefetch position is too large".to_string()))?).bind(payload).bind(checksum).bind(i16::from(reservation.presentation.descriptor_version())).bind(reservation.presentation.nonce().as_bytes().to_vec()).bind(reservation.presentation.digest().as_bytes().to_vec())
             .execute(&mut *transaction).await.map_err(map_sqlx_error)?;
         if inserted.rows_affected() != 1 {
+            return Err(StoreError::Conflict);
+        }
+        if !private_execution::prefetch_private_execution_matches(
+            &mut transaction,
+            context.tenant_id(),
+            &reservation,
+            &private_execution,
+        )
+        .await?
+        {
             return Err(StoreError::Conflict);
         }
         transaction.commit().await.map_err(map_sqlx_error)?;
@@ -560,7 +605,7 @@ impl crate::RunStore for PostgresStore {
         assignment_position: u32,
     ) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if require_active_learner_run(&mut transaction, context.tenant_id(), actor, run)
+        if active_learner_run_for_read(&mut transaction, context.tenant_id(), actor, run)
             .await?
             .is_none()
         {
@@ -582,10 +627,16 @@ impl crate::RunStore for PostgresStore {
         &self,
         context: TenantContext,
         actor: UserId,
+        binding: LearnerWorkRoutingBinding,
         predecessor: QuestionAttemptId,
     ) -> Result<SubmissionNextAttempt, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        require_attempt_owner(&mut transaction, context.tenant_id(), predecessor, actor).await?;
+        if require_attempt_owner_for_read(&mut transaction, context.tenant_id(), predecessor, actor)
+            .await?
+            != binding
+        {
+            return Err(StoreError::NotFound);
+        }
         let submitted: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM submission_idempotency WHERE tenant_id = $1 AND attempt_id = $2)")
             .bind(context.tenant_id().as_uuid()).bind(predecessor.as_uuid()).fetch_one(&mut *transaction).await.map_err(map_sqlx_error)?;
         if !submitted {
@@ -651,7 +702,7 @@ impl crate::RunStore for PostgresStore {
         run: RunId,
     ) -> Result<Option<QuestionAttemptId>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if require_active_learner_run(&mut transaction, context.tenant_id(), actor, run)
+        if active_learner_run_for_read(&mut transaction, context.tenant_id(), actor, run)
             .await?
             .is_none()
         {
@@ -670,11 +721,19 @@ impl crate::RunStore for PostgresStore {
         &self,
         context: TenantContext,
         actor: UserId,
+        binding: LearnerWorkRoutingBinding,
         predecessor: QuestionAttemptId,
         next: Option<QuestionAttemptId>,
     ) -> Result<(), StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        require_attempt_owner(&mut transaction, context.tenant_id(), predecessor, actor).await?;
+        super::learner_work_preparation::prepare_student_attempt_work(
+            &mut transaction,
+            context.tenant_id(),
+            binding,
+            actor,
+            predecessor,
+        )
+        .await?;
         let submitted: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM submission_idempotency WHERE tenant_id = $1 AND attempt_id = $2)")
             .bind(context.tenant_id().as_uuid()).bind(predecessor.as_uuid()).fetch_one(&mut *transaction).await.map_err(map_sqlx_error)?;
         if !submitted {
@@ -798,7 +857,7 @@ impl crate::RunStore for PostgresStore {
         let cursor = page.after.as_ref().map(|value| value.as_str().to_string());
         let limit = i64::from(page.size.get()) + 1;
         let mut transaction = self.begin_tenant(context).await?;
-        if require_active_learner_run(&mut transaction, context.tenant_id(), actor, run)
+        if active_learner_run_for_read(&mut transaction, context.tenant_id(), actor, run)
             .await?
             .is_none()
         {
@@ -823,7 +882,8 @@ impl crate::RunStore for PostgresStore {
         idempotency_key: &SubmissionIdempotencyKey,
     ) -> Result<Option<SubmissionRecord>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        require_attempt_owner(&mut transaction, context.tenant_id(), attempt, actor).await?;
+        require_attempt_owner_for_read(&mut transaction, context.tenant_id(), attempt, actor)
+            .await?;
         let record = load_submission_replay(
             &mut transaction,
             context.tenant_id(),
@@ -842,7 +902,8 @@ impl crate::RunStore for PostgresStore {
         attempt: QuestionAttemptId,
     ) -> Result<Option<SubmissionRecord>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        require_attempt_owner(&mut transaction, context.tenant_id(), attempt, actor).await?;
+        require_attempt_owner_for_read(&mut transaction, context.tenant_id(), attempt, actor)
+            .await?;
         let record = super::submission::load_submission_record(
             &mut transaction,
             context.tenant_id(),
@@ -912,43 +973,23 @@ impl crate::RunStore for PostgresStore {
     }
 }
 
-pub(in crate::postgres) fn decode_webwork_replay_state(
-    row: &sqlx::postgres::PgRow,
-) -> Result<WebworkGradeReplayStateV1, StoreError> {
-    let mapping_value: serde_json::Value = row.try_get("mapping").map_err(map_sqlx_error)?;
-    let mapping_sha256: String = row.try_get("mapping_sha256").map_err(map_sqlx_error)?;
-    let canonical = serde_json::to_vec(&mapping_value)
-        .map_err(|error| StoreError::Unavailable(error.to_string()))?;
-    if Sha256Digest::compute(&canonical).to_string() != mapping_sha256 {
-        return Err(StoreError::Unavailable(
-            "stored WeBWorK replay mapping checksum mismatch".into(),
-        ));
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn active_learner_run_projection_does_not_request_source_locks() {
+        let source = include_str!("runs.rs");
+        let helper = source
+            .split("async fn active_learner_run_for_read")
+            .nth(1)
+            .and_then(|section| {
+                section
+                    .split("/// Accepts a concurrent successor-link")
+                    .next()
+            })
+            .expect("active learner projection remains a discrete helper");
+        assert!(!helper.contains("FOR UPDATE"));
+        assert!(!helper.contains("load_enrollment_for_update"));
+        assert!(!helper.contains("load_run_for_update"));
+        assert!(!helper.contains("entitlement::evaluate_current("));
     }
-    let mapping: WebworkReplayMappingV1 = serde_json::from_value(mapping_value)
-        .map_err(|error| StoreError::Unavailable(error.to_string()))?;
-    mapping.validate()?;
-    let digest: Vec<u8> = row
-        .try_get("replay_presentation_digest")
-        .map_err(map_sqlx_error)?;
-    let digest: [u8; 32] = digest.try_into().map_err(|_| {
-        StoreError::Unavailable("stored WeBWorK presentation digest is malformed".into())
-    })?;
-    let seed: String = row.try_get("seed").map_err(map_sqlx_error)?;
-    Ok(WebworkGradeReplayStateV1 {
-        problem: ProblemId::from_uuid(row.try_get("problem_id").map_err(map_sqlx_error)?),
-        version: VersionId::from_uuid(row.try_get("version_id").map_err(map_sqlx_error)?),
-        source_artifact: SourceArtifact {
-            object: ObjectId::from_uuid(row.try_get("source_object_id").map_err(map_sqlx_error)?),
-            sha256: row.try_get("source_sha256").map_err(map_sqlx_error)?,
-        },
-        seed: seed.parse().map_err(|_| {
-            StoreError::Unavailable("stored WeBWorK replay seed is malformed".into())
-        })?,
-        renderer: ImplementationVersion {
-            id: row.try_get("renderer_id").map_err(map_sqlx_error)?,
-            version: row.try_get("renderer_version").map_err(map_sqlx_error)?,
-        },
-        presentation_digest: PresentationDigestV1::from_bytes(digest),
-        mapping,
-    })
 }

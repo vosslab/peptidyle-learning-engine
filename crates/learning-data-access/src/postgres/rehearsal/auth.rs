@@ -47,9 +47,6 @@ pub(super) struct StartWitness {
     /// derived subject.  It remains an opaque source witness; no learner
     /// identity or preview content is projected here.
     pub(super) derived_membership: Option<CourseMembershipId>,
-    pub(super) latest_run: Option<question_model::RehearsalRunId>,
-    pub(super) latest_reference: Option<question_model::RehearsalReference>,
-    pub(super) latest_revision: Option<TeachingOperationRevision>,
 }
 impl StartWitness {
     pub(super) const fn source(&self) -> LockedSource {
@@ -112,9 +109,6 @@ pub(super) async fn prepare_start(
             .try_get::<Option<sqlx::types::Uuid>, _>("derived_membership_id")
             .map_err(map_sqlx_error)?
             .map(CourseMembershipId::from_uuid),
-        latest_run: latest_run.map(question_model::RehearsalRunId::from_uuid),
-        latest_reference,
-        latest_revision,
     })
 }
 impl OperationWitness {

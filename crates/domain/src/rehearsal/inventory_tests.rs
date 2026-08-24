@@ -103,7 +103,7 @@ fn accepted(
 ) -> RehearsalEvidencePayload {
     let evidence = RehearsalValidatedSubmissionEvidence::try_complete_with_frozen_attempt(
         root,
-        root.sealed_request().clone(),
+        root.submission_input().durable_request().unwrap().clone(),
         frozen,
         question_model::RehearsalPrivateGradingResult::Graded {
             result: question_model::AttemptResult {

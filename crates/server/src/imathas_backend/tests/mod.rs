@@ -343,6 +343,8 @@ async fn fixture() -> Fixture {
                 presentation: None,
                 presentation_snapshot: None,
                 grading_envelope: None,
+                native_execution_envelope_capability:
+                    learning_data_access::NativeExecutionEnvelopeCapability::NotApplicable,
                 flat_grading: None,
                 flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
                 webwork_grading: None,
@@ -468,7 +470,7 @@ async fn generic_submission_never_reaches_a_provider_without_launch_ownership() 
             &provenance_tamper,
         )
         .await;
-    assert!(matches!(provenance, Err(RunBackendError::Invalid(_))));
+    assert!(matches!(provenance, Err(RunBackendError::Unsupported(_))));
     assert_eq!(fixture.provider.grade_calls(), 0);
 
     let source = fixture

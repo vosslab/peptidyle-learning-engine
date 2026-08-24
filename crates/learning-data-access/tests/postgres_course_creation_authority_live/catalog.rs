@@ -4,6 +4,8 @@ use super::*;
 
 #[path = "catalog/completion_verifier.rs"]
 mod completion_verifier;
+#[path = "catalog/freshness_registry.rs"]
+mod freshness_registry;
 #[path = "catalog/invitation_broker.rs"]
 mod invitation_broker;
 #[path = "catalog/roster_mutator.rs"]
@@ -836,110 +838,6 @@ async fn relation_catalog(pool: &PgPool) {
     );
 }
 
-async fn freshness_catalog(pool: &PgPool) {
-    let owned: Vec<String> = sqlx::query_scalar(
-        "SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace \
-         WHERE p.proowner='ple_base_course_freshness_broker'::regrole ORDER BY n.nspname,p.proname",
-    )
-    .fetch_all(pool)
-    .await
-    .expect("freshness broker function ownership");
-    assert_eq!(
-        owned,
-        vec!["ple_require_fresh_base_course_install_internal".to_owned()]
-    );
-
-    let expected_relation_acls: Vec<(String, String)> = sqlx::query_as(
-        "SELECT format('%I.%I',n.nspname,c.relname),privilege \
-         FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace \
-         CROSS JOIN (VALUES ('MAINTAIN'),('SELECT')) wanted(privilege) \
-         WHERE n.nspname='public' AND c.relkind IN ('r','p') \
-         AND c.relname<>'_sqlx_migrations' ORDER BY 1,2",
-    )
-    .fetch_all(pool)
-    .await
-    .expect("expected freshness relation coverage");
-    let actual_relation_acls: Vec<(String, String)> = sqlx::query_as(
-        "SELECT format('%I.%I',n.nspname,c.relname),acl.privilege_type \
-         FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace \
-         CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) acl \
-         WHERE acl.grantee='ple_base_course_freshness_broker'::regrole \
-         AND acl.grantee<>c.relowner ORDER BY 1,2",
-    )
-    .fetch_all(pool)
-    .await
-    .expect("actual freshness relation coverage");
-    assert_eq!(
-        actual_relation_acls, expected_relation_acls,
-        "freshness broker has exactly SELECT and MAINTAIN on every covered table"
-    );
-
-    let forbidden_table_privileges: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace \
-         CROSS JOIN (VALUES ('INSERT'),('UPDATE'),('DELETE'),('TRUNCATE'),('REFERENCES'),('TRIGGER')) forbidden(privilege) \
-         WHERE n.nspname='public' AND c.relkind IN ('r','p') \
-         AND has_table_privilege('ple_base_course_freshness_broker',c.oid,forbidden.privilege)",
-    )
-    .fetch_one(pool)
-    .await
-    .expect("freshness forbidden table privileges");
-    assert_eq!(forbidden_table_privileges, 0);
-    let column_privileges: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM pg_attribute a CROSS JOIN LATERAL aclexplode(a.attacl) acl \
-         WHERE acl.grantee='ple_base_course_freshness_broker'::regrole",
-    )
-    .fetch_one(pool)
-    .await
-    .expect("freshness column privileges");
-    assert_eq!(column_privileges, 0);
-    let sequence_privileges: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace \
-         WHERE n.nspname='public' AND c.relkind='S' AND (\
-         has_sequence_privilege('ple_base_course_freshness_broker',c.oid,'USAGE') OR \
-         has_sequence_privilege('ple_base_course_freshness_broker',c.oid,'SELECT') OR \
-         has_sequence_privilege('ple_base_course_freshness_broker',c.oid,'UPDATE'))",
-    )
-    .fetch_one(pool)
-    .await
-    .expect("freshness sequence privileges");
-    assert_eq!(sequence_privileges, 0);
-
-    let rls_relations: Vec<String> = sqlx::query_scalar(
-        "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace \
-         WHERE n.nspname='public' AND c.relkind IN ('r','p') AND c.relrowsecurity \
-         AND c.relname<>'_sqlx_migrations' ORDER BY c.relname",
-    )
-    .fetch_all(pool)
-    .await
-    .expect("freshness RLS relation catalog");
-    let expected_policies: Vec<PolicyCatalogRow> = rls_relations
-        .into_iter()
-        .map(|relation| {
-            (
-                "ple_base_course_freshness_select".to_owned(),
-                relation,
-                "r".to_owned(),
-                true,
-                vec!["ple_base_course_freshness_broker".to_owned()],
-                Some("true".to_owned()),
-                None,
-            )
-        })
-        .collect();
-    let actual_policies: Vec<PolicyCatalogRow> = sqlx::query_as(
-        "SELECT pol.polname,c.relname,pol.polcmd::text,pol.polpermissive,\
-         array(SELECT r.rolname FROM unnest(pol.polroles) role_oid JOIN pg_roles r ON r.oid=role_oid ORDER BY r.rolname),\
-         pg_get_expr(pol.polqual,pol.polrelid),pg_get_expr(pol.polwithcheck,pol.polrelid) \
-         FROM pg_policy pol JOIN pg_class c ON c.oid=pol.polrelid \
-         WHERE 'ple_base_course_freshness_broker'::regrole::oid=ANY(pol.polroles) \
-         ORDER BY c.relname,pol.polname",
-    )
-    .fetch_all(pool)
-    .await
-    .expect("freshness RLS policy catalog");
-    assert_eq!(actual_policies, expected_policies);
-}
-
 #[tokio::test]
 #[ignore = "requires PLE_TEST_DATABASE_URL and a disposable PostgreSQL 17 database"]
 async fn course_creation_authority_catalog_is_closed_and_minimal() {
@@ -948,7 +846,7 @@ async fn course_creation_authority_catalog_is_closed_and_minimal() {
     function_catalog(&pool).await;
     policy_catalog(&pool).await;
     relation_catalog(&pool).await;
-    freshness_catalog(&pool).await;
+    freshness_registry::catalog(&pool).await;
     completion_verifier::catalog(&pool).await;
     invitation_broker::catalog(&pool).await;
     roster_mutator::catalog(&pool).await;

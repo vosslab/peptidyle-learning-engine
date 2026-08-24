@@ -15,22 +15,33 @@ mod course_creation_support;
 use course_creation_support::sysadmin_course_creation_authority;
 #[path = "postgres_issued_attempt_read_live/authority.rs"]
 mod authority;
+#[path = "postgres_issued_attempt_read_live/fixture.rs"]
+mod issued_fixture;
+#[path = "postgres_issued_attempt_read_live/receipt_integrity.rs"]
+mod receipt_integrity;
+#[path = "postgres_issued_attempt_read_live/sealed_webwork.rs"]
+mod sealed_webwork;
 #[path = "postgres_issued_attempt_read_live/timing.rs"]
 mod timing;
 use authority::assert_application_authority_catalog;
+use issued_fixture::{IssueFixture, issue_webwork};
+use receipt_integrity::ReceiptIntegrityOracle;
 use timing::OracleTimingWindow;
 
 use learning_data_access::postgres::{
-    PostgresStore, apply_migrations, lazy_pool, verify_application_schema,
+    PostgresGraderStore, PostgresStore, apply_migrations, lazy_pool, verify_application_schema,
 };
 use learning_data_access::{
-    AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateCourseCommand,
-    DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand, IssuedAttemptRead,
-    IssuedWebworkGradingContract, LearnerWorkRoutingBinding, PresentationCapability,
-    PublishDraftCommand, PublishedSourceArtifact, PutAssignmentTeachingSettingsCommand,
-    RevokeCourseMember, SessionLifetime, SessionStore, SessionSubject, SessionTokenHash, Store,
-    StoreError, SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext,
-    UpsertCourseMember, WebworkGradingCapability, WebworkReplayControlV1, WebworkReplayMappingV1,
+    AssignmentRecord, AttemptSupportActionId, CatalogStore, CourseRecord, CourseRosterStore,
+    CreateCourseCommand, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
+    IssuedAttemptRead, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1,
+    IssuedWebworkGradingContract, LearnerWorkRoutingBinding, NativeExecutionEnvelopeCapability,
+    PresentationCapability, PublishDraftCommand, PublishedSourceArtifact,
+    PutAssignmentTeachingSettingsCommand, QtiGradingCapability, RevokeCourseMember,
+    SealedPrivateExecutionPreparation, SealedPrivateExecutionStore, SessionLifetime, SessionStore,
+    SessionSubject, SessionTokenHash, Store, StoreError, SubmissionIdempotencyKey,
+    SubmissionPreparation, SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
+    WebworkGradingCapability, WebworkReplayControlV1, WebworkReplayMappingV1,
 };
 use objects::{ObjectCategory, ObjectKey, ObjectRecord, Sha256Digest};
 use question_model::answer::NumericTolerance;
@@ -55,7 +66,7 @@ use question_model::{
     StudentResponse, TenantId, UserId, UserRole, VersionId, WorkspaceId,
 };
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
-use sqlx::{AssertSqlSafe, PgPool, Postgres, Transaction};
+use sqlx::{AssertSqlSafe, ConnectOptions, PgPool, Postgres, Transaction};
 use std::str::FromStr;
 use uuid::Uuid;
 
@@ -394,113 +405,12 @@ async fn publish_webwork(
     (reference, contract, source)
 }
 
-fn webwork_replay() -> WebworkReplayMappingV1 {
-    WebworkReplayMappingV1::SingleChoice {
-        items: vec![
-            WebworkReplayControlV1 {
-                item: RenderedItemIdV1::parse("a1b2").expect("item"),
-                field: "AnSwEr0001".to_string(),
-                value: "0".to_string(),
-            },
-            WebworkReplayControlV1 {
-                item: RenderedItemIdV1::parse("c3d4").expect("item"),
-                field: "AnSwEr0001".to_string(),
-                value: "1".to_string(),
-            },
-        ],
-    }
-}
-
-struct IssueFixture {
-    context: TenantContext,
-    student: UserId,
-    course: CourseId,
-    assignment: AssignmentId,
-    run: RunId,
-    reference: ProblemVersionRef,
-}
-
-impl IssueFixture {
-    async fn issue(&self, store: &PostgresStore, position: u32, seed: u64) -> QuestionAttemptId {
-        let (binding, snapshot) = presentation(self.reference, seed);
-        let attempt = QuestionAttemptId::from_uuid(id());
-        store
-            .issue_or_resume_question_attempt(
-                self.context,
-                IssueQuestionAttemptCommand {
-                    actor: self.student,
-                    binding: LearnerWorkRoutingBinding::new(self.course, self.assignment),
-                    attempt,
-                    run: self.run,
-                    assignment_position: position,
-                    problem: self.reference.problem,
-                    question_version: self.reference.version,
-                    seed,
-                    presentation_capability: PresentationCapability::EnvelopeV1,
-                    presentation: Some(binding),
-                    presentation_snapshot: Some(snapshot),
-                    grading_envelope: Some(envelope(self.reference, seed)),
-                    flat_grading: None,
-                    flat_grading_capability: FlatGradingCapability::NotApplicable,
-                    webwork_grading: None,
-                    webwork_grading_capability: WebworkGradingCapability::NotApplicable,
-                    parameter_hash: format!("issued-read-parameters-{seed}"),
-                    provenance: provenance(),
-                    webwork_replay: None,
-                    prefetched: None,
-                    predecessor_submission: None,
-                },
-            )
-            .await
-            .expect("issue ordinary native attempt");
-        attempt
-    }
-}
-
-async fn issue_webwork(
-    fixture: &IssueFixture,
-    store: &PostgresStore,
-    contract: IssuedWebworkGradingContract,
-    provenance: AttemptProvenance,
-) -> QuestionAttemptId {
-    let (binding, snapshot) = presentation(fixture.reference, 91);
-    let attempt = QuestionAttemptId::from_uuid(id());
-    store
-        .issue_or_resume_question_attempt(
-            fixture.context,
-            IssueQuestionAttemptCommand {
-                actor: fixture.student,
-                binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
-                attempt,
-                run: fixture.run,
-                assignment_position: 0,
-                problem: fixture.reference.problem,
-                question_version: fixture.reference.version,
-                seed: 91,
-                presentation_capability: PresentationCapability::EnvelopeV1,
-                presentation: Some(binding),
-                presentation_snapshot: Some(snapshot),
-                grading_envelope: Some(envelope(fixture.reference, 91)),
-                flat_grading: None,
-                flat_grading_capability: FlatGradingCapability::NotApplicable,
-                webwork_grading: Some(contract),
-                webwork_grading_capability: WebworkGradingCapability::Required,
-                parameter_hash: "webwork-issued-read".to_string(),
-                provenance,
-                webwork_replay: Some(webwork_replay()),
-                prefetched: None,
-                predecessor_submission: None,
-            },
-        )
-        .await
-        .expect("issue WebWork attempt");
-    attempt
-}
-
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL and a disposable PostgreSQL 17 database"]
+#[ignore = "requires disposable PLE_TEST_DATABASE_URL and PLE_TEST_GRADER_DATABASE_URL PostgreSQL 17 connections"]
 async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_aware() {
     let database_url = std::env::var("PLE_TEST_DATABASE_URL").expect("disposable PostgreSQL URL");
+    let grader_url =
+        std::env::var("PLE_TEST_GRADER_DATABASE_URL").expect("disposable grader PostgreSQL URL");
     let database = DisposableDatabase::provision(&database_url).await;
     let pool = database.pool.clone();
     verify_application_schema(&pool)
@@ -516,6 +426,13 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
     );
     let timing = OracleTimingWindow::from_database(&pool).await;
     let store = PostgresStore::with_question_id_secret(pool.clone(), [0x42; 32]);
+    let grader_options = PgConnectOptions::from_str(&grader_url)
+        .expect("valid disposable grader PostgreSQL URL")
+        .database(&database.database);
+    let child_grader_url = grader_options.to_url_lossy().to_string();
+    let grader = PostgresGraderStore::connect_local_development(&child_grader_url)
+        .await
+        .expect("connect the child database through the dedicated grader principal");
     let tenant = TenantId::from_uuid(id());
     let foreign_tenant = TenantId::from_uuid(id());
     let context = TenantContext::from_authenticated_session(tenant);
@@ -680,6 +597,11 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
     );
     assert_application_authority_catalog(&pool, tenant, course, assignment, student, active).await;
 
+    let receipt_integrity = ReceiptIntegrityOracle::new(&pool, &store, context, tenant, student);
+    receipt_integrity
+        .assert_active_issuance_fails_closed(binding, active)
+        .await;
+
     store
         .submit_question_attempt(
             context,
@@ -734,28 +656,9 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
         "raw issuance remains in_progress while relational/witness submitted selects submitted receipt"
     );
 
-    // A disposable owner-only corruption probe bypasses the relation's
-    // course-binding trigger; production callers retain that trigger.
-    sqlx::query("ALTER TABLE public.submission_receipt_snapshot DISABLE TRIGGER ALL")
-        .execute(&pool)
-        .await
-        .expect("open isolated receipt corruption probe");
-    sqlx::query("UPDATE public.submission_receipt_snapshot SET presentation_payload_sha256='0' || substr(presentation_payload_sha256,2) WHERE tenant_id=$1 AND attempt_id=$2")
-        .bind(tenant.as_uuid()).bind(active.as_uuid()).execute(&pool).await.expect("corrupt disposable receipt checksum");
-    sqlx::query("ALTER TABLE public.submission_receipt_snapshot ENABLE TRIGGER ALL")
-        .execute(&pool)
-        .await
-        .expect("restore isolated receipt integrity trigger");
-    let corrupt_receipt_read = store
-        .read_issued_attempt_evidence(context, student, binding, active)
+    receipt_integrity
+        .assert_submitted_receipt_fails_closed(binding, active)
         .await;
-    assert!(
-        matches!(
-            corrupt_receipt_read,
-            Err(StoreError::Unavailable(_) | StoreError::InvalidRecord(_))
-        ),
-        "corrupt immutable receipt fails closed: {corrupt_receipt_read:?}"
-    );
     sqlx::query("ALTER TABLE public.submission_receipt_snapshot DISABLE TRIGGER ALL")
         .execute(&pool)
         .await
@@ -836,9 +739,23 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
         .await
         .expect("active WebWork evidence");
     assert!(
-        matches!(active_webwork, IssuedAttemptRead::Active(ref read) if read.webwork_grading().is_some() && read.webwork_replay().is_some()),
-        "active WebWork requires both immutable contract and replay"
+        matches!(active_webwork, IssuedAttemptRead::Active(ref read) if read.presentation_snapshot().is_some()),
+        "ordinary active WebWork evidence remains an answer-free presentation projection"
     );
+    sealed_webwork::assert_sealed_webwork_execution(
+        &pool,
+        &store,
+        &grader,
+        sealed_webwork::SealedWebworkFixture {
+            context,
+            tenant,
+            student,
+            binding: webwork_binding,
+            attempt: webwork_attempt,
+            mismatched_attempt: active,
+        },
+    )
+    .await;
     store
         .submit_question_attempt(
             context,
@@ -874,6 +791,14 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
         (true, false),
         "submitted WebWork retains receipt while deleting active-only replay"
     );
+    receipt_integrity
+        .assert_cleared_receipt_fails_closed(
+            webwork_binding,
+            instructor,
+            webwork_attempt,
+            AttemptSupportActionId::from_uuid(id()),
+        )
+        .await;
 
     let terminal_reference = publish(&store, context, tenant, instructor).await;
     let terminal_assignment = AssignmentId::from_uuid(id());
@@ -960,9 +885,10 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
             store
                 .read_issued_attempt_evidence(context, student, webwork_binding, webwork_attempt)
                 .await,
-            Ok(IssuedAttemptRead::Submitted(_))
+            Ok(IssuedAttemptRead::TerminalWithoutReceipt(ref read))
+                if read.status() == question_model::AttemptStatus::Cleared
         ),
-        "the same route-bound WebWork read is available before roster revocation"
+        "the same route-bound cleared attempt is available before roster revocation"
     );
     let revoked_revision = store
         .revoke_course_member(

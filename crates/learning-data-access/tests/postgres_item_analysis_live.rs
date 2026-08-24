@@ -18,11 +18,11 @@ use learning_data_access::{
     CourseRecord, CourseRosterStore, CreateCourseCommand, DraftRecord, FlatGradingCapability,
     IssueQuestionAttemptCommand, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1,
     JobClaimFilter, JobLeaseDuration, JobPayload, JobStore, LearnerWorkRoutingBinding,
-    ManualCredit, ManualGradeActionId, ManualGradingStore, PresentationCapability,
-    PublishDraftCommand, QtiGradingCapability, SessionLifetime, SessionStore, SessionSubject,
-    SessionTokenHash, SetManualGradeCommand, Store, SubmissionIdempotencyKey,
-    SubmitPendingManualQuestionAttemptCommand, SubmitQuestionAttemptCommand, TenantContext,
-    UpsertCourseMember,
+    ManualCredit, ManualGradeActionId, ManualGradingStore, NativeExecutionEnvelopeCapability,
+    PresentationCapability, PublishDraftCommand, QtiGradingCapability, SessionLifetime,
+    SessionStore, SessionSubject, SessionTokenHash, SetManualGradeCommand, Store,
+    SubmissionIdempotencyKey, SubmitPendingManualQuestionAttemptCommand,
+    SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -211,6 +211,7 @@ async fn issue(
                 presentation: None,
                 presentation_snapshot: None,
                 grading_envelope: None,
+                native_execution_envelope_capability: NativeExecutionEnvelopeCapability::Required,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_grading: None,

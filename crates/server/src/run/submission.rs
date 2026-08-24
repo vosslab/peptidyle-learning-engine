@@ -3,10 +3,7 @@
 use super::contracts::{RunBackend, RunSubmission, SubmissionDisposition};
 use super::prefetch::ensure_active_questions;
 use super::support::*;
-use question_model::presentation::{
-    PresentationV1, RenderedItemIdV1, RenderedItemRoleV1, reproduce_presentation_v1,
-};
-use question_model::response::{ChoiceId, MatchPair, StudentResponse, TextEntryAnswer};
+use question_model::presentation::{reproduce_presentation_v1, translate_rendered_response_v1};
 
 pub(super) async fn submit_response<S, B>(
     State(state): State<RunRouteState<S, B>>,
@@ -30,7 +27,10 @@ where
         Err(message) => return error_response(StatusCode::BAD_REQUEST, message),
     };
     let actor = authenticated.record.subject.user();
-    let prepared = match state
+    // First pass is intentionally answer-free. It establishes the route,
+    // actor, idempotency fence, and exact replay before any private issued
+    // family contract is materialized.
+    let intent = match state
         .store
         .prepare_question_submission(
             authenticated.tenant_context,
@@ -47,34 +47,28 @@ where
                 state.store.as_ref(),
                 state.backend.as_ref(),
                 &authenticated,
+                binding,
                 *record,
                 SuccessorIssuance::Bound(binding),
             )
             .await;
         }
-        Ok(learning_data_access::SubmissionPreparation::Grade(prepared)) => *prepared,
+        Ok(learning_data_access::SubmissionPreparation::FirstEffect(intent)) => *intent,
         Err(error) => return store_error_response(error),
-    };
-    let attempt = prepared.attempt;
-    let reference = ProblemVersionRef {
-        problem: attempt.problem,
-        version: attempt.question_version,
     };
     // The store validates the immutable issue tuple. Presentation-bearing
     // attempts therefore return their exact answer-free schema here, while a
     // missing or corrupt required snapshot fails closed before any grade or
     // receipt mutation. Envelope-less families legitimately return None.
-    let presentation = prepared.presentation;
-    let grading_envelope = prepared.grading_envelope;
-    let flat_grading = prepared.flat_grading;
-    let webwork_grading = prepared.webwork_grading;
-    let issued_qti_grading = prepared.issued_qti_grading;
-    let webwork_replay = prepared.webwork_replay;
-    let presentation_binding = prepared.presentation_binding;
-    // The exact published question belongs to the same broker-retained
-    // preparation snapshot as the attempt and private grading contracts.
-    let issued_question_snapshot = prepared.issued_question_snapshot;
-    let question = issued_question_snapshot.question();
+    let expected_attempt = intent.attempt.id;
+    let presentation = intent.presentation.clone();
+    let grading_envelope = intent.grading_envelope.clone();
+    let presentation_binding = intent.presentation_binding;
+    // This snapshot is answer-free first-effect evidence. It can validate the
+    // public browser shape, but cannot construct a backend grade: the sealed
+    // facade below supplies the complete family-private preparation only once
+    // replay and current authorization have both been ruled out.
+    let question = intent.issued_question_snapshot.question();
     if matches!(
         &question.response,
         question_model::ResponseDefinition::FileUpload { .. }
@@ -84,81 +78,130 @@ where
             "file upload submissions are unavailable",
         );
     }
-    let (submission_response, issued_grading_envelope) =
-        match (presentation.as_ref(), grading_envelope.as_ref()) {
-            (Some(snapshot), Some(envelope)) => {
-                let report = domain::validation::validate_presentation_response_format(
-                    &snapshot.envelope.response,
-                    &request.response,
+    let (submission_response, _) = match (presentation.as_ref(), grading_envelope.as_ref()) {
+        (Some(snapshot), Some(envelope)) => {
+            let report = domain::validation::validate_presentation_response_format(
+                &snapshot.envelope.response,
+                &request.response,
+            );
+            if !report.is_valid() {
+                return no_store((StatusCode::UNPROCESSABLE_ENTITY, Json(report)).into_response());
+            }
+            let Some(presentation_binding) = presentation_binding else {
+                return error_response(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "issued presentation binding is unavailable",
                 );
-                if !report.is_valid() {
-                    return no_store(
-                        (StatusCode::UNPROCESSABLE_ENTITY, Json(report)).into_response(),
-                    );
-                }
-                let Some(presentation_binding) = presentation_binding else {
-                    return error_response(
-                        StatusCode::SERVICE_UNAVAILABLE,
-                        "issued presentation binding is unavailable",
-                    );
-                };
-                let issued = match reproduce_presentation_v1(
-                    envelope,
-                    &snapshot.asset_bindings,
-                    presentation_binding,
-                ) {
-                    Ok(issued) if issued.envelope == snapshot.envelope => issued,
-                    Ok(_) => {
-                        return error_response(
-                            StatusCode::SERVICE_UNAVAILABLE,
-                            "issued presentation contract is unavailable",
-                        );
-                    }
-                    Err(_) => {
-                        return error_response(
-                            StatusCode::SERVICE_UNAVAILABLE,
-                            "issued presentation contract is unavailable",
-                        );
-                    }
-                };
-                let translated = match translate_issued_response(&request.response, &issued) {
-                    Ok(response) => response,
-                    Err(()) => {
-                        return error_response(
-                            StatusCode::SERVICE_UNAVAILABLE,
-                            "issued presentation contract is unavailable",
-                        );
-                    }
-                };
-                let private_report =
-                    domain::validation::validate_response_format(&envelope.response, &translated);
-                if !private_report.is_valid() {
+            };
+            let issued = match reproduce_presentation_v1(
+                envelope,
+                &snapshot.asset_bindings,
+                presentation_binding,
+            ) {
+                Ok(issued) if issued.envelope == snapshot.envelope => issued,
+                Ok(_) => {
                     return error_response(
                         StatusCode::SERVICE_UNAVAILABLE,
                         "issued presentation contract is unavailable",
                     );
                 }
-                (translated, Some(envelope))
-            }
-            (None, None) => {
-                let report = domain::validation::validate_response_format(
-                    &question.response,
-                    &request.response,
-                );
-                if !report.is_valid() {
-                    return no_store(
-                        (StatusCode::UNPROCESSABLE_ENTITY, Json(report)).into_response(),
+                Err(_) => {
+                    return error_response(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "issued presentation contract is unavailable",
                     );
                 }
-                (request.response.clone(), None)
-            }
-            _ => {
+            };
+            let translated = match translate_rendered_response_v1(&request.response, &issued) {
+                Ok(response) => response,
+                Err(_) => {
+                    return error_response(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "issued presentation contract is unavailable",
+                    );
+                }
+            };
+            let private_report =
+                domain::validation::validate_response_format(&envelope.response, &translated);
+            if !private_report.is_valid() {
                 return error_response(
                     StatusCode::SERVICE_UNAVAILABLE,
-                    "issued grading contract is unavailable",
+                    "issued presentation contract is unavailable",
                 );
             }
-        };
+            (translated, Some(envelope))
+        }
+        (None, None) => {
+            let report =
+                domain::validation::validate_response_format(&question.response, &request.response);
+            if !report.is_valid() {
+                return no_store((StatusCode::UNPROCESSABLE_ENTITY, Json(report)).into_response());
+            }
+            (request.response.clone(), None)
+        }
+        _ => {
+            return error_response(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "issued grading contract is unavailable",
+            );
+        }
+    };
+    let sealed_preparation = match state
+        .sealed_execution
+        .prepare_sealed_private_execution(
+            authenticated.tenant_context,
+            actor,
+            binding,
+            intent,
+            &request.response,
+            &idempotency_key,
+        )
+        .await
+    {
+        Ok(learning_data_access::SealedPrivateExecutionPreparation::Replay(record)) => {
+            return finish_submission(
+                state.store.as_ref(),
+                state.backend.as_ref(),
+                &authenticated,
+                binding,
+                *record,
+                SuccessorIssuance::Bound(binding),
+            )
+            .await;
+        }
+        Ok(learning_data_access::SealedPrivateExecutionPreparation::Grade(prepared)) => *prepared,
+        Err(error) => return store_error_response(error),
+    };
+    // Only the sealed result reaches a trusted backend. In particular, this
+    // prevents adding a private family field to ordinary `Store` preparation
+    // from silently re-enabling a route-to-grader data path.
+    let attempt = sealed_preparation.attempt;
+    let reference = ProblemVersionRef {
+        problem: attempt.problem,
+        version: attempt.question_version,
+    };
+    let issued_question_snapshot = sealed_preparation.issued_question_snapshot;
+    let sealed_presentation = sealed_preparation.presentation;
+    let sealed_grading_envelope = sealed_preparation.grading_envelope;
+    let flat_grading = sealed_preparation.flat_grading;
+    let webwork_grading = sealed_preparation.webwork_grading;
+    let issued_qti_grading = sealed_preparation.issued_qti_grading;
+    let webwork_replay = sealed_preparation.webwork_replay;
+    let sealed_presentation_binding = sealed_preparation.presentation_binding;
+    // The sealed broker has reauthorized the exact route under its own locks.
+    // A changed attempt/presentation witness fails closed rather than mixing
+    // ordinary public validation with another attempt's private contract.
+    if attempt_id != expected_attempt
+        || attempt_id != attempt.id
+        || sealed_presentation_binding != presentation_binding
+        || sealed_presentation != presentation
+        || sealed_grading_envelope != grading_envelope
+    {
+        return error_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "issued grading contract is unavailable",
+        );
+    }
     let disposition = match state
         .backend
         .submit(RunSubmission {
@@ -168,13 +211,13 @@ where
             reference,
             issued_question_snapshot: &issued_question_snapshot,
             attempt: &attempt,
-            issued_grading_envelope,
+            issued_grading_envelope: sealed_grading_envelope.as_ref(),
             issued_flat_grading: flat_grading.as_ref(),
             issued_webwork_grading: webwork_grading.as_ref(),
             issued_qti_grading: issued_qti_grading.as_ref(),
             issued_webwork_replay: webwork_replay.as_ref(),
-            issued_presentation_binding: presentation_binding,
-            issued_presentation: presentation.as_ref(),
+            issued_presentation_binding: sealed_presentation_binding,
+            issued_presentation: sealed_presentation.as_ref(),
             response: &submission_response,
         })
         .await
@@ -228,78 +271,11 @@ where
         state.store.as_ref(),
         state.backend.as_ref(),
         &authenticated,
+        binding,
         record,
         SuccessorIssuance::Bound(binding),
     )
     .await
-}
-
-/// Translates browser-visible presentation IDs back to the durable IDs held
-/// only in the protected issuance envelope. This happens after public-format
-/// validation and before private grading; a replay never reaches this seam.
-fn translate_issued_response(
-    response: &StudentResponse,
-    presentation: &PresentationV1,
-) -> Result<StudentResponse, ()> {
-    let durable_id = |id: &ChoiceId, role| {
-        let rendered = RenderedItemIdV1::parse(id.as_str()).map_err(|_| ())?;
-        let mut bindings = presentation
-            .item_bindings
-            .iter()
-            .filter(|binding| binding.role == role && binding.rendered == rendered);
-        let binding = bindings.next().ok_or(())?;
-        if bindings.next().is_some() {
-            return Err(());
-        }
-        Ok(ChoiceId::new(binding.durable_id.clone()))
-    };
-    match response {
-        StudentResponse::MultipleChoice { selected } => Ok(StudentResponse::MultipleChoice {
-            selected: selected
-                .iter()
-                .map(|id| durable_id(id, RenderedItemRoleV1::Choice))
-                .collect::<Result<_, _>>()?,
-        }),
-        StudentResponse::MultiBlank { answers } => Ok(StudentResponse::MultiBlank {
-            answers: answers
-                .iter()
-                .map(|answer| {
-                    Ok::<TextEntryAnswer, ()>(TextEntryAnswer {
-                        slot: durable_id(&answer.slot, RenderedItemRoleV1::Blank)?,
-                        text: answer.text.clone(),
-                    })
-                })
-                .collect::<Result<_, _>>()?,
-        }),
-        StudentResponse::Matching { matches } => Ok(StudentResponse::Matching {
-            matches: matches
-                .iter()
-                .map(|pair| {
-                    Ok::<MatchPair, ()>(MatchPair {
-                        prompt: durable_id(&pair.prompt, RenderedItemRoleV1::MatchPrompt)?,
-                        choice: durable_id(&pair.choice, RenderedItemRoleV1::MatchChoice)?,
-                    })
-                })
-                .collect::<Result<_, _>>()?,
-        }),
-        StudentResponse::Ordering { order } => Ok(StudentResponse::Ordering {
-            order: order
-                .iter()
-                .map(|id| durable_id(id, RenderedItemRoleV1::OrderItem))
-                .collect::<Result<_, _>>()?,
-        }),
-        StudentResponse::Numeric { value } => Ok(StudentResponse::Numeric { value: *value }),
-        StudentResponse::ShortText { text } => {
-            Ok(StudentResponse::ShortText { text: text.clone() })
-        }
-        StudentResponse::Hotspot { points } => Ok(StudentResponse::Hotspot {
-            points: points.clone(),
-        }),
-        StudentResponse::FileUpload { object_key } => Ok(StudentResponse::FileUpload {
-            object_key: object_key.clone(),
-        }),
-        StudentResponse::ExternalTool {} => Ok(StudentResponse::ExternalTool {}),
-    }
 }
 
 /// Removes the combined legacy result unless every field it contains is
@@ -331,6 +307,7 @@ pub(super) async fn finish_submission<S, B>(
     store: &S,
     backend: &B,
     authenticated: &AuthenticatedSession,
+    binding: LearnerWorkRoutingBinding,
     record: SubmissionRecord,
     successor_issuance: SuccessorIssuance,
 ) -> Response
@@ -343,7 +320,12 @@ where
     // fresh atomic status snapshot cannot be read.
     let scoring_status = learner_scoring_status(store, authenticated, record.run.enrollment).await;
     let next_state = match store
-        .submission_next_attempt(authenticated.tenant_context, actor, record.attempt.id)
+        .submission_next_attempt(
+            authenticated.tenant_context,
+            actor,
+            binding,
+            record.attempt.id,
+        )
         .await
     {
         Ok(value) => value,
@@ -374,7 +356,12 @@ where
             return submission_response(record, None, true, scoring_status);
         }
         match store
-            .submission_next_attempt(authenticated.tenant_context, actor, record.attempt.id)
+            .submission_next_attempt(
+                authenticated.tenant_context,
+                actor,
+                binding,
+                record.attempt.id,
+            )
             .await
         {
             Ok(learning_data_access::SubmissionNextAttempt::Pending) => {
@@ -382,6 +369,7 @@ where
                     .finalize_submission_next_attempt(
                         authenticated.tenant_context,
                         actor,
+                        binding,
                         record.attempt.id,
                         None,
                     )
@@ -431,6 +419,12 @@ pub(super) fn submission_response(
     scoring_status: question_model::ScoringStatus,
 ) -> Response {
     let run_completion_status = record.run.completion_status();
+    let (next_issued, next_pending) =
+        if run_completion_status == question_model::RunCompletionStatus::Completed {
+            (None, false)
+        } else {
+            (next_issued, next_pending)
+        };
     let decision = score_current_disclosure(record.disclosure.decision(), scoring_status);
     let feedback = feedback_projection(
         decision,

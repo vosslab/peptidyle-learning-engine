@@ -48,6 +48,18 @@ where
         )
         .await
         .expect("post-completion scale practice run");
+    let issued_question_snapshot = learning_data_access::IssuedQuestionSnapshotV1::new(
+        store
+            .get_catalog_problem(context, ProblemVersionRef { problem, version })
+            .await
+            .expect("scale fixture catalog question")
+            .expect("scale fixture publication")
+            .question,
+        learning_data_access::IssuedQuestionFamilyWitnessV1::Native {
+            physical_asset_bindings: Vec::new(),
+        },
+    )
+    .expect("scale fixture issued question snapshot");
     for position in 0_u32..51 {
         let attempt_id =
             QuestionAttemptId::from_uuid(uuid(90_100 + fixture_offset + u128::from(position)));
@@ -64,15 +76,21 @@ where
                     assignment_position: position,
                     problem,
                     question_version: version,
+                    issued_question_snapshot: issued_question_snapshot.clone(),
                     seed: 90_100 + u64::from(position),
                     presentation_capability: PresentationCapability::EnvelopeV1,
                     presentation: Some(presentation),
                     presentation_snapshot: Some(snapshot),
                     grading_envelope: Some(grading_envelope(version, 90_100 + u64::from(position))),
+                    native_execution_envelope_capability:
+                        learning_data_access::NativeExecutionEnvelopeCapability::Required,
                     flat_grading: None,
                     flat_grading_capability: FlatGradingCapability::NotApplicable,
                     webwork_grading: None,
                     webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+                    qti_grading: None,
+                    qti_grading_capability:
+                        learning_data_access::QtiGradingCapability::NotApplicable,
                     parameter_hash: format!("scale-parameter-{position}"),
                     provenance: AttemptProvenance {
                         adapter: implementation("native"),

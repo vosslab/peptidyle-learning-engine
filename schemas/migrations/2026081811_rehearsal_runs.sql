@@ -379,7 +379,7 @@ BEGIN
          WHERE tenant_id = p_tenant AND rehearsal_run_id = active_run.rehearsal_run_id
            AND lifecycle = 'active';
         IF NOT FOUND THEN
-            RAISE EXCEPTION 'active rehearsal changed during replacement' USING ERRCODE = '40001';
+            RAISE EXCEPTION 'active rehearsal changed during replacement' USING ERRCODE = '55000';
         END IF;
     END IF;
     INSERT INTO public.rehearsal_run (
@@ -430,7 +430,7 @@ BEGIN
         evidence_length = next_sequence, updated_at = public.ple_rehearsal_now()
      WHERE tenant_id = p_tenant AND rehearsal_run_id = p_run
        AND evidence_head_digest = p_old_digest AND evidence_length = p_old_length;
-    IF NOT FOUND THEN RAISE EXCEPTION 'rehearsal evidence head compare-and-swap failed' USING ERRCODE = '40001'; END IF;
+    IF NOT FOUND THEN RAISE EXCEPTION 'rehearsal evidence head compare-and-swap failed' USING ERRCODE = '55000'; END IF;
     RETURN true;
 END
 $$;

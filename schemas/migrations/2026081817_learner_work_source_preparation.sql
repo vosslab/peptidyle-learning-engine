@@ -58,6 +58,27 @@ ALTER TABLE public.question_attempt
     ADD CONSTRAINT question_attempt_authored_timing_shape_check
         CHECK (authored_timing_deadline IS NOT NULL OR authored_timing_grace_seconds = 0);
 
+-- This pre-production cutover deliberately removes the superseded attempt-row
+-- copies.  Answer-bearing execution material has exactly one home: the
+-- broker-owned private child below.  There is no compatibility reader, value
+-- default, or permissive fallback.  ASVS 2.3.1/2.3.3: retries must compare
+-- immutable capability-owned material, never rewrite an ordinary lifecycle row.
+ALTER TABLE public.question_attempt
+    DROP CONSTRAINT IF EXISTS question_attempt_flat_grading_payload_pair_check,
+    DROP CONSTRAINT IF EXISTS question_attempt_webwork_grading_payload_pair_check,
+    DROP CONSTRAINT IF EXISTS question_attempt_qti_grading_payload_pair_check,
+    DROP COLUMN IF EXISTS flat_grading_required,
+    DROP COLUMN IF EXISTS flat_grading_payload,
+    DROP COLUMN IF EXISTS flat_grading_payload_sha256,
+    DROP COLUMN IF EXISTS webwork_grading_required,
+    DROP COLUMN IF EXISTS webwork_grading_payload,
+    DROP COLUMN IF EXISTS webwork_grading_payload_sha256,
+    DROP COLUMN IF EXISTS webwork_replay_payload,
+    DROP COLUMN IF EXISTS webwork_replay_payload_sha256,
+    DROP COLUMN IF EXISTS qti_grading_required,
+    DROP COLUMN IF EXISTS issued_qti_grading_payload,
+    DROP COLUMN IF EXISTS issued_qti_grading_payload_sha256;
+
 -- The issued source witness and its issue-time-derived timing baseline are
 -- private historical evidence.  Mutable lifecycle/effective-policy changes
 -- remain valid, but no later resolver can rewrite issuance authority.
@@ -145,6 +166,14 @@ CREATE TABLE public.prefetch_private_execution (
     FOREIGN KEY (tenant_id, run_id, predecessor_attempt_id, assignment_position)
         REFERENCES public.question_prefetch(tenant_id, run_id, predecessor_attempt_id, assignment_position)
         ON DELETE CASCADE,
+    CHECK ((flat_required AND flat_payload IS NOT NULL AND flat_payload_sha256 IS NOT NULL)
+        OR (NOT flat_required AND flat_payload IS NULL AND flat_payload_sha256 IS NULL)),
+    CHECK ((webwork_required AND webwork_payload IS NOT NULL AND webwork_payload_sha256 IS NOT NULL
+        AND webwork_replay_payload IS NOT NULL AND webwork_replay_payload_sha256 IS NOT NULL)
+        OR (NOT webwork_required AND webwork_payload IS NULL AND webwork_payload_sha256 IS NULL
+        AND webwork_replay_payload IS NULL AND webwork_replay_payload_sha256 IS NULL)),
+    CHECK ((qti_required AND qti_payload IS NOT NULL AND qti_payload_sha256 IS NOT NULL)
+        OR (NOT qti_required AND qti_payload IS NULL AND qti_payload_sha256 IS NULL)),
     CHECK (qti_payload IS NULL OR octet_length(qti_payload) BETWEEN 1 AND 262144),
     CHECK ((flat_payload_sha256 IS NULL OR flat_payload_sha256 ~ '^[0-9a-f]{64}$')
         AND (webwork_payload_sha256 IS NULL OR webwork_payload_sha256 ~ '^[0-9a-f]{64}$')
@@ -157,6 +186,171 @@ ALTER TABLE public.prefetch_private_execution ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.prefetch_private_execution FORCE ROW LEVEL SECURITY;
 REVOKE ALL ON public.issued_attempt_private_execution, public.prefetch_private_execution
     FROM PUBLIC, ple_app, ple_student, ple_grader, ple_grading_reader;
+
+-- The rows are evidence, not a mutable private cache.  The broker owns the
+-- only write paths and a grader receives a projection solely through the
+-- sealed preparation function below.  FORCE RLS remains meaningful even for
+-- this security-definer owner because its policies are explicit.
+CREATE POLICY issued_private_execution_broker ON public.issued_attempt_private_execution
+    TO ple_learner_work_broker
+    USING (tenant_id = public.ple_current_tenant())
+    WITH CHECK (tenant_id = public.ple_current_tenant());
+CREATE POLICY prefetch_private_execution_broker ON public.prefetch_private_execution
+    TO ple_learner_work_broker
+    USING (tenant_id = public.ple_current_tenant())
+    WITH CHECK (tenant_id = public.ple_current_tenant());
+GRANT SELECT, INSERT, DELETE ON public.issued_attempt_private_execution,
+    public.prefetch_private_execution TO ple_learner_work_broker;
+
+CREATE FUNCTION public.ple_guard_private_execution_immutable() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'pg_catalog', 'public'
+    AS $$
+BEGIN
+    RAISE EXCEPTION 'issued private execution is immutable' USING ERRCODE = '55000';
+END
+$$;
+ALTER FUNCTION public.ple_guard_private_execution_immutable() OWNER TO ple_learner_work_broker;
+REVOKE ALL ON FUNCTION public.ple_guard_private_execution_immutable() FROM PUBLIC;
+CREATE TRIGGER issued_attempt_private_execution_immutable
+    BEFORE UPDATE ON public.issued_attempt_private_execution
+    FOR EACH ROW EXECUTE FUNCTION public.ple_guard_private_execution_immutable();
+CREATE TRIGGER prefetch_private_execution_immutable
+    BEFORE UPDATE ON public.prefetch_private_execution
+    FOR EACH ROW EXECUTE FUNCTION public.ple_guard_private_execution_immutable();
+
+-- These are the only application-facing write capabilities for private
+-- execution material.  The public attempt/prefetch rows remain the durable
+-- answer-free descriptors; the functions bind a child to its already-locked
+-- parent and make a retry an exact equality check rather than an upsert that
+-- can replace grading authority.
+CREATE FUNCTION public.ple_write_issued_attempt_private_execution(
+    p_tenant uuid, p_attempt uuid,
+    p_flat_required boolean, p_flat_payload jsonb, p_flat_payload_sha256 character(64),
+    p_webwork_required boolean, p_webwork_payload jsonb, p_webwork_payload_sha256 character(64),
+    p_webwork_replay_payload jsonb, p_webwork_replay_payload_sha256 character(64),
+    p_qti_required boolean, p_qti_payload bytea, p_qti_payload_sha256 character(64)
+) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
+DECLARE p_occurred_at timestamptz;
+BEGIN
+    IF p_tenant IS NULL OR p_attempt IS NULL OR p_tenant IS DISTINCT FROM public.ple_current_tenant() THEN
+        PERFORM public.ple_learner_work_deny_internal();
+    END IF;
+    SELECT occurred_at INTO p_occurred_at FROM public.question_attempt
+     WHERE tenant_id=p_tenant AND attempt_id=p_attempt FOR KEY SHARE;
+    IF NOT FOUND THEN PERFORM public.ple_learner_work_deny_internal(); END IF;
+    INSERT INTO public.issued_attempt_private_execution(
+        tenant_id,attempt_id,attempt_occurred_at,flat_required,flat_payload,flat_payload_sha256,
+        webwork_required,webwork_payload,webwork_payload_sha256,
+        webwork_replay_payload,webwork_replay_payload_sha256,qti_required,qti_payload,qti_payload_sha256)
+    VALUES (p_tenant,p_attempt,p_occurred_at,p_flat_required,p_flat_payload,p_flat_payload_sha256,
+        p_webwork_required,p_webwork_payload,p_webwork_payload_sha256,
+        p_webwork_replay_payload,p_webwork_replay_payload_sha256,p_qti_required,p_qti_payload,p_qti_payload_sha256)
+    ON CONFLICT DO NOTHING;
+    RETURN EXISTS (SELECT 1 FROM public.issued_attempt_private_execution AS private
+       WHERE private.tenant_id=p_tenant AND private.attempt_id=p_attempt
+         AND private.attempt_occurred_at=p_occurred_at
+         AND (private.flat_required,private.flat_payload,private.flat_payload_sha256,
+              private.webwork_required,private.webwork_payload,private.webwork_payload_sha256,
+              private.webwork_replay_payload,private.webwork_replay_payload_sha256,
+              private.qti_required,private.qti_payload,private.qti_payload_sha256)
+             IS NOT DISTINCT FROM
+             (p_flat_required,p_flat_payload,p_flat_payload_sha256,
+              p_webwork_required,p_webwork_payload,p_webwork_payload_sha256,
+              p_webwork_replay_payload,p_webwork_replay_payload_sha256,
+              p_qti_required,p_qti_payload,p_qti_payload_sha256));
+END
+$$;
+
+CREATE FUNCTION public.ple_write_prefetch_private_execution(
+    p_tenant uuid, p_run uuid, p_predecessor uuid, p_position integer,
+    p_flat_required boolean, p_flat_payload jsonb, p_flat_payload_sha256 character(64),
+    p_webwork_required boolean, p_webwork_payload jsonb, p_webwork_payload_sha256 character(64),
+    p_webwork_replay_payload jsonb, p_webwork_replay_payload_sha256 character(64),
+    p_qti_required boolean, p_qti_payload bytea, p_qti_payload_sha256 character(64)
+) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
+BEGIN
+    IF p_tenant IS NULL OR p_run IS NULL OR p_predecessor IS NULL OR p_position < 0
+       OR p_tenant IS DISTINCT FROM public.ple_current_tenant() THEN
+        PERFORM public.ple_learner_work_deny_internal();
+    END IF;
+    PERFORM 1 FROM public.question_prefetch WHERE tenant_id=p_tenant AND run_id=p_run
+      AND predecessor_attempt_id=p_predecessor AND assignment_position=p_position FOR KEY SHARE;
+    IF NOT FOUND THEN PERFORM public.ple_learner_work_deny_internal(); END IF;
+    INSERT INTO public.prefetch_private_execution(
+        tenant_id,run_id,predecessor_attempt_id,assignment_position,flat_required,flat_payload,flat_payload_sha256,
+        webwork_required,webwork_payload,webwork_payload_sha256,
+        webwork_replay_payload,webwork_replay_payload_sha256,qti_required,qti_payload,qti_payload_sha256)
+    VALUES (p_tenant,p_run,p_predecessor,p_position,p_flat_required,p_flat_payload,p_flat_payload_sha256,
+        p_webwork_required,p_webwork_payload,p_webwork_payload_sha256,
+        p_webwork_replay_payload,p_webwork_replay_payload_sha256,p_qti_required,p_qti_payload,p_qti_payload_sha256)
+    ON CONFLICT DO NOTHING;
+    RETURN EXISTS (SELECT 1 FROM public.prefetch_private_execution AS private
+       WHERE private.tenant_id=p_tenant AND private.run_id=p_run
+         AND private.predecessor_attempt_id=p_predecessor AND private.assignment_position=p_position
+         AND (private.flat_required,private.flat_payload,private.flat_payload_sha256,
+              private.webwork_required,private.webwork_payload,private.webwork_payload_sha256,
+              private.webwork_replay_payload,private.webwork_replay_payload_sha256,
+              private.qti_required,private.qti_payload,private.qti_payload_sha256)
+             IS NOT DISTINCT FROM
+             (p_flat_required,p_flat_payload,p_flat_payload_sha256,
+              p_webwork_required,p_webwork_payload,p_webwork_payload_sha256,
+              p_webwork_replay_payload,p_webwork_replay_payload_sha256,
+              p_qti_required,p_qti_payload,p_qti_payload_sha256));
+END
+$$;
+
+-- Promotion consumes both halves of a reservation in one transaction.  The
+-- private child is copied only when it exactly agrees with the already
+-- created attempt child; the public reservation is deleted last so FK
+-- cascading cannot erase the source before the equality proof.
+CREATE FUNCTION public.ple_promote_prefetch_private_execution(
+    p_tenant uuid, p_attempt uuid, p_run uuid, p_predecessor uuid, p_position integer
+) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
+DECLARE p_occurred_at timestamptz;
+BEGIN
+    IF p_tenant IS NULL OR p_attempt IS NULL OR p_run IS NULL OR p_predecessor IS NULL
+       OR p_position < 0 OR p_tenant IS DISTINCT FROM public.ple_current_tenant() THEN
+        PERFORM public.ple_learner_work_deny_internal();
+    END IF;
+    SELECT occurred_at INTO p_occurred_at FROM public.question_attempt
+      WHERE tenant_id=p_tenant AND attempt_id=p_attempt AND run_id=p_run FOR KEY SHARE;
+    IF NOT FOUND THEN PERFORM public.ple_learner_work_deny_internal(); END IF;
+    PERFORM 1 FROM public.question_prefetch WHERE tenant_id=p_tenant AND run_id=p_run
+      AND predecessor_attempt_id=p_predecessor AND assignment_position=p_position FOR UPDATE;
+    IF NOT FOUND THEN PERFORM public.ple_learner_work_deny_internal(); END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.prefetch_private_execution AS prefetch
+       JOIN public.issued_attempt_private_execution AS attempt
+         ON attempt.tenant_id=prefetch.tenant_id
+        AND (attempt.flat_required,attempt.flat_payload,attempt.flat_payload_sha256,
+             attempt.webwork_required,attempt.webwork_payload,attempt.webwork_payload_sha256,
+             attempt.webwork_replay_payload,attempt.webwork_replay_payload_sha256,
+             attempt.qti_required,attempt.qti_payload,attempt.qti_payload_sha256)
+            IS NOT DISTINCT FROM
+            (prefetch.flat_required,prefetch.flat_payload,prefetch.flat_payload_sha256,
+             prefetch.webwork_required,prefetch.webwork_payload,prefetch.webwork_payload_sha256,
+             prefetch.webwork_replay_payload,prefetch.webwork_replay_payload_sha256,
+             prefetch.qti_required,prefetch.qti_payload,prefetch.qti_payload_sha256)
+       WHERE prefetch.tenant_id=p_tenant AND prefetch.run_id=p_run
+         AND prefetch.predecessor_attempt_id=p_predecessor AND prefetch.assignment_position=p_position
+         AND attempt.attempt_id=p_attempt AND attempt.attempt_occurred_at=p_occurred_at) THEN
+        RETURN false;
+    END IF;
+    DELETE FROM public.question_prefetch WHERE tenant_id=p_tenant AND run_id=p_run
+      AND predecessor_attempt_id=p_predecessor AND assignment_position=p_position;
+    RETURN FOUND;
+END
+$$;
+
+ALTER FUNCTION public.ple_write_issued_attempt_private_execution(uuid,uuid,boolean,jsonb,character,boolean,jsonb,character,jsonb,character,boolean,bytea,character) OWNER TO ple_learner_work_broker;
+ALTER FUNCTION public.ple_write_prefetch_private_execution(uuid,uuid,uuid,integer,boolean,jsonb,character,boolean,jsonb,character,jsonb,character,boolean,bytea,character) OWNER TO ple_learner_work_broker;
+ALTER FUNCTION public.ple_promote_prefetch_private_execution(uuid,uuid,uuid,uuid,integer) OWNER TO ple_learner_work_broker;
+REVOKE ALL ON FUNCTION public.ple_write_issued_attempt_private_execution(uuid,uuid,boolean,jsonb,character,boolean,jsonb,character,jsonb,character,boolean,bytea,character), public.ple_write_prefetch_private_execution(uuid,uuid,uuid,integer,boolean,jsonb,character,boolean,jsonb,character,jsonb,character,boolean,bytea,character) FROM PUBLIC, ple_grader, ple_grading_reader;
+REVOKE ALL ON FUNCTION public.ple_promote_prefetch_private_execution(uuid,uuid,uuid,uuid,integer) FROM PUBLIC, ple_grader, ple_grading_reader;
+GRANT EXECUTE ON FUNCTION public.ple_write_issued_attempt_private_execution(uuid,uuid,boolean,jsonb,character,boolean,jsonb,character,jsonb,character,boolean,bytea,character), public.ple_write_prefetch_private_execution(uuid,uuid,uuid,integer,boolean,jsonb,character,boolean,jsonb,character,jsonb,character,boolean,bytea,character), public.ple_promote_prefetch_private_execution(uuid,uuid,uuid,uuid,integer) TO ple_app;
 
 CREATE POLICY learner_work_broker_course_tenant ON public.course
     TO ple_learner_work_broker USING (tenant_id = public.ple_current_tenant());
@@ -492,6 +686,84 @@ BEGIN
 END
 $$;
 
+-- This is the sole answer-bearing read.  It repeats route authorization and
+-- locks inside the broker before joining the sealed child by its exact parent
+-- key.  Its narrow projection deliberately contains no catalog/source lookup
+-- capability and no ordinary application role can execute it.
+CREATE FUNCTION public.ple_prepare_sealed_private_execution(
+    p_tenant uuid, p_course uuid, p_assignment uuid, p_actor uuid, p_attempt uuid
+) RETURNS TABLE(
+    attempt_id uuid, flat_required boolean, flat_payload jsonb, flat_payload_sha256 character(64),
+    webwork_required boolean, webwork_payload jsonb, webwork_payload_sha256 character(64),
+    webwork_replay_payload jsonb, webwork_replay_payload_sha256 character(64),
+    qti_required boolean, qti_payload bytea, qti_payload_sha256 character(64)
+) LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
+DECLARE prepared record;
+BEGIN
+    IF p_tenant IS NULL OR p_course IS NULL OR p_assignment IS NULL
+       OR p_actor IS NULL OR p_attempt IS NULL
+       OR p_tenant IS DISTINCT FROM public.ple_current_tenant() THEN
+        PERFORM public.ple_learner_work_deny_internal();
+    END IF;
+    SELECT * INTO prepared FROM public.ple_learner_work_prepare_internal(
+        p_tenant, p_course, p_assignment, p_actor, p_actor, 'student_self', NULL, NULL, p_attempt);
+    RETURN QUERY
+    SELECT private.attempt_id, private.flat_required, private.flat_payload,
+           private.flat_payload_sha256, private.webwork_required, private.webwork_payload,
+           private.webwork_payload_sha256, private.webwork_replay_payload,
+           private.webwork_replay_payload_sha256, private.qti_required, private.qti_payload,
+           private.qti_payload_sha256
+      FROM public.issued_attempt_private_execution AS private
+     WHERE private.tenant_id = prepared.tenant_id
+       AND private.attempt_id = prepared.attempt_id;
+    IF NOT FOUND THEN PERFORM public.ple_learner_work_deny_internal(); END IF;
+END
+$$;
+
+-- A completion verifier may prove the native seed's private-child shape, but
+-- never receives a private relation grant or a payload projection.  The
+-- result is a single structural witness bound to the current tenant and exact
+-- immutable attempt key.  ASVS 2.3.1/2.3.3: a native envelope cannot be
+-- treated as complete when its sealed child is missing or cross-wired.
+CREATE FUNCTION public.ple_verify_native_private_execution_shape(
+    p_tenant uuid, p_attempt uuid
+) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
+BEGIN
+    IF p_tenant IS NULL OR p_attempt IS NULL
+       OR p_tenant IS DISTINCT FROM public.ple_current_tenant() THEN
+        PERFORM public.ple_learner_work_deny_internal();
+    END IF;
+    RETURN EXISTS (
+        SELECT 1
+          FROM public.question_attempt AS attempt
+          JOIN public.issued_attempt_private_execution AS private
+            ON private.tenant_id = attempt.tenant_id
+           AND private.attempt_id = attempt.attempt_id
+           AND private.attempt_occurred_at = attempt.occurred_at
+         WHERE attempt.tenant_id = p_tenant
+           AND attempt.attempt_id = p_attempt
+           AND attempt.presentation_capability = 'envelope_v1'
+           AND attempt.presentation_descriptor_version = 1
+           AND octet_length(attempt.presentation_nonce) = 16
+           AND octet_length(attempt.presentation_digest) = 32
+           AND attempt.presentation_payload IS NOT NULL
+           AND attempt.presentation_payload_sha256 ~ '^[0-9a-f]{64}$'
+           AND attempt.grading_envelope_payload IS NOT NULL
+           AND attempt.grading_envelope_payload_sha256 ~ '^[0-9a-f]{64}$'
+           AND private.flat_required = false AND private.flat_payload IS NULL
+           AND private.flat_payload_sha256 IS NULL
+           AND private.webwork_required = false AND private.webwork_payload IS NULL
+           AND private.webwork_payload_sha256 IS NULL
+           AND private.webwork_replay_payload IS NULL
+           AND private.webwork_replay_payload_sha256 IS NULL
+           AND private.qti_required = false AND private.qti_payload IS NULL
+           AND private.qti_payload_sha256 IS NULL
+    );
+END
+$$;
+
 CREATE FUNCTION public.ple_prepare_rule_entitlement_materialization(
     p_tenant uuid, p_course uuid, p_assignment uuid, p_learner uuid, p_rule_kind text
 ) RETURNS TABLE(
@@ -529,6 +801,10 @@ ALTER FUNCTION public.ple_prepare_student_run_work(uuid, uuid, uuid, uuid, uuid)
     OWNER TO ple_learner_work_broker;
 ALTER FUNCTION public.ple_prepare_attempt_work(uuid, uuid, uuid, uuid, uuid, text)
     OWNER TO ple_learner_work_broker;
+ALTER FUNCTION public.ple_prepare_sealed_private_execution(uuid, uuid, uuid, uuid, uuid)
+    OWNER TO ple_learner_work_broker;
+ALTER FUNCTION public.ple_verify_native_private_execution_shape(uuid, uuid)
+    OWNER TO ple_learner_work_broker;
 ALTER FUNCTION public.ple_prepare_rule_entitlement_materialization(uuid, uuid, uuid, uuid, text)
     OWNER TO ple_learner_work_broker;
 
@@ -545,11 +821,17 @@ REVOKE ALL ON FUNCTION public.ple_prepare_entitlement_materialization(uuid, uuid
     public.ple_prepare_attempt_work(uuid, uuid, uuid, uuid, uuid, text),
     public.ple_prepare_rule_entitlement_materialization(uuid, uuid, uuid, uuid, text)
     FROM PUBLIC, ple_app, ple_grader, ple_grading_reader;
+REVOKE ALL ON FUNCTION public.ple_prepare_sealed_private_execution(uuid, uuid, uuid, uuid, uuid)
+    FROM PUBLIC, ple_app, ple_grader;
+REVOKE ALL ON FUNCTION public.ple_verify_native_private_execution_shape(uuid, uuid)
+    FROM PUBLIC, ple_app, ple_grader, ple_grading_reader;
 GRANT EXECUTE ON FUNCTION public.ple_prepare_entitlement_materialization(uuid, uuid, uuid, uuid, text, uuid),
     public.ple_prepare_student_run_work(uuid, uuid, uuid, uuid, uuid),
     public.ple_prepare_attempt_work(uuid, uuid, uuid, uuid, uuid, text) TO ple_app;
 GRANT EXECUTE ON FUNCTION public.ple_prepare_rule_entitlement_materialization(uuid, uuid, uuid, uuid, text)
     TO ple_grader;
+GRANT EXECUTE ON FUNCTION public.ple_prepare_sealed_private_execution(uuid, uuid, uuid, uuid, uuid)
+    TO ple_grading_reader;
 
 -- Fresh installations prove the entire role, function, policy, and grant matrix.
 DO $$

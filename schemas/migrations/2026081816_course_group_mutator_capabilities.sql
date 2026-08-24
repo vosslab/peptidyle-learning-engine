@@ -179,7 +179,7 @@ BEGIN
             affected_assignment_revisions := ARRAY[]::bigint[]; RETURN NEXT; RETURN;
         END IF;
         IF p_expected_revision IS NULL OR p_expected_revision <> v_existing.revision THEN
-            RAISE EXCEPTION 'course group revision conflict' USING ERRCODE='40001';
+            RAISE EXCEPTION 'course group revision conflict' USING ERRCODE = '55000';
         END IF;
         IF (p_purpose NOT IN ('section','lab','cohort') AND EXISTS (
               SELECT 1 FROM public.assignment_audience_group WHERE tenant_id=p_tenant AND course_id=p_course AND course_group_id=p_group
@@ -193,9 +193,9 @@ BEGIN
             updated_at=transaction_timestamp()
          WHERE group_row.tenant_id=p_tenant AND group_row.course_id=p_course
            AND group_row.course_group_id=p_group AND group_row.revision=p_expected_revision;
-        IF NOT FOUND THEN RAISE EXCEPTION 'course group revision conflict' USING ERRCODE='40001'; END IF;
+        IF NOT FOUND THEN RAISE EXCEPTION 'course group revision conflict' USING ERRCODE = '55000'; END IF;
     ELSE
-        IF p_expected_revision IS NOT NULL THEN RAISE EXCEPTION 'course group revision conflict' USING ERRCODE='40001'; END IF;
+        IF p_expected_revision IS NOT NULL THEN RAISE EXCEPTION 'course group revision conflict' USING ERRCODE = '55000'; END IF;
         v_next_revision := 1;
         INSERT INTO public.course_group(tenant_id,course_id,course_group_id,purpose,title,revision)
         VALUES(p_tenant,p_course,p_group,p_purpose,p_title,v_next_revision);
@@ -229,7 +229,7 @@ BEGIN
     SELECT * INTO v_existing FROM public.course_group WHERE tenant_id=p_tenant AND course_group_id=p_group FOR UPDATE;
     IF NOT FOUND THEN RETURN false; END IF;
     IF v_existing.course_id <> p_course OR v_existing.revision <> p_expected_revision THEN
-        RAISE EXCEPTION 'course group revision conflict' USING ERRCODE='40001';
+        RAISE EXCEPTION 'course group revision conflict' USING ERRCODE = '55000';
     END IF;
     IF EXISTS (SELECT 1 FROM public.assignment_audience_group WHERE tenant_id=p_tenant AND course_id=p_course AND course_group_id=p_group
                UNION ALL SELECT 1 FROM public.assignment_group_schedule_offset WHERE tenant_id=p_tenant AND course_id=p_course AND course_group_id=p_group
@@ -325,7 +325,7 @@ BEGIN
         RAISE EXCEPTION 'course group purpose policy aggregate is invalid' USING ERRCODE='55000';
     END IF;
     IF v_stored_revision <> p_expected_revision THEN
-        RAISE EXCEPTION 'course group purpose policy revision conflict' USING ERRCODE='40001';
+        RAISE EXCEPTION 'course group purpose policy revision conflict' USING ERRCODE = '55000';
     END IF;
 
     UPDATE public.course_group_membership_policy AS policy_row
@@ -336,7 +336,7 @@ BEGIN
        AND policy_row.purpose = p_purpose AND policy_row.revision = p_expected_revision
      RETURNING policy_row.revision INTO v_next_revision;
     IF NOT FOUND OR v_next_revision < 1 THEN
-        RAISE EXCEPTION 'course group purpose policy revision conflict' USING ERRCODE='40001';
+        RAISE EXCEPTION 'course group purpose policy revision conflict' USING ERRCODE = '55000';
     END IF;
 
     tenant_id := p_tenant;

@@ -102,7 +102,7 @@ export async function selectVisibleCourse(page: Page, title: string): Promise<vo
   const choice = courseChoice(page, title);
   await expect(choice).toHaveCount(1);
   await choice.click();
-  await expect(page.getByRole("main")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
 }
 
 export async function restoreViewportOrigin(page: Page): Promise<void> {

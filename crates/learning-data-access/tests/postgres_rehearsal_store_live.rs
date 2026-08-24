@@ -15,13 +15,11 @@ use course_creation_support::sysadmin_course_creation_authority;
 use domain::effective_assignment_policy::BaseAssignmentPolicy;
 use learning_data_access::postgres::{PostgresStore, apply_migrations, lazy_pool};
 use learning_data_access::{
-    AppendRehearsalFrozenItemCommand, AssignmentRecord, CatalogStore,
-    ClaimRehearsalSubmissionCommand, CompleteRehearsalSubmissionCommand, CourseRecord,
-    CourseRosterStore, CreateAssignmentCommand, CreateCourseCommand, DraftRecord,
-    MarkRehearsalSubmissionDispatchedCommand, NavigationReferenceStore,
-    PutAssignmentTeachingSettingsCommand, RehearsalLocator, RehearsalStore,
-    RehearsalSubmissionClaimResult, RehearsalSubmissionIdempotencyKey, StartRehearsalCommand,
-    Store, StoreError, TenantContext, UpsertCourseMember,
+    AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateAssignmentCommand,
+    CreateCourseCommand, DraftRecord, NavigationReferenceStore,
+    PutAssignmentTeachingSettingsCommand, ReadRehearsalRouteCommand, RehearsalIdempotencyKey,
+    RehearsalOperationDigest, RehearsalStore, StartRehearsalRouteCommand, Store, StoreError,
+    TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -37,9 +35,8 @@ use question_model::{
     CourseTerm, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, IanaTimeZone,
     LateSubmissionPolicy, PointValue, PreviewSelectedMoment, PreviewSyntheticGroupReferences,
     ProblemId, ProblemVersionRef, PublicationScope, QuestionMetadata, QuestionSource,
-    RehearsalAttemptId, RehearsalEvidenceDigest, RehearsalFrozenItemEvidence, RehearsalLifecycle,
-    RehearsalPrivateGradingResult, RehearsalSubjectStart, RehearsalSyntheticSubjectRequest,
-    ResponseDefinition, StudentResponse, SyntheticPreviewModifiers, TeachingAttemptLimitFieldPatch,
+    RehearsalLifecycle, RehearsalSubjectStart, RehearsalSyntheticSubjectRequest,
+    ResponseDefinition, SyntheticPreviewModifiers, TeachingAttemptLimitFieldPatch,
     TeachingLimitFieldPatch, TeachingOperationRevision, TeachingTimeFieldPatch, TenantId, UserId,
     VersionId, WorkspaceId,
 };
@@ -47,24 +44,197 @@ use sqlx::PgPool;
 use std::num::NonZeroU32;
 use uuid::Uuid;
 
-fn id() -> Uuid {
+pub fn id() -> Uuid {
     let mut bytes = [0; 16];
     getrandom::fill(&mut bytes).expect("fixture UUID randomness");
     Uuid::from_bytes(bytes)
 }
 
-fn deterministic_grade() -> RehearsalPrivateGradingResult {
-    RehearsalPrivateGradingResult::Graded {
-        result: question_model::AttemptResult {
-            correct: true,
-            points_earned: 1.0,
-            points_possible: 1.0,
-        },
-        feedback: question_model::DisclosedFeedback::empty(),
-        backend_receipt_reference: question_model::RehearsalBackendReceiptReference::new(
-            "native:postgres-test".into(),
+/// Ordinary, committed source and frozen rehearsal used by post-start SQL
+/// oracles.  The fixture deliberately crosses the same Store boundary as the
+/// instructor route: it never invokes a rehearsal SQL start capability.
+#[allow(dead_code)] // Raw SQL fault oracles consume these only after Store start commits.
+pub struct StartedFixture {
+    pub pool: PgPool,
+    pub store: PostgresStore,
+    pub context: TenantContext,
+    pub tenant: TenantId,
+    pub actor: UserId,
+    pub course: CourseId,
+    pub assignment_id: AssignmentId,
+    pub assignment: question_model::AssignmentReference,
+    pub revision: TeachingOperationRevision,
+    pub rehearsal: question_model::RehearsalReference,
+    /// Test-private persistence identity. It is obtained only after the Store
+    /// has committed the public route start.
+    pub run_id: Uuid,
+}
+
+/// Creates a normal four-item published assignment and starts its rehearsal
+/// through [`RehearsalStore::start_rehearsal_from_route`].
+pub async fn started_fixture() -> StartedFixture {
+    started_fixture_with_timing(TimingPolicy::Untimed, Some(300)).await
+}
+
+/// Creates the same ordinary Store-owned fixture with an authored question
+/// timing policy and an optional assignment-wide subject limit.  Connected
+/// timing oracles use this rather than inserting rehearsal rows directly.
+pub async fn started_fixture_with_timing(
+    timing_policy: TimingPolicy,
+    subject_time_limit_seconds: Option<u32>,
+) -> StartedFixture {
+    let url = std::env::var("PLE_TEST_DATABASE_URL").expect("disposable database URL");
+    let pool = lazy_pool(&url).expect("PostgreSQL URL");
+    apply_migrations(&pool).await.expect("full migration epoch");
+    let store = PostgresStore::with_question_id_secret(pool.clone(), [0x54; 32]);
+    let tenant = TenantId::from_uuid(id());
+    let context = TenantContext::from_authenticated_session(tenant);
+    let actor = UserId::from_uuid(id());
+    let learner = UserId::from_uuid(id());
+    let course = CourseId::from_uuid(id());
+    store
+        .create_course(
+            context,
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: course,
+                    tenant,
+                    title: "PostgreSQL rehearsal post-start fixture".into(),
+                    term: CourseTerm::from_parts("2026-01-01", "2026-12-31", "America/Chicago")
+                        .expect("term"),
+                },
+                authority: sysadmin_course_creation_authority(&store, tenant, course, actor).await,
+            },
         )
-        .expect("valid deterministic rehearsal receipt"),
+        .await
+        .expect("course");
+    store
+        .upsert_course_member(
+            context,
+            actor,
+            UpsertCourseMember {
+                course,
+                user: learner,
+                display_name: "Ordinary learner".into(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("ordinary learner");
+    let publications = [
+        publish_with_timing(&store, context, tenant, actor, timing_policy).await,
+        publish_with_timing(&store, context, tenant, actor, timing_policy).await,
+        publish_with_timing(&store, context, tenant, actor, timing_policy).await,
+        publish_with_timing(&store, context, tenant, actor, timing_policy).await,
+    ];
+    let assignment_id = AssignmentId::from_uuid(id());
+    let policy = BaseAssignmentPolicy {
+        available_at: Some(ActivityTimestamp::from_unix_millis(1_787_580_000_000)),
+        due_at: None,
+        closes_at: None,
+        time_limit_seconds: subject_time_limit_seconds
+            .map(|seconds| NonZeroU32::new(seconds).expect("positive subject limit")),
+        attempt_limit: Some(NonZeroU32::new(2).expect("limit")),
+        late_submission: LateSubmissionPolicy::Accept,
+        deadline_behavior: question_model::AssignmentDeadlineBehavior::AutoSubmit,
+    };
+    let instructions =
+        AssignmentInstructions::try_new("Work through the problem.".into()).expect("instructions");
+    let created = store
+        .create_assignment(
+            context,
+            CreateAssignmentCommand {
+                actor,
+                base_policy: policy,
+                assignment: AssignmentRecord {
+                    id: assignment_id,
+                    tenant,
+                    course_id: course,
+                    title: "Rehearsal post-start assignment".into(),
+                    lifecycle: AssignmentLifecycle::Draft,
+                    instructions: instructions.clone(),
+                    audience: AssignmentAudience::CourseWide,
+                    items: publications
+                        .into_iter()
+                        .enumerate()
+                        .map(|(position, reference)| AssignmentItem {
+                            id: AssignmentItemId::from_uuid(id()),
+                            reference,
+                            position: u32::try_from(position).expect("fixture position"),
+                            points_possible: PointValue::from_whole(1),
+                            delivery_state: AssignmentDeliveryState::Active,
+                            scoring_mode: AssignmentScoringMode::Normal,
+                        })
+                        .collect(),
+                    selection_groups: vec![],
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    policies: policies(),
+                },
+            },
+        )
+        .await
+        .expect("draft assignment");
+    let published = store
+        .put_assignment_teaching_settings(
+            context,
+            PutAssignmentTeachingSettingsCommand {
+                actor,
+                course,
+                assignment: assignment_id,
+                expected_revision: created.revision,
+                settings: question_model::AssignmentTeachingSettings {
+                    lifecycle: AssignmentLifecycle::Published,
+                    instructions,
+                    base_policy: policy,
+                },
+            },
+        )
+        .await
+        .expect("published assignment");
+    let assignment = store
+        .assignment_reference(context, actor, assignment_id)
+        .await
+        .expect("reference query")
+        .expect("published reference");
+    let revision = TeachingOperationRevision::new(published.revision.value()).expect("revision");
+    let started = store
+        .start_rehearsal_from_route(
+            context,
+            StartRehearsalRouteCommand {
+                actor,
+                course,
+                assignment,
+                expected_revision: revision,
+                subject: synthetic_subject("2026-08-25T09:00:00.000"),
+                start_new_after_completion: false,
+                idempotency_key: RehearsalIdempotencyKey::new("postgres-post-start".into())
+                    .expect("idempotency key"),
+                request_fingerprint: RehearsalOperationDigest::from_bytes([0x61; 32]),
+            },
+        )
+        .await
+        .expect("Store-owned route rehearsal start")
+        .receipt;
+    let run_id: Uuid = sqlx::query_scalar(
+        "SELECT rehearsal_run_id FROM rehearsal_run WHERE tenant_id=$1 AND rehearsal_reference=$2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(i64::from(started.rehearsal.number()))
+    .fetch_one(&pool)
+    .await
+    .expect("committed rehearsal internal identity");
+    StartedFixture {
+        pool,
+        store,
+        context,
+        tenant,
+        actor,
+        course,
+        assignment_id,
+        assignment,
+        revision,
+        rehearsal: started.rehearsal,
+        run_id,
     }
 }
 
@@ -105,6 +275,16 @@ async fn publish(
     tenant: TenantId,
     instructor: UserId,
 ) -> ProblemVersionRef {
+    publish_with_timing(store, context, tenant, instructor, TimingPolicy::Untimed).await
+}
+
+async fn publish_with_timing(
+    store: &PostgresStore,
+    context: TenantContext,
+    tenant: TenantId,
+    instructor: UserId,
+    timing_policy: TimingPolicy,
+) -> ProblemVersionRef {
     let reference = ProblemVersionRef {
         problem: ProblemId::from_uuid(id()),
         version: VersionId::from_uuid(id()),
@@ -124,7 +304,7 @@ async fn publish(
                 unit: None,
             },
             attempt_policy: AttemptPolicy { max_attempts: None },
-            timing_policy: TimingPolicy::Untimed,
+            timing_policy,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
             metadata: QuestionMetadata {
@@ -223,46 +403,6 @@ async fn ordinary_counts(pool: &PgPool, tenant: TenantId) -> [i64; 7] {
     ]
 }
 
-async fn database_millis(pool: &PgPool) -> i64 {
-    sqlx::query_scalar(
-        "SELECT (extract(epoch FROM date_trunc('milliseconds', transaction_timestamp())) * 1000)::bigint",
-    )
-    .fetch_one(pool)
-    .await
-    .expect("database timestamp")
-}
-
-/// The Store requires the browser-originated frozen receipt to carry the exact
-/// database-owned millisecond that it will validate inside its transaction.
-/// Sampling that instant from this independent test connection can straddle a
-/// millisecond boundary, so retry only the optimistic timestamp precondition.
-async fn append_frozen_at_store_instant(
-    store: &PostgresStore,
-    context: TenantContext,
-    locator: RehearsalLocator,
-    pool: &PgPool,
-    mut frozen: RehearsalFrozenItemEvidence,
-) -> RehearsalFrozenItemEvidence {
-    for _ in 0..64 {
-        frozen.frozen_at = ActivityTimestamp::from_unix_millis(database_millis(pool).await);
-        match store
-            .append_rehearsal_frozen_item(
-                context,
-                AppendRehearsalFrozenItemCommand {
-                    locator,
-                    frozen: frozen.clone(),
-                },
-            )
-            .await
-        {
-            Ok(()) => return frozen,
-            Err(StoreError::Conflict) => tokio::task::yield_now().await,
-            Err(error) => panic!("append frozen evidence: {error:?}"),
-        }
-    }
-    panic!("could not sample the Store-owned frozen-evidence millisecond")
-}
-
 async fn assert_application_cannot_update_rehearsal_rows(pool: &PgPool) {
     let can_update: bool = sqlx::query_scalar(
         "SELECT has_table_privilege('ple_app', 'public.rehearsal_run', 'UPDATE')",
@@ -322,6 +462,7 @@ async fn postgres_rehearsal_store_live_conformance() {
         .await
         .expect("ordinary learner");
     let publication = publish(&store, context, tenant, instructor).await;
+    let second_publication = publish(&store, context, tenant, instructor).await;
     let assignment_id = AssignmentId::from_uuid(id());
     let policy = BaseAssignmentPolicy {
         available_at: Some(ActivityTimestamp::from_unix_millis(1_787_580_000_000)),
@@ -348,14 +489,24 @@ async fn postgres_rehearsal_store_live_conformance() {
                     lifecycle: AssignmentLifecycle::Draft,
                     instructions: instructions.clone(),
                     audience: AssignmentAudience::CourseWide,
-                    items: vec![AssignmentItem {
-                        id: AssignmentItemId::from_uuid(id()),
-                        reference: publication,
-                        position: 0,
-                        points_possible: PointValue::from_whole(1),
-                        delivery_state: AssignmentDeliveryState::Active,
-                        scoring_mode: AssignmentScoringMode::Normal,
-                    }],
+                    items: vec![
+                        AssignmentItem {
+                            id: AssignmentItemId::from_uuid(id()),
+                            reference: publication,
+                            position: 0,
+                            points_possible: PointValue::from_whole(1),
+                            delivery_state: AssignmentDeliveryState::Active,
+                            scoring_mode: AssignmentScoringMode::Normal,
+                        },
+                        AssignmentItem {
+                            id: AssignmentItemId::from_uuid(id()),
+                            reference: second_publication,
+                            position: 1,
+                            points_possible: PointValue::from_whole(1),
+                            delivery_state: AssignmentDeliveryState::Active,
+                            scoring_mode: AssignmentScoringMode::Normal,
+                        },
+                    ],
                     selection_groups: vec![],
                     disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                     policies: policies(),
@@ -388,37 +539,44 @@ async fn postgres_rehearsal_store_live_conformance() {
         .expect("published reference");
     let revision = TeachingOperationRevision::new(published.revision.value()).expect("revision");
     let before = ordinary_counts(&pool, tenant).await;
-    let start = StartRehearsalCommand {
+    let route_start = StartRehearsalRouteCommand {
         actor: instructor,
         course,
         assignment,
-        revision,
+        expected_revision: revision,
         subject: synthetic_subject("2026-08-25T09:00:00.000"),
         start_new_after_completion: false,
+        idempotency_key: RehearsalIdempotencyKey::new("postgres-route-start".into())
+            .expect("idempotency key"),
+        request_fingerprint: RehearsalOperationDigest::from_bytes([0x61; 32]),
     };
-    let first = store
-        .start_rehearsal(context, start.clone())
+    let first_result = store
+        .start_rehearsal_from_route(context, route_start.clone())
         .await
         .expect("create active rehearsal");
+    assert!(!first_result.replayed);
+    let first = first_result.receipt;
     assert_eq!(first.lifecycle, RehearsalLifecycle::Active);
+    let replay = store
+        .start_rehearsal_from_route(context, route_start.clone())
+        .await
+        .expect("route replay");
+    assert!(replay.replayed);
     assert_eq!(
-        store
-            .start_rehearsal(context, start.clone())
-            .await
-            .expect("resume"),
-        first,
-        "same identity resumes the durable aggregate"
+        replay.receipt, first,
+        "idempotency replays the durable receipt"
     );
-    let initial_locator = RehearsalLocator {
-        actor: instructor,
-        course,
-        assignment,
-        revision,
-        rehearsal: first.rehearsal,
-    };
     assert_eq!(
         store
-            .read_rehearsal(context, initial_locator)
+            .read_rehearsal_from_route(
+                context,
+                ReadRehearsalRouteCommand {
+                    actor: instructor,
+                    course,
+                    assignment,
+                    rehearsal: first.rehearsal,
+                },
+            )
             .await
             .expect("rehydrate"),
         first,
@@ -426,9 +584,14 @@ async fn postgres_rehearsal_store_live_conformance() {
     );
     assert_eq!(
         store
-            .read_rehearsal(
+            .read_rehearsal_from_route(
                 TenantContext::from_authenticated_session(foreign),
-                initial_locator,
+                ReadRehearsalRouteCommand {
+                    actor: instructor,
+                    course,
+                    assignment,
+                    rehearsal: first.rehearsal,
+                },
             )
             .await,
         Err(StoreError::NotFound),
@@ -436,175 +599,62 @@ async fn postgres_rehearsal_store_live_conformance() {
     );
     assert_eq!(
         store
-            .read_rehearsal(
+            .read_rehearsal_from_route(
                 context,
-                RehearsalLocator {
+                ReadRehearsalRouteCommand {
                     actor: outsider,
-                    ..initial_locator
+                    course,
+                    assignment,
+                    rehearsal: first.rehearsal,
                 },
             )
             .await,
         Err(StoreError::NotFound),
         "foreign actor cannot inspect the aggregate"
     );
-    let changed = store
-        .start_rehearsal(
-            context,
-            StartRehearsalCommand {
-                subject: synthetic_subject("2026-08-26T09:00:00.000"),
-                ..start.clone()
-            },
-        )
-        .await
-        .expect("replace active rehearsal for changed subject");
-    assert_ne!(changed.rehearsal, first.rehearsal);
+    let material_rows: (i64, i64, i64, i64) = sqlx::query_as(
+        "SELECT \
+            (SELECT count(*) FROM rehearsal_frozen_material_set WHERE tenant_id=$1), \
+            (SELECT count(*) FROM rehearsal_frozen_source_snapshot WHERE tenant_id=$1), \
+            (SELECT count(*) FROM rehearsal_frozen_private_execution WHERE tenant_id=$1), \
+            (SELECT count(*) FROM rehearsal_start_freeze_source_binding WHERE tenant_id=$1)",
+    )
+    .bind(tenant.as_uuid())
+    .fetch_one(&pool)
+    .await
+    .expect("complete frozen material inventory");
     assert_eq!(
-        store
-            .read_rehearsal(context, initial_locator)
-            .await
-            .expect("discarded predecessor")
-            .lifecycle,
-        RehearsalLifecycle::DiscardedByNewSubject,
-        "changed live subject persists an explicit predecessor disposition"
+        material_rows,
+        (1, 2, 2, 2),
+        "the ordinary two-item assignment becomes one complete immutable material set"
     );
-    let locator = RehearsalLocator {
-        rehearsal: changed.rehearsal,
-        ..initial_locator
-    };
-    let frozen = RehearsalFrozenItemEvidence {
-        attempt: RehearsalAttemptId::from_uuid(id()),
-        problem: publication,
-        response_definition: ResponseDefinition::Numeric {
-            tolerance: NumericTolerance::Exact,
-            unit: None,
-        },
-        canonical_content_digest: RehearsalEvidenceDigest::from_bytes([0x44; 32]),
-        frozen_at: ActivityTimestamp::from_unix_millis(0),
-    };
-    let frozen = append_frozen_at_store_instant(&store, context, locator, &pool, frozen).await;
+    let material_header: (i32, i32, i64) = sqlx::query_as(
+        "SELECT expected_item_count, frozen_item_count, assignment_revision
+           FROM rehearsal_frozen_material_set
+          WHERE tenant_id=$1
+            AND rehearsal_run_id=(
+                SELECT rehearsal_run_id
+                  FROM rehearsal_run
+                 WHERE tenant_id=$1 AND rehearsal_reference=$2
+            )",
+    )
+    .bind(tenant.as_uuid())
+    .bind(i64::from(first.rehearsal.number()))
+    .fetch_one(&pool)
+    .await
+    .expect("exact frozen material header");
     assert_eq!(
-        store
-            .append_rehearsal_frozen_item(
-                context,
-                AppendRehearsalFrozenItemCommand {
-                    locator,
-                    frozen: frozen.clone()
-                },
-            )
-            .await,
-        Err(StoreError::Conflict),
-        "frozen inventory append is not silently duplicated"
+        material_header,
+        (
+            2,
+            2,
+            i64::try_from(revision.value()).expect("database revision")
+        ),
+        "the immutable header commits the exact ordinary assignment inventory and revision"
     );
-    let claim = store
-        .claim_rehearsal_submission(
-            context,
-            ClaimRehearsalSubmissionCommand {
-                locator,
-                attempt: frozen.attempt,
-                response: StudentResponse::Numeric { value: 3.0 },
-                idempotency_key: RehearsalSubmissionIdempotencyKey::new("submission-1".into())
-                    .expect("key"),
-            },
-        )
-        .await
-        .expect("claim");
-    let RehearsalSubmissionClaimResult::Claimed(claim) = claim else {
-        panic!("first submission must create a claim");
-    };
-    assert!(matches!(
-        store
-            .claim_rehearsal_submission(
-                context,
-                ClaimRehearsalSubmissionCommand {
-                    locator,
-                    attempt: frozen.attempt,
-                    response: StudentResponse::Numeric { value: 3.0 },
-                    idempotency_key: RehearsalSubmissionIdempotencyKey::new("submission-1".into())
-                        .expect("key"),
-                },
-            )
-            .await
-            .expect("pending"),
-        RehearsalSubmissionClaimResult::Pending
-    ));
-    let dispatched = store
-        .mark_rehearsal_submission_dispatched(
-            context,
-            MarkRehearsalSubmissionDispatchedCommand {
-                locator,
-                handle: claim.handle,
-            },
-        )
-        .await
-        .expect("dispatch");
-    let completion = store
-        .complete_rehearsal_submission(
-            context,
-            CompleteRehearsalSubmissionCommand {
-                locator,
-                handle: dispatched,
-                grading: deterministic_grade(),
-            },
-        )
-        .await
-        .expect("complete submission");
-    assert!(
-        !completion.replayed,
-        "initial result is a fresh public receipt"
-    );
-    assert!(matches!(
-        store
-            .claim_rehearsal_submission(
-                context,
-                ClaimRehearsalSubmissionCommand {
-                    locator,
-                    attempt: frozen.attempt,
-                    response: StudentResponse::Numeric { value: 3.0 },
-                    idempotency_key: RehearsalSubmissionIdempotencyKey::new("submission-1".into())
-                        .expect("key"),
-                },
-            )
-            .await
-            .expect("replay"),
-        RehearsalSubmissionClaimResult::Replay(_)
-    ));
-    let completed = store
-        .complete_rehearsal(context, locator)
-        .await
-        .expect("complete run");
-    assert_eq!(completed.lifecycle, RehearsalLifecycle::Completed);
-    assert_eq!(
-        store.start_rehearsal(context, start.clone()).await,
-        Err(StoreError::Conflict),
-        "completed rehearsal requires explicit restart intent"
-    );
-    let replacement = store
-        .start_rehearsal(
-            context,
-            StartRehearsalCommand {
-                start_new_after_completion: true,
-                ..start
-            },
-        )
-        .await
-        .expect("explicit replacement");
-    assert_ne!(replacement.rehearsal, first.rehearsal);
-    assert_eq!(replacement.lifecycle, RehearsalLifecycle::Active);
     assert_eq!(
         ordinary_counts(&pool, tenant).await,
         before,
-        "rehearsal has no learner effects"
-    );
-    let persisted: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM rehearsal_run WHERE tenant_id=$1 AND course_id=$2",
-    )
-    .bind(tenant.as_uuid())
-    .bind(course.as_uuid())
-    .fetch_one(&pool)
-    .await
-    .expect("rehearsal count");
-    assert_eq!(
-        persisted, 3,
-        "changed-subject, completed, and replacement rehearsal rows are durable"
+        "route rehearsal start has no learner-work side effects"
     );
 }

@@ -100,7 +100,7 @@ BEGIN
         RAISE EXCEPTION 'course roster state is unavailable' USING ERRCODE = '55000';
     END IF;
     IF actual_roster_revision <> p_expected_roster_revision THEN
-        RAISE EXCEPTION 'stale course roster revision' USING ERRCODE = '40001';
+        RAISE EXCEPTION 'stale course roster revision' USING ERRCODE = '55000';
     END IF;
     PERFORM 1 FROM public.course_member membership
      WHERE membership.tenant_id = p_tenant AND membership.course_id = p_course
@@ -119,7 +119,7 @@ BEGIN
         RAISE EXCEPTION 'target Instructor membership is unavailable' USING ERRCODE = '55000';
     END IF;
     IF active_instructors < 2 THEN
-        RAISE EXCEPTION 'course must retain an active Instructor' USING ERRCODE = '40001';
+        RAISE EXCEPTION 'course must retain an active Instructor' USING ERRCODE = '55000';
     END IF;
     SELECT helper.locked_rehearsal_count, helper.locked_rehearsal_run_ids
       INTO locked_count, locked_ids
@@ -153,30 +153,30 @@ BEGIN
       ) witness;
     IF prepared_count <> p_locked_rehearsal_count THEN
         RAISE EXCEPTION 'locked rehearsal count changed during Instructor removal'
-            USING ERRCODE = '40001';
+            USING ERRCODE = '55000';
     END IF;
     SELECT public.ple_rehearsal_fence_source_context_internal(
         p_tenant, NULL, NULL, p_membership
     ) INTO fenced;
     IF fenced <> p_locked_rehearsal_count THEN
         RAISE EXCEPTION 'locked rehearsal count changed during Instructor removal'
-            USING ERRCODE = '40001';
+            USING ERRCODE = '55000';
     END IF;
     UPDATE public.course_member SET status = 'revoked', revoked_at = transaction_timestamp()
      WHERE tenant_id = p_tenant AND course_id = p_course
        AND course_membership_id = p_membership AND role = 'instructor' AND status = 'active';
     GET DIAGNOSTICS changed = ROW_COUNT;
     IF changed <> 1 THEN
-        RAISE EXCEPTION 'target Instructor membership changed during removal' USING ERRCODE = '40001';
+        RAISE EXCEPTION 'target Instructor membership changed during removal' USING ERRCODE = '55000';
     END IF;
     UPDATE public.course_roster_state SET revision = revision + 1, updated_at = transaction_timestamp()
      WHERE tenant_id = p_tenant AND course_id = p_course AND revision = p_expected_roster_revision;
     GET DIAGNOSTICS changed = ROW_COUNT;
     IF changed <> 1 THEN
-        RAISE EXCEPTION 'course roster changed during Instructor removal' USING ERRCODE = '40001';
+        RAISE EXCEPTION 'course roster changed during Instructor removal' USING ERRCODE = '55000';
     END IF;
     IF locked_roster_revision <> p_expected_roster_revision THEN
-        RAISE EXCEPTION 'course roster witness changed during Instructor removal' USING ERRCODE = '40001';
+        RAISE EXCEPTION 'course roster witness changed during Instructor removal' USING ERRCODE = '55000';
     END IF;
     RETURN fenced;
 END
@@ -275,18 +275,18 @@ BEGIN
       ) witness;
     IF locked_generation <> p_generation THEN
         RAISE EXCEPTION 'retention generation changed during rehearsal verification'
-            USING ERRCODE = '40001';
+            USING ERRCODE = '55000';
     END IF;
     IF prepared_count <> p_locked_rehearsal_count THEN
         RAISE EXCEPTION 'locked rehearsal count changed during retention delete'
-            USING ERRCODE = '40001';
+            USING ERRCODE = '55000';
     END IF;
     SELECT public.ple_rehearsal_fence_source_context_internal(
         p_tenant, p_course, NULL, NULL
     ) INTO fenced;
     IF fenced <> p_locked_rehearsal_count THEN
         RAISE EXCEPTION 'locked rehearsal count changed during retention delete'
-            USING ERRCODE = '40001';
+            USING ERRCODE = '55000';
     END IF;
     committed := public.ple_commit_delete_retention_work_before_passwordless_identity(
         p_tenant, p_job, p_token, p_course, p_stage, p_generation

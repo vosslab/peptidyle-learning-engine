@@ -11,6 +11,7 @@ pub(crate) async fn exercise_memory_co_instructor_expiry(store: &MemoryStore) {
     let target = UserId::from_uuid(uuid(730_803));
     let course = CourseId::from_uuid(uuid(730_804));
     let session = SessionTokenHash::compute(b"t2-expiry-admin");
+    let instructor_session = SessionTokenHash::compute(b"t2-expiry-instructor");
     let target_session = SessionTokenHash::compute(b"t2-expiry-target");
     let expired_session = SessionTokenHash::compute(b"t2-expired-target");
     let start = ActivityTimestamp::from_unix_millis(50_000);
@@ -36,6 +37,20 @@ pub(crate) async fn exercise_memory_co_instructor_expiry(store: &MemoryStore) {
         )
         .await
         .expect("target session");
+    store
+        .create_session(
+            instructor_session,
+            SessionSubject::new(
+                tenant,
+                instructor,
+                "Expiry instructor",
+                vec![UserRole::Instructor],
+            )
+            .expect("instructor subject"),
+            SessionLifetime::from_seconds(3_600).expect("lifetime"),
+        )
+        .await
+        .expect("instructor session");
     store
         .create_session(
             expired_session,
@@ -82,6 +97,7 @@ pub(crate) async fn exercise_memory_co_instructor_expiry(store: &MemoryStore) {
         .create_co_instructor_invitation(
             context,
             CreateCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 target,

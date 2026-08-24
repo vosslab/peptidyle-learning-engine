@@ -169,7 +169,9 @@ fn flat_source_record(
     }
 }
 
-async fn published_flat_fixture() -> (
+/// Canonical in-memory Flat publication fixture shared by server tests.
+/// It stages source/private grading material and publishes atomically.
+pub(crate) async fn published_flat_fixture() -> (
     NativeBackend<MemoryStore>,
     Arc<MemoryStore>,
     TenantContext,
@@ -441,7 +443,15 @@ async fn flat_run_fixture() -> (Router, String, CourseId, AssignmentId) {
         .expect("retry fixture cookie pair")
         .to_string();
     (
-        crate::run::router(store, Arc::new(backend)),
+        crate::run::router(
+            Arc::clone(&store),
+            Arc::new(backend),
+            Arc::new(
+                learning_data_access::in_memory::MemorySealedPrivateExecutionStore::new(
+                    Arc::clone(&store),
+                ),
+            ),
+        ),
         cookie,
         course,
         assignment,

@@ -89,6 +89,7 @@ async fn postgres_teaching_authority_exact_expiry_boundary_oracle() {
         .create_co_instructor_invitation(
             context,
             CreateCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 target,
@@ -165,6 +166,7 @@ async fn postgres_teaching_authority_exact_expiry_boundary_oracle() {
         .create_co_instructor_invitation(
             context,
             CreateCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 target,
@@ -232,6 +234,7 @@ async fn postgres_teaching_authority_acceptance_precedes_queued_approval_revoke(
         .create_co_instructor_invitation(
             context,
             CreateCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 target,

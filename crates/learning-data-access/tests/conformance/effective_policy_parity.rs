@@ -491,6 +491,8 @@ where
                 presentation: None,
                 presentation_snapshot: None,
                 grading_envelope: None,
+                native_execution_envelope_capability:
+                    learning_data_access::NativeExecutionEnvelopeCapability::Required,
                 flat_grading: None,
                 flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
                 webwork_grading: None,

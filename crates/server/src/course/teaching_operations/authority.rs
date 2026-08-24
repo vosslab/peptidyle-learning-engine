@@ -413,6 +413,7 @@ where
         .create_co_instructor_invitation(
             auth.tenant_context,
             learning_data_access::CreateCoInstructorInvitation {
+                session: auth.record.token_hash,
                 actor: auth.record.subject.user(),
                 course,
                 target,
@@ -478,6 +479,7 @@ where
         .revoke_co_instructor_invitation(
             auth.tenant_context,
             RevokeCoInstructorInvitation {
+                session: auth.record.token_hash,
                 actor: auth.record.subject.user(),
                 course,
                 invitation,

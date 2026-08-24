@@ -8,6 +8,8 @@ mod authoring;
 mod catalog;
 mod catalog_search;
 #[cfg(test)]
+mod catalog_search_pagination_tests;
+#[cfg(test)]
 mod catalog_search_tests;
 #[cfg(test)]
 mod catalog_snapshot_tests;
@@ -112,24 +114,24 @@ use crate::{
     ForceSubmitAttemptCommand, InstitutionRetentionPolicy, IssueQuestionAttemptCommand,
     IssuedEffectivePolicyReceipt, Page, PageRequest, PageSize, PasskeyId, PasskeyRecord,
     PrefetchedPrivateExecutionV1, PrefetchedQuestionDescriptorV1, PublishDraftCommand,
-    PublishedProblemRecord, PublishedSourceArtifact,
-    PutAssignmentTeachingSettingsCommand, PutCourseGroupCommand, PutGroupAccommodationCommand,
-    PutGroupScheduleOffsetCommand, PutIndividualPolicyExceptionCommand, RETENTION_JOB_MAX_ATTEMPTS,
-    ReleaseAttemptFeedbackCommand, RemoveAssignmentFixedItemCommand, ReplaceAssignmentCommand,
-    ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand,
-    ResolveEffectivePolicyCommand, RetentionApiStore, RetentionCleanupManifest, RetentionDays,
-    RetentionDispatchBatch, RetentionRevision, RetentionScheduleStore, RetentionStore,
-    RetentionWork, RetentionWorkerCommand, RetentionWorkerStore, RosterIdempotencyKey,
-    RunSummaryOutcomeInput, RunSummaryPageInput, SessionTokenHash, StoreError, StoredAssignment,
-    StoredBaseAssignmentPolicy, StoredCourseGroup, SubmissionIdempotencyKey, SubmissionNextAttempt,
-    SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext, WebauthnCeremony,
-    WebauthnCeremonyId, WebworkGradeReplayStateV1, WorkspaceDraft, WorkspaceDraftRevision,
-    WorkspaceDraftRole, WorkspaceFlatQuestionSource, assignment_item_is_retired,
-    assignment_scoring_changed, completed_run_score, current_run_questions,
-    decode_catalog_search_cursor, delete_and_regrade_update, encode_catalog_search_cursor,
-    ensure_tenant, grade_policy, private_feedback_record, project_enrollment_completion,
-    select_assignment_run_items, summary_transition, validate_assignment, validate_course,
-    validate_course_group, validate_draft, validate_published, validate_qti_publication_promotion,
+    PublishedProblemRecord, PublishedSourceArtifact, PutAssignmentTeachingSettingsCommand,
+    PutCourseGroupCommand, PutGroupAccommodationCommand, PutGroupScheduleOffsetCommand,
+    PutIndividualPolicyExceptionCommand, RETENTION_JOB_MAX_ATTEMPTS, ReleaseAttemptFeedbackCommand,
+    RemoveAssignmentFixedItemCommand, ReplaceAssignmentCommand, ReplaceAssignmentFixedItemCommand,
+    ReservePrefetchedQuestionCommand, ResolveEffectivePolicyCommand, RetentionApiStore,
+    RetentionCleanupManifest, RetentionDays, RetentionDispatchBatch, RetentionRevision,
+    RetentionScheduleStore, RetentionStore, RetentionWork, RetentionWorkerCommand,
+    RetentionWorkerStore, RosterIdempotencyKey, RunSummaryOutcomeInput, RunSummaryPageInput,
+    SessionTokenHash, StoreError, StoredAssignment, StoredBaseAssignmentPolicy, StoredCourseGroup,
+    SubmissionIdempotencyKey, SubmissionNextAttempt, SubmissionRecord,
+    SubmitQuestionAttemptCommand, TenantContext, WebauthnCeremony, WebauthnCeremonyId,
+    WebworkGradeReplayStateV1, WorkspaceDraft, WorkspaceDraftRevision, WorkspaceDraftRole,
+    WorkspaceFlatQuestionSource, assignment_item_is_retired, assignment_scoring_changed,
+    completed_run_score, current_run_questions, decode_catalog_search_cursor,
+    delete_and_regrade_update, encode_catalog_search_cursor, ensure_tenant, grade_policy,
+    private_feedback_record, project_enrollment_completion, select_assignment_run_items,
+    summary_transition, validate_assignment, validate_course, validate_course_group,
+    validate_draft, validate_published, validate_qti_publication_promotion,
 };
 
 mod manual_grading;
@@ -273,7 +275,22 @@ pub struct MemoryFlatQuestionGraderStore {
     state: Arc<RwLock<State>>,
 }
 
+/// Separately injected sealed first-effect capability for Memory parity.
+/// It shares test state with the ordinary store but cannot be obtained through
+/// the `Store` trait.
+#[derive(Clone)]
+pub struct MemorySealedPrivateExecutionStore {
+    state: Arc<RwLock<State>>,
+}
+
 impl MemoryStore {
+    /// Creates the distinct in-memory sealed capability paired with this
+    /// application Store. Production uses `PostgresGraderStore` instead.
+    pub fn sealed_private_execution_store(&self) -> MemorySealedPrivateExecutionStore {
+        MemorySealedPrivateExecutionStore {
+            state: Arc::clone(&self.state),
+        }
+    }
     /// Sets the private live-demo lifecycle projection for route-boundary tests.
     #[cfg(feature = "test-support")]
     pub fn set_live_demo_installation_state_for_test(
@@ -327,6 +344,17 @@ impl MemoryStore {
             },
             MemoryFlatQuestionGraderStore { state },
         )
+    }
+}
+
+impl MemorySealedPrivateExecutionStore {
+    /// Creates a separately typed sealed capability from one shared Memory
+    /// Store allocation. This mirrors production's separately injected reader
+    /// facade while retaining deterministic in-memory test state.
+    pub fn new(store: Arc<MemoryStore>) -> Self {
+        Self {
+            state: Arc::clone(&store.state),
+        }
     }
 }
 
@@ -463,6 +491,17 @@ struct State {
         (TenantId, CourseId, AssignmentId, CourseMembershipId),
         question_model::RehearsalRunId,
     >,
+    rehearsal_start_operations: BTreeMap<
+        (
+            TenantId,
+            CourseId,
+            AssignmentId,
+            CourseMembershipId,
+            UserId,
+            crate::RehearsalIdempotencyKey,
+        ),
+        rehearsal::StoredRehearsalStartOperation,
+    >,
     rehearsal_frozen_items: BTreeMap<
         (
             TenantId,
@@ -470,6 +509,25 @@ struct State {
             question_model::RehearsalAttemptId,
         ),
         question_model::RehearsalFrozenItemEvidence,
+    >,
+    /// Immutable answer-free source captured with a rehearsal frozen item.
+    /// This is rehearsal evidence, never a mutable catalog cache.
+    rehearsal_frozen_source_snapshots: BTreeMap<
+        (
+            TenantId,
+            question_model::RehearsalRunId,
+            question_model::RehearsalAttemptId,
+        ),
+        rehearsal::StoredRehearsalFrozenSourceSnapshot,
+    >,
+    /// Grader-only sibling held separately from answer-free frozen material.
+    rehearsal_frozen_private_execution: BTreeMap<
+        (
+            TenantId,
+            question_model::RehearsalRunId,
+            question_model::RehearsalAttemptId,
+        ),
+        rehearsal::StoredRehearsalFrozenPrivateExecution,
     >,
     rehearsal_evidence:
         BTreeMap<(TenantId, question_model::RehearsalRunId), rehearsal::StoredRehearsalEvidence>,
@@ -480,6 +538,24 @@ struct State {
             crate::RehearsalSubmissionIdempotencyKey,
         ),
         rehearsal::StoredRehearsalClaim,
+    >,
+    rehearsal_delivery_operations: BTreeMap<
+        (
+            TenantId,
+            question_model::RehearsalRunId,
+            crate::RehearsalIdempotencyKey,
+        ),
+        rehearsal::StoredRehearsalDeliveryOperation,
+    >,
+    /// Retry keys are separate from Continue roots, but point back to the
+    /// Store-selected root and successor generation for exact replay.
+    rehearsal_delivery_retries: BTreeMap<
+        (
+            TenantId,
+            question_model::RehearsalRunId,
+            crate::RehearsalIdempotencyKey,
+        ),
+        rehearsal::StoredRehearsalDeliveryRetry,
     >,
     manual_grade_export_audits:
         BTreeMap<crate::ManualGradeExportId, (TenantId, CourseId, AssignmentId, UserId, usize)>,
@@ -562,8 +638,10 @@ struct State {
     manual_evaluations: BTreeMap<(TenantId, QuestionAttemptId), crate::ManualEvaluationRecord>,
     manual_grade_actions:
         BTreeMap<(TenantId, crate::ManualGradeActionId), manual_grading::MemoryManualGradeReceipt>,
-    prefetched_questions: BTreeMap<(TenantId, RunId, QuestionAttemptId, u32), PrefetchedQuestionDescriptorV1>,
-    prefetched_private_execution: BTreeMap<(TenantId, RunId, QuestionAttemptId, u32), PrefetchedPrivateExecutionV1>,
+    prefetched_questions:
+        BTreeMap<(TenantId, RunId, QuestionAttemptId, u32), PrefetchedQuestionDescriptorV1>,
+    prefetched_private_execution:
+        BTreeMap<(TenantId, RunId, QuestionAttemptId, u32), PrefetchedPrivateExecutionV1>,
     submissions: BTreeMap<(TenantId, QuestionAttemptId), StoredSubmission>,
     submission_next_attempts:
         BTreeMap<(TenantId, QuestionAttemptId), Option<crate::ReceiptNextAttempt>>,

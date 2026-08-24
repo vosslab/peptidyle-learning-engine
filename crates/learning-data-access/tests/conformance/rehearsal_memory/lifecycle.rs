@@ -84,6 +84,61 @@ fn locator(
 }
 
 #[tokio::test]
+async fn route_start_replays_the_store_owned_receipt_and_route_read_needs_no_revision() {
+    let store = MemoryStore::default();
+    let (fixture, assignment, revision) = start_fixture(&store).await;
+    let command = StartRehearsalRouteCommand {
+        actor: fixture.instructor,
+        course: fixture.course,
+        assignment,
+        expected_revision: revision,
+        subject: synthetic_start(),
+        start_new_after_completion: false,
+        idempotency_key: RehearsalSubmissionIdempotencyKey::new("route-start-1".into())
+            .expect("key"),
+        request_fingerprint: RehearsalOperationDigest::from_bytes([7; 32]),
+    };
+    let first = store
+        .start_rehearsal_from_route(fixture.context, command.clone())
+        .await
+        .expect("route start");
+    assert!(!first.replayed);
+    let replay = store
+        .start_rehearsal_from_route(fixture.context, command.clone())
+        .await
+        .expect("route replay");
+    assert!(replay.replayed);
+    assert_eq!(replay.receipt, first.receipt);
+    assert_eq!(
+        store
+            .start_rehearsal_from_route(
+                fixture.context,
+                StartRehearsalRouteCommand {
+                    request_fingerprint: RehearsalOperationDigest::from_bytes([8; 32]),
+                    ..command
+                },
+            )
+            .await,
+        Err(StoreError::Conflict)
+    );
+    assert_eq!(
+        store
+            .read_rehearsal_from_route(
+                fixture.context,
+                ReadRehearsalRouteCommand {
+                    actor: fixture.instructor,
+                    course: fixture.course,
+                    assignment,
+                    rehearsal: first.receipt.rehearsal,
+                },
+            )
+            .await
+            .expect("route read"),
+        first.receipt
+    );
+}
+
+#[tokio::test]
 async fn start_resume_subject_replacement_and_explicit_restart_preserve_ordinary_state() {
     let store = MemoryStore::default();
     let (fixture, assignment, revision) = start_fixture(&store).await;

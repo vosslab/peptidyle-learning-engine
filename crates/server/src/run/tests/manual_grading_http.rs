@@ -40,7 +40,11 @@ async fn pending_manual_fixture() -> (
         manual_grading_required: true,
         ..NumericBackend::default()
     });
-    let app = router(Arc::clone(&store), Arc::clone(&backend));
+    let app = router(
+        Arc::clone(&store),
+        Arc::clone(&backend),
+        sealed_memory(&store),
+    );
     let attempt = active_attempt_for(
         &app,
         CourseId::from_uuid(id(5)),

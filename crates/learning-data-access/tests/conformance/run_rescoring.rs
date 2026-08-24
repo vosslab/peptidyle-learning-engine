@@ -14,6 +14,20 @@ where
     let version = fixture.version;
     let reservation = &fixture.reservation;
     let response = &fixture.response;
+    let issued_question_snapshot = store
+        .get_catalog_problem(context, ProblemVersionRef { problem, version })
+        .await
+        .expect("rescoring published question")
+        .map(|published| {
+            learning_data_access::IssuedQuestionSnapshotV1::new(
+                published.question,
+                learning_data_access::IssuedQuestionFamilyWitnessV1::Native {
+                    physical_asset_bindings: Vec::new(),
+                },
+            )
+        })
+        .expect("rescoring published question exists")
+        .expect("rescoring native question snapshot");
     let locked_assignment = store
         .get_assignment_for_edit(context, assignment)
         .await
@@ -177,15 +191,20 @@ where
                 assignment_position: 0,
                 problem,
                 question_version: version,
+                issued_question_snapshot,
                 seed: 996,
                 presentation_capability: PresentationCapability::NotApplicable,
                 presentation: None,
                 presentation_snapshot: None,
                 grading_envelope: None,
+                native_execution_envelope_capability:
+                    learning_data_access::NativeExecutionEnvelopeCapability::Required,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_grading: None,
                 webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
                 parameter_hash: "concurrent-scoring-parameter-hash".to_string(),
                 provenance: reservation.provenance.clone(),
                 webwork_replay: None,

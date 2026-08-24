@@ -94,6 +94,27 @@ pub(crate) async fn load_run_for_update(
     decode_payload_row(&row)
 }
 
+/// Loads one immutable run projection without taking a mutation lock.
+/// Runtime transitions that change run state use [`load_run_for_update`].
+#[cfg(feature = "postgres")]
+pub(crate) async fn load_postgres_run(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    run: RunId,
+) -> Result<AssignmentRun, StoreError> {
+    let row = sqlx::query(
+        "SELECT payload, payload_sha256 FROM assignment_run \
+         WHERE tenant_id = $1 AND run_id = $2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(run.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?
+    .ok_or(StoreError::NotFound)?;
+    decode_payload_row(&row)
+}
+
 #[cfg(feature = "postgres")]
 pub(crate) async fn load_summary_for_update(
     transaction: &mut Transaction<'_, Postgres>,

@@ -1,15 +1,19 @@
 //! Verified claim state transitions through broker capabilities.
 
 use domain::{
-    DispatchedClaimHandle, RehearsalClaimRoot, RehearsalSubmissionClaimDecision,
-    RehearsalValidatedSubmissionRequest, decide_submission_claim,
-    mark_rehearsal_submission_dispatched, rehearsal_submission_request_fingerprint,
+    DispatchedClaimHandle, RehearsalClaimRoot, RehearsalClaimSubmissionInput,
+    RehearsalSubmissionClaimDecision, decide_submission_claim,
+    mark_rehearsal_submission_dispatched, rehearsal_claim_submission_input_fingerprint,
 };
 use question_model::{RehearsalGradeOperationId, RehearsalSubmissionClaimId};
+
+#[cfg(feature = "test-support")]
+use domain::RehearsalValidatedSubmissionRequest;
 
 use super::super::*;
 use super::{auth, hydration, integrity};
 
+#[cfg(feature = "test-support")]
 pub(super) async fn claim(
     store: &PostgresStore,
     context: TenantContext,
@@ -17,9 +21,76 @@ pub(super) async fn claim(
 ) -> Result<crate::RehearsalSubmissionClaimResult, StoreError> {
     let tenant = context.tenant_id();
     let mut tx = store.begin_tenant(context).await?;
-    let witness = auth::prepare_operation(&mut tx, tenant, command.locator).await?;
+    let result = claim_in_tx(&mut tx, tenant, command).await?;
+    tx.commit().await.map_err(map_sqlx_error)?;
+    Ok(result)
+}
+
+#[cfg(feature = "test-support")]
+pub(super) async fn claim_in_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    tenant: question_model::TenantId,
+    command: crate::ClaimRehearsalSubmissionCommand,
+) -> Result<crate::RehearsalSubmissionClaimResult, StoreError> {
+    // Generic test-support authority cannot prove a browser presentation.
+    // Product callers use `claim_from_route_in_tx`, whose Store-only witness
+    // is rechecked by the SQL broker before it writes (ASVS 2.3.1, 15.4.2).
+    let frozen = {
+        let witness = auth::prepare_operation(tx, tenant, command.locator).await?;
+        let aggregate =
+            hydration::load_authorized(tx, tenant, command.locator, &witness.source()).await?;
+        aggregate
+            .frozen(command.attempt)
+            .cloned()
+            .ok_or(StoreError::NotFound)?
+    };
+    let request = RehearsalValidatedSubmissionRequest::try_from_frozen_attempt(
+        &frozen,
+        command.attempt,
+        command.response.clone(),
+    )
+    .map_err(invalid)?;
+    claim_in_tx_with_input(
+        tx,
+        tenant,
+        command,
+        RehearsalClaimSubmissionInput::durable(request),
+    )
+    .await
+}
+
+pub(super) async fn claim_from_route_in_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    tenant: question_model::TenantId,
+    command: crate::ClaimRehearsalSubmissionCommand,
+    screen: question_model::RehearsalActiveScreenV1,
+) -> Result<crate::RehearsalSubmissionClaimResult, StoreError> {
+    let rendered = question_model::ValidatedRehearsalRenderedSubmissionV1::try_from_active_screen(
+        question_model::RehearsalSubmissionRequestV1 {
+            presentation_digest: screen.presentation_digest.clone(),
+            response: command.response.clone(),
+        },
+        &screen,
+    )
+    .map_err(invalid)?;
+    claim_in_tx_with_input(
+        tx,
+        tenant,
+        command,
+        RehearsalClaimSubmissionInput::rendered(rendered),
+    )
+    .await
+}
+
+async fn claim_in_tx_with_input(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    tenant: question_model::TenantId,
+    command: crate::ClaimRehearsalSubmissionCommand,
+    submission_input: RehearsalClaimSubmissionInput,
+) -> Result<crate::RehearsalSubmissionClaimResult, StoreError> {
+    let witness = auth::prepare_operation(tx, tenant, command.locator).await?;
     let source = witness.source();
-    let aggregate = hydration::load_authorized(&mut tx, tenant, command.locator, &source).await?;
+    let aggregate = hydration::load_authorized(tx, tenant, command.locator, &source).await?;
     if aggregate.run.id != witness.run {
         return Err(StoreError::NotFound);
     }
@@ -27,15 +98,12 @@ pub(super) async fn claim(
     let frozen = aggregate
         .frozen(command.attempt)
         .ok_or(StoreError::NotFound)?;
-    let request = RehearsalValidatedSubmissionRequest::try_from_frozen_attempt(
+    let fingerprint = rehearsal_claim_submission_input_fingerprint(
+        aggregate.genesis(),
         frozen,
-        command.attempt,
-        command.response,
+        &submission_input,
     )
     .map_err(invalid)?;
-    let fingerprint =
-        rehearsal_submission_request_fingerprint(aggregate.genesis(), frozen, &request)
-            .map_err(invalid)?;
     let operation = RehearsalGradeOperationId::from_uuid(fresh("operation")?);
     let claim_id = RehearsalSubmissionClaimId::from_uuid(fresh("claim")?);
     let provisional = RehearsalClaimRoot::verify_persisted(
@@ -45,7 +113,7 @@ pub(super) async fn claim(
             aggregate.run.id,
             claim_id,
             fingerprint,
-            request.clone(),
+            submission_input,
         ),
     )
     .map_err(invalid)?;
@@ -74,7 +142,6 @@ pub(super) async fn claim(
                     "rehearsal receipt proof mismatch".into(),
                 ));
             }
-            tx.commit().await.map_err(map_sqlx_error)?;
             Ok(crate::RehearsalSubmissionClaimResult::Replay(
                 crate::RehearsalSubmissionReceipt {
                     outcome: receipt,
@@ -83,19 +150,17 @@ pub(super) async fn claim(
             ))
         }
         RehearsalSubmissionClaimDecision::Pending => {
-            tx.commit().await.map_err(map_sqlx_error)?;
             Ok(crate::RehearsalSubmissionClaimResult::Pending)
         }
         RehearsalSubmissionClaimDecision::Conflict
         | RehearsalSubmissionClaimDecision::ReclaimRefused(_) => {
-            tx.commit().await.map_err(map_sqlx_error)?;
             Ok(crate::RehearsalSubmissionClaimResult::Conflict)
         }
         RehearsalSubmissionClaimDecision::StaleRevision
         | RehearsalSubmissionClaimDecision::TerminalLifecycle => Err(StoreError::Conflict),
         RehearsalSubmissionClaimDecision::New { handle } => {
             let stored = sqlx::query_scalar::<_, bool>(
-                "SELECT ple_rehearsal_create_claim($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+                "SELECT ple_rehearsal_route_create_claim($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
             )
             .bind(tenant.as_uuid())
             .bind(command.locator.actor.as_uuid())
@@ -106,19 +171,30 @@ pub(super) async fn claim(
             .bind(claim_id.as_uuid())
             .bind(handle.operation().as_uuid())
             .bind(command.idempotency_key.as_str())
-            .bind(command.attempt.as_uuid())
+            // Route preparation accepts this witness only after proving the
+            // sole issued screen. The write broker independently compares it
+            // to immutable receipt evidence before inserting a claim (ASVS
+            // 2.3.1, 8.3.1, 15.4.2).
+            .bind(
+                provisional
+                    .submission_input()
+                    .presentation_commitment()
+                    .map(|value| value.as_bytes().to_vec())
+                    .unwrap_or_else(|| vec![0; 32]),
+            )
             .bind(fingerprint.as_bytes().to_vec())
-            .bind(domain::rehearsal::persistence::encode_sealed_request(
-                &request,
-            ))
-            .fetch_one(&mut *tx)
+            .bind(
+                domain::rehearsal::persistence::encode_claim_submission_input(
+                    provisional.submission_input(),
+                ),
+            )
+            .fetch_one(&mut **tx)
             .await
             .map_err(map_sqlx_error)?;
             if !stored {
                 return Err(StoreError::Conflict);
             }
-            let after =
-                hydration::load_authorized(&mut tx, tenant, command.locator, &source).await?;
+            let after = hydration::load_authorized(tx, tenant, command.locator, &source).await?;
             let claim = take_claim(after, claim_id)?;
             let hydrated = claim
                 .snapshot
@@ -129,12 +205,8 @@ pub(super) async fn claim(
                     "rehearsal prepared handle mismatch".into(),
                 ));
             }
-            tx.commit().await.map_err(map_sqlx_error)?;
             Ok(crate::RehearsalSubmissionClaimResult::Claimed(
-                crate::ClaimedRehearsalSubmission {
-                    handle: hydrated,
-                    prepared: claim.root.sealed_request().clone(),
-                },
+                crate::ClaimedRehearsalSubmission { handle: hydrated },
             ))
         }
         RehearsalSubmissionClaimDecision::Reclaimed { handle } => {
@@ -151,11 +223,10 @@ pub(super) async fn claim(
                 phase: "prepared",
                 reason: None,
             };
-            if !append_event(&mut tx, &append).await? {
+            if !append_event(tx, &append).await? {
                 return Err(StoreError::Conflict);
             }
-            let after =
-                hydration::load_authorized(&mut tx, tenant, command.locator, &source).await?;
+            let after = hydration::load_authorized(tx, tenant, command.locator, &source).await?;
             let claim = take_claim(after, existing.root.claim())?;
             let hydrated = claim
                 .snapshot
@@ -166,12 +237,8 @@ pub(super) async fn claim(
                     "rehearsal reclaimed handle mismatch".into(),
                 ));
             }
-            tx.commit().await.map_err(map_sqlx_error)?;
             Ok(crate::RehearsalSubmissionClaimResult::Claimed(
-                crate::ClaimedRehearsalSubmission {
-                    handle: hydrated,
-                    prepared: claim.root.sealed_request().clone(),
-                },
+                crate::ClaimedRehearsalSubmission { handle: hydrated },
             ))
         }
     }
@@ -184,9 +251,19 @@ pub(super) async fn mark_dispatched(
 ) -> Result<DispatchedClaimHandle, StoreError> {
     let tenant = context.tenant_id();
     let mut tx = store.begin_tenant(context).await?;
-    let witness = auth::prepare_operation(&mut tx, tenant, command.locator).await?;
+    let result = mark_dispatched_in_tx(&mut tx, tenant, command).await?;
+    tx.commit().await.map_err(map_sqlx_error)?;
+    Ok(result)
+}
+
+pub(super) async fn mark_dispatched_in_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    tenant: question_model::TenantId,
+    command: crate::MarkRehearsalSubmissionDispatchedCommand,
+) -> Result<DispatchedClaimHandle, StoreError> {
+    let witness = auth::prepare_operation(tx, tenant, command.locator).await?;
     let source = witness.source();
-    let aggregate = hydration::load_authorized(&mut tx, tenant, command.locator, &source).await?;
+    let aggregate = hydration::load_authorized(tx, tenant, command.locator, &source).await?;
     if aggregate.run.id != witness.run {
         return Err(StoreError::NotFound);
     }
@@ -195,7 +272,7 @@ pub(super) async fn mark_dispatched(
         .claim(command.handle.claim())
         .ok_or(StoreError::NotFound)?;
     if !prepared_matches(&claim.snapshot, &command.handle) {
-        return Err(StoreError::Conflict);
+        return Err(StoreError::NotFound);
     }
     let append = ClaimEventAppend {
         tenant,
@@ -207,10 +284,10 @@ pub(super) async fn mark_dispatched(
         phase: "gradingDispatched",
         reason: None,
     };
-    if !append_event(&mut tx, &append).await? {
+    if !append_event(tx, &append).await? {
         return Err(StoreError::Conflict);
     }
-    let after = hydration::load_authorized(&mut tx, tenant, command.locator, &source).await?;
+    let after = hydration::load_authorized(tx, tenant, command.locator, &source).await?;
     let hydrated = take_claim(after, command.handle.claim())?
         .snapshot
         .into_dispatched_handle()
@@ -223,7 +300,6 @@ pub(super) async fn mark_dispatched(
             "rehearsal dispatched handle mismatch".into(),
         ));
     }
-    tx.commit().await.map_err(map_sqlx_error)?;
     Ok(hydrated)
 }
 
@@ -234,9 +310,19 @@ pub(super) async fn abandon(
 ) -> Result<(), StoreError> {
     let tenant = context.tenant_id();
     let mut tx = store.begin_tenant(context).await?;
-    let witness = auth::prepare_operation(&mut tx, tenant, command.locator).await?;
+    abandon_in_tx(&mut tx, tenant, command).await?;
+    tx.commit().await.map_err(map_sqlx_error)?;
+    Ok(())
+}
+
+pub(super) async fn abandon_in_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    tenant: question_model::TenantId,
+    command: crate::AbandonRehearsalSubmissionBeforeDispatchCommand,
+) -> Result<(), StoreError> {
+    let witness = auth::prepare_operation(tx, tenant, command.locator).await?;
     let source = witness.source();
-    let aggregate = hydration::load_authorized(&mut tx, tenant, command.locator, &source).await?;
+    let aggregate = hydration::load_authorized(tx, tenant, command.locator, &source).await?;
     if aggregate.run.id != witness.run {
         return Err(StoreError::NotFound);
     }
@@ -245,7 +331,7 @@ pub(super) async fn abandon(
         .claim(command.handle.claim())
         .ok_or(StoreError::NotFound)?;
     if !prepared_matches(&claim.snapshot, &command.handle) {
-        return Err(StoreError::Conflict);
+        return Err(StoreError::NotFound);
     }
     let reason = match command.reason {
         domain::RehearsalPreDispatchAbandonReason::LocalPreparationFailed => {
@@ -268,10 +354,10 @@ pub(super) async fn abandon(
         phase: "abandonedBeforeDispatch",
         reason: Some(reason),
     };
-    if !append_event(&mut tx, &append).await? {
+    if !append_event(tx, &append).await? {
         return Err(StoreError::Conflict);
     }
-    let after = hydration::load_authorized(&mut tx, tenant, command.locator, &source).await?;
+    let after = hydration::load_authorized(tx, tenant, command.locator, &source).await?;
     if after
         .claim(command.handle.claim())
         .ok_or(StoreError::NotFound)?
@@ -283,7 +369,6 @@ pub(super) async fn abandon(
             "rehearsal abandonment did not persist".into(),
         ));
     }
-    tx.commit().await.map_err(map_sqlx_error)?;
     Ok(())
 }
 
@@ -305,20 +390,22 @@ async fn append_event(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     command: &ClaimEventAppend<'_>,
 ) -> Result<bool, StoreError> {
-    sqlx::query_scalar("SELECT ple_rehearsal_append_claim_event($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
-        .bind(command.tenant.as_uuid())
-        .bind(command.locator.actor.as_uuid())
-        .bind(command.locator.course.as_uuid())
-        .bind(command.assignment.as_uuid())
-        .bind(revision(command.locator.revision)?)
-        .bind(command.run.as_uuid())
-        .bind(command.claim.as_uuid())
-        .bind(command.operation.as_uuid())
-        .bind(command.phase)
-        .bind(command.reason)
-        .fetch_one(&mut **tx)
-        .await
-        .map_err(map_sqlx_error)
+    sqlx::query_scalar(
+        "SELECT ple_rehearsal_route_append_claim_event($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+    )
+    .bind(command.tenant.as_uuid())
+    .bind(command.locator.actor.as_uuid())
+    .bind(command.locator.course.as_uuid())
+    .bind(command.assignment.as_uuid())
+    .bind(revision(command.locator.revision)?)
+    .bind(command.run.as_uuid())
+    .bind(command.claim.as_uuid())
+    .bind(command.operation.as_uuid())
+    .bind(command.phase)
+    .bind(command.reason)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(map_sqlx_error)
 }
 fn take_claim(
     mut aggregate: hydration::HydratedRehearsal,

@@ -91,6 +91,12 @@ impl TeachingAuthorityStore for MemoryStore {
     ) -> Result<StoredCoInstructorInvitation, StoreError> {
         let tenant = context.tenant_id();
         let mut state = self.write_state()?;
+        let session_actor = super::sessions::active_subject(&state, context, command.session)
+            .ok_or(StoreError::NotFound)?
+            .user();
+        if session_actor != command.actor {
+            return Err(StoreError::NotFound);
+        }
         let invited_by = require_direct_instructor(&state, tenant, command.course, command.actor)?;
         if !state.accounts.contains_key(&command.target) {
             return Err(StoreError::NotFound);
@@ -299,6 +305,12 @@ impl TeachingAuthorityStore for MemoryStore {
     ) -> Result<(), StoreError> {
         let tenant = context.tenant_id();
         let mut state = self.write_state()?;
+        let session_actor = super::sessions::active_subject(&state, context, command.session)
+            .ok_or(StoreError::NotFound)?
+            .user();
+        if session_actor != command.actor {
+            return Err(StoreError::NotFound);
+        }
         require_direct_instructor(&state, tenant, command.course, command.actor)?;
         let key = (tenant, command.invitation);
         let mut stored = state

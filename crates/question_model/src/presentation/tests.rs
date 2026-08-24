@@ -2,11 +2,14 @@ use std::collections::VecDeque;
 
 use uuid::Uuid;
 
-use crate::answer::SelectionCardinality;
+use crate::answer::{SelectionCardinality, TextMatchMode};
 use crate::envelope::{ContentBlock, QuestionEnvelope};
 use crate::generation::Seed;
 use crate::identity::VersionId;
-use crate::response::{ChoiceId, ChoiceOption, ResponseDefinition};
+use crate::response::{
+    ChoiceId, ChoiceOption, MatchPair, ResponseDefinition, StudentResponse, TextEntryAnswer,
+    TextEntrySlot,
+};
 
 use super::builder::{
     NonceSourceV1, PresentationBuildError, build_presentation_v1_with_hasher,
@@ -14,8 +17,9 @@ use super::builder::{
 };
 use super::codec::{crc16_ccitt_false, descriptor_bytes_v1};
 use super::{
-    PresentationBindingV1, PresentationNonceV1, ResponseSchemaV1, rebuild_public_presentation_v1,
-    reproduce_presentation_v1, verify_presentation_v1,
+    PresentationBindingV1, PresentationNonceV1, RenderedItemRoleV1,
+    RenderedResponseTranslationErrorV1, ResponseSchemaV1, rebuild_public_presentation_v1,
+    reproduce_presentation_v1, translate_rendered_response_v1, verify_presentation_v1,
 };
 
 fn choice(id: &str, text: &str) -> ChoiceOption {
@@ -198,4 +202,177 @@ fn persisted_binding_is_strict_and_round_trips_full_digest() {
     let mut changed = fixture();
     changed.title.push('!');
     assert!(reproduce_presentation_v1(&changed, &[], binding).is_err());
+}
+
+fn presentation_for(response: ResponseDefinition) -> super::PresentationV1 {
+    let mut envelope = fixture();
+    envelope.response = response;
+    let mut source = Nonces::new([[0x91; 16]]);
+    build_presentation_v1_with_nonce_source(&envelope, &[], &mut source)
+        .expect("valid presentation")
+}
+
+fn rendered(presentation: &super::PresentationV1, role: RenderedItemRoleV1) -> ChoiceId {
+    ChoiceId::new(
+        presentation
+            .item_bindings
+            .iter()
+            .find(|binding| binding.role == role)
+            .expect("role binding")
+            .rendered
+            .as_str(),
+    )
+}
+
+#[test]
+fn rendered_response_translation_rewrites_every_identifier_family() {
+    let multiple = presentation_for(ResponseDefinition::MultipleChoice {
+        choices: vec![choice("a", "A"), choice("b", "B")],
+        selection: SelectionCardinality::ExactlyOne,
+    });
+    let multiple_response = StudentResponse::MultipleChoice {
+        selected: vec![rendered(&multiple, RenderedItemRoleV1::Choice)],
+    };
+    assert_eq!(
+        translate_rendered_response_v1(&multiple_response, &multiple).expect("choice response"),
+        StudentResponse::MultipleChoice {
+            selected: vec![ChoiceId::new("a")],
+        }
+    );
+
+    let blanks = presentation_for(ResponseDefinition::MultiBlank {
+        blanks: vec![TextEntrySlot {
+            id: ChoiceId::new("slot-a"),
+            label: vec![ContentBlock::Text {
+                markdown: "A".to_owned(),
+            }],
+            match_mode: TextMatchMode::Exact,
+            max_length: 10,
+        }],
+    });
+    let blanks_response = StudentResponse::MultiBlank {
+        answers: vec![TextEntryAnswer {
+            slot: rendered(&blanks, RenderedItemRoleV1::Blank),
+            text: "value".to_owned(),
+        }],
+    };
+    assert_eq!(
+        translate_rendered_response_v1(&blanks_response, &blanks).expect("blank response"),
+        StudentResponse::MultiBlank {
+            answers: vec![TextEntryAnswer {
+                slot: ChoiceId::new("slot-a"),
+                text: "value".to_owned(),
+            }],
+        }
+    );
+
+    let matching = presentation_for(ResponseDefinition::Matching {
+        prompts: vec![choice("prompt-a", "Prompt")],
+        choices: vec![choice("choice-a", "Choice")],
+    });
+    let matching_response = StudentResponse::Matching {
+        matches: vec![MatchPair {
+            prompt: rendered(&matching, RenderedItemRoleV1::MatchPrompt),
+            choice: rendered(&matching, RenderedItemRoleV1::MatchChoice),
+        }],
+    };
+    assert_eq!(
+        translate_rendered_response_v1(&matching_response, &matching).expect("matching response"),
+        StudentResponse::Matching {
+            matches: vec![MatchPair {
+                prompt: ChoiceId::new("prompt-a"),
+                choice: ChoiceId::new("choice-a"),
+            }],
+        }
+    );
+
+    let ordering = presentation_for(ResponseDefinition::Ordering {
+        items: vec![choice("first", "First"), choice("second", "Second")],
+    });
+    let ordering_response = StudentResponse::Ordering {
+        order: vec![rendered(&ordering, RenderedItemRoleV1::OrderItem)],
+    };
+    assert_eq!(
+        translate_rendered_response_v1(&ordering_response, &ordering).expect("ordering response"),
+        StudentResponse::Ordering {
+            order: vec![ChoiceId::new("first")],
+        }
+    );
+}
+
+#[test]
+fn rendered_response_translation_preserves_scalar_response_families() {
+    let presentation = presentation_for(ResponseDefinition::MultipleChoice {
+        choices: vec![choice("a", "A")],
+        selection: SelectionCardinality::ExactlyOne,
+    });
+    for response in [
+        StudentResponse::Numeric { value: 1.25 },
+        StudentResponse::ShortText {
+            text: "alpha".to_owned(),
+        },
+        StudentResponse::Hotspot { points: vec![] },
+        StudentResponse::FileUpload {
+            object_key: "record.pdf".to_owned(),
+        },
+        StudentResponse::ExternalTool {},
+    ] {
+        assert_eq!(
+            translate_rendered_response_v1(&response, &presentation).expect("scalar response"),
+            response
+        );
+    }
+}
+
+#[test]
+fn rendered_response_translation_rejects_malformed_unknown_duplicate_and_wrong_role_ids() {
+    let presentation = presentation_for(ResponseDefinition::MultipleChoice {
+        choices: vec![choice("a", "A")],
+        selection: SelectionCardinality::ExactlyOne,
+    });
+    let response_for = |id| StudentResponse::MultipleChoice {
+        selected: vec![ChoiceId::new(id)],
+    };
+    assert_eq!(
+        translate_rendered_response_v1(&response_for("not-an-id"), &presentation),
+        Err(RenderedResponseTranslationErrorV1::MalformedRenderedId)
+    );
+
+    let unknown = (0_u16..=u16::MAX)
+        .map(|value| format!("{value:04x}"))
+        .find(|id| {
+            !presentation
+                .item_bindings
+                .iter()
+                .any(|binding| binding.rendered.as_str() == id)
+        })
+        .expect("unused rendered identifier");
+    assert_eq!(
+        translate_rendered_response_v1(&response_for(&unknown), &presentation),
+        Err(RenderedResponseTranslationErrorV1::UnknownRenderedId)
+    );
+
+    let mut duplicate = presentation.clone();
+    duplicate
+        .item_bindings
+        .push(duplicate.item_bindings[0].clone());
+    assert_eq!(
+        translate_rendered_response_v1(
+            &response_for(presentation.item_bindings[0].rendered.as_str()),
+            &duplicate,
+        ),
+        Err(RenderedResponseTranslationErrorV1::DuplicateRenderedIdBinding)
+    );
+
+    let matching = presentation_for(ResponseDefinition::Matching {
+        prompts: vec![choice("prompt-a", "Prompt")],
+        choices: vec![choice("choice-a", "Choice")],
+    });
+    assert_eq!(
+        translate_rendered_response_v1(
+            &response_for(rendered(&matching, RenderedItemRoleV1::MatchPrompt).as_str()),
+            &matching,
+        ),
+        Err(RenderedResponseTranslationErrorV1::WrongRenderedItemRole)
+    );
 }

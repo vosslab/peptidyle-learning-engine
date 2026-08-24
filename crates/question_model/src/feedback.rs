@@ -7,7 +7,7 @@
 //! TypeScript generator to accidentally add private teaching material to the
 //! public question model.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::envelope::ContentBlock;
 
@@ -32,7 +32,7 @@ pub struct FeedbackContent {
 /// Absent fields are omitted from JSON, rather than sent as hidden `null`
 /// values. This lets strict client decoders prove that a policy did not merely
 /// hide restricted material in the interface.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DisclosedFeedback {
     /// Whether the server judged the submitted response correct.

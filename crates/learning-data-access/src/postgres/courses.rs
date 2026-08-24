@@ -44,7 +44,7 @@ pub(super) fn map_course_group_mutator_error(error: sqlx::Error) -> StoreError {
             // Purpose/reference guards and stale expected revisions were
             // conflicts before the broker owned this aggregate.
             Some("23514") => return StoreError::Conflict,
-            Some("40001") if database_error.message() == "course group revision conflict" => {
+            Some("55000") if database_error.message() == "course group revision conflict" => {
                 return StoreError::Conflict;
             }
             _ => {}

@@ -474,6 +474,7 @@ pub trait RunStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
+        binding: LearnerWorkRoutingBinding,
         predecessor: QuestionAttemptId,
     ) -> Result<SubmissionNextAttempt, StoreError>;
 
@@ -502,6 +503,7 @@ pub trait RunStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
+        binding: LearnerWorkRoutingBinding,
         predecessor: QuestionAttemptId,
         next: Option<QuestionAttemptId>,
     ) -> Result<(), StoreError>;
@@ -578,6 +580,25 @@ pub trait RunStore: Send + Sync {
         context: TenantContext,
         command: ClearAttemptCommand,
     ) -> Result<AttemptSupportRecord, StoreError>;
+}
+
+/// Dedicated first-effect capability for answer-bearing issued execution.
+///
+/// Implementations must reauthorize the exact route under their own locks and
+/// project private family material only after replay has been ruled out.  It
+/// is purposefully not a supertrait of [`Store`]: application persistence and
+/// browser handlers cannot obtain this capability by accident.
+#[async_trait]
+pub trait SealedPrivateExecutionStore: Send + Sync {
+    async fn prepare_sealed_private_execution(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        binding: LearnerWorkRoutingBinding,
+        intent: AuthorizedSubmissionIntent,
+        response: &StudentResponse,
+        idempotency_key: &SubmissionIdempotencyKey,
+    ) -> Result<SealedPrivateExecutionPreparation, StoreError>;
 }
 
 /// Focused persistence capability composed by [`Store`].

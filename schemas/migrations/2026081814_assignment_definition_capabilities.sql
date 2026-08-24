@@ -262,7 +262,11 @@ BEGIN
         IF v_entry ->> 'kind' = 'fixed' THEN
             PERFORM public.ple_assignment_definition_require_object(v_entry, ARRAY['kind','id','position','problemId','versionId','pointsPossible','deliveryState','scoringMode'], ARRAY['kind','id','position','problemId','versionId','pointsPossible','deliveryState','scoringMode'], 4096);
             IF v_entry->>'pointsPossible' !~ '^(0|[1-9][0-9]{0,11})(\.[0-9]{1,4})?$' OR v_entry->>'deliveryState' NOT IN ('active','retired') OR v_entry->>'scoringMode' NOT IN ('normal','fullCredit','extraCredit','excluded') OR (v_entry->>'deliveryState'='retired' AND v_entry->>'scoringMode'<>'excluded') THEN RAISE EXCEPTION 'fixed item values are invalid' USING ERRCODE='22023'; END IF;
-            INSERT INTO pg_temp.ple_definition_reference VALUES ((v_entry ->> 'problemId')::uuid, (v_entry ->> 'versionId')::uuid);
+            -- The same immutable publication may intentionally occupy more
+            -- than one ordered assignment position. This temporary table is
+            -- only the distinct set of references that must be locked and
+            -- validated once for the command.
+            INSERT INTO pg_temp.ple_definition_reference VALUES ((v_entry ->> 'problemId')::uuid, (v_entry ->> 'versionId')::uuid) ON CONFLICT DO NOTHING;
         ELSE
             PERFORM public.ple_assignment_definition_require_object(v_entry, ARRAY['kind','id','position','drawCount','pointsPerItem','ordering','algorithmVersion','candidates'], ARRAY['kind','id','position','drawCount','pointsPerItem','ordering','algorithmVersion','candidates'], 262144);
             IF v_entry->>'drawCount' !~ '^[1-9][0-9]{0,8}$' OR v_entry->>'pointsPerItem' !~ '^(0|[1-9][0-9]{0,11})(\.[0-9]{1,4})?$' OR v_entry->>'ordering' NOT IN ('candidateOrder','randomized') OR v_entry->>'algorithmVersion' !~ '^[1-9][0-9]{0,8}$' THEN RAISE EXCEPTION 'selection group values are invalid' USING ERRCODE='22023'; END IF;

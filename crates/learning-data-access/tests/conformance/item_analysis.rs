@@ -243,6 +243,19 @@ async fn issue(
     reference: ProblemVersionRef,
     id: u128,
 ) -> QuestionAttempt {
+    let question = store
+        .get_catalog_problem(fixture.context, reference)
+        .await
+        .expect("analysis fixture catalog question")
+        .expect("analysis fixture publication")
+        .question;
+    let issued_question_snapshot = learning_data_access::IssuedQuestionSnapshotV1::new(
+        question,
+        learning_data_access::IssuedQuestionFamilyWitnessV1::Native {
+            physical_asset_bindings: Vec::new(),
+        },
+    )
+    .expect("analysis fixture issued question snapshot");
     store
         .issue_or_resume_question_attempt(
             fixture.context,
@@ -254,15 +267,20 @@ async fn issue(
                 assignment_position: position,
                 problem: reference.problem,
                 question_version: reference.version,
+                issued_question_snapshot,
                 seed: u64::try_from(id).expect("fixture seed"),
                 presentation_capability: PresentationCapability::NotApplicable,
                 presentation: None,
                 presentation_snapshot: None,
                 grading_envelope: None,
+                native_execution_envelope_capability:
+                    learning_data_access::NativeExecutionEnvelopeCapability::Required,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_grading: None,
                 webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
                 parameter_hash: format!("item-analysis-parameters-{id}"),
                 provenance: provenance(&id.to_string()),
                 webwork_replay: None,

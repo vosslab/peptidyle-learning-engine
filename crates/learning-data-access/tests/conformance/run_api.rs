@@ -1,7 +1,8 @@
 use super::*;
 
-pub(super) async fn exercise_run_api_store<S>(
+pub(super) async fn exercise_run_api_store<S, P>(
     store: &S,
+    sealed_private_execution: &P,
     disclosure_policy: LearnerDisclosurePolicy,
     fixture_offset: u128,
 ) where
@@ -11,6 +12,7 @@ pub(super) async fn exercise_run_api_store<S>(
         + JobStore
         + AssignmentScoringWorkerStore
         + SessionStore,
+    P: learning_data_access::SealedPrivateExecutionStore,
 {
     let fixture = exercise_run_api_receipts(store, disclosure_policy, fixture_offset).await;
     let current = store
@@ -76,6 +78,6 @@ pub(super) async fn exercise_run_api_store<S>(
     );
     exercise_run_rescoring(store, &fixture).await;
     exercise_delete_and_regrade(store, &fixture).await;
-    exercise_attempt_support(store, &fixture).await;
+    exercise_attempt_support(store, sealed_private_execution, &fixture).await;
     exercise_run_summary_scale(store, &fixture).await;
 }

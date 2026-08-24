@@ -11,7 +11,179 @@ use super::learner_work_preparation::{
     StudentAttemptPreparationWitness, prepare_student_attempt_work,
 };
 use super::*;
-use crate::{LearnerWorkRoutingBinding, PreparedQuestionSubmission, SubmissionPreparation};
+use crate::{AuthorizedSubmissionIntent, LearnerWorkRoutingBinding, SubmissionPreparation};
+
+#[async_trait::async_trait]
+impl crate::SealedPrivateExecutionStore for crate::postgres::PostgresGraderStore {
+    async fn prepare_sealed_private_execution(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        binding: LearnerWorkRoutingBinding,
+        intent: AuthorizedSubmissionIntent,
+        _response: &StudentResponse,
+        _idempotency_key: &SubmissionIdempotencyKey,
+    ) -> Result<crate::SealedPrivateExecutionPreparation, StoreError> {
+        let mut transaction = self.begin_sealed_reader_tenant(context).await?;
+        let row = sqlx::query(
+            "SELECT * FROM public.ple_prepare_sealed_private_execution($1,$2,$3,$4,$5)",
+        )
+        .bind(context.tenant_id().as_uuid())
+        .bind(binding.course.as_uuid())
+        .bind(binding.assignment.as_uuid())
+        .bind(actor.as_uuid())
+        .bind(intent.attempt.id.as_uuid())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
+        let returned_attempt: uuid::Uuid = row.try_get("attempt_id").map_err(map_sqlx_error)?;
+        if returned_attempt != intent.attempt.id.as_uuid() {
+            return Err(StoreError::Unavailable(
+                "sealed private execution disagrees with its authorized intent".to_string(),
+            ));
+        }
+        let flat_grading = decode_private_json_contract::<crate::IssuedFlatGradingContract>(
+            &row,
+            "flat_required",
+            "flat_payload",
+            "flat_payload_sha256",
+        )?;
+        let webwork_grading = decode_private_json_contract::<crate::IssuedWebworkGradingContract>(
+            &row,
+            "webwork_required",
+            "webwork_payload",
+            "webwork_payload_sha256",
+        )?;
+        let webwork_replay_mapping = decode_private_json_contract::<crate::WebworkReplayMappingV1>(
+            &row,
+            "webwork_required",
+            "webwork_replay_payload",
+            "webwork_replay_payload_sha256",
+        )?;
+        let qti_required: bool = row.try_get("qti_required").map_err(map_sqlx_error)?;
+        let qti_payload: Option<Vec<u8>> = row.try_get("qti_payload").map_err(map_sqlx_error)?;
+        let qti_sha256: Option<String> =
+            row.try_get("qti_payload_sha256").map_err(map_sqlx_error)?;
+        let issued_qti_grading = decode_sealed_qti_contract(
+            &intent.issued_question_snapshot,
+            qti_required,
+            qti_payload,
+            qti_sha256,
+        )?;
+        let webwork_capability = if matches!(
+            intent.attempt.issued_capability,
+            question_model::IssuedAttemptCapabilityV1::WebworkPresentation
+        ) {
+            crate::WebworkGradingCapability::Required
+        } else {
+            crate::WebworkGradingCapability::NotApplicable
+        };
+        crate::validate_issued_webwork_grading(
+            intent.issued_question_snapshot.question(),
+            webwork_capability,
+            webwork_grading.as_ref(),
+        )?;
+        crate::validate_issued_webwork_replay(webwork_capability, webwork_replay_mapping.as_ref())?;
+        let webwork_replay = webwork_replay_mapping
+            .map(|mapping| {
+                let binding = intent.presentation_binding.ok_or_else(|| {
+                    StoreError::Unavailable(
+                        "sealed WebWork execution lacks its issued presentation binding"
+                            .to_string(),
+                    )
+                })?;
+                crate::webwork_replay_state_from_issue(
+                    intent.attempt.problem,
+                    intent.attempt.question_version,
+                    intent.attempt.seed,
+                    &intent.attempt.provenance,
+                    binding,
+                    mapping,
+                )
+            })
+            .transpose()?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(crate::SealedPrivateExecutionPreparation::Grade(Box::new(
+            crate::PreparedQuestionSubmission {
+                attempt: intent.attempt,
+                issued_question_snapshot: intent.issued_question_snapshot,
+                presentation_binding: intent.presentation_binding,
+                presentation: intent.presentation,
+                grading_envelope: intent.grading_envelope,
+                flat_grading,
+                webwork_grading,
+                issued_qti_grading,
+                webwork_replay,
+            },
+        )))
+    }
+}
+
+fn decode_private_json_contract<T: serde::de::DeserializeOwned>(
+    row: &sqlx::postgres::PgRow,
+    required_column: &str,
+    payload_column: &str,
+    checksum_column: &str,
+) -> Result<Option<T>, StoreError> {
+    let required: bool = row.try_get(required_column).map_err(map_sqlx_error)?;
+    let payload: Option<serde_json::Value> = row.try_get(payload_column).map_err(map_sqlx_error)?;
+    let checksum: Option<String> = row.try_get(checksum_column).map_err(map_sqlx_error)?;
+    match (required, payload, checksum) {
+        (false, None, None) => Ok(None),
+        (true, Some(payload), Some(checksum)) => {
+            let bytes = serde_json::to_vec(&payload).map_err(|_| {
+                StoreError::Unavailable("sealed private execution payload is invalid".to_string())
+            })?;
+            if objects::Sha256Digest::compute(&bytes).to_string() != checksum {
+                return Err(StoreError::Unavailable(
+                    "sealed private execution checksum mismatch".to_string(),
+                ));
+            }
+            serde_json::from_value(payload).map(Some).map_err(|_| {
+                StoreError::Unavailable("sealed private execution payload is invalid".to_string())
+            })
+        }
+        _ => Err(StoreError::Unavailable(
+            "sealed private execution shape is invalid".to_string(),
+        )),
+    }
+}
+
+fn decode_sealed_qti_contract(
+    snapshot: &crate::IssuedQuestionSnapshotV1,
+    required: bool,
+    payload: Option<Vec<u8>>,
+    checksum: Option<String>,
+) -> Result<Option<crate::IssuedQtiGradingContractV1>, StoreError> {
+    match (required, payload, checksum) {
+        (false, None, None) => Ok(None),
+        (true, Some(payload), Some(checksum)) => {
+            if objects::Sha256Digest::compute(&payload).to_string() != checksum {
+                return Err(StoreError::Unavailable(
+                    "sealed QTI execution checksum mismatch".to_string(),
+                ));
+            }
+            let question_model::QuestionSource::Qti { item_id, .. } = &snapshot.question().source
+            else {
+                return Err(StoreError::Unavailable(
+                    "sealed QTI execution has a non-QTI snapshot".to_string(),
+                ));
+            };
+            let payload = crate::QtiImportGradingPayload::new(payload).map_err(|_| {
+                StoreError::Unavailable("sealed QTI execution payload is invalid".to_string())
+            })?;
+            crate::IssuedQtiGradingContractV1::new(snapshot.question(), item_id.clone(), payload)
+                .map(Some)
+                .map_err(|_| {
+                    StoreError::Unavailable("sealed QTI execution contract is invalid".to_string())
+                })
+        }
+        _ => Err(StoreError::Unavailable(
+            "sealed QTI execution shape is invalid".to_string(),
+        )),
+    }
+}
 
 /// Runs one short broker-first snapshot and releases its locks before grading.
 pub(super) async fn prepare_question_submission(
@@ -48,16 +220,12 @@ pub(super) async fn prepare_question_submission(
             {
                 return Err(StoreError::Conflict);
             }
-            SubmissionPreparation::Grade(Box::new(PreparedQuestionSubmission {
+            SubmissionPreparation::FirstEffect(Box::new(AuthorizedSubmissionIntent {
                 attempt: prepared.attempt,
                 issued_question_snapshot: prepared.issued_question_snapshot,
                 presentation_binding: prepared.presentation_binding,
                 presentation: prepared.presentation,
                 grading_envelope: prepared.grading_envelope,
-                flat_grading: prepared.flat_grading,
-                webwork_grading: prepared.webwork_grading,
-                issued_qti_grading: prepared.issued_qti_grading,
-                webwork_replay: prepared.webwork_replay,
             }))
         }
     };

@@ -25,11 +25,11 @@ use learning_data_access::{
     AssignmentRecord, CatalogStore, CourseGroupRecord, CourseRecord, CourseRosterStore,
     CreateCourseCommand, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
     IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, LearnerWorkRoutingBinding,
-    PresentationCapability, PutAssignmentTeachingSettingsCommand, PutCourseGroupCommand,
-    PutGroupAccommodationCommand, PutGroupScheduleOffsetCommand,
-    PutIndividualPolicyExceptionCommand, QtiGradingCapability, ResolveEffectivePolicyCommand,
-    Store, StoredIndividualPolicyException, TenantContext, UpsertCourseMember,
-    WebworkGradingCapability,
+    NativeExecutionEnvelopeCapability, PresentationCapability,
+    PutAssignmentTeachingSettingsCommand, PutCourseGroupCommand, PutGroupAccommodationCommand,
+    PutGroupScheduleOffsetCommand, PutIndividualPolicyExceptionCommand, QtiGradingCapability,
+    ResolveEffectivePolicyCommand, Store, StoredIndividualPolicyException, TenantContext,
+    UpsertCourseMember, WebworkGradingCapability,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -142,8 +142,8 @@ async fn publish_question(
     reference
 }
 
-async fn issue_command(
-    store: &PostgresStore,
+struct IssueCommandFixture<'a> {
+    store: &'a PostgresStore,
     context: TenantContext,
     learner: UserId,
     run: RunId,
@@ -151,59 +151,65 @@ async fn issue_command(
     reference: ProblemVersionRef,
     course: CourseId,
     assignment: AssignmentId,
-) -> IssueQuestionAttemptCommand {
-    let question = store
-        .get_catalog_problem(context, reference)
-        .await
-        .expect("read the published effective-policy question")
-        .expect("published effective-policy question exists")
-        .question;
-    let issued_question_snapshot = IssuedQuestionSnapshotV1::new(
-        question,
-        IssuedQuestionFamilyWitnessV1::Native {
-            physical_asset_bindings: Vec::new(),
-        },
-    )
-    .expect("construct exact effective-policy native question snapshot");
-    IssueQuestionAttemptCommand {
-        actor: learner,
-        binding: LearnerWorkRoutingBinding::new(course, assignment),
-        attempt,
-        run,
-        assignment_position: 0,
-        problem: reference.problem,
-        question_version: reference.version,
-        issued_question_snapshot,
-        seed: 1,
-        presentation_capability: PresentationCapability::NotApplicable,
-        presentation: None,
-        presentation_snapshot: None,
-        grading_envelope: None,
-        flat_grading: None,
-        flat_grading_capability: FlatGradingCapability::NotApplicable,
-        webwork_grading: None,
-        webwork_grading_capability: WebworkGradingCapability::NotApplicable,
-        qti_grading: None,
-        qti_grading_capability: QtiGradingCapability::NotApplicable,
-        parameter_hash: "postgres-effective-policy".to_string(),
-        provenance: question_model::AttemptProvenance {
-            adapter: ImplementationVersion {
-                id: "postgres-effective-policy".to_string(),
-                version: "1".to_string(),
+}
+
+impl IssueCommandFixture<'_> {
+    async fn build(self) -> IssueQuestionAttemptCommand {
+        let question = self
+            .store
+            .get_catalog_problem(self.context, self.reference)
+            .await
+            .expect("read the published effective-policy question")
+            .expect("published effective-policy question exists")
+            .question;
+        let issued_question_snapshot = IssuedQuestionSnapshotV1::new(
+            question,
+            IssuedQuestionFamilyWitnessV1::Native {
+                physical_asset_bindings: Vec::new(),
             },
-            renderer: None,
-            generator: None,
-            source_artifact: None,
-            asset_objects: Vec::new(),
-            grading: ImplementationVersion {
-                id: "postgres-effective-policy-grading".to_string(),
-                version: "1".to_string(),
+        )
+        .expect("construct exact effective-policy native question snapshot");
+        IssueQuestionAttemptCommand {
+            actor: self.learner,
+            binding: LearnerWorkRoutingBinding::new(self.course, self.assignment),
+            attempt: self.attempt,
+            run: self.run,
+            assignment_position: 0,
+            problem: self.reference.problem,
+            question_version: self.reference.version,
+            issued_question_snapshot,
+            seed: 1,
+            presentation_capability: PresentationCapability::NotApplicable,
+            presentation: None,
+            presentation_snapshot: None,
+            grading_envelope: None,
+            native_execution_envelope_capability: NativeExecutionEnvelopeCapability::Required,
+            flat_grading: None,
+            flat_grading_capability: FlatGradingCapability::NotApplicable,
+            webwork_grading: None,
+            webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+            qti_grading: None,
+            qti_grading_capability: QtiGradingCapability::NotApplicable,
+            parameter_hash: "postgres-effective-policy".to_string(),
+            provenance: question_model::AttemptProvenance {
+                adapter: ImplementationVersion {
+                    id: "postgres-effective-policy".to_string(),
+                    version: "1".to_string(),
+                },
+                renderer: None,
+                generator: None,
+                source_artifact: None,
+                asset_objects: Vec::new(),
+                grading: ImplementationVersion {
+                    id: "postgres-effective-policy-grading".to_string(),
+                    version: "1".to_string(),
+                },
+                rendered_question_sha256: "postgres-effective-policy-render".to_string(),
             },
-            rendered_question_sha256: "postgres-effective-policy-render".to_string(),
-        },
-        webwork_replay: None,
-        prefetched: None,
-        predecessor_submission: None,
+            webwork_replay: None,
+            prefetched: None,
+            predecessor_submission: None,
+        }
     }
 }
 
@@ -597,16 +603,17 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
     let issued = store
         .issue_or_resume_question_attempt(
             context,
-            issue_command(
-                &store,
+            IssueCommandFixture {
+                store: &store,
                 context,
                 learner,
-                run.id,
-                QuestionAttemptId::from_uuid(id()),
+                run: run.id,
+                attempt: QuestionAttemptId::from_uuid(id()),
                 reference,
                 course,
                 assignment,
-            )
+            }
+            .build()
             .await,
         )
         .await
@@ -623,16 +630,17 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
     let second_issued = store
         .issue_or_resume_question_attempt(
             context,
-            issue_command(
-                &store,
+            IssueCommandFixture {
+                store: &store,
                 context,
-                second_learner,
-                second_run.id,
-                QuestionAttemptId::from_uuid(id()),
+                learner: second_learner,
+                run: second_run.id,
+                attempt: QuestionAttemptId::from_uuid(id()),
                 reference,
                 course,
                 assignment,
-            )
+            }
+            .build()
             .await,
         )
         .await

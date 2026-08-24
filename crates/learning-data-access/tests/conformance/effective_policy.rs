@@ -29,6 +29,7 @@ fn policy_issue(
     run: RunId,
     attempt: question_model::QuestionAttemptId,
     reference: ProblemVersionRef,
+    issued_question_snapshot: learning_data_access::IssuedQuestionSnapshotV1,
 ) -> IssueQuestionAttemptCommand {
     IssueQuestionAttemptCommand {
         actor: learner,
@@ -38,15 +39,19 @@ fn policy_issue(
         assignment_position: 0,
         problem: reference.problem,
         question_version: reference.version,
+        issued_question_snapshot,
         seed: 99,
         presentation_capability: PresentationCapability::NotApplicable,
         presentation: None,
         presentation_snapshot: None,
         grading_envelope: None,
+        native_execution_envelope_capability: NativeExecutionEnvelopeCapability::Required,
         flat_grading: None,
         flat_grading_capability: FlatGradingCapability::NotApplicable,
         webwork_grading: None,
         webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+        qti_grading: None,
+        qti_grading_capability: QtiGradingCapability::NotApplicable,
         parameter_hash: "effective-policy-conformance".to_string(),
         provenance: AttemptProvenance {
             adapter: implementation("effective-policy-native"),
@@ -68,6 +73,20 @@ fn policy_issue(
 /// helper after its backend is available.
 pub(crate) async fn exercise_effective_policy_gate_and_materialization_contract<S>(
     store: &S,
+) -> EffectivePolicyFixture
+where
+    S: Store + CatalogStore + CourseRosterStore + SessionStore,
+{
+    exercise_effective_policy_gate_and_materialization_contract_with_timing(
+        store,
+        question_model::run_policy::TimingPolicy::Untimed,
+    )
+    .await
+}
+
+pub(crate) async fn exercise_effective_policy_gate_and_materialization_contract_with_timing<S>(
+    store: &S,
+    timing_policy: question_model::run_policy::TimingPolicy,
 ) -> EffectivePolicyFixture
 where
     S: Store + CatalogStore + CourseRosterStore + SessionStore,
@@ -132,13 +151,14 @@ where
         .expect("other active membership")
         .student
         .expect("other learner identity");
-    let reference = publish_assignment_version(
+    let reference = publish_assignment_version_with_timing(
         store,
         context,
         tenant,
         instructor,
         99_010,
         PublicationScope::Public,
+        timing_policy,
     )
     .await;
     let assignment_a = AssignmentId::from_uuid(uuid(99_011));
@@ -498,6 +518,19 @@ where
         )
         .await
         .expect("allowed start materializes exactly one run");
+    let issued_question_snapshot = store
+        .get_catalog_problem(context, reference)
+        .await
+        .expect("read the published policy question")
+        .expect("published policy question exists")
+        .question;
+    let issued_question_snapshot = learning_data_access::IssuedQuestionSnapshotV1::new(
+        issued_question_snapshot,
+        learning_data_access::IssuedQuestionFamilyWitnessV1::Native {
+            physical_asset_bindings: Vec::new(),
+        },
+    )
+    .expect("construct exact policy native issued snapshot");
     let issued = store
         .issue_or_resume_question_attempt(
             context,
@@ -508,6 +541,7 @@ where
                 run.id,
                 question_model::QuestionAttemptId::from_uuid(uuid(99_032)),
                 reference,
+                issued_question_snapshot,
             ),
         )
         .await

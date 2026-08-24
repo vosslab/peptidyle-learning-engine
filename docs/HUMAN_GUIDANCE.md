@@ -122,6 +122,11 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 
 - PLE is pre-production: it has no users and no current durable data. Improve
   the current design directly.
+- Preview and rehearsal operate on the same ordinary live courses, assignments, published
+  questions, deterministic graders, and production routes as the rest of PLE. Baseline seeding
+  creates ordinary live records. Rehearsal-specific persistence contains only the immutable
+  execution and audit evidence needed to keep Instructor inspection out of learner records; it is
+  never a second content source, question bank, assignment model, or demo application.
 - Before the first production deployment, replace the unreleased
   history with one reviewed clean-cluster baseline. After that baseline ships,
   preserve each new forward migration as the durable upgrade ledger.
@@ -285,6 +290,13 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   tundra, forest, desert, grass, arctic, ocean, tropical, woodland, coral reef,
   swamp, underground, salt marsh, wetland, sea floor, magma, and beach.
 - Purge some theme names when they would look substantially the same.
+
+## Automated grading
+
+- Keep PLE's question workflows strictly automated grading. A supported question has a
+  deterministic server-owned grader and an answer-free browser contract; a manual or otherwise
+  non-deterministically gradeable question fails closed before delivery and creates no manual
+  grading queue, receipt state, or compatibility path.
 
 ## Performance choices
 

@@ -237,28 +237,6 @@ impl crate::EffectivePolicyStore for PostgresStore {
     }
 }
 
-pub(super) async fn load_course_term_for_policy(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-) -> Result<CourseTerm, StoreError> {
-    let row = sqlx::query(
-        "SELECT term_start_date::text AS term_start_date, term_end_date::text AS term_end_date, time_zone \
-         FROM course WHERE tenant_id=$1 AND course_id=$2 FOR KEY SHARE",
-    )
-    .bind(tenant.as_uuid())
-    .bind(course.as_uuid())
-    .fetch_optional(&mut **tx)
-    .await
-    .map_err(map_sqlx_error)?
-    .ok_or(StoreError::NotFound)?;
-    let start_date: String = row.try_get("term_start_date").map_err(map_sqlx_error)?;
-    let end_date: String = row.try_get("term_end_date").map_err(map_sqlx_error)?;
-    let time_zone: String = row.try_get("time_zone").map_err(map_sqlx_error)?;
-    CourseTerm::from_parts(&start_date, &end_date, &time_zone)
-        .map_err(|error| StoreError::Unavailable(format!("stored course term is invalid: {error}")))
-}
-
 pub(super) async fn load_course_term_for_preview(
     tx: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
@@ -540,31 +518,6 @@ pub(super) async fn load_inputs(
     })
 }
 
-/// Resolves an already-evaluated S5 grant inside the caller's transaction.
-/// PostgreSQL derives lifecycle from the stored assignment row, then evaluates
-/// one already-authorized S5 grant inside the caller's transaction.
-pub(super) async fn resolve_granted_effective_policy(
-    tx: &mut Transaction<'_, Postgres>,
-    grant: domain::entitlement::EntitlementGrant,
-    authorization: domain::effective_assignment_policy::AuthorizationGate,
-    prior_run_count: u32,
-) -> Result<
-    (
-        domain::effective_assignment_policy::EffectivePolicyDecision,
-        AssignmentRevision,
-    ),
-    StoreError,
-> {
-    preview_resolution::resolve_granted_effective_policy_with_lock(
-        tx,
-        grant,
-        authorization,
-        prior_run_count,
-        true,
-    )
-    .await
-}
-
 pub(super) async fn resolve_granted_effective_policy_read_only(
     tx: &mut Transaction<'_, Postgres>,
     grant: domain::entitlement::EntitlementGrant,
@@ -577,12 +530,11 @@ pub(super) async fn resolve_granted_effective_policy_read_only(
     ),
     StoreError,
 > {
-    preview_resolution::resolve_granted_effective_policy_with_lock(
+    preview_resolution::resolve_granted_effective_policy_read_only(
         tx,
         grant,
         authorization,
         prior_run_count,
-        false,
     )
     .await
 }

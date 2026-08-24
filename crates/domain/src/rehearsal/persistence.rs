@@ -14,9 +14,19 @@ use super::{
     RehearsalClaimRoot, RehearsalEvidencePayload, RehearsalPersistedClaimRoot,
     RehearsalSubjectFingerprint, RehearsalSubmissionRequestFingerprint,
     RehearsalValidatedSubmissionEvidence, RehearsalValidatedSubmissionRequest,
-    frozen_response_schema_digest, rehearsal_public_receipt_digest,
+    frozen_response_schema_digest,
 };
-use question_model::envelope::ContentBlock;
+
+mod claim_input_codec;
+mod receipt;
+
+pub use claim_input_codec::{decode_claim_submission_input, encode_claim_submission_input};
+
+use receipt::FeedbackWire;
+pub use receipt::{
+    decode_persisted_rehearsal_receipt, encode_persisted_rehearsal_receipt,
+    persisted_rehearsal_receipt_digest,
+};
 
 pub const REHEARSAL_PERSISTENCE_CODEC_VERSION: u8 = 1;
 
@@ -97,49 +107,6 @@ enum GradingWire {
         feedback: FeedbackWire,
         backend_receipt_reference: String,
     },
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct FeedbackWire {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    correctness: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    points_earned: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    points_possible: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    hint: Option<Vec<ContentBlock>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    correct_response: Option<Vec<ContentBlock>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    rationale: Option<Vec<ContentBlock>>,
-}
-
-impl From<&question_model::DisclosedFeedback> for FeedbackWire {
-    fn from(value: &question_model::DisclosedFeedback) -> Self {
-        Self {
-            correctness: value.correctness,
-            points_earned: value.points_earned,
-            points_possible: value.points_possible,
-            hint: value.hint.clone(),
-            correct_response: value.correct_response.clone(),
-            rationale: value.rationale.clone(),
-        }
-    }
-}
-
-impl From<FeedbackWire> for question_model::DisclosedFeedback {
-    fn from(value: FeedbackWire) -> Self {
-        Self {
-            correctness: value.correctness,
-            points_earned: value.points_earned,
-            points_possible: value.points_possible,
-            hint: value.hint,
-            correct_response: value.correct_response,
-            rationale: value.rationale,
-        }
-    }
 }
 
 pub fn encode_sealed_request(request: &RehearsalValidatedSubmissionRequest) -> Value {
@@ -240,7 +207,7 @@ pub fn decode_accepted_evidence_payload(
         return Err(RehearsalPersistenceError::TimestampMismatch);
     }
     if parse_uuid(&wire.claim_id)? != root.claim().as_uuid()
-        || parse_uuid(&wire.attempt_id)? != root.sealed_request().attempt().as_uuid()
+        || parse_uuid(&wire.attempt_id)? != frozen.attempt.as_uuid()
     {
         return Err(RehearsalPersistenceError::BindingMismatch);
     }
@@ -248,14 +215,14 @@ pub fn decode_accepted_evidence_payload(
         &wire.submitted_response,
         MAX_REHEARSAL_ACCEPTED_EVIDENCE_PAYLOAD_BYTES,
     )?;
-    if response != *root.sealed_request().submitted_response() {
+    if response != *root.submission_input().original_response() {
         return Err(RehearsalPersistenceError::BindingMismatch);
     }
     let result = grading_from_wire(wire.grading)?;
-    let evidence = RehearsalValidatedSubmissionEvidence::try_complete_with_frozen_attempt(
+    let evidence = RehearsalValidatedSubmissionEvidence::restore_with_verified_root(
         root,
-        root.sealed_request().clone(),
         frozen,
+        response,
         result,
         recorded_at,
     )
@@ -273,33 +240,51 @@ pub fn decode_persisted_claim_root(
     rehearsal: question_model::RehearsalRunId,
     claim: question_model::RehearsalSubmissionClaimId,
     fingerprint_bytes: &[u8],
-    sealed_request: &Value,
+    submission_input: &Value,
     frozen: &question_model::RehearsalFrozenItemEvidence,
     expected_attempt: question_model::RehearsalAttemptId,
 ) -> Result<RehearsalPersistedClaimRoot, RehearsalPersistenceError> {
-    let request = decode_sealed_request(sealed_request, frozen, expected_attempt)?;
+    decode_persisted_claim_root_with_screen(
+        rehearsal,
+        claim,
+        fingerprint_bytes,
+        submission_input,
+        frozen,
+        expected_attempt,
+        None,
+    )
+}
+
+/// Restores a root with the exact authenticated screen required by a rendered
+/// live claim. Durable internal/test-support rows remain decodable without a
+/// screen through [`decode_persisted_claim_root`].
+pub fn decode_persisted_claim_root_with_screen(
+    rehearsal: question_model::RehearsalRunId,
+    claim: question_model::RehearsalSubmissionClaimId,
+    fingerprint_bytes: &[u8],
+    submission_input: &Value,
+    frozen: &question_model::RehearsalFrozenItemEvidence,
+    expected_attempt: question_model::RehearsalAttemptId,
+    screen: Option<&question_model::RehearsalActiveScreenV1>,
+) -> Result<RehearsalPersistedClaimRoot, RehearsalPersistenceError> {
+    let input = decode_claim_submission_input(submission_input, frozen, expected_attempt, screen)?;
     Ok(RehearsalPersistedClaimRoot::from_persisted(
         rehearsal,
         claim,
         RehearsalSubmissionRequestFingerprint(copy_digest(fingerprint_bytes)?),
-        request,
+        input,
     ))
 }
 
-pub fn public_outcome_digest(
-    outcome: &question_model::RehearsalPublicOutcome,
-) -> question_model::RehearsalEvidenceDigest {
-    rehearsal_public_receipt_digest(outcome)
-}
-
-/// Verifies the immutable receipt witness against the domain-computed public outcome.
+/// Verifies the immutable private receipt witness against the domain result.
 pub fn verify_persisted_receipt_witness(
     outcome: &question_model::RehearsalPublicOutcome,
     projection: &Value,
     digest: question_model::RehearsalEvidenceDigest,
 ) -> Result<(), RehearsalPersistenceError> {
     ensure_serialized_at_most(projection, MAX_REHEARSAL_RECEIPT_PROJECTION_BYTES)?;
-    (to_value(outcome) == *projection && public_outcome_digest(outcome) == digest)
+    (encode_persisted_rehearsal_receipt(outcome) == *projection
+        && persisted_rehearsal_receipt_digest(outcome) == digest)
         .then_some(())
         .ok_or(RehearsalPersistenceError::BindingMismatch)
 }
@@ -361,7 +346,7 @@ fn parse_uuid(value: &str) -> Result<Uuid, RehearsalPersistenceError> {
         .ok_or(RehearsalPersistenceError::MalformedValue)
 }
 
-fn parse_digest(
+pub(super) fn parse_digest(
     value: &str,
 ) -> Result<question_model::RehearsalEvidenceDigest, RehearsalPersistenceError> {
     question_model::RehearsalEvidenceDigest::parse_hex(value)
@@ -374,7 +359,7 @@ fn copy_digest(bytes: &[u8]) -> Result<[u8; 32], RehearsalPersistenceError> {
         .map_err(|_| RehearsalPersistenceError::MalformedValue)
 }
 
-fn decode_exact_limited<T>(
+pub(super) fn decode_exact_limited<T>(
     value: &Value,
     maximum_bytes: usize,
 ) -> Result<T, RehearsalPersistenceError>
@@ -441,7 +426,7 @@ impl Write for BoundedByteCounter {
     }
 }
 
-fn to_value<T: Serialize>(value: &T) -> Value {
+pub(super) fn to_value<T: Serialize>(value: &T) -> Value {
     serde_json::to_value(value).expect("closed rehearsal persistence values serialize")
 }
 
@@ -580,7 +565,7 @@ mod tests {
         let accepted_at = ActivityTimestamp::from_unix_millis(12);
         let evidence = RehearsalValidatedSubmissionEvidence::try_complete_with_frozen_attempt(
             &root,
-            root.sealed_request().clone(),
+            root.submission_input().durable_request().unwrap().clone(),
             &item,
             question_model::RehearsalPrivateGradingResult::Graded {
                 result: AttemptResult {
@@ -673,7 +658,7 @@ mod tests {
         let accepted_at = ActivityTimestamp::from_unix_millis(12);
         let evidence = RehearsalValidatedSubmissionEvidence::try_complete_with_frozen_attempt(
             &root,
-            root.sealed_request().clone(),
+            root.submission_input().durable_request().unwrap().clone(),
             &item,
             question_model::RehearsalPrivateGradingResult::Graded {
                 result: AttemptResult {
@@ -745,7 +730,7 @@ mod tests {
         let accepted_at = ActivityTimestamp::from_unix_millis(12);
         let evidence = RehearsalValidatedSubmissionEvidence::try_complete_with_frozen_attempt(
             &root,
-            root.sealed_request().clone(),
+            root.submission_input().durable_request().unwrap().clone(),
             &item,
             question_model::RehearsalPrivateGradingResult::Graded {
                 result: AttemptResult {
@@ -801,7 +786,7 @@ mod tests {
             context().rehearsal,
             RehearsalSubmissionClaimId::from_uuid(Uuid::from_u128(11)),
             &[99; 32],
-            &encode_sealed_request(root.sealed_request()),
+            &encode_claim_submission_input(root.submission_input()),
             &item,
             item.attempt,
         )
@@ -814,8 +799,8 @@ mod tests {
         let outcome = question_model::RehearsalPublicOutcome::Submitted {
             feedback: question_model::DisclosedFeedback::empty(),
         };
-        let projection = to_value(&outcome);
-        let digest = public_outcome_digest(&outcome);
+        let projection = encode_persisted_rehearsal_receipt(&outcome);
+        let digest = persisted_rehearsal_receipt_digest(&outcome);
         assert!(verify_persisted_receipt_witness(&outcome, &projection, digest).is_ok());
         assert!(
             verify_persisted_receipt_witness(
@@ -873,7 +858,7 @@ mod tests {
         .unwrap();
         let accepted = RehearsalValidatedSubmissionEvidence::try_complete_with_frozen_attempt(
             &root,
-            root.sealed_request().clone(),
+            root.submission_input().durable_request().unwrap().clone(),
             &item,
             question_model::RehearsalPrivateGradingResult::Graded {
                 result: AttemptResult {
@@ -906,7 +891,7 @@ mod tests {
     }
 
     #[test]
-    fn fingerprints_and_outcome_digests_are_exact_private_comparison_values() {
+    fn fingerprints_and_persisted_receipt_digests_are_stable_private_values() {
         assert_eq!(
             restore_subject_fingerprint(&[1; 32]).unwrap().as_bytes(),
             [1; 32]
@@ -916,8 +901,50 @@ mod tests {
             feedback: question_model::DisclosedFeedback::empty(),
         };
         assert_eq!(
-            public_outcome_digest(&outcome),
-            rehearsal_public_receipt_digest(&outcome)
+            persisted_rehearsal_receipt_digest(&outcome).to_hex(),
+            "1ca820d2bc482730ff63185bd1b7c7e4e3eb5f7c832970bdf288ed9041b4abfa"
         );
+    }
+
+    #[test]
+    fn persisted_receipt_wire_has_the_closed_v1_operation_result_shape() {
+        let cases = [
+            (
+                question_model::RehearsalPublicOutcome::Submitted {
+                    feedback: question_model::DisclosedFeedback::empty(),
+                },
+                serde_json::json!({"kind": "submitted", "feedback": {}}),
+            ),
+            (
+                question_model::RehearsalPublicOutcome::AttemptExpired,
+                serde_json::json!({"kind": "attemptExpired"}),
+            ),
+            (
+                question_model::RehearsalPublicOutcome::SubmissionPending,
+                serde_json::json!({"kind": "submissionPending"}),
+            ),
+            (
+                question_model::RehearsalPublicOutcome::StaleRevision,
+                serde_json::json!({"kind": "staleRevision"}),
+            ),
+            (
+                question_model::RehearsalPublicOutcome::DeliveryUnsupported {
+                    support: question_model::RehearsalBackendSupport::UnsupportedExternal,
+                },
+                serde_json::json!({
+                    "kind": "deliveryUnsupported",
+                    "support": "unsupportedExternal"
+                }),
+            ),
+        ];
+
+        for (outcome, expected) in cases {
+            let projection = encode_persisted_rehearsal_receipt(&outcome);
+            assert_eq!(projection, expected);
+            assert_eq!(
+                serde_json::to_vec(&projection).expect("JSON value serializes"),
+                serde_json::to_vec(&expected).expect("JSON value serializes"),
+            );
+        }
     }
 }

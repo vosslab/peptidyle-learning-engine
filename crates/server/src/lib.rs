@@ -62,6 +62,8 @@ pub mod qti_profile_import;
 mod qti_profile_postgres_live;
 /// Server-only QTI publication preparation; generic publication stays closed.
 pub mod qti_publication;
+/// Instructor-owned, identity-free rehearsal routes and execution coordination.
+pub mod rehearsal;
 /// Process-owned request correlation and bounded shutdown behavior.  This is
 /// deliberately outside individual route groups so future routes cannot opt
 /// out by convention.

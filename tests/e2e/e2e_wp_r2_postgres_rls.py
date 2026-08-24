@@ -147,7 +147,7 @@ def main() -> None:
 				"-p",
 				"learning-data-access",
 				"--features",
-				"postgres",
+				"postgres,test-support",
 				"--test",
 				"postgres_wp_r2_live",
 				"--",

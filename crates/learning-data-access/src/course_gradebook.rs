@@ -269,11 +269,12 @@ pub trait CourseGradebookStore: Send + Sync {
     ) -> Result<CourseGradeExport, StoreError>;
 }
 
-/// Validates one whole-scheme command after its backend has locked the exact
-/// current course assignment IDs. Both persistence backends use this rule.
-pub(crate) fn validate_course_grade_scheme_update(
+/// Validates the backend-independent shape of one whole-scheme command.
+///
+/// PostgreSQL separately validates the exact current assignment set inside
+/// its brokered mutation, under the capability's course and assignment locks.
+pub(crate) fn validate_course_grade_scheme_update_shape(
     command: &UpdateCourseGradeScheme,
-    current_assignments: &std::collections::BTreeSet<AssignmentId>,
 ) -> Result<(), StoreError> {
     command
         .scheme
@@ -284,9 +285,9 @@ pub(crate) fn validate_course_grade_scheme_update(
         .iter()
         .map(|member| member.assignment)
         .collect();
-    if supplied.len() != command.assignments.len() || supplied != *current_assignments {
+    if supplied.len() != command.assignments.len() {
         return Err(StoreError::InvalidRecord(
-            "course grade scheme assignments must exactly match the current course".to_string(),
+            "course grade scheme assignments must be unique".to_string(),
         ));
     }
     match command.scheme.mode {
@@ -364,6 +365,26 @@ pub(crate) fn validate_course_grade_scheme_update(
                 }
             }
         }
+    }
+    Ok(())
+}
+
+/// Validates one whole-scheme command against an already synchronized
+/// in-memory assignment set.
+pub(crate) fn validate_course_grade_scheme_update(
+    command: &UpdateCourseGradeScheme,
+    current_assignments: &std::collections::BTreeSet<AssignmentId>,
+) -> Result<(), StoreError> {
+    validate_course_grade_scheme_update_shape(command)?;
+    let supplied = command
+        .assignments
+        .iter()
+        .map(|member| member.assignment)
+        .collect::<std::collections::BTreeSet<_>>();
+    if supplied != *current_assignments {
+        return Err(StoreError::InvalidRecord(
+            "course grade scheme assignments must exactly match the current course".to_string(),
+        ));
     }
     Ok(())
 }

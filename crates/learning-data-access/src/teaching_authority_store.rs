@@ -93,6 +93,8 @@ pub struct RevokeInstructorApproval {
 /// Direct-course-Instructor request for one target-bound invitation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CreateCoInstructorInvitation {
+    /// Persisted authenticated instructor session; the Store derives the actor from it.
+    pub session: SessionTokenHash,
     pub actor: UserId,
     pub course: CourseId,
     pub target: UserId,
@@ -114,6 +116,8 @@ pub struct RespondToCoInstructorInvitation {
 /// Direct Instructor request to revoke a still-pending invitation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RevokeCoInstructorInvitation {
+    /// Persisted authenticated instructor session; the Store derives the actor from it.
+    pub session: SessionTokenHash,
     pub actor: UserId,
     pub course: CourseId,
     pub invitation: CoInstructorInvitationId,

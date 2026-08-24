@@ -9,10 +9,15 @@
 mod auth;
 mod claims;
 mod completion;
+mod execution;
 mod frozen;
 mod hydration;
 mod integrity;
+#[cfg(feature = "test-support")]
 mod lifecycle;
+mod material;
+mod operations;
+mod route_mutations;
 mod rows;
 mod source_aggregate;
 mod start;
@@ -146,13 +151,21 @@ prepare_witness!(
 );
 
 #[async_trait]
-impl crate::RehearsalStore for PostgresStore {
-    async fn start_rehearsal(
+impl crate::contracts::RehearsalInternalStore for PostgresStore {
+    async fn start_rehearsal_from_route(
         &self,
         context: TenantContext,
-        command: crate::StartRehearsalCommand,
+        command: crate::StartRehearsalRouteCommand,
+    ) -> Result<crate::StartRehearsalRouteResult, StoreError> {
+        start::start_from_route(self, context, command).await
+    }
+
+    async fn read_rehearsal_from_route(
+        &self,
+        context: TenantContext,
+        command: crate::ReadRehearsalRouteCommand,
     ) -> Result<RehearsalRunReceipt, StoreError> {
-        start::start(self, context, command).await
+        hydration::read_from_route(self, context, command).await
     }
 
     async fn read_rehearsal(
@@ -163,14 +176,7 @@ impl crate::RehearsalStore for PostgresStore {
         hydration::read(self, context, locator).await
     }
 
-    async fn append_rehearsal_frozen_item(
-        &self,
-        context: TenantContext,
-        command: crate::AppendRehearsalFrozenItemCommand,
-    ) -> Result<(), StoreError> {
-        frozen::append(self, context, command).await
-    }
-
+    #[cfg(feature = "test-support")]
     async fn claim_rehearsal_submission(
         &self,
         context: TenantContext,
@@ -179,6 +185,7 @@ impl crate::RehearsalStore for PostgresStore {
         claims::claim(self, context, command).await
     }
 
+    #[cfg(feature = "test-support")]
     async fn complete_rehearsal_submission(
         &self,
         context: TenantContext,
@@ -195,6 +202,7 @@ impl crate::RehearsalStore for PostgresStore {
         claims::mark_dispatched(self, context, command).await
     }
 
+    #[cfg(feature = "test-support")]
     async fn discard_rehearsal(
         &self,
         context: TenantContext,
@@ -203,12 +211,24 @@ impl crate::RehearsalStore for PostgresStore {
         lifecycle::terminalize(self, context, locator, "discardedByInstructor").await
     }
 
+    #[cfg(feature = "test-support")]
     async fn complete_rehearsal(
         &self,
         context: TenantContext,
         locator: crate::RehearsalLocator,
     ) -> Result<RehearsalRunReceipt, StoreError> {
         lifecycle::terminalize(self, context, locator, "completed").await
+    }
+}
+
+#[async_trait]
+impl crate::RehearsalDeliveryMaterialStore for PostgresStore {
+    async fn verify_rehearsal_delivery_material_from_route(
+        &self,
+        context: TenantContext,
+        command: crate::VerifyRehearsalDeliveryMaterialRouteCommand,
+    ) -> Result<(), StoreError> {
+        material::verify_from_route(self, context, command).await
     }
 }
 

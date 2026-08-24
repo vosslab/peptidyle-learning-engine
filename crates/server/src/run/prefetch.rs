@@ -5,7 +5,8 @@ use super::queries::{all_attempts, owned_assignment_for_run, owned_run};
 use super::support::*;
 use learning_data_access::{
     AssetStore, FlatGradingCapability, IssuedNativeAssetBindingV1, IssuedQuestionFamilyWitnessV1,
-    IssuedQuestionSnapshotV1, QtiGradingCapability,
+    IssuedQuestionSnapshotV1, NativeExecutionEnvelopeCapability, PrefetchedPrivateExecutionV1,
+    PrefetchedQuestionDescriptorV1, QtiGradingCapability,
 };
 use question_model::{
     ResponseDefinition,
@@ -178,6 +179,24 @@ fn receipt_presentation(presentation: PresentationV1) -> ReceiptPresentationSnap
     ReceiptPresentationSnapshot {
         envelope: presentation.envelope,
         asset_bindings: presentation.asset_bindings,
+    }
+}
+
+/// Declares the immutable server-only envelope obligation for a native family
+/// that is not graded by the flat contract.  Browser presentation capability
+/// deliberately does not stand in for this execution authority.
+fn native_execution_envelope_capability(
+    question: &QuestionDefinition,
+    flat_grading: FlatGradingCapability,
+) -> NativeExecutionEnvelopeCapability {
+    if matches!(
+        question.source,
+        question_model::QuestionSource::Native { .. }
+    ) && matches!(flat_grading, FlatGradingCapability::NotApplicable)
+    {
+        NativeExecutionEnvelopeCapability::Required
+    } else {
+        NativeExecutionEnvelopeCapability::NotApplicable
     }
 }
 
@@ -426,7 +445,9 @@ where
                 Ok(value) => value,
                 Err(error) => return backend_error_response(error),
             };
-            let value = learning_data_access::PrefetchedQuestion {
+            let native_execution_envelope_capability =
+                native_execution_envelope_capability(&question, issued.flat_grading_capability);
+            let value = PrefetchedQuestionDescriptorV1 {
                 tenant: authenticated.tenant_context.tenant_id(),
                 run: run.id,
                 predecessor,
@@ -444,13 +465,16 @@ where
                 ),
                 presentation_snapshot,
                 grading_envelope: issued.envelope.clone(),
-                flat_grading: issued.flat_grading.clone(),
+                native_execution_envelope_capability,
                 flat_grading_capability: issued.flat_grading_capability,
+                webwork_grading_capability: issued.webwork_grading_capability,
+                qti_grading_capability: issued.qti_grading_capability,
+            };
+            let private_execution = PrefetchedPrivateExecutionV1 {
+                flat_grading: issued.flat_grading.clone(),
                 webwork_replay,
                 webwork_grading: issued.webwork_grading.clone(),
-                webwork_grading_capability: issued.webwork_grading_capability,
                 qti_grading: issued.qti_grading.clone(),
-                qti_grading_capability: issued.qti_grading_capability,
             };
             let reservation = match state
                 .store
@@ -459,6 +483,7 @@ where
                     learning_data_access::ReservePrefetchedQuestionCommand {
                         actor,
                         reservation: value.clone(),
+                        private_execution,
                     },
                 )
                 .await
@@ -507,6 +532,9 @@ where
         || issued.provenance != reservation.provenance
         || issued.envelope.version != reservation.question_version
         || issued.envelope.seed != Seed::new(reservation.seed)
+        || issued.flat_grading_capability != reservation.flat_grading_capability
+        || issued.webwork_grading_capability != reservation.webwork_grading_capability
+        || issued.qti_grading_capability != reservation.qti_grading_capability
     {
         return error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -532,16 +560,9 @@ where
             "prefetched receipt presentation does not match its binding",
         );
     }
-    let replay = match bind_webwork_replay(&question, &issued, Some(&receipt_presentation)) {
-        Ok(value) => value,
-        Err(error) => return backend_error_response(error),
-    };
-    if replay != reservation.webwork_replay {
-        return error_response(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "prefetched WeBWorK replay state did not reproduce exactly",
-        );
-    }
+    // Reissue proves the public deterministic rendering.  Private WebWork
+    // replay is deliberately not readable from the descriptor: the Store's
+    // sealed broker compares it when reservation/promotion is performed.
     no_store(
         Json(PrefetchedNextQuestion {
             predecessor,
@@ -735,7 +756,10 @@ pub(super) struct IssueQuestionRequest<'a> {
     assignment_position: u32,
     reference: ProblemVersionRef,
     question: &'a QuestionDefinition,
-    prefetched: Option<learning_data_access::PrefetchedQuestion>,
+    /// Answer-free durable prefetch descriptor.  The matching private
+    /// contracts are reissued by the trusted backend and compared only by the
+    /// Store's sealed promotion path.
+    prefetched: Option<PrefetchedQuestionDescriptorV1>,
     predecessor_submission: Option<QuestionAttemptId>,
 }
 
@@ -766,24 +790,76 @@ where
         webwork_grading_capability,
         qti_grading,
         qti_grading_capability,
+        native_execution_envelope_capability,
     ) = match request.prefetched.as_ref() {
-        Some(value) => (
-            value.issued_question_snapshot.clone(),
-            value.seed,
-            value.parameter_hash.clone(),
-            value.provenance.clone(),
-            value.presentation_capability,
-            Some(value.presentation),
-            Some(value.presentation_snapshot.clone()),
-            Some(value.grading_envelope.clone()),
-            value.flat_grading.clone(),
-            value.flat_grading_capability,
-            value.webwork_replay.clone(),
-            value.webwork_grading.clone(),
-            value.webwork_grading_capability,
-            value.qti_grading.clone(),
-            value.qti_grading_capability,
-        ),
+        Some(value) => {
+            // The descriptor is intentionally answer-free. Reconstruct the
+            // private contracts from the deterministic server backend; the
+            // Store later compares/promotes those opaque contracts under its
+            // private authority without exposing them through a read API.
+            let issued = backend
+                .issue(
+                    authenticated.tenant_context,
+                    request.reference,
+                    request.question,
+                    value.seed,
+                )
+                .await
+                .map_err(backend_error_response)?;
+            if issued.parameter_hash != value.parameter_hash
+                || issued.provenance != value.provenance
+                || issued.envelope != value.grading_envelope
+                || issued.envelope.seed != Seed::new(value.seed)
+                || issued.flat_grading_capability != value.flat_grading_capability
+                || issued.webwork_grading_capability != value.webwork_grading_capability
+                || issued.qti_grading_capability != value.qti_grading_capability
+                || native_execution_envelope_capability(
+                    request.question,
+                    issued.flat_grading_capability,
+                ) != value.native_execution_envelope_capability
+            {
+                return Err(backend_error_response(RunBackendError::Invalid(
+                    "prefetched question did not reproduce exactly".into(),
+                )));
+            }
+            let presentation = question_model::presentation::rebuild_public_presentation_v1(
+                &value.presentation_snapshot.envelope,
+                &value.presentation_snapshot.asset_bindings,
+            )
+            .map_err(|error| {
+                backend_error_response(RunBackendError::Invalid(format!(
+                    "prefetched receipt presentation is invalid: {error}"
+                )))
+            })?;
+            if presentation.digest != value.presentation.digest()
+                || presentation.envelope.presentation_nonce != value.presentation.nonce()
+            {
+                return Err(backend_error_response(RunBackendError::Invalid(
+                    "prefetched receipt presentation does not match its binding".into(),
+                )));
+            }
+            let webwork_replay =
+                bind_webwork_replay(request.question, &issued, Some(&presentation))
+                    .map_err(backend_error_response)?;
+            (
+                value.issued_question_snapshot.clone(),
+                value.seed,
+                value.parameter_hash.clone(),
+                value.provenance.clone(),
+                value.presentation_capability,
+                Some(value.presentation),
+                Some(value.presentation_snapshot.clone()),
+                Some(value.grading_envelope.clone()),
+                issued.flat_grading,
+                value.flat_grading_capability,
+                webwork_replay,
+                issued.webwork_grading,
+                value.webwork_grading_capability,
+                issued.qti_grading,
+                value.qti_grading_capability,
+                value.native_execution_envelope_capability,
+            )
+        }
         None => {
             let seed = fresh_seed().map_err(backend_error_response)?;
             let issued = backend
@@ -819,6 +895,8 @@ where
             let webwork_grading_capability = issued.webwork_grading_capability;
             let qti_grading = issued.qti_grading;
             let qti_grading_capability = issued.qti_grading_capability;
+            let native_execution_envelope_capability =
+                native_execution_envelope_capability(request.question, flat_grading_capability);
             let native_physical_asset_bindings = if matches!(
                 request.question.source,
                 question_model::QuestionSource::Native { .. }
@@ -867,6 +945,7 @@ where
                 webwork_grading_capability,
                 qti_grading,
                 qti_grading_capability,
+                native_execution_envelope_capability,
             )
         }
     };
@@ -889,6 +968,7 @@ where
                 presentation,
                 presentation_snapshot,
                 grading_envelope,
+                native_execution_envelope_capability,
                 flat_grading,
                 flat_grading_capability,
                 webwork_replay,
@@ -905,60 +985,4 @@ where
 }
 
 #[cfg(test)]
-mod presentation_snapshot_tests {
-    use super::*;
-    use question_model::answer::SelectionCardinality;
-    use question_model::presentation::rebuild_public_presentation_v1;
-    use question_model::response::{ChoiceId, HotspotRegion, ResponseDefinition};
-    use question_model::{AssetId, VersionId, generation::Seed};
-    use uuid::Uuid;
-
-    #[test]
-    fn hotspot_receipt_snapshot_rebuilds_only_with_its_public_asset_binding() {
-        let asset = AssetId::from_uuid(Uuid::from_u128(1));
-        let envelope = QuestionEnvelope {
-            version: VersionId::from_uuid(Uuid::from_u128(2)),
-            seed: Seed::new(3),
-            title: "Protein hotspot".to_string(),
-            prompt: Vec::new(),
-            response: ResponseDefinition::Hotspot {
-                surface: AssetRef {
-                    asset,
-                    checksum: "a".repeat(64),
-                },
-                description: "A protein surface.".to_string(),
-                regions: vec![HotspotRegion {
-                    id: ChoiceId::new("active-site"),
-                    label: vec![ContentBlock::Text {
-                        markdown: "Active site".to_string(),
-                    }],
-                    x: 1_000,
-                    y: 2_000,
-                    width: 3_000,
-                    height: 2_000,
-                }],
-                selection: SelectionCardinality::ExactlyOne,
-            },
-        };
-
-        // A backend that issues hotspots provides the measured public asset
-        // dimensions. The receipt preserves those descriptor inputs verbatim;
-        // it does not infer a size from mutable object metadata on replay.
-        let issued = build_presentation_v1(
-            &envelope,
-            &[AssetBindingV1 {
-                asset,
-                authored_checksum: "a".repeat(64),
-                rendition_checksum: "b".repeat(64),
-                intrinsic_width: Some(1_024),
-                intrinsic_height: Some(768),
-            }],
-        )
-        .expect("asset-backed hotspot is presentable");
-        let replayed = rebuild_public_presentation_v1(&issued.envelope, &issued.asset_bindings)
-            .expect("receipt snapshot retains every descriptor input");
-        assert_eq!(replayed.digest, issued.digest);
-        assert_eq!(issued.asset_bindings.len(), 1);
-        assert!(rebuild_public_presentation_v1(&issued.envelope, &[]).is_err());
-    }
-}
+mod presentation_snapshot_tests;

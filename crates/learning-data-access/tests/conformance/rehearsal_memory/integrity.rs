@@ -2,6 +2,8 @@
 
 #[cfg(feature = "test-support")]
 use super::*;
+#[cfg(feature = "test-support")]
+use learning_data_access::{RehearsalOperationStore, RehearsalRouteMutationStore};
 
 /// The destructive semantic-corruption matrix is a test-support-only fixture.
 /// Normal conformance keeps the ordinary rehearsal lifecycle and idempotency
@@ -98,7 +100,6 @@ async fn orphan_accepted_evidence_without_claims_refuses_every_rehearsal_and_rev
 async fn wrong_claim_accepted_evidence_refuses_every_rehearsal_and_revision_mutation() {
     let store = MemoryStore::default();
     let (fixture, locator, frozen) = start_and_freeze(&store).await;
-    complete_submission(&store, &fixture, locator, &frozen, "claim-a").await;
     let second_frozen = RehearsalFrozenItemEvidence {
         attempt: RehearsalAttemptId::from_uuid(uuid(850_002)),
         ..frozen.clone()
@@ -113,13 +114,14 @@ async fn wrong_claim_accepted_evidence_refuses_every_rehearsal_and_revision_muta
         )
         .await
         .expect("second freeze");
+    complete_submission(&store, &fixture, locator, &frozen, "claim-a").await;
     complete_submission(&store, &fixture, locator, &second_frozen, "claim-b").await;
     store
         .corrupt_rehearsal_integrity_for_test(
             MemoryRehearsalIntegrityTestCorruption::ReplaceAcceptedEvidence {
                 tenant: fixture.context.tenant_id(),
                 rehearsal: locator.rehearsal,
-                source_sequence: 2,
+                source_sequence: 3,
                 target_sequence: 4,
             },
         )
@@ -151,10 +153,6 @@ async fn cross_run_accepted_evidence_copy_refuses_every_rehearsal_and_revision_m
     let store = MemoryStore::default();
     let (fixture, source, frozen) = start_and_freeze(&store).await;
     complete_submission(&store, &fixture, source, &frozen, "source-accepted").await;
-    store
-        .complete_rehearsal(fixture.context, source)
-        .await
-        .expect("terminal source rehearsal");
     let target_receipt = store
         .start_rehearsal(
             fixture.context,
@@ -606,7 +604,7 @@ async fn evidence_head_digest_and_length_tampering_fail_closed() {
     ] {
         let store = MemoryStore::default();
         let (fixture, locator, _) = start_and_freeze(&store).await;
-        let corruption = match corruption {
+        let corruption_kind = match corruption {
             MemoryRehearsalIntegrityTestCorruption::ReplaceEvidenceHeadDigest {
                 digest, ..
             } => MemoryRehearsalIntegrityTestCorruption::ReplaceEvidenceHeadDigest {
@@ -624,7 +622,7 @@ async fn evidence_head_digest_and_length_tampering_fail_closed() {
             _ => unreachable!("closed selector table"),
         };
         store
-            .corrupt_rehearsal_integrity_for_test(corruption)
+            .corrupt_rehearsal_integrity_for_test(corruption_kind)
             .expect("head corruption fixture");
         assert!(
             store
@@ -633,5 +631,159 @@ async fn evidence_head_digest_and_length_tampering_fail_closed() {
                 .is_err()
         );
         assert_semantic_corruption_refuses_all_mutations(&store, &fixture, locator).await;
+    }
+}
+
+/// The active answer-free screen is immutable evidence, not a caller-owned
+/// projection.  Both representative corruption paths must fail before an
+/// authorized read, idempotent delivery replay, or route-bound submission can
+/// mint any new state.  This deliberately starts from ordinary Store-issued
+/// material and only uses test support to simulate persistence damage.
+#[cfg(feature = "test-support")]
+#[tokio::test]
+async fn active_screen_mutations_fail_closed_without_route_side_effects() {
+    for corruption in ["title", "commitment"] {
+        let store = MemoryStore::default();
+        let (fixture, locator, _) = start_and_freeze(&store).await;
+        let delivery_key =
+            learning_data_access::RehearsalIdempotencyKey::new("screen-integrity".into())
+                .expect("delivery key");
+        let request = learning_data_access::RehearsalDeliveryRequest {
+            locator,
+            idempotency_key: delivery_key.clone(),
+            request_fingerprint: RehearsalOperationDigest::from_bytes([0x31; 32]),
+        };
+        let claimed = store
+            .claim_rehearsal_delivery(fixture.context, request.clone())
+            .await
+            .expect("ordinary published delivery claim");
+        let learning_data_access::RehearsalDeliveryClaimResult::Prepared { prepared } = claimed
+        else {
+            panic!("ordinary published item must be prepared");
+        };
+        let learning_data_access::RehearsalDeliveryDispatchResult::Dispatched { dispatched } =
+            store
+                .mark_rehearsal_delivery_dispatched(fixture.context, prepared)
+                .await
+                .expect("dispatch ordinary published item")
+        else {
+            panic!("ordinary published item must dispatch");
+        };
+        let issued = commit_issued_screen_for_test(&store, fixture.context, &dispatched).await;
+        store
+            .complete_rehearsal_delivery(
+                fixture.context,
+                learning_data_access::RehearsalDeliveryCompletionCommand {
+                    dispatched,
+                    screen: issued.clone(),
+                },
+            )
+            .await
+            .expect("persist issued answer-free screen");
+
+        let corruption_kind = match corruption {
+            "title" => MemoryRehearsalIntegrityTestCorruption::MutateActiveScreenTitle {
+                tenant: fixture.context.tenant_id(),
+                rehearsal: locator.rehearsal,
+                idempotency_key: delivery_key.clone(),
+            },
+            "commitment" => MemoryRehearsalIntegrityTestCorruption::ReplaceActiveScreenCommitment {
+                tenant: fixture.context.tenant_id(),
+                rehearsal: locator.rehearsal,
+                idempotency_key: delivery_key.clone(),
+            },
+            _ => unreachable!("closed screen corruption matrix"),
+        };
+        store
+            .corrupt_rehearsal_integrity_for_test(corruption_kind)
+            .expect("mutate only the disposable persistence fixture");
+        let before = store
+            .rehearsal_state_effect_fingerprint()
+            .expect("corrupted baseline fingerprint");
+        let route = learning_data_access::RehearsalRouteIdentity {
+            actor: locator.actor,
+            course: locator.course,
+            assignment: locator.assignment,
+            rehearsal: locator.rehearsal,
+            expected_revision: locator.revision,
+        };
+
+        assert!(
+            store
+                .read_rehearsal_from_route(
+                    fixture.context,
+                    learning_data_access::ReadRehearsalRouteCommand {
+                        actor: route.actor,
+                        course: route.course,
+                        assignment: route.assignment,
+                        rehearsal: route.rehearsal,
+                    },
+                )
+                .await
+                .is_err(),
+            "authorized route read must verify screen evidence"
+        );
+        assert!(
+            store
+                .claim_rehearsal_delivery_from_route(
+                    fixture.context,
+                    learning_data_access::ClaimRehearsalDeliveryRouteCommand {
+                        route,
+                        idempotency_key: delivery_key,
+                        request_fingerprint: RehearsalOperationDigest::from_bytes([0x31; 32]),
+                    },
+                )
+                .await
+                .is_err(),
+            "same-key replay must verify screen evidence"
+        );
+        assert!(
+            store
+                .claim_rehearsal_submission_from_route(
+                    fixture.context,
+                    learning_data_access::ClaimRehearsalSubmissionRouteCommand {
+                        route,
+                        response: StudentResponse::ShortText { text: "x".into() },
+                        presentation_digest: issued.presentation_digest,
+                        idempotency_key: learning_data_access::RehearsalIdempotencyKey::new(
+                            format!("screen-submission-{corruption}"),
+                        )
+                        .expect("submission key"),
+                    },
+                )
+                .await
+                .is_err(),
+            "route-bound submission must verify the issued screen before grading"
+        );
+        assert!(
+            store
+                .start_rehearsal_from_route(
+                    fixture.context,
+                    learning_data_access::StartRehearsalRouteCommand {
+                        actor: route.actor,
+                        course: route.course,
+                        assignment: route.assignment,
+                        expected_revision: route.expected_revision,
+                        subject: synthetic_start(),
+                        start_new_after_completion: false,
+                        idempotency_key:
+                            learning_data_access::RehearsalSubmissionIdempotencyKey::new(format!(
+                                "screen-start-{corruption}"
+                            ),)
+                            .expect("start key"),
+                        request_fingerprint: RehearsalOperationDigest::from_bytes([0x32; 32]),
+                    },
+                )
+                .await
+                .is_err(),
+            "a damaged active rehearsal cannot accept another route mutation"
+        );
+        assert!(
+            store
+                .rehearsal_state_effect_fingerprint()
+                .expect("after failed route operations")
+                .is_unchanged_from(&before),
+            "failed screen integrity operations must not leave a partial trace"
+        );
     }
 }

@@ -98,14 +98,12 @@ impl crate::FeedbackStore for PostgresStore {
     ) -> Result<Option<FeedbackReleaseRecord>, StoreError> {
         let tenant = context.tenant_id();
         let mut transaction = self.begin_tenant(context).await?;
-        let attempt =
-            load_attempt_for_external_update(&mut transaction, tenant, attempt_id).await?;
-        let run = load_run_for_update(&mut transaction, tenant, attempt.run).await?;
-        let enrollment =
-            load_enrollment_for_update(&mut transaction, tenant, run.enrollment).await?;
+        let attempt = load_attempt_for_read(&mut transaction, tenant, attempt_id).await?;
+        let run = load_postgres_run(&mut transaction, tenant, attempt.run).await?;
+        let enrollment = load_postgres_enrollment(&mut transaction, tenant, run.enrollment).await?;
         let assignment = load_assignment(&mut transaction, tenant, enrollment.assignment).await?;
         let learner_self = matches!(
-            super::entitlement::evaluate_current(
+            super::entitlement::evaluate_current_read_only(
                 &mut transaction, tenant, actor, assignment.course_id, assignment.id,
             )
             .await?,
@@ -173,7 +171,7 @@ impl crate::FeedbackStore for PostgresStore {
         let enrollment = load_postgres_enrollment(&mut transaction, tenant, run.enrollment).await?;
         let assignment = load_assignment(&mut transaction, tenant, enrollment.assignment).await?;
         let learner_self = matches!(
-            super::entitlement::evaluate_current(
+            super::entitlement::evaluate_current_read_only(
                 &mut transaction, tenant, actor, assignment.course_id, assignment.id,
             )
             .await?,

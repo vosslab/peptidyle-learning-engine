@@ -157,7 +157,9 @@ BEGIN
     SELECT scheme.revision INTO v_current FROM public.course_grade_scheme AS scheme
      WHERE scheme.tenant_id = p_tenant AND scheme.course_id = p_course FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION 'course grade scheme is unavailable' USING ERRCODE = '42501'; END IF;
-    IF v_current <> p_expected_revision THEN RAISE EXCEPTION 'stale course grade scheme revision' USING ERRCODE = '40001'; END IF;
+    -- A stale caller precondition is a deterministic product conflict, not a
+    -- PostgreSQL serialization failure eligible for transparent retry.
+    IF v_current <> p_expected_revision THEN RAISE EXCEPTION 'stale course grade scheme revision' USING ERRCODE = '55000'; END IF;
     -- Lock all current aggregate dependents before comparing the closed replacement.
     PERFORM assignment_row.assignment_id FROM public.assignment AS assignment_row
      WHERE assignment_row.tenant_id = p_tenant AND assignment_row.course_id = p_course
@@ -206,7 +208,7 @@ BEGIN
         revision=revision+1, updated_at=transaction_timestamp()
      WHERE tenant_id=p_tenant AND course_id=p_course AND revision=p_expected_revision
      RETURNING revision INTO scheme_revision;
-    IF NOT FOUND THEN RAISE EXCEPTION 'stale course grade scheme revision' USING ERRCODE = '40001'; END IF;
+    IF NOT FOUND THEN RAISE EXCEPTION 'stale course grade scheme revision' USING ERRCODE = '55000'; END IF;
     FOR v_category IN SELECT value FROM jsonb_array_elements(p_replacement->'categories') LOOP
         IF jsonb_typeof(v_category) <> 'object'
            OR EXISTS (SELECT 1 FROM jsonb_object_keys(v_category) AS key
@@ -284,7 +286,7 @@ BEGIN
     PERFORM 1 FROM public.course_grade_scheme AS scheme
      WHERE scheme.tenant_id=p_tenant AND scheme.course_id=p_course AND scheme.revision=p_scheme_revision
        AND scheme.mode=p_mode AND scheme.rounding=p_rounding FOR UPDATE;
-    IF NOT FOUND THEN RAISE EXCEPTION 'course grade export snapshot is stale' USING ERRCODE='40001'; END IF;
+    IF NOT FOUND THEN RAISE EXCEPTION 'course grade export snapshot is stale' USING ERRCODE = '55000'; END IF;
     INSERT INTO public.course_total_export_audit(tenant_id,course_id,export_id,requested_by,row_count,scheme_revision,mode,rounding)
     VALUES(p_tenant,p_course,p_export,v_actor,p_row_count,p_scheme_revision,p_mode,p_rounding);
     tenant_id:=p_tenant; actor_id:=v_actor; course_id:=p_course; export_id:=p_export;

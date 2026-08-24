@@ -12,6 +12,7 @@ rust-version.workspace = true
 # which reads this crate's source, so no codegen dependency sits on the
 # product's root contract.
 serde.workspace = true
+serde_json.workspace = true
 uuid.workspace = true
 base64.workspace = true
 sha2.workspace = true
@@ -21,11 +22,6 @@ getrandom = { workspace = true, optional = true }
 
 # Optional so the WASM bridge can enable it without forcing it on the server.
 wasm-bindgen = { workspace = true, optional = true }
-
-[dev-dependencies]
-# Tests assert on the exact JSON shape, because that shape is the contract the
-# browser client and every adapter read.
-serde_json.workspace = true
 
 [features]
 default = []

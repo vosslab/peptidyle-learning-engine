@@ -71,16 +71,16 @@ use crate::{
     CourseRecordsAccessStore, CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState,
     CourseRetentionView, CreateCourseCommand, Cursor, DeleteAndRegradeAssignmentItemCommand,
     DraftRecord, FeedbackReleaseRecord, ForceSubmitAttemptCommand, InstitutionRetentionPolicy,
-    IssueQuestionAttemptCommand, Page, PageRequest, PageSize, PrefetchedQuestionDescriptorV1,
-    PublishedProblemRecord, PublishedSourceArtifact, PutCourseGroupCommand,
-    ReleaseAttemptFeedbackCommand, RemoveAssignmentFixedItemCommand,
-    ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand, RetentionApiStore,
-    RetentionCleanupManifest, RetentionDays, RetentionDispatchBatch, RetentionRevision,
-    RetentionScheduleStore, RetentionStore, RetentionWork, RetentionWorkerCommand,
-    RetentionWorkerStore, RunSummaryOutcomeInput, RunSummaryPageInput, Store, StoreError,
-    StoredAssignment, StoredCourseGroup, SubmissionIdempotencyKey, SubmissionNextAttempt,
-    SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext, WorkspaceDraft,
-    WorkspaceDraftRevision, assignment_scoring_changed, completed_run_score, current_run_questions,
+    IssueQuestionAttemptCommand, Page, PageRequest, PageSize, PublishedProblemRecord,
+    PublishedSourceArtifact, PutCourseGroupCommand, ReleaseAttemptFeedbackCommand,
+    RemoveAssignmentFixedItemCommand, ReplaceAssignmentFixedItemCommand,
+    ReservePrefetchedQuestionCommand, RetentionApiStore, RetentionCleanupManifest, RetentionDays,
+    RetentionDispatchBatch, RetentionRevision, RetentionScheduleStore, RetentionStore,
+    RetentionWork, RetentionWorkerCommand, RetentionWorkerStore, RunSummaryOutcomeInput,
+    RunSummaryPageInput, Store, StoreError, StoredAssignment, StoredCourseGroup,
+    SubmissionIdempotencyKey, SubmissionNextAttempt, SubmissionRecord,
+    SubmitQuestionAttemptCommand, TenantContext, WorkspaceDraft, WorkspaceDraftRevision,
+    assignment_scoring_changed, completed_run_score, current_run_questions,
     decode_workspace_draft_cursor, delete_and_regrade_update, encode_workspace_draft_cursor,
     ensure_tenant, grade_policy, private_feedback_record, project_enrollment_completion,
     select_assignment_run_items, summary_transition, validate_asset_delivery, validate_assignment,
@@ -147,6 +147,7 @@ use feedback_data::*;
 mod entitlement;
 #[cfg(feature = "postgres")]
 mod learner_work_preparation;
+#[cfg(feature = "postgres")]
 mod student_run_preparation;
 #[cfg(feature = "postgres")]
 mod submission;
@@ -478,6 +479,23 @@ impl PostgresGraderStore {
         // ASVS 2.3.1, 2.3.3, 8.2.1, 8.3.1, 8.4.1: apply the explicit
         // server-side capability before the transaction receives tenant data.
         sqlx::query("SET LOCAL ROLE ple_grader")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
+            .bind(context.tenant_id().to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        Ok(transaction)
+    }
+
+    async fn begin_sealed_reader_tenant(
+        &self,
+        context: TenantContext,
+    ) -> Result<Transaction<'_, Postgres>, StoreError> {
+        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
+        sqlx::query("SET LOCAL ROLE ple_grading_reader")
             .execute(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;

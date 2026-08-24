@@ -115,7 +115,10 @@ async fn role_and_functions(pool: &PgPool) {
             "invitation_status",
             "invitation_claimed_user_id",
             "replayed",
-            "delivery_cancelled",
+            "delivery_state",
+            "delivery_outcome_code",
+            "delivery_terminal_at_millis",
+            "delivery_accepted_at_millis",
             "roster_revision",
         ]
         .map(str::to_owned)
@@ -194,6 +197,7 @@ async fn policies_and_relations(pool: &PgPool) {
             ("course_member", "SELECT"),
             ("course_roster_profile", "INSERT"),
             ("course_roster_profile", "SELECT"),
+            ("course_roster_state", "INSERT"),
             ("course_roster_state", "SELECT"),
             ("tenant_learner_identity", "INSERT"),
             ("tenant_learner_identity", "SELECT"),

@@ -22,6 +22,10 @@ Data created or modified while using the demo persists normally in the database 
 need to survive regeneration of the demo. Preserving the demo database and storage preserves the current live
 data.
 
+Preview and rehearsal begin from these ordinary live courses, assignments, published questions, and graders.
+The Instructor creates their execution evidence through the visible production workflow; the baseline does not
+substitute prebuilt rehearsal activity for that workflow.
+
 ### WebWork catalog baseline
 
 The frozen baseline contains one reviewed WebWork catalog item, **Biochemistry: Identify hydrophobic compounds
@@ -46,6 +50,7 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
 - Create assignments.
 - Create problems.
 - Add students to courses.
+- Preview and rehearse assignments through production delivery and automated grading.
 - Manage and review student activity and grades.
 
 Instructors do not add or approve other instructors. Instructor approval remains a Sysadmin function.

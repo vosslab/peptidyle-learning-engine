@@ -34,8 +34,9 @@ mod race_expiry;
 mod sysadmin_candidate;
 
 use invitation_authority::{
-    approval_target_exists_for_app, approved_for_invitation, insert_approved_invitation_for_app,
-    target_search_count_for_app, target_session_subject_for_app,
+    approval_target_exists_for_app, approved_for_invitation,
+    direct_invitation_insert_is_denied_for_app, target_search_count_for_app,
+    target_session_subject_for_app,
 };
 
 fn id() -> Uuid {
@@ -163,15 +164,18 @@ async fn approval_function_guards(pool: &sqlx::PgPool) {
         "'ple_course_active_student_membership_reference', ",
         "'ple_course_instructor_membership_reference_list', ",
         "'ple_course_co_instructor_target_search', ",
-        "'ple_course_instructor_roster_revision')",
+        "'ple_course_instructor_roster_revision', ",
+        "'ple_create_co_instructor_invitation_v1', ",
+        "'ple_revoke_co_instructor_invitation_v1', ",
+        "'ple_decline_co_instructor_invitation_v1')",
     ))
     .fetch_all(pool)
     .await
     .expect("function catalog query");
     assert_eq!(
         rows.len(),
-        17,
-        "the seventeen T2 broker functions are installed"
+        20,
+        "the twenty T2 broker functions are installed"
     );
     for row in rows {
         let name: String = row.try_get("proname").expect("function name");
@@ -195,6 +199,7 @@ async fn approval_function_guards(pool: &sqlx::PgPool) {
             config.unwrap_or_default().iter().any(|value| {
                 value == "search_path=pg_catalog, public"
                     || value == "search_path=pg_catalog,public"
+                    || value == "search_path=pg_catalog, public, pg_temp"
             }),
             "{name} has a fixed search path"
         );
@@ -279,6 +284,7 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
     let first_create = store.create_co_instructor_invitation(
         context,
         CreateCoInstructorInvitation {
+            session: instructor_session,
             actor: instructor,
             course,
             target,
@@ -287,6 +293,7 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
     let second_create = store.create_co_instructor_invitation(
         context,
         CreateCoInstructorInvitation {
+            session: instructor_session,
             actor: instructor,
             course,
             target,
@@ -359,6 +366,7 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
         .create_co_instructor_invitation(
             context,
             CreateCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 target: alternate,
@@ -370,6 +378,7 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
         .revoke_co_instructor_invitation(
             context,
             RevokeCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 invitation: revocable.invitation.id,
@@ -383,6 +392,7 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
             .revoke_co_instructor_invitation(
                 context,
                 RevokeCoInstructorInvitation {
+                    session: instructor_session,
                     actor: instructor,
                     course,
                     invitation: revocable.invitation.id,
@@ -398,6 +408,7 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
         .create_co_instructor_invitation(
             context,
             CreateCoInstructorInvitation {
+                session: instructor_session,
                 actor: instructor,
                 course,
                 target,

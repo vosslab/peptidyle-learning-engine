@@ -6,7 +6,12 @@ mod cross_run_finalization;
 mod fixtures;
 #[path = "run_receipts/issued_snapshot_validation.rs"]
 mod issued_snapshot_validation;
+#[path = "run_receipts/routing_binding.rs"]
+mod routing_binding;
+#[path = "run_receipts/terminal_receipt.rs"]
+mod terminal_receipt;
 pub(super) use fixtures::{grading_envelope, receipt_next_attempt, receipt_presentation};
+use terminal_receipt::TerminalReceiptFixture;
 
 pub(super) async fn exercise_run_api_receipts<S>(
     store: &S,
@@ -40,6 +45,13 @@ where
         receipt_presentation(version, 991, 7);
 
     let run_question = draft_question(workspace);
+    let issued_question_snapshot = learning_data_access::IssuedQuestionSnapshotV1::new(
+        QuestionDefinition::from_draft(run_question.clone(), problem, version, published_source()),
+        learning_data_access::IssuedQuestionFamilyWitnessV1::Native {
+            physical_asset_bindings: Vec::new(),
+        },
+    )
+    .expect("construct exact native issued-question snapshot");
     let draft = DraftRecord {
         tenant,
         question: run_question,
@@ -153,15 +165,19 @@ where
         assignment_position: 0,
         problem,
         question_version: version,
+        issued_question_snapshot: issued_question_snapshot.clone(),
         seed: 991,
         presentation_capability: PresentationCapability::EnvelopeV1,
         presentation: Some(attempt_presentation_binding),
         presentation_snapshot: Some(attempt_presentation.clone()),
         grading_envelope: Some(grading_envelope(version, 991)),
+        native_execution_envelope_capability: NativeExecutionEnvelopeCapability::Required,
         flat_grading: None,
         flat_grading_capability: FlatGradingCapability::NotApplicable,
         webwork_grading: None,
         webwork_grading_capability: learning_data_access::WebworkGradingCapability::NotApplicable,
+        qti_grading: None,
+        qti_grading_capability: QtiGradingCapability::NotApplicable,
         parameter_hash: "parameter-hash".to_string(),
         provenance: AttemptProvenance {
             adapter: implementation("native"),
@@ -253,16 +269,21 @@ where
                 assignment_position: 1,
                 problem,
                 question_version: version,
+                issued_question_snapshot: issued_question_snapshot.clone(),
                 seed: 993,
                 presentation_capability: PresentationCapability::NotApplicable,
                 presentation: None,
                 presentation_snapshot: None,
                 grading_envelope: None,
+                native_execution_envelope_capability:
+                    NativeExecutionEnvelopeCapability::NotApplicable,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_grading: None,
                 webwork_grading_capability:
                     learning_data_access::WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: QtiGradingCapability::NotApplicable,
                 parameter_hash: "second-parameter-hash".to_string(),
                 provenance: AttemptProvenance {
                     adapter: implementation("native"),
@@ -287,22 +308,23 @@ where
 
     let (reservation_presentation_binding, second_presentation) =
         receipt_presentation(version, 993, 9);
-    let reservation = PrefetchedQuestion {
+    let reservation = PrefetchedQuestionDescriptorV1 {
         tenant,
         run: run.id,
         predecessor: attempt.id,
         assignment_position: 1,
         problem,
         question_version: version,
+        issued_question_snapshot: issued_question_snapshot.clone(),
         seed: 993,
         presentation_capability: PresentationCapability::EnvelopeV1,
         presentation: reservation_presentation_binding,
         presentation_snapshot: second_presentation.clone(),
         grading_envelope: grading_envelope(version, 993),
-        flat_grading: None,
+        native_execution_envelope_capability: NativeExecutionEnvelopeCapability::Required,
         flat_grading_capability: FlatGradingCapability::NotApplicable,
-        webwork_grading: None,
         webwork_grading_capability: learning_data_access::WebworkGradingCapability::NotApplicable,
+        qti_grading_capability: QtiGradingCapability::NotApplicable,
         parameter_hash: "prefetched-parameter-hash".to_string(),
         provenance: AttemptProvenance {
             adapter: implementation("native"),
@@ -313,7 +335,12 @@ where
             grading: implementation("numeric"),
             rendered_question_sha256: "prefetched-rendered-hash".to_string(),
         },
+    };
+    let reservation_private_execution = PrefetchedPrivateExecutionV1 {
+        flat_grading: None,
         webwork_replay: None,
+        webwork_grading: None,
+        qti_grading: None,
     };
     assert_eq!(
         store
@@ -322,6 +349,7 @@ where
                 ReservePrefetchedQuestionCommand {
                     actor: student_user,
                     reservation: reservation.clone(),
+                    private_execution: reservation_private_execution.clone(),
                 },
             )
             .await,
@@ -335,6 +363,7 @@ where
                 ReservePrefetchedQuestionCommand {
                     actor: student_user,
                     reservation: reservation.clone(),
+                    private_execution: reservation_private_execution.clone(),
                 },
             )
             .await,
@@ -347,10 +376,11 @@ where
                 context,
                 ReservePrefetchedQuestionCommand {
                     actor: student_user,
-                    reservation: PrefetchedQuestion {
+                    reservation: PrefetchedQuestionDescriptorV1 {
                         seed: reservation.seed + 1,
                         ..reservation.clone()
                     },
+                    private_execution: reservation_private_execution.clone(),
                 },
             )
             .await,
@@ -364,6 +394,7 @@ where
                 ReservePrefetchedQuestionCommand {
                     actor: unrelated_user,
                     reservation: reservation.clone(),
+                    private_execution: reservation_private_execution.clone(),
                 },
             )
             .await,
@@ -727,15 +758,20 @@ where
                 assignment_position: 1,
                 problem,
                 question_version: version,
+                issued_question_snapshot: reservation.issued_question_snapshot.clone(),
                 seed: 0,
                 presentation_capability: reservation.presentation_capability,
                 presentation: Some(reservation.presentation),
                 presentation_snapshot: Some(reservation.presentation_snapshot.clone()),
                 grading_envelope: Some(reservation.grading_envelope.clone()),
-                flat_grading: reservation.flat_grading.clone(),
+                native_execution_envelope_capability: reservation
+                    .native_execution_envelope_capability,
+                flat_grading: None,
                 flat_grading_capability: reservation.flat_grading_capability,
-                webwork_grading: reservation.webwork_grading.clone(),
+                webwork_grading: None,
                 webwork_grading_capability: reservation.webwork_grading_capability,
+                qti_grading: None,
+                qti_grading_capability: reservation.qti_grading_capability,
                 parameter_hash: "ignored-by-prefetch".to_string(),
                 provenance: reservation.provenance.clone(),
                 webwork_replay: None,
@@ -749,7 +785,12 @@ where
     assert_eq!(second_attempt.parameter_hash, reservation.parameter_hash);
     assert_eq!(
         store
-            .submission_next_attempt(context, student_user, attempt.id)
+            .submission_next_attempt(
+                context,
+                student_user,
+                LearnerWorkRoutingBinding::new(course, assignment),
+                attempt.id,
+            )
             .await,
         Ok(learning_data_access::SubmissionNextAttempt::Issued(
             receipt_next_attempt(&second_attempt)
@@ -770,6 +811,7 @@ where
                 ReservePrefetchedQuestionCommand {
                     actor: student_user,
                     reservation: reservation.clone(),
+                    private_execution: reservation_private_execution.clone(),
                 },
             )
             .await,
@@ -788,15 +830,20 @@ where
                     assignment_position: 1,
                     problem,
                     question_version: version,
+                    issued_question_snapshot: reservation.issued_question_snapshot.clone(),
                     seed: 0,
                     presentation_capability: reservation.presentation_capability,
                     presentation: Some(reservation.presentation),
                     presentation_snapshot: Some(reservation.presentation_snapshot.clone()),
                     grading_envelope: Some(reservation.grading_envelope.clone()),
-                    flat_grading: reservation.flat_grading.clone(),
+                    native_execution_envelope_capability: reservation
+                        .native_execution_envelope_capability,
+                    flat_grading: None,
                     flat_grading_capability: reservation.flat_grading_capability,
-                    webwork_grading: reservation.webwork_grading.clone(),
+                    webwork_grading: None,
                     webwork_grading_capability: reservation.webwork_grading_capability,
+                    qti_grading: None,
+                    qti_grading_capability: reservation.qti_grading_capability,
                     parameter_hash: "ignored-by-prefetch".to_string(),
                     provenance: reservation.provenance.clone(),
                     webwork_replay: None,
@@ -841,11 +888,30 @@ where
     );
     assert_eq!(
         store
-            .finalize_submission_next_attempt(context, unrelated_user, second_attempt.id, None)
+            .finalize_submission_next_attempt(
+                context,
+                unrelated_user,
+                LearnerWorkRoutingBinding::new(course, assignment),
+                second_attempt.id,
+                None,
+            )
             .await,
         Err(StoreError::NotFound),
         "another course member cannot enumerate or finalize a student's pending receipt",
     );
+    routing_binding::assert_successor_receipt_route_binding(
+        store,
+        routing_binding::SuccessorReceiptRouteFixture {
+            context,
+            student_user,
+            course,
+            assignment,
+            first_attempt: &attempt,
+            terminal_attempt: &second_attempt,
+            run: run.id,
+        },
+    )
+    .await;
     cross_run_finalization::assert_cross_run_finalization_guards(
         store,
         context,
@@ -862,117 +928,24 @@ where
         },
     )
     .await;
-    assert_eq!(
-        store
-            .submission_next_attempt(context, student_user, attempt.id)
-            .await,
-        Ok(learning_data_access::SubmissionNextAttempt::Issued(
-            receipt_next_attempt(&second_attempt)
-        )),
-        "the first receipt keeps its original successor after that successor is submitted",
-    );
-    assert_eq!(
-        (
-            completed.summary.completed_run_count,
-            completed.summary.total_question_attempts,
-            completed.summary.current_score,
-        ),
-        (1, 2, Some(1.0))
-    );
-    let replay_after_completion = store
-        .replay_submission(context, student_user, attempt.id, &response, &key)
-        .await
-        .expect("first submission replay after later completion")
-        .expect("first submission receipt remains available");
-    assert_eq!(replay_after_completion.attempt, submitted.attempt);
-    assert_eq!(replay_after_completion.run, submitted.run);
-    assert_eq!(replay_after_completion.summary, submitted.summary);
-    assert!(replay_after_completion.feedback == submitted.feedback);
-    let attempt_page = store
-        .list_question_attempts(
-            context,
-            run.id,
-            PageRequest::first(PageSize::new(10).expect("valid page size")),
-        )
-        .await
-        .expect("attempt page");
-    assert_eq!(
-        attempt_page.items,
-        vec![submitted.attempt, completed.attempt]
-    );
-    let first_summary_page = store
-        .get_run_summary_page(
+    terminal_receipt::assert_terminal_receipt_state(
+        store,
+        TerminalReceiptFixture {
             context,
             student_user,
-            run.id,
-            PageRequest::first(PageSize::new(1).expect("valid bounded page")),
-        )
-        .await
-        .expect("owner summary page");
-    assert_eq!(first_summary_page.run, completed.run);
-    // The receipt retains the summary observed when it committed. The
-    // enrollment summary is live and has since observed the deliberately
-    // completed independent recovery fixture run above.
-    assert_eq!(first_summary_page.summary.completed_run_count, 2);
-    assert_eq!(first_summary_page.summary.total_question_attempts, 4);
-    assert!(first_summary_page.practice_allowed);
-    assert_eq!(first_summary_page.outcomes.items.len(), 1);
-    assert!(first_summary_page.outcomes.items[0].response.is_some());
-    assert!(first_summary_page.outcomes.items[0].feedback.is_some());
-    let continuation = first_summary_page
-        .outcomes
-        .next_cursor
-        .expect("two outcomes require a cursor");
-    let second_summary_page = store
-        .get_run_summary_page(
-            context,
-            student_user,
-            run.id,
-            PageRequest::after(continuation, PageSize::new(1).expect("valid bounded page")),
-        )
-        .await
-        .expect("owner summary continuation");
-    assert_eq!(second_summary_page.outcomes.items.len(), 1);
-    assert_ne!(
-        first_summary_page.outcomes.items[0].attempt, second_summary_page.outcomes.items[0].attempt,
-        "keyset pages must not duplicate outcomes"
-    );
-    assert_eq!(second_summary_page.outcomes.next_cursor, None);
-    let instructor_summary = store
-        .get_run_summary_page(
-            context,
             publisher,
-            run.id,
-            PageRequest::first(PageSize::new(10).expect("valid bounded page")),
-        )
-        .await
-        .expect("direct course instructor summary");
-    assert_eq!(instructor_summary.outcomes.items.len(), 2);
-    let foreign_actor = UserId::from_uuid(uuid(99_999 + fixture_offset));
-    assert!(matches!(
-        store
-            .get_run_summary_page(
-                context,
-                foreign_actor,
-                run.id,
-                PageRequest::first(PageSize::new(10).expect("valid bounded page")),
-            )
-            .await,
-        Err(StoreError::NotFound)
-    ));
-    assert!(matches!(
-        store
-            .get_run_summary_page(
-                TenantContext::from_authenticated_session(TenantId::from_uuid(uuid(
-                    99_998 + fixture_offset,
-                ))),
-                student_user,
-                run.id,
-                PageRequest::first(PageSize::new(10).expect("valid bounded page")),
-            )
-            .await,
-        Err(StoreError::NotFound)
-    ));
+            binding: LearnerWorkRoutingBinding::new(course, assignment),
+            run: &run,
+            submitted: &submitted,
+            completed: &completed,
+            response: &response,
+            key: &key,
+            fixture_offset,
+            second_attempt: &second_attempt,
+            first_attempt: &attempt,
+        },
+    )
+    .await;
 
     RunApiFixture {
         fixture_offset,
@@ -980,6 +953,7 @@ where
         context,
         publisher,
         student_user,
+        workspace,
         problem,
         version,
         course,

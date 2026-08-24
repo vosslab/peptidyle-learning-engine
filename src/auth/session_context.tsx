@@ -31,23 +31,36 @@ export interface SessionBootstrap {
 /** Creates a retryable, injected session bootstrap without coupling it to HTTP. */
 export function createSessionBootstrap(
   getSession: () => Promise<AuthSession>,
-  logout: () => Promise<void> = () => Promise.reject(new Error("sign-out unavailable")),
+  logout: () => Promise<void>,
+  advanceSessionBoundary: () => void,
 ): SessionBootstrap {
   const [state, setState] = createSignal<SessionBootstrapState>({ kind: "loading" });
+  let initialized = false;
+  let operationRevision = 0;
 
   async function retry(): Promise<void> {
+    const operation = ++operationRevision;
+    const advancesGeneration = initialized || operation > 1;
     setState({ kind: "loading" });
+    let nextState: SessionBootstrapState;
     try {
       const session = await getSession();
-      setState({ kind: "authenticated", session });
+      nextState = { kind: "authenticated", session };
     } catch (error: unknown) {
-      setState(sessionFailureState(error));
+      nextState = sessionFailureState(error);
     }
+    if (operation !== operationRevision) return;
+    if (advancesGeneration) advanceSessionBoundary();
+    initialized = true;
+    setState(nextState);
   }
 
   async function signOut(): Promise<boolean> {
+    const operation = ++operationRevision;
     try {
       await logout();
+      if (operation !== operationRevision) return false;
+      advanceSessionBoundary();
       setState({ kind: "signedOut" });
       return true;
     } catch {
@@ -82,12 +95,17 @@ const SessionContext = createContext<SessionBootstrap>();
 export interface SessionProviderProps {
   readonly getSession: () => Promise<AuthSession>;
   readonly logout: () => Promise<void>;
+  readonly advanceSessionBoundary: () => void;
   readonly children: JSX.Element;
 }
 
 /** Installs the one session bootstrap at the application composition root. */
 export function SessionProvider(props: SessionProviderProps): JSX.Element {
-  const bootstrap = createSessionBootstrap(props.getSession, props.logout);
+  const bootstrap = createSessionBootstrap(
+    props.getSession,
+    props.logout,
+    props.advanceSessionBoundary,
+  );
   onMount(() => {
     void bootstrap.retry();
   });

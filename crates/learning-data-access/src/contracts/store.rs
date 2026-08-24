@@ -548,9 +548,10 @@ pub trait Store:
         &self,
         context: TenantContext,
         actor: UserId,
+        binding: LearnerWorkRoutingBinding,
         predecessor: QuestionAttemptId,
     ) -> Result<SubmissionNextAttempt, StoreError> {
-        RunStore::submission_next_attempt_impl(self, context, actor, predecessor).await
+        RunStore::submission_next_attempt_impl(self, context, actor, binding, predecessor).await
     }
 
     /// Delegates to the focused [`RunStore`] capability.
@@ -588,11 +589,19 @@ pub trait Store:
         &self,
         context: TenantContext,
         actor: UserId,
+        binding: LearnerWorkRoutingBinding,
         predecessor: QuestionAttemptId,
         next: Option<QuestionAttemptId>,
     ) -> Result<(), StoreError> {
-        RunStore::finalize_submission_next_attempt_impl(self, context, actor, predecessor, next)
-            .await
+        RunStore::finalize_submission_next_attempt_impl(
+            self,
+            context,
+            actor,
+            binding,
+            predecessor,
+            next,
+        )
+        .await
     }
 
     /// Delegates to the focused [`RunStore`] capability.

@@ -7,7 +7,7 @@ use super::course_roster_decode::*;
 use super::{PostgresStore, map_sqlx_error, page_from_keyed_records, retry_transaction};
 use crate::{
     ClaimCourseInvitation, ClaimedCourseMembership, CommitCourseRosterImport,
-    CommittedCourseRosterImport, CourseEnrollmentPolicy, CourseInvitation, CourseInvitationId,
+    CommittedCourseRosterImport, CourseEnrollmentPolicy, CourseInvitation,
     CourseRosterImportPreview, CourseRosterPage, CourseRosterStore, CourseRosterSupportAction,
     CreateCourseInvitation, PageRequest, ReplaceCourseEnrollmentPolicy, RevokeCourseInvitation,
     RevokeCourseMember, RosterRevision, SessionTokenHash, StageCourseRosterImport, StoreError,
@@ -165,72 +165,53 @@ impl CourseRosterStore for PostgresStore {
                 candidate
                     .validate_shape()
                     .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+                let domains = serde_json::Value::Array(
+                    candidate
+                        .allowed_domains
+                        .iter()
+                        .map(|rule| {
+                            serde_json::json!({
+                                "domain": rule.domain.as_str(),
+                                "include_subdomains": rule.include_subdomains,
+                            })
+                        })
+                        .collect(),
+                );
                 let mut transaction = self.begin_tenant(context).await?;
-                precheck_course_roster_authority(&mut transaction, session, command.course).await?;
-                lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
-                let current = load_policy(&mut transaction, tenant, command.course, true).await?;
-                if current.revision != command.expected_revision {
-                    return Err(StoreError::Conflict);
-                }
-                if current.allowed_domains == candidate.allowed_domains
-                    && current.signup_posture == candidate.signup_posture
-                {
-                    require_audited_course_roster_actor(
-                        &mut transaction,
-                        session,
-                        command.course,
-                        CourseRosterSupportAction::ReplaceEnrollmentPolicy,
-                    )
-                    .await?;
-                    transaction.commit().await.map_err(map_sqlx_error)?;
-                    return Ok(current);
-                }
-                require_audited_course_roster_actor(
-                    &mut transaction,
-                    session,
-                    command.course,
-                    CourseRosterSupportAction::ReplaceEnrollmentPolicy,
-                )
-                .await?;
-                sqlx::query(
-            "DELETE FROM course_allowed_email_domain WHERE tenant_id = $1 AND course_id = $2",
-        )
-        .bind(tenant.as_uuid())
-        .bind(command.course.as_uuid())
-        .execute(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-                for rule in &candidate.allowed_domains {
-                    sqlx::query(
-                        "INSERT INTO course_allowed_email_domain \
-                 (tenant_id, course_id, normalized_domain, include_subdomains) \
-                 VALUES ($1, $2, $3, $4)",
-                    )
-                    .bind(tenant.as_uuid())
-                    .bind(command.course.as_uuid())
-                    .bind(rule.domain.as_str())
-                    .bind(rule.include_subdomains)
-                    .execute(&mut *transaction)
-                    .await
-                    .map_err(map_sqlx_error)?;
-                }
-                let revision = bump_revision(
-                    &mut transaction,
-                    tenant,
-                    command.course,
-                    Some(command.expected_revision),
-                )
-                .await?;
-                sqlx::query(
-                    "UPDATE course_roster_state SET signup_posture = $3 \
-             WHERE tenant_id = $1 AND course_id = $2",
+                let row = sqlx::query(
+                    "SELECT tenant_id, actor_id, course_id, roster_revision \
+                     FROM public.ple_replace_course_enrollment_policy_v1($1,$2,$3,$4,$5,$6)",
                 )
                 .bind(tenant.as_uuid())
+                .bind(session.to_string())
                 .bind(command.course.as_uuid())
+                .bind(
+                    i64::try_from(command.expected_revision.value())
+                        .map_err(|_| StoreError::Conflict)?,
+                )
                 .bind(posture_name(candidate.signup_posture))
-                .execute(&mut *transaction)
+                .bind(sqlx::types::Json(domains))
+                .fetch_optional(&mut *transaction)
                 .await
-                .map_err(map_sqlx_error)?;
+                .map_err(map_sqlx_error)?
+                .ok_or(StoreError::NotFound)?;
+                let returned_tenant: uuid::Uuid =
+                    row.try_get("tenant_id").map_err(map_sqlx_error)?;
+                let returned_actor: uuid::Uuid = row.try_get("actor_id").map_err(map_sqlx_error)?;
+                let returned_course: uuid::Uuid =
+                    row.try_get("course_id").map_err(map_sqlx_error)?;
+                let revision = RosterRevision::from_stored(
+                    row.try_get("roster_revision").map_err(map_sqlx_error)?,
+                )?;
+                if returned_tenant != tenant.as_uuid()
+                    || returned_course != command.course.as_uuid()
+                    || returned_actor.is_nil()
+                    || revision.value() < command.expected_revision.value()
+                {
+                    return Err(StoreError::Unavailable(
+                        "enrollment policy capability returned an invalid witness".to_string(),
+                    ));
+                }
                 transaction.commit().await.map_err(map_sqlx_error)?;
                 Ok(CourseEnrollmentPolicy {
                     revision,
@@ -409,29 +390,4 @@ async fn load_policy(
         )?,
         revision: RosterRevision::from_stored(row.try_get("revision").map_err(map_sqlx_error)?)?,
     })
-}
-
-async fn bump_revision(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-    expected: Option<RosterRevision>,
-) -> Result<RosterRevision, StoreError> {
-    let expected = expected
-        .map(|revision| i64::try_from(revision.value()).map_err(|_| StoreError::Conflict))
-        .transpose()?;
-    let row = sqlx::query(
-        "UPDATE course_roster_state SET revision = revision + 1, \
-                updated_at = transaction_timestamp() \
-         WHERE tenant_id = $1 AND course_id = $2 \
-           AND ($3::bigint IS NULL OR revision = $3) RETURNING revision",
-    )
-    .bind(tenant.as_uuid())
-    .bind(course.as_uuid())
-    .bind(expected)
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?
-    .ok_or(StoreError::Conflict)?;
-    RosterRevision::from_stored(row.try_get("revision").map_err(map_sqlx_error)?)
 }

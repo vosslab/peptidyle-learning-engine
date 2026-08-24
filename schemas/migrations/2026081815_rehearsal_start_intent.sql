@@ -83,7 +83,7 @@ BEGIN
            AND lifecycle = 'active';
         IF NOT FOUND THEN
             RAISE EXCEPTION 'active rehearsal changed during replacement'
-                USING ERRCODE = '40001';
+                USING ERRCODE = '55000';
         END IF;
     ELSIF latest_run.lifecycle = 'completed'
        AND p_start_new_after_completion IS NOT TRUE THEN

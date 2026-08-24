@@ -15,9 +15,11 @@ use learning_data_access::{
     AssignmentRecord, AssignmentUpdate, CatalogStore, CourseRecord, CourseRosterStore,
     CreateCourseCommand, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
     IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, LearnerWorkRoutingBinding,
-    PrefetchedQuestion, PresentationCapability, PublishDraftCommand, QtiGradingCapability,
-    ReplaceAssignmentCommand, ReservePrefetchedQuestionCommand, Store, StoreError,
-    SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
+    NativeExecutionEnvelopeCapability, PrefetchedPrivateExecutionV1,
+    PrefetchedQuestionDescriptorV1, PresentationCapability, PublishDraftCommand,
+    QtiGradingCapability, ReplaceAssignmentCommand, ReservePrefetchedQuestionCommand, Store,
+    StoreError, SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext,
+    UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -361,6 +363,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
                 presentation: Some(presentation_binding),
                 presentation_snapshot: Some(presentation),
                 grading_envelope: Some(grading_envelope(reference, 1)),
+                native_execution_envelope_capability: NativeExecutionEnvelopeCapability::Required,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_grading: None,
@@ -378,7 +381,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         .await
         .expect("issue receipt snapshot question");
     let (successor_binding, successor_presentation) = receipt_presentation(reference, 2);
-    let prefetched_successor = PrefetchedQuestion {
+    let prefetched_successor = PrefetchedQuestionDescriptorV1 {
         tenant,
         run: run.id,
         predecessor: attempt.id,
@@ -391,15 +394,18 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         presentation: successor_binding,
         presentation_snapshot: successor_presentation.clone(),
         grading_envelope: grading_envelope(reference, 2),
-        flat_grading: None,
+        native_execution_envelope_capability: NativeExecutionEnvelopeCapability::Required,
         flat_grading_capability: FlatGradingCapability::NotApplicable,
-        webwork_replay: None,
-        webwork_grading: None,
         webwork_grading_capability: learning_data_access::WebworkGradingCapability::NotApplicable,
-        qti_grading: None,
         qti_grading_capability: QtiGradingCapability::NotApplicable,
         parameter_hash: "receipt-successor-parameters".to_string(),
         provenance: provenance(),
+    };
+    let prefetched_private_execution = PrefetchedPrivateExecutionV1 {
+        flat_grading: None,
+        webwork_replay: None,
+        webwork_grading: None,
+        qti_grading: None,
     };
     let reserved_prefetch = store
         .reserve_or_resume_prefetched_question(
@@ -407,6 +413,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
             ReservePrefetchedQuestionCommand {
                 actor: student,
                 reservation: prefetched_successor.clone(),
+                private_execution: prefetched_private_execution.clone(),
             },
         )
         .await
@@ -459,6 +466,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
                 ReservePrefetchedQuestionCommand {
                     actor: student,
                     reservation,
+                    private_execution: prefetched_private_execution.clone(),
                 },
             )
             .await
@@ -571,6 +579,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
                 presentation: Some(successor_binding),
                 presentation_snapshot: Some(successor_presentation),
                 grading_envelope: Some(grading_envelope(reference, 2)),
+                native_execution_envelope_capability: NativeExecutionEnvelopeCapability::Required,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_grading: None,
@@ -589,7 +598,13 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         .expect("issue and link the immutable successor receipt");
     assert_eq!(
         store
-            .finalize_submission_next_attempt(context, student, attempt.id, Some(successor.id))
+            .finalize_submission_next_attempt(
+                context,
+                student,
+                LearnerWorkRoutingBinding::new(course, assignment),
+                attempt.id,
+                Some(successor.id),
+            )
             .await,
         Ok(()),
         "promotion records the exact immutable successor receipt"
@@ -614,7 +629,13 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         PostgresStore::new(lazy_pool(&database_url).expect("fresh successor verification pool"));
     assert!(matches!(
         successor_verification_store
-            .finalize_submission_next_attempt(context, student, attempt.id, Some(successor.id))
+            .finalize_submission_next_attempt(
+                context,
+                student,
+                LearnerWorkRoutingBinding::new(course, assignment),
+                attempt.id,
+                Some(successor.id),
+            )
             .await,
         Err(StoreError::Unavailable(_)) | Err(StoreError::InvalidRecord(_))
     ));

@@ -41,7 +41,14 @@ async fn actor_can_navigate_run(
     student: question_model::StudentId,
 ) -> Result<bool, StoreError> {
     if matches!(
-        super::entitlement::evaluate_current(transaction, tenant, actor, course, assignment).await?,
+        super::entitlement::evaluate_current_read_only(
+            transaction,
+            tenant,
+            actor,
+            course,
+            assignment,
+        )
+        .await?,
         domain::entitlement::EntitlementDecision::Granted(ref grant) if grant.student() == student
     ) {
         return Ok(true);
@@ -297,5 +304,18 @@ impl crate::NavigationReferenceStore for PostgresStore {
         .map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(workspace.map(WorkspaceId::from_uuid))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn navigation_reference_projections_do_not_request_source_locks() {
+        let source = include_str!("navigation_references.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .expect("navigation production source precedes its tests");
+        assert!(!source.contains("FOR UPDATE"));
+        assert!(!source.contains("entitlement::evaluate_current("));
     }
 }

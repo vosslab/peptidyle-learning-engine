@@ -265,7 +265,12 @@ pub(super) async fn load_attempt_for_external_update(
     tenant: TenantId,
     attempt: QuestionAttemptId,
 ) -> Result<QuestionAttempt, StoreError> {
-    let row = sqlx::query("SELECT attempt.payload, attempt.payload_sha256, \
+    load_attempt_with_query(
+        transaction,
+        tenant,
+        attempt,
+        concat!(
+            "SELECT attempt.payload, attempt.payload_sha256, \
             attempt.attempt_status AS current_attempt_status, \
             floor(extract(epoch FROM attempt.submitted_at) * 1000)::bigint AS current_submitted_at, \
             floor(extract(epoch FROM timing.effective_deadline) * 1000)::bigint AS current_deadline_at \
@@ -275,8 +280,53 @@ pub(super) async fn load_attempt_for_external_update(
         LEFT JOIN attempt_effective_policy_receipt AS timing \
           ON timing.tenant_id=current_effect.tenant_id AND timing.attempt_id=current_effect.attempt_id AND timing.receipt_generation=current_effect.receipt_generation \
         WHERE attempt.tenant_id = $1 AND attempt.attempt_id = $2 \
-        ORDER BY attempt.occurred_at LIMIT 1 FOR UPDATE OF attempt")
-        .bind(tenant.as_uuid()).bind(attempt.as_uuid()).fetch_optional(&mut **transaction).await.map_err(map_sqlx_error)?.ok_or(StoreError::NotFound)?;
+        ORDER BY attempt.occurred_at LIMIT 1",
+            " FOR UPDATE OF attempt"
+        ),
+    )
+    .await
+}
+
+/// Loads the current attempt projection without acquiring mutation authority.
+#[cfg(feature = "postgres")]
+pub(super) async fn load_attempt_for_read(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+) -> Result<QuestionAttempt, StoreError> {
+    load_attempt_with_query(
+        transaction,
+        tenant,
+        attempt,
+        "SELECT attempt.payload, attempt.payload_sha256, \
+            attempt.attempt_status AS current_attempt_status, \
+            floor(extract(epoch FROM attempt.submitted_at) * 1000)::bigint AS current_submitted_at, \
+            floor(extract(epoch FROM timing.effective_deadline) * 1000)::bigint AS current_deadline_at \
+        FROM question_attempt AS attempt \
+        LEFT JOIN attempt_effective_policy_current AS current_effect \
+          ON current_effect.tenant_id = attempt.tenant_id AND current_effect.attempt_id = attempt.attempt_id \
+        LEFT JOIN attempt_effective_policy_receipt AS timing \
+          ON timing.tenant_id=current_effect.tenant_id AND timing.attempt_id=current_effect.attempt_id AND timing.receipt_generation=current_effect.receipt_generation \
+        WHERE attempt.tenant_id = $1 AND attempt.attempt_id = $2 \
+        ORDER BY attempt.occurred_at LIMIT 1",
+    )
+    .await
+}
+
+#[cfg(feature = "postgres")]
+async fn load_attempt_with_query(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+    query: &'static str,
+) -> Result<QuestionAttempt, StoreError> {
+    let row = sqlx::query(query)
+        .bind(tenant.as_uuid())
+        .bind(attempt.as_uuid())
+        .fetch_optional(&mut **transaction)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
     decode_current_attempt_row(&row)
 }
 
@@ -746,8 +796,8 @@ pub(super) async fn load_submission_record(
                         .to_string(),
                 )
             })?;
-    let enrollment = load_enrollment_for_update(transaction, tenant, run.enrollment).await?;
-    let assignment = load_assignment_for_share(transaction, tenant, enrollment.assignment).await?;
+    let enrollment = load_postgres_enrollment(transaction, tenant, run.enrollment).await?;
+    let assignment = load_assignment(transaction, tenant, enrollment.assignment).await?;
     let disclosure = current_disclosure_input(
         transaction,
         tenant,
@@ -828,8 +878,10 @@ pub(super) async fn load_submission_receipt_snapshot(
     Ok(Some((run, summary, presentation)))
 }
 
-/// Reads and validates the exact presentation frozen at issue time. This is
-/// used before first-grade mutation only; replay reads its own receipt row.
+/// Reads and validates the exact presentation frozen at issue time without
+/// acquiring mutation authority. Submission mutation is serialized by its
+/// preparation capability and immutable idempotency record; receipt replay is
+/// a projection over the same issued evidence.
 pub(super) async fn load_issued_presentation(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
@@ -838,12 +890,9 @@ pub(super) async fn load_issued_presentation(
     let row = sqlx::query(
         "SELECT presentation_descriptor_version, presentation_nonce, presentation_digest, \
                 presentation_capability, presentation_payload, presentation_payload_sha256, \
-                grading_envelope_payload, grading_envelope_payload_sha256, \
-                flat_grading_required, flat_grading_payload, flat_grading_payload_sha256, \
-                webwork_grading_required, webwork_grading_payload, \
-                webwork_grading_payload_sha256 \
+                grading_envelope_payload, grading_envelope_payload_sha256 \
          FROM question_attempt WHERE tenant_id = $1 AND attempt_id = $2 \
-         ORDER BY occurred_at LIMIT 1 FOR UPDATE",
+         ORDER BY occurred_at LIMIT 1",
     )
     .bind(tenant.as_uuid())
     .bind(attempt.id.as_uuid())
@@ -864,8 +913,6 @@ pub(super) async fn load_issued_presentation(
         snapshot.as_ref(),
         grading_envelope.as_ref(),
     )?;
-    super::runs::attempt_issuance::validate_attempt_flat_grading(&row, attempt)?;
-    super::runs::attempt_issuance::validate_attempt_webwork_grading(&row, attempt)?;
     Ok(snapshot)
 }
 

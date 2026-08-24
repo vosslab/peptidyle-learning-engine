@@ -8,11 +8,10 @@ use super::super::{
     require_course_records_accessible,
 };
 use super::issued_contracts::{
-    load_issued_flat_grading, load_issued_presentation, load_issued_qti_grading,
-    load_issued_webwork_grading, load_submission_record, validate_issued_question_snapshot,
+    load_issued_presentation, load_submission_record, validate_issued_question_snapshot,
 };
 use crate::{
-    LearnerWorkRoutingBinding, PreparedQuestionSubmission, StoreError, SubmissionIdempotencyKey,
+    AuthorizedSubmissionIntent, LearnerWorkRoutingBinding, StoreError, SubmissionIdempotencyKey,
     SubmissionPreparation, TenantContext,
 };
 
@@ -158,48 +157,13 @@ pub(in crate::in_memory) fn prepare_question_submission(
         .attempt_grading_envelopes
         .get(&(tenant, attempt.id))
         .cloned();
-    let flat_grading = load_issued_flat_grading(state, tenant, &attempt)?;
-    let webwork_grading = load_issued_webwork_grading(state, tenant, &attempt)?;
-    let issued_qti_grading =
-        load_issued_qti_grading(state, tenant, &attempt, &issued_question_snapshot)?;
-    if flat_grading
-        .as_ref()
-        .is_some_and(|contract| contract.question() != issued_question_snapshot.question())
-        || webwork_grading
-            .as_ref()
-            .is_some_and(|contract| contract.question() != issued_question_snapshot.question())
-    {
-        return Err(StoreError::Unavailable(
-            "specialized grading authority disagrees with issued question snapshot".to_string(),
-        ));
-    }
-    let webwork_replay = state
-        .webwork_grade_replay
-        .get(&(tenant, attempt.id))
-        .cloned();
-    if let Some(replay) = &webwork_replay {
-        crate::validate_persisted_webwork_replay_state(&attempt, presentation_binding, replay)?;
-    }
-    let webwork_required = matches!(
-        attempt.issued_capability,
-        question_model::IssuedAttemptCapabilityV1::WebworkPresentation
-    );
-    if webwork_required != webwork_replay.is_some() {
-        return Err(StoreError::Unavailable(
-            "stored WeBWorK replay authority is incomplete".to_string(),
-        ));
-    }
-    Ok(SubmissionPreparation::Grade(Box::new(
-        PreparedQuestionSubmission {
+    Ok(SubmissionPreparation::FirstEffect(Box::new(
+        AuthorizedSubmissionIntent {
             attempt,
             issued_question_snapshot,
             presentation_binding,
             presentation,
             grading_envelope,
-            flat_grading,
-            webwork_grading,
-            issued_qti_grading,
-            webwork_replay,
         },
     )))
 }

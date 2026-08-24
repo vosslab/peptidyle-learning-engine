@@ -135,9 +135,11 @@ cannot name one does not belong here.
   Peptidyle's own practice-first workflows rather than copied.
 - Test student, student view, `login-as` -> preview plane and rehearsal runs, with no fake
   enrollment.
-- Extensions and bulk score override -> entitlement and accommodation pages plus explicit
-  assignment-grade overrides.
-- Grade by item across students -> manual-grading queue with a by-item pivot.
+- Extensions -> entitlement and accommodation pages with resolved effective-policy preview. ADAPT's
+  bulk score override is intentionally not adopted; score changes come from deterministic source
+  correction, delete-and-regrade, and generation-fenced recalculation.
+- Grade by item across students -> automated-grading operations grouped by question, with routed
+  grader exceptions, bounded retries, and explicit recalculation rather than human scoring.
 - Question usage and replacement impact -> usage index and explicit replacement impact.
 - Course-wide ungraded work -> instructor attention queue.
 - Term-level date shifting with preview -> term shift through the preview plane.
@@ -254,8 +256,8 @@ assignability an explicit contract and ties deprecation to the usage index and t
 
 `assignment.scoring_generation` and `scoring_status` (`current`, `recalculating`, `failed`) exist,
 plus staging tables and a worker. Regrade is therefore already a state machine, but no professor
-surface shows it. A professor who removes an item, applies an override, or corrects a question needs
-to see that scores are recalculating, and to see failure honestly rather than reading a stale total.
+surface shows it. A professor who removes an item or corrects a question needs to see that scores
+are recalculating, and to see failure honestly rather than reading a stale total.
 
 ### 2.8 Assignment points model
 
@@ -418,7 +420,6 @@ required" meets several existing features:
 | Late work under `mark_late`                  | counts as complete; lateness is reported, not scored away  |
 | Late work under `reject`                     | not complete, because no submission was accepted           |
 | Instructor-selected run                      | completion is evaluated against the selected run           |
-| Assignment grade override                    | override sets completion explicitly and says so on the row |
 | Required count exceeds available assignments | refused at configuration time with a clear message         |
 
 Total points and weighted categories are the two shipped modes. Completion mode is deferred: lane C
@@ -839,14 +840,14 @@ T3 does not rebrand, remove, or use it as its identity-free subject contract.
 - Add co-instructor invitations for globally approved Instructor accounts only.
 - Add course-local pages for groups and sections, entitlement, accommodations, schedule, retention,
   and archive. Accommodation editing always shows the resolved outcome, not the raw exception.
-- Manual-grading queue: paginated, no raw response in the list, protected detail fetched per item,
-  and a by-item pivot as well as by-learner order, because grading one question across learners is
-  faster and more consistent.
-- Private feedback snippets insert text and never calculate correctness.
-- `AssignmentGradeOverride` is separate current state with reason, actor, strong revision, explicit
-  clear action, and visible distinction from the computed score. Pending manual items stay
-  independent of it.
-- Surface `scoring_status`: recalculating and failed states are visible wherever a total is shown.
+- Automated-grading operations are paginated and grouped by question or learner. Their list exposes
+  no raw response; protected learner-work detail is fetched only through the audited inspection
+  capability. The operations route deterministic-grader exceptions, bounded retry, and explicit
+  recalculation. They never accept human correctness, points, partial credit, answer keys, or a
+  manual score mutation.
+- Every retry and recalculation is idempotent, generation-fenced, and receipt-backed. Surface
+  `scoring_status`: recalculating and failed states are visible wherever a total is shown, and a
+  current total identifies the completed calculation generation that produced it.
 - Preserve the post-issue rules: adding or replacing questions blocked, reordering affects future
   runs, points and policies editable, removal via Delete and Regrade.
 
@@ -867,10 +868,10 @@ A row qualifies when all five hold:
 Disqualified by construction: statistics tiles, counts without an object, informational rows, and
 anything whose action is "go look at a page".
 
-Rows that qualify today: attempts pending manual grading, assignments closing soon, retention
-notify/archive/delete deadlines, corrected or deprecated questions used by an active assignment,
-imported assignments eligible for fast-forward, failed score recalculation, and unresolved
-improvement threads from last term.
+Rows that qualify today: deterministic-grader exceptions requiring retry or source repair,
+assignments closing soon, retention notify/archive/delete deadlines, corrected or deprecated
+questions used by an active assignment, imported assignments eligible for fast-forward, failed or
+stalled score recalculation, and unresolved improvement threads from last term.
 
 ## 13. Autonomy boundary
 
@@ -881,9 +882,9 @@ Section 3.3 fixes the state model; this section fixes who acts.
 - **Worker, non-derivable effects only**: retention notifications, purges and manifests, statistics
   contribution and aggregate refresh, score recalculation runs, export artifacts, and optional
   assisted-tagging batches. Each writes a durable receipt and is idempotent on replay.
-- **Professor, always explicit**: publish, close early, override a grade, delete and regrade, archive
-  early, extend retention, confirm tags, fork or replace a question, resolve an improvement thread,
-  and instantiate or fast-forward curriculum.
+- **Professor, always explicit**: publish, close early, delete and regrade, retry a routed grader
+  exception, request recalculation, archive early, extend retention, confirm tags, fork or replace
+  a question, resolve an improvement thread, and instantiate or fast-forward curriculum.
 - No new scheduler; every worker effect is an existing job family with a real handler and an atomic
   committer.
 
@@ -909,8 +910,8 @@ M2  Teaching projection  Lifecycle, schedule, accommodations, pools, preview pla
 M3  Discovery commons    Search metadata, collections, picker, usage index, evidence validity.
                          Assisted tagging is an optional package, not on the critical path.
 M4  Reusable curriculum  Blueprints, Alpha courses, clone, rollover, term shift, fast-forward.
-M5  Evidence to action   Manual grading, overrides, work inspection, analysis, improvement
-                         threads, attention queue.
+M5  Evidence to action   Grader-exception routing, recalculation, audited work inspection,
+                         analysis, improvement threads, attention queue.
 M6  Connected term       Prove the whole professor cycle at term scale on the final tree.
 ```
 
@@ -1018,12 +1019,13 @@ contains no student record; the preview refuses an ambiguous local time. Three l
 
 ### M5 Evidence to action
 
-Depends on M2, M4, and accepted WP-R2. Lanes: manual grading with by-item pivot, snippets, overrides;
-learner work inspection with audit, grade-scheme-aware gradebook; course analysis, catalog evidence,
-linked replacement comparison, improvement threads, attention queue. Exit: a mixed assignment moves
-from pending manual work to a current course total; a flagged item leads through inspection and usage
-to a distinct linked replacement; the decision is recorded and visible next term; the replacement's
-effect is measurable against its source. Three lanes.
+Depends on M2, M4, and accepted WP-R2. Lanes: automated-grading operation routing, bounded retry,
+and recalculation; learner-work inspection with audit and a grade-scheme-aware gradebook; course
+analysis, catalog evidence, linked replacement comparison, improvement threads, and the attention
+queue. Exit: a deterministic grader exception is routed by question, audited, retried or repaired,
+and recalculated into a current course total without human scoring; a flagged item leads through
+inspection and usage to a distinct linked replacement; the decision is recorded and visible next
+term; the replacement's effect is measurable against its source. Three lanes.
 
 ### M6 Connected term
 
@@ -1060,11 +1062,11 @@ P1 finding.
 | WP-PROF-D3  | Coder                | Assisted tagging: worker, proposals, confirmation, provenance. **Optional; nothing depends on it**                                                                                                                                                                                                                                                                                     | WP-PROF-D1                                                                               |
 | WP-PROF-B1  | Expert coder         | Personal blueprints and public Alpha aggregates                                                                                                                                                                                                                                                                                                                                        | WP-PROF-D2, WP-PROF-S7                                                                   |
 | WP-PROF-B2  | Expert coder         | Fork, instantiate, rollover, term shift, manifests, fast-forward                                                                                                                                                                                                                                                                                                                       | WP-PROF-B1, WP-PROF-T1                                                                   |
-| WP-PROF-G1  | Expert coder         | Manual-grading queue, by-item pivot, snippets, overrides                                                                                                                                                                                                                                                                                                                               | WP-PROF-T2                                                                               |
-| WP-PROF-G2  | Expert coder         | Learner work inspection with audit; grade-aware gradebook                                                                                                                                                                                                                                                                                                                              | WP-PROF-S6, WP-PROF-G1                                                                   |
-| WP-PROF-G3  | Coder                | Course analysis, catalog evidence, explicitly linked replacement/source comparison                                                                                                                                                                                                                                                                                                     | WP-PROF-G1, WP-PROF-D1                                                                   |
-| WP-PROF-G4  | Coder                | Improvement threads                                                                                                                                                                                                                                                                                                                                                                    | WP-PROF-G3, WP-PROF-B2                                                                   |
-| WP-PROF-G5  | Coder                | Attention queue against the actionability predicate                                                                                                                                                                                                                                                                                                                                    | WP-PROF-G4, WP-PROF-T2                                                                   |
+| WP-PROF-G1  | Expert coder         | Automated-grading operation queue grouped by question/learner; deterministic-grader exception routing, bounded retry, generation-fenced recalculation, and immutable operation receipts; no human scoring or manual-grade mutation                                                                                                                                                       | WP-PROF-T2                                                                               |
+| WP-PROF-G2  | Expert coder         | Audited learner-work inspection and grade-scheme-aware calculated gradebook, linked directly from G1 operations                                                                                                                                                                                                                                                                        | WP-PROF-S6, WP-PROF-G1                                                                   |
+| WP-PROF-G3  | Coder                | Item and course analysis connected to catalog evidence, audited learner-work context, and explicitly linked replacement/source impact                                                                                                                                                                                                                                                   | WP-PROF-G1, WP-PROF-G2, WP-PROF-D1                                                       |
+| WP-PROF-G4  | Coder                | Durable question-improvement threads that preserve evidence, decisions, replacement links, and next-term context                                                                                                                                                                                                                                                                       | WP-PROF-G3, WP-PROF-B2                                                                   |
+| WP-PROF-G5  | Coder                | Actionable Instructor work queue for grader exceptions, recalculation failures, active replacement impact, and unresolved improvement threads under the actionability predicate                                                                                                                                                                                                        | WP-PROF-G4, WP-PROF-T2                                                                   |
 | WP-PROF-E1  | Playwright           | Behavior-named professor journeys and live-stack evidence                                                                                                                                                                                                                                                                                                                              | all behavior WPs                                                                         |
 | WP-PROF-E2  | Integrator           | Final gates, visual review, docs, changelog, baseline procedure                                                                                                                                                                                                                                                                                                                        | WP-PROF-E1                                                                               |
 
@@ -1241,9 +1243,10 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   pool draw determinism by algorithm version, clone manifest normalization, fast-forward eligibility,
   quality-signal computation with insufficient-sample behavior, and issued-run structural locks.
 - Memory conformance: ordinary crate tests cover entitlement, group purposes and exclusivity policy,
-  collection ownership, usage-index aggregation boundaries, public Alpha reads and creator-only writes,
-  cross-tenant cloning, rollover exclusions, overrides, audited work inspection, rehearsal exclusion
-  from every aggregate, tagging provenance, and retention.
+  collection ownership, usage-index aggregation boundaries, public Alpha reads and creator-only
+  writes, cross-tenant cloning, rollover exclusions, grader-operation receipts and recalculation,
+  audited work inspection, rehearsal exclusion from every aggregate, tagging provenance, and
+  retention.
 - PostgreSQL/RLS proof: a named disposable PostgreSQL E2E exercises the same selected Store semantics
   where transactions, persistence, roles, and forced RLS are the contract. It is opt-in and separate
   from ordinary Cargo, Node, and pytest gates.
@@ -1254,8 +1257,8 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
 - Playwright, named for behavior rather than milestones: discovery to collection to assignment;
   schedule and accommodation with resolved-outcome and provenance checks; entitlement preview;
   rehearsal leaving no trace; pool delivery; Alpha clone across instructors; fast-forward and
-  divergent selected copy; rollover and term shift preview; manual grading by item with override;
-  gradebook total and audited learner work inspection; analysis to fork to recorded decision;
+  divergent selected copy; rollover and term shift preview; grader-exception routing by item and
+  recalculation; gradebook total and audited learner work inspection; analysis to fork to recorded decision;
   attention-queue routing; keyboard, recovery, and canonical viewport behavior.
 - S4 browser evidence must cover the student/access contract: allowed learner projection, direct
   roster and gradebook denial probes, a centrally derived fail-closed route boundary before transport,
@@ -1302,9 +1305,11 @@ One narrative journey, run live, exercising the architecture as a system rather 
    window shows the extension as its source.
 5. She rehearses the pool assignment as a lab member at a moment after the due date, sees the late
    marking and the disclosure state she expects, and publishes.
-6. Two students practice repeatedly; one triggers manual grading; one submits late.
-7. She grades by item, applies one override with a reason, and watches the course total recalculate
-   in the selected grade mode.
+6. Two students practice repeatedly; one encounters a deterministic grader exception; one submits
+   late.
+7. She opens the routed by-item operation, audits the affected learner work, retries after the
+   grader/source correction, and watches the generation-fenced course total recalculate in the
+   selected grade mode.
 8. Analysis flags one item; she inspects a learner's exact variant, checks catalog usage and
    cross-course behavior, publishes an explicitly linked replacement with a new Question ID, records
    the decision, and deliberately replaces the item in next term's Alpha.

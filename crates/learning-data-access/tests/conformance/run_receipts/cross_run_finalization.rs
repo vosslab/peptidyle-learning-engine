@@ -10,7 +10,7 @@ pub(super) struct CrossRunFinalizationFixture<'a> {
     pub(super) problem: ProblemId,
     pub(super) second_attempt: &'a QuestionAttempt,
     pub(super) response: &'a StudentResponse,
-    pub(super) reservation: &'a PrefetchedQuestion,
+    pub(super) reservation: &'a PrefetchedQuestionDescriptorV1,
     pub(super) first_attempt: &'a QuestionAttempt,
 }
 
@@ -32,6 +32,7 @@ pub(super) async fn assert_cross_run_finalization_guards<S>(
         reservation,
         first_attempt,
     } = fixture;
+    let binding = LearnerWorkRoutingBinding::new(course, assignment);
     let cross_run = store
         .start_or_resume_run(
             context,
@@ -54,16 +55,20 @@ pub(super) async fn assert_cross_run_finalization_guards<S>(
                 assignment_position: 0,
                 problem,
                 question_version: version,
+                issued_question_snapshot: reservation.issued_question_snapshot.clone(),
                 seed: 994,
                 presentation_capability: PresentationCapability::EnvelopeV1,
                 presentation: Some(cross_run_presentation_binding),
                 presentation_snapshot: Some(cross_run_presentation.clone()),
                 grading_envelope: Some(grading_envelope(version, 994)),
+                native_execution_envelope_capability: NativeExecutionEnvelopeCapability::Required,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_grading: None,
                 webwork_grading_capability:
                     learning_data_access::WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: QtiGradingCapability::NotApplicable,
                 parameter_hash: "cross-run-parameter-hash".to_string(),
                 provenance: reservation.provenance.clone(),
                 webwork_replay: None,
@@ -78,6 +83,7 @@ pub(super) async fn assert_cross_run_finalization_guards<S>(
             .finalize_submission_next_attempt(
                 context,
                 student_user,
+                binding,
                 second_attempt.id,
                 Some(cross_run_attempt.id),
             )
@@ -118,16 +124,20 @@ pub(super) async fn assert_cross_run_finalization_guards<S>(
                 assignment_position: 1,
                 problem,
                 question_version: version,
+                issued_question_snapshot: reservation.issued_question_snapshot.clone(),
                 seed: 995,
                 presentation_capability: PresentationCapability::EnvelopeV1,
                 presentation: Some(cross_run_second_presentation_binding),
                 presentation_snapshot: Some(cross_run_second_presentation.clone()),
                 grading_envelope: Some(grading_envelope(version, 995)),
+                native_execution_envelope_capability: NativeExecutionEnvelopeCapability::Required,
                 flat_grading: None,
                 flat_grading_capability: FlatGradingCapability::NotApplicable,
                 webwork_grading: None,
                 webwork_grading_capability:
                     learning_data_access::WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: QtiGradingCapability::NotApplicable,
                 parameter_hash: "cross-run-second-parameter-hash".to_string(),
                 provenance: reservation.provenance.clone(),
                 webwork_replay: None,
@@ -166,14 +176,26 @@ pub(super) async fn assert_cross_run_finalization_guards<S>(
     );
     assert_eq!(
         store
-            .finalize_submission_next_attempt(context, student_user, second_attempt.id, None)
+            .finalize_submission_next_attempt(
+                context,
+                student_user,
+                binding,
+                second_attempt.id,
+                None,
+            )
             .await,
         Ok(()),
         "a terminal submission records its explicit no-successor receipt state",
     );
     assert_eq!(
         store
-            .finalize_submission_next_attempt(context, student_user, second_attempt.id, None)
+            .finalize_submission_next_attempt(
+                context,
+                student_user,
+                binding,
+                second_attempt.id,
+                None,
+            )
             .await,
         Ok(()),
         "the explicit no-successor receipt state is idempotent",
@@ -183,6 +205,7 @@ pub(super) async fn assert_cross_run_finalization_guards<S>(
             .finalize_submission_next_attempt(
                 context,
                 student_user,
+                binding,
                 second_attempt.id,
                 Some(first_attempt.id),
             )

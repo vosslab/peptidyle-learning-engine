@@ -53,7 +53,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             crate::SubmissionPreparation::Replay(record) => {
                 return Ok(ExternalToolBegin::Committed(record));
             }
-            crate::SubmissionPreparation::Grade(prepared) => prepared,
+            crate::SubmissionPreparation::FirstEffect(prepared) => prepared,
         };
         if state
             .indeterminate_external_tool_activities
@@ -180,7 +180,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             &command.idempotency_key,
         )? {
             crate::SubmissionPreparation::Replay(record) => return Ok(*record),
-            crate::SubmissionPreparation::Grade(prepared) => prepared,
+            crate::SubmissionPreparation::FirstEffect(prepared) => prepared,
         };
         validate_external_response(&command.response, &command.binding)?;
         validate_external_snapshot_binding(
@@ -258,7 +258,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             &command.idempotency_key,
         )? {
             crate::SubmissionPreparation::Replay(record) => return Ok(*record),
-            crate::SubmissionPreparation::Grade(prepared) => prepared,
+            crate::SubmissionPreparation::FirstEffect(prepared) => prepared,
         };
         validate_external_snapshot_binding(
             &prepared.attempt,

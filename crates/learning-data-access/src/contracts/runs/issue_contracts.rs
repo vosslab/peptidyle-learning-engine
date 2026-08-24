@@ -58,10 +58,6 @@ pub enum NativeExecutionEnvelopeCapability {
     NotApplicable,
 }
 
-impl NativeExecutionEnvelopeCapability {
-    pub(crate) fn requires_envelope(self) -> bool { matches!(self, Self::Required) }
-}
-
 impl PresentationCapability {
     #[cfg(feature = "postgres")]
     pub(crate) fn requires_snapshot(self) -> bool {
@@ -317,9 +313,43 @@ impl std::fmt::Debug for PreparedQuestionSubmission {
     }
 }
 
-/// Replay-or-grade result of the bounded pre-grade authorization snapshot.
+/// Answer-free first-effect intent.  This is the only fresh result exposed by
+/// the ordinary application Store: it proves the locked route/attempt shape,
+/// but intentionally cannot construct a grader invocation.
+#[derive(Clone, PartialEq)]
+pub struct AuthorizedSubmissionIntent {
+    pub attempt: QuestionAttempt,
+    pub issued_question_snapshot: IssuedQuestionSnapshotV1,
+    pub presentation_binding: Option<PresentationBindingV1>,
+    pub presentation: Option<ReceiptPresentationSnapshot>,
+    pub grading_envelope: Option<QuestionEnvelope>,
+}
+
+impl std::fmt::Debug for AuthorizedSubmissionIntent {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("AuthorizedSubmissionIntent")
+            .field("attempt", &self.attempt)
+            .field("issued_question_snapshot", &"[SERVER-ONLY]")
+            .field("presentation_binding", &self.presentation_binding)
+            .field("presentation", &self.presentation)
+            .field("grading_envelope", &"[SERVER-ONLY]")
+            .finish()
+    }
+}
+
+/// The sealed grader-only result.  It is deliberately a distinct closed
+/// union from [`SubmissionPreparation`], so a browser-adjacent Store result
+/// cannot be reused as private grading authority.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SealedPrivateExecutionPreparation {
+    Replay(Box<SubmissionRecord>),
+    Grade(Box<PreparedQuestionSubmission>),
+}
+
+/// Replay-or-first-effect result of ordinary, answer-free authorization.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SubmissionPreparation {
     Replay(Box<SubmissionRecord>),
-    Grade(Box<PreparedQuestionSubmission>),
+    FirstEffect(Box<AuthorizedSubmissionIntent>),
 }

@@ -85,29 +85,16 @@ impl std::fmt::Debug for IssuedAttemptReceiptEvidence {
     }
 }
 
-/// Active-only private grading evidence.  This is absent after submission so
-/// a successful delivery can never depend on deleted replay authority.
+/// Active delivery evidence. Private execution is projected only through the
+/// separate sealed grader capability.
 #[derive(Clone, PartialEq)]
 pub struct ActiveIssuedAttemptEvidence {
     receipt: IssuedAttemptReceiptEvidence,
-    flat_grading: Option<crate::IssuedFlatGradingContract>,
-    webwork_grading: Option<IssuedWebworkGradingContract>,
-    webwork_replay: Option<WebworkGradeReplayStateV1>,
 }
 
 impl ActiveIssuedAttemptEvidence {
-    pub(crate) fn new(
-        receipt: IssuedAttemptReceiptEvidence,
-        flat_grading: Option<crate::IssuedFlatGradingContract>,
-        webwork_grading: Option<IssuedWebworkGradingContract>,
-        webwork_replay: Option<WebworkGradeReplayStateV1>,
-    ) -> Self {
-        Self {
-            receipt,
-            flat_grading,
-            webwork_grading,
-            webwork_replay,
-        }
+    pub(crate) fn new(receipt: IssuedAttemptReceiptEvidence) -> Self {
+        Self { receipt }
     }
 
     pub fn receipt_evidence(&self) -> &IssuedAttemptReceiptEvidence {
@@ -117,18 +104,6 @@ impl ActiveIssuedAttemptEvidence {
     pub fn presentation_snapshot(&self) -> Option<&ReceiptPresentationSnapshot> {
         self.receipt.presentation_snapshot()
     }
-
-    pub fn flat_grading(&self) -> Option<&crate::IssuedFlatGradingContract> {
-        self.flat_grading.as_ref()
-    }
-
-    pub fn webwork_grading(&self) -> Option<&IssuedWebworkGradingContract> {
-        self.webwork_grading.as_ref()
-    }
-
-    pub fn webwork_replay(&self) -> Option<&WebworkGradeReplayStateV1> {
-        self.webwork_replay.as_ref()
-    }
 }
 
 impl std::fmt::Debug for ActiveIssuedAttemptEvidence {
@@ -136,9 +111,6 @@ impl std::fmt::Debug for ActiveIssuedAttemptEvidence {
         formatter
             .debug_struct("ActiveIssuedAttemptEvidence")
             .field("receipt", &"[SERVER-ONLY]")
-            .field("flat_grading", &"[SERVER-ONLY]")
-            .field("webwork_grading", &"[SERVER-ONLY]")
-            .field("webwork_replay", &"[SERVER-ONLY]")
             .finish()
     }
 }
@@ -521,40 +493,6 @@ pub(crate) fn webwork_replay_state_from_issue(
         presentation_digest: presentation.digest(),
         mapping,
     })
-}
-
-/// Validates that persisted private replay state still belongs to the exact
-/// attempt presentation that owns it.
-///
-/// Storage calls this after authorization and before returning replay state to
-/// a grader. A row that is individually well formed but cross-wired to another
-/// attempt is unavailable authority, never a usable mapping.
-pub(crate) fn validate_persisted_webwork_replay_state(
-    attempt: &QuestionAttempt,
-    presentation: Option<PresentationBindingV1>,
-    state: &WebworkGradeReplayStateV1,
-) -> Result<(), StoreError> {
-    state
-        .mapping
-        .validate()
-        .map_err(|_| StoreError::Unavailable("stored WeBWorK replay mapping is invalid".into()))?;
-    let Some(presentation) = presentation else {
-        return Err(StoreError::Unavailable(
-            "stored WeBWorK replay lacks its presentation binding".into(),
-        ));
-    };
-    if state.problem != attempt.problem
-        || state.version != attempt.question_version
-        || state.seed != attempt.seed
-        || attempt.provenance.source_artifact.as_ref() != Some(&state.source_artifact)
-        || attempt.provenance.renderer.as_ref() != Some(&state.renderer)
-        || state.presentation_digest != presentation.digest()
-    {
-        return Err(StoreError::Unavailable(
-            "stored WeBWorK replay disagrees with its owning attempt".into(),
-        ));
-    }
-    Ok(())
 }
 
 /// Bounded client-generated key for replaying one submission safely.

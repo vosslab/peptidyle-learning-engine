@@ -12,8 +12,8 @@ pub(super) use learning_data_access::{
     IssueQuestionAttemptCommand, IssuedAttemptRead, LearnerAssignmentSummarySnapshot,
     LearnerWorkRoutingBinding, ManualGradingStore, PageRequest, PageSize, PaginationError,
     PresentationCapability, ReceiptNextAttempt, ReceiptPresentationSnapshot,
-    ResolveEffectivePolicyCommand, SessionStore, Store, StoreError, SubmissionIdempotencyKey,
-    SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext,
+    ResolveEffectivePolicyCommand, SealedPrivateExecutionStore, SessionStore, Store, StoreError,
+    SubmissionIdempotencyKey, SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext,
 };
 #[cfg(test)]
 pub(super) use question_model::UserRole;
@@ -65,6 +65,12 @@ pub(super) async fn learner_scoring_status<S: Store>(
 pub(super) struct RunRouteState<S, B> {
     pub(super) store: Arc<S>,
     pub(super) backend: Arc<B>,
+    /// The separately injected, capability-gated first-grade authority.
+    ///
+    /// It is deliberately not obtained through `Store`: ordinary route
+    /// preparation is answer-free, while this facade alone can release the
+    /// attempt-bound private grading contracts after the replay fence.
+    pub(super) sealed_execution: Arc<dyn SealedPrivateExecutionStore>,
 }
 
 impl<S, B> Clone for RunRouteState<S, B> {
@@ -72,6 +78,7 @@ impl<S, B> Clone for RunRouteState<S, B> {
         Self {
             store: Arc::clone(&self.store),
             backend: Arc::clone(&self.backend),
+            sealed_execution: Arc::clone(&self.sealed_execution),
         }
     }
 }

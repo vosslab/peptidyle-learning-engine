@@ -7,8 +7,8 @@ use axum::http::{Request, StatusCode};
 use learning_data_access::{
     AssignmentRecord, CourseRecord, CourseRosterStore, CreateCourseCommand,
     IssueQuestionAttemptCommand, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1,
-    LearnerWorkRoutingBinding, SessionLifetime, SessionSubject, Store, SubmissionIdempotencyKey,
-    SubmissionPreparation, TenantContext, UpsertCourseMember,
+    LearnerWorkRoutingBinding, SealedPrivateExecutionStore, SessionLifetime, SessionSubject, Store,
+    SubmissionIdempotencyKey, SubmissionPreparation, TenantContext, UpsertCourseMember,
 };
 use question_model::response::{ChoiceId, StudentResponse};
 use question_model::{
@@ -210,6 +210,8 @@ async fn persist_attempt(
                     asset_bindings: presentation.asset_bindings.clone(),
                 }),
                 grading_envelope: Some(issued.envelope.clone()),
+                native_execution_envelope_capability:
+                    learning_data_access::NativeExecutionEnvelopeCapability::NotApplicable,
                 flat_grading: None,
                 flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
                 webwork_grading: Some(
@@ -250,14 +252,26 @@ async fn prepare_grade(
     key: &str,
 ) -> learning_data_access::PreparedQuestionSubmission {
     let key = SubmissionIdempotencyKey::parse(key).expect("fixture key");
-    match backend
+    let intent = match backend
         .sources
         .prepare_question_submission(context, actor, binding, attempt, response, &key)
         .await
         .expect("bound submission preparation")
     {
-        SubmissionPreparation::Grade(prepared) => *prepared,
+        SubmissionPreparation::FirstEffect(intent) => *intent,
         SubmissionPreparation::Replay(_) => panic!("fresh fixture cannot replay"),
+    };
+    match backend
+        .sources
+        .sealed_private_execution_store()
+        .prepare_sealed_private_execution(context, actor, binding, intent, response, &key)
+        .await
+        .expect("sealed private submission preparation")
+    {
+        learning_data_access::SealedPrivateExecutionPreparation::Grade(prepared) => *prepared,
+        learning_data_access::SealedPrivateExecutionPreparation::Replay(_) => {
+            panic!("fresh fixture cannot replay")
+        }
     }
 }
 
@@ -473,7 +487,15 @@ async fn http_submit_translates_rendered_webwork_choice_without_rerendering() {
         ),
         webwork,
     ));
-    let app = crate::run::router(Arc::clone(&store), backend);
+    let app = crate::run::router(
+        Arc::clone(&store),
+        backend,
+        Arc::new(
+            learning_data_access::in_memory::MemorySealedPrivateExecutionStore::new(Arc::clone(
+                &store,
+            )),
+        ),
+    );
 
     let issued_response = app
         .clone()
