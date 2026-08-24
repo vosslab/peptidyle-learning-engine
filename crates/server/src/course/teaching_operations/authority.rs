@@ -690,6 +690,7 @@ where
         .remove_direct_instructor_membership(
             auth.tenant_context,
             RemoveDirectInstructorMembership {
+                session: auth.session_hash,
                 actor: auth.record.subject.user(),
                 course,
                 membership,

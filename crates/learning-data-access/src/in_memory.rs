@@ -34,8 +34,6 @@ mod preview_plane;
 mod qti;
 mod qti_ingress;
 mod queue;
-mod rehearsal;
-mod rehearsal_integrity;
 mod retention;
 mod runs;
 #[cfg(test)]
@@ -45,12 +43,6 @@ mod state;
 mod statistics;
 mod teaching_authority;
 mod teaching_authority_references;
-
-#[cfg(feature = "test-support")]
-pub use state::{
-    MemoryRehearsalClaimTestSnapshot, MemoryRehearsalIntegrityTestCorruption,
-    MemoryRehearsalTestSnapshot,
-};
 
 use activity::{
     add_seconds, apply_memory_attempt_support, complete_memory_attempt_timing_job, issued_timer,
@@ -224,28 +216,6 @@ use crate::{QtiImportGradingPayload, QtiImportRegistry};
 use objects::Sha256Digest;
 
 /// Memory backend used by conformance tests and pre-PostgreSQL lanes.
-///
-/// The normal application artifact intentionally excludes destructive rehearsal
-/// integrity fixtures. They are available only to focused conformance builds
-/// that enable the crate's `test-support` feature.
-#[cfg_attr(
-    not(feature = "test-support"),
-    doc = r#"
-```compile_fail
-use learning_data_access::in_memory::{
-    MemoryRehearsalIntegrityTestCorruption, MemoryStore,
-};
-
-let store = MemoryStore::default();
-let _ = store.corrupt_rehearsal_integrity_for_test(
-    MemoryRehearsalIntegrityTestCorruption::RemoveAllSubmissionClaims {
-        tenant: todo!(),
-        rehearsal: todo!(),
-    },
-);
-```
-"#
-)]
 #[derive(Debug, Clone)]
 pub struct MemoryStore {
     state: Arc<RwLock<State>>,
@@ -366,7 +336,6 @@ struct State {
     next_course_reference: u32,
     next_assignment_reference: u32,
     next_run_reference: u32,
-    next_rehearsal_reference: u32,
     next_workspace_reference: u32,
     next_course_group_reference: u32,
     next_account_reference: u32,
@@ -483,80 +452,6 @@ struct State {
         BTreeMap<(TenantId, CourseId, RosterIdempotencyKey), crate::CourseRosterImportId>,
     roster_support_audits: Vec<CourseRosterSupportAudit>,
     preview_subject_audits: Vec<crate::PreviewSubjectAudit>,
-    rehearsal_runs:
-        BTreeMap<(TenantId, question_model::RehearsalRunId), rehearsal::StoredRehearsalRun>,
-    rehearsal_by_reference:
-        BTreeMap<(TenantId, question_model::RehearsalReference), question_model::RehearsalRunId>,
-    rehearsal_active_by_owner: BTreeMap<
-        (TenantId, CourseId, AssignmentId, CourseMembershipId),
-        question_model::RehearsalRunId,
-    >,
-    rehearsal_start_operations: BTreeMap<
-        (
-            TenantId,
-            CourseId,
-            AssignmentId,
-            CourseMembershipId,
-            UserId,
-            crate::RehearsalIdempotencyKey,
-        ),
-        rehearsal::StoredRehearsalStartOperation,
-    >,
-    rehearsal_frozen_items: BTreeMap<
-        (
-            TenantId,
-            question_model::RehearsalRunId,
-            question_model::RehearsalAttemptId,
-        ),
-        question_model::RehearsalFrozenItemEvidence,
-    >,
-    /// Immutable answer-free source captured with a rehearsal frozen item.
-    /// This is rehearsal evidence, never a mutable catalog cache.
-    rehearsal_frozen_source_snapshots: BTreeMap<
-        (
-            TenantId,
-            question_model::RehearsalRunId,
-            question_model::RehearsalAttemptId,
-        ),
-        rehearsal::StoredRehearsalFrozenSourceSnapshot,
-    >,
-    /// Grader-only sibling held separately from answer-free frozen material.
-    rehearsal_frozen_private_execution: BTreeMap<
-        (
-            TenantId,
-            question_model::RehearsalRunId,
-            question_model::RehearsalAttemptId,
-        ),
-        rehearsal::StoredRehearsalFrozenPrivateExecution,
-    >,
-    rehearsal_evidence:
-        BTreeMap<(TenantId, question_model::RehearsalRunId), rehearsal::StoredRehearsalEvidence>,
-    rehearsal_submission_claims: BTreeMap<
-        (
-            TenantId,
-            question_model::RehearsalRunId,
-            crate::RehearsalSubmissionIdempotencyKey,
-        ),
-        rehearsal::StoredRehearsalClaim,
-    >,
-    rehearsal_delivery_operations: BTreeMap<
-        (
-            TenantId,
-            question_model::RehearsalRunId,
-            crate::RehearsalIdempotencyKey,
-        ),
-        rehearsal::StoredRehearsalDeliveryOperation,
-    >,
-    /// Retry keys are separate from Continue roots, but point back to the
-    /// Store-selected root and successor generation for exact replay.
-    rehearsal_delivery_retries: BTreeMap<
-        (
-            TenantId,
-            question_model::RehearsalRunId,
-            crate::RehearsalIdempotencyKey,
-        ),
-        rehearsal::StoredRehearsalDeliveryRetry,
-    >,
     manual_grade_export_audits:
         BTreeMap<crate::ManualGradeExportId, (TenantId, CourseId, AssignmentId, UserId, usize)>,
     course_grade_schemes: BTreeMap<(TenantId, CourseId), crate::CourseGradeSchemeRecord>,

@@ -1,4 +1,4 @@
--- WP-PROF-T4: closed assignment-definition commands.  This is the only
+-- Closed live-assignment definition commands.  This is the only
 -- application write authority for a complete assignment definition.
 -- ASVS 1.2.4, 1.5.2, 2.2.1, 2.2.3, and 2.3.3: fixed SQL, closed JSON,
 -- allowlisted values, relational checks, and one transaction per command.
@@ -43,9 +43,9 @@ GRANT UPDATE (course_group_id) ON public.course_group TO ple_assignment_mutator_
 -- The transient scalar patch was never a complete definition command.  It is
 -- deliberately retired before the replacement capabilities are exposed.
 REVOKE INSERT, UPDATE, DELETE ON public.course_group FROM ple_app;
-ALTER FUNCTION public.ple_replace_assignment_definition(uuid, uuid, uuid, uuid, bigint, jsonb, jsonb, bigint)
+ALTER FUNCTION public.ple_replace_assignment_definition(uuid, uuid, uuid, uuid, bigint, jsonb, jsonb)
     RENAME TO ple_replace_assignment_definition_legacy;
-REVOKE ALL ON FUNCTION public.ple_replace_assignment_definition_legacy(uuid, uuid, uuid, uuid, bigint, jsonb, jsonb, bigint)
+REVOKE ALL ON FUNCTION public.ple_replace_assignment_definition_legacy(uuid, uuid, uuid, uuid, bigint, jsonb, jsonb)
     FROM PUBLIC, ple_app, ple_assignment_mutator_broker;
 
 CREATE FUNCTION public.ple_assignment_mutator_require_create_editor(
@@ -169,8 +169,7 @@ $$;
 
 CREATE FUNCTION public.ple_assignment_definition_apply_v1(
     p_tenant uuid, p_course uuid, p_assignment uuid, p_payload jsonb, p_replace boolean,
-    p_recalculation_job uuid, p_recalculation_max_attempts integer,
-    p_locked_rehearsal_count bigint
+    p_recalculation_job uuid, p_recalculation_max_attempts integer
 ) RETURNS TABLE(revision bigint, scoring_generation bigint, scoring_status text)
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'pg_catalog', 'public', pg_temp
@@ -367,7 +366,7 @@ BEGIN
         END LOOP;
     END IF;
     IF p_replace THEN
-        SELECT new_revision INTO revision FROM public.ple_apply_verified_assignment_definition_revision(p_tenant,p_course,p_assignment,old_revision,p_locked_rehearsal_count);
+        SELECT new_revision INTO revision FROM public.ple_apply_verified_assignment_definition_revision(p_tenant,p_course,p_assignment,old_revision);
         IF old_title IS DISTINCT FROM title_value THEN
             UPDATE public.course_grade_scheme AS scheme SET revision=scheme.revision+1,updated_at=transaction_timestamp() WHERE scheme.tenant_id=p_tenant AND scheme.course_id=p_course;
         END IF;
@@ -396,19 +395,16 @@ RETURNS TABLE(assignment_id uuid,revision bigint,scoring_generation bigint,scori
 LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog','public',pg_temp AS $$
 BEGIN
     PERFORM public.ple_assignment_mutator_require_create_editor(p_tenant,p_actor,p_course,p_assignment);
-    SELECT result.revision,result.scoring_generation,result.scoring_status INTO revision,scoring_generation,scoring_status FROM public.ple_assignment_definition_apply_v1(p_tenant,p_course,p_assignment,p_payload,false,p_recalculation_job,p_recalculation_max_attempts,NULL) result;
+    SELECT result.revision,result.scoring_generation,result.scoring_status INTO revision,scoring_generation,scoring_status FROM public.ple_assignment_definition_apply_v1(p_tenant,p_course,p_assignment,p_payload,false,p_recalculation_job,p_recalculation_max_attempts) result;
     assignment_id:=p_assignment; RETURN NEXT;
 END $$;
 
-CREATE FUNCTION public.ple_replace_assignment_definition_v1(p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_payload jsonb,p_recalculation_job uuid,p_recalculation_max_attempts integer,p_locked_rehearsal_count bigint)
+CREATE FUNCTION public.ple_replace_assignment_definition_v1(p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_payload jsonb,p_recalculation_job uuid,p_recalculation_max_attempts integer)
 RETURNS TABLE(revision bigint,scoring_generation bigint,scoring_status text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog','public',pg_temp AS $$
 BEGIN
     PERFORM public.ple_assignment_mutator_require_editor(p_tenant,p_actor,p_course,p_assignment,p_expected_revision);
-    IF p_locked_rehearsal_count IS NULL OR p_locked_rehearsal_count < 0 THEN
-        RAISE EXCEPTION 'locked rehearsal count is invalid' USING ERRCODE='22023';
-    END IF;
-    RETURN QUERY SELECT result.revision,result.scoring_generation,result.scoring_status FROM public.ple_assignment_definition_apply_v1(p_tenant,p_course,p_assignment,p_payload,true,p_recalculation_job,p_recalculation_max_attempts,p_locked_rehearsal_count) result;
+    RETURN QUERY SELECT result.revision,result.scoring_generation,result.scoring_status FROM public.ple_assignment_definition_apply_v1(p_tenant,p_course,p_assignment,p_payload,true,p_recalculation_job,p_recalculation_max_attempts) result;
 END $$;
 
 ALTER FUNCTION public.ple_assignment_mutator_require_create_editor(uuid,uuid,uuid,uuid) OWNER TO ple_assignment_mutator_broker;
@@ -417,25 +413,25 @@ ALTER FUNCTION public.ple_assignment_definition_require_object(jsonb,text[],text
 ALTER FUNCTION public.ple_assignment_definition_require_text(jsonb,text,text[],integer) OWNER TO ple_assignment_mutator_broker;
 ALTER FUNCTION public.ple_assignment_definition_millis(jsonb) OWNER TO ple_assignment_mutator_broker;
 ALTER FUNCTION public.ple_assignment_definition_disclosure(text) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_assignment_definition_apply_v1(uuid,uuid,uuid,jsonb,boolean,uuid,integer,bigint) OWNER TO ple_assignment_mutator_broker;
+ALTER FUNCTION public.ple_assignment_definition_apply_v1(uuid,uuid,uuid,jsonb,boolean,uuid,integer) OWNER TO ple_assignment_mutator_broker;
 ALTER FUNCTION public.ple_create_assignment_definition_v1(uuid,uuid,uuid,uuid,jsonb,uuid,integer) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_replace_assignment_definition_v1(uuid,uuid,uuid,uuid,bigint,jsonb,uuid,integer,bigint) OWNER TO ple_assignment_mutator_broker;
-REVOKE ALL ON FUNCTION public.ple_assignment_mutator_require_create_editor(uuid,uuid,uuid,uuid),public.ple_assignment_definition_require_object(jsonb,text[],text[],integer),public.ple_assignment_definition_require_text(jsonb,text,text[],integer),public.ple_assignment_definition_millis(jsonb),public.ple_assignment_definition_disclosure(text),public.ple_assignment_definition_apply_v1(uuid,uuid,uuid,jsonb,boolean,uuid,integer,bigint) FROM PUBLIC,ple_app;
+ALTER FUNCTION public.ple_replace_assignment_definition_v1(uuid,uuid,uuid,uuid,bigint,jsonb,uuid,integer) OWNER TO ple_assignment_mutator_broker;
+REVOKE ALL ON FUNCTION public.ple_assignment_mutator_require_create_editor(uuid,uuid,uuid,uuid),public.ple_assignment_definition_require_object(jsonb,text[],text[],integer),public.ple_assignment_definition_require_text(jsonb,text,text[],integer),public.ple_assignment_definition_millis(jsonb),public.ple_assignment_definition_disclosure(text),public.ple_assignment_definition_apply_v1(uuid,uuid,uuid,jsonb,boolean,uuid,integer) FROM PUBLIC,ple_app;
 REVOKE ALL ON FUNCTION public.ple_prepare_assignment_creation_v1(uuid,uuid,uuid,uuid) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.ple_create_assignment_definition_v1(uuid,uuid,uuid,uuid,jsonb,uuid,integer),public.ple_replace_assignment_definition_v1(uuid,uuid,uuid,uuid,bigint,jsonb,uuid,integer,bigint) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.ple_create_assignment_definition_v1(uuid,uuid,uuid,uuid,jsonb,uuid,integer),public.ple_replace_assignment_definition_v1(uuid,uuid,uuid,uuid,bigint,jsonb,uuid,integer,bigint) TO ple_app;
+REVOKE ALL ON FUNCTION public.ple_create_assignment_definition_v1(uuid,uuid,uuid,uuid,jsonb,uuid,integer),public.ple_replace_assignment_definition_v1(uuid,uuid,uuid,uuid,bigint,jsonb,uuid,integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.ple_create_assignment_definition_v1(uuid,uuid,uuid,uuid,jsonb,uuid,integer),public.ple_replace_assignment_definition_v1(uuid,uuid,uuid,uuid,bigint,jsonb,uuid,integer) TO ple_app;
 GRANT EXECUTE ON FUNCTION public.ple_prepare_assignment_creation_v1(uuid,uuid,uuid,uuid) TO ple_app;
 
 DO $$
 BEGIN
-    IF has_function_privilege('ple_app','public.ple_replace_assignment_definition_legacy(uuid,uuid,uuid,uuid,bigint,jsonb,jsonb,bigint)','EXECUTE')
+    IF has_function_privilege('ple_app','public.ple_replace_assignment_definition_legacy(uuid,uuid,uuid,uuid,bigint,jsonb,jsonb)','EXECUTE')
        OR has_function_privilege('public','public.ple_prepare_assignment_creation_v1(uuid,uuid,uuid,uuid)','EXECUTE')
        OR NOT has_function_privilege('ple_app','public.ple_prepare_assignment_creation_v1(uuid,uuid,uuid,uuid)','EXECUTE')
        OR has_function_privilege('ple_app','public.ple_assignment_mutator_require_create_editor(uuid,uuid,uuid,uuid)','EXECUTE')
        OR has_table_privilege('ple_app','public.assignment_selection_candidate','INSERT,UPDATE,DELETE')
        OR has_table_privilege('ple_app','public.course_group','INSERT,UPDATE,DELETE')
-       OR to_regprocedure('public.ple_replace_assignment_definition_v1(uuid,uuid,uuid,uuid,bigint,jsonb,uuid,integer)') IS NOT NULL
-       OR NOT has_function_privilege('ple_app','public.ple_replace_assignment_definition_v1(uuid,uuid,uuid,uuid,bigint,jsonb,uuid,integer,bigint)','EXECUTE') THEN
+       OR to_regprocedure('public.ple_replace_assignment_definition_v1(uuid,uuid,uuid,uuid,bigint,jsonb,uuid,integer,bigint)') IS NOT NULL
+       OR NOT has_function_privilege('ple_app','public.ple_replace_assignment_definition_v1(uuid,uuid,uuid,uuid,bigint,jsonb,uuid,integer)','EXECUTE') THEN
         RAISE EXCEPTION 'assignment definition capability grants are unsafe';
     END IF;
 END $$;

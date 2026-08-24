@@ -8,6 +8,10 @@ This is the implemented application and database contract. It distinguishes comp
 one-time acceptance evidence from recovery, backup, and object-reconciliation work that remains
 deployment work.
 
+The canonical live-demo baseline uses fictional people and course records as ordinary PLE data.
+They are disposable because the complete database and storage can be regenerated, not because
+retention, authorization, deletion, or audit behavior has a special demo path.
+
 ## Default course lifecycle
 
 Ending a course snapshots the current institution policy and server-authoritative end time. Later
@@ -159,7 +163,8 @@ preserve database evidence, alert, and use a normal recovery procedure.
 
 ## Recovery and backup boundary
 
-Application deletion is immediate and irreversible through the live product. It does not rewrite
+Application deletion is immediate and irreversible through the ordinary PLE product path, including
+the canonical live-demo path. It does not rewrite
 historical encrypted backups or point-in-time recovery snapshots taken before deletion. Those copies
 expire under their own infrastructure lifecycle; selective deletion from an older snapshot is not a
 supported claim.
@@ -181,7 +186,7 @@ The honest guarantee until then is:
 > Deleted student records are immediately unrecoverable through the application. Historical backup
 > copies remain subject to the institution's deployed encrypted-backup expiry window.
 
-On 2026-08-09, a one-time local PostgreSQL 17 recovery rehearsal restored a role-only backup and a
+On 2026-08-09, a one-time local PostgreSQL 17 restore exercise restored a role-only backup and a
 custom-format database backup into a separate empty cluster. It preserved the migration ledger,
 roles, grants, forced RLS, tenant isolation, application writes, and broker-function execution. That
 proves a small logical database restore procedure; it does not deploy managed point-in-time recovery,
@@ -189,7 +194,7 @@ set an RPO/RTO, or prove object-store recovery.
 
 ## Evidence and verification
 
-On 2026-08-09, a one-time isolated PostgreSQL and MinIO reconstruction drove a populated permanent
+On 2026-08-09, a one-time isolated PostgreSQL and MinIO deletion exercise drove a populated permanent
 deletion request through the retention worker. The completed manifest matched the exact typed
 student-record object. The worker removed that object and the learner enrollment, run, attempt,
 submission, evaluation, score, feedback, receipt, delivery, access-log, audit, and course-analysis

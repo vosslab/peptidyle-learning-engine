@@ -4,6 +4,15 @@
 
 ### Fixes and Maintenance
 
+- Selected the live demo as PLE's single product and acceptance path and retired the unaccepted
+  `WP-PROF-T4` parallel execution sidecar before production. New current package `WP-PROF-LD3`
+  converges ordinary assignment mutation, learner delivery, deterministic server-owned grading,
+  immutable issued evidence and receipt replay, course grade control, and audited Instructor
+  inspection. Removed the sidecar domain, Store, server composition, routes, generated contracts,
+  dedicated tests, E2E hook, and migrations 1811, 1813, 1815, 1821, and 1822; recomposed the
+  surviving 1812, 1814, and 1816--1820/1823 authority chain around live course state. The active
+  source and migration inventories contain no retired execution references; focused Rust suites and
+  the fresh PostgreSQL assignment-authority oracle are green.
 - Restored whole-course grade-settings mutation after assignment writes moved behind their dedicated
   broker. PostgreSQL now performs the exact assignment-set validation and serialization inside the
   grade-control capability; the application adapter validates only the closed request shape. Hand-

@@ -22,9 +22,9 @@ Data created or modified while using the demo persists normally in the database 
 need to survive regeneration of the demo. Preserving the demo database and storage preserves the current live
 data.
 
-Preview and rehearsal begin from these ordinary live courses, assignments, published questions, and graders.
-The Instructor creates their execution evidence through the visible production workflow; the baseline does not
-substitute prebuilt rehearsal activity for that workflow.
+Preview resolves the current state of these ordinary live courses, assignments, published questions, and graders.
+Instructors validate delivery and automated grading through the visible production workflow. Student runs,
+submissions, grades, and instructor review are ordinary PLE records created by those workflows.
 
 ### WebWork catalog baseline
 
@@ -50,7 +50,8 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
 - Create assignments.
 - Create problems.
 - Add students to courses.
-- Preview and rehearse assignments through production delivery and automated grading.
+- Preview current assignment policy, then exercise delivery and automated grading through the normal Student
+  workflow.
 - Manage and review student activity and grades.
 
 Instructors do not add or approve other instructors. Instructor approval remains a Sysadmin function.
@@ -144,8 +145,9 @@ Regenerating the demo restores the Sysadmin account to its original seeded, uncl
 
 ## Demo lifecycle
 
-The live demo should not require a parallel demo implementation. Courses, assignments, problems, accounts,
-memberships, student work, grades, and other application state use the normal PLE data model.
+The live demo uses one implementation. Courses, assignments, problems, accounts, memberships, student work,
+grades, previews, and other application state use the normal PLE data model. Instructor validation of delivery
+uses the same learner-run, submission, deterministic-grading, receipt, and gradebook paths used by a live course.
 
 The distinction between a live demo and another PLE installation is primarily:
 

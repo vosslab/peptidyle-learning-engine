@@ -149,7 +149,6 @@ pub(super) async fn replace(
     previous: &AssignmentRecord,
     assignment: &AssignmentRecord,
     expected_revision: AssignmentRevision,
-    locked_rehearsal_count: i64,
 ) -> Result<StoredAssignment, StoreError> {
     let base_policy =
         super::course_policy::load_base_policy(tx, assignment.tenant, assignment.id).await?;
@@ -167,7 +166,7 @@ pub(super) async fn replace(
         .transpose()?;
     let row = sqlx::query(
         "SELECT revision, scoring_generation, scoring_status \
-         FROM ple_replace_assignment_definition_v1($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+         FROM ple_replace_assignment_definition_v1($1,$2,$3,$4,$5,$6,$7,$8)",
     )
     .bind(context.tenant_id().as_uuid())
     .bind(actor.as_uuid())
@@ -177,7 +176,6 @@ pub(super) async fn replace(
     .bind(payload)
     .bind(job.map(|value| value.as_uuid()))
     .bind(job.map(|_| RECALCULATION_MAX_ATTEMPTS))
-    .bind(locked_rehearsal_count)
     .fetch_one(&mut **tx)
     .await
     .map_err(map_sqlx_error)?;

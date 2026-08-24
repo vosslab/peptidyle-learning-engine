@@ -692,9 +692,6 @@ fn render(type_definition: &Generated) -> String {
 }
 
 #[cfg(test)]
-mod rehearsal_contract_tests;
-
-#[cfg(test)]
 mod tests {
     use super::*;
 

@@ -45,7 +45,7 @@ struct ChangingRegistry {
     calls: AtomicUsize,
 }
 
-/// Simulates a collaborator saving while an institutional public-review
+/// Arranges a collaborator saving while an institutional public-review
 /// workflow is in flight. The route must re-check the browser's original
 /// revision after this gate returns, before minting an identity.
 struct CollaboratorEditingReviewGate {

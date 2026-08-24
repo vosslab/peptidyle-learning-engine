@@ -614,6 +614,7 @@ where
             .remove_direct_instructor_membership(
                 context,
                 learning_data_access::RemoveDirectInstructorMembership {
+                    session: instructor_session,
                     actor: instructor,
                     course,
                     membership: accepted.membership,
@@ -675,6 +676,7 @@ where
                 .remove_direct_instructor_membership(
                     context,
                     learning_data_access::RemoveDirectInstructorMembership {
+                        session: instructor_session,
                         actor: instructor,
                         course,
                         membership: remaining.id,

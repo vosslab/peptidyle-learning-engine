@@ -306,7 +306,7 @@ async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay
             },
         )
         .await
-        .expect("simulate durable grade commit before process crash");
+        .expect("arrange durable grade commit before process crash");
     let pending_replay = app
         .clone()
         .oneshot(

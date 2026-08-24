@@ -418,7 +418,7 @@ def test_interrupted_wait_terminates_child_before_final_cleanup(tmp_path: pathli
 		session = local_stack_control.process.ProcessSession(8101, 1, "injected", "marker")
 
 		def wait() -> int:
-			"""Simulate interruption while the exact child is still running."""
+			"""Inject interruption while the exact child is still running."""
 			events.append("child-wait")
 			running["child"] = True
 			raise KeyboardInterrupt
@@ -474,7 +474,7 @@ def test_completed_wait_drains_descendants_before_return(tmp_path: pathlib.Path)
 	session = local_stack_control.process.ProcessSession(8102, 1, "injected", "marker")
 
 	def wait() -> int:
-		"""Simulate a successful direct child while its descendant remains live."""
+		"""Arrange a successful direct child while its descendant remains live."""
 		events.append("wait")
 		return 0
 

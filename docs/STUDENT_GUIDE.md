@@ -5,9 +5,9 @@ completion and fresh practice. The browser path uses visible controls and the pl
 model; it does not call a private API or inspect an answer key. Start the local system first with
 [USAGE.md](USAGE.md).
 
-All people and course records shown in these captures are simulated. The fixed labels
-`Dr. Fake Professor`, `Mary Fake Student`, and `Jack Fake Student` are intentionally unmistakable
-placeholders.
+All people and course records shown in these captures are fictional live-demo data. The seeded
+personas are ordinary PLE Instructor and Student records in the disposable baseline; regeneration
+discards them and recreates the same fictional baseline.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
@@ -26,8 +26,8 @@ placeholders.
 
 - Open the local stack's HTTPS URL and use the visible PLE account page.
 - Sign in with the canonical passwordless email path, or use an ordinary passkey after the account
-  has one. When the deployment enables it, the seeded persona selector enters the seeded learner
-  account through the same PLE account/session path.
+  has one. When the deployment enables it, the fictional live-demo persona selector enters the
+  seeded learner account through the same PLE account/session path.
 - If you are not using the seeded selector, ask the instructor to create an invitation and share its
   one-time copy link through the trusted course channel. Claim it after authenticating your PLE
   account, then open the course and assignment through their visible cards.

@@ -29,8 +29,9 @@ waits for an infrastructure-language or identity-provider choice.
 
 ## Scope
 
-WP-BOT-1 through WP-BOT-10, their OpenTofu owners, permanent policy tests, disposable deployment
-rehearsals, cost evidence, runbooks, and independent reviews are in scope for version 1.
+WP-BOT-1 through WP-BOT-10, their OpenTofu owners, permanent policy tests, the live production-stack
+journey, restore and bounded destroy exercises, controlled fault-injection checks, cost evidence,
+runbooks, and independent reviews are in scope for version 1.
 
 ## Background
 
@@ -167,7 +168,7 @@ No edge verified-bot or challenge result grants application authority.
 | M3 / WS-EDGE           | CDN, WAF, and rate policy           | Cache, verified crawler, risk challenge, and emergency rules      |
 | M3 / WS-BUDGET         | Spend and scaling guardrails        | Metrics, alarms, task ceilings, and operator actions              |
 | M4 / WS-TEST           | Permanent cross-boundary gates      | Cache/auth/origin/adversarial regression suite                    |
-| M4 / WS-REHEARSE       | Deployment acceptance and closure   | Synthetic crawler, legitimate login, cost report, and runbook     |
+| M4 / WS-OPERATE        | Deployment acceptance and closure   | Live production-stack journey, controlled fault injection, restore and bounded destroy exercises, cost report, and runbook |
 
 Durable ownership rules:
 
@@ -223,7 +224,7 @@ checkout. Billing remains outside scope and cannot weaken the same server author
   It must remain answer-free and secret-free. All catalog data, course data, source, grading,
   tenant records, signed asset delivery, and mutations remain server-authorized.
 - DNS cutover temporarily uses a TTL selected from the provider's observed propagation and the
-  rehearsed rollback window. After the deployment remains stable for that window, restore the normal
+  rollback exercise window. After the deployment remains stable for that window, restore the normal
   deployment TTL. These are recorded rollout values, not permanent unit-test constants. Rollback
   restores the previous distribution aliases and manifests; it never repoints `www` at the
   application origin.
@@ -268,8 +269,8 @@ File placement follows the existing repository roles: tracked landing source sta
 `pipeline/build_landing.mjs`, and generated output belongs under ignored `dist/landing/`. The existing
 root `build.sh` remains the single front door and adds landing generation after its client stage,
 because the current client builder recreates `dist/`. Browser coverage uses the existing
-`run_playwright_tests.sh` and belongs in `tests/playwright/`; cloud rehearsal scripts do not belong in
-the regular test runner.
+`run_playwright_tests.sh` and belongs in `tests/playwright/`; cloud live-stack operational scripts do
+not belong in the regular test runner.
 
 Every landing and app release writes a content-addressed manifest. Deployment changes only the
 selected manifest; it never overwrites a hashed object. Retain the active manifest and the last
@@ -333,7 +334,7 @@ injected values and do not freeze a tunable production number.
   implementation may not weaken either condition. The ALB listener
   owns verification; application handlers never receive or interpret it. Rotation may accept old and
   new values concurrently only until the new distribution is verified. The deployment records an
-  expiry derived from measured CloudFront propagation and the rehearsed rollback window; reaching it
+  expiry derived from measured CloudFront propagation and the rollback exercise window; reaching it
   triggers rollback instead of extending the overlap indefinitely. Permanent tests verify required
   expiry and rollback states with an injected clock, not a provider timing constant.
 - ECS target-group health checks call `/health` inside the deployment network. CloudFront has no
@@ -363,8 +364,8 @@ Use the local bot article as evidence, not a rule set to copy blindly. PLE's ini
 7. Keep an emergency challenge rule disabled by default. Enable it only when an anonymous surge and
    either API 5xx, API latency, task saturation, or database-connection alarms remain active for the
    configured confirmation window. Choose that window from measured alarm delay and normal
-   class-start variation. Recovery likewise uses a configured clear window supported by the
-   rehearsal, and every activation has a finite expiry. A named operator may renew it only with a
+   class-start variation. Recovery likewise uses a configured clear window supported by the incident
+   exercise, and every activation has a finite expiry. A named operator may renew it only with a
    recorded reason. These values are deployment tuning recorded with the evidence, not source or
    permanent-test constants.
 
@@ -451,7 +452,7 @@ later provider change is a DNS/deployment change, not a UI rewrite.
 | M1  | Measure and classify                    | Inventory anonymous routes and establish edge-to-origin cost evidence | Know which requests create cost before choosing controls       |
 | M2  | Split public and authenticated surfaces | Create the static landing and explicit `www`/`app` authority boundary | Make ordinary anonymous crawling origin-free                   |
 | M3  | Bound abuse cost                        | Add edge policy, origin shielding, scaling ceilings, and cost alarms  | Keep a traffic flood from becoming an unbounded bill or outage |
-| M4  | Prove and rehearse                      | Exercise bots and real-user paths, then freeze the runbook            | Demonstrate low bot cost without degrading student access      |
+| M4  | Prove live controls and exercises       | Run controlled load, incident, restore, rollback, and destroy exercises, then freeze the runbook | Demonstrate low bot cost without degrading student access |
 
 ### Milestone: M1 measure and classify
 
@@ -506,12 +507,12 @@ later provider change is a DNS/deployment change, not a UI rewrite.
 - Parallel-plan ready: no -- WP-BOT-8 binds alarms and ceilings to WP-BOT-7's final stable rule IDs
   and deployed action metrics; running them concurrently would require mid-flight coordination.
 
-### Milestone: M4 prove and rehearse
+### Milestone: M4 prove live controls and exercises
 
 - Depends on: WP-BOT-7 and WP-BOT-8 -- validation exercises the complete deployed boundary.
-- Deliverables: permanent contract tests, one-time load/cost report, accessibility review, and
-  operator rehearsal record.
-- Workstreams: WS-TEST and WS-REHEARSE.
+- Deliverables: permanent contract tests, one-time controlled load/cost report, accessibility review,
+  and operator incident-exercise record.
+- Workstreams: WS-TEST and WS-OPERATE.
 - Entry criteria: M3 exit criteria met.
 - Exit criteria:
   - Permanent gates pass in the maintained deployment suite.
@@ -519,7 +520,7 @@ later provider change is a DNS/deployment change, not a UI rewrite.
   - The emergency rule is enabled, observed, and disabled in a disposable environment.
   - `docs/CHANGELOG.md` and the M6 tracker record the result.
 - Parallel-plan ready: no -- WP-BOT-9 freezes permanent cross-boundary tests first; WP-BOT-10 then
-  runs the live rehearsal and closure review against that exact gate.
+  runs the live production-stack journey and closure review against that exact gate.
 
 ## Workstream breakdown
 
@@ -591,7 +592,8 @@ later provider change is a DNS/deployment change, not a UI rewrite.
 
 ### Workstream: WS-TEST permanent adversarial gates
 
-- Goal: make cache, auth, host, and cost regressions executable before deployment rehearsal.
+- Goal: make cache, auth, host, and cost regressions executable before the live production-stack
+  journey.
 - Owner: tester.
 - Work packages: WP-BOT-9.
 - Needs: every prior package.
@@ -599,13 +601,14 @@ later provider change is a DNS/deployment change, not a UI rewrite.
 - Review boundary, when modifying the repository: cross-boundary test ownership without production
   behavior changes.
 
-### Workstream: WS-REHEARSE deployment acceptance
+### Workstream: WS-OPERATE deployment acceptance
 
 - Goal: prove the deployed cost and legitimate-user outcomes and close the plan honestly.
 - Owner: integrator.
 - Work packages: WP-BOT-10.
 - Needs: WP-BOT-9 and every deployed component.
-- Provides: one-time cost report, operator rehearsal, independent review, and closure evidence.
+- Provides: one live production-stack journey, controlled fault injection, restore and bounded destroy
+  exercises, one-time cost report, independent review, and closure evidence.
 - Review boundary, when modifying the repository: deployed end-to-end behavior and documentation.
 
 ## Work packages
@@ -709,7 +712,7 @@ later provider change is a DNS/deployment change, not a UI rewrite.
     `/api/*` can reach only the ALB origin.
   - The cache table's behavior is encoded: methods, path classes, cache keys, cookie/query
     forwarding, revalidated HTML, immutable hashed assets, and `no-store` API responses. TTL values
-    remain deployment tuning informed by the rollback rehearsal.
+    remain deployment tuning informed by the rollback exercise.
   - Random cookies, authorization headers, query strings, `Host`, and `Accept-Encoding` variants
     cannot poison or fragment static cache keys beyond the declared compression variants.
   - Unknown `/api/*`, `/health`, `/.well-known/*`, file-extension, and non-GET/HEAD requests never
@@ -834,8 +837,9 @@ later provider change is a DNS/deployment change, not a UI rewrite.
     scale, alerts, and legitimate failures using the same corpus.
   - An independent security reviewer and operations reviewer report no P0/P1; every accepted P2 has
     an owner and dated follow-on.
-- Evidence or review: one fresh disposable deployment rehearsal, one-time cost report, emergency
-  enable/recover/expire rehearsal, and two independent reviews. These cloud checks are not invoked by
+- Evidence or review: one fresh live production-stack journey, controlled fault injection, restore and
+  bounded destroy exercises, one-time cost report, emergency enable/recover/expire incident exercise, and two
+  independent reviews. These cloud checks are not invoked by
   `pytest tests/`, the ordinary Node/Rust suites, or the local Playwright runner.
 - Next dependency: update M6 status and changelog, preserve the evidence artifact, then archive
   this plan with `git mv` only when every exit criterion passes.
@@ -914,8 +918,9 @@ a useful implementation probe does not become a permanent test merely because it
   its actual CSS breakpoints, measure contrast, and compare the result with the authenticated app.
   These measurements guide the implementation; they do not create byte, pixel, or timing goldens.
 - Exercise DNS/TLS, private origins, selected origin-authentication rotation, cache poisoning, drift
-  detection, destroy, static-manifest rollback, alarms, budget notifications, scale ceilings, and
-  emergency modes against one disposable cloud deployment.
+  detection, static-manifest rollback, alarms, budget notifications, scale ceilings, and emergency
+  modes against one disposable cloud deployment; include controlled fault injection, a restore
+  exercise, and a bounded destroy exercise.
 - Generate the crawler workload and repeat it until the normalized cost estimate is stable enough for
   the owner to choose policy. Compare the same workload before and after controls and reconcile every
   material cost category within the provider's billing resolution; do not impose an unsupported
@@ -923,7 +928,7 @@ a useful implementation probe does not become a permanent test merely because it
 - Review report-only challenge and rate outcomes for the versioned class-start/shared-egress
   scenario and available campus, residential, VPN/datacenter, international, IPv4/IPv6, keyboard,
   screen-reader, and reduced-motion paths. Real pilot traffic can strengthen this evidence but is
-  not required for code completion. Reuse the main M6 synthetic class-start rehearsal when it exists
+  not required for code completion. Reuse the main M6 controlled class-start load exercise when it exists
   instead of adding a duplicate permanent test.
 - Use temporary mutation probes during implementation to show that the important permanent tests
   fail when their boundary is removed. Delete the mutations and scratch harness before handoff.
@@ -939,7 +944,7 @@ a useful implementation probe does not become a permanent test merely because it
   under gitignored `generated/`. Store the concise one-time conclusions and command evidence in the
   owning `docs/active_plans/workstreams/` report, not the raw traffic capture.
 - Keep an operational helper in `devel/` only when maintainers will reuse it for drift, cost, or
-  incident rehearsal. Otherwise use a scratch file under `/tmp` and remove it after the recorded
+  incident exercise. Otherwise use a scratch file under `/tmp` and remove it after the recorded
   one-time check. Product code stays in its owning `src/` or Rust capability module.
 
 ## Risk register
@@ -983,7 +988,7 @@ a useful implementation probe does not become a permanent test merely because it
       signals and enable only rules that preserve every legitimate scenario.
 - [ ] Cut DNS with the prior distribution configuration and immutable manifests retained for one-
       action rollback.
-- [ ] Rehearse elevated and emergency modes in a disposable environment.
+- [ ] Run a controlled incident exercise for elevated and emergency modes in a disposable environment.
 - [ ] Run class-start and anonymous-burst scenarios together.
 - [ ] Inject every configured budget and forecast alarm and verify delivery to its named owner.
 - [ ] Record before/after `bot_cost_per_10k`, origin/dependency counts, false positives, exceptions,
@@ -1015,7 +1020,8 @@ a useful implementation probe does not become a permanent test merely because it
 - Patch 5: WP-BOT-7 versioned WAF/rate/emergency policy and measured network scenarios.
 - Patch 6: WP-BOT-8 cost ceilings, sample lifecycle, alarms, and budget notifications.
 - Patch 7: WP-BOT-9 permanent adversarial cross-boundary suite.
-- Patch 8: WP-BOT-10 live crawler/class-start rehearsal, cost report, reviews, tracker, and changelog.
+- Patch 8: WP-BOT-10 live production-stack journey and controlled crawler/class-start load exercise,
+  cost report, reviews, tracker, and changelog.
 
 Each patch report states: owned files, behavior changed, permanent tests, one-time checks, measured
 origin/cost effect, legitimate-user impact, rollback, and remaining dependency IDs.

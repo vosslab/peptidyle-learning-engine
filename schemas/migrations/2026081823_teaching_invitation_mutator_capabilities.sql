@@ -20,6 +20,8 @@ CREATE POLICY teaching_authority_invitation_insert
 GRANT SELECT, UPDATE (course_id) ON public.course TO ple_teaching_authority_broker;
 GRANT SELECT, UPDATE (course_membership_id) ON public.course_member
     TO ple_teaching_authority_broker;
+GRANT UPDATE (status, revoked_at) ON public.course_member
+    TO ple_teaching_authority_broker;
 GRANT SELECT, UPDATE (session_hash) ON public.auth_session TO ple_teaching_authority_broker;
 GRANT SELECT, INSERT,
     UPDATE (status, accepted_at, declined_at, revoked_at, accepted_membership_id, revision)
@@ -395,12 +397,146 @@ BEGIN
 END
 $$;
 
+-- Direct-instructor removal is a live course roster transition.  The broker
+-- derives the actor from its active session and locks the whole instructor
+-- set in membership-ID order before it counts and changes that set.  This
+-- gives concurrent removals one stable serial order and keeps a final active
+-- Instructor in the course.
+CREATE FUNCTION public.ple_remove_direct_instructor_membership_v1(
+    p_tenant uuid,
+    p_session character(64),
+    p_course uuid,
+    p_membership uuid,
+    p_expected_roster_revision bigint
+) RETURNS TABLE (
+    tenant_id uuid,
+    actor_id uuid,
+    course_id uuid,
+    course_membership_id uuid,
+    roster_revision bigint
+)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public', pg_temp
+AS $$
+#variable_conflict use_column
+DECLARE
+    v_actor uuid;
+    v_revision bigint;
+    v_instructor_count bigint;
+    v_target_user uuid;
+BEGIN
+    IF p_tenant IS NULL OR p_session IS NULL OR p_course IS NULL
+       OR p_membership IS NULL OR p_expected_roster_revision IS NULL
+       OR p_expected_roster_revision < 1
+       OR p_tenant IS DISTINCT FROM public.ple_current_tenant() THEN
+        RAISE EXCEPTION 'direct instructor removal arguments are invalid'
+            USING ERRCODE = '22023';
+    END IF;
+
+    PERFORM set_config('ple.session_hash', p_session, true);
+    SELECT session_row.user_id INTO v_actor
+      FROM public.auth_session AS session_row
+     WHERE session_row.session_hash = p_session
+       AND session_row.tenant_id = p_tenant
+       AND session_row.revoked_at IS NULL
+       AND session_row.expires_at > transaction_timestamp()
+     FOR UPDATE;
+    IF NOT FOUND THEN RETURN; END IF;
+
+    PERFORM 1 FROM public.course AS course_row
+     WHERE course_row.tenant_id = p_tenant AND course_row.course_id = p_course
+     FOR UPDATE;
+    IF NOT FOUND THEN RETURN; END IF;
+
+    SELECT roster.revision INTO v_revision
+      FROM public.course_roster_state AS roster
+     WHERE roster.tenant_id = p_tenant AND roster.course_id = p_course
+     FOR UPDATE;
+    IF NOT FOUND OR v_revision < 1 THEN
+        RAISE EXCEPTION 'course roster aggregate is invalid' USING ERRCODE = '55000';
+    END IF;
+    IF v_revision <> p_expected_roster_revision THEN
+        RAISE EXCEPTION 'course roster revision conflicts' USING ERRCODE = '55000';
+    END IF;
+
+    PERFORM 1
+      FROM public.course_member AS member
+     WHERE member.tenant_id = p_tenant
+       AND member.course_id = p_course
+       AND member.role = 'instructor'
+       AND member.status = 'active'
+     ORDER BY member.course_membership_id
+     FOR UPDATE;
+
+    PERFORM 1
+      FROM public.course_member AS member
+     WHERE member.tenant_id = p_tenant
+       AND member.course_id = p_course
+       AND member.user_id = v_actor
+       AND member.role = 'instructor'
+       AND member.status = 'active';
+    IF NOT FOUND THEN RETURN; END IF;
+
+    SELECT member.user_id INTO v_target_user
+      FROM public.course_member AS member
+     WHERE member.tenant_id = p_tenant
+       AND member.course_id = p_course
+       AND member.course_membership_id = p_membership
+       AND member.role = 'instructor'
+       AND member.status = 'active';
+    IF NOT FOUND THEN RETURN; END IF;
+
+    SELECT count(*) INTO v_instructor_count
+      FROM public.course_member AS member
+     WHERE member.tenant_id = p_tenant
+       AND member.course_id = p_course
+       AND member.role = 'instructor'
+       AND member.status = 'active';
+    IF v_instructor_count < 2 THEN
+        RAISE EXCEPTION 'the final active instructor cannot be removed'
+            USING ERRCODE = '55000';
+    END IF;
+
+    UPDATE public.course_member AS member
+       SET status = 'revoked', revoked_at = transaction_timestamp()
+     WHERE member.tenant_id = p_tenant
+       AND member.course_id = p_course
+       AND member.course_membership_id = p_membership
+       AND member.user_id = v_target_user
+       AND member.role = 'instructor'
+       AND member.status = 'active';
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'direct instructor membership transition is unavailable'
+            USING ERRCODE = '55000';
+    END IF;
+
+    UPDATE public.course_roster_state AS roster
+       SET revision = roster.revision + 1, updated_at = transaction_timestamp()
+     WHERE roster.tenant_id = p_tenant
+       AND roster.course_id = p_course
+       AND roster.revision = v_revision
+     RETURNING roster.revision INTO roster_revision;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'course roster revision is unavailable' USING ERRCODE = '55000';
+    END IF;
+
+    tenant_id := p_tenant;
+    actor_id := v_actor;
+    course_id := p_course;
+    course_membership_id := p_membership;
+    RETURN NEXT;
+END
+$$;
+
 ALTER FUNCTION public.ple_create_co_instructor_invitation_v1(uuid, character, uuid, uuid)
     OWNER TO ple_teaching_authority_broker;
 ALTER FUNCTION public.ple_revoke_co_instructor_invitation_v1(uuid, character, uuid, uuid, bigint)
     OWNER TO ple_teaching_authority_broker;
 ALTER FUNCTION public.ple_decline_co_instructor_invitation_v1(uuid, character, uuid, bigint)
     OWNER TO ple_teaching_authority_broker;
+ALTER FUNCTION public.ple_remove_direct_instructor_membership_v1(
+    uuid, character, uuid, uuid, bigint
+) OWNER TO ple_teaching_authority_broker;
 REVOKE ALL ON FUNCTION public.ple_create_co_instructor_invitation_v1(
     uuid, character, uuid, uuid
 ) FROM PUBLIC;
@@ -410,6 +546,9 @@ REVOKE ALL ON FUNCTION public.ple_revoke_co_instructor_invitation_v1(
 REVOKE ALL ON FUNCTION public.ple_decline_co_instructor_invitation_v1(
     uuid, character, uuid, bigint
 ) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.ple_remove_direct_instructor_membership_v1(
+    uuid, character, uuid, uuid, bigint
+) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.ple_create_co_instructor_invitation_v1(
     uuid, character, uuid, uuid
 ) TO ple_app;
@@ -418,6 +557,9 @@ GRANT EXECUTE ON FUNCTION public.ple_revoke_co_instructor_invitation_v1(
 ) TO ple_app;
 GRANT EXECUTE ON FUNCTION public.ple_decline_co_instructor_invitation_v1(
     uuid, character, uuid, bigint
+) TO ple_app;
+GRANT EXECUTE ON FUNCTION public.ple_remove_direct_instructor_membership_v1(
+    uuid, character, uuid, uuid, bigint
 ) TO ple_app;
 
 REVOKE INSERT, UPDATE, DELETE ON public.course_instructor_invitation FROM ple_app;
@@ -446,6 +588,10 @@ BEGIN
     ) OR NOT has_column_privilege(
         'ple_teaching_authority_broker', 'public.course_member', 'course_membership_id', 'UPDATE'
     ) OR NOT has_column_privilege(
+        'ple_teaching_authority_broker', 'public.course_member', 'status', 'UPDATE'
+    ) OR NOT has_column_privilege(
+        'ple_teaching_authority_broker', 'public.course_member', 'revoked_at', 'UPDATE'
+    ) OR NOT has_column_privilege(
         'ple_teaching_authority_broker', 'public.auth_session', 'session_hash', 'UPDATE'
     ) OR NOT has_sequence_privilege(
         'ple_teaching_authority_broker',
@@ -461,6 +607,14 @@ BEGIN
     ) OR has_function_privilege(
         'public',
         'public.ple_decline_co_instructor_invitation_v1(uuid,character,uuid,bigint)'::regprocedure,
+        'EXECUTE'
+    ) OR has_function_privilege(
+        'public',
+        'public.ple_remove_direct_instructor_membership_v1(uuid,character,uuid,uuid,bigint)'::regprocedure,
+        'EXECUTE'
+    ) OR NOT has_function_privilege(
+        'ple_app',
+        'public.ple_remove_direct_instructor_membership_v1(uuid,character,uuid,uuid,bigint)'::regprocedure,
         'EXECUTE'
     ) THEN
         RAISE EXCEPTION 'teaching invitation mutator authority catalog is unsafe';

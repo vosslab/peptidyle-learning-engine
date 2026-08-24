@@ -80,7 +80,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "object" {
 }
 
 # The public bucket has Object Lock enabled at creation so a future retention requirement can be
-# applied per object. There is intentionally no default legal retention: a disposable rehearsal
+# applied per object. There is intentionally no default legal retention: a disposable deployment
 # must be destroyable. The active append-only guarantee is the immutable-tag bucket policy below;
 # production operators may add a reviewed retention rule only after accepting its recovery impact.
 

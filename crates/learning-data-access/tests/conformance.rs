@@ -77,8 +77,6 @@ mod preview_plane_memory;
 mod qti;
 #[path = "conformance/qti_ingress.rs"]
 mod qti_ingress;
-#[path = "conformance/rehearsal_memory.rs"]
-mod rehearsal_memory;
 #[path = "conformance/sessions.rs"]
 mod sessions;
 

@@ -34,10 +34,10 @@ that implement it.
 
 These are real-stack captures from the accepted teaching workflow. See
 the dedicated [instructor guide](docs/INSTRUCTOR_GUIDE.md) and
-[student guide](docs/STUDENT_GUIDE.md) for the complete visible workflow. It demonstrates the local
-pilot rather than a production deployment; every displayed person and course record is simulated.
-The fixed labels `Dr. Fake Professor`, `Mary Fake Student`, and `Jack Fake Student` make that status
-explicit in screenshots.
+[student guide](docs/STUDENT_GUIDE.md) for the complete visible workflow. It demonstrates a
+disposable live demo rather than a production deployment; every displayed person and course record
+is fictional seeded data. The fixed labels `Dr. Fake Professor`, `Mary Fake Student`, and
+`Jack Fake Student` make that status explicit in screenshots.
 
 ## Why this project
 
@@ -282,7 +282,7 @@ Start with a local run and the system map:
   [docs/STUDENT_GUIDE.md](docs/STUDENT_GUIDE.md) - role-focused course setup, assignment practice,
   scoring, and repeat-workflow guides with real-stack screenshots.
 - [docs/INSTRUCTOR_PAGE_VISUALS.md](docs/INSTRUCTOR_PAGE_VISUALS.md) - the current 1280 by 800
-  simulated-data overview of every instructor work page.
+  fictional seeded-data overview of every instructor work page.
 - [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) - system shape, crate ownership, storage,
   API, browser, and security boundaries.
 - [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) - repository map and the owner of each major

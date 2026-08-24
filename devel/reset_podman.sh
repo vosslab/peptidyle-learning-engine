@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reset the ordinary local Podman demo to newly created simulated data volumes.
+# Reset the ordinary local Podman live demo to newly created disposable data volumes.
 #
 # This wrapper deliberately delegates ownership checks, Compose selection, and
 # host-record cleanup to local_stack.py. Running it without --dry-run deletes:
@@ -74,5 +74,5 @@ fi
 
 printf '%s\n' \
 	'Resetting the fixed local Podman project "containers".' \
-	'This deletes its three simulated named volumes and generated Chapter One pilot record.'
+	'This deletes its three disposable named volumes and generated fictional Chapter One pilot record.'
 exec python3 "$repo_root/local_stack.py" reset --confirm-project containers

@@ -13,6 +13,10 @@ claim automatic failover, a recovery objective, managed point-in-time recovery, 
 availability. Those require the release evidence in
 [release_completion_plan.md](active_plans/active/release_completion_plan.md).
 
+The canonical live-demo browser path uses these same ordinary application contracts. Its seeded
+people and records are fictional live data, and regeneration is a disposable reset; it is not a
+second recovery or product path.
+
 ## Authority status
 
 **Current authority.** Route-safe error projection, attempt-scoped submission
@@ -225,9 +229,13 @@ and [DATABASE_TENANCY.md](DATABASE_TENANCY.md).
   migration ledger, logical data, roles/grants/RLS, application writes, and broker calls, then
   retain the old volume until recovery is accepted. See
   [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
-- A local logical restore rehearsal is evidence for local recovery only. Managed point-in-time
+- A local logical restore exercise is evidence for local recovery only. Managed point-in-time
   recovery, backup retention, KMS, numerical recovery objectives, and production failover remain
   WP-RC10 deployment work.
+
+Any connected validation of backup, restore, deletion, migration, or fault behavior is a dated
+disposable exercise, recovery drill, or controlled fault injection against fictional live-demo
+data. Such exercises do not claim that the corresponding production operation is deployed.
 
 ## Diagnostic minimization
 

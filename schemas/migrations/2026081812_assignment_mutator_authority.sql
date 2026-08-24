@@ -1,4 +1,4 @@
--- WP-PROF-T4: assignment definition mutations are a single durable authority.
+-- Live course assignment mutations are a single durable authority.
 -- ASVS 1.2.4, 2.2.1, 2.3.3, 8.2.1, and 8.4.1: parameterized capabilities,
 -- closed input shapes, atomic revision transitions, and tenant-bound authority.
 
@@ -174,10 +174,6 @@ BEGIN
 END
 $$;
 
-ALTER FUNCTION public.ple_invalidate_rehearsals_for_assignment(uuid, uuid, uuid, uuid, bigint, bigint)
-    RENAME TO ple_invalidate_rehearsals_for_assignment_legacy_actor;
-REVOKE ALL ON FUNCTION public.ple_invalidate_rehearsals_for_assignment_legacy_actor(uuid, uuid, uuid, uuid, bigint, bigint) FROM PUBLIC, ple_app;
-
 CREATE FUNCTION public.ple_assignment_mutator_require_editor(
     p_tenant uuid, p_actor uuid, p_course uuid, p_assignment uuid, p_expected_revision bigint
 ) RETURNS bigint
@@ -207,52 +203,20 @@ BEGIN
 END
 $$;
 
--- This broker-only primitive locks exactly the source-scoped active run rows
--- and returns opaque identifiers, never protected subjects or evidence.  Its
--- transaction-scoped locks remain held while the Store hydrates and verifies.
-CREATE FUNCTION public.ple_lock_active_rehearsal_source_internal(
-    p_tenant uuid,p_course uuid,p_assignment uuid,p_membership uuid
-) RETURNS TABLE(locked_rehearsal_count bigint,locked_rehearsal_run_ids uuid[])
-LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
-DECLARE identifiers uuid[];
-BEGIN
-    IF p_tenant IS NULL OR p_tenant IS DISTINCT FROM public.ple_current_tenant()
-       OR ((p_course IS NOT NULL)::integer + (p_assignment IS NOT NULL)::integer
-           + (p_membership IS NOT NULL)::integer) <> 1 THEN
-        RAISE EXCEPTION 'invalid active rehearsal source lock' USING ERRCODE='22023';
-    END IF;
-    PERFORM 1 FROM public.rehearsal_run WHERE tenant_id=p_tenant AND lifecycle='active'
-      AND ((p_course IS NOT NULL AND course_id=p_course)
-        OR (p_assignment IS NOT NULL AND assignment_id=p_assignment)
-        OR (p_membership IS NOT NULL AND direct_instructor_membership_id=p_membership))
-      ORDER BY rehearsal_run_id FOR UPDATE;
-    SELECT COALESCE(array_agg(rehearsal_run_id ORDER BY rehearsal_run_id),ARRAY[]::uuid[])
-      INTO identifiers FROM public.rehearsal_run WHERE tenant_id=p_tenant AND lifecycle='active'
-       AND ((p_course IS NOT NULL AND course_id=p_course)
-         OR (p_assignment IS NOT NULL AND assignment_id=p_assignment)
-         OR (p_membership IS NOT NULL AND direct_instructor_membership_id=p_membership));
-    RETURN QUERY SELECT cardinality(identifiers)::bigint,identifiers;
-END
-$$;
-
--- Replace the unaccepted scalar prepare surface.  This execute-only app
--- capability returns a source revision plus the broker-locked opaque run list.
-DROP FUNCTION IF EXISTS public.ple_prepare_assignment_rehearsal_verification(uuid,uuid,uuid,uuid,bigint);
-CREATE FUNCTION public.ple_prepare_assignment_rehearsal_verification(
+-- This execute-only capability establishes the authoritative assignment
+-- revision before a live course mutation.  Learner attempt work is prepared
+-- separately after the revision changes, keeping mutation and delivery state
+-- in their ordinary product aggregates.
+CREATE FUNCTION public.ple_prepare_assignment_mutation(
     p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint
-) RETURNS TABLE(assignment_revision bigint,locked_rehearsal_count bigint,locked_rehearsal_run_ids uuid[])
+) RETURNS TABLE(assignment_revision bigint)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
-DECLARE revision_value bigint; membership_value uuid; count_value bigint; identifiers uuid[];
+DECLARE revision_value bigint;
 BEGIN
     revision_value := public.ple_assignment_mutator_require_editor(
         p_tenant,p_actor,p_course,p_assignment,p_expected_revision);
-    SELECT course_membership_id INTO membership_value FROM public.course_member
-     WHERE tenant_id=p_tenant AND course_id=p_course AND user_id=p_actor
-       AND role='instructor' AND status='active' ORDER BY course_membership_id LIMIT 1;
-    SELECT helper.locked_rehearsal_count,helper.locked_rehearsal_run_ids INTO count_value,identifiers
-      FROM public.ple_lock_active_rehearsal_source_internal(p_tenant,NULL,p_assignment,NULL) helper;
-    RETURN QUERY SELECT revision_value,count_value,identifiers;
+    RETURN QUERY SELECT revision_value;
 END
 $$;
 
@@ -329,58 +293,8 @@ EXCEPTION WHEN numeric_value_out_of_range OR datetime_field_overflow THEN
 END
 $$;
 
-CREATE FUNCTION public.ple_invalidate_rehearsals_for_assignment_internal(
-    p_tenant uuid, p_course uuid, p_assignment uuid, p_old_revision bigint, p_new_revision bigint,
-    p_locked_rehearsal_count bigint
-) RETURNS bigint
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'pg_catalog', 'public', pg_temp
-    AS $$
-DECLARE changed bigint;
-BEGIN
-    IF p_tenant IS NULL OR p_course IS NULL OR p_assignment IS NULL OR p_old_revision <= 0
-       OR p_new_revision <> p_old_revision + 1
-       OR p_locked_rehearsal_count IS NULL OR p_locked_rehearsal_count < 0
-       OR p_tenant IS DISTINCT FROM public.ple_current_tenant() THEN
-        RAISE EXCEPTION 'invalid internal rehearsal revision invalidation' USING ERRCODE = '22023';
-    END IF;
-    PERFORM 1 FROM public.assignment WHERE tenant_id = p_tenant AND course_id = p_course
-       AND assignment_id = p_assignment AND revision = p_new_revision FOR UPDATE;
-    IF NOT FOUND THEN RAISE EXCEPTION 'assignment revision transition is unavailable' USING ERRCODE = '55000'; END IF;
-    PERFORM 1 FROM public.rehearsal_run WHERE tenant_id = p_tenant AND assignment_id = p_assignment
-       AND assignment_revision = p_old_revision AND lifecycle = 'active' ORDER BY rehearsal_run_id FOR UPDATE;
-    INSERT INTO public.rehearsal_submission_claim_event
-        (tenant_id, rehearsal_run_id, claim_id, sequence, operation_id, generation, phase)
-    SELECT root.tenant_id, root.rehearsal_run_id, root.claim_id, latest.sequence + 1,
-           latest.operation_id, latest.generation, 'revokedStaleRevision'
-      FROM public.rehearsal_submission_claim_root root
-      JOIN public.rehearsal_run run ON run.tenant_id = root.tenant_id
-       AND run.rehearsal_run_id = root.rehearsal_run_id
-      CROSS JOIN LATERAL (SELECT event.sequence, event.operation_id, event.generation
-        FROM public.rehearsal_submission_claim_event event
-       WHERE event.tenant_id = root.tenant_id AND event.rehearsal_run_id = root.rehearsal_run_id
-         AND event.claim_id = root.claim_id ORDER BY event.sequence DESC LIMIT 1) latest
-     WHERE root.tenant_id = p_tenant AND run.assignment_id = p_assignment
-       AND run.assignment_revision = p_old_revision AND run.lifecycle = 'active'
-       AND EXISTS (SELECT 1 FROM public.rehearsal_submission_claim_event event
-        WHERE event.tenant_id = root.tenant_id AND event.rehearsal_run_id = root.rehearsal_run_id
-          AND event.claim_id = root.claim_id AND event.sequence = latest.sequence
-          AND event.phase IN ('prepared', 'gradingDispatched'));
-    UPDATE public.rehearsal_run SET lifecycle = 'discardedStaleRevision',
-        terminal_at = public.ple_rehearsal_now(), updated_at = public.ple_rehearsal_now()
-     WHERE tenant_id = p_tenant AND assignment_id = p_assignment
-       AND assignment_revision = p_old_revision AND lifecycle = 'active';
-    GET DIAGNOSTICS changed = ROW_COUNT;
-    IF changed <> p_locked_rehearsal_count THEN
-        RAISE EXCEPTION 'verified rehearsal count changed during assignment mutation' USING ERRCODE='55000';
-    END IF;
-    RETURN changed;
-END
-$$;
-
 CREATE FUNCTION public.ple_apply_verified_assignment_definition_revision(
-    p_tenant uuid, p_course uuid, p_assignment uuid, p_expected_revision bigint,
-    p_locked_rehearsal_count bigint
+    p_tenant uuid, p_course uuid, p_assignment uuid, p_expected_revision bigint
 ) RETURNS TABLE(old_revision bigint, new_revision bigint)
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'pg_catalog', 'public', pg_temp
@@ -388,7 +302,6 @@ CREATE FUNCTION public.ple_apply_verified_assignment_definition_revision(
 DECLARE actual bigint;
 BEGIN
     IF p_tenant IS NULL OR p_course IS NULL OR p_assignment IS NULL OR p_expected_revision <= 0
-       OR p_locked_rehearsal_count IS NULL OR p_locked_rehearsal_count < 0
        OR p_tenant IS DISTINCT FROM public.ple_current_tenant() THEN
         RAISE EXCEPTION 'invalid assignment revision transition' USING ERRCODE = '22023';
     END IF;
@@ -400,23 +313,20 @@ BEGIN
     UPDATE public.assignment SET revision = revision + 1, updated_at = transaction_timestamp()
      WHERE tenant_id = p_tenant AND assignment_id = p_assignment AND revision = actual;
     IF NOT FOUND THEN RAISE EXCEPTION 'assignment revision compare-and-swap failed' USING ERRCODE = '55000'; END IF;
-    PERFORM public.ple_invalidate_rehearsals_for_assignment_internal(
-        p_tenant, p_course, p_assignment, actual, actual + 1, p_locked_rehearsal_count);
     old_revision := actual; new_revision := actual + 1; RETURN NEXT;
 END
 $$;
 
 CREATE FUNCTION public.ple_assignment_mutator_finish(
-    p_tenant uuid, p_course uuid, p_assignment uuid, p_expected_revision bigint,
-    p_locked_rehearsal_count bigint
+    p_tenant uuid, p_course uuid, p_assignment uuid, p_expected_revision bigint
 ) RETURNS bigint LANGUAGE sql SECURITY DEFINER
 SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
-SELECT new_revision FROM public.ple_apply_verified_assignment_definition_revision($1, $2, $3, $4, $5)
+SELECT new_revision FROM public.ple_apply_verified_assignment_definition_revision($1, $2, $3, $4)
 $$;
 
 CREATE FUNCTION public.ple_replace_assignment_fixed_item(
     p_tenant uuid, p_actor uuid, p_course uuid, p_assignment uuid, p_expected_revision bigint,
-    p_current_item uuid, p_problem uuid, p_version uuid,p_locked_rehearsal_count bigint
+    p_current_item uuid, p_problem uuid, p_version uuid
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
 DECLARE lifecycle text;
@@ -433,14 +343,14 @@ BEGIN
     UPDATE public.assignment_item SET problem_id=p_problem, version_id=p_version, revision=revision+1,
        updated_at=transaction_timestamp() WHERE tenant_id=p_tenant AND assignment_item_id=p_current_item;
     PERFORM set_config('ple.assignment_edit_kind','',true);
-    RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision,p_locked_rehearsal_count);
+    RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision);
 END
 $$;
 
 CREATE FUNCTION public.ple_add_assignment_fixed_item(
     p_tenant uuid, p_actor uuid, p_course uuid, p_assignment uuid, p_expected_revision bigint,
     p_item uuid, p_position integer, p_problem uuid, p_version uuid, p_points numeric,
-    p_delivery_state text, p_scoring_mode text,p_locked_rehearsal_count bigint
+    p_delivery_state text, p_scoring_mode text
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
 DECLARE lifecycle text; entry record;
@@ -463,12 +373,12 @@ BEGIN
     END LOOP;
     INSERT INTO public.assignment_item (tenant_id,assignment_id,assignment_item_id,position,problem_id,version_id,points_possible,delivery_state,scoring_mode)
     VALUES(p_tenant,p_assignment,p_item,p_position,p_problem,p_version,p_points,p_delivery_state,p_scoring_mode);
-    RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision,p_locked_rehearsal_count);
+    RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision);
 END
 $$;
 
 CREATE FUNCTION public.ple_remove_assignment_fixed_item(
-    p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_item uuid,p_locked_rehearsal_count bigint
+    p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_item uuid
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
 DECLARE removed integer; entry record;
@@ -483,7 +393,7 @@ BEGIN
         IF entry.entry_kind='item' THEN UPDATE public.assignment_item SET position=position-1,revision=revision+1,updated_at=transaction_timestamp() WHERE tenant_id=p_tenant AND assignment_item_id=entry.entry_id;
         ELSE UPDATE public.assignment_selection_group SET position=position-1,revision=revision+1,updated_at=transaction_timestamp() WHERE tenant_id=p_tenant AND selection_group_id=entry.entry_id; END IF;
     END LOOP;
-    RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision,p_locked_rehearsal_count);
+    RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision);
 END
 $$;
 
@@ -491,7 +401,7 @@ $$;
 -- Rust command codec. ASVS 1.5.2, 2.2.1, 2.2.3, and 2.3.3: validate each
 -- nested value and its combined schedule before a single mutation begins.
 CREATE FUNCTION public.ple_put_assignment_teaching_settings(
-    p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_settings jsonb,p_locked_rehearsal_count bigint
+    p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_settings jsonb
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
 DECLARE policy jsonb; current_lifecycle text; next_lifecycle text; instructions_value text;
@@ -576,12 +486,12 @@ BEGIN
         late_submission_policy=EXCLUDED.late_submission_policy,deadline_behavior=EXCLUDED.deadline_behavior,
         time_limit_seconds=EXCLUDED.time_limit_seconds,attempt_limit=EXCLUDED.attempt_limit,
         updated_at=transaction_timestamp();
-    RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision,p_locked_rehearsal_count);
+    RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision);
 END
 $$;
 
 CREATE FUNCTION public.ple_replace_assignment_definition(
-    p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_definition jsonb,p_base_policy jsonb,p_locked_rehearsal_count bigint
+    p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_definition jsonb,p_base_policy jsonb
 ) RETURNS TABLE(revision bigint,scoring_generation bigint,scoring_status text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
 BEGIN
@@ -590,7 +500,7 @@ BEGIN
     PERFORM public.ple_assignment_mutator_closed_object(p_base_policy,ARRAY['availableAt','dueAt','closesAt','lateSubmissionPolicy','deadlineBehavior','timeLimitSeconds','attemptLimit'],65536);
     UPDATE public.assignment SET title=COALESCE(p_definition->>'title',title),instructions=COALESCE(p_definition->>'instructions',instructions),lifecycle=COALESCE(p_definition->>'lifecycle',lifecycle),updated_at=transaction_timestamp() WHERE tenant_id=p_tenant AND assignment_id=p_assignment;
     UPDATE public.assignment_effective_policy_base SET available_at=CASE WHEN p_base_policy ? 'availableAt' THEN to_timestamp((p_base_policy->>'availableAt')::double precision/1000) ELSE available_at END,due_at=CASE WHEN p_base_policy ? 'dueAt' THEN to_timestamp((p_base_policy->>'dueAt')::double precision/1000) ELSE due_at END,closes_at=CASE WHEN p_base_policy ? 'closesAt' THEN to_timestamp((p_base_policy->>'closesAt')::double precision/1000) ELSE closes_at END,late_submission_policy=COALESCE(p_base_policy->>'lateSubmissionPolicy',late_submission_policy),deadline_behavior=COALESCE(p_base_policy->>'deadlineBehavior',deadline_behavior),time_limit_seconds=CASE WHEN p_base_policy ? 'timeLimitSeconds' THEN (p_base_policy->>'timeLimitSeconds')::integer ELSE time_limit_seconds END,attempt_limit=CASE WHEN p_base_policy ? 'attemptLimit' THEN (p_base_policy->>'attemptLimit')::integer ELSE attempt_limit END,updated_at=transaction_timestamp() WHERE tenant_id=p_tenant AND assignment_id=p_assignment;
-    revision:=public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision,p_locked_rehearsal_count);
+    revision:=public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision);
     SELECT assignment_row.scoring_generation,assignment_row.scoring_status
       INTO scoring_generation,scoring_status
       FROM public.assignment AS assignment_row
@@ -599,81 +509,70 @@ BEGIN
 END
 $$;
 
-CREATE FUNCTION public.ple_put_assignment_group_schedule_offset(p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_group uuid,p_seconds integer,p_locked_rehearsal_count bigint) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
-BEGIN PERFORM public.ple_assignment_mutator_require_editor(p_tenant,p_actor,p_course,p_assignment,p_expected_revision); IF p_group IS NULL OR p_seconds NOT BETWEEN -31536000 AND 31536000 OR p_seconds=0 THEN RAISE EXCEPTION 'invalid schedule offset' USING ERRCODE='22023'; END IF; INSERT INTO public.assignment_group_schedule_offset(tenant_id,assignment_id,course_id,course_group_id,schedule_offset_seconds) VALUES(p_tenant,p_assignment,p_course,p_group,p_seconds) ON CONFLICT(tenant_id,assignment_id,course_group_id) DO UPDATE SET schedule_offset_seconds=EXCLUDED.schedule_offset_seconds,updated_at=transaction_timestamp(); RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision,p_locked_rehearsal_count); END $$;
-CREATE FUNCTION public.ple_delete_assignment_group_schedule_offset(p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_group uuid,p_locked_rehearsal_count bigint) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
-BEGIN PERFORM public.ple_assignment_mutator_require_editor(p_tenant,p_actor,p_course,p_assignment,p_expected_revision); DELETE FROM public.assignment_group_schedule_offset WHERE tenant_id=p_tenant AND assignment_id=p_assignment AND course_group_id=p_group; IF NOT FOUND THEN RAISE EXCEPTION 'schedule offset is unavailable' USING ERRCODE='42501'; END IF; RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision,p_locked_rehearsal_count); END $$;
+CREATE FUNCTION public.ple_put_assignment_group_schedule_offset(p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_group uuid,p_seconds integer) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
+BEGIN PERFORM public.ple_assignment_mutator_require_editor(p_tenant,p_actor,p_course,p_assignment,p_expected_revision); IF p_group IS NULL OR p_seconds NOT BETWEEN -31536000 AND 31536000 OR p_seconds=0 THEN RAISE EXCEPTION 'invalid schedule offset' USING ERRCODE='22023'; END IF; INSERT INTO public.assignment_group_schedule_offset(tenant_id,assignment_id,course_id,course_group_id,schedule_offset_seconds) VALUES(p_tenant,p_assignment,p_course,p_group,p_seconds) ON CONFLICT(tenant_id,assignment_id,course_group_id) DO UPDATE SET schedule_offset_seconds=EXCLUDED.schedule_offset_seconds,updated_at=transaction_timestamp(); RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision); END $$;
+CREATE FUNCTION public.ple_delete_assignment_group_schedule_offset(p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_group uuid) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
+BEGIN PERFORM public.ple_assignment_mutator_require_editor(p_tenant,p_actor,p_course,p_assignment,p_expected_revision); DELETE FROM public.assignment_group_schedule_offset WHERE tenant_id=p_tenant AND assignment_id=p_assignment AND course_group_id=p_group; IF NOT FOUND THEN RAISE EXCEPTION 'schedule offset is unavailable' USING ERRCODE='42501'; END IF; RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision); END $$;
 
 -- Accommodation payloads use the same closed patch encoding as the Rust
 -- command codec.  The table constraints remain the final relational guard.
-CREATE FUNCTION public.ple_put_assignment_group_accommodation(p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_group uuid,p_settings jsonb,p_locked_rehearsal_count bigint) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
-BEGIN PERFORM public.ple_assignment_mutator_require_editor(p_tenant,p_actor,p_course,p_assignment,p_expected_revision); IF p_group IS NULL THEN RAISE EXCEPTION 'invalid accommodation group' USING ERRCODE='22023'; END IF; PERFORM public.ple_assignment_mutator_closed_object(p_settings,ARRAY['overrideKind','availableMode','availableAt','dueMode','dueAt','closesMode','closesAt','timeLimitMode','timeLimitSeconds','attemptLimitMode','attemptLimit'],65536); INSERT INTO public.assignment_group_accommodation(tenant_id,assignment_id,course_id,course_group_id,override_kind,available_mode,available_at,due_mode,due_at,closes_mode,closes_at,time_limit_mode,time_limit_seconds,attempt_limit_mode,attempt_limit) VALUES(p_tenant,p_assignment,p_course,p_group,p_settings->>'overrideKind',p_settings->>'availableMode',CASE WHEN p_settings ? 'availableAt' THEN to_timestamp((p_settings->>'availableAt')::double precision/1000) END,p_settings->>'dueMode',CASE WHEN p_settings ? 'dueAt' THEN to_timestamp((p_settings->>'dueAt')::double precision/1000) END,p_settings->>'closesMode',CASE WHEN p_settings ? 'closesAt' THEN to_timestamp((p_settings->>'closesAt')::double precision/1000) END,p_settings->>'timeLimitMode',CASE WHEN p_settings ? 'timeLimitSeconds' THEN (p_settings->>'timeLimitSeconds')::integer END,p_settings->>'attemptLimitMode',CASE WHEN p_settings ? 'attemptLimit' THEN (p_settings->>'attemptLimit')::integer END) ON CONFLICT(tenant_id,assignment_id,course_group_id) DO UPDATE SET override_kind=EXCLUDED.override_kind,available_mode=EXCLUDED.available_mode,available_at=EXCLUDED.available_at,due_mode=EXCLUDED.due_mode,due_at=EXCLUDED.due_at,closes_mode=EXCLUDED.closes_mode,closes_at=EXCLUDED.closes_at,time_limit_mode=EXCLUDED.time_limit_mode,time_limit_seconds=EXCLUDED.time_limit_seconds,attempt_limit_mode=EXCLUDED.attempt_limit_mode,attempt_limit=EXCLUDED.attempt_limit,updated_at=transaction_timestamp(); RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision,p_locked_rehearsal_count); END $$;
-CREATE FUNCTION public.ple_delete_assignment_group_accommodation(p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_group uuid,p_locked_rehearsal_count bigint) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
-BEGIN PERFORM public.ple_assignment_mutator_require_editor(p_tenant,p_actor,p_course,p_assignment,p_expected_revision); DELETE FROM public.assignment_group_accommodation WHERE tenant_id=p_tenant AND assignment_id=p_assignment AND course_group_id=p_group; IF NOT FOUND THEN RAISE EXCEPTION 'accommodation is unavailable' USING ERRCODE='42501'; END IF; RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision,p_locked_rehearsal_count); END $$;
+CREATE FUNCTION public.ple_put_assignment_group_accommodation(p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_group uuid,p_settings jsonb) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
+BEGIN PERFORM public.ple_assignment_mutator_require_editor(p_tenant,p_actor,p_course,p_assignment,p_expected_revision); IF p_group IS NULL THEN RAISE EXCEPTION 'invalid accommodation group' USING ERRCODE='22023'; END IF; PERFORM public.ple_assignment_mutator_closed_object(p_settings,ARRAY['overrideKind','availableMode','availableAt','dueMode','dueAt','closesMode','closesAt','timeLimitMode','timeLimitSeconds','attemptLimitMode','attemptLimit'],65536); INSERT INTO public.assignment_group_accommodation(tenant_id,assignment_id,course_id,course_group_id,override_kind,available_mode,available_at,due_mode,due_at,closes_mode,closes_at,time_limit_mode,time_limit_seconds,attempt_limit_mode,attempt_limit) VALUES(p_tenant,p_assignment,p_course,p_group,p_settings->>'overrideKind',p_settings->>'availableMode',CASE WHEN p_settings ? 'availableAt' THEN to_timestamp((p_settings->>'availableAt')::double precision/1000) END,p_settings->>'dueMode',CASE WHEN p_settings ? 'dueAt' THEN to_timestamp((p_settings->>'dueAt')::double precision/1000) END,p_settings->>'closesMode',CASE WHEN p_settings ? 'closesAt' THEN to_timestamp((p_settings->>'closesAt')::double precision/1000) END,p_settings->>'timeLimitMode',CASE WHEN p_settings ? 'timeLimitSeconds' THEN (p_settings->>'timeLimitSeconds')::integer END,p_settings->>'attemptLimitMode',CASE WHEN p_settings ? 'attemptLimit' THEN (p_settings->>'attemptLimit')::integer END) ON CONFLICT(tenant_id,assignment_id,course_group_id) DO UPDATE SET override_kind=EXCLUDED.override_kind,available_mode=EXCLUDED.available_mode,available_at=EXCLUDED.available_at,due_mode=EXCLUDED.due_mode,due_at=EXCLUDED.due_at,closes_mode=EXCLUDED.closes_mode,closes_at=EXCLUDED.closes_at,time_limit_mode=EXCLUDED.time_limit_mode,time_limit_seconds=EXCLUDED.time_limit_seconds,attempt_limit_mode=EXCLUDED.attempt_limit_mode,attempt_limit=EXCLUDED.attempt_limit,updated_at=transaction_timestamp(); RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision); END $$;
+CREATE FUNCTION public.ple_delete_assignment_group_accommodation(p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_group uuid) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
+BEGIN PERFORM public.ple_assignment_mutator_require_editor(p_tenant,p_actor,p_course,p_assignment,p_expected_revision); DELETE FROM public.assignment_group_accommodation WHERE tenant_id=p_tenant AND assignment_id=p_assignment AND course_group_id=p_group; IF NOT FOUND THEN RAISE EXCEPTION 'accommodation is unavailable' USING ERRCODE='42501'; END IF; RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision); END $$;
 
-CREATE FUNCTION public.ple_put_assignment_individual_exception(p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_exception uuid,p_student uuid,p_settings jsonb,p_locked_rehearsal_count bigint) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
-BEGIN PERFORM public.ple_assignment_mutator_require_editor(p_tenant,p_actor,p_course,p_assignment,p_expected_revision); IF p_exception IS NULL OR p_student IS NULL THEN RAISE EXCEPTION 'invalid individual exception' USING ERRCODE='22023'; END IF; PERFORM public.ple_assignment_mutator_closed_object(p_settings,ARRAY['overrideKind','availableMode','availableAt','dueMode','dueAt','closesMode','closesAt','timeLimitMode','timeLimitSeconds','attemptLimitMode','attemptLimit'],65536); INSERT INTO public.assignment_individual_policy_exception(tenant_id,assignment_individual_policy_exception_id,assignment_id,course_id,student_id,override_kind,available_mode,available_at,due_mode,due_at,closes_mode,closes_at,time_limit_mode,time_limit_seconds,attempt_limit_mode,attempt_limit) VALUES(p_tenant,p_exception,p_assignment,p_course,p_student,p_settings->>'overrideKind',p_settings->>'availableMode',CASE WHEN p_settings ? 'availableAt' THEN to_timestamp((p_settings->>'availableAt')::double precision/1000) END,p_settings->>'dueMode',CASE WHEN p_settings ? 'dueAt' THEN to_timestamp((p_settings->>'dueAt')::double precision/1000) END,p_settings->>'closesMode',CASE WHEN p_settings ? 'closesAt' THEN to_timestamp((p_settings->>'closesAt')::double precision/1000) END,p_settings->>'timeLimitMode',CASE WHEN p_settings ? 'timeLimitSeconds' THEN (p_settings->>'timeLimitSeconds')::integer END,p_settings->>'attemptLimitMode',CASE WHEN p_settings ? 'attemptLimit' THEN (p_settings->>'attemptLimit')::integer END) ON CONFLICT(tenant_id,assignment_id,student_id) DO UPDATE SET assignment_individual_policy_exception_id=EXCLUDED.assignment_individual_policy_exception_id,override_kind=EXCLUDED.override_kind,available_mode=EXCLUDED.available_mode,available_at=EXCLUDED.available_at,due_mode=EXCLUDED.due_mode,due_at=EXCLUDED.due_at,closes_mode=EXCLUDED.closes_mode,closes_at=EXCLUDED.closes_at,time_limit_mode=EXCLUDED.time_limit_mode,time_limit_seconds=EXCLUDED.time_limit_seconds,attempt_limit_mode=EXCLUDED.attempt_limit_mode,attempt_limit=EXCLUDED.attempt_limit,updated_at=transaction_timestamp(); RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision,p_locked_rehearsal_count); END $$;
-CREATE FUNCTION public.ple_delete_assignment_individual_exception(p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_student uuid,p_locked_rehearsal_count bigint) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
-BEGIN PERFORM public.ple_assignment_mutator_require_editor(p_tenant,p_actor,p_course,p_assignment,p_expected_revision); DELETE FROM public.assignment_individual_policy_exception WHERE tenant_id=p_tenant AND assignment_id=p_assignment AND student_id=p_student; IF NOT FOUND THEN RAISE EXCEPTION 'individual exception is unavailable' USING ERRCODE='42501'; END IF; RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision,p_locked_rehearsal_count); END $$;
+CREATE FUNCTION public.ple_put_assignment_individual_exception(p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_exception uuid,p_student uuid,p_settings jsonb) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
+BEGIN PERFORM public.ple_assignment_mutator_require_editor(p_tenant,p_actor,p_course,p_assignment,p_expected_revision); IF p_exception IS NULL OR p_student IS NULL THEN RAISE EXCEPTION 'invalid individual exception' USING ERRCODE='22023'; END IF; PERFORM public.ple_assignment_mutator_closed_object(p_settings,ARRAY['overrideKind','availableMode','availableAt','dueMode','dueAt','closesMode','closesAt','timeLimitMode','timeLimitSeconds','attemptLimitMode','attemptLimit'],65536); INSERT INTO public.assignment_individual_policy_exception(tenant_id,assignment_individual_policy_exception_id,assignment_id,course_id,student_id,override_kind,available_mode,available_at,due_mode,due_at,closes_mode,closes_at,time_limit_mode,time_limit_seconds,attempt_limit_mode,attempt_limit) VALUES(p_tenant,p_exception,p_assignment,p_course,p_student,p_settings->>'overrideKind',p_settings->>'availableMode',CASE WHEN p_settings ? 'availableAt' THEN to_timestamp((p_settings->>'availableAt')::double precision/1000) END,p_settings->>'dueMode',CASE WHEN p_settings ? 'dueAt' THEN to_timestamp((p_settings->>'dueAt')::double precision/1000) END,p_settings->>'closesMode',CASE WHEN p_settings ? 'closesAt' THEN to_timestamp((p_settings->>'closesAt')::double precision/1000) END,p_settings->>'timeLimitMode',CASE WHEN p_settings ? 'timeLimitSeconds' THEN (p_settings->>'timeLimitSeconds')::integer END,p_settings->>'attemptLimitMode',CASE WHEN p_settings ? 'attemptLimit' THEN (p_settings->>'attemptLimit')::integer END) ON CONFLICT(tenant_id,assignment_id,student_id) DO UPDATE SET assignment_individual_policy_exception_id=EXCLUDED.assignment_individual_policy_exception_id,override_kind=EXCLUDED.override_kind,available_mode=EXCLUDED.available_mode,available_at=EXCLUDED.available_at,due_mode=EXCLUDED.due_mode,due_at=EXCLUDED.due_at,closes_mode=EXCLUDED.closes_mode,closes_at=EXCLUDED.closes_at,time_limit_mode=EXCLUDED.time_limit_mode,time_limit_seconds=EXCLUDED.time_limit_seconds,attempt_limit_mode=EXCLUDED.attempt_limit_mode,attempt_limit=EXCLUDED.attempt_limit,updated_at=transaction_timestamp(); RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision); END $$;
+CREATE FUNCTION public.ple_delete_assignment_individual_exception(p_tenant uuid,p_actor uuid,p_course uuid,p_assignment uuid,p_expected_revision bigint,p_student uuid) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
+BEGIN PERFORM public.ple_assignment_mutator_require_editor(p_tenant,p_actor,p_course,p_assignment,p_expected_revision); DELETE FROM public.assignment_individual_policy_exception WHERE tenant_id=p_tenant AND assignment_id=p_assignment AND student_id=p_student; IF NOT FOUND THEN RAISE EXCEPTION 'individual exception is unavailable' USING ERRCODE='42501'; END IF; RETURN public.ple_assignment_mutator_finish(p_tenant,p_course,p_assignment,p_expected_revision); END $$;
 
 ALTER FUNCTION public.ple_assignment_mutator_require_editor(uuid,uuid,uuid,uuid,bigint) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_lock_active_rehearsal_source_internal(uuid,uuid,uuid,uuid) OWNER TO ple_rehearsal_broker;
-ALTER FUNCTION public.ple_prepare_assignment_rehearsal_verification(uuid,uuid,uuid,uuid,bigint) OWNER TO ple_assignment_mutator_broker;
+ALTER FUNCTION public.ple_prepare_assignment_mutation(uuid,uuid,uuid,uuid,bigint) OWNER TO ple_assignment_mutator_broker;
 ALTER FUNCTION public.ple_prepare_assignment_active_attempt_reresolution(uuid,uuid,uuid,uuid,bigint) OWNER TO ple_assignment_mutator_broker;
 ALTER FUNCTION public.ple_assignment_mutator_closed_object(jsonb,text[],integer) OWNER TO ple_assignment_mutator_broker;
 ALTER FUNCTION public.ple_assignment_mutator_millis(jsonb) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_apply_verified_assignment_definition_revision(uuid,uuid,uuid,bigint,bigint) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_assignment_mutator_finish(uuid,uuid,uuid,bigint,bigint) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_replace_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid,uuid,uuid,bigint) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_add_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid,integer,uuid,uuid,numeric,text,text,bigint) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_remove_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid,bigint) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_put_assignment_teaching_settings(uuid,uuid,uuid,uuid,bigint,jsonb,bigint) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_replace_assignment_definition(uuid,uuid,uuid,uuid,bigint,jsonb,jsonb,bigint) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_put_assignment_group_schedule_offset(uuid,uuid,uuid,uuid,bigint,uuid,integer,bigint) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_delete_assignment_group_schedule_offset(uuid,uuid,uuid,uuid,bigint,uuid,bigint) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_put_assignment_group_accommodation(uuid,uuid,uuid,uuid,bigint,uuid,jsonb,bigint) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_delete_assignment_group_accommodation(uuid,uuid,uuid,uuid,bigint,uuid,bigint) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_put_assignment_individual_exception(uuid,uuid,uuid,uuid,bigint,uuid,uuid,jsonb,bigint) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_delete_assignment_individual_exception(uuid,uuid,uuid,uuid,bigint,uuid,bigint) OWNER TO ple_assignment_mutator_broker;
-ALTER FUNCTION public.ple_invalidate_rehearsals_for_assignment_internal(uuid,uuid,uuid,bigint,bigint,bigint) OWNER TO ple_rehearsal_broker;
+ALTER FUNCTION public.ple_apply_verified_assignment_definition_revision(uuid,uuid,uuid,bigint) OWNER TO ple_assignment_mutator_broker;
+ALTER FUNCTION public.ple_assignment_mutator_finish(uuid,uuid,uuid,bigint) OWNER TO ple_assignment_mutator_broker;
+ALTER FUNCTION public.ple_replace_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid,uuid,uuid) OWNER TO ple_assignment_mutator_broker;
+ALTER FUNCTION public.ple_add_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid,integer,uuid,uuid,numeric,text,text) OWNER TO ple_assignment_mutator_broker;
+ALTER FUNCTION public.ple_remove_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid) OWNER TO ple_assignment_mutator_broker;
+ALTER FUNCTION public.ple_put_assignment_teaching_settings(uuid,uuid,uuid,uuid,bigint,jsonb) OWNER TO ple_assignment_mutator_broker;
+ALTER FUNCTION public.ple_replace_assignment_definition(uuid,uuid,uuid,uuid,bigint,jsonb,jsonb) OWNER TO ple_assignment_mutator_broker;
+ALTER FUNCTION public.ple_put_assignment_group_schedule_offset(uuid,uuid,uuid,uuid,bigint,uuid,integer) OWNER TO ple_assignment_mutator_broker;
+ALTER FUNCTION public.ple_delete_assignment_group_schedule_offset(uuid,uuid,uuid,uuid,bigint,uuid) OWNER TO ple_assignment_mutator_broker;
+ALTER FUNCTION public.ple_put_assignment_group_accommodation(uuid,uuid,uuid,uuid,bigint,uuid,jsonb) OWNER TO ple_assignment_mutator_broker;
+ALTER FUNCTION public.ple_delete_assignment_group_accommodation(uuid,uuid,uuid,uuid,bigint,uuid) OWNER TO ple_assignment_mutator_broker;
+ALTER FUNCTION public.ple_put_assignment_individual_exception(uuid,uuid,uuid,uuid,bigint,uuid,uuid,jsonb) OWNER TO ple_assignment_mutator_broker;
+ALTER FUNCTION public.ple_delete_assignment_individual_exception(uuid,uuid,uuid,uuid,bigint,uuid) OWNER TO ple_assignment_mutator_broker;
 
-REVOKE ALL ON FUNCTION public.ple_assignment_mutator_require_editor(uuid,uuid,uuid,uuid,bigint), public.ple_assignment_mutator_closed_object(jsonb,text[],integer), public.ple_assignment_mutator_millis(jsonb), public.ple_apply_verified_assignment_definition_revision(uuid,uuid,uuid,bigint,bigint), public.ple_assignment_mutator_finish(uuid,uuid,uuid,bigint,bigint), public.ple_invalidate_rehearsals_for_assignment_internal(uuid,uuid,uuid,bigint,bigint,bigint) FROM PUBLIC, ple_app;
-REVOKE ALL ON FUNCTION public.ple_lock_active_rehearsal_source_internal(uuid,uuid,uuid,uuid) FROM PUBLIC, ple_app;
-REVOKE ALL ON FUNCTION public.ple_prepare_assignment_rehearsal_verification(uuid,uuid,uuid,uuid,bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.ple_assignment_mutator_require_editor(uuid,uuid,uuid,uuid,bigint), public.ple_assignment_mutator_closed_object(jsonb,text[],integer), public.ple_assignment_mutator_millis(jsonb), public.ple_apply_verified_assignment_definition_revision(uuid,uuid,uuid,bigint), public.ple_assignment_mutator_finish(uuid,uuid,uuid,bigint) FROM PUBLIC, ple_app;
+REVOKE ALL ON FUNCTION public.ple_prepare_assignment_mutation(uuid,uuid,uuid,uuid,bigint) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.ple_prepare_assignment_active_attempt_reresolution(uuid,uuid,uuid,uuid,bigint) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.ple_replace_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid,uuid,uuid,bigint), public.ple_add_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid,integer,uuid,uuid,numeric,text,text,bigint), public.ple_remove_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid,bigint), public.ple_put_assignment_teaching_settings(uuid,uuid,uuid,uuid,bigint,jsonb,bigint), public.ple_replace_assignment_definition(uuid,uuid,uuid,uuid,bigint,jsonb,jsonb,bigint), public.ple_put_assignment_group_schedule_offset(uuid,uuid,uuid,uuid,bigint,uuid,integer,bigint), public.ple_delete_assignment_group_schedule_offset(uuid,uuid,uuid,uuid,bigint,uuid,bigint), public.ple_put_assignment_group_accommodation(uuid,uuid,uuid,uuid,bigint,uuid,jsonb,bigint), public.ple_delete_assignment_group_accommodation(uuid,uuid,uuid,uuid,bigint,uuid,bigint), public.ple_put_assignment_individual_exception(uuid,uuid,uuid,uuid,bigint,uuid,uuid,jsonb,bigint), public.ple_delete_assignment_individual_exception(uuid,uuid,uuid,uuid,bigint,uuid,bigint) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.ple_invalidate_rehearsals_for_assignment_internal(uuid,uuid,uuid,bigint,bigint,bigint) TO ple_assignment_mutator_broker;
-GRANT EXECUTE ON FUNCTION public.ple_lock_active_rehearsal_source_internal(uuid,uuid,uuid,uuid) TO ple_rehearsal_broker,ple_assignment_mutator_broker,ple_retention_broker;
-GRANT EXECUTE ON FUNCTION public.ple_prepare_assignment_rehearsal_verification(uuid,uuid,uuid,uuid,bigint), public.ple_prepare_assignment_active_attempt_reresolution(uuid,uuid,uuid,uuid,bigint), public.ple_replace_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid,uuid,uuid,bigint), public.ple_add_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid,integer,uuid,uuid,numeric,text,text,bigint), public.ple_remove_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid,bigint), public.ple_put_assignment_teaching_settings(uuid,uuid,uuid,uuid,bigint,jsonb,bigint), public.ple_replace_assignment_definition(uuid,uuid,uuid,uuid,bigint,jsonb,jsonb,bigint), public.ple_put_assignment_group_schedule_offset(uuid,uuid,uuid,uuid,bigint,uuid,integer,bigint), public.ple_delete_assignment_group_schedule_offset(uuid,uuid,uuid,uuid,bigint,uuid,bigint), public.ple_put_assignment_group_accommodation(uuid,uuid,uuid,uuid,bigint,uuid,jsonb,bigint), public.ple_delete_assignment_group_accommodation(uuid,uuid,uuid,uuid,bigint,uuid,bigint), public.ple_put_assignment_individual_exception(uuid,uuid,uuid,uuid,bigint,uuid,uuid,jsonb,bigint), public.ple_delete_assignment_individual_exception(uuid,uuid,uuid,uuid,bigint,uuid,bigint) TO ple_app;
+REVOKE ALL ON FUNCTION public.ple_replace_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid,uuid,uuid), public.ple_add_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid,integer,uuid,uuid,numeric,text,text), public.ple_remove_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid), public.ple_put_assignment_teaching_settings(uuid,uuid,uuid,uuid,bigint,jsonb), public.ple_replace_assignment_definition(uuid,uuid,uuid,uuid,bigint,jsonb,jsonb), public.ple_put_assignment_group_schedule_offset(uuid,uuid,uuid,uuid,bigint,uuid,integer), public.ple_delete_assignment_group_schedule_offset(uuid,uuid,uuid,uuid,bigint,uuid), public.ple_put_assignment_group_accommodation(uuid,uuid,uuid,uuid,bigint,uuid,jsonb), public.ple_delete_assignment_group_accommodation(uuid,uuid,uuid,uuid,bigint,uuid), public.ple_put_assignment_individual_exception(uuid,uuid,uuid,uuid,bigint,uuid,uuid,jsonb), public.ple_delete_assignment_individual_exception(uuid,uuid,uuid,uuid,bigint,uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.ple_prepare_assignment_mutation(uuid,uuid,uuid,uuid,bigint), public.ple_prepare_assignment_active_attempt_reresolution(uuid,uuid,uuid,uuid,bigint), public.ple_replace_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid,uuid,uuid), public.ple_add_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid,integer,uuid,uuid,numeric,text,text), public.ple_remove_assignment_fixed_item(uuid,uuid,uuid,uuid,bigint,uuid), public.ple_put_assignment_teaching_settings(uuid,uuid,uuid,uuid,bigint,jsonb), public.ple_replace_assignment_definition(uuid,uuid,uuid,uuid,bigint,jsonb,jsonb), public.ple_put_assignment_group_schedule_offset(uuid,uuid,uuid,uuid,bigint,uuid,integer), public.ple_delete_assignment_group_schedule_offset(uuid,uuid,uuid,uuid,bigint,uuid), public.ple_put_assignment_group_accommodation(uuid,uuid,uuid,uuid,bigint,uuid,jsonb), public.ple_delete_assignment_group_accommodation(uuid,uuid,uuid,uuid,bigint,uuid), public.ple_put_assignment_individual_exception(uuid,uuid,uuid,uuid,bigint,uuid,uuid,jsonb), public.ple_delete_assignment_individual_exception(uuid,uuid,uuid,uuid,bigint,uuid) TO ple_app;
 
 DO $$
 BEGIN
     IF has_table_privilege('ple_app','public.assignment','INSERT,UPDATE,DELETE')
        OR has_table_privilege('ple_app','public.assignment_item','INSERT,UPDATE,DELETE')
        OR has_table_privilege('ple_app','public.assignment_effective_policy_base','INSERT,UPDATE,DELETE')
-       OR has_function_privilege('ple_app','public.ple_invalidate_rehearsals_for_assignment_internal(uuid,uuid,uuid,bigint,bigint,bigint)','EXECUTE')
-       OR has_function_privilege('ple_app','public.ple_lock_active_rehearsal_source_internal(uuid,uuid,uuid,uuid)','EXECUTE')
        OR to_regprocedure('public.ple_replace_assignment_fixed_item(uuid,uuid,uuid,bigint,uuid,uuid,uuid)') IS NOT NULL
        OR to_regprocedure('public.ple_add_assignment_fixed_item(uuid,uuid,uuid,bigint,uuid,integer,uuid,uuid,numeric,text,text)') IS NOT NULL
        OR to_regprocedure('public.ple_remove_assignment_fixed_item(uuid,uuid,uuid,bigint,uuid)') IS NOT NULL
        OR EXISTS (SELECT 1 FROM pg_proc procedure JOIN pg_namespace namespace ON namespace.oid=procedure.pronamespace
           CROSS JOIN LATERAL aclexplode(COALESCE(procedure.proacl,acldefault('f',procedure.proowner))) privilege
-          WHERE namespace.nspname='public' AND procedure.oid='public.ple_prepare_assignment_rehearsal_verification(uuid,uuid,uuid,uuid,bigint)'::regprocedure
+          WHERE namespace.nspname='public' AND procedure.oid='public.ple_prepare_assignment_mutation(uuid,uuid,uuid,uuid,bigint)'::regprocedure
             AND privilege.grantee=0 AND privilege.privilege_type='EXECUTE') THEN
         RAISE EXCEPTION 'assignment mutator authority grant inventory is unsafe';
     END IF;
     IF EXISTS (SELECT 1 FROM pg_proc procedure JOIN pg_namespace namespace ON namespace.oid=procedure.pronamespace
-       CROSS JOIN LATERAL aclexplode(COALESCE(procedure.proacl,acldefault('f',procedure.proowner))) privilege
-       WHERE namespace.nspname='public' AND procedure.oid='public.ple_lock_active_rehearsal_source_internal(uuid,uuid,uuid,uuid)'::regprocedure
-         AND privilege.grantee=0 AND privilege.privilege_type='EXECUTE')
-       OR EXISTS (SELECT 1 FROM pg_proc procedure JOIN pg_namespace namespace ON namespace.oid=procedure.pronamespace
           CROSS JOIN LATERAL aclexplode(COALESCE(procedure.proacl,acldefault('f',procedure.proowner))) privilege
           WHERE namespace.nspname='public' AND procedure.oid='public.ple_prepare_assignment_active_attempt_reresolution(uuid,uuid,uuid,uuid,bigint)'::regprocedure
             AND privilege.grantee=0 AND privilege.privilege_type='EXECUTE')
-       OR EXISTS (SELECT 1 FROM pg_proc procedure WHERE procedure.oid='public.ple_prepare_assignment_rehearsal_verification(uuid,uuid,uuid,uuid,bigint)'::regprocedure AND NOT procedure.proretset)
+       OR EXISTS (SELECT 1 FROM pg_proc procedure WHERE procedure.oid='public.ple_prepare_assignment_mutation(uuid,uuid,uuid,uuid,bigint)'::regprocedure AND NOT procedure.proretset)
        OR EXISTS (SELECT 1 FROM pg_proc procedure WHERE procedure.oid='public.ple_prepare_assignment_active_attempt_reresolution(uuid,uuid,uuid,uuid,bigint)'::regprocedure AND NOT procedure.proretset)
        OR NOT has_function_privilege('ple_app','public.ple_prepare_assignment_active_attempt_reresolution(uuid,uuid,uuid,uuid,bigint)','EXECUTE') THEN
-        RAISE EXCEPTION 'assignment rehearsal preparation capability inventory is unsafe';
+        RAISE EXCEPTION 'assignment mutation preparation capability inventory is unsafe';
     END IF;
 END
 $$;

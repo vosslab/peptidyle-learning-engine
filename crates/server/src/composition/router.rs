@@ -27,7 +27,6 @@ pub(super) fn compose_passwordless_router<S, O, C, B, R>(
     public_assets: Arc<C>,
     backends: Arc<B>,
     sealed_execution: Arc<dyn learning_data_access::SealedPrivateExecutionStore>,
-    rehearsal_coordinator: Arc<crate::rehearsal::RehearsalExecutionCoordinator<B>>,
     native_adapter: Arc<adapter_native::NativeAdapter>,
     review_gate: Arc<R>,
     session_config: SessionConfig,
@@ -67,8 +66,6 @@ where
         + learning_data_access::TeachingAuthorityReferenceStore
         + learning_data_access::NavigationReferenceStore
         + learning_data_access::PreviewPlaneStore
-        + learning_data_access::RehearsalRouteMutationStore
-        + learning_data_access::RehearsalStore
         + AssetStore
         + CourseAppearanceStore
         + AuthoritativeTimeStore
@@ -153,10 +150,6 @@ where
             Arc::clone(&store),
             backends,
             sealed_execution,
-        ))
-        .merge(crate::rehearsal::router(
-            Arc::clone(&store),
-            rehearsal_coordinator,
         ))
         .merge(crate::asset::router(store.clone(), objects, public_assets))
         .merge(crate::validation::router(Arc::clone(&store)))

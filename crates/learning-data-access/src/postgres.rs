@@ -224,7 +224,6 @@ mod qti;
 #[cfg(feature = "postgres")]
 mod qti_ingress;
 #[cfg(feature = "postgres")]
-mod rehearsal;
 #[cfg(feature = "postgres")]
 mod retention;
 #[cfg(feature = "postgres")]

@@ -137,6 +137,7 @@ pub struct DirectInstructorMembershipView {
 /// another instructor, but the final active Instructor is never removable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RemoveDirectInstructorMembership {
+    pub session: SessionTokenHash,
     pub actor: UserId,
     pub course: CourseId,
     pub membership: CourseMembershipId,

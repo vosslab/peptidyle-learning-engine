@@ -5,6 +5,10 @@ with naming conventions. `ObjectKey` is the only physical-key constructor;
 routes and browser payloads name logical delivery IDs, never buckets, paths, or
 client-selected filenames.
 
+The canonical live-demo path uses the same four-domain model and ordinary PLE
+delivery rules. Its seeded people, records, and objects are fictional live data
+in a disposable environment, not a parallel demo storage system.
+
 ## Physical domains
 
 | Domain | Typed bucket | Contents | Delivery rule |
@@ -111,7 +115,7 @@ Production infrastructure enforces immutable publication tags, conditional
 create (`If-None-Match: *`), and bucket/IAM policies. The public bucket is
 created with Object Lock enabled, but has no default legal-retention period:
 the active append-only guarantee is the immutable-tag policy so disposable
-rehearsals remain recoverable. Any legal-retention rule is a separate reviewed
+exercises remain recoverable. Any legal-retention rule is a separate reviewed
 operations decision. Code requests and verifies the exact public-object tag
 before public use, but an AWS deployment is not verified until its
 infrastructure tests and live policy inspection pass.

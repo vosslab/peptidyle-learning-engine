@@ -713,7 +713,7 @@ async fn source_read_missing_staging_is_not_enumerable_and_corrupt_object_fails_
         .objects
         .delete(&staged.source_record.key)
         .await
-        .expect("remove staged object to simulate source loss");
+        .expect("remove staged object to inject source loss");
 
     let (status, headers, body) = read_source(&fixture, Some(&fixture.owner_cookie)).await;
     assert_eq!(status, StatusCode::CONFLICT);

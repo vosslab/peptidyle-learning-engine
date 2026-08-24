@@ -88,7 +88,7 @@ impl EffectCommitter for MemoryCommitter {
                 .expect("test lock")
                 .insert(claim.job_id());
             return Err(StoreError::Unavailable(
-                "simulated crash after durable effect".to_string(),
+                "injected crash after durable effect".to_string(),
             ));
         }
         match self

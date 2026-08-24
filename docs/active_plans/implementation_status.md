@@ -11,22 +11,22 @@ documents link here instead of copying those mutable values.
 The active [professor capability plan](active/professor_capability_architecture_plan.md) supplements
 the release plan and does not replace it. This file is the sole global current-package handoff
 registry: WP-PROF-T2 and WP-PROF-LD1 are accepted on 2026-08-20; WP-PROF-LD2 is accepted on
-2026-08-21; WP-PROF-BS1 and WP-PROF-T3 are accepted on 2026-08-22; WP-PROF-T4 is the sole current
-professor package;
-and the release queue is PARKED at still-open WP-RC8.
-WP-PROF-T4 remains current in-progress work: its reserved migration chain and bounded
-issued-question snapshot dependency are partially implemented, but the package is not accepted.
-The ordinary-assignment source freeze, disclosure-free route verification, Store-owned four-item
-progression, replay-first submission boundary, typed presentation commitment, and immutable
-timing-witness expiry/Retry have focused Memory and fresh PostgreSQL 17 acceptance. Complete
-production route composition, generated and visible Instructor workflows, canonical HTTPS evidence,
-and the complete package Validation suite remain required.
+2026-08-21; WP-PROF-BS1 and WP-PROF-T3 are accepted on 2026-08-22; WP-PROF-T4 is retired before
+acceptance; WP-PROF-LD3 is the sole current professor package; and the release queue is PARKED at
+still-open WP-RC8.
+WP-PROF-LD3 is current in-progress work. It removes the unaccepted parallel execution aggregate and
+converges its useful ordinary-assignment authority hardening onto the canonical live learner path.
+The package retains immutable issued-question evidence, deterministic server-owned grading,
+receipt replay, least-privilege mutation brokers, and audited Instructor inspection for normal
+courses. Fresh PostgreSQL evidence, canonical HTTPS production-stack evidence, and the complete
+package Validation suite remain required on the converged material tree.
 The professor and release plans own their scope and dependency queues, but defer current-handoff
 truth to this registry. WP-PROF-S1, WP-PROF-S2, WP-PROF-S3, WP-PROF-S4, WP-PROF-S5, and WP-PROF-S7
 are accepted, as are WP-PROF-S6, WP-PROF-T1, WP-PROF-T2, WP-PROF-LD1, and WP-PROF-LD2. LD1 delivered
 the live-demo baseline lifecycle. LD2 accepted its seeded-entry, initial-Sysadmin-claim, and
 connected-live-authoring capability. WP-PROF-BS1 is accepted. WP-PROF-T3 is the frozen-scope
-successor and is accepted; WP-PROF-T4 follows it as the current package. LD2 uses the
+successor and is accepted; retired WP-PROF-T4 carries no product dependency; WP-PROF-LD3 follows T3
+as the live-delivery convergence package. LD2 uses the
 necessary existing WP-RC8 account-session/passkey/origin contracts; its claim, passkey, and
 Student/Instructor selector seams remain non-schema. WP-RC8 remains PARKED and open for provider,
 mailbox, unrelated passkey, multi-replica, security, HCI, and release gates.
@@ -103,73 +103,35 @@ do not implicitly receive one.
 | `2026081808` | WP-PROF-LD1 | Live-demo installation state; accepted and immutable |
 | `2026081809` | WP-PROF-LD2 | Accepted and immutable; exactly two least-privilege execute-only brokers: Sysadmin approval-candidate discovery and read-only completed-installation-generation lookup for configured first-ownership proof |
 | `2026081810` | WP-PROF-LD2 | Accepted and immutable; only the narrow Student pre-tenant account-course context retention-boundary repair |
-| `2026081811` | WP-PROF-T4 | Reserved before implementation: `2026081811_rehearsal_runs.sql` |
-| `2026081812` | WP-PROF-T4 | Reserved before implementation: `2026081812_assignment_mutator_authority.sql` |
-| `2026081813` | WP-PROF-T4 | Reserved before implementation: `2026081813_rehearsal_source_fence_integration.sql` |
-| `2026081814` | WP-PROF-T4 | Reserved before implementation: `2026081814_assignment_definition_capabilities.sql`; actor-authorized assignment-definition create and complete normalized replacement, including the cutover that retires the incomplete `1812` scalar replacement |
-| `2026081815` | WP-PROF-T4 | Reserved before implementation: `2026081815_rehearsal_start_intent.sql`; explicit post-completion start intent and Store-verified latest-run witness |
-| `2026081816` | WP-PROF-T4 | Reserved before implementation: `2026081816_course_group_mutator_capabilities.sql`; dedicated execute-only course-group mutation brokers with exact affected-assignment witnesses |
-| `2026081817` | WP-PROF-T4 | Reserved before implementation: `2026081817_learner_work_source_preparation.sql`; typed learner-work and entitlement source-preparation witnesses, including the immutable issued-question source/execution snapshot, preserving learner-artifact writes |
-| `2026081818` | WP-PROF-T4 | Reserved before implementation: `2026081818_course_creation_authority.sql`; closed course-provisioning authority after `1817` revokes direct source DML, with ordinary Instructor/Sysadmin session-bound entries and a separately attested Base Course installer capability; no broad `ple_app` DML or Instructor platform role |
-| `2026081819` | WP-PROF-T4 | Reserved before implementation: `2026081819_course_grade_control_capabilities.sql`; isolated grade-scheme and export-audit brokers |
-| `2026081820` | WP-PROF-T4 | Reserved before implementation: `2026081820_scoring_commit_source_preparation.sql`; isolated scoring-worker preparation and finalization brokers |
-| `2026081821` | WP-PROF-T4 | Reserved before implementation: `2026081821_rehearsal_operation_idempotency.sql`; durable start/delivery/discard idempotency roots, events, and receipts; broker authority; and forward stale/source/terminal revocation integration |
-| `2026081822` | WP-PROF-T4 | Reserved before implementation: `2026081822_rehearsal_delivery_material.sql`; append-only answer-free frozen rehearsal source snapshots, forced-RLS grader-only private execution siblings, source-freeze and route-scoped verification authority, Store-owned ordered frozen-item progression, immutable rehearsal timing witness with event-backed expiry and same-item retry, exact issue-cycle/submission binding, and atomic final-item completion; no learner-timer, mutable client/current-ordinal, or rehearsal-content-sidecar authority |
-| `2026081823` | WP-PROF-T4 | Allocated during final real-stack validation: `2026081823_teaching_invitation_mutator_capabilities.sql`; session-derived create, revoke, and decline capabilities close the co-instructor invitation authority boundary after direct application writes are revoked |
+| `2026081811` | WP-PROF-T4 retired | Unaccepted sidecar allocation retired; migration removed before the clean baseline |
+| `2026081812` | WP-PROF-LD3 | `2026081812_assignment_mutator_authority.sql`; ordinary live assignment mutation authority |
+| `2026081813` | WP-PROF-T4 retired | Unaccepted sidecar integration allocation retired; migration removed before the clean baseline |
+| `2026081814` | WP-PROF-LD3 | `2026081814_assignment_definition_capabilities.sql`; actor-authorized assignment-definition create and complete normalized replacement |
+| `2026081815` | WP-PROF-T4 retired | Unaccepted sidecar start allocation retired; migration removed before the clean baseline |
+| `2026081816` | WP-PROF-LD3 | `2026081816_course_group_mutator_capabilities.sql`; execute-only live course-group mutation brokers with exact affected-assignment witnesses |
+| `2026081817` | WP-PROF-LD3 | `2026081817_learner_work_source_preparation.sql`; typed live learner-work and entitlement preparation, including immutable issued-question source/execution snapshots |
+| `2026081818` | WP-PROF-LD3 | `2026081818_course_creation_authority.sql`; session-bound Instructor/Sysadmin course provisioning and attested Base Course installation |
+| `2026081819` | WP-PROF-LD3 | `2026081819_course_grade_control_capabilities.sql`; isolated grade-scheme and export-audit brokers |
+| `2026081820` | WP-PROF-LD3 | `2026081820_scoring_commit_source_preparation.sql`; isolated scoring-worker preparation and finalization brokers |
+| `2026081821` | WP-PROF-T4 retired | Unaccepted sidecar operation allocation retired; migration removed before the clean baseline |
+| `2026081822` | WP-PROF-T4 retired | Unaccepted sidecar delivery-material allocation retired; migration removed before the clean baseline |
+| `2026081823` | WP-PROF-LD3 | `2026081823_teaching_invitation_mutator_capabilities.sql`; session-derived create, revoke, and decline authority |
 
 The S3, S4, and S5 allocations were reordered before their migration files existed. Accepted S5
 occupies `2026081803`, S3 `2026081804`, S4 `2026081805`, S6 `2026081806`, and T2 `2026081807`.
 `2026081807_teaching_operations.sql` through `2026081810` are accepted and immutable; 1809 records
-its two brokers and needs no additional migration. `2026081811` remains the reserved, in-flight
-rehearsal namespace. `2026081812`-`2026081822` are the contiguous, jointly reserved T4 authority
-migrations listed in the table; `1814` retires the incomplete `1812` replacement, `1821` adds the
-operation protocol without amending the 999-line `1811` aggregate, and `1822` adds immutable
-source material without widening `RehearsalStore` or a mutable catalog fallback. Together they form
-one unaccepted T4 chain: no placeholder, absent-file dependency, or out-of-order application is
-permitted. Numeric allocation records forward sequence; package dependency remains in the professor plan.
+its two brokers and needs no additional migration. WP-PROF-T4 and its sidecar-only allocations were
+retired before acceptance. Their numeric identities remain reserved in this registry while their
+migration files are removed from the pre-production ledger.
 
-The `2026081815` allocation owns the rehearsal start-intent capability. It retires the
-ten-argument rehearsal-start capability and admits one twelve-argument capability carrying the
-explicit post-completion intent and a Store-verified latest-run witness. The capability keeps the
-normal live operation: a successful call resumes, replaces, or creates a durable active rehearsal
-according to the locked aggregate and explicit intent. It does not create a read-only demo state or
-a client-visible decision token. `2026081821` owns the durable start receipt and the only
-`ple_app` idempotent start entry; after it is installed, the 1815 entry remains internal or is
-removed when dependencies permit, never a public compatibility path.
-
-The `2026081816` allocation owns dedicated execute-only course-group mutation broker capabilities
-and exact affected-assignment witnesses for invalidation. It does not restore direct `ple_app` DML,
-and it remains reserved and unaccepted.
-
-The `2026081817`-`2026081820` allocations are forward-only authority closures for real ordinary
-work regressions exposed by the deliberate `1812` and `1814` revocations. Typed preparation
-witnesses, including the immutable issued-question source/execution snapshot, preserve direct
-learner-artifact writes after Rust verification. `2026081818` closes
-course provisioning after that source-DML revocation through ordinary Instructor/Sysadmin
-session-bound entry points and a separately attested Base Course installer capability; it does not
-create an Instructor platform role. Isolated grade-control and scoring brokers own their protected
-source transitions. These migrations never restore broad `ple_app` source-row update authority and
-remain reserved and unaccepted.
-
-`2026081821` depends on the forward chain through `2026081820` and semantically on the existing
-1811 rehearsal aggregate, 1813 source-fence authority, and 1815 start-intent decision. It alone
-adds durable receipt roots and two-phase delivery operation events for start, delivery, and discard;
-forced RLS, broker-only grants, append-only guards, digest/shape/phase constraints, and RESTRICT
-foreign keys; and the forward stale-revision, source-context, and terminal-lifecycle revocation
-extension. It does not restore broad `ple_app` DML or amend accepted or existing migrations.
-
-`2026081822` follows `2026081821` and owns the durable material required to execute an already
-started rehearsal without rereading a mutable catalog: append-only answer-free frozen source
-snapshots, forced-RLS grader-only private-execution siblings, source-freeze broker integration,
-and route-scoped verification authority. It preserves the `1811` aggregate, `1815` start decision,
-and `1821` operation protocol as separate owners. Its private sibling remains unreadable to
-`ple_app`. `RehearsalDeliveryMaterialStore::verify_rehearsal_delivery_material_from_route` validates
-the complete immutable material inventory for early fail-closed feedback and returns only
-`Result<(), StoreError>`; it exposes no candidates, binding digest, locator, IDs, source payload,
-selection, or private material. The later atomic Store claim independently authorizes the route,
-verifies relevant persisted material and bindings, derives the lowest unresolved frozen ordinal,
-and mints the opaque issue handle. Missing, malformed, or inconsistent material fails closed; no
-current-catalog, renderer, provider, or rehearsal-content-sidecar fallback is permitted.
+WP-PROF-LD3 owns the surviving ordinary live authority chain in `2026081812`, `2026081814`, and
+`2026081816` through `2026081820`, plus `2026081823`. Assignment and course-group mutations,
+learner-work preparation, course creation, grade control, scoring commits, and teaching invitations
+use session-derived or route-bound broker capabilities with narrow lock and mutation authority.
+Immutable issued-question source and execution snapshots protect normal learner work and receipt
+replay. These allocations remain unaccepted until the focused PostgreSQL authority matrix, canonical
+production-stack journeys, and complete Validation suite pass on the converged tree. Numeric
+allocation records forward sequence; package dependency remains in the professor plan.
 
 WP-PROF-LD1 accepted the durable `installing` and `complete` installation state; one advisory lock for
 single-writer first-install coordination; deterministic Base Course seeding with generation-bound
@@ -343,7 +305,7 @@ python3 -m pytest -q tests` (5,480 tests and 2 subtests); outside-sandbox built 
 all seven ordered browser, visual, walkthrough, Chapter One, and isolated WebWork lanes green. Both
 diff checks and the 36-artifact screenshot ownership/provenance verifier passed. The ordinary
 rootless Podman demo is ready on loopback port 8080 with the complete nine-container service suite;
-a repeated start replaced all nine prior container IDs, retained its three simulated-data volumes,
+a repeated start replaced all nine prior container IDs, retained its three live-stack data volumes,
 and left no owned dangling images. Independent architecture/security, tests/HCI, and
 documentation/authority reviews returned ACCEPT with no unresolved P0--P3 finding. The sole
 professor handoff advances to WP-PROF-T1; WP-RC8 remains parked and open. This closeout does not ship
@@ -834,12 +796,12 @@ are clean; and three independent reviewers reported no P0/P1/P2.
   copy/paste run, refreshed screenshots, and independent review. This vertical slice does not
   close RC4--RC12 or substitute the local-file authentication adapter for
   production account onboarding.
-- Post-acceptance WP-E2 is accepted. The unchanged compatibility entry points
-  delegate to the canonical `tests/walkthrough/` command and importable
-  `walklib/` owner. A fresh host-bound retained-stack run passed all nine
-  schema-v2 journeys and left only the redacted 0700/0600 public report; Podman,
-  private state, and Python bytecode caches were empty. This maintenance slice
-  does not reopen or broaden the accepted pilot.
+- Post-acceptance WP-E2 remains accepted historical evidence. Its compatibility
+  entry points and `tests/walkthrough/` package were retired when the fixed
+  `tests/e2e/e2e_browser_suite_owner.py` plus `tests/playwright/e2e/` path became
+  the sole production-stack browser owner. The accepted host-bound run remains
+  evidence for its dated schema-v2 journeys; current acceptance uses the
+  canonical real-stack suite and does not restore that parallel harness.
 - WP-G1, the schema-v1 WP-G2 baseline, G3 documentation, and the prior final
   review remain accepted historical evidence for the narrower learner slice.
   They are superseded as final acceptance artifacts by schema v2 for this
@@ -864,7 +826,7 @@ does not silently accept a future package.
 | First Chapter 1 content                                           | Accepted as the bounded content oracle                        | Deterministic Genetics and Biochemistry four-question assignments pass exact publication rerun, direct renderer grading, and the separate built-browser eight-question sweep.                                                                                                                    |
 | Issued presentation, grading authority, and receipt replay        | Accepted as WP-HG1                                            | Memory/HTTP/browser gates plus the live PostgreSQL receipt/corruption oracle prove first grade and replay use issuance-owned state rather than mutable current catalog or backend definitions. The later compact type-free learner wire remains WP-P1--WP-P6.                                    |
 | Wasm/browser trust boundary                                       | Accepted for current exports                                  | The native/Node/real-Chromium shared corpus passes; the shipped Wasm dependency closure remains exactly `wasm_bridge`, `domain`, and `question_model`, with no grading crate or answer key.                                                                                                      |
-| Course appearance, score precision, retention, and local recovery | Existing accepted or implemented boundaries remain valid      | Course appearance is accepted; Rust/TypeScript midpoint and display tests agree; 30/100/365-day retention is implemented; the local logical restore rehearsal remains local evidence only. Managed backup/PITR, deployment keys, and numerical recovery objectives remain WP-RC10 operator work. |
+| Course appearance, score precision, retention, and local recovery | Existing accepted or implemented boundaries remain valid      | Course appearance is accepted; Rust/TypeScript midpoint and display tests agree; 30/100/365-day retention is implemented; the local logical restore exercise remains local evidence only. Managed backup/PITR, deployment keys, and numerical recovery objectives remain WP-RC10 operator work. |
 | Modular ownership, tests, generated artifacts, and local storage  | Accepted for the current tree                                 | Every maintained source is below 1,000 lines; configuration choices are explicit; generated projections regenerate before checks; the broad gates pass; and the measured Rust dev profile retains line-table backtraces without incremental cache growth.                                        |
 | Authentication and email                                          | Deliberately non-gating and not activated                     | Local fictional identities own the pilot. No SMTP/email activation is configured; Fastmail is future operator intent. Production email delivery, passkey, multi-replica, and onboarding acceptance remain WP-RC8 and are not claimed here.                                                       |
 

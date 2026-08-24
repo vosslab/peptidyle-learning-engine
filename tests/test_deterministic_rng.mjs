@@ -8,7 +8,7 @@ import {
   select_index,
   sort_public_identifiers,
   validate_master_seed,
-} from "./support/simulator_rng.ts";
+} from "./support/deterministic_rng.ts";
 
 function replay_values(master_seed, label, count) {
   const stream = create_named_stream(master_seed, label);

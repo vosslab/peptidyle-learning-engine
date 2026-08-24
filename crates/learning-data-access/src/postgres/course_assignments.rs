@@ -69,7 +69,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
             assignment,
         )
         .await?;
-        let witness = prepare_assignment_rehearsal_verification(
+        prepare_assignment_mutation(
             &mut transaction,
             context,
             actor,
@@ -101,7 +101,6 @@ impl crate::CourseAssignmentStore for PostgresStore {
             &previous,
             &assignment,
             expected_revision,
-            witness.database_count()?,
         )
         .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
@@ -120,7 +119,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
             command.assignment,
         )
         .await?;
-        let witness = prepare_assignment_rehearsal_verification(
+        prepare_assignment_mutation(
             &mut transaction,
             context,
             command.actor,
@@ -153,7 +152,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
         };
         validate_postgres_assignment_references(&mut transaction, context, &updated).await?;
         let returned = sqlx::query_scalar::<_, i64>(
-            "SELECT ple_replace_assignment_fixed_item($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            "SELECT ple_replace_assignment_fixed_item($1, $2, $3, $4, $5, $6, $7, $8)",
         )
         .bind(context.tenant_id().as_uuid())
         .bind(command.actor.as_uuid())
@@ -163,7 +162,6 @@ impl crate::CourseAssignmentStore for PostgresStore {
         .bind(command.current_item.as_uuid())
         .bind(command.replacement.problem.as_uuid())
         .bind(command.replacement.version.as_uuid())
-        .bind(witness.database_count()?)
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -192,7 +190,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
             command.assignment,
         )
         .await?;
-        let witness = prepare_assignment_rehearsal_verification(
+        prepare_assignment_mutation(
             &mut transaction,
             context,
             command.actor,
@@ -225,7 +223,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
         validate_assignment(&updated)?;
         validate_postgres_assignment_references(&mut transaction, context, &updated).await?;
         let returned = sqlx::query_scalar::<_, i64>(
-            "SELECT ple_add_assignment_fixed_item($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::numeric, $11, $12, $13)",
+            "SELECT ple_add_assignment_fixed_item($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::numeric, $11, $12)",
         )
         .bind(context.tenant_id().as_uuid())
         .bind(command.actor.as_uuid())
@@ -239,7 +237,6 @@ impl crate::CourseAssignmentStore for PostgresStore {
         .bind(command.item.points_possible.to_string())
         .bind(assignment_delivery_state_name(command.item.delivery_state))
         .bind(assignment_scoring_mode_name(command.item.scoring_mode))
-        .bind(witness.database_count()?)
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -273,7 +270,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
             command.assignment,
         )
         .await?;
-        let witness = prepare_assignment_rehearsal_verification(
+        prepare_assignment_mutation(
             &mut transaction,
             context,
             command.actor,
@@ -302,7 +299,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
         }
         validate_assignment(&updated)?;
         let returned = sqlx::query_scalar::<_, i64>(
-            "SELECT ple_remove_assignment_fixed_item($1, $2, $3, $4, $5, $6, $7)",
+            "SELECT ple_remove_assignment_fixed_item($1, $2, $3, $4, $5, $6)",
         )
         .bind(context.tenant_id().as_uuid())
         .bind(command.actor.as_uuid())
@@ -310,7 +307,6 @@ impl crate::CourseAssignmentStore for PostgresStore {
         .bind(command.assignment.as_uuid())
         .bind(i64::try_from(command.expected_revision.value()).map_err(|_| StoreError::Conflict)?)
         .bind(command.item.as_uuid())
-        .bind(witness.database_count()?)
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -520,40 +516,6 @@ impl crate::CourseAssignmentStore for PostgresStore {
 }
 
 #[cfg(feature = "postgres")]
-async fn prepare_assignment_rehearsal_verification(
-    transaction: &mut Transaction<'_, Postgres>,
-    context: TenantContext,
-    actor: UserId,
-    course: CourseId,
-    assignment: AssignmentId,
-    expected_revision: AssignmentRevision,
-) -> Result<super::rehearsal::LockedRehearsalSourceWitness, StoreError> {
-    let expected = i64::try_from(expected_revision.value()).map_err(|_| StoreError::Conflict)?;
-    let row = sqlx::query(
-        "SELECT assignment_revision, locked_rehearsal_count, locked_rehearsal_run_ids \
-         FROM ple_prepare_assignment_rehearsal_verification($1,$2,$3,$4,$5)",
-    )
-    .bind(context.tenant_id().as_uuid())
-    .bind(actor.as_uuid())
-    .bind(course.as_uuid())
-    .bind(assignment.as_uuid())
-    .bind(expected)
-    .fetch_one(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    let prepared = super::rehearsal::AssignmentRehearsalPrepareWitness::decode(&row)?;
-    if prepared.revision() != expected {
-        return Err(StoreError::Conflict);
-    }
-    prepared
-        .verify(
-            transaction,
-            context.tenant_id(),
-            super::rehearsal::RehearsalSourceSelector::Assignment { course, assignment },
-        )
-        .await
-}
-
 #[cfg(feature = "postgres")]
 async fn load_fixed_item_assignment(
     transaction: &mut Transaction<'_, Postgres>,
@@ -639,6 +601,31 @@ pub(super) async fn load_assignment_scoring_status(
     .map_err(map_sqlx_error)?
     .ok_or(StoreError::NotFound)?;
     decode_scoring_status(&row)
+}
+
+async fn prepare_assignment_mutation(
+    transaction: &mut Transaction<'_, Postgres>,
+    context: TenantContext,
+    actor: UserId,
+    course: CourseId,
+    assignment: AssignmentId,
+    expected_revision: AssignmentRevision,
+) -> Result<(), StoreError> {
+    let expected = i64::try_from(expected_revision.value()).map_err(|_| StoreError::Conflict)?;
+    let returned: i64 =
+        sqlx::query_scalar("SELECT ple_prepare_assignment_mutation($1, $2, $3, $4, $5)")
+            .bind(context.tenant_id().as_uuid())
+            .bind(actor.as_uuid())
+            .bind(course.as_uuid())
+            .bind(assignment.as_uuid())
+            .bind(expected)
+            .fetch_one(&mut **transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+    if returned != expected {
+        return Err(StoreError::Conflict);
+    }
+    Ok(())
 }
 
 #[cfg(test)]

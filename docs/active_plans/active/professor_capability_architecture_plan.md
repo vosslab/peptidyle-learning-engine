@@ -25,9 +25,9 @@ reuse by Question ID, course appearance, pagination, keyboard accessibility, and
 The rest of the professor cycle is not yet a system:
 
 ```text
-   discover --> inspect --> curate --> assemble --> rehearse --> teach --> intervene
-      ^                                                                       |
-      |                                                                       v
+   discover --> inspect --> curate --> assemble --> teach --> intervene
+      ^                                                           |
+      |                                                           v
     reuse <-- revise <-- learn from evidence <---------------------------- grade
 ```
 
@@ -78,7 +78,7 @@ very different cost, and conflating them would make teams underestimate the foun
 | Effective policy resolver with provenance           | none    | none            | none    | none    | N     |
 | Learner disclosure policy                           | partial | partial         | partial | no      | N     |
 | Course grade scheme and course total                | none    | none            | none    | none    | N     |
-| Preview plane and rehearsal                         | none    | none            | none    | none    | N     |
+| Preview plane                                       | none    | none            | none    | none    | N     |
 | Question usage reverse index                        | none    | none            | none    | none    | N     |
 | Improvement threads                                 | none    | none            | none    | none    | N     |
 
@@ -107,7 +107,7 @@ cannot name one does not belong here.
 | Group model               | Sections, labs, cohorts, and accommodation groups without new tables each time     |
 | Course grade scheme       | "What is Mary's grade in the course?" and a defensible export                      |
 | Preview plane             | "Show me exactly what my students will see, before anyone sees it"                 |
-| Rehearsal run             | "Let me take it myself first" without creating a student record                    |
+| Live delivery validation  | "Show me the real learner experience and resulting grade"                         |
 | Item pools                | "Everyone gets 10 of these 40, drawn fresh"                                        |
 | Usage index               | "Which of my assignments use the question I just corrected?"                       |
 | Evidence commons          | "Find questions that are proven to work, not just questions that exist"            |
@@ -133,8 +133,8 @@ cannot name one does not belong here.
 
 - Assignment groups with weights and letter grades -> course grade scheme, derived below from
   Peptidyle's own practice-first workflows rather than copied.
-- Test student, student view, `login-as` -> preview plane and rehearsal runs, with no fake
-  enrollment.
+- Test student, student view, `login-as` -> live policy preview plus ordinary Student enrollment,
+  delivery, grading, and audited Instructor inspection.
 - Extensions -> entitlement and accommodation pages with resolved effective-policy preview. ADAPT's
   bulk score override is intentionally not adopted; score changes come from deterministic source
   correction, delete-and-regrade, and generation-fenced recalculation.
@@ -169,7 +169,7 @@ Shared questions stay immutable publications. Reusable curriculum stays answer-f
 Teaching assignments stay mutable current state governed by issued-run evidence. Student runs retain
 exact immutable snapshots.
 
-Four rates to optimize: minutes (find, inspect, save, add, rehearse), weeks (schedule, accommodate,
+Four rates to optimize: minutes (find, inspect, save, add, preview), weeks (schedule, accommodate,
 grade, intervene), terms (clone, shift, run sections, improve a curriculum), years (attribution,
 accumulated evidence, cross-instructor reuse).
 
@@ -184,7 +184,7 @@ accumulated evidence, cross-instructor reuse).
 |     blueprints | Alpha courses | clone | rollover | term shift | fast-forward      |
 +---------------------------------------------------------------------------------+
 | L2  Teaching operations                                                          |
-|     lifecycle | entitlement | accommodations | pools | rehearsal | grading         |
+|     lifecycle | entitlement | accommodations | pools | live grading       |
 +---------------------------------------------------------------------------------+
 | L1  Course spine                                                                 |
 |     term + zone | effective policy | disclosure | groups | entitlement | grade     |
@@ -605,41 +605,36 @@ into a second task-management system:
 - **Explicit non-features**: no assignees, comments, attachments, due dates, priorities, or
   notifications.
 
-## 8. Preview plane and rehearsal
+## 8. Live preview and delivery validation
 
-Rehearsal generalizes. The underlying capability is answering "what would X see, under policy Y, at
-time Z", without mutating anything.
+The preview plane answers "what would X see, under policy Y, at time Z" from current live course
+state and the same resolver and disclosure rules used by learner delivery:
 
-- **Non-mutating previews**, all built on the resolver and disclosure evaluation:
-  - schedule table: every learner or group and their effective window and limits, with sources;
-  - accommodation effect: this learner before and after the exception;
-  - disclosure state: what a learner sees now, at due, at close;
-  - entitlement: exactly who has this assignment and why;
-  - pool draw sample: a representative draw with its algorithm version;
-  - clone and term-shift previews: resolved dates before committing, with DST refusal.
-- **Rehearsal run**: the one mutating case, an instructor-owned run against a teaching or Alpha
-  assignment. It reuses the run pipeline, delivery, timing, and rendering, and is structurally
-  incapable of producing an enrollment, gradebook row, item-analysis observation, catalog
-  contribution, or export row. It is labelled as rehearsal everywhere, visible only to its
-  instructor, and discarded when the assignment definition changes.
+- schedule table: every learner or group and their effective window and limits, with sources;
+- accommodation effect: this learner before and after the exception;
+- disclosure state: what a learner sees now, at due, and at close;
+- entitlement: exactly who has this assignment and why;
+- pool draw sample: a representative draw with its algorithm version; and
+- clone and term-shift previews: resolved dates before committing, with DST refusal.
 
-**Preview subject.** A rehearsal never impersonates a learner. Its subject is a `PreviewSubject`
-value: group memberships, policy modifier values, and a chosen moment. It is built in one of two
-ways:
+Instructor validation then follows the ordinary product lifecycle: author and publish the
+assignment, use an enrolled Student through the normal learner UI, submit to the deterministic
+server-owned grader, and inspect the resulting receipt, grade, and audited learner work. This gives
+the live demo one execution model and makes its evidence representative of a continuing course.
+
+**Preview subject.** Policy preview uses a `PreviewSubject` value containing group memberships,
+policy modifier values, and a chosen moment. It is built in one of two ways:
 
 - **Synthetic**: the professor picks the groups and modifiers directly ("a Thursday lab member with
   a 48-hour extension, at 09:00 next Monday").
 - **Derived from a learner**: the resolver produces that learner's effective policy, and only the
-  resolved values and their layer names are copied into the subject. No user identity, roster
-  identity, email, or record reference travels into the rehearsal, and the label reads by role, not
-  by name.
+  resolved values and their layer names are copied into the subject. The ephemeral projection uses
+  a role label and keeps identity, email, and record references in the authorized audited read.
 
-This keeps the realism that makes rehearsal worth running while keeping FERPA identity out of an
-instructor-owned synthetic execution. Deriving a subject from a learner is itself a record read and
-is audited like any other.
-
-This replaces ADAPT's test student and `login-as`, which create a fake enrollment inside the FERPA
-record set and then filter it out downstream. Structural impossibility is the safer contract.
+Deriving a subject from a learner is an audited record read. Actual delivery uses an ordinary
+Student enrollment and therefore follows the normal FERPA, retention, grading, analysis, and export
+rules. This replaces ADAPT's filtered test-student convention with an honest separation between
+ephemeral policy inspection and real learner work.
 
 ### WP-PROF-LD1 live-demo installation lifecycle contract
 
@@ -696,20 +691,20 @@ unchanged, and prove connected Student login. Sysadmin remains a normal account-
 flow with full ordinary Sysadmin capabilities.
 
 The approved live-demo handoff is `WP-PROF-LD1` -> `WP-PROF-LD2` -> `WP-PROF-BS1` ->
-`WP-PROF-T3` -> `WP-PROF-T4`. LD2 was accepted on 2026-08-21. The sole current-package handoff
+`WP-PROF-T3` -> `WP-PROF-LD3`. LD2 was accepted on 2026-08-21. The sole current-package handoff
 is recorded in [implementation_status.md](../implementation_status.md).
 
 `WP-PROF-BS1` now replaces the parallel mock-backed browser application and separate
 screenshot/browser owners with one canonical disposable real-stack suite. It establishes the
 production `dist/` and HTTPS gateway path before T3 browser acceptance. T3 retains its frozen scope
-as the accepted preview-plane package after BS1; WP-PROF-T4 is its successor and its focused active
-plan owns the execution detail.
+as the accepted preview-plane package after BS1; WP-PROF-LD3 converges ordinary learner delivery and
+its focused active plan owns the current execution detail.
 
 ### WP-PROF-T3 preview contract
 
 WP-PROF-T3 implements the non-mutating preview plane. The only permitted durable effect is one
 private `audit_event` atomically appended after a successful learner-derived subject construction.
-WP-PROF-T4 alone owns the later rehearsal run. T3 does not create or change an enrollment, run,
+T3 does not create or change an enrollment, run,
 attempt, receipt, gradebook row, analysis observation, catalog contribution, export, job, session,
 membership, retention record, or preview record.
 
@@ -725,7 +720,7 @@ WP-PROF-B2 clone and term-shift preview. Those packages are not implemented or a
 
 **Inspection and subject boundary.** The exact-course, direct-Instructor inspection plane may show
 safe `M-` references and display labels in its schedule or entitlement table. It is a FERPA-authorized
-diagnostic view, not a preview subject or a rehearsal input. At an authenticated route boundary, an
+diagnostic view rather than an authority-bearing input. At an authenticated route boundary, an
 instructor can select one active learner reference and derive a `PreviewSubject`. The Store resolves
 the learner, assignment, entitlement, effective policy, and required prior-run facts in one writable
 repeatable-read snapshot; it atomically records the private record-read audit and returns only the
@@ -766,7 +761,7 @@ hypothetical draft and provide a focused retry or reload. The route is keyboard-
 no protected transport.
 
 **Installed Base Course.** After WP-PROF-LD1 accepts its lifecycle contract, every standard fresh
-installation provisions the persistent simulated Base Course through the ordinary migration and
+installation provisions the persistent live Base Course through the ordinary migration and
 first-run setup path. Its fictional Instructor, existing students, assignments, attempts, and grades
 exercise the same PostgreSQL, RLS, server, and browser boundaries used by an ongoing course. T3
 connected acceptance selects its derived learner from those persisted course memberships and
@@ -906,7 +901,7 @@ Section 3.3 fixes the state model; this section fixes who acts.
 ```text
 M0  Release truth        Close discovery, statistics, and immutable-question release truth.
 M1  Course spine         Term, policy resolver, disclosure, entitlement, groups, grade scheme.
-M2  Teaching projection  Lifecycle, schedule, accommodations, pools, preview plane, rehearsal.
+M2  Teaching projection  Lifecycle, schedule, accommodations, pools, preview, live delivery.
 M3  Discovery commons    Search metadata, collections, picker, usage index, evidence validity.
                          Assisted tagging is an optional package, not on the critical path.
 M4  Reusable curriculum  Blueprints, Alpha courses, clone, rollover, term shift, fast-forward.
@@ -991,11 +986,11 @@ Three lanes after the serial core.
 ### M2 Teaching projection
 
 Depends on M1. Lanes: lifecycle, schedule, late policy, instructions, scoring status; groups,
-entitlement, accommodations, co-instructors, retention and archive pages; preview plane, rehearsal
-runs, and item pools. Exit: every stored teaching policy in the inventory table is reachable,
-editable, and keyboard-complete at 1280 by 800; a rehearsal leaves no enrollment, gradebook,
-analysis, contribution, or export trace; a pool delivers its draw and respects the issued-run lock;
-each preview names the layer that produced every value. Three lanes plus one reviewer.
+entitlement, accommodations, co-instructors, retention and archive pages; preview plane, canonical
+live learner delivery, and item pools. Exit: every stored teaching policy in the inventory table is
+reachable, editable, and keyboard-complete at 1280 by 800; an enrolled Student completes an ordinary
+run through deterministic grading and Instructor review; a pool delivers its draw and respects the
+issued-run lock; each preview names the layer that produced every value. Three lanes plus one reviewer.
 
 ### M3 Discovery commons
 
@@ -1055,7 +1050,8 @@ P1 finding.
 | WP-PROF-LD2 | Expert coder         | Seeded Student/Instructor entry and initial Sysadmin claim through ordinary WP-RC8 account-session paths; `2026081809` owns exactly two least-privilege execute-only brokers: Sysadmin approval-candidate discovery and read-only completed-installation-generation lookup for configured first-ownership proof; `2026081810` only repairs Student pre-tenant account-course retention | WP-PROF-LD1 accepted; necessary existing WP-RC8 account-session/passkey/origin contracts |
 | WP-PROF-BS1 | Integrator           | Accepted canonical disposable real-stack browser suite for Playwright, acceptance, and screenshots; UI-first scenario state; retirement of the test-only browser application and mock transport                                                                                                                                                                                        | WP-PROF-LD2 accepted                                                                     |
 | WP-PROF-T3  | Expert coder         | Accepted 2026-08-22: frozen-scope identity-free preview plane with real-stack browser and canonical screenshot evidence                                                                                                                                                                                                                                                              | WP-PROF-S4, WP-PROF-T1, WP-PROF-LD1 accepted, WP-PROF-LD2 accepted, WP-PROF-BS1 accepted |
-| WP-PROF-T4  | Expert coder         | Current successor: rehearsal runs on the preview plane                                                                                                                                                                                                                                                                                                                                 | WP-PROF-T3 accepted                                                                      |
+| WP-PROF-T4  | Retired              | Retired before acceptance; package identity remains reserved                                                                                                                                                                                                                                                                                                                            | none                                                                                     |
+| WP-PROF-LD3 | Expert coder         | Current package: converge ordinary live assignment authority, learner delivery, deterministic grading, immutable receipts, and audited Instructor inspection                                                                                                                                                                                                                           | WP-PROF-T3 accepted                                                                      |
 | WP-PROF-T5  | Coder                | Item pool authoring over selection groups                                                                                                                                                                                                                                                                                                                                              | WP-PROF-T1                                                                               |
 | WP-PROF-D1  | Expert coder         | Search metadata, usage index, validity contract, quality signal                                                                                                                                                                                                                                                                                                                        | WP-PROF-S7, WP-R2                                                                        |
 | WP-PROF-D2  | Coder                | Collections, Favorites, saved searches, bulk actions, ProblemPicker                                                                                                                                                                                                                                                                                                                    | WP-PROF-D1                                                                               |
@@ -1195,9 +1191,9 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   correction path; a term shift previews every resolved date before committing.
 - The gradebook shows a course total under the selected mode, and one audited click opens exactly
   what a named learner saw and answered.
-- A professor rehearses an assignment under a chosen learner-policy context at a chosen moment, and
-  no enrollment, gradebook row, analysis observation, catalog contribution, or export row is
-  created. The rehearsal carries no learner identity.
+- A professor previews current learner policy, exercises the published assignment through an
+  ordinary enrolled Student, and inspects the resulting submission, deterministic grade, immutable
+  receipt, and audited learner work.
 - A pool assignment delivers its draw per learner and honors the issued-run lock.
 - An Alpha course is non-enrollable, public to approved Instructors, creator-editable, cloneable, and
   carries evidence context and improvement threads into the clone.
@@ -1245,8 +1241,7 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
 - Memory conformance: ordinary crate tests cover entitlement, group purposes and exclusivity policy,
   collection ownership, usage-index aggregation boundaries, public Alpha reads and creator-only
   writes, cross-tenant cloning, rollover exclusions, grader-operation receipts and recalculation,
-  audited work inspection, rehearsal exclusion from every aggregate, tagging provenance, and
-  retention.
+  audited work inspection, ordinary learner-work evidence, tagging provenance, and retention.
 - PostgreSQL/RLS proof: a named disposable PostgreSQL E2E exercises the same selected Store semantics
   where transactions, persistence, roles, and forced RLS are the contract. It is opt-in and separate
   from ordinary Cargo, Node, and pytest gates.
@@ -1256,7 +1251,7 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   state preservation.
 - Playwright, named for behavior rather than milestones: discovery to collection to assignment;
   schedule and accommodation with resolved-outcome and provenance checks; entitlement preview;
-  rehearsal leaving no trace; pool delivery; Alpha clone across instructors; fast-forward and
+  live Student delivery and Instructor evidence inspection; pool delivery; Alpha clone across instructors; fast-forward and
   divergent selected copy; rollover and term shift preview; grader-exception routing by item and
   recalculation; gradebook total and audited learner work inspection; analysis to fork to recorded decision;
   attention-queue routing; keyboard, recovery, and canonical viewport behavior.
@@ -1283,7 +1278,7 @@ invariant below is green in a small permanent behavior test owned by its package
 - entitlement authority, materialization, and revocation with issued runs;
 - disclosure evaluation at each point on the time axis;
 - grade totals in every shipped mode, including the rounding and drop rules;
-- rehearsal producing no enrollment, gradebook, analysis, contribution, or export row;
+- ordinary learner delivery producing an immutable receipt, deterministic grade, and auditable work;
 - pool draw determinism for a given algorithm version;
 - clone and term-shift date resolution, including daylight-saving refusal;
 - statistics suppression below the k-anonymity threshold and the insufficient-evidence answer;
@@ -1303,8 +1298,8 @@ One narrative journey, run live, exercising the architecture as a system rather 
 3. She instantiates it into a Fall term with a start date and time zone, two sections and one lab.
 4. She previews the schedule table, grants Mary Fake Student an extension, and confirms the resolved
    window shows the extension as its source.
-5. She rehearses the pool assignment as a lab member at a moment after the due date, sees the late
-   marking and the disclosure state she expects, and publishes.
+5. She publishes the pool assignment, enters through an enrolled lab Student, and confirms the live
+   late marking and disclosure state through an ordinary run and submission.
 6. Two students practice repeatedly; one encounters a deterministic grader exception; one submits
    late.
 7. She opens the routed by-item operation, audits the affected learner work, retries after the
@@ -1343,8 +1338,8 @@ One narrative journey, run live, exercising the architecture as a system rather 
   per-field provenance, and one conformance suite every surface must pass.
 - **Grade-scheme creep**: requests for formulas, curves, or completion grading; mitigated by the
   closed two-mode scope and explicit non-goals.
-- **Rehearsal leakage**: implementing rehearsal as a filtered ordinary run; mitigated by structural
-  impossibility at the store boundary and conformance tests on every aggregate.
+- **Parallel-path drift**: acceptance behavior diverges from ordinary course behavior; mitigated by
+  one live data model, one learner execution path, and production-stack browser evidence.
 - **Evidence misreading**: professors treating small or non-comparable samples as fact; mitigated by
   the section 6.0 validity contract: existing k-anonymity suppression, first-attempt independence,
   separately scoped exact-version evidence, comparison only of explicitly linked replacement/source
@@ -1363,7 +1358,7 @@ One narrative journey, run live, exercising the architecture as a system rather 
 - **Cross-tenant leakage**: usage, quality, or collection queries joining tenant records; mitigated
   by aggregate-only exposure, separate shared-curriculum stores, forced RLS, and clone-time
   reauthorization.
-- **Answer leakage**: richer previews, rehearsal, tagging, or grading aids; mitigated by author-only
+- **Answer leakage**: richer previews, tagging, or grading aids; mitigated by author-only
   protected preview, server-only grading, and answer-free non-author paths.
 - **Scope collapse**: running every lane at once; mitigated by dependency-ordered milestones,
   one-owner packages, focused gates, and independent review.
@@ -1371,8 +1366,8 @@ One narrative journey, run live, exercising the architecture as a system rather 
 ## Documentation close-out
 
 - Preserve only settled owner decisions in [docs/HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md), in the
-  owner's voice: course term required, rehearsal instead of a test student and never carrying learner
-  identity, the attention predicate, and the evidence-disclosure stance. Conditional architecture
+  owner's voice: course term required, one canonical live product path, the attention predicate, and
+  the evidence-disclosure stance. Conditional architecture
   (completion mode, assisted tagging) and component ownership stay in this plan.
 - This document is the active professor-capability scope and dependency direction; link it from
   implementation status without replacing the current release plan or global current-package
@@ -1390,8 +1385,8 @@ One narrative journey, run live, exercising the architecture as a system rather 
   is its materialized receipt with provenance; revocation ends authority and preserves evidence.
 - Effective state is always derived from (policy, now). `assignment.lifecycle` records professor
   intent. Workers own only non-derivable effects and write a durable receipt for each.
-- A rehearsal's subject is a `PreviewSubject` of resolved policy values and group roles, never a
-  learner identity; deriving one from a learner is an audited record read.
+- A `PreviewSubject` contains resolved policy values and group roles rather than learner identity;
+  deriving one from a learner is an audited record read.
 - Grade scheme version 1 ships total points (default) and weighted categories with drop-lowest;
   completion-based totals remain a later package while the three worked examples stay as design
   evidence. Letter bands and rounding are shared across the shipped modes.
@@ -1407,8 +1402,8 @@ One narrative journey, run live, exercising the architecture as a system rather 
   is never an instructor-facing selector.
 - Group membership is many-to-many; section exclusivity is a course policy that warns, not a schema
   constraint.
-- Rehearsal runs are instructor-visible only, discarded when the assignment definition changes, and
-  never exported.
+- Instructor delivery validation uses ordinary Student runs and the normal retention, grading,
+  analysis, and export rules.
 - Attention-queue membership is governed by the five-part predicate, not by a fixed list.
 - Assisted tagging sends public published question content only, writes proposals only, and requires
   a confirming user; an external model requires a recorded operator decision.
@@ -1438,8 +1433,8 @@ so a reviewer can check the reasoning and repeat the method.
 |                                               groups already present in schema     |
 | substitution  autonomy professor -> system => scheduled close, disclosure,          |
 |                                               retention, tagging batches           |
-| re-instantiate  theater: rehearsal         => preview plane; rehearsal run as its   |
-|                                               one mutating instance                |
+| re-instantiate  teaching policy inspection => preview plane over live course state  |
+| re-instantiate  authentic learner practice => ordinary delivery and grading path    |
 | re-instantiate  theater: repertory + notes => catalog evidence commons and the      |
 |                                               improvement thread                    |
 +---------------------------------------------------------------------------------+

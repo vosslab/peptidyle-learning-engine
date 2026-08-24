@@ -4,9 +4,9 @@ This guide follows the supported browser teaching loop: create a course, invite 
 the course roster, build a timed Mastery assignment from the published problem corpus, and confirm
 learning in the gradebook. Start the local system first with [USAGE.md](USAGE.md).
 
-All people and course records shown in these captures are simulated. The fixed labels
-`Dr. Fake Professor`, `Mary Fake Student`, and `Jack Fake Student` are intentionally unmistakable
-placeholders.
+All people and course records shown in these captures are fictional live-demo data. The seeded
+personas are ordinary PLE Instructor and Student records in the disposable baseline; regeneration
+discards them and recreates the same fictional baseline.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
@@ -28,9 +28,9 @@ placeholders.
 - Launch the local stack and open its HTTPS URL.
 - Sign in through the visible PLE account page. Email is the canonical passwordless path; an
   ordinary passkey is an optional shortcut for an existing account.
-- When the deployment enables the seeded persona selector, choose the seeded instructor account.
-  It enters the same PLE account/session state and is unavailable when that deployment gate is not
-  configured.
+- When the deployment enables the seeded persona selector, choose the fictional live-demo Instructor
+  persona. It enters the same PLE account/session state and is unavailable when that deployment gate
+  is not configured.
 
 ## Create a course
 

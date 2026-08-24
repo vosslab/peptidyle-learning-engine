@@ -672,6 +672,7 @@ async fn postgres_teaching_authority_is_target_bound_atomic_and_least_privilege(
         "unapproved accounts cannot receive invitations"
     );
     let removal = RemoveDirectInstructorMembership {
+        session: instructor_session,
         actor: instructor,
         course,
         membership: accepted.membership,

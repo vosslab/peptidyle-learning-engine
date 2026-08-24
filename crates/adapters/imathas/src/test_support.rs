@@ -31,11 +31,11 @@ use crate::{
 pub enum RecordedProviderMode {
     /// Return a deterministic correct grade after exact request binding.
     Verified,
-    /// Simulate a provider outage without fabricating learner correctness.
+    /// Inject a provider outage without fabricating learner correctness.
     Unavailable,
-    /// Simulate a bounded provider timeout.
+    /// Inject a bounded provider timeout.
     Timeout,
-    /// Simulate malformed upstream material.
+    /// Inject malformed upstream material.
     InvalidResponse,
 }
 

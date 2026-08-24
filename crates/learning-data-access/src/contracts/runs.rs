@@ -33,8 +33,7 @@ impl LearnerWorkRoutingBinding {
 /// The Store creates this only after it has established the caller's current
 /// learner entitlement for the explicit course/assignment route.  It is
 /// intentionally neither serializable nor field-public: browser handlers use
-/// only [`Self::presentation_snapshot`], while trusted grading and rehearsal
-/// boundaries take the specific evidence they require.  Future issued-question
+/// only [`Self::presentation_snapshot`], while trusted grading consumes the specific evidence it requires.  Future issued-question
 /// snapshot revisions extend this coherent capability rather than reintroduce
 /// a catalog read at receipt time.
 #[derive(Clone, PartialEq)]

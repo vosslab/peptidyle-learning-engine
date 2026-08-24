@@ -8,13 +8,16 @@
   architecture finding remains after independent re-reviews
 - **Production-activation verdict:** not yet authorized; live deployment, provider, recovery, and
   operational evidence listed below are release gates
-- **Product state:** pre-production with no users or production data
+- **Product state:** pre-production; the canonical live-demo path uses fictional, disposable live
+  data and has no production users or production data
 - **Priority:** authority, isolation, and attack-surface design; dependency versions are secondary
 
 This replaces the dated baseline rather than preserving its conclusions. The active release plan,
 current source, migrations, contracts, focused tests, and independent reports are the source of
 truth. A successful code or static-policy test does not prove an AWS, PostgreSQL, browser-edge, or
-third-party deployment property. This document therefore labels evidence as **code**,
+third-party deployment property. The single canonical live-demo path is production-shaped, but its
+seeded people and records are fictional live data and its regeneration is disposable. This document
+therefore labels evidence as **code**,
 **integration/static configuration**, or **live deployment**.
 
 The remediation intentionally makes clean breaks. It retains no legacy cookie aliases, stateful
@@ -266,7 +269,8 @@ request-smuggling/cache behavior.
 These are production-activation gates or intentional feature boundaries, not open repository P0--P2
 design defects.
 
-1. **AWS deployment proof:** apply to a disposable account and test direct-ALB denial, OAC-only
+1. **AWS deployment proof:** apply to a disposable account as a controlled deployment exercise and
+   test direct-ALB denial, OAC-only
    public reads, no public/private cross-bucket access, no list/overwrite/delete/tag removal,
    SSE-KMS exact-key enforcement, secret/KMS context constraints, no static credentials, no NAT,
    metadata/control-plane denial, configured SMTP/iMathAS/renderer-only egress, HSTS/CSP/cache
@@ -277,7 +281,7 @@ design defects.
    concurrency. Exercise the audited real-person Instructor/Sysadmin approval procedure and prove
    the API login cannot change `platform_roles`. Ignored live PostgreSQL tests do not establish
    those facts.
-3. **Recovery proof:** rehearse encrypted backup and managed PITR restore into a clean cluster;
+3. **Recovery proof:** run an encrypted backup and managed PITR restore exercise into a clean cluster;
    validate migration ledger, roles, grants, RLS, logical data fingerprints, application writes,
    broker calls, retention, KMS-key revocation/recovery, and declared RPO/RTO.
 4. **External systems:** live SMTP sender and email-link flow, WebAuthn RP/origin, LMS/provider

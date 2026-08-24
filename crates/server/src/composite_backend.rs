@@ -9,7 +9,6 @@ use question_model::{
 use crate::imathas_backend::ExternalToolSubmissionBackend;
 use crate::native_backend::NativeBackend;
 use crate::qti_dispatch::QtiBackendSlot;
-use crate::rehearsal::{RehearsalGradeBackend, RehearsalIssueBackend};
 use crate::run::ExternalToolLaunchBackend;
 use crate::run::{
     GradeReceipt, IssuedAttemptMetadata, RunBackend, RunBackendError, RunSubmission,
@@ -85,36 +84,6 @@ impl<S, O, R> CompositeBackend<S, O, R> {
         self.webwork
             .as_ref()
             .ok_or_else(|| RunBackendError::Unsupported("WebWork is not configured".into()))
-    }
-}
-
-#[async_trait]
-impl<S, O, R> RehearsalIssueBackend for CompositeBackend<S, O, R>
-where
-    S: Send + Sync + 'static,
-    O: Send + Sync + 'static,
-    R: Send + Sync + 'static,
-{
-    async fn issue_frozen_rehearsal(
-        &self,
-        work: &learning_data_access::SealedRehearsalDeliveryIssueWork,
-    ) -> Result<learning_data_access::RehearsalIssuedExecutionArtifactV1, RunBackendError> {
-        self.native.issue_frozen_rehearsal(work).await
-    }
-}
-
-#[async_trait]
-impl<S, O, R> RehearsalGradeBackend for CompositeBackend<S, O, R>
-where
-    S: Send + Sync + 'static,
-    O: Send + Sync + 'static,
-    R: Send + Sync + 'static,
-{
-    async fn grade_frozen_rehearsal(
-        &self,
-        work: learning_data_access::SealedRehearsalGradingParts,
-    ) -> Result<GradeReceipt, RunBackendError> {
-        self.native.grade_frozen_rehearsal(work).await
     }
 }
 

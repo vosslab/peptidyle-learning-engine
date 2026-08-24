@@ -13,10 +13,10 @@ before its first production deployment the unreleased history can become one rev
 baseline. Once that baseline ships, each later schema change becomes an immutable forward migration.
 
 Migrations establish schema, roles, policies, views, grants, and compatibility projections. They do
-not create teaching data. The local typed lifecycle applies migrations first, but the current seed command
-still requires `--apply-migrations` and invokes the same ledger a second time, normally as a no-op.
-The baseline work must make the seed require a compatible pre-migrated database so schema and
-teaching-data ownership are structurally separate before production.
+not create teaching data. The canonical live-demo lifecycle applies migrations first, but the current
+baseline installer still requires `--apply-migrations` and invokes the same ledger a second time,
+normally as a no-op. The baseline work must make the installer require a compatible pre-migrated
+database so schema and fictional live-data ownership are structurally separate before production.
 
 ## Objectives
 
@@ -37,9 +37,9 @@ forward ledger forever.
 - Inventory the accepted schema represented by the complete current migration chain.
 - Generate and review one SQLx baseline migration for an empty PostgreSQL cluster.
 - Preserve schema objects and their security-relevant definitions exactly where behavior requires it.
-- Reset the disposable E2E database path to exercise the new single-baseline ledger.
-- Convert the development seed into a data-only operation that requires a compatible pre-migrated
-  database.
+- Reset the single disposable live-demo database path to exercise the new single-baseline ledger.
+- Convert the live-demo baseline installer into a data-only operation that requires a compatible
+  pre-migrated database.
 - Record the new forward-migration policy and acceptance evidence in durable documentation.
 
 ## Non-goals
@@ -60,9 +60,10 @@ forward ledger forever.
   migration projection through restricted roles.
 - `tests/e2e/e2e_database_baseline.sh` already proves an empty database, a second no-op apply,
   status, verification, checksum detection, RLS/grant behavior, and selected live database contracts.
-- The private typed local-stack lifecycle runs migrations and then the host-only deterministic E2E seed. Today the
-  seed requires `--apply-migrations` and invokes the migration ledger again; this is normally a
-  no-op, but it leaves schema authority in a command intended to own demonstration data.
+- The canonical private typed live-demo lifecycle runs migrations and then the host-only deterministic
+  baseline installer. Today the installer requires `--apply-migrations` and invokes the migration
+  ledger again; this is normally a no-op, but it leaves schema authority in a command intended to
+  own fictional live data.
 - The active release plan remains the authority for package acceptance and deployment order.
 
 ## Architecture boundaries and ownership
@@ -70,8 +71,8 @@ forward ledger forever.
 The authoritative schema is SQL in `schemas/migrations/`; SQLx's `_sqlx_migrations` table is the
 applied-ledger record. `learning-data-access` embeds and verifies the schema epoch. `project-tools`
 offers the explicit administrative commands. The application and browser consume only verified
-capabilities; neither owns DDL. The baseline work removes migration authority from the local seed so
-it owns only disposable teaching data outside the baseline migration.
+capabilities; neither owns DDL. The baseline work removes migration authority from the live-demo
+installer so it owns only fictional, disposable teaching data outside the baseline migration.
 
 ### Mapping (milestones / workstreams -> components / patches)
 
@@ -79,7 +80,7 @@ it owns only disposable teaching data outside the baseline migration.
 | --- | --- | --- |
 | M1 / DB-BL1 | Schema inventory and baseline SQL | PostgreSQL owner + security reviewer |
 | M2 / DB-BL2 | SQLx embedding, ledger, and E2E oracle | Rust/data-access owner |
-| M3 / DB-BL3 | Local stack, seed, browser acceptance, and documentation | Integrator + independent reviewer |
+| M3 / DB-BL3 | Live-demo baseline, browser acceptance, and documentation | Integrator + independent reviewer |
 
 ## Milestone plan
 
@@ -87,7 +88,7 @@ it owns only disposable teaching data outside the baseline migration.
 | --- | --- | --- | --- |
 | M1 | Freeze and model | Freeze accepted sources and compare clean-cluster schemas | A reviewed baseline candidate |
 | M2 | Replace and prove | Replace the pre-production chain and run schema/security gates | Exact empty-cluster behavior |
-| M3 | Release readiness | Exercise the real stack, seed, and browser before deployment | Shippable durable ledger |
+| M3 | Release readiness | Exercise the real stack, live-demo baseline, and browser before deployment | Shippable durable ledger |
 
 ### Freeze and model
 
@@ -97,7 +98,7 @@ it owns only disposable teaching data outside the baseline migration.
 - Entry criteria: no migration package remains acceptance-open; the current chain passes its full
   disposable baseline gate twice from clean clusters.
 - Exit criteria: an independent reviewer accepts that the proposed baseline recreates the current
-  accepted schema and security definitions without relying on seed data.
+  accepted schema and security definitions without relying on fictional live-demo data.
 - Parallel-plan ready: no. The inventory must establish one frozen input before baseline SQL exists.
 
 ### Replace and prove
@@ -114,7 +115,7 @@ it owns only disposable teaching data outside the baseline migration.
 ### Release readiness
 
 - Depends on: M2 and accepted release packages.
-- Deliverables: local-stack evidence, browser acceptance, recovery rehearsal, and documentation.
+- Deliverables: local-stack evidence, browser acceptance, restore exercise, and documentation.
 - Workstreams: DB-BL3 and DB-BL3R.
 - Entry criteria: M2 exit evidence and a newly created empty local volume.
 - Exit criteria: all release gates pass, documentation is current, and independent review accepts
@@ -156,7 +157,7 @@ it owns only disposable teaching data outside the baseline migration.
 
 ### DB-BL3: Runtime acceptance
 
-- Goal: make normal bootstrap migration-first and data-only-seed-second.
+- Goal: make normal bootstrap migration-first and data-only-live-demo-baseline-second.
 - Owner: local-stack integrator.
 - Work packages: DB-BL3.
 - Needs: accepted DB-BL2.
@@ -219,11 +220,13 @@ it owns only disposable teaching data outside the baseline migration.
 - Touch points: focused `local_stack_control` lifecycle modules, `crates/project-tools/src/e2e_seed.rs`, its focused modules,
   `tests/e2e/`, `tests/playwright/`, and operations docs only where the ownership contract changes.
 - Depends on: DB-BL2 and DB-BL2R.
-- Acceptance criteria: the seed refuses an absent or incompatible baseline without applying DDL;
+- Acceptance criteria: the live-demo baseline installer refuses an absent or incompatible baseline
+  without applying DDL;
   on a newly created local PostgreSQL volume, the typed lifecycle alone applies and verifies the baseline,
-  then runs the data-only deterministic seed, starts every required service, and passes the
+  then runs the data-only deterministic installer for the fictional live-demo baseline, starts every
+  required service, and passes the
   representative browser suite.
-- Evidence or review, when useful: retain command outputs, schema status before/after seed, and
+- Evidence or review, when useful: retain command outputs, schema status before/after baseline, and
   screenshots only when browser behavior changed; run the same clean-stack sequence twice.
 - Obvious follow-ons: DB-BL3R and production deployment planning.
 
@@ -248,7 +251,7 @@ it owns only disposable teaching data outside the baseline migration.
   `verify` report compatible state on two independently created empty clusters.
 - Security gate: `ple_app`, graders, workers, publisher, and migration roles retain exactly their
   authorized access; cross-tenant and answer-key reads fail as before.
-- Data-separation gate: the baseline is valid before any seed runs; the seed command has no
+- Data-separation gate: the baseline is valid before the live-demo baseline runs; its installer has no
   migration flag or DDL path, refuses an incompatible database, and changes teaching data only.
 - Real-stack gate: `source source_me.sh && python3 local_stack.py start --no-open` succeeds from a newly created local volume, then
   `./run_playwright_tests.sh` passes only after all required Podman services are healthy.
@@ -266,7 +269,7 @@ No new fast pytest should snapshot relation counts, migration filenames, or comp
 | Existing `e2e_database_baseline.sh` fresh/no-op/security path | Permanent E2E gate | It exercises a durable clean-cluster and role-boundary contract. |
 | Old-chain versus candidate-baseline schema dump | One-time implementation evidence | The old chain disappears after the cutover; an exact comparison would become stale. |
 | Candidate baseline object inventory | One-time implementation evidence | It proves the replacement rather than a continuing user-visible behavior. |
-| Local typed lifecycle with empty volume and deterministic seed | Permanent E2E/operational gate | It protects the durable migration-first, data-only-seed-second contract. |
+| Local typed lifecycle with empty volume and fictional live-demo baseline | Permanent E2E/operational gate | It protects the durable migration-first, data-only-baseline-second contract. |
 | Representative browser walkthrough after bootstrap | Permanent Playwright acceptance | It protects teaching workflows, not migration geometry. |
 
 Run the repository fast suites separately from real service checks. Keep external-network, Podman,
@@ -293,10 +296,10 @@ tested backup/restore path and repair schema changes with a new forward migratio
 | Risk | Impact | Trigger | Owner | Mitigation |
 | --- | --- | --- | --- | --- |
 | Baseline omits a security object | High | Catalog or role diff | PostgreSQL owner | Block cutover; correct baseline and repeat independent review. |
-| Seed retains DDL authority | High | Seed accepts `--apply-migrations` or invokes the ledger | Integrator | Remove that path; require and verify a compatible pre-migrated database. |
+| Baseline installer retains DDL authority | High | Installer accepts `--apply-migrations` or invokes the ledger | Integrator | Remove that path; require and verify a compatible pre-migrated database. |
 | Feature lands during freeze | Medium | New migration appears | Release manager | Delay cutover and refresh DB-BL1 inventory. |
 | Fragile inventory test enters pytest | Medium | New exact-count test | Test owner | Use one-time evidence or durable behavior gate instead. |
-| Recovery instructions are untested | High | Restore rehearsal fails | Operations reviewer | Block release until a clean-cluster recovery drill passes. |
+| Recovery instructions are untested | High | Restore exercise fails | Operations reviewer | Block release until a clean-cluster recovery drill passes. |
 
 ## Rollout and release checklist
 
@@ -305,8 +308,8 @@ tested backup/restore path and repair schema changes with a new forward migratio
 - [ ] DB-BL1 inventory and independent comparison procedure are accepted.
 - [ ] DB-BL2 baseline passes two clean-cluster fresh/no-op/status/verify cycles.
 - [ ] DB-BL2R accepts role, RLS, view, and grant fidelity.
-- [ ] DB-BL3 passes typed lifecycle, seed separation, API/worker readiness, and Playwright acceptance.
-- [ ] DB-BL3R accepts backup, restore, and failure-recovery rehearsal.
+- [ ] DB-BL3 passes typed lifecycle, live-demo baseline separation, API/worker readiness, and Playwright acceptance.
+- [ ] DB-BL3R accepts backup, restore, and failure-recovery drill.
 - [ ] The baseline and all durable forward-ledger instructions are documented before deployment.
 
 ## Documentation close-out requirements

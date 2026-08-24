@@ -556,14 +556,6 @@ run_live_cargo_test "T3 preview plane authorization, atomic audit, and identity-
 	postgres_preview_plane_live_oracle_is_authorized_atomic_and_identity_free \
 	-- --ignored --exact --test-threads=1
 
-echo "database baseline E2E: T4 live rehearsal persistence, progression, replay, and authority"
-run_live_cargo_test "T4 live rehearsal persistence, progression, replay, and authority" env \
-	PLE_TEST_DATABASE_URL="$DATABASE_URL" \
-	PLE_TEST_GRADER_DATABASE_URL="$(grader_database_url)" \
-	cargo test -p learning-data-access --features postgres \
-	--test postgres_rehearsal_migration_live \
-	-- --ignored --test-threads=1
-
 TEMP_DIR="$WORKSPACE/migration-checksum"
 mkdir "$TEMP_DIR"
 cp -R "$REPO_ROOT/schemas/migrations" "$TEMP_DIR/migrations"

@@ -48,8 +48,6 @@ pub mod presentation;
 pub mod preview_plane;
 /// Human-facing route locators that resolve to internal identities under authorization.
 pub mod public_route;
-/// Closed instructor-owned rehearsal contracts, separate from learner runs.
-pub mod rehearsal;
 pub mod response;
 pub mod run_policy;
 /// Browser-safe anonymous-statistics projections and disclosure policy.
@@ -162,26 +160,6 @@ pub use crate::public_route::{
     AccountReference, AssignmentReference, CoInstructorInvitationReference, CourseGroupReference,
     CourseMembershipReference, CourseReference, MAX_PUBLIC_ROUTE_NUMBER, NavigationResolution,
     RESERVED_REFERENCE_PREFIXES, RunReference, WorkspaceReference,
-};
-pub use crate::rehearsal::{
-    MAX_REHEARSAL_ACCEPTED_SUBMISSION_BYTES, MAX_REHEARSAL_ACCEPTED_SUBMISSION_ENTRIES,
-    MAX_REHEARSAL_PRESENTATION_BLOCKS, MAX_REHEARSAL_PRESENTATION_TEXT_SCALARS,
-    MAX_REHEARSAL_REFERENCE_NUMBER, MAX_REHEARSAL_TABLE_COLUMNS, MAX_REHEARSAL_TABLE_ROWS,
-    RehearsalActiveScreenV1, RehearsalAssetReferenceV1, RehearsalAttemptId, RehearsalAttemptState,
-    RehearsalBackendReceiptReference, RehearsalBackendSupport, RehearsalContentBlockV1,
-    RehearsalDisclosedFeedbackV1, RehearsalEmptyMutationRequestV1, RehearsalErrorCode,
-    RehearsalEvidenceDigest, RehearsalEvidenceKind, RehearsalEvidenceRecord,
-    RehearsalEvidenceStatusV1, RehearsalEvidenceSummaryV1, RehearsalEvidenceValidationError,
-    RehearsalFrozenItemEvidence, RehearsalGradeOperationId, RehearsalHotspotRegionV1,
-    RehearsalHotspotSurfaceV1, RehearsalIssuedPresentationErrorV1, RehearsalLifecycle,
-    RehearsalPendingPhaseV1, RehearsalPresentationDigestV1, RehearsalPresentedBlankV1,
-    RehearsalPresentedChoiceV1, RehearsalPrivateGradingResult, RehearsalProgressV1,
-    RehearsalPublicOutcome, RehearsalQuestionPresentationV1, RehearsalReference,
-    RehearsalResponseSchemaV1, RehearsalRouteViewV1, RehearsalRunId, RehearsalRunReceipt,
-    RehearsalStartRequest, RehearsalSubjectStart, RehearsalSubmissionClaimId,
-    RehearsalSubmissionRequestV1, RehearsalSubmissionResultV1, RehearsalSyntheticSubjectRequest,
-    RehearsalWireValidationError, ValidatedRehearsalRenderedSubmissionV1,
-    rehearsal_active_screen_from_issued_presentation_v1, validate_rehearsal_response_for_schema,
 };
 pub use crate::response::{ResponseDefinition, StudentResponse};
 pub use crate::run_policy::{

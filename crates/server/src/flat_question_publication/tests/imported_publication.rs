@@ -188,7 +188,7 @@ async fn missing_import_archive_refuses_before_publication_mutation_without_leak
         .objects
         .delete(&imported.archive_key)
         .await
-        .expect("remove imported archive to simulate a broken reference");
+        .expect("remove imported archive to inject a broken reference");
 
     let (status, headers, body) = publish(&fixture, &imported.etag).await;
     assert_eq!(status, StatusCode::CONFLICT);

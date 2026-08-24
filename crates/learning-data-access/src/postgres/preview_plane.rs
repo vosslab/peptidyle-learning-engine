@@ -295,8 +295,7 @@ pub(super) async fn resolve_synthetic_preview_read_only(
 /// Resolves a derived preview from the route-owned membership reference.
 ///
 /// Resolves a derived preview with the internal membership identity that the
-/// public reference selected. Rehearsal uses this after its broker preparation
-/// witness has locked that exact membership. The preview plane instead relies
+/// public reference selected. The preview plane relies
 /// on its repeatable-read snapshot. In both cases, the returned internal IDs
 /// prevent changed public references from being mistaken for audited sources.
 /// // ASVS 2.2.1, 2.3.1, 8.2.2, 8.3.1

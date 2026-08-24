@@ -1,4 +1,4 @@
-# Copy outside the repository. Use a unique deployment_id for every disposable rehearsal.
+# Copy outside the repository. Use a unique deployment_id for every disposable deployment exercise.
 aws_region               = "us-west-2"
 environment              = "staging"
 deployment_id            = "replace-me"

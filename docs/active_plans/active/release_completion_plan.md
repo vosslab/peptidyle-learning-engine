@@ -627,7 +627,7 @@ tests/`; both diff checks. The contact sheet and exact theme inventory are not p
 
 ### WP-RC7: Reconcile objects and close M2 through M5
 
-- **M2-M5 note:** the simulator M5 retained-volume gate is accepted after
+- **M2-M5 note:** the offline-harness M5 retained-volume gate is accepted after
   visible native course/gradebook pagination reached the current targets in
   manager and independent same-seed `--build` runs. This is not a live
   PostgreSQL, object-reconciliation, or combined WP-RC7 acceptance claim.
@@ -777,8 +777,8 @@ production email identity, invitation, or enrollment acceptance.
 - **Owner:** M6 deployment architect and `postgresql-expert`; independent operations/security review.
 - **Files:** `deploy/opentofu/{versions,providers,variables,locals,network,database,storage,compute,edge,waf,observability,outputs}.tf`;
   `deploy/opentofu/env.example.tfvars`; `deploy/opentofu/tests/policy.tftest.hcl`;
-  `devel/deploy_disposable.sh`; `devel/rehearse_restore.sh`; deployment, container, security,
-  backup/restore, operations, and cost docs; status and changelog.
+  `devel/deploy_disposable.sh`; `devel/exercise_restore.sh`; deployment,
+  container, security, backup/restore, operations, and cost docs; status and changelog.
 - **Behavior:** create private subnets with no default workload egress, encrypted RDS with PITR and
   verified TLS, four separately encrypted S3 domains/lifecycles, ECR/Fargate API, worker, and
   dedicated public-asset publisher, private ALB origin, CloudFront `www` and `app`, WAF, KMS,
@@ -789,14 +789,14 @@ production email identity, invitation, or enrollment acceptance.
   baseline; the feature remains disabled until an independently reviewed production renderer identity,
   image, protocol, egress, resource-limit, and private-network attestation is supplied. Remote state
   is encrypted/restricted and no secret enters plan, output, image, repository, or browser.
-- **Success:** a disposable environment plans from an empty account boundary, deploys, migrates,
-  proves deployed application roles cannot bypass RLS and the publisher cannot exercise API/worker
-  database authority, passes semantic health and one complete assignment, verifies public-tag/object
-  isolation and protected asset delivery, restores from backup, rolls back app/static manifests,
-  detects drift, and destroys only resources tagged with its unique deployment ID.
+- **Success:** a disposable environment plans from an empty account boundary, deploys, migrates, and
+  completes the live production-stack journey; proves deployed application roles cannot bypass RLS and
+  the publisher cannot exercise API/worker database authority; passes semantic health and one complete
+  assignment; verifies public-tag/object isolation and protected asset delivery; completes restore,
+  rollback, drift, and bounded-destroy exercises scoped to its unique deployment ID.
 - **Validation:** `tofu fmt -check -recursive`, `tofu init -backend=false`, `tofu validate`, `tofu test`;
-  secret/config policy scan; disposable plan/apply/health/RDS-TLS-and-RLS/publication/restore/rollback/
-  drift/destroy rehearsal; independent cost, security, database, and operations reviews.
+  secret/config policy scan; disposable plan/apply/live-stack, controlled-fault, health, RLS,
+  publication, restore, rollback, drift, and bounded-destroy exercises; independent reviews.
 
 ### WP-RC11: Implement bot-cost controls
 
@@ -859,17 +859,16 @@ production email identity, invitation, or enrollment acceptance.
   `DATABASE_STRUCTURE.md`,
   `CODE_ARCHITECTURE.md`, `FILE_STRUCTURE.md`, `CONTRACTS.md`, `RETENTION_POLICY.md`;
   implementation status/report, changelog, and release notes.
-- **Behavior:** provide one repeatable local path and one disposable production path from clean clone
-  through build, migrate, seed/configure identity, author, publish, assign, issue, answer, grade,
-  feedback, export, retain/delete, backup, restore, and rollback. Record every environment-derived
-  dependency and every out-of-scope production-activation action plainly.
-- **Success:** no empty maintained file, production stub, TODO-only section, fake/disabled acceptance
-  test, unresolved scope question, answer leak, cross-tenant path, silent format loss, or undocumented
-  operator step remains. All claimed capabilities have current evidence and all reviewers report no
-  P0/P1.
-- **Validation:** `./check_codebase.sh`; strict Rust/TypeScript/Node/Python gates; built Playwright;
-  combined local and disposable-cloud E2E; migration/restore/replica/worker/load/security/a11y gates;
-  link/ASCII/diff checks; independent multi-discipline audit.
+- **Behavior:** provide one repeatable live production-stack journey from clean clone through build,
+  migration, identity configuration, teaching, grading, export, retention, backup, restore, and rollback.
+  Record every environment-derived dependency and out-of-scope production-activation action plainly.
+- **Success:** no empty maintained file, production stub, TODO-only section, placeholder/disabled
+  acceptance test, unresolved scope question, answer leak, cross-tenant path, silent format loss, or
+  undocumented operator step remains. All claimed capabilities have current evidence and all reviewers
+  report no P0/P1.
+- **Validation:** `./check_codebase.sh`; strict Rust/TypeScript/Node/Python gates; built Playwright; live
+  production-stack journey; disposable-cloud migration, restore, replica, worker, load, security,
+  accessibility, controlled-fault, and bounded-destroy exercises; link/ASCII/diff checks; independent audit.
 
 ## Acceptance criteria and gates
 
@@ -942,7 +941,7 @@ development. They must pass, not skip, in WP-RC12 release evidence.
 | Publication makes uncommitted or restricted bytes public | Object owner         | Pending private registry plus durable job; dedicated publisher rechecks exact bytes/checksum and alone writes/activates tagged public objects |
 | External provider outcome is unknown after a failed POST | External-tool owner  | Persist a lease-bound dispatch marker before the POST; block retry, grade, new launch, and finalization until explicit operator resolution    |
 | LTI browser input becomes a grade                        | LTI owner            | AGS derives from summary rows; signed launch and server credentials; no browser grade authority                                               |
-| Cloud plan contains a secret or destructive broad target | Deployment architect | Secret references only, unique deployment tags, reviewed plan, bounded destroy rehearsal                                                      |
+| Cloud plan contains a secret or destructive broad target | Deployment architect | Secret references only, unique deployment tags, reviewed plan, bounded destroy exercise                                                      |
 | Bot rules block a shared campus or assistive user        | Edge owner           | Count mode, versioned legitimate corpus, accessible recovery, immediate rollback                                                              |
 | Real pilot begins before external activation evidence    | Product owner        | Production activation checklist is separate and must be signed before enrollment                                                              |
 

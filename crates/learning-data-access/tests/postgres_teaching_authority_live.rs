@@ -493,6 +493,7 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
     let remove_initial = store.remove_direct_instructor_membership(
         context,
         RemoveDirectInstructorMembership {
+            session: instructor_session,
             actor: instructor,
             course,
             membership: initial.id,
@@ -502,6 +503,7 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
     let remove_target = store.remove_direct_instructor_membership(
         context,
         RemoveDirectInstructorMembership {
+            session: target_session,
             actor: target,
             course,
             membership: accepted.membership,

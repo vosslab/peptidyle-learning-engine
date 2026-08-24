@@ -2,9 +2,8 @@
 
 //! Disposable PostgreSQL oracle for the actor-authorized assignment mutators.
 //!
-//! The canonical Store performs the locked rehearsal hydration before these
-//! capabilities.  This migration-level suite proves the database boundary
-//! itself: a prepared zero-run witness may complete each authorized mutation,
+//! The canonical Store prepares assignment mutations through the broker.
+//! This migration-level suite proves that the prepared authority may complete each authorized mutation,
 //! while stale, foreign, malformed, and direct-DML requests cannot.
 
 use learning_data_access::postgres::{
@@ -193,25 +192,19 @@ async fn prepared(
     assignment: Uuid,
     expected: i64,
 ) {
-    let (found, count, identifiers): (i64, i64, Vec<Uuid>) = sqlx::query_as(
-        "SELECT * FROM public.ple_prepare_assignment_rehearsal_verification($1,$2,$3,$4,$5)",
-    )
-    .bind(source.tenant)
-    .bind(source.actor)
-    .bind(source.course)
-    .bind(assignment)
-    .bind(expected)
-    .fetch_one(&mut **tx)
-    .await
-    .expect("prepare locked rehearsal verification");
+    let found: i64 =
+        sqlx::query_scalar("SELECT public.ple_prepare_assignment_mutation($1,$2,$3,$4,$5)")
+            .bind(source.tenant)
+            .bind(source.actor)
+            .bind(source.course)
+            .bind(assignment)
+            .bind(expected)
+            .fetch_one(&mut **tx)
+            .await
+            .expect("prepare assignment mutation");
     assert_eq!(
         found, expected,
         "verified zero-run witness preserves revision"
-    );
-    assert_eq!(count, 0, "fixture has no active rehearsal to invalidate");
-    assert!(
-        identifiers.is_empty(),
-        "witness has no active rehearsal identifiers"
     );
 }
 
@@ -301,16 +294,9 @@ async fn definition_create_replace_and_focused_capabilities_are_authorized_atomi
     let candidate = id();
     let mut tx = app(&pool, source.tenant).await;
     prepared_creation(&mut tx, &source, assignment).await;
-    let initial = valid_payload(
-        &source,
-        item,
-        candidate,
-        group,
-        "Mechanism rehearsal",
-        "4.0",
-    );
+    let initial = valid_payload(&source, item, candidate, group, "Mechanism mutation", "4.0");
     let created: (Uuid, i64, i64, String) = sqlx::query_as(
-        "SELECT * FROM public.ple_create_assignment_definition_v1($1,$2,$3,$4,$5,$6,$7)",
+        "SELECT * FROM public.ple_create_assignment_definition_v1($1,$2,$3,$4,$5,$6)",
     )
     .bind(source.tenant)
     .bind(source.actor)
@@ -344,7 +330,7 @@ async fn definition_create_replace_and_focused_capabilities_are_authorized_atomi
     let mut tx = app(&pool, source.tenant).await;
     prepared(&mut tx, &source, assignment, 1).await;
     let replaced: (i64, i64, String) = sqlx::query_as(
-        "SELECT * FROM public.ple_replace_assignment_definition_v1($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+        "SELECT * FROM public.ple_replace_assignment_definition_v1($1,$2,$3,$4,$5,$6,$7,$8)",
     )
     .bind(source.tenant)
     .bind(source.actor)
@@ -356,12 +342,11 @@ async fn definition_create_replace_and_focused_capabilities_are_authorized_atomi
         item,
         candidate,
         group,
-        "Mechanism rehearsal revised",
+        "Mechanism mutation revised",
         "5.0",
     ))
     .bind(Option::<Uuid>::None)
     .bind(Option::<i32>::None)
-    .bind(0_i64)
     .fetch_one(&mut *tx)
     .await
     .expect("identity-preserving complete replacement");
@@ -387,48 +372,48 @@ async fn definition_create_replace_and_focused_capabilities_are_authorized_atomi
     let settings = json!({"lifecycle":"published","instructions":"Updated instructions","basePolicy":{"availableAt":1787590800000_i64,"dueAt":1787677200000_i64,"closesAt":1787763600000_i64,"lateSubmission":"markLate","deadlineBehavior":"autoSubmit","timeLimitSeconds":3600,"attemptLimit":2}});
     let accommodation = json!({"overrideKind":"explicit_override","dueMode":"unrestricted","timeLimitMode":"unlimited","attemptLimitMode":"unlimited"});
     let exception = id();
-    macro_rules! mutate { ($sql:literal $(, $value:expr )* $(,)?) => {{ prepared(&mut tx, &source, assignment, expected).await; let next: i64 = sqlx::query_scalar($sql).bind(source.tenant).bind(source.actor).bind(source.course).bind(assignment).bind(expected) $(.bind($value))* .bind(0_i64).fetch_one(&mut *tx).await.expect("authorized focused mutator"); expected += 1; assert_eq!(next, expected); }}; }
+    macro_rules! mutate { ($sql:literal $(, $value:expr )* $(,)?) => {{ prepared(&mut tx, &source, assignment, expected).await; let next: i64 = sqlx::query_scalar($sql).bind(source.tenant).bind(source.actor).bind(source.course).bind(assignment).bind(expected) $(.bind($value))* .fetch_one(&mut *tx).await.expect("authorized focused mutator"); expected += 1; assert_eq!(next, expected); }}; }
     mutate!(
-        "SELECT public.ple_put_assignment_teaching_settings($1,$2,$3,$4,$5,$6,$7)",
+        "SELECT public.ple_put_assignment_teaching_settings($1,$2,$3,$4,$5,$6)",
         settings
     );
     mutate!(
-        "SELECT public.ple_put_assignment_group_schedule_offset($1,$2,$3,$4,$5,$6,$7,$8)",
+        "SELECT public.ple_put_assignment_group_schedule_offset($1,$2,$3,$4,$5,$6,$7)",
         source.group,
         offset
     );
     mutate!(
-        "SELECT public.ple_delete_assignment_group_schedule_offset($1,$2,$3,$4,$5,$6,$7)",
+        "SELECT public.ple_delete_assignment_group_schedule_offset($1,$2,$3,$4,$5,$6)",
         source.group
     );
     mutate!(
-        "SELECT public.ple_put_assignment_group_accommodation($1,$2,$3,$4,$5,$6,$7,$8)",
+        "SELECT public.ple_put_assignment_group_accommodation($1,$2,$3,$4,$5,$6,$7)",
         source.accommodation_group,
         accommodation.clone()
     );
     mutate!(
-        "SELECT public.ple_delete_assignment_group_accommodation($1,$2,$3,$4,$5,$6,$7)",
+        "SELECT public.ple_delete_assignment_group_accommodation($1,$2,$3,$4,$5,$6)",
         source.accommodation_group
     );
     mutate!(
-        "SELECT public.ple_put_assignment_individual_exception($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+        "SELECT public.ple_put_assignment_individual_exception($1,$2,$3,$4,$5,$6,$7,$8)",
         exception,
         source.student,
         accommodation
     );
     mutate!(
-        "SELECT public.ple_delete_assignment_individual_exception($1,$2,$3,$4,$5,$6,$7)",
+        "SELECT public.ple_delete_assignment_individual_exception($1,$2,$3,$4,$5,$6)",
         source.student
     );
     let inserted_item = id();
     mutate!(
-        "SELECT public.ple_replace_assignment_fixed_item($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+        "SELECT public.ple_replace_assignment_fixed_item($1,$2,$3,$4,$5,$6,$7,$8)",
         item,
         source.problem,
         source.version
     );
     mutate!(
-        "SELECT public.ple_add_assignment_fixed_item($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::numeric,$11,$12,$13)",
+        "SELECT public.ple_add_assignment_fixed_item($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::numeric,$11,$12)",
         inserted_item,
         2_i32,
         source.problem,
@@ -438,7 +423,7 @@ async fn definition_create_replace_and_focused_capabilities_are_authorized_atomi
         "normal"
     );
     mutate!(
-        "SELECT public.ple_remove_assignment_fixed_item($1,$2,$3,$4,$5,$6,$7)",
+        "SELECT public.ple_remove_assignment_fixed_item($1,$2,$3,$4,$5,$6)",
         inserted_item
     );
     assert_eq!(
@@ -460,7 +445,7 @@ async fn assignment_capabilities_refuse_stale_foreign_malformed_and_direct_dml_w
     let group = id();
     let candidate = id();
     let mut owner = app(&pool, source.tenant).await;
-    sqlx::query("SELECT * FROM public.ple_create_assignment_definition_v1($1,$2,$3,$4,$5,$6,$7)")
+    sqlx::query("SELECT * FROM public.ple_create_assignment_definition_v1($1,$2,$3,$4,$5,$6)")
         .bind(source.tenant)
         .bind(source.actor)
         .bind(source.course)
@@ -524,7 +509,7 @@ async fn assignment_capabilities_refuse_stale_foreign_malformed_and_direct_dml_w
     .await;
     let mut stale = app(&pool, source.tenant).await;
     let denied = sqlx::query_scalar::<_, i64>(
-        "SELECT public.ple_put_assignment_group_schedule_offset($1,$2,$3,$4,$5,$6,60,$7)",
+        "SELECT public.ple_put_assignment_group_schedule_offset($1,$2,$3,$4,$5,$6,60)",
     )
     .bind(source.tenant)
     .bind(source.actor)
@@ -532,14 +517,13 @@ async fn assignment_capabilities_refuse_stale_foreign_malformed_and_direct_dml_w
     .bind(assignment)
     .bind(99_i64)
     .bind(source.group)
-    .bind(0_i64)
     .fetch_one(&mut *stale)
     .await;
     assert!(denied.is_err(), "stale compare-and-swap is refused");
     stale.rollback().await.expect("rollback stale");
     let mut foreign = app(&pool, source.tenant).await;
     let denied = sqlx::query_scalar::<_, i64>(
-        "SELECT public.ple_put_assignment_group_schedule_offset($1,$2,$3,$4,$5,$6,60,$7)",
+        "SELECT public.ple_put_assignment_group_schedule_offset($1,$2,$3,$4,$5,$6,60)",
     )
     .bind(source.tenant)
     .bind(id())
@@ -547,7 +531,6 @@ async fn assignment_capabilities_refuse_stale_foreign_malformed_and_direct_dml_w
     .bind(assignment)
     .bind(1_i64)
     .bind(source.group)
-    .bind(0_i64)
     .fetch_one(&mut *foreign)
     .await;
     assert!(
@@ -757,7 +740,7 @@ async fn creation_prepare_catalog_and_membership_lock_preserve_least_authority()
     let item = id();
     let candidate = id();
     let group = id();
-    sqlx::query("SELECT * FROM public.ple_create_assignment_definition_v1($1,$2,$3,$4,$5,$6,$7)")
+    sqlx::query("SELECT * FROM public.ple_create_assignment_definition_v1($1,$2,$3,$4,$5,$6)")
         .bind(source.tenant)
         .bind(source.actor)
         .bind(source.course)

@@ -37,27 +37,15 @@ and student keyboard take/score/repeat. Current browser evidence is owned by the
 handoff remains in [implementation_status.md](implementation_status.md). Production email and
 canonical onboarding remain separate release work and do not gate that historical walkthrough.
 
-**Current T4 issued-work dependency.** The unaccepted professor T4 contract is owned by
-[rehearsal_run_plan.md](active/rehearsal_run_plan.md). It adds the bounded server-only
-`IssuedQuestionSnapshotV1` to `2026081817_learner_work_source_preparation.sql`: a canonical,
-checksummed issued definition plus family witness on the attempt and the existing prefetch
-reservation. Its implementation files are the `learning-data-access` run contracts, issuance,
-submission-preparation, PostgreSQL prepared-attempt, and course-policy call sites; its server
-consumers are run submission, prefetch, external-tool, QTI, and iMathAS resolution. The focused
-plan owns exact contracts, batch order, and acceptance: Memory/PostgreSQL issued-work parity,
-fresh-migration/RLS and tamper proof, prefetch promotion/recovery, live authorization and
-answer-free boundaries, service oracles, and one canonical production HTTPS browser scenario.
-Active-attempt timing has a separate existing authority: the locked attempt-local authored deadline
-and grace remain the immutable issued baseline, while live policy re-resolution continues to apply
-current restrictions. It never rereads a withdrawn catalog definition or adds a duplicate snapshot
-field, table, or migration allocation. This summary delegates changing package handoff and migration
-allocation state to [implementation_status.md](implementation_status.md). The same focused plan
-depends on the separately allocated `2026081821_rehearsal_operation_idempotency.sql` durable
-start/delivery/discard protocol and `2026081822_rehearsal_delivery_material.sql` immutable rehearsal
-source-material boundary. The latter freezes append-only answer-free source snapshots and
-forced-RLS grader-only private execution siblings at rehearsal start, then supplies a separate
-route-scoped preload facade; it never reconstructs delivery from mutable catalog content. The shared
-registry remains authoritative for their mutable chain position and closed scope.
+**Current live-delivery convergence.** The owner retired the unaccepted `WP-PROF-T4` sidecar before
+production. The current professor package is
+[WP-PROF-LD3](active/live_delivery_convergence_plan.md), which converges the useful authority work
+from that in-flight branch onto ordinary live assignments, learner runs, deterministic server-owned
+grading, immutable issued evidence, receipt replay, and audited Instructor inspection. It removes
+the parallel execution aggregate and its migrations, routes, stores, generated contracts, and test
+owners. The shared status registry owns the changing handoff and the reallocated unaccepted
+migration chain. WP-PROF-LD3 must pass its focused live PostgreSQL and production-stack gates plus
+the complete Validation suite before the professor queue advances to item pools and discovery.
 
 The completed local-stack lifecycle controller foundation is recorded in
 `docs/active_plans/workstreams/local_stack_controller_implementation.md`.
@@ -1536,7 +1524,7 @@ permanent credentialed or network test.
 - Lanes: (1) MOD-LTI; (2) aggregate observability; (3) MOD-DEPLOY.
 - Entry criteria: M5 exit criteria met.
 - Exit criteria: passback verified against an LMS sandbox; encryption at rest and in transit
-  demonstrated; restore-from-backup rehearsed and timed; a synthetic class-start burst triggers
+  demonstrated; restore-from-backup exercised and timed; a controlled class-start burst triggers
   scale-out with no failed submissions, replica count and p99 recorded.
 - Parallel-plan ready: yes. Three lanes.
 
@@ -1841,12 +1829,12 @@ contract, or scale gate blocks the milestone and triggers design review rather t
       path until its attested private-network, CPU/memory/request-limit, image-identity, and protocol
       evidence is accepted.
 - [ ] Class-start burst load test run; replica count and p99 recorded.
-- [ ] Restore-from-backup rehearsed and timed.
+- [ ] Restore-from-backup exercised and timed.
 - [ ] FERPA control checklist completed with evidence per control; retention and deletion implemented
       for `student-records` and render traces.
 - [ ] Retention default configured to the privacy-preserving value, with the per-institution override
       documented and one non-default institution exercised.
-- [ ] A real course deletion rehearsed end to end: records and bucket artifacts gone, catalog content
+- [ ] A real course deletion exercised end to end: records and bucket artifacts gone, catalog content
       and anonymous statistics intact, and the result recorded.
 - [ ] Course appearance acceptance completed: real-role RLS/current-pointer oracle, centered
       entry-banner lifecycle, all-route theme scope, 15-theme contact sheet, and measured contrast.

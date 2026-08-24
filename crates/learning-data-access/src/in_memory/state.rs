@@ -2,12 +2,6 @@ use super::*;
 
 mod test_support;
 
-#[cfg(feature = "test-support")]
-pub use test_support::{
-    MemoryRehearsalClaimTestSnapshot, MemoryRehearsalIntegrityTestCorruption,
-    MemoryRehearsalTestSnapshot,
-};
-
 impl MemoryStore {
     /// Inserts a pre-validation legacy draft for route-boundary tests only.
     ///

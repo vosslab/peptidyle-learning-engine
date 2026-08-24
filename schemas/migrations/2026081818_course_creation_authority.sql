@@ -827,7 +827,7 @@ BEGIN
               JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=table_row.relnamespace
               CROSS JOIN (VALUES ('SELECT'),('MAINTAIN')) AS privilege(privilege_type)
              WHERE namespace.nspname='public' AND table_row.relkind IN ('r','p')
-               AND table_row.relname NOT IN ('_sqlx_migrations','rehearsal_start_operation_root','rehearsal_start_receipt','rehearsal_discard_operation_root','rehearsal_discard_receipt','rehearsal_delivery_admission','rehearsal_delivery_operation_root','rehearsal_delivery_operation_event','rehearsal_delivery_receipt')
+               AND table_row.relname NOT IN ('_sqlx_migrations')
         ), actual AS (
             SELECT format('%I.%I',namespace.nspname,table_row.relname), privilege.privilege_type
               FROM pg_catalog.pg_class AS table_row
@@ -899,7 +899,7 @@ BEGIN
               FROM pg_catalog.pg_class AS table_row
               JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=table_row.relnamespace
              WHERE namespace.nspname='public' AND table_row.relkind IN ('r','p')
-               AND table_row.relrowsecurity AND table_row.relname NOT IN ('_sqlx_migrations','rehearsal_start_operation_root','rehearsal_start_receipt','rehearsal_discard_operation_root','rehearsal_discard_receipt','rehearsal_delivery_admission','rehearsal_delivery_operation_root','rehearsal_delivery_operation_event','rehearsal_delivery_receipt')
+               AND table_row.relrowsecurity AND table_row.relname NOT IN ('_sqlx_migrations')
         ), actual AS (
             SELECT format('%I.%I',namespace.nspname,table_row.relname),policy.polname,
                    policy.polcmd,policy.polpermissive,

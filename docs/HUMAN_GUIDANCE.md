@@ -103,12 +103,12 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 
 - Podman is normally running on the owner's machine.
 - Use `source source_me.sh && python3 local_stack.py` as the normal local-stack controller.
-- Treat all local Podman images and project-named simulated-data volumes as disposable acceptance
-  infrastructure. Image pruning is pre-approved. Project-named simulated-data volumes may be removed
+- Treat all local Podman images and project-named live-stack data volumes as disposable acceptance
+  infrastructure. Image pruning is pre-approved. Project-named live-stack data volumes may be removed
   when their named acceptance target is verified; retain the typed target, label, and explicit-resource
   safeguards so cleanup remains scoped and inspectable.
 - Before an ordinary local stack replacement, remove all containers and orphans in the exact labelled
-  project while retaining its named simulated-data volumes; then recreate the complete designed suite.
+  project while retaining its named live-stack data volumes; then recreate the complete designed suite.
   After semantic readiness, prune every image not used by a current container. All images in the
   owner's local Podman machine belong to this project and are disposable; the active full-suite
   containers protect their current images from pruning, while obsolete application, renderer,
@@ -122,11 +122,11 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 
 - PLE is pre-production: it has no users and no current durable data. Improve
   the current design directly.
-- Preview and rehearsal operate on the same ordinary live courses, assignments, published
-  questions, deterministic graders, and production routes as the rest of PLE. Baseline seeding
-  creates ordinary live records. Rehearsal-specific persistence contains only the immutable
-  execution and audit evidence needed to keep Instructor inspection out of learner records; it is
-  never a second content source, question bank, assignment model, or demo application.
+- Preview resolves ordinary live courses, assignments, published questions, deterministic graders,
+  and production policy. Instructor validation of delivery and automated grading uses the normal
+  Student workflow and creates ordinary learner runs, submissions, immutable receipts, grades, and
+  audited Instructor views. Baseline seeding creates ordinary live records. PLE uses this single
+  live product model for the demo, acceptance evidence, and production behavior.
 - Before the first production deployment, replace the unreleased
   history with one reviewed clean-cluster baseline. After that baseline ships,
   preserve each new forward migration as the durable upgrade ledger.

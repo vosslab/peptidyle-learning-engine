@@ -28,8 +28,6 @@ pub mod item_analysis;
 pub mod policy;
 /// Pure non-mutating S5 -> S3 -> S4 preview composition (WP-PROF-T3).
 pub mod preview_plane;
-/// Pure instructor-owned rehearsal lifecycle and evidence-chain rules (WP-PROF-T4).
-pub mod rehearsal;
 /// Continued-practice eligibility and shared run-model errors (MOD-RUN).
 pub mod run;
 /// Completed-run score selection and summary projection (MOD-SCORE).
@@ -46,33 +44,6 @@ pub mod validation;
 pub use crate::course_grade::{
     CourseGradeAssignment, CourseGradeError, CourseGradeOutcome, CourseGradeUnavailableReason,
     calculate_course_grade,
-};
-pub use crate::rehearsal::{
-    DispatchedClaimHandle, PreparedClaimHandle, RehearsalClaimCompletionError,
-    RehearsalClaimCompletionMaterial, RehearsalClaimCompletionProofError, RehearsalClaimGeneration,
-    RehearsalClaimHandleError, RehearsalClaimHydrationError, RehearsalClaimReclaimError,
-    RehearsalClaimRoot, RehearsalClaimRootVerificationError, RehearsalClaimSubmissionInput,
-    RehearsalClaimTransitionEvent, RehearsalDeadlineSourceV1, RehearsalEvidenceChainEntry,
-    RehearsalEvidenceHead, RehearsalEvidencePayload, RehearsalFrozenInventoryEntry,
-    RehearsalGenesisContext, RehearsalIntegrityError, RehearsalInventoryError,
-    RehearsalLifecycleSnapshot, RehearsalPersistedClaimRoot, RehearsalPreDispatchAbandonReason,
-    RehearsalPreDispatchAbandonment, RehearsalStartDecision, RehearsalSubjectFingerprint,
-    RehearsalSubmissionClaimDecision, RehearsalSubmissionClaimPhase,
-    RehearsalSubmissionClaimSnapshot, RehearsalSubmissionClaimState,
-    RehearsalSubmissionRequestFingerprint, RehearsalTerminalTransition,
-    RehearsalTimingDispatchDecisionV1, RehearsalTimingError, RehearsalTimingInputsV1,
-    RehearsalTimingVerdictV1, RehearsalTimingWitnessV1, RehearsalValidatedSubmissionEvidence,
-    RehearsalValidatedSubmissionRequest, VerifiedRehearsalAcceptedEvidenceOwner,
-    VerifiedRehearsalClaimCompletionProof, abandon_rehearsal_submission_before_dispatch,
-    apply_terminal_transition, decide_rehearsal_timing_dispatch, decide_start,
-    decide_submission_claim, derive_rehearsal_timing_witness, evidence_entry_digest,
-    evidence_genesis_digest, evidence_genesis_head, fingerprint_resolved_preview_subject,
-    frozen_response_schema_digest, hydrate_claim_history, mark_rehearsal_submission_dispatched,
-    private_payload_digest, rehearsal_accepted_evidence_owner,
-    rehearsal_claim_submission_input_fingerprint, rehearsal_retry_is_available,
-    rehearsal_submission_request_fingerprint, rehearsal_timing_verdict, validate_claim_completion,
-    validate_subject_binding, verify_evidence_chain, verify_rehearsal_claim_completion_proof,
-    verify_rehearsal_inventory, verify_rehearsal_timing_witness,
 };
 pub use crate::teaching_authority::{
     CoInstructorInvitationAcceptance, CoInstructorInvitationError, DirectInstructorMembership,

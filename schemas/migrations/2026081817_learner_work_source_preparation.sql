@@ -1,4 +1,4 @@
--- WP-PROF-T4: authorization-first learner-work source preparation.
+-- Authorization-first live learner-work source preparation.
 -- ASVS 1.2.4, 2.2.1-2.2.3, 2.3.1-2.3.4, 8.2.1-8.2.2, 8.3.1, and 8.4.1.
 
 BEGIN;

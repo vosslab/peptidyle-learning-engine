@@ -8,6 +8,11 @@ boundary. It is the durable companion to
 local PostgreSQL baseline and separates it from release-candidate and cloud
 work that still needs deployment evidence.
 
+The canonical live-demo installation starts with fictional seeded people and
+records, then uses the ordinary tenant, membership, RLS, and retention paths.
+Regeneration discards that disposable live data; it does not create a separate
+tenant or authority model.
+
 ## Ownership boundary
 
 PLE uses one PostgreSQL cluster with logical tenancy. Tenant identity is a
@@ -250,7 +255,7 @@ snapshot, read replica, crash copy, and restored database that includes a
 radioactive table is radioactive as a whole. It requires restricted operator
 access, encryption, an explicit expiry, an isolated restore target, and an
 access record. These are deployment requirements; the repository's local
-restore rehearsal does not claim that production backup lifecycle or access
+restore exercise does not claim that production backup lifecycle or access
 evidence is deployed.
 
 The main immutable and idempotent boundaries are:
@@ -324,7 +329,7 @@ or applies DDL.
 
 Do not rewrite an applied baseline. Schema evolution after durable data uses
 forward migrations with expand, backfill, verify, switch, and contract stages.
-The disposable PostgreSQL acceptance path exercises fresh migration replay,
+The canonical disposable live-demo PostgreSQL acceptance path exercises fresh migration replay,
 role/RLS denial, tenant concealment, restricted grader access, and
 representative Store behavior. Offline conformance tests do not replace those
 live checks.
@@ -333,13 +338,13 @@ The following remain planned RC or cloud deployment work, not claims about the
 local baseline:
 
 - deployed RDS/private-network/TLS/KMS, backup retention, point-in-time
-  recovery, and restore rehearsal;
+  recovery, and restore exercise;
 - deployed non-superuser application credentials and forced-RLS/grant evidence
   against the managed database;
 - production Fargate scaling, class-start load evidence, worker soak, and
   replica/clock-skew operational proof; and
 - the completed FERPA control checklist, configured institutional retention
-  override, object-store lifecycle proof, and production deletion rehearsal.
+  override, object-store lifecycle proof, and production deletion exercise.
 
 See [implementation_plan.md](active_plans/implementation_plan.md) for those
 release gates and [implementation_status.md](active_plans/implementation_status.md)

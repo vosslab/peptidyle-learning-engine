@@ -47,8 +47,7 @@ where
 }
 
 /// Publishes ordinary native material with an authored timing policy.  Timing
-/// conformance uses this normal draft/publication path rather than mutating a
-/// frozen rehearsal record.
+/// conformance uses this normal draft/publication path rather than mutating issued learner work.
 pub(super) async fn publish_assignment_version_with_timing<S>(
     store: &S,
     context: TenantContext,

@@ -1,4 +1,4 @@
--- WP-PROF-T4: session-bound whole-course grade-control capabilities.
+-- Session-bound live whole-course grade-control capabilities.
 -- ASVS 1.2.4, 2.2.1-2.2.3, 2.3.1-2.3.4, 8.2.1-8.2.3, 15.4.2-15.4.3.
 BEGIN;
 

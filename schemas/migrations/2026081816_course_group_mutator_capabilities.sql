@@ -1,4 +1,4 @@
--- WP-PROF-T4: the course-group aggregate has one session-bound write authority.
+-- The live course-group aggregate has one session-bound write authority.
 -- The accepted member-revocation trigger owns stale group-member cleanup.
 
 BEGIN;

@@ -309,58 +309,31 @@ impl TeachingAuthorityStore for PostgresStore {
             let mut transaction = self.begin_tenant(context).await?;
             let expected_roster_revision = i64::try_from(command.expected_roster_revision.value())
                 .map_err(|_| StoreError::Conflict)?;
-            // The broker owns every source lock. It returns only the locked
-            // revision, then transaction-scoped locks protect the Rust
-            // aggregate verification and ordinary persisted mutation.
-            // ASVS 2.3.3, 2.3.4, 8.2.2, and 8.3.1.
-            let prepared_row = sqlx::query(concat!(
-                "SELECT * FROM public.ple_prepare_direct_instructor_rehearsal_fence",
-                "($1, $2, $3, $4, $5)",
-            ))
+            let row = sqlx::query(
+                "SELECT * FROM public.ple_remove_direct_instructor_membership_v1($1,$2,$3,$4,$5)",
+            )
             .bind(tenant.as_uuid())
-            .bind(command.actor.as_uuid())
+            .bind(command.session.to_string())
             .bind(command.course.as_uuid())
             .bind(command.membership.as_uuid())
             .bind(expected_roster_revision)
             .fetch_one(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
-            let prepared =
-                super::rehearsal::DirectInstructorRehearsalPrepareWitness::decode(&prepared_row)?;
-            if prepared.roster_revision() != expected_roster_revision {
-                return Err(StoreError::Conflict);
-            }
-            let witness = prepared
-                .verify(
-                    &mut transaction,
-                    tenant,
-                    super::rehearsal::RehearsalSourceSelector::DirectInstructorMembership {
-                        course: command.course,
-                        membership: command.membership,
-                    },
-                )
-                .await?;
-            let locked_rehearsal_count = witness.database_count()?;
-            let fenced: i64 = sqlx::query_scalar(concat!(
-                "SELECT public.ple_fence_rehearsals_for_direct_instructor_removal",
-                "($1, $2, $3, $4, $5, $6)",
-            ))
-            .bind(tenant.as_uuid())
-            .bind(command.actor.as_uuid())
-            .bind(command.course.as_uuid())
-            .bind(command.membership.as_uuid())
-            .bind(expected_roster_revision)
-            .bind(locked_rehearsal_count)
-            .fetch_one(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-            if fenced != locked_rehearsal_count {
-                return Err(StoreError::Conflict);
-            }
-
-            let expected_revision = command.expected_roster_revision.next()?;
-            let actual_revision = roster_revision(&mut transaction, tenant, command.course).await?;
-            if actual_revision != expected_revision {
+            let returned_tenant: Uuid = row.try_get("tenant_id").map_err(map_sqlx_error)?;
+            let returned_actor: Uuid = row.try_get("actor_id").map_err(map_sqlx_error)?;
+            let returned_course: Uuid = row.try_get("course_id").map_err(map_sqlx_error)?;
+            let returned_membership: Uuid = row
+                .try_get("course_membership_id")
+                .map_err(map_sqlx_error)?;
+            let returned_revision: i64 = row.try_get("roster_revision").map_err(map_sqlx_error)?;
+            if returned_tenant != tenant.as_uuid()
+                || returned_actor != command.actor.as_uuid()
+                || returned_course != command.course.as_uuid()
+                || returned_membership != command.membership.as_uuid()
+                || RosterRevision::from_stored(returned_revision)?
+                    != command.expected_roster_revision.next()?
+            {
                 return Err(StoreError::Conflict);
             }
             transaction.commit().await.map_err(map_sqlx_error)
@@ -546,22 +519,6 @@ async fn session_subject(
             .map_err(map_sqlx_error)?;
     user.map(UserId::from_uuid).ok_or(StoreError::NotFound)
 }
-async fn roster_revision(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-) -> Result<RosterRevision, StoreError> {
-    let value: Option<i64> = sqlx::query_scalar(
-        "SELECT revision FROM course_roster_state WHERE tenant_id=$1 AND course_id=$2",
-    )
-    .bind(tenant.as_uuid())
-    .bind(course.as_uuid())
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    RosterRevision::from_stored(value.ok_or(StoreError::NotFound)?)
-}
-
 #[cfg(test)]
 mod tests {
     use super::{require_row, stored_status_matches_terminals};

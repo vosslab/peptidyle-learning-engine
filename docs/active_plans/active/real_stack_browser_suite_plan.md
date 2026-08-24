@@ -19,8 +19,9 @@ error-mapping tests remain fast unit tests outside the product browser runtime g
 
 This package and its frozen-scope successor, `WP-PROF-T3`, were accepted on 2026-08-22. The sole
 current professor package is recorded only in [implementation_status.md](../implementation_status.md),
-which currently names `WP-PROF-T4`. The accepted BS1 closure remains the historical nine-scenario,
-51-artifact record; T3 separately extends that evidence to ten scenarios and 63 artifacts.
+which currently names `WP-PROF-LD3`; `WP-PROF-T4` was retired before acceptance. The accepted BS1
+closure remains the historical nine-scenario, 51-artifact record; T3 separately extends that evidence
+to ten scenarios and 63 artifacts.
 
 ## Evidence and boundaries
 
@@ -105,10 +106,10 @@ single-flight, so normal operation never selects a random-suffix compatibility p
 
 ## Behavior-value inventory
 
-Before retirement, the migration matrix classifies each legacy browser/mock case by the user or
+Before retirement, the migration matrix classifies each legacy browser case by the user or
 contract behavior it protects: real-stack browser scenario, isolated unit test, existing service
 oracle, or obsolete implementation detail. It records the successor and evidence location. The
-matrix is a behavior-value inventory; legacy filenames, assertion counts, mocks, and application
+matrix is a behavior-value inventory; legacy filenames, assertion counts, test doubles, and application
 shapes do not define replacement scope.
 
 ## Small milestones
@@ -133,11 +134,11 @@ interaction, or inspection prerequisite.
 | BS1-10    | `WP-PROF-BS1-L1` | Migrate one learner delivery/response family                           | B0, C0                  | Reload or second-session learner evidence                                                                                                                      |
 | BS1-11    | `WP-PROF-BS1-A1` | Migrate ordinary auth, Sysadmin claim, and role-boundary families      | B2, B1, B0, C0          | Visible role/session and denial scenarios                                                                                                                      |
 | BS1-12    | `WP-PROF-BS1-S1` | Add semantic persistence receipts where claims require them            | I1, L1, A1              | Read-only Store/service receipts tied to named claims                                                                                                          |
-| BS1-13    | `WP-PROF-BS1-U1` | Move narrow former-mock behavior to isolated unit owners              | C0                      | Focused Node/Rust unit tests plus one-time runtime-consumer closure inventory                                                                                  |
+| BS1-13    | `WP-PROF-BS1-U1` | Move narrow former browser behavior to isolated unit owners           | C0                      | Focused Node/Rust unit tests plus one-time runtime-consumer closure inventory                                                                                  |
 | BS1-14    | `WP-PROF-BS1-X1` | Exercise real concurrent-session conflicts                             | I1, B0                  | Two-session UI conflict scenario                                                                                                                               |
 | BS1-15    | `WP-PROF-BS1-F1` | Exercise lifecycle-controlled infrastructure recovery                  | C0 plus affected family | Owner-fault scenario and visible recovery                                                                                                                      |
 | BS1-16    | `WP-PROF-BS1-V1` | Capture canonical screenshots from accepted real scenarios             | I1, L1, X1, F1          | Origin/provenance verifier and image-evaluator report                                                                                                          |
-| BS1-17    | `WP-PROF-BS1-R1` | Retire the alternate mock browser application and runtime graph        | U1, X1, F1, V1          | One-time build/consumer closure inventory and canonical suite run                                                                                              |
+| BS1-17    | `WP-PROF-BS1-R1` | Retire the alternate browser application and runtime graph             | U1, X1, F1, V1          | One-time build/consumer closure inventory and canonical suite run                                                                                              |
 | BS1-18    | `WP-PROF-BS1-D1` | Converge developer entry on the seeded production-auth HTTPS profile   | B2, C0                  | Daily-workflow experiment, one production `dist/` artifact, and seeded-auth lifecycle receipts                                                                 |
 | BS1-19    | `WP-PROF-BS1-W1` | Add the catalog-only WebWork baseline and canonical delivery scenario  | B0, I1, L1, S1          | UI-first instructor/learner flow, one renderer-call receipt, and fresh-session persistence                                                                     |
 | BS1-20    | `WP-PROF-BS1-Q1` | Add canonical assignment-question replacement behavior                 | B0, I1, L1, X1          | Issued-problem stability, visible replacement, stale-editor reload, and new-run replacement evidence                                                           |
@@ -362,7 +363,7 @@ explicit.
   second-invocation failure before ports, workspace, build, provider, Podman, and PostgreSQL work;
   reset of valid stale resources to an empty inventory; foreign/malformed labels on discovered exact-
   project resources fail before mutation; fixed-workspace regeneration; final reset and cleanup; and
-  reset ordering after each simulated lifecycle interruption. Two fully automated sequential real-stack invocations prove
+  reset ordering after each controlled fault injection. Two fully automated sequential real-stack invocations prove
   the same exact project, regenerated seed baseline, and empty final labelled container, volume,
   network, private-workspace, and owner-process inventory. The gate requires no human interaction
   or inspection.
@@ -415,13 +416,13 @@ explicit.
   records every remaining mock Playwright or runtime consumer with its meaningful behavior and its
   later owner: I1 for instructor/teaching mutations, L1 for learner delivery and recovery, A1 for
   sign-in and role boundaries, S1 for service-specific claims, V1 for retained visual behavior, F1
-  for lifecycle faults, X1 for conflicts, or R1 for fake-application implementation coverage with no
-  product behavior to preserve. U1 does not retain fake-server implementation coverage.
+  for lifecycle faults, X1 for conflicts, or R1 for retired-application implementation coverage with no
+  product behavior to preserve. U1 does not retain alternate-server implementation coverage.
 - Acceptance: each retained U1 test protects one isolated behavior using literal fixtures or a
   test-local focused fake; no retained U1 test imports `src/api/mock/**`. The one-time allocation
-  records every former mock Playwright/runtime consumer and gives each one a real-scenario owner or
+  records every former alternate Playwright/runtime consumer and gives each one a real-scenario owner or
   deletion disposition. U1's focused Node/Rust checks pass without a browser application,
-  production stack, or mock-server runtime; the allocation itself is not a permanent test.
+  production stack, or retired-server runtime; the allocation itself is not a permanent test.
 
 ### WP-PROF-BS1-X1: Exercise concurrent-session behavior
 
@@ -485,7 +486,7 @@ explicit.
   The bounded developer-profile experiment then proves daily seeded Student and Instructor work, the
   real Sysadmin claim/passkey flow, reload and re-entry, real course authoring and learner submission,
   the production `dist/` artifact, normal session/auth traffic, and empty suite-labelled cleanup. This
-  package is distinct from R1's mock-runtime retirement.
+  package is distinct from R1's alternate-runtime retirement.
 - Acceptance: fresh Student and Instructor browser contexts complete normal daily workflows and the
   seeded Sysadmin completes real ownership/passkey entry; no request or served production bundle
   exposes `/api/auth/login`, `local-login.txt`, or local-development credentials. Build and lifecycle
@@ -534,7 +535,7 @@ explicit.
 - Depends on: R1, D1, W1, Q1.
 - Deliverable: retain `playwright.config.ts` as the canonical browser configuration and
   `e2e_browser_suite_owner.py` as the one fixed real-stack browser owner. The alternate owner,
-  mounted test-only browser application, walkthrough/simulator browser graph, Chapter One browser,
+  mounted test-only browser application, alternate browser graph, Chapter One browser,
   WebWork browser tail, and WP-R2 host-seed runner are retired after their meaningful behavior moves
   to W1/Q1 or a narrow unit. R2 removes any stale command and documentation consumers, and migrates
   remaining pure parser or generic interaction-helper value to narrow unit ownership. Chapter One
@@ -616,7 +617,7 @@ source source_me.sh && python3 local_stack.py acceptance
 Focused development uses the smallest relevant owner test, followed by a selected real-stack
 scenario through `./run_playwright_tests.sh --build <selection>`. B2 also runs its deterministic
 lease/reset interruption matrix and two selected real scenarios sequentially under the fixed project.
-H0 runs a deliberate child failure to prove cleanup; C1 runs the complete four-command suite twice
+H0 runs a controlled fault injection to prove cleanup; C1 runs the complete four-command suite twice
 to prove noninterference. Required live gates run in their declared disposable environment and report
 their actual result under
 [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md).
@@ -627,7 +628,7 @@ PLE is pre-production, so the implementation improves schemas, contracts, and ow
 directly when the canonical architecture benefits. A migration allocation is needed only when the
 real persistence model changes; testing alone does not create schema work.
 
-All local Podman images and project-named simulated-data volumes are disposable. The lifecycle owner
+All local Podman images and project-named live-stack data volumes are disposable. The lifecycle owner
 uses the exact project, fixed owner labels, declared topology, and running-container inspection to
 keep reset and cleanup inspectable. It removes the browser fixture's resources before regeneration
 and at final cleanup. Image pruning is available after that check as ordinary lifecycle hygiene.

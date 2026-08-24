@@ -27,6 +27,11 @@ if [[ "$PWD" != "$GIT_ROOT" ]]; then
 	exit 1
 fi
 
+print_step() {
+	echo
+	echo "============ $1 ============"
+}
+
 print_manager_context() {
 cat <<'EOF'
 GRAPHIFY CONTEXT (FOR MANAGERS)
@@ -86,8 +91,11 @@ if [[ "$MODE" == "context" ]]; then
 	exit 0
 fi
 
-pip install -U graphifyy[ollama,sql,terraform]
-ollama pull $MODEL
+print_step "INSTALLING GRAPHIFY DEPENDENCIES"
+pip install -U "graphifyy[ollama,sql,terraform]"
+
+print_step "PULLING OLLAMA MODEL: $MODEL"
+ollama pull "$MODEL"
 
 echo "Building Graphify graph for: $(basename "$GIT_ROOT") ($MODE)"
 
@@ -108,17 +116,19 @@ if [[ -f Cargo.toml ]]; then
 fi
 
 if (( DO_FULL_EXTRACT )); then
+	print_step "EXTRACTING GRAPHIFY CODE MAP"
 	graphify "${GRAPHIFY_ARGS[@]}"
+else
+	print_step "REUSING EXISTING GRAPHIFY CODE MAP"
 fi
 
-echo
-echo "Labeling Graphify communities with Ollama..."
+print_step "LABELING GRAPHIFY COMMUNITIES WITH OLLAMA"
 
 graphify label . \
 	--backend=ollama \
 	--model="$MODEL"
 
-echo
+print_step "BENCHMARKING GRAPHIFY CODE MAP"
 graphify benchmark
 
 echo

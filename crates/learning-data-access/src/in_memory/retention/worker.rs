@@ -382,10 +382,10 @@ impl RetentionWorkerStore for MemoryStore {
         {
             return Err(StoreError::Conflict);
         }
-        // Every mutation below, including the rehearsal source-removal fence,
+        // Every mutation below
         // is staged and published only after the retention job is complete.
         // This preserves the existing worker's retry contract when any late
-        // cleanup or immutable rehearsal-integrity check fails.
+        // cleanup or immutable evidence-integrity check fails.
         let mut state = state_guard.clone();
         if let Some(manifest) = manifest {
             // Compute purge dependencies before any mutation.
@@ -474,14 +474,6 @@ impl RetentionWorkerStore for MemoryStore {
                             .map(|export| export.job)
                     })
                     .collect::<BTreeSet<_>>();
-
-                if assignment_disposition == AssignmentDefinitionDisposition::Delete {
-                    super::super::rehearsal_integrity::fence_assignment_rehearsals_for_source_removal(
-                        &mut state,
-                        tenant,
-                        &assignment_ids,
-                    )?;
-                }
 
                 // Course-grade configuration and both synchronous-export audit
                 // streams are course student-record adjuncts. Keep Memory's

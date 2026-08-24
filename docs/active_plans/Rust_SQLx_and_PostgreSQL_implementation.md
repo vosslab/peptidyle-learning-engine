@@ -20,6 +20,10 @@ applied, no query executed. Every finding below is derived from reading the SQL,
 reference corpus. Where a finding would benefit from measurement, it is named as validation work for
 whoever implements the fix, not claimed as evidence here.
 
+The current canonical browser path is the single production-shaped live-demo application. Its
+seeded people and records are fictional live data, but this historical review remains static and
+does not claim runtime, migration, backup, restore, or fault-injection proof for that path.
+
 At the time of this review, the six-file epoch was still the pre-data baseline and the findings were
 candidate consolidation work. That condition has concluded: the accepted baseline and every later
 applied migration are immutable, and current schema work uses forward migrations under the current
@@ -424,7 +428,7 @@ migration from any item below.
    `current_date` with a fixed
    epoch month; add a `cargo tools database` subcommand or worker job that extends the window ahead
    of time; add a default-partition row-count check callable by the gate and by operations.
-   Validation: two applies on different simulated dates produce identical partition sets.
+   Validation: two applies on different fixed dates produce identical partition sets.
 5. **Separate the migration credential.** The recommendation was to read `PLE_MIGRATION_DATABASE_URL` in
    `crates/project-tools/src/database.rs`, falling back to `DATABASE_URL` only for `status`/`verify`; refuse
    `migrate` when the connected role is `ple_app`; add an opt-in flag to `e2e_seed.rs`.
@@ -479,9 +483,11 @@ migration from any item below.
 
 ## Historical validation evidence
 
-These historical validation commands are retained for evidence. The database command forms below
-match the current CLI: `migrate` requires `PLE_MIGRATION_DATABASE_URL`, while `status` and `verify`
-may read that variable or `DATABASE_URL`.
+These historical validation commands are retained as dated evidence and historical validation
+instructions. Any
+execution uses a disposable clean cluster or controlled fault exercise; it is not a production
+operation. The database command forms below match the current CLI: `migrate` requires
+`PLE_MIGRATION_DATABASE_URL`, while `status` and `verify` may read that variable or `DATABASE_URL`.
 
 ```bash
 bash tests/e2e/e2e_database_baseline.sh          # task 1 gate; oracle for tasks 2-5, 7

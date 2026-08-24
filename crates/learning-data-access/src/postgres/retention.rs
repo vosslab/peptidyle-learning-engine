@@ -432,49 +432,14 @@ impl RetentionWorkerStore for PostgresStore {
         let generation = i64::try_from(command.generation).map_err(|_| {
             StoreError::InvalidRecord("retention generation exceeds database range".to_string())
         })?;
-        let locked_rehearsal_count = if command.stage == crate::RetentionStage::DeleteStudentRecords
-        {
-            // ASVS 2.3.1, 2.3.3, 8.2.2: the broker validates and locks the
-            // lease-bound source before this Store verifies protected evidence.
-            let prepared_row = sqlx::query(
-                "SELECT ple_prepare_retention_delete_rehearsal_verification($1,$2,$3,$4,$5,$6)",
-            )
-            .bind(command.tenant.as_uuid())
-            .bind(command.job.as_uuid())
-            .bind(command.lease.as_uuid())
-            .bind(command.course.as_uuid())
-            .bind(retention_stage_db(command.stage))
-            .bind(generation)
-            .fetch_one(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-            let prepared =
-                super::rehearsal::RetentionRehearsalPrepareWitness::decode(&prepared_row)?;
-            if prepared.generation() != generation {
-                return Err(StoreError::Conflict);
-            }
-            let witness = prepared
-                .verify(
-                    &mut transaction,
-                    command.tenant,
-                    super::rehearsal::RehearsalSourceSelector::Course {
-                        course: command.course,
-                    },
-                )
-                .await?;
-            Some(witness.database_count()?)
-        } else {
-            None
-        };
         let committed: bool =
-            sqlx::query_scalar("SELECT ple_commit_retention_work($1,$2,$3,$4,$5,$6,$7)")
+            sqlx::query_scalar("SELECT ple_commit_retention_work($1,$2,$3,$4,$5,$6)")
                 .bind(command.tenant.as_uuid())
                 .bind(command.job.as_uuid())
                 .bind(command.lease.as_uuid())
                 .bind(command.course.as_uuid())
                 .bind(retention_stage_db(command.stage))
                 .bind(generation)
-                .bind(locked_rehearsal_count)
                 .fetch_one(&mut *transaction)
                 .await
                 .map_err(map_sqlx_error)?;

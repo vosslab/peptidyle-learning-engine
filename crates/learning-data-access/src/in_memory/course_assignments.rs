@@ -189,14 +189,6 @@ impl crate::CourseAssignmentStore for MemoryStore {
         };
         state.assignments.insert(key, stored.record.clone());
         state.assignment_revisions.insert(key, stored.revision);
-        if let Err(error) = super::rehearsal::invalidate_assignment_rehearsals(
-            &mut state,
-            context.tenant_id(),
-            stored.record.id,
-        ) {
-            *state = snapshot;
-            return Err(error);
-        }
         state
             .assignment_scoring
             .insert(key, (stored.scoring_generation, stored.scoring_status));
@@ -231,7 +223,6 @@ impl crate::CourseAssignmentStore for MemoryStore {
         command: ReplaceAssignmentFixedItemCommand,
     ) -> Result<StoredAssignment, StoreError> {
         let mut state = self.write_state()?;
-        let snapshot = state.clone();
         require_assignment_editor(&state, context, command.course, command.actor)?;
         let key = (context.tenant_id(), command.assignment);
         let existing = state
@@ -282,14 +273,6 @@ impl crate::CourseAssignmentStore for MemoryStore {
         };
         state.assignments.insert(key, stored.record.clone());
         state.assignment_revisions.insert(key, stored.revision);
-        if let Err(error) = super::rehearsal::invalidate_assignment_rehearsals(
-            &mut state,
-            context.tenant_id(),
-            stored.record.id,
-        ) {
-            *state = snapshot;
-            return Err(error);
-        }
         Ok(stored)
     }
     async fn add_assignment_fixed_item_impl(
@@ -298,7 +281,6 @@ impl crate::CourseAssignmentStore for MemoryStore {
         command: AddAssignmentFixedItemCommand,
     ) -> Result<StoredAssignment, StoreError> {
         let mut state = self.write_state()?;
-        let snapshot = state.clone();
         require_assignment_editor(&state, context, command.course, command.actor)?;
         let key = (context.tenant_id(), command.assignment);
         let existing = state
@@ -382,14 +364,6 @@ impl crate::CourseAssignmentStore for MemoryStore {
         };
         state.assignments.insert(key, stored.record.clone());
         state.assignment_revisions.insert(key, stored.revision);
-        if let Err(error) = super::rehearsal::invalidate_assignment_rehearsals(
-            &mut state,
-            context.tenant_id(),
-            stored.record.id,
-        ) {
-            *state = snapshot;
-            return Err(error);
-        }
         Ok(stored)
     }
     async fn remove_assignment_fixed_item_impl(
@@ -398,7 +372,6 @@ impl crate::CourseAssignmentStore for MemoryStore {
         command: RemoveAssignmentFixedItemCommand,
     ) -> Result<StoredAssignment, StoreError> {
         let mut state = self.write_state()?;
-        let snapshot = state.clone();
         require_assignment_editor(&state, context, command.course, command.actor)?;
         let key = (context.tenant_id(), command.assignment);
         let existing = state
@@ -458,14 +431,6 @@ impl crate::CourseAssignmentStore for MemoryStore {
         };
         state.assignments.insert(key, stored.record.clone());
         state.assignment_revisions.insert(key, stored.revision);
-        if let Err(error) = super::rehearsal::invalidate_assignment_rehearsals(
-            &mut state,
-            context.tenant_id(),
-            stored.record.id,
-        ) {
-            *state = snapshot;
-            return Err(error);
-        }
         Ok(stored)
     }
     async fn delete_and_regrade_assignment_item_impl(

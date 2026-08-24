@@ -5,7 +5,11 @@
 This document explains PLE's learner-facing assessment payload boundary, compares it with the local
 LibreTexts ADAPT snapshot, and summarizes the accepted implementation direction. It distinguishes
 the current implementation from the target contract so contributors do not mistake planned wire
-changes for released behavior.
+changes for current behavior.
+
+The canonical browser path is the single production-shaped live-demo application. Payload examples
+and one-time wire fixtures in this document describe bounded codec evidence only; they are not a
+second browser application or a source of seeded learner records.
 
 The exact codec, migration, cutover, ownership, and acceptance requirements remain normative in the
 [secure_question_grading_payload_plan.md](active_plans/decisions/secure_question_grading_payload_plan.md).
@@ -86,7 +90,8 @@ does not need tenant IDs, problem IDs, parameter hashes, source-object IDs, impl
 or complete provenance.
 
 The implemented `getRunScreen` client currently assembles a screen by loading the run, enrollment,
-cursor-paged attempts, assignment, course, appearance, and issued question. In the recorded fixture,
+cursor-paged attempts, assignment, course, appearance, and issued question. In a one-time wire
+fixture,
 that required at least seven JSON responses across four dependent waves. A purpose-built server
 projection can perform those relationship checks once and return one bounded learner screen.
 
@@ -500,7 +505,7 @@ is smaller and easier to secure.
 
 ### Recorded payload evidence
 
-One-time fixture measurements from the accepted decision recorded:
+One-time synthetic wire-fixture measurements from the accepted decision recorded:
 
 | Current artifact                       |                             Recorded size |
 | -------------------------------------- | ----------------------------------------: |
@@ -514,8 +519,9 @@ One-time fixture measurements from the accepted decision recorded:
 | Two-choice private WeBWorK grade form  |                                 334 bytes |
 | Recorded private WeBWorK JSON response |                               1,221 bytes |
 
-These figures describe test fixtures, not production percentiles or permanent limits. Real prompt
-HTML and media can be much larger. PLE permits a bounded PG source whose private base64 form can dwarf
+These figures describe synthetic payload fixtures, not fictional live-demo records, production
+percentiles, or permanent limits. Real prompt HTML and media can be much larger. PLE permits a bounded
+PG source whose private base64 form can dwarf
 the learner's answer JSON.
 
 ### Where latency matters
@@ -689,7 +695,7 @@ One-time implementation evidence records:
 - request-wave counts during the old-to-new comparison;
 - p50/p95 latency observations;
 - temporary database query plans used to justify an index; and
-- migration rehearsal diagnostics already enforced by the final behavior.
+- migration validation diagnostics already enforced by the final behavior.
 
 Do not preserve exact fixture sizes, arbitrary response counts, incidental function names, temporary
 probes, or latency thresholds as permanent tests. The permanent-test decision follows

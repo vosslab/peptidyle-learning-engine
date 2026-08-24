@@ -49,7 +49,7 @@ impl crate::EffectivePolicyStore for PostgresStore {
             async move {
                 let tenant = context.tenant_id();
                 let mut tx = self.begin_tenant(context).await?;
-                let count = prepare_policy_mutation(
+                prepare_policy_mutation(
                     &mut tx,
                     tenant,
                     command.course,
@@ -60,7 +60,7 @@ impl crate::EffectivePolicyStore for PostgresStore {
                 .await?;
                 let settings = teaching_settings_payload(command.settings.clone())?;
                 let returned: i64 = sqlx::query_scalar(
-                    "SELECT ple_put_assignment_teaching_settings($1,$2,$3,$4,$5,$6,$7)",
+                    "SELECT ple_put_assignment_teaching_settings($1,$2,$3,$4,$5,$6)",
                 )
                 .bind(tenant.as_uuid())
                 .bind(command.actor.as_uuid())
@@ -68,7 +68,6 @@ impl crate::EffectivePolicyStore for PostgresStore {
                 .bind(command.assignment.as_uuid())
                 .bind(stored_revision(command.expected_revision)?)
                 .bind(settings)
-                .bind(count)
                 .fetch_one(&mut *tx)
                 .await
                 .map_err(map_sqlx_error)?;
@@ -252,31 +251,24 @@ async fn prepare_policy_mutation(
     assignment: AssignmentId,
     actor: UserId,
     expected: AssignmentRevision,
-) -> Result<i64, StoreError> {
-    let revision = stored_revision(expected)?;
-    let row =
-        sqlx::query("SELECT * FROM ple_prepare_assignment_rehearsal_verification($1,$2,$3,$4,$5)")
+) -> Result<(), StoreError> {
+    let expected = stored_revision(expected)?;
+    let returned: i64 =
+        sqlx::query_scalar("SELECT ple_prepare_assignment_mutation($1, $2, $3, $4, $5)")
             .bind(tenant.as_uuid())
             .bind(actor.as_uuid())
             .bind(course.as_uuid())
             .bind(assignment.as_uuid())
-            .bind(revision)
+            .bind(expected)
             .fetch_one(&mut **tx)
             .await
             .map_err(map_sqlx_error)?;
-    let prepared = super::rehearsal::AssignmentRehearsalPrepareWitness::decode(&row)?;
-    if prepared.revision() != revision {
+    if returned != expected {
         return Err(StoreError::Conflict);
     }
-    prepared
-        .verify(
-            tx,
-            tenant,
-            super::rehearsal::RehearsalSourceSelector::Assignment { course, assignment },
-        )
-        .await?
-        .database_count()
+    Ok(())
 }
+
 async fn finish_policy_mutation(
     tx: &mut Transaction<'_, Postgres>,
     context: TenantContext,
@@ -673,7 +665,7 @@ async fn mutate_group_offset(
     retry_transaction(|| async move {
         let tenant = context.tenant_id();
         let mut tx = store.begin_tenant(context).await?;
-        let count = prepare_policy_mutation(
+        prepare_policy_mutation(
             &mut tx,
             tenant,
             command.course,
@@ -683,7 +675,7 @@ async fn mutate_group_offset(
         )
         .await?;
         let returned: i64 = sqlx::query_scalar(
-            "SELECT ple_put_assignment_group_schedule_offset($1,$2,$3,$4,$5,$6,$7,$8)",
+            "SELECT ple_put_assignment_group_schedule_offset($1,$2,$3,$4,$5,$6,$7)",
         )
         .bind(tenant.as_uuid())
         .bind(command.actor.as_uuid())
@@ -692,7 +684,6 @@ async fn mutate_group_offset(
         .bind(stored_revision(command.expected_revision)?)
         .bind(command.offset.group.as_uuid())
         .bind(command.offset.offset_seconds.get())
-        .bind(count)
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
@@ -719,7 +710,7 @@ async fn delete_group_offset(
     retry_transaction(|| async move {
         let tenant = context.tenant_id();
         let mut tx = store.begin_tenant(context).await?;
-        let count = prepare_policy_mutation(
+        prepare_policy_mutation(
             &mut tx,
             tenant,
             command.course,
@@ -729,7 +720,7 @@ async fn delete_group_offset(
         )
         .await?;
         let returned: i64 = sqlx::query_scalar(
-            "SELECT ple_delete_assignment_group_schedule_offset($1,$2,$3,$4,$5,$6,$7)",
+            "SELECT ple_delete_assignment_group_schedule_offset($1,$2,$3,$4,$5,$6)",
         )
         .bind(tenant.as_uuid())
         .bind(command.actor.as_uuid())
@@ -737,7 +728,6 @@ async fn delete_group_offset(
         .bind(command.assignment.as_uuid())
         .bind(stored_revision(command.expected_revision)?)
         .bind(command.group.as_uuid())
-        .bind(count)
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
@@ -764,7 +754,7 @@ async fn mutate_accommodation(
     retry_transaction(|| async move {
         let tenant = context.tenant_id();
         let mut tx = store.begin_tenant(context).await?;
-        let count = prepare_policy_mutation(
+        prepare_policy_mutation(
             &mut tx,
             tenant,
             command.course,
@@ -774,7 +764,7 @@ async fn mutate_accommodation(
         )
         .await?;
         let returned: i64 = sqlx::query_scalar(
-            "SELECT ple_put_assignment_group_accommodation($1,$2,$3,$4,$5,$6,$7,$8)",
+            "SELECT ple_put_assignment_group_accommodation($1,$2,$3,$4,$5,$6,$7)",
         )
         .bind(tenant.as_uuid())
         .bind(command.actor.as_uuid())
@@ -786,7 +776,6 @@ async fn mutate_accommodation(
             command.accommodation.mode,
             command.accommodation.patch,
         )?)
-        .bind(count)
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
@@ -813,7 +802,7 @@ async fn delete_accommodation(
     retry_transaction(|| async move {
         let tenant = context.tenant_id();
         let mut tx = store.begin_tenant(context).await?;
-        let count = prepare_policy_mutation(
+        prepare_policy_mutation(
             &mut tx,
             tenant,
             command.course,
@@ -823,7 +812,7 @@ async fn delete_accommodation(
         )
         .await?;
         let returned: i64 = sqlx::query_scalar(
-            "SELECT ple_delete_assignment_group_accommodation($1,$2,$3,$4,$5,$6,$7)",
+            "SELECT ple_delete_assignment_group_accommodation($1,$2,$3,$4,$5,$6)",
         )
         .bind(tenant.as_uuid())
         .bind(command.actor.as_uuid())
@@ -831,7 +820,6 @@ async fn delete_accommodation(
         .bind(command.assignment.as_uuid())
         .bind(stored_revision(command.expected_revision)?)
         .bind(command.group.as_uuid())
-        .bind(count)
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
@@ -859,7 +847,7 @@ async fn mutate_individual(
     retry_transaction(|| async move {
         let tenant = context.tenant_id();
         let mut tx = store.begin_tenant(context).await?;
-        let count = prepare_policy_mutation(
+        prepare_policy_mutation(
             &mut tx,
             tenant,
             command.course,
@@ -869,7 +857,7 @@ async fn mutate_individual(
         )
         .await?;
         let returned: i64 = sqlx::query_scalar(
-            "SELECT ple_put_assignment_individual_exception($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+            "SELECT ple_put_assignment_individual_exception($1,$2,$3,$4,$5,$6,$7,$8)",
         )
         .bind(tenant.as_uuid())
         .bind(command.actor.as_uuid())
@@ -879,7 +867,6 @@ async fn mutate_individual(
         .bind(e.id.as_uuid())
         .bind(e.exception.student.as_uuid())
         .bind(patch_payload(e.exception.mode, e.exception.patch)?)
-        .bind(count)
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
@@ -906,7 +893,7 @@ async fn delete_individual(
     retry_transaction(|| async move {
         let tenant = context.tenant_id();
         let mut tx = store.begin_tenant(context).await?;
-        let count = prepare_policy_mutation(
+        prepare_policy_mutation(
             &mut tx,
             tenant,
             command.course,
@@ -916,7 +903,7 @@ async fn delete_individual(
         )
         .await?;
         let returned: i64 = sqlx::query_scalar(
-            "SELECT ple_delete_assignment_individual_exception($1,$2,$3,$4,$5,$6,$7)",
+            "SELECT ple_delete_assignment_individual_exception($1,$2,$3,$4,$5,$6)",
         )
         .bind(tenant.as_uuid())
         .bind(command.actor.as_uuid())
@@ -924,7 +911,6 @@ async fn delete_individual(
         .bind(command.assignment.as_uuid())
         .bind(stored_revision(command.expected_revision)?)
         .bind(command.student.as_uuid())
-        .bind(count)
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
