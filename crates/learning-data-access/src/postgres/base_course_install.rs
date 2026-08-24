@@ -1,109 +1,72 @@
-//! Host-side lifecycle coordination for the installed live-demo Base Course.
+//! Closed installer capability for the deterministic Base Course.
 //!
-//! The guard owns one PostgreSQL session while holding a session advisory
-//! lock.  It deliberately exposes only the lifecycle transitions required by
-//! the host installer, so application stores cannot use it as a generic
-//! database-write capability.
+//! This facade owns one separately attested installer connection. Every state
+//! transition is a versioned PostgreSQL function; Rust never receives general
+//! lifecycle, account, approval, or course-table write authority.
 
-use std::collections::BTreeSet;
+use std::fmt::Write as _;
 
-use question_model::{TenantId, UserId, UserRole};
+use question_model::{
+    AssignmentId, AssignmentItemId, CourseId, CourseMembershipId, EnrollmentId, ProblemId,
+    QuestionAttemptId, QuestionId, RunId, StudentId, TenantId, VersionId,
+};
+use serde::Deserialize;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use sqlx::pool::PoolConnection;
-use sqlx::{AssertSqlSafe, Connection, PgConnection, Postgres, Row, Transaction};
+use sqlx::{Connection, PgConnection, Postgres, Row, Transaction};
 
-use crate::{AuthenticationEmail, StoreError, validated_account_display_name};
+use crate::StoreError;
 
-use super::{PgPool, map_sqlx_error};
+use super::{BaseCourseInstallerPool, map_sqlx_error};
 
-/// Fixed deployment-wide PostgreSQL session advisory-lock key for Base Course
-/// installation.
-pub const BASE_COURSE_INSTALL_ADVISORY_LOCK_KEY: i64 = 0x504c_4542_4153_4501;
+const BASELINE_VERSION: &str = "base-course-v1";
+const BASE_COURSE_SLOT: &str = "base_course";
+const GENETICS_PRACTICE_SLOT: &str = "genetics_practice";
+const UNCONSUMED_NAMESPACE_FAILURE: &str = "unconsumed_question_namespace";
+const NONEMPTY_RELATION_FAILURE: &str = "nonempty_application_relation";
+const COURSE_AGGREGATE_CONFLICT: &str = "course_aggregate_conflict";
+const COMPLETION_AGGREGATE_INCOMPLETE: &str = "completion_aggregate_incomplete";
+const COMPLETION_TRANSACTION_ATTEMPTS: usize = 3;
+const MAX_COMPLETION_RECEIPT_BYTES: usize = 16 * 1024;
 
-const MAX_BASE_COURSE_INSTALL_ACCOUNTS: usize = 16;
-
-/// Exact platform-role state accepted by Base Course account provisioning.
-///
-/// Student and Instructor authority comes from ordinary course memberships,
-/// so the host installer can create only an account with no platform role or
-/// the one operator-controlled Sysadmin role.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BaseCourseAccountPlatformRoles {
-    /// The account has no platform-wide role.
-    None,
-    /// The account has exactly the Sysadmin platform role.
-    Sysadmin,
+enum BaseCoursePrepareWitness {
+    Accepted {
+        state: String,
+        installation_generation: uuid::Uuid,
+        recipe_sha256: String,
+    },
+    Refused(BaseCourseFreshnessRefusal),
 }
 
-impl BaseCourseAccountPlatformRoles {
-    /// Returns the exact persisted role list represented by this value.
-    pub fn as_slice(self) -> &'static [UserRole] {
+enum BaseCourseFreshnessRefusal {
+    UnconsumedQuestionNamespace,
+    NonemptyApplicationRelation(String),
+}
+
+impl BaseCourseFreshnessRefusal {
+    fn into_store_error(self) -> StoreError {
         match self {
-            Self::None => &[],
-            Self::Sysadmin => &[UserRole::Sysadmin],
+            Self::UnconsumedQuestionNamespace => StoreError::InvalidRecord(
+                "live-demo baseline requires an unconsumed question ID namespace; regenerate both stores before Base Course installation".to_string(),
+            ),
+            Self::NonemptyApplicationRelation(relation) => StoreError::InvalidRecord(format!(
+                "live-demo baseline requires an empty public application schema; table {relation} contains live rows; regenerate both stores before Base Course installation"
+            )),
         }
-    }
-}
-
-/// One exact ordinary PLE account required by the installed Base Course.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BaseCourseAccountRecipe {
-    user: UserId,
-    email: AuthenticationEmail,
-    display_name: String,
-    platform_roles: BaseCourseAccountPlatformRoles,
-}
-
-impl BaseCourseAccountRecipe {
-    /// Creates a recipe after validating its user-visible account label.
-    pub fn new(
-        user: UserId,
-        email: AuthenticationEmail,
-        display_name: impl Into<String>,
-        platform_roles: BaseCourseAccountPlatformRoles,
-    ) -> Result<Self, StoreError> {
-        let display_name = display_name.into();
-        let display_name = validated_account_display_name(&display_name)
-            .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-        Ok(Self {
-            user,
-            email,
-            display_name,
-            platform_roles,
-        })
-    }
-
-    /// Returns the stable account identity.
-    pub fn user(&self) -> UserId {
-        self.user
-    }
-
-    /// Returns the validated authentication email.
-    pub fn email(&self) -> &AuthenticationEmail {
-        &self.email
-    }
-
-    /// Returns the validated user-visible account label.
-    pub fn display_name(&self) -> &str {
-        &self.display_name
-    }
-
-    /// Returns the exact persisted platform-role list.
-    pub fn platform_roles(&self) -> &'static [UserRole] {
-        self.platform_roles.as_slice()
     }
 }
 
 /// The durable state of the deployment's seeded Base Course.
 #[derive(Debug, Clone, PartialEq)]
 pub enum BaseCourseInstallState {
-    /// Installation has claimed a tenant and can resume only with identical
-    /// baseline inputs.
+    /// Installation has claimed a tenant and can resume only with identical inputs.
     Installing {
         tenant_id: TenantId,
         baseline_version: String,
         installation_generation: uuid::Uuid,
         object_manifest: Value,
+        recipe_sha256: String,
     },
     /// The named tenant contains the completed baseline.
     Complete {
@@ -112,117 +75,248 @@ pub enum BaseCourseInstallState {
         installation_generation: uuid::Uuid,
         object_manifest: Value,
         storage_receipt_sha256: String,
+        completion_receipt_sha256: String,
+        recipe_sha256: String,
     },
 }
 
-/// Exclusive host installer capability backed by a checked-out PostgreSQL
-/// connection. The connection stays checked out across work performed through
-/// other pools, preserving the session advisory lock.
+/// One verified deterministic course result from the installer broker.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BaseCourseInstallCourseReceipt {
+    /// Whether this call created the strict aggregate or retained an exact interruption prefix.
+    pub disposition: BaseCourseInstallCourseDisposition,
+    /// The broker-created course identity.
+    pub course_id: CourseId,
+    /// The broker-created active Instructor membership identity.
+    pub instructor_membership_id: question_model::CourseMembershipId,
+}
+
+/// Closed course-seed success returned by the database verifier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BaseCourseInstallCourseDisposition {
+    /// The strict revision-1 course aggregate was created in this transaction.
+    Created,
+    /// An exact recipe interruption prefix was retained without a write.
+    ExactPrefix,
+}
+
+/// The only two deterministic course slots accepted by the installer broker.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BaseCourseInstallCourseSlot {
+    /// The visible Biochemistry Base Course.
+    BaseCourse,
+    /// The visible Genetics Practice Course.
+    GeneticsPractice,
+}
+
+/// Host-owned identities that the sealed completion receipt must reproduce.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BaseCourseCompletionExpectation {
+    tenant_id: TenantId,
+    installation_generation: uuid::Uuid,
+    recipe_sha256: String,
+    course: BaseCourseCompletionCourseExpectation,
+    content: BaseCourseCompletionContentExpectation,
+    entitlement: BaseCourseCompletionEntitlementExpectation,
+    activity: BaseCourseCompletionActivityExpectation,
+}
+
+impl BaseCourseCompletionExpectation {
+    /// Creates the deterministic subset independently known by the Rust installer.
+    pub fn new(
+        tenant_id: TenantId,
+        installation_generation: uuid::Uuid,
+        recipe_sha256: String,
+        course: BaseCourseCompletionCourseExpectation,
+        content: BaseCourseCompletionContentExpectation,
+        entitlement: BaseCourseCompletionEntitlementExpectation,
+        activity: BaseCourseCompletionActivityExpectation,
+    ) -> Self {
+        Self {
+            tenant_id,
+            installation_generation,
+            recipe_sha256,
+            course,
+            content,
+            entitlement,
+            activity,
+        }
+    }
+}
+
+/// Exact course and roster episodes independently observed before completion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BaseCourseCompletionCourseExpectation {
+    pub base_course_id: CourseId,
+    pub practice_course_id: CourseId,
+    pub base_instructor_membership_id: CourseMembershipId,
+    pub mary_membership_id: CourseMembershipId,
+    pub mary_student_id: StudentId,
+    pub jack_membership_id: CourseMembershipId,
+    pub jack_student_id: StudentId,
+    pub practice_instructor_membership_id: CourseMembershipId,
+    pub avery_membership_id: CourseMembershipId,
+    pub avery_student_id: StudentId,
+}
+
+/// Exact publication and assignment identities observed before completion.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BaseCourseCompletionContentExpectation {
+    pub question_id: QuestionId,
+    pub problem_id: ProblemId,
+    pub version_id: VersionId,
+    pub assignment_id: AssignmentId,
+    pub assignment_item_id: AssignmentItemId,
+}
+
+/// Exact entitlement episodes observed before completion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BaseCourseCompletionEntitlementExpectation {
+    pub mary_enrollment_id: EnrollmentId,
+    pub jack_enrollment_id: EnrollmentId,
+}
+
+/// Exact learner-work episode identities observed before completion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BaseCourseCompletionActivityExpectation {
+    pub mary_run_id: RunId,
+    pub mary_attempt_id: QuestionAttemptId,
+    pub mary_submission_id: uuid::Uuid,
+    pub jack_run_id: RunId,
+    pub jack_attempt_id: QuestionAttemptId,
+}
+
+/// Safe host projection of the immutable database completion receipt.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BaseCourseCompletionReceipt {
+    receipt_sha256: String,
+}
+
+impl BaseCourseCompletionReceipt {
+    /// Returns the digest naming the generation-bound canonical receipt.
+    pub fn receipt_sha256(&self) -> &str {
+        &self.receipt_sha256
+    }
+}
+
+impl BaseCourseInstallCourseSlot {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::BaseCourse => BASE_COURSE_SLOT,
+            Self::GeneticsPractice => GENETICS_PRACTICE_SLOT,
+        }
+    }
+}
+
+/// Exclusive, linear installer capability backed by one physical connection.
 pub struct BaseCourseInstallLock {
     connection: Option<PoolConnection<Postgres>>,
 }
 
 impl BaseCourseInstallLock {
-    /// Atomically inserts or exactly verifies a bounded set of ordinary PLE
-    /// accounts on the privileged installer session.
-    ///
-    /// The operation rejects duplicate account identities and normalized
-    /// emails before opening its transaction. Existing rows must match every
-    /// recipe field, including delivery-email spelling and platform roles.
-    pub async fn provision_accounts(
-        &mut self,
-        accounts: &[BaseCourseAccountRecipe],
-    ) -> Result<(), StoreError> {
-        validate_account_batch(accounts)?;
-        let connection = self.connection_mut()?;
-        let mut transaction = connection.begin().await.map_err(map_sqlx_error)?;
-        for account in accounts {
-            provision_account(&mut transaction, account).await?;
-        }
-        transaction.commit().await.map_err(map_sqlx_error)
-    }
-
-    /// Returns the current durable lifecycle marker without changing it.
+    /// Reads the closed lifecycle projection without mutation.
     pub async fn read_state(&mut self) -> Result<Option<BaseCourseInstallState>, StoreError> {
-        let connection = self.connection_mut()?;
+        let mut transaction = self.begin_installer().await?;
         let row = sqlx::query(
-            "SELECT state, baseline_version, tenant_id, installation_generation, object_manifest, \
-             storage_receipt_sha256 \
-             FROM public.live_demo_install_state WHERE singleton = true",
+            "SELECT state, tenant_id, baseline_version, installation_generation, object_manifest, \
+             storage_receipt_sha256, completion_receipt_sha256, recipe_sha256 \
+             FROM public.ple_base_course_install_read_v2()",
         )
-        .fetch_optional(&mut **connection)
+        .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
         row.map(decode_state).transpose()
     }
 
-    /// Atomically creates the installing marker, or resumes the same marker.
-    ///
-    /// A complete marker returns before callers inspect object storage. An
-    /// installing marker keeps its generated installation generation across
-    /// retries. A conflicting tenant or baseline returns [`StoreError::Conflict`].
+    /// Claims or exactly resumes the one canonical installation recipe.
     pub async fn prepare(
         &mut self,
         tenant_id: TenantId,
         baseline_version: &str,
         object_manifest: &Value,
+        recipe: &Value,
     ) -> Result<BaseCourseInstallState, StoreError> {
-        validate_baseline_inputs(baseline_version, object_manifest)?;
-        let connection = self.connection_mut()?;
-        let mut transaction = connection.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("LOCK TABLE public.live_demo_install_state IN SHARE ROW EXCLUSIVE MODE")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let state = sqlx::query(
-            "SELECT state, baseline_version, tenant_id, installation_generation, object_manifest, \
-             storage_receipt_sha256 \
-             FROM public.live_demo_install_state WHERE singleton = true FOR UPDATE",
+        validate_install_inputs(baseline_version, object_manifest, recipe)?;
+        let mut transaction = self.begin_installer().await?;
+        let row = sqlx::query(
+            "SELECT state, installation_generation, recipe_sha256, \
+                    freshness_failure_kind, freshness_relation_name \
+             FROM public.ple_base_course_install_prepare_v2($1, $2, $3, $4)",
         )
-        .fetch_optional(&mut *transaction)
+        .bind(tenant_id.as_uuid())
+        .bind(baseline_version)
+        .bind(sqlx::types::Json(object_manifest))
+        .bind(sqlx::types::Json(recipe))
+        .fetch_one(&mut *transaction)
         .await
-        .map_err(map_sqlx_error)?
-        .map(decode_state)
-        .transpose()?;
-
-        match state {
-            None => {
-                ensure_unmarked_install_is_fresh(&mut transaction).await?;
-                let row = sqlx::query(
-                    "INSERT INTO public.live_demo_install_state \
-                     (singleton, state, baseline_version, tenant_id, installation_generation, object_manifest) \
-                     VALUES (true, 'installing', $1, $2, gen_random_uuid(), $3) \
-                     RETURNING installation_generation",
-                )
-                .bind(baseline_version)
-                .bind(tenant_id.as_uuid())
-                .bind(sqlx::types::Json(object_manifest))
-                .fetch_one(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
-                let installation_generation: uuid::Uuid = row
-                    .try_get("installation_generation")
-                    .map_err(map_sqlx_error)?;
-                transaction.commit().await.map_err(map_sqlx_error)?;
-                Ok(BaseCourseInstallState::Installing {
-                    tenant_id,
-                    baseline_version: baseline_version.to_owned(),
-                    installation_generation,
-                    object_manifest: object_manifest.clone(),
-                })
+        .map_err(map_sqlx_error)?;
+        let (state, installation_generation, recipe_sha256) = match decode_prepare_witness(&row)? {
+            BaseCoursePrepareWitness::Accepted {
+                state,
+                installation_generation,
+                recipe_sha256,
+            } => (state, installation_generation, recipe_sha256),
+            BaseCoursePrepareWitness::Refused(refusal) => {
+                transaction.rollback().await.map_err(map_sqlx_error)?;
+                return Err(refusal.into_store_error());
             }
-            Some(
-                state @ (BaseCourseInstallState::Installing { .. }
-                | BaseCourseInstallState::Complete { .. }),
-            ) => {
-                ensure_matching_install(&state, tenant_id, baseline_version, object_manifest)?;
-                transaction.commit().await.map_err(map_sqlx_error)?;
-                Ok(state)
-            }
+        };
+        validate_sha256(&recipe_sha256, "Base Course recipe")?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        match state.as_str() {
+            "installing" => Ok(BaseCourseInstallState::Installing {
+                tenant_id,
+                baseline_version: baseline_version.to_owned(),
+                installation_generation,
+                object_manifest: object_manifest.clone(),
+                recipe_sha256,
+            }),
+            "complete" => self.read_state().await?.ok_or_else(|| {
+                StoreError::Unavailable("completed Base Course state disappeared".to_string())
+            }),
+            _ => Err(StoreError::Unavailable(
+                "Base Course installer returned an invalid lifecycle state".to_string(),
+            )),
         }
     }
 
-    /// Makes an identical installing marker terminal after successful seeding.
+    /// Creates or exactly verifies the recipe's account-and-approval aggregate.
+    pub async fn seed_accounts(
+        &mut self,
+        installation_generation: uuid::Uuid,
+    ) -> Result<(), StoreError> {
+        let mut transaction = self.begin_installer().await?;
+        sqlx::query("SELECT public.ple_base_course_install_seed_accounts_v2($1)")
+            .bind(installation_generation)
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        transaction.commit().await.map_err(map_sqlx_error)
+    }
+
+    /// Creates or exactly verifies one named course slot from the retained recipe.
+    pub async fn seed_course(
+        &mut self,
+        installation_generation: uuid::Uuid,
+        slot: BaseCourseInstallCourseSlot,
+    ) -> Result<BaseCourseInstallCourseReceipt, StoreError> {
+        let mut transaction = self.begin_installer().await?;
+        let row = sqlx::query(
+            "SELECT seed_outcome, course_id, instructor_membership_id, failure_kind \
+             FROM public.ple_base_course_install_seed_course_v2($1, $2)",
+        )
+        .bind(installation_generation)
+        .bind(slot.as_str())
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let receipt = decode_seed_course_witness(&row)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(receipt)
+    }
+
+    /// Makes an identical installing marker terminal after successful convergence.
     pub async fn mark_complete(
         &mut self,
         tenant_id: TenantId,
@@ -230,60 +324,101 @@ impl BaseCourseInstallLock {
         installation_generation: uuid::Uuid,
         object_manifest: &Value,
         storage_receipt_sha256: &str,
-    ) -> Result<(), StoreError> {
-        validate_baseline_inputs(baseline_version, object_manifest)?;
-        validate_storage_receipt_sha256(storage_receipt_sha256)?;
-        let connection = self.connection_mut()?;
-        let result = sqlx::query(
-            "UPDATE public.live_demo_install_state \
-                     SET state = 'complete', storage_receipt_sha256 = $4, \
-                         completed_at = transaction_timestamp() \
-             WHERE singleton = true AND state = 'installing' \
-               AND tenant_id = $1 AND baseline_version = $2 \
-               AND installation_generation = $3 AND object_manifest = $5",
-        )
-        .bind(tenant_id.as_uuid())
-        .bind(baseline_version)
-        .bind(installation_generation)
-        .bind(storage_receipt_sha256)
-        .bind(sqlx::types::Json(object_manifest))
-        .execute(&mut **connection)
-        .await
-        .map_err(map_sqlx_error)?;
-        if result.rows_affected() != 1 {
-            return Err(StoreError::Conflict);
+        expectation: &BaseCourseCompletionExpectation,
+    ) -> Result<BaseCourseCompletionReceipt, StoreError> {
+        validate_complete_inputs(baseline_version, object_manifest, storage_receipt_sha256)?;
+        if expectation.tenant_id != tenant_id
+            || expectation.installation_generation != installation_generation
+        {
+            return Err(StoreError::InvalidRecord(
+                "Base Course completion expectation does not bind the active generation"
+                    .to_string(),
+            ));
         }
+        for attempt in 1..=COMPLETION_TRANSACTION_ATTEMPTS {
+            let mut transaction = self.begin_serializable_installer().await?;
+            let result = sqlx::query(
+                "SELECT failure_kind, canonical_receipt, canonical_receipt_text, receipt_sha256 \
+                 FROM public.ple_base_course_install_complete_v2($1, $2, $3, $4, $5)",
+            )
+            .bind(tenant_id.as_uuid())
+            .bind(installation_generation)
+            .bind(baseline_version)
+            .bind(sqlx::types::Json(object_manifest))
+            .bind(storage_receipt_sha256)
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error);
+            let row = match result {
+                Err(StoreError::RetryableTransaction)
+                    if attempt < COMPLETION_TRANSACTION_ATTEMPTS =>
+                {
+                    transaction.rollback().await.map_err(map_sqlx_error)?;
+                    continue;
+                }
+                Err(error) => return Err(error),
+                Ok(row) => row,
+            };
+            let receipt = match decode_completion_witness(&row, expectation) {
+                Ok(receipt) => receipt,
+                Err(error) => {
+                    transaction.rollback().await.map_err(map_sqlx_error)?;
+                    return Err(error);
+                }
+            };
+            // A commit error is never replayed: its outcome can be ambiguous even
+            // when a database code resembles a retryable transaction failure.
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(receipt);
+        }
+        unreachable!("the bounded completion retry loop always returns")
+    }
+
+    /// Releases the session lock through the installer broker.
+    pub async fn release(mut self) -> Result<(), StoreError> {
+        let mut transaction = self.begin_installer().await?;
+        sqlx::query("SELECT public.ple_base_course_install_release_lock_v1()")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        self.connection.take();
         Ok(())
     }
 
-    /// Explicitly unlocks and returns the checked-out session to the pool.
-    pub async fn release(mut self) -> Result<(), StoreError> {
-        let mut connection = self.take_connection()?;
-        let unlock = sqlx::query("SELECT pg_advisory_unlock($1)")
-            .bind(BASE_COURSE_INSTALL_ADVISORY_LOCK_KEY)
-            .execute(&mut *connection)
-            .await;
-        match unlock {
-            Ok(_) => {
-                drop(connection);
-                Ok(())
-            }
-            Err(error) => {
-                // An unlock error leaves the session's lock ownership unknown.
-                // Detach and close instead of placing it back in the pool.
-                let _ = close_locked_connection(connection).await;
-                Err(map_sqlx_error(error))
-            }
-        }
+    /// Closes the held connection after a failed installation attempt.
+    pub async fn abort(mut self) -> Result<(), StoreError> {
+        close_locked_connection(self.take_connection()?).await
     }
 
-    /// Closes the locked session after a failed installation attempt.
-    ///
-    /// Closing rather than returning it to the pool guarantees the
-    /// session-scoped lock cannot leak to a future pool borrower.
-    pub async fn abort(mut self) -> Result<(), StoreError> {
-        let connection = self.take_connection()?;
-        close_locked_connection(connection).await
+    async fn begin_installer(&mut self) -> Result<Transaction<'_, Postgres>, StoreError> {
+        let connection = self.connection_mut()?;
+        let mut transaction = connection.begin().await.map_err(map_sqlx_error)?;
+        // ASVS 2.3.1, 2.3.3, 8.2.1, 8.3.1: enter the exact installer role
+        // before a bounded broker call receives tenant or lifecycle data.
+        sqlx::query("SET LOCAL ROLE ple_base_course_installer")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        Ok(transaction)
+    }
+
+    async fn begin_serializable_installer(
+        &mut self,
+    ) -> Result<Transaction<'_, Postgres>, StoreError> {
+        let connection = self.connection_mut()?;
+        let mut transaction = connection.begin().await.map_err(map_sqlx_error)?;
+        // ASVS 2.3.3, 15.4.2: isolation is selected before role entry or any
+        // application read, so the verifier and marker share one exact snapshot.
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        sqlx::query("SET LOCAL ROLE ple_base_course_installer")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        Ok(transaction)
     }
 
     fn connection_mut(&mut self) -> Result<&mut PoolConnection<Postgres>, StoreError> {
@@ -299,156 +434,33 @@ impl BaseCourseInstallLock {
     }
 }
 
-/// Refuses a first Base Course install after ordinary application state exists.
-///
-/// The caller already holds the installation advisory lock. The table locks
-/// make the catalog snapshot authoritative against regular application writers
-/// until the installing marker commits. The marker table itself is locked by
-/// `prepare`; SQLx's migration ledger is schema metadata, and the one exact
-/// unconsumed question namespace is required migration-seeded state.
-async fn ensure_unmarked_install_is_fresh(
-    transaction: &mut Transaction<'_, Postgres>,
-) -> Result<(), StoreError> {
-    sqlx::query("LOCK TABLE public.question_id_namespace IN SHARE MODE")
-        .execute(&mut **transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-    let namespace: (i64, i64) = sqlx::query_as(
-        "SELECT count(*), count(*) FILTER (WHERE singleton AND issued_count = 0) \
-         FROM public.question_id_namespace",
-    )
-    .fetch_one(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    if namespace != (1, 1) {
-        return Err(StoreError::InvalidRecord(
-            "live-demo baseline requires an unconsumed question ID namespace; regenerate both stores before Base Course installation".to_string(),
-        ));
-    }
-
-    let tables: Vec<String> = sqlx::query_scalar(
-        "SELECT relation.relname \
-         FROM pg_catalog.pg_class AS relation \
-         JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace \
-         WHERE namespace.nspname = 'public' \
-           AND relation.relkind IN ('r', 'p') \
-           AND relation.relname NOT IN ('_sqlx_migrations', 'question_id_namespace', \
-                                        'live_demo_install_state') \
-         ORDER BY relation.relname",
-    )
-    .fetch_all(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    for table in tables {
-        let identifier = quoted_identifier(&table);
-        // `table` comes only from PostgreSQL's public catalog and is quoted
-        // before this intentionally dynamic identifier use.
-        sqlx::query(AssertSqlSafe(format!(
-            "LOCK TABLE public.{identifier} IN SHARE MODE"
-        )))
-        .execute(&mut **transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        let has_rows: bool = sqlx::query_scalar(AssertSqlSafe(format!(
-            "SELECT EXISTS (SELECT 1 FROM public.{identifier} LIMIT 1)"
-        )))
-        .fetch_one(&mut **transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if has_rows {
-            return Err(StoreError::InvalidRecord(format!(
-                "live-demo baseline requires an empty public application schema; table public.{table} contains live rows; regenerate both stores before Base Course installation"
-            )));
-        }
-    }
-    Ok(())
-}
-
-fn quoted_identifier(identifier: &str) -> String {
-    format!("\"{}\"", identifier.replace('"', "\"\""))
-}
-
-fn validate_account_batch(accounts: &[BaseCourseAccountRecipe]) -> Result<(), StoreError> {
-    if accounts.is_empty() || accounts.len() > MAX_BASE_COURSE_INSTALL_ACCOUNTS {
-        return Err(StoreError::InvalidRecord(format!(
-            "Base Course account batch must contain 1 to {MAX_BASE_COURSE_INSTALL_ACCOUNTS} accounts"
-        )));
-    }
-    let mut users = BTreeSet::new();
-    let mut emails = BTreeSet::new();
-    for account in accounts {
-        if !users.insert(account.user) || !emails.insert(account.email.normalized()) {
-            return Err(StoreError::InvalidRecord(
-                "Base Course account batch contains duplicate identities or emails".to_string(),
-            ));
-        }
-    }
-    Ok(())
-}
-
-async fn provision_account(
-    transaction: &mut Transaction<'_, Postgres>,
-    account: &BaseCourseAccountRecipe,
-) -> Result<(), StoreError> {
-    sqlx::query(
-        "INSERT INTO public.ple_account (\
-             user_id, normalized_email, delivery_email, display_name, platform_roles\
-         ) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING",
-    )
-    .bind(account.user.as_uuid())
-    .bind(account.email.normalized())
-    .bind(account.email.delivery())
-    .bind(&account.display_name)
-    .bind(sqlx::types::Json(account.platform_roles()))
-    .execute(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-
-    let row = sqlx::query(
-        "SELECT normalized_email, delivery_email, display_name, platform_roles \
-         FROM public.ple_account WHERE user_id = $1 FOR UPDATE",
-    )
-    .bind(account.user.as_uuid())
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?
-    .ok_or(StoreError::Conflict)?;
-    let normalized_email: String = row.try_get("normalized_email").map_err(map_sqlx_error)?;
-    let delivery_email: String = row.try_get("delivery_email").map_err(map_sqlx_error)?;
-    let display_name: String = row.try_get("display_name").map_err(map_sqlx_error)?;
-    let sqlx::types::Json(platform_roles): sqlx::types::Json<Vec<UserRole>> =
-        row.try_get("platform_roles").map_err(map_sqlx_error)?;
-    if normalized_email != account.email.normalized()
-        || delivery_email != account.email.delivery()
-        || display_name != account.display_name
-        || platform_roles != account.platform_roles()
-    {
-        return Err(StoreError::Conflict);
-    }
-    Ok(())
-}
-
 impl Drop for BaseCourseInstallLock {
     fn drop(&mut self) {
-        // A caller that forgets `release` or `abort` must not return a session
-        // carrying the advisory lock to the pool. Detaching closes it on drop.
         if let Some(connection) = self.connection.take() {
             drop(connection.detach());
         }
     }
 }
 
-/// Acquires the deployment-wide Base Course installation lock on one checked
-/// out PostgreSQL session. A concurrent caller waits on the database lock.
+/// Acquires the deployment-wide lock using only a separately attested installer pool.
 pub async fn acquire_base_course_install_lock(
-    pool: &PgPool,
+    pool: &BaseCourseInstallerPool,
 ) -> Result<BaseCourseInstallLock, StoreError> {
-    let mut connection = pool.acquire().await.map_err(map_sqlx_error)?;
-    sqlx::query("SELECT pg_advisory_lock($1)")
-        .bind(BASE_COURSE_INSTALL_ADVISORY_LOCK_KEY)
-        .execute(&mut *connection)
+    let mut connection = pool
+        .acquire_pool()
+        .acquire()
         .await
         .map_err(map_sqlx_error)?;
+    let mut transaction = connection.begin().await.map_err(map_sqlx_error)?;
+    sqlx::query("SET LOCAL ROLE ple_base_course_installer")
+        .execute(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+    sqlx::query("SELECT public.ple_base_course_install_acquire_lock_v1()")
+        .execute(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+    transaction.commit().await.map_err(map_sqlx_error)?;
     Ok(BaseCourseInstallLock {
         connection: Some(connection),
     })
@@ -459,32 +471,403 @@ async fn close_locked_connection(connection: PoolConnection<Postgres>) -> Result
     connection.close().await.map_err(map_sqlx_error)
 }
 
+fn decode_prepare_witness(
+    row: &sqlx::postgres::PgRow,
+) -> Result<BaseCoursePrepareWitness, StoreError> {
+    let state: Option<String> = row.try_get("state").map_err(map_sqlx_error)?;
+    let installation_generation: Option<uuid::Uuid> = row
+        .try_get("installation_generation")
+        .map_err(map_sqlx_error)?;
+    let recipe_sha256: Option<String> = row.try_get("recipe_sha256").map_err(map_sqlx_error)?;
+    let failure_kind: Option<String> = row
+        .try_get("freshness_failure_kind")
+        .map_err(map_sqlx_error)?;
+    let relation_name: Option<String> = row
+        .try_get("freshness_relation_name")
+        .map_err(map_sqlx_error)?;
+    let refusal = decode_freshness_refusal(failure_kind.as_deref(), relation_name.as_deref())?;
+    match (state, installation_generation, recipe_sha256, refusal) {
+        (Some(state), Some(installation_generation), Some(recipe_sha256), None) => {
+            Ok(BaseCoursePrepareWitness::Accepted {
+                state,
+                installation_generation,
+                recipe_sha256,
+            })
+        }
+        (None, None, None, Some(refusal)) => Ok(BaseCoursePrepareWitness::Refused(refusal)),
+        _ => Err(StoreError::Unavailable(
+            "Base Course installer returned an invalid prepare witness".to_string(),
+        )),
+    }
+}
+
+fn decode_seed_course_witness(
+    row: &sqlx::postgres::PgRow,
+) -> Result<BaseCourseInstallCourseReceipt, StoreError> {
+    let outcome: String = row.try_get("seed_outcome").map_err(map_sqlx_error)?;
+    let course_id: Option<uuid::Uuid> = row.try_get("course_id").map_err(map_sqlx_error)?;
+    let instructor_membership_id: Option<uuid::Uuid> = row
+        .try_get("instructor_membership_id")
+        .map_err(map_sqlx_error)?;
+    let failure_kind: Option<String> = row.try_get("failure_kind").map_err(map_sqlx_error)?;
+    decode_seed_course_values(
+        &outcome,
+        course_id,
+        instructor_membership_id,
+        failure_kind.as_deref(),
+    )
+}
+
+fn decode_seed_course_values(
+    outcome: &str,
+    course_id: Option<uuid::Uuid>,
+    instructor_membership_id: Option<uuid::Uuid>,
+    failure_kind: Option<&str>,
+) -> Result<BaseCourseInstallCourseReceipt, StoreError> {
+    match (outcome, course_id, instructor_membership_id, failure_kind) {
+        ("created" | "exact_prefix", Some(course_id), Some(membership_id), None)
+            if !course_id.is_nil() && !membership_id.is_nil() =>
+        {
+            Ok(BaseCourseInstallCourseReceipt {
+                disposition: if outcome == "created" {
+                    BaseCourseInstallCourseDisposition::Created
+                } else {
+                    BaseCourseInstallCourseDisposition::ExactPrefix
+                },
+                course_id: CourseId::from_uuid(course_id),
+                instructor_membership_id: question_model::CourseMembershipId::from_uuid(
+                    membership_id,
+                ),
+            })
+        }
+        ("refused", None, None, Some(COURSE_AGGREGATE_CONFLICT)) => Err(StoreError::InvalidRecord(
+            "Base Course course aggregate conflicts with the versioned recipe".to_string(),
+        )),
+        _ => Err(StoreError::Unavailable(
+            "Base Course installer returned an invalid course-seed witness".to_string(),
+        )),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CompletionReceiptWire {
+    schema_version: u8,
+    baseline_version: String,
+    installation_generation: uuid::Uuid,
+    tenant_id: uuid::Uuid,
+    recipe_sha256: String,
+    course_graph: CompletionCourseGraphWire,
+    content_graph: CompletionContentGraphWire,
+    entitlement_graph: CompletionEntitlementGraphWire,
+    activity_graph: CompletionActivityGraphWire,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CompletionCourseGraphWire {
+    base_course_id: uuid::Uuid,
+    practice_course_id: uuid::Uuid,
+    base_instructor_membership_id: uuid::Uuid,
+    mary_membership_id: uuid::Uuid,
+    mary_student_id: uuid::Uuid,
+    jack_membership_id: uuid::Uuid,
+    jack_student_id: uuid::Uuid,
+    practice_instructor_membership_id: uuid::Uuid,
+    avery_membership_id: uuid::Uuid,
+    avery_student_id: uuid::Uuid,
+    base_roster_revision: i64,
+    practice_roster_revision: i64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CompletionContentGraphWire {
+    question_id: String,
+    problem_id: uuid::Uuid,
+    version_id: uuid::Uuid,
+    assignment_id: uuid::Uuid,
+    assignment_item_id: uuid::Uuid,
+    content_sha256: String,
+    payload_sha256: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CompletionEntitlementGraphWire {
+    mary_enrollment_id: uuid::Uuid,
+    jack_enrollment_id: uuid::Uuid,
+    mary_basis_sha256: String,
+    jack_basis_sha256: String,
+    applicable_scope_sha256: String,
+    mary_summary_sha256: String,
+    jack_summary_sha256: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CompletionActivityGraphWire {
+    mary_run_id: uuid::Uuid,
+    mary_attempt_id: uuid::Uuid,
+    mary_submission_id: uuid::Uuid,
+    jack_run_id: uuid::Uuid,
+    jack_attempt_id: uuid::Uuid,
+    mary_run_sha256: String,
+    jack_run_sha256: String,
+    mary_attempt_sha256: String,
+    jack_attempt_sha256: String,
+    mary_presentation_sha256: String,
+    jack_presentation_sha256: String,
+    mary_grading_sha256: String,
+    jack_grading_sha256: String,
+    submission_sha256: String,
+    idempotency_request_sha256: String,
+    idempotency_payload_sha256: String,
+    evaluation_sha256: String,
+    feedback_sha256: String,
+    snapshot_run_sha256: String,
+    snapshot_summary_sha256: String,
+    snapshot_presentation_sha256: String,
+}
+
+fn decode_completion_witness(
+    row: &sqlx::postgres::PgRow,
+    expected: &BaseCourseCompletionExpectation,
+) -> Result<BaseCourseCompletionReceipt, StoreError> {
+    let failure_kind: Option<String> = row.try_get("failure_kind").map_err(map_sqlx_error)?;
+    let canonical_receipt: Option<sqlx::types::Json<Value>> =
+        row.try_get("canonical_receipt").map_err(map_sqlx_error)?;
+    let canonical_receipt_text: Option<String> = row
+        .try_get("canonical_receipt_text")
+        .map_err(map_sqlx_error)?;
+    let receipt_sha256: Option<String> = row.try_get("receipt_sha256").map_err(map_sqlx_error)?;
+    decode_completion_values(
+        failure_kind.as_deref(),
+        canonical_receipt.map(|value| value.0),
+        canonical_receipt_text.as_deref(),
+        receipt_sha256.as_deref(),
+        expected,
+    )
+}
+
+fn decode_completion_values(
+    failure_kind: Option<&str>,
+    canonical_receipt: Option<Value>,
+    canonical_receipt_text: Option<&str>,
+    receipt_sha256: Option<&str>,
+    expected: &BaseCourseCompletionExpectation,
+) -> Result<BaseCourseCompletionReceipt, StoreError> {
+    match (
+        failure_kind,
+        canonical_receipt,
+        canonical_receipt_text,
+        receipt_sha256,
+    ) {
+        (Some(COMPLETION_AGGREGATE_INCOMPLETE), None, None, None) => {
+            Err(StoreError::InvalidRecord(
+                "Base Course completion aggregate does not exactly match the versioned recipe"
+                    .to_string(),
+            ))
+        }
+        (None, Some(value), Some(receipt_text), Some(receipt_sha256)) => {
+            validate_sha256(receipt_sha256, "Base Course completion receipt")?;
+            if receipt_text.len() > MAX_COMPLETION_RECEIPT_BYTES
+                || sha256_hex(receipt_text.as_bytes()) != receipt_sha256
+            {
+                return Err(StoreError::Unavailable(
+                    "Base Course completion broker returned inconsistent receipt evidence"
+                        .to_string(),
+                ));
+            }
+            let parsed_value: Value = serde_json::from_str(receipt_text).map_err(|_| {
+                StoreError::Unavailable(
+                    "Base Course completion broker returned an invalid typed receipt".to_string(),
+                )
+            })?;
+            if parsed_value != value {
+                return Err(StoreError::Unavailable(
+                    "Base Course completion broker returned inconsistent receipt projections"
+                        .to_string(),
+                ));
+            }
+            let receipt: CompletionReceiptWire =
+                serde_json::from_value(parsed_value).map_err(|_| {
+                    StoreError::Unavailable(
+                        "Base Course completion broker returned an invalid typed receipt"
+                            .to_string(),
+                    )
+                })?;
+            validate_completion_receipt(&receipt, expected)?;
+            Ok(BaseCourseCompletionReceipt {
+                receipt_sha256: receipt_sha256.to_owned(),
+            })
+        }
+        _ => Err(StoreError::Unavailable(
+            "Base Course completion broker returned an invalid witness".to_string(),
+        )),
+    }
+}
+
+fn validate_completion_receipt(
+    receipt: &CompletionReceiptWire,
+    expected: &BaseCourseCompletionExpectation,
+) -> Result<(), StoreError> {
+    let graph_matches = receipt.schema_version == 1
+        && receipt.baseline_version == BASELINE_VERSION
+        && receipt.installation_generation == expected.installation_generation
+        && receipt.tenant_id == expected.tenant_id.as_uuid()
+        && receipt.recipe_sha256 == expected.recipe_sha256
+        && receipt.course_graph.base_course_id == expected.course.base_course_id.as_uuid()
+        && receipt.course_graph.practice_course_id == expected.course.practice_course_id.as_uuid()
+        && receipt.course_graph.base_instructor_membership_id
+            == expected.course.base_instructor_membership_id.as_uuid()
+        && receipt.course_graph.mary_membership_id == expected.course.mary_membership_id.as_uuid()
+        && receipt.course_graph.mary_student_id == expected.course.mary_student_id.as_uuid()
+        && receipt.course_graph.jack_membership_id == expected.course.jack_membership_id.as_uuid()
+        && receipt.course_graph.jack_student_id == expected.course.jack_student_id.as_uuid()
+        && receipt.course_graph.practice_instructor_membership_id
+            == expected.course.practice_instructor_membership_id.as_uuid()
+        && receipt.course_graph.avery_membership_id
+            == expected.course.avery_membership_id.as_uuid()
+        && receipt.course_graph.avery_student_id == expected.course.avery_student_id.as_uuid()
+        && receipt.course_graph.base_roster_revision == 3
+        && receipt.course_graph.practice_roster_revision == 2
+        && receipt.content_graph.question_id == expected.content.question_id.to_string()
+        && receipt.content_graph.problem_id == expected.content.problem_id.as_uuid()
+        && receipt.content_graph.version_id == expected.content.version_id.as_uuid()
+        && receipt.content_graph.assignment_id == expected.content.assignment_id.as_uuid()
+        && receipt.content_graph.assignment_item_id
+            == expected.content.assignment_item_id.as_uuid()
+        && receipt.entitlement_graph.mary_enrollment_id
+            == expected.entitlement.mary_enrollment_id.as_uuid()
+        && receipt.entitlement_graph.jack_enrollment_id
+            == expected.entitlement.jack_enrollment_id.as_uuid()
+        && receipt.activity_graph.mary_run_id == expected.activity.mary_run_id.as_uuid()
+        && receipt.activity_graph.mary_attempt_id == expected.activity.mary_attempt_id.as_uuid()
+        && receipt.activity_graph.mary_submission_id == expected.activity.mary_submission_id
+        && receipt.activity_graph.jack_run_id == expected.activity.jack_run_id.as_uuid()
+        && receipt.activity_graph.jack_attempt_id == expected.activity.jack_attempt_id.as_uuid();
+    if !graph_matches {
+        return Err(StoreError::InvalidRecord(
+            "Base Course completion receipt differs from the converged deterministic graph"
+                .to_string(),
+        ));
+    }
+    validate_sha256(&receipt.recipe_sha256, "Base Course completion recipe")?;
+    for hash in completion_receipt_hashes(receipt) {
+        validate_sha256(hash, "Base Course completion evidence")?;
+    }
+    if receipt.content_graph.content_sha256 != receipt.content_graph.payload_sha256 {
+        return Err(StoreError::InvalidRecord(
+            "Base Course completion receipt contains inconsistent publication hashes".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn completion_receipt_hashes(receipt: &CompletionReceiptWire) -> [&str; 24] {
+    [
+        &receipt.content_graph.content_sha256,
+        &receipt.content_graph.payload_sha256,
+        &receipt.entitlement_graph.mary_basis_sha256,
+        &receipt.entitlement_graph.jack_basis_sha256,
+        &receipt.entitlement_graph.applicable_scope_sha256,
+        &receipt.entitlement_graph.mary_summary_sha256,
+        &receipt.entitlement_graph.jack_summary_sha256,
+        &receipt.activity_graph.mary_run_sha256,
+        &receipt.activity_graph.jack_run_sha256,
+        &receipt.activity_graph.mary_attempt_sha256,
+        &receipt.activity_graph.jack_attempt_sha256,
+        &receipt.activity_graph.mary_presentation_sha256,
+        &receipt.activity_graph.jack_presentation_sha256,
+        &receipt.activity_graph.mary_grading_sha256,
+        &receipt.activity_graph.jack_grading_sha256,
+        &receipt.activity_graph.submission_sha256,
+        &receipt.activity_graph.idempotency_request_sha256,
+        &receipt.activity_graph.idempotency_payload_sha256,
+        &receipt.activity_graph.evaluation_sha256,
+        &receipt.activity_graph.feedback_sha256,
+        &receipt.activity_graph.snapshot_run_sha256,
+        &receipt.activity_graph.snapshot_summary_sha256,
+        &receipt.activity_graph.snapshot_presentation_sha256,
+        &receipt.recipe_sha256,
+    ]
+}
+
+fn decode_freshness_refusal(
+    failure_kind: Option<&str>,
+    relation_name: Option<&str>,
+) -> Result<Option<BaseCourseFreshnessRefusal>, StoreError> {
+    match (failure_kind, relation_name) {
+        (None, None) => Ok(None),
+        (Some(UNCONSUMED_NAMESPACE_FAILURE), None) => Ok(Some(
+            BaseCourseFreshnessRefusal::UnconsumedQuestionNamespace,
+        )),
+        (Some(NONEMPTY_RELATION_FAILURE), Some(relation))
+            if is_safe_public_relation_witness(relation) =>
+        {
+            Ok(Some(
+                BaseCourseFreshnessRefusal::NonemptyApplicationRelation(relation.to_owned()),
+            ))
+        }
+        _ => Err(StoreError::Unavailable(
+            "Base Course installer returned an invalid freshness refusal".to_string(),
+        )),
+    }
+}
+
+fn is_safe_public_relation_witness(relation: &str) -> bool {
+    relation.strip_prefix("public.").is_some_and(|name| {
+        !name.is_empty()
+            && name
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+    })
+}
+
 fn decode_state(row: sqlx::postgres::PgRow) -> Result<BaseCourseInstallState, StoreError> {
     let state: String = row.try_get("state").map_err(map_sqlx_error)?;
+    let tenant_id: uuid::Uuid = row.try_get("tenant_id").map_err(map_sqlx_error)?;
     let baseline_version: String = row.try_get("baseline_version").map_err(map_sqlx_error)?;
     let installation_generation: uuid::Uuid = row
         .try_get("installation_generation")
         .map_err(map_sqlx_error)?;
     let object_manifest: sqlx::types::Json<Value> =
         row.try_get("object_manifest").map_err(map_sqlx_error)?;
-    let tenant_id: Option<uuid::Uuid> = row.try_get("tenant_id").map_err(map_sqlx_error)?;
+    let recipe_sha256: String = row.try_get("recipe_sha256").map_err(map_sqlx_error)?;
+    validate_sha256(&recipe_sha256, "stored Base Course recipe")?;
     let storage_receipt_sha256: Option<String> = row
         .try_get("storage_receipt_sha256")
         .map_err(map_sqlx_error)?;
-    match (state.as_str(), tenant_id, storage_receipt_sha256) {
-        ("installing", Some(tenant_id), None) => Ok(BaseCourseInstallState::Installing {
+    let completion_receipt_sha256: Option<String> = row
+        .try_get("completion_receipt_sha256")
+        .map_err(map_sqlx_error)?;
+    match (
+        state.as_str(),
+        storage_receipt_sha256,
+        completion_receipt_sha256,
+    ) {
+        ("installing", None, None) => Ok(BaseCourseInstallState::Installing {
             tenant_id: TenantId::from_uuid(tenant_id),
             baseline_version,
             installation_generation,
             object_manifest: object_manifest.0,
+            recipe_sha256,
         }),
-        ("complete", Some(tenant_id), Some(storage_receipt_sha256)) => {
+        ("complete", Some(storage_receipt_sha256), Some(completion_receipt_sha256)) => {
+            validate_sha256(&storage_receipt_sha256, "stored Base Course receipt")?;
+            validate_sha256(
+                &completion_receipt_sha256,
+                "stored Base Course completion receipt",
+            )?;
             Ok(BaseCourseInstallState::Complete {
                 tenant_id: TenantId::from_uuid(tenant_id),
                 baseline_version,
                 installation_generation,
                 object_manifest: object_manifest.0,
                 storage_receipt_sha256,
+                completion_receipt_sha256,
+                recipe_sha256,
             })
         }
         _ => Err(StoreError::Unavailable(
@@ -493,186 +876,93 @@ fn decode_state(row: sqlx::postgres::PgRow) -> Result<BaseCourseInstallState, St
     }
 }
 
-fn validate_baseline_inputs(
+fn validate_install_inputs(
     baseline_version: &str,
     object_manifest: &Value,
+    recipe: &Value,
 ) -> Result<(), StoreError> {
-    if baseline_version != "base-course-v1" || object_manifest != &Value::Array(Vec::new()) {
+    if baseline_version != BASELINE_VERSION || object_manifest != &Value::Array(Vec::new()) {
         return Err(StoreError::InvalidRecord(
             "live-demo install inputs do not match the supported baseline".to_string(),
+        ));
+    }
+    if recipe.get("schemaVersion") != Some(&Value::from(1))
+        || !recipe.get("participants").is_some_and(Value::is_object)
+        || !recipe.get("courses").is_some_and(Value::is_object)
+    {
+        return Err(StoreError::InvalidRecord(
+            "Base Course recipe does not have the supported canonical shape".to_string(),
         ));
     }
     Ok(())
 }
 
-fn validate_storage_receipt_sha256(value: &str) -> Result<(), StoreError> {
+fn validate_complete_inputs(
+    baseline_version: &str,
+    object_manifest: &Value,
+    storage_receipt_sha256: &str,
+) -> Result<(), StoreError> {
+    if baseline_version != BASELINE_VERSION || object_manifest != &Value::Array(Vec::new()) {
+        return Err(StoreError::InvalidRecord(
+            "live-demo install inputs do not match the supported baseline".to_string(),
+        ));
+    }
+    validate_sha256(storage_receipt_sha256, "live-demo storage receipt")
+}
+
+fn validate_sha256(value: &str, label: &str) -> Result<(), StoreError> {
     if value.len() != 64
         || !value
             .bytes()
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
     {
-        return Err(StoreError::InvalidRecord(
-            "live-demo storage receipt hash must be a lowercase SHA-256 hex digest".to_string(),
-        ));
+        return Err(StoreError::Unavailable(format!(
+            "{label} hash violates its lowercase SHA-256 invariant"
+        )));
     }
     Ok(())
 }
 
-fn ensure_matching_install(
-    state: &BaseCourseInstallState,
-    tenant_id: TenantId,
-    baseline_version: &str,
-    object_manifest: &Value,
-) -> Result<(), StoreError> {
-    let (stored_tenant, stored_version, stored_manifest) = match state {
-        BaseCourseInstallState::Installing {
-            tenant_id,
-            baseline_version,
-            object_manifest,
-            ..
-        }
-        | BaseCourseInstallState::Complete {
-            tenant_id,
-            baseline_version,
-            object_manifest,
-            ..
-        } => (tenant_id, baseline_version, object_manifest),
-    };
-    if stored_tenant != &tenant_id
-        || stored_version != baseline_version
-        || stored_manifest != object_manifest
-    {
-        return Err(StoreError::Conflict);
+fn sha256_hex(value: &[u8]) -> String {
+    let mut hash = String::with_capacity(64);
+    for byte in Sha256::digest(value) {
+        write!(&mut hash, "{byte:02x}").expect("writing a SHA-256 hash to String cannot fail");
     }
-    Ok(())
+    hash
 }
 
 #[cfg(test)]
 mod tests {
-    use question_model::UserRole;
     use serde_json::json;
-    use uuid::Uuid;
 
     use super::*;
 
-    fn account_recipe(
-        user: u128,
-        email: &str,
-        platform_roles: BaseCourseAccountPlatformRoles,
-    ) -> BaseCourseAccountRecipe {
-        BaseCourseAccountRecipe::new(
-            UserId::from_uuid(Uuid::from_u128(user)),
-            AuthenticationEmail::parse(email).expect("test email should be valid"),
-            format!("Account {user}"),
-            platform_roles,
-        )
-        .expect("test account recipe should be valid")
+    #[test]
+    fn canonical_recipe_shape_requires_versioned_participants_and_courses() {
+        let valid = json!({"schemaVersion": 1, "participants": {}, "courses": {}});
+        assert!(validate_install_inputs(BASELINE_VERSION, &json!([]), &valid).is_ok());
+        assert!(validate_install_inputs(BASELINE_VERSION, &json!([]), &json!({})).is_err());
     }
 
     #[test]
-    fn account_recipe_exposes_only_supported_platform_role_states() {
-        let ordinary = account_recipe(
-            1,
-            "ordinary@example.invalid",
-            BaseCourseAccountPlatformRoles::None,
-        );
-        let sysadmin = account_recipe(
-            2,
-            "sysadmin@example.invalid",
-            BaseCourseAccountPlatformRoles::Sysadmin,
-        );
-
-        assert_eq!(ordinary.platform_roles(), &[]);
-        assert_eq!(sysadmin.platform_roles(), &[UserRole::Sysadmin]);
-    }
-
-    #[test]
-    fn account_batch_rejects_duplicate_identity_or_normalized_email() {
-        let first = account_recipe(
-            1,
-            "first@example.invalid",
-            BaseCourseAccountPlatformRoles::None,
-        );
-        let duplicate_user = account_recipe(
-            1,
-            "second@example.invalid",
-            BaseCourseAccountPlatformRoles::None,
-        );
-        let duplicate_email = account_recipe(
-            2,
-            "FIRST@example.invalid",
-            BaseCourseAccountPlatformRoles::None,
-        );
-
-        assert!(matches!(
-            validate_account_batch(&[first.clone(), duplicate_user]),
-            Err(StoreError::InvalidRecord(_))
-        ));
-        assert!(matches!(
-            validate_account_batch(&[first, duplicate_email]),
-            Err(StoreError::InvalidRecord(_))
-        ));
-    }
-
-    #[test]
-    fn account_batch_requires_a_bounded_nonempty_set() {
-        assert!(matches!(
-            validate_account_batch(&[]),
-            Err(StoreError::InvalidRecord(_))
-        ));
-        let accounts = (0..=MAX_BASE_COURSE_INSTALL_ACCOUNTS)
-            .map(|index| {
-                account_recipe(
-                    index as u128 + 1,
-                    &format!("account-{index}@example.invalid"),
-                    BaseCourseAccountPlatformRoles::None,
-                )
-            })
-            .collect::<Vec<_>>();
-        assert!(matches!(
-            validate_account_batch(&accounts),
-            Err(StoreError::InvalidRecord(_))
-        ));
-    }
-
-    #[test]
-    fn only_the_current_baseline_inputs_are_accepted() {
-        assert!(validate_baseline_inputs("base-course-v1", &json!([])).is_ok());
-        assert!(matches!(
-            validate_baseline_inputs("base-course-v2", &json!([])),
-            Err(StoreError::InvalidRecord(_))
-        ));
-        assert!(matches!(
-            validate_baseline_inputs("base-course-v1", &json!(["object"])),
-            Err(StoreError::InvalidRecord(_))
-        ));
-    }
-
-    #[test]
-    fn installing_inputs_must_match_exactly_to_resume() {
-        let tenant = TenantId::from_uuid(Uuid::from_u128(1));
-        let state = BaseCourseInstallState::Installing {
-            tenant_id: tenant,
-            baseline_version: "base-course-v1".to_string(),
-            installation_generation: Uuid::from_u128(3),
-            object_manifest: json!([]),
-        };
-        assert!(ensure_matching_install(&state, tenant, "base-course-v1", &json!([])).is_ok());
+    fn installer_slot_is_closed_to_the_two_recipe_courses() {
         assert_eq!(
-            ensure_matching_install(
-                &state,
-                TenantId::from_uuid(Uuid::from_u128(2)),
-                "base-course-v1",
-                &json!([]),
-            ),
-            Err(StoreError::Conflict)
+            BaseCourseInstallCourseSlot::BaseCourse.as_str(),
+            BASE_COURSE_SLOT
+        );
+        assert_eq!(
+            BaseCourseInstallCourseSlot::GeneticsPractice.as_str(),
+            GENETICS_PRACTICE_SLOT
         );
     }
 
     #[test]
-    fn only_lowercase_sha256_receipt_hashes_are_accepted() {
-        assert!(validate_storage_receipt_sha256(&"a".repeat(64)).is_ok());
-        assert!(validate_storage_receipt_sha256(&"A".repeat(64)).is_err());
-        assert!(validate_storage_receipt_sha256("not-a-sha256").is_err());
+    fn receipt_hashes_are_lowercase_sha256() {
+        assert!(validate_sha256(&"a".repeat(64), "test").is_ok());
+        assert!(validate_sha256(&"A".repeat(64), "test").is_err());
+        assert!(validate_sha256("short", "test").is_err());
     }
+
+    #[path = "completion_tests.rs"]
+    mod completion_tests;
 }

@@ -7,6 +7,7 @@ where
     let fixture_offset = fixture.fixture_offset;
     let context = fixture.context;
     let student_user = fixture.student_user;
+    let instructor = fixture.publisher;
     let assignment = fixture.assignment;
     let course = fixture.course;
     let problem = fixture.problem;
@@ -23,16 +24,19 @@ where
     let rescored = store
         .replace_assignment(
             context,
-            course,
-            assignment,
-            locked_assignment.revision,
-            AssignmentUpdate {
-                title: locked_assignment.record.title.clone(),
-                audience: locked_assignment.record.audience.clone(),
-                items: rescored_items.clone(),
-                selection_groups: locked_assignment.record.selection_groups.clone(),
-                disclosure_policy: locked_assignment.record.disclosure_policy,
-                policies: locked_assignment.record.policies,
+            ReplaceAssignmentCommand {
+                actor: instructor,
+                course,
+                assignment,
+                expected_revision: locked_assignment.revision,
+                update: AssignmentUpdate {
+                    title: locked_assignment.record.title.clone(),
+                    audience: locked_assignment.record.audience.clone(),
+                    items: rescored_items.clone(),
+                    selection_groups: locked_assignment.record.selection_groups.clone(),
+                    disclosure_policy: locked_assignment.record.disclosure_policy,
+                    policies: locked_assignment.record.policies,
+                },
             },
         )
         .await
@@ -84,16 +88,19 @@ where
     let superseding = store
         .replace_assignment(
             context,
-            course,
-            assignment,
-            rescored.revision,
-            AssignmentUpdate {
-                title: rescored.record.title.clone(),
-                audience: rescored.record.audience.clone(),
-                items: superseding_items.clone(),
-                selection_groups: rescored.record.selection_groups.clone(),
-                disclosure_policy: rescored.record.disclosure_policy,
-                policies: rescored.record.policies,
+            ReplaceAssignmentCommand {
+                actor: instructor,
+                course,
+                assignment,
+                expected_revision: rescored.revision,
+                update: AssignmentUpdate {
+                    title: rescored.record.title.clone(),
+                    audience: rescored.record.audience.clone(),
+                    items: superseding_items.clone(),
+                    selection_groups: rescored.record.selection_groups.clone(),
+                    disclosure_policy: rescored.record.disclosure_policy,
+                    policies: rescored.record.policies,
+                },
             },
         )
         .await
@@ -154,7 +161,7 @@ where
         .start_or_resume_run(
             context,
             student_user,
-            assignment,
+            LearnerWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(uuid(89_970 + fixture_offset)),
         )
         .await
@@ -164,6 +171,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(89_971 + fixture_offset)),
                 run: concurrent_run.id,
                 assignment_position: 0,
@@ -192,6 +200,7 @@ where
             context,
             SubmitQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: concurrent_attempt.id,
                 response: response.clone(),
                 result: AttemptResult {
@@ -244,16 +253,19 @@ where
         store
             .replace_assignment(
                 context,
-                course,
-                assignment,
-                superseding.revision,
-                AssignmentUpdate {
-                    title: superseding.record.title.clone(),
-                    audience: superseding.record.audience.clone(),
-                    items: added_items,
-                    selection_groups: superseding.record.selection_groups.clone(),
-                    disclosure_policy: superseding.record.disclosure_policy,
-                    policies: superseding.record.policies,
+                ReplaceAssignmentCommand {
+                    actor: instructor,
+                    course,
+                    assignment,
+                    expected_revision: superseding.revision,
+                    update: AssignmentUpdate {
+                        title: superseding.record.title.clone(),
+                        audience: superseding.record.audience.clone(),
+                        items: added_items,
+                        selection_groups: superseding.record.selection_groups.clone(),
+                        disclosure_policy: superseding.record.disclosure_policy,
+                        policies: superseding.record.policies,
+                    },
                 },
             )
             .await,

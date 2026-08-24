@@ -133,7 +133,12 @@ pub(super) async fn seed_chapter_one_statistics(
             continue;
         }
         let run = store
-            .start_or_resume_run(context, learner, assignment, run_id)
+            .start_or_resume_run(
+                context,
+                learner,
+                learning_data_access::LearnerWorkRoutingBinding::new(course, assignment),
+                run_id,
+            )
             .await
             .context("starting assigned Chapter 1 statistics run")?;
         let seed = u64::try_from(index + 1).expect("five statistics learners fit u64");
@@ -147,6 +152,9 @@ pub(super) async fn seed_chapter_one_statistics(
                 context,
                 IssueQuestionAttemptCommand {
                     actor: learner,
+                    binding: learning_data_access::LearnerWorkRoutingBinding::new(
+                        course, assignment,
+                    ),
                     attempt: QuestionAttemptId::from_uuid(pilot_uuid(
                         arguments.tenant,
                         STATISTICS_COHORT_SLUG,
@@ -156,6 +164,11 @@ pub(super) async fn seed_chapter_one_statistics(
                     assignment_position: 0,
                     problem: fixture.reference.problem,
                     question_version: fixture.reference.version,
+                    issued_question_snapshot: chapter_one_statistics_snapshot(
+                        &question.question,
+                        fixture.reference.problem,
+                        fixture.reference.version,
+                    )?,
                     seed,
                     presentation_capability: PresentationCapability::EnvelopeV1,
                     presentation: Some(PresentationBindingV1::new(
@@ -191,6 +204,9 @@ pub(super) async fn seed_chapter_one_statistics(
                 context,
                 SubmitQuestionAttemptCommand {
                     actor: learner,
+                    binding: learning_data_access::LearnerWorkRoutingBinding::new(
+                        course, assignment,
+                    ),
                     attempt: attempt.id,
                     response: first_choice_response(&issued.envelope)?,
                     result: AttemptResult {
@@ -208,6 +224,29 @@ pub(super) async fn seed_chapter_one_statistics(
             .context("completing assigned Chapter 1 statistics run")?;
     }
     Ok(())
+}
+
+fn chapter_one_statistics_snapshot(
+    question: &question_model::QuestionDefinition,
+    problem: question_model::ProblemId,
+    version: question_model::VersionId,
+) -> Result<learning_data_access::IssuedQuestionSnapshotV1> {
+    let snapshot = learning_data_access::IssuedQuestionSnapshotV1::new(
+        question.clone(),
+        learning_data_access::IssuedQuestionFamilyWitnessV1::Flat {},
+    )
+    .context("building Chapter 1 statistics issued question snapshot")?;
+    snapshot
+        .validate_for_attempt(problem, version)
+        .context("validating Chapter 1 statistics issued question identity")?;
+    snapshot
+        .validate_for_issuance_context(
+            learning_data_access::FlatGradingCapability::Required,
+            learning_data_access::WebworkGradingCapability::NotApplicable,
+            None,
+        )
+        .context("validating Chapter 1 statistics issued question authority")?;
+    Ok(snapshot)
 }
 
 fn first_choice_response(envelope: &QuestionEnvelope) -> Result<StudentResponse> {

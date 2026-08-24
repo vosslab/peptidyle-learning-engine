@@ -45,6 +45,8 @@ pub(crate) async fn exercise_memory_co_instructor_expiry(store: &MemoryStore) {
         )
         .await
         .expect("expired target session");
+    let course_creation_authority =
+        sysadmin_course_creation_authority(store, tenant, course, instructor).await;
     store
         .create_course(
             context,
@@ -60,7 +62,7 @@ pub(crate) async fn exercise_memory_co_instructor_expiry(store: &MemoryStore) {
                     )
                     .expect("term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -104,6 +106,7 @@ pub(crate) async fn exercise_memory_co_instructor_expiry(store: &MemoryStore) {
             .accept_co_instructor_invitation(
                 context,
                 learning_data_access::RespondToCoInstructorInvitation {
+                    session: target_session,
                     actor: target,
                     invitation: invitation.invitation.id,
                     expected_revision: invitation.revision,

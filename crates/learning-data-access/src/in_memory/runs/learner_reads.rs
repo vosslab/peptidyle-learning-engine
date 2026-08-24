@@ -3,6 +3,7 @@
 //! for reads as well as mutations.
 
 use super::super::*;
+use crate::PrefetchedQuestionDescriptorV1;
 
 pub(super) async fn assignment_run_items(
     store: &MemoryStore,
@@ -45,7 +46,7 @@ pub(super) async fn prefetched_question(
     run: RunId,
     predecessor: QuestionAttemptId,
     assignment_position: u32,
-) -> Result<Option<PrefetchedQuestion>, StoreError> {
+) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError> {
     let state = store.read_state()?;
     let Some(record) = state.runs.get(&(context.tenant_id(), run)) else {
         return Ok(None);

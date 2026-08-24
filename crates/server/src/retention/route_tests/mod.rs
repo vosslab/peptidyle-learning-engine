@@ -131,7 +131,7 @@ async fn create_course(
     members: Vec<(UserId, CourseMembershipRole)>,
 ) {
     let context = TenantContext::from_authenticated_session(tenant);
-    let initial_instructor = members
+    let actor = members
         .iter()
         .find_map(|(user, role)| (*role == CourseMembershipRole::Instructor).then_some(*user))
         .expect("retention fixture needs an initial instructor");
@@ -150,7 +150,10 @@ async fn create_course(
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store, tenant, course, actor,
+                )
+                .await,
             },
         )
         .await
@@ -160,6 +163,7 @@ async fn create_course(
             store
                 .upsert_course_member(
                     context,
+                    actor,
                     UpsertCourseMember {
                         course,
                         user,

@@ -13,7 +13,7 @@ use question_model::{CourseId, CourseMembershipRole};
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
 use super::assignments::assignment_summary_items;
-use super::policy::{course_records_are_visible, may_create_course, require_course_access};
+use super::policy::{course_creation_authority, course_records_are_visible, require_course_access};
 use super::projection::{error_response, store_error_response};
 use super::routing::{
     CourseQuery, CourseRouteState, CreateCourseDecodeError, DEFAULT_PAGE_SIZE,
@@ -59,9 +59,9 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    if !may_create_course(&authenticated) {
+    let Some(authority) = course_creation_authority(&authenticated) else {
         return error_response(StatusCode::FORBIDDEN, "course creation is not authorized");
-    }
+    };
     if !headers
         .get(CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
@@ -119,7 +119,7 @@ where
             authenticated.tenant_context,
             CreateCourseCommand {
                 course: course.clone(),
-                initial_instructor: authenticated.record.subject.user(),
+                authority,
             },
         )
         .await

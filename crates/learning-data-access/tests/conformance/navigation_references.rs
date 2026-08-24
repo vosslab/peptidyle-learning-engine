@@ -16,7 +16,12 @@ pub(super) async fn exercise_navigation_reference_authority(store: &MemoryStore)
     let workspace_owner = UserId::from_uuid(uuid(16));
 
     let started = store
-        .start_or_resume_run(context, student, assignment, run)
+        .start_or_resume_run(
+            context,
+            student,
+            LearnerWorkRoutingBinding::new(course, assignment),
+            run,
+        )
         .await
         .expect("reference fixture run");
     store

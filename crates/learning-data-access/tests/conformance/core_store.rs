@@ -2,7 +2,7 @@ use super::*;
 
 pub(super) async fn exercise_store<S>(store: &S)
 where
-    S: Store + CatalogStore + CourseRosterStore,
+    S: Store + CatalogStore + CourseRosterStore + SessionStore,
 {
     let tenant = TenantId::from_uuid(uuid(1));
     let foreign_tenant = TenantId::from_uuid(uuid(2));
@@ -16,6 +16,8 @@ where
     let assignment_id = AssignmentId::from_uuid(uuid(8));
     let course_id = CourseId::from_uuid(uuid(17));
     let course_user = UserId::from_uuid(uuid(18));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(store, tenant, course_id, course_user).await;
     let run_id = RunId::from_uuid(uuid(10));
     let practice_run_id = RunId::from_uuid(uuid(14));
     let draft = DraftRecord {
@@ -443,7 +445,7 @@ where
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: course_user,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -451,6 +453,7 @@ where
     store
         .upsert_course_member(
             context,
+            course_user,
             UpsertCourseMember {
                 course: course_id,
                 user: UserId::from_uuid(uuid(14)),
@@ -465,7 +468,12 @@ where
         .await
         .expect("conforming assignment write should succeed");
     let started = store
-        .start_or_resume_run(context, UserId::from_uuid(uuid(14)), assignment_id, run_id)
+        .start_or_resume_run(
+            context,
+            UserId::from_uuid(uuid(14)),
+            LearnerWorkRoutingBinding::new(course_id, assignment_id),
+            run_id,
+        )
         .await
         .expect("learner start should atomically materialize entitlement");
     let enrollment_id = started.enrollment;
@@ -535,7 +543,7 @@ where
         .start_or_resume_run(
             context,
             UserId::from_uuid(uuid(14)),
-            assignment_id,
+            LearnerWorkRoutingBinding::new(course_id, assignment_id),
             practice_run_id,
         )
         .await
@@ -566,6 +574,7 @@ where
     store
         .upsert_course_member(
             context,
+            course_user,
             UpsertCourseMember {
                 course: course_id,
                 user: second_student,
@@ -579,7 +588,7 @@ where
         .start_or_resume_run(
             context,
             second_student,
-            assignment_id,
+            LearnerWorkRoutingBinding::new(course_id, assignment_id),
             RunId::from_uuid(uuid(21)),
         )
         .await

@@ -32,6 +32,8 @@ where
     let student = UserId::from_uuid(uuid(720_302));
     let outsider = UserId::from_uuid(uuid(720_303));
     let course = CourseId::from_uuid(uuid(720_304));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(store, tenant, course, instructor).await;
     store
         .create_course(
             context,
@@ -47,7 +49,7 @@ where
                     )
                     .expect("term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -55,6 +57,7 @@ where
     let member = store
         .upsert_course_member(
             context,
+            instructor,
             learning_data_access::UpsertCourseMember {
                 course,
                 user: student,
@@ -71,7 +74,38 @@ where
         .expect("active student")
         .id;
 
-    for actor in [student, outsider] {
+    let student_session = SessionTokenHash::compute(b"revoked-group-student");
+    store
+        .create_session(
+            student_session,
+            SessionSubject::new(
+                tenant,
+                student,
+                "Revoked group student",
+                vec![UserRole::Student],
+            )
+            .expect("student session subject"),
+            SessionLifetime::from_seconds(3_600).expect("student session lifetime"),
+        )
+        .await
+        .expect("student session");
+    let outsider_session = SessionTokenHash::compute(b"revoked-group-outsider");
+    store
+        .create_session(
+            outsider_session,
+            SessionSubject::new(
+                tenant,
+                outsider,
+                "Revoked group outsider",
+                vec![UserRole::Student],
+            )
+            .expect("outsider session subject"),
+            SessionLifetime::from_seconds(3_600).expect("outsider session lifetime"),
+        )
+        .await
+        .expect("outsider session");
+
+    for (actor, session) in [(student, student_session), (outsider, outsider_session)] {
         for purpose in [
             question_model::CourseGroupPurpose::Section,
             question_model::CourseGroupPurpose::Lab,
@@ -91,7 +125,7 @@ where
                 .update_course_group_purpose_policy(
                     context,
                     UpdateCourseGroupPurposePolicyCommand {
-                        actor,
+                        session,
                         course,
                         expected_revision: CourseGroupPurposePolicyRevision::INITIAL,
                         policy: question_model::CourseGroupPurposePolicy::default_for_purpose(
@@ -220,6 +254,7 @@ async fn assert_m4_student_membership_guards<S>(
     let revoked = store
         .upsert_course_member(
             fixture.context,
+            fixture.instructor,
             learning_data_access::UpsertCourseMember {
                 course: fixture.course,
                 user: revoked_user,
@@ -276,6 +311,13 @@ async fn assert_m4_student_membership_guards<S>(
 
     let other_course = CourseId::from_uuid(uuid(99_104));
     let foreign_user = UserId::from_uuid(uuid(99_105));
+    let other_course_creation_authority = sysadmin_course_creation_authority(
+        store,
+        fixture.context.tenant_id(),
+        other_course,
+        fixture.instructor,
+    )
+    .await;
     store
         .create_course(
             fixture.context,
@@ -291,7 +333,7 @@ async fn assert_m4_student_membership_guards<S>(
                     )
                     .expect("term"),
                 },
-                initial_instructor: fixture.instructor,
+                authority: other_course_creation_authority,
             },
         )
         .await
@@ -299,6 +341,7 @@ async fn assert_m4_student_membership_guards<S>(
     store
         .upsert_course_member(
             fixture.context,
+            fixture.instructor,
             learning_data_access::UpsertCourseMember {
                 course: other_course,
                 user: foreign_user,

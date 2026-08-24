@@ -4,16 +4,21 @@
 mod published_assignment;
 use published_assignment::create_published_assignment;
 
+#[path = "postgres_course_creation_support.rs"]
+mod course_creation_support;
+use course_creation_support::sysadmin_course_creation_authority;
+
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AssignmentRecord, AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand,
     AssignmentScoringWorkerStore, CatalogStore, CourseRecord, CourseRosterStore,
     CreateCourseCommand, DraftRecord, EvaluationRevision, FlatGradingCapability,
-    IssueQuestionAttemptCommand, JobClaimFilter, JobLeaseDuration, JobPayload, JobStore,
+    IssueQuestionAttemptCommand, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1,
+    JobClaimFilter, JobLeaseDuration, JobPayload, JobStore, LearnerWorkRoutingBinding,
     ManualCredit, ManualGradeActionId, ManualGradingStore, PresentationCapability,
-    PublishDraftCommand, SetManualGradeCommand, Store, StoreError, SubmissionIdempotencyKey,
-    SubmitPendingManualQuestionAttemptCommand, SubmitQuestionAttemptCommand, TenantContext,
-    UpsertCourseMember,
+    PublishDraftCommand, QtiGradingCapability, SetManualGradeCommand, Store, StoreError,
+    SubmissionIdempotencyKey, SubmitPendingManualQuestionAttemptCommand,
+    SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -96,7 +101,7 @@ async fn publish_question(
     family: &str,
     title: &str,
     response: ResponseDefinition,
-) -> ProblemVersionRef {
+) -> (ProblemVersionRef, IssuedQuestionSnapshotV1) {
     let workspace = WorkspaceId::from_uuid(fresh_uuid());
     let publication = ProblemVersionRef {
         problem: ProblemId::from_uuid(fresh_uuid()),
@@ -116,7 +121,7 @@ async fn publish_question(
             context,
             instructor,
             PublishDraftCommand {
-                expected_draft: draft,
+                expected_draft: draft.clone(),
                 expected_revision: saved.revision,
                 publication,
                 published_source: QuestionSource::Native {
@@ -137,7 +142,21 @@ async fn publish_question(
         )
         .await
         .expect("publish live manual-grading question");
-    publication
+    let snapshot = IssuedQuestionSnapshotV1::new(
+        question_model::QuestionDefinition::from_draft(
+            draft.question,
+            publication.problem,
+            publication.version,
+            QuestionSource::Native {
+                family: family.to_string(),
+            },
+        ),
+        IssuedQuestionFamilyWitnessV1::Native {
+            physical_asset_bindings: Vec::new(),
+        },
+    )
+    .expect("construct live native question snapshot");
+    (publication, snapshot)
 }
 
 fn assignment_item(reference: ProblemVersionRef, position: u32) -> AssignmentItem {
@@ -151,25 +170,34 @@ fn assignment_item(reference: ProblemVersionRef, position: u32) -> AssignmentIte
     }
 }
 
-async fn issue_attempt(
-    store: &PostgresStore,
+struct ManualGradingAttemptFixture<'a> {
+    store: &'a PostgresStore,
     context: TenantContext,
+    binding: LearnerWorkRoutingBinding,
     student: UserId,
     run: RunId,
+}
+
+async fn issue_attempt(
+    fixture: &ManualGradingAttemptFixture<'_>,
     reference: ProblemVersionRef,
+    issued_question_snapshot: IssuedQuestionSnapshotV1,
     position: u32,
     predecessor: Option<QuestionAttemptId>,
 ) -> question_model::QuestionAttempt {
-    store
+    fixture
+        .store
         .issue_or_resume_question_attempt(
-            context,
+            fixture.context,
             IssueQuestionAttemptCommand {
-                actor: student,
+                actor: fixture.student,
+                binding: fixture.binding,
                 attempt: QuestionAttemptId::from_uuid(fresh_uuid()),
-                run,
+                run: fixture.run,
                 assignment_position: position,
                 problem: reference.problem,
                 question_version: reference.version,
+                issued_question_snapshot,
                 seed: u64::from(position) + 1,
                 presentation_capability: PresentationCapability::NotApplicable,
                 presentation: None,
@@ -180,6 +208,8 @@ async fn issue_attempt(
                 webwork_grading: None,
                 webwork_grading_capability:
                     learning_data_access::WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: QtiGradingCapability::NotApplicable,
                 parameter_hash: format!("live-parameters-{position}"),
                 provenance: provenance(if position == 0 { "automatic" } else { "manual" }),
                 webwork_replay: None,
@@ -212,7 +242,7 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
     let course = CourseId::from_uuid(fresh_uuid());
     let assignment = AssignmentId::from_uuid(fresh_uuid());
 
-    let automatic_reference = publish_question(
+    let (automatic_reference, automatic_snapshot) = publish_question(
         &store,
         context,
         tenant,
@@ -225,7 +255,7 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
         },
     )
     .await;
-    let manual_reference = publish_question(
+    let (manual_reference, manual_snapshot) = publish_question(
         &store,
         context,
         tenant,
@@ -253,7 +283,8 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(&store, tenant, course, instructor)
+                    .await,
             },
         )
         .await
@@ -294,6 +325,7 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
         store
             .upsert_course_member(
                 context,
+                instructor,
                 UpsertCourseMember {
                     course,
                     user,
@@ -305,7 +337,12 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
             .expect("canonical roster upsert derives mixed-grading enrollment");
     }
     let run = store
-        .start_or_resume_run(context, student, assignment, RunId::from_uuid(fresh_uuid()))
+        .start_or_resume_run(
+            context,
+            student,
+            LearnerWorkRoutingBinding::new(course, assignment),
+            RunId::from_uuid(fresh_uuid()),
+        )
         .await
         .expect("start live mixed-grading run");
     let enrollment = run.enrollment;
@@ -319,12 +356,17 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
         student
     );
 
-    let automatic = issue_attempt(
-        &store,
+    let attempt_fixture = ManualGradingAttemptFixture {
+        store: &store,
         context,
+        binding: LearnerWorkRoutingBinding::new(course, assignment),
         student,
-        run.id,
+        run: run.id,
+    };
+    let automatic = issue_attempt(
+        &attempt_fixture,
         automatic_reference,
+        automatic_snapshot,
         0,
         None,
     )
@@ -335,6 +377,7 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
             context,
             SubmitQuestionAttemptCommand {
                 actor: student,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: automatic.id,
                 response: automatic_response,
                 result: AttemptResult {
@@ -357,11 +400,9 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
     assert_eq!(automatic_submission.run.completed_at, None);
 
     let manual = issue_attempt(
-        &store,
-        context,
-        student,
-        run.id,
+        &attempt_fixture,
         manual_reference,
+        manual_snapshot,
         1,
         Some(automatic.id),
     )
@@ -374,6 +415,7 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
             context,
             SubmitPendingManualQuestionAttemptCommand {
                 actor: student,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: manual.id,
                 response: manual_response.clone(),
                 idempotency_key: SubmissionIdempotencyKey::parse("live-manual-pending")

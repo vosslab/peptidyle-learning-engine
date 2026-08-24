@@ -380,8 +380,8 @@ pub struct CourseRosterContact {
     pub roster_id: CourseRosterId,
 }
 
-/// One canonical roster member activation. It owns the roster row,
-/// `course_member`, and assignment enrollments in one Store transaction.
+/// One canonical roster member activation. It owns the roster profile and
+/// `course_member` episode in one Store transaction.
 #[derive(Debug, Clone)]
 pub struct UpsertCourseMember {
     /// Course receiving the canonical roster member.
@@ -471,7 +471,9 @@ impl std::error::Error for CourseRosterError {}
 /// Direct Instructors own these operations. The list/invite/policy/revoke/
 /// import methods also accept the closed Sysadmin roster-support authority and
 /// must durably audit that exceptional boundary. Invitation claim and the
-/// provisioning-only member upsert do not consume Sysadmin support authority.
+/// provisioning-only member upsert does not consume Sysadmin support authority;
+/// instead, it requires the explicit actor to be a direct active Instructor in
+/// the exact course.
 #[async_trait]
 pub trait CourseRosterStore: Send + Sync {
     async fn list_course_roster(
@@ -505,6 +507,7 @@ pub trait CourseRosterStore: Send + Sync {
     async fn upsert_course_member(
         &self,
         context: TenantContext,
+        actor: UserId,
         command: UpsertCourseMember,
     ) -> Result<ClaimedCourseMembership, StoreError>;
 

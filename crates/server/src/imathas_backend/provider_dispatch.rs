@@ -7,12 +7,11 @@ use adapter_imathas::broker_provider::{
 use async_trait::async_trait;
 use learning_data_access::{
     AuthoritativeTimeStore, CatalogSourceStore, ExternalToolActivityClaim, ExternalToolBrokerStore,
-    ExternalToolLaunchSessionStore, ExternalToolLaunchToken, TenantContext,
+    ExternalToolLaunchSessionStore, ExternalToolLaunchToken, LearnerWorkRoutingBinding,
+    TenantContext,
 };
 use objects::ObjectStore;
-use question_model::{
-    ProblemVersionRef, QuestionAttempt, QuestionDefinition, StudentResponse, UserId,
-};
+use question_model::{QuestionAttempt, StudentResponse, UserId};
 
 use super::{
     ImathasBackend, LaunchStateAead, RunBackendError, launch_state_aad, map_adapter_error,
@@ -37,21 +36,28 @@ where
         &self,
         context: TenantContext,
         actor: UserId,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
+        learner_work_binding: LearnerWorkRoutingBinding,
+        issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         aead: &LaunchStateAead,
     ) -> Result<learning_data_access::CreatedExternalToolLaunchSession, RunBackendError> {
-        self.create_contracted_launch_session(context, actor, reference, question, attempt, aead)
-            .await
+        self.create_contracted_launch_session(
+            context,
+            actor,
+            learner_work_binding,
+            issued_question_snapshot,
+            attempt,
+            aead,
+        )
+        .await
     }
 
     async fn proxy_external_tool_activity(
         &self,
         context: TenantContext,
         actor: UserId,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
+        learner_work_binding: LearnerWorkRoutingBinding,
+        issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         session_id: uuid::Uuid,
         token: &ExternalToolLaunchToken,
@@ -59,27 +65,44 @@ where
         body: &[u8],
         aead: &LaunchStateAead,
     ) -> Result<ProxyResponse, RunBackendError> {
-        self.reproduce_issued_attempt(context, reference, question, attempt)
-            .await?;
-        let (_source, artifact) = self.resolve_source(context, reference, question).await?;
         let expected = Self::binding(
-            question,
+            issued_question_snapshot,
             attempt,
-            &artifact,
             &StudentResponse::ExternalTool {},
         )?;
-        let claim = self
-            .sources
-            .claim_external_tool_activity(
-                context,
-                actor,
-                attempt.id,
-                session_id,
-                token,
-                self.timing.activity_lease_millis(),
-            )
-            .await
-            .map_err(map_store_error)?;
+        // Validate the exact immutable source object selected at issuance
+        // before accepting a provider-facing activity. The restored provider
+        // session remains the dispatch authority; the bytes never leave this
+        // trusted boundary.
+        let _source = self
+            .resolve_issued_source(attempt, issued_question_snapshot)
+            .await?;
+        let claim = if matches!(method, ProxyMethod::Post) {
+            self.sources
+                .claim_and_begin_external_tool_activity_dispatch(
+                    context,
+                    actor,
+                    learner_work_binding,
+                    attempt.id,
+                    session_id,
+                    token,
+                    self.timing.activity_lease_millis(),
+                )
+                .await
+        } else {
+            self.sources
+                .claim_external_tool_activity(
+                    context,
+                    actor,
+                    learner_work_binding,
+                    attempt.id,
+                    session_id,
+                    token,
+                    self.timing.activity_lease_millis(),
+                )
+                .await
+        }
+        .map_err(map_store_error)?;
         let lease = match claim {
             ExternalToolActivityClaim::Unavailable => {
                 return Err(RunBackendError::Invalid(
@@ -93,18 +116,6 @@ where
             }
             ExternalToolActivityClaim::Lease(lease) => lease,
         };
-        if matches!(method, ProxyMethod::Post) {
-            self.sources
-                .begin_external_tool_activity_dispatch(
-                    context,
-                    actor,
-                    attempt.id,
-                    session_id,
-                    &lease.token,
-                )
-                .await
-                .map_err(map_store_error)?;
-        }
         let result = async {
             if lease.binding != expected {
                 return Err(RunBackendError::Invalid(
@@ -114,7 +125,7 @@ where
             let encrypted = lease.encrypted_provider_state.as_ref().ok_or_else(|| {
                 RunBackendError::Invalid("external-tool launch state is unavailable".into())
             })?;
-            let aad = launch_state_aad(context, actor, attempt, &expected);
+            let aad = launch_state_aad(context, actor, learner_work_binding, attempt, &expected);
             let value = aead.open(encrypted, &aad)?;
             let value = std::str::from_utf8(&value).map_err(|_| {
                 RunBackendError::Invalid("external-tool launch state is invalid".into())
@@ -152,13 +163,26 @@ where
         }
         if matches!(method, ProxyMethod::Post) {
             self.sources
-                .complete_external_tool_activity_dispatch(context, actor, attempt.id, &lease.token)
+                .complete_external_tool_activity_dispatch(
+                    context,
+                    actor,
+                    learner_work_binding,
+                    attempt.id,
+                    &lease.token,
+                )
                 .await
                 .map_err(map_store_error)?;
         }
         let release = self
             .sources
-            .release_external_tool_activity(context, actor, attempt.id, session_id, &lease.token)
+            .release_external_tool_activity(
+                context,
+                actor,
+                learner_work_binding,
+                attempt.id,
+                session_id,
+                &lease.token,
+            )
             .await
             .map_err(map_store_error);
         release?;

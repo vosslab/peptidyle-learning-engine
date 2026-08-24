@@ -66,7 +66,7 @@ def installed_receipt() -> str:
 	"""Return the canonical completed lifecycle receipt needed by the H2 owner."""
 	generation = "00000000-0000-0000-0000-000000000006"
 	storage = json.dumps({"schemaVersion": 1, "baselineVersion": "base-course-v1", "installationGeneration": generation, "storageReceiptBucket": "private-content", "storageReceiptKey": "ple/live-demo/base-course-install-receipt.json", "objectManifest": []}, separators=(",", ":"))
-	return json.dumps({"schemaVersion": 1, "action": "installed", "installState": "complete", "baselineVersion": "base-course-v1", "objectManifest": [], "installationGeneration": generation, "storageReceiptBucket": "private-content", "storageReceiptKey": "ple/live-demo/base-course-install-receipt.json", "storageReceiptJson": storage, "storageReceiptSha256": "a" * 64, "manifest": {"assignmentId": "a", "enrollmentId": "e", "questionId": "q", "problemId": "p", "versionId": "v"}}, separators=(",", ":"))
+	return json.dumps({"schemaVersion": 1, "action": "installed", "installState": "complete", "baselineVersion": "base-course-v1", "objectManifest": [], "installationGeneration": generation, "storageReceiptBucket": "private-content", "storageReceiptKey": "ple/live-demo/base-course-install-receipt.json", "storageReceiptJson": storage, "storageReceiptSha256": "a" * 64, "completionReceiptSha256": "b" * 64, "manifest": {"assignmentId": "a", "enrollmentId": "e", "questionId": "q", "problemId": "p", "versionId": "v"}}, separators=(",", ":"))
 
 
 #============================================

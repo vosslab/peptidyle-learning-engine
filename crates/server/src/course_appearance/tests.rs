@@ -62,7 +62,13 @@ where
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -70,6 +76,7 @@ where
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,
@@ -594,7 +601,13 @@ async fn postgres_minio_cleanup_deletes_superseded_objects_and_preserves_current
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -602,6 +615,7 @@ async fn postgres_minio_cleanup_deletes_superseded_objects_and_preserves_current
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,

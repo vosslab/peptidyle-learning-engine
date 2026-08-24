@@ -2,6 +2,10 @@
 
 //! Disposable PostgreSQL oracle for immutable idempotent submission receipts.
 
+#[path = "postgres_course_creation_support.rs"]
+mod course_creation_support;
+use course_creation_support::sysadmin_course_creation_authority;
+
 #[path = "fixtures/published_assignment.rs"]
 mod published_assignment;
 use published_assignment::create_published_assignment;
@@ -10,9 +14,10 @@ use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_applicatio
 use learning_data_access::{
     AssignmentRecord, AssignmentUpdate, CatalogStore, CourseRecord, CourseRosterStore,
     CreateCourseCommand, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
-    PrefetchedQuestion, PresentationCapability, PublishDraftCommand,
-    ReservePrefetchedQuestionCommand, Store, StoreError, SubmissionIdempotencyKey,
-    SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
+    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, LearnerWorkRoutingBinding,
+    PrefetchedQuestion, PresentationCapability, PublishDraftCommand, QtiGradingCapability,
+    ReplaceAssignmentCommand, ReservePrefetchedQuestionCommand, Store, StoreError,
+    SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -126,6 +131,26 @@ fn grading_envelope(reference: ProblemVersionRef, seed: u64) -> QuestionEnvelope
             unit: Some("g/mol".to_string()),
         },
     }
+}
+
+async fn issued_snapshot(
+    store: &PostgresStore,
+    context: TenantContext,
+    reference: ProblemVersionRef,
+) -> IssuedQuestionSnapshotV1 {
+    let question = store
+        .get_catalog_problem(context, reference)
+        .await
+        .expect("read the published receipt question for issuance")
+        .expect("published receipt question exists")
+        .question;
+    IssuedQuestionSnapshotV1::new(
+        question,
+        IssuedQuestionFamilyWitnessV1::Native {
+            physical_asset_bindings: Vec::new(),
+        },
+    )
+    .expect("build the exact native receipt issuance snapshot")
 }
 
 fn provenance() -> AttemptProvenance {
@@ -263,7 +288,8 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(&store, tenant, course, instructor)
+                    .await,
             },
         )
         .await
@@ -298,6 +324,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,
@@ -308,19 +335,27 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         .await
         .expect("canonical roster upsert derives the receipt assignment enrollment");
     let run = store
-        .start_or_resume_run(context, student, assignment, RunId::from_uuid(id()))
+        .start_or_resume_run(
+            context,
+            student,
+            LearnerWorkRoutingBinding::new(course, assignment),
+            RunId::from_uuid(id()),
+        )
         .await
         .expect("start receipt snapshot run");
+    let issued_question_snapshot = issued_snapshot(&store, context, reference).await;
     let attempt = store
         .issue_or_resume_question_attempt(
             context,
             IssueQuestionAttemptCommand {
                 actor: student,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: QuestionAttemptId::from_uuid(id()),
                 run: run.id,
                 assignment_position: 0,
                 problem: reference.problem,
                 question_version: reference.version,
+                issued_question_snapshot: issued_question_snapshot.clone(),
                 seed: 1,
                 presentation_capability: PresentationCapability::EnvelopeV1,
                 presentation: Some(presentation_binding),
@@ -331,6 +366,8 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
                 webwork_grading: None,
                 webwork_grading_capability:
                     learning_data_access::WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: QtiGradingCapability::NotApplicable,
                 parameter_hash: "receipt-snapshot-parameters".to_string(),
                 provenance: provenance(),
                 webwork_replay: None,
@@ -348,6 +385,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         assignment_position: 1,
         problem: reference.problem,
         question_version: reference.version,
+        issued_question_snapshot: issued_question_snapshot.clone(),
         seed: 2,
         presentation_capability: PresentationCapability::EnvelopeV1,
         presentation: successor_binding,
@@ -358,6 +396,8 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         webwork_replay: None,
         webwork_grading: None,
         webwork_grading_capability: learning_data_access::WebworkGradingCapability::NotApplicable,
+        qti_grading: None,
+        qti_grading_capability: QtiGradingCapability::NotApplicable,
         parameter_hash: "receipt-successor-parameters".to_string(),
         provenance: provenance(),
     };
@@ -375,11 +415,16 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         reserved_prefetch, prefetched_successor,
         "the sequential reservation retains the descriptor that promotion must consume"
     );
+    assert_eq!(
+        prefetched_successor.issued_question_snapshot, issued_question_snapshot,
+        "the successor reservation retains the exact published question snapshot"
+    );
     let response = StudentResponse::Numeric { value: 18.0 };
     let key = SubmissionIdempotencyKey::parse("receipt-snapshot-replay")
         .expect("valid receipt snapshot key");
     let submission = SubmitQuestionAttemptCommand {
         actor: student,
+        binding: LearnerWorkRoutingBinding::new(course, assignment),
         attempt: attempt.id,
         response: response.clone(),
         result: AttemptResult {
@@ -449,22 +494,25 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
     store
         .replace_assignment(
             context,
-            course,
-            assignment,
-            current.revision,
-            AssignmentUpdate {
-                title: current.record.title.clone(),
-                audience: current.record.audience.clone(),
-                items: current.record.items.clone(),
-                selection_groups: current.record.selection_groups.clone(),
-                disclosure_policy: LearnerDisclosurePolicy {
-                    score: LearnerDisclosureTiming::Never,
-                    per_item_correctness: LearnerDisclosureTiming::Never,
-                    feedback_text: LearnerDisclosureTiming::Never,
-                    solution: LearnerDisclosureTiming::Never,
-                    class_statistics: LearnerDisclosureTiming::Never,
+            ReplaceAssignmentCommand {
+                actor: instructor,
+                course,
+                assignment,
+                expected_revision: current.revision,
+                update: AssignmentUpdate {
+                    title: current.record.title.clone(),
+                    audience: current.record.audience.clone(),
+                    items: current.record.items.clone(),
+                    selection_groups: current.record.selection_groups.clone(),
+                    disclosure_policy: LearnerDisclosurePolicy {
+                        score: LearnerDisclosureTiming::Never,
+                        per_item_correctness: LearnerDisclosureTiming::Never,
+                        feedback_text: LearnerDisclosureTiming::Never,
+                        solution: LearnerDisclosureTiming::Never,
+                        class_statistics: LearnerDisclosureTiming::Never,
+                    },
+                    policies: current.record.policies,
                 },
-                policies: current.record.policies,
             },
         )
         .await
@@ -511,11 +559,13 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
             context,
             IssueQuestionAttemptCommand {
                 actor: student,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: QuestionAttemptId::from_uuid(id()),
                 run: run.id,
                 assignment_position: 1,
                 problem: reference.problem,
                 question_version: reference.version,
+                issued_question_snapshot: issued_question_snapshot.clone(),
                 seed: 2,
                 presentation_capability: PresentationCapability::EnvelopeV1,
                 presentation: Some(successor_binding),
@@ -526,6 +576,8 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
                 webwork_grading: None,
                 webwork_grading_capability:
                     learning_data_access::WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: QtiGradingCapability::NotApplicable,
                 parameter_hash: "receipt-successor-parameters".to_string(),
                 provenance: provenance(),
                 webwork_replay: None,

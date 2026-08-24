@@ -13,11 +13,10 @@ use axum::http::HeaderValue;
 use axum::routing::{get, post};
 use base64::Engine as _;
 use cookie::{Cookie, SameSite};
+use learning_data_access::ExternalToolLaunchSessionStore;
 
 use super::contracts::{RunBackend, RunBackendError, SubmissionDisposition};
-use super::prefetch::load_run_question;
-use super::queries::owned_run;
-use super::submission::finish_submission;
+use super::submission::{SuccessorIssuance, finish_submission};
 use super::support::*;
 
 /// A host-only, strict, path-scoped browser presentation of an encrypted
@@ -31,12 +30,13 @@ pub(crate) const EXTERNAL_LAUNCH_COOKIE: &str = "ple_external_launch";
 /// route group with a contracted backend.
 #[async_trait]
 pub trait ExternalToolLaunchBackend: Send + Sync {
+    #[allow(clippy::too_many_arguments)]
     async fn create_external_tool_launch(
         &self,
         context: TenantContext,
         actor: question_model::UserId,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
+        learner_work_binding: LearnerWorkRoutingBinding,
+        issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         aead: &crate::imathas_backend::LaunchStateAead,
     ) -> Result<learning_data_access::CreatedExternalToolLaunchSession, RunBackendError>;
@@ -46,8 +46,8 @@ pub trait ExternalToolLaunchBackend: Send + Sync {
         &self,
         context: TenantContext,
         actor: question_model::UserId,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
+        learner_work_binding: LearnerWorkRoutingBinding,
+        issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         session_id: uuid::Uuid,
         token: &learning_data_access::ExternalToolLaunchToken,
@@ -73,7 +73,12 @@ pub fn router<S, B>(
     aead: Arc<crate::imathas_backend::LaunchStateAead>,
 ) -> Router
 where
-    S: Store + CatalogStore + ManualGradingStore + SessionStore + 'static,
+    S: Store
+        + CatalogStore
+        + ExternalToolLaunchSessionStore
+        + ManualGradingStore
+        + SessionStore
+        + 'static,
     B: ExternalToolLaunchBackend
         + crate::imathas_backend::ExternalToolSubmissionBackend
         + RunBackend
@@ -81,15 +86,15 @@ where
 {
     Router::new()
         .route(
-            "/api/attempts/{attempt}/external-tool/launch",
+            "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch",
             get(external_tool_shell::<S, B>).post(begin_external_tool_launch::<S, B>),
         )
         .route(
-            "/api/attempts/{attempt}/external-tool/launch/activity",
+            "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch/activity",
             get(external_tool_activity_get::<S, B>).post(external_tool_activity_post::<S, B>),
         )
         .route(
-            "/api/attempts/{attempt}/external-tool/launch/submission",
+            "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch/submission",
             post(external_tool_submission::<S, B>),
         )
         .layer(DefaultBodyLimit::max(262_144))
@@ -127,10 +132,15 @@ fn external_tool_script_nonce() -> Result<String, RunBackendError> {
 async fn external_tool_shell<S, B>(
     State(state): State<ExternalToolRouteState<S, B>>,
     headers: HeaderMap,
-    Path(attempt_id): Path<QuestionAttemptId>,
+    Path((course, assignment, attempt_id)): Path<(CourseId, AssignmentId, QuestionAttemptId)>,
 ) -> Response
 where
-    S: Store + CatalogStore + ManualGradingStore + SessionStore + 'static,
+    S: Store
+        + CatalogStore
+        + ExternalToolLaunchSessionStore
+        + ManualGradingStore
+        + SessionStore
+        + 'static,
     B: ExternalToolLaunchBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -138,18 +148,21 @@ where
         Err(e) => return auth_error_response(e),
     };
     let actor = authenticated.record.subject.user();
-    let attempt = match state
+    let learner_work_binding = LearnerWorkRoutingBinding::new(course, assignment);
+    let prepared = match state
         .store
-        .learner_get_question_attempt(authenticated.tenant_context, actor, attempt_id)
+        .prepare_external_tool_attempt(
+            authenticated.tenant_context,
+            actor,
+            learner_work_binding,
+            attempt_id,
+        )
         .await
     {
-        Ok(Some(v)) => v,
-        Ok(None) => return error_response(StatusCode::NOT_FOUND, "attempt not found"),
+        Ok(value) => value,
         Err(e) => return store_error_response(e),
     };
-    if let Err(response) = owned_run(state.store.as_ref(), &authenticated, attempt.run).await {
-        return response;
-    }
+    let attempt = prepared.attempt;
     // A GET only renders the sandbox shell for a launch that was already
     // created by the same-origin POST below. This is deliberately separate
     // from session issuance: Lax cookies accompany top-level cross-site GET
@@ -159,6 +172,7 @@ where
         &headers,
         authenticated.tenant_context,
         actor,
+        learner_work_binding,
         attempt.id,
     )
     .is_none()
@@ -169,7 +183,9 @@ where
         Ok(value) => value,
         Err(error) => return backend_error_response(error),
     };
-    let activity_path = format!("/api/attempts/{attempt_id}/external-tool/launch/activity");
+    let activity_path = format!(
+        "/api/courses/{course}/assignments/{assignment}/attempts/{attempt_id}/external-tool/launch/activity"
+    );
     // `attempt_id` is a typed UUID formatted by this server. No provider
     // document, handle, credential, or response becomes shell markup.
     let body = format!(
@@ -199,10 +215,15 @@ where
 async fn begin_external_tool_launch<S, B>(
     State(state): State<ExternalToolRouteState<S, B>>,
     headers: HeaderMap,
-    Path(attempt_id): Path<QuestionAttemptId>,
+    Path((course, assignment, attempt_id)): Path<(CourseId, AssignmentId, QuestionAttemptId)>,
 ) -> Response
 where
-    S: Store + CatalogStore + ManualGradingStore + SessionStore + 'static,
+    S: Store
+        + CatalogStore
+        + ExternalToolLaunchSessionStore
+        + ManualGradingStore
+        + SessionStore
+        + 'static,
     B: ExternalToolLaunchBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -210,28 +231,24 @@ where
         Err(e) => return auth_error_response(e),
     };
     let actor = authenticated.record.subject.user();
-    let attempt = match state
+    let learner_work_binding = LearnerWorkRoutingBinding::new(course, assignment);
+    let prepared = match state
         .store
-        .learner_get_question_attempt(authenticated.tenant_context, actor, attempt_id)
+        .prepare_external_tool_attempt(
+            authenticated.tenant_context,
+            actor,
+            learner_work_binding,
+            attempt_id,
+        )
         .await
     {
-        Ok(Some(v)) => v,
-        Ok(None) => return error_response(StatusCode::NOT_FOUND, "attempt not found"),
+        Ok(value) => value,
         Err(e) => return store_error_response(e),
     };
-    if let Err(response) = owned_run(state.store.as_ref(), &authenticated, attempt.run).await {
-        return response;
-    }
-    let reference = ProblemVersionRef {
-        problem: attempt.problem,
-        version: attempt.question_version,
-    };
-    let question = match load_run_question(state.store.as_ref(), &authenticated, reference).await {
-        Ok(v) => v,
-        Err(r) => return r,
-    };
+    let issued_question_snapshot = prepared.issued_question_snapshot;
+    let attempt = prepared.attempt;
     if !matches!(
-        question.response,
+        issued_question_snapshot.question().response,
         question_model::ResponseDefinition::ExternalTool {}
     ) {
         return error_response(
@@ -244,8 +261,8 @@ where
         .create_external_tool_launch(
             authenticated.tenant_context,
             actor,
-            reference,
-            &question,
+            learner_work_binding,
+            &issued_question_snapshot,
             &attempt,
             state.aead.as_ref(),
         )
@@ -258,13 +275,16 @@ where
         state.aead.as_ref(),
         authenticated.tenant_context,
         actor,
+        learner_work_binding,
         attempt.id,
         &created,
     ) {
         Ok(v) => v,
         Err(e) => return backend_error_response(e),
     };
-    let path = format!("/api/attempts/{attempt_id}/external-tool/launch");
+    let path = format!(
+        "/api/courses/{course}/assignments/{assignment}/attempts/{attempt_id}/external-tool/launch"
+    );
     let cookie = Cookie::build((EXTERNAL_LAUNCH_COOKIE, value))
         .path(path.clone())
         .http_only(true)
@@ -281,15 +301,21 @@ where
 async fn external_tool_activity_get<S, B>(
     State(state): State<ExternalToolRouteState<S, B>>,
     headers: HeaderMap,
-    Path(attempt_id): Path<QuestionAttemptId>,
+    Path((course, assignment, attempt_id)): Path<(CourseId, AssignmentId, QuestionAttemptId)>,
 ) -> Response
 where
-    S: Store + CatalogStore + ManualGradingStore + SessionStore + 'static,
+    S: Store
+        + CatalogStore
+        + ExternalToolLaunchSessionStore
+        + ManualGradingStore
+        + SessionStore
+        + 'static,
     B: ExternalToolLaunchBackend + 'static,
 {
     external_tool_activity(
         state,
         headers,
+        LearnerWorkRoutingBinding::new(course, assignment),
         attempt_id,
         adapter_imathas::broker_provider::ProxyMethod::Get,
         &[],
@@ -300,16 +326,17 @@ where
 async fn external_tool_activity_post<S, B>(
     State(state): State<ExternalToolRouteState<S, B>>,
     headers: HeaderMap,
-    Path(attempt_id): Path<QuestionAttemptId>,
+    Path((course, assignment, attempt_id)): Path<(CourseId, AssignmentId, QuestionAttemptId)>,
     body: Bytes,
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store + CatalogStore + ExternalToolLaunchSessionStore + SessionStore + 'static,
     B: ExternalToolLaunchBackend + 'static,
 {
     external_tool_activity(
         state,
         headers,
+        LearnerWorkRoutingBinding::new(course, assignment),
         attempt_id,
         adapter_imathas::broker_provider::ProxyMethod::Post,
         &body,
@@ -320,12 +347,13 @@ where
 async fn external_tool_activity<S, B>(
     state: ExternalToolRouteState<S, B>,
     headers: HeaderMap,
+    learner_work_binding: LearnerWorkRoutingBinding,
     attempt_id: QuestionAttemptId,
     method: adapter_imathas::broker_provider::ProxyMethod,
     body: &[u8],
 ) -> Response
 where
-    S: Store + CatalogStore + SessionStore + 'static,
+    S: Store + CatalogStore + ExternalToolLaunchSessionStore + SessionStore + 'static,
     B: ExternalToolLaunchBackend + 'static,
 {
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
@@ -333,45 +361,45 @@ where
         Err(e) => return auth_error_response(e),
     };
     let actor = authenticated.record.subject.user();
-    let attempt = match state
+    let prepared = match state
         .store
-        .learner_get_question_attempt(authenticated.tenant_context, actor, attempt_id)
+        .prepare_external_tool_attempt(
+            authenticated.tenant_context,
+            actor,
+            learner_work_binding,
+            attempt_id,
+        )
         .await
     {
-        Ok(Some(v)) => v,
-        Ok(None) => return error_response(StatusCode::NOT_FOUND, "attempt not found"),
+        Ok(value) => value,
         Err(e) => return store_error_response(e),
     };
-    if let Err(response) = owned_run(state.store.as_ref(), &authenticated, attempt.run).await {
-        return response;
-    }
+    let issued_question_snapshot = prepared.issued_question_snapshot;
+    let attempt = prepared.attempt;
     let Some(cookie) = external_launch_cookie(&headers) else {
         return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
     };
     let (session_id, token) = match state.aead.open_cookie(
         &cookie,
-        &crate::imathas_backend::launch_cookie_aad(authenticated.tenant_context, actor, attempt.id),
+        &crate::imathas_backend::launch_cookie_aad(
+            authenticated.tenant_context,
+            actor,
+            learner_work_binding,
+            attempt.id,
+        ),
     ) {
         Ok(v) => v,
         Err(_) => {
             return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
         }
     };
-    let reference = ProblemVersionRef {
-        problem: attempt.problem,
-        version: attempt.question_version,
-    };
-    let question = match load_run_question(state.store.as_ref(), &authenticated, reference).await {
-        Ok(v) => v,
-        Err(r) => return r,
-    };
     let response = match state
         .backend
         .proxy_external_tool_activity(
             authenticated.tenant_context,
             actor,
-            reference,
-            &question,
+            learner_work_binding,
+            &issued_question_snapshot,
             &attempt,
             session_id,
             &token,
@@ -420,12 +448,13 @@ fn external_launch_proof(
     headers: &HeaderMap,
     context: TenantContext,
     actor: question_model::UserId,
+    learner_work_binding: LearnerWorkRoutingBinding,
     attempt: QuestionAttemptId,
 ) -> Option<learning_data_access::ExternalToolLaunchProof> {
     let cookie = external_launch_cookie(headers)?;
     aead.open_cookie(
         &cookie,
-        &crate::imathas_backend::launch_cookie_aad(context, actor, attempt),
+        &crate::imathas_backend::launch_cookie_aad(context, actor, learner_work_binding, attempt),
     )
     .map(|(session_id, token)| learning_data_access::ExternalToolLaunchProof { session_id, token })
     .ok()
@@ -455,7 +484,7 @@ fn external_launch_cookie(headers: &HeaderMap) -> Option<String> {
 async fn external_tool_submission<S, B>(
     State(state): State<ExternalToolRouteState<S, B>>,
     headers: HeaderMap,
-    Path(attempt_id): Path<QuestionAttemptId>,
+    Path((course, assignment, attempt_id)): Path<(CourseId, AssignmentId, QuestionAttemptId)>,
     Json(request): Json<SubmitResponseRequest>,
 ) -> Response
 where
@@ -480,65 +509,46 @@ where
         );
     }
     let actor = authenticated.record.subject.user();
-    match state
+    let learner_work_binding = LearnerWorkRoutingBinding::new(course, assignment);
+    let prepared = match state
         .store
-        .replay_submission(
+        .prepare_question_submission(
             authenticated.tenant_context,
             actor,
+            learner_work_binding,
             attempt_id,
             &request.response,
             &idempotency_key,
         )
         .await
     {
-        Ok(Some(record)) => {
+        Ok(learning_data_access::SubmissionPreparation::Replay(record)) => {
             return finish_submission(
                 state.store.as_ref(),
                 state.backend.as_ref(),
                 &authenticated,
-                record,
-                false,
+                *record,
+                SuccessorIssuance::Deferred,
             )
             .await;
         }
-        Ok(None) => {}
-        Err(error) => return store_error_response(error),
-    }
-    let attempt = match state
-        .store
-        .learner_get_question_attempt(authenticated.tenant_context, actor, attempt_id)
-        .await
-    {
-        Ok(Some(value)) => value,
-        Ok(None) => return error_response(StatusCode::NOT_FOUND, "attempt not found"),
+        Ok(learning_data_access::SubmissionPreparation::Grade(prepared)) => *prepared,
         Err(error) => return store_error_response(error),
     };
-    let run = match owned_run(state.store.as_ref(), &authenticated, attempt.run).await {
-        Ok(value) => value,
-        Err(response) => return response,
-    };
-    if run.completed_at.is_some() {
-        return error_response(StatusCode::CONFLICT, "run is already complete");
-    }
+    let issued_question_snapshot = prepared.issued_question_snapshot;
+    let attempt = prepared.attempt;
     let Some(proof) = external_launch_proof(
         state.aead.as_ref(),
         &headers,
         authenticated.tenant_context,
         actor,
+        learner_work_binding,
         attempt.id,
     ) else {
         return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
     };
-    let reference = ProblemVersionRef {
-        problem: attempt.problem,
-        version: attempt.question_version,
-    };
-    let question = match load_run_question(state.store.as_ref(), &authenticated, reference).await {
-        Ok(value) => value,
-        Err(response) => return response,
-    };
     if !matches!(
-        question.response,
+        issued_question_snapshot.question().response,
         question_model::ResponseDefinition::ExternalTool {}
     ) {
         return error_response(StatusCode::NOT_FOUND, "external-tool launch is unavailable");
@@ -548,8 +558,8 @@ where
         .submit_external_tool(
             authenticated.tenant_context,
             actor,
-            reference,
-            &question,
+            learner_work_binding,
+            &issued_question_snapshot,
             &attempt,
             idempotency_key,
             proof,
@@ -572,7 +582,7 @@ where
         state.backend.as_ref(),
         &authenticated,
         record,
-        true,
+        SuccessorIssuance::Deferred,
     )
     .await
 }

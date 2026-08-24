@@ -412,6 +412,43 @@ pub(super) fn decode_current_attempt_row(row: &PgRow) -> Result<QuestionAttempt,
     decode_current_attempt_row_named(row, "payload", "payload_sha256")
 }
 
+/// Decodes immutable issue payload together with the authoritative relational
+/// lifecycle used by the learner-work broker. The payload is issuance evidence,
+/// not a mutable status projection (ASVS 1.5.2, 2.2.1-2.2.3, 8.2.2).
+#[cfg(feature = "postgres")]
+pub(super) fn decode_issued_attempt_with_current_lifecycle_row(
+    row: &PgRow,
+) -> Result<QuestionAttempt, StoreError> {
+    let issued: QuestionAttempt = decode_payload_row(row)?;
+    if issued.status != AttemptStatus::InProgress
+        || issued.response.is_some()
+        || issued.result.is_some()
+        || issued.timer.submitted_at.is_some()
+    {
+        return Err(StoreError::Unavailable(
+            "stored issued attempt payload does not describe issuance".to_string(),
+        ));
+    }
+    let current = decode_current_attempt_row(row)?;
+    match current.status {
+        AttemptStatus::InProgress if current.timer.submitted_at.is_some() => {
+            Err(StoreError::Unavailable(
+                "in-progress attempt carries a relational submission time".to_string(),
+            ))
+        }
+        AttemptStatus::Submitted
+        | AttemptStatus::AutoSubmitted
+        | AttemptStatus::NeedsManualGrading
+            if current.timer.submitted_at.is_none() =>
+        {
+            Err(StoreError::Unavailable(
+                "terminal submitted attempt lacks its relational submission time".to_string(),
+            ))
+        }
+        _ => Ok(current),
+    }
+}
+
 #[cfg(feature = "postgres")]
 pub(super) fn decode_current_attempt_with_evaluation_row_named(
     row: &PgRow,

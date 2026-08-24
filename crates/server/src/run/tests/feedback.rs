@@ -10,12 +10,30 @@ use learning_data_access::{
 async fn non_current_scoring_redacts_every_learner_item_http_surface() {
     let (store, _backend, app, student_cookie, _outsider_cookie, assignment) =
         native_feedback_fixture().await;
-    let first = active_attempt_for(&app, assignment, &student_cookie).await;
-    let choice = presented_choice_id(&app, first.id, &student_cookie, 1).await;
+    let first = active_attempt_for(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        &student_cookie,
+    )
+    .await;
+    let choice = presented_choice_id(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        first.id,
+        &student_cookie,
+        1,
+    )
+    .await;
     let submission_request = || {
         Request::builder()
             .method("POST")
-            .uri(format!("/api/submissions/{}", first.id))
+            .uri(submission_path(
+                CourseId::from_uuid(id(205)),
+                assignment,
+                first.id,
+            ))
             .header("cookie", &student_cookie)
             .header("content-type", "application/json")
             .header("idempotency-key", "t1-scoring-redaction")
@@ -163,17 +181,35 @@ async fn mixed_assignment_disclosure_projects_each_field_at_http_boundary() {
     };
     replace_disclosure_policy(store.as_ref(), assignment, mixed_policy).await;
 
-    let first = active_attempt_for(&app, assignment, &student_cookie).await;
+    let first = active_attempt_for(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        &student_cookie,
+    )
+    .await;
     let before_submit = run_summary(&app, first.run, &student_cookie).await;
     assert!(before_submit["outcomes"]["items"][0]["submittedAt"].is_null());
     assert!(before_submit["outcomes"]["items"][0]["feedback"].is_null());
     assert!(before_submit["summary"].get("classStatistics").is_none());
 
-    let ester = presented_choice_id(&app, first.id, &student_cookie, 0).await;
+    let ester = presented_choice_id(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        first.id,
+        &student_cookie,
+        0,
+    )
+    .await;
     let request = || {
         Request::builder()
             .method("POST")
-            .uri(format!("/api/submissions/{}", first.id))
+            .uri(submission_path(
+                CourseId::from_uuid(id(205)),
+                assignment,
+                first.id,
+            ))
             .header("cookie", &student_cookie)
             .header("content-type", "application/json")
             .header("idempotency-key", "s4-assignment-disclosure")
@@ -204,13 +240,25 @@ async fn mixed_assignment_disclosure_projects_each_field_at_http_boundary() {
     assert_eq!(backend.submissions.load(Ordering::SeqCst), 1);
 
     let second = next_active_attempt(&app, first.run, &student_cookie).await;
-    let second_ester = presented_choice_id(&app, second.id, &student_cookie, 0).await;
+    let second_ester = presented_choice_id(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        second.id,
+        &student_cookie,
+        0,
+    )
+    .await;
     let second_submission = app
         .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/submissions/{}", second.id))
+                .uri(submission_path(
+                    CourseId::from_uuid(id(205)),
+                    assignment,
+                    second.id,
+                ))
                 .header("cookie", &student_cookie)
                 .header("content-type", "application/json")
                 .header("idempotency-key", "s4-mixed-assignment-disclosure-second")
@@ -338,7 +386,13 @@ async fn during_attempt_class_statistics_are_projected_without_score_activity() 
     )
     .await;
 
-    let first = active_attempt_for(&app, assignment, &student_cookie).await;
+    let first = active_attempt_for(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        &student_cookie,
+    )
+    .await;
     let summary = run_summary(&app, first.run, &student_cookie).await;
 
     assert_eq!(summary["summary"]["scoreState"], "noActivity");
@@ -441,6 +495,7 @@ async fn current_five_learner_analysis_projects_only_safe_available_class_statis
         store
             .upsert_course_member(
                 context,
+                instructor,
                 UpsertCourseMember {
                     course,
                     user: learner,
@@ -476,10 +531,25 @@ async fn current_five_learner_analysis_projects_only_safe_available_class_statis
 
     let mut learner_runs = Vec::new();
     for (_learner, cookie) in &learners {
-        let first = active_attempt_for(&app, assignment, cookie).await;
-        submit_peptide_linkage(&app, first.id, cookie).await;
+        let first =
+            active_attempt_for(&app, CourseId::from_uuid(id(205)), assignment, cookie).await;
+        submit_peptide_linkage(
+            &app,
+            CourseId::from_uuid(id(205)),
+            assignment,
+            first.id,
+            cookie,
+        )
+        .await;
         let second = next_active_attempt(&app, first.run, cookie).await;
-        submit_peptide_linkage(&app, second.id, cookie).await;
+        submit_peptide_linkage(
+            &app,
+            CourseId::from_uuid(id(205)),
+            assignment,
+            second.id,
+            cookie,
+        )
+        .await;
         learner_runs.push(first.run);
     }
 
@@ -634,14 +704,20 @@ async fn publish_pending_scoring_and_analysis(store: &MemoryStore, context: Tena
     );
 }
 
-async fn submit_peptide_linkage(app: &Router, attempt: QuestionAttemptId, cookie: &str) {
-    let peptide_linkage = presented_choice_id(app, attempt, cookie, 1).await;
+async fn submit_peptide_linkage(
+    app: &Router,
+    course: CourseId,
+    assignment: AssignmentId,
+    attempt: QuestionAttemptId,
+    cookie: &str,
+) {
+    let peptide_linkage = presented_choice_id(app, course, assignment, attempt, cookie, 1).await;
     let response = app
         .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/submissions/{attempt}"))
+                .uri(submission_path(course, assignment, attempt))
                 .header("cookie", cookie)
                 .header("content-type", "application/json")
                 .header("idempotency-key", format!("s4-class-statistics-{attempt}"))
@@ -674,14 +750,32 @@ async fn feedback_release_is_content_free_audit_not_projection_authority() {
         "Instructor",
     )
     .await;
-    let first = active_attempt_for(&app, assignment, &student_cookie).await;
-    let ester = presented_choice_id(&app, first.id, &student_cookie, 0).await;
+    let first = active_attempt_for(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        &student_cookie,
+    )
+    .await;
+    let ester = presented_choice_id(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        first.id,
+        &student_cookie,
+        0,
+    )
+    .await;
     let submitted = app
         .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/submissions/{}", first.id))
+                .uri(submission_path(
+                    CourseId::from_uuid(id(205)),
+                    assignment,
+                    first.id,
+                ))
                 .header("cookie", &student_cookie)
                 .header("content-type", "application/json")
                 .header("idempotency-key", "s4-release-audit")
@@ -769,16 +863,19 @@ async fn replace_disclosure_policy(
     store
         .replace_assignment(
             context,
-            stored.record.course_id,
-            assignment,
-            stored.revision,
-            AssignmentUpdate {
-                title: stored.record.title,
-                audience: stored.record.audience,
-                items: stored.record.items,
-                selection_groups: stored.record.selection_groups,
-                disclosure_policy,
-                policies: stored.record.policies,
+            learning_data_access::ReplaceAssignmentCommand {
+                actor: UserId::from_uuid(id(202)),
+                course: stored.record.course_id,
+                assignment,
+                expected_revision: stored.revision,
+                update: AssignmentUpdate {
+                    title: stored.record.title,
+                    audience: stored.record.audience,
+                    items: stored.record.items,
+                    selection_groups: stored.record.selection_groups,
+                    disclosure_policy,
+                    policies: stored.record.policies,
+                },
             },
         )
         .await
@@ -799,16 +896,19 @@ async fn set_assignment_item_points(store: &MemoryStore, assignment: AssignmentI
     store
         .replace_assignment(
             context,
-            stored.record.course_id,
-            assignment,
-            stored.revision,
-            AssignmentUpdate {
-                title: stored.record.title,
-                audience: stored.record.audience,
-                items,
-                selection_groups: stored.record.selection_groups,
-                disclosure_policy: stored.record.disclosure_policy,
-                policies: stored.record.policies,
+            learning_data_access::ReplaceAssignmentCommand {
+                actor: UserId::from_uuid(id(202)),
+                course: stored.record.course_id,
+                assignment,
+                expected_revision: stored.revision,
+                update: AssignmentUpdate {
+                    title: stored.record.title,
+                    audience: stored.record.audience,
+                    items,
+                    selection_groups: stored.record.selection_groups,
+                    disclosure_policy: stored.record.disclosure_policy,
+                    policies: stored.record.policies,
+                },
             },
         )
         .await

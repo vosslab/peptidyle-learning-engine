@@ -156,84 +156,7 @@ impl crate::PreviewPlaneStore for PostgresStore {
         let tenant = context.tenant_id();
         let mut tx = self.begin_tenant_snapshot(context).await?;
         require_direct_instructor_read_only(&mut tx, tenant, course, actor).await?;
-        let (assignment, record) = preview_assignment_read_only(
-            &mut tx,
-            tenant,
-            course,
-            request.assignment,
-            request.revision,
-        )
-        .await?;
-        let term = course_policy::load_course_term_for_preview(&mut tx, tenant, course).await?;
-        let now = selected_moment(&request.selected_moment, &term)?;
-        let mut groups = Vec::new();
-        for reference in request.groups.as_slice() {
-            let row = sqlx::query("SELECT course_group_id, purpose FROM course_group WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3")
-                .bind(tenant.as_uuid()).bind(course.as_uuid()).bind(i64::from(reference.number()))
-                .fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?.ok_or(StoreError::NotFound)?;
-            groups.push((
-                CourseGroupId::from_uuid(row.try_get("course_group_id").map_err(map_sqlx_error)?),
-                decode_group_purpose(row.try_get("purpose").map_err(map_sqlx_error)?)?,
-            ));
-        }
-        let entitlement =
-            evaluate_synthetic_preview_entitlement(SyntheticPreviewEntitlementFacts::new(
-                tenant,
-                course,
-                assignment,
-                record.audience.clone(),
-                groups.clone(),
-            ));
-        let mut inputs =
-            course_policy::load_inputs(&mut tx, tenant, assignment, None, None).await?;
-        let selected_groups = groups
-            .iter()
-            .map(|(group, _)| *group)
-            .collect::<std::collections::BTreeSet<_>>();
-        inputs
-            .schedule_offsets
-            .retain(|value| selected_groups.contains(&value.group));
-        inputs
-            .accommodations
-            .retain(|value| selected_groups.contains(&value.group));
-        let before = resolve_synthetic_preview_policy(ResolveSyntheticPreviewPolicyInput {
-            lifecycle: assignment_lifecycle_gate(record.lifecycle),
-            entitlement: entitlement.clone(),
-            authorization: AuthorizationGate::Authorized,
-            now,
-            prior_run_count: 0,
-            base: inputs.base,
-            group_schedule_offsets: inputs.schedule_offsets.clone(),
-            group_accommodations: inputs.accommodations.clone(),
-            hypothetical_individual_exception: None,
-        })
-        .map_err(policy_error)?;
-        let after = resolve_synthetic_preview_policy(ResolveSyntheticPreviewPolicyInput {
-            lifecycle: assignment_lifecycle_gate(record.lifecycle),
-            entitlement: entitlement.clone(),
-            authorization: AuthorizationGate::Authorized,
-            now,
-            prior_run_count: 0,
-            base: inputs.base,
-            group_schedule_offsets: inputs.schedule_offsets,
-            group_accommodations: inputs.accommodations,
-            hypothetical_individual_exception: Some(hypothetical(request.modifiers, &term)?),
-        })
-        .map_err(policy_error)?;
-        let result = preview_result(PreviewResultInput {
-            kind: PreviewSubjectKind::Synthetic,
-            assignment: request.assignment,
-            revision: request.revision,
-            selected_moment: request.selected_moment,
-            groups,
-            prior: 0,
-            record: &record,
-            term: &term,
-            now,
-            entitlement: synthetic_reason(&entitlement),
-            before,
-            after,
-        })?;
+        let result = resolve_synthetic_preview_read_only(&mut tx, tenant, course, request).await?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
     }
@@ -248,72 +171,277 @@ impl crate::PreviewPlaneStore for PostgresStore {
         let tenant = context.tenant_id();
         let mut tx = self.begin_tenant_writable_snapshot(context).await?;
         require_direct_instructor(&mut tx, tenant, course, actor).await?;
-        let (assignment, record) = preview_assignment(
+        let result = resolve_derived_preview_by_membership_locked(
             &mut tx,
             tenant,
             course,
             request.assignment,
             request.revision,
+            request.membership,
+            request.selected_moment.clone(),
         )
         .await?;
-        let term = course_policy::load_course_term_for_policy(&mut tx, tenant, course).await?;
-        let now = selected_moment(&request.selected_moment, &term)?;
-        let row = sqlx::query("SELECT course_membership_id, user_id, student_id FROM course_member WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3 AND role='student' AND status='active' AND student_id IS NOT NULL FOR KEY SHARE")
-            .bind(tenant.as_uuid()).bind(course.as_uuid()).bind(i64::from(request.membership.number()))
-            .fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?.ok_or(StoreError::NotFound)?;
-        let membership = CourseMembershipId::from_uuid(
-            row.try_get("course_membership_id")
-                .map_err(map_sqlx_error)?,
-        );
-        let learner = UserId::from_uuid(row.try_get("user_id").map_err(map_sqlx_error)?);
-        let student = question_model::StudentId::from_uuid(
-            row.try_get("student_id").map_err(map_sqlx_error)?,
-        );
-        let entitlement =
-            entitlement::evaluate_current(&mut tx, tenant, learner, course, assignment).await?;
-        let domain::entitlement::EntitlementDecision::Granted(grant) = entitlement else {
-            tx.commit().await.map_err(map_sqlx_error)?;
-            return Ok(denied(PreviewDenialReason::NotEntitled));
+        if matches!(result.evaluation, PreviewEvaluation::Allowed { .. }) {
+            let (assignment, membership) =
+                derived_preview_audit_source_locked(&mut tx, tenant, course, request).await?;
+            append_audit(&mut tx, tenant, actor, course, assignment, membership).await?;
+        }
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(result)
+    }
+}
+
+/// Preserves the browser route's identity-free, read-only snapshot contract.
+pub(super) async fn resolve_synthetic_preview_read_only(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    course: CourseId,
+    request: SyntheticPreviewSubjectRequest,
+) -> Result<crate::PreviewPlaneResult, StoreError> {
+    resolve_synthetic_preview_with_lock_mode(tx, tenant, course, request, false).await
+}
+
+async fn resolve_synthetic_preview_with_lock_mode(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    course: CourseId,
+    request: SyntheticPreviewSubjectRequest,
+    lock_sources: bool,
+) -> Result<crate::PreviewPlaneResult, StoreError> {
+    let (assignment, record) = if lock_sources {
+        preview_assignment(tx, tenant, course, request.assignment, request.revision).await?
+    } else {
+        preview_assignment_read_only(tx, tenant, course, request.assignment, request.revision)
+            .await?
+    };
+    let term = if lock_sources {
+        course_policy::load_course_term_for_policy(tx, tenant, course).await?
+    } else {
+        course_policy::load_course_term_for_preview(tx, tenant, course).await?
+    };
+    let now = selected_moment(&request.selected_moment, &term)?;
+    let mut groups = Vec::new();
+    for reference in request.groups.as_slice() {
+        let query = if lock_sources {
+            concat!(
+                "SELECT course_group_id, purpose FROM course_group ",
+                "WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3 FOR KEY SHARE"
+            )
+        } else {
+            "SELECT course_group_id, purpose FROM course_group WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3"
         };
-        let groups = current_groups(&mut tx, tenant, course, membership).await?;
-        let prior = completed_run_count(&mut tx, tenant, assignment, student).await?;
-        let inputs = course_policy::load_inputs(
-            &mut tx,
+        let row = sqlx::query(query)
+            .bind(tenant.as_uuid())
+            .bind(course.as_uuid())
+            .bind(i64::from(reference.number()))
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(map_sqlx_error)?
+            .ok_or(StoreError::NotFound)?;
+        groups.push((
+            CourseGroupId::from_uuid(row.try_get("course_group_id").map_err(map_sqlx_error)?),
+            decode_group_purpose(row.try_get("purpose").map_err(map_sqlx_error)?)?,
+        ));
+    }
+    let entitlement =
+        evaluate_synthetic_preview_entitlement(SyntheticPreviewEntitlementFacts::new(
             tenant,
+            course,
             assignment,
-            Some(student),
-            Some(grant.applicable_policy_scopes()),
-        )
-        .await?;
-        let before = resolve_effective_policy(ResolveEffectivePolicyInput {
-            lifecycle: assignment_lifecycle_gate(record.lifecycle),
-            entitlement: domain::entitlement::EntitlementDecision::Granted(grant.clone()),
-            authorization: AuthorizationGate::Authorized,
-            now,
-            prior_run_count: prior,
-            base: inputs.base,
-            group_schedule_offsets: inputs.schedule_offsets.clone(),
-            group_accommodations: inputs.accommodations.clone(),
-            individual_exception: None,
-        })
-        .map_err(policy_error)?;
-        let after = resolve_effective_policy(ResolveEffectivePolicyInput {
-            lifecycle: assignment_lifecycle_gate(record.lifecycle),
-            entitlement: domain::entitlement::EntitlementDecision::Granted(grant.clone()),
-            authorization: AuthorizationGate::Authorized,
-            now,
-            prior_run_count: prior,
-            base: inputs.base,
-            group_schedule_offsets: inputs.schedule_offsets,
-            group_accommodations: inputs.accommodations,
-            individual_exception: inputs.individual,
-        })
-        .map_err(policy_error)?;
-        let result = preview_result(PreviewResultInput {
+            record.audience.clone(),
+            groups.clone(),
+        ));
+    let mut inputs = course_policy::load_inputs(tx, tenant, assignment, None, None).await?;
+    let selected_groups = groups
+        .iter()
+        .map(|(group, _)| *group)
+        .collect::<std::collections::BTreeSet<_>>();
+    inputs
+        .schedule_offsets
+        .retain(|value| selected_groups.contains(&value.group));
+    inputs
+        .accommodations
+        .retain(|value| selected_groups.contains(&value.group));
+    let before = resolve_synthetic_preview_policy(ResolveSyntheticPreviewPolicyInput {
+        lifecycle: assignment_lifecycle_gate(record.lifecycle),
+        entitlement: entitlement.clone(),
+        authorization: AuthorizationGate::Authorized,
+        now,
+        prior_run_count: 0,
+        base: inputs.base,
+        group_schedule_offsets: inputs.schedule_offsets.clone(),
+        group_accommodations: inputs.accommodations.clone(),
+        hypothetical_individual_exception: None,
+    })
+    .map_err(policy_error)?;
+    let after = resolve_synthetic_preview_policy(ResolveSyntheticPreviewPolicyInput {
+        lifecycle: assignment_lifecycle_gate(record.lifecycle),
+        entitlement: entitlement.clone(),
+        authorization: AuthorizationGate::Authorized,
+        now,
+        prior_run_count: 0,
+        base: inputs.base,
+        group_schedule_offsets: inputs.schedule_offsets,
+        group_accommodations: inputs.accommodations,
+        hypothetical_individual_exception: Some(hypothetical(request.modifiers, &term)?),
+    })
+    .map_err(policy_error)?;
+    preview_result(PreviewResultInput {
+        kind: PreviewSubjectKind::Synthetic,
+        assignment: request.assignment,
+        revision: request.revision,
+        selected_moment: request.selected_moment,
+        groups,
+        prior: 0,
+        record: &record,
+        term: &term,
+        now,
+        entitlement: synthetic_reason(&entitlement),
+        before,
+        after,
+    })
+}
+
+/// Resolves a derived preview from the route-owned membership reference.
+///
+/// This helper does not receive or return a learner locator. It resolves the
+/// active membership and all policy facts under the caller's writable locks,
+/// but deliberately has no audit side effect so rehearsal can reuse it.
+/// // ASVS 2.2.1, 2.3.1, 2.3.3
+pub(super) async fn resolve_derived_preview_by_membership_locked(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    course: CourseId,
+    assignment: AssignmentReference,
+    revision: TeachingOperationRevision,
+    membership: question_model::CourseMembershipReference,
+    selected_moment_value: question_model::PreviewSelectedMoment,
+) -> Result<crate::PreviewPlaneResult, StoreError> {
+    Ok(resolve_derived_preview_by_membership_with_source_locked(
+        tx,
+        tenant,
+        course,
+        assignment,
+        revision,
+        membership,
+        selected_moment_value,
+        true,
+    )
+    .await?
+    .result)
+}
+
+/// Resolves a derived preview with the internal membership identity that the
+/// public reference selected.  Rehearsal uses this only after its broker
+/// preparation witness has locked that exact membership, so this remains a
+/// plain, answer-free read path.  The returned internal identity prevents a
+/// changed public reference from being mistaken for the audited learner.
+/// // ASVS 2.2.1, 2.3.1, 8.2.2, 8.3.1
+pub(super) async fn resolve_derived_preview_by_membership_read_only_bound(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    course: CourseId,
+    assignment: AssignmentReference,
+    revision: TeachingOperationRevision,
+    membership: question_model::CourseMembershipReference,
+    selected_moment_value: question_model::PreviewSelectedMoment,
+) -> Result<DerivedPreviewResolution, StoreError> {
+    resolve_derived_preview_by_membership_with_source_locked(
+        tx,
+        tenant,
+        course,
+        assignment,
+        revision,
+        membership,
+        selected_moment_value,
+        false,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn resolve_derived_preview_by_membership_with_source_locked(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    course: CourseId,
+    assignment: AssignmentReference,
+    revision: TeachingOperationRevision,
+    membership: question_model::CourseMembershipReference,
+    selected_moment_value: question_model::PreviewSelectedMoment,
+    lock_sources: bool,
+) -> Result<DerivedPreviewResolution, StoreError> {
+    let (assignment_id, record) = if lock_sources {
+        preview_assignment(tx, tenant, course, assignment, revision).await?
+    } else {
+        preview_assignment_read_only(tx, tenant, course, assignment, revision).await?
+    };
+    let term = if lock_sources {
+        course_policy::load_course_term_for_policy(tx, tenant, course).await?
+    } else {
+        course_policy::load_course_term_for_preview(tx, tenant, course).await?
+    };
+    let now = selected_moment(&selected_moment_value, &term)?;
+    let row = sqlx::query(if lock_sources { "SELECT course_membership_id, user_id, student_id FROM course_member WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3 AND role='student' AND status='active' AND student_id IS NOT NULL FOR KEY SHARE" } else { "SELECT course_membership_id, user_id, student_id FROM course_member WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3 AND role='student' AND status='active' AND student_id IS NOT NULL" })
+        .bind(tenant.as_uuid()).bind(course.as_uuid()).bind(i64::from(membership.number()))
+        .fetch_optional(&mut **tx).await.map_err(map_sqlx_error)?.ok_or(StoreError::NotFound)?;
+    let membership = CourseMembershipId::from_uuid(
+        row.try_get("course_membership_id")
+            .map_err(map_sqlx_error)?,
+    );
+    let learner = UserId::from_uuid(row.try_get("user_id").map_err(map_sqlx_error)?);
+    let student =
+        question_model::StudentId::from_uuid(row.try_get("student_id").map_err(map_sqlx_error)?);
+    let entitlement = if lock_sources {
+        entitlement::evaluate_current(tx, tenant, learner, course, assignment_id).await?
+    } else {
+        entitlement::evaluate_current_read_only(tx, tenant, learner, course, assignment_id).await?
+    };
+    let domain::entitlement::EntitlementDecision::Granted(grant) = entitlement else {
+        return Ok(DerivedPreviewResolution {
+            result: denied(PreviewDenialReason::NotEntitled),
+            membership,
+        });
+    };
+    let groups = current_groups(tx, tenant, course, membership).await?;
+    let prior = completed_run_count(tx, tenant, assignment_id, student).await?;
+    let inputs = course_policy::load_inputs(
+        tx,
+        tenant,
+        assignment_id,
+        Some(student),
+        Some(grant.applicable_policy_scopes()),
+    )
+    .await?;
+    let before = resolve_effective_policy(ResolveEffectivePolicyInput {
+        lifecycle: assignment_lifecycle_gate(record.lifecycle),
+        entitlement: domain::entitlement::EntitlementDecision::Granted(grant.clone()),
+        authorization: AuthorizationGate::Authorized,
+        now,
+        prior_run_count: prior,
+        base: inputs.base,
+        group_schedule_offsets: inputs.schedule_offsets.clone(),
+        group_accommodations: inputs.accommodations.clone(),
+        individual_exception: None,
+    })
+    .map_err(policy_error)?;
+    let after = resolve_effective_policy(ResolveEffectivePolicyInput {
+        lifecycle: assignment_lifecycle_gate(record.lifecycle),
+        entitlement: domain::entitlement::EntitlementDecision::Granted(grant.clone()),
+        authorization: AuthorizationGate::Authorized,
+        now,
+        prior_run_count: prior,
+        base: inputs.base,
+        group_schedule_offsets: inputs.schedule_offsets,
+        group_accommodations: inputs.accommodations,
+        individual_exception: inputs.individual,
+    })
+    .map_err(policy_error)?;
+    Ok(DerivedPreviewResolution {
+        result: preview_result(PreviewResultInput {
             kind: PreviewSubjectKind::Derived,
-            assignment: request.assignment,
-            revision: request.revision,
-            selected_moment: request.selected_moment,
+            assignment,
+            revision,
+            selected_moment: selected_moment_value,
             groups,
             prior,
             record: &record,
@@ -322,13 +450,46 @@ impl crate::PreviewPlaneStore for PostgresStore {
             entitlement: grant_reason(grant.basis()),
             before,
             after,
-        })?;
-        if matches!(result.evaluation, PreviewEvaluation::Allowed { .. }) {
-            append_audit(&mut tx, tenant, actor, course, assignment, membership).await?;
-        }
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(result)
-    }
+        })?,
+        membership,
+    })
+}
+
+/// Current-fact resolution result used only while the audit-free helper
+/// constructs the standard preview projection.
+pub(super) struct DerivedPreviewResolution {
+    pub(super) result: crate::PreviewPlaneResult,
+    pub(super) membership: CourseMembershipId,
+}
+
+async fn derived_preview_audit_source_locked(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    course: CourseId,
+    request: DerivedPreviewSubjectRequest,
+) -> Result<(AssignmentId, CourseMembershipId), StoreError> {
+    let assignment: Option<Uuid> = sqlx::query_scalar(
+        "SELECT assignment_id FROM assignment WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3 FOR KEY SHARE",
+    )
+    .bind(tenant.as_uuid())
+    .bind(course.as_uuid())
+    .bind(i64::from(request.assignment.number()))
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(map_sqlx_error)?;
+    let membership: Option<Uuid> = sqlx::query_scalar(
+        "SELECT course_membership_id FROM course_member WHERE tenant_id=$1 AND course_id=$2 AND public_id=$3 AND role='student' AND status='active' FOR KEY SHARE",
+    )
+    .bind(tenant.as_uuid())
+    .bind(course.as_uuid())
+    .bind(i64::from(request.membership.number()))
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(map_sqlx_error)?;
+    Ok((
+        AssignmentId::from_uuid(assignment.ok_or(StoreError::NotFound)?),
+        CourseMembershipId::from_uuid(membership.ok_or(StoreError::NotFound)?),
+    ))
 }
 
 async fn require_direct_instructor(

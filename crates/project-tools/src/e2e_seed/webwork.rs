@@ -467,11 +467,11 @@ where
 pub(super) async fn ensure_webwork_pilot_course<S>(
     store: &S,
     context: TenantContext,
-    initial_instructor: UserId,
+    host_seed_instructor: UserId,
     expected: CourseRecord,
 ) -> Result<()>
 where
-    S: Store,
+    S: Store + SessionStore,
 {
     match store
         .get_course(context, expected.id)
@@ -481,12 +481,21 @@ where
         Some(actual) if webwork_pilot_course_seed_matches(&actual, &expected) => Ok(()),
         Some(_) => bail!("existing WebWork pilot course differs from the deterministic seed"),
         None => {
+            let session = ensure_webwork_pilot_sysadmin_session(
+                store,
+                context.tenant_id(),
+                host_seed_instructor,
+            )
+            .await?;
             store
                 .create_course(
                     context,
                     learning_data_access::CreateCourseCommand {
                         course: expected.clone(),
-                        initial_instructor,
+                        authority: CourseCreationAuthority::Sysadmin {
+                            actor: host_seed_instructor,
+                            session: session.token_hash,
+                        },
                     },
                 )
                 .await
@@ -502,6 +511,66 @@ where
             Ok(())
         }
     }
+}
+
+const WEBWORK_PILOT_SESSION_DISPLAY_NAME: &str = "E2E host seed Sysadmin";
+const WEBWORK_PILOT_SESSION_LIFETIME_SECONDS: u32 = 7 * 24 * 60 * 60;
+
+/// Establishes the ordinary, tenant-bound authority used by the host seed.
+///
+/// The credential is synthetic E2E setup data, never a browser credential. A
+/// deterministic hash lets concurrent or repeated seed invocations reuse the
+/// same active session; every reused record is checked before its authority is
+/// passed to the course-creation broker.
+async fn ensure_webwork_pilot_sysadmin_session<S>(
+    store: &S,
+    tenant: TenantId,
+    instructor: UserId,
+) -> Result<learning_data_access::SessionRecord>
+where
+    S: SessionStore,
+{
+    let token_hash = SessionTokenHash::compute(
+        format!(
+            "ple-e2e-webwork-course-sysadmin:{}:{}",
+            tenant.as_uuid(),
+            instructor.as_uuid()
+        )
+        .as_bytes(),
+    );
+    let expected_subject = SessionSubject::new(
+        tenant,
+        instructor,
+        WEBWORK_PILOT_SESSION_DISPLAY_NAME,
+        vec![UserRole::Sysadmin],
+    )
+    .expect("fixed WebWork E2E Sysadmin identity is valid");
+    let lifetime = SessionLifetime::from_seconds(WEBWORK_PILOT_SESSION_LIFETIME_SECONDS)
+        .expect("fixed WebWork E2E session lifetime is positive");
+
+    let record = match store.resolve_session(token_hash).await {
+        Ok(Some(record)) => record,
+        Ok(None) => match store
+            .create_session(token_hash, expected_subject.clone(), lifetime)
+            .await
+        {
+            Ok(record) => record,
+            Err(StoreError::AlreadyExists) => store
+                .resolve_session(token_hash)
+                .await
+                .context("rereading deterministic WebWork E2E Sysadmin session after race")?
+                .ok_or_else(|| anyhow::anyhow!("WebWork E2E Sysadmin session disappeared"))?,
+            Err(error) => return Err(error).context("creating WebWork E2E Sysadmin session"),
+        },
+        Err(error) => return Err(error).context("resolving WebWork E2E Sysadmin session"),
+    };
+    if record.token_hash != token_hash
+        || record.subject != expected_subject
+        || record.expires_at <= record.created_at
+    {
+        bail!("existing WebWork E2E Sysadmin session differs from the deterministic seed");
+    }
+    Ok(record)
 }
 
 /// Verifies the authored course marker. Canonical membership belongs to its
@@ -570,8 +639,11 @@ where
             let created = match store
                 .create_assignment(
                     context,
-                    draft.clone(),
-                    question_model::BaseAssignmentPolicy::default(),
+                    CreateAssignmentCommand {
+                        actor: instructor,
+                        assignment: draft.clone(),
+                        base_policy: question_model::BaseAssignmentPolicy::default(),
+                    },
                 )
                 .await
             {
@@ -664,6 +736,7 @@ where
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,

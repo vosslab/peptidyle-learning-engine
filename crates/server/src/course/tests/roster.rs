@@ -94,7 +94,13 @@ async fn sysadmin_roster_support_is_audited_without_granting_grade_export() {
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -215,7 +221,13 @@ async fn roster_http_is_instructor_scoped_secret_free_and_idempotent() {
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -508,7 +520,13 @@ async fn roster_csv_preview_is_bounded_and_commit_invites_only_ready_rows() {
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -630,7 +648,13 @@ async fn manual_grade_export_contains_only_course_roster_identity_and_selected_s
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -639,27 +663,30 @@ async fn manual_grade_export_contains_only_course_roster_identity_and_selected_s
     store
         .create_assignment(
             context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                audience: question_model::AssignmentAudience::CourseWide,
-                title: "Manual export assignment".to_string(),
-                lifecycle: question_model::AssignmentLifecycle::Draft,
-                instructions: question_model::AssignmentInstructions::default(),
-                items: vec![question_model::AssignmentItem {
-                    id: question_model::AssignmentItemId::from_uuid(id(1_305)),
-                    reference,
-                    position: 0,
-                    points_possible: question_model::PointValue::from_whole(1),
-                    delivery_state: question_model::AssignmentDeliveryState::Active,
-                    scoring_mode: question_model::AssignmentScoringMode::Normal,
-                }],
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: policies(),
+            learning_data_access::CreateAssignmentCommand {
+                actor: instructor,
+                assignment: AssignmentRecord {
+                    id: assignment,
+                    tenant,
+                    course_id: course,
+                    audience: question_model::AssignmentAudience::CourseWide,
+                    title: "Manual export assignment".to_string(),
+                    lifecycle: question_model::AssignmentLifecycle::Draft,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    items: vec![question_model::AssignmentItem {
+                        id: question_model::AssignmentItemId::from_uuid(id(1_305)),
+                        reference,
+                        position: 0,
+                        points_possible: question_model::PointValue::from_whole(1),
+                        delivery_state: question_model::AssignmentDeliveryState::Active,
+                        scoring_mode: question_model::AssignmentScoringMode::Normal,
+                    }],
+                    selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    policies: policies(),
+                },
+                base_policy: question_model::BaseAssignmentPolicy::default(),
             },
-            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("assignment fixture");

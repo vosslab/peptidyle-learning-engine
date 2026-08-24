@@ -3,7 +3,13 @@ use super::*;
 #[tokio::test]
 async fn archive_fence_refuses_run_aliases_before_any_backend_call() {
     let (store, backend, app, student_cookie, _, assignment, enrollment) = fixture().await;
-    let active = active_attempt_for(&app, assignment, &student_cookie).await;
+    let active = active_attempt_for(
+        &app,
+        CourseId::from_uuid(id(5)),
+        assignment,
+        &student_cookie,
+    )
+    .await;
     let issued_before = backend.issued_seeds.lock().expect("seed record").len();
     assert_eq!(issued_before, 1);
     assert_eq!(backend.reproduce_calls.load(Ordering::SeqCst), 0);
@@ -20,12 +26,12 @@ async fn archive_fence_refuses_run_aliases_before_any_backend_call() {
     let requests = vec![
         Request::builder()
             .method("POST")
-            .uri("/api/runs")
-            .header("cookie", &student_cookie)
-            .header("content-type", "application/json")
-            .body(Body::from(
-                serde_json::json!({ "assignmentId": assignment }).to_string(),
+            .uri(format!(
+                "/api/courses/{}/assignments/{assignment}/runs",
+                CourseId::from_uuid(id(5))
             ))
+            .header("cookie", &student_cookie)
+            .body(Body::empty())
             .expect("archived start request"),
         Request::builder()
             .uri(format!("/api/runs/{}", active.run))
@@ -48,13 +54,21 @@ async fn archive_fence_refuses_run_aliases_before_any_backend_call() {
             .body(Body::empty())
             .expect("archived attempt request"),
         Request::builder()
-            .uri(format!("/api/attempts/{}/question", active.id))
+            .uri(question_path(
+                CourseId::from_uuid(id(5)),
+                assignment,
+                active.id,
+            ))
             .header("cookie", &student_cookie)
             .body(Body::empty())
             .expect("archived question request"),
         Request::builder()
             .method("POST")
-            .uri(format!("/api/attempts/{}/prefetch-next", active.id))
+            .uri(prefetch_path(
+                CourseId::from_uuid(id(5)),
+                assignment,
+                active.id,
+            ))
             .header("cookie", &student_cookie)
             .body(Body::empty())
             .expect("archived prefetch request"),
@@ -66,7 +80,11 @@ async fn archive_fence_refuses_run_aliases_before_any_backend_call() {
             .expect("archived external projection request"),
         Request::builder()
             .method("POST")
-            .uri(format!("/api/submissions/{}", active.id))
+            .uri(submission_path(
+                CourseId::from_uuid(id(5)),
+                assignment,
+                active.id,
+            ))
             .header("cookie", &student_cookie)
             .header("content-type", "application/json")
             .header("idempotency-key", "archive-refusal")

@@ -101,6 +101,11 @@ pub struct CreateCoInstructorInvitation {
 /// Target-only terminal invitation command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RespondToCoInstructorInvitation {
+    /// Persisted target session.  The Store derives and verifies the target from it.
+    ///
+    /// ASVS 8.3.1-8.3.3: a route's displayed actor is not authority for a
+    /// terminal invitation transition.
+    pub session: SessionTokenHash,
     pub actor: UserId,
     pub invitation: CoInstructorInvitationId,
     pub expected_revision: CoInstructorInvitationRevision,

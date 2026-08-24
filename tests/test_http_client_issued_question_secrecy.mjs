@@ -5,7 +5,7 @@ import test from "node:test";
 
 import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 import { DecodeError } from "../src/api/decoder.ts";
-import { createHttpApiClient } from "../src/api/http_client.ts";
+import { ApiRequestError, createHttpApiClient } from "../src/api/http_client.ts";
 import {
   createRecordingFetch,
   issuedQuestionWireFixture,
@@ -15,7 +15,7 @@ import {
 function clientWithIssuedQuestion(mutator) {
   const attempt = publishedProblemFixture.attempts.at(-1);
   assert.ok(attempt);
-  const { recordingFetch } = createRecordingFetch(async (request) => {
+  const { recordingFetch, requests } = createRecordingFetch(async (request) => {
     if (new URL(request.url).pathname.endsWith("/question")) {
       const issued = structuredClone(
         issuedQuestionWireFixture(attempt, publishedProblemFixture.publishedProblem),
@@ -25,15 +25,59 @@ function clientWithIssuedQuestion(mutator) {
     }
     return jsonResponse({ ...attempt, scoringStatus: "current" });
   });
-  return { attempt, client: createHttpApiClient({ fetch: recordingFetch }) };
+  return {
+    attempt,
+    client: createHttpApiClient({ fetch: recordingFetch }),
+    requests,
+  };
 }
+
+test("issued-question transport uses the explicit nested course and assignment route", async () => {
+  const { attempt, client, requests } = clientWithIssuedQuestion(() => {});
+  await client.getIssuedQuestion(
+    publishedProblemFixture.course.id,
+    publishedProblemFixture.assignment.id,
+    attempt.id,
+  );
+  assert.equal(
+    requests[1]?.url,
+    `https://client.example.test/api/courses/${publishedProblemFixture.course.id}/assignments/${publishedProblemFixture.assignment.id}/attempts/${attempt.id}/question`,
+  );
+});
+
+test("issued-question transport preserves a concealed nested-route 404 without a legacy retry", async () => {
+  const attempt = publishedProblemFixture.attempts.at(-1);
+  assert.ok(attempt);
+  const { recordingFetch, requests } = createRecordingFetch(async (request) => {
+    if (new URL(request.url).pathname.endsWith("/question")) return jsonResponse({}, 404);
+    return jsonResponse({ ...attempt, scoringStatus: "current" });
+  });
+  const client = createHttpApiClient({ fetch: recordingFetch });
+  await assert.rejects(
+    client.getIssuedQuestion(
+      publishedProblemFixture.course.id,
+      publishedProblemFixture.assignment.id,
+      attempt.id,
+    ),
+    (error) => error instanceof ApiRequestError && error.status === 404,
+  );
+  assert.equal(requests.length, 2);
+  assert.match(
+    requests[1]?.url ?? "",
+    /\/api\/courses\/.*\/assignments\/.*\/attempts\/.*\/question$/u,
+  );
+});
 
 test("issued-question transport rejects a response that carries a server-only field", async () => {
   const { attempt, client } = clientWithIssuedQuestion((issued) => {
     issued.grading = { mode: "allOrNothing", points: 1 };
   });
   await assert.rejects(
-    client.getIssuedQuestion(attempt.id),
+    client.getIssuedQuestion(
+      publishedProblemFixture.course.id,
+      publishedProblemFixture.assignment.id,
+      attempt.id,
+    ),
     (error) =>
       error instanceof DecodeError &&
       error.message === "response.grading must be a field allowed by this response contract",
@@ -170,7 +214,11 @@ test("issued-question transport rejects answer material at every nested envelope
   for (const hostile of hostileEnvelopes) {
     const { attempt, client } = clientWithIssuedQuestion(hostile.mutate);
     await assert.rejects(
-      client.getIssuedQuestion(attempt.id),
+      client.getIssuedQuestion(
+        publishedProblemFixture.course.id,
+        publishedProblemFixture.assignment.id,
+        attempt.id,
+      ),
       (error) =>
         error instanceof DecodeError &&
         error.message === `${hostile.path} must be a field allowed by this response contract`,

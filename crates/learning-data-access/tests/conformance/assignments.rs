@@ -53,7 +53,7 @@ where
 /// rules before accepting a new course artifact.
 pub(super) async fn exercise_assignment_cas<S>(store: &S)
 where
-    S: Store + CatalogStore + CourseRosterStore,
+    S: Store + CatalogStore + CourseRosterStore + SessionStore,
 {
     let tenant = TenantId::from_uuid(uuid(70_000));
     let foreign_tenant = TenantId::from_uuid(uuid(70_001));
@@ -64,6 +64,8 @@ where
     let future_student = UserId::from_uuid(uuid(70_007));
     let course = CourseId::from_uuid(uuid(70_003));
     let wrong_course = CourseId::from_uuid(uuid(70_004));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(store, tenant, course, instructor).await;
     store
         .create_course(
             context,
@@ -79,7 +81,7 @@ where
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -91,6 +93,7 @@ where
         store
             .upsert_course_member(
                 context,
+                instructor,
                 learning_data_access::UpsertCourseMember {
                     course,
                     user,
@@ -116,7 +119,13 @@ where
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(
+                    store,
+                    tenant,
+                    wrong_course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -137,7 +146,13 @@ where
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(
+                    store,
+                    foreign_tenant,
+                    foreign_course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -281,10 +296,13 @@ where
     let updated = store
         .replace_assignment(
             context,
-            course,
-            assignment,
-            created.revision,
-            update.clone(),
+            ReplaceAssignmentCommand {
+                actor: instructor,
+                course,
+                assignment,
+                expected_revision: created.revision,
+                update: update.clone(),
+            },
         )
         .await
         .expect("fresh assignment revision updates");
@@ -296,10 +314,13 @@ where
         store
             .replace_assignment(
                 context,
-                course,
-                assignment,
-                created.revision,
-                update.clone()
+                ReplaceAssignmentCommand {
+                    actor: instructor,
+                    course,
+                    assignment,
+                    expected_revision: created.revision,
+                    update: update.clone(),
+                }
             )
             .await,
         Err(StoreError::Conflict),
@@ -318,6 +339,7 @@ where
         .replace_assignment_fixed_item(
             context,
             ReplaceAssignmentFixedItemCommand {
+                actor: instructor,
                 course,
                 assignment,
                 current_item: updated.record.items[0].id,
@@ -338,6 +360,7 @@ where
             .replace_assignment_fixed_item(
                 context,
                 ReplaceAssignmentFixedItemCommand {
+                    actor: instructor,
                     course,
                     assignment,
                     current_item: updated.record.items[0].id,
@@ -361,6 +384,7 @@ where
         .add_assignment_fixed_item(
             context,
             AddAssignmentFixedItemCommand {
+                actor: instructor,
                 course,
                 assignment,
                 expected_revision: replacement.revision,
@@ -375,6 +399,7 @@ where
         .remove_assignment_fixed_item(
             context,
             RemoveAssignmentFixedItemCommand {
+                actor: instructor,
                 course,
                 assignment,
                 item: inserted_item.id,
@@ -394,7 +419,12 @@ where
     assert_eq!(removed.record.items[1].position, 2);
 
     let run = store
-        .start_or_resume_run(context, student, assignment, RunId::from_uuid(uuid(70_211)))
+        .start_or_resume_run(
+            context,
+            student,
+            LearnerWorkRoutingBinding::new(course, assignment),
+            RunId::from_uuid(uuid(70_211)),
+        )
         .await
         .expect("run start atomically materializes the learner receipt");
     let old_run_attempt = store
@@ -402,6 +432,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: student,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(70_214)),
                 run: run.id,
                 assignment_position: 0,
@@ -441,6 +472,7 @@ where
         .replace_assignment_fixed_item(
             context,
             ReplaceAssignmentFixedItemCommand {
+                actor: instructor,
                 course,
                 assignment,
                 current_item: replaced_item,
@@ -460,6 +492,7 @@ where
             context,
             SubmitQuestionAttemptCommand {
                 actor: student,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: old_run_attempt.id,
                 response: StudentResponse::Numeric { value: 18.0 },
                 result: AttemptResult {
@@ -479,7 +512,7 @@ where
         .start_or_resume_run(
             context,
             future_student,
-            assignment,
+            LearnerWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(uuid(70_217)),
         )
         .await
@@ -489,6 +522,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: future_student,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(70_219)),
                 run: future_run.id,
                 assignment_position: 0,
@@ -532,6 +566,7 @@ where
             .add_assignment_fixed_item(
                 context,
                 AddAssignmentFixedItemCommand {
+                    actor: instructor,
                     course,
                     assignment,
                     expected_revision: post_run_replacement.revision,
@@ -546,6 +581,7 @@ where
             .remove_assignment_fixed_item(
                 context,
                 RemoveAssignmentFixedItemCommand {
+                    actor: instructor,
                     course,
                     assignment,
                     item: replaced_item,
@@ -567,10 +603,13 @@ where
         store
             .replace_assignment(
                 context,
-                wrong_course,
-                assignment,
-                post_run_replacement.revision,
-                current_definition.clone()
+                ReplaceAssignmentCommand {
+                    actor: instructor,
+                    course: wrong_course,
+                    assignment,
+                    expected_revision: post_run_replacement.revision,
+                    update: current_definition.clone(),
+                }
             )
             .await,
         Err(StoreError::NotFound),
@@ -580,10 +619,13 @@ where
         store
             .replace_assignment(
                 foreign_context,
-                course,
-                assignment,
-                post_run_replacement.revision,
-                current_definition.clone()
+                ReplaceAssignmentCommand {
+                    actor: instructor,
+                    course,
+                    assignment,
+                    expected_revision: post_run_replacement.revision,
+                    update: current_definition.clone(),
+                }
             )
             .await,
         Err(StoreError::NotFound),
@@ -594,6 +636,7 @@ where
             .replace_assignment_fixed_item(
                 foreign_context,
                 ReplaceAssignmentFixedItemCommand {
+                    actor: instructor,
                     course,
                     assignment,
                     current_item: replaced_item,

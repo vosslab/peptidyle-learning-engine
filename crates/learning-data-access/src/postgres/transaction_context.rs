@@ -73,22 +73,3 @@ pub(super) async fn database_timestamp(
     .map_err(map_sqlx_error)?;
     Ok(ActivityTimestamp::from_unix_millis(milliseconds))
 }
-
-#[cfg(feature = "postgres")]
-pub(super) async fn load_published_record(
-    transaction: &mut Transaction<'_, Postgres>,
-    problem: ProblemId,
-    version: VersionId,
-) -> Result<PublishedProblemRecord, StoreError> {
-    let row = sqlx::query(
-        "SELECT payload, payload_sha256 FROM problem_version_payload \
-         WHERE problem_id = $1 AND version_id = $2",
-    )
-    .bind(problem.as_uuid())
-    .bind(version.as_uuid())
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?
-    .ok_or(StoreError::NotFound)?;
-    decode_payload_row(&row)
-}

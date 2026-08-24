@@ -1,4 +1,4 @@
-use crate::CreateCourseCommand;
+use crate::{CourseCreationAuthority, CreateCourseCommand};
 use crate::{
     CourseGroupMembershipWarning, CourseGroupPurposePolicyRevision, CourseGroupView,
     StoredCourseGroupPurposePolicy, UpdateCourseGroupPurposePolicyCommand,
@@ -6,6 +6,37 @@ use crate::{
 use async_trait::async_trait;
 
 use super::*;
+
+#[cfg(test)]
+use std::sync::{Mutex, OnceLock};
+
+/// A unit-test-only fault immediately after the reference and course rows
+/// exist. It exercises the transaction boundary without exposing an
+/// application/test-support capability in non-test builds.
+#[cfg(test)]
+static CREATE_COURSE_LATE_FAILURE: OnceLock<Mutex<Option<(TenantId, CourseId)>>> = OnceLock::new();
+
+#[cfg(test)]
+fn arm_create_course_late_failure(tenant: TenantId, course: CourseId) {
+    *CREATE_COURSE_LATE_FAILURE
+        .get_or_init(|| Mutex::new(None))
+        .lock()
+        .expect("course-creation test fault lock is available") = Some((tenant, course));
+}
+
+#[cfg(test)]
+fn consume_create_course_late_failure(tenant: TenantId, course: CourseId) -> bool {
+    let mut armed = CREATE_COURSE_LATE_FAILURE
+        .get_or_init(|| Mutex::new(None))
+        .lock()
+        .expect("course-creation test fault lock is available");
+    if *armed == Some((tenant, course)) {
+        *armed = None;
+        true
+    } else {
+        false
+    }
+}
 
 #[async_trait]
 impl crate::CourseStore for MemoryStore {
@@ -20,34 +51,62 @@ impl crate::CourseStore for MemoryStore {
         let tenant = course.tenant;
         let course_id = course.id;
         let mut state = self.write_state()?;
+        let initial_instructor = authorize_course_creation(&state, context, &command.authority)?;
         if state.courses.contains_key(&(tenant, course_id)) {
             return Err(StoreError::AlreadyExists);
         }
-        super::navigation_references::ensure_course_reference(&mut state, tenant, course_id)?;
-        state.courses.insert((tenant, course_id), course);
-        super::entitlement::create_initial_instructor_membership(
-            &mut state,
-            tenant,
-            course_id,
-            command.initial_instructor,
-        )?;
-        for purpose in ALL_GROUP_PURPOSES {
-            state.course_group_purpose_policies.insert(
-                (tenant, course_id, purpose),
-                StoredCourseGroupPurposePolicy {
-                    policy: question_model::CourseGroupPurposePolicy::default_for_purpose(purpose),
-                    revision: CourseGroupPurposePolicyRevision::INITIAL,
+        // The lock serializes readers and writers, but does not make a series
+        // of map updates transactional.  Keep an exact pre-provisioning
+        // snapshot and publish only a complete aggregate.
+        let snapshot = state.clone();
+        let result = (|| {
+            super::navigation_references::ensure_course_reference(&mut state, tenant, course_id)?;
+            state.courses.insert((tenant, course_id), course);
+            #[cfg(test)]
+            if consume_create_course_late_failure(tenant, course_id) {
+                return Err(StoreError::Unavailable(
+                    "injected late course-creation failure".to_string(),
+                ));
+            }
+            super::entitlement::create_initial_instructor_membership(
+                &mut state,
+                tenant,
+                course_id,
+                initial_instructor,
+            )?;
+            state.roster_policies.insert(
+                (tenant, course_id),
+                super::course_roster::initial_roster_policy(course_id),
+            );
+            state.course_grade_schemes.insert(
+                (tenant, course_id),
+                super::course_gradebook::initial_course_grade_scheme(course_id),
+            );
+            for purpose in ALL_GROUP_PURPOSES {
+                state.course_group_purpose_policies.insert(
+                    (tenant, course_id, purpose),
+                    StoredCourseGroupPurposePolicy {
+                        policy: question_model::CourseGroupPurposePolicy::default_for_purpose(
+                            purpose,
+                        ),
+                        revision: CourseGroupPurposePolicyRevision::INITIAL,
+                    },
+                );
+            }
+            state.course_appearances.insert(
+                (tenant, course_id),
+                question_model::CourseAppearance {
+                    theme: question_model::CourseThemeId::default(),
+                    revision: question_model::CourseAppearanceRevision::INITIAL,
+                    banner: None,
                 },
             );
+            Ok(())
+        })();
+        if let Err(error) = result {
+            *state = snapshot;
+            return Err(error);
         }
-        state
-            .course_appearances
-            .entry((tenant, course_id))
-            .or_insert_with(|| question_model::CourseAppearance {
-                theme: question_model::CourseThemeId::default(),
-                revision: question_model::CourseAppearanceRevision::INITIAL,
-                banner: None,
-            });
         Ok(())
     }
     async fn get_course_impl(
@@ -196,6 +255,48 @@ impl crate::CourseStore for MemoryStore {
                 .copied()
                 .ok_or(StoreError::NotFound)?,
         }))
+    }
+}
+
+fn authorize_course_creation(
+    state: &State,
+    context: TenantContext,
+    authority: &CourseCreationAuthority,
+) -> Result<UserId, StoreError> {
+    match authority {
+        CourseCreationAuthority::ApprovedInstructor { actor, session } => {
+            let subject = super::sessions::active_subject(state, context, *session)
+                .ok_or(StoreError::NotFound)?;
+            if subject.user() != *actor
+                || !subject
+                    .roles()
+                    .contains(&question_model::UserRole::Instructor)
+            {
+                return Err(StoreError::Forbidden);
+            }
+            let approval = state.instructor_approvals.get(actor).copied();
+            let approval = approval.ok_or(StoreError::Forbidden)?;
+            domain::teaching_authority::validate_instructor_approval(
+                &approval.approval,
+                state.authoritative_time,
+            )
+            .map_err(|error| {
+                StoreError::InvalidRecord(format!("invalid instructor approval: {error:?}"))
+            })?;
+            (approval.approval.user == *actor && approval.approval.revoked_at.is_none())
+                .then_some(*actor)
+                .ok_or(StoreError::Forbidden)
+        }
+        CourseCreationAuthority::Sysadmin { actor, session } => {
+            let subject = super::sessions::active_subject(state, context, *session)
+                .ok_or(StoreError::NotFound)?;
+            (subject.user() == *actor
+                && subject
+                    .roles()
+                    .contains(&question_model::UserRole::Sysadmin))
+            .then_some(*actor)
+            .ok_or(StoreError::Forbidden)
+        }
     }
 }
 
@@ -374,7 +475,11 @@ impl crate::CourseGroupManagementStore for MemoryStore {
     ) -> Result<StoredCourseGroupPurposePolicy, StoreError> {
         let tenant = context.tenant_id();
         let mut state = self.write_state()?;
-        require_group_manager(&state, tenant, command.course, command.actor)?;
+        // ASVS 8.2.1-8.2.3, 8.3.1-8.3.3, 15.4.2: resolve the live,
+        // tenant-bound session and exact-course Instructor in the same write
+        // critical section as the compare-and-swap. The command never carries
+        // an actor identity that a caller could forge.
+        require_session_group_policy_manager(&state, context, command.session, command.course)?;
         let key = (tenant, command.course, command.policy.purpose);
         let current = state
             .course_group_purpose_policies
@@ -426,6 +531,29 @@ fn require_group_manager(
         return Err(StoreError::NotFound);
     }
     require_course_records_accessible(state, tenant, course)
+}
+
+fn require_session_group_policy_manager(
+    state: &State,
+    context: TenantContext,
+    session: crate::SessionTokenHash,
+    course: CourseId,
+) -> Result<(), StoreError> {
+    let subject =
+        super::sessions::active_subject(state, context, session).ok_or(StoreError::NotFound)?;
+    if !subject
+        .roles()
+        .contains(&question_model::UserRole::Instructor)
+    {
+        return Err(StoreError::NotFound);
+    }
+    super::teaching_authority::require_direct_instructor(
+        state,
+        context.tenant_id(),
+        course,
+        subject.user(),
+    )?;
+    require_course_records_accessible(state, context.tenant_id(), course)
 }
 
 fn group_is_referenced(state: &State, tenant: TenantId, group: CourseGroupId) -> bool {
@@ -555,5 +683,289 @@ fn audience_mentions(audience: &question_model::AssignmentAudience, group: Cours
         question_model::AssignmentAudience::AnyOfGroups(groups) => {
             groups.iter().any(|candidate| candidate == group)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        CourseRecord, InstructorApprovalRevision, SessionLifetime, SessionStore, SessionSubject,
+        SessionTokenHash, Store, StoredInstructorApproval,
+    };
+    use question_model::{
+        CourseMembershipRole, CourseTerm, InstructorApproval, TenantId, UserId, UserRole,
+    };
+    use uuid::Uuid;
+
+    fn fixture_uuid(value: u128) -> Uuid {
+        Uuid::from_u128(value)
+    }
+
+    fn context(tenant: TenantId) -> TenantContext {
+        TenantContext::from_authenticated_session(tenant)
+    }
+
+    fn course(tenant: TenantId, id: CourseId) -> CourseRecord {
+        CourseRecord {
+            id,
+            tenant,
+            title: "Memory aggregate fixture".to_string(),
+            term: CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
+                .expect("fixed fixture term"),
+        }
+    }
+
+    async fn sysadmin_authority(
+        store: &MemoryStore,
+        tenant: TenantId,
+        user: UserId,
+        token: &[u8],
+    ) -> CourseCreationAuthority {
+        let session = SessionTokenHash::compute(token);
+        store
+            .create_session(
+                session,
+                SessionSubject::new(tenant, user, "Course fixture", vec![UserRole::Sysadmin])
+                    .expect("valid fixture subject"),
+                SessionLifetime::from_seconds(3_600).expect("positive fixture lifetime"),
+            )
+            .await
+            .expect("fixture session persists");
+        CourseCreationAuthority::Sysadmin {
+            actor: user,
+            session,
+        }
+    }
+
+    async fn approved_instructor_authority(
+        store: &MemoryStore,
+        tenant: TenantId,
+        user: UserId,
+        roles: Vec<UserRole>,
+        token: &[u8],
+    ) -> CourseCreationAuthority {
+        let session = SessionTokenHash::compute(token);
+        store
+            .create_session(
+                session,
+                SessionSubject::new(tenant, user, "Course fixture", roles)
+                    .expect("valid fixture subject"),
+                SessionLifetime::from_seconds(3_600).expect("positive fixture lifetime"),
+            )
+            .await
+            .expect("fixture session persists");
+        let mut state = store.write_state().expect("Memory state is available");
+        let approved_at = state.authoritative_time;
+        state.instructor_approvals.insert(
+            user,
+            StoredInstructorApproval {
+                approval: InstructorApproval {
+                    user,
+                    approved_by: user,
+                    approved_at,
+                    revoked_at: None,
+                },
+                revision: InstructorApprovalRevision::INITIAL,
+            },
+        );
+        CourseCreationAuthority::ApprovedInstructor {
+            actor: user,
+            session,
+        }
+    }
+
+    #[tokio::test]
+    async fn approved_instructor_creation_requires_an_instructor_session_role() {
+        let store = MemoryStore::default();
+        let tenant = TenantId::from_uuid(fixture_uuid(20));
+        let instructor = UserId::from_uuid(fixture_uuid(21));
+        let denied_course = CourseId::from_uuid(fixture_uuid(22));
+        let student_authority = approved_instructor_authority(
+            &store,
+            tenant,
+            instructor,
+            vec![UserRole::Student],
+            b"approved-student-session",
+        )
+        .await;
+
+        assert_eq!(
+            store
+                .create_course(
+                    context(tenant),
+                    CreateCourseCommand {
+                        course: course(tenant, denied_course),
+                        authority: student_authority,
+                    },
+                )
+                .await,
+            Err(StoreError::Forbidden),
+        );
+        {
+            let state = store.read_state().expect("Memory state is available");
+            assert!(state.courses.is_empty());
+            assert!(state.course_references.is_empty());
+            assert!(state.course_memberships.is_empty());
+            assert!(state.roster_policies.is_empty());
+            assert!(state.course_grade_schemes.is_empty());
+        }
+
+        let instructor_authority = approved_instructor_authority(
+            &store,
+            tenant,
+            instructor,
+            vec![UserRole::Instructor],
+            b"approved-instructor-session",
+        )
+        .await;
+        store
+            .create_course(
+                context(tenant),
+                CreateCourseCommand {
+                    course: course(tenant, denied_course),
+                    authority: instructor_authority,
+                },
+            )
+            .await
+            .expect("approved Instructor session creates a complete course");
+    }
+
+    #[tokio::test]
+    async fn course_creation_physically_materializes_the_complete_initial_aggregate() {
+        let store = MemoryStore::default();
+        let tenant = TenantId::from_uuid(fixture_uuid(1));
+        let instructor = UserId::from_uuid(fixture_uuid(2));
+        let course_id = CourseId::from_uuid(fixture_uuid(3));
+        let authority =
+            sysadmin_authority(&store, tenant, instructor, b"physical-course-aggregate").await;
+
+        store
+            .create_course(
+                context(tenant),
+                CreateCourseCommand {
+                    course: course(tenant, course_id),
+                    authority,
+                },
+            )
+            .await
+            .expect("course creation succeeds");
+
+        let state = store.read_state().expect("Memory state is available");
+        let membership_id = state
+            .active_course_membership_by_user
+            .get(&(tenant, course_id, instructor))
+            .copied()
+            .expect("initial instructor current-membership index is materialized");
+        let membership = state
+            .course_memberships
+            .get(&(tenant, membership_id))
+            .expect("initial instructor membership is materialized");
+        assert_eq!(membership.user, instructor);
+        assert_eq!(membership.course, course_id);
+        assert_eq!(membership.role, CourseMembershipRole::Instructor);
+        assert!(membership.student.is_none());
+        assert!(membership.roster_id.is_none());
+        assert_eq!(membership.status, crate::CourseMemberStatus::Active);
+        assert!(
+            state
+                .course_membership_references
+                .contains_key(&(tenant, membership_id))
+        );
+
+        assert_eq!(
+            state.roster_policies.get(&(tenant, course_id)),
+            Some(&super::super::course_roster::initial_roster_policy(
+                course_id
+            )),
+            "the initial roster policy is persisted rather than synthesized on read",
+        );
+        assert!(
+            state
+                .roster_profiles
+                .keys()
+                .all(|(record_tenant, record_course, _)| {
+                    *record_tenant != tenant || *record_course != course_id
+                })
+        );
+        assert!(state.roster_member_by_roster_id.keys().all(
+            |(record_tenant, record_course, _)| {
+                *record_tenant != tenant || *record_course != course_id
+            }
+        ));
+
+        assert_eq!(
+            state.course_appearances.get(&(tenant, course_id)),
+            Some(&question_model::CourseAppearance {
+                theme: question_model::CourseThemeId::default(),
+                revision: question_model::CourseAppearanceRevision::INITIAL,
+                banner: None,
+            }),
+            "the initial appearance is persisted rather than synthesized on read",
+        );
+        assert_eq!(
+            state.course_grade_schemes.get(&(tenant, course_id)),
+            Some(&super::super::course_gradebook::initial_course_grade_scheme(course_id)),
+            "the initial grade scheme is persisted rather than synthesized on read",
+        );
+
+        let policies = state
+            .course_group_purpose_policies
+            .iter()
+            .filter(|((record_tenant, record_course, _), _)| {
+                *record_tenant == tenant && *record_course == course_id
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(policies.len(), ALL_GROUP_PURPOSES.len());
+        for purpose in ALL_GROUP_PURPOSES {
+            assert_eq!(
+                state
+                    .course_group_purpose_policies
+                    .get(&(tenant, course_id, purpose)),
+                Some(&StoredCourseGroupPurposePolicy {
+                    policy: question_model::CourseGroupPurposePolicy::default_for_purpose(purpose),
+                    revision: CourseGroupPurposePolicyRevision::INITIAL,
+                }),
+                "initial group-purpose policy is stored for {purpose:?}",
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn late_course_creation_failure_restores_the_entire_memory_state() {
+        let store = MemoryStore::default();
+        let tenant = TenantId::from_uuid(fixture_uuid(10));
+        let instructor = UserId::from_uuid(fixture_uuid(11));
+        let course_id = CourseId::from_uuid(fixture_uuid(12));
+        let authority =
+            sysadmin_authority(&store, tenant, instructor, b"atomic-course-failure").await;
+        let before = store
+            .read_state()
+            .expect("Memory state is available")
+            .clone();
+        arm_create_course_late_failure(tenant, course_id);
+
+        let result = store
+            .create_course(
+                context(tenant),
+                CreateCourseCommand {
+                    course: course(tenant, course_id),
+                    authority,
+                },
+            )
+            .await;
+
+        assert_eq!(
+            result,
+            Err(StoreError::Unavailable(
+                "injected late course-creation failure".to_string()
+            ))
+        );
+        let after = store.read_state().expect("Memory state is available");
+        assert_eq!(
+            format!("{before:#?}"),
+            format!("{after:#?}"),
+            "an error after reference and course insertion restores every private Memory collection"
+        );
     }
 }

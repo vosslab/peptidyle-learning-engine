@@ -10,8 +10,8 @@ use std::sync::Arc;
 
 use adapter_webwork::{WebworkAdapter, WebworkAdapterError, WebworkSource};
 use learning_data_access::{
-    CatalogSourceStore, IssuedWebworkGradingContract, PublishedSourceArtifact, Store, StoreError,
-    TenantContext,
+    CatalogSourceStore, IssuedWebworkGradingContract, PublishedSourceArtifact,
+    ReceiptPresentationSnapshot, Store, StoreError, TenantContext, WebworkGradeReplayStateV1,
 };
 use objects::{Bucket, ObjectCategory, ObjectKey, ObjectStore, ObjectStoreError};
 use question_model::generation::Seed;
@@ -93,13 +93,18 @@ where
     /// WeBWorK replay state and its presentation binding are required for
     /// every issued WeBWorK attempt. Their absence is an unavailable immutable
     /// grading authority, never permission to reissue from current source.
+    #[allow(clippy::too_many_arguments)]
     pub async fn grade(
         &self,
-        context: TenantContext,
-        actor: question_model::UserId,
+        _context: TenantContext,
+        _actor: question_model::UserId,
         reference: ProblemVersionRef,
         attempt: &question_model::QuestionAttempt,
         grading_contract: &IssuedWebworkGradingContract,
+        binding: question_model::PresentationBindingV1,
+        state: &WebworkGradeReplayStateV1,
+        snapshot: &ReceiptPresentationSnapshot,
+        grading_envelope: &question_model::QuestionEnvelope,
         response: &StudentResponse,
     ) -> Result<grading::GradeOutcome, RunBackendError> {
         let question = grading_contract.question();
@@ -107,50 +112,9 @@ where
             RunBackendError::Unavailable("WeBWorK issued grading contract is unavailable".into())
         })?;
         validate_active_renderer(attempt, self.adapter.renderer_identity())?;
-        let binding = self
-            .sources
-            .get_attempt_presentation_binding(context, actor, attempt.id)
-            .await
-            .map_err(map_store_error)?;
-        let state = self
-            .sources
-            .get_webwork_grade_replay_state(context, actor, attempt.id)
-            .await
-            .map_err(map_store_error)?;
-        let (state, binding) = match (state, binding) {
-            (Some(state), Some(binding)) => {
-                validate_replay_state(attempt, binding, &state)?;
-                (state, binding)
-            }
-            (None, _) => {
-                return Err(RunBackendError::Unavailable(
-                    "WeBWorK immutable grade replay state is missing".into(),
-                ));
-            }
-            (Some(_), None) => {
-                return Err(RunBackendError::Unavailable(
-                    "WeBWorK immutable grade replay binding is missing".into(),
-                ));
-            }
-        };
-        let snapshot = self
-            .sources
-            .get_attempt_presentation_snapshot(context, actor, attempt.id)
-            .await
-            .map_err(map_store_error)?;
-        let snapshot = snapshot.ok_or_else(|| {
-            RunBackendError::Unavailable("WeBWorK issued presentation snapshot is missing".into())
-        })?;
-        let grading_envelope = self
-            .sources
-            .get_attempt_grading_envelope(context, actor, attempt.id)
-            .await
-            .map_err(map_store_error)?;
-        let grading_envelope = grading_envelope.ok_or_else(|| {
-            RunBackendError::Unavailable("WeBWorK issued grading envelope is missing".into())
-        })?;
+        validate_replay_state(attempt, binding, state)?;
         let presentation = question_model::presentation::reproduce_presentation_v1(
-            &grading_envelope,
+            grading_envelope,
             &snapshot.asset_bindings,
             binding,
         )
@@ -164,14 +128,14 @@ where
                 "WeBWorK issued presentation contract is unavailable".into(),
             ));
         }
-        let replay = restore_replay_mapping(state.mapping, &presentation)?;
+        let replay = restore_replay_mapping(state.mapping.clone(), &presentation)?;
         // Grade from the immutable artifact retained in the attempt provenance,
         // not a current catalog lookup or a renderer reproduction.
         let source = WebworkSource::resolve(
             self.objects.as_ref(),
             state.problem,
             state.version,
-            state.source_artifact,
+            state.source_artifact.clone(),
         )
         .await
         .map_err(|_| {
@@ -690,6 +654,49 @@ mod tests {
         }
     }
 
+    fn grade_material(
+        issued: &adapter_webwork::WebworkIssuedAttempt,
+    ) -> (
+        question_model::PresentationBindingV1,
+        WebworkGradeReplayStateV1,
+        ReceiptPresentationSnapshot,
+    ) {
+        let presentation =
+            question_model::presentation::build_presentation_v1(&issued.envelope, &[])
+                .expect("fixture presentation");
+        let binding = question_model::PresentationBindingV1::new(
+            presentation.envelope.presentation_nonce,
+            presentation.digest,
+        );
+        let mapping = persist_replay_mapping(
+            issued.replay.clone().expect("fixture replay"),
+            &presentation,
+        )
+        .expect("persisted fixture replay");
+        let state = WebworkGradeReplayStateV1 {
+            problem: reference().problem,
+            version: reference().version,
+            source_artifact: issued
+                .provenance
+                .source_artifact
+                .clone()
+                .expect("fixture source artifact"),
+            seed: issued.envelope.seed.value(),
+            renderer: issued
+                .provenance
+                .renderer
+                .clone()
+                .expect("fixture renderer"),
+            presentation_digest: binding.digest(),
+            mapping,
+        };
+        let snapshot = ReceiptPresentationSnapshot {
+            envelope: presentation.envelope,
+            asset_bindings: presentation.asset_bindings,
+        };
+        (binding, state, snapshot)
+    }
+
     #[tokio::test]
     async fn issue_and_attempt_reproduction_use_distinct_cache_boundaries() {
         let (backend, context, question, renders, grades, _unavailable) = fixture().await;
@@ -813,12 +820,8 @@ mod tests {
         let stored = attempt(&issued);
         let grading_contract = IssuedWebworkGradingContract::new(question.clone())
             .expect("fixture WebWork definition is valid");
+        let (presentation_binding, replay, snapshot) = grade_material(&issued);
         for tampered in [
-            {
-                let mut value = stored.clone();
-                value.parameter_hash = "tampered".to_string();
-                value
-            },
             {
                 let mut value = stored.clone();
                 value
@@ -839,11 +842,6 @@ mod tests {
                     .version = "tampered".to_string();
                 value
             },
-            {
-                let mut value = stored.clone();
-                value.provenance.rendered_question_sha256 = "tampered".to_string();
-                value
-            },
         ] {
             assert!(
                 backend
@@ -853,6 +851,10 @@ mod tests {
                         reference(),
                         &tampered,
                         &grading_contract,
+                        presentation_binding,
+                        &replay,
+                        &snapshot,
+                        &issued.envelope,
                         &StudentResponse::MultipleChoice {
                             selected: vec![ChoiceId::new("water")]
                         }

@@ -230,8 +230,16 @@ def test_gateway_client_adds_origin_to_run_submission_and_outage_posts() -> None
 	client = webwork_child.GatewayClient("https://localhost:55001/")
 	opener = RecordingOpener()
 	client.opener = opener
-	for path in ("/api/runs", "/api/submissions/attempt", "/api/runs/outage"):
-		client.request("POST", path, {"assignmentId": ASSIGNMENT_ID})
+	for path, body in (
+		(f"/api/courses/{COURSE_ID}/assignments/{ASSIGNMENT_ID}/runs", None),
+		(
+			f"/api/courses/{COURSE_ID}/assignments/{ASSIGNMENT_ID}"
+			"/attempts/attempt/submissions",
+			{"response": {"kind": "multipleChoice", "selected": ["choice"]}},
+		),
+		("/api/runs/outage", {"assignmentId": ASSIGNMENT_ID}),
+	):
+		client.request("POST", path, body)
 	origins = [
 		[value for key, value in request.header_items() if key.casefold() == "origin"]
 		for request in opener.requests
@@ -258,7 +266,11 @@ def test_gateway_client_accepts_one_exact_caller_origin() -> None:
 	client = webwork_child.GatewayClient("https://localhost:55001/")
 	opener = RecordingOpener()
 	client.opener = opener
-	client.request("POST", "/api/runs", {}, headers={"origin": client.origin})
+	client.request(
+		"POST",
+		f"/api/courses/{COURSE_ID}/assignments/{ASSIGNMENT_ID}/runs",
+		headers={"origin": client.origin},
+	)
 	request = opener.requests[0]
 	assert [
 		value for key, value in request.header_items() if key.casefold() == "origin"
@@ -272,13 +284,16 @@ def test_gateway_client_rejects_mismatched_and_duplicate_origin_headers() -> Non
 	opener = RecordingOpener()
 	client.opener = opener
 	with pytest.raises(webwork_child.WebWorkOracleError, match="does not match"):
-		client.request("POST", "/api/runs", {}, {"Origin": "https://example.test"})
+		client.request(
+			"POST",
+			f"/api/courses/{COURSE_ID}/assignments/{ASSIGNMENT_ID}/runs",
+			headers={"Origin": "https://example.test"},
+		)
 	with pytest.raises(webwork_child.WebWorkOracleError, match="duplicate"):
 		client.request(
 			"POST",
-			"/api/runs",
-			{},
-			{"Origin": client.origin, "origin": client.origin},
+			f"/api/courses/{COURSE_ID}/assignments/{ASSIGNMENT_ID}/runs",
+			headers={"Origin": client.origin, "origin": client.origin},
 		)
 	assert opener.requests == []
 

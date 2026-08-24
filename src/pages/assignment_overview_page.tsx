@@ -92,13 +92,14 @@ export function AssignmentOverviewPage(): JSX.Element {
 
   async function startOrResume(): Promise<void> {
     const assignmentId = assignment()?.id;
-    if (assignmentId === undefined || starting()) {
+    const courseId = course()?.summary.id;
+    if (courseId === undefined || assignmentId === undefined || starting()) {
       return;
     }
     setStarting(true);
     setStartError(undefined);
     try {
-      const run = await runtime.client.startRun(assignmentId);
+      const run = await runtime.client.startRun(courseId, assignmentId);
       navigate(`/runs/${runRouteReference(run.reference)}`);
     } catch (error: unknown) {
       setStartError(

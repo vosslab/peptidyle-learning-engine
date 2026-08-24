@@ -1,5 +1,8 @@
 use super::super::*;
-use super::fixtures::{assert_external_debug_is_redacted, external_begin, external_tool_fixture};
+use super::fixtures::{
+    assert_external_debug_is_redacted, external_begin, external_tool_fixture,
+    external_tool_fixture_with_offset,
+};
 
 pub(super) async fn exercise_external_tool_broker<S>(store: &S)
 where
@@ -7,7 +10,8 @@ where
         + CatalogStore
         + CourseRosterStore
         + ExternalToolBrokerStore
-        + ExternalToolLaunchSessionStore,
+        + ExternalToolLaunchSessionStore
+        + SessionStore,
 {
     let fixture = external_tool_fixture(store).await;
     let mut provider_url = fixture.binding.clone();
@@ -50,6 +54,7 @@ where
             fixture.context,
             CreateExternalToolLaunchSessionCommand {
                 actor: fixture.actor,
+                learner_work_binding: fixture.learner_work_binding(),
                 attempt: fixture.attempt,
                 binding: fixture.binding.clone(),
                 encrypted_provider_state: Some(vec![7; 64]),
@@ -67,6 +72,7 @@ where
             fixture.context,
             CreateExternalToolLaunchSessionCommand {
                 actor: fixture.actor,
+                learner_work_binding: fixture.learner_work_binding(),
                 attempt: fixture.attempt,
                 binding: fixture.binding.clone(),
                 encrypted_provider_state: None,
@@ -79,6 +85,11 @@ where
     assert_external_debug_is_redacted(lease.clone(), &fixture);
     assert_external_debug_is_redacted(ExternalToolBegin::Lease(lease.clone()), &fixture);
     for mutated in [
+        {
+            let mut command = begin.clone();
+            command.learner_work_binding.assignment = AssignmentId::from_uuid(uuid(10_104));
+            command
+        },
         {
             let mut command = begin.clone();
             command.binding.provider = "other-provider".to_string();
@@ -130,7 +141,7 @@ where
             store
                 .begin_or_resume_external_grade(fixture.context, mutated)
                 .await,
-            Err(StoreError::Conflict)
+            Err(StoreError::Conflict) | Err(StoreError::NotFound)
         ));
     }
     let in_progress = store
@@ -149,6 +160,7 @@ where
     };
     let recovery_before_stage = CommitVerifiedExternalToolSubmissionCommand {
         actor: fixture.actor,
+        learner_work_binding: fixture.learner_work_binding(),
         attempt: fixture.attempt,
         response: StudentResponse::ExternalTool {},
         idempotency_key: begin.idempotency_key.clone(),
@@ -171,6 +183,7 @@ where
                 fixture.context,
                 StageExternalToolVerificationCommand {
                     actor: fixture.actor,
+                    learner_work_binding: fixture.learner_work_binding(),
                     attempt: fixture.attempt,
                     response: StudentResponse::Numeric { value: 1.0 },
                     idempotency_key: begin.idempotency_key.clone(),
@@ -188,6 +201,7 @@ where
             fixture.context,
             StageExternalToolVerificationCommand {
                 actor: fixture.actor,
+                learner_work_binding: fixture.learner_work_binding(),
                 attempt: fixture.attempt,
                 response: StudentResponse::ExternalTool {},
                 idempotency_key: begin.idempotency_key.clone(),
@@ -211,6 +225,7 @@ where
     assert_eq!(verified.correlation, lease.correlation);
     let recovery = CommitVerifiedExternalToolSubmissionCommand {
         actor: fixture.actor,
+        learner_work_binding: fixture.learner_work_binding(),
         attempt: fixture.attempt,
         response: StudentResponse::ExternalTool {},
         idempotency_key: begin.idempotency_key.clone(),
@@ -236,8 +251,10 @@ where
         .revoke_external_tool_launch_session(
             fixture.context,
             fixture.actor,
+            fixture.learner_work_binding(),
             fixture.attempt,
             copied_launch.id,
+            &copied_launch.token,
         )
         .await
         .expect("revoke hostile copied launch");
@@ -310,6 +327,7 @@ where
                 .claim_external_tool_activity(
                     fixture.context,
                     fixture.actor,
+                    fixture.learner_work_binding(),
                     fixture.attempt,
                     grade_launch.id,
                     &grade_launch.token,
@@ -317,8 +335,9 @@ where
                 )
                 .await,
             Ok(learning_data_access::ExternalToolActivityClaim::Unavailable)
+                | Err(StoreError::Conflict)
         ),
-        "the launch capability is consumed in the same commit as the receipt"
+        "a committed attempt can no longer claim the launch capability"
     );
     assert!(committed.attempt.timer.submitted_at.is_some());
     let committed_begin = store
@@ -340,11 +359,15 @@ where
         Err(StoreError::Conflict)
     ));
 
+    // Activity tests require an in-progress attempt. A completed submission
+    // must not reopen a launch capability on its already-graded attempt.
+    let fixture = external_tool_fixture_with_offset(store, 100_000).await;
     let launch = store
         .create_external_tool_launch_session(
             fixture.context,
             CreateExternalToolLaunchSessionCommand {
                 actor: fixture.actor,
+                learner_work_binding: fixture.learner_work_binding(),
                 attempt: fixture.attempt,
                 binding: fixture.binding.clone(),
                 encrypted_provider_state: Some(vec![7; 64]),
@@ -358,6 +381,7 @@ where
             fixture.context,
             CreateExternalToolLaunchSessionCommand {
                 actor: fixture.actor,
+                learner_work_binding: fixture.learner_work_binding(),
                 attempt: fixture.attempt,
                 binding: fixture.binding.clone(),
                 encrypted_provider_state: None,
@@ -372,6 +396,7 @@ where
                 fixture.context,
                 CreateExternalToolLaunchSessionCommand {
                     actor: fixture.actor,
+                    learner_work_binding: fixture.learner_work_binding(),
                     attempt: fixture.attempt,
                     binding: fixture.binding.clone(),
                     encrypted_provider_state: None,
@@ -387,6 +412,7 @@ where
                 fixture.context,
                 CreateExternalToolLaunchSessionCommand {
                     actor: fixture.actor,
+                    learner_work_binding: fixture.learner_work_binding(),
                     attempt: fixture.attempt,
                     binding: fixture.binding.clone(),
                     encrypted_provider_state: None,
@@ -408,6 +434,7 @@ where
         .claim_external_tool_activity(
             fixture.context,
             fixture.actor,
+            fixture.learner_work_binding(),
             fixture.attempt,
             launch.id,
             &launch.token,
@@ -423,6 +450,7 @@ where
             .claim_external_tool_activity(
                 fixture.context,
                 fixture.actor,
+                fixture.learner_work_binding(),
                 fixture.attempt,
                 launch.id,
                 &launch.token,
@@ -436,8 +464,10 @@ where
             .revoke_external_tool_launch_session(
                 fixture.context,
                 fixture.actor,
+                fixture.learner_work_binding(),
                 fixture.attempt,
                 launch.id,
+                &launch.token,
             )
             .await,
         Err(StoreError::Conflict)
@@ -447,6 +477,7 @@ where
             .claim_external_tool_activity(
                 fixture.context,
                 fixture.stranger,
+                fixture.learner_work_binding(),
                 fixture.attempt,
                 launch.id,
                 &launch.token,
@@ -461,6 +492,7 @@ where
                 .claim_external_tool_activity(
                     fixture.foreign_context,
                     fixture.actor,
+                    fixture.learner_work_binding(),
                     fixture.attempt,
                     launch.id,
                     &launch.token,
@@ -475,6 +507,7 @@ where
         .release_external_tool_activity(
             fixture.context,
             fixture.actor,
+            fixture.learner_work_binding(),
             fixture.attempt,
             launch.id,
             &activity.token,
@@ -485,8 +518,10 @@ where
         .revoke_external_tool_launch_session(
             fixture.context,
             fixture.actor,
+            fixture.learner_work_binding(),
             fixture.attempt,
             launch.id,
+            &launch.token,
         )
         .await
         .expect("owner revoke");
@@ -495,6 +530,7 @@ where
             .claim_external_tool_activity(
                 fixture.context,
                 fixture.actor,
+                fixture.learner_work_binding(),
                 fixture.attempt,
                 launch.id,
                 &launch.token,

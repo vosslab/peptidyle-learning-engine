@@ -356,14 +356,21 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	monkeypatch.setattr(local_stack_control.lifecycle, "synchronize_database", lambda target, runner, values: mark("database-login"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "run_migrations", lambda runner, root, values, environment: mark("migrated"))
 	monkeypatch.setattr(
+		local_stack_control.base_course_logins,
+		"provision",
+		lambda target, runner, values, environment: mark("base-course-logins")
+		or ("postgres://installer", "postgres://app"),
+	)
+	monkeypatch.setattr(
 		local_stack_control.lifecycle,
 		"prepare_installed_base_course",
-		lambda runner, root, target, values, environment: mark("prepared"),
+		lambda runner, root, target, values, environment, database_urls: mark("prepared"),
 	)
 	monkeypatch.setattr(
 		local_stack_control.lifecycle,
 		"finalize_installed_base_course",
-		lambda runner, root, target, values, environment, preparation: mark("seeded"),
+		lambda runner, root, target, values, environment, preparation, database_urls:
+			mark("seeded"),
 	)
 	monkeypatch.setattr(local_stack_control.lifecycle, "provision_grading_role", lambda target, runner, values: mark("grading-role"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_renderer_ready", lambda target, runner, options, identity: mark("renderer-ready"))
@@ -389,7 +396,12 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	)
 
 	local_stack_control.lifecycle.start_lifecycle(target, UnexpectedRunner(), tmp_path, options)
-	assert events.index("migrated") < events.index("prepared") < events.index("storage")
+	assert (
+		events.index("migrated")
+		< events.index("base-course-logins")
+		< events.index("prepared")
+		< events.index("storage")
+	)
 	assert events.index("prepared") < events.index("storage-ready")
 	assert events.index("storage-ready") < events.index("seeded")
 	assert events.index("renderer-ready") < events.index("renderer-probed")

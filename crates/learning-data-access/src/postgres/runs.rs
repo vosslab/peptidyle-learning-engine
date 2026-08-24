@@ -1,18 +1,167 @@
 use async_trait::async_trait;
 use objects::Sha256Digest;
-use question_model::{ImplementationVersion, ObjectId, QuestionEnvelope, SourceArtifact};
+use question_model::{ImplementationVersion, ObjectId, SourceArtifact};
 use sqlx::types::Uuid;
 use sqlx::{Postgres, Row, Transaction};
 
 use super::*;
 use crate::{
-    ReceiptNextAttempt, ReceiptPresentationSnapshot, WebworkGradeReplayStateV1,
+    LearnerWorkRoutingBinding, PrefetchedQuestionDescriptorV1, ReceiptNextAttempt, WebworkGradeReplayStateV1,
     WebworkReplayMappingV1,
 };
 
 pub(super) mod attempt_issuance;
+pub(super) mod authored_timing;
 pub(super) mod learner_transition;
-pub(super) use attempt_issuance::add_seconds;
+pub(super) mod qti_contracts;
+pub(super) use authored_timing::add_seconds;
+
+/// Hydrates the authorized current delivery lifecycle and immutable issuance
+/// evidence named by an already validated 1817 broker witness. The read uses
+/// only bound parameters and retained broker locks (ASVS 1.2.4, 2.2.1-2.2.3,
+/// 2.3.3, 8.2.2/8.3.1, 11.4.3, 14.2.6, 15.4.2, and 16.5.3). It deliberately
+/// excludes assignment, run-item, current catalog, renderer, and summary
+/// sources, so delivery evidence survives mutable-source evolution.
+async fn hydrate_issued_attempt_evidence(
+    transaction: &mut Transaction<'_, Postgres>,
+    witness: &super::learner_work_preparation::StudentAttemptPreparationWitness,
+) -> Result<crate::IssuedAttemptRead, StoreError> {
+    let row = sqlx::query(
+        "SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, \
+                presentation_digest, presentation_capability, presentation_payload, \
+                presentation_payload_sha256, grading_envelope_payload, \
+                grading_envelope_payload_sha256, flat_grading_required, flat_grading_payload, \
+                flat_grading_payload_sha256, webwork_grading_required, \
+                webwork_grading_payload, webwork_grading_payload_sha256, \
+                attempt_status AS current_attempt_status, \
+                floor(extract(epoch FROM submitted_at) * 1000)::bigint AS current_submitted_at \
+           FROM question_attempt \
+          WHERE tenant_id = $1 AND attempt_id = $2",
+    )
+    .bind(witness.source.tenant.as_uuid())
+    .bind(witness.attempt.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?
+    .ok_or_else(|| {
+        StoreError::Unavailable(
+            "issued attempt disappeared after learner-work preparation".to_string(),
+        )
+    })?;
+    let current_attempt = decode_issued_attempt_with_current_lifecycle_row(&row)?;
+    if current_attempt.tenant != witness.source.tenant
+        || current_attempt.id != witness.attempt
+        || current_attempt.run != witness.run
+        || current_attempt.status != witness.attempt_status
+    {
+        return Err(StoreError::Unavailable(
+            "issued attempt disagrees with learner-work preparation witness".to_string(),
+        ));
+    }
+    let capability = attempt_issuance::presentation_capability_from_row(&row)?;
+    let presentation_binding = decode_presentation_binding_row(&row)?;
+    let presentation_snapshot =
+        attempt_issuance::decode_attempt_presentation_snapshot(&row, capability)?;
+    let grading_envelope = attempt_issuance::decode_attempt_grading_envelope(&row, capability)?;
+    let presentation_snapshot = crate::validate_issued_presentation(
+        capability,
+        &current_attempt,
+        presentation_binding,
+        presentation_snapshot.as_ref(),
+        grading_envelope.as_ref(),
+    )?;
+    let receipt = crate::IssuedAttemptReceiptEvidence::new(
+        presentation_binding,
+        presentation_snapshot,
+        grading_envelope,
+    );
+    match current_attempt.status {
+        AttemptStatus::InProgress => {
+            let flat_grading =
+                attempt_issuance::validate_attempt_flat_grading(&row, &current_attempt)?;
+            let webwork_grading =
+                attempt_issuance::validate_attempt_webwork_grading(&row, &current_attempt)?;
+            let webwork_replay =
+                load_issued_webwork_replay(transaction, witness.source.tenant, &current_attempt)
+                    .await?;
+            let webwork_required = matches!(
+                current_attempt.issued_capability,
+                question_model::IssuedAttemptCapabilityV1::WebworkPresentation
+            );
+            if webwork_required != (webwork_grading.is_some() && webwork_replay.is_some()) {
+                return Err(StoreError::Unavailable(
+                    "stored active WebWork issued evidence is incomplete".to_string(),
+                ));
+            }
+            if let Some(replay) = &webwork_replay {
+                crate::validate_persisted_webwork_replay_state(
+                    &current_attempt,
+                    presentation_binding,
+                    replay,
+                )?;
+            }
+            Ok(crate::IssuedAttemptRead::Active(Box::new(
+                crate::ActiveIssuedAttemptEvidence::new(
+                    receipt,
+                    flat_grading,
+                    webwork_grading,
+                    webwork_replay,
+                ),
+            )))
+        }
+        AttemptStatus::Submitted => {
+            let (receipt_run, _receipt_summary, receipt_presentation) =
+                super::submission::load_submission_receipt_snapshot(
+                    transaction,
+                    witness.source.tenant,
+                    witness.attempt,
+                )
+                .await?
+                .ok_or_else(|| {
+                    StoreError::Unavailable(
+                        "submitted attempt lacks its immutable receipt".to_string(),
+                    )
+                })?;
+            if receipt_run.id != witness.run
+                || receipt_run.tenant != witness.source.tenant
+                || receipt_presentation != receipt.presentation_snapshot().cloned()
+            {
+                return Err(StoreError::Unavailable(
+                    "submitted receipt disagrees with issued evidence".to_string(),
+                ));
+            }
+            Ok(crate::IssuedAttemptRead::Submitted(Box::new(
+                crate::SubmittedIssuedAttemptRead::new(
+                    receipt,
+                    crate::SubmittedQuestionReceipt::new(receipt_presentation),
+                ),
+            )))
+        }
+        status => Ok(crate::IssuedAttemptRead::TerminalWithoutReceipt(Box::new(
+            crate::TerminalIssuedAttemptRead::new(receipt, status),
+        ))),
+    }
+}
+
+async fn load_issued_webwork_replay(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: &QuestionAttempt,
+) -> Result<Option<WebworkGradeReplayStateV1>, StoreError> {
+    let row = sqlx::query(
+        "SELECT problem_id, version_id, source_object_id, source_sha256, seed::text AS seed, \
+                renderer_id, renderer_version, presentation_digest AS replay_presentation_digest, \
+                mapping, mapping_sha256 \
+           FROM webwork_grade_replay_state \
+          WHERE tenant_id = $1 AND attempt_id = $2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(attempt.id.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    row.as_ref().map(decode_webwork_replay_state).transpose()
+}
 
 async fn require_active_learner_run(
     transaction: &mut Transaction<'_, Postgres>,
@@ -107,6 +256,27 @@ pub(super) async fn require_exact_submission_successor(
 
 #[async_trait]
 impl crate::RunStore for PostgresStore {
+    async fn prepare_question_submission_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        binding: LearnerWorkRoutingBinding,
+        attempt: QuestionAttemptId,
+        response: &StudentResponse,
+        idempotency_key: &SubmissionIdempotencyKey,
+    ) -> Result<crate::SubmissionPreparation, StoreError> {
+        super::submission_preparation::prepare_question_submission(
+            self,
+            context,
+            actor,
+            binding,
+            attempt,
+            response,
+            idempotency_key,
+        )
+        .await
+    }
+
     async fn learner_assignment_run_items_impl(
         &self,
         context: TenantContext,
@@ -129,14 +299,13 @@ impl crate::RunStore for PostgresStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        assignment: AssignmentId,
+        binding: LearnerWorkRoutingBinding,
         proposed_run: RunId,
     ) -> Result<AssignmentRun, StoreError> {
         retry_transaction(|| async move {
             let mut transaction = self.begin_tenant(context).await?;
-            let run =
-                start_or_resume_run(&mut transaction, context, actor, assignment, proposed_run)
-                    .await?;
+            let run = start_or_resume_run(&mut transaction, context, actor, binding, proposed_run)
+                .await?;
             transaction.commit().await.map_err(map_sqlx_error)?;
             Ok(run)
         })
@@ -185,234 +354,37 @@ impl crate::RunStore for PostgresStore {
         .await
     }
 
-    async fn get_attempt_presentation_binding_impl(
+    async fn read_issued_attempt_evidence_impl(
         &self,
         context: TenantContext,
         actor: UserId,
+        binding: LearnerWorkRoutingBinding,
         attempt: QuestionAttemptId,
-    ) -> Result<Option<PresentationBindingV1>, StoreError> {
+    ) -> Result<crate::IssuedAttemptRead, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        require_attempt_owner(&mut transaction, context.tenant_id(), attempt, actor).await?;
-        let row = sqlx::query(
-            "SELECT presentation_descriptor_version, presentation_nonce, presentation_digest \
-             FROM question_attempt WHERE tenant_id = $1 AND attempt_id = $2",
-        )
-        .bind(context.tenant_id().as_uuid())
-        .bind(attempt.as_uuid())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        row.as_ref()
-            .map(decode_presentation_binding_row)
-            .transpose()
-            .map(Option::flatten)
-    }
-    async fn get_attempt_presentation_snapshot_impl(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<ReceiptPresentationSnapshot>, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
-        require_attempt_owner(&mut transaction, context.tenant_id(), attempt, actor).await?;
-        let row = sqlx::query(
-            "SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, \
-                    presentation_digest, presentation_capability, presentation_payload, \
-                    presentation_payload_sha256, grading_envelope_payload, \
-                    grading_envelope_payload_sha256, flat_grading_required, flat_grading_payload, \
-                    flat_grading_payload_sha256, webwork_grading_required, \
-                    webwork_grading_payload, webwork_grading_payload_sha256 \
-             FROM question_attempt WHERE tenant_id = $1 AND attempt_id = $2",
-        )
-        .bind(context.tenant_id().as_uuid())
-        .bind(attempt.as_uuid())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
-        let capability = attempt_issuance::presentation_capability_from_row(&row)?;
-        let issued_attempt: QuestionAttempt = decode_payload_row(&row)?;
-        let binding = decode_presentation_binding_row(&row)?;
-        let snapshot = attempt_issuance::decode_attempt_presentation_snapshot(&row, capability)?;
-        let grading_envelope = attempt_issuance::decode_attempt_grading_envelope(&row, capability)?;
-        let snapshot = crate::validate_issued_presentation(
-            capability,
-            &issued_attempt,
+        // 1817 owns authorization and locks the learner-work graph before
+        // this bounded immutable-evidence hydration reads any source row
+        // (ASVS 1.2.4, 1.5.2, 2.2.1-2.2.3, 2.3.3, 8.2.2/8.3.1/8.4.1,
+        // 11.4.3, 14.2.6, 15.4.2, and 16.5.3).
+        let witness = super::learner_work_preparation::prepare_student_attempt_work(
+            &mut transaction,
+            context.tenant_id(),
             binding,
-            snapshot.as_ref(),
-            grading_envelope.as_ref(),
-        )?;
-        attempt_issuance::validate_attempt_flat_grading(&row, &issued_attempt)?;
-        attempt_issuance::validate_attempt_webwork_grading(&row, &issued_attempt)?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(snapshot)
-    }
-    async fn get_attempt_grading_envelope_impl(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<QuestionEnvelope>, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
-        require_attempt_owner(&mut transaction, context.tenant_id(), attempt, actor).await?;
-        let row = sqlx::query(
-            "SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, \
-                    presentation_digest, presentation_capability, presentation_payload, \
-                    presentation_payload_sha256, grading_envelope_payload, \
-                    grading_envelope_payload_sha256, flat_grading_required, flat_grading_payload, \
-                    flat_grading_payload_sha256, webwork_grading_required, \
-                    webwork_grading_payload, webwork_grading_payload_sha256 \
-             FROM question_attempt WHERE tenant_id = $1 AND attempt_id = $2",
+            actor,
+            attempt,
         )
-        .bind(context.tenant_id().as_uuid())
-        .bind(attempt.as_uuid())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
-        let capability = attempt_issuance::presentation_capability_from_row(&row)?;
-        let issued_attempt: QuestionAttempt = decode_payload_row(&row)?;
-        let binding = decode_presentation_binding_row(&row)?;
-        let snapshot = attempt_issuance::decode_attempt_presentation_snapshot(&row, capability)?;
-        let grading_envelope = attempt_issuance::decode_attempt_grading_envelope(&row, capability)?;
-        crate::validate_issued_presentation(
-            capability,
-            &issued_attempt,
-            binding,
-            snapshot.as_ref(),
-            grading_envelope.as_ref(),
-        )?;
-        attempt_issuance::validate_attempt_flat_grading(&row, &issued_attempt)?;
-        attempt_issuance::validate_attempt_webwork_grading(&row, &issued_attempt)?;
+        .await?;
+        let evidence = hydrate_issued_attempt_evidence(&mut transaction, &witness).await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(grading_envelope)
-    }
-    async fn get_attempt_flat_grading_impl(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<crate::IssuedFlatGradingContract>, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
-        require_attempt_owner(&mut transaction, context.tenant_id(), attempt, actor).await?;
-        let row = sqlx::query(
-            "SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, \
-                    presentation_digest, presentation_capability, presentation_payload, \
-                    presentation_payload_sha256, grading_envelope_payload, \
-                    grading_envelope_payload_sha256, flat_grading_required, flat_grading_payload, \
-                    flat_grading_payload_sha256 \
-             FROM question_attempt WHERE tenant_id = $1 AND attempt_id = $2",
-        )
-        .bind(context.tenant_id().as_uuid())
-        .bind(attempt.as_uuid())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
-        let capability = attempt_issuance::presentation_capability_from_row(&row)?;
-        let issued_attempt: QuestionAttempt = decode_payload_row(&row)?;
-        let binding = decode_presentation_binding_row(&row)?;
-        let snapshot = attempt_issuance::decode_attempt_presentation_snapshot(&row, capability)?;
-        let grading_envelope = attempt_issuance::decode_attempt_grading_envelope(&row, capability)?;
-        crate::validate_issued_presentation(
-            capability,
-            &issued_attempt,
-            binding,
-            snapshot.as_ref(),
-            grading_envelope.as_ref(),
-        )?;
-        let contract = attempt_issuance::validate_attempt_flat_grading(&row, &issued_attempt)?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(contract)
-    }
-    async fn get_attempt_webwork_grading_impl(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<crate::IssuedWebworkGradingContract>, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
-        require_attempt_owner(&mut transaction, context.tenant_id(), attempt, actor).await?;
-        let row = sqlx::query(
-            "SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, \
-                    presentation_digest, presentation_capability, presentation_payload, \
-                    presentation_payload_sha256, grading_envelope_payload, \
-                    grading_envelope_payload_sha256, flat_grading_required, flat_grading_payload, \
-                    flat_grading_payload_sha256, webwork_grading_required, \
-                    webwork_grading_payload, webwork_grading_payload_sha256 \
-             FROM question_attempt WHERE tenant_id = $1 AND attempt_id = $2",
-        )
-        .bind(context.tenant_id().as_uuid())
-        .bind(attempt.as_uuid())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
-        let capability = attempt_issuance::presentation_capability_from_row(&row)?;
-        let issued_attempt: QuestionAttempt = decode_payload_row(&row)?;
-        let binding = decode_presentation_binding_row(&row)?;
-        let snapshot = attempt_issuance::decode_attempt_presentation_snapshot(&row, capability)?;
-        let grading_envelope = attempt_issuance::decode_attempt_grading_envelope(&row, capability)?;
-        crate::validate_issued_presentation(
-            capability,
-            &issued_attempt,
-            binding,
-            snapshot.as_ref(),
-            grading_envelope.as_ref(),
-        )?;
-        attempt_issuance::validate_attempt_flat_grading(&row, &issued_attempt)?;
-        let contract = attempt_issuance::validate_attempt_webwork_grading(&row, &issued_attempt)?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(contract)
-    }
-    async fn get_webwork_grade_replay_state_impl(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<WebworkGradeReplayStateV1>, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
-        require_attempt_owner(&mut transaction, context.tenant_id(), attempt, actor).await?;
-        let row = sqlx::query(
-            "SELECT replay.problem_id, replay.version_id, replay.source_object_id, \
-                    replay.source_sha256, replay.seed::text AS seed, replay.renderer_id, \
-                    replay.renderer_version, \
-                    replay.presentation_digest AS replay_presentation_digest, \
-                    replay.mapping, replay.mapping_sha256, \
-                    attempt.payload AS attempt_payload, \
-                    attempt.payload_sha256 AS attempt_payload_sha256, \
-                    attempt.presentation_descriptor_version, attempt.presentation_nonce, \
-                    attempt.presentation_digest \
-               FROM webwork_grade_replay_state AS replay \
-               JOIN question_attempt AS attempt \
-                 ON attempt.tenant_id = replay.tenant_id \
-                AND attempt.attempt_id = replay.attempt_id \
-                AND attempt.occurred_at = replay.attempt_occurred_at \
-              WHERE replay.tenant_id = $1 AND replay.attempt_id = $2",
-        )
-        .bind(context.tenant_id().as_uuid())
-        .bind(attempt.as_uuid())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        let Some(row) = row.as_ref() else {
-            return Ok(None);
-        };
-        let replay = decode_webwork_replay_state(row)?;
-        let attempt: QuestionAttempt =
-            decode_payload_row_named(row, "attempt_payload", "attempt_payload_sha256")?;
-        let presentation = decode_presentation_binding_row(row)?;
-        crate::validate_persisted_webwork_replay_state(&attempt, presentation, &replay)?;
-        Ok(Some(replay))
+        Ok(evidence)
     }
     async fn reserve_or_resume_prefetched_question_impl(
         &self,
         context: TenantContext,
         command: ReservePrefetchedQuestionCommand,
-    ) -> Result<PrefetchedQuestion, StoreError> {
+    ) -> Result<PrefetchedQuestionDescriptorV1, StoreError> {
         let reservation = command.reservation;
+        let private_execution = command.private_execution;
         if reservation.tenant != context.tenant_id()
             || reservation.parameter_hash.trim().is_empty()
             || reservation
@@ -425,6 +397,25 @@ impl crate::RunStore for PostgresStore {
                 "invalid prefetch reservation".to_string(),
             ));
         }
+        reservation
+            .issued_question_snapshot
+            .validate_for_attempt(reservation.problem, reservation.question_version)?;
+        reservation
+            .issued_question_snapshot
+            .validate_for_issuance_context(
+                reservation.flat_grading_capability,
+                reservation.webwork_grading_capability,
+                reservation.qti_grading_capability,
+                Some(&reservation.presentation_snapshot),
+            )?;
+        reservation
+            .issued_question_snapshot
+            .validate_native_provenance(&reservation.provenance.asset_objects)?;
+        crate::validate_issued_qti_grading(
+            reservation.issued_question_snapshot.question(),
+            reservation.qti_grading_capability,
+            private_execution.qti_grading.as_ref(),
+        )?;
         let mut transaction = self.begin_tenant(context).await?;
         learner_transition::lock_predecessor_for_learner_run(
             &mut transaction,
@@ -492,7 +483,7 @@ impl crate::RunStore for PostgresStore {
             .bind(context.tenant_id().as_uuid()).bind(reservation.run.as_uuid()).bind(reservation.predecessor.as_uuid()).bind(i32::try_from(reservation.assignment_position).map_err(|_| StoreError::InvalidRecord("prefetch position is too large".to_string()))?)
             .fetch_optional(&mut *transaction).await.map_err(map_sqlx_error)?;
         if let Some(row) = existing {
-            let existing: PrefetchedQuestion = decode_payload_row(&row)?;
+            let existing: PrefetchedQuestionDescriptorV1 = decode_payload_row(&row)?;
             if decode_presentation_binding_row(&row)? != Some(existing.presentation) {
                 return Err(StoreError::Unavailable(
                     "stored prefetch presentation disagrees with its columns".to_string(),
@@ -522,7 +513,7 @@ impl crate::RunStore for PostgresStore {
         run: RunId,
         predecessor: QuestionAttemptId,
         assignment_position: u32,
-    ) -> Result<Option<PrefetchedQuestion>, StoreError> {
+    ) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         let run_record = load_run_for_update(&mut transaction, context.tenant_id(), run).await?;
         let enrollment = load_enrollment_for_update(
@@ -552,7 +543,7 @@ impl crate::RunStore for PostgresStore {
         let Some(row) = row else {
             return Ok(None);
         };
-        let reservation: PrefetchedQuestion = decode_payload_row(&row)?;
+        let reservation: PrefetchedQuestionDescriptorV1 = decode_payload_row(&row)?;
         if decode_presentation_binding_row(&row)? != Some(reservation.presentation) {
             return Err(StoreError::Unavailable(
                 "stored prefetch presentation disagrees with its columns".to_string(),
@@ -567,7 +558,7 @@ impl crate::RunStore for PostgresStore {
         run: RunId,
         predecessor: QuestionAttemptId,
         assignment_position: u32,
-    ) -> Result<Option<PrefetchedQuestion>, StoreError> {
+    ) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         if require_active_learner_run(&mut transaction, context.tenant_id(), actor, run)
             .await?
@@ -579,7 +570,7 @@ impl crate::RunStore for PostgresStore {
         let row = sqlx::query("SELECT payload, payload_sha256, presentation_descriptor_version, presentation_nonce, presentation_digest FROM question_prefetch WHERE tenant_id = $1 AND run_id = $2 AND predecessor_attempt_id = $3 AND assignment_position = $4").bind(context.tenant_id().as_uuid()).bind(run.as_uuid()).bind(predecessor.as_uuid()).bind(i32::try_from(assignment_position).map_err(|_| StoreError::InvalidRecord("prefetch position is too large".to_string()))?).fetch_optional(&mut *transaction).await.map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         let Some(row) = row else { return Ok(None) };
-        let reservation: PrefetchedQuestion = decode_payload_row(&row)?;
+        let reservation: PrefetchedQuestionDescriptorV1 = decode_payload_row(&row)?;
         if decode_presentation_binding_row(&row)? != Some(reservation.presentation) {
             return Err(StoreError::Unavailable(
                 "stored prefetch presentation disagrees with its columns".to_string(),
@@ -921,7 +912,7 @@ impl crate::RunStore for PostgresStore {
     }
 }
 
-fn decode_webwork_replay_state(
+pub(in crate::postgres) fn decode_webwork_replay_state(
     row: &sqlx::postgres::PgRow,
 ) -> Result<WebworkGradeReplayStateV1, StoreError> {
     let mapping_value: serde_json::Value = row.try_get("mapping").map_err(map_sqlx_error)?;

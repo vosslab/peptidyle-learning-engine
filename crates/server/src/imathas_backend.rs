@@ -27,7 +27,8 @@ use adapter_imathas::{
 };
 use async_trait::async_trait;
 use learning_data_access::{
-    CatalogSourceStore, ExternalToolBinding, ExternalToolBrokerStore, PersistedCorrelation,
+    CatalogSourceStore, ExternalToolBinding, ExternalToolBrokerStore,
+    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, PersistedCorrelation,
     PublishedSourceArtifact, StoreError, TenantContext,
 };
 use objects::{ObjectStore, Sha256Digest};
@@ -107,8 +108,8 @@ pub trait ExternalToolSubmissionBackend: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
+        learner_work_binding: learning_data_access::LearnerWorkRoutingBinding,
+        issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         idempotency_key: learning_data_access::SubmissionIdempotencyKey,
         launch_proof: learning_data_access::ExternalToolLaunchProof,
@@ -181,45 +182,28 @@ where
         Ok((source, artifact))
     }
 
-    /// Recreates the issued envelope and proves it is byte-for-byte the
-    /// persisted attempt contract before any launch, broker, or provider-grade
-    /// side effect. The adapter owns cache validation and source provenance;
-    /// this bridge owns comparison with the tenant record.
-    async fn reproduce_issued_attempt(
+    /// Resolves only the source object explicitly retained by the issued
+    /// snapshot.  First post-issue launch/activity/submission callers use
+    /// this path after the Store has established current learner authority.
+    /// It intentionally has no catalog argument or catalog store operation.
+    async fn resolve_issued_source(
         &self,
-        context: TenantContext,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
         attempt: &QuestionAttempt,
-    ) -> Result<adapter_imathas::ImathasIssuedAttempt, RunBackendError> {
-        validate_attempt_reference(reference, question, attempt)?;
-        let (source, artifact) = self.resolve_source(context, reference, question).await?;
-        let issued = self
-            .adapter
-            .issue(
-                question,
-                Seed::new(attempt.seed),
-                &source,
-                artifact.object.created_at,
-            )
+        issued_snapshot: &IssuedQuestionSnapshotV1,
+    ) -> Result<ImathasSource, RunBackendError> {
+        validate_issued_snapshot(attempt, issued_snapshot)?;
+        ImathasSource::resolve_issued(self.objects.as_ref(), issued_snapshot)
             .await
-            .map_err(map_adapter_error)?;
-        if issued.parameter_hash != attempt.parameter_hash
-            || issued.provenance != attempt.provenance
-        {
-            return Err(RunBackendError::Invalid(
-                "iMathAS issued output does not match attempt provenance".into(),
-            ));
-        }
-        Ok(issued)
+            .map_err(map_adapter_error)
     }
 
     fn binding(
-        question: &QuestionDefinition,
+        issued_snapshot: &IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
-        artifact: &PublishedSourceArtifact,
         response: &StudentResponse,
     ) -> Result<ExternalToolBinding, RunBackendError> {
+        validate_issued_snapshot(attempt, issued_snapshot)?;
+        let question = issued_snapshot.question();
         let QuestionSource::Imathas {
             provider,
             snapshot,
@@ -232,10 +216,18 @@ where
                 "published question is not iMathAS".into(),
             ));
         };
-        if artifact.reference.problem != question.problem
-            || artifact.reference.version != question.version
-            || artifact.object.id != *snapshot
-            || artifact.object.sha256.to_string() != *snapshot_sha256
+        let IssuedQuestionFamilyWitnessV1::External {
+            source_artifact,
+            integration_profile_identity,
+        } = issued_snapshot.family_witness()
+        else {
+            return Err(RunBackendError::Invalid(
+                "iMathAS issued witness is invalid".into(),
+            ));
+        };
+        if source_artifact.object != *snapshot
+            || source_artifact.sha256 != *snapshot_sha256
+            || integration_profile_identity != integration_profile
             || attempt.problem != question.problem
             || attempt.question_version != question.version
             || !matches!(response, StudentResponse::ExternalTool {})
@@ -308,20 +300,22 @@ where
     /// exact issued attempt. The returned cookie token is intentionally the
     /// only value that may reach the browser; provider state is AEAD-wrapped
     /// before it enters the Store.
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_contracted_launch_session(
         &self,
         context: TenantContext,
         actor: UserId,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
+        learner_work_binding: learning_data_access::LearnerWorkRoutingBinding,
+        issued_question_snapshot: &IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         state_aead: &LaunchStateAead,
     ) -> Result<learning_data_access::CreatedExternalToolLaunchSession, RunBackendError> {
-        self.reproduce_issued_attempt(context, reference, question, attempt)
+        let question = issued_question_snapshot.question();
+        let source = self
+            .resolve_issued_source(attempt, issued_question_snapshot)
             .await?;
-        let (source, artifact) = self.resolve_source(context, reference, question).await?;
         let response = StudentResponse::ExternalTool {};
-        let binding = Self::binding(question, attempt, &artifact, &response)?;
+        let binding = Self::binding(issued_question_snapshot, attempt, &response)?;
         let grade_binding = Self::correlation_binding(context, attempt);
         let correlation = self
             .correlations
@@ -352,13 +346,14 @@ where
             )
             .await
             .map_err(map_adapter_error)?;
-        let aad = launch_state_aad(context, actor, attempt, &binding);
+        let aad = launch_state_aad(context, actor, learner_work_binding, attempt, &binding);
         let encrypted = state_aead.seal_adapter_session(&session, &aad)?;
         self.sources
             .create_external_tool_launch_session(
                 context,
                 learning_data_access::CreateExternalToolLaunchSessionCommand {
                     actor,
+                    learner_work_binding,
                     attempt: attempt.id,
                     binding,
                     encrypted_provider_state: Some(encrypted),
@@ -387,15 +382,38 @@ fn validate_reference(
     Ok(())
 }
 
-fn validate_attempt_reference(
-    reference: ProblemVersionRef,
-    question: &QuestionDefinition,
+fn validate_issued_snapshot(
     attempt: &QuestionAttempt,
+    issued_snapshot: &IssuedQuestionSnapshotV1,
 ) -> Result<(), RunBackendError> {
-    validate_reference(reference, question)?;
-    if attempt.problem != reference.problem || attempt.question_version != reference.version {
+    issued_snapshot
+        .validate_for_attempt(attempt.problem, attempt.question_version)
+        .map_err(|_| RunBackendError::Invalid("iMathAS issued snapshot is invalid".into()))?;
+    let question = issued_snapshot.question();
+    let (
+        QuestionSource::Imathas {
+            snapshot,
+            snapshot_sha256,
+            integration_profile,
+            ..
+        },
+        IssuedQuestionFamilyWitnessV1::External {
+            source_artifact,
+            integration_profile_identity,
+        },
+    ) = (&question.source, issued_snapshot.family_witness())
+    else {
         return Err(RunBackendError::Invalid(
-            "attempt does not match its published iMathAS question".into(),
+            "iMathAS issued snapshot is invalid".into(),
+        ));
+    };
+    if attempt.provenance.source_artifact.as_ref() != Some(source_artifact)
+        || source_artifact.object != *snapshot
+        || source_artifact.sha256 != *snapshot_sha256
+        || integration_profile_identity != integration_profile
+    {
+        return Err(RunBackendError::Invalid(
+            "iMathAS issued snapshot disagrees with attempt evidence".into(),
         ));
     }
     Ok(())

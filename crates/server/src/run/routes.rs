@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::middleware;
 use axum::response::{IntoResponse, Response};
@@ -10,9 +10,9 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use learning_data_access::{
     AuthoritativeTimeStore, CatalogStore, CourseAppearanceStore, CourseItemAnalysisStore,
-    ManualGradingStore, SessionStore, Store,
+    LearnerWorkRoutingBinding, ManualGradingStore, SessionStore, Store,
 };
-use question_model::RunId;
+use question_model::{AssignmentId, CourseId, RunId};
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
@@ -25,8 +25,7 @@ use super::queries::{
 };
 use super::submission::submit_response;
 use super::support::{
-    MAX_SUBMISSION_BODY_BYTES, RunRouteState, StartRunRequest, no_store_response,
-    store_error_response,
+    MAX_SUBMISSION_BODY_BYTES, RunRouteState, no_store_response, store_error_response,
 };
 
 /// Builds the authenticated run route group around a shared store and backend registry.
@@ -43,20 +42,26 @@ where
     B: RunBackend + 'static,
 {
     Router::new()
-        .route("/api/runs", post(start_run::<S, B>))
+        .route(
+            "/api/courses/{course}/assignments/{assignment}/runs",
+            post(start_run::<S, B>),
+        )
         .route("/api/runs/{run}", get(get_run::<S, B>))
         .route("/api/runs/{run}/summary", get(get_run_summary::<S, B>))
         .route("/api/runs/{run}/attempts", get(list_attempts::<S, B>))
         .route("/api/attempts/{attempt}", get(get_attempt::<S, B>))
         .route(
-            "/api/attempts/{attempt}/question",
+            "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/question",
             get(get_attempt_question::<S, B>),
         )
         .route(
-            "/api/attempts/{attempt}/prefetch-next",
+            "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/prefetch-next",
             post(prefetch_next_question::<S, B>),
         )
-        .route("/api/submissions/{attempt}", post(submit_response::<S, B>))
+        .route(
+            "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submissions",
+            post(submit_response::<S, B>),
+        )
         .route(
             "/api/attempts/{attempt}/manual-grade",
             get(manual_grading::get_manual_grade::<S, B>)
@@ -81,8 +86,8 @@ where
 
 async fn start_run<S, B>(
     State(state): State<RunRouteState<S, B>>,
+    Path((course, assignment)): Path<(CourseId, AssignmentId)>,
     headers: HeaderMap,
-    Json(request): Json<StartRunRequest>,
 ) -> Response
 where
     S: Store + CatalogStore + ManualGradingStore + SessionStore + 'static,
@@ -98,7 +103,7 @@ where
         .start_or_resume_run(
             authenticated.tenant_context,
             actor,
-            request.assignment_id,
+            LearnerWorkRoutingBinding::new(course, assignment),
             RunId::generate(),
         )
         .await
@@ -127,6 +132,7 @@ where
             state.store.as_ref(),
             state.backend.as_ref(),
             &authenticated,
+            LearnerWorkRoutingBinding::new(course, assignment),
             &run,
             predecessor,
         )

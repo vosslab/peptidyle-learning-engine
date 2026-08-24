@@ -66,6 +66,7 @@ def installed_receipt(
 			"storageReceiptKey": "ple/live-demo/base-course-install-receipt.json",
 			"storageReceiptJson": storage,
 			"storageReceiptSha256": "a" * 64,
+			"completionReceiptSha256": "b" * 64,
 			"manifest": {
 				"assignmentId": "a",
 				"enrollmentId": "e",

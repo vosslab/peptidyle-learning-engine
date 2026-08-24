@@ -58,7 +58,13 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -66,6 +72,7 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,

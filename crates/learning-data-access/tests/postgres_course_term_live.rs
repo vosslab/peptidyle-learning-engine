@@ -2,6 +2,10 @@
 
 //! Disposable PostgreSQL 17 oracle for course-term storage, constraints, and RLS.
 
+#[path = "postgres_course_creation_support.rs"]
+mod course_creation_support;
+use course_creation_support::sysadmin_course_creation_authority;
+
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     CourseListScope, CourseRecord, CreateCourseCommand, PageRequest, PageSize, Store, StoreError,
@@ -93,7 +97,8 @@ async fn postgres_course_terms_round_trip_enforce_constraints_and_remain_tenant_
                     title: "PostgreSQL term boundary course".to_string(),
                     term: term.clone(),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(&store, tenant, course, instructor)
+                    .await,
             },
         )
         .await

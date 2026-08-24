@@ -13,6 +13,7 @@ rand_chacha.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+uuid.workspace = true
 
 # Clock-free by construction; see the workspace declaration.
 chrono.workspace = true
@@ -22,7 +23,6 @@ chrono-tz.workspace = true
 wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
-uuid.workspace = true
 
 [features]
 default = []

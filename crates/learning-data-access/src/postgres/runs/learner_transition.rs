@@ -75,6 +75,39 @@ pub(super) async fn lock_predecessor_for_learner_run(
     Ok(())
 }
 
+/// Locks and verifies a predecessor after a run-specific broker preparation.
+///
+/// Unlike [`lock_predecessor_for_learner_run`], this helper performs no route,
+/// run, enrollment, assignment, or membership discovery. The caller already
+/// holds the 1817 run witness and its canonical source locks.
+pub(super) async fn lock_prepared_predecessor_for_learner_run(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    run: RunId,
+    predecessor: QuestionAttemptId,
+) -> Result<(), StoreError> {
+    if load_attempt_for_external_update(transaction, tenant, predecessor)
+        .await?
+        .run
+        != run
+    {
+        return Err(StoreError::Conflict);
+    }
+    let submitted: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM submission_idempotency \
+         WHERE tenant_id = $1 AND attempt_id = $2)",
+    )
+    .bind(tenant.as_uuid())
+    .bind(predecessor.as_uuid())
+    .fetch_one(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    if !submitted {
+        return Err(StoreError::Conflict);
+    }
+    Ok(())
+}
+
 /// Links an issued successor to its submitted predecessor. The unique key
 /// serializes concurrent writers; a loser accepts only the exact durable link.
 pub(super) async fn record_submission_successor(

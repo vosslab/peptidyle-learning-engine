@@ -9,10 +9,11 @@ pub(super) use axum::http::{HeaderMap, StatusCode};
 pub(super) use axum::response::{IntoResponse, Response};
 pub(super) use learning_data_access::{
     AuthoritativeTimeStore, CatalogStore, CourseAppearanceStore, CourseItemAnalysisStore, Cursor,
-    IssueQuestionAttemptCommand, LearnerAssignmentSummarySnapshot, ManualGradingStore, PageRequest,
-    PageSize, PaginationError, PresentationCapability, ReceiptNextAttempt,
-    ReceiptPresentationSnapshot, ResolveEffectivePolicyCommand, SessionStore, Store, StoreError,
-    SubmissionIdempotencyKey, SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext,
+    IssueQuestionAttemptCommand, IssuedAttemptRead, LearnerAssignmentSummarySnapshot,
+    LearnerWorkRoutingBinding, ManualGradingStore, PageRequest, PageSize, PaginationError,
+    PresentationCapability, ReceiptNextAttempt, ReceiptPresentationSnapshot,
+    ResolveEffectivePolicyCommand, SessionStore, Store, StoreError, SubmissionIdempotencyKey,
+    SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext,
 };
 #[cfg(test)]
 pub(super) use question_model::UserRole;
@@ -21,10 +22,10 @@ pub(super) use question_model::presentation::{
     AssetBindingV1, PresentationV1, build_presentation_v1,
 };
 pub(super) use question_model::{
-    AssignmentEnrollment, AssignmentRun, AttemptResult, CourseAppearance, CourseSummary,
-    DisclosedFeedback, FeedbackContent, LearnerAssignmentProgress, PresentationBindingV1,
-    ProblemVersionRef, QuestionAttempt, QuestionAttemptId, QuestionDefinition, QuestionEnvelope,
-    RunId, StudentAssignmentSummary, StudentResponse,
+    AssignmentEnrollment, AssignmentId, AssignmentRun, AttemptResult, CourseAppearance, CourseId,
+    CourseSummary, DisclosedFeedback, FeedbackContent, LearnerAssignmentProgress,
+    PresentationBindingV1, ProblemVersionRef, QuestionAttempt, QuestionAttemptId,
+    QuestionDefinition, QuestionEnvelope, RunId, StudentAssignmentSummary, StudentResponse,
 };
 pub(super) use serde::{Deserialize, Serialize};
 
@@ -80,12 +81,6 @@ impl<S, B> Clone for RunRouteState<S, B> {
 pub(super) struct RunQuery {
     pub(super) cursor: Option<String>,
     pub(super) page_size: Option<u16>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct StartRunRequest {
-    pub(super) assignment_id: question_model::AssignmentId,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

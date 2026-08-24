@@ -575,6 +575,7 @@ where
         Err(r) => return r,
     };
     let command = RespondToCoInstructorInvitation {
+        session: auth.record.token_hash,
         actor: auth.record.subject.user(),
         invitation,
         expected_revision: expected,

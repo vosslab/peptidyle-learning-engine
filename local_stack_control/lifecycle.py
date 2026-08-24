@@ -5,6 +5,7 @@ import pathlib
 import os
 import collections.abc
 
+import local_stack_control.base_course_logins
 import local_stack_control.compose
 import local_stack_control.consumer
 import local_stack_control.discovery
@@ -32,8 +33,6 @@ LOCAL_MARY_ID = "00000000-0000-0000-0000-000000000102"
 LOCAL_JACK_ID = "00000000-0000-0000-0000-000000000103"
 LOCAL_APPROVAL_CANDIDATE_ID = "00000000-0000-0000-0000-000000000104"
 LOCAL_SYSADMIN_ID = "00000000-0000-0000-0000-000000000105"
-
-
 @dataclasses.dataclass(frozen=True)
 class LifecycleOptions:
 	"""Explicit lifecycle intent after the public CLI has parsed it once."""
@@ -357,14 +356,17 @@ def start_lifecycle(
 	wait_for_postgres(selected, runner, values, options)
 	synchronize_database(target, runner, values)
 	run_migrations(runner, repo_root, values, environment)
+	base_course_database_urls = None
+	if local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
+		base_course_database_urls = local_stack_control.base_course_logins.provision(selected, runner, values, child_environment(selected))
 	base_course = prepare_installed_base_course(
-		runner, repo_root, target, values, environment
+		runner, repo_root, target, values, environment, base_course_database_urls
 	)
 	provision_grading_role(selected, runner, values)
 	compose_run(selected, runner, ["up", "-d", "minio", "createbuckets"])
 	wait_for_one_shot(selected, runner, options, "createbuckets")
 	finalize_installed_base_course(
-		runner, repo_root, target, values, environment, base_course
+		runner, repo_root, target, values, environment, base_course, base_course_database_urls
 	)
 	compose_run(selected, runner, ["up", "-d", "--force-recreate", "--no-deps", "webwork-renderer"])
 	wait_for_renderer_ready(selected, runner, options, oci_id)
@@ -399,7 +401,10 @@ def start_lifecycle(
 
 #============================================
 def restart_lifecycle(
-	target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget,
+	target: (
+		local_stack_control.models.ComposeTarget
+		| local_stack_control.models.DisposableComposeTarget
+	),
 	runner: local_stack_control.process.CommandRunner,
 	repo_root: pathlib.Path,
 	service: str,
@@ -623,8 +628,13 @@ def synchronize_database(target: local_stack_control.models.ComposeTarget | loca
 def run_migrations(runner: local_stack_control.process.CommandRunner, repo_root: pathlib.Path, values: dict[str, str], environment: dict[str, str]) -> None:
 	"""Run migrations with the database URL only in the direct child environment."""
 	child = dict(environment)
-	child["PLE_MIGRATION_DATABASE_URL"] = database_url(values)
-	require_command(runner.run(["cargo", "tools", "database", "migrate"], child, repo_root), "database migration")
+	migration_database_url = database_url(values)
+	child["PLE_MIGRATION_DATABASE_URL"] = migration_database_url
+	require_command(
+		runner.run(["cargo", "tools", "database", "migrate"], child, repo_root),
+		"database migration",
+		(migration_database_url,),
+	)
 
 
 #============================================
@@ -635,14 +645,24 @@ def prepare_installed_base_course(
 	| local_stack_control.models.DisposableComposeTarget,
 	values: dict[str, str],
 	environment: dict[str, str],
+	base_course_database_urls: tuple[str, str] | None,
 ) -> BaseCourseLifecycleReceipt | None:
 	"""Classify the migrated Base Course state before starting object storage."""
 	if not local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
 		return None
-	child = dict(environment)
-	child["PLE_MIGRATION_DATABASE_URL"] = database_url(values)
-	child["PLE_QUESTION_ID_SECRET_FILE"] = values["PLE_QUESTION_ID_SECRET_HOST_FILE"]
-	result = run_base_course_phase(runner, repo_root, child, "prepare")
+	installer_database_url, app_database_url = local_stack_control.base_course_logins.require_urls(
+		base_course_database_urls
+	)
+	child = local_stack_control.base_course_logins.child_environment(
+		environment, values, installer_database_url, app_database_url
+	)
+	result = run_base_course_phase(
+		runner,
+		repo_root,
+		child,
+		"prepare",
+		private_values=(installer_database_url, app_database_url),
+	)
 	return result
 
 
@@ -655,6 +675,7 @@ def finalize_installed_base_course(
 	values: dict[str, str],
 	environment: dict[str, str],
 	preparation: BaseCourseLifecycleReceipt | None,
+	base_course_database_urls: tuple[str, str] | None,
 ) -> None:
 	"""Finish an installing baseline after ordinary object-storage readiness."""
 	if preparation is None:
@@ -667,11 +688,19 @@ def finalize_installed_base_course(
 	local_stack_control.base_course_lifecycle.ensure_storage_receipt(
 		selected, runner, preparation, child_environment(selected)
 	)
-	child = dict(environment)
-	child["PLE_MIGRATION_DATABASE_URL"] = database_url(values)
-	child["PLE_QUESTION_ID_SECRET_FILE"] = values["PLE_QUESTION_ID_SECRET_HOST_FILE"]
+	installer_database_url, app_database_url = local_stack_control.base_course_logins.require_urls(
+		base_course_database_urls
+	)
+	child = local_stack_control.base_course_logins.child_environment(
+		environment, values, installer_database_url, app_database_url
+	)
 	completed = run_base_course_phase(
-		runner, repo_root, child, "install", preparation.storage_receipt_json
+		runner,
+		repo_root,
+		child,
+		"install",
+		preparation.storage_receipt_json,
+		private_values=(installer_database_url, app_database_url),
 	)
 	if completed.install_state != "complete":
 		raise local_stack_control.models.ControllerError(
@@ -705,13 +734,14 @@ def run_base_course_phase(
 	child: dict[str, str],
 	phase: str,
 	storage_receipt: str | None = None,
+	*,
+	private_values: tuple[str, ...] = (),
 ) -> BaseCourseLifecycleReceipt:
 	"""Invoke one closed lifecycle phase and decode its authoritative response."""
 	argv = [
 		"cargo",
 		"tools",
 		"base-course",
-		"--apply-migrations",
 		"--tenant",
 		LOCAL_TENANT_ID,
 		"--instructor",
@@ -730,7 +760,7 @@ def run_base_course_phase(
 	if storage_receipt is not None:
 		argv.extend(["--storage-receipt", storage_receipt])
 	result = runner.run(argv, child, repo_root)
-	require_command(result, f"installed Base Course {phase}")
+	require_command(result, f"installed Base Course {phase}", private_values)
 	return local_stack_control.base_course_lifecycle.decode(result.stdout, phase)
 
 

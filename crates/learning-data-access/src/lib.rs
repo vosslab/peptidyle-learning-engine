@@ -98,7 +98,15 @@ pub use crate::asset_delivery::{
     AssetStore, AuthorizedAssetDelivery, CatalogAssetBinding, PublicAssetPublicationStore,
 };
 pub use crate::contracts::CourseGroupManagementStore;
-pub use crate::contracts::{PreviewPlaneResult, PreviewPlaneStore, PreviewSubjectAudit};
+pub use crate::contracts::{
+    AbandonRehearsalSubmissionBeforeDispatchCommand, AppendRehearsalFrozenItemCommand,
+    ClaimRehearsalSubmissionCommand, ClaimedRehearsalSubmission,
+    CompleteRehearsalSubmissionCommand, IssuedNativeAssetBindingV1, IssuedQuestionFamilyWitnessV1,
+    IssuedQuestionSnapshotV1, MarkRehearsalSubmissionDispatchedCommand, PreviewPlaneResult,
+    PreviewPlaneStore, PreviewSubjectAudit, RehearsalLocator,
+    RehearsalPreDispatchCompensationStore, RehearsalStore, RehearsalSubmissionClaimResult,
+    RehearsalSubmissionIdempotencyKey, RehearsalSubmissionReceipt, StartRehearsalCommand,
+};
 pub use crate::course_appearance::{
     COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseAppearanceStore, CourseBannerCleanupBatch,
     CourseBannerCleanupClaim, CourseBannerCleanupToken, CourseBannerPromotion,
@@ -123,7 +131,6 @@ pub use crate::course_roster::{
     RosterIdempotencyKey, RosterImportInvitation, RosterImportRevision, RosterImportRowStatus,
     RosterRevision, StageCourseRosterImport, UpsertCourseMember,
 };
-pub(crate) use crate::external_tool::fresh_external_tool_launch_id;
 pub use crate::external_tool::{
     BeginExternalToolGradeCommand, ClaimExternalToolFinalizationActivityCommand,
     ClaimedExternalToolActivity, CommitExternalToolSubmissionCommand,
@@ -132,7 +139,10 @@ pub use crate::external_tool::{
     ExternalToolBegin, ExternalToolBinding, ExternalToolBrokerStore, ExternalToolLaunchProof,
     ExternalToolLaunchSessionStore, ExternalToolLaunchToken, ExternalToolLease,
     ExternalToolLeaseToken, ExternalToolVerifiedPending, PersistedCorrelation,
-    StageExternalToolVerificationCommand,
+    PreparedExternalToolAttempt, StageExternalToolVerificationCommand,
+};
+pub(crate) use crate::external_tool::{
+    fresh_external_tool_launch_id, validate_external_snapshot_binding,
 };
 pub use crate::feedback::{
     AttemptFeedbackRecord, FeedbackReleaseRecord, LearnerAssignmentSummarySnapshot,

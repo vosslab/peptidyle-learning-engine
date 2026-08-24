@@ -66,7 +66,13 @@ async fn fixture() -> (Arc<MemoryStore>, String, String, String, CourseId, Strin
                     )
                     .expect("term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -74,6 +80,7 @@ async fn fixture() -> (Arc<MemoryStore>, String, String, String, CourseId, Strin
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,
@@ -215,27 +222,30 @@ async fn assignment_referencing_group(
     store
         .create_assignment(
             context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                audience: AssignmentAudience::any_of_groups(vec![group]).expect("one group"),
-                title: "Group guard fixture".to_string(),
-                lifecycle: AssignmentLifecycle::Draft,
-                instructions: AssignmentInstructions::default(),
-                items: vec![AssignmentItem {
-                    id: AssignmentItemId::from_uuid(id(36)),
-                    reference,
-                    position: 0,
-                    points_possible: PointValue::from_whole(1),
-                    delivery_state: AssignmentDeliveryState::Active,
-                    scoring_mode: AssignmentScoringMode::Normal,
-                }],
-                selection_groups: Vec::new(),
-                disclosure_policy: LearnerDisclosurePolicy::default(),
-                policies: policies(),
+            learning_data_access::CreateAssignmentCommand {
+                actor: instructor,
+                assignment: AssignmentRecord {
+                    id: assignment,
+                    tenant,
+                    course_id: course,
+                    audience: AssignmentAudience::any_of_groups(vec![group]).expect("one group"),
+                    title: "Group guard fixture".to_string(),
+                    lifecycle: AssignmentLifecycle::Draft,
+                    instructions: AssignmentInstructions::default(),
+                    items: vec![AssignmentItem {
+                        id: AssignmentItemId::from_uuid(id(36)),
+                        reference,
+                        position: 0,
+                        points_possible: PointValue::from_whole(1),
+                        delivery_state: AssignmentDeliveryState::Active,
+                        scoring_mode: AssignmentScoringMode::Normal,
+                    }],
+                    selection_groups: Vec::new(),
+                    disclosure_policy: LearnerDisclosurePolicy::default(),
+                    policies: policies(),
+                },
+                base_policy,
             },
-            base_policy,
         )
         .await
         .expect("assignment");

@@ -6,10 +6,10 @@ use super::*;
 mod retention_tests {
     use super::*;
     use crate::{
-        CourseRosterStore, CreateCourseCommand, JobClaimFilter, JobLeaseDuration, JobPayload,
-        JobStore, RetentionApiStore, RetentionDays, RetentionDispatchBatch, RetentionScheduleStore,
-        RetentionWorkerCommand, RetentionWorkerStore, SessionLifetime, SessionStore, Store,
-        UpsertCourseMember,
+        CourseCreationAuthority, CourseRosterStore, CreateCourseCommand, JobClaimFilter,
+        JobLeaseDuration, JobPayload, JobStore, RetentionApiStore, RetentionDays,
+        RetentionDispatchBatch, RetentionScheduleStore, RetentionWorkerCommand,
+        RetentionWorkerStore, SessionLifetime, SessionStore, Store, UpsertCourseMember,
     };
 
     fn session(number: u8) -> SessionTokenHash {
@@ -42,6 +42,15 @@ mod retention_tests {
         instructor: UserId,
         students: &[UserId],
     ) {
+        let initial_instructor_session = SessionTokenHash::compute(course.as_uuid().as_bytes());
+        establish_session(
+            store,
+            initial_instructor_session,
+            context.tenant_id(),
+            instructor,
+            vec![UserRole::Sysadmin],
+        )
+        .await;
         store
             .create_course(
                 context,
@@ -57,7 +66,10 @@ mod retention_tests {
                         )
                         .expect("explicit fixture course term"),
                     },
-                    initial_instructor: instructor,
+                    authority: CourseCreationAuthority::Sysadmin {
+                        actor: instructor,
+                        session: initial_instructor_session,
+                    },
                 },
             )
             .await
@@ -66,6 +78,7 @@ mod retention_tests {
             store
                 .upsert_course_member(
                     context,
+                    instructor,
                     UpsertCourseMember {
                         course,
                         user: *student,

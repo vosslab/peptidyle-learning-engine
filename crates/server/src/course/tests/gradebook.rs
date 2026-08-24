@@ -34,7 +34,13 @@ async fn fixture() -> (Arc<MemoryStore>, String, TenantId, UserId, CourseId) {
                     )
                     .expect("term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await

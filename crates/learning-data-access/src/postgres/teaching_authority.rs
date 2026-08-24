@@ -237,86 +237,138 @@ impl TeachingAuthorityStore for PostgresStore {
         retry_transaction(|| async {
             let tenant = context.tenant_id();
             let mut transaction = self.begin_tenant(context).await?;
-            let course: Option<Uuid> = sqlx::query_scalar(concat!(
-                "SELECT course_id FROM course_instructor_invitation WHERE tenant_id=$1 ",
-                "AND invitation_id=$2 AND target_user_id=$3",
-            ))
+            let row = sqlx::query(
+                "SELECT tenant_id, actor_id, course_id, course_membership_id, roster_revision \
+                 FROM public.ple_accept_co_instructor_invitation_v1($1,$2,$3,$4)",
+            )
             .bind(tenant.as_uuid())
+            .bind(command.session.to_string())
             .bind(command.invitation.as_uuid())
-            .bind(command.actor.as_uuid())
-            .fetch_optional(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-            let course = CourseId::from_uuid(course.ok_or(StoreError::NotFound)?);
-            // T2's shared course row serializes membership changes.  The roster
-            // row follows it, then the invitation and target membership lock.
-            lock_course(&mut transaction, tenant, course).await?;
-            roster_revision(&mut transaction, tenant, course, true).await?;
-            let row = sqlx::query(concat!(
-                "SELECT invitation_id, course_id, target_user_id, invited_by_membership_id, ",
-                "floor(extract(epoch FROM created_at)*1000)::bigint AS created_at_millis, ",
-                "floor(extract(epoch FROM expires_at)*1000)::bigint AS expires_at_millis, ",
-                "floor(extract(epoch FROM accepted_at)*1000)::bigint AS accepted_at_millis, ",
-                "floor(extract(epoch FROM declined_at)*1000)::bigint AS declined_at_millis, ",
-                "floor(extract(epoch FROM revoked_at)*1000)::bigint AS revoked_at_millis, ",
-                "status, revision FROM course_instructor_invitation WHERE tenant_id = $1 ",
-                "AND invitation_id = $2 FOR UPDATE",
-            ))
-            .bind(tenant.as_uuid())
-            .bind(command.invitation.as_uuid())
+            .bind(command.expected_revision.as_i64())
             .fetch_optional(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?
             .ok_or(StoreError::NotFound)?;
-            let stored = decode_invitation(&row)?;
-            if command.actor != stored.invitation.target {
-                return Err(StoreError::NotFound);
+            let returned_tenant =
+                TenantId::from_uuid(row.try_get("tenant_id").map_err(map_sqlx_error)?);
+            let returned_actor =
+                UserId::from_uuid(row.try_get("actor_id").map_err(map_sqlx_error)?);
+            let course = CourseId::from_uuid(row.try_get("course_id").map_err(map_sqlx_error)?);
+            let membership = CourseMembershipId::from_uuid(
+                row.try_get("course_membership_id")
+                    .map_err(map_sqlx_error)?,
+            );
+            let revision = RosterRevision::from_stored(
+                row.try_get("roster_revision").map_err(map_sqlx_error)?,
+            )?;
+            if returned_tenant != tenant || returned_actor != command.actor {
+                return Err(StoreError::Unavailable(
+                    "co-instructor acceptance capability witness is invalid".to_string(),
+                ));
             }
-            if stored.invitation.accepted_at.is_some() {
-                let view = accepted_view(&mut transaction, tenant, command.invitation).await?;
-                transaction.commit().await.map_err(map_sqlx_error)?;
-                return Ok(view);
-            }
-            if stored.revision != command.expected_revision {
-                return Err(StoreError::Conflict);
-            }
-            if stored.invitation.declined_at.is_some()
-                || stored.invitation.revoked_at.is_some()
-                || is_expired(&stored.invitation, &mut transaction).await?
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(DirectInstructorMembershipView {
+                membership,
+                course,
+                user: command.actor,
+                roster_revision: revision,
+            });
+            #[allow(unreachable_code)]
             {
-                return Err(StoreError::Conflict);
-            }
-            require_locked_eligibility(&mut transaction, command.actor).await?;
-            let existing: Option<Uuid> = sqlx::query_scalar(concat!(
-                "SELECT course_membership_id FROM course_member WHERE tenant_id = $1 ",
-                "AND course_id = $2 AND user_id = $3 AND status = 'active' FOR UPDATE",
-            ))
-            .bind(tenant.as_uuid())
-            .bind(stored.invitation.course.as_uuid())
-            .bind(command.actor.as_uuid())
-            .fetch_optional(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-            let membership = match existing {
-                Some(id) => {
-                    let role: String = sqlx::query_scalar(concat!(
-                        "SELECT role FROM course_member WHERE tenant_id=$1 AND course_id=$2 ",
-                        "AND course_membership_id=$3",
-                    ))
-                    .bind(tenant.as_uuid())
-                    .bind(stored.invitation.course.as_uuid())
-                    .bind(id)
-                    .fetch_one(&mut *transaction)
-                    .await
-                    .map_err(map_sqlx_error)?;
-                    if role != "instructor" {
-                        return Err(StoreError::Conflict);
-                    }
-                    id
+                // ASVS 8.2.1, 8.3.1-8.3.3: derive the acceptance subject from the
+                // locked, active tenant session before inspecting the invitation.
+                let session_actor: Option<Uuid> = sqlx::query_scalar(
+                    "SELECT user_id FROM auth_session WHERE session_hash=$1 AND tenant_id=$2 \
+                 AND revoked_at IS NULL AND expires_at>transaction_timestamp() FOR UPDATE",
+                )
+                .bind(command.session.to_string())
+                .bind(tenant.as_uuid())
+                .fetch_optional(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+                if session_actor != Some(command.actor.as_uuid()) {
+                    return Err(StoreError::NotFound);
                 }
-                None => {
-                    let id = random_uuid("course membership ID")?;
-                    sqlx::query(concat!(
+                let course: Option<Uuid> = sqlx::query_scalar(concat!(
+                    "SELECT course_id FROM course_instructor_invitation WHERE tenant_id=$1 ",
+                    "AND invitation_id=$2 AND target_user_id=$3",
+                ))
+                .bind(tenant.as_uuid())
+                .bind(command.invitation.as_uuid())
+                .bind(command.actor.as_uuid())
+                .fetch_optional(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+                let course = CourseId::from_uuid(course.ok_or(StoreError::NotFound)?);
+                // T2's shared course row serializes membership changes.  The roster
+                // row follows it, then the invitation and target membership lock.
+                lock_course(&mut transaction, tenant, course).await?;
+                roster_revision(&mut transaction, tenant, course, true).await?;
+                let row = sqlx::query(concat!(
+                    "SELECT invitation_id, course_id, target_user_id, invited_by_membership_id, ",
+                    "floor(extract(epoch FROM created_at)*1000)::bigint AS created_at_millis, ",
+                    "floor(extract(epoch FROM expires_at)*1000)::bigint AS expires_at_millis, ",
+                    "floor(extract(epoch FROM accepted_at)*1000)::bigint AS accepted_at_millis, ",
+                    "floor(extract(epoch FROM declined_at)*1000)::bigint AS declined_at_millis, ",
+                    "floor(extract(epoch FROM revoked_at)*1000)::bigint AS revoked_at_millis, ",
+                    "status, revision FROM course_instructor_invitation WHERE tenant_id = $1 ",
+                    "AND invitation_id = $2 FOR UPDATE",
+                ))
+                .bind(tenant.as_uuid())
+                .bind(command.invitation.as_uuid())
+                .fetch_optional(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?
+                .ok_or(StoreError::NotFound)?;
+                let stored = decode_invitation(&row)?;
+                if command.actor != stored.invitation.target {
+                    return Err(StoreError::NotFound);
+                }
+                if stored.invitation.accepted_at.is_some() {
+                    let view = accepted_view(&mut transaction, tenant, command.invitation).await?;
+                    transaction.commit().await.map_err(map_sqlx_error)?;
+                    return Ok(view);
+                }
+                if stored.revision != command.expected_revision {
+                    return Err(StoreError::Conflict);
+                }
+                if stored.invitation.declined_at.is_some()
+                    || stored.invitation.revoked_at.is_some()
+                    || is_expired(&stored.invitation, &mut transaction).await?
+                {
+                    return Err(StoreError::Conflict);
+                }
+                require_locked_eligibility(&mut transaction, command.actor).await?;
+                let existing: Option<Uuid> = sqlx::query_scalar(concat!(
+                    "SELECT course_membership_id FROM course_member WHERE tenant_id = $1 ",
+                    "AND course_id = $2 AND user_id = $3 AND status = 'active' FOR UPDATE",
+                ))
+                .bind(tenant.as_uuid())
+                .bind(stored.invitation.course.as_uuid())
+                .bind(command.actor.as_uuid())
+                .fetch_optional(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+                let membership = match existing {
+                    Some(id) => {
+                        let role: String = sqlx::query_scalar(concat!(
+                            "SELECT role FROM course_member WHERE tenant_id=$1 AND course_id=$2 ",
+                            "AND course_membership_id=$3",
+                        ))
+                        .bind(tenant.as_uuid())
+                        .bind(stored.invitation.course.as_uuid())
+                        .bind(id)
+                        .fetch_one(&mut *transaction)
+                        .await
+                        .map_err(map_sqlx_error)?;
+                        if role != "instructor" {
+                            return Err(StoreError::Conflict);
+                        }
+                        id
+                    }
+                    None => {
+                        let id = random_uuid("course membership ID")?;
+                        sqlx::query(concat!(
                         "INSERT INTO course_member (tenant_id, course_id, course_membership_id, ",
                         "user_id, role, student_id, status, joined_at) VALUES ",
                         "($1,$2,$3,$4,'instructor',NULL,'active',transaction_timestamp())",
@@ -328,35 +380,36 @@ impl TeachingAuthorityStore for PostgresStore {
                     .execute(&mut *transaction)
                     .await
                     .map_err(map_sqlx_error)?;
-                    id
+                        id
+                    }
+                };
+                let changed = sqlx::query(concat!(
+                    "UPDATE course_instructor_invitation SET status='accepted', ",
+                    "accepted_at=transaction_timestamp(), accepted_membership_id=$3, ",
+                    "revision=revision+1 ",
+                    "WHERE tenant_id=$1 AND invitation_id=$2 AND status='pending' AND revision=$4",
+                ))
+                .bind(tenant.as_uuid())
+                .bind(command.invitation.as_uuid())
+                .bind(membership)
+                .bind(command.expected_revision.as_i64())
+                .execute(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?
+                .rows_affected();
+                if changed != 1 {
+                    return Err(StoreError::Conflict);
                 }
-            };
-            let changed = sqlx::query(concat!(
-                "UPDATE course_instructor_invitation SET status='accepted', ",
-                "accepted_at=transaction_timestamp(), accepted_membership_id=$3, ",
-                "revision=revision+1 ",
-                "WHERE tenant_id=$1 AND invitation_id=$2 AND status='pending' AND revision=$4",
-            ))
-            .bind(tenant.as_uuid())
-            .bind(command.invitation.as_uuid())
-            .bind(membership)
-            .bind(command.expected_revision.as_i64())
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?
-            .rows_affected();
-            if changed != 1 {
-                return Err(StoreError::Conflict);
+                let revision =
+                    bump_roster(&mut transaction, tenant, stored.invitation.course, None).await?;
+                transaction.commit().await.map_err(map_sqlx_error)?;
+                Ok(DirectInstructorMembershipView {
+                    membership: CourseMembershipId::from_uuid(membership),
+                    course: stored.invitation.course,
+                    user: command.actor,
+                    roster_revision: revision,
+                })
             }
-            let revision =
-                bump_roster(&mut transaction, tenant, stored.invitation.course, None).await?;
-            transaction.commit().await.map_err(map_sqlx_error)?;
-            Ok(DirectInstructorMembershipView {
-                membership: CourseMembershipId::from_uuid(membership),
-                course: stored.invitation.course,
-                user: command.actor,
-                roster_revision: revision,
-            })
         })
         .await
     }
@@ -423,61 +476,63 @@ impl TeachingAuthorityStore for PostgresStore {
         retry_transaction(|| async {
             let tenant = context.tenant_id();
             let mut transaction = self.begin_tenant(context).await?;
-            lock_course(&mut transaction, tenant, command.course).await?;
-            require_direct_instructor(&mut transaction, tenant, command.course, command.actor)
-                .await?;
-            // Validate first without a row lock so missing/wrong-role targets
-            // win over stale roster revisions. The final lock remains after the
-            // roster lock, preserving the global course -> roster -> membership order.
-            require_active_direct_instructor_membership(
-                &mut transaction,
-                tenant,
-                command.course,
-                command.membership,
-                false,
-            )
-            .await?;
-            let current = roster_revision(&mut transaction, tenant, command.course, true).await?;
-            if current != command.expected_roster_revision {
-                return Err(StoreError::Conflict);
-            }
-            require_active_direct_instructor_membership(
-                &mut transaction,
-                tenant,
-                command.course,
-                command.membership,
-                true,
-            )
-            .await?;
-            let other_active_instructors: i64 = sqlx::query_scalar(concat!(
-                "SELECT count(*) FROM course_member WHERE tenant_id=$1 AND course_id=$2 ",
-                "AND course_membership_id <> $3 AND role='instructor' AND status='active'",
+            let expected_roster_revision = i64::try_from(command.expected_roster_revision.value())
+                .map_err(|_| StoreError::Conflict)?;
+            // The broker owns every source lock. It returns only the locked
+            // revision, then transaction-scoped locks protect the Rust
+            // aggregate verification and ordinary persisted mutation.
+            // ASVS 2.3.3, 2.3.4, 8.2.2, and 8.3.1.
+            let prepared_row = sqlx::query(concat!(
+                "SELECT * FROM public.ple_prepare_direct_instructor_rehearsal_fence",
+                "($1, $2, $3, $4, $5)",
             ))
             .bind(tenant.as_uuid())
+            .bind(command.actor.as_uuid())
             .bind(command.course.as_uuid())
             .bind(command.membership.as_uuid())
+            .bind(expected_roster_revision)
             .fetch_one(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
-            if !can_remove_direct_instructor(other_active_instructors) {
+            let prepared =
+                super::rehearsal::DirectInstructorRehearsalPrepareWitness::decode(&prepared_row)?;
+            if prepared.roster_revision() != expected_roster_revision {
                 return Err(StoreError::Conflict);
             }
-            let changed = sqlx::query(concat!(
-                "UPDATE course_member SET status='revoked', revoked_at=transaction_timestamp() ",
-                "WHERE tenant_id=$1 AND course_id=$2 AND course_membership_id=$3 ",
-                "AND role='instructor' AND status='active'",
+            let witness = prepared
+                .verify(
+                    &mut transaction,
+                    tenant,
+                    super::rehearsal::RehearsalSourceSelector::DirectInstructorMembership {
+                        course: command.course,
+                        membership: command.membership,
+                    },
+                )
+                .await?;
+            let locked_rehearsal_count = witness.database_count()?;
+            let fenced: i64 = sqlx::query_scalar(concat!(
+                "SELECT public.ple_fence_rehearsals_for_direct_instructor_removal",
+                "($1, $2, $3, $4, $5, $6)",
             ))
             .bind(tenant.as_uuid())
+            .bind(command.actor.as_uuid())
             .bind(command.course.as_uuid())
             .bind(command.membership.as_uuid())
-            .execute(&mut *transaction)
+            .bind(expected_roster_revision)
+            .bind(locked_rehearsal_count)
+            .fetch_one(&mut *transaction)
             .await
-            .map_err(map_sqlx_error)?
-            .rows_affected();
-            if changed != 1 {
-                return Err(StoreError::NotFound);
+            .map_err(map_sqlx_error)?;
+            if fenced != locked_rehearsal_count {
+                return Err(StoreError::Conflict);
             }
-            bump_roster(&mut transaction, tenant, command.course, Some(current)).await?;
+
+            let expected_revision = command.expected_roster_revision.next()?;
+            let actual_revision =
+                roster_revision(&mut transaction, tenant, command.course, false).await?;
+            if actual_revision != expected_revision {
+                return Err(StoreError::Conflict);
+            }
             transaction.commit().await.map_err(map_sqlx_error)
         })
         .await
@@ -491,6 +546,18 @@ async fn target_terminal(
     status: &str,
 ) -> Result<(), StoreError> {
     let mut transaction = store.begin_tenant(context).await?;
+    let session_actor: Option<Uuid> = sqlx::query_scalar(
+        "SELECT user_id FROM auth_session WHERE session_hash=$1 AND tenant_id=$2 \
+         AND revoked_at IS NULL AND expires_at>transaction_timestamp() FOR UPDATE",
+    )
+    .bind(command.session.to_string())
+    .bind(context.tenant_id().as_uuid())
+    .fetch_optional(&mut *transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    if session_actor != Some(command.actor.as_uuid()) {
+        return Err(StoreError::NotFound);
+    }
     let target: Option<Uuid> = sqlx::query_scalar(
         "SELECT target_user_id FROM course_instructor_invitation \
          WHERE tenant_id=$1 AND invitation_id=$2 FOR UPDATE",
@@ -640,9 +707,6 @@ async fn require_locked_eligibility(
     eligible.then_some(()).ok_or(StoreError::Forbidden)
 }
 
-fn can_remove_direct_instructor(other_active_instructors: i64) -> bool {
-    other_active_instructors > 0
-}
 async fn require_direct_instructor(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
@@ -661,34 +725,6 @@ async fn require_direct_instructor(
     .map_err(map_sqlx_error)?;
     id.map(CourseMembershipId::from_uuid)
         .ok_or(StoreError::NotFound)
-}
-
-async fn require_active_direct_instructor_membership(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-    membership: CourseMembershipId,
-    lock: bool,
-) -> Result<(), StoreError> {
-    let query = if lock {
-        concat!(
-            "SELECT course_membership_id FROM course_member WHERE tenant_id=$1 AND course_id=$2 ",
-            "AND course_membership_id=$3 AND role='instructor' AND status='active' FOR UPDATE",
-        )
-    } else {
-        concat!(
-            "SELECT course_membership_id FROM course_member WHERE tenant_id=$1 AND course_id=$2 ",
-            "AND course_membership_id=$3 AND role='instructor' AND status='active'",
-        )
-    };
-    let id: Option<Uuid> = sqlx::query_scalar(query)
-        .bind(tenant.as_uuid())
-        .bind(course.as_uuid())
-        .bind(membership.as_uuid())
-        .fetch_optional(&mut **transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-    id.map(|_| ()).ok_or(StoreError::NotFound)
 }
 
 async fn session_subject(
@@ -826,7 +862,7 @@ fn random_uuid(label: &str) -> Result<Uuid, StoreError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{can_remove_direct_instructor, require_row, stored_status_matches_terminals};
+    use super::{require_row, stored_status_matches_terminals};
     use crate::StoreError;
 
     #[test]
@@ -853,11 +889,5 @@ mod tests {
         assert!(!stored_status_matches_terminals(
             "other", false, false, false
         ));
-    }
-
-    #[test]
-    fn final_direct_instructor_removal_conflicts_before_the_database_trigger() {
-        assert!(!can_remove_direct_instructor(0));
-        assert!(can_remove_direct_instructor(1));
     }
 }

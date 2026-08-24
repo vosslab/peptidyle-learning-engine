@@ -142,7 +142,7 @@ impl QtiGradingStore for CountingQtiGrader {
             .await
     }
 
-    async fn qti_published_grading(
+    async fn qti_publication_grading(
         &self,
         context: TenantContext,
         reference: ProblemVersionRef,
@@ -150,7 +150,7 @@ impl QtiGradingStore for CountingQtiGrader {
     ) -> Result<Option<QtiImportGradingPayload>, StoreError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         self.inner
-            .qti_published_grading(context, reference, item_id)
+            .qti_publication_grading(context, reference, item_id)
             .await
     }
 }
@@ -167,7 +167,7 @@ impl QtiGradingStore for RecordedGrader {
         Ok(None)
     }
 
-    async fn qti_published_grading(
+    async fn qti_publication_grading(
         &self,
         context: TenantContext,
         reference: ProblemVersionRef,

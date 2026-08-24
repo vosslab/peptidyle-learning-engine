@@ -8,9 +8,9 @@ use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
     AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssignmentRecord, CatalogStore,
     CourseRecord, CourseRosterStore, CreateCourseCommand, DraftRecord, FlatQuestionGradingPayload,
-    FlatQuestionPublicationPromotion, FlatQuestionStore, PublishDraftCommand,
-    PublishedSourceArtifact, SessionLifetime, SessionSubject, Store, UpsertCourseMember,
-    UpsertFlatQuestionCommand,
+    FlatQuestionPublicationPromotion, FlatQuestionStore, IssuedQuestionFamilyWitnessV1,
+    IssuedQuestionSnapshotV1, PublishDraftCommand, PublishedSourceArtifact, SessionLifetime,
+    SessionSubject, Store, UpsertCourseMember, UpsertFlatQuestionCommand,
 };
 use objects::{ObjectKey, ObjectRecord, Sha256Digest};
 use question_model::answer::SelectionCardinality;
@@ -327,7 +327,7 @@ async fn published_flat_fixture() -> (
     )
 }
 
-async fn flat_run_fixture() -> (Router, String, AssignmentId) {
+async fn flat_run_fixture() -> (Router, String, CourseId, AssignmentId) {
     let (backend, store, context, reference, _question, _attempt, _correct, _incorrect) =
         published_flat_fixture().await;
     let tenant = context.tenant_id();
@@ -350,7 +350,13 @@ async fn flat_run_fixture() -> (Router, String, AssignmentId) {
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -358,6 +364,7 @@ async fn flat_run_fixture() -> (Router, String, AssignmentId) {
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,
@@ -370,32 +377,35 @@ async fn flat_run_fixture() -> (Router, String, AssignmentId) {
     store
         .create_assignment(
             context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                audience: question_model::AssignmentAudience::CourseWide,
-                title: "Retry semantics".to_string(),
-                lifecycle: question_model::AssignmentLifecycle::Draft,
-                instructions: question_model::AssignmentInstructions::default(),
-                items: vec![AssignmentItem {
-                    id: AssignmentItemId::from_uuid(uuid(123)),
-                    reference,
-                    position: 0,
-                    points_possible: PointValue::from_whole(1),
-                    delivery_state: question_model::AssignmentDeliveryState::Active,
-                    scoring_mode: question_model::AssignmentScoringMode::Normal,
-                }],
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: RunPolicies {
-                    completion: CompletionRequirement::AllCorrect,
-                    grade: GradePolicy::Highest,
-                    continued_practice: ContinuedPractice::Unlimited,
-                    variation: VariationPolicy::NewSeeds,
+            learning_data_access::CreateAssignmentCommand {
+                actor: instructor,
+                assignment: AssignmentRecord {
+                    id: assignment,
+                    tenant,
+                    course_id: course,
+                    audience: question_model::AssignmentAudience::CourseWide,
+                    title: "Retry semantics".to_string(),
+                    lifecycle: question_model::AssignmentLifecycle::Draft,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    items: vec![AssignmentItem {
+                        id: AssignmentItemId::from_uuid(uuid(123)),
+                        reference,
+                        position: 0,
+                        points_possible: PointValue::from_whole(1),
+                        delivery_state: question_model::AssignmentDeliveryState::Active,
+                        scoring_mode: question_model::AssignmentScoringMode::Normal,
+                    }],
+                    selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    policies: RunPolicies {
+                        completion: CompletionRequirement::AllCorrect,
+                        grade: GradePolicy::Highest,
+                        continued_practice: ContinuedPractice::Unlimited,
+                        variation: VariationPolicy::NewSeeds,
+                    },
                 },
+                base_policy: question_model::BaseAssignmentPolicy::default(),
             },
-            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("retry fixture assignment saves");
@@ -433,6 +443,7 @@ async fn flat_run_fixture() -> (Router, String, AssignmentId) {
     (
         crate::run::router(store, Arc::new(backend)),
         cookie,
+        course,
         assignment,
     )
 }
@@ -501,12 +512,21 @@ async fn active_attempt_id(app: &Router, run: &str, cookie: &str) -> String {
         .expect("an active retry attempt is issued")
 }
 
-async fn rendered_choice_id(app: &Router, attempt: &str, cookie: &str, label: &str) -> ChoiceId {
+async fn rendered_choice_id(
+    app: &Router,
+    course: CourseId,
+    assignment: AssignmentId,
+    attempt: &str,
+    cookie: &str,
+    label: &str,
+) -> ChoiceId {
     let response = app
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/attempts/{attempt}/question"))
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/question"
+                ))
                 .header("cookie", cookie)
                 .body(Body::empty())
                 .expect("rendered choice request"),
@@ -719,6 +739,9 @@ async fn flat_question_grades_from_isolated_memory_grader_and_keeps_issue_answer
         Arc::new(adapter_native::NativeAdapter::new()),
         Arc::clone(&_store),
     );
+    let issued_snapshot =
+        IssuedQuestionSnapshotV1::new(question.clone(), IssuedQuestionFamilyWitnessV1::Flat {})
+            .expect("flat snapshot");
     let disposition = receipt_backend
         .submit(RunSubmission {
             context,
@@ -726,11 +749,15 @@ async fn flat_question_grades_from_isolated_memory_grader_and_keeps_issue_answer
             idempotency_key: learning_data_access::SubmissionIdempotencyKey::parse("flat-test")
                 .expect("fixture key is valid"),
             reference,
-            question: &question,
+            issued_question_snapshot: &issued_snapshot,
             attempt: &attempt,
             issued_grading_envelope: Some(&envelope),
             issued_flat_grading: Some(&issued_flat_grading),
             issued_webwork_grading: None,
+            issued_qti_grading: None,
+            issued_webwork_replay: None,
+            issued_presentation_binding: None,
+            issued_presentation: None,
             response: &wrong_response,
         })
         .await
@@ -748,14 +775,19 @@ async fn flat_question_grades_from_isolated_memory_grader_and_keeps_issue_answer
 
 #[tokio::test]
 async fn flat_run_route_retries_wrong_first_source_choice_then_completes_correct_second_choice() {
-    let (app, cookie, assignment) = flat_run_fixture().await;
+    let (app, cookie, course, assignment) = flat_run_fixture().await;
     let start = app
         .clone()
-        .oneshot(post_json(
-            "/api/runs",
-            &cookie,
-            serde_json::json!({ "assignmentId": assignment }),
-        ))
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/runs"
+                ))
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .expect("start run request"),
+        )
         .await
         .expect("run starts");
     assert_eq!(
@@ -770,13 +802,16 @@ async fn flat_run_route_retries_wrong_first_source_choice_then_completes_correct
         .expect("run has a public id")
         .to_string();
     let first_attempt = active_attempt_id(&app, &run_id, &cookie).await;
-    let first_wrong = rendered_choice_id(&app, &first_attempt, &cookie, "Red").await;
+    let first_wrong =
+        rendered_choice_id(&app, course, assignment, &first_attempt, &cookie, "Red").await;
     assert_ne!(first_wrong, ChoiceId::new("red"));
 
     let wrong = app
         .clone()
         .oneshot(submission_json(
-            &format!("/api/submissions/{first_attempt}"),
+            &format!(
+                "/api/courses/{course}/assignments/{assignment}/attempts/{first_attempt}/submissions"
+            ),
             &cookie,
             "flat-route-wrong-first",
             serde_json::json!({
@@ -810,13 +845,16 @@ async fn flat_run_route_retries_wrong_first_source_choice_then_completes_correct
         Some(&serde_json::json!(second_attempt)),
         "wrong attempt receives a successor under unlimited AllCorrect policy"
     );
-    let second_correct = rendered_choice_id(&app, &second_attempt, &cookie, "Blue").await;
+    let second_correct =
+        rendered_choice_id(&app, course, assignment, &second_attempt, &cookie, "Blue").await;
     assert_ne!(second_correct, ChoiceId::new("blue"));
 
     let correct = app
         .clone()
         .oneshot(submission_json(
-            &format!("/api/submissions/{second_attempt}"),
+            &format!(
+                "/api/courses/{course}/assignments/{assignment}/attempts/{second_attempt}/submissions"
+            ),
             &cookie,
             "flat-route-correct-second",
             serde_json::json!({

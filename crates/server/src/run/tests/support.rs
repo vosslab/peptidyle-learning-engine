@@ -39,28 +39,67 @@ pub(super) async fn json(response: Response) -> serde_json::Value {
     serde_json::from_slice(&bytes).expect("JSON response")
 }
 
-pub(super) fn post_json(path: &str, cookie: &str, body: serde_json::Value) -> Request<Body> {
+/// Starts an assignment run through its complete, server-owned route binding.
+/// The start command has no browser body contract.
+pub(super) fn start_run_request(
+    course: CourseId,
+    assignment: AssignmentId,
+    cookie: &str,
+) -> Request<Body> {
     Request::builder()
         .method("POST")
-        .uri(path)
+        .uri(format!(
+            "/api/courses/{course}/assignments/{assignment}/runs"
+        ))
         .header("cookie", cookie)
-        .header("content-type", "application/json")
-        .body(Body::from(body.to_string()))
-        .expect("request")
+        .body(Body::empty())
+        .expect("start run request")
+}
+
+pub(super) fn prefetch_path(
+    course: CourseId,
+    assignment: AssignmentId,
+    attempt: QuestionAttemptId,
+) -> String {
+    format!("/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/prefetch-next")
+}
+
+pub(super) fn submission_path(
+    course: CourseId,
+    assignment: AssignmentId,
+    attempt: QuestionAttemptId,
+) -> String {
+    format!("/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submissions")
+}
+
+/// Builds the explicit learner-work route binding for an issued presentation.
+pub(super) fn question_path(
+    course: CourseId,
+    assignment: AssignmentId,
+    attempt: QuestionAttemptId,
+) -> String {
+    format!("/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/question")
+}
+
+pub(super) fn external_tool_launch_path(
+    course: CourseId,
+    assignment: AssignmentId,
+    attempt: QuestionAttemptId,
+) -> String {
+    format!(
+        "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch"
+    )
 }
 
 pub(super) async fn active_attempt_for(
     app: &Router,
+    course: CourseId,
     assignment: AssignmentId,
     cookie: &str,
 ) -> QuestionAttempt {
     let run_response = app
         .clone()
-        .oneshot(post_json(
-            "/api/runs",
-            cookie,
-            serde_json::json!({ "assignmentId": assignment }),
-        ))
+        .oneshot(start_run_request(course, assignment, cookie))
         .await
         .expect("start run response");
     assert_eq!(run_response.status(), StatusCode::CREATED);
@@ -108,6 +147,8 @@ pub(super) async fn next_active_attempt(app: &Router, run: RunId, cookie: &str) 
 /// Native durable IDs are deliberately not accepted by the submit route.
 pub(super) async fn presented_choice_id(
     app: &Router,
+    course: CourseId,
+    assignment: AssignmentId,
     attempt: QuestionAttemptId,
     cookie: &str,
     position: usize,
@@ -116,7 +157,7 @@ pub(super) async fn presented_choice_id(
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/attempts/{attempt}/question"))
+                .uri(question_path(course, assignment, attempt))
                 .header("cookie", cookie)
                 .body(Body::empty())
                 .expect("issued question request"),

@@ -243,6 +243,25 @@ def test_source_file_discovery_excludes_generated_graphify_output(
 
 
 #============================================
+def test_discovery_excludes_root_hygiene_reports_but_keeps_nested_inputs(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""Exclude generated root reports without changing nested input scope."""
+	(tmp_path / "report_source_file_line_limit.txt").write_text(
+		"generated\n",
+		encoding="utf-8",
+	)
+	docs_dir = tmp_path / "docs"
+	docs_dir.mkdir()
+	(docs_dir / "report_notes.txt").write_text("authored\n", encoding="utf-8")
+
+	files = file_utils.discover_files(extensions=(".txt",), repo_root=str(tmp_path))
+	relative_files = {file_utils.rel_to_root(path, str(tmp_path)) for path in files}
+	assert "report_source_file_line_limit.txt" not in relative_files
+	assert "docs/report_notes.txt" in relative_files
+
+
+#============================================
 @pytest.mark.parametrize("path", FILES, ids=file_utils.rel_id)
 def test_source_file_line_limit(path: str) -> None:
 	"""Fail when a tracked authored source file contains 1000 or more lines."""

@@ -1,8 +1,3 @@
-//! Server-only dispatch across installed question backends.
-//!
-//! Dispatch derives solely from the immutable draft/published source model;
-//! no request or browser value can select a backend.
-
 use async_trait::async_trait;
 use learning_data_access::{
     AssetStore, CatalogSourceStore, ExternalToolBrokerStore, Store, TenantContext,
@@ -13,13 +8,13 @@ use question_model::{
 
 use crate::imathas_backend::ExternalToolSubmissionBackend;
 use crate::native_backend::NativeBackend;
+use crate::qti_dispatch::QtiBackendSlot;
 use crate::run::ExternalToolLaunchBackend;
 use crate::run::{
     GradeReceipt, IssuedAttemptMetadata, RunBackend, RunBackendError, RunSubmission,
     SubmissionDisposition,
 };
 use crate::webwork_backend::WebworkBackend;
-
 mod dispatch;
 
 /// One trusted server backend that delegates by persisted source kind.
@@ -29,20 +24,11 @@ pub trait ConfiguredImathas:
     fn serves_provider(&self, provider: &str) -> bool;
 }
 
-/// A separately configured QTI execution boundary.
-///
-/// Unlike external-tool providers, QTI has no browser launch protocol.  Its
-/// implementation receives immutable public source/object handles plus a
-/// private grader handle only at production composition time.
-pub trait ConfiguredQti: RunBackend {}
-
-impl<T> ConfiguredQti for T where T: RunBackend + ?Sized {}
-
 pub struct CompositeBackend<S, O, R> {
     native: NativeBackend<S>,
     webwork: Option<WebworkBackend<S, O, R>>,
     imathas: Option<std::sync::Arc<dyn ConfiguredImathas>>,
-    qti: Option<std::sync::Arc<dyn ConfiguredQti>>,
+    pub(crate) qti: QtiBackendSlot,
 }
 
 impl<S, O, R> CompositeBackend<S, O, R> {
@@ -53,7 +39,7 @@ impl<S, O, R> CompositeBackend<S, O, R> {
             native,
             webwork: Some(webwork),
             imathas: None,
-            qti: None,
+            qti: QtiBackendSlot::empty(),
         }
     }
     /// Builds the normal native-only registry without manufacturing renderer
@@ -63,7 +49,7 @@ impl<S, O, R> CompositeBackend<S, O, R> {
             native,
             webwork: None,
             imathas: None,
-            qti: None,
+            qti: QtiBackendSlot::empty(),
         }
     }
     pub fn with_imathas(mut self, imathas: std::sync::Arc<dyn ConfiguredImathas>) -> Self {
@@ -72,13 +58,6 @@ impl<S, O, R> CompositeBackend<S, O, R> {
     }
     pub fn has_imathas(&self) -> bool {
         self.imathas.is_some()
-    }
-    pub fn with_qti(mut self, qti: std::sync::Arc<dyn ConfiguredQti>) -> Self {
-        self.qti = Some(qti);
-        self
-    }
-    pub fn has_qti(&self) -> bool {
-        self.qti.is_some()
     }
     fn imathas_for(
         &self,
@@ -99,20 +78,6 @@ impl<S, O, R> CompositeBackend<S, O, R> {
             ));
         }
         Ok(backend)
-    }
-
-    fn qti_for(
-        &self,
-        question: &QuestionDefinition,
-    ) -> Result<&std::sync::Arc<dyn ConfiguredQti>, RunBackendError> {
-        if !matches!(question.source, question_model::QuestionSource::Qti { .. }) {
-            return Err(RunBackendError::Unsupported(
-                "published question is not QTI".into(),
-            ));
-        }
-        self.qti
-            .as_ref()
-            .ok_or_else(|| RunBackendError::Unsupported("QTI is not configured".into()))
     }
 
     fn webwork(&self) -> Result<&WebworkBackend<S, O, R>, RunBackendError> {
@@ -159,6 +124,9 @@ where
                     ),
                     webwork_grading_capability:
                         learning_data_access::WebworkGradingCapability::Required,
+                    qti_grading: None,
+                    qti_grading_capability:
+                        learning_data_access::QtiGradingCapability::NotApplicable,
                 })
             }
             question_model::QuestionSource::Imathas { .. } => {
@@ -167,9 +135,7 @@ where
                     .await
             }
             question_model::QuestionSource::Qti { .. } => {
-                self.qti_for(question)?
-                    .issue(context, reference, question, seed)
-                    .await
+                crate::qti_dispatch::issue(&self.qti, context, reference, question, seed).await
             }
             _ => Err(RunBackendError::Unsupported(
                 "published question backend is not registered".to_string(),
@@ -203,8 +169,7 @@ where
                     .await
             }
             question_model::QuestionSource::Qti { .. } => {
-                self.qti_for(question)?
-                    .reproduce(context, reference, question, attempt)
+                crate::qti_dispatch::reproduce(&self.qti, context, reference, question, attempt)
                     .await
             }
             _ => Err(RunBackendError::Unsupported(
@@ -255,9 +220,10 @@ where
                     .await
             }
             question_model::QuestionSource::Qti { .. } => {
-                self.qti_for(question)?
-                    .grade(context, reference, question, attempt, response)
-                    .await
+                crate::qti_dispatch::grade(
+                    &self.qti, context, reference, question, attempt, response,
+                )
+                .await
             }
             _ => Err(RunBackendError::Unsupported(
                 "published question backend is not registered".to_string(),
@@ -269,7 +235,7 @@ where
         &self,
         submission: RunSubmission<'_>,
     ) -> Result<SubmissionDisposition, RunBackendError> {
-        match submission.question.source {
+        match submission.question().source {
             question_model::QuestionSource::Native { .. } => self.native.submit(submission).await,
             question_model::QuestionSource::Webwork { .. } => self
                 .webwork()?
@@ -281,6 +247,26 @@ where
                     submission.issued_webwork_grading.ok_or_else(|| {
                         RunBackendError::Unavailable(
                             "WeBWorK issued grading contract is unavailable".to_string(),
+                        )
+                    })?,
+                    submission.issued_presentation_binding.ok_or_else(|| {
+                        RunBackendError::Unavailable(
+                            "WeBWorK issued presentation binding is unavailable".to_string(),
+                        )
+                    })?,
+                    submission.issued_webwork_replay.ok_or_else(|| {
+                        RunBackendError::Unavailable(
+                            "WeBWorK issued replay state is unavailable".to_string(),
+                        )
+                    })?,
+                    submission.issued_presentation.ok_or_else(|| {
+                        RunBackendError::Unavailable(
+                            "WeBWorK issued presentation snapshot is unavailable".to_string(),
+                        )
+                    })?,
+                    submission.issued_grading_envelope.ok_or_else(|| {
+                        RunBackendError::Unavailable(
+                            "WeBWorK issued grading envelope is unavailable".to_string(),
                         )
                     })?,
                     submission.response,
@@ -298,12 +284,12 @@ where
                     )),
                 }),
             question_model::QuestionSource::Imathas { .. } => {
-                self.imathas_for(submission.question)?
+                self.imathas_for(submission.question())?
                     .submit(submission)
                     .await
             }
             question_model::QuestionSource::Qti { .. } => {
-                self.qti_for(submission.question)?.submit(submission).await
+                crate::qti_dispatch::submit(&self.qti, submission).await
             }
             _ => Err(RunBackendError::Unsupported(
                 "published question backend is not registered".to_string(),
@@ -323,13 +309,20 @@ where
         &self,
         context: TenantContext,
         actor: question_model::UserId,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
+        learner_work_binding: learning_data_access::LearnerWorkRoutingBinding,
+        issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         aead: &crate::imathas_backend::LaunchStateAead,
     ) -> Result<learning_data_access::CreatedExternalToolLaunchSession, RunBackendError> {
-        self.imathas_for(question)?
-            .create_external_tool_launch(context, actor, reference, question, attempt, aead)
+        self.imathas_for(issued_question_snapshot.question())?
+            .create_external_tool_launch(
+                context,
+                actor,
+                learner_work_binding,
+                issued_question_snapshot,
+                attempt,
+                aead,
+            )
             .await
     }
     #[allow(clippy::too_many_arguments)]
@@ -337,8 +330,8 @@ where
         &self,
         context: TenantContext,
         actor: question_model::UserId,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
+        learner_work_binding: learning_data_access::LearnerWorkRoutingBinding,
+        issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         session_id: uuid::Uuid,
         token: &learning_data_access::ExternalToolLaunchToken,
@@ -346,9 +339,18 @@ where
         body: &[u8],
         aead: &crate::imathas_backend::LaunchStateAead,
     ) -> Result<adapter_imathas::broker_provider::ProxyResponse, RunBackendError> {
-        self.imathas_for(question)?
+        self.imathas_for(issued_question_snapshot.question())?
             .proxy_external_tool_activity(
-                context, actor, reference, question, attempt, session_id, token, method, body, aead,
+                context,
+                actor,
+                learner_work_binding,
+                issued_question_snapshot,
+                attempt,
+                session_id,
+                token,
+                method,
+                body,
+                aead,
             )
             .await
     }
@@ -365,19 +367,19 @@ where
         &self,
         context: TenantContext,
         actor: question_model::UserId,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
+        learner_work_binding: learning_data_access::LearnerWorkRoutingBinding,
+        issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         idempotency_key: learning_data_access::SubmissionIdempotencyKey,
         launch_proof: learning_data_access::ExternalToolLaunchProof,
         state_aead: &crate::imathas_backend::LaunchStateAead,
     ) -> Result<SubmissionDisposition, RunBackendError> {
-        self.imathas_for(question)?
+        self.imathas_for(issued_question_snapshot.question())?
             .submit_external_tool(
                 context,
                 actor,
-                reference,
-                question,
+                learner_work_binding,
+                issued_question_snapshot,
                 attempt,
                 idempotency_key,
                 launch_proof,
@@ -395,7 +397,8 @@ mod tests {
     use crate::catalog::{BackendRegistry, BackendRegistryError};
     use async_trait::async_trait;
     use learning_data_access::{
-        ExternalToolLaunchProof, ExternalToolLaunchToken, SubmissionIdempotencyKey,
+        ExternalToolLaunchProof, ExternalToolLaunchToken, IssuedQuestionFamilyWitnessV1,
+        IssuedQuestionSnapshotV1, SubmissionIdempotencyKey,
     };
     use question_model::generation::RandomizationDefinition;
     use question_model::response::ResponseDefinition;
@@ -489,8 +492,8 @@ mod tests {
             &self,
             _: TenantContext,
             _: UserId,
-            _: ProblemVersionRef,
-            _: &QuestionDefinition,
+            _: learning_data_access::LearnerWorkRoutingBinding,
+            _: &learning_data_access::IssuedQuestionSnapshotV1,
             _: &QuestionAttempt,
             _: &crate::imathas_backend::LaunchStateAead,
         ) -> Result<learning_data_access::CreatedExternalToolLaunchSession, RunBackendError>
@@ -502,8 +505,8 @@ mod tests {
             &self,
             _: TenantContext,
             _: UserId,
-            _: ProblemVersionRef,
-            _: &QuestionDefinition,
+            _: learning_data_access::LearnerWorkRoutingBinding,
+            _: &learning_data_access::IssuedQuestionSnapshotV1,
             _: &QuestionAttempt,
             _: Uuid,
             _: &ExternalToolLaunchToken,
@@ -522,8 +525,8 @@ mod tests {
             &self,
             _: TenantContext,
             _: UserId,
-            _: ProblemVersionRef,
-            _: &QuestionDefinition,
+            _: learning_data_access::LearnerWorkRoutingBinding,
+            _: &learning_data_access::IssuedQuestionSnapshotV1,
             _: &QuestionAttempt,
             _: SubmissionIdempotencyKey,
             _: ExternalToolLaunchProof,
@@ -757,6 +760,10 @@ mod tests {
         let attempt = attempt();
         let context = TenantContext::from_authenticated_session(attempt.tenant);
         let actor = UserId::from_uuid(id(8));
+        let learner_work_binding = learning_data_access::LearnerWorkRoutingBinding::new(
+            question_model::CourseId::from_uuid(id(11)),
+            question_model::AssignmentId::from_uuid(id(12)),
+        );
         let aead =
             crate::imathas_backend::LaunchStateAead::from_server_secret([9; 32]).expect("aead");
         let store = Arc::new(learning_data_access::in_memory::MemoryStore::default());
@@ -797,6 +804,31 @@ mod tests {
             session_id: id(9),
             token: token.clone(),
         };
+        let question_b_snapshot = IssuedQuestionSnapshotV1::new(
+            question_b.clone(),
+            IssuedQuestionFamilyWitnessV1::External {
+                source_artifact: question_model::SourceArtifact {
+                    object: match &question_b.source {
+                        question_model::QuestionSource::Imathas { snapshot, .. } => *snapshot,
+                        _ => panic!("fixture is iMathAS"),
+                    },
+                    sha256: match &question_b.source {
+                        question_model::QuestionSource::Imathas {
+                            snapshot_sha256, ..
+                        } => snapshot_sha256.clone(),
+                        _ => panic!("fixture is iMathAS"),
+                    },
+                },
+                integration_profile_identity: match &question_b.source {
+                    question_model::QuestionSource::Imathas {
+                        integration_profile,
+                        ..
+                    } => integration_profile.clone(),
+                    _ => panic!("fixture is iMathAS"),
+                },
+            },
+        )
+        .expect("issued iMathAS snapshot");
         assert!(matches!(
             composite.capabilities(&DraftQuestionSource::Imathas {
                 provider: "provider-b".into(),
@@ -833,11 +865,15 @@ mod tests {
                     actor,
                     idempotency_key: key.clone(),
                     reference,
-                    question: &question_b,
+                    issued_question_snapshot: &question_b_snapshot,
                     attempt: &attempt,
                     issued_grading_envelope: None,
                     issued_flat_grading: None,
                     issued_webwork_grading: None,
+                    issued_qti_grading: None,
+                    issued_webwork_replay: None,
+                    issued_presentation_binding: None,
+                    issued_presentation: None,
                     response: &response
                 })
                 .await,
@@ -848,8 +884,8 @@ mod tests {
                 .create_external_tool_launch(
                     context,
                     actor,
-                    reference,
-                    &question_b,
+                    learner_work_binding,
+                    &question_b_snapshot,
                     &attempt,
                     &aead
                 )
@@ -861,8 +897,8 @@ mod tests {
                 .proxy_external_tool_activity(
                     context,
                     actor,
-                    reference,
-                    &question_b,
+                    learner_work_binding,
+                    &question_b_snapshot,
                     &attempt,
                     id(10),
                     &token,
@@ -878,8 +914,8 @@ mod tests {
                 .submit_external_tool(
                     context,
                     actor,
-                    reference,
-                    &question_b,
+                    learner_work_binding,
+                    &question_b_snapshot,
                     &attempt,
                     key,
                     proof,

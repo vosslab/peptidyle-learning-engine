@@ -58,14 +58,21 @@ impl ExternalToolLaunchBackend for CountingExternalRouteBackend {
         &self,
         context: TenantContext,
         actor: UserId,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
+        learner_work_binding: LearnerWorkRoutingBinding,
+        issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         aead: &crate::imathas_backend::LaunchStateAead,
     ) -> Result<learning_data_access::CreatedExternalToolLaunchSession, RunBackendError> {
         self.create_calls.fetch_add(1, Ordering::SeqCst);
         self.inner
-            .create_external_tool_launch(context, actor, reference, question, attempt, aead)
+            .create_external_tool_launch(
+                context,
+                actor,
+                learner_work_binding,
+                issued_question_snapshot,
+                attempt,
+                aead,
+            )
             .await
     }
 
@@ -73,8 +80,8 @@ impl ExternalToolLaunchBackend for CountingExternalRouteBackend {
         &self,
         context: TenantContext,
         actor: UserId,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
+        learner_work_binding: LearnerWorkRoutingBinding,
+        issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         session_id: Uuid,
         token: &learning_data_access::ExternalToolLaunchToken,
@@ -85,7 +92,16 @@ impl ExternalToolLaunchBackend for CountingExternalRouteBackend {
         self.proxy_calls.fetch_add(1, Ordering::SeqCst);
         self.inner
             .proxy_external_tool_activity(
-                context, actor, reference, question, attempt, session_id, token, method, body, aead,
+                context,
+                actor,
+                learner_work_binding,
+                issued_question_snapshot,
+                attempt,
+                session_id,
+                token,
+                method,
+                body,
+                aead,
             )
             .await
     }
@@ -97,8 +113,8 @@ impl ExternalToolSubmissionBackend for CountingExternalRouteBackend {
         &self,
         context: TenantContext,
         actor: UserId,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
+        learner_work_binding: LearnerWorkRoutingBinding,
+        issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         idempotency_key: learning_data_access::SubmissionIdempotencyKey,
         launch_proof: learning_data_access::ExternalToolLaunchProof,
@@ -109,8 +125,8 @@ impl ExternalToolSubmissionBackend for CountingExternalRouteBackend {
             .submit_external_tool(
                 context,
                 actor,
-                reference,
-                question,
+                learner_work_binding,
+                issued_question_snapshot,
                 attempt,
                 idempotency_key,
                 launch_proof,
@@ -141,7 +157,10 @@ pub(super) struct ContractedRouteFixture {
     pub(super) outsider_cookie: String,
     pub(super) attempt: QuestionAttempt,
     pub(super) context: TenantContext,
+    pub(super) course: CourseId,
+    pub(super) assignment: AssignmentId,
     pub(super) question: QuestionDefinition,
+    pub(super) issued_question_snapshot: learning_data_access::IssuedQuestionSnapshotV1,
 }
 
 pub(super) async fn contracted_route_fixture(
@@ -279,7 +298,13 @@ pub(super) async fn contracted_route_fixture(
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -287,6 +312,7 @@ pub(super) async fn contracted_route_fixture(
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: actor,
@@ -299,25 +325,28 @@ pub(super) async fn contracted_route_fixture(
     store
         .create_assignment(
             context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                audience: question_model::AssignmentAudience::CourseWide,
-                title: "Recorded assignment".into(),
-                lifecycle: question_model::AssignmentLifecycle::Draft,
-                instructions: question_model::AssignmentInstructions::default(),
-                items: assignment_items(vec![reference]),
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: RunPolicies {
-                    completion: CompletionRequirement::AllCorrect,
-                    grade: GradePolicy::Highest,
-                    continued_practice: ContinuedPractice::Unlimited,
-                    variation: VariationPolicy::NewSeeds,
+            learning_data_access::CreateAssignmentCommand {
+                actor: instructor,
+                assignment: AssignmentRecord {
+                    id: assignment,
+                    tenant,
+                    course_id: course,
+                    audience: question_model::AssignmentAudience::CourseWide,
+                    title: "Recorded assignment".into(),
+                    lifecycle: question_model::AssignmentLifecycle::Draft,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    items: assignment_items(vec![reference, reference]),
+                    selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    policies: RunPolicies {
+                        completion: CompletionRequirement::AllCorrect,
+                        grade: GradePolicy::Highest,
+                        continued_practice: ContinuedPractice::Unlimited,
+                        variation: VariationPolicy::NewSeeds,
+                    },
                 },
+                base_policy: question_model::BaseAssignmentPolicy::default(),
             },
-            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("assignment");
@@ -360,13 +389,31 @@ pub(super) async fn contracted_route_fixture(
         .expect("bounded test timing"),
     ));
     let run = store
-        .start_or_resume_run(context, actor, assignment, RunId::from_uuid(id(813)))
+        .start_or_resume_run(
+            context,
+            actor,
+            learning_data_access::LearnerWorkRoutingBinding::new(course, assignment),
+            RunId::from_uuid(id(813)),
+        )
         .await
         .expect("run");
     let issued = backend
         .issue(context, reference, &question, 17)
         .await
         .expect("issue");
+    let issued_question_snapshot = learning_data_access::IssuedQuestionSnapshotV1::new(
+        question.clone(),
+        learning_data_access::IssuedQuestionFamilyWitnessV1::External {
+            source_artifact: issued
+                .provenance
+                .source_artifact
+                .clone()
+                .expect("iMathAS issuance source artifact"),
+            integration_profile_identity:
+                adapter_imathas::scored_embed::SCORED_EMBED_BROKER_PROFILE_ID.into(),
+        },
+    )
+    .expect("issued external snapshot");
     let attempt = store
         .issue_or_resume_question_attempt(
             context,
@@ -374,9 +421,11 @@ pub(super) async fn contracted_route_fixture(
                 actor,
                 attempt: QuestionAttemptId::from_uuid(id(814)),
                 run: run.id,
+                binding: learning_data_access::LearnerWorkRoutingBinding::new(course, assignment),
                 assignment_position: 0,
                 problem,
                 question_version: version,
+                issued_question_snapshot: issued_question_snapshot.clone(),
                 seed: 17,
                 // iMathAS is an external-tool family, not a v1 presentation
                 // family; its receipt explicitly records that no envelope is
@@ -391,6 +440,8 @@ pub(super) async fn contracted_route_fixture(
                 webwork_grading: None,
                 webwork_grading_capability:
                     learning_data_access::WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
                 parameter_hash: issued.parameter_hash,
                 provenance: issued.provenance,
                 webwork_replay: None,
@@ -409,11 +460,11 @@ pub(super) async fn contracted_route_fixture(
         proxy_calls: AtomicUsize::new(0),
         submission_calls: AtomicUsize::new(0),
     });
-    let app = external_tool_router(
+    let app = router(Arc::clone(&store), Arc::clone(&route_backend)).merge(external_tool_router(
         Arc::clone(&store),
         Arc::clone(&route_backend),
         Arc::clone(&aead),
-    );
+    ));
     ContractedRouteFixture {
         student_cookie: issued_cookie_for(store.as_ref(), tenant, actor, "Student").await,
         outsider_cookie: issued_cookie_for(store.as_ref(), tenant, outsider, "Outsider").await,
@@ -427,6 +478,9 @@ pub(super) async fn contracted_route_fixture(
         app,
         attempt,
         context,
+        course,
+        assignment,
         question,
+        issued_question_snapshot,
     }
 }

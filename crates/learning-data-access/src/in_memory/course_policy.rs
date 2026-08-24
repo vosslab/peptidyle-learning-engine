@@ -92,6 +92,14 @@ impl crate::EffectivePolicyStore for MemoryStore {
         state
             .assignment_revisions
             .insert((tenant, command.assignment), revision);
+        if let Err(error) = super::rehearsal::invalidate_assignment_rehearsals(
+            &mut state,
+            tenant,
+            command.assignment,
+        ) {
+            *state = snapshot;
+            return Err(error);
+        }
         if let Err(error) = reresolve_active_assignment_attempts(
             &mut state,
             tenant,
@@ -139,6 +147,14 @@ impl crate::EffectivePolicyStore for MemoryStore {
         state
             .assignment_revisions
             .insert((tenant, command.assignment), revision);
+        if let Err(error) = super::rehearsal::invalidate_assignment_rehearsals(
+            &mut state,
+            tenant,
+            command.assignment,
+        ) {
+            *state = snapshot;
+            return Err(error);
+        }
         if let Err(error) = reresolve_active_assignment_attempts(
             &mut state,
             tenant,
@@ -186,6 +202,14 @@ impl crate::EffectivePolicyStore for MemoryStore {
         state
             .assignment_revisions
             .insert((tenant, command.assignment), revision);
+        if let Err(error) = super::rehearsal::invalidate_assignment_rehearsals(
+            &mut state,
+            tenant,
+            command.assignment,
+        ) {
+            *state = snapshot;
+            return Err(error);
+        }
         if let Err(error) = reresolve_active_assignment_attempts(
             &mut state,
             tenant,
@@ -233,6 +257,14 @@ impl crate::EffectivePolicyStore for MemoryStore {
         state
             .assignment_revisions
             .insert((tenant, command.assignment), revision);
+        if let Err(error) = super::rehearsal::invalidate_assignment_rehearsals(
+            &mut state,
+            tenant,
+            command.assignment,
+        ) {
+            *state = snapshot;
+            return Err(error);
+        }
         if let Err(error) = reresolve_active_assignment_attempts(
             &mut state,
             tenant,
@@ -280,6 +312,14 @@ impl crate::EffectivePolicyStore for MemoryStore {
         state
             .assignment_revisions
             .insert((tenant, command.assignment), revision);
+        if let Err(error) = super::rehearsal::invalidate_assignment_rehearsals(
+            &mut state,
+            tenant,
+            command.assignment,
+        ) {
+            *state = snapshot;
+            return Err(error);
+        }
         if let Err(error) = reresolve_active_assignment_attempts(
             &mut state,
             tenant,
@@ -340,6 +380,14 @@ impl crate::EffectivePolicyStore for MemoryStore {
         state
             .assignment_revisions
             .insert((tenant, command.assignment), revision);
+        if let Err(error) = super::rehearsal::invalidate_assignment_rehearsals(
+            &mut state,
+            tenant,
+            command.assignment,
+        ) {
+            *state = snapshot;
+            return Err(error);
+        }
         if let Err(error) = reresolve_active_assignment_attempts(
             &mut state,
             tenant,
@@ -380,6 +428,14 @@ impl crate::EffectivePolicyStore for MemoryStore {
         state
             .assignment_revisions
             .insert((tenant, command.assignment), revision);
+        if let Err(error) = super::rehearsal::invalidate_assignment_rehearsals(
+            &mut state,
+            tenant,
+            command.assignment,
+        ) {
+            *state = snapshot;
+            return Err(error);
+        }
         if let Err(error) = reresolve_active_assignment_attempts(
             &mut state,
             tenant,

@@ -1975,6 +1975,7 @@ version = "26.8.0"
 dependencies = [
  "adapter_native",
  "async-trait",
+ "base-course-installation",
  "base64 0.23.1",
  "bigdecimal",
  "domain",

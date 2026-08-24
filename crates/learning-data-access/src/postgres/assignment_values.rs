@@ -10,72 +10,6 @@ pub(super) fn assignment_delivery_state_name(
     }
 }
 
-#[cfg(feature = "postgres")]
-pub(super) fn completion_policy_columns(
-    policy: CompletionRequirement,
-) -> (&'static str, Option<String>) {
-    match policy {
-        CompletionRequirement::AnswerAll => ("answer_all", None),
-        CompletionRequirement::AllCorrect => ("all_correct", None),
-        CompletionRequirement::ScoreAtLeast { fraction } => {
-            ("score_at_least", Some(fraction.to_string()))
-        }
-    }
-}
-
-#[cfg(feature = "postgres")]
-pub(super) fn grade_policy_name(policy: GradePolicy) -> &'static str {
-    match policy {
-        GradePolicy::First => "first",
-        GradePolicy::Latest => "last",
-        GradePolicy::Highest => "highest",
-        GradePolicy::InstructorSelected => "instructor_selected",
-    }
-}
-
-#[cfg(feature = "postgres")]
-pub(super) fn continued_practice_columns(
-    policy: ContinuedPractice,
-) -> Result<(&'static str, Option<i32>), StoreError> {
-    match policy {
-        ContinuedPractice::Unlimited => Ok(("unlimited", None)),
-        ContinuedPractice::Closed => Ok(("closed", None)),
-        ContinuedPractice::Capped {
-            max_additional_runs,
-        } => Ok((
-            "capped",
-            Some(i32::try_from(max_additional_runs).map_err(|_| {
-                StoreError::InvalidRecord("continued-practice limit is too large".to_string())
-            })?),
-        )),
-    }
-}
-
-#[cfg(feature = "postgres")]
-pub(super) fn variation_policy_name(policy: VariationPolicy) -> &'static str {
-    match policy {
-        VariationPolicy::NewSeeds => "new_seeds",
-        VariationPolicy::SelectedProblemVariants => "selected_problem_variants",
-        VariationPolicy::FullRegeneration => "full_regeneration",
-    }
-}
-
-/// Encodes the assignment-owned learner disclosure timing stored in the
-/// normalized assignment row.  This remains deliberately separate from the
-/// legacy per-attempt feedback receipt.
-#[cfg(feature = "postgres")]
-pub(super) fn learner_disclosure_timing_name(
-    timing: question_model::LearnerDisclosureTiming,
-) -> &'static str {
-    match timing {
-        question_model::LearnerDisclosureTiming::DuringAttempt => "during_attempt",
-        question_model::LearnerDisclosureTiming::AfterSubmit => "after_submit",
-        question_model::LearnerDisclosureTiming::AfterDue => "after_due",
-        question_model::LearnerDisclosureTiming::AfterClose => "after_close",
-        question_model::LearnerDisclosureTiming::Never => "never",
-    }
-}
-
 /// Decodes one mandatory learner disclosure timing.  Stored values have no
 /// permissive compatibility default: a malformed or missing row must fail
 /// closed before it can reach a learner projection.
@@ -105,14 +39,6 @@ pub(super) fn assignment_scoring_mode_name(
         question_model::AssignmentScoringMode::FullCredit => "full_credit",
         question_model::AssignmentScoringMode::ExtraCredit => "extra_credit",
         question_model::AssignmentScoringMode::Excluded => "excluded",
-    }
-}
-
-#[cfg(feature = "postgres")]
-pub(super) fn selection_ordering_name(ordering: question_model::SelectionOrdering) -> &'static str {
-    match ordering {
-        question_model::SelectionOrdering::CandidateOrder => "candidate_order",
-        question_model::SelectionOrdering::Randomized => "randomized",
     }
 }
 
@@ -319,18 +245,27 @@ mod tests {
     #[test]
     fn learner_disclosure_timings_round_trip_through_postgres_values() {
         let timings = [
-            question_model::LearnerDisclosureTiming::DuringAttempt,
-            question_model::LearnerDisclosureTiming::AfterSubmit,
-            question_model::LearnerDisclosureTiming::AfterDue,
-            question_model::LearnerDisclosureTiming::AfterClose,
-            question_model::LearnerDisclosureTiming::Never,
+            (
+                "during_attempt",
+                question_model::LearnerDisclosureTiming::DuringAttempt,
+            ),
+            (
+                "after_submit",
+                question_model::LearnerDisclosureTiming::AfterSubmit,
+            ),
+            (
+                "after_due",
+                question_model::LearnerDisclosureTiming::AfterDue,
+            ),
+            (
+                "after_close",
+                question_model::LearnerDisclosureTiming::AfterClose,
+            ),
+            ("never", question_model::LearnerDisclosureTiming::Never),
         ];
 
-        for timing in timings {
-            assert_eq!(
-                parse_learner_disclosure_timing(learner_disclosure_timing_name(timing)),
-                Ok(timing)
-            );
+        for (stored, timing) in timings {
+            assert_eq!(parse_learner_disclosure_timing(stored), Ok(timing));
         }
     }
 

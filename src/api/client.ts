@@ -405,7 +405,11 @@ export interface ApiClient extends CourseRosterClient {
     enrollmentId: EnrollmentId,
     cursor?: string,
   ) => Promise<CursorPage<AssignmentRun>>;
-  readonly startRun: (assignmentId: AssignmentId) => Promise<AssignmentRun>;
+  /**
+   * Starts or resumes learner work within the course route that authorizes the assignment.
+   * The browser supplies no learner-work authority or answer material.
+   */
+  readonly startRun: (courseId: CourseId, assignmentId: AssignmentId) => Promise<AssignmentRun>;
   readonly getRun: (runId: RunId) => Promise<AssignmentRun>;
   readonly getRunSummary: (
     runId: RunId,
@@ -418,15 +422,27 @@ export interface ApiClient extends CourseRosterClient {
   ) => Promise<CursorPage<LearnerQuestionAttempt>>;
   readonly getAttempt: (attemptId: QuestionAttemptId) => Promise<LearnerQuestionAttempt>;
   /** Returns only the regenerated renderable variant; grading stays server-side. */
-  readonly getIssuedQuestion: (attemptId: QuestionAttemptId) => Promise<QuestionEnvelope>;
+  readonly getIssuedQuestion: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
+    attemptId: QuestionAttemptId,
+  ) => Promise<QuestionEnvelope>;
   /** Best-effort key-free preparation; null means no deterministic successor. */
   readonly prefetchNextQuestion: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
     attemptId: QuestionAttemptId,
     signal?: AbortSignal,
   ) => Promise<PrefetchedNextQuestion | null>;
   /** Creates a broker launch by same-origin POST, then returns its inert shell route. */
-  readonly beginExternalToolLaunch: (attemptId: QuestionAttemptId) => Promise<ExternalToolLaunch>;
+  readonly beginExternalToolLaunch: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
+    attemptId: QuestionAttemptId,
+  ) => Promise<ExternalToolLaunch>;
   readonly submitResponse: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
     attemptId: QuestionAttemptId,
     response: StudentResponse,
     idempotencyKey: string,

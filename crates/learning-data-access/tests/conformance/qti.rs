@@ -711,7 +711,7 @@ async fn memory_qti_import_registry_is_private_complete_and_secret_redacted() {
     assert!(!redacted.contains("never-in-debug"));
 }
 
-async fn exercise_qti_published_grading_visibility<S, G>(store: &S, grader: &G)
+async fn exercise_qti_publication_grading_visibility<S, G>(store: &S, grader: &G)
 where
     S: Store + CatalogStore + AssetStore + QtiImportStore + JobStore,
     G: QtiGradingStore,
@@ -894,7 +894,7 @@ where
     );
     assert!(
         grader
-            .qti_published_grading(context, reference, "item-1")
+            .qti_publication_grading(context, reference, "item-1")
             .await
             .expect("stale QTI grading lookup")
             .is_none(),
@@ -927,7 +927,7 @@ where
     assert_eq!(published.problem, reference.problem);
     assert!(
         grader
-            .qti_published_grading(context, reference, "item-1")
+            .qti_publication_grading(context, reference, "item-1")
             .await
             .expect("published grading read")
             .is_some(),
@@ -935,7 +935,7 @@ where
     );
     assert!(
         grader
-            .qti_published_grading(
+            .qti_publication_grading(
                 TenantContext::from_authenticated_session(TenantId::from_uuid(uuid(9_108))),
                 reference,
                 "item-1",
@@ -965,7 +965,7 @@ where
 }
 
 #[tokio::test]
-async fn memory_qti_publication_copies_only_committed_staging_grading() {
+async fn memory_qti_publication_time_grading_respects_catalog_visibility() {
     let (store, grader) = MemoryStore::with_qti_grader();
-    exercise_qti_published_grading_visibility(&store, &grader).await;
+    exercise_qti_publication_grading_visibility(&store, &grader).await;
 }

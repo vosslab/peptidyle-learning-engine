@@ -1,15 +1,17 @@
 //! Backend-neutral S5-plus-S3 resolution parity for Store conformance.
 
+use super::sysadmin_course_creation_authority;
 use domain::effective_assignment_policy::{
     AuthorizationGate, BaseAssignmentPolicy, EffectivePolicyDecision, IndividualPolicyException,
     PolicyModificationMode, PolicyPatch, PolicyPatchSet, PolicySource,
 };
 use learning_data_access::{
-    AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateCourseCommand,
-    DraftRecord, IssueQuestionAttemptCommand, PresentationCapability, PublishDraftCommand,
-    PutAssignmentTeachingSettingsCommand, PutIndividualPolicyExceptionCommand,
-    ResolveEffectivePolicyCommand, Store, StoreError, StoredIndividualPolicyException,
-    SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
+    AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateAssignmentCommand,
+    CreateCourseCommand, DraftRecord, IssueQuestionAttemptCommand, LearnerWorkRoutingBinding,
+    PresentationCapability, PublishDraftCommand, PutAssignmentTeachingSettingsCommand,
+    PutIndividualPolicyExceptionCommand, ResolveEffectivePolicyCommand, SessionStore, Store,
+    StoreError, StoredIndividualPolicyException, SubmissionIdempotencyKey,
+    SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::generation::RandomizationDefinition;
@@ -22,8 +24,8 @@ use question_model::{
     DraftQuestionSource, FeedbackContent, GradingDefinition, ImplementationVersion,
     LateSubmissionPolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS,
     PointValue, ProblemId, ProblemVersionRef, PublicationScope, QuestionAttemptId,
-    QuestionMetadata, QuestionSource, ResponseDefinition, StudentResponse, TenantId, UserId,
-    VersionId, WorkspaceId,
+    QuestionDefinition, QuestionMetadata, QuestionSource, ResponseDefinition, StudentResponse,
+    TenantId, UserId, VersionId, WorkspaceId,
 };
 use std::num::NonZeroU32;
 use uuid::Uuid;
@@ -44,7 +46,10 @@ async fn published_reference<S>(
     context: TenantContext,
     tenant: TenantId,
     author: UserId,
-) -> ProblemVersionRef
+) -> (
+    ProblemVersionRef,
+    learning_data_access::IssuedQuestionSnapshotV1,
+)
 where
     S: Store + CatalogStore,
 {
@@ -82,6 +87,21 @@ where
         .upsert_draft(context, author, None, draft.clone())
         .await
         .expect("save parity draft");
+    let question = QuestionDefinition::from_draft(
+        draft.question.clone(),
+        reference.problem,
+        reference.version,
+        QuestionSource::Native {
+            family: "molar_mass".to_string(),
+        },
+    );
+    let issued_question_snapshot = learning_data_access::IssuedQuestionSnapshotV1::new(
+        question,
+        learning_data_access::IssuedQuestionFamilyWitnessV1::Native {
+            physical_asset_bindings: Vec::new(),
+        },
+    )
+    .expect("construct parity native question snapshot");
     store
         .publish_draft(
             context,
@@ -108,14 +128,14 @@ where
         )
         .await
         .expect("publish parity draft");
-    reference
+    (reference, issued_question_snapshot)
 }
 
 /// Runs the same supplied-S5-input resolution contract against every Store.
 /// It intentionally owns no SQL, browser, clock, or receipt-history behavior.
 pub(crate) async fn exercise_effective_policy_resolution_parity<S>(store: &S)
 where
-    S: Store + CatalogStore + CourseRosterStore,
+    S: Store + CatalogStore + CourseRosterStore + SessionStore,
 {
     let tenant = TenantId::from_uuid(id(99_500));
     let context = TenantContext::from_authenticated_session(tenant);
@@ -123,6 +143,8 @@ where
     let learner = UserId::from_uuid(id(99_502));
     let course = CourseId::from_uuid(id(99_503));
     let assignment = AssignmentId::from_uuid(id(99_504));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(store, tenant, course, instructor).await;
     store
         .create_course(
             context,
@@ -134,7 +156,7 @@ where
                     term: CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
                         .expect("valid parity term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -142,6 +164,7 @@ where
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: learner,
@@ -158,7 +181,8 @@ where
         .expect("parity learner exists")
         .student
         .expect("parity learner identity");
-    let reference = published_reference(store, context, tenant, instructor).await;
+    let (reference, issued_question_snapshot) =
+        published_reference(store, context, tenant, instructor).await;
     let assignment_record = AssignmentRecord {
         id: assignment,
         tenant,
@@ -200,7 +224,14 @@ where
         };
         assert!(matches!(
             store
-                .create_assignment(context, rejected_record, BaseAssignmentPolicy::default())
+                .create_assignment(
+                    context,
+                    CreateAssignmentCommand {
+                        actor: instructor,
+                        assignment: rejected_record,
+                        base_policy: BaseAssignmentPolicy::default(),
+                    },
+                )
                 .await,
             Err(StoreError::InvalidRecord(_))
         ));
@@ -223,10 +254,13 @@ where
         store
             .create_assignment(
                 context,
-                assignment_record.clone(),
-                BaseAssignmentPolicy {
-                    available_at: Some(ActivityTimestamp::from_unix_millis(0)),
-                    ..BaseAssignmentPolicy::default()
+                CreateAssignmentCommand {
+                    actor: instructor,
+                    assignment: assignment_record.clone(),
+                    base_policy: BaseAssignmentPolicy {
+                        available_at: Some(ActivityTimestamp::from_unix_millis(0)),
+                        ..BaseAssignmentPolicy::default()
+                    },
                 },
             )
             .await,
@@ -240,7 +274,14 @@ where
             .is_none()
     );
     let created = store
-        .create_assignment(context, assignment_record, BaseAssignmentPolicy::default())
+        .create_assignment(
+            context,
+            CreateAssignmentCommand {
+                actor: instructor,
+                assignment: assignment_record,
+                base_policy: BaseAssignmentPolicy::default(),
+            },
+        )
         .await
         .expect("create parity assignment");
     let revised = store
@@ -401,7 +442,7 @@ where
         .start_or_resume_run(
             context,
             learner,
-            assignment,
+            LearnerWorkRoutingBinding::new(course, assignment),
             question_model::RunId::from_uuid(id(99_514)),
         )
         .await
@@ -427,7 +468,7 @@ where
         .start_or_resume_run(
             context,
             learner,
-            assignment,
+            LearnerWorkRoutingBinding::new(course, assignment),
             question_model::RunId::from_uuid(id(99_515)),
         )
         .await
@@ -438,11 +479,13 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: learner,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: QuestionAttemptId::from_uuid(id(99_516)),
                 run: active.id,
                 assignment_position: 0,
                 problem: reference.problem,
                 question_version: reference.version,
+                issued_question_snapshot,
                 seed: 9,
                 presentation_capability: PresentationCapability::NotApplicable,
                 presentation: None,
@@ -453,6 +496,8 @@ where
                 webwork_grading: None,
                 webwork_grading_capability:
                     learning_data_access::WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
                 parameter_hash: "limited-run-parity".to_string(),
                 provenance: AttemptProvenance {
                     adapter: implementation("limited-run-native"),
@@ -475,6 +520,7 @@ where
             context,
             SubmitQuestionAttemptCommand {
                 actor: learner,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: attempt.id,
                 response: StudentResponse::Numeric { value: 1.0 },
                 result: AttemptResult {
@@ -513,7 +559,7 @@ where
             .start_or_resume_run(
                 context,
                 learner,
-                assignment,
+                LearnerWorkRoutingBinding::new(course, assignment),
                 question_model::RunId::from_uuid(id(99_517)),
             )
             .await,

@@ -129,6 +129,18 @@ fn submit_pending_manual_question_attempt_locked(
     command: SubmitPendingManualQuestionAttemptCommand,
 ) -> Result<SubmissionRecord, StoreError> {
     let tenant = context.tenant_id();
+    match super::runs::submission_preparation::prepare_question_submission(
+        state,
+        context,
+        command.actor,
+        command.binding,
+        command.attempt,
+        &command.response,
+        &command.idempotency_key,
+    )? {
+        crate::SubmissionPreparation::Replay(record) => return Ok(*record),
+        crate::SubmissionPreparation::Grade(_) => {}
+    }
     let base = state
         .attempts
         .get(&(tenant, command.attempt))
@@ -165,11 +177,6 @@ fn submit_pending_manual_question_attempt_locked(
     let enrollment = enrollment_record(state, tenant, run.enrollment)?;
     let assignment = assignment_record(state, tenant, enrollment.assignment)?;
     require_course_records_accessible(state, tenant, assignment.course_id)?;
-    let published = state
-        .published
-        .get(&(base.problem, base.question_version))
-        .ok_or(StoreError::NotFound)?;
-    let authored_policy = published.question.timing_policy;
     let submitted_at = state.authoritative_time;
     let mut submitted = projected_attempt(state, tenant, &base);
     submitted.response = Some(command.response.clone());
@@ -183,18 +190,16 @@ fn submit_pending_manual_question_attempt_locked(
         command.attempt,
         submitted.timer.submitted_at,
     )?;
-    let effective_policy =
-        state
-            .attempt_timing
-            .get(&(tenant, command.attempt))
-            .map_or(authored_policy, |timing| {
-                timing
-                    .effective_deadline
-                    .map_or(TimingPolicy::Untimed, |_| TimingPolicy::PerQuestion {
-                        seconds: 1,
-                        grace_seconds: timing.effective_grace_seconds,
-                    })
-            });
+    let timing = state
+        .attempt_timing
+        .get(&(tenant, command.attempt))
+        .ok_or_else(|| StoreError::Unavailable("issued timing authority is missing".to_string()))?;
+    let effective_policy = timing
+        .effective_deadline
+        .map_or(TimingPolicy::Untimed, |_| TimingPolicy::PerQuestion {
+            seconds: 1,
+            grace_seconds: timing.effective_grace_seconds,
+        });
     let verdict = timer_verdict(&TimerEvaluation {
         policy: effective_policy,
         timer: submitted.timer,

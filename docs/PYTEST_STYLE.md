@@ -203,8 +203,8 @@ only in `file_utils` regression tests that point discovery at a temporary direct
 Discovery filters files through three layers, in order:
 
 - Layer 1, universal exclusions (vendored, `file_utils.py`): built-in skipped directories,
-  `_temp*` scratch files/directories, and `dist_*/` scratch build directories, all handled by
-  `path_has_skip_dir`. Identical across all repos.
+  `_temp*` scratch files/directories, `dist_*/` scratch build directories, and root
+  `report_*.txt` hygiene outputs, all handled by `path_has_skip_dir`. Identical across all repos.
 - Layer 2, `REPO_HYGIENE_FILTERS` (repo-local, `tests/conftest.py`): per-test repo-local
   file/glob exclusions. This is the only home for repo-specific exclusions, because `conftest.py`
   survives propagation while vendored files (`file_utils.py` and every `tests/test_*.py`) are

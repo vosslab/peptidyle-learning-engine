@@ -6,6 +6,10 @@
 //! limited to PostgreSQL-only facts: RLS, grants, and the sealed receipt
 //! relations that no in-memory Store can prove.
 
+#[path = "postgres_course_creation_support.rs"]
+mod course_creation_support;
+use course_creation_support::sysadmin_course_creation_authority;
+
 #[path = "fixtures/published_assignment.rs"]
 mod published_assignment;
 use published_assignment::create_published_assignment;
@@ -14,14 +18,18 @@ use domain::effective_assignment_policy::{
     BaseAssignmentPolicy, GroupAccommodation, GroupScheduleOffset, IndividualPolicyException,
     PolicyModificationMode, PolicyPatch, PolicyPatchSet, PolicySource, ScheduleOffsetSeconds,
 };
-use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
+use learning_data_access::postgres::{
+    PostgresStore, apply_migrations, lazy_pool, verify_application_schema,
+};
 use learning_data_access::{
     AssignmentRecord, CatalogStore, CourseGroupRecord, CourseRecord, CourseRosterStore,
     CreateCourseCommand, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
+    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, LearnerWorkRoutingBinding,
     PresentationCapability, PutAssignmentTeachingSettingsCommand, PutCourseGroupCommand,
     PutGroupAccommodationCommand, PutGroupScheduleOffsetCommand,
-    PutIndividualPolicyExceptionCommand, ResolveEffectivePolicyCommand, Store,
-    StoredIndividualPolicyException, TenantContext, UpsertCourseMember, WebworkGradingCapability,
+    PutIndividualPolicyExceptionCommand, QtiGradingCapability, ResolveEffectivePolicyCommand,
+    Store, StoredIndividualPolicyException, TenantContext, UpsertCourseMember,
+    WebworkGradingCapability,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -134,19 +142,38 @@ async fn publish_question(
     reference
 }
 
-fn issue_command(
+async fn issue_command(
+    store: &PostgresStore,
+    context: TenantContext,
     learner: UserId,
     run: RunId,
     attempt: QuestionAttemptId,
     reference: ProblemVersionRef,
+    course: CourseId,
+    assignment: AssignmentId,
 ) -> IssueQuestionAttemptCommand {
+    let question = store
+        .get_catalog_problem(context, reference)
+        .await
+        .expect("read the published effective-policy question")
+        .expect("published effective-policy question exists")
+        .question;
+    let issued_question_snapshot = IssuedQuestionSnapshotV1::new(
+        question,
+        IssuedQuestionFamilyWitnessV1::Native {
+            physical_asset_bindings: Vec::new(),
+        },
+    )
+    .expect("construct exact effective-policy native question snapshot");
     IssueQuestionAttemptCommand {
         actor: learner,
+        binding: LearnerWorkRoutingBinding::new(course, assignment),
         attempt,
         run,
         assignment_position: 0,
         problem: reference.problem,
         question_version: reference.version,
+        issued_question_snapshot,
         seed: 1,
         presentation_capability: PresentationCapability::NotApplicable,
         presentation: None,
@@ -156,6 +183,8 @@ fn issue_command(
         flat_grading_capability: FlatGradingCapability::NotApplicable,
         webwork_grading: None,
         webwork_grading_capability: WebworkGradingCapability::NotApplicable,
+        qti_grading: None,
+        qti_grading_capability: QtiGradingCapability::NotApplicable,
         parameter_hash: "postgres-effective-policy".to_string(),
         provenance: question_model::AttemptProvenance {
             adapter: ImplementationVersion {
@@ -212,15 +241,67 @@ async fn student_cannot_write_policy_relations(pool: &PgPool, tenant: TenantId) 
         .expect("rollback privilege probe");
 }
 
+async fn application_cannot_update_assignments(pool: &PgPool) {
+    let allowed: bool =
+        sqlx::query_scalar("SELECT has_table_privilege('ple_app', 'public.assignment', 'UPDATE')")
+            .fetch_one(pool)
+            .await
+            .expect("read assignment update privilege");
+    assert!(
+        !allowed,
+        "ple_app must use the assignment broker capability"
+    );
+}
+
+async fn active_attempt_witness(
+    pool: &PgPool,
+    tenant: TenantId,
+    actor: UserId,
+    course: CourseId,
+    assignment: AssignmentId,
+    revision: learning_data_access::AssignmentRevision,
+) -> (String, i64, i64, Vec<Uuid>) {
+    let mut transaction = pool.begin().await.expect("begin witness transaction");
+    sqlx::query("SET LOCAL ROLE ple_app")
+        .execute(&mut *transaction)
+        .await
+        .expect("assume application role for witness");
+    sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
+        .bind(tenant.to_string())
+        .execute(&mut *transaction)
+        .await
+        .expect("scope witness transaction");
+    let witness = sqlx::query_as::<_, (String, i64, i64, Vec<Uuid>)>(
+        "SELECT * FROM public.ple_prepare_assignment_active_attempt_reresolution($1,$2,$3,$4,$5)",
+    )
+    .bind(tenant.as_uuid())
+    .bind(actor.as_uuid())
+    .bind(course.as_uuid())
+    .bind(assignment.as_uuid())
+    .bind(i64::try_from(revision.value()).expect("revision fits PostgreSQL bigint"))
+    .fetch_one(&mut *transaction)
+    .await
+    .expect("prepare opaque active-attempt witness");
+    transaction
+        .rollback()
+        .await
+        .expect("rollback witness transaction");
+    witness
+}
+
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 database baseline"]
 async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforced() {
     let database_url = std::env::var("PLE_TEST_DATABASE_URL")
         .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
     let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    apply_migrations(&pool)
+        .await
+        .expect("apply the complete migration epoch to the disposable database");
     verify_application_schema(&pool)
         .await
         .expect("full migrated application schema is compatible");
+    application_cannot_update_assignments(&pool).await;
     let store = PostgresStore::with_question_id_secret(pool.clone(), [0x34; 32]);
     effective_policy_parity::exercise_effective_policy_resolution_parity(&store).await;
     let tenant = TenantId::from_uuid(id());
@@ -229,6 +310,7 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
     let other_context = TenantContext::from_authenticated_session(other_tenant);
     let instructor = UserId::from_uuid(id());
     let learner = UserId::from_uuid(id());
+    let second_learner = UserId::from_uuid(id());
     let course = CourseId::from_uuid(id());
     store
         .create_course(
@@ -245,7 +327,8 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
                     )
                     .expect("valid fixture term"),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(&store, tenant, course, instructor)
+                    .await,
             },
         )
         .await
@@ -253,6 +336,7 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: learner,
@@ -262,6 +346,19 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
         )
         .await
         .expect("create learner membership");
+    store
+        .upsert_course_member(
+            context,
+            instructor,
+            UpsertCourseMember {
+                course,
+                user: second_learner,
+                display_name: "S3 second learner".to_string(),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("create second learner membership");
     let student = store
         .get_current_course_membership(context, course, learner)
         .await
@@ -489,27 +586,106 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
         }
     ));
     let run = store
-        .start_or_resume_run(context, learner, assignment, RunId::from_uuid(id()))
+        .start_or_resume_run(
+            context,
+            learner,
+            LearnerWorkRoutingBinding::new(course, assignment),
+            RunId::from_uuid(id()),
+        )
         .await
         .expect("granted learner starts atomically");
     let issued = store
         .issue_or_resume_question_attempt(
             context,
             issue_command(
+                &store,
+                context,
                 learner,
                 run.id,
                 QuestionAttemptId::from_uuid(id()),
                 reference,
-            ),
+                course,
+                assignment,
+            )
+            .await,
         )
         .await
         .expect("issue attempt with sealed policy receipt");
+    let second_run = store
+        .start_or_resume_run(
+            context,
+            second_learner,
+            LearnerWorkRoutingBinding::new(course, assignment),
+            RunId::from_uuid(id()),
+        )
+        .await
+        .expect("start a second active run for the broker witness");
+    let second_issued = store
+        .issue_or_resume_question_attempt(
+            context,
+            issue_command(
+                &store,
+                context,
+                second_learner,
+                second_run.id,
+                QuestionAttemptId::from_uuid(id()),
+                reference,
+                course,
+                assignment,
+            )
+            .await,
+        )
+        .await
+        .expect("issue the second active attempt");
     let receipt = store
         .get_issued_effective_policy_receipt(context, issued.id)
         .await
         .expect("read sealed receipt")
         .expect("issued attempt has receipt");
     assert_eq!(receipt.generation, 1);
+    let second_receipt = store
+        .get_issued_effective_policy_receipt(context, second_issued.id)
+        .await
+        .expect("read second sealed receipt")
+        .expect("second active attempt has receipt");
+    assert_eq!(second_receipt.generation, 1);
+    let revision_before_change = store
+        .get_assignment_for_edit(context, assignment)
+        .await
+        .expect("read assignment before broker witness")
+        .expect("assignment exists")
+        .revision;
+    let witness = active_attempt_witness(
+        &pool,
+        tenant,
+        instructor,
+        course,
+        assignment,
+        revision_before_change,
+    )
+    .await;
+    let mut expected_attempts = vec![issued.id.as_uuid(), second_issued.id.as_uuid()];
+    expected_attempts.sort_unstable();
+    assert_eq!(witness.0, "published");
+    assert_eq!(
+        witness.1,
+        i64::try_from(revision_before_change.value()).expect("revision fits")
+    );
+    assert_eq!(witness.2, 2, "both active attempts are witnessed");
+    assert_eq!(witness.3, expected_attempts, "witness is exact and sorted");
+    let witness_result: String = sqlx::query_scalar(
+        "SELECT pg_get_function_result(\
+         'public.ple_prepare_assignment_active_attempt_reresolution(uuid,uuid,uuid,uuid,bigint)'::regprocedure)",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("inspect active-attempt witness result contract");
+    for private_name in ["payload", "student", "response", "evidence"] {
+        assert!(
+            !witness_result.contains(private_name),
+            "opaque witness must not expose private learner field {private_name}"
+        );
+    }
 
     let changed = store
         .put_assignment_teaching_settings(
@@ -538,6 +714,47 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
         .expect("read active receipt after policy edit")
         .expect("active attempt retains a policy receipt");
     assert!(current_receipt.generation > receipt.generation);
+    let second_current_receipt = store
+        .get_issued_effective_policy_receipt(context, second_issued.id)
+        .await
+        .expect("read second active receipt after policy edit")
+        .expect("second active attempt retains a policy receipt");
+    assert!(second_current_receipt.generation > second_receipt.generation);
+    let current_effects: Vec<(Uuid, i64, i64, Option<Uuid>)> = sqlx::query_as(
+        "SELECT attempt_id, receipt_generation, timing_generation, job_id \
+         FROM attempt_effective_policy_current \
+         WHERE tenant_id=$1 AND attempt_id = ANY($2) ORDER BY attempt_id",
+    )
+    .bind(tenant.as_uuid())
+    .bind(expected_attempts.clone())
+    .fetch_all(&pool)
+    .await
+    .expect("read active effect pointers");
+    assert_eq!(current_effects.len(), 2);
+    assert!(
+        current_effects.iter().all(|(_, generation, timing, job)| {
+            *generation > 1 && *timing > 1 && job.is_some()
+        })
+    );
+    let jobs: Vec<(Uuid, String)> = sqlx::query_as(
+        "SELECT job_id, state FROM worker_job WHERE tenant_id=$1 AND job_id = ANY($2) ORDER BY job_id",
+    )
+    .bind(tenant.as_uuid())
+    .bind(
+        current_effects
+            .iter()
+            .filter_map(|(_, _, _, job)| *job)
+            .collect::<Vec<_>>(),
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("read rescheduled timing jobs");
+    assert_eq!(
+        jobs.len(),
+        2,
+        "each active attempt receives one current job"
+    );
+    assert!(jobs.iter().all(|(_, state)| state == "ready"));
     let historical_limit: Option<i32> = sqlx::query_scalar(
         "SELECT resolved_time_limit_seconds FROM attempt_effective_policy_receipt \
          WHERE tenant_id=$1 AND attempt_id=$2 AND receipt_generation=$3",
@@ -549,6 +766,156 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
     .await
     .expect("read sealed historical receipt");
     assert_eq!(historical_limit, Some(300));
+    let stale = store
+        .put_assignment_teaching_settings(
+            context,
+            PutAssignmentTeachingSettingsCommand {
+                actor: instructor,
+                course,
+                assignment,
+                expected_revision: configured.revision,
+                settings: question_model::AssignmentTeachingSettings {
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    base_policy: BaseAssignmentPolicy {
+                        time_limit_seconds: Some(NonZeroU32::new(240).expect("positive limit")),
+                        ..changed.policy
+                    },
+                },
+            },
+        )
+        .await;
+    assert!(
+        matches!(stale, Err(learning_data_access::StoreError::Conflict)),
+        "stale broker preparation refuses the mutation before changing effects"
+    );
+    assert_eq!(
+        store
+            .get_assignment_for_edit(context, assignment)
+            .await
+            .expect("read assignment after stale mutation")
+            .expect("assignment remains")
+            .revision,
+        changed.revision
+    );
+    assert_eq!(
+        store
+            .get_issued_effective_policy_receipt(context, issued.id)
+            .await
+            .expect("read first receipt after stale mutation")
+            .expect("first receipt remains")
+            .generation,
+        current_receipt.generation
+    );
+    assert_eq!(
+        store
+            .get_issued_effective_policy_receipt(context, second_issued.id)
+            .await
+            .expect("read second receipt after stale mutation")
+            .expect("second receipt remains")
+            .generation,
+        second_current_receipt.generation
+    );
+    let original_payload: (serde_json::Value, String) = sqlx::query_as(
+        "SELECT payload, payload_sha256::text FROM question_attempt \
+         WHERE tenant_id=$1 AND attempt_id=$2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(issued.id.as_uuid())
+    .fetch_one(&pool)
+    .await
+    .expect("capture immutable attempt payload before failure injection");
+    sqlx::query(
+        "UPDATE question_attempt SET payload='null'::jsonb, payload_sha256=repeat('0',64) \
+         WHERE tenant_id=$1 AND attempt_id=$2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(issued.id.as_uuid())
+    .execute(&pool)
+    .await
+    .expect("inject malformed payload into disposable fixture");
+    let injected_failure = store
+        .put_assignment_teaching_settings(
+            context,
+            PutAssignmentTeachingSettingsCommand {
+                actor: instructor,
+                course,
+                assignment,
+                expected_revision: changed.revision,
+                settings: question_model::AssignmentTeachingSettings {
+                    lifecycle: question_model::AssignmentLifecycle::Published,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    base_policy: BaseAssignmentPolicy {
+                        time_limit_seconds: Some(NonZeroU32::new(240).expect("positive limit")),
+                        ..changed.policy
+                    },
+                },
+            },
+        )
+        .await;
+    assert!(
+        injected_failure.is_err(),
+        "malformed protected payload aborts the policy mutation"
+    );
+    assert_eq!(
+        store
+            .get_issued_effective_policy_receipt(context, issued.id)
+            .await
+            .expect("read first receipt after injected failure")
+            .expect("first receipt remains")
+            .generation,
+        current_receipt.generation
+    );
+    assert_eq!(
+        store
+            .get_assignment_for_edit(context, assignment)
+            .await
+            .expect("read assignment after injected failure")
+            .expect("assignment remains")
+            .revision,
+        changed.revision
+    );
+    assert_eq!(
+        store
+            .get_issued_effective_policy_receipt(context, second_issued.id)
+            .await
+            .expect("read second receipt after injected failure")
+            .expect("second receipt remains")
+            .generation,
+        second_current_receipt.generation
+    );
+    let effects_after_failure: Vec<(Uuid, i64, i64, Option<Uuid>)> = sqlx::query_as(
+        "SELECT attempt_id, receipt_generation, timing_generation, job_id \
+         FROM attempt_effective_policy_current \
+         WHERE tenant_id=$1 AND attempt_id = ANY($2) ORDER BY attempt_id",
+    )
+    .bind(tenant.as_uuid())
+    .bind(expected_attempts.clone())
+    .fetch_all(&pool)
+    .await
+    .expect("read effect pointers after injected failure");
+    assert_eq!(effects_after_failure, current_effects);
+    let job_ids = jobs.iter().map(|(job, _)| *job).collect::<Vec<_>>();
+    let jobs_after_failure: Vec<(Uuid, String)> = sqlx::query_as(
+        "SELECT job_id, state FROM worker_job WHERE tenant_id=$1 AND job_id = ANY($2) ORDER BY job_id",
+    )
+    .bind(tenant.as_uuid())
+    .bind(job_ids)
+    .fetch_all(&pool)
+    .await
+    .expect("read timing jobs after injected failure");
+    assert_eq!(jobs_after_failure, jobs);
+    sqlx::query(
+        "UPDATE question_attempt SET payload=$3, payload_sha256=$4 \
+         WHERE tenant_id=$1 AND attempt_id=$2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(issued.id.as_uuid())
+    .bind(original_payload.0)
+    .bind(original_payload.1)
+    .execute(&pool)
+    .await
+    .expect("restore disposable fixture payload");
     assert!(
         store
             .get_base_assignment_policy(other_context, assignment)

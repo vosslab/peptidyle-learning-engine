@@ -6,8 +6,9 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use learning_data_access::{
     AddAssignmentFixedItemCommand, AssignmentRecord, AssignmentRevision, AuthoritativeTimeStore,
-    CatalogStore, CourseRecordsAccessStore, RemoveAssignmentFixedItemCommand,
-    ReplaceAssignmentFixedItemCommand, SessionStore, Store, StoreError, StoredAssignment,
+    CatalogStore, CourseRecordsAccessStore, CreateAssignmentCommand,
+    RemoveAssignmentFixedItemCommand, ReplaceAssignmentCommand, ReplaceAssignmentFixedItemCommand,
+    SessionStore, Store, StoreError, StoredAssignment,
 };
 use question_model::{
     AssignmentDeliveryState, AssignmentId, AssignmentInstructions, AssignmentItem,
@@ -96,8 +97,11 @@ where
         .store
         .create_assignment(
             authenticated.tenant_context,
-            assignment,
-            BaseAssignmentPolicy::default(),
+            CreateAssignmentCommand {
+                actor: authenticated.record.subject.user(),
+                assignment,
+                base_policy: BaseAssignmentPolicy::default(),
+            },
         )
         .await
     {
@@ -238,16 +242,19 @@ where
         .store
         .replace_assignment(
             authenticated.tenant_context,
-            course,
-            assignment,
-            expected_revision,
-            learning_data_access::AssignmentUpdate {
-                title: request.title,
-                audience: current.record.audience,
-                items,
-                selection_groups: current.record.selection_groups,
-                disclosure_policy: request.disclosure_policy,
-                policies: request.policies,
+            ReplaceAssignmentCommand {
+                actor: authenticated.record.subject.user(),
+                course,
+                assignment,
+                expected_revision,
+                update: learning_data_access::AssignmentUpdate {
+                    title: request.title,
+                    audience: current.record.audience,
+                    items,
+                    selection_groups: current.record.selection_groups,
+                    disclosure_policy: request.disclosure_policy,
+                    policies: request.policies,
+                },
             },
         )
         .await
@@ -332,6 +339,7 @@ where
         .add_assignment_fixed_item(
             authenticated.tenant_context,
             AddAssignmentFixedItemCommand {
+                actor: authenticated.record.subject.user(),
                 course,
                 assignment,
                 expected_revision,
@@ -399,6 +407,7 @@ where
         .remove_assignment_fixed_item(
             authenticated.tenant_context,
             RemoveAssignmentFixedItemCommand {
+                actor: authenticated.record.subject.user(),
                 course,
                 assignment,
                 item,
@@ -479,6 +488,7 @@ where
         .replace_assignment_fixed_item(
             authenticated.tenant_context,
             ReplaceAssignmentFixedItemCommand {
+                actor: authenticated.record.subject.user(),
                 course,
                 assignment,
                 current_item: item,

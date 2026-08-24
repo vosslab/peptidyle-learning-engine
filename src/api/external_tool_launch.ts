@@ -1,7 +1,11 @@
 /** Shared canonical contract for the server-brokered external-tool route. */
 
-export function externalToolLaunchPath(attemptId: string): string {
-  return `/api/attempts/${encodeURIComponent(attemptId)}/external-tool/launch`;
+export function externalToolLaunchPath(
+  courseId: string,
+  assignmentId: string,
+  attemptId: string,
+): string {
+  return `/api/courses/${encodeURIComponent(courseId)}/assignments/${encodeURIComponent(assignmentId)}/attempts/${encodeURIComponent(attemptId)}/external-tool/launch`;
 }
 
 /**
@@ -11,11 +15,13 @@ export function externalToolLaunchPath(attemptId: string): string {
  */
 export function isCanonicalExternalToolLaunchPath(
   launchUrl: string,
+  courseId: string,
+  assignmentId: string,
   attemptId: string,
   origin: string,
 ): boolean {
   if (
-    launchUrl !== externalToolLaunchPath(attemptId) ||
+    launchUrl !== externalToolLaunchPath(courseId, assignmentId, attemptId) ||
     !launchUrl.startsWith("/") ||
     launchUrl.startsWith("//") ||
     launchUrl.includes("?") ||

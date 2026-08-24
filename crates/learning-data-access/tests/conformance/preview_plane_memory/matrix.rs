@@ -67,14 +67,17 @@ pub(super) async fn exercise_residual_memory_matrix(
     let narrowed = store
         .replace_assignment(
             fixture.context,
-            fixture.course,
-            fixture.assignment,
-            current.revision,
-            assignment_update(
-                &current.record,
-                AssignmentAudience::any_of_groups(vec![schedule_group.record.id])
-                    .expect("audience"),
-            ),
+            ReplaceAssignmentCommand {
+                actor: fixture.instructor,
+                course: fixture.course,
+                assignment: fixture.assignment,
+                expected_revision: current.revision,
+                update: assignment_update(
+                    &current.record,
+                    AssignmentAudience::any_of_groups(vec![schedule_group.record.id])
+                        .expect("audience"),
+                ),
+            },
         )
         .await
         .expect("narrow assignment audience");
@@ -200,6 +203,13 @@ pub(super) async fn exercise_residual_memory_matrix(
     // append an audit.
     let foreign_course = CourseId::from_uuid(uuid(99_040));
     let foreign_learner = UserId::from_uuid(uuid(99_041));
+    let foreign_course_creation_authority = sysadmin_course_creation_authority(
+        store,
+        fixture.context.tenant_id(),
+        foreign_course,
+        fixture.instructor,
+    )
+    .await;
     store
         .create_course(
             fixture.context,
@@ -215,7 +225,7 @@ pub(super) async fn exercise_residual_memory_matrix(
                     )
                     .expect("foreign term"),
                 },
-                initial_instructor: fixture.instructor,
+                authority: foreign_course_creation_authority,
             },
         )
         .await
@@ -223,6 +233,7 @@ pub(super) async fn exercise_residual_memory_matrix(
     let foreign_member = store
         .upsert_course_member(
             fixture.context,
+            fixture.instructor,
             UpsertCourseMember {
                 course: foreign_course,
                 user: foreign_learner,
@@ -278,6 +289,7 @@ pub(super) async fn exercise_residual_memory_matrix(
     let revoked_member = store
         .upsert_course_member(
             fixture.context,
+            fixture.instructor,
             UpsertCourseMember {
                 course: fixture.course,
                 user: revoked_user,
@@ -538,10 +550,13 @@ pub(super) async fn exercise_residual_memory_matrix(
     let reopened = store
         .replace_assignment(
             fixture.context,
-            fixture.course,
-            fixture.assignment,
-            current.revision,
-            assignment_update(&current.record, AssignmentAudience::CourseWide),
+            ReplaceAssignmentCommand {
+                actor: fixture.instructor,
+                course: fixture.course,
+                assignment: fixture.assignment,
+                expected_revision: current.revision,
+                update: assignment_update(&current.record, AssignmentAudience::CourseWide),
+            },
         )
         .await
         .expect("course-wide");

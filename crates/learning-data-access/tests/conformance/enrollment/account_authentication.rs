@@ -385,11 +385,13 @@ async fn memory_account_course_context_derives_tenant_and_role_from_membership()
             CourseMembershipRole::Student,
         ),
     ] {
-        let initial_instructor = if role == CourseMembershipRole::Instructor {
+        let course_instructor = if role == CourseMembershipRole::Instructor {
             user
         } else {
             UserId::from_uuid(uuid(120_036))
         };
+        let course_creation_authority =
+            sysadmin_course_creation_authority(&store, tenant, course, course_instructor).await;
         store
             .create_course(
                 TenantContext::from_authenticated_session(tenant),
@@ -405,7 +407,7 @@ async fn memory_account_course_context_derives_tenant_and_role_from_membership()
                         )
                         .expect("explicit fixture course term"),
                     },
-                    initial_instructor,
+                    authority: course_creation_authority,
                 },
             )
             .await
@@ -414,6 +416,7 @@ async fn memory_account_course_context_derives_tenant_and_role_from_membership()
             store
                 .upsert_course_member(
                     TenantContext::from_authenticated_session(tenant),
+                    course_instructor,
                     UpsertCourseMember {
                         course,
                         user,

@@ -7,256 +7,24 @@ use domain::effective_assignment_policy::{
     AssignmentLifecycleGate, BaseAssignmentPolicy, GroupAccommodation, GroupScheduleOffset,
     IndividualPolicyException, PolicyModificationMode, PolicyPatch, PolicyPatchSet,
     ResolveEffectivePolicyInput, ScheduleOffsetSeconds, assignment_lifecycle_gate,
-    resolve_effective_policy, validate_base_assignment_policy_for_course_term,
+    resolve_effective_policy,
 };
 use question_model::{
     ActivityTimestamp, AssignmentDeadlineBehavior, AssignmentId, CourseGroupId, CourseId,
     CourseTerm, LateSubmissionPolicy, StudentId, TenantId,
 };
-use sqlx::types::Uuid;
+use serde_json::json;
 use sqlx::{Postgres, Row, Transaction};
 
 use super::*;
 use crate::*;
 
+mod active_attempts;
 mod preview_resolution;
-
-/// Recomputes the mutable effect of every active attempt while the caller
-/// already holds the assignment policy lock.  S5 is evaluated afresh for each
-/// attempt's current learner; historical enrollment and prior receipts never
-/// stand in for current authority.
-pub(super) async fn reresolve_active_attempts(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-    assignment: AssignmentId,
-    revision: AssignmentRevision,
-) -> Result<(), StoreError> {
-    let lifecycle: String = sqlx::query_scalar(
-        "SELECT lifecycle FROM assignment WHERE tenant_id=$1 AND assignment_id=$2 FOR UPDATE",
-    )
-    .bind(tenant.as_uuid())
-    .bind(assignment.as_uuid())
-    .fetch_optional(&mut **tx)
-    .await
-    .map_err(map_sqlx_error)?
-    .ok_or(StoreError::NotFound)?;
-    let lifecycle_gate = assignment_lifecycle_gate(parse_assignment_lifecycle(&lifecycle)?);
-    let attempts = sqlx::query("SELECT qa.attempt_id, qa.payload, qa.payload_sha256, qa.problem_id, qa.version_id, enrollment.student_id, run.run_number, floor(extract(epoch FROM run.started_at)*1000)::bigint AS run_started_at, floor(extract(epoch FROM qa.occurred_at)*1000)::bigint AS attempt_occurred_at FROM question_attempt qa JOIN assignment_run run ON run.tenant_id=qa.tenant_id AND run.run_id=qa.run_id JOIN enrollment enrollment ON enrollment.tenant_id=run.tenant_id AND enrollment.enrollment_id=run.enrollment_id WHERE qa.tenant_id=$1 AND enrollment.assignment_id=$3 AND qa.attempt_status='in_progress' ORDER BY qa.attempt_id FOR UPDATE OF qa")
-        .bind(tenant.as_uuid()).bind(course.as_uuid()).bind(assignment.as_uuid()).fetch_all(&mut **tx).await.map_err(map_sqlx_error)?;
-    for row in attempts {
-        let attempt =
-            QuestionAttemptId::from_uuid(row.try_get("attempt_id").map_err(map_sqlx_error)?);
-        let student = StudentId::from_uuid(row.try_get("student_id").map_err(map_sqlx_error)?);
-        let current = sqlx::query("SELECT receipt_generation,timing_generation FROM attempt_effective_policy_current WHERE tenant_id=$1 AND attempt_id=$2 FOR UPDATE")
-            .bind(tenant.as_uuid()).bind(attempt.as_uuid()).fetch_optional(&mut **tx).await.map_err(map_sqlx_error)?.ok_or_else(|| StoreError::Unavailable("active attempt is missing its effective-policy pointer".to_string()))?;
-        let entitlement =
-            super::entitlement::evaluate_current_student(tx, tenant, course, assignment, student)
-                .await?;
-        let allowed = match entitlement {
-            Some(domain::entitlement::EntitlementDecision::Granted(grant))
-                if grant.student() == student
-                    && matches!(lifecycle_gate, AssignmentLifecycleGate::Open) =>
-            {
-                let prior = u32::try_from(
-                    row.try_get::<i64, _>("run_number")
-                        .map_err(map_sqlx_error)?,
-                )
-                .map_err(|_| StoreError::Conflict)?
-                .saturating_sub(1);
-                let (decision, _) = resolve_granted_effective_policy(
-                    tx,
-                    grant,
-                    domain::effective_assignment_policy::AuthorizationGate::Authorized,
-                    prior,
-                )
-                .await?;
-                match decision {
-                    domain::effective_assignment_policy::EffectivePolicyDecision::Allowed {
-                        policy,
-                        start: domain::effective_assignment_policy::StartVerdict::MayStart { .. },
-                    } => Some(policy),
-                    domain::effective_assignment_policy::EffectivePolicyDecision::Allowed {
-                        ..
-                    }
-                    | domain::effective_assignment_policy::EffectivePolicyDecision::Denied {
-                        ..
-                    } => None,
-                }
-            }
-            _ => None,
-        };
-        let old_generation: i64 = current
-            .try_get("receipt_generation")
-            .map_err(map_sqlx_error)?;
-        let old_timing: i64 = current
-            .try_get("timing_generation")
-            .map_err(map_sqlx_error)?;
-        let Some(policy) = allowed else {
-            // The established terminal transition removes only mutable effect
-            // state; immutable receipts remain historical evidence.
-            super::assignment_timing::cancel_postgres_effective_policy_job(tx, tenant, attempt)
-                .await?;
-            sqlx::query("UPDATE question_attempt SET attempt_status='auto_submitted', submitted_at=transaction_timestamp() WHERE tenant_id=$1 AND attempt_id=$2 AND attempt_status='in_progress'").bind(tenant.as_uuid()).bind(attempt.as_uuid()).execute(&mut **tx).await.map_err(map_sqlx_error)?;
-            sqlx::query(
-                "DELETE FROM attempt_effective_policy_current WHERE tenant_id=$1 AND attempt_id=$2",
-            )
-            .bind(tenant.as_uuid())
-            .bind(attempt.as_uuid())
-            .execute(&mut **tx)
-            .await
-            .map_err(map_sqlx_error)?;
-            continue;
-        };
-        let attempt_record: question_model::QuestionAttempt =
-            super::row_decode::decode_payload_row(&row)?;
-        let published = super::transaction_context::load_published_record(
-            tx,
-            question_model::ProblemId::from_uuid(
-                row.try_get("problem_id").map_err(map_sqlx_error)?,
-            ),
-            question_model::VersionId::from_uuid(
-                row.try_get("version_id").map_err(map_sqlx_error)?,
-            ),
-        )
-        .await?;
-        let grace =
-            super::assignment_timing::timing_policy_grace_seconds(published.question.timing_policy);
-        let authored_timer = super::runs::attempt_issuance::issued_timer(
-            attempt_record.timer.issued_at,
-            ActivityTimestamp::from_unix_millis(
-                row.try_get("run_started_at").map_err(map_sqlx_error)?,
-            ),
-            published.question.timing_policy,
-        )?;
-        let timing = super::assignment_timing::resolved_postgres_attempt_timing(
-            &policy,
-            ActivityTimestamp::from_unix_millis(
-                row.try_get("run_started_at").map_err(map_sqlx_error)?,
-            ),
-            authored_timer.deadline,
-            grace,
-        )?;
-        let now = database_timestamp(tx).await?;
-        if timing
-            .effective_deadline
-            .is_some_and(|deadline| deadline < now)
-            || timing
-                .auto_submit_at
-                .is_some_and(|deadline| deadline <= now)
-        {
-            super::assignment_timing::cancel_postgres_effective_policy_job(tx, tenant, attempt)
-                .await?;
-            sqlx::query("UPDATE question_attempt SET attempt_status='auto_submitted', submitted_at=transaction_timestamp() WHERE tenant_id=$1 AND attempt_id=$2 AND attempt_status='in_progress'")
-                .bind(tenant.as_uuid()).bind(attempt.as_uuid()).execute(&mut **tx).await.map_err(map_sqlx_error)?;
-            sqlx::query(
-                "DELETE FROM attempt_effective_policy_current WHERE tenant_id=$1 AND attempt_id=$2",
-            )
-            .bind(tenant.as_uuid())
-            .bind(attempt.as_uuid())
-            .execute(&mut **tx)
-            .await
-            .map_err(map_sqlx_error)?;
-            continue;
-        }
-        let next_generation = old_generation.checked_add(1).ok_or(StoreError::Conflict)?;
-        super::effective_policy_receipts::append_sealed_effective_policy_receipt(
-            tx,
-            super::effective_policy_receipts::EffectivePolicyReceiptWrite {
-                tenant,
-                attempt,
-                assignment,
-                course,
-                generation: next_generation,
-                policy: &policy,
-                effective_deadline: timing.effective_deadline,
-                effective_grace_seconds: timing.effective_grace_seconds,
-                auto_submit_at: timing.auto_submit_at,
-                revision,
-            },
-        )
-        .await?;
-        super::assignment_timing::cancel_postgres_effective_policy_job(tx, tenant, attempt).await?;
-        let next_timing = old_timing.checked_add(1).ok_or(StoreError::Conflict)?;
-        let job =
-            schedule_effective_policy_job(tx, tenant, attempt, next_timing, timing.auto_submit_at)
-                .await?;
-        sqlx::query("UPDATE attempt_effective_policy_current SET receipt_generation=$3,timing_generation=$4,job_id=$5,updated_at=transaction_timestamp() WHERE tenant_id=$1 AND attempt_id=$2")
-            .bind(tenant.as_uuid()).bind(attempt.as_uuid()).bind(next_generation).bind(next_timing).bind(job.map(JobId::as_uuid)).execute(&mut **tx).await.map_err(map_sqlx_error)?;
-    }
-    Ok(())
-}
-
-pub(super) fn assignment_lifecycle_name(
-    value: question_model::AssignmentLifecycle,
-) -> &'static str {
-    match value {
-        question_model::AssignmentLifecycle::Draft => "draft",
-        question_model::AssignmentLifecycle::Published => "published",
-        question_model::AssignmentLifecycle::Closed => "closed",
-        question_model::AssignmentLifecycle::Archived => "archived",
-    }
-}
-
-pub(super) fn parse_assignment_lifecycle(
-    value: &str,
-) -> Result<question_model::AssignmentLifecycle, StoreError> {
-    match value {
-        "draft" => Ok(question_model::AssignmentLifecycle::Draft),
-        "published" => Ok(question_model::AssignmentLifecycle::Published),
-        "closed" => Ok(question_model::AssignmentLifecycle::Closed),
-        "archived" => Ok(question_model::AssignmentLifecycle::Archived),
-        _ => Err(StoreError::Unavailable(
-            "stored assignment lifecycle is invalid".to_string(),
-        )),
-    }
-}
-
-fn legal_lifecycle_transition(
-    current: question_model::AssignmentLifecycle,
-    next: question_model::AssignmentLifecycle,
-) -> bool {
-    use question_model::AssignmentLifecycle;
-    matches!(
-        (current, next),
-        (
-            AssignmentLifecycle::Draft,
-            AssignmentLifecycle::Draft
-                | AssignmentLifecycle::Published
-                | AssignmentLifecycle::Archived
-        ) | (
-            AssignmentLifecycle::Published,
-            AssignmentLifecycle::Published
-                | AssignmentLifecycle::Closed
-                | AssignmentLifecycle::Archived
-        ) | (
-            AssignmentLifecycle::Closed,
-            AssignmentLifecycle::Closed
-                | AssignmentLifecycle::Published
-                | AssignmentLifecycle::Archived
-        ) | (AssignmentLifecycle::Archived, AssignmentLifecycle::Archived)
-    )
-}
-
-async fn schedule_effective_policy_job(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    attempt: QuestionAttemptId,
-    timing_generation: i64,
-    auto_submit_at: Option<ActivityTimestamp>,
-) -> Result<Option<JobId>, StoreError> {
-    let Some(at) = auto_submit_at else {
-        return Ok(None);
-    };
-    let job = JobId::generate()?;
-    let payload = serde_json::to_value(JobPayload::AutoSubmitAttempt {
-        attempt,
-        timing_generation: u64::try_from(timing_generation).map_err(|_| StoreError::Conflict)?,
-    })
-    .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-    sqlx::query("INSERT INTO worker_job (job_id,tenant_id,payload,state,available_at,max_attempts) VALUES ($1,$2,$3,'ready',TIMESTAMPTZ 'epoch' + $4::bigint * INTERVAL '1 millisecond',10)").bind(job.as_uuid()).bind(tenant.as_uuid()).bind(payload).bind(at.as_unix_millis()).execute(&mut **tx).await.map_err(map_sqlx_error)?;
-    Ok(Some(job))
-}
+pub(super) use active_attempts::{
+    assignment_lifecycle_name, inert_inputs, parse_assignment_lifecycle,
+    reresolve_prelocked_active_attempts,
+};
 
 #[async_trait]
 impl crate::EffectivePolicyStore for PostgresStore {
@@ -266,7 +34,7 @@ impl crate::EffectivePolicyStore for PostgresStore {
         assignment: AssignmentId,
     ) -> Result<Option<StoredBaseAssignmentPolicy>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        let result = load_base(&mut transaction, context.tenant_id(), assignment, false).await?;
+        let result = load_base(&mut transaction, context.tenant_id(), assignment).await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
     }
@@ -279,41 +47,57 @@ impl crate::EffectivePolicyStore for PostgresStore {
         retry_transaction(|| {
             let command = command.clone();
             async move {
-            let tenant = context.tenant_id();
-            let mut tx = self.begin_tenant(context).await?;
-            lock_policy(&mut tx, tenant, command.assignment).await?;
-            authorize_editor(&mut tx, tenant, command.course, command.assignment, command.actor).await?;
-            let course_term = load_course_term_for_policy(&mut tx, tenant, command.course).await?;
-            validate_base_assignment_policy_for_course_term(command.settings.base_policy, &course_term).map_err(|error| {
-                StoreError::InvalidRecord(format!("invalid assignment teaching settings: {error:?}"))
-            })?;
-            let revision = require_revision(&mut tx, tenant, command.assignment, command.course, command.expected_revision).await?;
-            let current_lifecycle: String = sqlx::query_scalar("SELECT lifecycle FROM assignment WHERE tenant_id=$1 AND assignment_id=$2 FOR UPDATE")
-                .bind(tenant.as_uuid()).bind(command.assignment.as_uuid()).fetch_one(&mut *tx).await.map_err(map_sqlx_error)?;
-            let previous = parse_assignment_lifecycle(&current_lifecycle)?;
-            if !legal_lifecycle_transition(previous, command.settings.lifecycle) {
-                return Err(StoreError::InvalidRecord("assignment lifecycle transition is invalid".to_string()));
+                let tenant = context.tenant_id();
+                let mut tx = self.begin_tenant(context).await?;
+                let count = prepare_policy_mutation(
+                    &mut tx,
+                    tenant,
+                    command.course,
+                    command.assignment,
+                    command.actor,
+                    command.expected_revision,
+                )
+                .await?;
+                let settings = teaching_settings_payload(command.settings.clone())?;
+                let returned: i64 = sqlx::query_scalar(
+                    "SELECT ple_put_assignment_teaching_settings($1,$2,$3,$4,$5,$6,$7)",
+                )
+                .bind(tenant.as_uuid())
+                .bind(command.actor.as_uuid())
+                .bind(command.course.as_uuid())
+                .bind(command.assignment.as_uuid())
+                .bind(stored_revision(command.expected_revision)?)
+                .bind(settings)
+                .bind(count)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_sqlx_error)?;
+                let next = finish_policy_mutation(
+                    &mut tx,
+                    context,
+                    command.actor,
+                    command.course,
+                    command.assignment,
+                    command.expected_revision,
+                    returned,
+                )
+                .await?;
+                let stored = load_base(&mut tx, tenant, command.assignment)
+                    .await?
+                    .ok_or(StoreError::NotFound)?;
+                if stored.course != command.course
+                    || stored.policy != command.settings.base_policy
+                    || stored.revision != next
+                {
+                    return Err(StoreError::Unavailable(
+                        "teaching-settings capability normalization mismatch".into(),
+                    ));
+                }
+                tx.commit().await.map_err(map_sqlx_error)?;
+                Ok(stored)
             }
-            sqlx::query("UPDATE assignment SET lifecycle=$3, instructions=$4, updated_at=transaction_timestamp() WHERE tenant_id=$1 AND assignment_id=$2")
-                .bind(tenant.as_uuid()).bind(command.assignment.as_uuid())
-                .bind(assignment_lifecycle_name(command.settings.lifecycle))
-                .bind(command.settings.instructions.as_str())
-                .execute(&mut *tx).await.map_err(map_sqlx_error)?;
-            sqlx::query("INSERT INTO assignment_effective_policy_base \
-                (tenant_id, assignment_id, course_id, available_at, due_at, closes_at, late_submission_policy, deadline_behavior, time_limit_seconds, attempt_limit) \
-                VALUES ($1,$2,$3,to_timestamp($4::double precision / 1000),to_timestamp($5::double precision / 1000),to_timestamp($6::double precision / 1000),$7,$8,$9,$10) \
-                ON CONFLICT (tenant_id, assignment_id) DO UPDATE SET course_id=EXCLUDED.course_id, available_at=EXCLUDED.available_at, due_at=EXCLUDED.due_at, closes_at=EXCLUDED.closes_at, late_submission_policy=EXCLUDED.late_submission_policy, deadline_behavior=EXCLUDED.deadline_behavior, time_limit_seconds=EXCLUDED.time_limit_seconds, attempt_limit=EXCLUDED.attempt_limit, updated_at=transaction_timestamp()")
-                .bind(tenant.as_uuid()).bind(command.assignment.as_uuid()).bind(command.course.as_uuid())
-                .bind(millis(command.settings.base_policy.available_at)).bind(millis(command.settings.base_policy.due_at)).bind(millis(command.settings.base_policy.closes_at))
-                .bind(late_name(command.settings.base_policy.late_submission)).bind(deadline_name(command.settings.base_policy.deadline_behavior))
-                .bind(command.settings.base_policy.time_limit_seconds.map(|v| i32::try_from(v.get())).transpose().map_err(|_| StoreError::InvalidRecord("time limit exceeds PostgreSQL integer".to_string()))?)
-                .bind(command.settings.base_policy.attempt_limit.map(|v| i32::try_from(v.get())).transpose().map_err(|_| StoreError::InvalidRecord("attempt limit exceeds PostgreSQL integer".to_string()))?)
-                .execute(&mut *tx).await.map_err(map_sqlx_error)?;
-            let next = bump_revision(&mut tx, tenant, command.assignment, command.expected_revision).await?;
-            tx.commit().await.map_err(map_sqlx_error)?;
-            Ok(StoredBaseAssignmentPolicy { tenant, course: command.course, assignment: command.assignment, policy: command.settings.base_policy, revision: next.max(revision) })
-            }
-        }).await
+        })
+        .await
     }
 
     async fn put_group_schedule_offset_impl(
@@ -385,7 +169,7 @@ impl crate::EffectivePolicyStore for PostgresStore {
                 domain::effective_assignment_policy::AuthorizationGate::Denied(_)
             );
         let inputs = if denied {
-            inert_inputs()?
+            active_attempts::inert_inputs()?
         } else {
             let domain::entitlement::EntitlementDecision::Granted(ref grant) = command.entitlement
             else {
@@ -453,29 +237,6 @@ impl crate::EffectivePolicyStore for PostgresStore {
     }
 }
 
-async fn authorize_editor(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-    assignment: AssignmentId,
-    actor: UserId,
-) -> Result<(), StoreError> {
-    let assignment_course: Option<Uuid> = sqlx::query_scalar(
-        "SELECT course_id FROM assignment WHERE tenant_id=$1 AND assignment_id=$2 FOR UPDATE",
-    )
-    .bind(tenant.as_uuid())
-    .bind(assignment.as_uuid())
-    .fetch_optional(&mut **tx)
-    .await
-    .map_err(map_sqlx_error)?;
-    if assignment_course != Some(course.as_uuid())
-        || !postgres_is_course_instructor(tx, tenant, course, actor).await?
-    {
-        return Err(StoreError::NotFound);
-    }
-    Ok(())
-}
-
 pub(super) async fn load_course_term_for_policy(
     tx: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
@@ -506,94 +267,146 @@ pub(super) async fn load_course_term_for_preview(
     preview_resolution::load_course_term_for_preview(tx, tenant, course).await
 }
 
-async fn require_revision(
+async fn prepare_policy_mutation(
     tx: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
-    assignment: AssignmentId,
     course: CourseId,
+    assignment: AssignmentId,
+    actor: UserId,
     expected: AssignmentRevision,
-) -> Result<AssignmentRevision, StoreError> {
-    let row = sqlx::query("SELECT course_id, revision FROM assignment WHERE tenant_id=$1 AND assignment_id=$2 FOR UPDATE").bind(tenant.as_uuid()).bind(assignment.as_uuid()).fetch_optional(&mut **tx).await.map_err(map_sqlx_error)?.ok_or(StoreError::NotFound)?;
-    if row
-        .try_get::<Uuid, _>("course_id")
-        .map_err(map_sqlx_error)?
-        != course.as_uuid()
-    {
-        return Err(StoreError::NotFound);
-    }
-    let actual = AssignmentRevision::from_stored(row.try_get("revision").map_err(map_sqlx_error)?)?;
-    if actual != expected {
+) -> Result<i64, StoreError> {
+    let revision = stored_revision(expected)?;
+    let row =
+        sqlx::query("SELECT * FROM ple_prepare_assignment_rehearsal_verification($1,$2,$3,$4,$5)")
+            .bind(tenant.as_uuid())
+            .bind(actor.as_uuid())
+            .bind(course.as_uuid())
+            .bind(assignment.as_uuid())
+            .bind(revision)
+            .fetch_one(&mut **tx)
+            .await
+            .map_err(map_sqlx_error)?;
+    let prepared = super::rehearsal::AssignmentRehearsalPrepareWitness::decode(&row)?;
+    if prepared.revision() != revision {
         return Err(StoreError::Conflict);
     }
-    Ok(actual)
+    prepared
+        .verify(
+            tx,
+            tenant,
+            super::rehearsal::RehearsalSourceSelector::Assignment { course, assignment },
+        )
+        .await?
+        .database_count()
 }
-
-async fn bump_revision(
+async fn finish_policy_mutation(
     tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
+    context: TenantContext,
+    actor: UserId,
+    course: CourseId,
     assignment: AssignmentId,
     expected: AssignmentRevision,
+    returned: i64,
 ) -> Result<AssignmentRevision, StoreError> {
-    let next = expected.next()?;
-    let course: Option<Uuid> = sqlx::query_scalar("UPDATE assignment SET revision=$3, updated_at=transaction_timestamp() WHERE tenant_id=$1 AND assignment_id=$2 AND revision=$4 RETURNING course_id").bind(tenant.as_uuid()).bind(assignment.as_uuid()).bind(i64::try_from(next.value()).map_err(|_| StoreError::Conflict)?).bind(i64::try_from(expected.value()).map_err(|_| StoreError::Conflict)?).fetch_optional(&mut **tx).await.map_err(map_sqlx_error)?;
-    let course = CourseId::from_uuid(course.ok_or(StoreError::Conflict)?);
-    reresolve_active_attempts(tx, tenant, course, assignment, next).await?;
-    Ok(next)
+    let revision = AssignmentRevision::from_stored(returned)?;
+    if revision != expected.next()? {
+        return Err(StoreError::Conflict);
+    }
+    reresolve_post_mutation_active_attempts(tx, context, actor, course, assignment, revision)
+        .await?;
+    Ok(revision)
 }
 
-async fn lock_policy(
+/// Completes the broker-governed post-mutation repair preparation.  The
+/// capability locks the exact active-attempt set; its opaque witness is
+/// decoded and validated before the active-attempt worker hydrates learners.
+pub(super) async fn prepare_post_mutation_active_attempt_reresolution(
     tx: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
+    actor: UserId,
+    course: CourseId,
     assignment: AssignmentId,
-) -> Result<(), StoreError> {
-    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::uuid::text || ':' || $2::uuid::text, 0))").bind(tenant.as_uuid()).bind(assignment.as_uuid()).execute(&mut **tx).await.map_err(map_sqlx_error)?;
-    Ok(())
+    revision: AssignmentRevision,
+) -> Result<active_attempts::ActiveAttemptPrepareWitness, StoreError> {
+    let row = sqlx::query(
+        "SELECT * FROM ple_prepare_assignment_active_attempt_reresolution($1,$2,$3,$4,$5)",
+    )
+    .bind(tenant.as_uuid())
+    .bind(actor.as_uuid())
+    .bind(course.as_uuid())
+    .bind(assignment.as_uuid())
+    .bind(stored_revision(revision)?)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(map_sqlx_error)?;
+    let witness = active_attempts::ActiveAttemptPrepareWitness::decode(&row)?;
+    witness.require_revision(revision)?;
+    Ok(witness)
 }
 
-fn millis(value: Option<ActivityTimestamp>) -> Option<i64> {
-    value.map(|timestamp| timestamp.as_unix_millis())
+pub(super) async fn reresolve_post_mutation_active_attempts(
+    tx: &mut Transaction<'_, Postgres>,
+    context: TenantContext,
+    actor: UserId,
+    course: CourseId,
+    assignment: AssignmentId,
+    revision: AssignmentRevision,
+) -> Result<(), StoreError> {
+    let witness = prepare_post_mutation_active_attempt_reresolution(
+        tx,
+        context.tenant_id(),
+        actor,
+        course,
+        assignment,
+        revision,
+    )
+    .await?;
+    reresolve_prelocked_active_attempts(
+        tx,
+        context.tenant_id(),
+        course,
+        assignment,
+        revision,
+        witness,
+    )
+    .await
+}
+fn stored_revision(value: AssignmentRevision) -> Result<i64, StoreError> {
+    i64::try_from(value.value()).map_err(|_| StoreError::Conflict)
+}
+fn teaching_settings_payload(
+    settings: question_model::AssignmentTeachingSettings,
+) -> Result<serde_json::Value, StoreError> {
+    let p = settings.base_policy;
+    let limit = |v: Option<NonZeroU32>| {
+        v.map(|v| {
+            i32::try_from(v.get()).map_err(|_| {
+                StoreError::InvalidRecord("policy limit exceeds PostgreSQL integer".into())
+            })
+        })
+        .transpose()
+    };
+    Ok(
+        json!({"lifecycle":assignment_lifecycle_name(settings.lifecycle),"instructions":settings.instructions,"basePolicy":{"availableAt":p.available_at.map(|v|v.as_unix_millis()),"dueAt":p.due_at.map(|v|v.as_unix_millis()),"closesAt":p.closes_at.map(|v|v.as_unix_millis()),"lateSubmission":late_name(p.late_submission),"deadlineBehavior":deadline_name(p.deadline_behavior),"timeLimitSeconds":limit(p.time_limit_seconds)?,"attemptLimit":limit(p.attempt_limit)?}}),
+    )
 }
 fn late_name(value: LateSubmissionPolicy) -> &'static str {
     match value {
         LateSubmissionPolicy::Accept => "accept",
         LateSubmissionPolicy::Reject => "reject",
-        LateSubmissionPolicy::MarkLate => "mark_late",
+        LateSubmissionPolicy::MarkLate => "markLate",
     }
 }
-fn deadline_name(value: AssignmentDeadlineBehavior) -> &'static str {
-    match value {
-        AssignmentDeadlineBehavior::AutoSubmit => "auto_submit",
-    }
-}
-fn inert_inputs() -> Result<EffectivePolicyInputs, StoreError> {
-    Ok(EffectivePolicyInputs {
-        base: BaseAssignmentPolicy {
-            available_at: None,
-            due_at: None,
-            closes_at: None,
-            time_limit_seconds: None,
-            attempt_limit: None,
-            late_submission: LateSubmissionPolicy::Accept,
-            deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
-        },
-        schedule_offsets: vec![],
-        accommodations: vec![],
-        individual: None,
-    })
+fn deadline_name(_: AssignmentDeadlineBehavior) -> &'static str {
+    "autoSubmit"
 }
 
 async fn load_base(
     tx: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
     assignment: AssignmentId,
-    lock: bool,
 ) -> Result<Option<StoredBaseAssignmentPolicy>, StoreError> {
-    let sql = if lock {
-        "SELECT course_id, floor(extract(epoch FROM available_at)*1000)::bigint AS available, floor(extract(epoch FROM due_at)*1000)::bigint AS due, floor(extract(epoch FROM closes_at)*1000)::bigint AS closes, late_submission_policy, deadline_behavior, time_limit_seconds, attempt_limit, revision FROM assignment_effective_policy_base JOIN assignment USING (tenant_id, assignment_id, course_id) WHERE assignment_effective_policy_base.tenant_id=$1 AND assignment_effective_policy_base.assignment_id=$2 FOR UPDATE"
-    } else {
-        "SELECT course_id, floor(extract(epoch FROM available_at)*1000)::bigint AS available, floor(extract(epoch FROM due_at)*1000)::bigint AS due, floor(extract(epoch FROM closes_at)*1000)::bigint AS closes, late_submission_policy, deadline_behavior, time_limit_seconds, attempt_limit, revision FROM assignment_effective_policy_base JOIN assignment USING (tenant_id, assignment_id, course_id) WHERE assignment_effective_policy_base.tenant_id=$1 AND assignment_effective_policy_base.assignment_id=$2"
-    };
-    let row = sqlx::query(sql)
+    let row = sqlx::query("SELECT course_id, floor(extract(epoch FROM available_at)*1000)::bigint AS available, floor(extract(epoch FROM due_at)*1000)::bigint AS due, floor(extract(epoch FROM closes_at)*1000)::bigint AS closes, late_submission_policy, deadline_behavior, time_limit_seconds, attempt_limit, revision FROM assignment_effective_policy_base JOIN assignment USING (tenant_id, assignment_id, course_id) WHERE assignment_effective_policy_base.tenant_id=$1 AND assignment_effective_policy_base.assignment_id=$2")
         .bind(tenant.as_uuid())
         .bind(assignment.as_uuid())
         .fetch_optional(&mut **tx)
@@ -608,7 +421,7 @@ pub(super) async fn load_base_policy(
     tenant: TenantId,
     assignment: AssignmentId,
 ) -> Result<BaseAssignmentPolicy, StoreError> {
-    load_base(tx, tenant, assignment, false)
+    load_base(tx, tenant, assignment)
         .await?
         .map(|stored| stored.policy)
         .ok_or(StoreError::NotFound)
@@ -689,7 +502,7 @@ pub(super) async fn load_inputs(
     student: Option<StudentId>,
     scopes: Option<&domain::entitlement::ApplicablePolicyScopes>,
 ) -> Result<EffectivePolicyInputs, StoreError> {
-    let base = load_base(tx, tenant, assignment, false)
+    let base = load_base(tx, tenant, assignment)
         .await?
         .ok_or(StoreError::NotFound)?
         .policy;
@@ -868,107 +681,313 @@ fn decode_individual(
     })
 }
 
+fn patch_payload(
+    mode: PolicyModificationMode,
+    patch: PolicyPatchSet,
+) -> Result<serde_json::Value, StoreError> {
+    let timestamp = |v: PolicyPatch<ActivityTimestamp>| match v {
+        PolicyPatch::Inherit => json!([null, null]),
+        PolicyPatch::Unrestricted => json!(["unrestricted", null]),
+        PolicyPatch::Set(v) => json!(["at", v.as_unix_millis()]),
+    };
+    let limit = |v: PolicyPatch<NonZeroU32>| -> Result<(Option<&str>, Option<i32>), StoreError> {
+        match v {
+            PolicyPatch::Inherit => Ok((None, None)),
+            PolicyPatch::Unrestricted => Ok((Some("unlimited"), None)),
+            PolicyPatch::Set(v) => Ok((
+                Some("value"),
+                Some(i32::try_from(v.get()).map_err(|_| {
+                    StoreError::InvalidRecord("policy limit exceeds PostgreSQL integer".into())
+                })?),
+            )),
+        }
+    };
+    let a = timestamp(patch.available_at);
+    let d = timestamp(patch.due_at);
+    let c = timestamp(patch.closes_at);
+    let (tlm, tl) = limit(patch.time_limit_seconds)?;
+    let (alm, al) = limit(patch.attempt_limit)?;
+    Ok(
+        json!({"overrideKind":match mode{PolicyModificationMode::ExtendOnly=>"extend_only",PolicyModificationMode::Override=>"explicit_override"},"availableMode":a[0],"availableAt":a[1],"dueMode":d[0],"dueAt":d[1],"closesMode":c[0],"closesAt":c[1],"timeLimitMode":tlm,"timeLimitSeconds":tl,"attemptLimitMode":alm,"attemptLimit":al}),
+    )
+}
+
 async fn mutate_group_offset(
     store: &PostgresStore,
     context: TenantContext,
     command: PutGroupScheduleOffsetCommand,
     _: bool,
 ) -> Result<AssignmentRevision, StoreError> {
-    retry_transaction(||async move{let tenant=context.tenant_id();let mut tx=store.begin_tenant(context).await?;lock_policy(&mut tx,tenant,command.assignment).await?;authorize_editor(&mut tx,tenant,command.course,command.assignment,command.actor).await?;require_revision(&mut tx,tenant,command.assignment,command.course,command.expected_revision).await?;sqlx::query("INSERT INTO assignment_group_schedule_offset (tenant_id,assignment_id,course_id,course_group_id,schedule_offset_seconds) VALUES($1,$2,$3,$4,$5) ON CONFLICT(tenant_id,assignment_id,course_group_id) DO UPDATE SET course_id=EXCLUDED.course_id,schedule_offset_seconds=EXCLUDED.schedule_offset_seconds,updated_at=transaction_timestamp()").bind(tenant.as_uuid()).bind(command.assignment.as_uuid()).bind(command.course.as_uuid()).bind(command.offset.group.as_uuid()).bind(command.offset.offset_seconds.get()).execute(&mut *tx).await.map_err(map_sqlx_error)?;let revision=bump_revision(&mut tx,tenant,command.assignment,command.expected_revision).await?;tx.commit().await.map_err(map_sqlx_error)?;Ok(revision)}).await
+    retry_transaction(|| async move {
+        let tenant = context.tenant_id();
+        let mut tx = store.begin_tenant(context).await?;
+        let count = prepare_policy_mutation(
+            &mut tx,
+            tenant,
+            command.course,
+            command.assignment,
+            command.actor,
+            command.expected_revision,
+        )
+        .await?;
+        let returned: i64 = sqlx::query_scalar(
+            "SELECT ple_put_assignment_group_schedule_offset($1,$2,$3,$4,$5,$6,$7,$8)",
+        )
+        .bind(tenant.as_uuid())
+        .bind(command.actor.as_uuid())
+        .bind(command.course.as_uuid())
+        .bind(command.assignment.as_uuid())
+        .bind(stored_revision(command.expected_revision)?)
+        .bind(command.offset.group.as_uuid())
+        .bind(command.offset.offset_seconds.get())
+        .bind(count)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let revision = finish_policy_mutation(
+            &mut tx,
+            context,
+            command.actor,
+            command.course,
+            command.assignment,
+            command.expected_revision,
+            returned,
+        )
+        .await?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(revision)
+    })
+    .await
 }
 async fn delete_group_offset(
     store: &PostgresStore,
     context: TenantContext,
     command: DeleteGroupScheduleOffsetCommand,
 ) -> Result<AssignmentRevision, StoreError> {
-    retry_transaction(||async move{let tenant=context.tenant_id();let mut tx=store.begin_tenant(context).await?;lock_policy(&mut tx,tenant,command.assignment).await?;authorize_editor(&mut tx,tenant,command.course,command.assignment,command.actor).await?;require_revision(&mut tx,tenant,command.assignment,command.course,command.expected_revision).await?;let removed=sqlx::query("DELETE FROM assignment_group_schedule_offset WHERE tenant_id=$1 AND assignment_id=$2 AND course_group_id=$3").bind(tenant.as_uuid()).bind(command.assignment.as_uuid()).bind(command.group.as_uuid()).execute(&mut *tx).await.map_err(map_sqlx_error)?;if removed.rows_affected()!=1{return Err(StoreError::NotFound)}let revision=bump_revision(&mut tx,tenant,command.assignment,command.expected_revision).await?;tx.commit().await.map_err(map_sqlx_error)?;Ok(revision)}).await
+    retry_transaction(|| async move {
+        let tenant = context.tenant_id();
+        let mut tx = store.begin_tenant(context).await?;
+        let count = prepare_policy_mutation(
+            &mut tx,
+            tenant,
+            command.course,
+            command.assignment,
+            command.actor,
+            command.expected_revision,
+        )
+        .await?;
+        let returned: i64 = sqlx::query_scalar(
+            "SELECT ple_delete_assignment_group_schedule_offset($1,$2,$3,$4,$5,$6,$7)",
+        )
+        .bind(tenant.as_uuid())
+        .bind(command.actor.as_uuid())
+        .bind(command.course.as_uuid())
+        .bind(command.assignment.as_uuid())
+        .bind(stored_revision(command.expected_revision)?)
+        .bind(command.group.as_uuid())
+        .bind(count)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let revision = finish_policy_mutation(
+            &mut tx,
+            context,
+            command.actor,
+            command.course,
+            command.assignment,
+            command.expected_revision,
+            returned,
+        )
+        .await?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(revision)
+    })
+    .await
 }
 async fn mutate_accommodation(
     store: &PostgresStore,
     context: TenantContext,
     command: PutGroupAccommodationCommand,
 ) -> Result<AssignmentRevision, StoreError> {
-    retry_transaction(||async move{let tenant=context.tenant_id();let mut tx=store.begin_tenant(context).await?;lock_policy(&mut tx,tenant,command.assignment).await?;authorize_editor(&mut tx,tenant,command.course,command.assignment,command.actor).await?;require_revision(&mut tx,tenant,command.assignment,command.course,command.expected_revision).await?;let values=patch_values(command.accommodation.mode,command.accommodation.patch)?;sqlx::query("INSERT INTO assignment_group_accommodation (tenant_id,assignment_id,course_id,course_group_id,override_kind,available_mode,available_at,due_mode,due_at,closes_mode,closes_at,time_limit_mode,time_limit_seconds,attempt_limit_mode,attempt_limit) VALUES($1,$2,$3,$4,$5,$6,to_timestamp($7::double precision/1000),$8,to_timestamp($9::double precision/1000),$10,to_timestamp($11::double precision/1000),$12,$13,$14,$15) ON CONFLICT(tenant_id,assignment_id,course_group_id) DO UPDATE SET override_kind=EXCLUDED.override_kind,available_mode=EXCLUDED.available_mode,available_at=EXCLUDED.available_at,due_mode=EXCLUDED.due_mode,due_at=EXCLUDED.due_at,closes_mode=EXCLUDED.closes_mode,closes_at=EXCLUDED.closes_at,time_limit_mode=EXCLUDED.time_limit_mode,time_limit_seconds=EXCLUDED.time_limit_seconds,attempt_limit_mode=EXCLUDED.attempt_limit_mode,attempt_limit=EXCLUDED.attempt_limit,updated_at=transaction_timestamp()").bind(tenant.as_uuid()).bind(command.assignment.as_uuid()).bind(command.course.as_uuid()).bind(command.accommodation.group.as_uuid()).bind(values.kind).bind(values.available_mode).bind(values.available).bind(values.due_mode).bind(values.due).bind(values.closes_mode).bind(values.closes).bind(values.time_limit_mode).bind(values.time_limit).bind(values.attempt_limit_mode).bind(values.attempt_limit).execute(&mut *tx).await.map_err(map_sqlx_error)?;let revision=bump_revision(&mut tx,tenant,command.assignment,command.expected_revision).await?;tx.commit().await.map_err(map_sqlx_error)?;Ok(revision)}).await
+    retry_transaction(|| async move {
+        let tenant = context.tenant_id();
+        let mut tx = store.begin_tenant(context).await?;
+        let count = prepare_policy_mutation(
+            &mut tx,
+            tenant,
+            command.course,
+            command.assignment,
+            command.actor,
+            command.expected_revision,
+        )
+        .await?;
+        let returned: i64 = sqlx::query_scalar(
+            "SELECT ple_put_assignment_group_accommodation($1,$2,$3,$4,$5,$6,$7,$8)",
+        )
+        .bind(tenant.as_uuid())
+        .bind(command.actor.as_uuid())
+        .bind(command.course.as_uuid())
+        .bind(command.assignment.as_uuid())
+        .bind(stored_revision(command.expected_revision)?)
+        .bind(command.accommodation.group.as_uuid())
+        .bind(patch_payload(
+            command.accommodation.mode,
+            command.accommodation.patch,
+        )?)
+        .bind(count)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let revision = finish_policy_mutation(
+            &mut tx,
+            context,
+            command.actor,
+            command.course,
+            command.assignment,
+            command.expected_revision,
+            returned,
+        )
+        .await?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(revision)
+    })
+    .await
 }
 async fn delete_accommodation(
     store: &PostgresStore,
     context: TenantContext,
     command: DeleteGroupAccommodationCommand,
 ) -> Result<AssignmentRevision, StoreError> {
-    retry_transaction(||async move{let tenant=context.tenant_id();let mut tx=store.begin_tenant(context).await?;lock_policy(&mut tx,tenant,command.assignment).await?;authorize_editor(&mut tx,tenant,command.course,command.assignment,command.actor).await?;require_revision(&mut tx,tenant,command.assignment,command.course,command.expected_revision).await?;let removed=sqlx::query("DELETE FROM assignment_group_accommodation WHERE tenant_id=$1 AND assignment_id=$2 AND course_group_id=$3").bind(tenant.as_uuid()).bind(command.assignment.as_uuid()).bind(command.group.as_uuid()).execute(&mut *tx).await.map_err(map_sqlx_error)?;if removed.rows_affected()!=1{return Err(StoreError::NotFound)}let revision=bump_revision(&mut tx,tenant,command.assignment,command.expected_revision).await?;tx.commit().await.map_err(map_sqlx_error)?;Ok(revision)}).await
+    retry_transaction(|| async move {
+        let tenant = context.tenant_id();
+        let mut tx = store.begin_tenant(context).await?;
+        let count = prepare_policy_mutation(
+            &mut tx,
+            tenant,
+            command.course,
+            command.assignment,
+            command.actor,
+            command.expected_revision,
+        )
+        .await?;
+        let returned: i64 = sqlx::query_scalar(
+            "SELECT ple_delete_assignment_group_accommodation($1,$2,$3,$4,$5,$6,$7)",
+        )
+        .bind(tenant.as_uuid())
+        .bind(command.actor.as_uuid())
+        .bind(command.course.as_uuid())
+        .bind(command.assignment.as_uuid())
+        .bind(stored_revision(command.expected_revision)?)
+        .bind(command.group.as_uuid())
+        .bind(count)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let revision = finish_policy_mutation(
+            &mut tx,
+            context,
+            command.actor,
+            command.course,
+            command.assignment,
+            command.expected_revision,
+            returned,
+        )
+        .await?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(revision)
+    })
+    .await
 }
 async fn mutate_individual(
     store: &PostgresStore,
     context: TenantContext,
     command: PutIndividualPolicyExceptionCommand,
 ) -> Result<AssignmentRevision, StoreError> {
-    retry_transaction(||async move{let tenant=context.tenant_id();let mut tx=store.begin_tenant(context).await?;lock_policy(&mut tx,tenant,command.assignment).await?;authorize_editor(&mut tx,tenant,command.course,command.assignment,command.actor).await?;require_revision(&mut tx,tenant,command.assignment,command.course,command.expected_revision).await?;let e=command.exception;let values=patch_values(e.exception.mode,e.exception.patch)?;sqlx::query("INSERT INTO assignment_individual_policy_exception (tenant_id,assignment_individual_policy_exception_id,assignment_id,course_id,student_id,override_kind,available_mode,available_at,due_mode,due_at,closes_mode,closes_at,time_limit_mode,time_limit_seconds,attempt_limit_mode,attempt_limit) VALUES($1,$2,$3,$4,$5,$6,$7,to_timestamp($8::double precision/1000),$9,to_timestamp($10::double precision/1000),$11,to_timestamp($12::double precision/1000),$13,$14,$15,$16) ON CONFLICT(tenant_id,assignment_id,student_id) DO UPDATE SET assignment_individual_policy_exception_id=EXCLUDED.assignment_individual_policy_exception_id,override_kind=EXCLUDED.override_kind,available_mode=EXCLUDED.available_mode,available_at=EXCLUDED.available_at,due_mode=EXCLUDED.due_mode,due_at=EXCLUDED.due_at,closes_mode=EXCLUDED.closes_mode,closes_at=EXCLUDED.closes_at,time_limit_mode=EXCLUDED.time_limit_mode,time_limit_seconds=EXCLUDED.time_limit_seconds,attempt_limit_mode=EXCLUDED.attempt_limit_mode,attempt_limit=EXCLUDED.attempt_limit,updated_at=transaction_timestamp()").bind(tenant.as_uuid()).bind(e.id.as_uuid()).bind(command.assignment.as_uuid()).bind(command.course.as_uuid()).bind(e.exception.student.as_uuid()).bind(values.kind).bind(values.available_mode).bind(values.available).bind(values.due_mode).bind(values.due).bind(values.closes_mode).bind(values.closes).bind(values.time_limit_mode).bind(values.time_limit).bind(values.attempt_limit_mode).bind(values.attempt_limit).execute(&mut *tx).await.map_err(map_sqlx_error)?;let revision=bump_revision(&mut tx,tenant,command.assignment,command.expected_revision).await?;tx.commit().await.map_err(map_sqlx_error)?;Ok(revision)}).await
+    let e = command.exception;
+    retry_transaction(|| async move {
+        let tenant = context.tenant_id();
+        let mut tx = store.begin_tenant(context).await?;
+        let count = prepare_policy_mutation(
+            &mut tx,
+            tenant,
+            command.course,
+            command.assignment,
+            command.actor,
+            command.expected_revision,
+        )
+        .await?;
+        let returned: i64 = sqlx::query_scalar(
+            "SELECT ple_put_assignment_individual_exception($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+        )
+        .bind(tenant.as_uuid())
+        .bind(command.actor.as_uuid())
+        .bind(command.course.as_uuid())
+        .bind(command.assignment.as_uuid())
+        .bind(stored_revision(command.expected_revision)?)
+        .bind(e.id.as_uuid())
+        .bind(e.exception.student.as_uuid())
+        .bind(patch_payload(e.exception.mode, e.exception.patch)?)
+        .bind(count)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let revision = finish_policy_mutation(
+            &mut tx,
+            context,
+            command.actor,
+            command.course,
+            command.assignment,
+            command.expected_revision,
+            returned,
+        )
+        .await?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(revision)
+    })
+    .await
 }
 async fn delete_individual(
     store: &PostgresStore,
     context: TenantContext,
     command: DeleteIndividualPolicyExceptionCommand,
 ) -> Result<AssignmentRevision, StoreError> {
-    retry_transaction(||async move{let tenant=context.tenant_id();let mut tx=store.begin_tenant(context).await?;lock_policy(&mut tx,tenant,command.assignment).await?;authorize_editor(&mut tx,tenant,command.course,command.assignment,command.actor).await?;require_revision(&mut tx,tenant,command.assignment,command.course,command.expected_revision).await?;let removed=sqlx::query("DELETE FROM assignment_individual_policy_exception WHERE tenant_id=$1 AND assignment_id=$2 AND student_id=$3").bind(tenant.as_uuid()).bind(command.assignment.as_uuid()).bind(command.student.as_uuid()).execute(&mut *tx).await.map_err(map_sqlx_error)?;if removed.rows_affected()!=1{return Err(StoreError::NotFound)}let revision=bump_revision(&mut tx,tenant,command.assignment,command.expected_revision).await?;tx.commit().await.map_err(map_sqlx_error)?;Ok(revision)}).await
-}
-
-struct PatchValues {
-    kind: &'static str,
-    available_mode: Option<&'static str>,
-    available: Option<i64>,
-    due_mode: Option<&'static str>,
-    due: Option<i64>,
-    closes_mode: Option<&'static str>,
-    closes: Option<i64>,
-    time_limit_mode: Option<&'static str>,
-    time_limit: Option<i32>,
-    attempt_limit_mode: Option<&'static str>,
-    attempt_limit: Option<i32>,
-}
-fn timestamp_columns(value: PolicyPatch<ActivityTimestamp>) -> (Option<&'static str>, Option<i64>) {
-    match value {
-        PolicyPatch::Inherit => (None, None),
-        PolicyPatch::Unrestricted => (Some("unrestricted"), None),
-        PolicyPatch::Set(v) => (Some("at"), Some(v.as_unix_millis())),
-    }
-}
-fn limit_columns(
-    value: PolicyPatch<NonZeroU32>,
-) -> Result<(Option<&'static str>, Option<i32>), StoreError> {
-    match value {
-        PolicyPatch::Inherit => Ok((None, None)),
-        PolicyPatch::Unrestricted => Ok((Some("unlimited"), None)),
-        PolicyPatch::Set(v) => Ok((
-            Some("value"),
-            Some(i32::try_from(v.get()).map_err(|_| {
-                StoreError::InvalidRecord("policy limit exceeds PostgreSQL integer".to_string())
-            })?),
-        )),
-    }
-}
-fn patch_values(
-    mode: PolicyModificationMode,
-    patch: PolicyPatchSet,
-) -> Result<PatchValues, StoreError> {
-    let (available_mode, available) = timestamp_columns(patch.available_at);
-    let (due_mode, due) = timestamp_columns(patch.due_at);
-    let (closes_mode, closes) = timestamp_columns(patch.closes_at);
-    let (time_limit_mode, time_limit) = limit_columns(patch.time_limit_seconds)?;
-    let (attempt_limit_mode, attempt_limit) = limit_columns(patch.attempt_limit)?;
-    Ok(PatchValues {
-        kind: match mode {
-            PolicyModificationMode::ExtendOnly => "extend_only",
-            PolicyModificationMode::Override => "explicit_override",
-        },
-        available_mode,
-        available,
-        due_mode,
-        due,
-        closes_mode,
-        closes,
-        time_limit_mode,
-        time_limit,
-        attempt_limit_mode,
-        attempt_limit,
+    retry_transaction(|| async move {
+        let tenant = context.tenant_id();
+        let mut tx = store.begin_tenant(context).await?;
+        let count = prepare_policy_mutation(
+            &mut tx,
+            tenant,
+            command.course,
+            command.assignment,
+            command.actor,
+            command.expected_revision,
+        )
+        .await?;
+        let returned: i64 = sqlx::query_scalar(
+            "SELECT ple_delete_assignment_individual_exception($1,$2,$3,$4,$5,$6,$7)",
+        )
+        .bind(tenant.as_uuid())
+        .bind(command.actor.as_uuid())
+        .bind(command.course.as_uuid())
+        .bind(command.assignment.as_uuid())
+        .bind(stored_revision(command.expected_revision)?)
+        .bind(command.student.as_uuid())
+        .bind(count)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let revision = finish_policy_mutation(
+            &mut tx,
+            context,
+            command.actor,
+            command.course,
+            command.assignment,
+            command.expected_revision,
+            returned,
+        )
+        .await?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(revision)
     })
+    .await
 }

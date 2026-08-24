@@ -2,6 +2,10 @@
 
 //! Disposable PostgreSQL oracle for the course-local item-analysis projection.
 
+#[path = "postgres_course_creation_support.rs"]
+mod course_creation_support;
+use course_creation_support::sysadmin_course_creation_authority;
+
 #[path = "fixtures/published_assignment.rs"]
 mod published_assignment;
 use published_assignment::create_published_assignment;
@@ -12,10 +16,11 @@ use learning_data_access::{
     AssignmentScoringWorkerStore, CatalogStore, CourseItemAnalysisCommitOutcome,
     CourseItemAnalysisStore, CourseItemAnalysisWorkerCommand, CourseItemAnalysisWorkerStore,
     CourseRecord, CourseRosterStore, CreateCourseCommand, DraftRecord, FlatGradingCapability,
-    IssueQuestionAttemptCommand, JobClaimFilter, JobLeaseDuration, JobPayload, JobStore,
+    IssueQuestionAttemptCommand, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1,
+    JobClaimFilter, JobLeaseDuration, JobPayload, JobStore, LearnerWorkRoutingBinding,
     ManualCredit, ManualGradeActionId, ManualGradingStore, PresentationCapability,
-    PublishDraftCommand, SessionLifetime, SessionStore, SessionSubject, SessionTokenHash,
-    SetManualGradeCommand, Store, SubmissionIdempotencyKey,
+    PublishDraftCommand, QtiGradingCapability, SessionLifetime, SessionStore, SessionSubject,
+    SessionTokenHash, SetManualGradeCommand, Store, SubmissionIdempotencyKey,
     SubmitPendingManualQuestionAttemptCommand, SubmitQuestionAttemptCommand, TenantContext,
     UpsertCourseMember,
 };
@@ -161,25 +166,46 @@ async fn session(
     token
 }
 
-async fn issue(
-    store: &PostgresStore,
+#[derive(Clone, Copy)]
+struct ItemAnalysisIssueFixture {
     context: TenantContext,
+    binding: LearnerWorkRoutingBinding,
     student: UserId,
     run: RunId,
+}
+
+async fn issue(
+    store: &PostgresStore,
+    fixture: ItemAnalysisIssueFixture,
     reference: ProblemVersionRef,
     position: u32,
     predecessor: Option<QuestionAttemptId>,
 ) -> question_model::QuestionAttempt {
+    let question = store
+        .get_catalog_problem(fixture.context, reference)
+        .await
+        .expect("read published fixture question")
+        .expect("published fixture question")
+        .question;
+    let issued_question_snapshot = IssuedQuestionSnapshotV1::new(
+        question,
+        IssuedQuestionFamilyWitnessV1::Native {
+            physical_asset_bindings: Vec::new(),
+        },
+    )
+    .expect("build issued item-analysis question snapshot");
     store
         .issue_or_resume_question_attempt(
-            context,
+            fixture.context,
             IssueQuestionAttemptCommand {
-                actor: student,
+                actor: fixture.student,
+                binding: fixture.binding,
                 attempt: QuestionAttemptId::from_uuid(id()),
-                run,
+                run: fixture.run,
                 assignment_position: position,
                 problem: reference.problem,
                 question_version: reference.version,
+                issued_question_snapshot,
                 seed: u64::from(position) + 1,
                 presentation_capability: PresentationCapability::NotApplicable,
                 presentation: None,
@@ -190,6 +216,8 @@ async fn issue(
                 webwork_grading: None,
                 webwork_grading_capability:
                     learning_data_access::WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: QtiGradingCapability::NotApplicable,
                 parameter_hash: format!("item-analysis-parameters-{position}"),
                 provenance: provenance(if position == 0 { "automatic" } else { "manual" }),
                 webwork_replay: None,
@@ -316,7 +344,8 @@ async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(&store, tenant, course, instructor)
+                    .await,
             },
         )
         .await
@@ -368,6 +397,7 @@ async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,
@@ -378,15 +408,27 @@ async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
         .await
         .expect("canonical roster upsert derives the item-analysis enrollment");
     let run = store
-        .start_or_resume_run(context, student, assignment, RunId::from_uuid(id()))
+        .start_or_resume_run(
+            context,
+            student,
+            LearnerWorkRoutingBinding::new(course, assignment),
+            RunId::from_uuid(id()),
+        )
         .await
         .expect("start mixed run");
-    let automatic_attempt = issue(&store, context, student, run.id, automatic, 0, None).await;
+    let issue_fixture = ItemAnalysisIssueFixture {
+        context,
+        binding: LearnerWorkRoutingBinding::new(course, assignment),
+        student,
+        run: run.id,
+    };
+    let automatic_attempt = issue(&store, issue_fixture, automatic, 0, None).await;
     store
         .submit_question_attempt(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: automatic_attempt.id,
                 response: StudentResponse::Numeric { value: 42.0 },
                 result: AttemptResult {
@@ -401,16 +443,7 @@ async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
         )
         .await
         .expect("submit automatic response");
-    let manual_attempt = issue(
-        &store,
-        context,
-        student,
-        run.id,
-        manual,
-        1,
-        Some(automatic_attempt.id),
-    )
-    .await;
+    let manual_attempt = issue(&store, issue_fixture, manual, 1, Some(automatic_attempt.id)).await;
     let raw_response = StudentResponse::FileUpload {
         object_key: "student-records/item-analysis-private.pdf".to_string(),
     };
@@ -419,6 +452,7 @@ async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
             context,
             SubmitPendingManualQuestionAttemptCommand {
                 actor: student,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: manual_attempt.id,
                 response: raw_response,
                 idempotency_key: SubmissionIdempotencyKey::parse("item-analysis-manual")

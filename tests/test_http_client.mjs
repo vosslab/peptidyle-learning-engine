@@ -53,6 +53,8 @@ test("catalog pages remain bounded and do not disclose answer material", () => {
 });
 
 test("prefetch is a body-free same-origin no-store request", async () => {
+  const course = publishedProblemFixture.course;
+  const assignment = publishedProblemFixture.assignment;
   const attempt = publishedProblemFixture.attempts[0];
   assert.ok(attempt);
   const requests = [];
@@ -63,16 +65,41 @@ test("prefetch is a body-free same-origin no-store request", async () => {
       return new Response(null, { status: 204 });
     },
   });
-  assert.equal(await client.prefetchNextQuestion(attempt.id), null);
+  assert.equal(await client.prefetchNextQuestion(course.id, assignment.id, attempt.id), null);
   const request = requests[0];
   assert.ok(request);
-  assert.equal(request.url, `https://client.example.test/api/attempts/${attempt.id}/prefetch-next`);
+  assert.equal(
+    request.url,
+    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/prefetch-next`,
+  );
   assert.equal(request.method, "POST");
   assert.equal(request.cache, "no-store");
   assert.equal(await request.text(), "");
 });
 
+test("run start uses the explicit nested course and assignment route without a body", async () => {
+  const course = publishedProblemFixture.course;
+  const assignment = publishedProblemFixture.assignment;
+  const run = publishedProblemFixture.runs[0];
+  assert.ok(run);
+  const { recordingFetch, requests } = createRecordingFetch(async () => jsonResponse(run));
+  const client = createHttpApiClient({ fetch: recordingFetch });
+
+  assert.deepEqual(await client.startRun(course.id, assignment.id), run);
+  const request = requests[0];
+  assert.ok(request);
+  assert.equal(
+    request.url,
+    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/runs`,
+  );
+  assert.equal(request.method, "POST");
+  assert.equal(request.headers.get("content-type"), null);
+  assert.equal(await request.text(), "");
+});
+
 test("prefetch rejects a descriptor with a mismatched issued identity", async () => {
+  const course = publishedProblemFixture.course;
+  const assignment = publishedProblemFixture.assignment;
   const predecessor = publishedProblemFixture.attempts[0];
   assert.ok(predecessor);
   const envelope = {
@@ -95,45 +122,93 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
         envelope,
       }),
   });
-  await assert.rejects(client.prefetchNextQuestion(predecessor.id), DecodeError);
+  await assert.rejects(
+    client.prefetchNextQuestion(course.id, assignment.id, predecessor.id),
+    DecodeError,
+  );
 });
 
 test("external-tool launch is a strict same-origin route projection", async () => {
+  const course = publishedProblemFixture.course;
+  const assignment = publishedProblemFixture.assignment;
   const attempt = publishedProblemFixture.attempts[0];
   assert.ok(attempt);
-  const launchUrl = `/api/attempts/${attempt.id}/external-tool/launch`;
+  const launchUrl = `/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/external-tool/launch`;
   const { recordingFetch, requests } = createRecordingFetch(async () =>
     jsonResponse({ launchUrl }),
   );
   const client = createHttpApiClient({ fetch: recordingFetch });
 
-  assert.deepEqual(await client.beginExternalToolLaunch(attempt.id), { launchUrl });
+  assert.deepEqual(await client.beginExternalToolLaunch(course.id, assignment.id, attempt.id), {
+    launchUrl,
+  });
   assert.equal(requests[0]?.method, "POST");
   assert.equal(requests[0]?.url, `https://client.example.test${launchUrl}`);
   assert.equal(await requests[0]?.text(), "");
 });
 
 test("external-tool launch rejects absolute, foreign, and decorated routes", async () => {
+  const course = publishedProblemFixture.course;
+  const assignment = publishedProblemFixture.assignment;
   const attempt = publishedProblemFixture.attempts[0];
   assert.ok(attempt);
+  const expected = `/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/external-tool/launch`;
   const routes = [
-    "https://client.example.test/api/attempts/x/external-tool/launch",
-    "https://foreign.example/api/attempts/x/external-tool/launch",
-    "//foreign.example/api/attempts/x/external-tool/launch",
-    "/api/attempts/other-attempt/external-tool/launch",
+    `https://client.example.test${expected}`,
+    `https://foreign.example${expected}`,
+    `//foreign.example${expected}`,
+    expected.replace(course.id, "other-course"),
+    expected.replace(assignment.id, "other-assignment"),
+    expected.replace(attempt.id, "other-attempt"),
     "/api/health",
-    "/api/attempts/x/external-tool/launch?token=secret",
-    "/api/attempts/x/external-tool/launch#fragment",
+    `${expected}?token=secret`,
+    `${expected}#fragment`,
   ];
   for (const launchUrl of routes) {
     const client = createHttpApiClient({
       fetch: async () => jsonResponse({ launchUrl }),
     });
-    await assert.rejects(client.beginExternalToolLaunch(attempt.id), DecodeError, launchUrl);
+    await assert.rejects(
+      client.beginExternalToolLaunch(course.id, assignment.id, attempt.id),
+      DecodeError,
+      launchUrl,
+    );
   }
 });
 
+test("ordinary submission uses the explicit nested binding and answer-only body", async () => {
+  const course = publishedProblemFixture.course;
+  const assignment = publishedProblemFixture.assignment;
+  const attempt = publishedProblemFixture.attempts[0];
+  assert.ok(attempt);
+  const response = { kind: "numeric", value: 18 };
+  const receipt = {
+    accepted: true,
+    attempt: { ...attempt, response, result: null },
+    feedback: null,
+    scoringStatus: "current",
+    runCompletionStatus: "inProgress",
+    nextIssued: null,
+    nextPending: false,
+  };
+  const { recordingFetch, requests } = createRecordingFetch(async () => jsonResponse(receipt));
+  const client = createHttpApiClient({ fetch: recordingFetch });
+
+  await client.submitResponse(course.id, assignment.id, attempt.id, response, "nested-once");
+  const request = requests[0];
+  assert.ok(request);
+  assert.equal(
+    request.url,
+    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/submissions`,
+  );
+  assert.equal(request.method, "POST");
+  assert.equal(request.headers.get("idempotency-key"), "nested-once");
+  assert.deepEqual(await request.json(), { response });
+});
+
 test("external-tool submission sends only the marker with its caller idempotency key", async () => {
+  const course = publishedProblemFixture.course;
+  const assignment = publishedProblemFixture.assignment;
   const attempt = publishedProblemFixture.attempts[0];
   assert.ok(attempt);
   const receipt = {
@@ -148,12 +223,18 @@ test("external-tool submission sends only the marker with its caller idempotency
   const { recordingFetch, requests } = createRecordingFetch(async () => jsonResponse(receipt));
   const client = createHttpApiClient({ fetch: recordingFetch });
 
-  await client.submitResponse(attempt.id, { kind: "externalTool" }, "external-tool-once");
+  await client.submitResponse(
+    course.id,
+    assignment.id,
+    attempt.id,
+    { kind: "externalTool" },
+    "external-tool-once",
+  );
   const request = requests[0];
   assert.ok(request);
   assert.equal(
     request.url,
-    `https://client.example.test/api/attempts/${attempt.id}/external-tool/launch/submission`,
+    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/external-tool/launch/submission`,
   );
   assert.equal(request.method, "POST");
   assert.equal(request.headers.get("idempotency-key"), "external-tool-once");

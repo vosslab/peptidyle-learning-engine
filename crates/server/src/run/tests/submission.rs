@@ -12,13 +12,23 @@ async fn exhausted_incorrect_all_correct_run_reports_in_progress_without_a_succe
             Some(1),
         )
         .await;
-    let attempt = active_attempt_for(&app, assignment, &student_cookie).await;
+    let attempt = active_attempt_for(
+        &app,
+        CourseId::from_uuid(id(5)),
+        assignment,
+        &student_cookie,
+    )
+    .await;
     let response = app
         .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/submissions/{}", attempt.id))
+                .uri(submission_path(
+                    CourseId::from_uuid(id(5)),
+                    assignment,
+                    attempt.id,
+                ))
                 .header("cookie", &student_cookie)
                 .header("content-type", "application/json")
                 .header("idempotency-key", "one-wrong-attempt")
@@ -64,12 +74,22 @@ async fn file_upload_submission_refuses_untrusted_object_key_before_backend_or_s
             false,
         )
         .await;
-    let attempt = active_attempt_for(&app, assignment, &student_cookie).await;
+    let attempt = active_attempt_for(
+        &app,
+        CourseId::from_uuid(id(5)),
+        assignment,
+        &student_cookie,
+    )
+    .await;
     let response = app
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/submissions/{}", attempt.id))
+                .uri(submission_path(
+                    CourseId::from_uuid(id(5)),
+                    assignment,
+                    attempt.id,
+                ))
                 .header("cookie", student_cookie)
                 .header("content-type", "application/json")
                 .header("idempotency-key", "forged-file-upload")
@@ -139,12 +159,22 @@ async fn submission_validates_attempt_specific_rendered_choice_ids() {
         .issued_response
         .lock()
         .expect("issued response fixture") = Some(rendered_response);
-    let attempt = active_attempt_for(&app, assignment, &student_cookie).await;
+    let attempt = active_attempt_for(
+        &app,
+        CourseId::from_uuid(id(5)),
+        assignment,
+        &student_cookie,
+    )
+    .await;
     let issued_question = app
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/attempts/{}/question", attempt.id))
+                .uri(question_path(
+                    CourseId::from_uuid(id(5)),
+                    assignment,
+                    attempt.id,
+                ))
                 .header("cookie", &student_cookie)
                 .body(Body::empty())
                 .expect("issued question request"),
@@ -158,7 +188,11 @@ async fn submission_validates_attempt_specific_rendered_choice_ids() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/submissions/{}", attempt.id))
+                .uri(submission_path(
+                    CourseId::from_uuid(id(5)),
+                    assignment,
+                    attempt.id,
+                ))
                 .header("cookie", student_cookie)
                 .header("content-type", "application/json")
                 .header("idempotency-key", "rendered-choice-id")
@@ -198,10 +232,10 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         fixture().await;
     let first_response = app
         .clone()
-        .oneshot(post_json(
-            "/api/runs",
+        .oneshot(start_run_request(
+            CourseId::from_uuid(id(5)),
+            assignment,
             &student_cookie,
-            serde_json::json!({ "assignmentId": assignment }),
         ))
         .await
         .expect("start response");
@@ -235,7 +269,11 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/attempts/{}/question", issued.id))
+                .uri(question_path(
+                    CourseId::from_uuid(id(5)),
+                    assignment,
+                    issued.id,
+                ))
                 .header("cookie", &student_cookie)
                 .body(Body::empty())
                 .expect("issued question request"),
@@ -258,7 +296,11 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/attempts/{}/question", issued.id))
+                .uri(question_path(
+                    CourseId::from_uuid(id(5)),
+                    assignment,
+                    issued.id,
+                ))
                 .header("cookie", &student_cookie)
                 .body(Body::empty())
                 .expect("repeated issued question request"),
@@ -276,6 +318,46 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         0,
         "active GET reads its persisted issuance snapshot instead of the mutable backend",
     );
+    let wrong_route = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(question_path(
+                    CourseId::from_uuid(id(6)),
+                    assignment,
+                    issued.id,
+                ))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("mismatched question route request"),
+        )
+        .await
+        .expect("mismatched question route response");
+    assert_eq!(
+        wrong_route.status(),
+        StatusCode::NOT_FOUND,
+        "an attempt remains concealed outside its issued course route",
+    );
+    let wrong_assignment = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(question_path(
+                    CourseId::from_uuid(id(5)),
+                    AssignmentId::from_uuid(id(7)),
+                    issued.id,
+                ))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("mismatched assignment question route request"),
+        )
+        .await
+        .expect("mismatched assignment question route response");
+    assert_eq!(
+        wrong_assignment.status(),
+        StatusCode::NOT_FOUND,
+        "an attempt remains concealed outside its issued assignment route",
+    );
 
     let submission_body = serde_json::json!({
         "response": { "kind": "numeric", "value": 18.0 }
@@ -283,7 +365,11 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
     let submit = |key: &str, body: serde_json::Value| {
         Request::builder()
             .method("POST")
-            .uri(format!("/api/submissions/{}", issued.id))
+            .uri(submission_path(
+                CourseId::from_uuid(id(5)),
+                assignment,
+                issued.id,
+            ))
             .header("cookie", &student_cookie)
             .header("content-type", "application/json")
             .header("idempotency-key", key)
@@ -341,7 +427,11 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/attempts/{}/question", issued.id))
+                .uri(question_path(
+                    CourseId::from_uuid(id(5)),
+                    assignment,
+                    issued.id,
+                ))
                 .header("cookie", &student_cookie)
                 .body(Body::empty())
                 .expect("submitted question request"),
@@ -399,7 +489,11 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/attempts/{}/question", issued.id))
+                .uri(question_path(
+                    CourseId::from_uuid(id(5)),
+                    assignment,
+                    issued.id,
+                ))
                 .header("cookie", &outsider_cookie)
                 .body(Body::empty())
                 .expect("outsider question request"),
@@ -413,10 +507,10 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         .expect("advance clock");
     let practice_response = app
         .clone()
-        .oneshot(post_json(
-            "/api/runs",
+        .oneshot(start_run_request(
+            CourseId::from_uuid(id(5)),
+            assignment,
             &student_cookie,
-            serde_json::json!({ "assignmentId": assignment }),
         ))
         .await
         .expect("practice response");
@@ -601,16 +695,19 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
     store
         .replace_assignment(
             context,
-            stored.record.course_id,
-            assignment,
-            stored.revision,
-            AssignmentUpdate {
-                title: stored.record.title,
-                audience: stored.record.audience,
-                items: stored.record.items,
-                selection_groups: stored.record.selection_groups,
-                disclosure_policy,
-                policies: stored.record.policies,
+            learning_data_access::ReplaceAssignmentCommand {
+                actor: UserId::from_uuid(id(2)),
+                course: stored.record.course_id,
+                assignment,
+                expected_revision: stored.revision,
+                update: AssignmentUpdate {
+                    title: stored.record.title,
+                    audience: stored.record.audience,
+                    items: stored.record.items,
+                    selection_groups: stored.record.selection_groups,
+                    disclosure_policy,
+                    policies: stored.record.policies,
+                },
             },
         )
         .await
@@ -662,6 +759,7 @@ async fn a_run_issues_only_one_active_question_then_advances() {
         .add_assignment_fixed_item(
             context,
             learning_data_access::AddAssignmentFixedItemCommand {
+                actor: UserId::from_uuid(id(2)),
                 course: stored_assignment.record.course_id,
                 assignment: assignment_id,
                 expected_revision: stored_assignment.revision,
@@ -680,10 +778,10 @@ async fn a_run_issues_only_one_active_question_then_advances() {
 
     let started = app
         .clone()
-        .oneshot(post_json(
-            "/api/runs",
+        .oneshot(start_run_request(
+            CourseId::from_uuid(id(5)),
+            assignment_id,
             &student_cookie,
-            serde_json::json!({ "assignmentId": assignment_id }),
         ))
         .await
         .expect("start response");
@@ -706,7 +804,11 @@ async fn a_run_issues_only_one_active_question_then_advances() {
 
     let submission = Request::builder()
         .method("POST")
-        .uri(format!("/api/submissions/{}", first_page.items[0].id))
+        .uri(submission_path(
+            CourseId::from_uuid(id(5)),
+            assignment_id,
+            first_page.items[0].id,
+        ))
         .header("cookie", &student_cookie)
         .header("content-type", "application/json")
         .header("idempotency-key", "advance-to-second")

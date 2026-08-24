@@ -196,7 +196,13 @@ async fn current_item_analysis_route_authorizes_without_leaking_private_analysis
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -204,6 +210,7 @@ async fn current_item_analysis_route_authorizes_without_leaking_private_analysis
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,
@@ -218,27 +225,30 @@ async fn current_item_analysis_route_authorizes_without_leaking_private_analysis
     store
         .create_assignment(
             context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                audience: question_model::AssignmentAudience::CourseWide,
-                title: "Item analysis fixture".to_string(),
-                lifecycle: question_model::AssignmentLifecycle::Draft,
-                instructions: question_model::AssignmentInstructions::default(),
-                items: vec![AssignmentItem {
-                    id: AssignmentItemId::from_uuid(id(10)),
-                    reference,
-                    position: 0,
-                    points_possible: PointValue::from_whole(1),
-                    delivery_state: AssignmentDeliveryState::Active,
-                    scoring_mode: AssignmentScoringMode::Normal,
-                }],
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: policies(),
+            learning_data_access::CreateAssignmentCommand {
+                actor: instructor,
+                assignment: AssignmentRecord {
+                    id: assignment,
+                    tenant,
+                    course_id: course,
+                    audience: question_model::AssignmentAudience::CourseWide,
+                    title: "Item analysis fixture".to_string(),
+                    lifecycle: question_model::AssignmentLifecycle::Draft,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    items: vec![AssignmentItem {
+                        id: AssignmentItemId::from_uuid(id(10)),
+                        reference,
+                        position: 0,
+                        points_possible: PointValue::from_whole(1),
+                        delivery_state: AssignmentDeliveryState::Active,
+                        scoring_mode: AssignmentScoringMode::Normal,
+                    }],
+                    selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    policies: policies(),
+                },
+                base_policy: question_model::BaseAssignmentPolicy::default(),
             },
-            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("create assignment");

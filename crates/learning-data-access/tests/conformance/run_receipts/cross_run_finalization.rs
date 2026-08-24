@@ -4,6 +4,7 @@ use super::*;
 /// explicit no-successor state remains immutable.
 pub(super) struct CrossRunFinalizationFixture<'a> {
     pub(super) student_user: UserId,
+    pub(super) course: CourseId,
     pub(super) assignment: AssignmentId,
     pub(super) version: VersionId,
     pub(super) problem: ProblemId,
@@ -22,6 +23,7 @@ pub(super) async fn assert_cross_run_finalization_guards<S>(
 {
     let CrossRunFinalizationFixture {
         student_user,
+        course,
         assignment,
         version,
         problem,
@@ -34,7 +36,7 @@ pub(super) async fn assert_cross_run_finalization_guards<S>(
         .start_or_resume_run(
             context,
             student_user,
-            assignment,
+            LearnerWorkRoutingBinding::new(course, assignment),
             RunId::from_uuid(uuid(417)),
         )
         .await
@@ -46,6 +48,7 @@ pub(super) async fn assert_cross_run_finalization_guards<S>(
             context,
             IssueQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(418)),
                 run: cross_run.id,
                 assignment_position: 0,
@@ -87,6 +90,7 @@ pub(super) async fn assert_cross_run_finalization_guards<S>(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: cross_run_attempt.id,
                 response: response.clone(),
                 result: AttemptResult {
@@ -108,6 +112,7 @@ pub(super) async fn assert_cross_run_finalization_guards<S>(
             context,
             IssueQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(419)),
                 run: cross_run.id,
                 assignment_position: 1,
@@ -137,6 +142,7 @@ pub(super) async fn assert_cross_run_finalization_guards<S>(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: cross_run_second.id,
                 response: response.clone(),
                 result: AttemptResult {

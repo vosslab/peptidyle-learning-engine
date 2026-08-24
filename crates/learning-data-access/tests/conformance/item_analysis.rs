@@ -33,6 +33,8 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
     let workspace = WorkspaceId::from_uuid(uuid(80_007));
     let course = CourseId::from_uuid(uuid(80_008));
     let assignment = AssignmentId::from_uuid(uuid(80_009));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(store, tenant, course, instructor).await;
     let automatic = ProblemVersionRef {
         problem: ProblemId::from_uuid(uuid(80_011)),
         version: VersionId::from_uuid(uuid(80_012)),
@@ -87,7 +89,7 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -95,6 +97,7 @@ async fn analysis_fixture(store: &MemoryStore) -> AnalysisFixture {
     store
         .upsert_course_member(
             context,
+            instructor,
             learning_data_access::UpsertCourseMember {
                 course,
                 user: student,
@@ -245,6 +248,7 @@ async fn issue(
             fixture.context,
             IssueQuestionAttemptCommand {
                 actor: fixture.student,
+                binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(id)),
                 run,
                 assignment_position: position,
@@ -281,6 +285,7 @@ async fn submit_auto(
             fixture.context,
             SubmitQuestionAttemptCommand {
                 actor: fixture.student,
+                binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
                 attempt,
                 response: StudentResponse::Numeric { value: 42.0 },
                 result: AttemptResult {
@@ -426,7 +431,7 @@ async fn memory_item_analysis_tracks_pending_manual_then_corrected_current_scori
         .start_or_resume_run(
             fixture.context,
             fixture.student,
-            fixture.assignment,
+            LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
             RunId::from_uuid(uuid(80_020)),
         )
         .await
@@ -445,6 +450,7 @@ async fn memory_item_analysis_tracks_pending_manual_then_corrected_current_scori
             fixture.context,
             SubmitPendingManualQuestionAttemptCommand {
                 actor: fixture.student,
+                binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
                 attempt: manual.id,
                 response: StudentResponse::Numeric { value: 7.0 },
                 idempotency_key: SubmissionIdempotencyKey::parse("analysis-manual")
@@ -544,7 +550,7 @@ async fn memory_item_analysis_is_instructor_only_and_report_is_identity_free() {
         .start_or_resume_run(
             fixture.context,
             fixture.student,
-            fixture.assignment,
+            LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
             RunId::from_uuid(uuid(80_030)),
         )
         .await
@@ -716,7 +722,7 @@ async fn memory_item_analysis_stale_generation_cannot_replace_current_report() {
         .start_or_resume_run(
             fixture.context,
             fixture.student,
-            fixture.assignment,
+            LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
             RunId::from_uuid(uuid(80_040)),
         )
         .await
@@ -729,6 +735,7 @@ async fn memory_item_analysis_stale_generation_cannot_replace_current_report() {
             fixture.context,
             SubmitPendingManualQuestionAttemptCommand {
                 actor: fixture.student,
+                binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
                 attempt: manual.id,
                 response: StudentResponse::Numeric { value: 3.0 },
                 idempotency_key: SubmissionIdempotencyKey::parse("analysis-stale-manual")
@@ -790,7 +797,7 @@ async fn memory_item_analysis_uses_only_each_learners_latest_run_when_it_is_acti
         .start_or_resume_run(
             fixture.context,
             fixture.student,
-            fixture.assignment,
+            LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
             RunId::from_uuid(uuid(80_050)),
         )
         .await
@@ -819,6 +826,7 @@ async fn memory_item_analysis_uses_only_each_learners_latest_run_when_it_is_acti
             fixture.context,
             SubmitPendingManualQuestionAttemptCommand {
                 actor: fixture.student,
+                binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
                 attempt: manual.id,
                 response: StudentResponse::Numeric { value: 5.0 },
                 idempotency_key: SubmissionIdempotencyKey::parse("analysis-old-manual")
@@ -862,7 +870,7 @@ async fn memory_item_analysis_uses_only_each_learners_latest_run_when_it_is_acti
         .start_or_resume_run(
             fixture.context,
             fixture.student,
-            fixture.assignment,
+            LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
             RunId::from_uuid(uuid(80_054)),
         )
         .await

@@ -1,30 +1,32 @@
 use objects::Sha256Digest;
-use question_model::run_policy::TimingPolicy;
 use question_model::{
-    ActivityTimestamp, AttemptStatus, AttemptTimerRecord, CourseId, PresentationBindingV1,
-    QuestionAttempt, QuestionEnvelope, TenantId,
+    AttemptStatus, AttemptTimerRecord, CourseId, PresentationBindingV1, QuestionAttempt,
+    QuestionEnvelope, TenantId,
 };
-use sqlx::types::Uuid;
 use sqlx::{Postgres, Row, Transaction};
 
 use crate::{
-    FlatGradingCapability, IssueQuestionAttemptCommand, JobId, JobPayload, PrefetchedQuestion,
-    PresentationCapability, ReceiptNextAttempt, ReceiptPresentationSnapshot, StoreError,
-    TenantContext, WebworkReplayMappingV1, issued_attempt_capability_from_issue,
-    validate_issued_flat_grading, validate_issued_presentation, validate_issued_webwork_grading,
+    FlatGradingCapability, IssueQuestionAttemptCommand, IssuedQuestionSnapshotV1, JobId,
+    JobPayload, PrefetchedQuestionDescriptorV1, PresentationCapability, ReceiptNextAttempt,
+    ReceiptPresentationSnapshot, StoreError, TenantContext, WebworkReplayMappingV1,
+    issued_attempt_capability_from_issue, validate_issued_flat_grading,
+    validate_issued_presentation, validate_issued_qti_grading, validate_issued_webwork_grading,
     validate_issued_webwork_replay, webwork_replay_state_from_issue,
 };
 
-use super::super::assignment_records::{
-    load_assignment_for_share, load_enrollment_for_update, load_run_for_update,
-};
 use super::super::assignment_timing;
 use super::super::connection::map_sqlx_error;
 use super::super::row_decode::{
     decode_current_attempt_row, decode_payload_row, decode_presentation_binding_row, encode_payload,
 };
-use super::super::transaction_context::{database_timestamp, load_published_record};
-use super::learner_transition::{lock_predecessor_for_learner_run, record_submission_successor};
+use super::super::transaction_context::database_timestamp;
+use super::authored_timing::{issued_timer, validate_postgres_assignment_position};
+use super::learner_transition::{
+    lock_prepared_predecessor_for_learner_run, record_submission_successor,
+};
+pub(in crate::postgres) use super::qti_contracts::{
+    decode_attempt_qti_grading, qti_grading_capability_from_row, validate_attempt_qti_grading,
+};
 
 #[cfg(feature = "postgres")]
 pub(super) async fn issue_or_resume_question_attempt(
@@ -33,50 +35,54 @@ pub(super) async fn issue_or_resume_question_attempt(
     command: IssueQuestionAttemptCommand,
 ) -> Result<QuestionAttempt, StoreError> {
     let tenant = context.tenant_id();
-    if let Some(predecessor) = command.predecessor_submission {
-        lock_predecessor_for_learner_run(
-            transaction,
-            tenant,
-            command.actor,
-            command.run,
-            predecessor,
-        )
-        .await?;
+    validate_issue_command_shape(tenant, &command)?;
+    // The 1817 wrapper is deliberately the first protected database
+    // operation. It authorizes and locks the exact Student-owned route before
+    // an opaque run, predecessor, enrollment, policy, or assignment is read.
+    let prepared = match super::super::student_run_preparation::prepare_student_run_work(
+        transaction,
+        tenant,
+        command.binding,
+        command.actor,
+        command.run,
+    )
+    .await
+    {
+        Ok(prepared) => prepared,
+        Err(StoreError::Forbidden | StoreError::NotFound) => return Err(StoreError::NotFound),
+        Err(error) => return Err(error),
+    };
+    let run = prepared.run().clone();
+    let assignment = prepared.assignment().clone();
+    let grant = prepared.grant().clone();
+    let prepared_revision = prepared.assignment_revision();
+    if prepared.enrollment().id != run.enrollment {
+        return Err(StoreError::InvalidRecord(
+            "prepared enrollment does not own its run".to_string(),
+        ));
     }
-    let run = load_run_for_update(transaction, tenant, command.run).await?;
     if run.completed_at.is_some() || run.score.is_some() {
         return Err(StoreError::InvalidRecord(
             "a completed run cannot issue another question".to_string(),
         ));
     }
-    let enrollment = load_enrollment_for_update(transaction, tenant, run.enrollment).await?;
-    assignment_timing::lock_postgres_assignment_policy(transaction, tenant, enrollment.assignment)
-        .await?;
-    let assignment_guard =
-        load_assignment_for_share(transaction, tenant, enrollment.assignment).await?;
-    let domain::entitlement::EntitlementDecision::Granted(grant) =
-        super::super::entitlement::evaluate_current(
-            transaction,
-            tenant,
-            command.actor,
-            assignment_guard.course_id,
-            enrollment.assignment,
-        )
-        .await?
-    else {
-        return Err(StoreError::NotFound);
-    };
-    if grant.student() != enrollment.student {
-        return Err(StoreError::NotFound);
+    if let Some(predecessor) = command.predecessor_submission {
+        lock_prepared_predecessor_for_learner_run(transaction, tenant, command.run, predecessor)
+            .await?;
     }
     let (effective_decision, assignment_revision) =
-        super::super::course_policy::resolve_granted_effective_policy(
+        super::super::course_policy::resolve_granted_effective_policy_read_only(
             transaction,
-            grant.clone(),
+            grant,
             domain::effective_assignment_policy::AuthorizationGate::Authorized,
             run.run_number.saturating_sub(1),
         )
         .await?;
+    if assignment_revision.value() != prepared_revision {
+        return Err(StoreError::InvalidRecord(
+            "effective policy revision disagrees with learner-work witness".to_string(),
+        ));
+    }
     let domain::effective_assignment_policy::EffectivePolicyDecision::Allowed {
         policy,
         start: domain::effective_assignment_policy::StartVerdict::MayStart { .. },
@@ -94,15 +100,14 @@ pub(super) async fn issue_or_resume_question_attempt(
             || prefetched.assignment_position != command.assignment_position
             || prefetched.problem != command.problem
             || prefetched.question_version != command.question_version
+            || prefetched.issued_question_snapshot != command.issued_question_snapshot
             || prefetched.presentation_capability != command.presentation_capability
             || Some(prefetched.presentation) != command.presentation
             || Some(&prefetched.presentation_snapshot) != command.presentation_snapshot.as_ref()
             || Some(&prefetched.grading_envelope) != command.grading_envelope.as_ref()
-            || prefetched.flat_grading != command.flat_grading
             || prefetched.flat_grading_capability != command.flat_grading_capability
-            || prefetched.webwork_replay != command.webwork_replay
-            || prefetched.webwork_grading != command.webwork_grading
-            || prefetched.webwork_grading_capability != command.webwork_grading_capability)
+            || prefetched.webwork_grading_capability != command.webwork_grading_capability
+            || prefetched.qti_grading_capability != command.qti_grading_capability)
     {
         return Err(StoreError::Conflict);
     }
@@ -114,7 +119,10 @@ pub(super) async fn issue_or_resume_question_attempt(
                 qa.grading_envelope_payload, qa.grading_envelope_payload_sha256, \
                 qa.flat_grading_required, qa.flat_grading_payload, qa.flat_grading_payload_sha256, \
                 qa.webwork_grading_required, qa.webwork_grading_payload, \
-                qa.webwork_grading_payload_sha256, \
+                qa.webwork_grading_payload_sha256, qa.qti_grading_required, \
+                qa.issued_qti_grading_payload, qa.issued_qti_grading_payload_sha256, \
+                qa.issued_question_snapshot_payload, \
+                qa.issued_question_snapshot_payload_sha256, \
                 qa.attempt_status AS current_attempt_status, \
                 floor(extract(epoch FROM qa.submitted_at) * 1000)::bigint AS current_submitted_at, \
                 floor(extract(epoch FROM timing.effective_deadline) * 1000)::bigint \
@@ -143,7 +151,11 @@ pub(super) async fn issue_or_resume_question_attempt(
             let active_snapshot = decode_attempt_presentation_snapshot(&row, active_capability)?;
             let active_grading_envelope = decode_attempt_grading_envelope(&row, active_capability)?;
             let active_flat_grading = decode_attempt_flat_grading(&row)?;
+            let active_issued_question_snapshot = decode_issued_question_snapshot(&row)?;
+            let active_qti_grading =
+                decode_attempt_qti_grading(&row, &active_issued_question_snapshot)?;
             if active_capability != command.presentation_capability
+                || active_issued_question_snapshot != command.issued_question_snapshot
                 || active_snapshot.as_ref() != command.presentation_snapshot.as_ref()
                 || active_grading_envelope.as_ref() != command.grading_envelope.as_ref()
                 || active_flat_grading.as_ref() != command.flat_grading.as_ref()
@@ -151,6 +163,8 @@ pub(super) async fn issue_or_resume_question_attempt(
                 || decode_attempt_webwork_grading(&row)?.as_ref()
                     != command.webwork_grading.as_ref()
                 || webwork_grading_capability_from_row(&row)? != command.webwork_grading_capability
+                || active_qti_grading.as_ref() != command.qti_grading.as_ref()
+                || qti_grading_capability_from_row(&row)? != command.qti_grading_capability
             {
                 return Err(StoreError::Conflict);
             }
@@ -212,15 +226,14 @@ pub(super) async fn issue_or_resume_question_attempt(
             || prefetched.assignment_position != command.assignment_position
             || prefetched.problem != command.problem
             || prefetched.question_version != command.question_version
+            || prefetched.issued_question_snapshot != command.issued_question_snapshot
             || prefetched.presentation_capability != command.presentation_capability
             || Some(prefetched.presentation) != command.presentation
             || Some(&prefetched.presentation_snapshot) != command.presentation_snapshot.as_ref()
             || Some(&prefetched.grading_envelope) != command.grading_envelope.as_ref()
-            || prefetched.flat_grading != command.flat_grading
             || prefetched.flat_grading_capability != command.flat_grading_capability
-            || prefetched.webwork_replay != command.webwork_replay
-            || prefetched.webwork_grading != command.webwork_grading
             || prefetched.webwork_grading_capability != command.webwork_grading_capability
+            || prefetched.qti_grading_capability != command.qti_grading_capability
         {
             return Err(StoreError::Conflict);
         }
@@ -237,7 +250,7 @@ pub(super) async fn issue_or_resume_question_attempt(
         .await
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::Conflict)?;
-        let stored: PrefetchedQuestion = decode_payload_row(&row)?;
+        let stored: PrefetchedQuestionDescriptorV1 = decode_payload_row(&row)?;
         if decode_presentation_binding_row(&row)? != Some(stored.presentation) {
             return Err(StoreError::Unavailable(
                 "stored prefetch presentation disagrees with its columns".to_string(),
@@ -301,49 +314,66 @@ pub(super) async fn issue_or_resume_question_attempt(
     let grading_envelope = prefetched
         .map(|value| Some(&value.grading_envelope))
         .unwrap_or(command.grading_envelope.as_ref());
-    let flat_grading = prefetched
-        .and_then(|value| value.flat_grading.as_ref())
-        .or(command.flat_grading.as_ref());
+    let flat_grading = command.flat_grading.as_ref();
     let flat_grading_capability = prefetched
         .map(|value| value.flat_grading_capability)
         .unwrap_or(command.flat_grading_capability);
-    let webwork_replay = prefetched
-        .and_then(|value| value.webwork_replay.clone())
-        .or(command.webwork_replay.clone());
-    let webwork_grading = prefetched
-        .and_then(|value| value.webwork_grading.as_ref())
-        .or(command.webwork_grading.as_ref());
+    let webwork_replay = command.webwork_replay.clone();
+    let webwork_grading = command.webwork_grading.as_ref();
     let webwork_grading_capability = prefetched
         .map(|value| value.webwork_grading_capability)
         .unwrap_or(command.webwork_grading_capability);
+    let qti_grading = command.qti_grading.as_ref();
+    let qti_grading_capability = prefetched
+        .map(|value| value.qti_grading_capability)
+        .unwrap_or(command.qti_grading_capability);
+    let issued_question_snapshot = prefetched
+        .map(|value| &value.issued_question_snapshot)
+        .unwrap_or(&command.issued_question_snapshot);
     if parameter_hash.trim().is_empty() || provenance.rendered_question_sha256.trim().is_empty() {
         return Err(StoreError::InvalidRecord(
             "issued attempt hashes must not be empty".to_string(),
         ));
     }
-    let question =
-        load_published_record(transaction, command.problem, command.question_version).await?;
+    issued_question_snapshot.validate_for_attempt(command.problem, command.question_version)?;
+    issued_question_snapshot.validate_for_issuance_context(
+        flat_grading_capability,
+        webwork_grading_capability,
+        qti_grading_capability,
+        presentation_snapshot,
+    )?;
     validate_issued_flat_grading(
-        &question.question,
+        issued_question_snapshot.question(),
         presentation_capability,
         flat_grading_capability,
         flat_grading,
     )?;
     validate_issued_webwork_grading(
-        &question.question,
+        issued_question_snapshot.question(),
         webwork_grading_capability,
         webwork_grading,
+    )?;
+    validate_issued_qti_grading(
+        issued_question_snapshot.question(),
+        qti_grading_capability,
+        qti_grading,
     )?;
     validate_issued_webwork_replay(webwork_grading_capability, webwork_replay.as_ref())?;
     let issued_capability = issued_attempt_capability_from_issue(
         presentation_capability,
         flat_grading_capability,
         webwork_grading_capability,
+        qti_grading_capability,
     )?;
     let issued_at = database_timestamp(transaction).await?;
-    let authored_timer = issued_timer(issued_at, run.started_at, question.question.timing_policy)?;
-    let authored_grace_seconds =
-        assignment_timing::timing_policy_grace_seconds(question.question.timing_policy);
+    let authored_timer = issued_timer(
+        issued_at,
+        run.started_at,
+        issued_question_snapshot.question().timing_policy,
+    )?;
+    let authored_grace_seconds = assignment_timing::timing_policy_grace_seconds(
+        issued_question_snapshot.question().timing_policy,
+    );
     let assignment_timing::ResolvedPostgresAttemptTiming {
         effective_deadline,
         effective_grace_seconds,
@@ -359,6 +389,7 @@ pub(super) async fn issue_or_resume_question_attempt(
     {
         return Err(StoreError::TimedOut);
     }
+    let authored_deadline = authored_timer.deadline;
     let timer = AttemptTimerRecord {
         deadline: effective_deadline,
         ..authored_timer
@@ -379,6 +410,7 @@ pub(super) async fn issue_or_resume_question_attempt(
         provenance,
         issued_capability,
     };
+    issued_question_snapshot.validate_native_provenance(&attempt.provenance.asset_objects)?;
     // Validate the issue tuple before any attempt, receipt, or run mutation.
     let presentation_snapshot = validate_issued_presentation(
         presentation_capability,
@@ -400,6 +432,8 @@ pub(super) async fn issue_or_resume_question_attempt(
         return Err(StoreError::AlreadyExists);
     }
     let (payload, checksum) = encode_payload(&attempt)?;
+    let (issued_question_snapshot_payload, issued_question_snapshot_payload_sha256) =
+        issued_question_snapshot.canonical_payload()?;
     let (presentation_payload, presentation_payload_sha256) = presentation_snapshot
         .as_ref()
         .map(encode_payload)
@@ -425,6 +459,16 @@ pub(super) async fn issue_or_resume_question_attempt(
         .map_or((None, None), |(payload, checksum)| {
             (Some(payload), Some(checksum))
         });
+    let (issued_qti_grading_payload, issued_qti_grading_payload_sha256) = qti_grading
+        .map(|contract| {
+            let payload = contract.payload()?;
+            Ok::<_, StoreError>((
+                Some(payload.bytes().to_vec()),
+                Some(payload.sha256().to_string()),
+            ))
+        })
+        .transpose()?
+        .unwrap_or((None, None));
     sqlx::query(
         "INSERT INTO question_attempt \
          (tenant_id, attempt_id, run_id, problem_id, version_id, assignment_position, \
@@ -432,8 +476,11 @@ pub(super) async fn issue_or_resume_question_attempt(
           presentation_nonce, presentation_digest, presentation_capability, presentation_payload, \
           presentation_payload_sha256, grading_envelope_payload, grading_envelope_payload_sha256, \
           flat_grading_required, flat_grading_payload, flat_grading_payload_sha256, \
-          webwork_grading_required, webwork_grading_payload, webwork_grading_payload_sha256) \
-         VALUES ($1, $2, $3, $4, $5, $6, transaction_timestamp(), $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)",
+          webwork_grading_required, webwork_grading_payload, webwork_grading_payload_sha256, \
+          qti_grading_required, issued_qti_grading_payload, issued_qti_grading_payload_sha256, \
+          issued_question_snapshot_payload, issued_question_snapshot_payload_sha256, \
+          authored_timing_deadline, authored_timing_grace_seconds) \
+          VALUES ($1, $2, $3, $4, $5, $6, transaction_timestamp(), $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, TIMESTAMPTZ 'epoch' + $28::bigint * INTERVAL '1 millisecond', $29)",
     )
     .bind(tenant.as_uuid())
     .bind(attempt.id.as_uuid())
@@ -457,6 +504,16 @@ pub(super) async fn issue_or_resume_question_attempt(
     .bind(webwork_grading_capability.requires_contract())
     .bind(webwork_grading_payload)
     .bind(webwork_grading_payload_sha256)
+    .bind(qti_grading_capability.requires_contract())
+    .bind(issued_qti_grading_payload)
+    .bind(issued_qti_grading_payload_sha256)
+    .bind(issued_question_snapshot_payload)
+    .bind(issued_question_snapshot_payload_sha256)
+    .bind(
+        authored_deadline
+            .map(|deadline| deadline.as_unix_millis()),
+    )
+    .bind(i64::from(authored_grace_seconds))
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
@@ -469,7 +526,7 @@ pub(super) async fn issue_or_resume_question_attempt(
         })?;
         insert_webwork_grade_replay_state(
             transaction,
-            assignment_guard.course_id,
+            assignment.course_id,
             &attempt,
             presentation,
             mapping,
@@ -506,8 +563,8 @@ pub(super) async fn issue_or_resume_question_attempt(
         transaction,
         super::super::effective_policy_receipts::EffectivePolicyReceiptWrite {
             tenant,
-            course: assignment_guard.course_id,
-            assignment: assignment_guard.id,
+            course: assignment.course_id,
+            assignment: assignment.id,
             attempt: attempt.id,
             generation: receipt_generation,
             policy: &policy,
@@ -519,7 +576,7 @@ pub(super) async fn issue_or_resume_question_attempt(
     )
     .await?;
     sqlx::query("INSERT INTO attempt_effective_policy_current (tenant_id,attempt_id,attempt_occurred_at,assignment_id,course_id,receipt_generation,timing_generation,job_id) SELECT $1,$2,occurred_at,$3,$4,$5,$6,$7 FROM question_attempt WHERE tenant_id=$1 AND attempt_id=$2")
-        .bind(tenant.as_uuid()).bind(attempt.id.as_uuid()).bind(assignment_guard.id.as_uuid()).bind(assignment_guard.course_id.as_uuid()).bind(receipt_generation).bind(i64::try_from(timing_generation).map_err(|_| StoreError::Conflict)?).bind(timing_job.map(JobId::as_uuid)).execute(&mut **transaction).await.map_err(map_sqlx_error)?;
+        .bind(tenant.as_uuid()).bind(attempt.id.as_uuid()).bind(assignment.id.as_uuid()).bind(assignment.course_id.as_uuid()).bind(receipt_generation).bind(i64::try_from(timing_generation).map_err(|_| StoreError::Conflict)?).bind(timing_job.map(JobId::as_uuid)).execute(&mut **transaction).await.map_err(map_sqlx_error)?;
     if let Some(prefetched) = prefetched {
         sqlx::query(
             "DELETE FROM question_prefetch WHERE tenant_id = $1 AND run_id = $2 AND predecessor_attempt_id = $3 AND assignment_position = $4",
@@ -539,6 +596,59 @@ pub(super) async fn issue_or_resume_question_attempt(
     Ok(attempt)
 }
 
+fn validate_issue_command_shape(
+    tenant: TenantId,
+    command: &IssueQuestionAttemptCommand,
+) -> Result<(), StoreError> {
+    i32::try_from(command.assignment_position)
+        .map_err(|_| StoreError::InvalidRecord("assignment position is too large".to_string()))?;
+    issued_attempt_capability_from_issue(
+        command.presentation_capability,
+        command.flat_grading_capability,
+        command.webwork_grading_capability,
+        command.qti_grading_capability,
+    )?;
+    command
+        .issued_question_snapshot
+        .validate_for_attempt(command.problem, command.question_version)?;
+    command
+        .issued_question_snapshot
+        .validate_for_issuance_context(
+            command.flat_grading_capability,
+            command.webwork_grading_capability,
+            command.qti_grading_capability,
+            command.presentation_snapshot.as_ref(),
+        )?;
+    crate::validate_issued_qti_grading(
+        command.issued_question_snapshot.question(),
+        command.qti_grading_capability,
+        command.qti_grading.as_ref(),
+    )?;
+    validate_issued_webwork_replay(
+        command.webwork_grading_capability,
+        command.webwork_replay.as_ref(),
+    )?;
+    if let Some(prefetched) = command.prefetched.as_ref()
+        && (prefetched.tenant != tenant
+            || prefetched.run != command.run
+            || command.predecessor_submission != Some(prefetched.predecessor)
+            || prefetched.assignment_position != command.assignment_position
+            || prefetched.problem != command.problem
+            || prefetched.question_version != command.question_version
+            || prefetched.issued_question_snapshot != command.issued_question_snapshot
+            || prefetched.presentation_capability != command.presentation_capability
+            || Some(prefetched.presentation) != command.presentation
+            || Some(&prefetched.presentation_snapshot) != command.presentation_snapshot.as_ref()
+            || Some(&prefetched.grading_envelope) != command.grading_envelope.as_ref()
+            || prefetched.flat_grading_capability != command.flat_grading_capability
+            || prefetched.webwork_grading_capability != command.webwork_grading_capability
+            || prefetched.qti_grading_capability != command.qti_grading_capability)
+    {
+        return Err(StoreError::Conflict);
+    }
+    Ok(())
+}
+
 pub(in crate::postgres) fn presentation_capability_name(
     value: PresentationCapability,
 ) -> &'static str {
@@ -546,6 +656,18 @@ pub(in crate::postgres) fn presentation_capability_name(
         PresentationCapability::EnvelopeV1 => "envelope_v1",
         PresentationCapability::NotApplicable => "not_applicable",
     }
+}
+
+pub(in crate::postgres) fn decode_issued_question_snapshot(
+    row: &sqlx::postgres::PgRow,
+) -> Result<IssuedQuestionSnapshotV1, StoreError> {
+    let payload: serde_json::Value = row
+        .try_get("issued_question_snapshot_payload")
+        .map_err(map_sqlx_error)?;
+    let checksum: String = row
+        .try_get("issued_question_snapshot_payload_sha256")
+        .map_err(map_sqlx_error)?;
+    IssuedQuestionSnapshotV1::decode_checked(payload, &checksum)
 }
 
 pub(in crate::postgres) fn presentation_capability_from_row(
@@ -726,7 +848,6 @@ pub(in crate::postgres) fn validate_attempt_flat_grading(
     Ok(contract)
 }
 
-/// Decodes the explicit WebWork first-grade obligation from the issue row.
 pub(in crate::postgres) fn webwork_grading_capability_from_row(
     row: &sqlx::postgres::PgRow,
 ) -> Result<crate::WebworkGradingCapability, StoreError> {
@@ -740,7 +861,6 @@ pub(in crate::postgres) fn webwork_grading_capability_from_row(
     })
 }
 
-/// Decodes the checksummed immutable definition used by first WeBWorK grade.
 pub(in crate::postgres) fn decode_attempt_webwork_grading(
     row: &sqlx::postgres::PgRow,
 ) -> Result<Option<crate::IssuedWebworkGradingContract>, StoreError> {
@@ -843,72 +963,4 @@ async fn insert_webwork_grade_replay_state(
         return Err(StoreError::Conflict);
     }
     Ok(())
-}
-
-#[cfg(feature = "postgres")]
-pub(super) async fn validate_postgres_assignment_position(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    command: &IssueQuestionAttemptCommand,
-) -> Result<(), StoreError> {
-    let position = i32::try_from(command.assignment_position)
-        .map_err(|_| StoreError::InvalidRecord("assignment position is too large".to_string()))?;
-    let row = sqlx::query(
-        "SELECT problem_id, version_id FROM assignment_run_item \
-         WHERE tenant_id = $1 AND run_id = $2 AND issued_position = $3",
-    )
-    .bind(tenant.as_uuid())
-    .bind(command.run.as_uuid())
-    .bind(position)
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?
-    .ok_or_else(|| StoreError::InvalidRecord("question position is outside the run".to_string()))?;
-    let problem: Uuid = row.try_get("problem_id").map_err(map_sqlx_error)?;
-    let version: Uuid = row.try_get("version_id").map_err(map_sqlx_error)?;
-    if problem != command.problem.as_uuid() || version != command.question_version.as_uuid() {
-        return Err(StoreError::InvalidRecord(
-            "question identity does not match its run position".to_string(),
-        ));
-    }
-    Ok(())
-}
-
-#[cfg(feature = "postgres")]
-pub(in crate::postgres) fn issued_timer(
-    issued_at: ActivityTimestamp,
-    run_started_at: ActivityTimestamp,
-    policy: TimingPolicy,
-) -> Result<AttemptTimerRecord, StoreError> {
-    let deadline = match policy {
-        TimingPolicy::Untimed => None,
-        TimingPolicy::PerQuestion { seconds, .. } => {
-            Some(add_seconds(issued_at, seconds, "question deadline")?)
-        }
-        TimingPolicy::PerAttempt { seconds, .. } => {
-            let deadline = add_seconds(run_started_at, seconds, "run deadline")?;
-            if deadline < issued_at {
-                return Err(StoreError::TimedOut);
-            }
-            Some(deadline)
-        }
-    };
-    Ok(AttemptTimerRecord {
-        issued_at,
-        deadline,
-        submitted_at: None,
-    })
-}
-
-#[cfg(feature = "postgres")]
-pub(in crate::postgres) fn add_seconds(
-    timestamp: ActivityTimestamp,
-    seconds: u32,
-    description: &str,
-) -> Result<ActivityTimestamp, StoreError> {
-    timestamp
-        .as_unix_millis()
-        .checked_add(i64::from(seconds) * 1_000)
-        .map(ActivityTimestamp::from_unix_millis)
-        .ok_or_else(|| StoreError::InvalidRecord(format!("{description} overflow")))
 }

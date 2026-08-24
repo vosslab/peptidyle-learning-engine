@@ -35,6 +35,8 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
     let instructor = UserId::from_uuid(uuid(121_001));
     let learner = UserId::from_uuid(uuid(121_002));
     let course = CourseId::from_uuid(uuid(121_003));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(&store, tenant, course, instructor).await;
     store
         .create_course(
             context,
@@ -50,7 +52,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -173,7 +175,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
         .start_or_resume_run(
             context,
             learner,
-            first_assignment,
+            LearnerWorkRoutingBinding::new(course, first_assignment),
             RunId::from_uuid(uuid(121_041)),
         )
         .await
@@ -182,7 +184,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
         .start_or_resume_run(
             context,
             learner,
-            second_assignment,
+            LearnerWorkRoutingBinding::new(course, second_assignment),
             RunId::from_uuid(uuid(121_042)),
         )
         .await
@@ -250,7 +252,7 @@ async fn memory_invitation_claim_reconciles_both_assignment_creation_orders() {
             .start_or_resume_run(
                 context,
                 learner,
-                first_assignment,
+                LearnerWorkRoutingBinding::new(course, first_assignment),
                 RunId::from_uuid(uuid(121_050)),
             )
             .await,
@@ -282,6 +284,8 @@ async fn memory_course_allows_only_one_live_invitation_per_email() {
     let context = TenantContext::from_authenticated_session(tenant);
     let instructor = UserId::from_uuid(uuid(122_001));
     let course = CourseId::from_uuid(uuid(122_002));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(&store, tenant, course, instructor).await;
     store
         .create_course(
             context,
@@ -297,7 +301,7 @@ async fn memory_course_allows_only_one_live_invitation_per_email() {
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await

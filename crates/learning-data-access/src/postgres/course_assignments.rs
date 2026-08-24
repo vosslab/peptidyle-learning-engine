@@ -1,15 +1,20 @@
 use async_trait::async_trait;
 
 use super::*;
+use crate::{CreateAssignmentCommand, ReplaceAssignmentCommand};
 
 #[async_trait]
 impl crate::CourseAssignmentStore for PostgresStore {
     async fn create_assignment_impl(
         &self,
         context: TenantContext,
-        assignment: AssignmentRecord,
-        base_policy: question_model::BaseAssignmentPolicy,
+        command: CreateAssignmentCommand,
     ) -> Result<StoredAssignment, StoreError> {
+        let CreateAssignmentCommand {
+            actor,
+            assignment,
+            base_policy,
+        } = command;
         ensure_tenant(context, assignment.tenant)?;
         if assignment.lifecycle != question_model::AssignmentLifecycle::Draft {
             return Err(StoreError::InvalidRecord(
@@ -17,116 +22,53 @@ impl crate::CourseAssignmentStore for PostgresStore {
             ));
         }
         validate_assignment(&assignment)?;
-        let (completion_policy, completion_threshold) =
-            completion_policy_columns(assignment.policies.completion);
-        let (practice_policy, practice_limit) =
-            continued_practice_columns(assignment.policies.continued_practice)?;
         let mut transaction = self.begin_tenant(context).await?;
-        validate_postgres_assignment_references(&mut transaction, context, &assignment).await?;
-        let course_term = super::course_policy::load_course_term_for_policy(
+        let creation_witness = assignment_definition_capability::prepare_creation(
             &mut transaction,
-            assignment.tenant,
-            assignment.course_id,
+            context,
+            actor,
+            &assignment,
         )
         .await?;
+        validate_postgres_assignment_references(&mut transaction, context, &assignment).await?;
         domain::effective_assignment_policy::validate_base_assignment_policy_for_course_term(
             base_policy,
-            &course_term,
+            creation_witness.course_term(),
         )
         .map_err(|error| {
             StoreError::InvalidRecord(format!("invalid assignment base policy: {error:?}"))
         })?;
-        let inserted = sqlx::query(
-            "INSERT INTO assignment \
-             (tenant_id, assignment_id, course_id, title, completion_policy, \
-              completion_threshold, attempt_selection_policy, continued_practice_policy, \
-              practice_max_additional_runs, variation_policy, lifecycle, audience_kind, \
-              score_disclosure, per_item_correctness_disclosure, feedback_text_disclosure, \
-              solution_disclosure, class_statistics_disclosure, revision, instructions) \
-             VALUES ($1, $2, $3, $4, $5, $6::numeric, $7, $8, $9, $10, \
-                     $11, $12, $13, $14, $15, $16, $17, 1, $18) \
-             ON CONFLICT (tenant_id, assignment_id) DO NOTHING \
-             RETURNING revision, scoring_generation, scoring_status",
-        )
-        .bind(assignment.tenant.as_uuid())
-        .bind(assignment.id.as_uuid())
-        .bind(assignment.course_id.as_uuid())
-        .bind(&assignment.title)
-        .bind(completion_policy)
-        .bind(completion_threshold)
-        .bind(grade_policy_name(assignment.policies.grade))
-        .bind(practice_policy)
-        .bind(practice_limit)
-        .bind(variation_policy_name(assignment.policies.variation))
-        .bind(super::course_policy::assignment_lifecycle_name(
-            assignment.lifecycle,
-        ))
-        .bind(assignment_audience_kind(&assignment.audience))
-        .bind(learner_disclosure_timing_name(
-            assignment.disclosure_policy.score,
-        ))
-        .bind(learner_disclosure_timing_name(
-            assignment.disclosure_policy.per_item_correctness,
-        ))
-        .bind(learner_disclosure_timing_name(
-            assignment.disclosure_policy.feedback_text,
-        ))
-        .bind(learner_disclosure_timing_name(
-            assignment.disclosure_policy.solution,
-        ))
-        .bind(learner_disclosure_timing_name(
-            assignment.disclosure_policy.class_statistics,
-        ))
-        .bind(assignment.instructions.as_str())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        let Some(row) = inserted else {
-            return Err(StoreError::AlreadyExists);
-        };
-        insert_postgres_assignment_items(&mut transaction, &assignment).await?;
-        replace_postgres_assignment_audience(&mut transaction, &assignment).await?;
-        insert_base_policy(
+        let returned = assignment_definition_capability::create(
             &mut transaction,
-            context.tenant_id(),
-            assignment.id,
-            assignment.course_id,
+            context,
+            actor,
+            &assignment,
             base_policy,
         )
         .await?;
-        super::course_gradebook::advance_course_grade_scheme_revision(
-            &mut transaction,
-            assignment.tenant,
-            assignment.course_id,
-        )
-        .await?;
-        let revision =
-            AssignmentRevision::from_stored(row.try_get("revision").map_err(map_sqlx_error)?)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(StoredAssignment {
-            record: assignment,
-            revision,
-            base_policy,
-            scoring_generation: decode_scoring_generation(&row)?,
-            scoring_status: decode_scoring_status(&row)?,
-        })
+        Ok(returned)
     }
     async fn replace_assignment_impl(
         &self,
         context: TenantContext,
-        course: CourseId,
-        assignment: AssignmentId,
-        expected_revision: AssignmentRevision,
-        update: AssignmentUpdate,
+        command: ReplaceAssignmentCommand,
     ) -> Result<StoredAssignment, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
-        // This advisory lock serializes assignment definition, timing, and
-        // accommodation edits before their differing row-level work begins.
-        // A content-only save therefore need not lock active attempts.
-        assignment_timing::lock_postgres_assignment_policy(
-            &mut transaction,
-            context.tenant_id(),
+        let ReplaceAssignmentCommand {
+            actor,
+            course,
             assignment,
+            expected_revision,
+            update,
+        } = command;
+        let mut transaction = self.begin_tenant(context).await?;
+        let witness = prepare_assignment_rehearsal_verification(
+            &mut transaction,
+            context,
+            actor,
+            course,
+            assignment,
+            expected_revision,
         )
         .await?;
         let previous = load_assignment(&mut transaction, context.tenant_id(), assignment).await?;
@@ -148,144 +90,19 @@ impl crate::CourseAssignmentStore for PostgresStore {
         };
         validate_assignment(&assignment)?;
         validate_postgres_assignment_references(&mut transaction, context, &assignment).await?;
-        let (completion_policy, completion_threshold) =
-            completion_policy_columns(assignment.policies.completion);
-        let (practice_policy, practice_limit) =
-            continued_practice_columns(assignment.policies.continued_practice)?;
-        let course_grade_projection_changed = previous.title != assignment.title;
-        let audience_changed = previous.audience != assignment.audience;
         crate::ensure_assignment_update_preserves_references(&previous, &update)?;
-        let scoring_changed = assignment_scoring_changed(&previous, &assignment);
-        let has_scores: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM attempt_score_current \
-             WHERE tenant_id = $1 AND assignment_id = $2)",
+        let returned = assignment_definition_capability::replace(
+            &mut transaction,
+            context,
+            actor,
+            &previous,
+            &assignment,
+            expected_revision,
+            witness.database_count()?,
         )
-        .bind(assignment.tenant.as_uuid())
-        .bind(assignment.id.as_uuid())
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        let row = sqlx::query(
-            "UPDATE assignment SET title = $4, completion_policy = $5, \
-                    completion_threshold = $6::numeric, attempt_selection_policy = $7, \
-                    continued_practice_policy = $8, practice_max_additional_runs = $9, \
-                    variation_policy = $10, audience_kind = $14, \
-                    score_disclosure = $15, \
-                    per_item_correctness_disclosure = $16, \
-                    feedback_text_disclosure = $17, solution_disclosure = $18, \
-                    class_statistics_disclosure = $19, \
-                    scoring_generation = scoring_generation + CASE WHEN $11 THEN 1 ELSE 0 END, \
-                    scoring_status = CASE WHEN $11 \
-                        THEN CASE WHEN $12 THEN 'recalculating' ELSE 'current' END \
-                        ELSE scoring_status END, \
-                    revision = revision + 1, updated_at = transaction_timestamp() \
-             WHERE tenant_id = $1 AND assignment_id = $2 AND course_id = $3 AND revision = $13 \
-             RETURNING revision, scoring_generation, scoring_status",
-        )
-        .bind(assignment.tenant.as_uuid())
-        .bind(assignment.id.as_uuid())
-        .bind(assignment.course_id.as_uuid())
-        .bind(&assignment.title)
-        .bind(completion_policy)
-        .bind(completion_threshold)
-        .bind(grade_policy_name(assignment.policies.grade))
-        .bind(practice_policy)
-        .bind(practice_limit)
-        .bind(variation_policy_name(assignment.policies.variation))
-        .bind(scoring_changed)
-        .bind(has_scores)
-        .bind(i64::try_from(expected_revision.value()).map_err(|_| StoreError::Conflict)?)
-        .bind(assignment_audience_kind(&assignment.audience))
-        .bind(learner_disclosure_timing_name(
-            assignment.disclosure_policy.score,
-        ))
-        .bind(learner_disclosure_timing_name(
-            assignment.disclosure_policy.per_item_correctness,
-        ))
-        .bind(learner_disclosure_timing_name(
-            assignment.disclosure_policy.feedback_text,
-        ))
-        .bind(learner_disclosure_timing_name(
-            assignment.disclosure_policy.solution,
-        ))
-        .bind(learner_disclosure_timing_name(
-            assignment.disclosure_policy.class_statistics,
-        ))
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        let Some(row) = row else {
-            let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM assignment WHERE tenant_id = $1 AND assignment_id = $2 AND course_id = $3)",
-            )
-            .bind(assignment.tenant.as_uuid())
-            .bind(assignment.id.as_uuid())
-            .bind(assignment.course_id.as_uuid())
-            .fetch_one(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-            return Err(if exists {
-                StoreError::Conflict
-            } else {
-                StoreError::NotFound
-            });
-        };
-        let revision =
-            AssignmentRevision::from_stored(row.try_get("revision").map_err(map_sqlx_error)?)?;
-        let scoring_generation = decode_scoring_generation(&row)?;
-        let scoring_status = decode_scoring_status(&row)?;
-        replace_postgres_assignment_items(&mut transaction, &assignment).await?;
-        replace_postgres_assignment_audience(&mut transaction, &assignment).await?;
-        if audience_changed {
-            super::course_policy::reresolve_active_attempts(
-                &mut transaction,
-                assignment.tenant,
-                assignment.course_id,
-                assignment.id,
-                revision,
-            )
-            .await?;
-        }
-        if course_grade_projection_changed {
-            super::course_gradebook::advance_course_grade_scheme_revision(
-                &mut transaction,
-                assignment.tenant,
-                assignment.course_id,
-            )
-            .await?;
-        }
-        if scoring_status == ScoringStatus::Recalculating {
-            let job = JobId::generate()?;
-            let payload = serde_json::to_value(JobPayload::RecalculateAssignment {
-                assignment: assignment.id,
-                generation: scoring_generation,
-            })
-            .map_err(|error| {
-                StoreError::InvalidRecord(format!(
-                    "assignment scoring job serialization failed: {error}"
-                ))
-            })?;
-            sqlx::query(
-                "INSERT INTO worker_job (job_id, tenant_id, payload, state, max_attempts) \
-                 VALUES ($1, $2, $3, 'ready', 10)",
-            )
-            .bind(job.as_uuid())
-            .bind(assignment.tenant.as_uuid())
-            .bind(payload)
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        }
-        let returned_base_policy =
-            load_base_policy(&mut transaction, assignment.tenant, assignment.id).await?;
+        .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(StoredAssignment {
-            record: assignment,
-            revision,
-            base_policy: returned_base_policy,
-            scoring_generation,
-            scoring_status,
-        })
+        Ok(returned)
     }
     async fn replace_assignment_fixed_item_impl(
         &self,
@@ -293,14 +110,20 @@ impl crate::CourseAssignmentStore for PostgresStore {
         command: ReplaceAssignmentFixedItemCommand,
     ) -> Result<StoredAssignment, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        let (current, _) = lock_fixed_item_assignment(
+        let witness = prepare_assignment_rehearsal_verification(
             &mut transaction,
             context,
+            command.actor,
             command.course,
             command.assignment,
             command.expected_revision,
         )
         .await?;
+        let current =
+            load_assignment(&mut transaction, context.tenant_id(), command.assignment).await?;
+        if current.course_id != command.course {
+            return Err(StoreError::NotFound);
+        }
         let replacement = current
             .items
             .iter()
@@ -325,21 +148,32 @@ impl crate::CourseAssignmentStore for PostgresStore {
         };
         validate_postgres_assignment_references(&mut transaction, context, &updated).await?;
         sqlx::query_scalar::<_, ()>(
-            "SELECT ple_replace_assignment_fixed_item($1, $2, $3, $4, $5, $6, $7)",
+            "SELECT ple_replace_assignment_fixed_item($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(context.tenant_id().as_uuid())
+        .bind(command.actor.as_uuid())
         .bind(command.course.as_uuid())
         .bind(command.assignment.as_uuid())
         .bind(i64::try_from(command.expected_revision.value()).map_err(|_| StoreError::Conflict)?)
         .bind(command.current_item.as_uuid())
         .bind(command.replacement.problem.as_uuid())
         .bind(command.replacement.version.as_uuid())
+        .bind(witness.database_count()?)
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
         let stored =
             load_fixed_item_assignment(&mut transaction, context.tenant_id(), command.assignment)
                 .await?;
+        super::course_policy::reresolve_post_mutation_active_attempts(
+            &mut transaction,
+            context,
+            command.actor,
+            command.course,
+            command.assignment,
+            stored.revision,
+        )
+        .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(stored)
     }
@@ -350,14 +184,20 @@ impl crate::CourseAssignmentStore for PostgresStore {
         command: AddAssignmentFixedItemCommand,
     ) -> Result<StoredAssignment, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        let (current, _) = lock_fixed_item_assignment(
+        let witness = prepare_assignment_rehearsal_verification(
             &mut transaction,
             context,
+            command.actor,
             command.course,
             command.assignment,
             command.expected_revision,
         )
         .await?;
+        let current =
+            load_assignment(&mut transaction, context.tenant_id(), command.assignment).await?;
+        if current.course_id != command.course {
+            return Err(StoreError::NotFound);
+        }
         if current.items.iter().any(|item| item.id == command.item.id) {
             return Err(StoreError::InvalidRecord(
                 "new fixed item uses a fresh assignment item identity".to_string(),
@@ -382,9 +222,10 @@ impl crate::CourseAssignmentStore for PostgresStore {
         validate_assignment(&updated)?;
         validate_postgres_assignment_references(&mut transaction, context, &updated).await?;
         sqlx::query_scalar::<_, ()>(
-            "SELECT ple_add_assignment_fixed_item($1, $2, $3, $4, $5, $6, $7, $8, $9::numeric, $10, $11)",
+            "SELECT ple_add_assignment_fixed_item($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::numeric, $11, $12, $13)",
         )
         .bind(context.tenant_id().as_uuid())
+        .bind(command.actor.as_uuid())
         .bind(command.course.as_uuid())
         .bind(command.assignment.as_uuid())
         .bind(i64::try_from(command.expected_revision.value()).map_err(|_| StoreError::Conflict)?)
@@ -395,12 +236,22 @@ impl crate::CourseAssignmentStore for PostgresStore {
         .bind(command.item.points_possible.to_string())
         .bind(assignment_delivery_state_name(command.item.delivery_state))
         .bind(assignment_scoring_mode_name(command.item.scoring_mode))
+        .bind(witness.database_count()?)
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
         let stored =
             load_fixed_item_assignment(&mut transaction, context.tenant_id(), command.assignment)
                 .await?;
+        super::course_policy::reresolve_post_mutation_active_attempts(
+            &mut transaction,
+            context,
+            command.actor,
+            command.course,
+            command.assignment,
+            stored.revision,
+        )
+        .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(stored)
     }
@@ -411,14 +262,20 @@ impl crate::CourseAssignmentStore for PostgresStore {
         command: RemoveAssignmentFixedItemCommand,
     ) -> Result<StoredAssignment, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        let (current, _) = lock_fixed_item_assignment(
+        let witness = prepare_assignment_rehearsal_verification(
             &mut transaction,
             context,
+            command.actor,
             command.course,
             command.assignment,
             command.expected_revision,
         )
         .await?;
+        let current =
+            load_assignment(&mut transaction, context.tenant_id(), command.assignment).await?;
+        if current.course_id != command.course {
+            return Err(StoreError::NotFound);
+        }
         let removed = current
             .items
             .iter()
@@ -438,21 +295,31 @@ impl crate::CourseAssignmentStore for PostgresStore {
             }
         }
         validate_assignment(&updated)?;
-        sqlx::query_scalar::<_, ()>("SELECT ple_remove_assignment_fixed_item($1, $2, $3, $4, $5)")
-            .bind(context.tenant_id().as_uuid())
-            .bind(command.course.as_uuid())
-            .bind(command.assignment.as_uuid())
-            .bind(
-                i64::try_from(command.expected_revision.value())
-                    .map_err(|_| StoreError::Conflict)?,
-            )
-            .bind(command.item.as_uuid())
-            .fetch_one(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
+        sqlx::query_scalar::<_, ()>(
+            "SELECT ple_remove_assignment_fixed_item($1, $2, $3, $4, $5, $6, $7)",
+        )
+        .bind(context.tenant_id().as_uuid())
+        .bind(command.actor.as_uuid())
+        .bind(command.course.as_uuid())
+        .bind(command.assignment.as_uuid())
+        .bind(i64::try_from(command.expected_revision.value()).map_err(|_| StoreError::Conflict)?)
+        .bind(command.item.as_uuid())
+        .bind(witness.database_count()?)
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
         let stored =
             load_fixed_item_assignment(&mut transaction, context.tenant_id(), command.assignment)
                 .await?;
+        super::course_policy::reresolve_post_mutation_active_attempts(
+            &mut transaction,
+            context,
+            command.actor,
+            command.course,
+            command.assignment,
+            stored.revision,
+        )
+        .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(stored)
     }
@@ -476,10 +343,13 @@ impl crate::CourseAssignmentStore for PostgresStore {
         };
         self.replace_assignment(
             context,
-            command.course,
-            command.assignment,
-            command.expected_revision,
-            update,
+            ReplaceAssignmentCommand {
+                actor: command.actor,
+                course: command.course,
+                assignment: command.assignment,
+                expected_revision: command.expected_revision,
+                update,
+            },
         )
         .await
     }
@@ -498,7 +368,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
                     solution_disclosure, class_statistics_disclosure, revision, \
                     scoring_generation, scoring_status \
              FROM assignment \
-             WHERE tenant_id = $1 AND assignment_id = $2 FOR SHARE",
+             WHERE tenant_id = $1 AND assignment_id = $2",
         )
         .bind(context.tenant_id().as_uuid())
         .bind(assignment.as_uuid())
@@ -643,36 +513,38 @@ impl crate::CourseAssignmentStore for PostgresStore {
 }
 
 #[cfg(feature = "postgres")]
-async fn lock_fixed_item_assignment(
+async fn prepare_assignment_rehearsal_verification(
     transaction: &mut Transaction<'_, Postgres>,
     context: TenantContext,
+    actor: UserId,
     course: CourseId,
     assignment: AssignmentId,
     expected_revision: AssignmentRevision,
-) -> Result<(AssignmentRecord, ()), StoreError> {
-    assignment_timing::lock_postgres_assignment_policy(
-        transaction,
-        context.tenant_id(),
-        assignment,
-    )
-    .await?;
-    let current = load_assignment(transaction, context.tenant_id(), assignment).await?;
-    if current.course_id != course {
-        return Err(StoreError::NotFound);
-    }
-    let revision: i64 = sqlx::query_scalar(
-        "SELECT revision FROM assignment WHERE tenant_id=$1 AND assignment_id=$2 FOR UPDATE",
+) -> Result<super::rehearsal::LockedRehearsalSourceWitness, StoreError> {
+    let expected = i64::try_from(expected_revision.value()).map_err(|_| StoreError::Conflict)?;
+    let row = sqlx::query(
+        "SELECT assignment_revision, locked_rehearsal_count, locked_rehearsal_run_ids \
+         FROM ple_prepare_assignment_rehearsal_verification($1,$2,$3,$4,$5)",
     )
     .bind(context.tenant_id().as_uuid())
+    .bind(actor.as_uuid())
+    .bind(course.as_uuid())
     .bind(assignment.as_uuid())
-    .fetch_optional(&mut **transaction)
+    .bind(expected)
+    .fetch_one(&mut **transaction)
     .await
-    .map_err(map_sqlx_error)?
-    .ok_or(StoreError::NotFound)?;
-    if AssignmentRevision::from_stored(revision)? != expected_revision {
+    .map_err(map_sqlx_error)?;
+    let prepared = super::rehearsal::AssignmentRehearsalPrepareWitness::decode(&row)?;
+    if prepared.revision() != expected {
         return Err(StoreError::Conflict);
     }
-    Ok((current, ()))
+    prepared
+        .verify(
+            transaction,
+            context.tenant_id(),
+            super::rehearsal::RehearsalSourceSelector::Assignment { course, assignment },
+        )
+        .await
 }
 
 #[cfg(feature = "postgres")]
@@ -689,7 +561,7 @@ async fn load_fixed_item_assignment(
                 score_disclosure, per_item_correctness_disclosure, feedback_text_disclosure, \
                 solution_disclosure, class_statistics_disclosure, revision, \
                 scoring_generation, scoring_status \
-         FROM assignment WHERE tenant_id = $1 AND assignment_id = $2 FOR SHARE",
+         FROM assignment WHERE tenant_id = $1 AND assignment_id = $2",
     )
     .bind(tenant.as_uuid())
     .bind(assignment.as_uuid())
@@ -707,26 +579,6 @@ async fn load_fixed_item_assignment(
         scoring_generation: decode_scoring_generation(&row)?,
         scoring_status: decode_scoring_status(&row)?,
     })
-}
-
-async fn insert_base_policy(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    assignment: AssignmentId,
-    course: CourseId,
-    policy: question_model::BaseAssignmentPolicy,
-) -> Result<(), StoreError> {
-    sqlx::query("INSERT INTO assignment_effective_policy_base (tenant_id, assignment_id, course_id, available_at, due_at, closes_at, late_submission_policy, deadline_behavior, time_limit_seconds, attempt_limit) VALUES ($1,$2,$3,to_timestamp($4::double precision / 1000),to_timestamp($5::double precision / 1000),to_timestamp($6::double precision / 1000),$7,$8,$9,$10)")
-        .bind(tenant.as_uuid()).bind(assignment.as_uuid()).bind(course.as_uuid())
-        .bind(policy.available_at.map(|value| value.as_unix_millis()))
-        .bind(policy.due_at.map(|value| value.as_unix_millis()))
-        .bind(policy.closes_at.map(|value| value.as_unix_millis()))
-        .bind(late_policy_name(policy.late_submission))
-        .bind(deadline_behavior_name(policy.deadline_behavior))
-        .bind(policy.time_limit_seconds.map(|value| i32::try_from(value.get())).transpose().map_err(|_| StoreError::InvalidRecord("assignment time limit is invalid".to_string()))?)
-        .bind(policy.attempt_limit.map(|value| i32::try_from(value.get())).transpose().map_err(|_| StoreError::InvalidRecord("assignment attempt limit is invalid".to_string()))?)
-        .execute(&mut **transaction).await.map_err(map_sqlx_error)?;
-    Ok(())
 }
 
 async fn load_base_policy(
@@ -754,16 +606,25 @@ pub(super) async fn load_assignment_scoring_status(
     decode_scoring_status(&row)
 }
 
-fn late_policy_name(value: question_model::LateSubmissionPolicy) -> &'static str {
-    match value {
-        question_model::LateSubmissionPolicy::Accept => "accept",
-        question_model::LateSubmissionPolicy::MarkLate => "mark_late",
-        question_model::LateSubmissionPolicy::Reject => "reject",
-    }
-}
-
-fn deadline_behavior_name(value: question_model::AssignmentDeadlineBehavior) -> &'static str {
-    match value {
-        question_model::AssignmentDeadlineBehavior::AutoSubmit => "auto_submit",
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn assignment_edit_and_post_capability_reload_do_not_request_app_share_locks() {
+        // 1812 intentionally revokes `assignment` UPDATE from `ple_app`.
+        // PostgreSQL requires that privilege for `FOR SHARE`; these reads are
+        // either ordinary edit reads or occur while the broker lock survives.
+        let source = include_str!("course_assignments.rs");
+        let edit_fetch = source
+            .split("async fn get_assignment_for_edit_impl")
+            .nth(1)
+            .and_then(|section| section.split("async fn get_assignment_impl").next())
+            .expect("edit fetch remains a discrete store method");
+        let post_capability_reload = source
+            .split("async fn load_fixed_item_assignment")
+            .nth(1)
+            .and_then(|section| section.split("async fn load_base_policy").next())
+            .expect("post-capability reload remains a discrete helper");
+        assert!(!edit_fetch.contains("FOR SHARE"));
+        assert!(!post_capability_reload.contains("FOR SHARE"));
     }
 }

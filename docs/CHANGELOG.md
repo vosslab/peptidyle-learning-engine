@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-08-23
+
+### Fixes and Maintenance
+
+- Migrated server course-creation test fixtures to deterministic, same-tenant
+  Sysadmin session-bound authority and added a shared validated test helper.
+
 ## 2026-08-22
 
 ### Fixes and Maintenance

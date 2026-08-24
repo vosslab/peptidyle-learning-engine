@@ -11,13 +11,14 @@ use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_applicatio
 use learning_data_access::{
     AccountIdentityStore, ApproveInstructorAccount, AuthenticationEmail,
     AuthenticationRateLimitKey, BeginEmailAuthentication, BrowserBindingHash,
-    CoInstructorInvitationRevision, CompleteEmailAuthentication, CourseListScope, CourseRecord,
-    CourseRosterStore, CreateCoInstructorInvitation, CreateCourseCommand, Cursor,
-    EmailAuthenticationPurpose, EmailChallengeId, EmailChallengeLifetime, EmailChallengeSecretHash,
-    InstructorApprovalRevision, PageRequest, PageSize, RemoveDirectInstructorMembership,
-    RespondToCoInstructorInvitation, RevokeCoInstructorInvitation, RevokeInstructorApproval,
-    SessionLifetime, SessionStore, SessionSubject, SessionTokenHash, Store, StoreError,
-    TeachingAuthorityReferenceStore, TeachingAuthorityStore, TenantContext, UpsertCourseMember,
+    CoInstructorInvitationRevision, CompleteEmailAuthentication, CourseCreationAuthority,
+    CourseListScope, CourseRecord, CourseRosterStore, CreateCoInstructorInvitation,
+    CreateCourseCommand, Cursor, EmailAuthenticationPurpose, EmailChallengeId,
+    EmailChallengeLifetime, EmailChallengeSecretHash, InstructorApprovalRevision, PageRequest,
+    PageSize, RemoveDirectInstructorMembership, RespondToCoInstructorInvitation,
+    RevokeCoInstructorInvitation, RevokeInstructorApproval, SessionLifetime, SessionStore,
+    SessionSubject, SessionTokenHash, Store, StoreError, TeachingAuthorityReferenceStore,
+    TeachingAuthorityStore, TenantContext, UpsertCourseMember,
 };
 use question_model::{CourseId, CourseTerm, TenantId, UserId, UserRole};
 use sqlx::{Row, postgres::PgPoolOptions};
@@ -239,7 +240,7 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
     create_account(&store, target).await;
     create_account(&store, alternate).await;
     let sysadmin_session = session(&store, tenant, sysadmin, vec![UserRole::Sysadmin]).await;
-    let _instructor_session = session(&store, tenant, instructor, vec![UserRole::Instructor]).await;
+    let instructor_session = session(&store, tenant, instructor, vec![UserRole::Instructor]).await;
     let target_session = session(&store, tenant, target, vec![UserRole::Instructor]).await;
     let alternate_session = session(&store, tenant, alternate, vec![UserRole::Instructor]).await;
     assert_eq!(
@@ -264,7 +265,10 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
                     term: CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
                         .expect("fixture term"),
                 },
-                initial_instructor: instructor,
+                authority: CourseCreationAuthority::ApprovedInstructor {
+                    actor: instructor,
+                    session: instructor_session,
+                },
             },
         )
         .await
@@ -313,6 +317,7 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
             .decline_co_instructor_invitation(
                 context,
                 RespondToCoInstructorInvitation {
+                    session: alternate_session,
                     actor: alternate,
                     invitation: first_create.invitation.id,
                     expected_revision: first_create.revision,
@@ -326,6 +331,7 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
         .decline_co_instructor_invitation(
             context,
             RespondToCoInstructorInvitation {
+                session: target_session,
                 actor: target,
                 invitation: first_create.invitation.id,
                 expected_revision: first_create.revision,
@@ -338,6 +344,7 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
             .decline_co_instructor_invitation(
                 context,
                 RespondToCoInstructorInvitation {
+                    session: target_session,
                     actor: target,
                     invitation: first_create.invitation.id,
                     expected_revision: first_create.revision,
@@ -402,6 +409,7 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
         .accept_co_instructor_invitation(
             context,
             RespondToCoInstructorInvitation {
+                session: target_session,
                 actor: target,
                 invitation: accepted_invitation.invitation.id,
                 expected_revision: accepted_invitation.revision,
@@ -439,6 +447,7 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
         .accept_co_instructor_invitation(
             context,
             RespondToCoInstructorInvitation {
+                session: target_session,
                 actor: target,
                 invitation: accepted_invitation.invitation.id,
                 expected_revision: accepted_invitation.revision,

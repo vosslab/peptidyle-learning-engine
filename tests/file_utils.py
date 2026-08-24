@@ -552,6 +552,11 @@ def path_has_skip_dir(path: str) -> bool:
 			return True
 		if index < len(parts) - 1 and part.startswith("dist_"):
 			return True
+	# Hygiene reports are generated at the repository root. Exclude that
+	# namespace during discovery so import-time parametrization cannot retain a
+	# report that the later autouse cleanup removes.
+	if len(parts) == 1 and parts[0].startswith("report_") and parts[0].endswith(".txt"):
+		return True
 	return False
 
 

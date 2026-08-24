@@ -7,6 +7,8 @@ async fn memory_catalog_keeps_question_identity_exact() {
     let context = TenantContext::from_authenticated_session(tenant);
     let publisher = UserId::from_uuid(uuid(303));
     let course = CourseId::from_uuid(uuid(304));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(&store, tenant, course, publisher).await;
     store
         .create_course(
             context,
@@ -22,7 +24,7 @@ async fn memory_catalog_keeps_question_identity_exact() {
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: publisher,
+                authority: course_creation_authority,
             },
         )
         .await

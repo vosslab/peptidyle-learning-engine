@@ -7,6 +7,7 @@ mod imathas_submission;
 mod imathas_support;
 mod manual_grading_http;
 mod prefetch;
+mod start_binding;
 mod submission;
 mod support;
 use imathas_support::*;
@@ -263,6 +264,8 @@ impl RunBackend for NumericBackend {
             webwork_grading: None,
             webwork_grading_capability:
                 learning_data_access::WebworkGradingCapability::NotApplicable,
+            qti_grading: None,
+            qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
         })
     }
 
@@ -526,7 +529,13 @@ async fn fixture_with_attempt_policy(
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -534,6 +543,7 @@ async fn fixture_with_attempt_policy(
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,
@@ -546,25 +556,28 @@ async fn fixture_with_attempt_policy(
     store
         .create_assignment(
             context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                audience: question_model::AssignmentAudience::CourseWide,
-                title: "Molar mass mastery".to_string(),
-                lifecycle: question_model::AssignmentLifecycle::Draft,
-                instructions: question_model::AssignmentInstructions::default(),
-                items: assignment_items(vec![ProblemVersionRef { problem, version }]),
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: RunPolicies {
-                    completion: CompletionRequirement::AllCorrect,
-                    grade: GradePolicy::Highest,
-                    continued_practice: ContinuedPractice::Unlimited,
-                    variation: VariationPolicy::NewSeeds,
+            learning_data_access::CreateAssignmentCommand {
+                actor: instructor,
+                assignment: AssignmentRecord {
+                    id: assignment,
+                    tenant,
+                    course_id: course,
+                    audience: question_model::AssignmentAudience::CourseWide,
+                    title: "Molar mass mastery".to_string(),
+                    lifecycle: question_model::AssignmentLifecycle::Draft,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    items: assignment_items(vec![ProblemVersionRef { problem, version }]),
+                    selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    policies: RunPolicies {
+                        completion: CompletionRequirement::AllCorrect,
+                        grade: GradePolicy::Highest,
+                        continued_practice: ContinuedPractice::Unlimited,
+                        variation: VariationPolicy::NewSeeds,
+                    },
                 },
+                base_policy: question_model::BaseAssignmentPolicy::default(),
             },
-            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("assignment");
@@ -797,7 +810,13 @@ async fn native_feedback_fixture() -> (
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -805,6 +824,7 @@ async fn native_feedback_fixture() -> (
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,
@@ -817,28 +837,31 @@ async fn native_feedback_fixture() -> (
     store
         .create_assignment(
             context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                audience: question_model::AssignmentAudience::CourseWide,
-                title: "Peptide feedback".to_string(),
-                lifecycle: question_model::AssignmentLifecycle::Draft,
-                instructions: question_model::AssignmentInstructions::default(),
-                items: assignment_items(vec![
-                    ProblemVersionRef { problem, version },
-                    ProblemVersionRef { problem, version },
-                ]),
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: RunPolicies {
-                    completion: CompletionRequirement::AnswerAll,
-                    grade: GradePolicy::Highest,
-                    continued_practice: ContinuedPractice::Unlimited,
-                    variation: VariationPolicy::NewSeeds,
+            learning_data_access::CreateAssignmentCommand {
+                actor: instructor,
+                assignment: AssignmentRecord {
+                    id: assignment,
+                    tenant,
+                    course_id: course,
+                    audience: question_model::AssignmentAudience::CourseWide,
+                    title: "Peptide feedback".to_string(),
+                    lifecycle: question_model::AssignmentLifecycle::Draft,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    items: assignment_items(vec![
+                        ProblemVersionRef { problem, version },
+                        ProblemVersionRef { problem, version },
+                    ]),
+                    selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    policies: RunPolicies {
+                        completion: CompletionRequirement::AnswerAll,
+                        grade: GradePolicy::Highest,
+                        continued_practice: ContinuedPractice::Unlimited,
+                        variation: VariationPolicy::NewSeeds,
+                    },
                 },
+                base_policy: question_model::BaseAssignmentPolicy::default(),
             },
-            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("assignment");

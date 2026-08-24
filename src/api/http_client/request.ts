@@ -188,6 +188,14 @@ function assignmentPath(courseId: CourseId, assignmentId?: AssignmentId): string
     : `/api/courses/${course}/assignments/${encodedId(assignmentId)}`;
 }
 
+export function learnerAttemptPath(
+  courseId: CourseId,
+  assignmentId: AssignmentId,
+  attemptId: QuestionAttemptId,
+): string {
+  return `${assignmentPath(courseId, assignmentId)}/attempts/${encodedId(attemptId)}`;
+}
+
 async function workspaceDraft(
   fetchImplementation: ApiFetch,
   basePath: string,
@@ -631,13 +639,23 @@ export function createRequestClient(
         },
       );
     },
-    startRun: (assignmentId): Promise<AssignmentRun> =>
-      requestJson(fetchImplementation, basePath, "/api/runs", decodeAssignmentRun, {
-        method: "POST",
-        body: { assignmentId },
-      }),
-    prefetchNextQuestion: async (attemptId, signal): Promise<PrefetchedNextQuestion | null> => {
-      const path = `/api/attempts/${encodedId(attemptId)}/prefetch-next`;
+    startRun: (courseId, assignmentId): Promise<AssignmentRun> =>
+      requestJson(
+        fetchImplementation,
+        basePath,
+        `${assignmentPath(courseId, assignmentId)}/runs`,
+        decodeAssignmentRun,
+        {
+          method: "POST",
+        },
+      ),
+    prefetchNextQuestion: async (
+      courseId,
+      assignmentId,
+      attemptId,
+      signal,
+    ): Promise<PrefetchedNextQuestion | null> => {
+      const path = `${learnerAttemptPath(courseId, assignmentId, attemptId)}/prefetch-next`;
       const response = await fetchImplementation(requestPath(basePath, path), {
         method: "POST",
         headers: { accept: "application/json" },
@@ -656,6 +674,8 @@ export function createRequestClient(
       return decoded;
     },
     submitResponse: async (
+      courseId: CourseId,
+      assignmentId: AssignmentId,
       attemptId: QuestionAttemptId,
       response: StudentResponse,
       idempotencyKey: string,
@@ -663,8 +683,8 @@ export function createRequestClient(
       const decoded = decodeStudentResponse(response, "request.response");
       const path =
         decoded.kind === "externalTool"
-          ? `/api/attempts/${encodedId(attemptId)}/external-tool/launch/submission`
-          : `/api/submissions/${encodedId(attemptId)}`;
+          ? `${learnerAttemptPath(courseId, assignmentId, attemptId)}/external-tool/launch/submission`
+          : `${learnerAttemptPath(courseId, assignmentId, attemptId)}/submissions`;
       const receipt = await requestJson(
         fetchImplementation,
         basePath,

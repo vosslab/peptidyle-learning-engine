@@ -204,7 +204,10 @@ test("a browser transport outage retains the response and gives a stable restora
 });
 
 test("a server refusal keeps its actionable API message instead of claiming a service outage", async () => {
-  const refusal = new ApiRequestError(422, "/api/submissions/attempt-a");
+  const refusal = new ApiRequestError(
+    422,
+    "/api/courses/course-a/assignments/assignment-a/attempts/attempt-a/submissions",
+  );
   let calls = 0;
   const fixture = createMachine({
     submitResponse: async () => {

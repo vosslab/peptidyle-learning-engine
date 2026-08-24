@@ -23,7 +23,27 @@ pub struct CourseRecord {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateCourseCommand {
     pub course: CourseRecord,
-    pub initial_instructor: UserId,
+    /// Closed server-owned authority for the initial direct Instructor.
+    pub authority: CourseCreationAuthority,
+}
+
+/// Authority accepted by atomic course provisioning.
+///
+/// Browser and ordinary application DTOs never carry this value. The server
+/// derives these variants from its authenticated request. Base Course
+/// installation uses a separate private, non-Clone client and command.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CourseCreationAuthority {
+    /// A currently approved instructor with the exact authenticated session.
+    ApprovedInstructor {
+        actor: UserId,
+        session: SessionTokenHash,
+    },
+    /// A currently authenticated platform Sysadmin.
+    Sysadmin {
+        actor: UserId,
+        session: SessionTokenHash,
+    },
 }
 
 /// Canonical course access relationship.  Each reinvitation creates a new
@@ -126,9 +146,35 @@ pub struct AssignmentUpdate {
     pub policies: RunPolicies,
 }
 
+/// Authenticated instructor command that creates an assignment definition and
+/// its base policy in the same persistence transaction.
+///
+/// Authority deliberately belongs to the command rather than the tenant
+/// context: the latter selects an RLS boundary and cannot authenticate a
+/// writer.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CreateAssignmentCommand {
+    pub actor: UserId,
+    pub assignment: AssignmentRecord,
+    pub base_policy: question_model::BaseAssignmentPolicy,
+}
+
+/// Authenticated instructor command that atomically replaces an assignment's
+/// editable definition fields.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReplaceAssignmentCommand {
+    pub actor: UserId,
+    pub course: CourseId,
+    pub assignment: AssignmentId,
+    pub expected_revision: AssignmentRevision,
+    pub update: AssignmentUpdate,
+}
+
 /// Revision-checked instructor command behind the Delete and Regrade action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DeleteAndRegradeAssignmentItemCommand {
+    /// Authenticated direct Instructor authorized inside the write boundary.
+    pub actor: UserId,
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub item: AssignmentItemId,
@@ -144,6 +190,8 @@ pub struct DeleteAndRegradeAssignmentItemCommand {
 /// scoring mode. Issued run evidence retains its own frozen reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReplaceAssignmentFixedItemCommand {
+    /// Authenticated direct Instructor authorized inside the write boundary.
+    pub actor: UserId,
     /// Tenant-owned course that authorizes the edit.
     pub course: CourseId,
     /// Assignment whose future definition will change.
@@ -164,6 +212,8 @@ pub struct ReplaceAssignmentFixedItemCommand {
 /// visible future-run position; storage shifts later fixed items as needed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AddAssignmentFixedItemCommand {
+    /// Authenticated direct Instructor authorized inside the write boundary.
+    pub actor: UserId,
     /// Tenant-owned course that authorizes the edit.
     pub course: CourseId,
     /// Assignment whose future definition gains an item.
@@ -182,6 +232,8 @@ pub struct AddAssignmentFixedItemCommand {
 /// recalculation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RemoveAssignmentFixedItemCommand {
+    /// Authenticated direct Instructor authorized inside the write boundary.
+    pub actor: UserId,
     /// Tenant-owned course that authorizes the edit.
     pub course: CourseId,
     /// Assignment whose future definition loses an item.

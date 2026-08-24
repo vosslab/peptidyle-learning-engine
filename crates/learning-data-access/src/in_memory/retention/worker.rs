@@ -306,9 +306,12 @@ impl RetentionWorkerStore for MemoryStore {
         &self,
         command: RetentionWorkerCommand,
     ) -> Result<(), StoreError> {
-        let mut state = self.write_state()?;
-        let now = state.authoritative_time;
-        let job = state.jobs.get(&command.job).ok_or(StoreError::NotFound)?;
+        let mut state_guard = self.write_state()?;
+        let now = state_guard.authoritative_time;
+        let job = state_guard
+            .jobs
+            .get(&command.job)
+            .ok_or(StoreError::NotFound)?;
         if job.tenant != command.tenant
             || job.state != crate::JobState::Leased
             || job.lease_token != Some(command.lease)
@@ -322,7 +325,7 @@ impl RetentionWorkerStore for MemoryStore {
         {
             return Err(StoreError::Conflict);
         }
-        let record = state
+        let record = state_guard
             .course_retention
             .get(&(command.tenant, command.course))
             .copied()
@@ -336,14 +339,14 @@ impl RetentionWorkerStore for MemoryStore {
             command.stage,
             command.generation,
         );
-        let stage = state
+        let stage = state_guard
             .retention_stages
             .get(&stage_key)
             .copied()
             .ok_or(StoreError::Conflict)?;
         if stage.state != RetentionStageWorkState::Started
             || stage.job != Some(command.job)
-            || state.retention_dispatches.get(&stage_key) != Some(&command.job)
+            || state_guard.retention_dispatches.get(&stage_key) != Some(&command.job)
             || stage.lease != Some(command.lease)
         {
             return Err(StoreError::Conflict);
@@ -355,7 +358,7 @@ impl RetentionWorkerStore for MemoryStore {
             command.stage,
         );
         let manifest = if command.stage != crate::RetentionStage::Notify {
-            let manifest = state
+            let manifest = state_guard
                 .retention_cleanup_manifests
                 .get(&manifest_key)
                 .cloned()
@@ -379,6 +382,11 @@ impl RetentionWorkerStore for MemoryStore {
         {
             return Err(StoreError::Conflict);
         }
+        // Every mutation below, including the rehearsal source-removal fence,
+        // is staged and published only after the retention job is complete.
+        // This preserves the existing worker's retry contract when any late
+        // cleanup or immutable rehearsal-integrity check fails.
+        let mut state = state_guard.clone();
         if let Some(manifest) = manifest {
             // Compute purge dependencies before any mutation.
             if command.stage == crate::RetentionStage::DeleteStudentRecords {
@@ -467,6 +475,14 @@ impl RetentionWorkerStore for MemoryStore {
                     })
                     .collect::<BTreeSet<_>>();
 
+                if assignment_disposition == AssignmentDefinitionDisposition::Delete {
+                    super::super::rehearsal_integrity::fence_assignment_rehearsals_for_source_removal(
+                        &mut state,
+                        tenant,
+                        &assignment_ids,
+                    )?;
+                }
+
                 // Course-grade configuration and both synchronous-export audit
                 // streams are course student-record adjuncts. Keep Memory's
                 // cleanup parity with the normalized PostgreSQL retention path.
@@ -551,6 +567,66 @@ impl RetentionWorkerStore for MemoryStore {
                 state.attempts.retain(|(tenant_id, attempt_id), _| {
                     !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
                 });
+                state
+                    .attempt_issued_question_snapshots
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
+                state
+                    .attempt_presentation_capabilities
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
+                state
+                    .attempt_presentations
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
+                state
+                    .attempt_presentation_snapshots
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
+                state
+                    .attempt_grading_envelopes
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
+                state
+                    .attempt_flat_grading_capabilities
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
+                state
+                    .attempt_flat_grading
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
+                state
+                    .attempt_webwork_grading_capabilities
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
+                state
+                    .attempt_webwork_grading
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
+                state
+                    .attempt_qti_grading_capabilities
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
+                state
+                    .attempt_qti_grading
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
+                state
+                    .webwork_grade_replay
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
                 state.summaries.retain(|(tenant_id, enrollment_id), _| {
                     !(*tenant_id == tenant && enrollment_ids.contains(enrollment_id))
                 });
@@ -585,6 +661,7 @@ impl RetentionWorkerStore for MemoryStore {
                     .assignment_score_staging
                     .retain(|job, _| !scoring_job_ids.contains(job));
                 let revoked_at = state.authoritative_time;
+                let mut revoked_membership_ids = BTreeSet::new();
                 for membership in state.course_memberships.values_mut() {
                     if membership.tenant == tenant
                         && membership.course == course
@@ -593,11 +670,14 @@ impl RetentionWorkerStore for MemoryStore {
                     {
                         membership.status = crate::CourseMemberStatus::Revoked;
                         membership.revoked_at = Some(revoked_at);
+                        revoked_membership_ids.insert(membership.id);
                     }
                 }
                 state.active_course_membership_by_user.retain(
-                    |(record_tenant, record_course, _), _| {
-                        !(*record_tenant == tenant && *record_course == course)
+                    |(record_tenant, record_course, _), membership_id| {
+                        !(*record_tenant == tenant
+                            && *record_course == course
+                            && revoked_membership_ids.contains(membership_id))
                     },
                 );
                 for ((record_tenant, _), group) in &mut state.course_groups {
@@ -612,6 +692,12 @@ impl RetentionWorkerStore for MemoryStore {
                 );
                 if assignment_disposition == AssignmentDefinitionDisposition::Delete {
                     for assignment_id in &assignment_ids {
+                        if let Some(reference) = state
+                            .assignment_references
+                            .remove(&(tenant, *assignment_id))
+                        {
+                            state.assignments_by_reference.remove(&(tenant, reference));
+                        }
                         state.assignments.remove(&(tenant, *assignment_id));
                         state.assignment_revisions.remove(&(tenant, *assignment_id));
                         state
@@ -629,6 +715,11 @@ impl RetentionWorkerStore for MemoryStore {
                         );
                         state.assignment_scoring.remove(&(tenant, *assignment_id));
                     }
+                    state
+                        .assignments_by_reference
+                        .retain(|(record_tenant, _), assignment| {
+                            !(*record_tenant == tenant && assignment_ids.contains(assignment))
+                        });
                     state.assignment_group_schedule_offsets.retain(
                         |(record_tenant, assignment, _), _| {
                             !(*record_tenant == tenant && assignment_ids.contains(assignment))
@@ -696,6 +787,7 @@ impl RetentionWorkerStore for MemoryStore {
         job.state = crate::JobState::Completed;
         job.lease_token = None;
         job.lease_expires_at = None;
+        *state_guard = state;
         Ok(())
     }
 }

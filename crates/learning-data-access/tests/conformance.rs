@@ -77,6 +77,8 @@ mod preview_plane_memory;
 mod qti;
 #[path = "conformance/qti_ingress.rs"]
 mod qti_ingress;
+#[path = "conformance/rehearsal_memory.rs"]
+mod rehearsal_memory;
 #[path = "conformance/sessions.rs"]
 mod sessions;
 
@@ -106,18 +108,19 @@ use learning_data_access::{
     AssetDeliveryScope, AssetPublication, AssetStore, AssignmentRecord,
     AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore,
     AssignmentUpdate, AttemptSupportAction, AttemptSupportActionId, CatalogSourceStore,
-    CatalogStore, CatalogTransition, ClearAttemptCommand, CourseGroupRecord, CourseListScope,
-    CourseRecord, CreateCourseCommand, Cursor, DeleteAndRegradeAssignmentItemCommand, DraftRecord,
-    EvaluationRevision, FlatGradingCapability, ForceSubmitAttemptCommand,
-    IssueQuestionAttemptCommand, ManualCredit, ManualGradeActionId, ManualGradingStore,
+    CatalogStore, CatalogTransition, ClearAttemptCommand, CourseCreationAuthority,
+    CourseGroupRecord, CourseListScope, CourseRecord, CreateAssignmentCommand, CreateCourseCommand,
+    Cursor, DeleteAndRegradeAssignmentItemCommand, DraftRecord, EvaluationRevision,
+    FlatGradingCapability, ForceSubmitAttemptCommand, IssueQuestionAttemptCommand,
+    LearnerWorkRoutingBinding, ManualCredit, ManualGradeActionId, ManualGradingStore,
     MaterializeAssignmentEntitlementCommand, NavigationReferenceStore, PageRequest, PageSize,
     PrefetchedQuestion, PresentationCapability, PublishDraftCommand, PublishedSourceArtifact,
     PutCourseGroupCommand, ReleaseAttemptFeedbackCommand, RemoveAssignmentFixedItemCommand,
-    ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand, RunRouteIdentity,
-    SessionLifetime, SessionStore, SessionSubject, SessionTokenHash, SetManualGradeCommand, Store,
-    StoreError, SubmissionIdempotencyKey, SubmitPendingManualQuestionAttemptCommand,
-    SubmitQuestionAttemptCommand, TenantContext, WebworkGradingCapability, WebworkReplayControlV1,
-    WebworkReplayMappingV1,
+    ReplaceAssignmentCommand, ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand,
+    RunRouteIdentity, SessionLifetime, SessionStore, SessionSubject, SessionTokenHash,
+    SetManualGradeCommand, Store, StoreError, SubmissionIdempotencyKey,
+    SubmitPendingManualQuestionAttemptCommand, SubmitQuestionAttemptCommand, TenantContext,
+    WebworkGradingCapability, WebworkReplayControlV1, WebworkReplayMappingV1,
 };
 use learning_data_access::{
     BeginExternalToolGradeCommand, CommitVerifiedExternalToolSubmissionCommand,
@@ -170,6 +173,63 @@ fn uuid(value: u128) -> Uuid {
     Uuid::from_u128(value)
 }
 
+/// Returns the deterministic Sysadmin authority used by ordinary course
+/// fixtures.  The session is persisted through the real SessionStore so the
+/// course write still exercises the backend's authority check.
+pub(crate) async fn sysadmin_course_creation_authority<S>(
+    store: &S,
+    tenant: TenantId,
+    course: CourseId,
+    actor: UserId,
+) -> CourseCreationAuthority
+where
+    S: SessionStore + ?Sized,
+{
+    let mut token_material = b"conformance-course-creation-sysadmin-v1".to_vec();
+    token_material.extend_from_slice(tenant.as_uuid().as_bytes());
+    token_material.extend_from_slice(course.as_uuid().as_bytes());
+    token_material.extend_from_slice(actor.as_uuid().as_bytes());
+    let session = SessionTokenHash::compute(&token_material);
+    let subject = SessionSubject::new(
+        tenant,
+        actor,
+        "Conformance Sysadmin",
+        vec![UserRole::Sysadmin],
+    )
+    .expect("conformance Sysadmin subject");
+
+    let record = match store
+        .resolve_session(session)
+        .await
+        .expect("resolve deterministic course-creation session")
+    {
+        Some(record) => record,
+        None => {
+            match store
+                .create_session(
+                    session,
+                    subject.clone(),
+                    SessionLifetime::from_seconds(3_600).expect("positive session lifetime"),
+                )
+                .await
+            {
+                Ok(_) | Err(StoreError::AlreadyExists) => {}
+                Err(error) => panic!("create deterministic course-creation session: {error:?}"),
+            }
+            store
+                .resolve_session(session)
+                .await
+                .expect("resolve created course-creation session")
+                .expect("created course-creation session remains active")
+        }
+    };
+
+    assert_eq!(record.token_hash, session);
+    assert_eq!(record.subject, subject);
+    assert!(record.expires_at > record.created_at);
+    CourseCreationAuthority::Sysadmin { actor, session }
+}
+
 fn fixed_items(references: Vec<ProblemVersionRef>) -> Vec<AssignmentItem> {
     static NEXT_ITEM_ID: AtomicU64 = AtomicU64::new(900_000);
     references
@@ -207,8 +267,11 @@ trait ConformanceAssignmentStore: Store {
         let created = self
             .create_assignment(
                 context,
-                assignment,
-                question_model::BaseAssignmentPolicy::default(),
+                CreateAssignmentCommand {
+                    actor,
+                    assignment,
+                    base_policy: question_model::BaseAssignmentPolicy::default(),
+                },
             )
             .await?;
         self.put_assignment_teaching_settings(
@@ -287,7 +350,7 @@ fn policies() -> RunPolicies {
 /// PostgreSQL transactions, RLS, and broker functions.
 pub(crate) async fn exercise_durable_publication_assignment_contract<S>(store: &S)
 where
-    S: Store + CatalogStore + CourseRosterStore,
+    S: Store + CatalogStore + CourseRosterStore + SessionStore,
 {
     exercise_publication_identity_boundary(store).await;
     exercise_assignment_cas(store).await;

@@ -6,6 +6,10 @@
 //! narrowly scoped SQL below observes PostgreSQL-only facts: forced RLS,
 //! receipt immutability, and least-privilege grants.
 
+#[path = "postgres_course_creation_support.rs"]
+mod course_creation_support;
+use course_creation_support::sysadmin_course_creation_authority;
+
 #[path = "fixtures/published_assignment.rs"]
 mod published_assignment;
 use published_assignment::create_published_assignment;
@@ -202,7 +206,8 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
                     )
                     .expect("valid fixture term"),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(&store, tenant, course, instructor)
+                    .await,
             },
         )
         .await
@@ -216,6 +221,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
     let learner = store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,
@@ -476,6 +482,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
     let outside = store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: outside_student,
@@ -511,7 +518,13 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
                     )
                     .expect("valid fixture term"),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(
+                    &store,
+                    tenant,
+                    pagination_course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -519,6 +532,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course: pagination_course,
                 user: student,
@@ -531,6 +545,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course: pagination_course,
                 user: outside_student,
@@ -917,6 +932,7 @@ async fn postgres_entitlement_membership_is_derived_materialized_and_rls_enforce
     let reinvited = store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,

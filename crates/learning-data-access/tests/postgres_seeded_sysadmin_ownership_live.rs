@@ -2,16 +2,20 @@
 
 //! Disposable PostgreSQL oracle for seeded Sysadmin first ownership.
 
+use base_course_installation::{
+    BaseCourseInstallPhase, BaseCourseInstallRequest, BaseCourseInstallStateOutput,
+    BaseCourseParticipants,
+};
 use learning_data_access::postgres::{
-    BaseCourseAccountPlatformRoles, BaseCourseAccountRecipe, PostgresStore,
-    acquire_base_course_install_lock, lazy_pool, verify_application_schema,
+    PostgresStore, lazy_pool, local_base_course_application_pool, local_base_course_installer_pool,
+    verify_application_schema,
 };
 use learning_data_access::{
     AccountIdentityStore, AccountSessionLifetime, AccountSessionStore, AccountSessionTokenHash,
-    AuthenticationEmail, BeginWebauthnCeremony, BrowserBindingHash,
-    CompleteSeededSysadminOwnership, CredentialIdHash, PasskeyId, RegisterPasskey, SessionLifetime,
-    SessionStore, SessionSubject, SessionTokenHash, StoreError, WebauthnCeremonyId,
-    WebauthnCeremonyKind, WebauthnCeremonyLifetime, WebauthnState, validated_passkey_label,
+    BeginWebauthnCeremony, BrowserBindingHash, CompleteSeededSysadminOwnership, CredentialIdHash,
+    PasskeyId, RegisterPasskey, SessionLifetime, SessionStore, SessionSubject, SessionTokenHash,
+    StoreError, WebauthnCeremonyId, WebauthnCeremonyKind, WebauthnCeremonyLifetime, WebauthnState,
+    validated_passkey_label,
 };
 use question_model::{TenantId, UserId, UserRole};
 use sqlx::query_scalar;
@@ -23,22 +27,46 @@ fn id() -> Uuid {
     Uuid::from_bytes(bytes)
 }
 
-async fn provision_seeded_sysadmin(pool: &sqlx::PgPool, user: UserId) {
-    let recipe = BaseCourseAccountRecipe::new(
-        user,
-        AuthenticationEmail::parse(&format!("seeded-{user}@example.edu")).expect("fixture email"),
-        "Seeded Sysadmin",
-        BaseCourseAccountPlatformRoles::Sysadmin,
+async fn install_base_course(
+    installer_database_url: &str,
+    application_database_url: &str,
+    participants: BaseCourseParticipants,
+) -> PostgresStore {
+    let installer_pool = local_base_course_installer_pool(installer_database_url)
+        .expect("valid local Base Course installer URL");
+    let application_pool = local_base_course_application_pool(application_database_url)
+        .expect("valid local Base Course application URL");
+    let store = PostgresStore::with_question_id_secret(application_pool, [0x42; 32]);
+    let prepared = base_course_installation::install(
+        &installer_pool,
+        &store,
+        BaseCourseInstallRequest::new(participants, BaseCourseInstallPhase::Prepare),
     )
-    .expect("fixture recipe");
-    let mut install = acquire_base_course_install_lock(pool)
-        .await
-        .expect("installer lock");
-    install
-        .provision_accounts(&[recipe])
-        .await
-        .expect("provision seeded Sysadmin");
-    install.release().await.expect("release installer lock");
+    .await
+    .expect("prepare deterministic Base Course installation");
+    assert_eq!(
+        prepared.install_state(),
+        BaseCourseInstallStateOutput::Installing,
+        "the first product installation call returns the canonical receipt"
+    );
+    let completed = base_course_installation::install(
+        &installer_pool,
+        &store,
+        BaseCourseInstallRequest::new(
+            participants,
+            BaseCourseInstallPhase::Install {
+                storage_receipt_json: prepared.storage_receipt_json().to_owned(),
+            },
+        ),
+    )
+    .await
+    .expect("install deterministic Base Course product");
+    assert_eq!(
+        completed.install_state(),
+        BaseCourseInstallStateOutput::Complete,
+        "the product installer completes the configured seeded identities"
+    );
+    store
 }
 
 async fn command(
@@ -78,25 +106,38 @@ async fn command(
 }
 
 #[tokio::test]
-#[ignore = "requires the disposable PostgreSQL acceptance database"]
+#[ignore = "requires disposable PostgreSQL and child-only Base Course login URLs"]
 async fn postgres_seeded_sysadmin_ownership_is_atomic_and_irreversible() {
     let database_url = std::env::var("PLE_TEST_DATABASE_URL")
         .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
+    let installer_database_url = std::env::var("PLE_BASE_COURSE_INSTALLER_DATABASE_URL")
+        .expect("PLE_BASE_COURSE_INSTALLER_DATABASE_URL must name the disposable installer login");
+    let application_database_url = std::env::var("PLE_BASE_COURSE_APP_DATABASE_URL")
+        .expect("PLE_BASE_COURSE_APP_DATABASE_URL must name the disposable application login");
     let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");
-    let store = PostgresStore::new(pool.clone());
-    let user = UserId::from_uuid(id());
-    let another_sysadmin = UserId::from_uuid(id());
     let tenant = TenantId::from_uuid(id());
-    provision_seeded_sysadmin(&pool, user).await;
-    provision_seeded_sysadmin(&pool, another_sysadmin).await;
+    let instructor = UserId::from_uuid(id());
+    let mary = UserId::from_uuid(id());
+    let jack = UserId::from_uuid(id());
+    let approval_candidate = UserId::from_uuid(id());
+    let user = UserId::from_uuid(id());
+    let participants =
+        BaseCourseParticipants::try_new(tenant, instructor, mary, jack, approval_candidate, user)
+            .expect("five deterministic Base Course participants");
+    let store = install_base_course(
+        &installer_database_url,
+        &application_database_url,
+        participants,
+    )
+    .await;
 
     let mismatched_binding = BrowserBindingHash::compute(id().as_bytes());
     let mut mismatched = command(
         &store,
-        another_sysadmin,
+        mary,
         WebauthnCeremonyId::from_uuid(id()),
         mismatched_binding,
     )
@@ -107,7 +148,7 @@ async fn postgres_seeded_sysadmin_ownership_is_atomic_and_irreversible() {
             .complete_seeded_sysadmin_ownership(mismatched.clone())
             .await,
         Err(StoreError::Forbidden),
-        "a second passkey-free Sysadmin cannot claim the configured target"
+        "only the configured seeded Sysadmin can claim the configured target"
     );
     assert!(
         store
@@ -143,12 +184,12 @@ async fn postgres_seeded_sysadmin_ownership_is_atomic_and_irreversible() {
         .await
         .expect("presented account session");
     store
-        .create_account_session(unrelated_account, another_sysadmin, account_lifetime)
+        .create_account_session(unrelated_account, instructor, account_lifetime)
         .await
         .expect("unrelated account session");
     for (token, session_user, display_name) in [
         (presented_tenant, user, "Presented browser"),
-        (unrelated_tenant, another_sysadmin, "Unrelated browser"),
+        (unrelated_tenant, instructor, "Unrelated browser"),
     ] {
         store
             .create_session(

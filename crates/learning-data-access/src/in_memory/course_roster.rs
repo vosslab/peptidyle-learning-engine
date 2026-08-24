@@ -264,11 +264,13 @@ impl CourseRosterStore for MemoryStore {
     async fn upsert_course_member(
         &self,
         context: TenantContext,
+        actor: question_model::UserId,
         command: UpsertCourseMember,
     ) -> Result<ClaimedCourseMembership, StoreError> {
         let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         require_course_records_accessible(&state, tenant, command.course)?;
+        require_direct_course_instructor_actor(&state, tenant, command.course, actor)?;
         let rollback = state.clone();
         let result = upsert_member_locked(&mut state, tenant, command);
         if result.is_err() {
@@ -417,6 +419,19 @@ impl CourseRosterStore for MemoryStore {
             *state = rollback;
         }
         result
+    }
+}
+
+fn require_direct_course_instructor_actor(
+    state: &State,
+    tenant: question_model::TenantId,
+    course: question_model::CourseId,
+    actor: question_model::UserId,
+) -> Result<(), StoreError> {
+    match super::entitlement::current_course_role(state, tenant, course, actor) {
+        Some(CourseMembershipRole::Instructor) => Ok(()),
+        Some(CourseMembershipRole::Student) => Err(StoreError::Forbidden),
+        None => Err(StoreError::NotFound),
     }
 }
 
@@ -685,12 +700,20 @@ pub(super) fn roster_policy(
         .roster_policies
         .get(&(tenant, course))
         .cloned()
-        .unwrap_or(CourseEnrollmentPolicy {
-            course,
-            allowed_domains: BTreeSet::new(),
-            signup_posture: CourseSignupPosture::InvitationOnly,
-            revision: RosterRevision::INITIAL,
-        })
+        // A missing row is defensive compatibility for legacy/corrupt state;
+        // course creation materializes this exact initial policy.
+        .unwrap_or_else(|| initial_roster_policy(course))
+}
+
+/// The one canonical initial policy used for both provisioning and defensive
+/// reads of legacy state.  New courses always persist this record.
+pub(super) fn initial_roster_policy(course: question_model::CourseId) -> CourseEnrollmentPolicy {
+    CourseEnrollmentPolicy {
+        course,
+        allowed_domains: BTreeSet::new(),
+        signup_posture: CourseSignupPosture::InvitationOnly,
+        revision: RosterRevision::INITIAL,
+    }
 }
 
 pub(super) fn bump_roster_revision(

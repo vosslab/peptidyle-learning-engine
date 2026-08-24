@@ -131,7 +131,13 @@ async fn fixture() -> Fixture {
                     )
                     .expect("term"),
                 },
-                initial_instructor: instructor_user,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor_user,
+                )
+                .await,
             },
         )
         .await
@@ -381,7 +387,13 @@ async fn memory_authority_pages_traverse_course_pending_and_instructor_cursors()
                     )
                     .expect("term"),
                 },
-                initial_instructor: UserId::from_uuid(id(4)),
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    fixture.store.as_ref(),
+                    TenantId::from_uuid(id(1)),
+                    second_course,
+                    UserId::from_uuid(id(4)),
+                )
+                .await,
             },
         )
         .await

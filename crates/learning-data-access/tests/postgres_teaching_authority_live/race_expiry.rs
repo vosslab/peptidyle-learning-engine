@@ -59,8 +59,10 @@ async fn postgres_teaching_authority_exact_expiry_boundary_oracle() {
     let instructor = UserId::from_uuid(id());
     let target = UserId::from_uuid(id());
     create_account(&store, sysadmin).await;
+    create_account(&store, instructor).await;
     create_account(&store, target).await;
     let sysadmin_session = session(&store, tenant, sysadmin, vec![UserRole::Sysadmin]).await;
+    let instructor_session = session(&store, tenant, instructor, vec![UserRole::Instructor]).await;
     let target_session = session(&store, tenant, target, vec![UserRole::Instructor]).await;
     let course = CourseId::from_uuid(id());
     store
@@ -74,7 +76,10 @@ async fn postgres_teaching_authority_exact_expiry_boundary_oracle() {
                     term: CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
                         .expect("fixture term"),
                 },
-                initial_instructor: instructor,
+                authority: CourseCreationAuthority::ApprovedInstructor {
+                    actor: instructor,
+                    session: instructor_session,
+                },
             },
         )
         .await
@@ -134,6 +139,7 @@ async fn postgres_teaching_authority_exact_expiry_boundary_oracle() {
             .accept_co_instructor_invitation(
                 context,
                 RespondToCoInstructorInvitation {
+                    session: target_session,
                     actor: target,
                     invitation: expired.invitation.id,
                     expected_revision: expired.revision,
@@ -196,8 +202,11 @@ async fn postgres_teaching_authority_acceptance_precedes_queued_approval_revoke(
     let instructor = UserId::from_uuid(id());
     let target = UserId::from_uuid(id());
     create_account(&store, sysadmin).await;
+    create_account(&store, instructor).await;
     create_account(&store, target).await;
     let sysadmin_session = session(&store, tenant, sysadmin, vec![UserRole::Sysadmin]).await;
+    let instructor_session = session(&store, tenant, instructor, vec![UserRole::Instructor]).await;
+    let target_session = session(&store, tenant, target, vec![UserRole::Instructor]).await;
     let course = CourseId::from_uuid(id());
     store
         .create_course(
@@ -210,7 +219,10 @@ async fn postgres_teaching_authority_acceptance_precedes_queued_approval_revoke(
                     term: CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
                         .expect("fixture term"),
                 },
-                initial_instructor: instructor,
+                authority: CourseCreationAuthority::ApprovedInstructor {
+                    actor: instructor,
+                    session: instructor_session,
+                },
             },
         )
         .await
@@ -254,6 +266,7 @@ async fn postgres_teaching_authority_acceptance_precedes_queued_approval_revoke(
             .accept_co_instructor_invitation(
                 context,
                 RespondToCoInstructorInvitation {
+                    session: target_session,
                     actor: target,
                     invitation: invitation.invitation.id,
                     expected_revision: invitation.revision,

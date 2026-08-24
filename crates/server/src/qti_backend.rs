@@ -1,9 +1,8 @@
-//! Server-only execution bridge for immutable published QTI questions.
+//! Server-only issue bridge and contract-only grading for published QTI.
 //!
-//! QTI archives are reparsed from the exact published source object on every
-//! issue, replay, and grade operation.  The public package never carries its
-//! correct choice: that binding is resolved only through the injected,
-//! least-privilege [`learning_data_access::QtiGradingStore`] capability.
+//! Trusted issue preparation resolves the published archive and copies the
+//! private grading payload into attempt-local evidence.  First grading and
+//! replay never reopen a catalog, source object, or private grading lookup.
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -21,7 +20,10 @@ use question_model::{
     QuestionDefinition, QuestionEnvelope, QuestionSource, SourceArtifact, StudentResponse,
 };
 
-use crate::run::{IssuedAttemptMetadata, RunBackend, RunBackendError};
+use crate::run::{
+    GradeReceipt, IssuedAttemptMetadata, RunBackend, RunBackendError, RunSubmission,
+    SubmissionDisposition,
+};
 
 const QTI_ADAPTER_ID: &str = adapter_qti::QtiProfileId::GENERIC.as_str();
 
@@ -230,6 +232,23 @@ where
         seed: u64,
     ) -> Result<IssuedAttemptMetadata, RunBackendError> {
         let resolved = self.resolve(context, reference, question, seed).await?;
+        let payload = self
+            .grader
+            .qti_publication_grading(context, reference, &resolved.item_id)
+            .await
+            .map_err(map_store_error)?
+            .ok_or_else(|| {
+                RunBackendError::Unavailable(
+                    "published QTI grading binding is unavailable during issue preparation"
+                        .to_string(),
+                )
+            })?;
+        let qti_grading = learning_data_access::IssuedQtiGradingContractV1::new(
+            question,
+            resolved.item_id.clone(),
+            payload,
+        )
+        .map_err(map_store_error)?;
         Ok(IssuedAttemptMetadata {
             envelope: resolved.envelope,
             parameter_hash: resolved.parameter_hash,
@@ -240,6 +259,8 @@ where
             webwork_grading: None,
             webwork_grading_capability:
                 learning_data_access::WebworkGradingCapability::NotApplicable,
+            qti_grading: Some(qti_grading),
+            qti_grading_capability: learning_data_access::QtiGradingCapability::Required,
         })
     }
 
@@ -250,18 +271,10 @@ where
         question: &QuestionDefinition,
         attempt: &QuestionAttempt,
     ) -> Result<QuestionEnvelope, RunBackendError> {
-        validate_attempt_reference(reference, question, attempt)?;
-        let resolved = self
-            .resolve(context, reference, question, attempt.seed)
-            .await?;
-        if attempt.parameter_hash != resolved.parameter_hash
-            || attempt.provenance != resolved.provenance
-        {
-            return Err(RunBackendError::Invalid(
-                "persisted QTI attempt provenance does not reproduce".to_string(),
-            ));
-        }
-        Ok(resolved.envelope)
+        let _ = (context, reference, question, attempt);
+        Err(RunBackendError::Unsupported(
+            "QTI replay uses the issued receipt before backend reconstruction".to_string(),
+        ))
     }
 
     async fn grade(
@@ -272,34 +285,61 @@ where
         attempt: &QuestionAttempt,
         response: &StudentResponse,
     ) -> Result<grading::GradeOutcome, RunBackendError> {
-        validate_attempt_reference(reference, question, attempt)?;
-        let resolved = self
-            .resolve(context, reference, question, attempt.seed)
-            .await?;
-        if attempt.parameter_hash != resolved.parameter_hash
-            || attempt.provenance != resolved.provenance
+        let _ = (context, reference, question, attempt, response);
+        Err(RunBackendError::Unsupported(
+            "QTI first grading requires the prepared issued contract".to_string(),
+        ))
+    }
+
+    async fn submit(
+        &self,
+        submission: RunSubmission<'_>,
+    ) -> Result<SubmissionDisposition, RunBackendError> {
+        validate_attempt_reference(
+            submission.reference,
+            submission.question(),
+            submission.attempt,
+        )?;
+        let contract = submission.issued_qti_grading.ok_or_else(|| {
+            RunBackendError::Unavailable("issued QTI grading contract is unavailable".to_string())
+        })?;
+        if contract.item_id()
+            != match &submission.question().source {
+                QuestionSource::Qti { item_id, .. } => item_id,
+                _ => {
+                    return Err(RunBackendError::Unsupported(
+                        "issued question is not QTI".to_string(),
+                    ));
+                }
+            }
         {
-            return Err(RunBackendError::Invalid(
-                "persisted QTI attempt provenance does not reproduce".to_string(),
+            return Err(RunBackendError::Unavailable(
+                "issued QTI grading contract item disagrees with issued snapshot".to_string(),
             ));
         }
-        let payload = self
-            .grader
-            .qti_published_grading(context, reference, &resolved.item_id)
-            .await
+        let correct = contract
+            .payload()
             .map_err(map_store_error)?
-            .ok_or_else(|| {
-                RunBackendError::Invalid("published QTI grading binding is unavailable".to_string())
-            })?;
-        let correct = payload.server_correct_choice().map_err(map_store_error)?;
-        grading::grade(
-            question,
-            response,
+            .server_correct_choice()
+            .map_err(map_store_error)?;
+        let outcome = grading::grade(
+            submission.question(),
+            submission.response,
             Some(&grading::AnswerKey::MultipleChoice {
                 correct: BTreeSet::from([correct]),
             }),
         )
-        .map_err(|error| RunBackendError::Invalid(error.to_string()))
+        .map_err(|error| RunBackendError::Invalid(error.to_string()))?;
+        match outcome {
+            grading::GradeOutcome::Graded(result) => {
+                Ok(SubmissionDisposition::Grade(GradeReceipt::empty(result)))
+            }
+            grading::GradeOutcome::NeedsManualGrading | grading::GradeOutcome::Ungraded => {
+                Err(RunBackendError::Invalid(
+                    "issued QTI contract did not produce a deterministic grade".to_string(),
+                ))
+            }
+        }
     }
 }
 

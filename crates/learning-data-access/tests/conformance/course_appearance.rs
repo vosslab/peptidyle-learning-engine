@@ -1,3 +1,4 @@
+use super::sysadmin_course_creation_authority;
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
     COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseAppearanceStore, CourseBannerCleanupBatch,
@@ -106,6 +107,8 @@ async fn memory_course_appearance_cas_delivery_membership_and_cleanup_conform() 
     let instructor = UserId::from_uuid(id(70_003));
     let student = UserId::from_uuid(id(70_004));
     let outsider = UserId::from_uuid(id(70_005));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(&store, tenant, course, instructor).await;
     let context = TenantContext::from_authenticated_session(tenant);
     let instructor_session = create_session(
         &store,
@@ -146,7 +149,7 @@ async fn memory_course_appearance_cas_delivery_membership_and_cleanup_conform() 
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -154,6 +157,7 @@ async fn memory_course_appearance_cas_delivery_membership_and_cleanup_conform() 
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,

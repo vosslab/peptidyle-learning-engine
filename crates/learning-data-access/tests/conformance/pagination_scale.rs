@@ -14,7 +14,7 @@ const SMALL_PAGE_SIZE: u16 = 17;
 /// tenant.
 pub(super) async fn exercise_course_pagination_scale<S>(store: &S)
 where
-    S: Store + CatalogStore + CourseRosterStore,
+    S: Store + CatalogStore + CourseRosterStore + SessionStore,
 {
     let tenant = TenantId::from_uuid(uuid(80_000));
     let foreign_tenant = TenantId::from_uuid(uuid(80_001));
@@ -23,6 +23,8 @@ where
     let instructor = UserId::from_uuid(uuid(80_002));
     let student = UserId::from_uuid(uuid(80_003));
     let course = CourseId::from_uuid(uuid(80_004));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(store, tenant, course, instructor).await;
     store
         .create_course(
             context,
@@ -38,7 +40,7 @@ where
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -46,6 +48,7 @@ where
     store
         .upsert_course_member(
             context,
+            instructor,
             learning_data_access::UpsertCourseMember {
                 course,
                 user: student,
@@ -93,7 +96,7 @@ where
             .start_or_resume_run(
                 context,
                 student,
-                assignment,
+                LearnerWorkRoutingBinding::new(course, assignment),
                 RunId::from_uuid(uuid(80_300 + offset)),
             )
             .await

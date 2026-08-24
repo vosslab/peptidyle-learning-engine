@@ -14,7 +14,12 @@ pub(super) async fn exercise_run_api_receipts<S>(
     fixture_offset: u128,
 ) -> RunApiFixture
 where
-    S: Store + CatalogStore + CourseRosterStore + JobStore + AssignmentScoringWorkerStore,
+    S: Store
+        + CatalogStore
+        + CourseRosterStore
+        + JobStore
+        + AssignmentScoringWorkerStore
+        + SessionStore,
 {
     let tenant = TenantId::from_uuid(uuid(401 + fixture_offset));
     let context = TenantContext::from_authenticated_session(tenant);
@@ -25,6 +30,8 @@ where
     let problem = ProblemId::from_uuid(uuid(405 + fixture_offset));
     let version = VersionId::from_uuid(uuid(406 + fixture_offset));
     let course = CourseId::from_uuid(uuid(407));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(store, tenant, course, publisher).await;
     let assignment = AssignmentId::from_uuid(uuid(408));
     let first_run = RunId::from_uuid(uuid(410));
     let ignored_resume_id = RunId::from_uuid(uuid(411));
@@ -77,7 +84,7 @@ where
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: publisher,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -85,6 +92,7 @@ where
     store
         .upsert_course_member(
             context,
+            publisher,
             learning_data_access::UpsertCourseMember {
                 course,
                 user: student_user,
@@ -118,17 +126,28 @@ where
         .await
         .expect("run fixture assignment");
     let run = store
-        .start_or_resume_run(context, student_user, assignment, first_run)
+        .start_or_resume_run(
+            context,
+            student_user,
+            LearnerWorkRoutingBinding::new(course, assignment),
+            first_run,
+        )
         .await
         .expect("first run should start");
     let resumed = store
-        .start_or_resume_run(context, student_user, assignment, ignored_resume_id)
+        .start_or_resume_run(
+            context,
+            student_user,
+            LearnerWorkRoutingBinding::new(course, assignment),
+            ignored_resume_id,
+        )
         .await
         .expect("active run should resume");
     assert_eq!(resumed, run);
 
     let issue = IssueQuestionAttemptCommand {
         actor: student_user,
+        binding: LearnerWorkRoutingBinding::new(course, assignment),
         attempt: attempt_id,
         run: run.id,
         assignment_position: 0,
@@ -157,6 +176,23 @@ where
         prefetched: None,
         predecessor_submission: None,
     };
+    for binding in [
+        LearnerWorkRoutingBinding::new(CourseId::from_uuid(uuid(40_407)), assignment),
+        LearnerWorkRoutingBinding::new(course, AssignmentId::from_uuid(uuid(40_408))),
+    ] {
+        assert!(matches!(
+            store
+                .issue_or_resume_question_attempt(
+                    context,
+                    IssueQuestionAttemptCommand {
+                        binding,
+                        ..issue.clone()
+                    },
+                )
+                .await,
+            Err(StoreError::NotFound)
+        ));
+    }
     let attempt = store
         .issue_or_resume_question_attempt(context, issue.clone())
         .await
@@ -211,6 +247,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(415)),
                 run: run.id,
                 assignment_position: 1,
@@ -360,6 +397,7 @@ where
             context,
             SubmitQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: attempt.id,
                 response: response.clone(),
                 result: AttemptResult {
@@ -385,6 +423,7 @@ where
             context,
             SubmitQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: attempt.id,
                 response: response.clone(),
                 result: AttemptResult {
@@ -421,6 +460,7 @@ where
             context,
             SubmitQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: attempt.id,
                 response: response.clone(),
                 result: AttemptResult {
@@ -617,6 +657,7 @@ where
                 context,
                 SubmitQuestionAttemptCommand {
                     actor: student_user,
+                    binding: LearnerWorkRoutingBinding::new(course, assignment),
                     attempt: attempt.id,
                     response: response.clone(),
                     result: AttemptResult {
@@ -680,6 +721,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(415)),
                 run: run.id,
                 assignment_position: 1,
@@ -740,6 +782,7 @@ where
                 context,
                 IssueQuestionAttemptCommand {
                     actor: student_user,
+                    binding: LearnerWorkRoutingBinding::new(course, assignment),
                     attempt: QuestionAttemptId::from_uuid(uuid(416)),
                     run: run.id,
                     assignment_position: 1,
@@ -770,6 +813,7 @@ where
             context,
             SubmitQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: second_attempt.id,
                 response: response.clone(),
                 result: AttemptResult {
@@ -807,6 +851,7 @@ where
         context,
         cross_run_finalization::CrossRunFinalizationFixture {
             student_user,
+            course,
             assignment,
             version,
             problem,

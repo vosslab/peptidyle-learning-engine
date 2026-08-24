@@ -49,6 +49,7 @@ pub mod navigation;
 pub(crate) mod public_asset_publication_worker;
 /// Immutable published-QTI replay and server-side grading bridge.
 pub mod qti_backend;
+mod qti_dispatch;
 /// Private QTI archive staging worker and claim-bound committer.
 pub mod qti_import;
 /// Author-only conversion of recognized QTI profile items into native flat drafts.
@@ -75,6 +76,8 @@ pub(crate) mod route_policy;
 pub mod run;
 /// Current-score worker with private staging and generation-fenced publication.
 pub mod scoring_worker;
+#[cfg(test)]
+pub(crate) mod test_fixtures;
 /// Server-owned, generation-fenced deadline finalization.
 pub mod timing_worker;
 /// Authenticated, key-free fallbacks for browser-safe pure validation.

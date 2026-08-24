@@ -100,7 +100,10 @@ test("session expiry, reauthentication, and page retry submit one saved response
 
 test("the response controller exposes 422 and receipt failures for correction before resubmission", async () => {
   for (const failure of [
-    new ApiRequestError(422, "/api/submissions/attempt-a"),
+    new ApiRequestError(
+      422,
+      "/api/courses/course-a/assignments/assignment-a/attempts/attempt-a/submissions",
+    ),
     new ApiProtocolError("Submission receipt attempt does not match its request"),
   ]) {
     const submissionKeys = [];

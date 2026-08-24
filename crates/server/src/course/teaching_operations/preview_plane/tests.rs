@@ -61,7 +61,13 @@ async fn fixture() -> Fixture {
                     term: CourseTerm::from_parts("2026-01-01", "2026-12-31", "America/Chicago")
                         .expect("term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -70,6 +76,7 @@ async fn fixture() -> Fixture {
         store
             .upsert_course_member(
                 context,
+                instructor,
                 UpsertCourseMember {
                     course,
                     user,
@@ -90,27 +97,30 @@ async fn fixture() -> Fixture {
     store
         .create_assignment(
             context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                audience: AssignmentAudience::CourseWide,
-                title: "Peptide bonds".to_owned(),
-                lifecycle: AssignmentLifecycle::Draft,
-                instructions: question_model::AssignmentInstructions::default(),
-                items: vec![AssignmentItem {
-                    id: AssignmentItemId::from_uuid(id(916)),
-                    reference: problem,
-                    position: 0,
-                    points_possible: PointValue::from_whole(1),
-                    delivery_state: question_model::AssignmentDeliveryState::Active,
-                    scoring_mode: AssignmentScoringMode::Normal,
-                }],
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: policies(),
+            learning_data_access::CreateAssignmentCommand {
+                actor: instructor,
+                assignment: AssignmentRecord {
+                    id: assignment,
+                    tenant,
+                    course_id: course,
+                    audience: AssignmentAudience::CourseWide,
+                    title: "Peptide bonds".to_owned(),
+                    lifecycle: AssignmentLifecycle::Draft,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    items: vec![AssignmentItem {
+                        id: AssignmentItemId::from_uuid(id(916)),
+                        reference: problem,
+                        position: 0,
+                        points_possible: PointValue::from_whole(1),
+                        delivery_state: question_model::AssignmentDeliveryState::Active,
+                        scoring_mode: AssignmentScoringMode::Normal,
+                    }],
+                    selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    policies: policies(),
+                },
+                base_policy,
             },
-            base_policy,
         )
         .await
         .expect("assignment");

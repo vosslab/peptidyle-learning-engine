@@ -13,6 +13,29 @@ pub(super) async fn current_disclosure_input(
     attempt: QuestionAttemptId,
     submitted_at: Option<ActivityTimestamp>,
 ) -> Result<LearnerDisclosureInput, StoreError> {
+    let bound: bool = sqlx::query_scalar(
+        "SELECT EXISTS( \
+            SELECT 1 FROM attempt_effective_policy_current AS current_effect \
+            JOIN attempt_effective_policy_receipt AS receipt \
+              ON receipt.tenant_id=current_effect.tenant_id \
+             AND receipt.attempt_id=current_effect.attempt_id \
+             AND receipt.receipt_generation=current_effect.receipt_generation \
+            WHERE current_effect.tenant_id=$1 AND current_effect.attempt_id=$2 \
+              AND receipt.course_id=$3 AND receipt.assignment_id=$4 \
+              AND receipt.sealed_at IS NOT NULL)",
+    )
+    .bind(tenant.as_uuid())
+    .bind(attempt.as_uuid())
+    .bind(assignment.course_id.as_uuid())
+    .bind(assignment.id.as_uuid())
+    .fetch_one(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    if !bound {
+        return Err(StoreError::Unavailable(
+            "current effective-policy receipt does not bind the prepared assignment".to_string(),
+        ));
+    }
     let receipt = super::effective_policy_receipts::read_current_effective_policy_receipt(
         transaction,
         tenant,
@@ -264,81 +287,41 @@ pub(super) async fn submit_question_attempt(
     command: SubmitQuestionAttemptCommand,
 ) -> Result<SubmissionRecord, StoreError> {
     let tenant = context.tenant_id();
-    let attempt_row = sqlx::query(
-        "SELECT attempt.payload, attempt.payload_sha256, \
-                attempt.attempt_status AS current_attempt_status, \
-                floor(extract(epoch FROM attempt.submitted_at) * 1000)::bigint \
-                    AS current_submitted_at, \
-                floor(extract(epoch FROM timing.effective_deadline) * 1000)::bigint \
-                    AS current_deadline_at, timing.effective_grace_seconds, \
-                attempt.presentation_descriptor_version, attempt.presentation_nonce, \
-                attempt.presentation_digest, attempt.presentation_capability, \
-                attempt.presentation_payload, attempt.presentation_payload_sha256, \
-                attempt.grading_envelope_payload, attempt.grading_envelope_payload_sha256, \
-                attempt.flat_grading_required, attempt.flat_grading_payload, \
-                attempt.flat_grading_payload_sha256, \
-                attempt.webwork_grading_required, attempt.webwork_grading_payload, \
-                attempt.webwork_grading_payload_sha256 \
-         FROM question_attempt AS attempt \
-         LEFT JOIN attempt_effective_policy_current AS current_effect \
-           ON current_effect.tenant_id = attempt.tenant_id AND current_effect.attempt_id = attempt.attempt_id \
-         LEFT JOIN attempt_effective_policy_receipt AS timing \
-           ON timing.tenant_id=current_effect.tenant_id AND timing.attempt_id=current_effect.attempt_id AND timing.receipt_generation=current_effect.receipt_generation \
-         WHERE attempt.tenant_id = $1 AND attempt.attempt_id = $2 \
-         ORDER BY attempt.occurred_at LIMIT 1 FOR UPDATE OF attempt",
-    )
-    .bind(tenant.as_uuid())
-    .bind(command.attempt.as_uuid())
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?
-    .ok_or(StoreError::NotFound)?;
-    let base = decode_current_attempt_row(&attempt_row)?;
-    require_attempt_owner(transaction, tenant, base.id, command.actor).await?;
-    if let Some(replay) = load_submission_replay(
+    // ASVS 2.3.1/2.3.3/8.2.2: reauthorize the exact aggregate in the
+    // retryable commit transaction before any protected source read.
+    let prepared = super::submission_preparation::prepare_bound_student_attempt(
         transaction,
         tenant,
-        base.id,
+        command.binding,
+        command.actor,
+        command.attempt,
+    )
+    .await?;
+    if let Some(replay) = super::submission_preparation::prepared_submission_replay(
+        transaction,
+        tenant,
         &command.response,
         &command.idempotency_key,
+        &prepared,
     )
     .await?
     {
         return Ok(replay);
     }
+    let base = prepared.attempt;
     if base.status != AttemptStatus::InProgress {
         return Err(StoreError::Conflict);
     }
-    // Validate the issuance-time snapshot before any receipt, attempt, or run
-    // mutation. Submission copies it instead of rebuilding mutable state.
-    let presentation_binding = decode_presentation_binding_row(&attempt_row)?;
-    let presentation_capability =
-        super::runs::attempt_issuance::presentation_capability_from_row(&attempt_row)?;
-    let stored_presentation = super::runs::attempt_issuance::decode_attempt_presentation_snapshot(
-        &attempt_row,
-        presentation_capability,
-    )?;
-    let grading_envelope = super::runs::attempt_issuance::decode_attempt_grading_envelope(
-        &attempt_row,
-        presentation_capability,
-    )?;
-    let presentation = crate::validate_issued_presentation(
-        presentation_capability,
-        &base,
-        presentation_binding,
-        stored_presentation.as_ref(),
-        grading_envelope.as_ref(),
-    )?;
-    super::runs::attempt_issuance::validate_attempt_flat_grading(&attempt_row, &base)?;
-    super::runs::attempt_issuance::validate_attempt_webwork_grading(&attempt_row, &base)?;
+    let presentation_capability = prepared.presentation_capability;
+    let presentation = prepared.presentation;
     let feedback = private_feedback_record(command.feedback.clone())?;
 
-    let mut run = load_run_for_update(transaction, tenant, base.run).await?;
+    let mut run = prepared.run;
     if run.completed_at.is_some() || run.score.is_some() {
         return Err(StoreError::Conflict);
     }
-    let mut enrollment = load_enrollment_for_update(transaction, tenant, run.enrollment).await?;
-    let assignment = load_assignment_for_share(transaction, tenant, enrollment.assignment).await?;
+    let mut enrollment = prepared.enrollment;
+    let assignment = prepared.assignment;
     crate::validate_attempt_result(command.result)?;
     let submitted_at = database_timestamp(transaction).await?;
     let mut submitted = base;
@@ -354,9 +337,21 @@ pub(super) async fn submit_question_attempt(
         submitted.timer.submitted_at,
     )
     .await?;
-    let effective_grace = attempt_row
-        .try_get::<Option<i32>, _>("effective_grace_seconds")
-        .map_err(map_sqlx_error)?;
+    let effective_grace: Option<i32> = sqlx::query_scalar(
+        "SELECT receipt.effective_grace_seconds \
+           FROM attempt_effective_policy_current AS current_effect \
+           JOIN attempt_effective_policy_receipt AS receipt \
+             ON receipt.tenant_id=current_effect.tenant_id \
+            AND receipt.attempt_id=current_effect.attempt_id \
+            AND receipt.receipt_generation=current_effect.receipt_generation \
+          WHERE current_effect.tenant_id=$1 AND current_effect.attempt_id=$2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(submitted.id.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?
+    .flatten();
     let effective_policy = match effective_grace {
         Some(grace_seconds) if submitted.timer.deadline.is_some() => TimingPolicy::PerQuestion {
             seconds: 1,
@@ -382,7 +377,7 @@ pub(super) async fn submit_question_attempt(
         return Err(StoreError::TimedOut);
     }
 
-    let previous = load_summary_for_update(transaction, tenant, enrollment.id).await?;
+    let previous = prepared.summary;
     let mut next = project_summary(
         &previous,
         domain::scoring::RunTransition::QuestionAttemptRecorded { at: submitted_at },

@@ -1,11 +1,99 @@
 use super::*;
 
 #[tokio::test]
+async fn external_submission_defers_successor_until_exact_nested_run_recovery() {
+    use adapter_imathas::test_support::RecordedContractedTransportMode;
+
+    let fixture = contracted_route_fixture(RecordedContractedTransportMode::Verified).await;
+    let launch_path =
+        external_tool_launch_path(fixture.course, fixture.assignment, fixture.attempt.id);
+    let launch = fixture
+        .app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(&launch_path)
+                .header("cookie", &fixture.student_cookie)
+                .body(Body::empty())
+                .expect("launch request"),
+        )
+        .await
+        .expect("launch response");
+    assert_eq!(launch.status(), StatusCode::OK);
+    let launch_cookie = launch.headers()["set-cookie"]
+        .to_str()
+        .expect("launch cookie")
+        .split(';')
+        .next()
+        .expect("cookie pair")
+        .to_owned();
+    let submission = fixture
+        .app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("{launch_path}/submission"))
+                .header(
+                    "cookie",
+                    format!("{}; {launch_cookie}", fixture.student_cookie),
+                )
+                .header("idempotency-key", "deferred-external-successor")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"response":{"kind":"externalTool"}}"#))
+                .expect("submission request"),
+        )
+        .await
+        .expect("submission response");
+    assert_eq!(submission.status(), StatusCode::OK);
+    let receipt = json(submission).await;
+    assert_eq!(receipt["nextPending"], true);
+    assert!(receipt["nextIssued"].is_null());
+
+    let before_recovery = fixture
+        .store
+        .list_question_attempts(
+            fixture.context,
+            fixture.attempt.run,
+            PageRequest::first(PageSize::new(10).expect("attempt page size")),
+        )
+        .await
+        .expect("attempts before recovery");
+    assert_eq!(before_recovery.items.len(), 1);
+
+    for expected_count in [2, 2] {
+        let recovery = fixture
+            .app
+            .clone()
+            .oneshot(start_run_request(
+                fixture.course,
+                fixture.assignment,
+                &fixture.student_cookie,
+            ))
+            .await
+            .expect("nested recovery response");
+        assert_eq!(recovery.status(), StatusCode::CREATED);
+        let attempts = fixture
+            .store
+            .list_question_attempts(
+                fixture.context,
+                fixture.attempt.run,
+                PageRequest::first(PageSize::new(10).expect("attempt page size")),
+            )
+            .await
+            .expect("attempts after recovery");
+        assert_eq!(attempts.items.len(), expected_count);
+    }
+}
+
+#[tokio::test]
 async fn contracted_imathas_submission_retrieves_once_commits_and_replays_after_revoke() {
     use adapter_imathas::test_support::RecordedContractedTransportMode;
 
     let fixture = contracted_route_fixture(RecordedContractedTransportMode::Verified).await;
-    let launch_path = format!("/api/attempts/{}/external-tool/launch", fixture.attempt.id);
+    let launch_path =
+        external_tool_launch_path(fixture.course, fixture.assignment, fixture.attempt.id);
     let launch = fixture
         .app
         .clone()
@@ -79,7 +167,8 @@ async fn contracted_imathas_submission_refuses_missing_copied_and_malformed_mark
     use adapter_imathas::test_support::RecordedContractedTransportMode;
 
     let fixture = contracted_route_fixture(RecordedContractedTransportMode::Verified).await;
-    let launch_path = format!("/api/attempts/{}/external-tool/launch", fixture.attempt.id);
+    let launch_path =
+        external_tool_launch_path(fixture.course, fixture.assignment, fixture.attempt.id);
     let launch = fixture
         .app
         .clone()
@@ -164,7 +253,8 @@ async fn archive_fence_refuses_external_tool_routes_before_provider_calls() {
     )
     .await;
 
-    let launch_path = format!("/api/attempts/{}/external-tool/launch", fixture.attempt.id);
+    let launch_path =
+        external_tool_launch_path(fixture.course, fixture.assignment, fixture.attempt.id);
     let requests = vec![
         Request::builder()
             .uri(&launch_path)
@@ -223,17 +313,14 @@ async fn contracted_imathas_result_outage_stays_ungraded_and_replica_does_not_re
     let fixture =
         contracted_route_fixture(RecordedContractedTransportMode::ResultUnavailable).await;
     let actor = UserId::from_uuid(id(803));
-    let reference = ProblemVersionRef {
-        problem: fixture.attempt.problem,
-        version: fixture.attempt.question_version,
-    };
+    let learner_work_binding = LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment);
     let created = fixture
         .backend
         .create_contracted_launch_session(
             fixture.context,
             actor,
-            reference,
-            &fixture.question,
+            learner_work_binding,
+            &fixture.issued_question_snapshot,
             &fixture.attempt,
             fixture.aead.as_ref(),
         )
@@ -250,8 +337,8 @@ async fn contracted_imathas_result_outage_stays_ungraded_and_replica_does_not_re
         .submit_external_tool(
             fixture.context,
             actor,
-            reference,
-            &fixture.question,
+            learner_work_binding,
+            &fixture.issued_question_snapshot,
             &fixture.attempt,
             key.clone(),
             proof.clone(),
@@ -267,8 +354,8 @@ async fn contracted_imathas_result_outage_stays_ungraded_and_replica_does_not_re
         .submit_external_tool(
             fixture.context,
             actor,
-            reference,
-            &fixture.question,
+            learner_work_binding,
+            &fixture.issued_question_snapshot,
             &fixture.attempt,
             key,
             proof,
@@ -291,10 +378,7 @@ async fn contracted_imathas_verified_pending_recovers_without_a_second_retrieval
 
     let fixture = contracted_route_fixture(RecordedContractedTransportMode::Verified).await;
     let actor = UserId::from_uuid(id(803));
-    let reference = ProblemVersionRef {
-        problem: fixture.attempt.problem,
-        version: fixture.attempt.question_version,
-    };
+    let learner_work_binding = LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment);
     let QuestionSource::Imathas {
         provider,
         snapshot,
@@ -335,6 +419,7 @@ async fn contracted_imathas_verified_pending_recovers_without_a_second_retrieval
             fixture.context,
             BeginExternalToolGradeCommand {
                 actor,
+                learner_work_binding,
                 attempt: fixture.attempt.id,
                 response: response.clone(),
                 idempotency_key: key.clone(),
@@ -354,6 +439,7 @@ async fn contracted_imathas_verified_pending_recovers_without_a_second_retrieval
             fixture.context,
             StageExternalToolVerificationCommand {
                 actor,
+                learner_work_binding,
                 attempt: fixture.attempt.id,
                 response,
                 idempotency_key: key.clone(),
@@ -374,8 +460,8 @@ async fn contracted_imathas_verified_pending_recovers_without_a_second_retrieval
         .create_contracted_launch_session(
             fixture.context,
             actor,
-            reference,
-            &fixture.question,
+            learner_work_binding,
+            &fixture.issued_question_snapshot,
             &fixture.attempt,
             fixture.aead.as_ref(),
         )
@@ -386,8 +472,8 @@ async fn contracted_imathas_verified_pending_recovers_without_a_second_retrieval
         .submit_external_tool(
             fixture.context,
             actor,
-            reference,
-            &fixture.question,
+            learner_work_binding,
+            &fixture.issued_question_snapshot,
             &fixture.attempt,
             key,
             learning_data_access::ExternalToolLaunchProof {

@@ -207,7 +207,13 @@ async fn fixture(audience_group: bool) -> Fixture {
                     term: CourseTerm::from_parts("2026-01-01", "2026-12-31", "America/Chicago")
                         .expect("term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -215,6 +221,7 @@ async fn fixture(audience_group: bool) -> Fixture {
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student_user,
@@ -227,6 +234,7 @@ async fn fixture(audience_group: bool) -> Fixture {
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: outsider,
@@ -346,31 +354,34 @@ async fn fixture(audience_group: bool) -> Fixture {
     store
         .create_assignment(
             context,
-            learning_data_access::AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                audience: if audience_group {
-                    AssignmentAudience::any_of_groups(vec![other_group_id]).expect("one group")
-                } else {
-                    AssignmentAudience::CourseWide
+            learning_data_access::CreateAssignmentCommand {
+                actor: instructor,
+                assignment: learning_data_access::AssignmentRecord {
+                    id: assignment,
+                    tenant,
+                    course_id: course,
+                    audience: if audience_group {
+                        AssignmentAudience::any_of_groups(vec![other_group_id]).expect("one group")
+                    } else {
+                        AssignmentAudience::CourseWide
+                    },
+                    title: "Modifier fixture".to_owned(),
+                    lifecycle: AssignmentLifecycle::Draft,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    items: vec![AssignmentItem {
+                        id: AssignmentItemId::from_uuid(id(806)),
+                        reference,
+                        position: 0,
+                        points_possible: PointValue::from_whole(1),
+                        delivery_state: question_model::AssignmentDeliveryState::Active,
+                        scoring_mode: AssignmentScoringMode::Normal,
+                    }],
+                    selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    policies: policies(),
                 },
-                title: "Modifier fixture".to_owned(),
-                lifecycle: AssignmentLifecycle::Draft,
-                instructions: question_model::AssignmentInstructions::default(),
-                items: vec![AssignmentItem {
-                    id: AssignmentItemId::from_uuid(id(806)),
-                    reference,
-                    position: 0,
-                    points_possible: PointValue::from_whole(1),
-                    delivery_state: question_model::AssignmentDeliveryState::Active,
-                    scoring_mode: AssignmentScoringMode::Normal,
-                }],
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: policies(),
+                base_policy,
             },
-            base_policy,
         )
         .await
         .expect("assignment");

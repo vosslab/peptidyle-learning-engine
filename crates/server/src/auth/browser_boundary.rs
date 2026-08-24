@@ -133,7 +133,7 @@ pub(crate) async fn production_cookie_boundary(
 /// is an exact route shape, it must have one host-only application session and
 /// one path-scoped launch capability, and the activity handler subsequently
 /// authenticates the encrypted capability against that exact session, tenant,
-/// actor, and attempt before it contacts the provider.
+/// actor, course, assignment, and attempt before it contacts the provider.
 ///
 /// This pre-routing check deliberately validates only the browser presentation
 /// shape.  `LaunchStateAead` and the tenant store belong to the external-tool
@@ -158,17 +158,27 @@ fn is_external_activity_path(path: &str) -> bool {
             segments.next(),
             segments.next(),
             segments.next(),
+            segments.next(),
+            segments.next(),
+            segments.next(),
+            segments.next(),
         ),
         (
             Some(""),
             Some("api"),
+            Some("courses"),
+            Some(course),
+            Some("assignments"),
+            Some(assignment),
             Some("attempts"),
             Some(attempt),
             Some("external-tool"),
             Some("launch"),
             Some("activity"),
             None,
-        ) if uuid::Uuid::parse_str(attempt).is_ok()
+        ) if uuid::Uuid::parse_str(course).is_ok()
+            && uuid::Uuid::parse_str(assignment).is_ok()
+            && uuid::Uuid::parse_str(attempt).is_ok()
     )
 }
 

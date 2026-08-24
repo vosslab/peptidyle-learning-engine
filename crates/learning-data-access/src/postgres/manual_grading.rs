@@ -53,11 +53,18 @@ impl ManualGradingStore for PostgresStore {
         context: TenantContext,
         command: SubmitPendingManualQuestionAttemptCommand,
     ) -> Result<SubmissionRecord, StoreError> {
-        let mut transaction = self.begin_tenant(context).await?;
-        let record =
-            submit_pending_manual_question_attempt(&mut transaction, context, command).await?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(record)
+        retry_transaction(|| {
+            let command = command.clone();
+            async move {
+                let mut transaction = self.begin_tenant(context).await?;
+                let record =
+                    submit_pending_manual_question_attempt(&mut transaction, context, command)
+                        .await?;
+                transaction.commit().await.map_err(map_sqlx_error)?;
+                Ok(record)
+            }
+        })
+        .await
     }
 
     async fn get_manual_evaluation_for_edit(
@@ -116,41 +123,42 @@ async fn submit_pending_manual_question_attempt(
     command: SubmitPendingManualQuestionAttemptCommand,
 ) -> Result<SubmissionRecord, StoreError> {
     let tenant = context.tenant_id();
-    let base = load_manual_attempt_for_update(transaction, tenant, command.attempt).await?;
-    require_attempt_owner(transaction, tenant, base.id, command.actor).await?;
-    if let Some(replay) = load_submission_replay(
+    let prepared = super::submission_preparation::prepare_bound_student_attempt(
         transaction,
         tenant,
-        base.id,
+        command.binding,
+        command.actor,
+        command.attempt,
+    )
+    .await?;
+    if let Some(replay) = super::submission_preparation::prepared_submission_replay(
+        transaction,
+        tenant,
         &command.response,
         &command.idempotency_key,
+        &prepared,
     )
     .await?
     {
         return Ok(replay);
     }
+    let base = prepared.attempt;
     if base.status != AttemptStatus::InProgress {
         return Err(StoreError::Conflict);
     }
-    // Validate the issuance-time snapshot before any receipt, attempt, or run
-    // mutation. The pending-grade receipt copies it without reconstruction.
-    let presentation =
-        super::submission::load_issued_presentation(transaction, tenant, &base).await?;
-    let run = load_run_for_update(transaction, tenant, base.run).await?;
+    let presentation = prepared.presentation;
+    let run = prepared.run;
     if run.completed_at.is_some() || run.score.is_some() {
         return Err(StoreError::Conflict);
     }
-    let enrollment = load_enrollment_for_update(transaction, tenant, run.enrollment).await?;
-    let assignment = load_assignment_for_share(transaction, tenant, enrollment.assignment).await?;
-    let previous = load_summary_for_update(transaction, tenant, enrollment.id).await?;
+    let assignment = prepared.assignment;
+    let previous = prepared.summary;
     let submitted_at = database_timestamp(transaction).await?;
     let mut submitted = base;
     submitted.response = Some(command.response.clone());
     submitted.status = AttemptStatus::NeedsManualGrading;
     submitted.result = None;
     submitted.timer.submitted_at = Some(submitted_at);
-    let question =
-        load_published_record(transaction, submitted.problem, submitted.question_version).await?;
     let disclosure = super::submission::current_disclosure_input(
         transaction,
         tenant,
@@ -178,7 +186,11 @@ async fn submit_pending_manual_question_attempt(
             })?,
         },
         Some(_) => TimingPolicy::Untimed,
-        None => question.question.timing_policy,
+        None => {
+            return Err(StoreError::Unavailable(
+                "issued timing authority is missing".to_string(),
+            ));
+        }
     };
     let verdict = timer_verdict(&TimerEvaluation {
         policy,

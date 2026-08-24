@@ -196,7 +196,13 @@ async fn fixture() -> (
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: publisher,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    publisher,
+                )
+                .await,
             },
         )
         .await
@@ -204,6 +210,7 @@ async fn fixture() -> (
     store
         .upsert_course_member(
             context,
+            publisher,
             UpsertCourseMember {
                 course,
                 user: student,

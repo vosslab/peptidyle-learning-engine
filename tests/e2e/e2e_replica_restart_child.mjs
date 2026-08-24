@@ -594,11 +594,14 @@ export async function runReplicaOracle(input) {
     const cookie = await authenticateMary(dispatcher, input.baseUrl, manifest.courseId);
     const origin = new URL(input.baseUrl).origin;
     const studentHeaders = { cookie, "content-type": "application/json", origin };
-    const startedRun = await requestJson(dispatcher, "/api/runs", {
-      method: "POST",
-      headers: studentHeaders,
-      body: JSON.stringify({ assignmentId: manifest.assignmentId }),
-    });
+    const startedRun = await requestJson(
+      dispatcher,
+      `/api/courses/${manifest.courseId}/assignments/${manifest.assignmentId}/runs`,
+      {
+        method: "POST",
+        headers: studentHeaders,
+      },
+    );
     assert.equal(typeof startedRun.json.id, "string", "start run did not return a run id");
     const runId = encodeURIComponent(startedRun.json.id);
     const attempts = await requestJson(dispatcher, `/api/runs/${runId}/attempts`, {
@@ -608,7 +611,10 @@ export async function runReplicaOracle(input) {
     const attemptId = attempts.json.items[0]?.id;
     assert.equal(typeof attemptId, "string", "attempt id is missing");
     const attemptPath = encodeURIComponent(attemptId);
-    const initialQuestion = await requestJson(dispatcher, `/api/attempts/${attemptPath}/question`, {
+    const questionPath =
+      `/api/courses/${manifest.courseId}/assignments/${manifest.assignmentId}` +
+      `/attempts/${attemptPath}/question`;
+    const initialQuestion = await requestJson(dispatcher, questionPath, {
       headers: { cookie },
     });
     const initialReplica = parseReplica(initialQuestion.headers["x-ple-e2e-replica"]);
@@ -616,9 +622,7 @@ export async function runReplicaOracle(input) {
     await stopIssuingReplica(input.manifestPath, initialReplica);
     await new Promise((resolveWait) => setTimeout(resolveWait, REPLICA_REFRESH_MS));
     const resumed = await waitFor("a distinct API replica after restart", async () => {
-      const question = await requestJson(dispatcher, `/api/attempts/${attemptPath}/question`, {
-        headers: { cookie },
-      });
+      const question = await requestJson(dispatcher, questionPath, { headers: { cookie } });
       const replica = parseReplica(question.headers["x-ple-e2e-replica"]);
       if (replica === initialReplica) fail("Caddy still selected the stopped API replica");
       return { question, replica };
@@ -635,16 +639,11 @@ export async function runReplicaOracle(input) {
       headers: { ...studentHeaders, "idempotency-key": idempotencyKey },
       body: JSON.stringify({ response }),
     };
-    const firstReceipt = await requestJson(
-      dispatcher,
-      `/api/submissions/${attemptPath}`,
-      submissionOptions,
-    );
-    const replayReceipt = await requestJson(
-      dispatcher,
-      `/api/submissions/${attemptPath}`,
-      submissionOptions,
-    );
+    const submissionPath =
+      `/api/courses/${manifest.courseId}/assignments/${manifest.assignmentId}` +
+      `/attempts/${attemptPath}/submissions`;
+    const firstReceipt = await requestJson(dispatcher, submissionPath, submissionOptions);
+    const replayReceipt = await requestJson(dispatcher, submissionPath, submissionOptions);
     assert.deepEqual(replayReceipt.json, firstReceipt.json, "idempotency replay changed receipt");
     await requirePostgresqlCounts(input.manifestPath, attemptId);
     console.log(

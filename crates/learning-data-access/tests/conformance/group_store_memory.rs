@@ -6,14 +6,15 @@
 use super::effective_policy::exercise_effective_policy_gate_and_materialization_contract;
 use super::*;
 use learning_data_access::{
-    CatalogStore, CourseGroupManagementStore, CourseGroupPurposePolicyRevision, SessionStore,
-    TeachingAuthorityReferenceStore, UpdateCourseGroupPurposePolicyCommand,
+    CatalogStore, CourseGroupManagementStore, SessionStore, TeachingAuthorityReferenceStore,
 };
 
 #[path = "group_store_memory/active_reresolution.rs"]
 mod active_reresolution;
 #[path = "group_store_memory/membership_m4.rs"]
 mod membership_m4;
+#[path = "group_store_memory/purpose_policy.rs"]
+mod purpose_policy;
 #[path = "group_store_memory/student_picker.rs"]
 mod student_picker;
 
@@ -31,6 +32,8 @@ where
     let instructor = UserId::from_uuid(uuid(720_001));
     let outsider = UserId::from_uuid(uuid(720_002));
     let course = CourseId::from_uuid(uuid(720_003));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(store, tenant, course, instructor).await;
     store
         .create_course(
             context,
@@ -46,17 +49,40 @@ where
                     )
                     .expect("term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await
         .expect("course");
+    let instructor_session = SessionTokenHash::compute(b"group-management-conformance-instructor");
+    store
+        .create_session(
+            instructor_session,
+            SessionSubject::new(
+                tenant,
+                instructor,
+                "Group management instructor",
+                vec![UserRole::Instructor],
+            )
+            .expect("instructor session subject"),
+            SessionLifetime::from_seconds(3_600).expect("positive instructor session lifetime"),
+        )
+        .await
+        .expect("persisted instructor session");
     student_picker::assert_student_picker_reference_contract(
         store, context, instructor, outsider, course,
     )
     .await;
     assert_multiple_membership_warning_contract(store, context, instructor, tenant, course).await;
-    assert_all_default_policies(store, context, instructor, outsider, course).await;
+    purpose_policy::assert_all_default_policies(
+        store,
+        context,
+        instructor,
+        instructor_session,
+        outsider,
+        course,
+    )
+    .await;
     let groups = create_and_page_groups(store, context, instructor, tenant, course).await;
     assert_delete_cleans_reference(store, context, instructor, course, groups[0].clone()).await;
     assert_group_authorization_and_membership_guards(
@@ -81,12 +107,17 @@ async fn assert_group_authorization_and_membership_guards<S>(
     course: CourseId,
     existing: learning_data_access::CourseGroupView,
 ) where
-    S: Store + CourseGroupManagementStore + CourseRosterStore + TeachingAuthorityReferenceStore,
+    S: Store
+        + CourseGroupManagementStore
+        + CourseRosterStore
+        + TeachingAuthorityReferenceStore
+        + SessionStore,
 {
     let student = UserId::from_uuid(uuid(720_070));
     store
         .upsert_course_member(
             context,
+            instructor,
             learning_data_access::UpsertCourseMember {
                 course,
                 user: student,
@@ -241,6 +272,8 @@ async fn assert_group_authorization_and_membership_guards<S>(
         );
     }
     let second_course = CourseId::from_uuid(uuid(720_072));
+    let second_course_creation_authority =
+        sysadmin_course_creation_authority(store, tenant, second_course, instructor).await;
     store
         .create_course(
             context,
@@ -256,7 +289,7 @@ async fn assert_group_authorization_and_membership_guards<S>(
                     )
                     .expect("term"),
                 },
-                initial_instructor: instructor,
+                authority: second_course_creation_authority,
             },
         )
         .await
@@ -265,6 +298,7 @@ async fn assert_group_authorization_and_membership_guards<S>(
     store
         .upsert_course_member(
             context,
+            instructor,
             learning_data_access::UpsertCourseMember {
                 course: second_course,
                 user: other,
@@ -368,10 +402,13 @@ where
     let audience_assignment = store
         .replace_assignment(
             fixture.context,
-            fixture.course,
-            fixture.assignment,
-            assignment.revision,
-            update,
+            ReplaceAssignmentCommand {
+                actor: fixture.instructor,
+                course: fixture.course,
+                assignment: fixture.assignment,
+                expected_revision: assignment.revision,
+                update,
+            },
         )
         .await
         .expect("audience update");
@@ -663,6 +700,7 @@ async fn assert_multiple_membership_warning_contract<S>(
     store
         .upsert_course_member(
             context,
+            instructor,
             learning_data_access::UpsertCourseMember {
                 course,
                 user: learner,
@@ -718,77 +756,6 @@ async fn assert_multiple_membership_warning_contract<S>(
         warnings[0].disposition,
         question_model::MultipleMembershipDisposition::AllowedWithWarning
     ));
-}
-
-async fn assert_all_default_policies<S>(
-    store: &S,
-    context: TenantContext,
-    instructor: UserId,
-    outsider: UserId,
-    course: CourseId,
-) where
-    S: CourseGroupManagementStore,
-{
-    use question_model::{CourseGroupPurpose as Purpose, MultipleMembershipPolicy};
-    for purpose in [
-        Purpose::Section,
-        Purpose::Lab,
-        Purpose::Cohort,
-        Purpose::Accommodation,
-        Purpose::Work,
-    ] {
-        let current = store
-            .get_course_group_purpose_policy(context, instructor, course, purpose)
-            .await
-            .expect("lookup")
-            .expect("explicit policy");
-        assert_eq!(
-            current.policy,
-            question_model::CourseGroupPurposePolicy::default_for_purpose(purpose)
-        );
-        assert_eq!(current.revision, CourseGroupPurposePolicyRevision::INITIAL);
-    }
-    assert_eq!(
-        store
-            .get_course_group_purpose_policy(context, outsider, course, Purpose::Section)
-            .await,
-        Err(StoreError::NotFound)
-    );
-    let section = store
-        .get_course_group_purpose_policy(context, instructor, course, Purpose::Section)
-        .await
-        .expect("section")
-        .expect("policy");
-    let changed = store
-        .update_course_group_purpose_policy(
-            context,
-            UpdateCourseGroupPurposePolicyCommand {
-                actor: instructor,
-                course,
-                expected_revision: section.revision,
-                policy: question_model::CourseGroupPurposePolicy {
-                    purpose: Purpose::Section,
-                    multiple_membership: MultipleMembershipPolicy::Allow,
-                },
-            },
-        )
-        .await
-        .expect("policy CAS");
-    assert_eq!(changed.revision.value(), 2);
-    assert_eq!(
-        store
-            .update_course_group_purpose_policy(
-                context,
-                UpdateCourseGroupPurposePolicyCommand {
-                    actor: instructor,
-                    course,
-                    expected_revision: section.revision,
-                    policy: changed.policy,
-                }
-            )
-            .await,
-        Err(StoreError::Conflict)
-    );
 }
 
 async fn create_and_page_groups<S>(

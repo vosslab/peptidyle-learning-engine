@@ -555,14 +555,17 @@ async fn assert_audience_revocation_terminalizes_current_attempt<S>(
     let assigned = store
         .replace_assignment(
             fixture.context,
-            fixture.course,
-            fixture.assignment,
-            current.revision,
-            assignment_update(
-                &current.record,
-                AssignmentAudience::any_of_groups(vec![audience_group])
-                    .expect("one audience group"),
-            ),
+            ReplaceAssignmentCommand {
+                actor: fixture.instructor,
+                course: fixture.course,
+                assignment: fixture.assignment,
+                expected_revision: current.revision,
+                update: assignment_update(
+                    &current.record,
+                    AssignmentAudience::any_of_groups(vec![audience_group])
+                        .expect("one audience group"),
+                ),
+            },
         )
         .await
         .expect("audience narrowing keeps member active");
@@ -602,7 +605,7 @@ async fn assert_audience_revocation_terminalizes_current_attempt<S>(
             .start_or_resume_run(
                 fixture.context,
                 learner,
-                fixture.assignment,
+                LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
                 RunId::from_uuid(uuid(99_231))
             )
             .await,

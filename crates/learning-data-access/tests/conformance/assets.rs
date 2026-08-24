@@ -22,7 +22,7 @@ pub(super) fn source_artifact(
 
 async fn exercise_asset_store<S>(store: &S)
 where
-    S: Store + CatalogStore + AssetStore + CourseRosterStore,
+    S: Store + CatalogStore + AssetStore + CourseRosterStore + SessionStore,
 {
     let tenant = TenantId::from_uuid(uuid(401));
     let foreign_tenant = TenantId::from_uuid(uuid(402));
@@ -32,6 +32,8 @@ where
     let student = UserId::from_uuid(uuid(404));
     let stranger = UserId::from_uuid(uuid(405));
     let course = CourseId::from_uuid(uuid(405_001));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(store, tenant, course, publisher).await;
     store
         .create_course(
             context,
@@ -47,7 +49,7 @@ where
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: publisher,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -55,6 +57,7 @@ where
     store
         .upsert_course_member(
             context,
+            publisher,
             learning_data_access::UpsertCourseMember {
                 course,
                 user: student,

@@ -9,12 +9,15 @@ use async_trait::async_trait;
 use base64::Engine;
 use objects::Sha256Digest;
 use question_model::{
-    ActivityTimestamp, AttemptResult, ObjectId, ProblemId, QuestionAttemptId, StudentResponse,
-    UserId, VersionId,
+    ActivityTimestamp, AttemptResult, ObjectId, ProblemId, QuestionAttempt, QuestionAttemptId,
+    QuestionDefinition, StudentResponse, UserId, VersionId,
 };
 use uuid::Uuid;
 
-use crate::{StoreError, SubmissionIdempotencyKey, SubmissionRecord, TenantContext};
+use crate::{
+    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, LearnerWorkRoutingBinding, StoreError,
+    SubmissionIdempotencyKey, SubmissionRecord, TenantContext,
+};
 
 /// Exact immutable binding for one server-mediated external-tool exchange.
 ///
@@ -207,6 +210,7 @@ impl std::fmt::Debug for ExternalToolBegin {
 #[derive(Clone)]
 pub struct BeginExternalToolGradeCommand {
     pub actor: UserId,
+    pub learner_work_binding: LearnerWorkRoutingBinding,
     pub attempt: QuestionAttemptId,
     pub response: StudentResponse,
     pub idempotency_key: SubmissionIdempotencyKey,
@@ -219,6 +223,7 @@ pub struct BeginExternalToolGradeCommand {
 #[derive(Clone)]
 pub struct StageExternalToolVerificationCommand {
     pub actor: UserId,
+    pub learner_work_binding: LearnerWorkRoutingBinding,
     pub attempt: QuestionAttemptId,
     pub response: StudentResponse,
     pub idempotency_key: SubmissionIdempotencyKey,
@@ -232,6 +237,7 @@ pub struct StageExternalToolVerificationCommand {
 #[derive(Clone)]
 pub struct CommitExternalToolSubmissionCommand {
     pub actor: UserId,
+    pub learner_work_binding: LearnerWorkRoutingBinding,
     pub attempt: QuestionAttemptId,
     pub response: StudentResponse,
     pub idempotency_key: SubmissionIdempotencyKey,
@@ -249,6 +255,7 @@ pub struct CommitExternalToolSubmissionCommand {
 #[derive(Clone)]
 pub struct CommitVerifiedExternalToolSubmissionCommand {
     pub actor: UserId,
+    pub learner_work_binding: LearnerWorkRoutingBinding,
     pub attempt: QuestionAttemptId,
     pub response: StudentResponse,
     pub idempotency_key: SubmissionIdempotencyKey,
@@ -398,6 +405,7 @@ impl std::fmt::Debug for ExternalToolLaunchProof {
 #[derive(Clone)]
 pub struct CreateExternalToolLaunchSessionCommand {
     pub actor: UserId,
+    pub learner_work_binding: LearnerWorkRoutingBinding,
     pub attempt: QuestionAttemptId,
     pub binding: ExternalToolBinding,
     pub encrypted_provider_state: Option<Vec<u8>>,
@@ -410,6 +418,87 @@ pub struct CreatedExternalToolLaunchSession {
     pub id: Uuid,
     pub token: ExternalToolLaunchToken,
     pub expires_at: ActivityTimestamp,
+}
+
+/// Exact server-only external-tool context authorized through learner routing.
+///
+/// This type has no browser serialization surface. It is owned so the short
+/// preparation transaction releases every database lock before provider I/O.
+#[derive(Clone, PartialEq)]
+pub struct PreparedExternalToolAttempt {
+    pub attempt: QuestionAttempt,
+    pub issued_question_snapshot: IssuedQuestionSnapshotV1,
+}
+
+impl PreparedExternalToolAttempt {
+    /// Returns the immutable issued definition for trusted server resolution.
+    pub fn question(&self) -> &QuestionDefinition {
+        self.issued_question_snapshot.question()
+    }
+}
+
+impl std::fmt::Debug for PreparedExternalToolAttempt {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PreparedExternalToolAttempt")
+            .field("attempt", &self.attempt)
+            .field("issued_question_snapshot", &"[SERVER-ONLY]")
+            .finish()
+    }
+}
+
+/// Verifies an external exchange against immutable attempt-owned evidence.
+///
+/// Current route, membership, entitlement, launch-proof, and lease checks are
+/// deliberately established by the caller before this function. The snapshot
+/// binds only the issued source and integration identity; it is never an
+/// authorization grant. ASVS 2.2.1-2.2.3, 2.3.1, and 8.2.2.
+pub(crate) fn validate_external_snapshot_binding(
+    attempt: &QuestionAttempt,
+    snapshot: &IssuedQuestionSnapshotV1,
+    binding: &ExternalToolBinding,
+) -> Result<(), StoreError> {
+    snapshot.validate_for_attempt(attempt.problem, attempt.question_version)?;
+    if attempt.problem != binding.problem
+        || attempt.question_version != binding.version
+        || attempt.seed != binding.seed
+    {
+        return Err(StoreError::Conflict);
+    }
+    let provenance_source = attempt
+        .provenance
+        .source_artifact
+        .as_ref()
+        .ok_or(StoreError::Conflict)?;
+    let IssuedQuestionFamilyWitnessV1::External {
+        source_artifact,
+        integration_profile_identity,
+    } = snapshot.family_witness()
+    else {
+        return Err(StoreError::Conflict);
+    };
+    let question_model::QuestionSource::Imathas {
+        provider,
+        snapshot: source_object,
+        snapshot_sha256,
+        integration_profile,
+        ..
+    } = &snapshot.question().source
+    else {
+        return Err(StoreError::Conflict);
+    };
+    if provenance_source != source_artifact
+        || source_artifact.object != binding.source_object
+        || source_artifact.sha256 != binding.source_sha256
+        || source_object != &binding.source_object
+        || snapshot_sha256 != &binding.source_sha256
+        || provider != &binding.provider
+        || integration_profile != &binding.integration_profile
+        || integration_profile_identity != &binding.integration_profile
+    {
+        return Err(StoreError::Conflict);
+    }
+    Ok(())
 }
 
 impl std::fmt::Debug for CreatedExternalToolLaunchSession {
@@ -462,6 +551,7 @@ pub enum ExternalToolActivityClaim {
 /// submission finalizer.
 pub struct ClaimExternalToolFinalizationActivityCommand {
     pub actor: UserId,
+    pub learner_work_binding: LearnerWorkRoutingBinding,
     pub attempt: QuestionAttemptId,
     pub id: Uuid,
     pub token: ExternalToolLaunchToken,
@@ -484,6 +574,15 @@ impl std::fmt::Debug for ExternalToolActivityClaim {
 
 #[async_trait]
 pub trait ExternalToolLaunchSessionStore: Send + Sync {
+    /// Prepares one exact active external-tool attempt before provider work.
+    async fn prepare_external_tool_attempt(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        learner_work_binding: LearnerWorkRoutingBinding,
+        attempt: QuestionAttemptId,
+    ) -> Result<PreparedExternalToolAttempt, StoreError>;
+
     async fn create_external_tool_launch_session(
         &self,
         context: TenantContext,
@@ -492,10 +591,26 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
 
     /// Atomically authorizes and leases a launch session before provider I/O.
     /// This deliberately replaces a check-then-use resolution API.
+    #[allow(clippy::too_many_arguments)]
     async fn claim_external_tool_activity(
         &self,
         context: TenantContext,
         actor: UserId,
+        learner_work_binding: LearnerWorkRoutingBinding,
+        attempt: QuestionAttemptId,
+        id: Uuid,
+        token: &ExternalToolLaunchToken,
+        lease_millis: u32,
+    ) -> Result<ExternalToolActivityClaim, StoreError>;
+
+    /// Atomically claims an effectful provider operation and writes its
+    /// indeterminate pre-dispatch fence before the lease leaves storage.
+    #[allow(clippy::too_many_arguments)]
+    async fn claim_and_begin_external_tool_activity_dispatch(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        learner_work_binding: LearnerWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolLaunchToken,
@@ -517,6 +632,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
+        learner_work_binding: LearnerWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolActivityLeaseToken,
@@ -529,6 +645,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
+        learner_work_binding: LearnerWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolActivityLeaseToken,
@@ -540,6 +657,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
+        learner_work_binding: LearnerWorkRoutingBinding,
         attempt: QuestionAttemptId,
         token: &ExternalToolActivityLeaseToken,
     ) -> Result<(), StoreError>;
@@ -551,6 +669,7 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
+        learner_work_binding: LearnerWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
         token: &ExternalToolActivityLeaseToken,
@@ -560,7 +679,9 @@ pub trait ExternalToolLaunchSessionStore: Send + Sync {
         &self,
         context: TenantContext,
         actor: UserId,
+        learner_work_binding: LearnerWorkRoutingBinding,
         attempt: QuestionAttemptId,
         id: Uuid,
+        token: &ExternalToolLaunchToken,
     ) -> Result<(), StoreError>;
 }

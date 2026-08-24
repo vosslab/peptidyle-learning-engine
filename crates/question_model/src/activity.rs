@@ -371,6 +371,11 @@ pub enum IssuedAttemptCapabilityV1 {
     FlatPresentation,
     /// A WeBWorK presentation, immutable private definition, and replay map.
     WebworkPresentation,
+    /// A QTI presentation and its copied per-attempt private grading payload.
+    ///
+    /// This is distinct from the generic presentation tag so loss of the
+    /// opaque contract fails closed instead of inviting a catalog lookup.
+    QtiPresentation,
     /// A family that intentionally issues no `PresentationEnvelopeV1`.
     NotApplicable,
 }

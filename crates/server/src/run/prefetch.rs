@@ -1,9 +1,12 @@
 //! Run issuance and prefetch capability; this module owns its route behavior.
 
 use super::contracts::{IssuedAttemptMetadata, RunBackend, RunBackendError};
-use super::queries::{all_attempts, owned_assignment_for_run, owned_enrollment, owned_run};
+use super::queries::{all_attempts, owned_assignment_for_run, owned_run};
 use super::support::*;
-use learning_data_access::AssetStore;
+use learning_data_access::{
+    AssetStore, FlatGradingCapability, IssuedNativeAssetBindingV1, IssuedQuestionFamilyWitnessV1,
+    IssuedQuestionSnapshotV1, QtiGradingCapability,
+};
 use question_model::{
     ResponseDefinition,
     envelope::{AssetRef, ContentBlock},
@@ -131,11 +134,112 @@ async fn fresh_presentation<S: AssetStore>(
         })
 }
 
+async fn issued_native_physical_bindings<S: AssetStore>(
+    store: &S,
+    context: TenantContext,
+    reference: ProblemVersionRef,
+    envelope: &QuestionEnvelope,
+) -> Result<Vec<IssuedNativeAssetBindingV1>, RunBackendError> {
+    let registered = store
+        .catalog_asset_bindings(context, reference)
+        .await
+        .map_err(|_| {
+            RunBackendError::Unavailable("published asset registry is unavailable".into())
+        })?;
+    referenced_assets(envelope)?
+        .into_iter()
+        .map(|authored| {
+            let registered = registered
+                .iter()
+                .find(|value| value.asset == authored.asset)
+                .ok_or_else(|| {
+                    RunBackendError::Invalid(
+                        "published question references an unavailable immutable asset".into(),
+                    )
+                })?;
+            if registered.rendition_checksum.to_string() != authored.checksum {
+                return Err(RunBackendError::Invalid(
+                    "published asset checksum does not match the authored reference".into(),
+                ));
+            }
+            Ok(IssuedNativeAssetBindingV1 {
+                asset: authored.asset,
+                object: registered.object,
+                authored_checksum: authored.checksum,
+                rendition_checksum: registered.rendition_checksum.to_string(),
+                intrinsic_width: registered.intrinsic_width,
+                intrinsic_height: registered.intrinsic_height,
+            })
+        })
+        .collect()
+}
+
 fn receipt_presentation(presentation: PresentationV1) -> ReceiptPresentationSnapshot {
     ReceiptPresentationSnapshot {
         envelope: presentation.envelope,
         asset_bindings: presentation.asset_bindings,
     }
+}
+
+/// Constructs the closed issuance witness exactly once, after all private
+/// issuance contracts and answer-free presentation authority are available.
+/// ASVS 2.2.3: source family and capability combinations are positive
+/// validated at this trusted boundary before durable reservation or issue.
+fn issued_question_snapshot(
+    question: &QuestionDefinition,
+    flat: FlatGradingCapability,
+    webwork: learning_data_access::WebworkGradingCapability,
+    qti: QtiGradingCapability,
+    presentation: Option<&ReceiptPresentationSnapshot>,
+    native_physical_asset_bindings: Vec<IssuedNativeAssetBindingV1>,
+) -> Result<IssuedQuestionSnapshotV1, RunBackendError> {
+    let witness = match &question.source {
+        question_model::QuestionSource::Native { .. }
+            if matches!(flat, FlatGradingCapability::Required) =>
+        {
+            IssuedQuestionFamilyWitnessV1::Flat {}
+        }
+        question_model::QuestionSource::Native { .. } => IssuedQuestionFamilyWitnessV1::Native {
+            // Presentation snapshots own selected physical bindings. The
+            // remaining envelope-less native families contain no renderable
+            // physical binding authority at this seam.
+            physical_asset_bindings: native_physical_asset_bindings,
+        },
+        question_model::QuestionSource::Webwork { .. } => IssuedQuestionFamilyWitnessV1::Webwork {},
+        question_model::QuestionSource::Qti {
+            package_object,
+            package_sha256,
+            ..
+        } => IssuedQuestionFamilyWitnessV1::Qti {
+            source_artifact: question_model::SourceArtifact {
+                object: *package_object,
+                sha256: package_sha256.clone(),
+            },
+        },
+        question_model::QuestionSource::Imathas {
+            snapshot,
+            snapshot_sha256,
+            integration_profile,
+            ..
+        } => IssuedQuestionFamilyWitnessV1::External {
+            source_artifact: question_model::SourceArtifact {
+                object: *snapshot,
+                sha256: snapshot_sha256.clone(),
+            },
+            integration_profile_identity: integration_profile.clone(),
+        },
+        question_model::QuestionSource::H5p { .. } => {
+            return Err(RunBackendError::Unsupported(
+                "H5P cannot be issued by the deterministic run backend".into(),
+            ));
+        }
+    };
+    IssuedQuestionSnapshotV1::new(question.clone(), witness)
+        .and_then(|snapshot| {
+            snapshot.validate_for_issuance_context(flat, webwork, qti, presentation)?;
+            Ok(snapshot)
+        })
+        .map_err(|_| RunBackendError::Invalid("issued question snapshot is invalid".into()))
 }
 
 fn bind_webwork_replay(
@@ -168,13 +272,16 @@ fn bind_webwork_replay(
 pub(super) async fn prefetch_next_question<S, B>(
     State(state): State<RunRouteState<S, B>>,
     headers: HeaderMap,
-    Path(predecessor): Path<QuestionAttemptId>,
+    Path((course, assignment, predecessor)): Path<(CourseId, AssignmentId, QuestionAttemptId)>,
     body: axum::body::Body,
 ) -> Response
 where
     S: Store + CatalogStore + SessionStore + 'static,
     B: RunBackend + 'static,
 {
+    // ASVS 2.2.1 and 8.3.1: parse the complete route shape into closed IDs,
+    // then verify it at the trusted service layer before any prefetch write.
+    let binding = LearnerWorkRoutingBinding::new(course, assignment);
     let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
         Ok(value) => value,
         Err(error) => return auth_error_response(error),
@@ -215,7 +322,7 @@ where
         return error_response(StatusCode::CONFLICT, "attempt is no longer active");
     }
     if let Err(response) =
-        owned_assignment_for_run(state.store.as_ref(), &authenticated, &run).await
+        require_run_binding(state.store.as_ref(), &authenticated, binding, &run).await
     {
         return response;
     }
@@ -307,6 +414,18 @@ where
                 Ok(value) => value,
                 Err(error) => return backend_error_response(error),
             };
+            let presentation_snapshot = receipt_presentation(presentation.clone());
+            let issued_question_snapshot = match issued_question_snapshot(
+                &question,
+                issued.flat_grading_capability,
+                issued.webwork_grading_capability,
+                issued.qti_grading_capability,
+                Some(&presentation_snapshot),
+                Vec::new(),
+            ) {
+                Ok(value) => value,
+                Err(error) => return backend_error_response(error),
+            };
             let value = learning_data_access::PrefetchedQuestion {
                 tenant: authenticated.tenant_context.tenant_id(),
                 run: run.id,
@@ -314,6 +433,7 @@ where
                 assignment_position,
                 problem: reference.problem,
                 question_version: reference.version,
+                issued_question_snapshot,
                 seed,
                 parameter_hash: issued.parameter_hash.clone(),
                 provenance: issued.provenance.clone(),
@@ -322,13 +442,15 @@ where
                     presentation.envelope.presentation_nonce,
                     presentation.digest,
                 ),
-                presentation_snapshot: receipt_presentation(presentation),
+                presentation_snapshot,
                 grading_envelope: issued.envelope.clone(),
                 flat_grading: issued.flat_grading.clone(),
                 flat_grading_capability: issued.flat_grading_capability,
                 webwork_replay,
                 webwork_grading: issued.webwork_grading.clone(),
                 webwork_grading_capability: issued.webwork_grading_capability,
+                qti_grading: issued.qti_grading.clone(),
+                qti_grading_capability: issued.qti_grading_capability,
             };
             let reservation = match state
                 .store
@@ -438,6 +560,7 @@ pub(super) async fn ensure_active_questions<S, B>(
     store: &S,
     backend: &B,
     authenticated: &AuthenticatedSession,
+    binding: LearnerWorkRoutingBinding,
     run: &AssignmentRun,
     predecessor: Option<QuestionAttemptId>,
 ) -> Result<(), Response>
@@ -448,12 +571,7 @@ where
     if run.completed_at.is_some() {
         return Ok(());
     }
-    let enrollment = owned_enrollment(store, authenticated, run.enrollment).await?;
-    let _assignment = store
-        .get_assignment(authenticated.tenant_context, enrollment.assignment)
-        .await
-        .map_err(store_error_response)?
-        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "assignment not found"))?;
+    require_run_binding(store, authenticated, binding, run).await?;
     let run_items = store
         .learner_assignment_run_items(
             authenticated.tenant_context,
@@ -503,6 +621,7 @@ where
                 authenticated,
                 run,
                 IssueQuestionRequest {
+                    binding,
                     assignment_position: position,
                     reference,
                     question: &question,
@@ -549,6 +668,7 @@ where
             authenticated,
             run,
             IssueQuestionRequest {
+                binding,
                 assignment_position: position,
                 reference,
                 question: &question,
@@ -558,6 +678,24 @@ where
         )
         .await?;
         return Ok(());
+    }
+    Ok(())
+}
+
+/// Confirms that a route-owned binding names the exact authorized run source.
+///
+/// ASVS 8.2.2 and 8.4.1: a mismatched object or tenant route is concealed
+/// before prefetch state can be reserved. The binding remains routing context;
+/// the Store independently prepares and authorizes learner work before issue.
+pub(super) async fn require_run_binding<S: Store>(
+    store: &S,
+    authenticated: &AuthenticatedSession,
+    binding: LearnerWorkRoutingBinding,
+    run: &AssignmentRun,
+) -> Result<(), Response> {
+    let assignment = owned_assignment_for_run(store, authenticated, run).await?;
+    if assignment.id != binding.assignment || assignment.course_id != binding.course {
+        return Err(error_response(StatusCode::NOT_FOUND, "run not found"));
     }
     Ok(())
 }
@@ -593,6 +731,7 @@ pub(super) async fn load_run_question<S: CatalogStore>(
 }
 
 pub(super) struct IssueQuestionRequest<'a> {
+    binding: LearnerWorkRoutingBinding,
     assignment_position: u32,
     reference: ProblemVersionRef,
     question: &'a QuestionDefinition,
@@ -612,6 +751,7 @@ where
     B: RunBackend,
 {
     let (
+        issued_question_snapshot,
         seed,
         parameter_hash,
         provenance,
@@ -624,8 +764,11 @@ where
         webwork_replay,
         webwork_grading,
         webwork_grading_capability,
+        qti_grading,
+        qti_grading_capability,
     ) = match request.prefetched.as_ref() {
         Some(value) => (
+            value.issued_question_snapshot.clone(),
             value.seed,
             value.parameter_hash.clone(),
             value.provenance.clone(),
@@ -638,6 +781,8 @@ where
             value.webwork_replay.clone(),
             value.webwork_grading.clone(),
             value.webwork_grading_capability,
+            value.qti_grading.clone(),
+            value.qti_grading_capability,
         ),
         None => {
             let seed = fresh_seed().map_err(backend_error_response)?;
@@ -667,12 +812,42 @@ where
                 PresentationCapability::NotApplicable
             };
             let presentation_snapshot = presentation.clone().map(receipt_presentation);
-            let grading_envelope = presentation.as_ref().map(|_| issued.envelope);
+            let grading_envelope = presentation.as_ref().map(|_| issued.envelope.clone());
             let flat_grading = issued.flat_grading;
             let flat_grading_capability = issued.flat_grading_capability;
             let webwork_grading = issued.webwork_grading;
             let webwork_grading_capability = issued.webwork_grading_capability;
+            let qti_grading = issued.qti_grading;
+            let qti_grading_capability = issued.qti_grading_capability;
+            let native_physical_asset_bindings = if matches!(
+                request.question.source,
+                question_model::QuestionSource::Native { .. }
+            ) && matches!(
+                flat_grading_capability,
+                FlatGradingCapability::NotApplicable
+            ) {
+                issued_native_physical_bindings(
+                    store,
+                    authenticated.tenant_context,
+                    request.reference,
+                    &issued.envelope,
+                )
+                .await
+                .map_err(backend_error_response)?
+            } else {
+                Vec::new()
+            };
+            let issued_question_snapshot = issued_question_snapshot(
+                request.question,
+                flat_grading_capability,
+                webwork_grading_capability,
+                qti_grading_capability,
+                presentation_snapshot.as_ref(),
+                native_physical_asset_bindings,
+            )
+            .map_err(backend_error_response)?;
             (
+                issued_question_snapshot,
                 seed,
                 issued.parameter_hash,
                 issued.provenance,
@@ -690,6 +865,8 @@ where
                 webwork_replay,
                 webwork_grading,
                 webwork_grading_capability,
+                qti_grading,
+                qti_grading_capability,
             )
         }
     };
@@ -698,11 +875,13 @@ where
             authenticated.tenant_context,
             IssueQuestionAttemptCommand {
                 actor: authenticated.record.subject.user(),
+                binding: request.binding,
                 attempt: QuestionAttemptId::generate(),
                 run: run.id,
                 assignment_position: request.assignment_position,
                 problem: request.reference.problem,
                 question_version: request.reference.version,
+                issued_question_snapshot,
                 seed,
                 parameter_hash,
                 provenance,
@@ -715,6 +894,8 @@ where
                 webwork_replay,
                 webwork_grading,
                 webwork_grading_capability,
+                qti_grading,
+                qti_grading_capability,
                 prefetched: request.prefetched,
                 predecessor_submission: request.predecessor_submission,
             },

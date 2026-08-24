@@ -1,7 +1,7 @@
 //! In-memory QTI import and isolated grader persistence.
 
 use async_trait::async_trait;
-use question_model::{ProblemVersionRef, WorkspaceId, WorkspaceImportId};
+use question_model::{WorkspaceId, WorkspaceImportId};
 
 use super::{MemoryQtiGraderStore, MemoryStore, catalog_record_visible};
 use crate::{
@@ -137,6 +137,28 @@ impl QtiImportStore for MemoryStore {
 
 #[async_trait]
 impl QtiGradingStore for MemoryQtiGraderStore {
+    async fn qti_publication_grading(
+        &self,
+        context: TenantContext,
+        reference: question_model::ProblemVersionRef,
+        item_id: &str,
+    ) -> Result<Option<QtiImportGradingPayload>, StoreError> {
+        let state = self
+            .state
+            .read()
+            .map_err(|error| StoreError::Unavailable(error.to_string()))?;
+        let Some(record) = state.published.get(&(reference.problem, reference.version)) else {
+            return Ok(None);
+        };
+        if !catalog_record_visible(&state, context.tenant_id(), record) {
+            return Ok(None);
+        }
+        Ok(state
+            .published_qti_grading
+            .get(&(reference.problem, reference.version, item_id.to_string()))
+            .cloned())
+    }
+
     async fn qti_import_grading(
         &self,
         context: TenantContext,
@@ -159,28 +181,6 @@ impl QtiGradingStore for MemoryQtiGraderStore {
         Ok(state
             .qti_grading
             .get(&(context.tenant_id(), workspace, import, item_id.to_string()))
-            .cloned())
-    }
-
-    async fn qti_published_grading(
-        &self,
-        context: TenantContext,
-        reference: ProblemVersionRef,
-        item_id: &str,
-    ) -> Result<Option<QtiImportGradingPayload>, StoreError> {
-        let state = self
-            .state
-            .read()
-            .map_err(|error| StoreError::Unavailable(error.to_string()))?;
-        let Some(published) = state.published.get(&(reference.problem, reference.version)) else {
-            return Ok(None);
-        };
-        if !catalog_record_visible(&state, context.tenant_id(), published) {
-            return Ok(None);
-        }
-        Ok(state
-            .published_qti_grading
-            .get(&(reference.problem, reference.version, item_id.to_string()))
             .cloned())
     }
 }

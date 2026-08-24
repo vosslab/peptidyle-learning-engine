@@ -1,21 +1,44 @@
 use async_trait::async_trait;
 
 use super::*;
-use crate::{ReceiptNextAttempt, ReceiptPresentationSnapshot};
+use crate::{LearnerWorkRoutingBinding, PrefetchedQuestionDescriptorV1, ReceiptNextAttempt};
 
 mod attempt_issuance;
 mod issued_contracts;
+pub(super) mod submission_preparation;
 
 pub(super) use attempt_issuance::effective_attempt_deadline;
 mod learner_reads;
+mod pending_submissions;
 
 pub(super) use issued_contracts::{
-    load_issued_flat_grading, load_issued_presentation, load_issued_webwork_grading,
-    load_submission_record,
+    load_issued_flat_grading, load_issued_presentation, load_issued_receipt_evidence,
+    load_issued_webwork_grading, load_submission_record,
 };
 
 #[async_trait]
 impl crate::RunStore for MemoryStore {
+    async fn prepare_question_submission_impl(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        binding: LearnerWorkRoutingBinding,
+        attempt: QuestionAttemptId,
+        response: &StudentResponse,
+        idempotency_key: &SubmissionIdempotencyKey,
+    ) -> Result<crate::SubmissionPreparation, StoreError> {
+        let state = self.read_state()?;
+        submission_preparation::prepare_question_submission(
+            &state,
+            context,
+            actor,
+            binding,
+            attempt,
+            response,
+            idempotency_key,
+        )
+    }
+
     async fn learner_assignment_run_items_impl(
         &self,
         context: TenantContext,
@@ -28,13 +51,25 @@ impl crate::RunStore for MemoryStore {
         &self,
         context: TenantContext,
         actor: UserId,
-        assignment_id: AssignmentId,
+        binding: LearnerWorkRoutingBinding,
         proposed_run: RunId,
     ) -> Result<AssignmentRun, StoreError> {
         let mut state = self.write_state()?;
         let tenant = context.tenant_id();
+        // ASVS V8.2.2/V8.3.1: the route binding is not authority. Resolve the learner's current
+        // membership for its asserted course before looking up the assignment,
+        // so a known assignment ID cannot select a course for the caller.
+        super::entitlement::active_membership_for(&state, tenant, binding.course, actor)
+            .filter(|membership| {
+                membership.role == CourseMembershipRole::Student && membership.student.is_some()
+            })
+            .ok_or(StoreError::NotFound)?;
+        let assignment_id = binding.assignment;
         let assignment = assignment_record(&state, tenant, assignment_id)?;
-        require_course_records_accessible(&state, tenant, assignment.course_id)?;
+        if assignment.course_id != binding.course {
+            return Err(StoreError::NotFound);
+        }
+        require_course_records_accessible(&state, tenant, binding.course)?;
         // S5 decides current access first, but a grant is not yet a receipt:
         // S3 must reject an unavailable, closed, or exhausted policy without
         // leaving enrollment evidence behind.
@@ -43,7 +78,7 @@ impl crate::RunStore for MemoryStore {
                 &state,
                 tenant,
                 actor,
-                assignment.course_id,
+                binding.course,
                 assignment_id,
             )?
         else {
@@ -129,7 +164,7 @@ impl crate::RunStore for MemoryStore {
             tenant,
             crate::MaterializeAssignmentEntitlementCommand::for_learner_action(
                 actor,
-                assignment.course_id,
+                binding.course,
                 assignment_id,
                 question_model::EntitlementPurpose::StartRun,
             )?,
@@ -202,123 +237,159 @@ impl crate::RunStore for MemoryStore {
     ) -> Result<QuestionAttempt, StoreError> {
         attempt_issuance::issue_or_resume_question_attempt(self, context, command).await
     }
-    async fn get_attempt_presentation_binding_impl(
+    async fn read_issued_attempt_evidence_impl(
         &self,
         context: TenantContext,
         actor: UserId,
+        binding: LearnerWorkRoutingBinding,
         attempt: QuestionAttemptId,
-    ) -> Result<Option<PresentationBindingV1>, StoreError> {
+    ) -> Result<crate::IssuedAttemptRead, StoreError> {
         let state = self.read_state()?;
         let tenant = context.tenant_id();
+        // Establish the live Student route authority before the opaque attempt
+        // lookup, mirroring the broker-first PostgreSQL capability (ASVS
+        // 1.2.4, 1.5.2, 2.2.1-2.2.3, 2.3.3, 8.2.2/8.3.1/8.4.1, 11.4.3,
+        // 14.2.6, 15.4.2, and 16.5.3).
+        super::entitlement::active_membership_for(&state, tenant, binding.course, actor)
+            .filter(|membership| {
+                membership.role == CourseMembershipRole::Student && membership.student.is_some()
+            })
+            .ok_or(StoreError::NotFound)?;
+        let assignment = assignment_record(&state, tenant, binding.assignment)?;
+        if assignment.course_id != binding.course {
+            return Err(StoreError::NotFound);
+        }
+        require_course_records_accessible(&state, tenant, binding.course)?;
+        let domain::entitlement::EntitlementDecision::Granted(grant) =
+            super::entitlement::evaluate_locked(
+                &state,
+                tenant,
+                actor,
+                binding.course,
+                binding.assignment,
+            )?
+        else {
+            return Err(StoreError::NotFound);
+        };
         let record = state
             .attempts
             .get(&(tenant, attempt))
             .ok_or(StoreError::NotFound)?;
-        require_attempt_owner(&state, tenant, record, actor)?;
-        Ok(state.attempt_presentations.get(&(tenant, attempt)).copied())
-    }
-
-    async fn get_attempt_presentation_snapshot_impl(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<ReceiptPresentationSnapshot>, StoreError> {
-        let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        let record = state
-            .attempts
-            .get(&(tenant, attempt))
+        let current_attempt = projected_attempt(&state, tenant, record);
+        let run = state
+            .runs
+            .get(&(tenant, record.run))
             .ok_or(StoreError::NotFound)?;
-        require_attempt_owner(&state, tenant, record, actor)?;
-        load_issued_presentation(&state, tenant, record)
-    }
-
-    async fn get_attempt_grading_envelope_impl(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<QuestionEnvelope>, StoreError> {
-        let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        let record = state
-            .attempts
-            .get(&(tenant, attempt))
-            .ok_or(StoreError::NotFound)?;
-        require_attempt_owner(&state, tenant, record, actor)?;
-        load_issued_presentation(&state, tenant, record)?;
-        Ok(state
+        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
+        if enrollment.assignment != binding.assignment
+            || enrollment.user != actor
+            || enrollment.student != grant.student()
+        {
+            return Err(StoreError::NotFound);
+        }
+        // The immutable issue record provides only receipt evidence. Current
+        // delivery lifecycle comes from the separately projected attempt
+        // state, matching PostgreSQL's relational status witness (ASVS
+        // 1.5.2, 2.2.1-2.2.3, 8.2.2/8.3.1, 14.2.6, and 16.5.3).
+        if record.status != AttemptStatus::InProgress
+            || record.response.is_some()
+            || record.result.is_some()
+            || record.timer.submitted_at.is_some()
+        {
+            return Err(StoreError::Unavailable(
+                "stored issued attempt payload does not describe issuance".to_string(),
+            ));
+        }
+        if current_attempt.status == AttemptStatus::InProgress
+            && current_attempt.timer.submitted_at.is_some()
+        {
+            return Err(StoreError::Unavailable(
+                "in-progress attempt carries a current submission time".to_string(),
+            ));
+        }
+        if current_attempt.status == AttemptStatus::Submitted
+            && current_attempt.timer.submitted_at.is_none()
+        {
+            return Err(StoreError::Unavailable(
+                "submitted attempt lacks its current submission time".to_string(),
+            ));
+        }
+        let presentation = load_issued_receipt_evidence(&state, tenant, record)?;
+        let presentation_binding = state.attempt_presentations.get(&(tenant, attempt)).copied();
+        let grading_envelope = state
             .attempt_grading_envelopes
             .get(&(tenant, attempt))
-            .cloned())
-    }
-
-    async fn get_attempt_flat_grading_impl(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<crate::IssuedFlatGradingContract>, StoreError> {
-        let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        let record = state
-            .attempts
-            .get(&(tenant, attempt))
-            .ok_or(StoreError::NotFound)?;
-        require_attempt_owner(&state, tenant, record, actor)?;
-        load_issued_presentation(&state, tenant, record)?;
-        load_issued_flat_grading(&state, tenant, record)
-    }
-
-    async fn get_attempt_webwork_grading_impl(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<crate::IssuedWebworkGradingContract>, StoreError> {
-        let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        let record = state
-            .attempts
-            .get(&(tenant, attempt))
-            .ok_or(StoreError::NotFound)?;
-        require_attempt_owner(&state, tenant, record, actor)?;
-        load_issued_presentation(&state, tenant, record)?;
-        load_issued_webwork_grading(&state, tenant, record)
-    }
-
-    async fn get_webwork_grade_replay_state_impl(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<WebworkGradeReplayStateV1>, StoreError> {
-        let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        let record = state
-            .attempts
-            .get(&(tenant, attempt))
-            .ok_or(StoreError::NotFound)?;
-        require_attempt_owner(&state, tenant, record, actor)?;
-        let replay = state.webwork_grade_replay.get(&(tenant, attempt)).cloned();
-        if let Some(replay) = replay.as_ref() {
-            crate::validate_persisted_webwork_replay_state(
-                record,
-                state.attempt_presentations.get(&(tenant, attempt)).copied(),
-                replay,
-            )?;
+            .cloned();
+        let receipt = crate::IssuedAttemptReceiptEvidence::new(
+            presentation_binding,
+            presentation,
+            grading_envelope,
+        );
+        match current_attempt.status {
+            AttemptStatus::InProgress => {
+                let flat_grading = load_issued_flat_grading(&state, tenant, record)?;
+                let webwork_grading = load_issued_webwork_grading(&state, tenant, record)?;
+                let replay = state.webwork_grade_replay.get(&(tenant, attempt)).cloned();
+                if let Some(replay) = replay.as_ref() {
+                    crate::validate_persisted_webwork_replay_state(
+                        record,
+                        presentation_binding,
+                        replay,
+                    )?;
+                }
+                let webwork_required = matches!(
+                    record.issued_capability,
+                    question_model::IssuedAttemptCapabilityV1::WebworkPresentation
+                );
+                if webwork_required != (webwork_grading.is_some() && replay.is_some()) {
+                    return Err(StoreError::Unavailable(
+                        "stored active WebWork issued evidence is incomplete".to_string(),
+                    ));
+                }
+                Ok(crate::IssuedAttemptRead::Active(Box::new(
+                    crate::ActiveIssuedAttemptEvidence::new(
+                        receipt,
+                        flat_grading,
+                        webwork_grading,
+                        replay,
+                    ),
+                )))
+            }
+            AttemptStatus::Submitted => {
+                let stored = state.submissions.get(&(tenant, attempt)).ok_or_else(|| {
+                    StoreError::Unavailable(
+                        "submitted attempt lacks its immutable receipt".to_string(),
+                    )
+                })?;
+                if stored.record.attempt.id != attempt
+                    || stored.record.attempt.run != current_attempt.run
+                    || stored.record.presentation != receipt.presentation_snapshot().cloned()
+                {
+                    return Err(StoreError::Unavailable(
+                        "submitted receipt disagrees with issued evidence".to_string(),
+                    ));
+                }
+                Ok(crate::IssuedAttemptRead::Submitted(Box::new(
+                    crate::SubmittedIssuedAttemptRead::new(
+                        receipt,
+                        crate::SubmittedQuestionReceipt::new(stored.record.presentation.clone()),
+                    ),
+                )))
+            }
+            status => Ok(crate::IssuedAttemptRead::TerminalWithoutReceipt(Box::new(
+                crate::TerminalIssuedAttemptRead::new(receipt, status),
+            ))),
         }
-        Ok(replay)
     }
     async fn reserve_or_resume_prefetched_question_impl(
         &self,
         context: TenantContext,
         command: ReservePrefetchedQuestionCommand,
-    ) -> Result<PrefetchedQuestion, StoreError> {
+    ) -> Result<PrefetchedQuestionDescriptorV1, StoreError> {
         let mut state = self.write_state()?;
         let tenant = context.tenant_id();
         let reservation = command.reservation;
+        let private_execution = command.private_execution;
         if reservation.tenant != tenant
             || reservation.parameter_hash.trim().is_empty()
             || reservation
@@ -331,6 +402,25 @@ impl crate::RunStore for MemoryStore {
                 "invalid prefetch reservation".to_string(),
             ));
         }
+        reservation
+            .issued_question_snapshot
+            .validate_for_attempt(reservation.problem, reservation.question_version)?;
+        reservation
+            .issued_question_snapshot
+            .validate_for_issuance_context(
+                reservation.flat_grading_capability,
+                reservation.webwork_grading_capability,
+                reservation.qti_grading_capability,
+                Some(&reservation.presentation_snapshot),
+            )?;
+        reservation
+            .issued_question_snapshot
+            .validate_native_provenance(&reservation.provenance.asset_objects)?;
+        crate::validate_issued_qti_grading(
+            reservation.issued_question_snapshot.question(),
+            reservation.qti_grading_capability,
+            private_execution.qti_grading.as_ref(),
+        )?;
         let run = state
             .runs
             .get(&(tenant, reservation.run))
@@ -384,13 +474,15 @@ impl crate::RunStore for MemoryStore {
             reservation.assignment_position,
         );
         if let Some(existing) = state.prefetched_questions.get(&key) {
-            return if existing == &reservation {
+            return if existing == &reservation
+                && state.prefetched_private_execution.get(&key) == Some(&private_execution) {
                 Ok(existing.clone())
             } else {
                 Err(StoreError::Conflict)
             };
         }
         state.prefetched_questions.insert(key, reservation.clone());
+        state.prefetched_private_execution.insert(key, private_execution);
         Ok(reservation)
     }
     async fn get_prefetched_question_impl(
@@ -400,7 +492,7 @@ impl crate::RunStore for MemoryStore {
         run: RunId,
         predecessor: QuestionAttemptId,
         assignment_position: u32,
-    ) -> Result<Option<PrefetchedQuestion>, StoreError> {
+    ) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError> {
         let state = self.read_state()?;
         let run_record = state
             .runs
@@ -429,7 +521,7 @@ impl crate::RunStore for MemoryStore {
         run: RunId,
         predecessor: QuestionAttemptId,
         assignment_position: u32,
-    ) -> Result<Option<PrefetchedQuestion>, StoreError> {
+    ) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError> {
         learner_reads::prefetched_question(
             self,
             context,
@@ -482,43 +574,7 @@ impl crate::RunStore for MemoryStore {
         actor: UserId,
         run: RunId,
     ) -> Result<Option<QuestionAttemptId>, StoreError> {
-        let state = self.read_state()?;
-        let run_record = state
-            .runs
-            .get(&(context.tenant_id(), run))
-            .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(&state, context.tenant_id(), run_record.enrollment)?;
-        let assignment = assignment_record(&state, context.tenant_id(), enrollment.assignment)?;
-        require_course_records_accessible(&state, context.tenant_id(), assignment.course_id)?;
-        super::entitlement::require_current_enrollment_entitlement(
-            &state,
-            context.tenant_id(),
-            actor,
-            assignment.course_id,
-            assignment.id,
-            &enrollment,
-        )?;
-        let pending: Vec<_> = state
-            .attempts
-            .values()
-            .filter(|attempt| {
-                attempt.tenant == context.tenant_id()
-                    && attempt.run == run
-                    && state
-                        .submissions
-                        .contains_key(&(context.tenant_id(), attempt.id))
-                    && !state
-                        .submission_next_attempts
-                        .contains_key(&(context.tenant_id(), attempt.id))
-            })
-            .map(|attempt| attempt.id)
-            .take(2)
-            .collect();
-        match pending.as_slice() {
-            [] => Ok(None),
-            [id] => Ok(Some(*id)),
-            _ => Err(StoreError::Conflict),
-        }
+        pending_submissions::pending_submission_for_run(self, context, actor, run).await
     }
     async fn learner_pending_submission_for_run_impl(
         &self,
@@ -727,6 +783,18 @@ pub(super) fn submit_question_attempt_locked(
     command: SubmitQuestionAttemptCommand,
 ) -> Result<SubmissionRecord, StoreError> {
     let tenant = context.tenant_id();
+    match submission_preparation::prepare_question_submission(
+        state,
+        context,
+        command.actor,
+        command.binding,
+        command.attempt,
+        &command.response,
+        &command.idempotency_key,
+    )? {
+        crate::SubmissionPreparation::Replay(record) => return Ok(*record),
+        crate::SubmissionPreparation::Grade(_) => {}
+    }
     let base = state
         .attempts
         .get(&(tenant, command.attempt))

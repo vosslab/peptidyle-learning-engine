@@ -136,8 +136,9 @@ process-local grade cache.
 
 Next-question prefetch is an issuance preparation protocol, not an early
 attempt. The browser sends an empty same-origin `POST` to
-`/api/attempts/{predecessor}/prefetch-next`; it cannot choose a seed, question
-position, version, backend, provenance, or timer.
+`/api/courses/{course}/assignments/{assignment}/attempts/{predecessor}/prefetch-next`;
+the path supplies routing context only, and the browser cannot choose a seed, question position,
+version, backend, provenance, or timer.
 
 The server authenticates the learner, verifies ownership of the unresolved
 predecessor and run, rejects a second active question, selects the first

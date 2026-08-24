@@ -246,7 +246,6 @@ impl QtiImportGradingPayload {
         })
     }
 
-    #[cfg(feature = "postgres")]
     pub(crate) fn bytes(&self) -> &[u8] {
         &self.0
     }
@@ -342,21 +341,23 @@ pub trait QtiImportStore: Send + Sync {
 /// its read path.
 #[async_trait]
 pub trait QtiGradingStore: Send + Sync {
+    /// Reads one committed published QTI binding only while trusted server
+    /// issue preparation is copying it into an attempt-local contract.
+    ///
+    /// First-grade code must use `IssuedQtiGradingContractV1` and therefore
+    /// has no store method it can call for catalog recovery.
+    async fn qti_publication_grading(
+        &self,
+        context: TenantContext,
+        reference: ProblemVersionRef,
+        item_id: &str,
+    ) -> Result<Option<QtiImportGradingPayload>, StoreError>;
+
     async fn qti_import_grading(
         &self,
         context: TenantContext,
         workspace: WorkspaceId,
         import: WorkspaceImportId,
-        item_id: &str,
-    ) -> Result<Option<QtiImportGradingPayload>, StoreError>;
-
-    /// Resolves the answer-bearing binding for one immutable published QTI
-    /// version. This remains a grader-only capability: catalog and asset
-    /// delivery code cannot obtain the material through this trait.
-    async fn qti_published_grading(
-        &self,
-        context: TenantContext,
-        reference: ProblemVersionRef,
         item_id: &str,
     ) -> Result<Option<QtiImportGradingPayload>, StoreError>;
 }

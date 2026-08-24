@@ -12,6 +12,7 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
 
     let fixture = contracted_route_fixture(RecordedContractedTransportMode::Available).await;
     let actor = UserId::from_uuid(id(803));
+    let learner_work_binding = LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment);
     let activity_lease_millis = fixture.backend.activity_lease_millis();
     assert!(activity_lease_millis > 15_000);
     let launch = fixture
@@ -19,11 +20,8 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
         .create_external_tool_launch(
             fixture.context,
             actor,
-            ProblemVersionRef {
-                problem: fixture.attempt.problem,
-                version: fixture.attempt.question_version,
-            },
-            &fixture.question,
+            learner_work_binding,
+            &fixture.issued_question_snapshot,
             &fixture.attempt,
             fixture.aead.as_ref(),
         )
@@ -35,6 +33,7 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
         .claim_external_tool_activity(
             fixture.context,
             actor,
+            learner_work_binding,
             fixture.attempt.id,
             launch.id,
             &launch.token,
@@ -57,6 +56,7 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
             .claim_external_tool_activity(
                 fixture.context,
                 actor,
+                learner_work_binding,
                 fixture.attempt.id,
                 launch.id,
                 &launch.token,
@@ -78,6 +78,7 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
         .claim_external_tool_activity(
             fixture.context,
             actor,
+            learner_work_binding,
             fixture.attempt.id,
             launch.id,
             &launch.token,
@@ -94,6 +95,7 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
             .release_external_tool_activity(
                 fixture.context,
                 actor,
+                learner_work_binding,
                 fixture.attempt.id,
                 launch.id,
                 &first.token,
@@ -106,6 +108,7 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
         .release_external_tool_activity(
             fixture.context,
             actor,
+            learner_work_binding,
             fixture.attempt.id,
             launch.id,
             &recovered.token,
@@ -118,6 +121,7 @@ async fn activity_lease_outlives_the_permitted_provider_timeout_and_fences_stale
             .claim_external_tool_activity(
                 fixture.context,
                 actor,
+                learner_work_binding,
                 fixture.attempt.id,
                 launch.id,
                 &launch.token,
@@ -136,16 +140,14 @@ async fn indeterminate_provider_post_fences_claims_and_relaunches_for_the_attemp
 
     let fixture = contracted_route_fixture(RecordedContractedTransportMode::Available).await;
     let actor = UserId::from_uuid(id(803));
+    let learner_work_binding = LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment);
     let launch = fixture
         .backend
         .create_external_tool_launch(
             fixture.context,
             actor,
-            ProblemVersionRef {
-                problem: fixture.attempt.problem,
-                version: fixture.attempt.question_version,
-            },
-            &fixture.question,
+            learner_work_binding,
+            &fixture.issued_question_snapshot,
             &fixture.attempt,
             fixture.aead.as_ref(),
         )
@@ -156,6 +158,7 @@ async fn indeterminate_provider_post_fences_claims_and_relaunches_for_the_attemp
         .claim_external_tool_activity(
             fixture.context,
             actor,
+            learner_work_binding,
             fixture.attempt.id,
             launch.id,
             &launch.token,
@@ -171,6 +174,7 @@ async fn indeterminate_provider_post_fences_claims_and_relaunches_for_the_attemp
         .fence_indeterminate_external_tool_activity(
             fixture.context,
             actor,
+            learner_work_binding,
             fixture.attempt.id,
             launch.id,
             &claim.token,
@@ -183,6 +187,7 @@ async fn indeterminate_provider_post_fences_claims_and_relaunches_for_the_attemp
             .claim_external_tool_activity(
                 fixture.context,
                 actor,
+                learner_work_binding,
                 fixture.attempt.id,
                 launch.id,
                 &launch.token,
@@ -198,11 +203,8 @@ async fn indeterminate_provider_post_fences_claims_and_relaunches_for_the_attemp
             .create_external_tool_launch(
                 fixture.context,
                 actor,
-                ProblemVersionRef {
-                    problem: fixture.attempt.problem,
-                    version: fixture.attempt.question_version,
-                },
-                &fixture.question,
+                learner_work_binding,
+                &fixture.issued_question_snapshot,
                 &fixture.attempt,
                 fixture.aead.as_ref(),
             )
@@ -216,7 +218,8 @@ async fn production_boundary_allows_only_capability_bound_sandbox_activity_posts
     use adapter_imathas::test_support::RecordedContractedTransportMode;
 
     let fixture = contracted_route_fixture(RecordedContractedTransportMode::Available).await;
-    let launch_path = format!("/api/attempts/{}/external-tool/launch", fixture.attempt.id);
+    let launch_path =
+        external_tool_launch_path(fixture.course, fixture.assignment, fixture.attempt.id);
     let activity_path = format!("{launch_path}/activity");
     let launch = fixture
         .app
@@ -278,8 +281,12 @@ async fn production_boundary_allows_only_capability_bound_sandbox_activity_posts
         ),
         (
             format!(
-                "/api/attempts/{}/external-tool/launch/activity",
-                QuestionAttemptId::from_uuid(id(991))
+                "{}/activity",
+                external_tool_launch_path(
+                    fixture.course,
+                    fixture.assignment,
+                    QuestionAttemptId::from_uuid(id(991)),
+                )
             ),
             format!("{production_student_cookie}; {launch_cookie}"),
             StatusCode::NOT_FOUND,
@@ -336,24 +343,93 @@ async fn production_boundary_allows_only_capability_bound_sandbox_activity_posts
 }
 
 #[tokio::test]
+async fn external_tool_routes_reject_wrong_nested_binding_before_backend_work() {
+    use adapter_imathas::test_support::RecordedContractedTransportMode;
+
+    let fixture = contracted_route_fixture(RecordedContractedTransportMode::Available).await;
+    let wrong_course = CourseId::from_uuid(id(991));
+    let wrong_assignment = AssignmentId::from_uuid(id(992));
+    let wrong_course_launch =
+        external_tool_launch_path(wrong_course, fixture.assignment, fixture.attempt.id);
+    let wrong_assignment_launch =
+        external_tool_launch_path(fixture.course, wrong_assignment, fixture.attempt.id);
+    let requests = [
+        Request::builder()
+            .method("POST")
+            .uri(&wrong_course_launch)
+            .header("cookie", &fixture.student_cookie)
+            .body(Body::empty())
+            .expect("wrong-course launch request"),
+        Request::builder()
+            .uri(format!("{wrong_assignment_launch}/activity"))
+            .header("cookie", &fixture.student_cookie)
+            .body(Body::empty())
+            .expect("wrong-assignment activity request"),
+        Request::builder()
+            .method("POST")
+            .uri(format!("{wrong_course_launch}/submission"))
+            .header("cookie", &fixture.student_cookie)
+            .header("content-type", "application/json")
+            .header("idempotency-key", "wrong-external-route-binding")
+            .body(Body::from(r#"{"response":{"kind":"externalTool"}}"#))
+            .expect("wrong-course submission request"),
+        Request::builder()
+            .method("POST")
+            .uri(format!(
+                "/api/attempts/{}/external-tool/launch",
+                fixture.attempt.id
+            ))
+            .header("cookie", &fixture.student_cookie)
+            .body(Body::empty())
+            .expect("retired flat launch request"),
+        Request::builder()
+            .uri(format!(
+                "/api/attempts/{}/external-tool/launch/activity",
+                fixture.attempt.id
+            ))
+            .header("cookie", &fixture.student_cookie)
+            .body(Body::empty())
+            .expect("retired flat activity request"),
+        Request::builder()
+            .method("POST")
+            .uri(format!(
+                "/api/attempts/{}/external-tool/launch/submission",
+                fixture.attempt.id
+            ))
+            .header("cookie", &fixture.student_cookie)
+            .header("content-type", "application/json")
+            .header("idempotency-key", "retired-flat-external-route")
+            .body(Body::from(r#"{"response":{"kind":"externalTool"}}"#))
+            .expect("retired flat submission request"),
+    ];
+    for request in requests {
+        let response = fixture
+            .app
+            .clone()
+            .oneshot(request)
+            .await
+            .expect("wrong-binding route response");
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+    assert_eq!(fixture.route_backend.create_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(fixture.route_backend.proxy_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(
+        fixture
+            .route_backend
+            .submission_calls
+            .load(Ordering::SeqCst),
+        0
+    );
+    assert_eq!(fixture.transport.proxy_calls(), 0);
+    assert_eq!(fixture.transport.result_calls(), 0);
+}
+
+#[tokio::test]
 async fn contracted_imathas_launch_route_is_same_origin_replica_safe_and_secret_free() {
     use adapter_imathas::test_support::RecordedContractedTransportMode;
 
     let fixture = contracted_route_fixture(RecordedContractedTransportMode::Available).await;
-    fixture
-        .backend
-        .reproduce(
-            fixture.context,
-            ProblemVersionRef {
-                problem: fixture.attempt.problem,
-                version: fixture.attempt.question_version,
-            },
-            &fixture.question,
-            &fixture.attempt,
-        )
-        .await
-        .expect("preflight reproduce");
-    let path = format!("/api/attempts/{}/external-tool/launch", fixture.attempt.id);
+    let path = external_tool_launch_path(fixture.course, fixture.assignment, fixture.attempt.id);
     let cross_site_get_shape = fixture
         .app
         .clone()
@@ -533,8 +609,12 @@ async fn contracted_imathas_launch_route_is_same_origin_replica_safe_and_secret_
         (
             format!("{}; {launch_cookie}", fixture.student_cookie),
             format!(
-                "/api/attempts/{}/external-tool/launch/activity",
-                QuestionAttemptId::from_uuid(id(899))
+                "{}/activity",
+                external_tool_launch_path(
+                    fixture.course,
+                    fixture.assignment,
+                    QuestionAttemptId::from_uuid(id(899)),
+                )
             ),
         ),
     ] {
@@ -586,11 +666,8 @@ async fn contracted_imathas_launch_route_is_same_origin_replica_safe_and_secret_
         .create_external_tool_launch(
             fixture.context,
             UserId::from_uuid(id(803)),
-            ProblemVersionRef {
-                problem: fixture.attempt.problem,
-                version: fixture.attempt.question_version,
-            },
-            &fixture.question,
+            LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
+            &fixture.issued_question_snapshot,
             &fixture.attempt,
             fixture.aead.as_ref(),
         )
@@ -600,6 +677,7 @@ async fn contracted_imathas_launch_route_is_same_origin_replica_safe_and_secret_
         fixture.aead.as_ref(),
         fixture.context,
         UserId::from_uuid(id(803)),
+        LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
         fixture.attempt.id,
         &created,
     )
@@ -608,8 +686,10 @@ async fn contracted_imathas_launch_route_is_same_origin_replica_safe_and_secret_
         fixture.store.as_ref(),
         fixture.context,
         UserId::from_uuid(id(803)),
+        LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
         fixture.attempt.id,
         created.id,
+        &created.token,
     )
     .await
     .expect("revoke launch session");
@@ -638,7 +718,8 @@ async fn contracted_imathas_launch_route_is_same_origin_replica_safe_and_secret_
     assert!(!String::from_utf8_lossy(&revoked_body).contains("activityReady"));
 
     let mutated = contracted_route_fixture(RecordedContractedTransportMode::Available).await;
-    let mutated_path = format!("/api/attempts/{}/external-tool/launch", mutated.attempt.id);
+    let mutated_path =
+        external_tool_launch_path(mutated.course, mutated.assignment, mutated.attempt.id);
     let source_launch = mutated
         .app
         .clone()
@@ -663,6 +744,7 @@ async fn contracted_imathas_launch_route_is_same_origin_replica_safe_and_secret_
     objects::ObjectStore::delete(mutated.objects.as_ref(), &mutated.source_key)
         .await
         .expect("remove source for mutation gate");
+    let proxy_calls_before_missing_source = mutated.transport.proxy_calls();
     let source_mutated = mutated
         .app
         .clone()
@@ -681,6 +763,11 @@ async fn contracted_imathas_launch_route_is_same_origin_replica_safe_and_secret_
     // A missing immutable object is a local backend outage, but the
     // route refuses before restoring/proxying provider state.
     assert_eq!(source_mutated.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(
+        mutated.transport.proxy_calls(),
+        proxy_calls_before_missing_source,
+        "the immutable object fence runs before provider activity"
+    );
     let source_mutated_body = to_bytes(source_mutated.into_body(), 256 * 1024)
         .await
         .expect("source mutation body");
@@ -696,9 +783,10 @@ async fn contracted_imathas_launch_outage_is_question_local_and_secret_free() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/api/attempts/{}/external-tool/launch",
-                    fixture.attempt.id
+                .uri(external_tool_launch_path(
+                    fixture.course,
+                    fixture.assignment,
+                    fixture.attempt.id,
                 ))
                 .header("cookie", fixture.student_cookie)
                 .body(Body::empty())

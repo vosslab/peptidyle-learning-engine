@@ -38,7 +38,7 @@ where
                     question_model::Capability::PartialCredit,
                 ]))
             }
-            DraftQuestionSource::Qti { .. } if self.qti.is_some() => {
+            DraftQuestionSource::Qti { .. } if self.qti.is_configured() => {
                 Ok(BackendCapabilities::from_iter([
                     question_model::Capability::ServerGrading,
                 ]))

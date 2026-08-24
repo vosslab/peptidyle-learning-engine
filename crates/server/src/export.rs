@@ -394,7 +394,13 @@ mod tests {
                         )
                         .expect("explicit fixture course term"),
                     },
-                    initial_instructor: requester,
+                    authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                        store.as_ref(),
+                        tenant,
+                        course,
+                        requester,
+                    )
+                    .await,
                 },
             )
             .await
@@ -402,6 +408,7 @@ mod tests {
         store
             .upsert_course_member(
                 context,
+                requester,
                 UpsertCourseMember {
                     course,
                     user: student,
@@ -415,27 +422,30 @@ mod tests {
         store
             .create_assignment(
                 context,
-                AssignmentRecord {
-                    id: assignment,
-                    tenant,
-                    course_id: course,
-                    audience: question_model::AssignmentAudience::CourseWide,
-                    title: "Peptide bond exam".to_string(),
-                    lifecycle: question_model::AssignmentLifecycle::Draft,
-                    instructions: question_model::AssignmentInstructions::default(),
-                    items: vec![question_model::AssignmentItem {
-                        id: question_model::AssignmentItemId::from_uuid(id(105)),
-                        reference,
-                        position: 0,
-                        points_possible: question_model::PointValue::from_whole(1),
-                        delivery_state: question_model::AssignmentDeliveryState::Active,
-                        scoring_mode: question_model::AssignmentScoringMode::Normal,
-                    }],
-                    selection_groups: Vec::new(),
-                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                    policies: policies(),
+                learning_data_access::CreateAssignmentCommand {
+                    actor: requester,
+                    assignment: AssignmentRecord {
+                        id: assignment,
+                        tenant,
+                        course_id: course,
+                        audience: question_model::AssignmentAudience::CourseWide,
+                        title: "Peptide bond exam".to_string(),
+                        lifecycle: question_model::AssignmentLifecycle::Draft,
+                        instructions: question_model::AssignmentInstructions::default(),
+                        items: vec![question_model::AssignmentItem {
+                            id: question_model::AssignmentItemId::from_uuid(id(105)),
+                            reference,
+                            position: 0,
+                            points_possible: question_model::PointValue::from_whole(1),
+                            delivery_state: question_model::AssignmentDeliveryState::Active,
+                            scoring_mode: question_model::AssignmentScoringMode::Normal,
+                        }],
+                        selection_groups: Vec::new(),
+                        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                        policies: policies(),
+                    },
+                    base_policy: question_model::BaseAssignmentPolicy::default(),
                 },
-                question_model::BaseAssignmentPolicy::default(),
             )
             .await
             .expect("assignment save");

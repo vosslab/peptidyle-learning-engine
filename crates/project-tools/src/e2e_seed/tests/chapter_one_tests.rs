@@ -334,6 +334,7 @@ async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster(
     let claimed = store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,

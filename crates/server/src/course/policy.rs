@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
 use axum::response::Response;
-use learning_data_access::{CourseRecordsAccessStore, Store};
+use learning_data_access::{CourseCreationAuthority, CourseRecordsAccessStore, Store};
 use question_model::{CourseId, CourseMembershipRole, UserRole};
 
 use crate::auth::AuthenticatedSession;
@@ -67,11 +67,21 @@ where
     }
 }
 
-pub(super) fn may_create_course(authenticated: &AuthenticatedSession) -> bool {
-    authenticated
-        .record
-        .subject
-        .roles()
-        .iter()
-        .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
+/// Derives the closed provisioning authority from the resolved session.
+///
+/// ASVS 2.2.2: the service derives every authorization input from the
+/// authenticated session rather than accepting actor or role claims from the
+/// course-create request body.
+pub(super) fn course_creation_authority(
+    authenticated: &AuthenticatedSession,
+) -> Option<CourseCreationAuthority> {
+    let actor = authenticated.record.subject.user();
+    let session = authenticated.session_hash;
+    let roles = authenticated.record.subject.roles();
+    if roles.contains(&UserRole::Sysadmin) {
+        return Some(CourseCreationAuthority::Sysadmin { actor, session });
+    }
+    roles
+        .contains(&UserRole::Instructor)
+        .then_some(CourseCreationAuthority::ApprovedInstructor { actor, session })
 }

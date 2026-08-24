@@ -93,8 +93,8 @@ async fn postgres_course_member_upsert_is_atomic_idempotent_and_tenant_scoped() 
         roster_contact: None,
     };
     let (first, second) = tokio::join!(
-        store.upsert_course_member(context, command.clone()),
-        store.upsert_course_member(context, command),
+        store.upsert_course_member(context, instructor, command.clone()),
+        store.upsert_course_member(context, instructor, command),
     );
     let first = first.expect("first canonical roster upsert");
     let second = second.expect("concurrent canonical roster upsert retry");
@@ -161,6 +161,7 @@ async fn postgres_course_member_upsert_is_atomic_idempotent_and_tenant_scoped() 
     let foreign = store
         .upsert_course_member(
             TenantContext::from_authenticated_session(TenantId::from_uuid(id())),
+            instructor,
             UpsertCourseMember {
                 course,
                 user: UserId::from_uuid(id()),
@@ -178,6 +179,7 @@ async fn postgres_course_member_upsert_is_atomic_idempotent_and_tenant_scoped() 
         store
             .upsert_course_member(
                 context,
+                instructor,
                 UpsertCourseMember {
                     course,
                     user: conflicting_instructor,

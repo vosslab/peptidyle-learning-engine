@@ -73,7 +73,7 @@ def decode(output: str, phase: str) -> Receipt:
 	if not isinstance(value, dict):
 		raise local_stack_control.models.ControllerError("installed Base Course reconciliation returned an invalid receipt")
 	base = {"schemaVersion", "action", "installState", "baselineVersion", "objectManifest", "installationGeneration", "storageReceiptBucket", "storageReceiptKey", "storageReceiptJson"}
-	complete = base | {"storageReceiptSha256"}
+	complete = base | {"storageReceiptSha256", "completionReceiptSha256"}
 	if phase == "install" and value.get("action") != "retained":
 		complete.add("manifest")
 	expected = complete if value.get("action") == "retained" or phase == "install" else base
@@ -97,7 +97,16 @@ def decode(output: str, phase: str) -> Receipt:
 	if phase == "prepare":
 		valid = (value["action"] == "retained" and value["installState"] == "complete") or (value["action"] in {"prepared", "resumed"} and value["installState"] == "installing")
 	else:
-		valid = value["action"] in {"installed", "resumed", "retained"} and value["installState"] == "complete" and isinstance(value.get("storageReceiptSha256"), str) and len(value["storageReceiptSha256"]) == 64 and all(character in "0123456789abcdef" for character in value["storageReceiptSha256"])
+		valid = (
+			value["action"] in {"installed", "resumed", "retained"}
+			and value["installState"] == "complete"
+			and all(
+				isinstance(value.get(field), str)
+				and len(value[field]) == 64
+				and all(character in "0123456789abcdef" for character in value[field])
+				for field in ("storageReceiptSha256", "completionReceiptSha256")
+			)
+		)
 	if not valid:
 		raise local_stack_control.models.ControllerError("installed Base Course lifecycle returned an invalid state")
 	manifest = value.get("manifest")

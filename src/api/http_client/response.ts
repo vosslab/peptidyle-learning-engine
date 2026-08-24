@@ -61,6 +61,7 @@ import { ApiProtocolError, ApiRequestError } from "./error";
 import {
   encodedId,
   cursorPath,
+  learnerAttemptPath,
   requestAssignmentEditor,
   requestJson,
   requestPath,
@@ -114,6 +115,8 @@ async function fetchCourseBanner(
 function issuedQuestionForAttempt(
   fetchImplementation: ApiFetch,
   basePath: string,
+  courseId: CourseId,
+  assignmentId: AssignmentId,
   attempt: LearnerQuestionAttempt,
 ): Promise<QuestionEnvelope> {
   const decoder =
@@ -123,7 +126,7 @@ function issuedQuestionForAttempt(
   return requestJson(
     fetchImplementation,
     basePath,
-    `/api/attempts/${encodedId(attempt.id)}/question`,
+    `${learnerAttemptPath(courseId, assignmentId, attempt.id)}/question`,
     decoder,
   );
 }
@@ -505,21 +508,28 @@ export function createResponseClient(
         `/api/attempts/${encodedId(attemptId)}`,
         decodeLearnerQuestionAttempt,
       ),
-    getIssuedQuestion: async (attemptId): Promise<QuestionEnvelope> => {
+    getIssuedQuestion: async (courseId, assignmentId, attemptId): Promise<QuestionEnvelope> => {
       const attempt = await requestJson(
         fetchImplementation,
         basePath,
         `/api/attempts/${encodedId(attemptId)}`,
         decodeLearnerQuestionAttempt,
       );
-      return issuedQuestionForAttempt(fetchImplementation, basePath, attempt);
+      return issuedQuestionForAttempt(
+        fetchImplementation,
+        basePath,
+        courseId,
+        assignmentId,
+        attempt,
+      );
     },
-    beginExternalToolLaunch: (attemptId) =>
+    beginExternalToolLaunch: (courseId, assignmentId, attemptId) =>
       requestJson(
         fetchImplementation,
         basePath,
-        `/api/attempts/${encodedId(attemptId)}/external-tool/launch`,
-        (value, path = "response") => decodeExternalToolLaunch(value, path, attemptId),
+        `${learnerAttemptPath(courseId, assignmentId, attemptId)}/external-tool/launch`,
+        (value, path = "response") =>
+          decodeExternalToolLaunch(value, path, courseId, assignmentId, attemptId),
         { method: "POST" },
       ),
     getSummary: (enrollmentId) =>
@@ -540,22 +550,6 @@ export function createResponseClient(
         ),
       ]);
       verifyRunEnrollment(run, enrollment);
-      let attempt: LearnerQuestionAttempt;
-      if (initial.kind === "attempt") attempt = initial.attempt;
-      else {
-        const noActive =
-          initial.error instanceof ApiProtocolError &&
-          initial.error.message === `Run ${runId} has no active question attempt`;
-        if (!noActive || run.completedAt !== null) throw initial.error;
-        const resumed = await client.startRun(enrollment.enrollment.assignment);
-        if (
-          resumed.id !== runId ||
-          resumed.tenant !== run.tenant ||
-          resumed.enrollment !== run.enrollment
-        )
-          throw new ApiProtocolError("Run screen recovery did not resume the requested run");
-        attempt = await activeAttempt(client, runId);
-      }
       const assignment = await client.getAssignment(enrollment.enrollment.assignment);
       if (assignment.id !== enrollment.enrollment.assignment)
         throw new ApiProtocolError("Run screen assignment does not match its enrollment");
@@ -566,10 +560,32 @@ export function createResponseClient(
         throw new ApiProtocolError(
           "Run screen assignment reference did not resolve to an assignment",
         );
+      let attempt: LearnerQuestionAttempt;
+      if (initial.kind === "attempt") attempt = initial.attempt;
+      else {
+        const noActive =
+          initial.error instanceof ApiProtocolError &&
+          initial.error.message === `Run ${runId} has no active question attempt`;
+        if (!noActive || run.completedAt !== null) throw initial.error;
+        const resumed = await client.startRun(assignmentRoute.courseId, assignment.id);
+        if (
+          resumed.id !== runId ||
+          resumed.tenant !== run.tenant ||
+          resumed.enrollment !== run.enrollment
+        )
+          throw new ApiProtocolError("Run screen recovery did not resume the requested run");
+        attempt = await activeAttempt(client, runId);
+      }
       const [summary, appearance, issuedQuestion] = await Promise.all([
         client.getCourse(assignmentRoute.courseId),
         client.getCourseAppearance(assignmentRoute.courseId),
-        issuedQuestionForAttempt(fetchImplementation, basePath, attempt),
+        issuedQuestionForAttempt(
+          fetchImplementation,
+          basePath,
+          assignmentRoute.courseId,
+          assignment.id,
+          attempt,
+        ),
       ]);
       const screen: RunScreenData = {
         course: { summary, appearance },

@@ -246,6 +246,8 @@ async fn claimed_gradebook_fixture(
     let instructor = UserId::from_uuid(uuid(91_001));
     let student = UserId::from_uuid(uuid(91_002));
     let course = CourseId::from_uuid(uuid(91_003));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(store, tenant, course, instructor).await;
     store
         .create_course(
             context,
@@ -261,7 +263,7 @@ async fn claimed_gradebook_fixture(
                     )
                     .expect("fixture term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await

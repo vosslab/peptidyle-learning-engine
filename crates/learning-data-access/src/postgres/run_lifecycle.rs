@@ -1,32 +1,39 @@
 use super::*;
+use crate::LearnerWorkRoutingBinding;
 
 #[cfg(feature = "postgres")]
 pub(super) async fn start_or_resume_run(
     transaction: &mut Transaction<'_, Postgres>,
     context: TenantContext,
     actor: UserId,
-    assignment_id: AssignmentId,
+    binding: LearnerWorkRoutingBinding,
     proposed_run: RunId,
 ) -> Result<AssignmentRun, StoreError> {
     let tenant = context.tenant_id();
-    let assignment = load_assignment_for_share(transaction, tenant, assignment_id).await?;
-    let domain::entitlement::EntitlementDecision::Granted(grant) =
-        super::entitlement::evaluate_current(
-            transaction,
-            tenant,
-            actor,
-            assignment.course_id,
-            assignment_id,
-        )
-        .await?
-    else {
-        return Err(StoreError::NotFound);
+    let command = crate::MaterializeAssignmentEntitlementCommand::for_learner_action(
+        actor,
+        binding.course,
+        binding.assignment,
+        question_model::EntitlementPurpose::StartRun,
+    )?;
+    // 1817 authorizes and locks the exact route binding before this operation
+    // reads any assignment, enrollment, run, or timing source.  Concealing a
+    // rejected binding prevents course/assignment and membership oracles.
+    let prepared = match super::entitlement::prepare_materialization(transaction, tenant, command)
+        .await
+    {
+        Ok(super::entitlement::PreparedEntitlementMaterialization::Granted(prepared)) => prepared,
+        Ok(super::entitlement::PreparedEntitlementMaterialization::Denied(_))
+        | Err(StoreError::Forbidden)
+        | Err(StoreError::NotFound) => return Err(StoreError::NotFound),
+        Err(error) => return Err(error),
     };
-    assignment_timing::lock_postgres_assignment_policy(transaction, tenant, assignment_id).await?;
+    let assignment =
+        super::entitlement::hydrate_prepared_assignment(transaction, &prepared).await?;
     let course_accessible: bool =
         sqlx::query_scalar("SELECT public.ple_course_records_accessible($1, $2)")
             .bind(tenant.as_uuid())
-            .bind(assignment.course_id.as_uuid())
+            .bind(binding.course.as_uuid())
             .fetch_one(&mut **transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -35,10 +42,10 @@ pub(super) async fn start_or_resume_run(
     }
     let prior_run_count: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM assignment_run run JOIN enrollment enrollment ON enrollment.tenant_id=run.tenant_id AND enrollment.enrollment_id=run.enrollment_id WHERE run.tenant_id=$1 AND enrollment.assignment_id=$2 AND enrollment.student_id=$3 AND run.completed_at IS NOT NULL",
-    ).bind(tenant.as_uuid()).bind(assignment_id.as_uuid()).bind(grant.student().as_uuid()).fetch_one(&mut **transaction).await.map_err(map_sqlx_error)?;
-    let (decision, _) = super::course_policy::resolve_granted_effective_policy(
+    ).bind(tenant.as_uuid()).bind(binding.assignment.as_uuid()).bind(prepared.grant().student().as_uuid()).fetch_one(&mut **transaction).await.map_err(map_sqlx_error)?;
+    let (decision, _) = super::course_policy::resolve_granted_effective_policy_read_only(
         transaction,
-        grant.clone(),
+        prepared.grant().clone(),
         domain::effective_assignment_policy::AuthorizationGate::Authorized,
         u32::try_from(prior_run_count)
             .map_err(|_| StoreError::Unavailable("run count exceeds policy range".to_string()))?,
@@ -51,18 +58,25 @@ pub(super) async fn start_or_resume_run(
     else {
         return Err(StoreError::NotFound);
     };
-    // A start denial must not manufacture an S5 receipt.  Existing receipt
-    // evidence is sufficient to check resume/continued-practice before the
-    // materialization seam; S5 remains the only owner of how it was issued.
-    if let Some((existing_enrollment, existing_summary, _, _)) =
-        super::entitlement::load_existing_receipt(
-            transaction,
-            tenant,
-            assignment_id,
-            grant.student(),
-        )
-        .await?
-    {
+    // The nullable broker witness is the sole reuse hint.  Every later
+    // receipt read must retain exactly that enrollment before it can resume.
+    if let Some(expected_enrollment) = prepared.existing_enrollment() {
+        let (existing_enrollment, existing_summary, _, _) =
+            super::entitlement::load_existing_receipt(
+                transaction,
+                tenant,
+                binding.assignment,
+                prepared.grant().student(),
+            )
+            .await?
+            .ok_or_else(|| {
+                StoreError::InvalidRecord("prepared enrollment disappeared".to_string())
+            })?;
+        if existing_enrollment.id != expected_enrollment {
+            return Err(StoreError::InvalidRecord(
+                "existing enrollment disagrees with learner-work witness".to_string(),
+            ));
+        }
         let active_row = sqlx::query(
             "SELECT payload, payload_sha256 FROM assignment_run WHERE tenant_id=$1 AND enrollment_id=$2 AND completed_at IS NULL ORDER BY run_number DESC LIMIT 1",
         )
@@ -81,16 +95,12 @@ pub(super) async fn start_or_resume_run(
             ));
         }
     }
-    let command = crate::MaterializeAssignmentEntitlementCommand::for_learner_action(
-        actor,
-        assignment.course_id,
-        assignment_id,
-        question_model::EntitlementPurpose::StartRun,
-    )?;
     let crate::AssignmentEntitlementMaterialization::Granted(entitlement) =
-        super::entitlement::materialize_granted_entitlement(transaction, &grant, command).await?
+        super::entitlement::materialize_prepared_entitlement(transaction, *prepared).await?
     else {
-        return Err(StoreError::NotFound);
+        return Err(StoreError::InvalidRecord(
+            "prepared entitlement did not materialize a grant".to_string(),
+        ));
     };
     let enrollment = entitlement.enrollment;
     let active_row = sqlx::query(

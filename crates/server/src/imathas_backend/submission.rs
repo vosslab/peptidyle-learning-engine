@@ -10,12 +10,11 @@ use learning_data_access::{
     ClaimExternalToolFinalizationActivityCommand, CommitExternalToolSubmissionCommand,
     CommitVerifiedExternalToolSubmissionCommand, ExternalToolActivityClaim, ExternalToolBegin,
     ExternalToolBrokerStore, ExternalToolLaunchProof, ExternalToolLaunchSessionStore,
-    StageExternalToolVerificationCommand, SubmissionIdempotencyKey, TenantContext,
+    LearnerWorkRoutingBinding, StageExternalToolVerificationCommand, SubmissionIdempotencyKey,
+    TenantContext,
 };
 use objects::ObjectStore;
-use question_model::{
-    ProblemVersionRef, QuestionAttempt, QuestionDefinition, StudentResponse, UserId,
-};
+use question_model::{QuestionAttempt, StudentResponse, UserId};
 
 use super::{
     ExternalToolSubmissionBackend, ImathasBackend, LaunchStateAead, RunBackendError,
@@ -40,18 +39,21 @@ where
         &self,
         context: TenantContext,
         actor: UserId,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
+        learner_work_binding: LearnerWorkRoutingBinding,
+        issued_question_snapshot: &learning_data_access::IssuedQuestionSnapshotV1,
         attempt: &QuestionAttempt,
         idempotency_key: SubmissionIdempotencyKey,
         launch_proof: ExternalToolLaunchProof,
         state_aead: &LaunchStateAead,
     ) -> Result<SubmissionDisposition, RunBackendError> {
-        self.reproduce_issued_attempt(context, reference, question, attempt)
-            .await?;
-        let (_source, artifact) = self.resolve_source(context, reference, question).await?;
         let response = StudentResponse::ExternalTool {};
-        let binding = Self::binding(question, attempt, &artifact, &response)?;
+        let binding = Self::binding(issued_question_snapshot, attempt, &response)?;
+        // A first finalization revalidates the captured object before any
+        // broker mutation. Exact committed replays are selected by the route
+        // before this backend boundary, so they never hydrate this source.
+        let _source = self
+            .resolve_issued_source(attempt, issued_question_snapshot)
+            .await?;
         let grade_binding = Self::correlation_binding(context, attempt);
         // Claim before resolving the one-use proof, so replays and replica races
         // never reach the provider.
@@ -61,6 +63,7 @@ where
                 context,
                 BeginExternalToolGradeCommand {
                     actor,
+                    learner_work_binding,
                     attempt: attempt.id,
                     response: response.clone(),
                     idempotency_key: idempotency_key.clone(),
@@ -82,6 +85,7 @@ where
                     context,
                     CommitVerifiedExternalToolSubmissionCommand {
                         actor,
+                        learner_work_binding,
                         attempt: attempt.id,
                         response,
                         idempotency_key,
@@ -100,6 +104,7 @@ where
                         context,
                         ClaimExternalToolFinalizationActivityCommand {
                             actor,
+                            learner_work_binding,
                             attempt: attempt.id,
                             id: launch_proof.session_id,
                             token: launch_proof.token.clone(),
@@ -136,7 +141,8 @@ where
                                 "external-tool launch state is unavailable".into(),
                             )
                         })?;
-                    let aad = launch_state_aad(context, actor, attempt, &binding);
+                    let aad =
+                        launch_state_aad(context, actor, learner_work_binding, attempt, &binding);
                     let plain = state_aead.open(encrypted, &aad)?;
                     let text = std::str::from_utf8(&plain).map_err(|_| {
                         RunBackendError::Invalid("external-tool launch state is invalid".into())
@@ -176,6 +182,7 @@ where
                     .release_external_tool_activity(
                         context,
                         actor,
+                        learner_work_binding,
                         attempt.id,
                         launch_proof.session_id,
                         &activity_lease.token,
@@ -189,6 +196,7 @@ where
                         context,
                         StageExternalToolVerificationCommand {
                             actor,
+                            learner_work_binding,
                             attempt: attempt.id,
                             response: response.clone(),
                             idempotency_key: idempotency_key.clone(),
@@ -205,6 +213,7 @@ where
                         context,
                         CommitExternalToolSubmissionCommand {
                             actor,
+                            learner_work_binding,
                             attempt: attempt.id,
                             response,
                             idempotency_key,

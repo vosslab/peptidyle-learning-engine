@@ -188,6 +188,58 @@ pub(crate) fn practice_course(
     course(participants, id, PRACTICE_COURSE_TITLE)
 }
 
+/// Builds the exact v1 recipe accepted by the closed installer capability.
+///
+/// Account attributes remain deployment-owned constants inside the capability;
+/// this value binds the five validated identities and both complete course
+/// records to the installation generation before any mutation occurs.
+pub(crate) fn installation_recipe(
+    participants: BaseCourseParticipants,
+    ids: BaseCourseIds,
+) -> Result<serde_json::Value, BaseCourseInstallError> {
+    let base = base_course(participants, ids.base_course)?;
+    let practice = practice_course(participants, ids.practice_course)?;
+    Ok(serde_json::json!({
+        "schemaVersion": 1,
+        "participants": {
+            "elena": participants.primary_instructor().as_uuid(),
+            "mary": participants.mary().as_uuid(),
+            "jack": participants.jack().as_uuid(),
+            "avery": participants.approval_candidate().as_uuid(),
+            "morgan": participants.sysadmin().as_uuid(),
+        },
+        "courses": {
+            "baseCourse": course_recipe(&base, participants.primary_instructor()),
+            "geneticsPractice": course_recipe(&practice, participants.sysadmin()),
+        },
+        "graph": {
+            "workspace": ids.workspace.as_uuid(),
+            "problem": ids.problem.as_uuid(),
+            "version": ids.version.as_uuid(),
+            "assignment": ids.assignment.as_uuid(),
+            "assignmentItem": ids.assignment_item.as_uuid(),
+            "maryRun": ids.mary_run.as_uuid(),
+            "maryAttempt": ids.mary_attempt.as_uuid(),
+            "jackRun": ids.jack_run.as_uuid(),
+            "jackAttempt": ids.jack_attempt.as_uuid(),
+        },
+    }))
+}
+
+fn course_recipe(
+    course: &learning_data_access::CourseRecord,
+    initial_instructor: question_model::UserId,
+) -> serde_json::Value {
+    serde_json::json!({
+        "id": course.id.as_uuid(),
+        "title": course.title,
+        "termStart": COURSE_START,
+        "termEnd": COURSE_END,
+        "timeZone": "America/Chicago",
+        "initialInstructor": initial_instructor.as_uuid(),
+    })
+}
+
 fn course(
     participants: BaseCourseParticipants,
     id: CourseId,
@@ -314,6 +366,57 @@ mod tests {
                 .map(Tag::as_str)
                 .collect::<Vec<_>>(),
             ["biochemistry", "peptide-bond"]
+        );
+    }
+
+    #[test]
+    fn installation_recipe_is_the_exact_closed_v1_contract() {
+        let tenant = TenantId::from_uuid(Uuid::from_u128(9));
+        let participants = participants(tenant);
+        let ids = BaseCourseIds::for_tenant(tenant);
+        let recipe = installation_recipe(participants, ids).unwrap();
+
+        assert_eq!(
+            recipe,
+            serde_json::json!({
+                "schemaVersion": 1,
+                "participants": {
+                    "elena": Uuid::from_u128(10),
+                    "mary": Uuid::from_u128(11),
+                    "jack": Uuid::from_u128(12),
+                    "avery": Uuid::from_u128(13),
+                    "morgan": Uuid::from_u128(14),
+                },
+                "courses": {
+                    "baseCourse": {
+                        "id": ids.base_course.as_uuid(),
+                        "title": BASE_COURSE_TITLE,
+                        "termStart": COURSE_START,
+                        "termEnd": COURSE_END,
+                        "timeZone": "America/Chicago",
+                        "initialInstructor": Uuid::from_u128(10),
+                    },
+                    "geneticsPractice": {
+                        "id": ids.practice_course.as_uuid(),
+                        "title": PRACTICE_COURSE_TITLE,
+                        "termStart": COURSE_START,
+                        "termEnd": COURSE_END,
+                        "timeZone": "America/Chicago",
+                        "initialInstructor": Uuid::from_u128(14),
+                    },
+                },
+                "graph": {
+                    "workspace": ids.workspace.as_uuid(),
+                    "problem": ids.problem.as_uuid(),
+                    "version": ids.version.as_uuid(),
+                    "assignment": ids.assignment.as_uuid(),
+                    "assignmentItem": ids.assignment_item.as_uuid(),
+                    "maryRun": ids.mary_run.as_uuid(),
+                    "maryAttempt": ids.mary_attempt.as_uuid(),
+                    "jackRun": ids.jack_run.as_uuid(),
+                    "jackAttempt": ids.jack_attempt.as_uuid(),
+                },
+            })
         );
     }
 

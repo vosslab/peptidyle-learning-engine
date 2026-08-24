@@ -80,7 +80,13 @@ async fn fixture() -> Fixture {
                     )
                     .expect("term"),
                 },
-                initial_instructor: instructor_user,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor_user,
+                )
+                .await,
             },
         )
         .await
@@ -93,6 +99,7 @@ async fn fixture() -> Fixture {
         store
             .upsert_course_member(
                 context,
+                instructor_user,
                 UpsertCourseMember {
                     course,
                     user: UserId::from_uuid(id(offset)),

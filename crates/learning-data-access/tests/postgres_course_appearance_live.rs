@@ -2,6 +2,10 @@
 
 //! Disposable PostgreSQL oracle for course-appearance CAS, RLS, and current delivery.
 
+#[path = "postgres_course_creation_support.rs"]
+mod course_creation_support;
+use course_creation_support::sysadmin_course_creation_authority;
+
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AuthoritativeTimeStore, COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseAppearanceStore,
@@ -92,7 +96,8 @@ async fn postgres_course_appearance_is_revisioned_role_bound_and_current_only() 
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(&store, tenant, course, instructor)
+                    .await,
             },
         )
         .await
@@ -100,6 +105,7 @@ async fn postgres_course_appearance_is_revisioned_role_bound_and_current_only() 
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,
@@ -270,7 +276,13 @@ async fn postgres_course_appearance_is_revisioned_role_bound_and_current_only() 
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(
+                    &store,
+                    tenant,
+                    other_course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await

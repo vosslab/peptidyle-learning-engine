@@ -66,11 +66,12 @@ export function RunSummaryPage(): JSX.Element {
     });
   });
   async function startPractice(): Promise<void> {
+    const courseId = summary()?.course.summary.id;
     const assignment = assignmentId();
-    if (assignment === undefined) return;
+    if (courseId === undefined || assignment === undefined) return;
     setPracticeError(null);
     try {
-      const run = await runtime.client.startRun(assignment);
+      const run = await runtime.client.startRun(courseId, assignment);
       navigate(`/runs/${runRouteReference(run.reference)}`);
     } catch {
       setPracticeError("Could not start a fresh practice run. Your summary is still available.");

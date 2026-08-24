@@ -32,6 +32,8 @@ mod preview_plane;
 mod qti;
 mod qti_ingress;
 mod queue;
+mod rehearsal;
+mod rehearsal_integrity;
 mod retention;
 mod runs;
 #[cfg(test)]
@@ -42,10 +44,15 @@ mod statistics;
 mod teaching_authority;
 mod teaching_authority_references;
 
+#[cfg(feature = "test-support")]
+pub use state::{
+    MemoryRehearsalClaimTestSnapshot, MemoryRehearsalIntegrityTestCorruption,
+    MemoryRehearsalTestSnapshot,
+};
+
 use activity::{
     add_seconds, apply_memory_attempt_support, complete_memory_attempt_timing_job, issued_timer,
-    projected_attempt, require_attempt_course_records_accessible, require_attempt_owner,
-    timing_policy_grace_seconds,
+    projected_attempt, require_attempt_owner, timing_policy_grace_seconds,
 };
 use catalog::{catalog_record_visible, page_records};
 use course_assignments::{assignment_record, enrollment_record};
@@ -98,16 +105,17 @@ use crate::{
     CourseInvitationId, CourseInvitationSecretHash, CourseListScope, CourseMembershipRecord,
     CourseRecord, CourseRecordsAccessStore, CourseRetentionRecord, CourseRetentionSnapshot,
     CourseRetentionState, CourseRetentionView, CourseRosterId, CourseRosterSupportAudit,
-    CredentialIdHash, Cursor, DeleteAndRegradeAssignmentItemCommand,
+    CreateAssignmentCommand, CredentialIdHash, Cursor, DeleteAndRegradeAssignmentItemCommand,
     DeleteGroupAccommodationCommand, DeleteGroupScheduleOffsetCommand,
     DeleteIndividualPolicyExceptionCommand, DraftRecord, EffectivePolicyResolution,
     EmailChallengeSecretHash, FeedbackReleaseRecord, FlatQuestionGradingPayload,
     ForceSubmitAttemptCommand, InstitutionRetentionPolicy, IssueQuestionAttemptCommand,
     IssuedEffectivePolicyReceipt, Page, PageRequest, PageSize, PasskeyId, PasskeyRecord,
-    PrefetchedQuestion, PublishDraftCommand, PublishedProblemRecord, PublishedSourceArtifact,
+    PrefetchedPrivateExecutionV1, PrefetchedQuestionDescriptorV1, PublishDraftCommand,
+    PublishedProblemRecord, PublishedSourceArtifact,
     PutAssignmentTeachingSettingsCommand, PutCourseGroupCommand, PutGroupAccommodationCommand,
     PutGroupScheduleOffsetCommand, PutIndividualPolicyExceptionCommand, RETENTION_JOB_MAX_ATTEMPTS,
-    ReleaseAttemptFeedbackCommand, RemoveAssignmentFixedItemCommand,
+    ReleaseAttemptFeedbackCommand, RemoveAssignmentFixedItemCommand, ReplaceAssignmentCommand,
     ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand,
     ResolveEffectivePolicyCommand, RetentionApiStore, RetentionCleanupManifest, RetentionDays,
     RetentionDispatchBatch, RetentionRevision, RetentionScheduleStore, RetentionStore,
@@ -199,6 +207,7 @@ fn require_course_records_accessible(
         .ok_or(StoreError::NotFound)
 }
 
+use crate::LearnerWorkRoutingBinding;
 use crate::{
     ClaimedJob, CreateAssignmentExport, EnqueueJob, ExportArtifactKind, ExportArtifactRecord,
     ExportCommitDisposition, ExportId, ExportJobCommit, ExportJobStore, JobFailureDisposition,
@@ -213,6 +222,28 @@ use crate::{QtiImportGradingPayload, QtiImportRegistry};
 use objects::Sha256Digest;
 
 /// Memory backend used by conformance tests and pre-PostgreSQL lanes.
+///
+/// The normal application artifact intentionally excludes destructive rehearsal
+/// integrity fixtures. They are available only to focused conformance builds
+/// that enable the crate's `test-support` feature.
+#[cfg_attr(
+    not(feature = "test-support"),
+    doc = r#"
+```compile_fail
+use learning_data_access::in_memory::{
+    MemoryRehearsalIntegrityTestCorruption, MemoryStore,
+};
+
+let store = MemoryStore::default();
+let _ = store.corrupt_rehearsal_integrity_for_test(
+    MemoryRehearsalIntegrityTestCorruption::RemoveAllSubmissionClaims {
+        tenant: todo!(),
+        rehearsal: todo!(),
+    },
+);
+```
+"#
+)]
 #[derive(Debug, Clone)]
 pub struct MemoryStore {
     state: Arc<RwLock<State>>,
@@ -307,6 +338,7 @@ struct State {
     next_course_reference: u32,
     next_assignment_reference: u32,
     next_run_reference: u32,
+    next_rehearsal_reference: u32,
     next_workspace_reference: u32,
     next_course_group_reference: u32,
     next_account_reference: u32,
@@ -423,6 +455,32 @@ struct State {
         BTreeMap<(TenantId, CourseId, RosterIdempotencyKey), crate::CourseRosterImportId>,
     roster_support_audits: Vec<CourseRosterSupportAudit>,
     preview_subject_audits: Vec<crate::PreviewSubjectAudit>,
+    rehearsal_runs:
+        BTreeMap<(TenantId, question_model::RehearsalRunId), rehearsal::StoredRehearsalRun>,
+    rehearsal_by_reference:
+        BTreeMap<(TenantId, question_model::RehearsalReference), question_model::RehearsalRunId>,
+    rehearsal_active_by_owner: BTreeMap<
+        (TenantId, CourseId, AssignmentId, CourseMembershipId),
+        question_model::RehearsalRunId,
+    >,
+    rehearsal_frozen_items: BTreeMap<
+        (
+            TenantId,
+            question_model::RehearsalRunId,
+            question_model::RehearsalAttemptId,
+        ),
+        question_model::RehearsalFrozenItemEvidence,
+    >,
+    rehearsal_evidence:
+        BTreeMap<(TenantId, question_model::RehearsalRunId), rehearsal::StoredRehearsalEvidence>,
+    rehearsal_submission_claims: BTreeMap<
+        (
+            TenantId,
+            question_model::RehearsalRunId,
+            crate::RehearsalSubmissionIdempotencyKey,
+        ),
+        rehearsal::StoredRehearsalClaim,
+    >,
     manual_grade_export_audits:
         BTreeMap<crate::ManualGradeExportId, (TenantId, CourseId, AssignmentId, UserId, usize)>,
     course_grade_schemes: BTreeMap<(TenantId, CourseId), crate::CourseGradeSchemeRecord>,
@@ -463,6 +521,11 @@ struct State {
     runs: BTreeMap<(TenantId, RunId), AssignmentRun>,
     run_items: BTreeMap<(TenantId, RunId), Vec<AssignmentRunItem>>,
     attempts: BTreeMap<(TenantId, QuestionAttemptId), QuestionAttempt>,
+    /// Closed source/execution evidence fixed when the attempt was issued.
+    /// It is deliberately independent of `published`: learner work can finish
+    /// after an instructor withdraws the current catalog record.
+    attempt_issued_question_snapshots:
+        BTreeMap<(TenantId, QuestionAttemptId), crate::IssuedQuestionSnapshotV1>,
     attempt_presentation_capabilities:
         BTreeMap<(TenantId, QuestionAttemptId), crate::PresentationCapability>,
     attempt_presentations: BTreeMap<(TenantId, QuestionAttemptId), PresentationBindingV1>,
@@ -476,6 +539,9 @@ struct State {
         BTreeMap<(TenantId, QuestionAttemptId), crate::WebworkGradingCapability>,
     attempt_webwork_grading:
         BTreeMap<(TenantId, QuestionAttemptId), crate::IssuedWebworkGradingContract>,
+    attempt_qti_grading_capabilities:
+        BTreeMap<(TenantId, QuestionAttemptId), crate::QtiGradingCapability>,
+    attempt_qti_grading: BTreeMap<(TenantId, QuestionAttemptId), crate::IssuedQtiGradingContractV1>,
     webwork_grade_replay: BTreeMap<(TenantId, QuestionAttemptId), WebworkGradeReplayStateV1>,
     attempt_timing: BTreeMap<(TenantId, QuestionAttemptId), MemoryAttemptTiming>,
     issued_effective_policy_receipts:
@@ -496,7 +562,8 @@ struct State {
     manual_evaluations: BTreeMap<(TenantId, QuestionAttemptId), crate::ManualEvaluationRecord>,
     manual_grade_actions:
         BTreeMap<(TenantId, crate::ManualGradeActionId), manual_grading::MemoryManualGradeReceipt>,
-    prefetched_questions: BTreeMap<(TenantId, RunId, QuestionAttemptId, u32), PrefetchedQuestion>,
+    prefetched_questions: BTreeMap<(TenantId, RunId, QuestionAttemptId, u32), PrefetchedQuestionDescriptorV1>,
+    prefetched_private_execution: BTreeMap<(TenantId, RunId, QuestionAttemptId, u32), PrefetchedPrivateExecutionV1>,
     submissions: BTreeMap<(TenantId, QuestionAttemptId), StoredSubmission>,
     submission_next_attempts:
         BTreeMap<(TenantId, QuestionAttemptId), Option<crate::ReceiptNextAttempt>>,
@@ -683,6 +750,7 @@ struct StatisticsContributionReceipt {
 #[derive(Debug, Clone)]
 struct StoredExternalToolExchange {
     actor: UserId,
+    learner_work_binding: LearnerWorkRoutingBinding,
     binding: ExternalToolBinding,
     response: StudentResponse,
     key: SubmissionIdempotencyKey,
@@ -697,6 +765,7 @@ struct StoredExternalToolExchange {
 struct StoredExternalToolLaunchSession {
     actor: UserId,
     attempt: QuestionAttemptId,
+    learner_work_binding: LearnerWorkRoutingBinding,
     binding: ExternalToolBinding,
     token_hash: Sha256Digest,
     encrypted_provider_state: Option<Vec<u8>>,

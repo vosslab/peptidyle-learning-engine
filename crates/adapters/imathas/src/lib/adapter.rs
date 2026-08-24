@@ -2,7 +2,9 @@
 
 use std::collections::BTreeSet;
 
-use learning_data_access::PublishedSourceArtifact;
+use learning_data_access::{
+    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, PublishedSourceArtifact,
+};
 use objects::{ObjectCategory, ObjectKey, ObjectStore, ObjectStoreError, PutObject};
 use question_model::capability::{BackendCapabilities, Capability};
 use question_model::generation::Seed;
@@ -40,17 +42,75 @@ impl std::fmt::Debug for ImathasSource {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ImathasSource")
-            .field("problem", &self.problem)
-            .field("version", &self.version)
-            .field("artifact", &self.artifact)
-            .field("provider", &self.provider)
-            .field("item_ref", &self.item_ref)
-            .field("profile", &self.profile)
+            .field("source", &"[SERVER-ONLY]")
             .finish_non_exhaustive()
     }
 }
 
 impl ImathasSource {
+    /// Resolves immutable iMathAS source bytes from attempt-owned issuance
+    /// evidence.  Unlike [`Self::resolve`], this never consults the mutable
+    /// publication relation: the snapshot names the exact object and profile
+    /// selected when the attempt was issued.
+    pub async fn resolve_issued<S: ObjectStore>(
+        store: &S,
+        issued_snapshot: &IssuedQuestionSnapshotV1,
+    ) -> Result<Self, ImathasAdapterError> {
+        let question = issued_snapshot.question();
+        let (
+            QuestionSource::Imathas {
+                provider,
+                item_ref,
+                snapshot,
+                snapshot_sha256,
+                integration_profile,
+            },
+            IssuedQuestionFamilyWitnessV1::External {
+                source_artifact,
+                integration_profile_identity,
+            },
+        ) = (&question.source, issued_snapshot.family_witness())
+        else {
+            return Err(ImathasAdapterError::UnsupportedSource);
+        };
+        if !valid_opaque_key(provider)
+            || !valid_item_ref(item_ref)
+            || !valid_opaque_key(integration_profile)
+            || source_artifact.object != *snapshot
+            || source_artifact.sha256 != *snapshot_sha256
+            || integration_profile_identity != integration_profile
+        {
+            return Err(ImathasAdapterError::UntrustedSource);
+        }
+        let key = ObjectKey::ProblemSource {
+            problem: question.problem,
+            version: question.version,
+            object: *snapshot,
+        };
+        let stored = store
+            .get(&key)
+            .await
+            .map_err(ImathasAdapterError::ObjectStore)?;
+        if stored.record.id != *snapshot
+            || stored.record.key != key
+            || stored.record.category != ObjectCategory::Source
+            || stored.record.version != Some(question.version)
+            || stored.record.sha256.to_string() != *snapshot_sha256
+            || hex(Sha256::digest(&stored.bytes).as_slice()) != *snapshot_sha256
+        {
+            return Err(ImathasAdapterError::UntrustedSource);
+        }
+        Ok(Self {
+            problem: question.problem,
+            version: question.version,
+            artifact: source_artifact.clone(),
+            provider: provider.clone(),
+            item_ref: item_ref.clone(),
+            profile: integration_profile.clone(),
+            bytes: stored.bytes,
+        })
+    }
+
     /// Resolves a published iMathAS source only from its exact object key.
     pub async fn resolve<S: ObjectStore>(
         store: &S,

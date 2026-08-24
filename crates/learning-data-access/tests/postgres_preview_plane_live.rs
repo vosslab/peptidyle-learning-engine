@@ -7,15 +7,19 @@
 //! accounts, course members, assignments, and one intentionally auditable
 //! derived preview subject.
 
+#[path = "postgres_course_creation_support.rs"]
+mod course_creation_support;
+use course_creation_support::sysadmin_course_creation_authority;
+
 #[path = "fixtures/published_assignment.rs"]
 mod published_assignment;
 
 use domain::effective_assignment_policy::BaseAssignmentPolicy;
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
-    AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateCourseCommand,
-    DraftRecord, NavigationReferenceStore, PreviewPlaneStore, Store, StoreError, TenantContext,
-    UpsertCourseMember,
+    AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateAssignmentCommand,
+    CreateCourseCommand, DraftRecord, NavigationReferenceStore, PreviewPlaneStore, Store,
+    StoreError, TenantContext, UpsertCourseMember,
 };
 use published_assignment::create_published_assignment;
 use question_model::answer::NumericTolerance;
@@ -206,7 +210,8 @@ async fn postgres_preview_plane_live_oracle_is_authorized_atomic_and_identity_fr
                     term: CourseTerm::from_parts("2026-01-01", "2026-12-31", "America/Chicago")
                         .expect("term"),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(&store, tenant, course, instructor)
+                    .await,
             },
         )
         .await
@@ -218,6 +223,7 @@ async fn postgres_preview_plane_live_oracle_is_authorized_atomic_and_identity_fr
         store
             .upsert_course_member(
                 context,
+                instructor,
                 UpsertCourseMember {
                     course,
                     user,
@@ -462,7 +468,14 @@ async fn postgres_preview_plane_live_oracle_is_authorized_atomic_and_identity_fr
     draft_record.title = "T3 Draft preview assignment".into();
     draft_record.lifecycle = AssignmentLifecycle::Draft;
     let draft = store
-        .create_assignment(context, draft_record, policy)
+        .create_assignment(
+            context,
+            CreateAssignmentCommand {
+                actor: instructor,
+                assignment: draft_record,
+                base_policy: policy,
+            },
+        )
         .await
         .expect("Draft assignment");
     let draft_reference = store

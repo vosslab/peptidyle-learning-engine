@@ -17,6 +17,7 @@ pub(super) async fn assert_student_picker_reference_contract<S>(
         store
             .upsert_course_member(
                 context,
+                instructor,
                 learning_data_access::UpsertCourseMember {
                     course,
                     user: UserId::from_uuid(uuid(offset)),

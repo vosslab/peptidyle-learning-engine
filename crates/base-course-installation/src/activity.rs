@@ -2,8 +2,9 @@
 
 use adapter_native::{NativeAdapter, NativeIssuedAttempt};
 use learning_data_access::{
-    AssignmentRecord, FlatGradingCapability, IssueQuestionAttemptCommand, PageRequest, PageSize,
-    PresentationCapability, Store, StoreError, SubmissionIdempotencyKey,
+    AssignmentRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
+    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, LearnerWorkRoutingBinding,
+    PageRequest, PageSize, PresentationCapability, Store, StoreError, SubmissionIdempotencyKey,
     SubmitQuestionAttemptCommand, TenantContext,
 };
 use question_model::generation::Seed;
@@ -37,6 +38,7 @@ enum ActiveActivityState {
 
 struct InstalledIssuedAttempt {
     envelope: QuestionEnvelope,
+    issued_question_snapshot: IssuedQuestionSnapshotV1,
     parameter_hash: String,
     provenance: AttemptProvenance,
     presentation: PresentationBindingV1,
@@ -111,14 +113,27 @@ async fn ensure_completed_activity(
     let state =
         completed_activity_state(run.as_ref(), attempt.as_ref(), ids, enrollment.id, &issued)?;
     if attempt.is_some() {
-        validate_persisted_issuance(store, context, student, ids.mary_attempt, &issued).await?;
+        validate_persisted_issuance(
+            store,
+            context,
+            student,
+            LearnerWorkRoutingBinding::new(assignment.course_id, assignment.id),
+            ids.mary_attempt,
+            &issued,
+        )
+        .await?;
     }
 
     match state {
         CompletedActivityState::NoRun => {
             reject_unrelated_activity(store, context, enrollment.id, "completed").await?;
             let run = store
-                .start_or_resume_run(context, student, assignment.id, ids.mary_run)
+                .start_or_resume_run(
+                    context,
+                    student,
+                    LearnerWorkRoutingBinding::new(assignment.course_id, assignment.id),
+                    ids.mary_run,
+                )
                 .await
                 .at("starting the completed Base Course run")?;
             let attempt = issue_attempt(
@@ -131,7 +146,16 @@ async fn ensure_completed_activity(
                 &issued,
             )
             .await?;
-            submit_attempt(store, context, student, attempt.id, question, &issued).await
+            submit_attempt(
+                store,
+                context,
+                student,
+                LearnerWorkRoutingBinding::new(ids.base_course, ids.assignment),
+                attempt.id,
+                question,
+                &issued,
+            )
+            .await
         }
         CompletedActivityState::RunWithoutAttempt => {
             let run = run.expect("validated completed activity has a run");
@@ -145,11 +169,29 @@ async fn ensure_completed_activity(
                 &issued,
             )
             .await?;
-            submit_attempt(store, context, student, attempt.id, question, &issued).await
+            submit_attempt(
+                store,
+                context,
+                student,
+                LearnerWorkRoutingBinding::new(ids.base_course, ids.assignment),
+                attempt.id,
+                question,
+                &issued,
+            )
+            .await
         }
         CompletedActivityState::IssuedAttempt => {
             let attempt = attempt.expect("validated completed activity has an attempt");
-            submit_attempt(store, context, student, attempt.id, question, &issued).await
+            submit_attempt(
+                store,
+                context,
+                student,
+                LearnerWorkRoutingBinding::new(ids.base_course, ids.assignment),
+                attempt.id,
+                question,
+                &issued,
+            )
+            .await
         }
         CompletedActivityState::Completed => Ok(()),
     }
@@ -185,14 +227,27 @@ async fn ensure_active_activity(
     }
     let state = active_activity_state(run.as_ref(), attempt.as_ref(), ids, enrollment.id, &issued)?;
     if attempt.is_some() {
-        validate_persisted_issuance(store, context, student, ids.jack_attempt, &issued).await?;
+        validate_persisted_issuance(
+            store,
+            context,
+            student,
+            LearnerWorkRoutingBinding::new(assignment.course_id, assignment.id),
+            ids.jack_attempt,
+            &issued,
+        )
+        .await?;
     }
 
     match state {
         ActiveActivityState::NoRun => {
             reject_unrelated_activity(store, context, enrollment.id, "active").await?;
             let run = store
-                .start_or_resume_run(context, student, assignment.id, ids.jack_run)
+                .start_or_resume_run(
+                    context,
+                    student,
+                    LearnerWorkRoutingBinding::new(assignment.course_id, assignment.id),
+                    ids.jack_run,
+                )
                 .await
                 .at("starting the active Base Course run")?;
             issue_attempt(
@@ -487,11 +542,13 @@ async fn issue_attempt(
             context,
             IssueQuestionAttemptCommand {
                 actor: student,
+                binding: LearnerWorkRoutingBinding::new(ids.base_course, ids.assignment),
                 attempt,
                 run,
                 assignment_position: 0,
                 problem: ids.problem,
                 question_version: ids.version,
+                issued_question_snapshot: issued.issued_question_snapshot.clone(),
                 seed: issued.envelope.seed.value(),
                 presentation_capability: PresentationCapability::EnvelopeV1,
                 presentation: Some(issued.presentation),
@@ -503,6 +560,8 @@ async fn issue_attempt(
                 webwork_grading_capability:
                     learning_data_access::WebworkGradingCapability::NotApplicable,
                 webwork_replay: None,
+                qti_grading: None,
+                qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
                 parameter_hash: issued.parameter_hash.clone(),
                 provenance: issued.provenance.clone(),
                 prefetched: None,
@@ -517,6 +576,7 @@ async fn submit_attempt(
     store: &learning_data_access::postgres::PostgresStore,
     context: TenantContext,
     student: UserId,
+    binding: LearnerWorkRoutingBinding,
     attempt: QuestionAttemptId,
     question: &QuestionDefinition,
     issued: &InstalledIssuedAttempt,
@@ -530,6 +590,7 @@ async fn submit_attempt(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student,
+                binding,
                 attempt,
                 response,
                 result,
@@ -577,8 +638,30 @@ fn installed_issued_attempt(
     let presentation = build_presentation_v1(&envelope, &[]).map_err(|source| {
         BaseCourseInstallError::presentation("building the Base Course presentation", source)
     })?;
+    let issued_question_snapshot = IssuedQuestionSnapshotV1::new(
+        question.clone(),
+        IssuedQuestionFamilyWitnessV1::Native {
+            physical_asset_bindings: Vec::new(),
+        },
+    )
+    .at("building the Base Course issued question snapshot")?;
+    issued_question_snapshot
+        .validate_for_attempt(question.problem, question.version)
+        .at("validating the Base Course issued question identity")?;
+    issued_question_snapshot
+        .validate_for_issuance_context(
+            FlatGradingCapability::NotApplicable,
+            learning_data_access::WebworkGradingCapability::NotApplicable,
+            learning_data_access::QtiGradingCapability::NotApplicable,
+            Some(&learning_data_access::ReceiptPresentationSnapshot {
+                envelope: presentation.envelope.clone(),
+                asset_bindings: presentation.asset_bindings.clone(),
+            }),
+        )
+        .at("validating the Base Course issued question snapshot")?;
     Ok(InstalledIssuedAttempt {
         envelope,
+        issued_question_snapshot,
         parameter_hash,
         provenance,
         presentation: PresentationBindingV1::new(
@@ -622,27 +705,25 @@ async fn validate_persisted_issuance(
     store: &learning_data_access::postgres::PostgresStore,
     context: TenantContext,
     student: UserId,
+    routing: LearnerWorkRoutingBinding,
     attempt: QuestionAttemptId,
     issued: &InstalledIssuedAttempt,
 ) -> Result<(), BaseCourseInstallError> {
-    let binding = store
-        .get_attempt_presentation_binding(context, student, attempt)
+    let read = store
+        .read_issued_attempt_evidence(context, student, routing, attempt)
         .await
-        .at("reading the Base Course presentation binding")?
-        .ok_or_else(|| {
-            BaseCourseInstallError::baseline("an attempt lacks its presentation binding")
-        })?;
-    let snapshot = store
-        .get_attempt_presentation_snapshot(context, student, attempt)
-        .await
-        .at("reading the Base Course presentation snapshot")?
-        .ok_or_else(|| {
-            BaseCourseInstallError::baseline("an attempt lacks its presentation snapshot")
-        })?;
-    let grading_envelope = store
-        .get_attempt_grading_envelope(context, student, attempt)
-        .await
-        .at("reading the Base Course grading envelope")?
+        .at("reading the Base Course issued-attempt evidence")?;
+    // Both Mary (submitted) and Jack (active) validate their common immutable
+    // tuple from this single broker-authorized read (ASVS 2.3.3, 15.4.2).
+    let evidence = read.receipt_evidence();
+    let binding = evidence.presentation_binding().ok_or_else(|| {
+        BaseCourseInstallError::baseline("an attempt lacks its presentation binding")
+    })?;
+    let snapshot = evidence.presentation_snapshot().ok_or_else(|| {
+        BaseCourseInstallError::baseline("an attempt lacks its presentation snapshot")
+    })?;
+    let grading_envelope = evidence
+        .grading_envelope()
         .ok_or_else(|| BaseCourseInstallError::baseline("an attempt lacks its grading envelope"))?;
     let reproduced =
         reproduce_presentation_v1(&issued.envelope, &[], binding).map_err(|source| {
@@ -652,7 +733,7 @@ async fn validate_persisted_issuance(
         envelope: reproduced.envelope,
         asset_bindings: reproduced.asset_bindings,
     };
-    if snapshot != expected_snapshot || grading_envelope != issued.envelope {
+    if snapshot != &expected_snapshot || grading_envelope != &issued.envelope {
         return Err(BaseCourseInstallError::baseline(
             "an attempt does not retain its native issued presentation",
         ));
@@ -790,6 +871,17 @@ mod tests {
     fn native_issue_replay_grading_and_presentation_are_deterministic() {
         let (_, _, _, question) = fixture();
         let issued = installed_issued_attempt(&question, COMPLETED_SEED).unwrap();
+        assert_eq!(issued.issued_question_snapshot.question(), &question);
+        assert!(matches!(
+            issued.issued_question_snapshot.family_witness(),
+            IssuedQuestionFamilyWitnessV1::Native {
+                physical_asset_bindings
+            } if physical_asset_bindings.is_empty()
+        ));
+        issued
+            .issued_question_snapshot
+            .validate_for_attempt(question.problem, question.version)
+            .expect("snapshot is bound to the exact installed question");
         let replay = NativeAdapter::new()
             .reproduce(
                 &question,

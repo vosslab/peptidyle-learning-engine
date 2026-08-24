@@ -5,13 +5,17 @@
 //! The Store constructs lifecycle and policy state. The small SQL probes below
 //! prove only physical persistence, forced RLS, and sealed receipt history.
 
+#[path = "postgres_course_creation_support.rs"]
+mod course_creation_support;
+use course_creation_support::sysadmin_course_creation_authority;
+
 use domain::effective_assignment_policy::BaseAssignmentPolicy;
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
-    AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateCourseCommand,
-    DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand, PresentationCapability,
-    PutAssignmentTeachingSettingsCommand, Store, StoreError, TenantContext, UpsertCourseMember,
-    WebworkGradingCapability,
+    AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateAssignmentCommand,
+    CreateCourseCommand, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
+    LearnerWorkRoutingBinding, PresentationCapability, PutAssignmentTeachingSettingsCommand, Store,
+    StoreError, TenantContext, UpsertCourseMember, WebworkGradingCapability,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -137,9 +141,12 @@ fn issue(
     run: RunId,
     attempt: QuestionAttemptId,
     reference: ProblemVersionRef,
+    course: CourseId,
+    assignment: AssignmentId,
 ) -> IssueQuestionAttemptCommand {
     IssueQuestionAttemptCommand {
         actor: learner,
+        binding: LearnerWorkRoutingBinding::new(course, assignment),
         attempt,
         run,
         assignment_position: 0,
@@ -208,7 +215,8 @@ async fn postgres_assignment_teaching_projection_is_atomic_current_and_rls_bound
                     )
                     .expect("term"),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(&store, tenant, course, instructor)
+                    .await,
             },
         )
         .await
@@ -216,6 +224,7 @@ async fn postgres_assignment_teaching_projection_is_atomic_current_and_rls_bound
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: learner,
@@ -244,28 +253,31 @@ async fn postgres_assignment_teaching_projection_is_atomic_current_and_rls_bound
     let created = store
         .create_assignment(
             context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                title: "T1 lifecycle".to_string(),
-                lifecycle: AssignmentLifecycle::Draft,
-                instructions: AssignmentInstructions::try_new("read first".to_string())
-                    .expect("instructions"),
-                audience: AssignmentAudience::CourseWide,
-                items: vec![AssignmentItem {
-                    id: AssignmentItemId::from_uuid(id()),
-                    reference,
-                    position: 0,
-                    points_possible: PointValue::from_whole(1),
-                    delivery_state: AssignmentDeliveryState::Active,
-                    scoring_mode: AssignmentScoringMode::Normal,
-                }],
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: policies(),
+            CreateAssignmentCommand {
+                actor: instructor,
+                assignment: AssignmentRecord {
+                    id: assignment,
+                    tenant,
+                    course_id: course,
+                    title: "T1 lifecycle".to_string(),
+                    lifecycle: AssignmentLifecycle::Draft,
+                    instructions: AssignmentInstructions::try_new("read first".to_string())
+                        .expect("instructions"),
+                    audience: AssignmentAudience::CourseWide,
+                    items: vec![AssignmentItem {
+                        id: AssignmentItemId::from_uuid(id()),
+                        reference,
+                        position: 0,
+                        points_possible: PointValue::from_whole(1),
+                        delivery_state: AssignmentDeliveryState::Active,
+                        scoring_mode: AssignmentScoringMode::Normal,
+                    }],
+                    selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    policies: policies(),
+                },
+                base_policy: BaseAssignmentPolicy::default(),
             },
-            policy,
         )
         .await
         .expect("draft assignment");
@@ -295,7 +307,12 @@ async fn postgres_assignment_teaching_projection_is_atomic_current_and_rls_bound
         .expect("publish atomically");
     assert_eq!(published.policy, policy);
     let run = store
-        .start_or_resume_run(context, learner, assignment, RunId::from_uuid(id()))
+        .start_or_resume_run(
+            context,
+            learner,
+            LearnerWorkRoutingBinding::new(course, assignment),
+            RunId::from_uuid(id()),
+        )
         .await
         .expect("published G1 permits run");
     let issued = store
@@ -306,6 +323,8 @@ async fn postgres_assignment_teaching_projection_is_atomic_current_and_rls_bound
                 run.id,
                 QuestionAttemptId::from_uuid(id()),
                 reference,
+                course,
+                assignment,
             ),
         )
         .await
@@ -392,7 +411,12 @@ async fn postgres_assignment_teaching_projection_is_atomic_current_and_rls_bound
         .expect("close");
     assert!(
         store
-            .start_or_resume_run(context, learner, assignment, RunId::from_uuid(id()))
+            .start_or_resume_run(
+                context,
+                learner,
+                LearnerWorkRoutingBinding::new(course, assignment),
+                RunId::from_uuid(id()),
+            )
             .await
             .is_err(),
         "closed G1 denies new run"

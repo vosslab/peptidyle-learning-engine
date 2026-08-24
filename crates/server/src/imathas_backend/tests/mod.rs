@@ -10,10 +10,11 @@ use adapter_imathas::{
 };
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
-    AssignmentRecord, BeginExternalToolGradeCommand, CatalogSourceStore, CatalogStore,
-    CourseRecord, CourseRosterStore, CreateCourseCommand, DraftRecord, ExternalToolBegin,
-    ExternalToolBrokerStore, IssueQuestionAttemptCommand, PersistedCorrelation,
-    PublishDraftCommand, StageExternalToolVerificationCommand, Store, UpsertCourseMember,
+    AssignmentRecord, BeginExternalToolGradeCommand, CatalogStore, CourseRecord, CourseRosterStore,
+    CreateCourseCommand, DraftRecord, ExternalToolBegin, ExternalToolBrokerStore,
+    IssueQuestionAttemptCommand, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1,
+    PersistedCorrelation, PublishDraftCommand, StageExternalToolVerificationCommand, Store,
+    UpsertCourseMember,
 };
 use objects::memory::MemoryObjectStore;
 use objects::{ObjectKey, ObjectStore, PutObject, Sha256Digest};
@@ -74,8 +75,10 @@ struct Fixture {
     provider: RecordedImathasProvider,
     context: TenantContext,
     actor: UserId,
+    learner_work_binding: learning_data_access::LearnerWorkRoutingBinding,
     reference: ProblemVersionRef,
     question: QuestionDefinition,
+    issued_question_snapshot: IssuedQuestionSnapshotV1,
     attempt: QuestionAttempt,
 }
 
@@ -207,7 +210,13 @@ async fn fixture() -> Fixture {
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -215,6 +224,7 @@ async fn fixture() -> Fixture {
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: actor,
@@ -227,32 +237,35 @@ async fn fixture() -> Fixture {
     store
         .create_assignment(
             context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                audience: question_model::AssignmentAudience::CourseWide,
-                title: "Recorded assignment".into(),
-                lifecycle: question_model::AssignmentLifecycle::Draft,
-                instructions: question_model::AssignmentInstructions::default(),
-                items: vec![question_model::AssignmentItem {
-                    id: question_model::AssignmentItemId::from_uuid(id(10)),
-                    reference,
-                    position: 0,
-                    points_possible: question_model::PointValue::from_whole(1),
-                    delivery_state: question_model::AssignmentDeliveryState::Active,
-                    scoring_mode: question_model::AssignmentScoringMode::Normal,
-                }],
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: RunPolicies {
-                    completion: CompletionRequirement::AllCorrect,
-                    grade: GradePolicy::Highest,
-                    continued_practice: ContinuedPractice::Unlimited,
-                    variation: question_model::VariationPolicy::NewSeeds,
+            learning_data_access::CreateAssignmentCommand {
+                actor: instructor,
+                assignment: AssignmentRecord {
+                    id: assignment,
+                    tenant,
+                    course_id: course,
+                    audience: question_model::AssignmentAudience::CourseWide,
+                    title: "Recorded assignment".into(),
+                    lifecycle: question_model::AssignmentLifecycle::Draft,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    items: vec![question_model::AssignmentItem {
+                        id: question_model::AssignmentItemId::from_uuid(id(10)),
+                        reference,
+                        position: 0,
+                        points_possible: question_model::PointValue::from_whole(1),
+                        delivery_state: question_model::AssignmentDeliveryState::Active,
+                        scoring_mode: question_model::AssignmentScoringMode::Normal,
+                    }],
+                    selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    policies: RunPolicies {
+                        completion: CompletionRequirement::AllCorrect,
+                        grade: GradePolicy::Highest,
+                        continued_practice: ContinuedPractice::Unlimited,
+                        variation: question_model::VariationPolicy::NewSeeds,
+                    },
                 },
+                base_policy: question_model::BaseAssignmentPolicy::default(),
             },
-            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("assignment");
@@ -270,7 +283,12 @@ async fn fixture() -> Fixture {
     )
     .await;
     let run = store
-        .start_or_resume_run(context, actor, assignment, RunId::from_uuid(id(11)))
+        .start_or_resume_run(
+            context,
+            actor,
+            learning_data_access::LearnerWorkRoutingBinding::new(course, assignment),
+            RunId::from_uuid(id(11)),
+        )
         .await
         .expect("run");
     let provider = RecordedImathasProviderFactory::new(RecordedProviderMode::Verified).build();
@@ -294,6 +312,18 @@ async fn fixture() -> Fixture {
         .issue(context, reference, &question, 17)
         .await
         .expect("issue");
+    let issued_question_snapshot = IssuedQuestionSnapshotV1::new(
+        question.clone(),
+        IssuedQuestionFamilyWitnessV1::External {
+            source_artifact: issued
+                .provenance
+                .source_artifact
+                .clone()
+                .expect("iMathAS issuance source artifact"),
+            integration_profile_identity: "recorded-v1".into(),
+        },
+    )
+    .expect("issued external snapshot");
     let attempt = store
         .issue_or_resume_question_attempt(
             context,
@@ -301,9 +331,11 @@ async fn fixture() -> Fixture {
                 actor,
                 attempt: QuestionAttemptId::from_uuid(id(12)),
                 run: run.id,
+                binding: learning_data_access::LearnerWorkRoutingBinding::new(course, assignment),
                 assignment_position: 0,
                 problem,
                 question_version: version,
+                issued_question_snapshot: issued_question_snapshot.clone(),
                 seed: 17,
                 // External-tool responses do not issue PresentationEnvelopeV1.
                 presentation_capability:
@@ -316,6 +348,8 @@ async fn fixture() -> Fixture {
                 webwork_grading: None,
                 webwork_grading_capability:
                     learning_data_access::WebworkGradingCapability::NotApplicable,
+                qti_grading: None,
+                qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
                 parameter_hash: issued.parameter_hash,
                 provenance: issued.provenance,
                 webwork_replay: None,
@@ -331,8 +365,12 @@ async fn fixture() -> Fixture {
         provider,
         context,
         actor,
+        learner_work_binding: learning_data_access::LearnerWorkRoutingBinding::new(
+            course, assignment,
+        ),
         reference,
         question,
+        issued_question_snapshot,
         attempt,
     }
 }
@@ -347,11 +385,15 @@ fn submission<'a>(
         actor: fixture.actor,
         idempotency_key: learning_data_access::SubmissionIdempotencyKey::parse(key).expect("key"),
         reference: fixture.reference,
-        question: &fixture.question,
+        issued_question_snapshot: &fixture.issued_question_snapshot,
         attempt: &fixture.attempt,
         issued_grading_envelope: None,
         issued_flat_grading: None,
         issued_webwork_grading: None,
+        issued_qti_grading: None,
+        issued_webwork_replay: None,
+        issued_presentation_binding: None,
+        issued_presentation: None,
         response,
     }
 }
@@ -359,21 +401,18 @@ fn submission<'a>(
 #[tokio::test]
 async fn generic_submission_refuses_without_an_authenticated_launch_session() {
     let fixture = fixture().await;
-    let envelope = fixture
-        .backend
-        .reproduce(
-            fixture.context,
-            fixture.reference,
-            &fixture.question,
-            &fixture.attempt,
-        )
-        .await
-        .expect("exact reproduction");
-    assert_eq!(envelope.seed, Seed::new(fixture.attempt.seed));
-    assert_eq!(
-        envelope.response,
-        question_model::ResponseDefinition::ExternalTool {}
-    );
+    assert!(matches!(
+        fixture
+            .backend
+            .reproduce(
+                fixture.context,
+                fixture.reference,
+                &fixture.question,
+                &fixture.attempt,
+            )
+            .await,
+        Err(RunBackendError::Unsupported(_))
+    ));
     let response = StudentResponse::ExternalTool {};
     let refused = fixture
         .backend
@@ -400,11 +439,15 @@ async fn generic_submission_never_reaches_a_provider_without_launch_ownership() 
             )
             .expect("key"),
             reference: fixture.reference,
-            question: &fixture.question,
+            issued_question_snapshot: &fixture.issued_question_snapshot,
             attempt: &parameter_tamper,
             issued_grading_envelope: None,
             issued_flat_grading: None,
             issued_webwork_grading: None,
+            issued_qti_grading: None,
+            issued_webwork_replay: None,
+            issued_presentation_binding: None,
+            issued_presentation: None,
             response: &response,
         })
         .await;
@@ -428,13 +471,6 @@ async fn generic_submission_never_reaches_a_provider_without_launch_ownership() 
     assert!(matches!(provenance, Err(RunBackendError::Invalid(_))));
     assert_eq!(fixture.provider.grade_calls(), 0);
 
-    let mut source_tamper = fixture.question.clone();
-    if let QuestionSource::Imathas {
-        snapshot_sha256, ..
-    } = &mut source_tamper.source
-    {
-        snapshot_sha256.replace_range(..1, "0");
-    }
     let source = fixture
         .backend
         .submit(RunSubmission {
@@ -445,11 +481,15 @@ async fn generic_submission_never_reaches_a_provider_without_launch_ownership() 
             )
             .expect("key"),
             reference: fixture.reference,
-            question: &source_tamper,
+            issued_question_snapshot: &fixture.issued_question_snapshot,
             attempt: &fixture.attempt,
             issued_grading_envelope: None,
             issued_flat_grading: None,
             issued_webwork_grading: None,
+            issued_qti_grading: None,
+            issued_webwork_replay: None,
+            issued_presentation_binding: None,
+            issued_presentation: None,
             response: &response,
         })
         .await;
@@ -458,13 +498,12 @@ async fn generic_submission_never_reaches_a_provider_without_launch_ownership() 
 }
 
 async fn binding_for(fixture: &Fixture, response: &StudentResponse) -> ExternalToolBinding {
-    let artifact = fixture
-        .store
-        .catalog_source_artifact(fixture.context, fixture.reference)
-        .await
-        .expect("source lookup")
-        .expect("source artifact");
-    TestBackend::binding(&fixture.question, &fixture.attempt, &artifact, response).expect("binding")
+    TestBackend::binding(
+        &fixture.issued_question_snapshot,
+        &fixture.attempt,
+        response,
+    )
+    .expect("binding")
 }
 
 #[tokio::test]
@@ -480,6 +519,7 @@ async fn generic_submission_refuses_even_when_a_broker_exchange_exists() {
             tampered_fixture.context,
             BeginExternalToolGradeCommand {
                 actor: tampered_fixture.actor,
+                learner_work_binding: tampered_fixture.learner_work_binding,
                 attempt: tampered_fixture.attempt.id,
                 response: response.clone(),
                 idempotency_key: key.clone(),
@@ -515,6 +555,7 @@ async fn generic_submission_refuses_even_when_a_broker_exchange_exists() {
             in_progress.context,
             BeginExternalToolGradeCommand {
                 actor: in_progress.actor,
+                learner_work_binding: in_progress.learner_work_binding,
                 attempt: in_progress.attempt.id,
                 response: response.clone(),
                 idempotency_key: learning_data_access::SubmissionIdempotencyKey::parse(
@@ -553,6 +594,7 @@ async fn generic_submission_cannot_commit_verified_pending_without_launch_proof(
             fixture.context,
             BeginExternalToolGradeCommand {
                 actor: fixture.actor,
+                learner_work_binding: fixture.learner_work_binding,
                 attempt: fixture.attempt.id,
                 response: response.clone(),
                 idempotency_key: key.clone(),
@@ -575,6 +617,7 @@ async fn generic_submission_cannot_commit_verified_pending_without_launch_proof(
             fixture.context,
             StageExternalToolVerificationCommand {
                 actor: fixture.actor,
+                learner_work_binding: fixture.learner_work_binding,
                 attempt: fixture.attempt.id,
                 response: response.clone(),
                 idempotency_key: key,

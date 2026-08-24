@@ -117,7 +117,10 @@ pub struct StoredCourseGroupPurposePolicy {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UpdateCourseGroupPurposePolicyCommand {
-    pub actor: UserId,
+    /// Opaque authenticated-session capability. The Store resolves its live
+    /// subject while it performs the policy CAS; callers cannot nominate an
+    /// authority-bearing user identifier.
+    pub session: crate::SessionTokenHash,
     pub course: CourseId,
     pub expected_revision: CourseGroupPurposePolicyRevision,
     pub policy: CourseGroupPurposePolicy,

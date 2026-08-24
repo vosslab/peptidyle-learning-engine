@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use grading::GradeOutcome;
 use learning_data_access::{
     AssetStore, FlatGradingCapability, FlatQuestionGradingStore, IssuedFlatGradingContract,
-    StoreError, TenantContext,
+    IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, StoreError, TenantContext,
 };
 use question_model::generation::Seed;
 use question_model::{
@@ -140,6 +140,8 @@ where
             webwork_grading: None,
             webwork_grading_capability:
                 learning_data_access::WebworkGradingCapability::NotApplicable,
+            qti_grading: None,
+            qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
         })
     }
 
@@ -197,10 +199,10 @@ where
     ) -> Result<SubmissionDisposition, RunBackendError> {
         validate_attempt_reference(
             submission.reference,
-            submission.question,
+            submission.question(),
             submission.attempt,
         )?;
-        if is_flat_question(submission.question) {
+        if is_flat_question(submission.question()) {
             let contract = submission.issued_flat_grading.ok_or_else(|| {
                 RunBackendError::Unavailable(
                     "flat-question issued grading contract is unavailable".to_string(),
@@ -223,13 +225,11 @@ where
                 )),
             };
         }
-        let bindings = self
-            .asset_bindings(submission.context, submission.reference)
-            .await?;
+        let bindings = self.issued_asset_bindings(submission.issued_question_snapshot)?;
         let (outcome, feedback) = self
             .adapter
             .grade_with_feedback(
-                submission.question,
+                submission.question(),
                 Seed::new(submission.attempt.seed),
                 &submission.attempt.parameter_hash,
                 &submission.attempt.provenance,
@@ -276,6 +276,27 @@ where
                     })
                     .collect()
             })
+    }
+
+    fn issued_asset_bindings(
+        &self,
+        snapshot: &IssuedQuestionSnapshotV1,
+    ) -> Result<Vec<adapter_native::AssetObjectBinding>, RunBackendError> {
+        let IssuedQuestionFamilyWitnessV1::Native {
+            physical_asset_bindings,
+        } = snapshot.family_witness()
+        else {
+            return Err(RunBackendError::Unavailable(
+                "native issued snapshot family is unavailable".to_string(),
+            ));
+        };
+        Ok(physical_asset_bindings
+            .iter()
+            .map(|binding| adapter_native::AssetObjectBinding {
+                asset: binding.asset,
+                object: binding.object,
+            })
+            .collect())
     }
 
     async fn flat_evaluate(

@@ -740,15 +740,15 @@ async fn disabled_imathas_does_not_mount_protected_broker_routes() {
     for (method, path) in [
         (
             "GET",
-            "/api/attempts/00000000-0000-0000-0000-000000000001/external-tool/launch",
+            "/api/courses/00000000-0000-0000-0000-000000000002/assignments/00000000-0000-0000-0000-000000000003/attempts/00000000-0000-0000-0000-000000000001/external-tool/launch",
         ),
         (
             "GET",
-            "/api/attempts/00000000-0000-0000-0000-000000000001/external-tool/launch/activity",
+            "/api/courses/00000000-0000-0000-0000-000000000002/assignments/00000000-0000-0000-0000-000000000003/attempts/00000000-0000-0000-0000-000000000001/external-tool/launch/activity",
         ),
         (
             "POST",
-            "/api/attempts/00000000-0000-0000-0000-000000000001/external-tool/launch/submission",
+            "/api/courses/00000000-0000-0000-0000-000000000002/assignments/00000000-0000-0000-0000-000000000003/attempts/00000000-0000-0000-0000-000000000001/external-tool/launch/submission",
         ),
     ] {
         let response = app

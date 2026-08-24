@@ -1,7 +1,6 @@
 //! Run-query and learner-projection capability; this module owns its route behavior.
 
 use super::contracts::RunBackend;
-use super::prefetch::load_run_question;
 use super::submission::{apply_learner_disclosure, project_run_feedback};
 use super::support::*;
 
@@ -371,18 +370,17 @@ where
     )
 }
 
-/// Returns the exact, key-free envelope for an already issued attempt.
+/// Returns the exact, answer-free delivery envelope for a route-bound attempt.
 ///
-/// Native and WeBWorK attempts carry an owned, answer-free issuance snapshot.
-/// In particular, a submitted attempt must never be rebuilt from current
-/// catalog or renderer state: a receipt is historical even if authored content
-/// later changes. Response families without a native envelope retain the
-/// contracted backend path while active, but cannot be reconstructed after a
-/// submission.
+/// The one Store call atomically verifies the complete route tuple and current
+/// learner authority before choosing active versus immutable-receipt delivery:
+/// ASVS 2.2.1-2.2.3, 2.3.3, 8.2.2, 8.3.1, 8.4.1, and 15.4.2. It supplies the
+/// minimum answer-free representation only (ASVS 14.2.6), and refusal stays
+/// generic and fail-closed (ASVS 16.5.1, 16.5.3).
 pub(super) async fn get_attempt_question<S, B>(
     State(state): State<RunRouteState<S, B>>,
     headers: HeaderMap,
-    Path(attempt_id): Path<QuestionAttemptId>,
+    Path((course, assignment, attempt_id)): Path<(CourseId, AssignmentId, QuestionAttemptId)>,
 ) -> Response
 where
     S: Store + CatalogStore + SessionStore + 'static,
@@ -392,77 +390,40 @@ where
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
-    let attempt = match state
+    match state
         .store
-        .learner_get_question_attempt(
+        .read_issued_attempt_evidence(
             authenticated.tenant_context,
             authenticated.record.subject.user(),
+            LearnerWorkRoutingBinding::new(course, assignment),
             attempt_id,
         )
         .await
     {
-        Ok(Some(attempt)) => attempt,
-        Ok(None) => return error_response(StatusCode::NOT_FOUND, "attempt not found"),
-        Err(error) => return store_error_response(error),
-    };
-    if let Err(response) = authorized_run(state.store.as_ref(), &authenticated, attempt.run).await {
-        return response;
-    }
-    if attempt.response.is_some() {
-        // A submitted question is historical. Read its immutable receipt,
-        // including the receipt copy of the issuance snapshot, rather than
-        // allowing a catalog edit or renderer change to alter the GET result.
-        return match state
-            .store
-            .submission_record(
-                authenticated.tenant_context,
-                authenticated.record.subject.user(),
-                attempt.id,
-            )
-            .await
-        {
-            Ok(Some(record)) => match record.presentation {
-                Some(snapshot) => no_store(Json(snapshot.envelope).into_response()),
-                None => error_response(
-                    StatusCode::CONFLICT,
-                    "submitted attempt has no native presentation receipt",
-                ),
-            },
-            Ok(None) => error_response(
-                StatusCode::CONFLICT,
+        // ASVS 2.3.3 and 15.4.2: the broker returns this lifecycle and its
+        // immutable evidence from one authorization-bound transaction.
+        Ok(IssuedAttemptRead::Active(evidence)) => match evidence.presentation_snapshot() {
+            Some(snapshot) => no_store(Json(snapshot.envelope.clone()).into_response()),
+            None => error_response(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "issued presentation is unavailable",
+            ),
+        },
+        Ok(IssuedAttemptRead::Submitted(read)) => match read.presentation() {
+            Some(snapshot) => no_store(Json(snapshot.envelope.clone()).into_response()),
+            None => error_response(
+                StatusCode::SERVICE_UNAVAILABLE,
                 "submitted attempt receipt is unavailable",
             ),
-            Err(error) => store_error_response(error),
-        };
-    }
-    match state
-        .store
-        .get_attempt_presentation_snapshot(
-            authenticated.tenant_context,
-            authenticated.record.subject.user(),
-            attempt.id,
-        )
-        .await
-    {
-        Ok(Some(snapshot)) => return no_store(Json(snapshot.envelope).into_response()),
-        Ok(None) => {}
-        Err(error) => return store_error_response(error),
-    };
-    let reference = ProblemVersionRef {
-        problem: attempt.problem,
-        version: attempt.question_version,
-    };
-    let question = match load_run_question(state.store.as_ref(), &authenticated, reference).await {
-        Ok(question) => question,
-        Err(response) => return response,
-    };
-    match state
-        .backend
-        .reproduce(authenticated.tenant_context, reference, &question, &attempt)
-        .await
-    {
-        Ok(envelope) => no_store(Json(envelope).into_response()),
-        Err(error) => backend_error_response(error),
+        },
+        Ok(IssuedAttemptRead::TerminalWithoutReceipt(_)) => error_response(
+            StatusCode::CONFLICT,
+            "terminal attempt has no question-delivery receipt",
+        ),
+        Err(StoreError::NotFound | StoreError::Forbidden | StoreError::TenantMismatch) => {
+            error_response(StatusCode::NOT_FOUND, "attempt not found")
+        }
+        Err(error) => store_error_response(error),
     }
 }
 

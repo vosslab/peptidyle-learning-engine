@@ -41,6 +41,10 @@ impl BaseCourseManifest {
             version_id,
         }
     }
+
+    pub(crate) fn question_id(&self) -> &QuestionId {
+        &self.question_id
+    }
 }
 
 /// Observable lifecycle action performed by one installer call.
@@ -82,6 +86,8 @@ pub struct BaseCourseInstallOutput {
     storage_receipt_json: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     storage_receipt_sha256: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    completion_receipt_sha256: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     manifest: Option<BaseCourseManifest>,
 }
@@ -169,6 +175,7 @@ pub(crate) fn output(
     install_state: BaseCourseInstallStateOutput,
     installation_generation: Uuid,
     storage_receipt_sha256: Option<String>,
+    completion_receipt_sha256: Option<String>,
     manifest: Option<BaseCourseManifest>,
 ) -> Result<BaseCourseInstallOutput, BaseCourseInstallError> {
     Ok(BaseCourseInstallOutput {
@@ -182,6 +189,7 @@ pub(crate) fn output(
         storage_receipt_key: STORAGE_RECEIPT_KEY,
         storage_receipt_json: canonical_storage_receipt(installation_generation)?,
         storage_receipt_sha256,
+        completion_receipt_sha256,
         manifest,
     })
 }
@@ -244,11 +252,56 @@ mod tests {
             Uuid::from_u128(6),
             None,
             None,
+            None,
         )
         .unwrap();
         assert_eq!(
             serde_json::to_string(&value).unwrap(),
             "{\"schemaVersion\":1,\"action\":\"prepared\",\"installState\":\"installing\",\"baselineVersion\":\"base-course-v1\",\"objectManifest\":[],\"installationGeneration\":\"00000000-0000-0000-0000-000000000006\",\"storageReceiptBucket\":\"private-content\",\"storageReceiptKey\":\"ple/live-demo/base-course-install-receipt.json\",\"storageReceiptJson\":\"{\\\"schemaVersion\\\":1,\\\"baselineVersion\\\":\\\"base-course-v1\\\",\\\"installationGeneration\\\":\\\"00000000-0000-0000-0000-000000000006\\\",\\\"storageReceiptBucket\\\":\\\"private-content\\\",\\\"storageReceiptKey\\\":\\\"ple/live-demo/base-course-install-receipt.json\\\",\\\"objectManifest\\\":[]}\"}"
         );
+
+        let manifest = BaseCourseManifest::new(
+            AssignmentId::from_uuid(Uuid::from_u128(1)),
+            EnrollmentId::from_uuid(Uuid::from_u128(2)),
+            QuestionId::from_canonical_parts("000000", '0').unwrap(),
+            ProblemId::from_uuid(Uuid::from_u128(3)),
+            VersionId::from_uuid(Uuid::from_u128(4)),
+        );
+        for (action, action_name) in [
+            (BaseCourseAction::Installed, "installed"),
+            (BaseCourseAction::Resumed, "resumed"),
+        ] {
+            let complete = output(
+                action,
+                BaseCourseInstallStateOutput::Complete,
+                Uuid::from_u128(6),
+                Some("a".repeat(64)),
+                Some("b".repeat(64)),
+                Some(manifest.clone()),
+            )
+            .unwrap();
+            assert_eq!(
+                serde_json::to_string(&complete).unwrap(),
+                format!(
+                    "{{\"schemaVersion\":1,\"action\":\"{action_name}\",\"installState\":\"complete\",\"baselineVersion\":\"base-course-v1\",\"objectManifest\":[],\"installationGeneration\":\"00000000-0000-0000-0000-000000000006\",\"storageReceiptBucket\":\"private-content\",\"storageReceiptKey\":\"ple/live-demo/base-course-install-receipt.json\",\"storageReceiptJson\":\"{{\\\"schemaVersion\\\":1,\\\"baselineVersion\\\":\\\"base-course-v1\\\",\\\"installationGeneration\\\":\\\"00000000-0000-0000-0000-000000000006\\\",\\\"storageReceiptBucket\\\":\\\"private-content\\\",\\\"storageReceiptKey\\\":\\\"ple/live-demo/base-course-install-receipt.json\\\",\\\"objectManifest\\\":[]}}\",\"storageReceiptSha256\":\"{}\",\"completionReceiptSha256\":\"{}\",\"manifest\":{{\"assignmentId\":\"00000000-0000-0000-0000-000000000001\",\"enrollmentId\":\"00000000-0000-0000-0000-000000000002\",\"questionId\":\"000-0000\",\"problemId\":\"00000000-0000-0000-0000-000000000003\",\"versionId\":\"00000000-0000-0000-0000-000000000004\"}}}}",
+                    "a".repeat(64),
+                    "b".repeat(64),
+                )
+            );
+        }
+
+        let retained = output(
+            BaseCourseAction::Retained,
+            BaseCourseInstallStateOutput::Complete,
+            Uuid::from_u128(6),
+            Some("a".repeat(64)),
+            Some("b".repeat(64)),
+            None,
+        )
+        .unwrap();
+        let retained = serde_json::to_value(retained).unwrap();
+        assert_eq!(retained["action"], "retained");
+        assert_eq!(retained["completionReceiptSha256"], "b".repeat(64));
+        assert!(retained.get("manifest").is_none());
     }
 }

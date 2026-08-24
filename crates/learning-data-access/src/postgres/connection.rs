@@ -4,16 +4,22 @@ use std::future::Future;
 use std::str::FromStr;
 use std::time::Duration;
 
-use serde::Deserialize;
 use sqlx::postgres::{PgConnectOptions, PgConnection, PgPool, PgPoolOptions, PgSslMode};
 use sqlx::types::Json;
 use sqlx::{Executor, Row};
 
 use crate::StoreError;
 
+#[path = "connection_contract.rs"]
+mod connection_contract;
+use connection_contract::*;
+
 const ACQUIRE_TIMEOUT: Duration = Duration::from_secs(5);
 const IDLE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const MAX_LIFETIME: Duration = Duration::from_secs(30 * 60);
+const STANDARD_POOL_MAX_CONNECTIONS: u32 = 8;
+const BASE_COURSE_POOL_MAX_CONNECTIONS: u32 = 1;
+const GRADER_POOL_MAX_CONNECTIONS: u32 = 4;
 const TRANSACTION_ATTEMPTS: u8 = 3;
 
 /// Fixed least-privilege identities accepted by production process pools.
@@ -32,118 +38,16 @@ pub enum ProductionLoginProfile {
     Publisher,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct LoginAuthority {
-    current_user: String,
-    session_user: String,
-    superuser: bool,
-    create_database: bool,
-    create_role: bool,
-    inherit: bool,
-    replication: bool,
-    bypass_rls: bool,
-    can_login: bool,
-    direct_memberships: Vec<DirectMembership>,
-}
-
-/// The authority carried by a NOLOGIN capability role which a process enters
-/// with `SET LOCAL ROLE`.
+/// An attested pool reserved for the short-lived Base Course installer.
 ///
-/// Attesting only the process login is insufficient: PostgreSQL applies the
-/// selected role's attributes and memberships for every tenant transaction.
-/// Capability roles therefore have their own closed authority contract.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct CapabilityAuthority {
-    role_name: String,
-    superuser: bool,
-    create_database: bool,
-    create_role: bool,
-    inherit: bool,
-    replication: bool,
-    bypass_rls: bool,
-    can_login: bool,
-    direct_memberships: Vec<DirectMembership>,
-}
+/// The inner pool remains private so callers cannot accidentally pass an API,
+/// migration, or ordinary application pool to the installer facade.
+#[derive(Clone)]
+pub struct BaseCourseInstallerPool(PgPool);
 
-/// The privilege controls on one direct PostgreSQL role membership.
-///
-/// PostgreSQL 17 records these on `pg_auth_members`: `ADMIN OPTION` lets the
-/// member grant the capability role to another principal, `INHERIT` makes the
-/// capability effective without an explicit role change, and `SET` permits
-/// `SET ROLE` to that capability.  The process principals must not delegate or
-/// automatically inherit a capability.  They deliberately retain `SET` only
-/// for the exact, connection-attested capability roles, because every database
-/// operation enters that role with `SET LOCAL ROLE` inside its transaction.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-struct DirectMembership {
-    role_name: String,
-    admin_option: bool,
-    inherit_option: bool,
-    set_option: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct ExpectedMembership {
-    role_name: &'static str,
-    set_option: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum LoginContract {
-    Production(ProductionLoginProfile),
-    Grader,
-}
-
-impl LoginContract {
-    fn expected_login(self) -> &'static str {
-        match self {
-            Self::Production(ProductionLoginProfile::Api) => "ple_api_login",
-            Self::Production(ProductionLoginProfile::Worker) => "ple_worker_login",
-            Self::Production(ProductionLoginProfile::InvitationDeliveryWorker) => {
-                "ple_invitation_delivery_worker_login"
-            }
-            Self::Production(ProductionLoginProfile::Publisher) => "ple_publisher_login",
-            Self::Grader => "ple_grading_reader",
-        }
-    }
-
-    fn expected_memberships(self) -> &'static [ExpectedMembership] {
-        match self {
-            Self::Production(ProductionLoginProfile::Api) => &[
-                ExpectedMembership {
-                    role_name: "ple_app",
-                    set_option: true,
-                },
-                ExpectedMembership {
-                    role_name: "ple_auth",
-                    set_option: true,
-                },
-            ],
-            Self::Production(ProductionLoginProfile::Worker) => &[ExpectedMembership {
-                role_name: "ple_app",
-                set_option: true,
-            }],
-            Self::Production(ProductionLoginProfile::InvitationDeliveryWorker) => {
-                &[ExpectedMembership {
-                    role_name: "ple_invitation_delivery_worker",
-                    set_option: true,
-                }]
-            }
-            Self::Production(ProductionLoginProfile::Publisher) => &[ExpectedMembership {
-                role_name: "ple_public_asset_publisher",
-                set_option: true,
-            }],
-            Self::Grader => &[],
-        }
-    }
-
-    /// NOLOGIN roles which this login may make effective inside a transaction.
-    ///
-    /// The list is deliberately derived from the exact login-membership
-    /// contract: adding a new `SET ROLE` path must also add startup attestation
-    /// for that role.
-    fn expected_capabilities(self) -> &'static [ExpectedMembership] {
-        self.expected_memberships()
+impl BaseCourseInstallerPool {
+    pub(super) fn acquire_pool(&self) -> &PgPool {
+        &self.0
     }
 }
 
@@ -157,7 +61,7 @@ fn pool_options(max_connections: u32) -> PgPoolOptions {
 
 /// Builds the bounded lazy application pool.
 pub fn lazy_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
-    pool_options(8).connect_lazy(database_url)
+    pool_options(STANDARD_POOL_MAX_CONNECTIONS).connect_lazy(database_url)
 }
 
 /// Builds a lazy production pool with a verified transport and per-connection
@@ -171,18 +75,98 @@ pub fn production_pool(
 ) -> Result<PgPool, sqlx::Error> {
     let contract = LoginContract::Production(profile);
     let options = verified_connect_options(database_url, contract)?;
-    Ok(pool_options(8)
+    Ok(attested_pool(
+        options,
+        contract,
+        STANDARD_POOL_MAX_CONNECTIONS,
+    ))
+}
+
+/// Builds a local-development pool while preserving the exact process-login
+/// and effective-capability attestation. The caller chooses this only for the
+/// disposable plaintext stack; production always uses [`production_pool`].
+pub fn local_development_pool(
+    database_url: &str,
+    profile: ProductionLoginProfile,
+) -> Result<PgPool, sqlx::Error> {
+    let contract = LoginContract::Production(profile);
+    let options = local_connect_options(database_url, contract)?;
+    Ok(attested_pool(
+        options,
+        contract,
+        STANDARD_POOL_MAX_CONNECTIONS,
+    ))
+}
+
+/// Builds the only production installer pool accepted by the Base Course
+/// installer facade.
+pub fn base_course_installer_pool(
+    database_url: &str,
+) -> Result<BaseCourseInstallerPool, sqlx::Error> {
+    let contract = LoginContract::BaseCourseInstaller;
+    let options = verified_connect_options(database_url, contract)?;
+    Ok(BaseCourseInstallerPool(attested_pool(
+        options,
+        contract,
+        BASE_COURSE_POOL_MAX_CONNECTIONS,
+    )))
+}
+
+/// Builds the only disposable-stack installer pool accepted by the Base Course
+/// installer facade while retaining the exact installer-login attestation.
+pub fn local_base_course_installer_pool(
+    database_url: &str,
+) -> Result<BaseCourseInstallerPool, sqlx::Error> {
+    let contract = LoginContract::BaseCourseInstaller;
+    let options = local_connect_options(database_url, contract)?;
+    Ok(BaseCourseInstallerPool(attested_pool(
+        options,
+        contract,
+        BASE_COURSE_POOL_MAX_CONNECTIONS,
+    )))
+}
+
+/// Builds the dedicated one-connection production application pool used only
+/// by Base Course convergence.
+pub fn base_course_application_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
+    let contract = LoginContract::BaseCourseApplication;
+    let options = verified_connect_options(database_url, contract)?;
+    Ok(attested_pool(
+        options,
+        contract,
+        BASE_COURSE_POOL_MAX_CONNECTIONS,
+    ))
+}
+
+/// Builds the dedicated one-connection disposable-stack application pool used
+/// only by Base Course convergence.
+pub fn local_base_course_application_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
+    let contract = LoginContract::BaseCourseApplication;
+    let options = local_connect_options(database_url, contract)?;
+    Ok(attested_pool(
+        options,
+        contract,
+        BASE_COURSE_POOL_MAX_CONNECTIONS,
+    ))
+}
+
+fn attested_pool(
+    options: PgConnectOptions,
+    contract: LoginContract,
+    max_connections: u32,
+) -> PgPool {
+    pool_options(max_connections)
         .after_connect(move |connection, _metadata| {
             Box::pin(async move { verify_login_authority(connection, contract).await })
         })
-        .connect_lazy_with(options))
+        .connect_lazy_with(options)
 }
 
 /// Connects the bounded dedicated QTI grader pool.
 pub(super) async fn connect_grader_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
     let contract = LoginContract::Grader;
     let options = verified_connect_options(database_url, contract)?;
-    pool_options(4)
+    pool_options(GRADER_POOL_MAX_CONNECTIONS)
         .after_connect(move |connection, _metadata| {
             Box::pin(async move { verify_login_authority(connection, contract).await })
         })
@@ -195,7 +179,7 @@ pub(super) async fn connect_grader_pool(database_url: &str) -> Result<PgPool, sq
 pub(super) async fn connect_local_grader_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
     let contract = LoginContract::Grader;
     let options = local_connect_options(database_url, contract)?;
-    pool_options(4)
+    pool_options(GRADER_POOL_MAX_CONNECTIONS)
         .after_connect(move |connection, _metadata| {
             Box::pin(async move { verify_login_authority(connection, contract).await })
         })
@@ -212,7 +196,7 @@ fn local_connect_options(
     if options.get_username() != contract.expected_login() {
         return Err(sqlx::Error::Configuration(
             format!(
-                "local grader URL must use the {} login",
+                "local database URL must use the {} login",
                 contract.expected_login()
             )
             .into(),
@@ -500,8 +484,8 @@ mod tests {
     fn connection_class_errors_are_not_schema_incompatibilities() {
         assert!(is_connection_error(&sqlx::Error::PoolTimedOut));
         assert!(is_connection_error(&sqlx::Error::PoolClosed));
-        let options = pool_options(8);
-        assert_eq!(options.get_max_connections(), 8);
+        let options = pool_options(STANDARD_POOL_MAX_CONNECTIONS);
+        assert_eq!(options.get_max_connections(), STANDARD_POOL_MAX_CONNECTIONS);
         assert_eq!(options.get_acquire_timeout(), Duration::from_secs(5));
         assert_eq!(
             options.get_idle_timeout(),
@@ -510,6 +494,65 @@ mod tests {
         assert_eq!(
             options.get_max_lifetime(),
             Some(Duration::from_secs(30 * 60))
+        );
+    }
+
+    #[tokio::test]
+    async fn named_pool_factories_preserve_their_resource_contracts() {
+        let lazy = lazy_pool("postgres://ignored:secret@db.example/ple").unwrap();
+        assert_eq!(
+            lazy.options().get_max_connections(),
+            STANDARD_POOL_MAX_CONNECTIONS
+        );
+
+        let production = production_pool(
+            "postgres://ple_api_login:secret@db.example/ple?sslmode=verify-full",
+            ProductionLoginProfile::Api,
+        )
+        .unwrap();
+        let local = local_development_pool(
+            "postgres://ple_worker_login:secret@db.example/ple",
+            ProductionLoginProfile::Worker,
+        )
+        .unwrap();
+        for pool in [production, local] {
+            assert_eq!(
+                pool.options().get_max_connections(),
+                STANDARD_POOL_MAX_CONNECTIONS
+            );
+        }
+
+        let production_installer = base_course_installer_pool(
+            "postgres://ple_base_course_installer_login:secret@db.example/ple?sslmode=verify-full",
+        )
+        .unwrap();
+        let local_installer = local_base_course_installer_pool(
+            "postgres://ple_base_course_installer_login:secret@db.example/ple",
+        )
+        .unwrap();
+        let production_application = base_course_application_pool(
+            "postgres://ple_base_course_app_login:secret@db.example/ple?sslmode=verify-full",
+        )
+        .unwrap();
+        let local_application = local_base_course_application_pool(
+            "postgres://ple_base_course_app_login:secret@db.example/ple",
+        )
+        .unwrap();
+        for pool in [
+            production_installer.0,
+            local_installer.0,
+            production_application,
+            local_application,
+        ] {
+            assert_eq!(
+                pool.options().get_max_connections(),
+                BASE_COURSE_POOL_MAX_CONNECTIONS
+            );
+        }
+
+        assert_eq!(
+            pool_options(GRADER_POOL_MAX_CONNECTIONS).get_max_connections(),
+            GRADER_POOL_MAX_CONNECTIONS
         );
     }
 
@@ -535,6 +578,16 @@ mod tests {
                 })
                 .collect(),
         }
+    }
+
+    #[test]
+    fn grader_contract_attests_only_its_settable_capability_role() {
+        let expected = [ExpectedMembership {
+            role_name: "ple_grader",
+            set_option: true,
+        }];
+        assert_eq!(LoginContract::Grader.expected_memberships(), expected);
+        assert_eq!(LoginContract::Grader.expected_capabilities(), expected);
     }
 
     fn capability_authority(role_name: &str) -> CapabilityAuthority {
@@ -595,6 +648,29 @@ mod tests {
             )
             .is_ok()
         );
+        let base_course_application = LoginContract::BaseCourseApplication;
+        assert!(
+            verified_connect_options(
+                "postgres://ple_base_course_app_login:secret@db.example/ple?sslmode=verify-full",
+                base_course_application,
+            )
+            .is_ok()
+        );
+        let base_course_installer = LoginContract::BaseCourseInstaller;
+        assert!(
+            verified_connect_options(
+                "postgres://ple_base_course_installer_login:secret@db.example/ple?sslmode=verify-full",
+                base_course_installer,
+            )
+            .is_ok()
+        );
+        assert!(
+            verified_connect_options(
+                "postgres://ple_base_course_app_login:secret@db.example/ple?sslmode=verify-full",
+                base_course_installer,
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -604,6 +680,8 @@ mod tests {
             LoginContract::Production(ProductionLoginProfile::Worker),
             LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
             LoginContract::Production(ProductionLoginProfile::Publisher),
+            LoginContract::BaseCourseApplication,
+            LoginContract::BaseCourseInstaller,
             LoginContract::Grader,
         ] {
             assert!(login_authority_matches(&authority(contract), contract));
@@ -638,7 +716,17 @@ mod tests {
             LoginContract::Production(ProductionLoginProfile::Worker),
             LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
             LoginContract::Production(ProductionLoginProfile::Publisher),
+            LoginContract::BaseCourseApplication,
+            LoginContract::BaseCourseInstaller,
+            LoginContract::Grader,
         ] {
+            let mut missing = authority(contract);
+            missing.direct_memberships.clear();
+            assert!(
+                !login_authority_matches(&missing, contract),
+                "{contract:?} must retain its exact capability membership"
+            );
+
             let mut delegable = authority(contract);
             delegable.direct_memberships[0].admin_option = true;
             assert!(
@@ -659,6 +747,15 @@ mod tests {
                 !login_authority_matches(&cannot_enter_expected_role, contract),
                 "{contract:?} must retain only its attested SET LOCAL ROLE path"
             );
+
+            let mut unscoped = authority(contract);
+            unscoped.direct_memberships[0]
+                .role_name
+                .push_str("_unscoped");
+            assert!(
+                !login_authority_matches(&unscoped, contract),
+                "{contract:?} must not accept an unscoped capability role"
+            );
         }
     }
 
@@ -669,6 +766,9 @@ mod tests {
             LoginContract::Production(ProductionLoginProfile::Worker),
             LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
             LoginContract::Production(ProductionLoginProfile::Publisher),
+            LoginContract::BaseCourseApplication,
+            LoginContract::BaseCourseInstaller,
+            LoginContract::Grader,
         ] {
             for expected in contract.expected_capabilities() {
                 assert!(capability_authority_matches(
@@ -677,7 +777,6 @@ mod tests {
                 ));
             }
         }
-        assert!(LoginContract::Grader.expected_capabilities().is_empty());
         assert!(login_authority_matches(
             &authority(LoginContract::Grader),
             LoginContract::Grader
@@ -686,37 +785,46 @@ mod tests {
 
     #[test]
     fn effective_capability_roles_reject_privilege_and_nested_role_widening() {
-        let api = LoginContract::Production(ProductionLoginProfile::Api);
-        for expected in api.expected_capabilities() {
-            let mut widened = capability_authority(expected.role_name);
-            widened.bypass_rls = true;
-            assert!(!capability_authority_matches(&widened, expected));
-
-            let mut widened = capability_authority(expected.role_name);
-            widened.can_login = true;
-            assert!(!capability_authority_matches(&widened, expected));
-
-            let mut widened = capability_authority(expected.role_name);
-            widened.create_role = true;
-            assert!(!capability_authority_matches(&widened, expected));
-
-            for (admin_option, inherit_option, set_option) in [
-                (true, false, false),
-                (false, true, false),
-                (false, false, true),
-            ] {
+        for contract in [
+            LoginContract::Production(ProductionLoginProfile::Api),
+            LoginContract::Production(ProductionLoginProfile::Worker),
+            LoginContract::Production(ProductionLoginProfile::InvitationDeliveryWorker),
+            LoginContract::Production(ProductionLoginProfile::Publisher),
+            LoginContract::BaseCourseApplication,
+            LoginContract::BaseCourseInstaller,
+            LoginContract::Grader,
+        ] {
+            for expected in contract.expected_capabilities() {
                 let mut widened = capability_authority(expected.role_name);
-                widened.direct_memberships.push(DirectMembership {
-                    role_name: "ple_catalog_ownership_broker".to_string(),
-                    admin_option,
-                    inherit_option,
-                    set_option,
-                });
-                assert!(
-                    !capability_authority_matches(&widened, expected),
-                    "{} must not gain a nested capability role",
-                    expected.role_name
-                );
+                widened.bypass_rls = true;
+                assert!(!capability_authority_matches(&widened, expected));
+
+                let mut widened = capability_authority(expected.role_name);
+                widened.can_login = true;
+                assert!(!capability_authority_matches(&widened, expected));
+
+                let mut widened = capability_authority(expected.role_name);
+                widened.create_role = true;
+                assert!(!capability_authority_matches(&widened, expected));
+
+                for (admin_option, inherit_option, set_option) in [
+                    (true, false, false),
+                    (false, true, false),
+                    (false, false, true),
+                ] {
+                    let mut widened = capability_authority(expected.role_name);
+                    widened.direct_memberships.push(DirectMembership {
+                        role_name: "ple_catalog_ownership_broker".to_string(),
+                        admin_option,
+                        inherit_option,
+                        set_option,
+                    });
+                    assert!(
+                        !capability_authority_matches(&widened, expected),
+                        "{} must not gain a nested capability role",
+                        expected.role_name
+                    );
+                }
             }
         }
     }

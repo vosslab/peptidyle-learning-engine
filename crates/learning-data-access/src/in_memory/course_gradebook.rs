@@ -163,6 +163,12 @@ fn default_scheme(
     }
 }
 
+/// The one canonical initial grade scheme used for both provisioning and
+/// defensive reads of legacy state.  New courses always persist this record.
+pub(super) fn initial_course_grade_scheme(course: CourseId) -> CourseGradeSchemeRecord {
+    default_scheme(course, Vec::new())
+}
+
 fn course_grade_scheme(
     state: &State,
     tenant: question_model::TenantId,
@@ -180,7 +186,18 @@ fn course_grade_scheme(
                 .map(|assignment| (assignment.id, assignment.title.clone()))
                 .collect();
             assignments.sort();
-            default_scheme(course, assignments)
+            let mut record = initial_course_grade_scheme(course);
+            record.assignments = assignments
+                .into_iter()
+                .map(|(assignment, title)| CourseGradeAssignmentRecord {
+                    assignment,
+                    title,
+                    included: true,
+                    category: None,
+                    position: None,
+                })
+                .collect();
+            record
         });
     let current: BTreeMap<_, _> = state
         .assignments

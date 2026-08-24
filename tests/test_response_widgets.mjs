@@ -344,6 +344,8 @@ test("a rejected submission keeps the response editable for a corrected resubmis
 });
 
 test("external-tool readiness and route values admit only the narrow browser contract", () => {
+  const courseId = "course-external";
+  const assignmentId = "assignment-external";
   const attemptId = "attempt-external";
   assert.equal(
     isExternalToolReadyMessage({ kind: "ple.externalTool.ready", attemptId }, attemptId),
@@ -360,23 +362,33 @@ test("external-tool readiness and route values admit only the narrow browser con
   const origin = "https://client.example.test";
   assert.equal(
     isSafeExternalToolLaunchPath(
-      "/api/attempts/attempt-external/external-tool/launch",
+      "/api/courses/course-external/assignments/assignment-external/attempts/attempt-external/external-tool/launch",
+      courseId,
+      assignmentId,
       attemptId,
       origin,
     ),
     true,
   );
+  const expected =
+    "/api/courses/course-external/assignments/assignment-external/attempts/attempt-external/external-tool/launch";
   for (const unsafe of [
-    "https://client.example.test/api/attempts/attempt-external/external-tool/launch",
-    "https://foreign.example/api/attempts/attempt-external/external-tool/launch",
-    "//foreign.example/api/attempts/attempt-external/external-tool/launch",
-    "/api/attempts/user:password@foreign/external-tool/launch",
-    "/api/attempts/attempt-external/external-tool/launch?token=secret",
-    "/api/attempts/attempt-external/external-tool/launch#fragment",
-    "/api/attempts/../foreign/external-tool/launch",
-    "/api/attempts/%2e%2e/foreign/external-tool/launch",
-    "/api/attempts/attempt-external\\external-tool\\launch",
+    `https://client.example.test${expected}`,
+    `https://foreign.example${expected}`,
+    `//foreign.example${expected}`,
+    expected.replace(courseId, "other-course"),
+    expected.replace(assignmentId, "other-assignment"),
+    expected.replace(attemptId, "other-attempt"),
+    `${expected}?token=secret`,
+    `${expected}#fragment`,
+    expected.replace("courses/course-external", "courses/../foreign"),
+    expected.replace("courses/course-external", "courses/%2e%2e/foreign"),
+    expected.replace("/external-tool/", "\\external-tool\\"),
   ]) {
-    assert.equal(isSafeExternalToolLaunchPath(unsafe, attemptId, origin), false, unsafe);
+    assert.equal(
+      isSafeExternalToolLaunchPath(unsafe, courseId, assignmentId, attemptId, origin),
+      false,
+      unsafe,
+    );
   }
 });

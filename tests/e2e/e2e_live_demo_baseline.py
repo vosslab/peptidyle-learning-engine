@@ -14,8 +14,10 @@ SCRIPT_REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_REPOSITORY_ROOT))
 
 import e2e_live_demo_stack
+import local_stack_control.base_course_logins
 import local_stack_control.base_course_lifecycle
 import local_stack_control.lifecycle
+import local_stack_control.lifecycle_diagnostics
 import local_stack_control.models
 import local_stack_control.process
 
@@ -42,28 +44,108 @@ def database_url(stack: e2e_live_demo_stack.DisposableStack, database: str) -> s
 
 
 #============================================
-def phase_environment(
+def database_values(
 	stack: e2e_live_demo_stack.DisposableStack,
 	database: str,
 ) -> dict[str, str]:
-	"""Build the normal Base Course child environment for one test database."""
+	"""Bind private selected values to one disposable database only."""
+	values = dict(stack.values)
+	values["POSTGRES_DB"] = database
+	return values
+
+
+#============================================
+def migrate_database(
+	stack: e2e_live_demo_stack.DisposableStack,
+	database: str,
+) -> None:
+	"""Apply the complete schema using migration administration only (ASVS 2.3.1)."""
+	migration_database_url = database_url(stack, database)
 	environment = local_stack_control.lifecycle.child_environment(stack.disposable.target)
-	environment["PLE_MIGRATION_DATABASE_URL"] = database_url(stack, database)
-	environment["PLE_QUESTION_ID_SECRET_FILE"] = str(stack.question_secret_path)
-	return environment
+	environment["PLE_MIGRATION_DATABASE_URL"] = migration_database_url
+	result = stack.runner.run(
+		["cargo", "tools", "database", "migrate"], environment, stack.root
+	)
+	local_stack_control.lifecycle.require_command(
+		result,
+		f"live-demo baseline migration for {database}",
+		(migration_database_url,),
+	)
+
+
+#============================================
+def provision_base_course_database_urls(
+	stack: e2e_live_demo_stack.DisposableStack,
+	database: str,
+) -> tuple[str, str]:
+	"""Create closed child logins only after this database has its complete schema."""
+	values = database_values(stack, database)
+	return local_stack_control.base_course_logins.provision(
+		stack.disposable.target,
+		stack.runner,
+		values,
+		local_stack_control.lifecycle.child_environment(stack.disposable.target),
+	)
+
+
+#============================================
+def prepare_database(
+	stack: e2e_live_demo_stack.DisposableStack,
+	database: str,
+) -> tuple[str, str]:
+	"""Migrate one disposable database, then issue its two closed runtime identities."""
+	migrate_database(stack, database)
+	return provision_base_course_database_urls(stack, database)
+
+
+#============================================
+def phase_environment(
+	stack: e2e_live_demo_stack.DisposableStack,
+	database: str,
+	base_course_database_urls: tuple[str, str],
+) -> dict[str, str]:
+	"""Build an answerable Base Course child without migration administration."""
+	installer_database_url, app_database_url = local_stack_control.base_course_logins.require_urls(
+		base_course_database_urls
+	)
+	return local_stack_control.base_course_logins.child_environment(
+		local_stack_control.lifecycle.child_environment(stack.disposable.target),
+		database_values(stack, database),
+		installer_database_url,
+		app_database_url,
+	)
+
+
+#============================================
+def base_course_private_values(
+	base_course_database_urls: tuple[str, str],
+) -> tuple[str, ...]:
+	"""Return both closed URLs and their passwords for bounded child diagnostics."""
+	private_values = list(base_course_database_urls)
+	for database_url_value in base_course_database_urls:
+		password = urllib.parse.urlsplit(database_url_value).password
+		if password is not None:
+			private_values.append(password)
+	return tuple(private_values)
 
 
 #============================================
 def run_phase(
 	stack: e2e_live_demo_stack.DisposableStack,
 	database: str,
+	base_course_database_urls: tuple[str, str],
 	phase: str,
 	receipt: str | None = None,
 ) -> local_stack_control.base_course_lifecycle.Receipt:
 	"""Run one ordinary Base Course CLI phase."""
-	environment = phase_environment(stack, database)
+	environment = phase_environment(stack, database, base_course_database_urls)
 	result = local_stack_control.lifecycle.run_base_course_phase(
-		stack.runner, stack.root, environment, phase, receipt
+		stack.runner,
+		stack.root,
+		environment,
+		phase,
+		receipt,
+		private_values=base_course_private_values(base_course_database_urls),
 	)
 	return result
 
@@ -473,11 +555,12 @@ def remove_trigger(
 def expect_phase_failure(
 	stack: e2e_live_demo_stack.DisposableStack,
 	database: str,
+	base_course_database_urls: tuple[str, str],
 	receipt: str,
 ) -> None:
 	"""Require the install phase to fail at an injected interruption."""
 	try:
-		run_phase(stack, database, "install", receipt)
+		run_phase(stack, database, base_course_database_urls, "install", receipt)
 	except local_stack_control.models.ControllerError:
 		return
 	raise local_stack_control.models.ControllerError(
@@ -526,12 +609,21 @@ def verify_interrupted_boundaries(stack: e2e_live_demo_stack.DisposableStack) ->
 	for boundary, table in boundaries:
 		database = f"ple_live_demo_{boundary}_boundary"
 		stack.create_database(database)
-		prepared = run_phase(stack, database, "prepare")
+		base_course_database_urls = prepare_database(stack, database)
+		prepared = run_phase(stack, database, base_course_database_urls, "prepare")
 		install_trigger(stack, database, table)
-		expect_phase_failure(stack, database, prepared.storage_receipt_json)
+		expect_phase_failure(
+			stack, database, base_course_database_urls, prepared.storage_receipt_json
+		)
 		verify_prefix_state(stack, database, boundary)
 		remove_trigger(stack, database, table)
-		completed = run_phase(stack, database, "install", prepared.storage_receipt_json)
+		completed = run_phase(
+			stack,
+			database,
+			base_course_database_urls,
+			"install",
+			prepared.storage_receipt_json,
+		)
 		if completed.install_state != "complete":
 			raise local_stack_control.models.ControllerError(
 				f"live-demo baseline E2E {boundary} boundary did not resume"
@@ -543,7 +635,7 @@ def verify_interrupted_boundaries(stack: e2e_live_demo_stack.DisposableStack) ->
 def base_course_argv(receipt: str) -> list[str]:
 	"""Return the ordinary install-phase command for concurrency proof."""
 	result = [
-		"cargo", "tools", "base-course", "--apply-migrations", "--tenant", TENANT_ID,
+		"cargo", "tools", "base-course", "--tenant", TENANT_ID,
 		"--instructor", PRIMARY_INSTRUCTOR_ID, "--mary", MARY_ID, "--jack", JACK_ID,
 		"--approval-candidate", APPROVAL_CANDIDATE_ID, "--sysadmin", SYSADMIN_ID,
 		"--lifecycle-phase", "install", "--storage-receipt", receipt,
@@ -556,8 +648,9 @@ def verify_concurrent_installers(stack: e2e_live_demo_stack.DisposableStack) -> 
 	"""Prove two real installers serialize to one completed baseline."""
 	database = "ple_live_demo_concurrent"
 	stack.create_database(database)
-	prepared = run_phase(stack, database, "prepare")
-	environment = phase_environment(stack, database)
+	base_course_database_urls = prepare_database(stack, database)
+	prepared = run_phase(stack, database, base_course_database_urls, "prepare")
+	environment = phase_environment(stack, database, base_course_database_urls)
 	argv = base_course_argv(prepared.storage_receipt_json)
 	first = subprocess.Popen(
 		argv, cwd=stack.root, env=environment, text=True,
@@ -570,8 +663,17 @@ def verify_concurrent_installers(stack: e2e_live_demo_stack.DisposableStack) -> 
 	first_stdout, first_stderr = first.communicate()
 	second_stdout, second_stderr = second.communicate()
 	if first.returncode != 0 or second.returncode != 0:
+		failure = local_stack_control.models.CommandResult(
+			tuple(argv),
+			17,
+			first_stdout + second_stdout,
+			first_stderr + second_stderr,
+		)
+		detail = local_stack_control.lifecycle_diagnostics.redacted_failure_detail(
+			failure, base_course_private_values(base_course_database_urls)
+		)
 		raise local_stack_control.models.ControllerError(
-			"concurrent Base Course installers failed: " + first_stderr + second_stderr
+			"concurrent Base Course installers failed: " + detail
 		)
 	actions = {json.loads(first_stdout)["action"], json.loads(second_stdout)["action"]}
 	if actions != {"resumed", "retained"}:
@@ -586,7 +688,8 @@ def verify_pre_marker_refusal(stack: e2e_live_demo_stack.DisposableStack) -> Non
 	"""Prove ordinary upgrades work while first Base Course install rejects live state."""
 	database = "ple_live_demo_pre_marker"
 	stack.create_database(database)
-	run_phase(stack, database, "prepare")
+	base_course_database_urls = prepare_database(stack, database)
+	run_phase(stack, database, base_course_database_urls, "prepare")
 	stack.psql(
 		database,
 		"DROP TABLE live_demo_install_state; "
@@ -598,15 +701,7 @@ def verify_pre_marker_refusal(stack: e2e_live_demo_stack.DisposableStack) -> Non
 		f"term_end_date, time_zone) VALUES ('{TENANT_ID}', '{deterministic_id('course')}', "
 		"'pre-marker course', DATE '2026-01-01', DATE '2099-12-31', 'America/Chicago')",
 	)
-	environment = local_stack_control.lifecycle.child_environment(stack.disposable.target)
-	environment["PLE_MIGRATION_DATABASE_URL"] = database_url(stack, database)
-	result = stack.runner.run(
-		["cargo", "tools", "database", "migrate"], environment, stack.root
-	)
-	if not result.ok():
-		raise local_stack_control.models.ControllerError(
-			"migration 1808 rejected an ordinary populated pre-marker database"
-		)
+	migrate_database(stack, database)
 	marker = stack.psql(
 		database, "SELECT to_regclass('public.live_demo_install_state')"
 	)
@@ -614,8 +709,10 @@ def verify_pre_marker_refusal(stack: e2e_live_demo_stack.DisposableStack) -> Non
 		raise local_stack_control.models.ControllerError(
 			"ordinary upgrade did not create its lifecycle table"
 		)
+	base_course_database_urls = provision_base_course_database_urls(stack, database)
 	prepare_argv = base_course_argv("")[:-3]
 	prepare_argv.append("prepare")
+	environment = phase_environment(stack, database, base_course_database_urls)
 	result = stack.runner.run(prepare_argv, environment, stack.root)
 	if result.ok():
 		raise local_stack_control.models.ControllerError(
@@ -631,7 +728,10 @@ def verify_pre_marker_refusal(stack: e2e_live_demo_stack.DisposableStack) -> Non
 
 
 #============================================
-def verify_retained_data(stack: e2e_live_demo_stack.DisposableStack) -> None:
+def verify_retained_data(
+	stack: e2e_live_demo_stack.DisposableStack,
+	base_course_database_urls: tuple[str, str],
+) -> None:
 	"""Prove one-command retained startup preserves ordinary database and storage data."""
 	database = e2e_live_demo_stack.POSTGRES_DATABASE
 	course_id = deterministic_id("course")
@@ -655,6 +755,7 @@ def verify_retained_data(stack: e2e_live_demo_stack.DisposableStack) -> None:
 		stack.disposable,
 		stack.values,
 		local_stack_control.lifecycle.child_environment(stack.disposable.target),
+		base_course_database_urls,
 	)
 	local_stack_control.lifecycle.finalize_installed_base_course(
 		stack.runner,
@@ -663,6 +764,7 @@ def verify_retained_data(stack: e2e_live_demo_stack.DisposableStack) -> None:
 		stack.values,
 		local_stack_control.lifecycle.child_environment(stack.disposable.target),
 		preparation,
+		base_course_database_urls,
 	)
 	if len(stack.runner.calls) != 1 or stack.runner.calls[0][:3] != (
 		"cargo", "tools", "base-course"
@@ -713,14 +815,21 @@ def verify_regeneration(stack: e2e_live_demo_stack.DisposableStack) -> None:
 	expect_object_absent(stack, RECEIPT_BUCKET, RECEIPT_KEY, "previous installation receipt")
 	database = "ple_live_demo_regenerated"
 	stack.create_database(database)
-	prepared = run_phase(stack, database, "prepare")
+	base_course_database_urls = prepare_database(stack, database)
+	prepared = run_phase(stack, database, base_course_database_urls, "prepare")
 	local_stack_control.base_course_lifecycle.ensure_storage_receipt(
 		stack.disposable.target,
 		stack.runner,
 		prepared,
 		local_stack_control.lifecycle.child_environment(stack.disposable.target),
 	)
-	completed = run_phase(stack, database, "install", prepared.storage_receipt_json)
+	completed = run_phase(
+		stack,
+		database,
+		base_course_database_urls,
+		"install",
+		prepared.storage_receipt_json,
+	)
 	if completed.install_state != "complete":
 		raise local_stack_control.models.ControllerError(
 			"fresh regeneration did not complete"
@@ -748,12 +857,16 @@ def run_connected_lane(stack: e2e_live_demo_stack.DisposableStack) -> None:
 		raise local_stack_control.models.ControllerError(
 			f"live-demo baseline E2E requires PostgreSQL 17, got {version}"
 		)
+	base_course_database_urls = prepare_database(
+		stack, e2e_live_demo_stack.POSTGRES_DATABASE
+	)
 	prepared = local_stack_control.lifecycle.prepare_installed_base_course(
 		stack.runner,
 		stack.root,
 		stack.disposable,
 		stack.values,
 		local_stack_control.lifecycle.child_environment(stack.disposable.target),
+		base_course_database_urls,
 	)
 	if prepared is None:
 		raise local_stack_control.models.ControllerError(
@@ -784,6 +897,7 @@ def run_connected_lane(stack: e2e_live_demo_stack.DisposableStack) -> None:
 		stack.values,
 		local_stack_control.lifecycle.child_environment(stack.disposable.target),
 		prepared,
+		base_course_database_urls,
 	)
 	generation, receipt_sha256 = verify_exact_baseline(
 		stack, e2e_live_demo_stack.POSTGRES_DATABASE
@@ -791,7 +905,7 @@ def run_connected_lane(stack: e2e_live_demo_stack.DisposableStack) -> None:
 	verify_generation_bound_receipt(stack, prepared, generation, receipt_sha256)
 
 	print("live-demo baseline E2E: preserving retained edits without storage access")
-	verify_retained_data(stack)
+	verify_retained_data(stack, base_course_database_urls)
 	print("live-demo baseline E2E: repairing representative interrupted boundaries")
 	verify_interrupted_boundaries(stack)
 	print("live-demo baseline E2E: serializing concurrent installers")

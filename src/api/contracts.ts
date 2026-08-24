@@ -1,7 +1,6 @@
 // contracts.ts - browser-safe DTOs at the transport boundary (MOD-CLIENT).
 
 import type { AssignmentEnrollment } from "../../generated/api/AssignmentEnrollment";
-import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { AssignmentRun } from "../../generated/api/AssignmentRun";
 import type { AssignmentSummary } from "../../generated/api/AssignmentSummary";
 import type { LearnerAssignmentSummary } from "../../generated/api/LearnerAssignmentSummary";
@@ -320,11 +319,6 @@ export interface RunScreenData {
   readonly attempt: LearnerQuestionAttempt;
   /** Server-regenerated, key-free variant bound to this issued attempt. */
   readonly issuedQuestion: QuestionEnvelope;
-}
-
-/** Parameters needed to issue a fresh run. */
-export interface StartRunRequest {
-  readonly assignmentId: AssignmentId;
 }
 
 /** Run identity alias used where a return value is clearer than a full DTO. */

@@ -2,7 +2,7 @@ use super::*;
 use image::ImageEncoder as _;
 
 #[tokio::test]
-async fn published_qti_reparses_and_grades_only_through_the_private_grader() {
+async fn published_qti_copies_private_grading_at_issue_and_grades_only_from_issued_contract() {
     let fixture = fixture().await;
     let issued = fixture
         .backend
@@ -10,51 +10,102 @@ async fn published_qti_reparses_and_grades_only_through_the_private_grader() {
         .await
         .expect("immutable QTI issues");
     let stored = attempt(&fixture, issued.clone());
-    let envelope = fixture
-        .backend
-        .reproduce(
-            fixture.context,
-            fixture.reference,
-            &fixture.question,
-            &stored,
-        )
-        .await
-        .expect("immutable QTI replays");
-    assert_eq!(envelope.prompt, fixture.question.prompt);
+    let snapshot = qti_snapshot(&fixture.question);
     assert!(
-        !serde_json::to_string(&envelope)
+        !serde_json::to_string(&issued.envelope)
             .expect("envelope serializes")
             .contains("\"correct\":")
     );
     let right = fixture
         .backend
-        .grade(
-            fixture.context,
-            fixture.reference,
-            &fixture.question,
+        .submit(qti_submission(
+            &fixture,
+            &snapshot,
             &stored,
-            &StudentResponse::MultipleChoice {
-                selected: vec![fixture.correct],
+            issued.qti_grading.as_ref(),
+            StudentResponse::MultipleChoice {
+                selected: vec![fixture.correct.clone()],
             },
-        )
+        ))
         .await
         .expect("private grader grades correct response");
-    assert!(matches!(right, grading::GradeOutcome::Graded(result) if result.correct));
+    assert!(matches!(right, SubmissionDisposition::Grade(receipt) if receipt.result.correct));
+    assert_eq!(
+        fixture.grader_calls.load(Ordering::SeqCst),
+        1,
+        "issue captures once"
+    );
+    let issued = fixture
+        .backend
+        .issue(fixture.context, fixture.reference, &fixture.question, 42)
+        .await
+        .expect("second immutable QTI issues");
+    let stored = attempt(&fixture, issued.clone());
     let wrong = fixture
         .backend
-        .grade(
-            fixture.context,
-            fixture.reference,
-            &fixture.question,
+        .submit(qti_submission(
+            &fixture,
+            &snapshot,
             &stored,
-            &StudentResponse::MultipleChoice {
-                selected: vec![fixture.incorrect],
+            issued.qti_grading.as_ref(),
+            StudentResponse::MultipleChoice {
+                selected: vec![fixture.incorrect.clone()],
             },
-        )
+        ))
         .await
         .expect("private grader grades wrong response");
-    assert!(matches!(wrong, grading::GradeOutcome::Graded(result) if !result.correct));
+    assert!(matches!(wrong, SubmissionDisposition::Grade(receipt) if !receipt.result.correct));
     assert_eq!(fixture.grader_calls.load(Ordering::SeqCst), 2);
+}
+
+fn qti_snapshot(question: &QuestionDefinition) -> learning_data_access::IssuedQuestionSnapshotV1 {
+    let QuestionSource::Qti {
+        package_object,
+        package_sha256,
+        ..
+    } = &question.source
+    else {
+        panic!("fixture is QTI")
+    };
+    learning_data_access::IssuedQuestionSnapshotV1::new(
+        question.clone(),
+        learning_data_access::IssuedQuestionFamilyWitnessV1::Qti {
+            source_artifact: question_model::SourceArtifact {
+                object: *package_object,
+                sha256: package_sha256.clone(),
+            },
+        },
+    )
+    .expect("QTI issued snapshot")
+}
+
+fn qti_submission<'a>(
+    fixture: &'a Fixture,
+    snapshot: &'a learning_data_access::IssuedQuestionSnapshotV1,
+    stored: &'a QuestionAttempt,
+    contract: Option<&'a learning_data_access::IssuedQtiGradingContractV1>,
+    response: StudentResponse,
+) -> RunSubmission<'a> {
+    // Leak only this test-local response so the RunSubmission borrows exactly
+    // like the route does; the response itself remains answer-free.
+    let response = Box::leak(Box::new(response));
+    RunSubmission {
+        context: fixture.context,
+        actor: UserId::from_uuid(uuid::Uuid::from_u128(7_008)),
+        idempotency_key: learning_data_access::SubmissionIdempotencyKey::parse("qti-private")
+            .expect("valid idempotency key"),
+        reference: fixture.reference,
+        issued_question_snapshot: snapshot,
+        attempt: stored,
+        issued_grading_envelope: None,
+        issued_flat_grading: None,
+        issued_webwork_grading: None,
+        issued_qti_grading: contract,
+        issued_webwork_replay: None,
+        issued_presentation_binding: None,
+        issued_presentation: None,
+        response,
+    }
 }
 
 #[tokio::test]
@@ -80,12 +131,12 @@ async fn foreign_or_tampered_qti_attempt_refuses_before_grading() {
                 },
             )
             .await,
-        Err(RunBackendError::Invalid(_))
+        Err(RunBackendError::Unsupported(_))
     ));
     assert_eq!(
         fixture.grader_calls.load(Ordering::SeqCst),
-        0,
-        "tampered provenance never reaches the private grader"
+        1,
+        "the only private grader read occurred during issue preparation"
     );
     let foreign = TenantContext::from_authenticated_session(TenantId::from_uuid(
         uuid::Uuid::from_u128(7_099),
@@ -99,7 +150,7 @@ async fn foreign_or_tampered_qti_attempt_refuses_before_grading() {
     ));
     assert_eq!(
         fixture.grader_calls.load(Ordering::SeqCst),
-        0,
+        1,
         "foreign source resolution never reaches the private grader"
     );
 }

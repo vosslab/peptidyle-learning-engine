@@ -149,12 +149,13 @@ An issued attempt already binds, server-side:
 - adapter, renderer, generator, source-object, asset-object, and grading
   provenance necessary for reproducibility.
 
-The compact route `POST /api/submissions/{attemptId}` therefore needs the
-attempt UUID once, an idempotency key in the request header, a presentation
-consistency token, and the learner's answer. The browser must not resend the
-problem, version, assignment, course, seed, backend, grading mode, or a
-response `kind` as authority. The server resolves the strict answer decoder
-from the issued attempt's response schema.
+The compact route
+`POST /api/courses/{courseId}/assignments/{assignmentId}/attempts/{attemptId}/submissions`
+therefore needs the course and assignment as server-verified routing assertions, the attempt UUID
+once, an idempotency key in the request header, a presentation consistency token, and the learner's
+answer. The browser must not resend the problem, version, seed, backend, grading mode, or a response
+`kind` as authority. Route identities do not grant access; the server resolves the strict answer
+decoder from the issued attempt's response schema and verifies every relationship.
 
 A UUID's 36-character JSON spelling is not a useful latency target when it is
 sent once amid HTTP headers and a render payload. Repeating durable UUIDs for

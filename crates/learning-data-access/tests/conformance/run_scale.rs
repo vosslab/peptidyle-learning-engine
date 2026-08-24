@@ -40,7 +40,12 @@ where
         .await
         .expect("independent scale assignment");
     let scale_run = store
-        .start_or_resume_run(context, student_user, scale_assignment, scale_run_id)
+        .start_or_resume_run(
+            context,
+            student_user,
+            LearnerWorkRoutingBinding::new(course, scale_assignment),
+            scale_run_id,
+        )
         .await
         .expect("post-completion scale practice run");
     for position in 0_u32..51 {
@@ -53,6 +58,7 @@ where
                 context,
                 IssueQuestionAttemptCommand {
                     actor: student_user,
+                    binding: LearnerWorkRoutingBinding::new(course, scale_assignment),
                     attempt: attempt_id,
                     run: scale_run.id,
                     assignment_position: position,
@@ -89,6 +95,7 @@ where
                 context,
                 SubmitQuestionAttemptCommand {
                     actor: student_user,
+                    binding: LearnerWorkRoutingBinding::new(course, scale_assignment),
                     attempt: attempt_id,
                     response: StudentResponse::Numeric { value: 1.0 },
                     result: AttemptResult {

@@ -6,30 +6,50 @@ pub(crate) struct ExternalToolFixture {
     pub(crate) foreign_context: TenantContext,
     pub(crate) actor: UserId,
     pub(crate) stranger: UserId,
+    pub(crate) course: CourseId,
+    pub(crate) assignment: AssignmentId,
     pub(crate) attempt: QuestionAttemptId,
     pub(crate) binding: learning_data_access::ExternalToolBinding,
 }
 
+impl ExternalToolFixture {
+    pub(crate) fn learner_work_binding(&self) -> LearnerWorkRoutingBinding {
+        LearnerWorkRoutingBinding::new(self.course, self.assignment)
+    }
+}
+
 pub(crate) async fn external_tool_fixture<S>(store: &S) -> ExternalToolFixture
 where
-    S: Store + CatalogStore + CourseRosterStore,
+    S: Store + CatalogStore + CourseRosterStore + SessionStore,
 {
-    let tenant = TenantId::from_uuid(uuid(10_001));
-    let foreign_tenant = TenantId::from_uuid(uuid(10_002));
+    external_tool_fixture_with_offset(store, 0).await
+}
+
+pub(crate) async fn external_tool_fixture_with_offset<S>(
+    store: &S,
+    offset: u128,
+) -> ExternalToolFixture
+where
+    S: Store + CatalogStore + CourseRosterStore + SessionStore,
+{
+    let tenant = TenantId::from_uuid(uuid(10_001 + offset));
+    let foreign_tenant = TenantId::from_uuid(uuid(10_002 + offset));
     let context = TenantContext::from_authenticated_session(tenant);
     let foreign_context = TenantContext::from_authenticated_session(foreign_tenant);
-    let actor = UserId::from_uuid(uuid(10_003));
-    let stranger = UserId::from_uuid(uuid(10_004));
-    let instructor = UserId::from_uuid(uuid(10_015));
-    let workspace = WorkspaceId::from_uuid(uuid(10_005));
-    let problem = ProblemId::from_uuid(uuid(10_006));
-    let version = VersionId::from_uuid(uuid(10_007));
-    let course = CourseId::from_uuid(uuid(10_008));
-    let assignment = AssignmentId::from_uuid(uuid(10_009));
-    let run_id = RunId::from_uuid(uuid(10_011));
-    let attempt = QuestionAttemptId::from_uuid(uuid(10_012));
-    let source_object = ObjectId::from_uuid(uuid(10_014));
+    let actor = UserId::from_uuid(uuid(10_003 + offset));
+    let stranger = UserId::from_uuid(uuid(10_004 + offset));
+    let instructor = UserId::from_uuid(uuid(10_015 + offset));
+    let workspace = WorkspaceId::from_uuid(uuid(10_005 + offset));
+    let problem = ProblemId::from_uuid(uuid(10_006 + offset));
+    let version = VersionId::from_uuid(uuid(10_007 + offset));
+    let course = CourseId::from_uuid(uuid(10_008 + offset));
+    let assignment = AssignmentId::from_uuid(uuid(10_009 + offset));
+    let run_id = RunId::from_uuid(uuid(10_011 + offset));
+    let attempt = QuestionAttemptId::from_uuid(uuid(10_012 + offset));
+    let source_object = ObjectId::from_uuid(uuid(10_014 + offset));
     let reference = ProblemVersionRef { problem, version };
+    let course_creation_authority =
+        sysadmin_course_creation_authority(store, tenant, course, instructor).await;
     let prepared_artifact = source_artifact(reference, QuestionBackend::Imathas, source_object);
     let source_sha256 = prepared_artifact.object.sha256.to_string();
     let mut question = draft_question(workspace);
@@ -88,7 +108,7 @@ where
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -97,6 +117,7 @@ where
         store
             .upsert_course_member(
                 context,
+                instructor,
                 learning_data_access::UpsertCourseMember {
                     course,
                     user,
@@ -130,7 +151,12 @@ where
         .await
         .expect("external-tool assignment");
     let run = store
-        .start_or_resume_run(context, actor, assignment, run_id)
+        .start_or_resume_run(
+            context,
+            actor,
+            LearnerWorkRoutingBinding::new(course, assignment),
+            run_id,
+        )
         .await
         .expect("external-tool run");
     let binding = learning_data_access::ExternalToolBinding {
@@ -150,6 +176,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt,
                 run: run.id,
                 assignment_position: 0,
@@ -189,6 +216,8 @@ where
         foreign_context,
         actor,
         stranger,
+        course,
+        assignment,
         attempt,
         binding,
     }
@@ -200,6 +229,7 @@ pub(super) fn external_begin(
 ) -> BeginExternalToolGradeCommand {
     BeginExternalToolGradeCommand {
         actor: fixture.actor,
+        learner_work_binding: fixture.learner_work_binding(),
         attempt: fixture.attempt,
         response: StudentResponse::ExternalTool {},
         idempotency_key: SubmissionIdempotencyKey::parse(key).expect("valid external key"),

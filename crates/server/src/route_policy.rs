@@ -223,14 +223,23 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     mutation("/api/courses/{course}/instructors/{membership}", "DELETE"),
     mutation("/api/assignments/{assignment}/exports", "POST"),
     read("/api/exports/{export}"),
-    mutation("/api/runs", "POST"),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/runs",
+        "POST",
+    ),
     read("/api/runs/{run}"),
     read("/api/runs/{run}/summary"),
     read("/api/runs/{run}/attempts"),
     read("/api/attempts/{attempt}"),
-    read("/api/attempts/{attempt}/question"),
-    mutation("/api/attempts/{attempt}/prefetch-next", "POST"),
-    mutation("/api/submissions/{attempt}", "POST"),
+    read("/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/question"),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/prefetch-next",
+        "POST",
+    ),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submissions",
+        "POST",
+    ),
     read("/api/attempts/{attempt}/manual-grade"),
     mutation("/api/attempts/{attempt}/manual-grade", "PUT"),
     mutation("/api/attempts/{attempt}/feedback-release", "POST"),
@@ -239,15 +248,20 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     read("/api/enrollments/{enrollment}/runs"),
     // The shell is a representation only after the POST below has created its
     // path-bound launch capability. It never creates that capability itself.
-    read("/api/attempts/{attempt}/external-tool/launch"),
-    mutation("/api/attempts/{attempt}/external-tool/launch", "POST"),
-    read("/api/attempts/{attempt}/external-tool/launch/activity"),
+    read("/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch"),
     mutation(
-        "/api/attempts/{attempt}/external-tool/launch/activity",
+        "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch",
+        "POST",
+    ),
+    read(
+        "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch/activity",
+    ),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch/activity",
         "POST",
     ),
     mutation(
-        "/api/attempts/{attempt}/external-tool/launch/submission",
+        "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch/submission",
         "POST",
     ),
     // Public immutable assets are a representation. Protected delivery is a
@@ -344,23 +358,29 @@ mod tests {
     #[test]
     fn external_launch_gets_are_shell_or_activity_representations_not_launch_creation() {
         assert_eq!(
-            route_policy("/api/attempts/{attempt}/external-tool/launch", "GET"),
-            Some(RouteIntent::Representation),
-        );
-        assert_eq!(
-            route_policy("/api/attempts/{attempt}/external-tool/launch", "POST"),
-            Some(RouteIntent::StateTransition),
-        );
-        assert_eq!(
             route_policy(
-                "/api/attempts/{attempt}/external-tool/launch/activity",
+                "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch",
                 "GET",
             ),
             Some(RouteIntent::Representation),
         );
         assert_eq!(
             route_policy(
-                "/api/attempts/{attempt}/external-tool/launch/activity",
+                "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch",
+                "POST",
+            ),
+            Some(RouteIntent::StateTransition),
+        );
+        assert_eq!(
+            route_policy(
+                "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch/activity",
+                "GET",
+            ),
+            Some(RouteIntent::Representation),
+        );
+        assert_eq!(
+            route_policy(
+                "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch/activity",
                 "POST",
             ),
             Some(RouteIntent::StateTransition),
@@ -385,6 +405,33 @@ mod tests {
             route_policy("/api/navigation/{reference}", "GET"),
             Some(RouteIntent::Representation),
         );
+    }
+
+    #[test]
+    fn learner_work_mutations_require_nested_course_and_assignment_routes() {
+        for path in [
+            "/api/courses/{course}/assignments/{assignment}/runs",
+            "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/prefetch-next",
+            "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submissions",
+            "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch",
+            "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch/activity",
+            "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch/submission",
+        ] {
+            assert_eq!(
+                route_policy(path, "POST"),
+                Some(RouteIntent::StateTransition),
+            );
+        }
+        for retired in [
+            "/api/runs",
+            "/api/attempts/{attempt}/prefetch-next",
+            "/api/submissions/{attempt}",
+            "/api/attempts/{attempt}/external-tool/launch",
+            "/api/attempts/{attempt}/external-tool/launch/activity",
+            "/api/attempts/{attempt}/external-tool/launch/submission",
+        ] {
+            assert_eq!(route_policy(retired, "POST"), None);
+        }
     }
 
     #[test]

@@ -51,33 +51,34 @@ where
             webwork_grading: None,
             webwork_grading_capability:
                 learning_data_access::WebworkGradingCapability::NotApplicable,
+            qti_grading: None,
+            qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
         })
     }
 
     async fn reproduce(
         &self,
-        context: TenantContext,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
-        attempt: &QuestionAttempt,
+        _context: TenantContext,
+        _reference: ProblemVersionRef,
+        _question: &QuestionDefinition,
+        _attempt: &QuestionAttempt,
     ) -> Result<QuestionEnvelope, RunBackendError> {
-        Ok(self
-            .reproduce_issued_attempt(context, reference, question, attempt)
-            .await?
-            .envelope)
+        Err(RunBackendError::Unsupported(
+            "iMathAS activity is available only through its authenticated external-tool route"
+                .into(),
+        ))
     }
 
     async fn prepare_external_tool_launch(
         &self,
-        context: TenantContext,
-        reference: ProblemVersionRef,
-        question: &QuestionDefinition,
-        attempt: &QuestionAttempt,
+        _context: TenantContext,
+        _reference: ProblemVersionRef,
+        _question: &QuestionDefinition,
+        _attempt: &QuestionAttempt,
     ) -> Result<(), RunBackendError> {
-        let _ = self
-            .reproduce_issued_attempt(context, reference, question, attempt)
-            .await?;
-        Ok(())
+        Err(RunBackendError::Unsupported(
+            "iMathAS launch is available only through its authenticated external-tool route".into(),
+        ))
     }
 
     async fn grade(

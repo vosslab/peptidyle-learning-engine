@@ -29,7 +29,7 @@ Browser                                      PLE
    | minimal shell + attempt + public render  |
    |<-----------------------------------------|
    |                                          |
-   | POST /api/submissions/{attempt}          |
+   | POST .../attempts/{attempt}/submissions  |
    | Idempotency-Key: ...                     |
    | {presentationDigest, answer}             |
    |----------------------------------------->|
@@ -95,7 +95,7 @@ projection can perform those relationship checks once and return one bounded lea
 PLE currently accepts:
 
 ```http
-POST /api/submissions/{attemptId}
+POST /api/courses/{courseId}/assignments/{assignmentId}/attempts/{attemptId}/submissions
 Idempotency-Key: <opaque bounded key>
 Content-Type: application/json
 ```

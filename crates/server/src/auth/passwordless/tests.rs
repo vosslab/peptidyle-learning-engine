@@ -206,7 +206,13 @@ async fn account_course_selection_derives_tenant_and_role_from_store_membership(
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: user,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    user,
+                )
+                .await,
             },
         )
         .await

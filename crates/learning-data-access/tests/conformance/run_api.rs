@@ -5,7 +5,12 @@ pub(super) async fn exercise_run_api_store<S>(
     disclosure_policy: LearnerDisclosurePolicy,
     fixture_offset: u128,
 ) where
-    S: Store + CatalogStore + CourseRosterStore + JobStore + AssignmentScoringWorkerStore,
+    S: Store
+        + CatalogStore
+        + CourseRosterStore
+        + JobStore
+        + AssignmentScoringWorkerStore
+        + SessionStore,
 {
     let fixture = exercise_run_api_receipts(store, disclosure_policy, fixture_offset).await;
     let current = store
@@ -16,22 +21,25 @@ pub(super) async fn exercise_run_api_store<S>(
     let withheld = store
         .replace_assignment(
             fixture.context,
-            fixture.course,
-            fixture.assignment,
-            current.revision,
-            AssignmentUpdate {
-                title: current.record.title.clone(),
-                audience: current.record.audience.clone(),
-                items: current.record.items.clone(),
-                selection_groups: current.record.selection_groups.clone(),
-                disclosure_policy: LearnerDisclosurePolicy {
-                    score: LearnerDisclosureTiming::Never,
-                    per_item_correctness: LearnerDisclosureTiming::Never,
-                    feedback_text: LearnerDisclosureTiming::Never,
-                    solution: LearnerDisclosureTiming::Never,
-                    class_statistics: LearnerDisclosureTiming::Never,
+            ReplaceAssignmentCommand {
+                actor: fixture.publisher,
+                course: fixture.course,
+                assignment: fixture.assignment,
+                expected_revision: current.revision,
+                update: AssignmentUpdate {
+                    title: current.record.title.clone(),
+                    audience: current.record.audience.clone(),
+                    items: current.record.items.clone(),
+                    selection_groups: current.record.selection_groups.clone(),
+                    disclosure_policy: LearnerDisclosurePolicy {
+                        score: LearnerDisclosureTiming::Never,
+                        per_item_correctness: LearnerDisclosureTiming::Never,
+                        feedback_text: LearnerDisclosureTiming::Never,
+                        solution: LearnerDisclosureTiming::Never,
+                        class_statistics: LearnerDisclosureTiming::Never,
+                    },
+                    policies: current.record.policies,
                 },
-                policies: current.record.policies,
             },
         )
         .await

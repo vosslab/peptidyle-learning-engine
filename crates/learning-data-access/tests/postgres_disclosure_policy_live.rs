@@ -5,6 +5,10 @@
 //! Store commands create the educational state.  SQL is limited to the
 //! PostgreSQL-only promises: closed columns, forced RLS, and retention fences.
 
+#[path = "postgres_course_creation_support.rs"]
+mod course_creation_support;
+use course_creation_support::sysadmin_course_creation_authority;
+
 #[path = "fixtures/published_assignment.rs"]
 mod published_assignment;
 use published_assignment::create_published_assignment;
@@ -17,7 +21,8 @@ use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_applicatio
 use learning_data_access::{
     AssignmentRecord, AssignmentUpdate, CatalogStore, CourseRecord, CourseRosterStore,
     CreateCourseCommand, DraftRecord, PutAssignmentTeachingSettingsCommand,
-    ResolveEffectivePolicyCommand, Store, StoreError, TenantContext, UpsertCourseMember,
+    ReplaceAssignmentCommand, ResolveEffectivePolicyCommand, Store, StoreError, TenantContext,
+    UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -196,7 +201,8 @@ async fn postgres_assignment_disclosure_policy_is_closed_revisioned_current_and_
                     )
                     .expect("valid fixture term"),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(&store, tenant, course, instructor)
+                    .await,
             },
         )
         .await
@@ -204,6 +210,7 @@ async fn postgres_assignment_disclosure_policy_is_closed_revisioned_current_and_
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: learner,
@@ -296,17 +303,29 @@ async fn postgres_assignment_disclosure_policy_is_closed_revisioned_current_and_
     let updated = store
         .replace_assignment(
             context,
-            course,
-            assignment_id,
-            created.revision,
-            update.clone(),
+            ReplaceAssignmentCommand {
+                actor: instructor,
+                course,
+                assignment: assignment_id,
+                expected_revision: created.revision,
+                update: update.clone(),
+            },
         )
         .await
         .expect("current revision updates disclosure policy");
     assert_eq!(updated.record.disclosure_policy, changed_policy);
     assert_eq!(
         store
-            .replace_assignment(context, course, assignment_id, created.revision, update,)
+            .replace_assignment(
+                context,
+                ReplaceAssignmentCommand {
+                    actor: instructor,
+                    course,
+                    assignment: assignment_id,
+                    expected_revision: created.revision,
+                    update,
+                },
+            )
             .await,
         Err(StoreError::Conflict),
         "stale revision cannot overwrite disclosure policy"

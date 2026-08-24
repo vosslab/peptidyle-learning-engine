@@ -194,6 +194,12 @@ impl TeachingAuthorityStore for MemoryStore {
         let tenant = context.tenant_id();
         let mut state = self.write_state()?;
         let snapshot = state.clone();
+        let session_actor = super::sessions::active_subject(&state, context, command.session)
+            .ok_or(StoreError::NotFound)?
+            .user();
+        if session_actor != command.actor {
+            return Err(StoreError::NotFound);
+        }
         let now = state.authoritative_time;
         let key = (tenant, command.invitation);
         let stored = state
@@ -385,6 +391,12 @@ async fn mutate_target_invitation(
 ) -> Result<(), StoreError> {
     let tenant = context.tenant_id();
     let mut state = store.write_state()?;
+    let session_actor = super::sessions::active_subject(&state, context, command.session)
+        .ok_or(StoreError::NotFound)?
+        .user();
+    if session_actor != command.actor {
+        return Err(StoreError::NotFound);
+    }
     let key = (tenant, command.invitation);
     let mut stored = state
         .co_instructor_invitations

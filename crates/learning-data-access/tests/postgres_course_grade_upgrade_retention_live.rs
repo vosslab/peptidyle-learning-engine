@@ -6,6 +6,10 @@
 //! unavailable.  This test therefore directly exercises the two SQL lifecycle
 //! boundaries rather than inferring them from the Rust call graph.
 
+#[path = "postgres_course_creation_support.rs"]
+mod course_creation_support;
+use course_creation_support::sysadmin_course_creation_authority;
+
 use std::fs;
 use std::str::FromStr;
 
@@ -206,7 +210,8 @@ async fn create_course(
                     term: CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
                         .expect("term"),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(store, tenant, course, instructor)
+                    .await,
             },
         )
         .await

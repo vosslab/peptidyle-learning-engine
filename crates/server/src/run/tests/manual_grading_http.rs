@@ -1,4 +1,5 @@
 use super::*;
+use learning_data_access::{PageRequest, PageSize, RevokeCourseMember, SessionStore};
 
 const INSTRUCTOR: u128 = 2;
 
@@ -40,11 +41,21 @@ async fn pending_manual_fixture() -> (
         ..NumericBackend::default()
     });
     let app = router(Arc::clone(&store), Arc::clone(&backend));
-    let attempt = active_attempt_for(&app, assignment, &student_cookie).await;
+    let attempt = active_attempt_for(
+        &app,
+        CourseId::from_uuid(id(5)),
+        assignment,
+        &student_cookie,
+    )
+    .await;
     let submit = || {
         Request::builder()
             .method("POST")
-            .uri(format!("/api/submissions/{}", attempt.id))
+            .uri(submission_path(
+                CourseId::from_uuid(id(5)),
+                assignment,
+                attempt.id,
+            ))
             .header("cookie", &student_cookie)
             .header("content-type", "application/json")
             .header("idempotency-key", "manual-http-pending")
@@ -379,4 +390,114 @@ async fn manual_grade_http_is_private_revisioned_and_replay_safe() {
     assert_eq!(current["status"], "graded");
     assert_eq!(current["creditFraction"], "0.75");
     assert_eq!(current["revision"], 2);
+}
+
+#[tokio::test]
+async fn terminal_attempt_without_delivery_receipt_returns_a_no_store_conflict() {
+    let (_store, _backend, app, _instructor_cookie, student_cookie, _outsider_cookie, attempt) =
+        pending_manual_fixture().await;
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri(question_path(
+                    CourseId::from_uuid(id(5)),
+                    AssignmentId::from_uuid(id(6)),
+                    attempt.id,
+                ))
+                .header("cookie", student_cookie)
+                .body(Body::empty())
+                .expect("terminal question request"),
+        )
+        .await
+        .expect("terminal question response");
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+    assert_eq!(
+        response.headers().get("cache-control"),
+        Some(&HeaderValue::from_static("no-store")),
+    );
+    let body = json(response).await;
+    assert!(body.get("response").is_none());
+    assert!(body.get("gradingEnvelope").is_none());
+}
+
+#[tokio::test]
+async fn revoked_student_question_delivery_is_concealed_without_an_envelope() {
+    let (store, _backend, app, _instructor_cookie, student_cookie, _outsider_cookie, attempt) =
+        pending_manual_fixture().await;
+    let context = TenantContext::from_authenticated_session(TenantId::from_uuid(id(1)));
+    let course = CourseId::from_uuid(id(5));
+    let instructor = UserId::from_uuid(id(INSTRUCTOR));
+    let instructor_session = SessionTokenHash::compute(b"issued-evidence-route-revocation");
+    store
+        .create_session(
+            instructor_session,
+            SessionSubject::new(
+                context.tenant_id(),
+                instructor,
+                "Question delivery instructor",
+                vec![UserRole::Instructor],
+            )
+            .expect("instructor session subject"),
+            SessionLifetime::from_seconds(3_600).expect("instructor session lifetime"),
+        )
+        .await
+        .expect("instructor session");
+    let roster = store
+        .list_course_roster(
+            context,
+            instructor_session,
+            course,
+            PageRequest::first(PageSize::new(20).expect("roster page size")),
+        )
+        .await
+        .expect("read current roster");
+    let member = roster
+        .entries
+        .items
+        .into_iter()
+        .find_map(|entry| match entry {
+            learning_data_access::CourseRosterEntry::Member(member)
+                if member.user == UserId::from_uuid(id(3)) =>
+            {
+                Some(member.id)
+            }
+            learning_data_access::CourseRosterEntry::Member(_)
+            | learning_data_access::CourseRosterEntry::Invitation(_) => None,
+        })
+        .expect("student roster member");
+    store
+        .revoke_course_member(
+            context,
+            instructor_session,
+            RevokeCourseMember {
+                course,
+                member,
+                expected_revision: roster.policy.revision,
+            },
+        )
+        .await
+        .expect("revoke the issued learner membership");
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri(question_path(
+                    course,
+                    AssignmentId::from_uuid(id(6)),
+                    attempt.id,
+                ))
+                .header("cookie", student_cookie)
+                .body(Body::empty())
+                .expect("revoked question request"),
+        )
+        .await
+        .expect("revoked question response");
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(
+        response.headers().get("cache-control"),
+        Some(&HeaderValue::from_static("no-store")),
+    );
+    let body = json(response).await;
+    assert!(body.get("response").is_none());
+    assert!(body.get("gradingEnvelope").is_none());
 }

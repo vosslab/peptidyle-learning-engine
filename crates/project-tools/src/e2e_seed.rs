@@ -11,13 +11,14 @@ use anyhow::{Context, Result, bail};
 use learning_data_access::{
     AssignmentRecord, AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand,
     AssignmentScoringWorkerStore, AssignmentUpdate, AttemptSupportActionId, AuthoritativeTimeStore,
-    CatalogSourceStore, CatalogStore, ClearAttemptCommand, CourseRecord, CourseRosterStore,
-    DeleteAndRegradeAssignmentItemCommand, DraftRecord, FlatGradingCapability,
-    FlatQuestionGradingPayload, ForceSubmitAttemptCommand, IssueQuestionAttemptCommand,
-    IssuedFlatGradingContract, JobClaimFilter, JobLeaseDuration, JobPayload, JobStore, PageRequest,
-    PageSize, PresentationCapability, PublishDraftCommand, PutAssignmentTeachingSettingsCommand,
-    Store, StoreError, SubmissionIdempotencyKey, SubmitQuestionAttemptCommand, TenantContext,
-    UpsertCourseMember,
+    CatalogSourceStore, CatalogStore, ClearAttemptCommand, CourseCreationAuthority, CourseRecord,
+    CourseRosterStore, CreateAssignmentCommand, DeleteAndRegradeAssignmentItemCommand, DraftRecord,
+    FlatGradingCapability, FlatQuestionGradingPayload, ForceSubmitAttemptCommand,
+    IssueQuestionAttemptCommand, IssuedFlatGradingContract, JobClaimFilter, JobLeaseDuration,
+    JobPayload, JobStore, PageRequest, PageSize, PresentationCapability, PublishDraftCommand,
+    PutAssignmentTeachingSettingsCommand, ReplaceAssignmentCommand, SessionLifetime, SessionStore,
+    SessionSubject, SessionTokenHash, Store, StoreError, SubmissionIdempotencyKey,
+    SubmitQuestionAttemptCommand, TenantContext, UpsertCourseMember,
 };
 use objects::{ObjectCategory, ObjectKey, ObjectStore, PutObject};
 use question_model::answer::SelectionCardinality;
@@ -39,7 +40,7 @@ use question_model::{
     AssignmentScoringMode, AttemptProvenance, AttemptResult, AttemptStatus, CatalogLifecycle,
     CourseId, EnrollmentId, FeedbackContent, ImplementationVersion, ObjectId, PointValue,
     PresentationBindingV1, ProblemId, ProblemVersionRef, PublicationScope, QuestionAttemptId,
-    QuestionId, RunId, TenantId, UserId, VersionId, WorkspaceId,
+    QuestionId, RunId, TenantId, UserId, UserRole, VersionId, WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

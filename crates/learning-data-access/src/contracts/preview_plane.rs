@@ -6,7 +6,7 @@ use objects::Sha256Digest;
 use question_model::{
     AssignmentReference, CourseId, DerivedPreviewSubjectRequest, InstructorPreviewSchedulePage,
     PreviewAccommodationComparison, PreviewEvaluation, SyntheticPreviewSubjectRequest,
-    TeachingOperationRevision, UserId,
+    TeachingOperationRevision, TenantId, UserId,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,6 +16,10 @@ pub struct PreviewPlaneResult {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PreviewSubjectAudit {
+    /// Private persistence provenance. This is deliberately not part of the
+    /// T3 browser contract; it fences an audit that happens to contain
+    /// colliding IDs in another tenant.
+    pub tenant: TenantId,
     pub actor: UserId,
     pub course: CourseId,
     pub assignment: AssignmentReference,

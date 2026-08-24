@@ -13,6 +13,16 @@ pub(super) fn current_disclosure_input(
     attempt: QuestionAttemptId,
     submitted_at: Option<ActivityTimestamp>,
 ) -> Result<LearnerDisclosureInput, StoreError> {
+    if state
+        .attempt_timing
+        .get(&(tenant, attempt))
+        .map(|timing| timing.assignment)
+        != Some(assignment.id)
+    {
+        return Err(StoreError::Unavailable(
+            "current effective-policy receipt does not bind the prepared assignment".to_string(),
+        ));
+    }
     let generation = state
         .attempt_effective_policy_current
         .get(&(tenant, attempt))

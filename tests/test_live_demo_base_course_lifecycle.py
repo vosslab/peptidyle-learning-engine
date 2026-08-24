@@ -98,6 +98,7 @@ def base_course_receipt(
 	}
 	if install_state == "complete":
 		value["storageReceiptSha256"] = "a" * 64
+		value["completionReceiptSha256"] = "b" * 64
 		if action != "retained":
 			value["manifest"] = {
 				"assignmentId": "a",
@@ -159,6 +160,15 @@ def database_values() -> dict[str, str]:
 
 
 #============================================
+def base_course_database_urls() -> tuple[str, str]:
+	"""Return fixed child-only URLs for the closed Base Course pools."""
+	return (
+		"postgres://ple_base_course_installer_login:installer-private@127.0.0.1:5432/ple",
+		"postgres://ple_base_course_app_login:application-private@127.0.0.1:5432/ple",
+	)
+
+
+#============================================
 def diagnostic_path(target: local_stack_control.models.ComposeTarget) -> pathlib.Path:
 	"""Return the selected environment's private Base Course diagnostic path."""
 	return target.env_file.parent / local_stack_control.models.DEFAULT_BASE_COURSE_MANIFEST_FILE
@@ -180,6 +190,8 @@ def test_decoder_preserves_canonical_storage_receipt() -> None:
 		"ple/live-demo/base-course-install-receipt.json",
 		expected["storageReceiptJson"],
 	)
+	assert "storageReceiptSha256" not in expected
+	assert "completionReceiptSha256" not in expected
 
 
 #============================================
@@ -219,8 +231,9 @@ def test_installing_base_course_routes_receipt_and_writes_diagnostic(
 	prepared = base_course_receipt("prepared", "installing")
 	completed = base_course_receipt("installed", "complete")
 	runner = BaseCourseRunner(prepared, "created", completed)
+	database_urls = base_course_database_urls()
 	preparation = local_stack_control.lifecycle.prepare_installed_base_course(
-		runner, tmp_path, target, database_values(), {"PATH": "/usr/bin"}
+		runner, tmp_path, target, database_values(), {"PATH": "/usr/bin"}, database_urls
 	)
 	local_stack_control.lifecycle.finalize_installed_base_course(
 		runner,
@@ -229,10 +242,11 @@ def test_installing_base_course_routes_receipt_and_writes_diagnostic(
 		database_values(),
 		{"PATH": "/usr/bin"},
 		preparation,
+		database_urls,
 	)
 	canonical = json.loads(prepared)["storageReceiptJson"]
 	command = [
-		"cargo", "tools", "base-course", "--apply-migrations",
+		"cargo", "tools", "base-course",
 		"--tenant", "00000000-0000-0000-0000-000000000100",
 		"--instructor", "00000000-0000-0000-0000-000000000101",
 		"--mary", "00000000-0000-0000-0000-000000000102",
@@ -246,6 +260,12 @@ def test_installing_base_course_routes_receipt_and_writes_diagnostic(
 		"--lifecycle-phase", "install", "--storage-receipt", canonical,
 	]
 	assert (runner.calls[1][3], runner.calls[2][0][-1]) == (canonical, canonical)
+	for call in (runner.calls[0], runner.calls[2]):
+		environment = call[1]
+		assert environment["PLE_BASE_COURSE_INSTALLER_DATABASE_URL"] == database_urls[0]
+		assert environment["PLE_BASE_COURSE_APP_DATABASE_URL"] == database_urls[1]
+		assert environment["PLE_BASE_COURSE_DEPLOYMENT_MODE"] == "local"
+		assert "PLE_MIGRATION_DATABASE_URL" not in environment
 	diagnostic = diagnostic_path(target)
 	assert diagnostic.read_text(encoding="utf-8") == completed
 	assert diagnostic.parent.name == ".runtime"
@@ -260,8 +280,9 @@ def test_retained_base_course_has_zero_storage_calls(tmp_path: pathlib.Path) -> 
 	target = lifecycle_target(tmp_path)
 	target.env_file.parent.mkdir()
 	runner = BaseCourseRunner(base_course_receipt("retained", "complete"))
+	database_urls = base_course_database_urls()
 	preparation = local_stack_control.lifecycle.prepare_installed_base_course(
-		runner, tmp_path, target, database_values(), {"PATH": "/usr/bin"}
+		runner, tmp_path, target, database_values(), {"PATH": "/usr/bin"}, database_urls
 	)
 	local_stack_control.lifecycle.finalize_installed_base_course(
 		runner,
@@ -270,11 +291,33 @@ def test_retained_base_course_has_zero_storage_calls(tmp_path: pathlib.Path) -> 
 		database_values(),
 		{"PATH": "/usr/bin"},
 		preparation,
+		database_urls,
 	)
 
 	assert [call[0][-2:] for call in runner.calls] == [
 		["--lifecycle-phase", "prepare"]
 	]
+
+
+#============================================
+def test_base_course_failure_redacts_both_child_database_urls() -> None:
+	"""A failed runtime child cannot disclose either closed database credential."""
+	database_urls = base_course_database_urls()
+	result = local_stack_control.models.CommandResult(
+		("cargo", "tools", "base-course"),
+		17,
+		"",
+		"; ".join(database_urls),
+	)
+
+	with pytest.raises(local_stack_control.models.ControllerError) as error:
+		local_stack_control.lifecycle.require_command(
+			result, "installed Base Course prepare", database_urls
+		)
+
+	message = str(error.value)
+	assert all(database_url not in message for database_url in database_urls)
+	assert message.count("[private]") == 2
 
 
 #============================================
@@ -298,7 +341,13 @@ def test_baseline_owner_finalizes_without_sysadmin_claim_context(
 	assert not local_stack_control.lifecycle_profiles.uses_live_demo_sysadmin_claim_context(disposable)
 
 	local_stack_control.lifecycle.finalize_installed_base_course(
-		BaseCourseRunner(), tmp_path, disposable, database_values(), {"PATH": "/usr/bin"}, preparation
+		BaseCourseRunner(),
+		tmp_path,
+		disposable,
+		database_values(),
+		{"PATH": "/usr/bin"},
+		preparation,
+		None,
 	)
 
 	assert diagnostic_path(target).is_file()
@@ -315,8 +364,9 @@ def test_storage_refusal_fails_before_install_or_diagnostic(
 		base_course_receipt("prepared", "installing"),
 		refuse_storage=True,
 	)
+	database_urls = base_course_database_urls()
 	preparation = local_stack_control.lifecycle.prepare_installed_base_course(
-		runner, tmp_path, target, database_values(), {"PATH": "/usr/bin"}
+		runner, tmp_path, target, database_values(), {"PATH": "/usr/bin"}, database_urls
 	)
 	with pytest.raises(
 		local_stack_control.models.ControllerError,
@@ -329,6 +379,7 @@ def test_storage_refusal_fails_before_install_or_diagnostic(
 			database_values(),
 			{"PATH": "/usr/bin"},
 			preparation,
+			database_urls,
 		)
 
 	assert len(runner.calls) == 2
@@ -430,8 +481,9 @@ def test_invalid_completion_fails_before_diagnostic(
 	runner = BaseCourseRunner(
 		base_course_receipt("prepared", "installing"), "created", completed
 	)
+	database_urls = base_course_database_urls()
 	preparation = local_stack_control.lifecycle.prepare_installed_base_course(
-		runner, tmp_path, target, database_values(), {"PATH": "/usr/bin"}
+		runner, tmp_path, target, database_values(), {"PATH": "/usr/bin"}, database_urls
 	)
 	with pytest.raises(local_stack_control.models.ControllerError):
 		local_stack_control.lifecycle.finalize_installed_base_course(
@@ -441,9 +493,26 @@ def test_invalid_completion_fails_before_diagnostic(
 			database_values(),
 			{"PATH": "/usr/bin"},
 			preparation,
+			database_urls,
 		)
 
 	assert not diagnostic_path(target).exists()
+
+
+#============================================
+@pytest.mark.parametrize(
+	"field",
+	("storageReceiptSha256", "completionReceiptSha256"),
+)
+def test_decoder_rejects_invalid_completion_digest(field: str) -> None:
+	"""Completed lifecycle output requires each lowercase hexadecimal digest."""
+	value = json.loads(base_course_receipt("installed", "complete"))
+	value[field] = "A" + "a" * 63
+
+	with pytest.raises(local_stack_control.models.ControllerError):
+		local_stack_control.base_course_lifecycle.decode(
+			json.dumps(value, separators=(",", ":")), "install"
+		)
 
 
 #============================================
@@ -451,7 +520,7 @@ def test_custom_target_skips_base_course(tmp_path: pathlib.Path) -> None:
 	"""An unowned custom target receives no supported local Base Course seed."""
 	runner = BaseCourseRunner('{"course_id":"unexpected"}\n')
 	preparation = local_stack_control.lifecycle.prepare_installed_base_course(
-		runner, tmp_path, lifecycle_target(tmp_path, "custom"), {}, {}
+		runner, tmp_path, lifecycle_target(tmp_path, "custom"), {}, {}, None
 	)
 
 	assert (preparation, runner.calls) == (None, [])

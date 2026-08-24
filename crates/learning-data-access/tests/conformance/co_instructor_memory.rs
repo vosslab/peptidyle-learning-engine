@@ -34,7 +34,10 @@ where
     let instructor_session = SessionTokenHash::compute(b"t2-instructor");
     let non_admin_session = SessionTokenHash::compute(b"t2-non-admin");
     let target_session = SessionTokenHash::compute(b"t2-target");
+    let other_target_session = SessionTokenHash::compute(b"t2-other-target");
     let foreign_session = SessionTokenHash::compute(b"t2-foreign");
+    let course_creation_authority =
+        sysadmin_course_creation_authority(store, tenant, course, instructor).await;
     store
         .create_session(
             admin_session,
@@ -81,6 +84,20 @@ where
         .expect("target session");
     store
         .create_session(
+            other_target_session,
+            SessionSubject::new(
+                tenant,
+                other_target,
+                "T2 other target",
+                vec![UserRole::Instructor],
+            )
+            .expect("other target subject"),
+            SessionLifetime::from_seconds(3_600).expect("lifetime"),
+        )
+        .await
+        .expect("other target session");
+    store
+        .create_session(
             foreign_session,
             SessionSubject::new(
                 TenantId::from_uuid(uuid(730_007)),
@@ -108,7 +125,7 @@ where
                     )
                     .expect("term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -455,6 +472,7 @@ where
             .accept_co_instructor_invitation(
                 context,
                 learning_data_access::RespondToCoInstructorInvitation {
+                    session: non_admin_session,
                     actor: other_target,
                     invitation: invitation.invitation.id,
                     expected_revision: invitation.revision,
@@ -467,6 +485,7 @@ where
         .accept_co_instructor_invitation(
             context,
             learning_data_access::RespondToCoInstructorInvitation {
+                session: target_session,
                 actor: target,
                 invitation: invitation.invitation.id,
                 expected_revision: invitation.revision,
@@ -562,6 +581,7 @@ where
         .accept_co_instructor_invitation(
             context,
             learning_data_access::RespondToCoInstructorInvitation {
+                session: target_session,
                 actor: target,
                 invitation: invitation.invitation.id,
                 expected_revision: invitation.revision,
@@ -702,6 +722,7 @@ where
             .decline_co_instructor_invitation(
                 context,
                 learning_data_access::RespondToCoInstructorInvitation {
+                    session: target_session,
                     actor: target,
                     invitation: declined.invitation.id,
                     expected_revision: declined.revision,
@@ -714,6 +735,7 @@ where
         .decline_co_instructor_invitation(
             context,
             learning_data_access::RespondToCoInstructorInvitation {
+                session: other_target_session,
                 actor: other_target,
                 invitation: declined.invitation.id,
                 expected_revision: declined.revision,
@@ -726,6 +748,7 @@ where
             .decline_co_instructor_invitation(
                 context,
                 learning_data_access::RespondToCoInstructorInvitation {
+                    session: other_target_session,
                     actor: other_target,
                     invitation: declined.invitation.id,
                     expected_revision: declined.revision,
@@ -810,6 +833,7 @@ where
             .accept_co_instructor_invitation(
                 context,
                 learning_data_access::RespondToCoInstructorInvitation {
+                    session: other_target_session,
                     actor: other_target,
                     invitation: pending_after_approval.invitation.id,
                     expected_revision: pending_after_approval.revision,

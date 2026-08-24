@@ -120,17 +120,29 @@ fn statistics_attempt(
     }
 }
 
-fn submit_statistics_attempt(
-    store: &MemoryStore,
+struct StatisticsSubmissionFixture {
     context: TenantContext,
     actor: UserId,
+    binding: LearnerWorkRoutingBinding,
     attempt: QuestionAttempt,
+}
+
+fn submit_statistics_attempt(
+    store: &MemoryStore,
+    fixture: StatisticsSubmissionFixture,
     submitted_at: i64,
     earned: f64,
     possible: f64,
 ) -> (SubmissionRecord, SubmitQuestionAttemptCommand) {
+    let StatisticsSubmissionFixture {
+        context,
+        actor,
+        binding,
+        attempt,
+    } = fixture;
     let command = SubmitQuestionAttemptCommand {
         actor,
+        binding,
         attempt: attempt.id,
         response: StudentResponse::Numeric { value: earned },
         result: AttemptResult {
@@ -365,8 +377,11 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
     }
 
     let regressive = statistics_attempt(72_099, tenant, assigned_run, a, 0, 2_000);
+    let binding =
+        LearnerWorkRoutingBinding::new(CourseId::from_uuid(Uuid::from_u128(72_006)), assignment_id);
     let regressive_command = SubmitQuestionAttemptCommand {
         actor,
+        binding,
         attempt: regressive.id,
         response: StudentResponse::Numeric { value: 0.0 },
         result: AttemptResult {
@@ -392,6 +407,7 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
                 &mut state,
                 context,
                 SubmitQuestionAttemptCommand {
+                    binding,
                     attempt: missing_timing.id,
                     idempotency_key: SubmissionIdempotencyKey::parse("statistics-missing-timing")
                         .expect("valid missing-timing key"),
@@ -437,36 +453,48 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
     // receipt authority. No current catalog policy remains to reconstruct.
     submit_statistics_attempt(
         &store,
-        context,
-        actor,
-        statistics_attempt(72_100, tenant, assigned_run, a, 0, 0),
+        StatisticsSubmissionFixture {
+            context,
+            actor,
+            binding,
+            attempt: statistics_attempt(72_100, tenant, assigned_run, a, 0, 0),
+        },
         1_500,
         0.0,
         2.0,
     );
     submit_statistics_attempt(
         &store,
-        context,
-        actor,
-        statistics_attempt(72_101, tenant, assigned_run, a, 0, 2_000),
+        StatisticsSubmissionFixture {
+            context,
+            actor,
+            binding,
+            attempt: statistics_attempt(72_101, tenant, assigned_run, a, 0, 2_000),
+        },
         4_500,
         1.0,
         2.0,
     );
     submit_statistics_attempt(
         &store,
-        context,
-        actor,
-        statistics_attempt(72_102, tenant, assigned_run, b, 1, 5_000),
+        StatisticsSubmissionFixture {
+            context,
+            actor,
+            binding,
+            attempt: statistics_attempt(72_102, tenant, assigned_run, b, 1, 5_000),
+        },
         6_000,
         1.0,
         4.0,
     );
     let (_, final_command) = submit_statistics_attempt(
         &store,
-        context,
-        actor,
-        statistics_attempt(72_103, tenant, assigned_run, a, 2, 7_000),
+        StatisticsSubmissionFixture {
+            context,
+            actor,
+            binding,
+            attempt: statistics_attempt(72_103, tenant, assigned_run, a, 2, 7_000),
+        },
         100_007_000,
         2.0,
         2.0,
@@ -542,16 +570,19 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
     ] {
         submit_statistics_attempt(
             &store,
-            context,
-            actor,
-            statistics_attempt(
-                number,
-                tenant,
-                practice_run,
-                reference,
-                position,
-                200_000_000,
-            ),
+            StatisticsSubmissionFixture {
+                context,
+                actor,
+                binding,
+                attempt: statistics_attempt(
+                    number,
+                    tenant,
+                    practice_run,
+                    reference,
+                    position,
+                    200_000_000,
+                ),
+            },
             200_001_000 + i64::from(position),
             earned,
             possible,

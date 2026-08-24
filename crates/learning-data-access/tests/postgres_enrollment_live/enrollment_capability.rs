@@ -484,6 +484,7 @@ async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
     let member = store
         .upsert_course_member(
             managed_context,
+            UserId::from_uuid(instructor),
             UpsertCourseMember {
                 course: managed_course,
                 user: UserId::from_uuid(id()),

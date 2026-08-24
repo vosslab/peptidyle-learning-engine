@@ -126,8 +126,8 @@ only in `file_utils` regression tests that point discovery at a temporary direct
 Exclusions come from three layers, in order:
 
 - Layer 1, universal exclusions (vendored, `file_utils.py`): built-in skipped directories,
-  `_temp*` scratch files/directories, and `dist_*/` scratch build directories, handled by
-  `path_has_skip_dir`.
+  `_temp*` scratch files/directories, `dist_*/` scratch build directories, and root
+  `report_*.txt` hygiene outputs, handled by `path_has_skip_dir`.
 - Layer 2, `REPO_HYGIENE_FILTERS` (repo-local, `conftest.py`): per-test repo-local file/glob
   exclusions, keyed by `"all"` or a vendored test key, as lists of repo-relative POSIX glob
   patterns matched with `fnmatch.fnmatchcase`. This is the only home for repo-specific exclusions,

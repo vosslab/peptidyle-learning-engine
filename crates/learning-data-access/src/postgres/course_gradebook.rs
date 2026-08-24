@@ -9,6 +9,7 @@ use question_model::{
     CourseGradeMode, CourseGradeRoundingRule, CourseGradeScheme, GradeCategoryId,
     GradeCategoryTitle, LetterBand, LetterBandLabel, PointValue, WeightedGradeCategory,
 };
+use serde_json::{Value, json};
 use sqlx::Row;
 
 use super::course_roster::require_course_instructor;
@@ -49,45 +50,30 @@ impl CourseGradebookStore for PostgresStore {
         retry_transaction(|| async {
             let tenant = context.tenant_id();
             let mut tx = self.begin_tenant(context).await?;
-            require_course_instructor(&mut tx, session, command.course).await?;
             let assignment_ids = lock_assignment_ids(&mut tx, tenant, command.course).await?;
-            let current = read_scheme_for_update(&mut tx, tenant, command.course).await?;
-            if current.revision != command.expected_revision { return Err(StoreError::Conflict); }
             validate_course_grade_scheme_update(&command, &assignment_ids)?;
-            // The category trigger requires delete-before-total and mode-before-insert.
-            sqlx::query("DELETE FROM course_grade_category_assignment WHERE tenant_id=$1 AND course_id=$2")
-                .bind(tenant.as_uuid()).bind(command.course.as_uuid()).execute(&mut *tx).await.map_err(map_sqlx_error)?;
-            sqlx::query("DELETE FROM course_grade_letter_band WHERE tenant_id=$1 AND course_id=$2")
-                .bind(tenant.as_uuid()).bind(command.course.as_uuid()).execute(&mut *tx).await.map_err(map_sqlx_error)?;
-            sqlx::query("DELETE FROM course_grade_category WHERE tenant_id=$1 AND course_id=$2")
-                .bind(tenant.as_uuid()).bind(command.course.as_uuid()).execute(&mut *tx).await.map_err(map_sqlx_error)?;
-            let mode = mode_name(command.scheme.mode);
-            let revision = current.revision.next()?;
-            let changed = sqlx::query("UPDATE course_grade_scheme SET mode=$3, rounding=$4, revision=$5, updated_at=transaction_timestamp() WHERE tenant_id=$1 AND course_id=$2 AND revision=$6")
-                .bind(tenant.as_uuid()).bind(command.course.as_uuid()).bind(mode).bind(rounding_name(command.scheme.rounding))
-                .bind(revision.to_i64()?).bind(command.expected_revision.to_i64()?).execute(&mut *tx).await.map_err(map_sqlx_error)?;
-            if changed.rows_affected() != 1 { return Err(StoreError::Conflict); }
-            for category in &command.scheme.categories {
-                sqlx::query("INSERT INTO course_grade_category (tenant_id,course_id,category_id,position,title,weight_basis_points,drop_lowest) VALUES ($1,$2,$3,$4,$5,$6,$7)")
-                    .bind(tenant.as_uuid()).bind(command.course.as_uuid()).bind(category.id.as_uuid()).bind(i32::try_from(category.position).map_err(|_| StoreError::InvalidRecord("category position exceeds storage range".into()))?).bind(category.title.as_str()).bind(i32::from(category.weight_basis_points)).bind(i32::try_from(category.drop_lowest).map_err(|_| StoreError::InvalidRecord("drop lowest exceeds storage range".into()))?).execute(&mut *tx).await.map_err(map_sqlx_error)?;
-            }
-            for member in &command.assignments {
-                sqlx::query("UPDATE assignment SET gradebook_included=$4 WHERE tenant_id=$1 AND course_id=$2 AND assignment_id=$3")
-                    .bind(tenant.as_uuid()).bind(command.course.as_uuid()).bind(member.assignment.as_uuid()).bind(member.included).execute(&mut *tx).await.map_err(map_sqlx_error)?;
-                if let (Some(category), Some(position)) = (member.category, member.position) {
-                    sqlx::query("INSERT INTO course_grade_category_assignment (tenant_id,course_id,category_id,assignment_id,position) VALUES ($1,$2,$3,$4,$5)")
-                        .bind(tenant.as_uuid()).bind(command.course.as_uuid()).bind(category.as_uuid()).bind(member.assignment.as_uuid()).bind(i32::try_from(position).map_err(|_| StoreError::InvalidRecord("membership position exceeds storage range".into()))?).execute(&mut *tx).await.map_err(map_sqlx_error)?;
-                }
-            }
-            for band in &command.scheme.letter_bands {
-                let id = fresh_band_id()?;
-                sqlx::query("INSERT INTO course_grade_letter_band (tenant_id,course_id,letter_band_id,label,minimum_basis_points) VALUES ($1,$2,$3,$4,$5)")
-                    .bind(tenant.as_uuid()).bind(command.course.as_uuid()).bind(id).bind(band.label.as_str()).bind(i32::from(band.minimum_basis_points)).execute(&mut *tx).await.map_err(map_sqlx_error)?;
-            }
+            let payload = grade_scheme_replacement_payload(&command)?;
+            let row = sqlx::query(
+                "SELECT tenant_id,actor_id,course_id,scheme_revision,mode,rounding \
+                 FROM public.ple_replace_course_grade_scheme_v1($1,$2,$3,$4,$5)",
+            )
+            .bind(tenant.as_uuid())
+            .bind(session.to_string())
+            .bind(command.course.as_uuid())
+            .bind(command.expected_revision.to_i64()?)
+            .bind(payload)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(map_sqlx_error)?
+            .ok_or(StoreError::Unavailable(
+                "course grade-control capability returned no witness".to_string(),
+            ))?;
+            validate_scheme_replacement_witness(&row, tenant, &command)?;
             let record = read_scheme(&mut tx, tenant, command.course).await?;
             tx.commit().await.map_err(map_sqlx_error)?;
             Ok(record)
-        }).await
+        })
+        .await
     }
 
     async fn course_gradebook_totals(
@@ -118,10 +104,29 @@ impl CourseGradebookStore for PostgresStore {
     ) -> Result<CourseGradeExport, StoreError> {
         let tenant = context.tenant_id();
         let mut tx = self.begin_tenant_writable_snapshot(context).await?;
-        let actor = require_course_instructor(&mut tx, session, course).await?;
+        require_course_instructor(&mut tx, session, course).await?;
         let scheme = read_scheme(&mut tx, tenant, course).await?;
         let rows = totals_with_scheme(&mut tx, tenant, course, &scheme).await?;
         let id = CourseGradeExportId::generate()?;
+        let row = sqlx::query(
+            "SELECT tenant_id,actor_id,course_id,export_id,row_count,scheme_revision,mode,rounding \
+             FROM public.ple_record_course_grade_export_audit_v1($1,$2,$3,$4,$5,$6,$7,$8)",
+        )
+        .bind(tenant.as_uuid())
+        .bind(session.to_string())
+        .bind(course.as_uuid())
+        .bind(id.as_uuid())
+        .bind(i32::try_from(rows.len()).expect("bounded export rows"))
+        .bind(scheme.revision.to_i64()?)
+        .bind(mode_name(scheme.scheme.mode))
+        .bind(rounding_name(scheme.scheme.rounding))
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::Unavailable(
+            "course grade export capability returned no witness".to_string(),
+        ))?;
+        let actor = validate_export_audit_witness(&row, tenant, course, id, &scheme, rows.len())?;
         let audit = CourseGradeExportAudit {
             id,
             tenant,
@@ -132,11 +137,120 @@ impl CourseGradebookStore for PostgresStore {
             rounding: scheme.scheme.rounding,
             row_count: rows.len(),
         };
-        sqlx::query("INSERT INTO course_total_export_audit (tenant_id,course_id,export_id,requested_by,row_count,scheme_revision,mode,rounding) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)")
-            .bind(tenant.as_uuid()).bind(course.as_uuid()).bind(id.as_uuid()).bind(actor.as_uuid()).bind(i32::try_from(rows.len()).expect("bounded rows")).bind(scheme.revision.to_i64()?).bind(mode_name(scheme.scheme.mode)).bind(rounding_name(scheme.scheme.rounding)).execute(&mut *tx).await.map_err(map_sqlx_error)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(CourseGradeExport { audit, rows })
     }
+}
+
+fn grade_scheme_replacement_payload(
+    command: &UpdateCourseGradeScheme,
+) -> Result<Value, StoreError> {
+    let categories = command
+        .scheme
+        .categories
+        .iter()
+        .map(|category| {
+            Ok(json!({
+                "id": category.id.as_uuid().to_string(),
+                "position": i32::try_from(category.position).map_err(|_| StoreError::InvalidRecord("category position exceeds storage range".into()))?,
+                "title": category.title.as_str(),
+                "weightBasisPoints": i32::from(category.weight_basis_points),
+                "dropLowest": i32::try_from(category.drop_lowest).map_err(|_| StoreError::InvalidRecord("drop lowest exceeds storage range".into()))?,
+            }))
+        })
+        .collect::<Result<Vec<_>, StoreError>>()?;
+    let assignments = command
+        .assignments
+        .iter()
+        .map(|member| {
+            Ok(json!({
+                "assignmentId": member.assignment.as_uuid().to_string(),
+                "included": member.included,
+                "categoryId": member.category.map(|category| category.as_uuid().to_string()),
+                "position": member.position.map(i32::try_from).transpose().map_err(|_| StoreError::InvalidRecord("membership position exceeds storage range".into()))?,
+            }))
+        })
+        .collect::<Result<Vec<_>, StoreError>>()?;
+    let bands = command
+        .scheme
+        .letter_bands
+        .iter()
+        .map(|band| {
+            json!({
+                "label": band.label.as_str(),
+                "minimumBasisPoints": i32::from(band.minimum_basis_points),
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(json!({
+        "mode": mode_name(command.scheme.mode),
+        "rounding": rounding_name(command.scheme.rounding),
+        "categories": categories,
+        "assignments": assignments,
+        "letterBands": bands,
+    }))
+}
+
+fn invalid_grade_control_witness() -> StoreError {
+    StoreError::Unavailable(
+        "course grade-control capability returned an invalid witness".to_string(),
+    )
+}
+
+fn validate_scheme_replacement_witness(
+    row: &PgRow,
+    tenant: TenantId,
+    command: &UpdateCourseGradeScheme,
+) -> Result<(), StoreError> {
+    let expected_revision = command.expected_revision.next()?;
+    let returned_tenant: Uuid = row.try_get("tenant_id").map_err(map_sqlx_error)?;
+    let _: Uuid = row.try_get("actor_id").map_err(map_sqlx_error)?;
+    let returned_course: Uuid = row.try_get("course_id").map_err(map_sqlx_error)?;
+    let revision = CourseGradeSchemeRevision::from_i64(
+        row.try_get("scheme_revision").map_err(map_sqlx_error)?,
+    )?;
+    let mode: String = row.try_get("mode").map_err(map_sqlx_error)?;
+    let rounding: String = row.try_get("rounding").map_err(map_sqlx_error)?;
+    if returned_tenant != tenant.as_uuid()
+        || returned_course != command.course.as_uuid()
+        || revision != expected_revision
+        || mode != mode_name(command.scheme.mode)
+        || rounding != rounding_name(command.scheme.rounding)
+    {
+        return Err(invalid_grade_control_witness());
+    }
+    Ok(())
+}
+
+fn validate_export_audit_witness(
+    row: &PgRow,
+    tenant: TenantId,
+    course: CourseId,
+    export: CourseGradeExportId,
+    scheme: &CourseGradeSchemeRecord,
+    row_count: usize,
+) -> Result<question_model::UserId, StoreError> {
+    let returned_tenant: Uuid = row.try_get("tenant_id").map_err(map_sqlx_error)?;
+    let actor: Uuid = row.try_get("actor_id").map_err(map_sqlx_error)?;
+    let returned_course: Uuid = row.try_get("course_id").map_err(map_sqlx_error)?;
+    let returned_export: Uuid = row.try_get("export_id").map_err(map_sqlx_error)?;
+    let returned_count: i32 = row.try_get("row_count").map_err(map_sqlx_error)?;
+    let revision = CourseGradeSchemeRevision::from_i64(
+        row.try_get("scheme_revision").map_err(map_sqlx_error)?,
+    )?;
+    let mode: String = row.try_get("mode").map_err(map_sqlx_error)?;
+    let rounding: String = row.try_get("rounding").map_err(map_sqlx_error)?;
+    if returned_tenant != tenant.as_uuid()
+        || returned_course != course.as_uuid()
+        || returned_export != export.as_uuid()
+        || usize::try_from(returned_count).ok() != Some(row_count)
+        || revision != scheme.revision
+        || mode != mode_name(scheme.scheme.mode)
+        || rounding != rounding_name(scheme.scheme.rounding)
+    {
+        return Err(invalid_grade_control_witness());
+    }
+    Ok(question_model::UserId::from_uuid(actor))
 }
 
 async fn read_scheme(
@@ -144,28 +258,20 @@ async fn read_scheme(
     tenant: TenantId,
     course: CourseId,
 ) -> Result<CourseGradeSchemeRecord, StoreError> {
-    read_scheme_inner(tx, tenant, course, false).await
-}
-async fn read_scheme_for_update(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-) -> Result<CourseGradeSchemeRecord, StoreError> {
-    read_scheme_inner(tx, tenant, course, true).await
+    read_scheme_inner(tx, tenant, course).await
 }
 async fn read_scheme_inner(
     tx: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
     course: CourseId,
-    for_update: bool,
 ) -> Result<CourseGradeSchemeRecord, StoreError> {
-    let row = if for_update {
-        sqlx::query("SELECT mode,rounding,revision FROM course_grade_scheme WHERE tenant_id=$1 AND course_id=$2 FOR UPDATE")
-            .bind(tenant.as_uuid()).bind(course.as_uuid()).fetch_optional(&mut **tx).await
-    } else {
-        sqlx::query("SELECT mode,rounding,revision FROM course_grade_scheme WHERE tenant_id=$1 AND course_id=$2")
-            .bind(tenant.as_uuid()).bind(course.as_uuid()).fetch_optional(&mut **tx).await
-    }
+    let row = sqlx::query(
+        "SELECT mode,rounding,revision FROM course_grade_scheme WHERE tenant_id=$1 AND course_id=$2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(course.as_uuid())
+    .fetch_optional(&mut **tx)
+    .await
     .map_err(map_sqlx_error)?
     .ok_or(StoreError::NotFound)?;
     let mode = decode_mode(&row)?;
@@ -337,30 +443,6 @@ async fn lock_assignment_ids(
     Ok(rows.into_iter().map(AssignmentId::from_uuid).collect())
 }
 
-/// Advances the strong scheme token after a title-bearing assignment read
-/// projection changes through the assignment Store.
-pub(super) async fn advance_course_grade_scheme_revision(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-) -> Result<(), StoreError> {
-    let row = sqlx::query_scalar::<_, i64>(
-        "UPDATE course_grade_scheme SET revision=revision+1, \
-         updated_at=transaction_timestamp() \
-         WHERE tenant_id=$1 AND course_id=$2 AND revision < 9223372036854775807 \
-         RETURNING revision",
-    )
-    .bind(tenant.as_uuid())
-    .bind(course.as_uuid())
-    .fetch_optional(&mut **tx)
-    .await
-    .map_err(map_sqlx_error)?
-    .ok_or_else(|| {
-        StoreError::Unavailable("course grade scheme revision could not advance".to_string())
-    })?;
-    CourseGradeSchemeRevision::from_i64(row)?;
-    Ok(())
-}
 fn mode_name(mode: CourseGradeMode) -> &'static str {
     match mode {
         CourseGradeMode::TotalPoints => "total_points",
@@ -393,12 +475,6 @@ fn decode_rounding(row: &PgRow) -> Result<CourseGradeRoundingRule, StoreError> {
         ))
     }
 }
-fn fresh_band_id() -> Result<Uuid, StoreError> {
-    crate::random_uuid::random_uuid_v4(|error| {
-        StoreError::Unavailable(format!("course letter-band ID unavailable: {error}"))
-    })
-}
-
 #[derive(Clone)]
 struct TotalAssignmentInput {
     assignment: AssignmentId,

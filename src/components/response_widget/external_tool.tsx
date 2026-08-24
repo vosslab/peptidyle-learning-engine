@@ -5,6 +5,7 @@ import type { ExternalToolLaunch } from "../../api/contracts";
 import type { SubmissionOutcome } from "../../features/attempt/attempt_state";
 import type { ResponseFormatReport } from "../../wasm/index";
 import { isCanonicalExternalToolLaunchPath } from "../../api/external_tool_launch";
+import type { LearnerWorkRouteScope } from "../responses/common";
 
 import { handleWidgetKeyDown } from "./keyboard";
 
@@ -28,6 +29,7 @@ export interface ExternalToolResponseProps {
   readonly onSubmit: (response: StudentResponse) => Promise<SubmissionOutcome>;
   readonly onEscape: () => void;
   readonly onResponseChange?: (response: StudentResponse, validation: ResponseFormatReport) => void;
+  readonly learnerWorkRoute?: LearnerWorkRouteScope;
   readonly beginExternalToolLaunch?: () => Promise<ExternalToolLaunch>;
 }
 
@@ -58,10 +60,12 @@ export function isExternalToolReadyMessage(
  */
 export function isSafeExternalToolLaunchPath(
   launchUrl: string,
+  courseId: string,
+  assignmentId: string,
   attemptId: string,
   origin: string,
 ): boolean {
-  return isCanonicalExternalToolLaunchPath(launchUrl, attemptId, origin);
+  return isCanonicalExternalToolLaunchPath(launchUrl, courseId, assignmentId, attemptId, origin);
 }
 
 function externalToolStatus(phase: ExternalToolPhase): string {
@@ -139,7 +143,8 @@ export function ExternalToolResponse(props: ExternalToolResponseProps): JSX.Elem
 
   async function launch(): Promise<void> {
     const beginLaunch = props.beginExternalToolLaunch;
-    if (beginLaunch === undefined || phase().kind === "loading") {
+    const learnerWorkRoute = props.learnerWorkRoute;
+    if (beginLaunch === undefined || learnerWorkRoute === undefined || phase().kind === "loading") {
       return;
     }
     persistMarker();
@@ -152,6 +157,8 @@ export function ExternalToolResponse(props: ExternalToolResponseProps): JSX.Elem
       if (
         !isSafeExternalToolLaunchPath(
           launchResult.launchUrl,
+          learnerWorkRoute.courseId,
+          learnerWorkRoute.assignmentId,
           props.attemptId,
           window.location.origin,
         )

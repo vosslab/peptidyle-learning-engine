@@ -4,11 +4,21 @@ use super::*;
 async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
     let (_store, _backend, app, student_cookie, outsider_cookie, assignment) =
         native_feedback_fixture().await;
-    let first = active_attempt_for(&app, assignment, &student_cookie).await;
+    let first = active_attempt_for(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        &student_cookie,
+    )
+    .await;
     let prefetch = || {
         Request::builder()
             .method("POST")
-            .uri(format!("/api/attempts/{}/prefetch-next", first.id))
+            .uri(prefetch_path(
+                CourseId::from_uuid(id(205)),
+                assignment,
+                first.id,
+            ))
             .header("cookie", &student_cookie)
             .body(Body::empty())
             .expect("body-free prefetch request")
@@ -53,7 +63,11 @@ async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/attempts/{}/prefetch-next", first.id))
+                .uri(prefetch_path(
+                    CourseId::from_uuid(id(205)),
+                    assignment,
+                    first.id,
+                ))
                 .header("cookie", &student_cookie)
                 .header("content-type", "application/json")
                 .body(Body::from("{}"))
@@ -67,7 +81,11 @@ async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/attempts/{}/prefetch-next", first.id))
+                .uri(prefetch_path(
+                    CourseId::from_uuid(id(205)),
+                    assignment,
+                    first.id,
+                ))
                 .header("content-type", "application/json")
                 .body(Body::from("{}"))
                 .expect("unauthenticated hostile prefetch"),
@@ -84,7 +102,11 @@ async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/attempts/{}/prefetch-next", first.id))
+                .uri(prefetch_path(
+                    CourseId::from_uuid(id(205)),
+                    assignment,
+                    first.id,
+                ))
                 .header("cookie", &outsider_cookie)
                 .body(Body::empty())
                 .expect("foreign prefetch"),
@@ -100,7 +122,11 @@ async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
     let submit = |attempt: QuestionAttemptId, key: &str, choice: &str| {
         Request::builder()
             .method("POST")
-            .uri(format!("/api/submissions/{attempt}"))
+            .uri(submission_path(
+                CourseId::from_uuid(id(205)),
+                assignment,
+                attempt,
+            ))
             .header("cookie", &student_cookie)
             .header("content-type", "application/json")
             .header("idempotency-key", key)
@@ -110,7 +136,15 @@ async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
             ))
             .expect("submission")
     };
-    let ester = presented_choice_id(&app, first.id, &student_cookie, 0).await;
+    let ester = presented_choice_id(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        first.id,
+        &student_cookie,
+        0,
+    )
+    .await;
     let first_response = app
         .clone()
         .oneshot(submit(first.id, "prefetch-first", &ester))
@@ -134,7 +168,11 @@ async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/attempts/{}/prefetch-next", next.id))
+                .uri(prefetch_path(
+                    CourseId::from_uuid(id(205)),
+                    assignment,
+                    next.id,
+                ))
                 .header("cookie", &student_cookie)
                 .body(Body::empty())
                 .expect("final-position prefetch"),
@@ -147,7 +185,15 @@ async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
         Some(&HeaderValue::from_static("no-store")),
         "no-successor prefetches are not cacheable"
     );
-    let amide = presented_choice_id(&app, next.id, &student_cookie, 1).await;
+    let amide = presented_choice_id(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        next.id,
+        &student_cookie,
+        1,
+    )
+    .await;
     let completed = app
         .clone()
         .oneshot(submit(next.id, "prefetch-second", &amide))
@@ -175,13 +221,23 @@ async fn prefetch_preserves_a_backend_owned_render_hash() {
         store,
         Arc::new(OpaqueRenderedHashBackend { inner: backend }),
     );
-    let first = active_attempt_for(&app, assignment, &student_cookie).await;
+    let first = active_attempt_for(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        &student_cookie,
+    )
+    .await;
     let response = app
         .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/attempts/{}/prefetch-next", first.id))
+                .uri(prefetch_path(
+                    CourseId::from_uuid(id(205)),
+                    assignment,
+                    first.id,
+                ))
                 .header("cookie", &student_cookie)
                 .body(Body::empty())
                 .expect("body-free prefetch request"),
@@ -202,8 +258,22 @@ async fn prefetch_preserves_a_backend_owned_render_hash() {
 async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay_heals() {
     let (store, _backend, app, student_cookie, _outsider_cookie, assignment) =
         native_feedback_fixture().await;
-    let first = active_attempt_for(&app, assignment, &student_cookie).await;
-    let ester = presented_choice_id(&app, first.id, &student_cookie, 0).await;
+    let first = active_attempt_for(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        &student_cookie,
+    )
+    .await;
+    let ester = presented_choice_id(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        first.id,
+        &student_cookie,
+        0,
+    )
+    .await;
     let response = StudentResponse::MultipleChoice {
         selected: vec![ChoiceId::new(ester.clone())],
     };
@@ -214,6 +284,7 @@ async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay
             SubmitQuestionAttemptCommand {
                 actor: UserId::from_uuid(id(203)),
                 attempt: first.id,
+                binding: LearnerWorkRoutingBinding::new(CourseId::from_uuid(id(205)), assignment),
                 response,
                 result: AttemptResult {
                     correct: false,
@@ -231,7 +302,11 @@ async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/submissions/{}", first.id))
+                .uri(submission_path(
+                    CourseId::from_uuid(id(205)),
+                    assignment,
+                    first.id,
+                ))
                 .header("cookie", &student_cookie)
                 .header("content-type", "application/json")
                 .header("idempotency-key", "crash-before-successor-link")
@@ -245,14 +320,17 @@ async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay
         .expect("pending replay response");
     assert_eq!(pending_replay.status(), StatusCode::OK);
     let pending_receipt = json(pending_replay).await;
-    assert_eq!(pending_receipt["nextPending"], true);
-    assert!(pending_receipt["nextIssued"].is_null());
+    assert_eq!(pending_receipt["nextPending"], false);
+    assert!(
+        pending_receipt["nextIssued"].is_object(),
+        "the exact nested replay heals its bound successor"
+    );
     let resumed = app
         .clone()
-        .oneshot(post_json(
-            "/api/runs",
+        .oneshot(start_run_request(
+            CourseId::from_uuid(id(205)),
+            assignment,
             &student_cookie,
-            serde_json::json!({ "assignmentId": assignment }),
         ))
         .await
         .expect("resume response");
@@ -280,7 +358,11 @@ async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/submissions/{}", first.id))
+                .uri(submission_path(
+                    CourseId::from_uuid(id(205)),
+                    assignment,
+                    first.id,
+                ))
                 .header("cookie", &student_cookie)
                 .header("content-type", "application/json")
                 .header("idempotency-key", "crash-before-successor-link")
@@ -296,8 +378,9 @@ async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay
     let receipt = json(replay).await;
     assert!(
         receipt["nextIssued"].is_object(),
-        "replay heals the exact successor link"
+        "later replay returns the exact healed successor link"
     );
+    assert_eq!(receipt["nextIssued"], pending_receipt["nextIssued"]);
     let next = next_active_attempt(&app, first.run, &student_cookie).await;
     assert_eq!(receipt["nextIssued"]["id"], serde_json::json!(next.id));
 }
@@ -306,8 +389,22 @@ async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay
 async fn successor_delivery_failure_returns_the_durable_receipt_without_regrading() {
     let (store, backend, app, student_cookie, _outsider_cookie, assignment) =
         native_feedback_fixture().await;
-    let first = active_attempt_for(&app, assignment, &student_cookie).await;
-    let ester = presented_choice_id(&app, first.id, &student_cookie, 0).await;
+    let first = active_attempt_for(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        &student_cookie,
+    )
+    .await;
+    let ester = presented_choice_id(
+        &app,
+        CourseId::from_uuid(id(205)),
+        assignment,
+        first.id,
+        &student_cookie,
+        0,
+    )
+    .await;
     let unavailable_app = router(
         Arc::clone(&store),
         Arc::new(UnavailableSuccessorBackend {
@@ -318,7 +415,11 @@ async fn successor_delivery_failure_returns_the_durable_receipt_without_regradin
     let submit = || {
         Request::builder()
             .method("POST")
-            .uri(format!("/api/submissions/{}", first.id))
+            .uri(submission_path(
+                CourseId::from_uuid(id(205)),
+                assignment,
+                first.id,
+            ))
             .header("cookie", &student_cookie)
             .header("content-type", "application/json")
             .header("idempotency-key", "successor-delivery-outage")
@@ -349,7 +450,14 @@ async fn successor_delivery_failure_returns_the_durable_receipt_without_regradin
         .await
         .expect("pending replay response");
     assert_eq!(replay.status(), StatusCode::OK);
-    assert_eq!(json(replay).await, first_receipt);
+    let replay_receipt = json(replay).await;
+    assert_eq!(replay_receipt["accepted"], first_receipt["accepted"]);
+    assert_eq!(replay_receipt["attempt"], first_receipt["attempt"]);
+    assert_eq!(replay_receipt["nextPending"], false);
+    assert!(
+        replay_receipt["nextIssued"].is_object(),
+        "the exact nested replay retries only bound successor delivery"
+    );
     assert_eq!(
         backend.submissions.load(Ordering::SeqCst),
         1,
@@ -358,10 +466,10 @@ async fn successor_delivery_failure_returns_the_durable_receipt_without_regradin
 
     let resumed = app
         .clone()
-        .oneshot(post_json(
-            "/api/runs",
+        .oneshot(start_run_request(
+            CourseId::from_uuid(id(205)),
+            assignment,
             &student_cookie,
-            serde_json::json!({ "assignmentId": assignment }),
         ))
         .await
         .expect("run recovery response");
@@ -372,6 +480,7 @@ async fn successor_delivery_failure_returns_the_durable_receipt_without_regradin
         .await
         .expect("healed replay response");
     assert_eq!(healed_replay.status(), StatusCode::OK);
-    assert!(json(healed_replay).await["nextIssued"].is_object());
+    let healed_receipt = json(healed_replay).await;
+    assert_eq!(healed_receipt["nextIssued"], replay_receipt["nextIssued"]);
     assert_eq!(backend.submissions.load(Ordering::SeqCst), 1);
 }

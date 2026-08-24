@@ -96,7 +96,12 @@ where
         .await
         .expect("attempt support assignment");
     let support_run = store
-        .start_or_resume_run(context, student_user, support_assignment, support_run_id)
+        .start_or_resume_run(
+            context,
+            student_user,
+            LearnerWorkRoutingBinding::new(course, support_assignment),
+            support_run_id,
+        )
         .await
         .expect("attempt support run");
     let (support_presentation, support_snapshot) = receipt_presentation(version, 999, 1);
@@ -122,6 +127,7 @@ where
     support_provenance.renderer = Some(implementation("webwork-renderer"));
     let support_issue = IssueQuestionAttemptCommand {
         actor: student_user,
+        binding: LearnerWorkRoutingBinding::new(course, support_assignment),
         attempt: QuestionAttemptId::from_uuid(uuid(89_976 + fixture_offset)),
         run: support_run.id,
         assignment_position: 0,
@@ -172,10 +178,20 @@ where
         .issue_or_resume_question_attempt(context, support_issue)
         .await
         .expect("attempt support question");
-    let stored_replay = store
-        .get_webwork_grade_replay_state(context, student_user, support_attempt.id)
+    let stored_evidence = store
+        .read_issued_attempt_evidence(
+            context,
+            student_user,
+            LearnerWorkRoutingBinding::new(course, support_assignment),
+            support_attempt.id,
+        )
         .await
-        .expect("attempt owner reads replay state")
+        .expect("attempt owner reads issued evidence");
+    let learning_data_access::IssuedAttemptRead::Active(stored_evidence) = stored_evidence else {
+        panic!("fresh WebWork attempt returns active issued evidence");
+    };
+    let stored_replay = stored_evidence
+        .webwork_replay()
         .expect("issued replay state exists");
     assert_eq!(stored_replay.mapping, support_replay);
     assert_eq!(
@@ -184,18 +200,63 @@ where
     );
     assert_eq!(
         store
-            .get_webwork_grade_replay_state(context, publisher, support_attempt.id)
+            .read_issued_attempt_evidence(
+                context,
+                student_user,
+                LearnerWorkRoutingBinding::new(course, fixture.assignment),
+                support_attempt.id,
+            )
+            .await,
+        Err(StoreError::NotFound),
+        "a route with the same course but a different assignment cannot read issued evidence"
+    );
+    assert_eq!(
+        store
+            .read_issued_attempt_evidence(
+                context,
+                student_user,
+                LearnerWorkRoutingBinding::new(
+                    CourseId::from_uuid(uuid(89_980 + fixture_offset)),
+                    support_assignment,
+                ),
+                support_attempt.id,
+            )
+            .await,
+        Err(StoreError::NotFound),
+        "a swapped course route cannot read issued evidence"
+    );
+    assert_eq!(
+        store
+            .read_issued_attempt_evidence(
+                context,
+                student_user,
+                LearnerWorkRoutingBinding::new(course, support_assignment),
+                QuestionAttemptId::from_uuid(uuid(89_981 + fixture_offset)),
+            )
+            .await,
+        Err(StoreError::NotFound),
+        "an unknown attempt cannot be enumerated through the route-bound capability"
+    );
+    assert_eq!(
+        store
+            .read_issued_attempt_evidence(
+                context,
+                publisher,
+                LearnerWorkRoutingBinding::new(course, support_assignment),
+                support_attempt.id,
+            )
             .await,
         Err(StoreError::NotFound),
         "an instructor cannot discover learner-bound private replay state"
     );
     assert_eq!(
         store
-            .get_webwork_grade_replay_state(
+            .read_issued_attempt_evidence(
                 TenantContext::from_authenticated_session(TenantId::from_uuid(uuid(
                     89_978 + fixture_offset,
                 ))),
                 student_user,
+                LearnerWorkRoutingBinding::new(course, support_assignment),
                 support_attempt.id,
             )
             .await,
@@ -286,6 +347,7 @@ where
                 context,
                 SubmitQuestionAttemptCommand {
                     actor: student_user,
+                    binding: LearnerWorkRoutingBinding::new(course, support_assignment),
                     attempt: support_attempt.id,
                     response: response.clone(),
                     result: AttemptResult {
@@ -313,12 +375,20 @@ where
     assert!(forced_current.response.is_none());
     assert!(forced_current.result.is_none());
     assert_eq!(forced_current.timer.submitted_at, Some(forced.occurred_at));
-    assert_eq!(
-        store
-            .get_webwork_grade_replay_state(context, student_user, support_attempt.id)
-            .await,
-        Ok(None),
-        "terminal support action deletes private replay state atomically"
+    assert!(
+        matches!(
+            store
+                .read_issued_attempt_evidence(
+                    context,
+                    student_user,
+                    LearnerWorkRoutingBinding::new(course, support_assignment),
+                    support_attempt.id,
+                )
+                .await,
+            Ok(learning_data_access::IssuedAttemptRead::TerminalWithoutReceipt(ref read))
+                if read.status() == AttemptStatus::NeedsManualGrading
+        ),
+        "terminal support action returns no active replay authority"
     );
 
     let clear_forced_action = AttemptSupportActionId::from_uuid(uuid(89_979 + fixture_offset));
@@ -392,6 +462,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, support_assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(89_981 + fixture_offset)),
                 run: support_run.id,
                 assignment_position: 0,
@@ -415,18 +486,24 @@ where
         )
         .await
         .expect("a cleared position may issue a replacement");
-    assert!(
+    assert!(matches!(
         store
-            .get_webwork_grade_replay_state(context, student_user, replacement_attempt.id)
-            .await
-            .expect("replacement replay lookup")
-            .is_some()
-    );
+            .read_issued_attempt_evidence(
+                context,
+                student_user,
+                LearnerWorkRoutingBinding::new(course, support_assignment),
+                replacement_attempt.id,
+            )
+            .await,
+        Ok(learning_data_access::IssuedAttemptRead::Active(ref evidence))
+            if evidence.webwork_replay().is_some()
+    ));
     store
         .submit_question_attempt(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, support_assignment),
                 attempt: replacement_attempt.id,
                 response: response.clone(),
                 result: AttemptResult {
@@ -441,12 +518,20 @@ where
         )
         .await
         .expect("replacement attempt submits");
-    assert_eq!(
-        store
-            .get_webwork_grade_replay_state(context, student_user, replacement_attempt.id)
-            .await,
-        Ok(None),
-        "successful submission deletes private replay state in the same commit"
+    assert!(
+        matches!(
+            store
+                .read_issued_attempt_evidence(
+                    context,
+                    student_user,
+                    LearnerWorkRoutingBinding::new(course, support_assignment),
+                    replacement_attempt.id,
+                )
+                .await,
+            Ok(learning_data_access::IssuedAttemptRead::Submitted(ref read))
+                if read.presentation().is_some()
+        ),
+        "successful submission uses its immutable receipt without replay authority"
     );
     assert_eq!(
         store
@@ -496,6 +581,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, support_assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(89_984 + fixture_offset)),
                 run: support_run.id,
                 assignment_position: 0,

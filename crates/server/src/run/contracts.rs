@@ -7,8 +7,10 @@
 use async_trait::async_trait;
 use grading::GradeOutcome;
 use learning_data_access::{
-    FlatGradingCapability, IssuedFlatGradingContract, IssuedWebworkGradingContract,
-    SubmissionIdempotencyKey, SubmissionRecord, TenantContext, WebworkGradingCapability,
+    FlatGradingCapability, IssuedFlatGradingContract, IssuedQtiGradingContractV1,
+    IssuedQuestionSnapshotV1, IssuedWebworkGradingContract, QtiGradingCapability,
+    SubmissionIdempotencyKey, SubmissionRecord, TenantContext, WebworkGradeReplayStateV1,
+    WebworkGradingCapability,
 };
 use question_model::{
     AttemptProvenance, AttemptResult, FeedbackContent, ProblemVersionRef, QuestionAttempt,
@@ -47,6 +49,11 @@ pub struct IssuedAttemptMetadata {
     pub webwork_grading: Option<IssuedWebworkGradingContract>,
     /// Explicit obligation for the frozen WebWork definition.
     pub webwork_grading_capability: WebworkGradingCapability,
+    /// Server-only QTI private contract frozen at issue.  It is never a
+    /// browser DTO and first grade consumes this exact issued evidence.
+    pub qti_grading: Option<IssuedQtiGradingContractV1>,
+    /// Explicit obligation for the frozen QTI contract.
+    pub qti_grading_capability: QtiGradingCapability,
 }
 
 impl std::fmt::Debug for IssuedAttemptMetadata {
@@ -73,6 +80,11 @@ impl std::fmt::Debug for IssuedAttemptMetadata {
                 "webwork_grading_capability",
                 &self.webwork_grading_capability,
             )
+            .field(
+                "qti_grading",
+                &self.qti_grading.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field("qti_grading_capability", &self.qti_grading_capability)
             .finish()
     }
 }
@@ -134,7 +146,9 @@ pub struct RunSubmission<'a> {
     pub actor: question_model::UserId,
     pub idempotency_key: SubmissionIdempotencyKey,
     pub reference: ProblemVersionRef,
-    pub question: &'a QuestionDefinition,
+    /// Checksummed definition and family witness retained at issuance. This
+    /// is the only definition authority available to first-grade backends.
+    pub issued_question_snapshot: &'a IssuedQuestionSnapshotV1,
     pub attempt: &'a QuestionAttempt,
     /// Server-only answer-free envelope frozen with this issued attempt.
     /// Presentation-bearing families use it to translate public rendered IDs
@@ -146,7 +160,23 @@ pub struct RunSubmission<'a> {
     /// Immutable WebWork definition retained with the attempt. It supplies
     /// the first-grade source path and policy without a current catalog read.
     pub issued_webwork_grading: Option<&'a IssuedWebworkGradingContract>,
+    /// Private QTI contract copied at issuance.  This is the only QTI
+    /// first-grade authority; no current catalog or source lookup is valid.
+    pub issued_qti_grading: Option<&'a IssuedQtiGradingContractV1>,
+    /// Exact attempt-bound private WeBWorK replay state from preparation.
+    pub issued_webwork_replay: Option<&'a WebworkGradeReplayStateV1>,
+    /// Presentation binding from the same coherent preparation snapshot.
+    pub issued_presentation_binding: Option<question_model::PresentationBindingV1>,
+    /// Answer-free presentation snapshot from that preparation snapshot.
+    pub issued_presentation: Option<&'a learning_data_access::ReceiptPresentationSnapshot>,
     pub response: &'a StudentResponse,
+}
+
+impl RunSubmission<'_> {
+    /// Projects the immutable definition from the required issued evidence.
+    pub fn question(&self) -> &QuestionDefinition {
+        self.issued_question_snapshot.question()
+    }
 }
 
 /// Adapter-owned server boundary used by the generic run routes.
@@ -212,7 +242,7 @@ pub trait RunBackend: Send + Sync {
         self.grade(
             submission.context,
             submission.reference,
-            submission.question,
+            submission.question(),
             submission.attempt,
             submission.response,
         )

@@ -48,6 +48,8 @@ pub mod presentation;
 pub mod preview_plane;
 /// Human-facing route locators that resolve to internal identities under authorization.
 pub mod public_route;
+/// Closed instructor-owned rehearsal contracts, separate from learner runs.
+pub mod rehearsal;
 pub mod response;
 pub mod run_policy;
 /// Browser-safe anonymous-statistics projections and disclosure policy.
@@ -160,6 +162,16 @@ pub use crate::public_route::{
     AccountReference, AssignmentReference, CoInstructorInvitationReference, CourseGroupReference,
     CourseMembershipReference, CourseReference, MAX_PUBLIC_ROUTE_NUMBER, NavigationResolution,
     RESERVED_REFERENCE_PREFIXES, RunReference, WorkspaceReference,
+};
+pub use crate::rehearsal::{
+    MAX_REHEARSAL_ACCEPTED_SUBMISSION_BYTES, MAX_REHEARSAL_ACCEPTED_SUBMISSION_ENTRIES,
+    MAX_REHEARSAL_REFERENCE_NUMBER, RehearsalAttemptId, RehearsalAttemptState,
+    RehearsalBackendReceiptReference, RehearsalBackendSupport, RehearsalDiscardRequest,
+    RehearsalErrorCode, RehearsalEvidenceDigest, RehearsalEvidenceKind, RehearsalEvidenceRecord,
+    RehearsalEvidenceValidationError, RehearsalFrozenItemEvidence, RehearsalGradeOperationId,
+    RehearsalLifecycle, RehearsalPrivateGradingResult, RehearsalPublicOutcome, RehearsalReference,
+    RehearsalRunId, RehearsalRunReceipt, RehearsalStartRequest, RehearsalSubjectStart,
+    RehearsalSubmissionClaimId, RehearsalSyntheticSubjectRequest,
 };
 pub use crate::response::{ResponseDefinition, StudentResponse};
 pub use crate::run_policy::{

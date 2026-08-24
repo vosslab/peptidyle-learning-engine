@@ -3,6 +3,8 @@
 import { createSignal, type JSX } from "solid-js";
 
 import type { ContentBlock } from "../../../generated/api/ContentBlock";
+import type { AssignmentId } from "../../../generated/api/AssignmentId";
+import type { CourseId } from "../../../generated/api/CourseId";
 import type { ResponseDefinition } from "../../../generated/api/ResponseDefinition";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ExternalToolLaunch } from "../../api/contracts";
@@ -29,6 +31,11 @@ type WidgetPhase =
   | { readonly kind: "submitted" }
   | { readonly kind: "failed"; readonly message: string };
 
+export interface LearnerWorkRouteScope {
+  readonly courseId: CourseId;
+  readonly assignmentId: AssignmentId;
+}
+
 export interface ResponseWidgetBaseProps {
   readonly attemptId: string;
   /** Response controls require only the key-free local format validation capability. */
@@ -36,6 +43,8 @@ export interface ResponseWidgetBaseProps {
   readonly onSubmit: (response: StudentResponse) => Promise<SubmissionOutcome>;
   readonly onEscape: () => void;
   readonly onResponseChange?: (response: StudentResponse, validation: ResponseFormatReport) => void;
+  /** Exact navigation scope required to activate an external-tool response. */
+  readonly learnerWorkRoute?: LearnerWorkRouteScope;
   readonly beginExternalToolLaunch?: () => Promise<ExternalToolLaunch>;
 }
 

@@ -4,14 +4,6 @@ use question_model::{ActivityTimestamp, CourseMembershipId, StudentId};
 use super::*;
 use crate::CourseMembershipRecord;
 
-fn random_membership_id() -> Result<Uuid, StoreError> {
-    crate::random_uuid::random_uuid_v4(|error| {
-        StoreError::Unavailable(format!(
-            "course membership ID randomness unavailable: {error}"
-        ))
-    })
-}
-
 pub(super) fn encode_course_group_purpose(
     purpose: question_model::CourseGroupPurpose,
 ) -> &'static str {
@@ -39,6 +31,28 @@ pub(super) fn decode_course_group_purpose(
     }
 }
 
+pub(super) fn map_course_group_mutator_error(error: sqlx::Error) -> StoreError {
+    if let sqlx::Error::Database(database_error) = &error {
+        match database_error.code().as_deref() {
+            // The legacy Store path reported all group authority and active
+            // member failures as an unavailable object, not as a privilege
+            // leak to the caller.
+            Some("42501") if database_error.message() == "course group is unavailable" => {
+                return StoreError::Conflict;
+            }
+            Some("42501") => return StoreError::NotFound,
+            // Purpose/reference guards and stale expected revisions were
+            // conflicts before the broker owned this aggregate.
+            Some("23514") => return StoreError::Conflict,
+            Some("40001") if database_error.message() == "course group revision conflict" => {
+                return StoreError::Conflict;
+            }
+            _ => {}
+        }
+    }
+    map_sqlx_error(error)
+}
+
 #[async_trait]
 impl crate::CourseStore for PostgresStore {
     async fn create_course_impl(
@@ -55,37 +69,47 @@ impl crate::CourseStore for PostgresStore {
                 let tenant = course.tenant;
                 let course_id = course.id;
                 let mut transaction = self.begin_tenant(context).await?;
-                sqlx::query(
-                    "INSERT INTO course (tenant_id, course_id, title, term_start_date, \
-                     term_end_date, time_zone) VALUES ($1, $2, $3, $4::date, $5::date, $6)",
-                )
-                .bind(tenant.as_uuid())
-                .bind(course_id.as_uuid())
-                .bind(&course.title)
-                .bind(course.term.start_date().as_str())
-                .bind(course.term.end_date().as_str())
-                .bind(course.term.time_zone().as_str())
-                .execute(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)
-                .map_err(|error| match error {
-                    StoreError::AlreadyExists => StoreError::AlreadyExists,
-                    other => other,
-                })?;
-                super::course_roster::ensure_roster_state(&mut transaction, tenant, course_id)
-                    .await?;
-                sqlx::query(
-                    "INSERT INTO course_member \
-                     (tenant_id, course_id, course_membership_id, user_id, role, student_id, status, joined_at) \
-                     VALUES ($1, $2, $3, $4, 'instructor', NULL, 'active', transaction_timestamp())",
-                )
-                .bind(tenant.as_uuid())
-                .bind(course_id.as_uuid())
-                .bind(random_membership_id()?)
-                .bind(command.initial_instructor.as_uuid())
-                .execute(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
+                let (entry, actor, session) = match command.authority {
+                    crate::CourseCreationAuthority::ApprovedInstructor { actor, session } => (
+                        "SELECT course_id, instructor_membership_id \
+                         FROM public.ple_create_course_as_instructor_v1(\
+                             $1, $2, $3, $4::date, $5::date, $6, $7, $8::character(64))",
+                        actor,
+                        session,
+                    ),
+                    crate::CourseCreationAuthority::Sysadmin { actor, session } => (
+                        "SELECT course_id, instructor_membership_id \
+                         FROM public.ple_create_course_as_sysadmin_v1(\
+                             $1, $2, $3, $4::date, $5::date, $6, $7, $8::character(64))",
+                        actor,
+                        session,
+                    ),
+                };
+                // ASVS 1.2.4, 2.2.1, 2.3.1, 2.3.3: the typed server-owned
+                // authority selects a fixed broker entry; every untrusted
+                // scalar remains a bound parameter and PostgreSQL atomically
+                // rechecks the session/approval before bootstrap writes.
+                let row = sqlx::query(entry)
+                    .bind(tenant.as_uuid())
+                    .bind(course_id.as_uuid())
+                    .bind(&course.title)
+                    .bind(course.term.start_date().as_str())
+                    .bind(course.term.end_date().as_str())
+                    .bind(course.term.time_zone().as_str())
+                    .bind(actor.as_uuid())
+                    .bind(session.to_string())
+                    .fetch_one(&mut *transaction)
+                    .await
+                    .map_err(map_sqlx_error)?;
+                let returned_course: Uuid = row.try_get("course_id").map_err(map_sqlx_error)?;
+                let membership: Uuid = row
+                    .try_get("instructor_membership_id")
+                    .map_err(map_sqlx_error)?;
+                if returned_course != course_id.as_uuid() || membership.is_nil() {
+                    return Err(StoreError::Unavailable(
+                        "course creation broker returned an invalid aggregate identity".to_string(),
+                    ));
+                }
                 transaction.commit().await.map_err(map_sqlx_error)
             }
         })
@@ -241,230 +265,94 @@ impl crate::CourseStore for PostgresStore {
                 validate_course_group(&command.record)?;
                 let tenant = context.tenant_id();
                 let mut transaction = self.begin_tenant(context).await?;
-                let authorized = postgres_is_course_instructor(
-                    &mut transaction,
-                    tenant,
-                    command.record.course,
-                    command.actor,
-                )
-                .await?;
-                let accessible: bool =
-                    sqlx::query_scalar("SELECT public.ple_course_records_accessible($1, $2)")
-                        .bind(tenant.as_uuid())
-                        .bind(command.record.course.as_uuid())
-                        .fetch_one(&mut *transaction)
-                        .await
-                        .map_err(map_sqlx_error)?;
-                if !authorized || !accessible {
-                    return Err(StoreError::NotFound);
-                }
-                let member_ids = command
+                let mut member_ids = command
                     .record
                     .members
                     .iter()
                     .map(CourseMembershipId::as_uuid)
                     .collect::<Vec<_>>();
-                let valid_members: i64 = sqlx::query_scalar(
-                    "SELECT count(*) FROM course_member WHERE tenant_id = $1 AND course_id = $2 \
-             AND role = 'student' AND status = 'active' AND course_membership_id = ANY($3::uuid[])",
+                member_ids.sort_unstable();
+                let row = sqlx::query(
+                    "SELECT revision, affected_assignment_ids, affected_assignment_revisions \
+                     FROM ple_put_course_group_v1($1,$2,$3,$4,$5,$6,$7,$8)",
                 )
                 .bind(tenant.as_uuid())
+                .bind(command.actor.as_uuid())
                 .bind(command.record.course.as_uuid())
-                .bind(&member_ids)
+                .bind(command.record.id.as_uuid())
+                .bind(
+                    command
+                        .expected_revision
+                        .map(|revision| i64::try_from(revision.value()))
+                        .transpose()
+                        .map_err(|_| StoreError::Conflict)?,
+                )
+                .bind(encode_course_group_purpose(command.record.purpose))
+                .bind(&command.record.title)
+                .bind(member_ids)
                 .fetch_one(&mut *transaction)
                 .await
-                .map_err(map_sqlx_error)?;
-                if valid_members
-                    != i64::try_from(member_ids.len()).map_err(|_| {
-                        StoreError::InvalidRecord("course group has too many members".to_string())
-                    })?
+                .map_err(map_course_group_mutator_error)?;
+                let revision = CourseGroupRevision::from_stored(
+                    row.try_get("revision").map_err(map_sqlx_error)?,
+                )?;
+                let assignment_ids: Vec<Uuid> = row
+                    .try_get("affected_assignment_ids")
+                    .map_err(map_sqlx_error)?;
+                let assignment_revisions: Vec<i64> = row
+                    .try_get("affected_assignment_revisions")
+                    .map_err(map_sqlx_error)?;
+                if assignment_ids.len() != assignment_revisions.len()
+                    || assignment_ids.windows(2).any(|pair| pair[0] >= pair[1])
                 {
-                    return Err(StoreError::NotFound);
+                    return Err(StoreError::Conflict);
                 }
-
+                for (assignment, revision) in assignment_ids.into_iter().zip(assignment_revisions) {
+                    super::course_policy::reresolve_post_mutation_active_attempts(
+                        &mut transaction,
+                        context,
+                        command.actor,
+                        command.record.course,
+                        AssignmentId::from_uuid(assignment),
+                        AssignmentRevision::from_stored(revision)?,
+                    )
+                    .await?;
+                }
                 let row = sqlx::query(
                     "SELECT course_id, purpose, title, revision FROM course_group \
-             WHERE tenant_id = $1 AND course_group_id = $2 FOR UPDATE",
+                     WHERE tenant_id=$1 AND course_group_id=$2",
                 )
                 .bind(tenant.as_uuid())
                 .bind(command.record.id.as_uuid())
                 .fetch_optional(&mut *transaction)
                 .await
-                .map_err(map_sqlx_error)?;
-                let existing = if let Some(row) = &row {
-                    let members = assignment_timing::load_postgres_course_group_members(
-                        &mut transaction,
-                        tenant,
-                        command.record.id,
-                    )
-                    .await?;
-                    Some(StoredCourseGroup {
-                        record: CourseGroupRecord {
-                            id: command.record.id,
-                            tenant,
-                            course: CourseId::from_uuid(
-                                row.try_get("course_id").map_err(map_sqlx_error)?,
-                            ),
-                            purpose: decode_course_group_purpose(
-                                row.try_get("purpose").map_err(map_sqlx_error)?,
-                            )?,
-                            title: row.try_get("title").map_err(map_sqlx_error)?,
-                            members,
-                        },
-                        revision: CourseGroupRevision::from_stored(
-                            row.try_get("revision").map_err(map_sqlx_error)?,
-                        )?,
-                    })
-                } else {
-                    None
-                };
-                if let Some(existing) = &existing
-                    && existing.record == command.record
-                {
-                    transaction.commit().await.map_err(map_sqlx_error)?;
-                    return Ok(existing.clone());
-                }
-                let revision = match &existing {
-                    Some(existing) if command.expected_revision == Some(existing.revision) => {
-                        existing.revision.next()?
-                    }
-                    Some(_) => return Err(StoreError::Conflict),
-                    None if command.expected_revision.is_none() => CourseGroupRevision::INITIAL,
-                    None => return Err(StoreError::Conflict),
-                };
-                if existing
-                    .as_ref()
-                    .is_some_and(|record| record.record.course != command.record.course)
-                {
+                .map_err(map_sqlx_error)?
+                .ok_or(StoreError::NotFound)?;
+                let stored_course =
+                    CourseId::from_uuid(row.try_get("course_id").map_err(map_sqlx_error)?);
+                if stored_course != command.record.course {
                     return Err(StoreError::Conflict);
                 }
-                if existing
-                    .as_ref()
-                    .is_some_and(|stored| stored.record.purpose != command.record.purpose)
-                {
-                    super::course_groups::validate_group_purpose_transition(
-                        &mut transaction,
+                let stored = StoredCourseGroup {
+                    record: CourseGroupRecord {
+                        id: command.record.id,
                         tenant,
-                        command.record.course,
-                        command.record.id,
-                        command.record.purpose,
-                    )
-                    .await?;
-                }
-                let affected = sqlx::query_scalar::<_, Uuid>(
-                    "SELECT assignment_id FROM assignment_audience_group \
-             WHERE tenant_id = $1 AND course_id = $2 AND course_group_id = $3 UNION \
-             SELECT assignment_id FROM assignment_group_schedule_offset \
-             WHERE tenant_id = $1 AND course_id = $2 AND course_group_id = $3 UNION \
-             SELECT assignment_id FROM assignment_group_accommodation \
-             WHERE tenant_id = $1 AND course_id = $2 AND course_group_id = $3 ORDER BY assignment_id",
-                )
-                .bind(tenant.as_uuid())
-                .bind(command.record.course.as_uuid())
-                .bind(command.record.id.as_uuid())
-                .fetch_all(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?
-                .into_iter()
-                .map(AssignmentId::from_uuid)
-                .collect::<BTreeSet<_>>();
-                // BTreeSet iteration gives every concurrent group edit the same
-                // assignment lock order before any active attempt/timing row lock.
-                for assignment in &affected {
-                    assignment_timing::lock_postgres_assignment_policy(
-                        &mut transaction,
-                        tenant,
-                        *assignment,
-                    )
-                    .await?;
-                }
-                let revision_i64 =
-                    i64::try_from(revision.value()).map_err(|_| StoreError::Conflict)?;
-                if existing.is_some() {
-                    let updated = sqlx::query(
-                        "UPDATE course_group SET purpose = $3, title = $4, revision = $5, \
-                 updated_at = transaction_timestamp() \
-                 WHERE tenant_id = $1 AND course_group_id = $2",
-                    )
-                    .bind(tenant.as_uuid())
-                    .bind(command.record.id.as_uuid())
-                    .bind(encode_course_group_purpose(command.record.purpose))
-                    .bind(&command.record.title)
-                    .bind(revision_i64)
-                    .execute(&mut *transaction)
-                    .await
-                    .map_err(map_sqlx_error)?;
-                    if updated.rows_affected() != 1 {
-                        return Err(StoreError::Conflict);
-                    }
-                } else {
-                    sqlx::query(
-                        "INSERT INTO course_group \
-                 (tenant_id, course_id, course_group_id, purpose, title, revision) \
-                 VALUES ($1, $2, $3, $4, $5, $6)",
-                    )
-                    .bind(tenant.as_uuid())
-                    .bind(command.record.course.as_uuid())
-                    .bind(command.record.id.as_uuid())
-                    .bind(encode_course_group_purpose(command.record.purpose))
-                    .bind(&command.record.title)
-                    .bind(revision_i64)
-                    .execute(&mut *transaction)
-                    .await
-                    .map_err(map_sqlx_error)?;
-                }
-                sqlx::query(
-                    "DELETE FROM course_group_member WHERE tenant_id = $1 AND course_group_id = $2",
-                )
-                .bind(tenant.as_uuid())
-                .bind(command.record.id.as_uuid())
-                .execute(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
-                for membership in &command.record.members {
-                    let inserted = sqlx::query(
-                        "INSERT INTO course_group_member \
-                 (tenant_id, course_id, course_group_id, course_membership_id) \
-                 VALUES ($1, $2, $3, $4)",
-                    )
-                    .bind(tenant.as_uuid())
-                    .bind(command.record.course.as_uuid())
-                    .bind(command.record.id.as_uuid())
-                    .bind(membership.as_uuid())
-                    .execute(&mut *transaction)
-                    .await
-                    .map_err(map_sqlx_error)?;
-                    if inserted.rows_affected() != 1 {
-                        return Err(StoreError::NotFound);
-                    }
-                }
-                // A course-group edit changes the S5 facts from which S3
-                // derives applicable scopes. Re-resolve only assignments that
-                // actually reference this group, in the lock order above.
-                for assignment in affected {
-                    let revision: i64 = sqlx::query_scalar(
-                        "SELECT revision FROM assignment WHERE tenant_id=$1 AND assignment_id=$2 FOR UPDATE",
-                    )
-                    .bind(tenant.as_uuid())
-                    .bind(assignment.as_uuid())
-                    .fetch_optional(&mut *transaction)
-                    .await
-                    .map_err(map_sqlx_error)?
-                    .ok_or(StoreError::NotFound)?;
-                    super::course_policy::reresolve_active_attempts(
-                        &mut transaction,
-                        tenant,
-                        command.record.course,
-                        assignment,
-                        AssignmentRevision::from_stored(revision)?,
-                    )
-                    .await?;
-                }
-                transaction.commit().await.map_err(map_sqlx_error)?;
-                Ok(StoredCourseGroup {
-                    record: command.record,
+                        course: stored_course,
+                        purpose: decode_course_group_purpose(
+                            row.try_get("purpose").map_err(map_sqlx_error)?,
+                        )?,
+                        title: row.try_get("title").map_err(map_sqlx_error)?,
+                        members: assignment_timing::load_postgres_course_group_members(
+                            &mut transaction,
+                            tenant,
+                            command.record.id,
+                        )
+                        .await?,
+                    },
                     revision,
-                })
+                };
+                transaction.commit().await.map_err(map_sqlx_error)?;
+                Ok(stored)
             }
         })
         .await

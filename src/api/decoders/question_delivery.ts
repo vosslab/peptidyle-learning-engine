@@ -173,12 +173,22 @@ export function decodeQuestionEnvelope(value: unknown, path = "response"): Quest
 export function decodeExternalToolLaunch(
   value: unknown,
   path: string,
+  courseId: string,
+  assignmentId: string,
   attemptId: string,
 ): ExternalToolLaunch {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["launchUrl"]);
   const launchUrl = decodeNonemptyString(field(record, "launchUrl", path), `${path}.launchUrl`);
-  if (!isCanonicalExternalToolLaunchPath(launchUrl, attemptId, "https://ple-invalid.example")) {
+  if (
+    !isCanonicalExternalToolLaunchPath(
+      launchUrl,
+      courseId,
+      assignmentId,
+      attemptId,
+      "https://ple-invalid.example",
+    )
+  ) {
     throw new DecodeError(
       `${path}.launchUrl`,
       "the canonical same-origin broker path for this attempt",

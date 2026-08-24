@@ -9,13 +9,17 @@ use question_model::{
 use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::{StoreError, SubmissionIdempotencyKey, SubmissionRecord, TenantContext};
+use crate::{
+    LearnerWorkRoutingBinding, StoreError, SubmissionIdempotencyKey, SubmissionRecord,
+    TenantContext,
+};
 
 /// Trusted server request to persist a real learner response that requires an
 /// instructor evaluation. It deliberately carries no numeric result.
 #[derive(Clone, PartialEq)]
 pub struct SubmitPendingManualQuestionAttemptCommand {
     pub actor: UserId,
+    pub binding: LearnerWorkRoutingBinding,
     pub attempt: QuestionAttemptId,
     pub response: StudentResponse,
     pub idempotency_key: SubmissionIdempotencyKey,
@@ -25,6 +29,7 @@ impl std::fmt::Debug for SubmitPendingManualQuestionAttemptCommand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SubmitPendingManualQuestionAttemptCommand")
             .field("actor", &self.actor)
+            .field("binding", &self.binding)
             .field("attempt", &self.attempt)
             .field("response", &self.response)
             .field("idempotency_key", &self.idempotency_key)

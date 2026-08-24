@@ -1,20 +1,19 @@
-use super::fixtures::{id, issued_cookie_for_tenant, policies, publish_fixture};
+use super::fixtures::{id, policies};
 use super::*;
 use axum::body::Body;
 use axum::http::Request;
 use axum::http::header::ETAG;
 use axum::response::Response;
-use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
-    CatalogStore, CourseRecord, CourseRosterStore, CreateCourseCommand, JobLeaseDuration,
-    JobPayload, JobStore, RetentionWorkerCommand, RetentionWorkerStore, TenantContext,
-    UpsertCourseMember,
+    CourseRecord, CourseRosterStore, CreateCourseCommand, JobLeaseDuration, JobPayload, JobStore,
+    RetentionWorkerCommand, RetentionWorkerStore, UpsertCourseMember,
 };
-use question_model::{ActivityTimestamp, AssignmentId, CourseId, ObjectId, TenantId, UserId};
+use question_model::{AssignmentId, CourseId, ObjectId};
 use tower::ServiceExt;
 
 use crate::course::routing::CreateAssignmentRequest;
 
+mod fixture_setup;
 mod teaching_settings;
 
 async fn response_json(response: Response) -> serde_json::Value {
@@ -26,75 +25,21 @@ async fn response_json(response: Response) -> serde_json::Value {
 
 #[tokio::test]
 async fn membership_scopes_courses_and_exact_assignment_references_survive() {
-    let store = Arc::new(MemoryStore::default());
-    store
-        .set_authoritative_time(ActivityTimestamp::from_unix_millis(1_000))
-        .expect("fixture clock");
-    let tenant = TenantId::from_uuid(id(1));
-    let context = TenantContext::from_authenticated_session(tenant);
-    let instructor = UserId::from_uuid(id(2));
-    let student = UserId::from_uuid(id(3));
-    let outsider = UserId::from_uuid(id(4));
-    let sysadmin = UserId::from_uuid(id(5));
-    let foreign_tenant = TenantId::from_uuid(id(6));
-    let foreign_user = UserId::from_uuid(id(7));
-    let instructor_cookie =
-        issued_cookie_for_tenant(&store, tenant, vec![UserRole::Instructor], instructor).await;
-    let student_cookie =
-        issued_cookie_for_tenant(&store, tenant, vec![UserRole::Student], student).await;
-    let outsider_cookie =
-        issued_cookie_for_tenant(&store, tenant, vec![UserRole::Instructor], outsider).await;
-    let sysadmin_cookie =
-        issued_cookie_for_tenant(&store, tenant, vec![UserRole::Sysadmin], sysadmin).await;
-    let foreign_cookie = issued_cookie_for_tenant(
-        &store,
-        foreign_tenant,
-        vec![UserRole::Instructor],
-        foreign_user,
-    )
-    .await;
-    let app = router(Arc::clone(&store));
-
-    let created_course = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/api/courses")
-                .header("cookie", &instructor_cookie)
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    r#"{"title":"BIOC 301: Biochemistry","term":{"startDate":"2026-08-24","endDate":"2026-12-18","timeZone":"America/Chicago"}}"#,
-                ))
-                .expect("course request"),
-        )
-        .await
-        .expect("course response");
-    assert_eq!(created_course.status(), StatusCode::CREATED);
-    let created_course = response_json(created_course).await;
-    let course: CourseId =
-        serde_json::from_value(created_course["id"].clone()).expect("course ID response");
-    assert_eq!(created_course["role"], "instructor");
-
-    store
-        .upsert_course_member(
-            context,
-            UpsertCourseMember {
-                course,
-                user: student,
-                display_name: "Biochemistry learner".to_string(),
-                roster_contact: None,
-            },
-        )
-        .await
-        .expect("student membership save");
-    let reference = publish_fixture(&store, context, tenant, instructor).await;
-    let question_id = store
-        .get_catalog_problem(context, reference)
-        .await
-        .expect("catalog fixture lookup")
-        .expect("published fixture")
-        .question_id;
+    let fixture_setup::AssignmentFixture {
+        store,
+        tenant,
+        context,
+        instructor,
+        student,
+        instructor_cookie,
+        student_cookie,
+        outsider_cookie,
+        sysadmin_cookie,
+        foreign_cookie,
+        app,
+        course,
+        question_id,
+    } = fixture_setup::build().await;
 
     let retired_timing = app
         .clone()
@@ -436,7 +381,13 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    wrong_course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -472,6 +423,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,
@@ -591,6 +543,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course: second_course,
                 user: student,

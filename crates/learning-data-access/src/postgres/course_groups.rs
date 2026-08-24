@@ -37,6 +37,26 @@ fn decode_multiple_membership(value: String) -> Result<MultipleMembershipPolicy,
     }
 }
 
+fn map_purpose_policy_broker_error(error: sqlx::Error) -> StoreError {
+    if let sqlx::Error::Database(database_error) = &error {
+        match database_error.code().as_deref() {
+            Some("40001")
+                if database_error.message() == "course group purpose policy revision conflict" =>
+            {
+                return StoreError::Conflict;
+            }
+            Some("42501") => return StoreError::NotFound,
+            Some("55000") => {
+                return StoreError::Unavailable(
+                    "course group purpose policy aggregate is unavailable".to_string(),
+                );
+            }
+            _ => {}
+        }
+    }
+    map_sqlx_error(error)
+}
+
 async fn require_group_manager(
     tx: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
@@ -160,40 +180,6 @@ async fn load_purpose_policy(
     })
 }
 
-pub(super) async fn validate_group_purpose_transition(
-    tx: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    course: CourseId,
-    group: CourseGroupId,
-    purpose: CourseGroupPurpose,
-) -> Result<(), StoreError> {
-    let capabilities = question_model::GroupPurposeCapabilities::for_purpose(purpose);
-    let row = sqlx::query(
-        "SELECT EXISTS(SELECT 1 FROM assignment_audience_group \
-         WHERE tenant_id=$1 AND course_id=$2 AND course_group_id=$3) AS audience, \
-         EXISTS(SELECT 1 FROM assignment_group_schedule_offset \
-         WHERE tenant_id=$1 AND course_id=$2 AND course_group_id=$3) AS schedule, \
-         EXISTS(SELECT 1 FROM assignment_group_accommodation \
-         WHERE tenant_id=$1 AND course_id=$2 AND course_group_id=$3) AS accommodation",
-    )
-    .bind(tenant.as_uuid())
-    .bind(course.as_uuid())
-    .bind(group.as_uuid())
-    .fetch_one(&mut **tx)
-    .await
-    .map_err(map_sqlx_error)?;
-    let audience: bool = row.try_get("audience").map_err(map_sqlx_error)?;
-    let schedule: bool = row.try_get("schedule").map_err(map_sqlx_error)?;
-    let accommodation: bool = row.try_get("accommodation").map_err(map_sqlx_error)?;
-    if (audience && !capabilities.assignment_audience)
-        || (schedule && !capabilities.schedule_scope)
-        || (accommodation && !capabilities.accommodation_scope)
-    {
-        return Err(StoreError::Conflict);
-    }
-    Ok(())
-}
-
 #[async_trait]
 impl crate::CourseGroupManagementStore for PostgresStore {
     async fn list_course_groups(
@@ -302,53 +288,21 @@ impl crate::CourseGroupManagementStore for PostgresStore {
         retry_transaction(|| async move {
             let tenant = context.tenant_id();
             let mut tx = self.begin_tenant(context).await?;
-            require_group_manager(&mut tx, tenant, course, actor).await?;
-            ensure_complete_policy_rows(&mut tx, tenant, course).await?;
-            let references: bool = sqlx::query_scalar(
-                "SELECT EXISTS(SELECT 1 FROM assignment_audience_group \
-                 WHERE tenant_id=$1 AND course_id=$2 AND course_group_id=$3) OR \
-                 EXISTS(SELECT 1 FROM assignment_group_schedule_offset \
-                 WHERE tenant_id=$1 AND course_id=$2 AND course_group_id=$3) OR \
-                 EXISTS(SELECT 1 FROM assignment_group_accommodation \
-                 WHERE tenant_id=$1 AND course_id=$2 AND course_group_id=$3)",
-            )
-            .bind(tenant.as_uuid())
-            .bind(course.as_uuid())
-            .bind(group.as_uuid())
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-            if references {
-                return Err(StoreError::Conflict);
-            }
-            let deleted = sqlx::query(
-                "DELETE FROM course_group WHERE tenant_id=$1 AND course_id=$2 AND \
-                 course_group_id=$3 AND revision=$4",
-            )
-            .bind(tenant.as_uuid())
-            .bind(course.as_uuid())
-            .bind(group.as_uuid())
-            .bind(i64::try_from(expected_revision.value()).map_err(|_| StoreError::Conflict)?)
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-            if deleted.rows_affected() == 0 {
-                let exists: bool = sqlx::query_scalar(
-                    "SELECT EXISTS(SELECT 1 FROM course_group WHERE tenant_id=$1 AND \
-                     course_id=$2 AND course_group_id=$3)",
-                )
-                .bind(tenant.as_uuid())
-                .bind(course.as_uuid())
-                .bind(group.as_uuid())
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(map_sqlx_error)?;
-                if exists {
-                    return Err(StoreError::Conflict);
-                }
-            }
+            let deleted: bool =
+                sqlx::query_scalar("SELECT ple_delete_course_group_v1($1,$2,$3,$4,$5)")
+                    .bind(tenant.as_uuid())
+                    .bind(actor.as_uuid())
+                    .bind(course.as_uuid())
+                    .bind(group.as_uuid())
+                    .bind(
+                        i64::try_from(expected_revision.value())
+                            .map_err(|_| StoreError::Conflict)?,
+                    )
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(super::courses::map_course_group_mutator_error)?;
             tx.commit().await.map_err(map_sqlx_error)?;
-            Ok(deleted.rows_affected() == 1)
+            Ok(deleted)
         })
         .await
     }
@@ -377,21 +331,16 @@ impl crate::CourseGroupManagementStore for PostgresStore {
         retry_transaction(|| async move {
             let tenant = context.tenant_id();
             let mut tx = self.begin_tenant(context).await?;
-            require_group_manager(&mut tx, tenant, command.course, command.actor).await?;
-            ensure_complete_policy_rows(&mut tx, tenant, command.course).await?;
-            let current =
-                load_purpose_policy(&mut tx, tenant, command.course, command.policy.purpose)
-                    .await?;
-            if current.revision != command.expected_revision {
-                return Err(StoreError::Conflict);
-            }
-            let next = current.revision.next()?;
-            let updated = sqlx::query(
-                "UPDATE course_group_membership_policy SET multiple_membership=$4, \
-                 revision=$5 WHERE tenant_id=$1 AND course_id=$2 AND purpose=$3 AND \
-                 revision=$6",
+            // ASVS 2.2.1-2.2.3, 2.3.1-2.3.4, 8.2.1-8.2.3, 8.3.1-8.3.3,
+            // 15.4.2-15.4.3: PostgreSQL locks the presented live session,
+            // exact course authority, and closed five-row policy aggregate in
+            // one CAS.  The public command carries no caller-selected actor.
+            let row = sqlx::query(
+                "SELECT tenant_id, actor_id, course_id, purpose, multiple_membership, revision \
+                 FROM public.ple_replace_course_group_purpose_policy_v1($1,$2::character(64),$3,$4,$5,$6)",
             )
             .bind(tenant.as_uuid())
+            .bind(command.session.to_string())
             .bind(command.course.as_uuid())
             .bind(super::courses::encode_course_group_purpose(
                 command.policy.purpose,
@@ -399,18 +348,43 @@ impl crate::CourseGroupManagementStore for PostgresStore {
             .bind(encode_multiple_membership(
                 command.policy.multiple_membership,
             ))
-            .bind(i64::try_from(next.value()).map_err(|_| StoreError::Conflict)?)
-            .bind(i64::try_from(current.revision.value()).map_err(|_| StoreError::Conflict)?)
-            .execute(&mut *tx)
+            .bind(
+                i64::try_from(command.expected_revision.value())
+                    .map_err(|_| StoreError::Conflict)?,
+            )
+            .fetch_one(&mut *tx)
             .await
-            .map_err(map_sqlx_error)?;
-            if updated.rows_affected() != 1 {
-                return Err(StoreError::Conflict);
+            .map_err(map_purpose_policy_broker_error)?;
+            let returned_tenant: Uuid = row.try_get("tenant_id").map_err(map_sqlx_error)?;
+            let returned_actor: Uuid = row.try_get("actor_id").map_err(map_sqlx_error)?;
+            let returned_course: Uuid = row.try_get("course_id").map_err(map_sqlx_error)?;
+            let returned_purpose = super::courses::decode_course_group_purpose(
+                row.try_get("purpose").map_err(map_sqlx_error)?,
+            )?;
+            let returned_membership = decode_multiple_membership(
+                row.try_get("multiple_membership").map_err(map_sqlx_error)?,
+            )?;
+            let revision = CourseGroupPurposePolicyRevision::from_stored(
+                row.try_get("revision").map_err(map_sqlx_error)?,
+            )?;
+            if returned_tenant != tenant.as_uuid()
+                || returned_actor.is_nil()
+                || returned_course != command.course.as_uuid()
+                || returned_purpose != command.policy.purpose
+                || returned_membership != command.policy.multiple_membership
+                || revision.value() != command.expected_revision.value().saturating_add(1)
+            {
+                return Err(StoreError::Unavailable(
+                    "course group purpose policy broker returned an invalid witness".to_string(),
+                ));
             }
             tx.commit().await.map_err(map_sqlx_error)?;
             Ok(StoredCourseGroupPurposePolicy {
-                policy: command.policy,
-                revision: next,
+                policy: CourseGroupPurposePolicy {
+                    purpose: returned_purpose,
+                    multiple_membership: returned_membership,
+                },
+                revision,
             })
         })
         .await

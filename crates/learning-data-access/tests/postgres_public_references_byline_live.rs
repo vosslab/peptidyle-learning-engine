@@ -2,6 +2,10 @@
 
 //! Disposable PostgreSQL 17 oracle for public route references and bylines.
 
+#[path = "postgres_course_creation_support.rs"]
+mod course_creation_support;
+use course_creation_support::sysadmin_course_creation_authority;
+
 #[path = "fixtures/published_assignment.rs"]
 mod published_assignment;
 use published_assignment::create_published_assignment;
@@ -9,8 +13,8 @@ use published_assignment::create_published_assignment;
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateCourseCommand,
-    DraftRecord, NavigationReferenceStore, PublishDraftCommand, Store, TenantContext,
-    UpsertCourseMember,
+    DraftRecord, LearnerWorkRoutingBinding, NavigationReferenceStore, PublishDraftCommand, Store,
+    TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -284,7 +288,8 @@ async fn postgres_public_references_and_bylines_are_normalized_authorized_and_im
                     )
                     .expect("valid fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: sysadmin_course_creation_authority(&store, tenant, course, instructor)
+                    .await,
             },
         )
         .await
@@ -304,7 +309,13 @@ async fn postgres_public_references_and_bylines_are_normalized_authorized_and_im
                     )
                     .expect("valid foreign fixture course term"),
                 },
-                initial_instructor: outsider,
+                authority: sysadmin_course_creation_authority(
+                    &store,
+                    foreign_tenant,
+                    foreign_course,
+                    outsider,
+                )
+                .await,
             },
         )
         .await
@@ -344,6 +355,7 @@ async fn postgres_public_references_and_bylines_are_normalized_authorized_and_im
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,
@@ -354,7 +366,12 @@ async fn postgres_public_references_and_bylines_are_normalized_authorized_and_im
         .await
         .expect("create student membership and enrollment");
     let run = store
-        .start_or_resume_run(context, student, assignment, RunId::from_uuid(id()))
+        .start_or_resume_run(
+            context,
+            student,
+            LearnerWorkRoutingBinding::new(course, assignment),
+            RunId::from_uuid(id()),
+        )
         .await
         .expect("start owned learner run");
 

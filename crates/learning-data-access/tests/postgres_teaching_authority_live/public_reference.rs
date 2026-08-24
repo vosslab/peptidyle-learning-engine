@@ -23,8 +23,10 @@ async fn postgres_co_instructor_target_search_oracle() {
     let target_marker = target.as_uuid().simple().to_string();
     let target_display = format!("Candidate Elm {}", &target_marker[..12]);
     create_account(&store, sysadmin).await;
+    create_account(&store, instructor).await;
     create_account_named(&store, target, &target_display).await;
     let sysadmin_session = session(&store, tenant, sysadmin, vec![UserRole::Sysadmin]).await;
+    let instructor_session = session(&store, tenant, instructor, vec![UserRole::Instructor]).await;
     let course = CourseId::from_uuid(id());
     store
         .create_course(
@@ -37,7 +39,10 @@ async fn postgres_co_instructor_target_search_oracle() {
                     term: CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
                         .expect("fixture term"),
                 },
-                initial_instructor: instructor,
+                authority: CourseCreationAuthority::ApprovedInstructor {
+                    actor: instructor,
+                    session: instructor_session,
+                },
             },
         )
         .await
@@ -88,6 +93,7 @@ async fn postgres_co_instructor_target_search_oracle() {
         .accept_co_instructor_invitation(
             context,
             RespondToCoInstructorInvitation {
+                session: target_session,
                 actor: target,
                 invitation: invitation.invitation.id,
                 expected_revision: invitation.revision,
@@ -147,7 +153,10 @@ async fn postgres_teaching_authority_is_target_bound_atomic_and_least_privilege(
                     term: CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
                         .expect("fixture term"),
                 },
-                initial_instructor: instructor,
+                authority: CourseCreationAuthority::ApprovedInstructor {
+                    actor: instructor,
+                    session: instructor_session,
+                },
             },
         )
         .await
@@ -155,6 +164,7 @@ async fn postgres_teaching_authority_is_target_bound_atomic_and_least_privilege(
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,
@@ -520,6 +530,7 @@ async fn postgres_teaching_authority_is_target_bound_atomic_and_least_privilege(
             .accept_co_instructor_invitation(
                 context,
                 RespondToCoInstructorInvitation {
+                    session: other_session,
                     actor: other,
                     invitation: invitation.invitation.id,
                     expected_revision: invitation.revision,
@@ -549,6 +560,7 @@ async fn postgres_teaching_authority_is_target_bound_atomic_and_least_privilege(
         .accept_co_instructor_invitation(
             context,
             RespondToCoInstructorInvitation {
+                session: target_session,
                 actor: target,
                 invitation: invitation.invitation.id,
                 expected_revision: invitation.revision,
@@ -630,6 +642,7 @@ async fn postgres_teaching_authority_is_target_bound_atomic_and_least_privilege(
         .accept_co_instructor_invitation(
             context,
             RespondToCoInstructorInvitation {
+                session: target_session,
                 actor: target,
                 invitation: invitation.invitation.id,
                 expected_revision: invitation.revision,

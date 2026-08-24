@@ -338,6 +338,7 @@ where
     let accepted = store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: student,

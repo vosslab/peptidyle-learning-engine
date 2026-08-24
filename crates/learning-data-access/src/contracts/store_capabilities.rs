@@ -205,6 +205,8 @@ pub trait CourseGroupManagementStore: Send + Sync {
         course: CourseId,
         purpose: question_model::CourseGroupPurpose,
     ) -> Result<Option<StoredCourseGroupPurposePolicy>, StoreError>;
+    /// Replaces one closed-purpose policy under the command's live
+    /// session-derived direct-Instructor authority and expected revision.
     async fn update_course_group_purpose_policy(
         &self,
         context: TenantContext,
@@ -225,18 +227,14 @@ pub trait CourseAssignmentStore: Send + Sync {
     async fn create_assignment_impl(
         &self,
         context: TenantContext,
-        assignment: AssignmentRecord,
-        base_policy: question_model::BaseAssignmentPolicy,
+        command: CreateAssignmentCommand,
     ) -> Result<StoredAssignment, StoreError>;
 
     /// Replaces content fields while preserving teaching settings.
     async fn replace_assignment_impl(
         &self,
         context: TenantContext,
-        course: CourseId,
-        assignment: AssignmentId,
-        expected_revision: AssignmentRevision,
-        update: AssignmentUpdate,
+        command: ReplaceAssignmentCommand,
     ) -> Result<StoredAssignment, StoreError>;
 
     /// Replaces one fixed item for future runs under the assignment's strong
@@ -389,12 +387,13 @@ pub trait RunStore: Send + Sync {
     ///
     /// The backend owns the timestamp, one-based run number, mode, policy,
     /// and compact-summary transition. The proposed ID is used only when a new
-    /// run is actually inserted.
+    /// run is actually inserted. `binding` is a routing assertion verified by
+    /// the Store, not an authority or authorization grant.
     async fn start_or_resume_run_impl(
         &self,
         context: TenantContext,
         actor: UserId,
-        assignment: AssignmentId,
+        binding: LearnerWorkRoutingBinding,
         proposed_run: RunId,
     ) -> Result<AssignmentRun, StoreError>;
 
@@ -415,61 +414,31 @@ pub trait RunStore: Send + Sync {
         command: IssueQuestionAttemptCommand,
     ) -> Result<QuestionAttempt, StoreError>;
 
-    /// Reads the server-only presentation binding for one owned attempt.
-    async fn get_attempt_presentation_binding_impl(
+    /// Reads the immutable issued evidence tuple after route-bound learner
+    /// authorization. It never reconstructs an issued attempt from catalog or
+    /// renderer state.
+    async fn read_issued_attempt_evidence_impl(
         &self,
         context: TenantContext,
         actor: UserId,
+        binding: LearnerWorkRoutingBinding,
         attempt: QuestionAttemptId,
-    ) -> Result<Option<PresentationBindingV1>, StoreError>;
+    ) -> Result<IssuedAttemptRead, StoreError>;
 
-    /// Reads the answer-free snapshot frozen when one owned attempt issued its
-    /// presentation. A presentation-bearing attempt without this snapshot is
-    /// unavailable authority, never a request to rebuild from current state.
-    async fn get_attempt_presentation_snapshot_impl(
+    /// Authorizes and snapshots the exact attempt aggregate before grading.
+    ///
+    /// Implementations return replay before terminal-state refusal. A grade
+    /// context is owned and server-only so database locks are released before
+    /// any renderer or adapter call (ASVS 2.3.1, 2.3.3, 8.2.2).
+    async fn prepare_question_submission_impl(
         &self,
         context: TenantContext,
         actor: UserId,
+        binding: LearnerWorkRoutingBinding,
         attempt: QuestionAttemptId,
-    ) -> Result<Option<ReceiptPresentationSnapshot>, StoreError>;
-
-    /// Reads the exact server-only answer-free envelope frozen with one owned
-    /// presentation-bearing attempt. Its durable response IDs are used only
-    /// for first-submit validation and private grading, never browser output.
-    async fn get_attempt_grading_envelope_impl(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<question_model::QuestionEnvelope>, StoreError>;
-
-    /// Reads immutable private flat-question grading authority for one owned
-    /// attempt. A missing or corrupt required contract is unavailable rather
-    /// than an invitation to reread mutable publication state.
-    async fn get_attempt_flat_grading_impl(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<crate::IssuedFlatGradingContract>, StoreError>;
-
-    /// Reads immutable server-only WebWork grading authority for one owned
-    /// attempt. A missing required contract fails closed instead of asking the
-    /// current catalog or renderer to reconstruct it.
-    async fn get_attempt_webwork_grading_impl(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<crate::IssuedWebworkGradingContract>, StoreError>;
-
-    /// Reads the private answer-free WeBWorK replay state for one owned attempt.
-    async fn get_webwork_grade_replay_state_impl(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<WebworkGradeReplayStateV1>, StoreError>;
+        response: &StudentResponse,
+        idempotency_key: &SubmissionIdempotencyKey,
+    ) -> Result<SubmissionPreparation, StoreError>;
 
     /// Reserves a key-free future variant for an owned unresolved predecessor.
     /// This operation never creates a question attempt or starts a timer.
@@ -477,7 +446,7 @@ pub trait RunStore: Send + Sync {
         &self,
         context: TenantContext,
         command: ReservePrefetchedQuestionCommand,
-    ) -> Result<PrefetchedQuestion, StoreError>;
+    ) -> Result<PrefetchedQuestionDescriptorV1, StoreError>;
 
     /// Finds a reservation selected by trusted server sequencing. Promotion
     /// remains atomic in `issue_or_resume_question_attempt`.
@@ -488,7 +457,7 @@ pub trait RunStore: Send + Sync {
         run: RunId,
         predecessor: QuestionAttemptId,
         assignment_position: u32,
-    ) -> Result<Option<PrefetchedQuestion>, StoreError>;
+    ) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError>;
 
     /// Browser learner capability for a reservation in an active enrollment.
     async fn learner_get_prefetched_question_impl(
@@ -498,7 +467,7 @@ pub trait RunStore: Send + Sync {
         run: RunId,
         predecessor: QuestionAttemptId,
         assignment_position: u32,
-    ) -> Result<Option<PrefetchedQuestion>, StoreError>;
+    ) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError>;
 
     /// Reads the immutable next-attempt result for an owned submission.
     async fn submission_next_attempt_impl(

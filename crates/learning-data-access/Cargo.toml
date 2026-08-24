@@ -29,11 +29,13 @@ sqlx = { workspace = true, optional = true }
 [features]
 default = []
 postgres = ["dep:sqlx"]
-# Enables test-only legacy-record injection for server boundary tests. Production
-# compositions never enable it, so it cannot create a persistence bypass.
+# Enables deliberate non-production Memory seams for focused conformance and
+# server-boundary tests. Production compositions never enable it, so destructive
+# fixtures and legacy-record injection cannot create a persistence bypass.
 test-support = []
 
 [dev-dependencies]
 tokio.workspace = true
 uuid.workspace = true
 adapter_native = { path = "../adapters/native" }
+base_course_installation.workspace = true

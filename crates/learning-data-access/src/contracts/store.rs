@@ -207,30 +207,18 @@ pub trait Store:
     async fn create_assignment(
         &self,
         context: TenantContext,
-        assignment: AssignmentRecord,
-        base_policy: question_model::BaseAssignmentPolicy,
+        command: CreateAssignmentCommand,
     ) -> Result<StoredAssignment, StoreError> {
-        CourseAssignmentStore::create_assignment_impl(self, context, assignment, base_policy).await
+        CourseAssignmentStore::create_assignment_impl(self, context, command).await
     }
 
     /// Atomically replaces content fields while preserving teaching settings.
     async fn replace_assignment(
         &self,
         context: TenantContext,
-        course: CourseId,
-        assignment: AssignmentId,
-        expected_revision: AssignmentRevision,
-        update: AssignmentUpdate,
+        command: ReplaceAssignmentCommand,
     ) -> Result<StoredAssignment, StoreError> {
-        CourseAssignmentStore::replace_assignment_impl(
-            self,
-            context,
-            course,
-            assignment,
-            expected_revision,
-            update,
-        )
-        .await
+        CourseAssignmentStore::replace_assignment_impl(self, context, command).await
     }
 
     /// Replaces one fixed assignment item through the focused
@@ -433,14 +421,17 @@ pub trait Store:
     }
 
     /// Delegates to the focused [`RunStore`] capability.
+    ///
+    /// `binding` is a routing assertion verified by the Store, not an
+    /// authority or authorization grant.
     async fn start_or_resume_run(
         &self,
         context: TenantContext,
         actor: UserId,
-        assignment: AssignmentId,
+        binding: LearnerWorkRoutingBinding,
         proposed_run: RunId,
     ) -> Result<AssignmentRun, StoreError> {
-        RunStore::start_or_resume_run_impl(self, context, actor, assignment, proposed_run).await
+        RunStore::start_or_resume_run_impl(self, context, actor, binding, proposed_run).await
     }
 
     /// Delegates to the focused [`RunStore`] capability.
@@ -470,64 +461,38 @@ pub trait Store:
         RunStore::issue_or_resume_question_attempt_impl(self, context, command).await
     }
 
-    /// Delegates to the focused [`RunStore`] capability.
-    async fn get_attempt_presentation_binding(
+    /// Reads one coherent server-only issued evidence aggregate through the
+    /// explicit learner-work route binding.
+    async fn read_issued_attempt_evidence(
         &self,
         context: TenantContext,
         actor: UserId,
+        binding: LearnerWorkRoutingBinding,
         attempt: QuestionAttemptId,
-    ) -> Result<Option<PresentationBindingV1>, StoreError> {
-        RunStore::get_attempt_presentation_binding_impl(self, context, actor, attempt).await
+    ) -> Result<IssuedAttemptRead, StoreError> {
+        RunStore::read_issued_attempt_evidence_impl(self, context, actor, binding, attempt).await
     }
 
-    /// Delegates to the focused [`RunStore`] capability.
-    async fn get_attempt_presentation_snapshot(
+    /// Prepares one exact submission without holding storage locks across grading.
+    async fn prepare_question_submission(
         &self,
         context: TenantContext,
         actor: UserId,
+        binding: LearnerWorkRoutingBinding,
         attempt: QuestionAttemptId,
-    ) -> Result<Option<ReceiptPresentationSnapshot>, StoreError> {
-        RunStore::get_attempt_presentation_snapshot_impl(self, context, actor, attempt).await
-    }
-
-    /// Delegates to the focused [`RunStore`] capability.
-    async fn get_attempt_grading_envelope(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<question_model::QuestionEnvelope>, StoreError> {
-        RunStore::get_attempt_grading_envelope_impl(self, context, actor, attempt).await
-    }
-
-    /// Delegates to the focused [`RunStore`] capability.
-    async fn get_attempt_flat_grading(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<crate::IssuedFlatGradingContract>, StoreError> {
-        RunStore::get_attempt_flat_grading_impl(self, context, actor, attempt).await
-    }
-
-    /// Delegates to the focused [`RunStore`] capability.
-    async fn get_attempt_webwork_grading(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<crate::IssuedWebworkGradingContract>, StoreError> {
-        RunStore::get_attempt_webwork_grading_impl(self, context, actor, attempt).await
-    }
-
-    /// Reads the private answer-free WeBWorK replay state for one owned attempt.
-    async fn get_webwork_grade_replay_state(
-        &self,
-        context: TenantContext,
-        actor: UserId,
-        attempt: QuestionAttemptId,
-    ) -> Result<Option<WebworkGradeReplayStateV1>, StoreError> {
-        RunStore::get_webwork_grade_replay_state_impl(self, context, actor, attempt).await
+        response: &StudentResponse,
+        idempotency_key: &SubmissionIdempotencyKey,
+    ) -> Result<SubmissionPreparation, StoreError> {
+        RunStore::prepare_question_submission_impl(
+            self,
+            context,
+            actor,
+            binding,
+            attempt,
+            response,
+            idempotency_key,
+        )
+        .await
     }
 
     /// Delegates to the focused [`RunStore`] capability.
@@ -535,7 +500,7 @@ pub trait Store:
         &self,
         context: TenantContext,
         command: ReservePrefetchedQuestionCommand,
-    ) -> Result<PrefetchedQuestion, StoreError> {
+    ) -> Result<PrefetchedQuestionDescriptorV1, StoreError> {
         RunStore::reserve_or_resume_prefetched_question_impl(self, context, command).await
     }
 
@@ -547,7 +512,7 @@ pub trait Store:
         run: RunId,
         predecessor: QuestionAttemptId,
         assignment_position: u32,
-    ) -> Result<Option<PrefetchedQuestion>, StoreError> {
+    ) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError> {
         RunStore::get_prefetched_question_impl(
             self,
             context,
@@ -566,7 +531,7 @@ pub trait Store:
         run: RunId,
         predecessor: QuestionAttemptId,
         assignment_position: u32,
-    ) -> Result<Option<PrefetchedQuestion>, StoreError> {
+    ) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError> {
         RunStore::learner_get_prefetched_question_impl(
             self,
             context,

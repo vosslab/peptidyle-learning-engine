@@ -1,6 +1,6 @@
 # Implementation status and handoff
 
-Last updated: 2026-08-22
+Last updated: 2026-08-23
 
 This file is a durable execution handoff. The architecture, scope, milestone order, security
 boundaries, and acceptance criteria remain authoritative in the implementation and active plans.
@@ -14,6 +14,8 @@ registry: WP-PROF-T2 and WP-PROF-LD1 are accepted on 2026-08-20; WP-PROF-LD2 is 
 2026-08-21; WP-PROF-BS1 and WP-PROF-T3 are accepted on 2026-08-22; WP-PROF-T4 is the sole current
 professor package;
 and the release queue is PARKED at still-open WP-RC8.
+WP-PROF-T4 remains current in-progress work: its reserved migration chain, including the bounded
+issued-question snapshot dependency, is neither implemented nor accepted.
 The professor and release plans own their scope and dependency queues, but defer current-handoff
 truth to this registry. WP-PROF-S1, WP-PROF-S2, WP-PROF-S3, WP-PROF-S4, WP-PROF-S5, and WP-PROF-S7
 are accepted, as are WP-PROF-S6, WP-PROF-T1, WP-PROF-T2, WP-PROF-LD1, and WP-PROF-LD2. LD1 delivered
@@ -98,6 +100,17 @@ do not implicitly receive one.
 | `2026081808` | WP-PROF-LD1 | Live-demo installation state; accepted and immutable |
 | `2026081809` | WP-PROF-LD2 | Accepted and immutable; exactly two least-privilege execute-only brokers: Sysadmin approval-candidate discovery and read-only completed-installation-generation lookup for configured first-ownership proof |
 | `2026081810` | WP-PROF-LD2 | Accepted and immutable; only the narrow Student pre-tenant account-course context retention-boundary repair |
+| `2026081811` | WP-PROF-T4 | Reserved before implementation: `2026081811_rehearsal_runs.sql` |
+| `2026081812` | WP-PROF-T4 | Reserved before implementation: `2026081812_assignment_mutator_authority.sql` |
+| `2026081813` | WP-PROF-T4 | Reserved before implementation: `2026081813_rehearsal_source_fence_integration.sql` |
+| `2026081814` | WP-PROF-T4 | Reserved before implementation: `2026081814_assignment_definition_capabilities.sql`; actor-authorized assignment-definition create and complete normalized replacement, including the cutover that retires the incomplete `1812` scalar replacement |
+| `2026081815` | WP-PROF-T4 | Reserved before implementation: `2026081815_rehearsal_start_intent.sql`; explicit post-completion start intent and Store-verified latest-run witness |
+| `2026081816` | WP-PROF-T4 | Reserved before implementation: `2026081816_course_group_mutator_capabilities.sql`; dedicated execute-only course-group mutation brokers with exact affected-assignment witnesses |
+| `2026081817` | WP-PROF-T4 | Reserved before implementation: `2026081817_learner_work_source_preparation.sql`; typed learner-work and entitlement source-preparation witnesses, including the immutable issued-question source/execution snapshot, preserving learner-artifact writes |
+| `2026081818` | WP-PROF-T4 | Reserved before implementation: `2026081818_course_creation_authority.sql`; closed course-provisioning authority after `1817` revokes direct source DML, with ordinary Instructor/Sysadmin session-bound entries and a separately attested Base Course installer capability; no broad `ple_app` DML or Instructor platform role |
+| `2026081819` | WP-PROF-T4 | Reserved before implementation: `2026081819_course_grade_control_capabilities.sql`; isolated grade-scheme and export-audit brokers |
+| `2026081820` | WP-PROF-T4 | Reserved before implementation: `2026081820_scoring_commit_source_preparation.sql`; isolated scoring-worker preparation and finalization brokers |
+| `2026081821` | WP-PROF-T4 | Reserved before implementation: `2026081821_rehearsal_operation_idempotency.sql`; durable start/delivery/discard idempotency roots, events, and receipts; broker authority; and forward stale/source/terminal revocation integration |
 
 The S3, S4, and S5 allocations were reordered before any of their migration files existed.
 Accepted S5 occupies `2026081803`, accepted S3 occupies `2026081804`, accepted S4 occupies
@@ -105,10 +118,49 @@ Accepted S5 occupies `2026081803`, accepted S3 occupies `2026081804`, accepted S
 `2026081807_teaching_operations.sql` is accepted and immutable, and the forward migration order
 remains contiguous through `2026081807`. `2026081808_live_demo_install_state.sql` is accepted and
 immutable. `2026081809` and `2026081810` are accepted and immutable. The 1809 allocation accurately
-records its two existing brokers; no additional migration is warranted. No placeholder migration,
-absent-file dependency, or out-of-order application
-is permitted. Numeric allocation records the forward migration sequence, while package dependency
-remains defined by the professor plan.
+records its two existing brokers; no additional migration is warranted. `2026081811` remains the
+reserved, in-flight rehearsal namespace and lifecycle migration. `2026081812`, `2026081813`,
+`2026081814`, `2026081815`, `2026081816`, `2026081817`, `2026081818`, `2026081819`, `2026081820`, and `2026081821` are the
+contiguous, jointly reserved WP-PROF-T4 authority migrations: assignment-mutation authority,
+rehearsal source-fence integration, complete actor-authorized assignment-definition capabilities,
+rehearsal start intent, course-group mutation authority, learner-work source preparation,
+course-provisioning authority, grade-control capabilities, scoring-commit preparation, and durable
+non-submission rehearsal idempotency. `2026081814` retires the incomplete scalar replacement
+introduced by `2026081812`; `2026081821` forward-adds the rehearsal operation protocol without
+amending the existing 999-line `2026081811_rehearsal_runs.sql` aggregate. Together these migrations
+form one unaccepted T4 chain, not a compatibility layer. No placeholder migration, absent-file
+dependency, or out-of-order application is permitted. Numeric allocation
+records the forward migration sequence, while package dependency remains defined by the professor plan.
+
+The `2026081815` allocation owns the rehearsal start-intent capability. It retires the
+ten-argument rehearsal-start capability and admits one twelve-argument capability carrying the
+explicit post-completion intent and a Store-verified latest-run witness. The capability keeps the
+normal live operation: a successful call resumes, replaces, or creates a durable active rehearsal
+according to the locked aggregate and explicit intent. It does not create a read-only demo state or
+a client-visible decision token. `2026081821` owns the durable start receipt and the only
+`ple_app` idempotent start entry; after it is installed, the 1815 entry remains internal or is
+removed when dependencies permit, never a public compatibility path.
+
+The `2026081816` allocation owns dedicated execute-only course-group mutation broker capabilities
+and exact affected-assignment witnesses for invalidation. It does not restore direct `ple_app` DML,
+and it remains reserved and unaccepted.
+
+The `2026081817`-`2026081820` allocations are forward-only authority closures for real ordinary
+work regressions exposed by the deliberate `1812` and `1814` revocations. Typed preparation
+witnesses, including the immutable issued-question source/execution snapshot, preserve direct
+learner-artifact writes after Rust verification. `2026081818` closes
+course provisioning after that source-DML revocation through ordinary Instructor/Sysadmin
+session-bound entry points and a separately attested Base Course installer capability; it does not
+create an Instructor platform role. Isolated grade-control and scoring brokers own their protected
+source transitions. These migrations never restore broad `ple_app` source-row update authority and
+remain reserved and unaccepted.
+
+`2026081821` depends on the forward chain through `2026081820` and semantically on the existing
+1811 rehearsal aggregate, 1813 source-fence authority, and 1815 start-intent decision. It alone
+adds durable receipt roots and two-phase delivery operation events for start, delivery, and discard;
+forced RLS, broker-only grants, append-only guards, digest/shape/phase constraints, and RESTRICT
+foreign keys; and the forward stale-revision, source-context, and terminal-lifecycle revocation
+extension. It does not restore broad `ple_app` DML or amend accepted or existing migrations.
 
 WP-PROF-LD1 accepted the durable `installing` and `complete` installation state; one advisory lock for
 single-writer first-install coordination; deterministic Base Course seeding with generation-bound

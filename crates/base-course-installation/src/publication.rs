@@ -2,7 +2,7 @@
 
 use learning_data_access::{
     AssignmentEntitlementMaterialization, CatalogSourceStore, CatalogStore, CourseMemberStatus,
-    CourseRecord, CourseRosterStore, CreateCourseCommand, DraftRecord,
+    CourseRecord, CourseRosterMember, CourseRosterStore, CreateAssignmentCommand, DraftRecord,
     MaterializeAssignmentEntitlementCommand, PublishDraftCommand,
     PutAssignmentTeachingSettingsCommand, Store, StoreError, TenantContext, UpsertCourseMember,
 };
@@ -20,10 +20,19 @@ use crate::records::{
 };
 use crate::{BaseCourseInstallError, BaseCourseParticipants};
 
+pub(crate) struct VerifiedCompletion {
+    pub(crate) manifest: BaseCourseManifest,
+    pub(crate) mary_enrollment: AssignmentEnrollment,
+    pub(crate) jack_enrollment: AssignmentEnrollment,
+    pub(crate) mary_membership: CourseRosterMember,
+    pub(crate) jack_membership: CourseRosterMember,
+    pub(crate) avery_membership: CourseRosterMember,
+}
+
 pub(crate) async fn converge(
     store: &learning_data_access::postgres::PostgresStore,
     participants: BaseCourseParticipants,
-) -> Result<BaseCourseManifest, BaseCourseInstallError> {
+) -> Result<VerifiedCompletion, BaseCourseInstallError> {
     let context = TenantContext::from_authenticated_session(participants.tenant());
     let ids = BaseCourseIds::for_tenant(participants.tenant());
     let reference = ProblemVersionRef {
@@ -114,20 +123,11 @@ pub(crate) async fn converge(
         }
     }
 
-    ensure_course(
+    verify_installer_courses(
         store,
-        context,
+        participants,
         expected_base_course,
-        participants.primary_instructor(),
-        "Base Course",
-    )
-    .await?;
-    ensure_course(
-        store,
-        context,
         expected_practice_course,
-        participants.sysadmin(),
-        "Genetics Practice Course",
     )
     .await?;
     let published = ensure_publication(
@@ -140,7 +140,7 @@ pub(crate) async fn converge(
     )
     .await?;
     ensure_assignment(store, context, participants, expected_assignment.clone()).await?;
-    let mary_enrollment = ensure_enrollment(
+    let (mary_enrollment, mary_membership) = ensure_enrollment(
         store,
         context,
         participants.primary_instructor(),
@@ -149,7 +149,7 @@ pub(crate) async fn converge(
         MARY_NAME,
     )
     .await?;
-    let jack_enrollment = ensure_enrollment(
+    let (jack_enrollment, jack_membership) = ensure_enrollment(
         store,
         context,
         participants.primary_instructor(),
@@ -158,9 +158,10 @@ pub(crate) async fn converge(
         JACK_NAME,
     )
     .await?;
-    ensure_student_membership(
+    let avery_membership = ensure_student_membership(
         store,
         context,
+        participants.sysadmin(),
         ids.practice_course,
         participants.approval_candidate(),
         crate::accounts::APPROVAL_CANDIDATE_NAME,
@@ -182,68 +183,53 @@ pub(crate) async fn converge(
     )
     .await?;
 
-    Ok(BaseCourseManifest::new(
-        ids.assignment,
-        mary_enrollment.id,
-        published.question_id,
-        published.problem,
-        published.version,
-    ))
+    Ok(VerifiedCompletion {
+        manifest: BaseCourseManifest::new(
+            ids.assignment,
+            mary_enrollment.id,
+            published.question_id,
+            published.problem,
+            published.version,
+        ),
+        mary_enrollment,
+        jack_enrollment,
+        mary_membership,
+        jack_membership,
+        avery_membership,
+    })
 }
 
-async fn ensure_course(
+/// Confirms that the closed installer broker created exactly the two recipe courses.
+pub(crate) async fn verify_installer_courses(
     store: &learning_data_access::postgres::PostgresStore,
-    context: TenantContext,
-    expected: CourseRecord,
-    initial_instructor: question_model::UserId,
-    label: &'static str,
+    participants: BaseCourseParticipants,
+    expected_base_course: CourseRecord,
+    expected_practice_course: CourseRecord,
 ) -> Result<(), BaseCourseInstallError> {
-    match store
-        .get_course(context, expected.id)
-        .await
-        .map_err(|source| {
-            BaseCourseInstallError::persistence("rereading a deterministic baseline course", source)
-        })? {
-        Some(actual) if course_matches(&actual, &expected) => Ok(()),
-        Some(_) => Err(BaseCourseInstallError::baseline(format!(
-            "the retained {label} differs from the deterministic recipe"
-        ))),
-        None => {
-            store
-                .create_course(
-                    context,
-                    CreateCourseCommand {
-                        course: expected.clone(),
-                        initial_instructor,
-                    },
+    let context = TenantContext::from_authenticated_session(participants.tenant());
+    for (expected, label) in [
+        (expected_base_course, "Base Course"),
+        (expected_practice_course, "Genetics Practice Course"),
+    ] {
+        match store
+            .get_course(context, expected.id)
+            .await
+            .map_err(|source| {
+                BaseCourseInstallError::persistence(
+                    "rereading a deterministic baseline course",
+                    source,
                 )
-                .await
-                .map_err(|source| {
-                    BaseCourseInstallError::persistence(
-                        "creating a deterministic baseline course",
-                        source,
-                    )
-                })?;
-            let actual = store
-                .get_course(context, expected.id)
-                .await
-                .map_err(|source| {
-                    BaseCourseInstallError::persistence(
-                        "reloading a created baseline course",
-                        source,
-                    )
-                })?
-                .ok_or_else(|| {
-                    BaseCourseInstallError::baseline("the created course disappeared")
-                })?;
-            if !course_matches(&actual, &expected) {
-                return Err(BaseCourseInstallError::baseline(format!(
-                    "the created {label} differs from the deterministic recipe"
-                )));
-            }
-            Ok(())
-        }
+            })? {
+            Some(actual) if course_matches(&actual, &expected) => Ok(()),
+            Some(_) => Err(BaseCourseInstallError::baseline(format!(
+                "the retained {label} differs from the deterministic recipe"
+            ))),
+            None => Err(BaseCourseInstallError::baseline(format!(
+                "the installer did not create the deterministic {label}"
+            ))),
+        }?;
     }
+    Ok(())
 }
 
 fn course_matches(actual: &CourseRecord, expected: &CourseRecord) -> bool {
@@ -455,8 +441,11 @@ async fn ensure_assignment(
         None => match store
             .create_assignment(
                 context,
-                draft.clone(),
-                question_model::BaseAssignmentPolicy::default(),
+                CreateAssignmentCommand {
+                    actor: participants.primary_instructor(),
+                    assignment: draft.clone(),
+                    base_policy: question_model::BaseAssignmentPolicy::default(),
+                },
             )
             .await
         {
@@ -538,10 +527,11 @@ async fn ensure_enrollment(
     student: question_model::UserId,
     ids: BaseCourseIds,
     display_name: &str,
-) -> Result<AssignmentEnrollment, BaseCourseInstallError> {
-    ensure_student_membership(
+) -> Result<(AssignmentEnrollment, CourseRosterMember), BaseCourseInstallError> {
+    let membership = ensure_student_membership(
         store,
         context,
+        instructor,
         ids.base_course,
         student,
         display_name,
@@ -570,7 +560,9 @@ async fn ensure_enrollment(
                 source,
             )
         })? {
-        AssignmentEntitlementMaterialization::Granted(materialized) => Ok(materialized.enrollment),
+        AssignmentEntitlementMaterialization::Granted(materialized) => {
+            Ok((materialized.enrollment, membership))
+        }
         AssignmentEntitlementMaterialization::Denied(_) => Err(BaseCourseInstallError::baseline(
             "a seeded learner is not currently entitled to the Base Course assignment",
         )),
@@ -580,14 +572,16 @@ async fn ensure_enrollment(
 async fn ensure_student_membership(
     store: &learning_data_access::postgres::PostgresStore,
     context: TenantContext,
+    actor: question_model::UserId,
     course: question_model::CourseId,
     student: question_model::UserId,
     display_name: &str,
     label: &'static str,
-) -> Result<(), BaseCourseInstallError> {
+) -> Result<CourseRosterMember, BaseCourseInstallError> {
     let membership = store
         .upsert_course_member(
             context,
+            actor,
             UpsertCourseMember {
                 course,
                 user: student,
@@ -614,7 +608,7 @@ async fn ensure_student_membership(
             "the {label} membership differs from the deterministic recipe"
         )));
     }
-    Ok(())
+    Ok(membership.member)
 }
 
 async fn verify_participant_membership_matrix(

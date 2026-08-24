@@ -251,6 +251,39 @@ impl QtiImportStore for PostgresStore {
 #[cfg(feature = "postgres")]
 #[async_trait]
 impl QtiGradingStore for PostgresGraderStore {
+    async fn qti_publication_grading(
+        &self,
+        context: TenantContext,
+        reference: question_model::ProblemVersionRef,
+        item_id: &str,
+    ) -> Result<Option<QtiImportGradingPayload>, StoreError> {
+        let mut transaction = self.begin_grader_tenant(context).await?;
+        let row = sqlx::query(
+            "SELECT payload, payload_sha256 FROM ple_read_published_qti_grading($1, $2, $3, $4)",
+        )
+        .bind(context.tenant_id().as_uuid())
+        .bind(reference.problem.as_uuid())
+        .bind(reference.version.as_uuid())
+        .bind(item_id)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let material = row
+            .map(|row| {
+                let bytes: Vec<u8> = row.try_get("payload").map_err(map_sqlx_error)?;
+                let checksum: String = row.try_get("payload_sha256").map_err(map_sqlx_error)?;
+                if Sha256Digest::compute(&bytes).to_string() != checksum {
+                    return Err(StoreError::Unavailable(
+                        "published QTI grading payload checksum mismatch".to_string(),
+                    ));
+                }
+                QtiImportGradingPayload::new(bytes)
+            })
+            .transpose()?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(material)
+    }
+
     async fn qti_import_grading(
         &self,
         context: TenantContext,
@@ -285,42 +318,4 @@ impl QtiGradingStore for PostgresGraderStore {
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(material)
     }
-
-    async fn qti_published_grading(
-        &self,
-        context: TenantContext,
-        reference: ProblemVersionRef,
-        item_id: &str,
-    ) -> Result<Option<QtiImportGradingPayload>, StoreError> {
-        let mut transaction = self.begin_grader_tenant(context).await?;
-        let row = sqlx::query(
-            "SELECT payload, payload_sha256 FROM ple_read_published_qti_grading($1, $2, $3, $4)",
-        )
-        .bind(context.tenant_id().as_uuid())
-        .bind(reference.problem.as_uuid())
-        .bind(reference.version.as_uuid())
-        .bind(item_id)
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        let material = decode_qti_grading_row(row.as_ref())?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(material)
-    }
-}
-#[cfg(feature = "postgres")]
-fn decode_qti_grading_row(
-    row: Option<&PgRow>,
-) -> Result<Option<QtiImportGradingPayload>, StoreError> {
-    row.map(|row| {
-        let bytes: Vec<u8> = row.try_get("payload").map_err(map_sqlx_error)?;
-        let expected: String = row.try_get("payload_sha256").map_err(map_sqlx_error)?;
-        if Sha256Digest::compute(&bytes).to_string() != expected {
-            return Err(StoreError::Unavailable(
-                "stored QTI grading payload checksum mismatch".to_string(),
-            ));
-        }
-        QtiImportGradingPayload::new(bytes)
-    })
-    .transpose()
 }

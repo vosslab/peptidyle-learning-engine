@@ -24,12 +24,15 @@ pub(crate) struct EffectivePolicyFixture {
 
 fn policy_issue(
     learner: UserId,
+    course: CourseId,
+    assignment: AssignmentId,
     run: RunId,
     attempt: question_model::QuestionAttemptId,
     reference: ProblemVersionRef,
 ) -> IssueQuestionAttemptCommand {
     IssueQuestionAttemptCommand {
         actor: learner,
+        binding: LearnerWorkRoutingBinding::new(course, assignment),
         attempt,
         run,
         assignment_position: 0,
@@ -67,7 +70,7 @@ pub(crate) async fn exercise_effective_policy_gate_and_materialization_contract<
     store: &S,
 ) -> EffectivePolicyFixture
 where
-    S: Store + CatalogStore + CourseRosterStore,
+    S: Store + CatalogStore + CourseRosterStore + SessionStore,
 {
     let tenant = TenantId::from_uuid(uuid(99_000));
     let context = TenantContext::from_authenticated_session(tenant);
@@ -75,6 +78,8 @@ where
     let learner = UserId::from_uuid(uuid(99_002));
     let other_learner = UserId::from_uuid(uuid(99_003));
     let course = CourseId::from_uuid(uuid(99_004));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(store, tenant, course, instructor).await;
     store
         .create_course(
             context,
@@ -90,7 +95,7 @@ where
                     )
                     .expect("valid fixture term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -102,6 +107,7 @@ where
         store
             .upsert_course_member(
                 context,
+                instructor,
                 UpsertCourseMember {
                     course,
                     user,
@@ -378,7 +384,12 @@ where
     );
     assert!(matches!(
         store
-            .start_or_resume_run(context, learner, assignment_a, proposed_run)
+            .start_or_resume_run(
+                context,
+                learner,
+                LearnerWorkRoutingBinding::new(course, assignment_a),
+                proposed_run,
+            )
             .await,
         Err(StoreError::NotFound)
     ));
@@ -482,7 +493,7 @@ where
         .start_or_resume_run(
             context,
             learner,
-            assignment_a,
+            LearnerWorkRoutingBinding::new(course, assignment_a),
             RunId::from_uuid(uuid(99_031)),
         )
         .await
@@ -492,6 +503,8 @@ where
             context,
             policy_issue(
                 learner,
+                course,
+                assignment_a,
                 run.id,
                 question_model::QuestionAttemptId::from_uuid(uuid(99_032)),
                 reference,
@@ -565,5 +578,92 @@ async fn memory_effective_policy_gate_and_materialization_conformance() {
     assert_eq!(
         current.policy.time_limit_seconds.source,
         fixture.receipt.policy.time_limit_seconds.source
+    );
+}
+
+#[tokio::test]
+async fn memory_start_rejects_valid_assignment_bound_to_different_course_without_mutation() {
+    let store = MemoryStore::default();
+    let fixture = exercise_effective_policy_gate_and_materialization_contract(&store).await;
+    let learner = UserId::from_uuid(uuid(99_002));
+    let asserted_course = CourseId::from_uuid(uuid(99_040));
+    let proposed_run = RunId::from_uuid(uuid(99_041));
+    let asserted_course_creation_authority = sysadmin_course_creation_authority(
+        &store,
+        fixture.context.tenant_id(),
+        asserted_course,
+        fixture.instructor,
+    )
+    .await;
+
+    store
+        .create_course(
+            fixture.context,
+            CreateCourseCommand {
+                course: CourseRecord {
+                    id: asserted_course,
+                    tenant: fixture.context.tenant_id(),
+                    title: "Unrelated asserted course".to_string(),
+                    term: question_model::CourseTerm::from_parts(
+                        "2026-08-24",
+                        "2026-12-18",
+                        "America/Chicago",
+                    )
+                    .expect("valid asserted course term"),
+                },
+                authority: asserted_course_creation_authority,
+            },
+        )
+        .await
+        .expect("asserted course");
+
+    let existing_enrollment = store
+        .learner_get_enrollment_for_assignment(fixture.context, learner, fixture.assignment)
+        .await
+        .expect("existing enrollment lookup")
+        .expect("fixture enrollment");
+    let existing_run_id = RunId::from_uuid(uuid(99_031));
+    let existing_run = store
+        .get_run(fixture.context, existing_run_id)
+        .await
+        .expect("existing run lookup")
+        .expect("fixture run");
+
+    assert_eq!(
+        store
+            .start_or_resume_run(
+                fixture.context,
+                learner,
+                LearnerWorkRoutingBinding::new(asserted_course, fixture.assignment),
+                proposed_run,
+            )
+            .await,
+        Err(StoreError::NotFound),
+        "course authorization must conceal an assignment from a non-member",
+    );
+
+    assert_eq!(
+        store
+            .learner_get_enrollment_for_assignment(fixture.context, learner, fixture.assignment)
+            .await
+            .expect("enrollment lookup after rejected start"),
+        Some(existing_enrollment),
+        "rejected routing must not mutate the existing enrollment",
+    );
+    assert_eq!(
+        store
+            .get_run(fixture.context, existing_run_id)
+            .await
+            .expect("existing run lookup after rejected start"),
+        Some(existing_run),
+        "rejected routing must not mutate the existing run",
+    );
+    assert_eq!(
+        store
+            .get_run(fixture.context, proposed_run)
+            .await
+            .expect("proposed run lookup after rejected start"),
+        None,
+        "rejected routing must not create the proposed run",
     );
 }

@@ -20,6 +20,10 @@ impl NonceSourceV1 for SeedNonce {
     }
 }
 
+#[path = "scoring/issued.rs"]
+mod issued;
+use issued::{NativeIssueRequest, native_issue_command};
+
 pub(super) fn issued_scoring_presentation(
     ids: SeedIds,
     seed: u64,
@@ -65,7 +69,12 @@ pub(super) async fn exercise_scoring_generation(
     let (presentation_binding, presentation, grading_envelope) =
         issued_scoring_presentation(ids, 17)?;
     let run = store
-        .start_or_resume_run(context, student, ids.assignment, ids.run)
+        .start_or_resume_run(
+            context,
+            student,
+            learning_data_access::LearnerWorkRoutingBinding::new(ids.course, ids.assignment),
+            ids.run,
+        )
         .await
         .context("starting database scoring acceptance run")?;
     let implementation = |name: &str| ImplementationVersion {
@@ -75,24 +84,15 @@ pub(super) async fn exercise_scoring_generation(
     let attempt = store
         .issue_or_resume_question_attempt(
             context,
-            IssueQuestionAttemptCommand {
+            native_issue_command(NativeIssueRequest {
+                ids,
                 actor: student,
                 attempt: ids.attempt,
                 run: run.id,
-                assignment_position: 0,
-                problem: ids.problem,
-                question_version: ids.version,
                 seed: 17,
-                presentation_capability: PresentationCapability::EnvelopeV1,
-                presentation: Some(presentation_binding),
-                presentation_snapshot: Some(presentation.clone()),
-                grading_envelope: Some(grading_envelope),
-                flat_grading: None,
-                flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
-                webwork_grading: None,
-                webwork_grading_capability:
-                    learning_data_access::WebworkGradingCapability::NotApplicable,
-                webwork_replay: None,
+                presentation_binding,
+                presentation,
+                grading_envelope,
                 parameter_hash: "database-scoring-parameters".to_string(),
                 provenance: AttemptProvenance {
                     adapter: implementation("native"),
@@ -103,9 +103,7 @@ pub(super) async fn exercise_scoring_generation(
                     grading: implementation("native"),
                     rendered_question_sha256: "database-scoring-render".to_string(),
                 },
-                prefetched: None,
-                predecessor_submission: None,
-            },
+            })?,
         )
         .await
         .context("issuing database scoring acceptance attempt")?;
@@ -114,6 +112,10 @@ pub(super) async fn exercise_scoring_generation(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student,
+                binding: learning_data_access::LearnerWorkRoutingBinding::new(
+                    ids.course,
+                    ids.assignment,
+                ),
                 attempt: attempt.id,
                 response: question_model::StudentResponse::MultipleChoice {
                     selected: vec![ChoiceId::new("amide")],
@@ -139,16 +141,19 @@ pub(super) async fn exercise_scoring_generation(
     let changed = store
         .replace_assignment(
             context,
-            ids.course,
-            ids.assignment,
-            current.revision,
-            AssignmentUpdate {
-                title: current.record.title,
-                audience: current.record.audience,
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                items,
-                selection_groups: current.record.selection_groups,
-                policies: current.record.policies,
+            ReplaceAssignmentCommand {
+                actor: instructor,
+                course: ids.course,
+                assignment: ids.assignment,
+                expected_revision: current.revision,
+                update: AssignmentUpdate {
+                    title: current.record.title,
+                    audience: current.record.audience,
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    items,
+                    selection_groups: current.record.selection_groups,
+                    policies: current.record.policies,
+                },
             },
         )
         .await
@@ -191,16 +196,19 @@ pub(super) async fn exercise_scoring_generation(
     let superseding = store
         .replace_assignment(
             context,
-            ids.course,
-            ids.assignment,
-            changed.revision,
-            AssignmentUpdate {
-                title: changed.record.title,
-                audience: changed.record.audience,
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                items: superseding_items,
-                selection_groups: changed.record.selection_groups,
-                policies: changed.record.policies,
+            ReplaceAssignmentCommand {
+                actor: instructor,
+                course: ids.course,
+                assignment: ids.assignment,
+                expected_revision: changed.revision,
+                update: AssignmentUpdate {
+                    title: changed.record.title,
+                    audience: changed.record.audience,
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    items: superseding_items,
+                    selection_groups: changed.record.selection_groups,
+                    policies: changed.record.policies,
+                },
             },
         )
         .await
@@ -255,7 +263,12 @@ pub(super) async fn exercise_scoring_generation(
         .await
         .context("staging current database scoring generation")?;
     let concurrent_run = store
-        .start_or_resume_run(context, student, ids.assignment, ids.concurrent_run)
+        .start_or_resume_run(
+            context,
+            student,
+            learning_data_access::LearnerWorkRoutingBinding::new(ids.course, ids.assignment),
+            ids.concurrent_run,
+        )
         .await
         .context("starting a run during database scoring acceptance")?;
     let (concurrent_presentation_binding, concurrent_presentation, concurrent_grading_envelope) =
@@ -263,24 +276,15 @@ pub(super) async fn exercise_scoring_generation(
     let concurrent_attempt = store
         .issue_or_resume_question_attempt(
             context,
-            IssueQuestionAttemptCommand {
+            native_issue_command(NativeIssueRequest {
+                ids,
                 actor: student,
                 attempt: ids.concurrent_attempt,
                 run: concurrent_run.id,
-                assignment_position: 0,
-                problem: ids.problem,
-                question_version: ids.version,
                 seed: 18,
-                presentation_capability: PresentationCapability::EnvelopeV1,
-                presentation: Some(concurrent_presentation_binding),
-                presentation_snapshot: Some(concurrent_presentation.clone()),
-                grading_envelope: Some(concurrent_grading_envelope),
-                flat_grading: None,
-                flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
-                webwork_grading: None,
-                webwork_grading_capability:
-                    learning_data_access::WebworkGradingCapability::NotApplicable,
-                webwork_replay: None,
+                presentation_binding: concurrent_presentation_binding,
+                presentation: concurrent_presentation,
+                grading_envelope: concurrent_grading_envelope,
                 parameter_hash: "database-scoring-concurrent-parameters".to_string(),
                 provenance: AttemptProvenance {
                     adapter: implementation("native"),
@@ -291,9 +295,7 @@ pub(super) async fn exercise_scoring_generation(
                     grading: implementation("native"),
                     rendered_question_sha256: "database-scoring-concurrent-render".to_string(),
                 },
-                prefetched: None,
-                predecessor_submission: None,
-            },
+            })?,
         )
         .await
         .context("issuing an attempt during database scoring acceptance")?;
@@ -302,6 +304,10 @@ pub(super) async fn exercise_scoring_generation(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student,
+                binding: learning_data_access::LearnerWorkRoutingBinding::new(
+                    ids.course,
+                    ids.assignment,
+                ),
                 attempt: concurrent_attempt.id,
                 response: question_model::StudentResponse::MultipleChoice {
                     selected: vec![ChoiceId::new("amide")],
@@ -351,6 +357,7 @@ pub(super) async fn exercise_scoring_generation(
     recalculate_seed_item(
         store,
         context,
+        instructor,
         ids,
         PointValue::ZERO,
         AssignmentScoringMode::Normal,
@@ -360,6 +367,7 @@ pub(super) async fn exercise_scoring_generation(
     recalculate_seed_item(
         store,
         context,
+        instructor,
         ids,
         PointValue::from_whole(4),
         AssignmentScoringMode::FullCredit,
@@ -369,6 +377,7 @@ pub(super) async fn exercise_scoring_generation(
     recalculate_seed_item(
         store,
         context,
+        instructor,
         ids,
         PointValue::from_whole(2),
         AssignmentScoringMode::ExtraCredit,
@@ -378,13 +387,14 @@ pub(super) async fn exercise_scoring_generation(
     recalculate_seed_item(
         store,
         context,
+        instructor,
         ids,
         PointValue::from_whole(2),
         AssignmentScoringMode::Excluded,
     )
     .await?;
     assert_seed_summary_score(store, context, student, ids.run, 0.0).await?;
-    exercise_delete_and_regrade(store, context, student, ids).await?;
+    exercise_delete_and_regrade(store, context, instructor, student, ids).await?;
     Ok(())
 }
 
@@ -398,7 +408,12 @@ pub(super) async fn exercise_attempt_support(
     let (presentation_binding, presentation, grading_envelope) =
         issued_scoring_presentation(ids, 20)?;
     let run = store
-        .start_or_resume_run(context, student, ids.assignment, ids.support_run)
+        .start_or_resume_run(
+            context,
+            student,
+            learning_data_access::LearnerWorkRoutingBinding::new(ids.course, ids.assignment),
+            ids.support_run,
+        )
         .await
         .context("starting attempt-support acceptance run")?;
     let provenance = AttemptProvenance {
@@ -419,29 +434,18 @@ pub(super) async fn exercise_attempt_support(
     let attempt = store
         .issue_or_resume_question_attempt(
             context,
-            IssueQuestionAttemptCommand {
+            native_issue_command(NativeIssueRequest {
+                ids,
                 actor: student,
                 attempt: ids.support_attempt,
                 run: run.id,
-                assignment_position: 0,
-                problem: ids.problem,
-                question_version: ids.version,
                 seed: 20,
-                presentation_capability: PresentationCapability::EnvelopeV1,
-                presentation: Some(presentation_binding),
-                presentation_snapshot: Some(presentation.clone()),
-                grading_envelope: Some(grading_envelope),
-                flat_grading: None,
-                flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
-                webwork_grading: None,
-                webwork_grading_capability:
-                    learning_data_access::WebworkGradingCapability::NotApplicable,
-                webwork_replay: None,
+                presentation_binding,
+                presentation,
+                grading_envelope,
                 parameter_hash: "database-attempt-support-parameters".to_string(),
                 provenance: provenance.clone(),
-                prefetched: None,
-                predecessor_submission: None,
-            },
+            })?,
         )
         .await
         .context("issuing force-submit acceptance attempt")?;
@@ -497,6 +501,10 @@ pub(super) async fn exercise_attempt_support(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student,
+                binding: learning_data_access::LearnerWorkRoutingBinding::new(
+                    ids.course,
+                    ids.assignment,
+                ),
                 attempt: attempt.id,
                 response: question_model::StudentResponse::MultipleChoice {
                     selected: vec![ChoiceId::new("amide")],
@@ -536,29 +544,18 @@ pub(super) async fn exercise_attempt_support(
     let replacement = store
         .issue_or_resume_question_attempt(
             context,
-            IssueQuestionAttemptCommand {
+            native_issue_command(NativeIssueRequest {
+                ids,
                 actor: student,
                 attempt: ids.support_replacement,
                 run: run.id,
-                assignment_position: 0,
-                problem: ids.problem,
-                question_version: ids.version,
                 seed: 21,
-                presentation_capability: PresentationCapability::EnvelopeV1,
-                presentation: Some(replacement_presentation_binding),
-                presentation_snapshot: Some(replacement_presentation.clone()),
-                grading_envelope: Some(replacement_grading_envelope),
-                flat_grading: None,
-                flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
-                webwork_grading: None,
-                webwork_grading_capability:
-                    learning_data_access::WebworkGradingCapability::NotApplicable,
-                webwork_replay: None,
+                presentation_binding: replacement_presentation_binding,
+                presentation: replacement_presentation,
+                grading_envelope: replacement_grading_envelope,
                 parameter_hash: "database-attempt-support-replacement".to_string(),
                 provenance,
-                prefetched: None,
-                predecessor_submission: None,
-            },
+            })?,
         )
         .await
         .context("issuing replacement after database clear")?;
@@ -567,6 +564,10 @@ pub(super) async fn exercise_attempt_support(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student,
+                binding: learning_data_access::LearnerWorkRoutingBinding::new(
+                    ids.course,
+                    ids.assignment,
+                ),
                 attempt: replacement.id,
                 response: question_model::StudentResponse::MultipleChoice {
                     selected: vec![ChoiceId::new("amide")],
@@ -674,36 +675,33 @@ pub(super) async fn exercise_attempt_support(
 pub(super) async fn exercise_delete_and_regrade(
     store: &learning_data_access::postgres::PostgresStore,
     context: TenantContext,
+    instructor: UserId,
     student: UserId,
     ids: SeedIds,
 ) -> Result<()> {
     let (presentation_binding, presentation, grading_envelope) =
         issued_scoring_presentation(ids, 19)?;
     let run = store
-        .start_or_resume_run(context, student, ids.assignment, ids.retirement_run)
+        .start_or_resume_run(
+            context,
+            student,
+            learning_data_access::LearnerWorkRoutingBinding::new(ids.course, ids.assignment),
+            ids.retirement_run,
+        )
         .await
         .context("starting Delete and Regrade acceptance run")?;
     let attempt = store
         .issue_or_resume_question_attempt(
             context,
-            IssueQuestionAttemptCommand {
+            native_issue_command(NativeIssueRequest {
+                ids,
                 actor: student,
                 attempt: ids.retirement_attempt,
                 run: run.id,
-                assignment_position: 0,
-                problem: ids.problem,
-                question_version: ids.version,
                 seed: 19,
-                presentation_capability: PresentationCapability::EnvelopeV1,
-                presentation: Some(presentation_binding),
-                presentation_snapshot: Some(presentation.clone()),
-                grading_envelope: Some(grading_envelope),
-                flat_grading: None,
-                flat_grading_capability: learning_data_access::FlatGradingCapability::NotApplicable,
-                webwork_grading: None,
-                webwork_grading_capability:
-                    learning_data_access::WebworkGradingCapability::NotApplicable,
-                webwork_replay: None,
+                presentation_binding,
+                presentation,
+                grading_envelope,
                 parameter_hash: "database-delete-and-regrade-parameters".to_string(),
                 provenance: AttemptProvenance {
                     adapter: ImplementationVersion {
@@ -720,9 +718,7 @@ pub(super) async fn exercise_delete_and_regrade(
                     },
                     rendered_question_sha256: "database-delete-and-regrade-render".to_string(),
                 },
-                prefetched: None,
-                predecessor_submission: None,
-            },
+            })?,
         )
         .await
         .context("issuing Delete and Regrade acceptance attempt")?;
@@ -732,6 +728,7 @@ pub(super) async fn exercise_delete_and_regrade(
         .context("reading Delete and Regrade acceptance assignment")?
         .ok_or_else(|| anyhow::anyhow!("Delete and Regrade assignment disappeared"))?;
     let command = DeleteAndRegradeAssignmentItemCommand {
+        actor: instructor,
         course: ids.course,
         assignment: ids.assignment,
         item: ids.assignment_item,
@@ -749,6 +746,10 @@ pub(super) async fn exercise_delete_and_regrade(
             context,
             SubmitQuestionAttemptCommand {
                 actor: student,
+                binding: learning_data_access::LearnerWorkRoutingBinding::new(
+                    ids.course,
+                    ids.assignment,
+                ),
                 attempt: attempt.id,
                 response: question_model::StudentResponse::MultipleChoice {
                     selected: vec![ChoiceId::new("amide")],
@@ -811,7 +812,12 @@ pub(super) async fn exercise_delete_and_regrade(
         bail!("student summary exposed retired response or feedback");
     }
     let future = store
-        .start_or_resume_run(context, student, ids.assignment, ids.post_retirement_run)
+        .start_or_resume_run(
+            context,
+            student,
+            learning_data_access::LearnerWorkRoutingBinding::new(ids.course, ids.assignment),
+            ids.post_retirement_run,
+        )
         .await
         .context("starting post-retirement acceptance run")?;
     if !store
@@ -828,6 +834,7 @@ pub(super) async fn exercise_delete_and_regrade(
 pub(super) async fn recalculate_seed_item(
     store: &learning_data_access::postgres::PostgresStore,
     context: TenantContext,
+    instructor: UserId,
     ids: SeedIds,
     points: PointValue,
     mode: AssignmentScoringMode,
@@ -843,16 +850,19 @@ pub(super) async fn recalculate_seed_item(
     let changed = store
         .replace_assignment(
             context,
-            ids.course,
-            ids.assignment,
-            current.revision,
-            AssignmentUpdate {
-                title: current.record.title,
-                audience: current.record.audience,
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                items,
-                selection_groups: current.record.selection_groups,
-                policies: current.record.policies,
+            ReplaceAssignmentCommand {
+                actor: instructor,
+                course: ids.course,
+                assignment: ids.assignment,
+                expected_revision: current.revision,
+                update: AssignmentUpdate {
+                    title: current.record.title,
+                    audience: current.record.audience,
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    items,
+                    selection_groups: current.record.selection_groups,
+                    policies: current.record.policies,
+                },
             },
         )
         .await

@@ -604,20 +604,6 @@ pub(super) fn require_attempt_owner(
     .map(|_| ())
 }
 
-pub(super) fn require_attempt_course_records_accessible(
-    state: &State,
-    tenant: TenantId,
-    attempt: &QuestionAttempt,
-) -> Result<(), StoreError> {
-    let run = state
-        .runs
-        .get(&(tenant, attempt.run))
-        .ok_or(StoreError::NotFound)?;
-    let enrollment = enrollment_record(state, tenant, run.enrollment)?;
-    let assignment = assignment_record(state, tenant, enrollment.assignment)?;
-    require_course_records_accessible(state, tenant, assignment.course_id)
-}
-
 pub(super) fn apply_memory_attempt_support(
     state: &mut State,
     context: TenantContext,

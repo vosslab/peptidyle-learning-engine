@@ -224,7 +224,13 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: publisher,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    store.as_ref(),
+                    tenant,
+                    course,
+                    publisher,
+                )
+                .await,
             },
         )
         .await
@@ -232,6 +238,7 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
     store
         .upsert_course_member(
             context,
+            publisher,
             UpsertCourseMember {
                 course,
                 user: student,
@@ -244,32 +251,37 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
     store
         .create_assignment(
             context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                audience: question_model::AssignmentAudience::CourseWide,
-                title: "QTI assignment".to_string(),
-                lifecycle: question_model::AssignmentLifecycle::Draft,
-                instructions: question_model::AssignmentInstructions::default(),
-                items: vec![question_model::AssignmentItem {
-                    id: question_model::AssignmentItemId::from_uuid(uuid::Uuid::from_u128(7_210)),
-                    reference,
-                    position: 0,
-                    points_possible: question_model::PointValue::from_whole(1),
-                    delivery_state: question_model::AssignmentDeliveryState::Active,
-                    scoring_mode: question_model::AssignmentScoringMode::Normal,
-                }],
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: RunPolicies {
-                    completion: CompletionRequirement::AllCorrect,
-                    grade: GradePolicy::Highest,
-                    continued_practice: ContinuedPractice::Unlimited,
-                    variation: VariationPolicy::NewSeeds,
+            learning_data_access::CreateAssignmentCommand {
+                actor: publisher,
+                assignment: AssignmentRecord {
+                    id: assignment,
+                    tenant,
+                    course_id: course,
+                    audience: question_model::AssignmentAudience::CourseWide,
+                    title: "QTI assignment".to_string(),
+                    lifecycle: question_model::AssignmentLifecycle::Draft,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    items: vec![question_model::AssignmentItem {
+                        id: question_model::AssignmentItemId::from_uuid(uuid::Uuid::from_u128(
+                            7_210,
+                        )),
+                        reference,
+                        position: 0,
+                        points_possible: question_model::PointValue::from_whole(1),
+                        delivery_state: question_model::AssignmentDeliveryState::Active,
+                        scoring_mode: question_model::AssignmentScoringMode::Normal,
+                    }],
+                    selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    policies: RunPolicies {
+                        completion: CompletionRequirement::AllCorrect,
+                        grade: GradePolicy::Highest,
+                        continued_practice: ContinuedPractice::Unlimited,
+                        variation: VariationPolicy::NewSeeds,
+                    },
                 },
+                base_policy: question_model::BaseAssignmentPolicy::default(),
             },
-            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("assignment");
@@ -320,12 +332,11 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/api/runs")
-                .header("cookie", &cookie)
-                .header("content-type", "application/json")
-                .body(axum::body::Body::from(
-                    serde_json::json!({ "assignmentId": assignment }).to_string(),
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/runs"
                 ))
+                .header("cookie", &cookie)
+                .body(axum::body::Body::empty())
                 .expect("start request"),
         )
         .await
@@ -362,7 +373,10 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
         .clone()
         .oneshot(
             axum::http::Request::builder()
-                .uri(format!("/api/attempts/{}/question", attempt.id))
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/attempts/{}/question",
+                    attempt.id
+                ))
                 .header("cookie", &cookie)
                 .body(axum::body::Body::empty())
                 .expect("question request"),
@@ -414,7 +428,7 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
         );
     }
     let submit = |choice: &ChoiceId, key: &str| {
-        axum::http::Request::builder().method("POST").uri(format!("/api/submissions/{}", attempt.id)).header("cookie", &cookie).header("content-type", "application/json").header("idempotency-key", key).body(axum::body::Body::from(serde_json::json!({ "response": { "kind": "multipleChoice", "selected": [choice] } }).to_string())).expect("submit request")
+        axum::http::Request::builder().method("POST").uri(format!("/api/courses/{course}/assignments/{assignment}/attempts/{}/submissions", attempt.id)).header("cookie", &cookie).header("content-type", "application/json").header("idempotency-key", key).body(axum::body::Body::from(serde_json::json!({ "response": { "kind": "multipleChoice", "selected": [choice] } }).to_string())).expect("submit request")
     };
     let wrong_response = app
         .clone()
@@ -437,7 +451,11 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
         serde_json::from_slice::<serde_json::Value>(&wrong_json).expect("receipt")["feedback"]["correctness"],
         false
     );
-    assert_eq!(grader_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        grader_calls.load(Ordering::SeqCst),
+        2,
+        "the active attempt and its durable successor each copy grading once at issue"
+    );
     let replay = app
         .clone()
         .oneshot(submit(&rendered_wrong, "qti-wrong"))
@@ -452,7 +470,7 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
     );
     assert_eq!(
         grader_calls.load(Ordering::SeqCst),
-        1,
+        2,
         "replay must not regrade"
     );
     let next = store
@@ -474,7 +492,10 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
         .clone()
         .oneshot(
             axum::http::Request::builder()
-                .uri(format!("/api/attempts/{}/question", retry.id))
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/attempts/{}/question",
+                    retry.id
+                ))
                 .header("cookie", &cookie)
                 .body(axum::body::Body::empty())
                 .expect("retry question request"),
@@ -512,7 +533,7 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
         rendered_correct, correct,
         "the retry also receives a presentation-specific rendered choice ID"
     );
-    let correct_response = app.oneshot(axum::http::Request::builder().method("POST").uri(format!("/api/submissions/{}", retry.id)).header("cookie", &cookie).header("content-type", "application/json").header("idempotency-key", "qti-correct").body(axum::body::Body::from(serde_json::json!({ "response": { "kind": "multipleChoice", "selected": [rendered_correct] } }).to_string())).expect("correct request")).await.expect("correct response");
+    let correct_response = app.oneshot(axum::http::Request::builder().method("POST").uri(format!("/api/courses/{course}/assignments/{assignment}/attempts/{}/submissions", retry.id)).header("cookie", &cookie).header("content-type", "application/json").header("idempotency-key", "qti-correct").body(axum::body::Body::from(serde_json::json!({ "response": { "kind": "multipleChoice", "selected": [rendered_correct] } }).to_string())).expect("correct request")).await.expect("correct response");
     assert_eq!(correct_response.status(), axum::http::StatusCode::OK);
     assert_eq!(
         serde_json::from_slice::<serde_json::Value>(

@@ -2,6 +2,288 @@ use super::*;
 use question_model::QuestionEnvelope;
 use question_model::presentation::AssetBindingV1;
 
+#[path = "runs/issue_contracts.rs"]
+mod issue_contracts;
+pub use issue_contracts::*;
+#[path = "runs/qti_contracts.rs"]
+mod qti_contracts;
+pub use qti_contracts::*;
+
+/// Server-only course and assignment routing context for learner work.
+///
+/// This is a routing assertion that the [`Store`] verifies against the
+/// authoritative learner-work records; it is not an authority or
+/// authorization grant. The trusted server boundary constructs it from the
+/// typed route values before calling learner-work persistence operations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LearnerWorkRoutingBinding {
+    pub course: CourseId,
+    pub assignment: AssignmentId,
+}
+
+impl LearnerWorkRoutingBinding {
+    /// Constructs a routing assertion for one course and assignment pair.
+    pub const fn new(course: CourseId, assignment: AssignmentId) -> Self {
+        Self { course, assignment }
+    }
+}
+
+/// Common immutable, server-only receipt evidence for an issued attempt.
+///
+/// The Store creates this only after it has established the caller's current
+/// learner entitlement for the explicit course/assignment route.  It is
+/// intentionally neither serializable nor field-public: browser handlers use
+/// only [`Self::presentation_snapshot`], while trusted grading and rehearsal
+/// boundaries take the specific evidence they require.  Future issued-question
+/// snapshot revisions extend this coherent capability rather than reintroduce
+/// a catalog read at receipt time.
+#[derive(Clone, PartialEq)]
+pub struct IssuedAttemptReceiptEvidence {
+    presentation_binding: Option<PresentationBindingV1>,
+    presentation_snapshot: Option<ReceiptPresentationSnapshot>,
+    grading_envelope: Option<QuestionEnvelope>,
+}
+
+impl IssuedAttemptReceiptEvidence {
+    pub(crate) fn new(
+        presentation_binding: Option<PresentationBindingV1>,
+        presentation_snapshot: Option<ReceiptPresentationSnapshot>,
+        grading_envelope: Option<QuestionEnvelope>,
+    ) -> Self {
+        Self {
+            presentation_binding,
+            presentation_snapshot,
+            grading_envelope,
+        }
+    }
+
+    /// Returns the immutable capability binding for trusted receipt checks.
+    pub fn presentation_binding(&self) -> Option<PresentationBindingV1> {
+        self.presentation_binding
+    }
+
+    /// Returns the answer-free learner-facing snapshot, when this attempt
+    /// issued a presentation.
+    pub fn presentation_snapshot(&self) -> Option<&ReceiptPresentationSnapshot> {
+        self.presentation_snapshot.as_ref()
+    }
+
+    /// Returns the retained server-only envelope for trusted grading checks.
+    pub fn grading_envelope(&self) -> Option<&QuestionEnvelope> {
+        self.grading_envelope.as_ref()
+    }
+}
+
+impl std::fmt::Debug for IssuedAttemptReceiptEvidence {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("IssuedAttemptReceiptEvidence")
+            .field("presentation_binding", &"[SERVER-ONLY]")
+            .field("presentation_snapshot", &"[ANSWER-FREE SERVER-ONLY]")
+            .field("grading_envelope", &"[SERVER-ONLY]")
+            .finish()
+    }
+}
+
+/// Active-only private grading evidence.  This is absent after submission so
+/// a successful delivery can never depend on deleted replay authority.
+#[derive(Clone, PartialEq)]
+pub struct ActiveIssuedAttemptEvidence {
+    receipt: IssuedAttemptReceiptEvidence,
+    flat_grading: Option<crate::IssuedFlatGradingContract>,
+    webwork_grading: Option<IssuedWebworkGradingContract>,
+    webwork_replay: Option<WebworkGradeReplayStateV1>,
+}
+
+impl ActiveIssuedAttemptEvidence {
+    pub(crate) fn new(
+        receipt: IssuedAttemptReceiptEvidence,
+        flat_grading: Option<crate::IssuedFlatGradingContract>,
+        webwork_grading: Option<IssuedWebworkGradingContract>,
+        webwork_replay: Option<WebworkGradeReplayStateV1>,
+    ) -> Self {
+        Self {
+            receipt,
+            flat_grading,
+            webwork_grading,
+            webwork_replay,
+        }
+    }
+
+    pub fn receipt_evidence(&self) -> &IssuedAttemptReceiptEvidence {
+        &self.receipt
+    }
+
+    pub fn presentation_snapshot(&self) -> Option<&ReceiptPresentationSnapshot> {
+        self.receipt.presentation_snapshot()
+    }
+
+    pub fn flat_grading(&self) -> Option<&crate::IssuedFlatGradingContract> {
+        self.flat_grading.as_ref()
+    }
+
+    pub fn webwork_grading(&self) -> Option<&IssuedWebworkGradingContract> {
+        self.webwork_grading.as_ref()
+    }
+
+    pub fn webwork_replay(&self) -> Option<&WebworkGradeReplayStateV1> {
+        self.webwork_replay.as_ref()
+    }
+}
+
+impl std::fmt::Debug for ActiveIssuedAttemptEvidence {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ActiveIssuedAttemptEvidence")
+            .field("receipt", &"[SERVER-ONLY]")
+            .field("flat_grading", &"[SERVER-ONLY]")
+            .field("webwork_grading", &"[SERVER-ONLY]")
+            .field("webwork_replay", &"[SERVER-ONLY]")
+            .finish()
+    }
+}
+
+/// Minimal immutable receipt projection for submitted question delivery.
+#[derive(Clone, PartialEq)]
+pub struct SubmittedQuestionReceipt {
+    presentation: Option<ReceiptPresentationSnapshot>,
+}
+
+/// Submitted lifecycle evidence with a checked immutable answer-free receipt.
+#[derive(Clone, PartialEq)]
+pub struct SubmittedIssuedAttemptRead {
+    evidence: IssuedAttemptReceiptEvidence,
+    receipt: SubmittedQuestionReceipt,
+}
+
+impl SubmittedIssuedAttemptRead {
+    pub(crate) fn new(
+        evidence: IssuedAttemptReceiptEvidence,
+        receipt: SubmittedQuestionReceipt,
+    ) -> Self {
+        Self { evidence, receipt }
+    }
+
+    pub fn receipt_evidence(&self) -> &IssuedAttemptReceiptEvidence {
+        &self.evidence
+    }
+
+    pub fn presentation(&self) -> Option<&ReceiptPresentationSnapshot> {
+        self.receipt.presentation()
+    }
+}
+
+impl std::fmt::Debug for SubmittedIssuedAttemptRead {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("SubmittedIssuedAttemptRead([SERVER-ONLY])")
+    }
+}
+
+/// Terminal lifecycle evidence for an attempt with no learner delivery receipt.
+#[derive(Clone, PartialEq)]
+pub struct TerminalIssuedAttemptRead {
+    evidence: IssuedAttemptReceiptEvidence,
+    status: AttemptStatus,
+}
+
+impl TerminalIssuedAttemptRead {
+    pub(crate) fn new(evidence: IssuedAttemptReceiptEvidence, status: AttemptStatus) -> Self {
+        Self { evidence, status }
+    }
+
+    pub fn receipt_evidence(&self) -> &IssuedAttemptReceiptEvidence {
+        &self.evidence
+    }
+
+    pub fn status(&self) -> AttemptStatus {
+        self.status
+    }
+}
+
+impl std::fmt::Debug for TerminalIssuedAttemptRead {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("TerminalIssuedAttemptRead")
+            .field("status", &self.status)
+            .field("evidence", &"[SERVER-ONLY]")
+            .finish()
+    }
+}
+
+impl SubmittedQuestionReceipt {
+    pub(crate) fn new(presentation: Option<ReceiptPresentationSnapshot>) -> Self {
+        Self { presentation }
+    }
+
+    pub fn presentation(&self) -> Option<&ReceiptPresentationSnapshot> {
+        self.presentation.as_ref()
+    }
+}
+
+impl std::fmt::Debug for SubmittedQuestionReceipt {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("SubmittedQuestionReceipt")
+            .field("presentation", &"[ANSWER-FREE SERVER-ONLY]")
+            .finish()
+    }
+}
+
+/// Authorized current question-delivery lifecycle plus immutable issuance
+/// evidence. This is the exclusive broker-first question-delivery read.
+#[derive(Clone, PartialEq)]
+pub enum IssuedAttemptRead {
+    Active(Box<ActiveIssuedAttemptEvidence>),
+    Submitted(Box<SubmittedIssuedAttemptRead>),
+    TerminalWithoutReceipt(Box<TerminalIssuedAttemptRead>),
+}
+
+impl IssuedAttemptRead {
+    pub fn receipt_evidence(&self) -> &IssuedAttemptReceiptEvidence {
+        match self {
+            Self::Active(evidence) => evidence.receipt_evidence(),
+            Self::Submitted(read) => read.receipt_evidence(),
+            Self::TerminalWithoutReceipt(read) => read.receipt_evidence(),
+        }
+    }
+
+    pub fn active_presentation_snapshot(&self) -> Option<&ReceiptPresentationSnapshot> {
+        match self {
+            Self::Active(evidence) => evidence.presentation_snapshot(),
+            Self::Submitted(_) | Self::TerminalWithoutReceipt(_) => None,
+        }
+    }
+
+    pub fn submitted_presentation(&self) -> Option<&ReceiptPresentationSnapshot> {
+        match self {
+            Self::Submitted(read) => read.presentation(),
+            Self::Active(_) | Self::TerminalWithoutReceipt(_) => None,
+        }
+    }
+
+    pub fn terminal_status(&self) -> Option<AttemptStatus> {
+        match self {
+            Self::TerminalWithoutReceipt(read) => Some(read.status()),
+            Self::Active(_) | Self::Submitted(_) => None,
+        }
+    }
+}
+
+impl std::fmt::Debug for IssuedAttemptRead {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Active(_) => formatter.write_str("IssuedAttemptRead::Active([SERVER-ONLY])"),
+            Self::Submitted(_) => {
+                formatter.write_str("IssuedAttemptRead::Submitted([SERVER-ONLY])")
+            }
+            Self::TerminalWithoutReceipt(read) => formatter
+                .debug_tuple("IssuedAttemptRead::TerminalWithoutReceipt")
+                .field(read)
+                .finish(),
+        }
+    }
+}
+
 /// One private upstream field/value pair for a rendered selectable item.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -304,284 +586,8 @@ impl SubmissionIdempotencyKey {
     }
 }
 
-/// Server-owned data needed to issue or resume one question instance.
-#[derive(Debug, Clone, PartialEq)]
-pub struct IssueQuestionAttemptCommand {
-    /// Authenticated enrollment owner.
-    pub actor: UserId,
-    /// Fresh proposed identity; ignored when an active instance already exists.
-    pub attempt: QuestionAttemptId,
-    /// Active run receiving the question.
-    pub run: RunId,
-    /// Zero-based logical assignment position.
-    pub assignment_position: u32,
-    /// Exact immutable content identity at that position.
-    pub problem: ProblemId,
-    /// Exact immutable version at that position.
-    pub question_version: VersionId,
-    /// Fresh operating-system-random seed for the proposed instance.
-    pub seed: u64,
-    /// Hash of the generated parameters.
-    pub parameter_hash: String,
-    /// Adapter, generator, renderer, source, asset, and grading provenance.
-    pub provenance: AttemptProvenance,
-    /// Immutable capability decided when this exact attempt was issued.
-    ///
-    /// It is stored separately from the binding so a missing binding can
-    /// never silently reclassify a presentation-bearing attempt as exempt.
-    pub presentation_capability: PresentationCapability,
-    /// Digest/nonce binding for the exact issued presentation.
-    pub presentation: Option<PresentationBindingV1>,
-    /// Exact answer-free descriptor inputs used at issuance.
-    ///
-    /// This is persisted on the attempt before it can accept a response. The
-    /// first receipt copies it rather than reconstructing through mutable
-    /// catalog, renderer, or object metadata later.
-    pub presentation_snapshot: Option<ReceiptPresentationSnapshot>,
-    /// Exact server-only, answer-free envelope used to validate and translate
-    /// a response for private grading. Durable IDs stay out of the public
-    /// receipt snapshot, which exposes presentation-scoped IDs instead.
-    pub grading_envelope: Option<QuestionEnvelope>,
-    /// Private flat-question authority retained at issuance. It contains the
-    /// answer-free immutable definition plus private key material, and is
-    /// never reconstructed from a later catalog or grader lookup.
-    pub flat_grading: Option<crate::IssuedFlatGradingContract>,
-    /// Immutable family capability decided with the issued presentation.
-    ///
-    /// This is deliberately distinct from the nullable payload: a missing
-    /// payload must not turn a flat attempt into a non-flat compatibility
-    /// case during first submission or replay.
-    pub flat_grading_capability: FlatGradingCapability,
-    /// Private answer-free upstream mapping, present only for WeBWorK.
-    pub webwork_replay: Option<WebworkReplayMappingV1>,
-    /// Server-only immutable WebWork definition used for first-grade source
-    /// identity and point policy. It is never reread from a later catalog
-    /// version.
-    pub webwork_grading: Option<IssuedWebworkGradingContract>,
-    /// Immutable obligation for the WebWork grading contract.
-    pub webwork_grading_capability: WebworkGradingCapability,
-    /// Server-owned candidate prepared while the preceding attempt was active.
-    /// It is verified and consumed atomically with issuance; browser input can
-    /// never create this internal command.
-    pub prefetched: Option<PrefetchedQuestion>,
-    /// Committed predecessor whose immutable receipt is finalized by this
-    /// issuance. This link is written in the same transaction as the attempt.
-    pub predecessor_submission: Option<QuestionAttemptId>,
-}
-
-/// Immutable successor state for one committed submission.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SubmissionNextAttempt {
-    /// The grade and receipt committed, but successor issuance has not yet
-    /// finalized. First delivery may try once; replay returns `nextPending`.
-    Pending,
-    /// This submission completed or exhausted the run without another attempt.
-    None,
-    /// Exact, receipt-bound next attempt issued from this submission.
-    Issued(ReceiptNextAttempt),
-}
-
-/// Immutable presentation obligation selected at issue time.
-///
-/// File-upload and external-tool attempts currently have no
-/// `PresentationEnvelopeV1`; every other attempt that issued one is
-/// `EnvelopeV1` and must retain its answer-free descriptor snapshot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum PresentationCapability {
-    EnvelopeV1,
-    NotApplicable,
-}
-
-impl PresentationCapability {
-    #[cfg(feature = "postgres")]
-    pub(crate) fn requires_snapshot(self) -> bool {
-        matches!(self, Self::EnvelopeV1)
-    }
-}
-
-/// Immutable private-grading obligation selected at issue time.
-///
-/// `Required` is used exactly for native flat-question families. Every other
-/// family is explicitly `NotApplicable`; receipt readers never infer either
-/// state from the presence of the server-only payload.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum FlatGradingCapability {
-    Required,
-    NotApplicable,
-}
-
-impl FlatGradingCapability {
-    pub(crate) fn requires_contract(self) -> bool {
-        matches!(self, Self::Required)
-    }
-}
-
-/// Immutable WebWork private-grading obligation selected at issue time.
-///
-/// The contract retains the exact published definition required by the
-/// renderer grade request. `Required` cannot be inferred from a nullable
-/// replay mapping or source lookup during first submission.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum WebworkGradingCapability {
-    Required,
-    NotApplicable,
-}
-
-/// Derives the compact capability tag that is checksummed inside a
-/// `QuestionAttempt`. The separate protected columns must always agree with
-/// this immutable record before a receipt, first grade, or presentation read
-/// can proceed.
-pub(crate) fn issued_attempt_capability_from_issue(
-    presentation: PresentationCapability,
-    flat_grading: FlatGradingCapability,
-    webwork_grading: WebworkGradingCapability,
-) -> Result<question_model::IssuedAttemptCapabilityV1, StoreError> {
-    use question_model::IssuedAttemptCapabilityV1 as Capability;
-
-    match (presentation, flat_grading, webwork_grading) {
-        (
-            PresentationCapability::EnvelopeV1,
-            FlatGradingCapability::Required,
-            WebworkGradingCapability::NotApplicable,
-        ) => Ok(Capability::FlatPresentation),
-        (
-            PresentationCapability::EnvelopeV1,
-            FlatGradingCapability::NotApplicable,
-            WebworkGradingCapability::Required,
-        ) => Ok(Capability::WebworkPresentation),
-        (
-            PresentationCapability::EnvelopeV1,
-            FlatGradingCapability::NotApplicable,
-            WebworkGradingCapability::NotApplicable,
-        ) => Ok(Capability::PresentationEnvelope),
-        (
-            PresentationCapability::NotApplicable,
-            FlatGradingCapability::NotApplicable,
-            WebworkGradingCapability::NotApplicable,
-        ) => Ok(Capability::NotApplicable),
-        _ => Err(StoreError::InvalidRecord(
-            "issued presentation and grading capabilities disagree".to_string(),
-        )),
-    }
-}
-
-/// Refuses protected-column damage that would otherwise make a first grade or
-/// active GET infer an absent contract and consult mutable backend state.
-pub(crate) fn validate_attempt_issuance_capability(
-    attempt: &QuestionAttempt,
-    presentation: PresentationCapability,
-    flat_grading: FlatGradingCapability,
-    webwork_grading: WebworkGradingCapability,
-) -> Result<(), StoreError> {
-    let expected =
-        issued_attempt_capability_from_issue(presentation, flat_grading, webwork_grading)
-            .map_err(|error| StoreError::Unavailable(error.to_string()))?;
-    if attempt.issued_capability != expected {
-        return Err(StoreError::Unavailable(
-            "stored issuance capability disagrees with its checksummed attempt".to_string(),
-        ));
-    }
-    Ok(())
-}
-
-impl WebworkGradingCapability {
-    pub(crate) fn requires_contract(self) -> bool {
-        matches!(self, Self::Required)
-    }
-}
-
-/// Browser-safe successor metadata frozen with the predecessor's durable
-/// receipt link. Reading a receipt never needs to query the mutable attempt.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ReceiptNextAttempt {
-    pub id: QuestionAttemptId,
-    pub run: RunId,
-    pub question_version: VersionId,
-    pub seed: u64,
-    pub deadline: Option<ActivityTimestamp>,
-    pub assignment_position: u32,
-    pub rendered_question_sha256: String,
-}
-
-impl ReceiptNextAttempt {
-    pub(crate) fn from_attempt(attempt: &QuestionAttempt) -> Self {
-        Self {
-            id: attempt.id,
-            run: attempt.run,
-            question_version: attempt.question_version,
-            seed: attempt.seed,
-            deadline: attempt.timer.deadline,
-            assignment_position: attempt.assignment_position,
-            rendered_question_sha256: attempt.provenance.rendered_question_sha256.clone(),
-        }
-    }
-}
-
-/// Server-only, tenant-owned preparation for a possible next question.
-///
-/// This intentionally has neither an attempt identity nor a timer. It cannot
-/// receive a response, grade, or summary transition; only matching post-submit
-/// issuance may consume it into a real [`QuestionAttempt`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PrefetchedQuestion {
-    pub tenant: TenantId,
-    pub run: RunId,
-    pub predecessor: QuestionAttemptId,
-    pub assignment_position: u32,
-    pub problem: ProblemId,
-    pub question_version: VersionId,
-    pub seed: u64,
-    pub parameter_hash: String,
-    pub provenance: AttemptProvenance,
-    pub presentation_capability: PresentationCapability,
-    pub presentation: PresentationBindingV1,
-    pub presentation_snapshot: ReceiptPresentationSnapshot,
-    /// Exact server-only answer-free envelope promoted with this reservation.
-    pub grading_envelope: QuestionEnvelope,
-    /// Private flat-question authority promoted with this reservation when
-    /// the native family requires it.
-    pub flat_grading: Option<crate::IssuedFlatGradingContract>,
-    /// Immutable private-grading obligation promoted with this reservation.
-    pub flat_grading_capability: FlatGradingCapability,
-    /// Private answer-free upstream mapping retained for atomic promotion.
-    pub webwork_replay: Option<WebworkReplayMappingV1>,
-    /// Immutable WebWork first-grade definition promoted with the reservation.
-    pub webwork_grading: Option<IssuedWebworkGradingContract>,
-    /// Explicit WebWork first-grade obligation promoted with the reservation.
-    pub webwork_grading_capability: WebworkGradingCapability,
-}
-
-/// Trusted server request to create or resume a prefetch reservation.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ReservePrefetchedQuestionCommand {
-    pub actor: UserId,
-    pub reservation: PrefetchedQuestion,
-}
-
-/// Trusted server result to persist for one student response.
-#[derive(Clone, PartialEq)]
-pub struct SubmitQuestionAttemptCommand {
-    /// Authenticated enrollment owner.
-    pub actor: UserId,
-    /// Issued question being answered.
-    pub attempt: QuestionAttemptId,
-    /// Student-controlled response already validated and server-graded.
-    pub response: StudentResponse,
-    /// Key-free grading result produced inside the server boundary.
-    pub result: AttemptResult,
-    /// Trusted, sanitized teaching material captured with the first grade.
-    ///
-    /// This remains server-only: it is not a response DTO and is never
-    /// serialized by the public model generator.
-    pub feedback: FeedbackContent,
-    /// Stable key reused by browser retries of this exact response.
-    pub idempotency_key: SubmissionIdempotencyKey,
-}
+// Issue, prefetch, and prepared-submission contracts live in the sibling
+// issue-contract module so this shared lifecycle module stays focused.
 
 /// Validates the immutable issued-presentation tuple before an attempt is
 /// written. The same validation is repeated while loading a receipt so a
@@ -600,7 +606,8 @@ pub(crate) fn validate_issued_presentation(
         (
             Capability::PresentationEnvelope
                 | Capability::FlatPresentation
-                | Capability::WebworkPresentation,
+                | Capability::WebworkPresentation
+                | Capability::QtiPresentation,
             PresentationCapability::EnvelopeV1,
         ) | (
             Capability::NotApplicable,
@@ -753,6 +760,7 @@ impl std::fmt::Debug for SubmitQuestionAttemptCommand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SubmitQuestionAttemptCommand")
             .field("actor", &self.actor)
+            .field("binding", &self.binding)
             .field("attempt", &self.attempt)
             .field("response", &self.response)
             .field("result", &self.result)
@@ -900,4 +908,18 @@ pub enum ActivityTransition {
         /// Authoritative PostgreSQL timestamp.
         at: ActivityTimestamp,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn issued_attempt_evidence_debug_redacts_every_evidence_payload() {
+        let rendered = format!("{:?}", IssuedAttemptReceiptEvidence::new(None, None, None));
+        assert!(rendered.contains("[ANSWER-FREE SERVER-ONLY]"));
+        assert!(rendered.contains("[SERVER-ONLY]"));
+        assert!(!rendered.contains("QuestionEnvelope"));
+        assert!(!rendered.contains("Webwork"));
+    }
 }

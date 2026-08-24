@@ -395,7 +395,7 @@ where
         .update_course_group_purpose_policy(
             auth.tenant_context,
             UpdateCourseGroupPurposePolicyCommand {
-                actor: auth.record.subject.user(),
+                session: auth.record.token_hash,
                 course,
                 expected_revision: current.revision,
                 policy: CourseGroupPurposePolicy {

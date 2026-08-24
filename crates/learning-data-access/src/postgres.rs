@@ -65,13 +65,13 @@ use crate::statistics::derive_statistics_contributions;
 #[cfg(feature = "postgres")]
 use crate::{
     ActivityTransition, AddAssignmentFixedItemCommand, AssetDeliveryRecord, AssetDeliveryScope,
-    AssignmentDefinitionDisposition, AssignmentRecord, AssignmentRevision, AssignmentUpdate,
-    AttemptFeedbackRecord, AttemptSupportAction, AttemptSupportActionId, AttemptSupportRecord,
-    ClearAttemptCommand, CourseGroupRecord, CourseGroupRevision, CourseListScope, CourseRecord,
+    AssignmentDefinitionDisposition, AssignmentRecord, AssignmentRevision, AttemptFeedbackRecord,
+    AttemptSupportAction, AttemptSupportActionId, AttemptSupportRecord, ClearAttemptCommand,
+    CourseGroupRecord, CourseGroupRevision, CourseListScope, CourseRecord,
     CourseRecordsAccessStore, CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState,
     CourseRetentionView, CreateCourseCommand, Cursor, DeleteAndRegradeAssignmentItemCommand,
     DraftRecord, FeedbackReleaseRecord, ForceSubmitAttemptCommand, InstitutionRetentionPolicy,
-    IssueQuestionAttemptCommand, Page, PageRequest, PageSize, PrefetchedQuestion,
+    IssueQuestionAttemptCommand, Page, PageRequest, PageSize, PrefetchedQuestionDescriptorV1,
     PublishedProblemRecord, PublishedSourceArtifact, PutCourseGroupCommand,
     ReleaseAttemptFeedbackCommand, RemoveAssignmentFixedItemCommand,
     ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand, RetentionApiStore,
@@ -123,13 +123,18 @@ use assignment_values::*;
 pub mod base_course_install;
 #[cfg(feature = "postgres")]
 pub use base_course_install::{
-    BASE_COURSE_INSTALL_ADVISORY_LOCK_KEY, BaseCourseAccountPlatformRoles, BaseCourseAccountRecipe,
-    BaseCourseInstallLock, BaseCourseInstallState, acquire_base_course_install_lock,
+    BaseCourseCompletionActivityExpectation, BaseCourseCompletionContentExpectation,
+    BaseCourseCompletionCourseExpectation, BaseCourseCompletionEntitlementExpectation,
+    BaseCourseCompletionExpectation, BaseCourseCompletionReceipt, BaseCourseInstallCourseReceipt,
+    BaseCourseInstallCourseSlot, BaseCourseInstallLock, BaseCourseInstallState,
+    acquire_base_course_install_lock,
 };
 #[cfg(feature = "postgres")]
 mod assignment_records;
 #[cfg(feature = "postgres")]
 use assignment_records::*;
+#[cfg(feature = "postgres")]
+mod assignment_definition_capability;
 #[cfg(feature = "postgres")]
 mod transaction_context;
 #[cfg(feature = "postgres")]
@@ -141,11 +146,16 @@ use feedback_data::*;
 #[cfg(feature = "postgres")]
 mod entitlement;
 #[cfg(feature = "postgres")]
+mod learner_work_preparation;
+mod student_run_preparation;
+#[cfg(feature = "postgres")]
 mod submission;
 #[cfg(feature = "postgres")]
 use submission::*;
 #[cfg(feature = "postgres")]
 mod run_lifecycle;
+#[cfg(feature = "postgres")]
+mod submission_preparation;
 #[cfg(feature = "postgres")]
 use run_lifecycle::*;
 #[cfg(feature = "postgres")]
@@ -213,6 +223,8 @@ mod qti;
 #[cfg(feature = "postgres")]
 mod qti_ingress;
 #[cfg(feature = "postgres")]
+mod rehearsal;
+#[cfg(feature = "postgres")]
 mod retention;
 #[cfg(feature = "postgres")]
 mod runs;
@@ -225,7 +237,11 @@ mod teaching_authority;
 #[cfg(feature = "postgres")]
 mod teaching_authority_references;
 #[cfg(feature = "postgres")]
-pub use connection::{ProductionLoginProfile, lazy_pool, production_pool};
+pub use connection::{
+    BaseCourseInstallerPool, ProductionLoginProfile, base_course_application_pool,
+    base_course_installer_pool, lazy_pool, local_base_course_application_pool,
+    local_base_course_installer_pool, local_development_pool, production_pool,
+};
 #[cfg(feature = "postgres")]
 use connection::{
     connect_grader_pool, connect_local_grader_pool, map_sqlx_error, retry_transaction,
@@ -459,6 +475,12 @@ impl PostgresGraderStore {
         context: TenantContext,
     ) -> Result<Transaction<'_, Postgres>, StoreError> {
         let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
+        // ASVS 2.3.1, 2.3.3, 8.2.1, 8.3.1, 8.4.1: apply the explicit
+        // server-side capability before the transaction receives tenant data.
+        sqlx::query("SET LOCAL ROLE ple_grader")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
         sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
             .bind(context.tenant_id().to_string())
             .execute(&mut *transaction)

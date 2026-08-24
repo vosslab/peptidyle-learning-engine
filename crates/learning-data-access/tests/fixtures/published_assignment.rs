@@ -23,7 +23,14 @@ pub async fn create_published_assignment<S: Store>(
     let instructions = assignment.instructions.clone();
     assignment.lifecycle = AssignmentLifecycle::Draft;
     let created = store
-        .create_assignment(context, assignment, base_policy)
+        .create_assignment(
+            context,
+            learning_data_access::CreateAssignmentCommand {
+                actor: instructor,
+                assignment,
+                base_policy,
+            },
+        )
         .await?;
     store
         .put_assignment_teaching_settings(

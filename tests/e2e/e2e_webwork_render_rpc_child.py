@@ -477,10 +477,12 @@ def require_uuid_field(value: object, field: str, label: str) -> str:
 #============================================
 def create_attempt(
 	client: GatewayClient,
+	course_id: str,
 	assignment_id: str,
 ) -> tuple[str, str, list[bytes]]:
 	"""Create one run and require its exact single WebWork attempt."""
-	run_response = client.request("POST", "/api/runs", {"assignmentId": assignment_id})
+	path = f"/api/courses/{course_id}/assignments/{assignment_id}/runs"
+	run_response = client.request("POST", path)
 	require_status(run_response, 201, "starting a PLE WebWork run")
 	run_value = decode_json(run_response, "starting a PLE WebWork run")
 	run_id = require_uuid_field(run_value, "id", "PLE WebWork run")
@@ -609,6 +611,8 @@ def assert_no_private_material(blobs: Sequence[bytes]) -> None:
 #============================================
 def submit_answer(
 	client: GatewayClient,
+	course_id: str,
+	assignment_id: str,
 	attempt_id: str,
 	choice_id: str,
 	idempotency_key: str,
@@ -616,7 +620,10 @@ def submit_answer(
 	"""Submit one learner-visible choice through a fixed idempotency contract."""
 	response = client.request(
 		"POST",
-		f"/api/submissions/{attempt_id}",
+		(
+			f"/api/courses/{course_id}/assignments/{assignment_id}"
+			f"/attempts/{attempt_id}/submissions"
+		),
 		{"response": {"kind": "multipleChoice", "selected": [choice_id]}},
 		{"idempotency-key": idempotency_key},
 	)
@@ -633,13 +640,19 @@ def run_oracle(value: e2e_live_demo_service_input.LiveDemoServiceOracleInputV1) 
 	public_blobs = authenticate_mary(client, manifest.course_id)
 
 	before_run = adapter.evidence()
-	run_one_id, attempt_one, run_one_blobs = create_attempt(client, manifest.assignment_id)
+	run_one_id, attempt_one, run_one_blobs = create_attempt(
+		client, manifest.course_id, manifest.assignment_id
+	)
 	public_blobs.extend(run_one_blobs)
 	after_run = adapter.evidence()
-	question_one = client.request("GET", f"/api/attempts/{attempt_one}/question")
+	question_path_one = (
+		f"/api/courses/{manifest.course_id}/assignments/{manifest.assignment_id}"
+		f"/attempts/{attempt_one}/question"
+	)
+	question_one = client.request("GET", question_path_one)
 	require_status(question_one, 200, "first PLE WebWork question request")
 	after_first = adapter.evidence()
-	question_two = client.request("GET", f"/api/attempts/{attempt_one}/question")
+	question_two = client.request("GET", question_path_one)
 	require_status(question_two, 200, "second PLE WebWork question request")
 	after_second = adapter.evidence()
 	if question_one.body != question_two.body:
@@ -660,12 +673,22 @@ def run_oracle(value: e2e_live_demo_service_input.LiveDemoServiceOracleInputV1) 
 	question_one_value = decode_json(question_one, "first PLE WebWork question")
 	correct_choice = question_answer(question_one_value, "hydrophobic")
 	receipt_one = submit_answer(
-		client, attempt_one, correct_choice, "ple-webwork-correct-1"
+		client,
+		manifest.course_id,
+		manifest.assignment_id,
+		attempt_one,
+		correct_choice,
+		"ple-webwork-correct-1",
 	)
 	receipt_one_value = decode_json(receipt_one, "correct PLE WebWork submission")
 	assert_completed_receipt(receipt_one_value, 1.0)
 	receipt_one_replay = submit_answer(
-		client, attempt_one, correct_choice, "ple-webwork-correct-1"
+		client,
+		manifest.course_id,
+		manifest.assignment_id,
+		attempt_one,
+		correct_choice,
+		"ple-webwork-correct-1",
 	)
 	if receipt_one.body != receipt_one_replay.body:
 		raise WebWorkOracleError("idempotent WebWork submission replay changed its receipt")
@@ -674,7 +697,9 @@ def run_oracle(value: e2e_live_demo_service_input.LiveDemoServiceOracleInputV1) 
 	assert_summary_score(decode_json(summary_one, "correct WebWork run summary"), 1.0)
 
 	before_second_run = adapter.evidence()
-	run_two_id, attempt_two, run_two_blobs = create_attempt(client, manifest.assignment_id)
+	run_two_id, attempt_two, run_two_blobs = create_attempt(
+		client, manifest.course_id, manifest.assignment_id
+	)
 	public_blobs.extend(run_two_blobs)
 	after_second_run = adapter.evidence()
 	if after_second_run.renderer_calls != before_second_run.renderer_calls + 1:
@@ -682,13 +707,22 @@ def run_oracle(value: e2e_live_demo_service_input.LiveDemoServiceOracleInputV1) 
 	hit_delta = after_second_run.cache_hits - before_second_run.cache_hits
 	if hit_delta not in (0, 1):
 		raise WebWorkOracleError("continued-practice issuance emitted an invalid cache_hit delta")
-	question_three = client.request("GET", f"/api/attempts/{attempt_two}/question")
+	question_path_two = (
+		f"/api/courses/{manifest.course_id}/assignments/{manifest.assignment_id}"
+		f"/attempts/{attempt_two}/question"
+	)
+	question_three = client.request("GET", question_path_two)
 	require_status(question_three, 200, "continued-practice WebWork question request")
 	incorrect_choice = question_answer(
 		decode_json(question_three, "continued-practice WebWork question"), "hydrophilic"
 	)
 	receipt_two = submit_answer(
-		client, attempt_two, incorrect_choice, "ple-webwork-incorrect-1"
+		client,
+		manifest.course_id,
+		manifest.assignment_id,
+		attempt_two,
+		incorrect_choice,
+		"ple-webwork-incorrect-1",
 	)
 	assert_completed_receipt(
 		decode_json(receipt_two, "incorrect PLE WebWork submission"), 0.0
@@ -701,7 +735,10 @@ def run_oracle(value: e2e_live_demo_service_input.LiveDemoServiceOracleInputV1) 
 	try:
 		health = client.request("GET", "/health")
 		require_status(health, 200, "native gateway health during renderer outage")
-		outage = client.request("POST", "/api/runs", {"assignmentId": manifest.assignment_id})
+		outage = client.request(
+			"POST",
+			f"/api/courses/{manifest.course_id}/assignments/{manifest.assignment_id}/runs",
+		)
 		require_status(outage, 503, "renderer-outage WebWork issuance")
 	finally:
 		adapter.restart_renderer()

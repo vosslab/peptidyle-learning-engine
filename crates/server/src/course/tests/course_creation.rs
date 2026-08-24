@@ -4,7 +4,13 @@ use axum::body::{Body, to_bytes};
 use axum::http::Request;
 use axum::response::Response;
 use learning_data_access::in_memory::MemoryStore;
-use learning_data_access::{PageRequest, PageSize, SessionLifetime, SessionSubject, TenantContext};
+use learning_data_access::{
+    AccountIdentityStore, ApproveInstructorAccount, AuthenticationEmail,
+    AuthenticationRateLimitKey, BeginEmailAuthentication, BrowserBindingHash,
+    CompleteEmailAuthentication, EmailAuthenticationPurpose, EmailChallengeId,
+    EmailChallengeLifetime, EmailChallengeSecretHash, PageRequest, PageSize, SessionLifetime,
+    SessionSubject, TeachingAuthorityStore, TenantContext,
+};
 use question_model::{ActivityTimestamp, TenantId, UserId, UserRole};
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -13,7 +19,11 @@ fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
 }
 
-async fn issued_cookie(store: &MemoryStore, roles: Vec<UserRole>, user: UserId) -> String {
+async fn issued_cookie(
+    store: &MemoryStore,
+    roles: Vec<UserRole>,
+    user: UserId,
+) -> (String, learning_data_access::SessionTokenHash) {
     let tenant = TenantId::from_uuid(id(1));
     let subject =
         SessionSubject::new(tenant, user, "Course Fixture", roles).expect("fixture identity");
@@ -27,12 +37,43 @@ async fn issued_cookie(store: &MemoryStore, roles: Vec<UserRole>, user: UserId) 
     )
     .await
     .expect("fixture session");
-    issued
+    let cookie = issued
         .set_cookie
         .split(';')
         .next()
         .expect("cookie pair")
-        .to_string()
+        .to_string();
+    (cookie, issued.record.token_hash)
+}
+
+async fn create_account(store: &MemoryStore, user: UserId, suffix: u128) {
+    let token =
+        EmailChallengeSecretHash::compute(format!("course-create-token-{suffix}").as_bytes());
+    let binding = BrowserBindingHash::compute(format!("course-create-binding-{suffix}").as_bytes());
+    store
+        .begin_email_authentication(BeginEmailAuthentication {
+            id: EmailChallengeId::from_uuid(id(100 + suffix)),
+            token_hash: token,
+            browser_binding: binding,
+            email_rate_limit_key: AuthenticationRateLimitKey::compute(
+                format!("course-create-rate-{suffix}").as_bytes(),
+            ),
+            email: AuthenticationEmail::parse(&format!("course-create-{suffix}@example.edu"))
+                .expect("fixture email"),
+            purpose: EmailAuthenticationPurpose::SignInOrRegister,
+            lifetime: EmailChallengeLifetime::from_seconds(600).expect("fixture lifetime"),
+        })
+        .await
+        .expect("account challenge");
+    store
+        .complete_email_authentication(CompleteEmailAuthentication {
+            token_hash: token,
+            browser_binding: binding,
+            proposed_user: user,
+            proposed_display_name: "Course instructor".to_owned(),
+        })
+        .await
+        .expect("fixture account");
 }
 
 async fn response_json(response: Response) -> serde_json::Value {
@@ -53,9 +94,12 @@ async fn course_creation_rejects_invalid_requests_and_student_callers_without_pe
     let instructor = UserId::from_uuid(id(2));
     let student = UserId::from_uuid(id(3));
     let sysadmin = UserId::from_uuid(id(4));
-    let instructor_cookie = issued_cookie(&store, vec![UserRole::Instructor], instructor).await;
-    let student_cookie = issued_cookie(&store, vec![UserRole::Student], student).await;
-    let sysadmin_cookie = issued_cookie(&store, vec![UserRole::Sysadmin], sysadmin).await;
+    create_account(&store, instructor, 2).await;
+    let (instructor_cookie, _) =
+        issued_cookie(&store, vec![UserRole::Instructor], instructor).await;
+    let (student_cookie, _) = issued_cookie(&store, vec![UserRole::Student], student).await;
+    let (sysadmin_cookie, sysadmin_session) =
+        issued_cookie(&store, vec![UserRole::Sysadmin], sysadmin).await;
     let app = router(Arc::clone(&store));
 
     let student_create = app
@@ -78,6 +122,7 @@ async fn course_creation_rejects_invalid_requests_and_student_callers_without_pe
     for invalid_body in [
         r#"{"title":"   ","term":{"startDate":"2026-08-24","endDate":"2026-12-18","timeZone":"America/Chicago"}}"#,
         r#"{"title":"BIOC 301","term":{"startDate":"2026-08-24","endDate":"2026-12-18","timeZone":"America/Chicago"},"role":"sysadmin"}"#,
+        r#"{"title":"BIOC 301","term":{"startDate":"2026-08-24","endDate":"2026-12-18","timeZone":"America/Chicago"},"actor":"00000000-0000-0000-0000-000000000004"}"#,
         r#"{"title":"BIOC 301","term":{"startDate":"2026-08-24","endDate":"2026-12-18","timeZone":"America/Chicago","offset":"-06:00"}}"#,
     ] {
         let rejected_course = app
@@ -200,6 +245,40 @@ async fn course_creation_rejects_invalid_requests_and_student_callers_without_pe
         );
     }
 
+    let unapproved_instructor_create = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/courses")
+                .header("cookie", &instructor_cookie)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"title":"BIOC 302: Enzymes","term":{"startDate":"2027-01-11","endDate":"2027-05-07","timeZone":"Europe/Paris"}}"#,
+                ))
+                .expect("unapproved instructor course request"),
+        )
+        .await
+        .expect("unapproved instructor course response");
+    assert_eq!(unapproved_instructor_create.status(), StatusCode::FORBIDDEN);
+
+    let instructor_courses = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/courses")
+                .header("cookie", &instructor_cookie)
+                .body(Body::empty())
+                .expect("unapproved instructor course list request"),
+        )
+        .await
+        .expect("unapproved instructor course list response");
+    assert_eq!(instructor_courses.status(), StatusCode::OK);
+    assert_eq!(
+        response_json(instructor_courses).await["items"],
+        serde_json::json!([])
+    );
+
     let sysadmin_create = app
         .clone()
         .oneshot(
@@ -226,6 +305,18 @@ async fn course_creation_rejects_invalid_requests_and_student_callers_without_pe
             "timeZone": "America/Chicago",
         })
     );
+
+    store
+        .approve_instructor_account(
+            context,
+            ApproveInstructorAccount {
+                session: sysadmin_session,
+                target: instructor,
+                expected_revision: None,
+            },
+        )
+        .await
+        .expect("authenticated sysadmin approval");
 
     let instructor_create = app
         .clone()

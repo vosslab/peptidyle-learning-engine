@@ -11,6 +11,7 @@ async fn memory_manual_grading_is_response_bearing_revisioned_and_generation_fen
     let instructor = UserId::from_uuid(uuid(10_015));
     let pending_command = SubmitPendingManualQuestionAttemptCommand {
         actor: fixture.actor,
+        binding: LearnerWorkRoutingBinding::new(fixture.course, fixture.assignment),
         attempt: fixture.attempt,
         response: StudentResponse::ExternalTool {},
         idempotency_key: SubmissionIdempotencyKey::parse("manual-pending-response")

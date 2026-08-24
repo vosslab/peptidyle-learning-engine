@@ -2,13 +2,45 @@
 
 use question_model::{QuestionAttempt, TenantId};
 
-use crate::{ReceiptPresentationSnapshot, StoreError, SubmissionRecord};
+use crate::{
+    FlatGradingCapability, IssuedQuestionSnapshotV1, QtiGradingCapability,
+    ReceiptPresentationSnapshot, StoreError, SubmissionRecord, WebworkGradingCapability,
+};
 
 use super::super::State;
+
+/// Validates immutable issued-source evidence before Memory exposes it to any
+/// first-effect path.  The corresponding PostgreSQL decoder performs the
+/// same identity and capability checks after checksum verification.
+pub(crate) fn validate_issued_question_snapshot(
+    snapshot: &IssuedQuestionSnapshotV1,
+    attempt: &QuestionAttempt,
+    flat_grading: FlatGradingCapability,
+    webwork_grading: WebworkGradingCapability,
+    qti_grading: QtiGradingCapability,
+    presentation: Option<&ReceiptPresentationSnapshot>,
+) -> Result<(), StoreError> {
+    snapshot.validate_for_attempt(attempt.problem, attempt.question_version)?;
+    snapshot.validate_for_issuance_context(flat_grading, webwork_grading, qti_grading, presentation)
+}
 
 /// The immutable issue record, rather than current catalog state, decides
 /// whether a first submission must carry an answer-free native envelope.
 pub(crate) fn load_issued_presentation(
+    state: &State,
+    tenant: TenantId,
+    attempt: &QuestionAttempt,
+) -> Result<Option<ReceiptPresentationSnapshot>, StoreError> {
+    let snapshot = load_issued_receipt_evidence(state, tenant, attempt)?;
+    load_issued_flat_grading(state, tenant, attempt)?;
+    load_issued_webwork_grading(state, tenant, attempt)?;
+    Ok(snapshot)
+}
+
+/// Reads only the immutable common receipt tuple.  Submitted delivery uses
+/// this seam after active-only grading and replay authority has been removed;
+/// neither route can ask mutable catalog/renderer state to replace it.
+pub(crate) fn load_issued_receipt_evidence(
     state: &State,
     tenant: TenantId,
     attempt: &QuestionAttempt,
@@ -34,11 +66,19 @@ pub(crate) fn load_issued_presentation(
         .ok_or_else(|| {
             StoreError::Unavailable("attempt WeBWorK grading capability is missing".to_string())
         })?;
+    let qti_capability = state
+        .attempt_qti_grading_capabilities
+        .get(&(tenant, attempt.id))
+        .copied()
+        .ok_or_else(|| {
+            StoreError::Unavailable("attempt QTI grading capability is missing".to_string())
+        })?;
     crate::validate_attempt_issuance_capability(
         attempt,
         capability,
         flat_capability,
         webwork_capability,
+        qti_capability,
     )?;
     let binding = state
         .attempt_presentations
@@ -55,9 +95,42 @@ pub(crate) fn load_issued_presentation(
         snapshot,
         grading_envelope,
     )?;
-    load_issued_flat_grading(state, tenant, attempt)?;
-    load_issued_webwork_grading(state, tenant, attempt)?;
     Ok(snapshot)
+}
+
+pub(crate) fn load_issued_qti_grading(
+    state: &State,
+    tenant: TenantId,
+    attempt: &QuestionAttempt,
+    snapshot: &IssuedQuestionSnapshotV1,
+) -> Result<Option<crate::IssuedQtiGradingContractV1>, StoreError> {
+    let capability = state
+        .attempt_qti_grading_capabilities
+        .get(&(tenant, attempt.id))
+        .copied()
+        .ok_or_else(|| {
+            StoreError::Unavailable("attempt QTI grading capability is missing".to_string())
+        })?;
+    let contract = state.attempt_qti_grading.get(&(tenant, attempt.id));
+    let expected = matches!(
+        attempt.issued_capability,
+        question_model::IssuedAttemptCapabilityV1::QtiPresentation
+    );
+    if capability.requires_contract() != expected {
+        return Err(StoreError::Unavailable(
+            "stored QTI grading capability disagrees with its checksummed attempt".to_string(),
+        ));
+    }
+    match (capability, contract) {
+        (QtiGradingCapability::NotApplicable, None) => Ok(None),
+        (QtiGradingCapability::Required, Some(contract)) => {
+            contract.validate_for_question(snapshot.question())?;
+            Ok(Some(contract.clone()))
+        }
+        _ => Err(StoreError::Unavailable(
+            "stored QTI grading capability and payload disagree".to_string(),
+        )),
+    }
 }
 
 /// Reads the explicit family obligation and validates the retained private

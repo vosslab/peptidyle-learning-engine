@@ -10,6 +10,8 @@ async fn memory_entitlement_pages_only_over_visible_assignments() {
     let instructor = UserId::from_uuid(uuid(98_001));
     let learner = UserId::from_uuid(uuid(98_002));
     let course = CourseId::from_uuid(uuid(98_003));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(&store, tenant, course, instructor).await;
     store
         .create_course(
             context,
@@ -25,7 +27,7 @@ async fn memory_entitlement_pages_only_over_visible_assignments() {
                     )
                     .expect("valid fixture term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -33,6 +35,7 @@ async fn memory_entitlement_pages_only_over_visible_assignments() {
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: learner,
@@ -186,6 +189,8 @@ async fn memory_entitlement_materialization_enforces_closed_authority_matrix() {
     let instructor = UserId::from_uuid(uuid(98_201));
     let learner = UserId::from_uuid(uuid(98_202));
     let course = CourseId::from_uuid(uuid(98_203));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(&store, tenant, course, instructor).await;
     store
         .create_course(
             context,
@@ -201,7 +206,7 @@ async fn memory_entitlement_materialization_enforces_closed_authority_matrix() {
                     )
                     .expect("valid fixture term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -209,6 +214,7 @@ async fn memory_entitlement_materialization_enforces_closed_authority_matrix() {
     store
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: learner,

@@ -6,8 +6,9 @@ use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode};
 use learning_data_access::{
     AssignmentRecord, CourseRecord, CourseRosterStore, CreateCourseCommand,
-    IssueQuestionAttemptCommand, SessionLifetime, SessionSubject, Store, TenantContext,
-    UpsertCourseMember,
+    IssueQuestionAttemptCommand, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1,
+    LearnerWorkRoutingBinding, SessionLifetime, SessionSubject, Store, SubmissionIdempotencyKey,
+    SubmissionPreparation, TenantContext, UpsertCourseMember,
 };
 use question_model::response::{ChoiceId, StudentResponse};
 use question_model::{
@@ -68,7 +69,7 @@ async fn persist_attempt(
     context: TenantContext,
     question: &question_model::QuestionDefinition,
     issued: &adapter_webwork::WebworkIssuedAttempt,
-) -> (UserId, QuestionAttempt) {
+) -> (UserId, LearnerWorkRoutingBinding, QuestionAttempt) {
     let tenant = context.tenant_id();
     let instructor = UserId::from_uuid(id(15));
     let actor = UserId::from_uuid(id(20));
@@ -90,7 +91,13 @@ async fn persist_attempt(
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: crate::test_fixtures::sysadmin_course_creation_authority(
+                    backend.sources.as_ref(),
+                    tenant,
+                    course,
+                    instructor,
+                )
+                .await,
             },
         )
         .await
@@ -99,6 +106,7 @@ async fn persist_attempt(
         .sources
         .upsert_course_member(
             context,
+            instructor,
             UpsertCourseMember {
                 course,
                 user: actor,
@@ -112,32 +120,35 @@ async fn persist_attempt(
         .sources
         .create_assignment(
             context,
-            AssignmentRecord {
-                id: assignment,
-                tenant,
-                course_id: course,
-                audience: question_model::AssignmentAudience::CourseWide,
-                title: "Recorded WeBWorK assignment".into(),
-                lifecycle: question_model::AssignmentLifecycle::Draft,
-                instructions: question_model::AssignmentInstructions::default(),
-                items: vec![AssignmentItem {
-                    id: AssignmentItemId::from_uuid(id(23)),
-                    reference: reference(),
-                    position: 0,
-                    points_possible: PointValue::from_whole(1),
-                    delivery_state: AssignmentDeliveryState::Active,
-                    scoring_mode: AssignmentScoringMode::Normal,
-                }],
-                selection_groups: Vec::new(),
-                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-                policies: RunPolicies {
-                    completion: CompletionRequirement::AllCorrect,
-                    grade: GradePolicy::Highest,
-                    continued_practice: ContinuedPractice::Unlimited,
-                    variation: VariationPolicy::NewSeeds,
+            learning_data_access::CreateAssignmentCommand {
+                actor: instructor,
+                assignment: AssignmentRecord {
+                    id: assignment,
+                    tenant,
+                    course_id: course,
+                    audience: question_model::AssignmentAudience::CourseWide,
+                    title: "Recorded WeBWorK assignment".into(),
+                    lifecycle: question_model::AssignmentLifecycle::Draft,
+                    instructions: question_model::AssignmentInstructions::default(),
+                    items: vec![AssignmentItem {
+                        id: AssignmentItemId::from_uuid(id(23)),
+                        reference: reference(),
+                        position: 0,
+                        points_possible: PointValue::from_whole(1),
+                        delivery_state: AssignmentDeliveryState::Active,
+                        scoring_mode: AssignmentScoringMode::Normal,
+                    }],
+                    selection_groups: Vec::new(),
+                    disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                    policies: RunPolicies {
+                        completion: CompletionRequirement::AllCorrect,
+                        grade: GradePolicy::Highest,
+                        continued_practice: ContinuedPractice::Unlimited,
+                        variation: VariationPolicy::NewSeeds,
+                    },
                 },
+                base_policy: question_model::BaseAssignmentPolicy::default(),
             },
-            question_model::BaseAssignmentPolicy::default(),
         )
         .await
         .expect("assignment");
@@ -156,7 +167,12 @@ async fn persist_attempt(
     .await;
     let run = backend
         .sources
-        .start_or_resume_run(context, actor, assignment, RunId::from_uuid(id(26)))
+        .start_or_resume_run(
+            context,
+            actor,
+            learning_data_access::LearnerWorkRoutingBinding::new(course, assignment),
+            RunId::from_uuid(id(26)),
+        )
         .await
         .expect("run");
     let presentation = question_model::presentation::build_presentation_v1(&issued.envelope, &[])
@@ -174,9 +190,15 @@ async fn persist_attempt(
                 actor,
                 attempt: QuestionAttemptId::from_uuid(id(27)),
                 run: run.id,
+                binding: learning_data_access::LearnerWorkRoutingBinding::new(course, assignment),
                 assignment_position: 0,
                 problem: reference().problem,
                 question_version: reference().version,
+                issued_question_snapshot: IssuedQuestionSnapshotV1::new(
+                    question.clone(),
+                    IssuedQuestionFamilyWitnessV1::Webwork {},
+                )
+                .expect("fixture WebWork snapshot is valid"),
                 seed: issued.envelope.seed.value(),
                 presentation_capability: learning_data_access::PresentationCapability::EnvelopeV1,
                 presentation: Some(question_model::PresentationBindingV1::new(
@@ -196,6 +218,8 @@ async fn persist_attempt(
                 ),
                 webwork_grading_capability:
                     learning_data_access::WebworkGradingCapability::Required,
+                qti_grading: None,
+                qti_grading_capability: learning_data_access::QtiGradingCapability::NotApplicable,
                 parameter_hash: issued.parameter_hash.clone(),
                 provenance: issued.provenance.clone(),
                 webwork_replay: Some(replay),
@@ -205,7 +229,36 @@ async fn persist_attempt(
         )
         .await
         .expect("attempt");
-    (actor, attempt)
+    (
+        actor,
+        LearnerWorkRoutingBinding::new(course, assignment),
+        attempt,
+    )
+}
+
+async fn prepare_grade(
+    backend: &WebworkBackend<
+        learning_data_access::in_memory::MemoryStore,
+        MemoryObjectStore,
+        RecordedRenderer,
+    >,
+    context: TenantContext,
+    actor: UserId,
+    binding: LearnerWorkRoutingBinding,
+    attempt: QuestionAttemptId,
+    response: &StudentResponse,
+    key: &str,
+) -> learning_data_access::PreparedQuestionSubmission {
+    let key = SubmissionIdempotencyKey::parse(key).expect("fixture key");
+    match backend
+        .sources
+        .prepare_question_submission(context, actor, binding, attempt, response, &key)
+        .await
+        .expect("bound submission preparation")
+    {
+        SubmissionPreparation::Grade(prepared) => *prepared,
+        SubmissionPreparation::Replay(_) => panic!("fresh fixture cannot replay"),
+    }
 }
 
 #[tokio::test]
@@ -215,28 +268,36 @@ async fn persisted_replay_grades_with_one_private_rpc_and_no_rerender() {
         .issue(context, reference(), &question, 99)
         .await
         .expect("issues with private replay");
-    let (actor, attempt) = persist_attempt(&backend, context, &question, &issued).await;
+    let (actor, binding, attempt) = persist_attempt(&backend, context, &question, &issued).await;
     let response = StudentResponse::MultipleChoice {
         selected: vec![ChoiceId::new("water")],
     };
-    let grading_contract =
-        learning_data_access::IssuedWebworkGradingContract::new(question.clone())
-            .expect("fixture WebWork definition is valid");
-
     assert!(matches!(
         backend
-            .grade(
+            .sources
+            .prepare_question_submission(
                 context,
                 UserId::from_uuid(id(28)),
-                reference(),
-                &attempt,
-                &grading_contract,
+                binding,
+                attempt.id,
                 &response,
+                &SubmissionIdempotencyKey::parse("foreign-actor").expect("fixture key"),
             )
             .await,
-        Err(RunBackendError::Invalid(_))
+        Err(learning_data_access::StoreError::NotFound)
     ));
     assert_eq!(grades.load(Ordering::SeqCst), 0);
+
+    let prepared = prepare_grade(
+        &backend,
+        context,
+        actor,
+        binding,
+        attempt.id,
+        &response,
+        "persisted-grade",
+    )
+    .await;
 
     unavailable.store(true, Ordering::SeqCst);
 
@@ -245,8 +306,26 @@ async fn persisted_replay_grades_with_one_private_rpc_and_no_rerender() {
             context,
             actor,
             reference(),
-            &attempt,
-            &grading_contract,
+            &prepared.attempt,
+            prepared
+                .webwork_grading
+                .as_ref()
+                .expect("prepared WebWork grading contract"),
+            prepared
+                .presentation_binding
+                .expect("prepared presentation binding"),
+            prepared
+                .webwork_replay
+                .as_ref()
+                .expect("prepared WebWork replay"),
+            prepared
+                .presentation
+                .as_ref()
+                .expect("prepared presentation snapshot"),
+            prepared
+                .grading_envelope
+                .as_ref()
+                .expect("prepared grading envelope"),
             &response,
         )
         .await
@@ -274,7 +353,7 @@ async fn persisted_attempt_refuses_renderer_identity_drift_before_grade_rpc() {
         .issue(context, reference(), &question, 99)
         .await
         .expect("renderer A issues the attempt");
-    let (actor, attempt) = persist_attempt(&backend, context, &question, &issued).await;
+    let (actor, binding, attempt) = persist_attempt(&backend, context, &question, &issued).await;
     let before = backend
         .sources
         .get_question_attempt(context, attempt.id)
@@ -303,9 +382,16 @@ async fn persisted_attempt_refuses_renderer_identity_drift_before_grade_rpc() {
     let response = StudentResponse::MultipleChoice {
         selected: vec![ChoiceId::new("water")],
     };
-    let grading_contract =
-        learning_data_access::IssuedWebworkGradingContract::new(question.clone())
-            .expect("fixture WebWork definition is valid");
+    let prepared = prepare_grade(
+        &backend,
+        context,
+        actor,
+        binding,
+        attempt.id,
+        &response,
+        "renderer-drift",
+    )
+    .await;
 
     assert!(matches!(
         drift_backend
@@ -313,8 +399,26 @@ async fn persisted_attempt_refuses_renderer_identity_drift_before_grade_rpc() {
                 context,
                 actor,
                 reference(),
-                &attempt,
-                &grading_contract,
+                &prepared.attempt,
+                prepared
+                    .webwork_grading
+                    .as_ref()
+                    .expect("prepared WebWork grading contract"),
+                prepared
+                    .presentation_binding
+                    .expect("prepared presentation binding"),
+                prepared
+                    .webwork_replay
+                    .as_ref()
+                    .expect("prepared WebWork replay"),
+                prepared
+                    .presentation
+                    .as_ref()
+                    .expect("prepared presentation snapshot"),
+                prepared
+                    .grading_envelope
+                    .as_ref()
+                    .expect("prepared grading envelope"),
                 &response,
             )
             .await,
@@ -338,7 +442,7 @@ async fn http_submit_translates_rendered_webwork_choice_without_rerendering() {
         .issue(context, reference(), &question, 99)
         .await
         .expect("issue a stored WebWork attempt");
-    let (actor, attempt) = persist_attempt(&webwork, context, &question, &issued).await;
+    let (actor, binding, attempt) = persist_attempt(&webwork, context, &question, &issued).await;
     let store = Arc::clone(&webwork.sources);
     let session = crate::auth::issue_session(
         store.as_ref(),
@@ -375,7 +479,10 @@ async fn http_submit_translates_rendered_webwork_choice_without_rerendering() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/attempts/{}/question", attempt.id))
+                .uri(format!(
+                    "/api/courses/{}/assignments/{}/attempts/{}/question",
+                    binding.course, binding.assignment, attempt.id
+                ))
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .expect("issued question request"),
@@ -405,7 +512,12 @@ async fn http_submit_translates_rendered_webwork_choice_without_rerendering() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/submissions/{}", attempt.id))
+                .uri(format!(
+                    "/api/courses/{}/assignments/{}/attempts/{}/submissions",
+                    CourseId::from_uuid(id(21)),
+                    AssignmentId::from_uuid(id(22)),
+                    attempt.id
+                ))
                 .header("cookie", &cookie)
                 .header("content-type", "application/json")
                 .header("idempotency-key", "webwork-public-choice")
@@ -436,7 +548,12 @@ async fn http_submit_translates_rendered_webwork_choice_without_rerendering() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/submissions/{}", attempt.id))
+                .uri(format!(
+                    "/api/courses/{}/assignments/{}/attempts/{}/submissions",
+                    CourseId::from_uuid(id(21)),
+                    AssignmentId::from_uuid(id(22)),
+                    attempt.id
+                ))
                 .header("cookie", &cookie)
                 .header("content-type", "application/json")
                 .header("idempotency-key", "webwork-public-choice")

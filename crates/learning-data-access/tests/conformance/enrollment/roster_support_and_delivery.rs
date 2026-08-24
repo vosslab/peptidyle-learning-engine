@@ -11,6 +11,8 @@ async fn memory_sysadmin_roster_support_is_narrow_and_audited() {
     let instructor = UserId::from_uuid(uuid(123_001));
     let sysadmin = UserId::from_uuid(uuid(123_002));
     let course = CourseId::from_uuid(uuid(123_003));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(&store, tenant, course, instructor).await;
     store
         .create_course(
             context,
@@ -26,7 +28,7 @@ async fn memory_sysadmin_roster_support_is_narrow_and_audited() {
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await
@@ -114,6 +116,8 @@ async fn memory_roster_import_previews_then_commits_exactly_the_ready_rows() {
     let context = TenantContext::from_authenticated_session(tenant);
     let instructor = UserId::from_uuid(uuid(124_001));
     let course = CourseId::from_uuid(uuid(124_002));
+    let course_creation_authority =
+        sysadmin_course_creation_authority(&store, tenant, course, instructor).await;
     store
         .create_course(
             context,
@@ -129,7 +133,7 @@ async fn memory_roster_import_previews_then_commits_exactly_the_ready_rows() {
                     )
                     .expect("explicit fixture course term"),
                 },
-                initial_instructor: instructor,
+                authority: course_creation_authority,
             },
         )
         .await

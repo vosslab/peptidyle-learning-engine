@@ -43,7 +43,12 @@ where
         .await
         .expect("Delete and Regrade assignment");
     let delete_run = store
-        .start_or_resume_run(context, student_user, delete_assignment, delete_run_id)
+        .start_or_resume_run(
+            context,
+            student_user,
+            LearnerWorkRoutingBinding::new(course, delete_assignment),
+            delete_run_id,
+        )
         .await
         .expect("Delete and Regrade run");
     let affected_attempt = store
@@ -51,6 +56,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, delete_assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(89_964 + fixture_offset)),
                 run: delete_run.id,
                 assignment_position: 0,
@@ -80,6 +86,7 @@ where
         .expect("Delete and Regrade edit read")
         .expect("Delete and Regrade assignment exists");
     let delete_command = DeleteAndRegradeAssignmentItemCommand {
+        actor: publisher,
         course,
         assignment: delete_assignment,
         item: retired_item,
@@ -97,6 +104,7 @@ where
             context,
             SubmitQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, delete_assignment),
                 attempt: affected_attempt.id,
                 response: response.clone(),
                 result: AttemptResult {
@@ -218,6 +226,7 @@ where
             context,
             IssueQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, delete_assignment),
                 attempt: QuestionAttemptId::from_uuid(uuid(89_965 + fixture_offset)),
                 run: delete_run.id,
                 assignment_position: 1,
@@ -246,6 +255,7 @@ where
             context,
             SubmitQuestionAttemptCommand {
                 actor: student_user,
+                binding: LearnerWorkRoutingBinding::new(course, delete_assignment),
                 attempt: unaffected_attempt.id,
                 response: response.clone(),
                 result: AttemptResult {
@@ -266,7 +276,7 @@ where
         .start_or_resume_run(
             context,
             student_user,
-            delete_assignment,
+            LearnerWorkRoutingBinding::new(course, delete_assignment),
             RunId::from_uuid(uuid(89_966 + fixture_offset)),
         )
         .await

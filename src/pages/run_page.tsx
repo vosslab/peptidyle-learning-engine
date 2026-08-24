@@ -152,7 +152,14 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
     clock: { now: () => Date.now() },
     network: { isOnline: () => navigator.onLine },
     generateIdempotencyKey,
-    submitResponse: runtime.client.submitResponse,
+    submitResponse: (attemptId, response, idempotencyKey) =>
+      runtime.client.submitResponse(
+        screen().course.summary.id,
+        screen().assignment.id,
+        attemptId,
+        response,
+        idempotencyKey,
+      ),
     isSessionExpired,
     isTransientTransportFailure,
     validateSavedResponse: validator.validateResponseFormat,
@@ -249,7 +256,12 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
     const controller = new AbortController();
     prefetchController = controller;
     void runtime.client
-      .prefetchNextQuestion(attemptId, controller.signal)
+      .prefetchNextQuestion(
+        screen().course.summary.id,
+        screen().assignment.id,
+        attemptId,
+        controller.signal,
+      )
       .then((value) => {
         if (controller.signal.aborted || machine.state().context.attemptId !== attemptId) return;
         if (value !== null && value.run !== machine.state().context.runId) {
@@ -307,7 +319,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
   async function startAnotherPractice(): Promise<void> {
     setPracticeError(null);
     try {
-      const run = await runtime.client.startRun(screen().assignment.id);
+      const run = await runtime.client.startRun(screen().course.summary.id, screen().assignment.id);
       navigate(`/runs/${runRouteReference(run.reference)}`);
     } catch (error: unknown) {
       setPracticeError(
@@ -565,8 +577,16 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
                           onResponseChange={responseChanged}
                           onSubmit={submit}
                           onEscape={escapeToAssignment}
+                          learnerWorkRoute={{
+                            courseId: screen().course.summary.id,
+                            assignmentId: screen().assignment.id,
+                          }}
                           beginExternalToolLaunch={() =>
-                            runtime.client.beginExternalToolLaunch(attemptId)
+                            runtime.client.beginExternalToolLaunch(
+                              screen().course.summary.id,
+                              screen().assignment.id,
+                              attemptId,
+                            )
                           }
                         />
                       )}

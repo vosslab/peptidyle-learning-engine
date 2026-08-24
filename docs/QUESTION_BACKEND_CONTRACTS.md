@@ -185,11 +185,13 @@ The external activity loads only from PLE's protected same-origin launch route.
 ### Verified result and persistence
 
 PLE creates a short-lived tenant/learner/attempt-bound launch session only after reproducing the
-issued attempt, through `POST /api/attempts/{attempt}/external-tool/launch`. The browser receives
-an HttpOnly, Secure, SameSite=Strict cookie scoped to launch. The corresponding GET is an inert
-same-origin shell: it cannot create or renew a session or disclose a provider URL. The shell uses a
-sandboxed iframe and constrained message bridge. Provider state is AEAD-wrapped before protected
-store persistence and is never a JSON field.
+issued attempt, through nested
+`POST /api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch`.
+The exact typed route binding is broker-verified before provider work and enters neither JSON nor
+provider data. The browser receives an HttpOnly, Secure, SameSite=Strict cookie scoped to launch.
+The corresponding GET is an inert same-origin shell: it cannot create or renew a session or disclose
+a provider URL. The shell uses a sandboxed iframe and constrained message bridge. Provider state is
+AEAD-wrapped before protected store persistence and is never a JSON field.
 
 The server creates a broker binding over tenant, attempt, problem, version, seed, immutable source,
 profile, and canonical marker response. Before an effectful provider POST it durably records an
