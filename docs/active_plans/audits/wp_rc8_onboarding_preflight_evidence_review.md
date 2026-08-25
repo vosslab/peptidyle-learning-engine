@@ -1,8 +1,8 @@
-# WP-B1 onboarding preflight review
+# WP-RC8 onboarding preflight evidence review
 
 ## Verdict
 
-ACCEPTED for WP-B1's bounded, pure preflight result. The default local Compose
+ACCEPTED for the bounded, pure `WP-RC8` preflight result. The default local Compose
 posture is deterministically `BLOCKED` with `LOCAL_DEVELOPMENT_AUTH`; that is
 the accepted B1 outcome, not a canonical onboarding pass. WP-W10 has not run,
 and J9/J10 have no browser evidence.
@@ -59,8 +59,6 @@ errors.
 
 ## Follow-on boundary
 
-Run WP-W10 only after an operator supplies real provider access, a usable
-canonical test mailbox, and a delivered browser-available one-time link so B1
-returns `PASS`. Until then, M3b ends with the redacted B1 `BLOCKED` state;
-there is no local-file, copied-link, SMTP-omission, or passkey fallback.
-
+WP-W10 begins after an operator supplies real provider access, a usable canonical test mailbox, and
+a delivered browser-available one-time link so the preflight returns `PASS`. Missing operator access
+produces the redacted `BLOCKED` state; J9 and J10 retain their own browser evidence requirements.

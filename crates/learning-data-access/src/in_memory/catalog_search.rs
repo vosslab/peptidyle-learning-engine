@@ -12,6 +12,9 @@ pub(super) fn catalog_search_score(
     used_in_my_courses: bool,
     actor: UserId,
 ) -> Option<(i64, i64)> {
+    if !query.publication_scopes.is_empty() && !query.publication_scopes.contains(&record.scope) {
+        return None;
+    }
     if matches!(query.evidence, CatalogEvidenceAvailability::Available) && !evidence_available {
         return None;
     }

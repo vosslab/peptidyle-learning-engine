@@ -184,3 +184,35 @@ test("catalog repository composes the closed Mine scope without an actor identif
   assert.equal(Object.hasOwn(receivedQuery, "actor"), false);
   assert.equal(Object.hasOwn(receivedQuery, "actorId"), false);
 });
+
+test("catalog repository carries the public-only Alpha selection scope to the server", async () => {
+  let receivedQuery;
+  const repository = createCatalogRepository(
+    {
+      searchCatalog: async (query) => {
+        receivedQuery = query;
+        return {
+          items: [],
+          nextCursor: null,
+          facets: {
+            bylines: [],
+            backends: [],
+            tags: [],
+            responseFamilies: [],
+            taxonomy: [],
+            capabilities: [],
+            licenses: [],
+            evidence: { available: 0, unavailable: 0 },
+            usedInMyCourses: { used: 0 },
+          },
+        };
+      },
+    },
+    "any",
+    ["public"],
+  );
+
+  await repository.search(EMPTY_CATALOG_QUERY, null);
+
+  assert.deepEqual(receivedQuery.publicationScopes, ["public"]);
+});

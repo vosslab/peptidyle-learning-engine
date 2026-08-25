@@ -33,7 +33,9 @@ PERSONAS = frozenset(
 )
 RESOURCE_KINDS = frozenset(
 	{
+		"alpha_curriculum",
 		"assignment",
+		"blueprint",
 		"collection",
 		"course",
 		"course_group",

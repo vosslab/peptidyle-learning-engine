@@ -5,6 +5,8 @@ import type { InstructorAssignmentTeachingSettingsLocal } from "../../generated/
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseReference } from "../../generated/api/CourseReference";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
+import type { AlphaCourseSummaryView } from "../../generated/api/AlphaCourseSummaryView";
+import type { BlueprintSummaryView } from "../../generated/api/BlueprintSummaryView";
 import type {
   AssignmentCreateInput,
   AssignmentEditorDetail,
@@ -21,6 +23,7 @@ import type {
   ProblemPickerSource,
   ProblemPickerSourceRepository,
 } from "../features/problem_picker";
+import { reusableCurriculumProblemPickerRepository } from "../features/problem_picker/problem_picker_model";
 import { createProblemCurationRepository } from "../features/problem_curation/problem_curation_repository";
 import type { AssignmentCatalogRow } from "./assignment_editor_model";
 
@@ -128,8 +131,15 @@ function previewRevision(assignmentRevision: string): string {
 export function createAssignmentEditorRepository(client: ApiClient): AssignmentEditorRepository {
   const catalog = createCatalogRepository(client);
   const curation = createProblemCurationRepository(client, catalog);
+  const reusableCurriculum = reusableCurriculumProblemPickerRepository(client);
   const problemPickerRepository: ProblemPickerSourceRepository = {
     async search(request: ProblemPickerSearchRequest): Promise<unknown> {
+      if (
+        request.source.kind === "personalBlueprint" ||
+        request.source.kind === "alphaCurriculum"
+      ) {
+        return await reusableCurriculum.search(request);
+      }
       if (request.source.kind !== "retainedAssignment")
         return await curation.picker.search(request);
       const assignment = await client.getAssignmentEditor(
@@ -190,6 +200,9 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
     ): Promise<ReadonlyArray<ProblemPickerSource>> => {
       const collections = await client.listProblemCollections();
       const reusable = await listReusableAssignments(client, course, exclude);
+      const blueprints = await listAllBlueprints(client);
+      const alphaCourses = await listAllAlphaCourses(client);
+      const alphaDefinitions = await listAlphaDefinitionSources(client, alphaCourses);
       return [
         { kind: "catalog", label: "Library" },
         { kind: "mine", label: "My published questions" },
@@ -206,6 +219,12 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
           label: `Assignment: ${assignment.title}`,
           retainedAssignment: { course, assignment: assignment.assignmentId },
         })),
+        ...blueprints.map((blueprint) => ({
+          kind: "personalBlueprint" as const,
+          label: `Blueprint: ${blueprint.title}`,
+          blueprint: blueprint.reference,
+        })),
+        ...alphaDefinitions,
       ];
     },
     listReusableAssignments: async (course, exclude): Promise<ReadonlyArray<ReusableAssignment>> =>
@@ -220,16 +239,20 @@ async function listReusableAssignments(
 ): Promise<ReadonlyArray<ReusableAssignment>> {
   const assignments = [];
   let cursor: string | undefined;
-  for (let pageNumber = 0; pageNumber < 5; pageNumber += 1) {
+  const seenCursors = new Set<string>();
+  while (true) {
     const page = await client.listAssignments(course, cursor);
     assignments.push(...page.items);
-    if (page.nextCursor === null || assignments.length >= 100) break;
+    if (page.nextCursor === null) break;
+    if (seenCursors.has(page.nextCursor)) {
+      throw new Error("Assignment pagination repeated a cursor.");
+    }
+    seenCursors.add(page.nextCursor);
     cursor = page.nextCursor;
   }
   const details = await Promise.all(
     assignments
       .filter((assignment) => assignment.id !== exclude)
-      .slice(0, 100)
       .map(async (assignment) => await client.getAssignmentEditor(assignment.id)),
   );
   return details.map((assignment) => ({
@@ -243,4 +266,56 @@ async function listReusableAssignments(
         backend: item.backend,
       })),
   }));
+}
+
+async function listAllBlueprints(client: ApiClient): Promise<ReadonlyArray<BlueprintSummaryView>> {
+  const items: BlueprintSummaryView[] = [];
+  let cursor: string | undefined;
+  const seenCursors = new Set<string>();
+  while (true) {
+    const page = await client.listBlueprints(cursor);
+    items.push(...page.items);
+    if (page.nextCursor === null) return items;
+    if (seenCursors.has(page.nextCursor))
+      throw new Error("Blueprint pagination repeated a cursor.");
+    seenCursors.add(page.nextCursor);
+    cursor = page.nextCursor;
+  }
+}
+
+async function listAllAlphaCourses(
+  client: ApiClient,
+): Promise<ReadonlyArray<AlphaCourseSummaryView>> {
+  const items: AlphaCourseSummaryView[] = [];
+  let cursor: string | undefined;
+  const seenCursors = new Set<string>();
+  while (true) {
+    const page = await client.listAlphaCourses(cursor);
+    items.push(...page.items);
+    if (page.nextCursor === null) return items;
+    if (seenCursors.has(page.nextCursor))
+      throw new Error("Alpha curriculum pagination repeated a cursor.");
+    seenCursors.add(page.nextCursor);
+    cursor = page.nextCursor;
+  }
+}
+
+async function listAlphaDefinitionSources(
+  client: ApiClient,
+  alphaCourses: Awaited<ReturnType<ApiClient["listAlphaCourses"]>>["items"],
+): Promise<ReadonlyArray<Extract<ProblemPickerSource, { readonly kind: "alphaCurriculum" }>>> {
+  const currentCourses = await Promise.all(
+    alphaCourses.map(async (alpha) => await client.getAlphaCourse(alpha.reference)),
+  );
+  return currentCourses.flatMap(({ alpha }) =>
+    alpha.modules.flatMap((module, moduleIndex) =>
+      module.definitions.map((definition, assignmentIndex) => ({
+        kind: "alphaCurriculum" as const,
+        alpha: alpha.reference,
+        modulePosition: moduleIndex + 1,
+        assignmentPosition: assignmentIndex + 1,
+        label: `Alpha: ${alpha.title} - ${module.label} - ${definition.title}`,
+      })),
+    ),
+  );
 }

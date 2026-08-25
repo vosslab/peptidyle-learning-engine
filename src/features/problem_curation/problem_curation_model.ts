@@ -341,6 +341,7 @@ export function catalogSearchFilterFromLibraryQuery(
         : ([normalized.capability] as CatalogSearchFilter["capabilities"]),
     licenses:
       normalized.license === null ? [] : ([normalized.license] as CatalogSearchFilter["licenses"]),
+    publicationScopes: [...normalized.publicationScopes],
     evidence:
       normalized.evidence === null
         ? "any"
@@ -371,6 +372,7 @@ export function libraryQueryFromSavedSearch(search: SavedProblemSearchView): Cat
     evidence: filter.evidence === "any" ? null : filter.evidence,
     usedInMyCourses: filter.usedInMyCourses === "any" ? null : filter.usedInMyCourses,
     authorship: filter.authorship,
+    publicationScopes: [...filter.publicationScopes],
   };
 }
 

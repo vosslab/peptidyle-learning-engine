@@ -16,7 +16,10 @@ use question_model::{
     ResponseDefinition,
 };
 
-fn seed_catalog(store: &MemoryStore, records: impl IntoIterator<Item = PublishedProblemRecord>) {
+pub(super) fn seed_catalog(
+    store: &MemoryStore,
+    records: impl IntoIterator<Item = PublishedProblemRecord>,
+) {
     let mut state = store.write_state().expect("catalog fixture state");
     for record in records {
         let sequence = state.next_catalog_publication_sequence;

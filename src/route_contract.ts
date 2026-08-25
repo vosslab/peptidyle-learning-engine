@@ -13,6 +13,8 @@ export interface RouteContract {
     | "runSummary"
     | "library"
     | "problemDetail"
+    | "curriculum"
+    | "curriculumDetail"
     | "workspaceList"
     | "workspaceEditor"
     | "assignmentCreate"
@@ -114,6 +116,18 @@ export const ROUTE_CONTRACT = [
     path: "/library/:problemRef",
     surface: "Published question detail",
     requiredRoles: ["instructor", "sysadmin"],
+  },
+  {
+    id: "curriculum",
+    path: "/curriculum",
+    surface: "Reusable blueprint and public Alpha curriculum workspace",
+    requiredRoles: ["instructor"],
+  },
+  {
+    id: "curriculumDetail",
+    path: "/curriculum/:curriculumRef",
+    surface: "Reusable curriculum inspection and editor",
+    requiredRoles: ["instructor"],
   },
   {
     id: "workspaceList",

@@ -725,11 +725,11 @@ fn assignment_references(assignment: &AssignmentRecord, reference: ProblemVersio
     })
 }
 
-fn state_catalog_snapshot_boundary(state: &State) -> u64 {
+pub(super) fn state_catalog_snapshot_boundary(state: &State) -> u64 {
     state.next_catalog_publication_sequence.saturating_sub(1)
 }
 
-fn catalog_discovery_evidence(
+pub(super) fn catalog_discovery_evidence(
     state: &State,
     reference: (ProblemId, VersionId),
     snapshot_boundary: u64,
@@ -837,6 +837,11 @@ pub(super) fn catalog_search_fingerprint(query: &CatalogSearchQuery, actor: User
     canonical.push('|');
     for license in &query.licenses {
         canonical.push_str(&format!("{license:?}"));
+        canonical.push('\u{1f}');
+    }
+    canonical.push('|');
+    for publication_scope in &query.publication_scopes {
+        canonical.push_str(&format!("{publication_scope:?}"));
         canonical.push('\u{1f}');
     }
     canonical.push('|');

@@ -6,7 +6,7 @@ use base_course_installation::{
 };
 use learning_data_access::StoreError;
 use learning_data_access::postgres::{
-    BaseCourseInstallerPool, PostgresStore, apply_migrations, lazy_pool,
+    BaseCourseInstallerPool, PostgresStore, lazy_pool, verify_application_schema,
 };
 use question_model::UserRole;
 use sqlx::postgres::PgConnectOptions;
@@ -51,9 +51,9 @@ async fn base_course_product_atomically_converges_exact_accounts_without_credent
     let admin = super::admin_pool(url).await;
     super::reset_disposable_course_capability_memberships(&admin).await;
     let pool = lazy_pool(url).expect("PostgreSQL URL");
-    apply_migrations(&pool)
+    verify_application_schema(&pool)
         .await
-        .expect("embedded migrations apply to the disposable database");
+        .expect("full migrated application schema is compatible");
     let database = PgConnectOptions::from_str(url)
         .expect("PostgreSQL URL")
         .get_database()

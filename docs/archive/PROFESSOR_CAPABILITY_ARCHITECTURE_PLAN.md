@@ -355,10 +355,10 @@ M5  Connected acceptance   Prove the complete professor cycle on the final mater
   timing; remove redundant visibility state; depends on WP-F2.
 - `WP-T2` - Expert coder: implement co-instructors, group purposes, assignment audiences,
   accommodations, retention, and archive UI; depends on WP-T1.
-- `WP-B1` - Expert coder: implement personal blueprints and public creator-owned Alpha aggregates;
+- `WP-PROF-B1` - Expert coder: implement personal blueprints and public creator-owned Alpha aggregates;
   depends on WP-D2 and WP-F2.
-- `WP-B2` - Expert coder: implement Alpha fork, teaching instantiation, rollover, relative-date
-  preview, manifests, fast-forward, and selected copy; depends on WP-B1 and WP-T1.
+- `WP-PROF-B2` - Expert coder: implement Alpha fork, teaching instantiation, rollover, relative-date
+  preview, manifests, fast-forward, and selected copy; depends on WP-PROF-B1 and WP-T1.
 - `WP-G1` - Expert coder: implement manual-grading queue, feedback snippets, and separate grade
   overrides; depends on WP-T2.
 - `WP-G2` - Coder: expose item analysis and connect it to problem inspection, revision/fork, and

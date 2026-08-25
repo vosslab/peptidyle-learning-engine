@@ -1,5 +1,6 @@
 // assignment_editor_problem_picker.tsx - modal boundary for assignment question selection.
 
+import { A } from "@solidjs/router";
 import { Show, type JSX } from "solid-js";
 
 import { ProblemPicker } from "../features/problem_picker";
@@ -32,20 +33,27 @@ export function AssignmentEditorProblemPicker(
   props: AssignmentEditorProblemPickerProps,
 ): JSX.Element {
   return (
-    <Show when={props.controller.intent()} keyed>
-      {(intent) => (
-        <ProblemPicker
-          repository={props.repository.problemPickerRepository}
-          sources={props.controller.sources()}
-          mode={intent.kind === "replacement" ? "one" : "many"}
-          maximumSelection={props.controller.maximum(intent)}
-          trigger={props.controller.trigger()}
-          title={pickerTitle(intent)}
-          confirmLabel={pickerConfirmLabel(intent)}
-          onConfirm={(selection) => void props.controller.useSelection(selection)}
-          onCancel={props.controller.cancel}
-        />
-      )}
-    </Show>
+    <>
+      <p class="assignment-picker-curriculum-link">
+        <A class="quiet-link" href="/curriculum">
+          Open reusable curricula
+        </A>
+      </p>
+      <Show when={props.controller.intent()} keyed>
+        {(intent) => (
+          <ProblemPicker
+            repository={props.repository.problemPickerRepository}
+            sources={props.controller.sources()}
+            mode={intent.kind === "replacement" ? "one" : "many"}
+            maximumSelection={props.controller.maximum(intent)}
+            trigger={props.controller.trigger()}
+            title={pickerTitle(intent)}
+            confirmLabel={pickerConfirmLabel(intent)}
+            onConfirm={(selection) => void props.controller.useSelection(selection)}
+            onCancel={props.controller.cancel}
+          />
+        )}
+      </Show>
+    </>
   );
 }

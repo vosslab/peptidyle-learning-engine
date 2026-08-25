@@ -5,7 +5,7 @@
 //! future Rust caller changes or migration privilege is accidentally widened.
 
 use learning_data_access::postgres::{
-    apply_migrations, lazy_pool, migration_status, verify_base_course_freshness_capability,
+    lazy_pool, migration_status, verify_application_schema, verify_base_course_freshness_capability,
 };
 use serde_json::{Value, json};
 use sqlx::{PgPool, Postgres, Row, Transaction};
@@ -42,8 +42,6 @@ use prefix_support::*;
 const COURSE_CREATION_MIGRATION: i64 = 2_026_081_818;
 const BASE_COURSE_FRESHNESS_REGISTRATION_MIGRATION: i64 = 2_026_081_835;
 const RECEIPT: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-static MIGRATION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
-
 fn id() -> Uuid {
     let mut bytes = [0_u8; 16];
     getrandom::fill(&mut bytes).expect("fixture UUID randomness");
@@ -57,16 +55,12 @@ fn session_hash(seed: u8) -> String {
 }
 
 async fn pool() -> PgPool {
-    let _migration_guard = MIGRATION_LOCK.lock().await;
     let runtime = load_acceptance_runtime();
     let url = runtime.admin_url().expose();
     let pool = lazy_pool(url).expect("valid disposable PostgreSQL URL");
-    apply_migrations(&pool)
+    verify_application_schema(&pool)
         .await
-        .expect("full migration epoch applies");
-    apply_migrations(&pool)
-        .await
-        .expect("migration epoch converges");
+        .expect("full migrated application schema is compatible");
     verify_base_course_freshness_capability(&pool)
         .await
         .expect("Base Course freshness capability is catalog-complete");

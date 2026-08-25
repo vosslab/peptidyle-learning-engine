@@ -54,6 +54,8 @@ pub mod preview_plane;
 /// Human-facing route locators that resolve to internal identities under authorization.
 pub mod public_route;
 pub mod response;
+/// Browser-safe reusable blueprint and public Alpha curriculum contracts.
+pub mod reusable_curriculum;
 pub mod run_policy;
 /// Browser-safe anonymous-statistics projections and disclosure policy.
 pub mod statistics;
@@ -179,12 +181,24 @@ pub use crate::preview_plane::{
     SyntheticPreviewModifiers, SyntheticPreviewSubjectRequest, preview_group_role,
 };
 pub use crate::public_route::{
-    AccountReference, AssignmentReference, CoInstructorInvitationReference, CourseGroupReference,
-    CourseMembershipReference, CourseReference, MAX_PUBLIC_ROUTE_NUMBER, NavigationResolution,
-    ProblemCollectionReference, RESERVED_REFERENCE_PREFIXES, RunReference,
-    SavedProblemSearchReference, WorkspaceReference,
+    AccountReference, AlphaCourseReference, AssignmentReference, BlueprintReference,
+    CoInstructorInvitationReference, CourseGroupReference, CourseMembershipReference,
+    CourseReference, MAX_PUBLIC_ROUTE_NUMBER, NavigationResolution, ProblemCollectionReference,
+    RESERVED_REFERENCE_PREFIXES, RunReference, SavedProblemSearchReference, WorkspaceReference,
 };
 pub use crate::response::{ResponseDefinition, StudentResponse};
+pub use crate::reusable_curriculum::{
+    AlphaCourseAccess, AlphaCourseDefinitionInput, AlphaCourseModuleInput, AlphaCourseModuleView,
+    AlphaCourseRevision, AlphaCourseSummaryView, AlphaCourseView, BlueprintAccess,
+    BlueprintDefinitionInput, BlueprintRevision, BlueprintSummaryView, BlueprintView,
+    LocalTimeOfDay, LocalTimeOfDayError, MAX_REUSABLE_CURRICULUM_TITLE_UNICODE_SCALARS,
+    RelativeAssignmentSchedule, RelativeScheduleMoment, ReusableAssignmentDefaults,
+    ReusableAssignmentDefinitionInput, ReusableAssignmentDefinitionView,
+    ReusableAssignmentEntryInput, ReusableAssignmentEntryView, ReusableCurriculumTitleError,
+    ReusableCurriculumValidationError, ReusableFixedQuestionInput, ReusablePoolCandidateView,
+    ReusablePoolInput, ReusablePoolView, ReusableQuestionView, ReusableSelectionAvailability,
+    validate_reusable_curriculum_title,
+};
 pub use crate::run_policy::{
     CompletionRequirement, ContinuedPractice, GradePolicy, LearnerDisclosurePolicy,
     LearnerDisclosureTiming, PoolDrawBasis, PoolDrawBasisError, PoolDrawPreviewNonce, RunPolicies,

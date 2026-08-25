@@ -8,7 +8,7 @@ use question_model::{
     CatalogResponseFamilyFacet, CatalogSearchFacets, CatalogSearchPage, CatalogSearchQuery,
     CatalogTagFacet, CatalogTaxonomyFilter, CatalogUsedInMyCourses, CatalogUsedInMyCoursesFacet,
     MAX_CATALOG_BACKEND_FACETS, MAX_CATALOG_BYLINE_FACETS, MAX_CATALOG_RESPONSE_FAMILY_FACETS,
-    MAX_CATALOG_TAG_FACETS, QuestionBackend,
+    MAX_CATALOG_TAG_FACETS, PublicationScope, QuestionBackend,
 };
 use serde::Serialize;
 use serde_json::Value;
@@ -34,12 +34,13 @@ const MAX_USAGE_SNAPSHOT_ROWS: i32 = 5_000;
 
 // `used_publications` is an opaque, actor-authorized reverse index loaded
 // from the broker snapshot. The document query never learns a course identity.
-// `$16` fixes publication/evidence history, `$18` supplies the actor snapshot,
-// `$19` is the closed authorship scope, `$20` is the authenticated actor, and
-// `$11..$15` are only the row keyset values.
+// `$17` fixes publication/evidence history, `$19` supplies the actor snapshot,
+// `$9` is the publication-scope filter, `$20` is the closed authorship scope,
+// `$21` is the authenticated actor, and
+// `$12..$16` are only the row keyset values.
 const RANKED_CTE: &str = "WITH used_publications AS ( \
     SELECT DISTINCT usage.problem_id, usage.version_id \
-      FROM jsonb_to_recordset($18::jsonb) AS usage(problem_id uuid, version_id uuid) \
+      FROM jsonb_to_recordset($19::jsonb) AS usage(problem_id uuid, version_id uuid) \
 ), ranked AS ( \
     SELECT document.*, \
       evidence.evidence_sequence IS NOT NULL AS evidence_visible, \
@@ -48,10 +49,10 @@ const RANKED_CTE: &str = "WITH used_publications AS ( \
       evidence.difficulty_index, evidence.attempts_mean, \
       evidence.time_median_seconds_estimate, evidence.discrimination_index, \
       floor(extract(epoch FROM evidence.evidence_at) * 1000)::bigint AS evidence_at_millis, \
-      CASE WHEN $17::text IS NOT NULL THEN 9223372036854775807::bigint \
+      CASE WHEN $18::text IS NOT NULL THEN 9223372036854775807::bigint \
            WHEN $1::text IS NULL THEN 0::bigint \
            ELSE floor(ts_rank_cd(document.search_text, websearch_to_tsquery('simple', $1)) * 1000000)::bigint END AS full_text_rank, \
-      CASE WHEN $17::text IS NOT NULL THEN 9223372036854775807::bigint \
+      CASE WHEN $18::text IS NOT NULL THEN 9223372036854775807::bigint \
            WHEN $1::text IS NULL THEN 0::bigint \
            ELSE floor(word_similarity(lower($1), document.normalized_search_text) * 1000000)::bigint END AS similarity_score \
     FROM catalog_search_document AS document \
@@ -59,12 +60,12 @@ const RANKED_CTE: &str = "WITH used_publications AS ( \
       ON version.problem_id = document.problem_id \
      AND version.version_id = document.version_id \
     LEFT JOIN LATERAL public.ple_catalog_discovery_evidence_at( \
-        document.problem_id, document.version_id, $16 \
+        document.problem_id, document.version_id, $17 \
     ) AS evidence ON true \
     WHERE document.lifecycle = 'published' \
-      AND document.catalog_sequence <= $16 \
-      AND (($17::text IS NOT NULL AND document.question_id = $17::text) \
-        OR ($17::text IS NULL AND ($1::text IS NULL \
+      AND document.catalog_sequence <= $17 \
+      AND (($18::text IS NOT NULL AND document.question_id = $18::text) \
+        OR ($18::text IS NULL AND ($1::text IS NULL \
           OR document.search_text @@ websearch_to_tsquery('simple', $1) \
           OR lower($1) <% document.normalized_search_text))) \
       AND (cardinality($2::text[]) = 0 OR EXISTS ( \
@@ -85,11 +86,13 @@ const RANKED_CTE: &str = "WITH used_publications AS ( \
       AND document.capabilities @> $7::jsonb \
       AND (jsonb_array_length($8::jsonb) = 0 \
           OR document.license IN (SELECT jsonb_array_elements_text($8::jsonb))) \
-      AND ($9::smallint <> 1 OR evidence.evidence_sequence IS NOT NULL) \
-      AND ($9::smallint <> 2 OR evidence.evidence_sequence IS NULL) \
-      AND ($10::smallint <> 1 OR EXISTS (SELECT 1 FROM used_publications AS usage \
+      AND ($10::smallint <> 1 OR evidence.evidence_sequence IS NOT NULL) \
+      AND ($10::smallint <> 2 OR evidence.evidence_sequence IS NULL) \
+      AND ($11::smallint <> 1 OR EXISTS (SELECT 1 FROM used_publications AS usage \
           WHERE usage.problem_id = document.problem_id AND usage.version_id = document.version_id)) \
-      AND ($19::smallint <> 1 OR version.author_ids @> jsonb_build_array($20::uuid::text)) \
+      AND (jsonb_array_length($9::jsonb) = 0 \
+          OR document.publication_scope IN (SELECT jsonb_array_elements_text($9::jsonb))) \
+      AND ($20::smallint <> 1 OR version.author_ids @> jsonb_build_array($21::uuid::text)) \
 ) ";
 
 #[derive(Clone, Serialize)]
@@ -113,6 +116,7 @@ struct CatalogSearchBindings {
     taxonomy: Json<Vec<CatalogTaxonomyFilter>>,
     capabilities: Json<Vec<Capability>>,
     licenses: Json<Vec<CatalogLicenseValue>>,
+    publication_scopes: Json<Vec<PublicationScope>>,
     evidence_filter: i16,
     used_in_my_courses_filter: i16,
     authorship_filter: i16,
@@ -147,6 +151,7 @@ impl CatalogSearchBindings {
             taxonomy: Json(query.taxonomy.clone()),
             capabilities: Json(query.capabilities.clone()),
             licenses: Json(query.licenses.clone()),
+            publication_scopes: Json(query.publication_scopes.clone()),
             evidence_filter: match query.evidence {
                 CatalogEvidenceAvailability::Any => 0,
                 CatalogEvidenceAvailability::Available => 1,
@@ -186,6 +191,7 @@ impl CatalogSearchBindings {
             .bind(self.taxonomy)
             .bind(self.capabilities)
             .bind(self.licenses)
+            .bind(self.publication_scopes)
             .bind(self.evidence_filter)
             .bind(self.used_in_my_courses_filter)
             .bind(self.rank)
@@ -332,7 +338,7 @@ pub(super) async fn search_catalog(
             // ASVS 1.2.4: every request value stays bound. The reviewed CTE
             // has one typed binder so row and facet queries cannot drift.
             let rows_sql = format!(
-                "{RANKED_CTE} SELECT full_text_rank::text || '/' || similarity_score::text || '/' || quality_fixed_point::text || '/' || problem_id::text || '/' || version_id::text AS stable_key, question_id, backend, response_family, capabilities, metadata, publication_scope, lifecycle, lifecycle_reason, public_byline, floor(extract(epoch FROM published_at) * 1000)::bigint AS published_at_millis, evidence_visible, formula_version, course_count, first_attempt_count, difficulty_index, attempts_mean, time_median_seconds_estimate, discrimination_index, evidence_at_millis FROM ranked WHERE ($11::bigint IS NULL OR full_text_rank < $11 OR (full_text_rank = $11 AND (similarity_score < $12 OR (similarity_score = $12 AND (quality_fixed_point < $13 OR (quality_fixed_point = $13 AND (problem_id, version_id) > ($14, $15))))))) ORDER BY full_text_rank DESC, similarity_score DESC, quality_fixed_point DESC, problem_id, version_id LIMIT $21"
+                "{RANKED_CTE} SELECT full_text_rank::text || '/' || similarity_score::text || '/' || quality_fixed_point::text || '/' || problem_id::text || '/' || version_id::text AS stable_key, question_id, backend, response_family, capabilities, metadata, publication_scope, lifecycle, lifecycle_reason, public_byline, floor(extract(epoch FROM published_at) * 1000)::bigint AS published_at_millis, evidence_visible, formula_version, course_count, first_attempt_count, difficulty_index, attempts_mean, time_median_seconds_estimate, discrimination_index, evidence_at_millis FROM ranked WHERE ($12::bigint IS NULL OR full_text_rank < $12 OR (full_text_rank = $12 AND (similarity_score < $13 OR (similarity_score = $13 AND (quality_fixed_point < $14 OR (quality_fixed_point = $14 AND (problem_id, version_id) > ($15, $16))))))) ORDER BY full_text_rank DESC, similarity_score DESC, quality_fixed_point DESC, problem_id, version_id LIMIT $22"
             );
             let rows = bindings
                 .clone()

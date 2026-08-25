@@ -19,6 +19,7 @@ const EMPTY_SEARCH = {
   taxonomy: [],
   capabilities: [],
   licenses: [],
+  publicationScopes: [],
   evidence: "any",
   usedInMyCourses: "any",
   authorship: "any",
@@ -302,6 +303,7 @@ test("catalog search serializes repeated filters on a same-origin URL", async ()
     taxonomy: [{ scheme: term.scheme, code: term.code }],
     capabilities: ["serverGrading"],
     licenses: ["ccBy"],
+    publicationScopes: ["public"],
     evidence: "available",
     usedInMyCourses: "used",
     authorship: "authoredByCurrentActor",
@@ -319,6 +321,7 @@ test("catalog search serializes repeated filters on a same-origin URL", async ()
   assert.deepEqual(requested.searchParams.getAll("responseFamilies"), ["multipleChoice"]);
   assert.equal(requested.searchParams.get("usedInMyCourses"), "used");
   assert.equal(requested.searchParams.get("authorship"), "authoredByCurrentActor");
+  assert.deepEqual(requested.searchParams.getAll("publicationScopes"), ["public"]);
   assert.equal(requested.searchParams.get("statistics"), null);
   assert.equal(
     catalogSearchPath({
@@ -357,6 +360,7 @@ test("catalog client rejects invalid query bounds and mismatched detail identity
   assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, responseFamilies: ["essay"] }));
   assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, usedInMyCourses: "unused" }));
   assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, authorship: "anotherActor" }));
+  assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, publicationScopes: ["private"] }));
   assert.throws(() => catalogSearchPath({ ...EMPTY_SEARCH, actorId: "hidden" }), /unknown field/);
   const wrongIdentity = createHttpApiClient({
     fetch: async () =>

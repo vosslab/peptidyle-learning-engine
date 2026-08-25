@@ -2,6 +2,7 @@
 
 import { normalizeQuestionIdSyntax } from "../question_id";
 import type { CatalogAuthorship } from "../../generated/api/CatalogAuthorship";
+import type { PublicationScope } from "../../generated/api/PublicationScope";
 
 /** A browser-safe current-question catalog record. */
 export interface CatalogBrowseRow {
@@ -64,6 +65,8 @@ export interface CatalogBrowseQuery {
   readonly usedInMyCourses: string | null;
   /** Closed server-resolved authorship scope; browser rows never carry actor identity. */
   readonly authorship: CatalogAuthorship;
+  /** Closed publication visibility filters; an empty list includes every authorized scope. */
+  readonly publicationScopes: ReadonlyArray<PublicationScope>;
 }
 
 export interface CatalogBrowsePage {
@@ -314,6 +317,7 @@ export const EMPTY_CATALOG_QUERY: CatalogBrowseQuery = {
   evidence: null,
   usedInMyCourses: null,
   authorship: "any",
+  publicationScopes: [],
 };
 
 export function normalizeCatalogBrowseQuery(query: CatalogBrowseQuery): CatalogBrowseQuery {
@@ -329,6 +333,7 @@ export function normalizeCatalogBrowseQuery(query: CatalogBrowseQuery): CatalogB
     evidence: query.evidence,
     usedInMyCourses: query.usedInMyCourses,
     authorship: query.authorship,
+    publicationScopes: [...query.publicationScopes],
   };
 }
 

@@ -88,6 +88,16 @@ export class ProblemCurationConflictError extends ApiRequestError {
   }
 }
 
+/** A reusable-curriculum replacement lost its strong revision race. */
+export class ReusableCurriculumConflictError extends ApiRequestError {
+  declare public readonly status: 412;
+
+  public constructor(path: string) {
+    super(412, path);
+    this.name = "ReusableCurriculumConflictError";
+  }
+}
+
 /** A local banner cannot satisfy the bounded upload transport contract. */
 export class CourseAppearanceFileError extends Error {
   public constructor(message: string) {

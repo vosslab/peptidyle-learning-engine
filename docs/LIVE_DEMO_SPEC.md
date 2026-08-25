@@ -53,6 +53,10 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
 - Build one ordered assignment from fixed questions and reusable question pools by using public Question IDs. Configure
   each pool's draw count and delivery order, then request fresh server-generated preview draws without creating learner
   work or changing grades.
+- Create and revise a private reusable assignment Blueprint from live Library questions, reload its persisted revision,
+  and adapt its ordered questions for ordinary assignment authoring.
+- Create and revise a public Alpha curriculum, inspect its answer-free modules and reusable assignments, and reuse an
+  Alpha assignment's ordered live questions through the shared assignment picker.
 - Add students to courses.
 - Preview current assignment policy, then exercise delivery and automated grading through the normal Student
   workflow.

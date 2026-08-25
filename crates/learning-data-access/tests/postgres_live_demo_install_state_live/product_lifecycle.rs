@@ -5,7 +5,7 @@ use base_course_installation::{
     BaseCourseAction, BaseCourseInstallError, BaseCourseInstallPhase, BaseCourseInstallRequest,
     BaseCourseInstallStateOutput, BaseCourseParticipants,
 };
-use learning_data_access::postgres::{apply_migrations, lazy_pool};
+use learning_data_access::postgres::{lazy_pool, verify_application_schema};
 use learning_data_access::{LiveDemoInstallationStore, StoreError};
 use question_model::{TenantId, UserId};
 use serde_json::Value;
@@ -49,9 +49,9 @@ async fn base_course_product_serializes_restart_and_retains_exact_evidence() {
     let admin = super::admin_pool(url).await;
     super::reset_disposable_course_capability_memberships(&admin).await;
     let pool = lazy_pool(url).expect("PostgreSQL URL");
-    apply_migrations(&pool)
+    verify_application_schema(&pool)
         .await
-        .expect("embedded migrations apply to the disposable database");
+        .expect("full migrated application schema is compatible");
     let capability = sqlx::query(
         "SELECT procedure.prosecdef, owner_role.rolname, \
                 has_function_privilege('ple_auth', procedure.oid, 'EXECUTE') AS auth_execute, \

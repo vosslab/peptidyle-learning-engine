@@ -1,6 +1,9 @@
 // problem_picker_model.ts - reusable, answer-free question selection contracts.
 
 import { normalizeQuestionIdSyntax } from "../../question_id";
+import type { AlphaCourseReference } from "../../../generated/api/AlphaCourseReference";
+import type { BlueprintReference } from "../../../generated/api/BlueprintReference";
+import type { ReusableCurriculumClient } from "../../api/reusable_curriculum";
 import {
   EMPTY_CATALOG_QUERY,
   decodeCatalogBrowsePage,
@@ -24,11 +27,11 @@ export interface RetainedAssignmentReference {
 }
 
 /**
- * The picker exposes every established selection source and makes the Alpha
- * curriculum extension visible without making an unimplemented request.
+ * The picker exposes each selection source through the same answer-free D1 rows.
  */
 export type ProblemPickerSource =
   | { readonly kind: "catalog"; readonly label: string }
+  | { readonly kind: "publicCatalog"; readonly label: string }
   | { readonly kind: "mine"; readonly label: string }
   | { readonly kind: "favorites"; readonly label: string }
   | {
@@ -40,14 +43,19 @@ export type ProblemPickerSource =
       readonly kind: "retainedAssignment";
       readonly label: string;
       readonly retainedAssignment: RetainedAssignmentReference;
+    }
+  | {
+      readonly kind: "personalBlueprint";
+      readonly blueprint: BlueprintReference;
+      readonly label: string;
+    }
+  | {
+      readonly kind: "alphaCurriculum";
+      readonly alpha: AlphaCourseReference;
+      readonly modulePosition: number;
+      readonly assignmentPosition: number;
+      readonly label: string;
     };
-
-/** Reserved for the later Alpha curriculum extension; live picker props exclude it. */
-export interface ProblemPickerAlphaCurriculumSource {
-  readonly kind: "alphaCurriculum";
-  readonly label: string;
-  readonly curriculum: string;
-}
 
 export type ProblemPickerSelectionMode = "none" | "one" | "many";
 
@@ -219,6 +227,163 @@ export function catalogProblemPickerRepository(
         throw new Error("This picker composition has not connected that source yet.");
       }
       return await catalog.search(request.query, request.cursor);
+    },
+  };
+}
+
+const PICKER_SOURCE_PAGE_SIZE = 100;
+
+function pickerPageOffset(cursor: string | null): number {
+  if (cursor === null) return 0;
+  if (!/^(?:0|[1-9][0-9]*)$/u.test(cursor)) {
+    throw new Error("Use the picker continuation supplied by this source.");
+  }
+  const offset = Number(cursor);
+  if (!Number.isSafeInteger(offset) || offset < 0) {
+    throw new Error("Use the picker continuation supplied by this source.");
+  }
+  return offset;
+}
+
+function reusableCatalogRow(item: {
+  readonly summary: {
+    readonly questionId: string;
+    readonly metadata: {
+      readonly title: string;
+      readonly taxonomy: ReadonlyArray<{
+        readonly scheme: string;
+        readonly code: string;
+        readonly label: string;
+      }>;
+      readonly license:
+        | { readonly kind: "allRightsReserved" | "ccBy" | "ccBySa" | "ccByNc" | "cc0" }
+        | { readonly kind: "other"; readonly spdx: string };
+    };
+    readonly byline: { readonly names: ReadonlyArray<string> };
+    readonly capabilities: ReadonlyArray<string>;
+  };
+  readonly evidence:
+    | { readonly state: "insufficientEvidence" }
+    | {
+        readonly state: "available";
+        readonly observedCourseCount: number;
+        readonly independentLearnerObservationCount: number;
+        readonly difficultyIndex: number;
+        readonly discriminationIndex?: number;
+      };
+}): CatalogBrowseRow {
+  const summary = item.summary;
+  const evidence =
+    item.evidence.state === "insufficientEvidence"
+      ? { state: "insufficientEvidence" as const }
+      : {
+          state: "available" as const,
+          observedCourseCount: item.evidence.observedCourseCount,
+          independentLearnerObservationCount: item.evidence.independentLearnerObservationCount,
+          difficultyIndex: item.evidence.difficultyIndex,
+          discriminationIndex: item.evidence.discriminationIndex,
+        };
+  return {
+    displayId: summary.questionId,
+    title: summary.metadata.title,
+    summary: summary.metadata.title,
+    byline: summary.byline.names,
+    taxonomy: summary.metadata.taxonomy.map((term) => `${term.scheme}:${term.code}`),
+    capabilities: summary.capabilities,
+    license:
+      summary.metadata.license.kind === "other"
+        ? summary.metadata.license.spdx
+        : summary.metadata.license.kind,
+    evidence,
+  };
+}
+
+function selectedDefinition(
+  source: Extract<ProblemPickerSource, { readonly kind: "alphaCurriculum" }>,
+  alpha: Awaited<ReturnType<ReusableCurriculumClient["getAlphaCourse"]>>["alpha"],
+): Awaited<
+  ReturnType<ReusableCurriculumClient["getAlphaCourse"]>
+>["alpha"]["modules"][number]["definitions"][number] {
+  if (!Number.isSafeInteger(source.modulePosition) || source.modulePosition < 1) {
+    throw new Error("Choose an Alpha module position starting at 1.");
+  }
+  if (!Number.isSafeInteger(source.assignmentPosition) || source.assignmentPosition < 1) {
+    throw new Error("Choose an Alpha assignment position starting at 1.");
+  }
+  const module = alpha.modules[source.modulePosition - 1];
+  if (module === undefined) throw new Error("Choose an Alpha module that is currently available.");
+  const definition = module.definitions[source.assignmentPosition - 1];
+  if (definition === undefined) {
+    throw new Error("Choose an Alpha assignment that is currently available.");
+  }
+  return definition;
+}
+
+function validateAlphaPickerPositions(
+  source: Extract<ProblemPickerSource, { readonly kind: "alphaCurriculum" }>,
+): void {
+  if (!Number.isSafeInteger(source.modulePosition) || source.modulePosition < 1) {
+    throw new Error("Choose an Alpha module position starting at 1.");
+  }
+  if (!Number.isSafeInteger(source.assignmentPosition) || source.assignmentPosition < 1) {
+    throw new Error("Choose an Alpha assignment position starting at 1.");
+  }
+}
+
+function definitionRows(definition: {
+  readonly entries: ReadonlyArray<
+    | {
+        readonly kind: "fixed";
+        readonly question: { readonly catalog: Parameters<typeof reusableCatalogRow>[0] };
+      }
+    | {
+        readonly kind: "pool";
+        readonly candidates: ReadonlyArray<{
+          readonly catalog: Parameters<typeof reusableCatalogRow>[0];
+        }>;
+      }
+  >;
+}): ReadonlyArray<CatalogBrowseRow> {
+  const rows: CatalogBrowseRow[] = [];
+  for (const entry of definition.entries) {
+    if (entry.kind === "fixed") rows.push(reusableCatalogRow(entry.question.catalog));
+    else for (const candidate of entry.candidates) rows.push(reusableCatalogRow(candidate.catalog));
+  }
+  return rows;
+}
+
+function sourceRowsMatchQuery(
+  rows: ReadonlyArray<CatalogBrowseRow>,
+  query: CatalogBrowseQuery,
+): CatalogBrowseRow[] {
+  const needle = query.search.trim().toLocaleLowerCase();
+  if (needle === "") return [...rows];
+  return rows.filter((row) => `${row.title}\n${row.summary}`.toLocaleLowerCase().includes(needle));
+}
+
+/** Connects reusable definitions to the established picker without creating a second row model. */
+export function reusableCurriculumProblemPickerRepository(
+  client: ReusableCurriculumClient,
+): ProblemPickerSourceRepository {
+  return {
+    async search(request: ProblemPickerSearchRequest): Promise<unknown> {
+      const offset = pickerPageOffset(request.cursor);
+      let rows: ReadonlyArray<CatalogBrowseRow>;
+      if (request.source.kind === "personalBlueprint") {
+        const observed = await client.getBlueprint(request.source.blueprint);
+        rows = definitionRows(observed.blueprint.definition);
+      } else if (request.source.kind === "alphaCurriculum") {
+        validateAlphaPickerPositions(request.source);
+        const observed = await client.getAlphaCourse(request.source.alpha);
+        rows = definitionRows(selectedDefinition(request.source, observed.alpha));
+      } else {
+        throw new Error("Choose a reusable curriculum source for this picker composition.");
+      }
+      const matched = sourceRowsMatchQuery(rows, request.query);
+      const items = matched.slice(offset, offset + PICKER_SOURCE_PAGE_SIZE);
+      const nextOffset = offset + items.length;
+      const nextCursor = nextOffset < matched.length ? String(nextOffset) : null;
+      return { items, aggregates: [], nextCursor };
     },
   };
 }

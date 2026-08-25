@@ -4,6 +4,24 @@
 
 ### Fixes and Maintenance
 
+- Accepted WP-PROF-D2 live problem curation and advanced the professor queue to WP-PROF-B1 reusable
+  curricula. Favorites, private and institution collections, canonical saved searches,
+  revision-checked bulk actions, and the shared `ProblemPicker` now compose the ordinary Library and
+  assignment-authoring paths. Elena Instructor and Morgan Sysadmin retain their independent passkey
+  journeys, and browser contracts expose safe catalog projections plus public Question IDs.
+- Completed D2 production evidence: the 66-migration PostgreSQL baseline and isolated curation
+  oracle passed forced-RLS, broker, canonical-filter, immutable-membership, revision, and cleanup
+  checks; the visible HTTPS journey passed curation-to-live-assignment reuse; and the privacy-checked
+  93-artifact corpus includes 16 responsive D2 views. Architecture, security/privacy,
+  HCI/accessibility, and documentation/evidence reviews reported zero P0--P3 findings.
+- Made the canonical acceptance lifecycle resilient to interrupted owners. Fixed-project recovery
+  now gives Podman the complete verified container set with dependency-aware removal. Schema startup
+  checks retain existing Base Course freshness policies when the exact catalog graph is compatible,
+  reconcile only observed drift, and verify the repaired graph; shared current-schema live oracles
+  use read-only compatibility checks while isolated upgrade oracles retain migration authority.
+- Final `source source_me.sh && ./all_test.sh` passed the Rust workspace, all five codebase gates
+  including 297 Node tests, 6,982 pytest checks, and the complete connected acceptance path with
+  exact cleanup.
 - Accepted WP-PROF-D1 question discovery on the canonical live product path and advanced the
   professor queue to WP-PROF-D2 collections, Favorites, saved searches, bulk curation, and reusable
   problem selection. Library search now combines public metadata and response-family facets with

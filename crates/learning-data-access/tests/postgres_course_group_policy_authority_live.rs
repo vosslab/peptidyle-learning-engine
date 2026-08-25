@@ -2,7 +2,7 @@
 
 //! Disposable PostgreSQL 17 authority oracle for group-purpose policy CAS.
 
-use learning_data_access::postgres::{PostgresStore, apply_migrations, lazy_pool};
+use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     CourseGroupManagementStore, CourseGroupPurposePolicyRevision, SessionTokenHash, StoreError,
     TenantContext, UpdateCourseGroupPurposePolicyCommand,
@@ -14,8 +14,6 @@ use question_model::{
 use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
-
-static MIGRATION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 fn id() -> Uuid {
     let mut bytes = [0; 16];
@@ -35,16 +33,12 @@ struct Fixture {
 }
 
 async fn pool() -> PgPool {
-    let _guard = MIGRATION_LOCK.lock().await;
     let runtime = load_acceptance_runtime();
     let url = runtime.admin_url().expose();
     let pool = lazy_pool(url).expect("PostgreSQL URL");
-    apply_migrations(&pool)
+    verify_application_schema(&pool)
         .await
-        .expect("full migration epoch applies");
-    apply_migrations(&pool)
-        .await
-        .expect("migration epoch converges");
+        .expect("full migrated application schema is compatible");
     let version: i32 = sqlx::query_scalar("SELECT current_setting('server_version_num')::int4")
         .fetch_one(&pool)
         .await

@@ -1,0 +1,858 @@
+//! Browser-safe reusable assignment blueprints and public Alpha curricula.
+//!
+//! A reusable definition has no course, learner, version, or server-private
+//! identity. The Store resolves its public Question IDs to exact publication
+//! pins before persistence. Browser views deliberately keep the same ordered
+//! shape while substituting current answer-free catalog discovery rows.
+
+use std::collections::BTreeSet;
+use std::num::NonZeroU64;
+use std::str::FromStr;
+
+use chrono::NaiveTime;
+use serde::{Deserialize, Serialize};
+
+use crate::{
+    AlphaCourseReference, AssignmentDeadlineBehavior, AssignmentInstructions,
+    AssignmentScoringMode, BlueprintReference, CatalogDiscoveryItem, LateSubmissionPolicy,
+    LearnerDisclosurePolicy, MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP,
+    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES,
+    MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS, PointValue, PoolDrawAlgorithm, PublicByline,
+    QuestionId, RunPolicies, SelectionOrdering,
+};
+
+/// Shared instructor-content bound for reusable titles and module labels.
+pub const MAX_REUSABLE_CURRICULUM_TITLE_UNICODE_SCALARS: usize =
+    MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS;
+
+/// Failure to validate a reusable title or module label.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReusableCurriculumTitleError {
+    /// The value is blank, leading/trailing whitespace-bearing, or too long.
+    Invalid,
+}
+
+impl std::fmt::Display for ReusableCurriculumTitleError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("curriculum text must be trimmed, nonempty, and within its bound")
+    }
+}
+
+impl std::error::Error for ReusableCurriculumTitleError {}
+
+/// Validates a durable reusable definition title or module label.
+pub fn validate_reusable_curriculum_title(value: &str) -> Result<(), ReusableCurriculumTitleError> {
+    (value == value.trim()
+        && !value.is_empty()
+        && value.chars().count() <= MAX_REUSABLE_CURRICULUM_TITLE_UNICODE_SCALARS)
+        .then_some(())
+        .ok_or(ReusableCurriculumTitleError::Invalid)
+}
+
+/// Exact local wall-clock time used with a signed curriculum-day offset.
+///
+/// This is intentionally time-only: B2 resolves it against an instructor's
+/// selected target term and reports any daylight-saving correction required.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct LocalTimeOfDay(String);
+
+impl LocalTimeOfDay {
+    /// Parses the canonical `HH:MM:SS.sss` browser wire value.
+    pub fn parse(value: &str) -> Result<Self, LocalTimeOfDayError> {
+        let bytes = value.as_bytes();
+        let exact_shape = bytes.len() == 12
+            && bytes[2] == b':'
+            && bytes[5] == b':'
+            && bytes[8] == b'.'
+            && bytes
+                .iter()
+                .enumerate()
+                .all(|(index, byte)| matches!(index, 2 | 5 | 8) || byte.is_ascii_digit());
+        if !exact_shape || NaiveTime::parse_from_str(value, "%H:%M:%S%.3f").is_err() {
+            return Err(LocalTimeOfDayError);
+        }
+        Ok(Self(value.to_owned()))
+    }
+
+    /// Returns the canonical browser wire value.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for LocalTimeOfDay {
+    type Error = LocalTimeOfDayError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::parse(&value)
+    }
+}
+
+impl From<LocalTimeOfDay> for String {
+    fn from(value: LocalTimeOfDay) -> Self {
+        value.0
+    }
+}
+
+/// A local time was not the exact time-only browser wire form.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LocalTimeOfDayError;
+
+impl std::fmt::Display for LocalTimeOfDayError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("local time must be exact HH:MM:SS.sss")
+    }
+}
+
+impl std::error::Error for LocalTimeOfDayError {}
+
+/// One curriculum-calendar moment relative to a target term's first day.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RelativeScheduleMoment {
+    /// Signed calendar-day offset from the target term's first local day.
+    pub day_offset: i32,
+    /// Exact local wall-clock time for that calendar day.
+    pub local_time: LocalTimeOfDay,
+}
+
+/// Optional curriculum-relative availability, due, and close defaults.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RelativeAssignmentSchedule {
+    /// First local moment when learners may open a future copied assignment.
+    pub available_at: Option<RelativeScheduleMoment>,
+    /// Ordinary local due moment for a future copied assignment.
+    pub due_at: Option<RelativeScheduleMoment>,
+    /// Local moment after which a future copied assignment is closed.
+    pub closes_at: Option<RelativeScheduleMoment>,
+}
+
+impl RelativeAssignmentSchedule {
+    /// Validates the partial schedule's meaningful chronological order.
+    pub fn validate(&self) -> Result<(), ReusableCurriculumValidationError> {
+        if ordered_after(self.available_at.as_ref(), self.due_at.as_ref())
+            || ordered_after(self.available_at.as_ref(), self.closes_at.as_ref())
+            || ordered_after(self.due_at.as_ref(), self.closes_at.as_ref())
+        {
+            return Err(ReusableCurriculumValidationError::InvalidScheduleOrder);
+        }
+        Ok(())
+    }
+}
+
+fn ordered_after(
+    earlier: Option<&RelativeScheduleMoment>,
+    later: Option<&RelativeScheduleMoment>,
+) -> bool {
+    earlier
+        .zip(later)
+        .is_some_and(|(earlier, later)| earlier > later)
+}
+
+/// Reusable assignment policy defaults copied into a future teaching course.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReusableAssignmentDefaults {
+    /// Whole-run time limit, if the reusable definition establishes one.
+    pub time_limit_seconds: Option<std::num::NonZeroU32>,
+    /// Number of learner runs, if the reusable definition establishes one.
+    pub attempt_limit: Option<std::num::NonZeroU32>,
+    /// Late-work treatment copied into the future assignment policy.
+    pub late_submission: LateSubmissionPolicy,
+    /// Server deadline action copied into the future assignment policy.
+    pub deadline_behavior: AssignmentDeadlineBehavior,
+    /// Independent run behavior copied into the future assignment policy.
+    pub run_policies: RunPolicies,
+    /// Learner-release policy copied into the future assignment policy.
+    pub learner_disclosure: LearnerDisclosurePolicy,
+}
+
+/// One public Question ID submitted as a fixed ordered item.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReusableFixedQuestionInput {
+    /// Public published-question locator resolved under destination authority.
+    pub question_id: QuestionId,
+    /// Points copied into the future fixed item.
+    pub points_possible: PointValue,
+    /// Score treatment copied into the future fixed item.
+    pub scoring_mode: AssignmentScoringMode,
+}
+
+/// One submitted pool, including its ordered public Question ID candidates.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReusablePoolInput {
+    /// Public candidates resolved under destination authority in this order.
+    pub candidates: Vec<QuestionId>,
+    /// Number of candidates drawn into each future run.
+    pub draw_count: u32,
+    /// Points copied for every selected candidate.
+    pub points_per_item: PointValue,
+    /// Output ordering after deterministic selection.
+    pub ordering: SelectionOrdering,
+    /// Closed deterministic pool-draw algorithm.
+    pub algorithm: PoolDrawAlgorithm,
+}
+
+impl ReusablePoolInput {
+    fn validate(&self) -> Result<(), ReusableCurriculumValidationError> {
+        if self.candidates.is_empty()
+            || self.candidates.len() > MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP
+        {
+            return Err(ReusableCurriculumValidationError::InvalidPoolCandidates);
+        }
+        if self.draw_count == 0
+            || usize::try_from(self.draw_count).ok() > Some(self.candidates.len())
+        {
+            return Err(ReusableCurriculumValidationError::InvalidPoolDrawCount);
+        }
+        if self.candidates.iter().collect::<BTreeSet<_>>().len() != self.candidates.len() {
+            return Err(ReusableCurriculumValidationError::DuplicatePoolCandidate);
+        }
+        Ok(())
+    }
+}
+
+/// One ordered reusable definition entry. Vector order is the only position.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+pub enum ReusableAssignmentEntryInput {
+    /// One fixed question in definition order.
+    Fixed(ReusableFixedQuestionInput),
+    /// One pool in definition order.
+    Pool(ReusablePoolInput),
+}
+
+/// Complete submitted reusable-assignment meaning.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReusableAssignmentDefinitionInput {
+    /// Instructor-facing title copied into future assignment definitions.
+    pub title: String,
+    /// Learner-facing instructions copied into future assignment definitions.
+    pub instructions: AssignmentInstructions,
+    /// Fixed items and pools in authored order.
+    pub entries: Vec<ReusableAssignmentEntryInput>,
+    /// Reusable delivery and run defaults.
+    pub defaults: ReusableAssignmentDefaults,
+    /// Optional local calendar-relative timing defaults.
+    pub schedule: RelativeAssignmentSchedule,
+}
+
+impl ReusableAssignmentDefinitionInput {
+    /// Validates bounded ordered entries and their reusable schedule meaning.
+    pub fn validate(&self) -> Result<(), ReusableCurriculumValidationError> {
+        validate_reusable_curriculum_title(&self.title)
+            .map_err(|_| ReusableCurriculumValidationError::InvalidDefinitionTitle)?;
+        if self.entries.is_empty() || self.entries.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
+            return Err(ReusableCurriculumValidationError::InvalidEntryCount);
+        }
+        self.schedule.validate()?;
+        let mut total_pool_candidates = 0_usize;
+        for entry in &self.entries {
+            if let ReusableAssignmentEntryInput::Pool(pool) = entry {
+                pool.validate()?;
+                total_pool_candidates = total_pool_candidates
+                    .checked_add(pool.candidates.len())
+                    .ok_or(ReusableCurriculumValidationError::TooManyPoolCandidates)?;
+            }
+        }
+        (total_pool_candidates <= MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES)
+            .then_some(())
+            .ok_or(ReusableCurriculumValidationError::TooManyPoolCandidates)
+    }
+}
+
+/// Complete submitted personal blueprint meaning.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintDefinitionInput {
+    /// The blueprint's sole reusable assignment definition.
+    pub definition: ReusableAssignmentDefinitionInput,
+}
+
+impl BlueprintDefinitionInput {
+    /// Validates the one reusable definition owned by this aggregate.
+    pub fn validate(&self) -> Result<(), ReusableCurriculumValidationError> {
+        self.definition.validate()
+    }
+}
+
+/// One labelled Alpha module submitted in authored order.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlphaCourseModuleInput {
+    /// Week or module label visible to approved Instructor readers.
+    pub label: String,
+    /// Reusable definitions in authored order.
+    pub definitions: Vec<ReusableAssignmentDefinitionInput>,
+}
+
+/// Complete submitted public Alpha curriculum meaning.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlphaCourseDefinitionInput {
+    /// Public curriculum title.
+    pub title: String,
+    /// Ordered labelled curriculum modules.
+    pub modules: Vec<AlphaCourseModuleInput>,
+}
+
+impl AlphaCourseDefinitionInput {
+    /// Validates the Alpha tree. Vector order provides normalized positions.
+    pub fn validate(&self) -> Result<(), ReusableCurriculumValidationError> {
+        validate_reusable_curriculum_title(&self.title)
+            .map_err(|_| ReusableCurriculumValidationError::InvalidAlphaTitle)?;
+        if self.modules.is_empty() || self.modules.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
+            return Err(ReusableCurriculumValidationError::InvalidModuleCount);
+        }
+        for module in &self.modules {
+            validate_reusable_curriculum_title(&module.label)
+                .map_err(|_| ReusableCurriculumValidationError::InvalidModuleLabel)?;
+            if module.definitions.is_empty()
+                || module.definitions.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES
+            {
+                return Err(ReusableCurriculumValidationError::InvalidModuleDefinitionCount);
+            }
+            for definition in &module.definitions {
+                definition.validate()?;
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Current selection status for an exact retained reusable question member.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ReusableSelectionAvailability {
+    /// The current publication remains selectable for a new definition.
+    Available,
+    /// The pinned member remains inspectable but cannot be selected anew.
+    Retained,
+}
+
+/// Current answer-free discovery projection of one reusable question member.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReusableQuestionView {
+    /// Current public catalog metadata and disclosed evidence.
+    pub catalog: CatalogDiscoveryItem,
+    /// Whether the stored exact member remains selectable for a new copy.
+    pub selection_availability: ReusableSelectionAvailability,
+}
+
+/// Current answer-free pool candidate projection in stored candidate order.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReusablePoolCandidateView {
+    /// Current public catalog metadata and disclosed evidence.
+    pub catalog: CatalogDiscoveryItem,
+    /// Whether the stored exact member remains selectable for a new copy.
+    pub selection_availability: ReusableSelectionAvailability,
+}
+
+/// Current answer-free reusable pool projection.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReusablePoolView {
+    /// Current candidates in their retained definition order.
+    pub candidates: Vec<ReusablePoolCandidateView>,
+    /// Number of candidates drawn into each future run.
+    pub draw_count: u32,
+    /// Points copied for every selected candidate.
+    pub points_per_item: PointValue,
+    /// Output ordering after deterministic selection.
+    pub ordering: SelectionOrdering,
+    /// Closed deterministic pool-draw algorithm.
+    pub algorithm: PoolDrawAlgorithm,
+}
+
+/// Current answer-free reusable-definition entry. Vector order is its position.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+pub enum ReusableAssignmentEntryView {
+    /// One fixed question in definition order.
+    Fixed {
+        /// Current answer-free question projection.
+        question: Box<ReusableQuestionView>,
+        /// Points copied into the future fixed item.
+        points_possible: PointValue,
+        /// Score treatment copied into the future fixed item.
+        scoring_mode: AssignmentScoringMode,
+    },
+    /// One pool in definition order.
+    Pool(ReusablePoolView),
+}
+
+/// Current answer-free reusable-assignment definition.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReusableAssignmentDefinitionView {
+    /// Instructor-facing title copied into future assignment definitions.
+    pub title: String,
+    /// Learner-facing instructions copied into future assignment definitions.
+    pub instructions: AssignmentInstructions,
+    /// Fixed items and pools in retained authored order.
+    pub entries: Vec<ReusableAssignmentEntryView>,
+    /// Reusable delivery and run defaults.
+    pub defaults: ReusableAssignmentDefaults,
+    /// Optional local calendar-relative timing defaults.
+    pub schedule: RelativeAssignmentSchedule,
+}
+
+/// Strong revision evidence for one complete blueprint state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct BlueprintRevision(NonZeroU64);
+
+/// Strong revision evidence for one complete Alpha curriculum tree.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct AlphaCourseRevision(NonZeroU64);
+
+macro_rules! impl_revision {
+    ($name:ident) => {
+        impl $name {
+            /// Initial revision for a newly stored aggregate.
+            pub const INITIAL: Self = Self(NonZeroU64::MIN);
+
+            /// Rebuilds a positive PostgreSQL-bigint revision.
+            pub fn new(value: u64) -> Option<Self> {
+                (value <= i64::MAX as u64)
+                    .then(|| NonZeroU64::new(value))
+                    .flatten()
+                    .map(Self)
+            }
+
+            /// Returns the exact positive revision scalar.
+            pub fn value(self) -> u64 {
+                self.0.get()
+            }
+
+            /// Advances one revision without exceeding PostgreSQL bigint.
+            pub fn checked_next(self) -> Option<Self> {
+                self.value().checked_add(1).and_then(Self::new)
+            }
+        }
+
+        impl std::fmt::Display for $name {
+            fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, "{}", self.value())
+            }
+        }
+
+        impl FromStr for $name {
+            type Err = &'static str;
+
+            fn from_str(value: &str) -> Result<Self, Self::Err> {
+                if value.is_empty()
+                    || (value.len() > 1 && value.starts_with('0'))
+                    || !value.bytes().all(|byte| byte.is_ascii_digit())
+                {
+                    return Err("revision must be a canonical positive decimal string");
+                }
+                value
+                    .parse::<u64>()
+                    .ok()
+                    .and_then(Self::new)
+                    .ok_or("revision must fit a positive PostgreSQL bigint")
+            }
+        }
+
+        impl TryFrom<String> for $name {
+            type Error = &'static str;
+
+            fn try_from(value: String) -> Result<Self, Self::Error> {
+                value.parse()
+            }
+        }
+
+        impl From<$name> for String {
+            fn from(value: $name) -> Self {
+                value.to_string()
+            }
+        }
+    };
+}
+
+impl_revision!(BlueprintRevision);
+impl_revision!(AlphaCourseRevision);
+
+/// Authority by which the current session may read one private blueprint.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BlueprintAccess {
+    /// The active approved Instructor owns the private aggregate.
+    Owner,
+}
+
+/// Authority by which the current session may read one public Alpha curriculum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AlphaCourseAccess {
+    /// The active approved Instructor created and may revise the Alpha.
+    Creator,
+    /// The active approved Instructor may inspect and reuse the Alpha.
+    ApprovedInstructor,
+}
+
+/// Safe compact current projection of one private blueprint.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintSummaryView {
+    /// Typed route locator resolved under current owner authority.
+    pub reference: BlueprintReference,
+    /// Display title from the aggregate's sole reusable definition.
+    pub title: String,
+    /// Strong complete-aggregate revision.
+    pub revision: BlueprintRevision,
+    /// Current owner-scoped read authority.
+    pub access: BlueprintAccess,
+}
+
+/// Safe current projection of one complete private blueprint.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintView {
+    /// Typed route locator resolved under current owner authority.
+    pub reference: BlueprintReference,
+    /// Strong complete-aggregate revision.
+    pub revision: BlueprintRevision,
+    /// Current owner-scoped read authority.
+    pub access: BlueprintAccess,
+    /// The blueprint's sole reusable assignment definition.
+    pub definition: ReusableAssignmentDefinitionView,
+}
+
+/// Safe compact current projection of one public Alpha curriculum.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlphaCourseSummaryView {
+    /// Typed route locator resolved under current approved-Instructor authority.
+    pub reference: AlphaCourseReference,
+    /// Public curriculum title.
+    pub title: String,
+    /// Strong complete-aggregate revision.
+    pub revision: AlphaCourseRevision,
+    /// Immutable reviewed display-name snapshot, never account authority.
+    pub creator_byline: PublicByline,
+    /// Current reader or creator authority.
+    pub access: AlphaCourseAccess,
+}
+
+/// One public Alpha module in its retained aggregate-owned order.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlphaCourseModuleView {
+    /// Week or module label visible to approved Instructor readers.
+    pub label: String,
+    /// Reusable definitions in retained aggregate-owned order.
+    pub definitions: Vec<ReusableAssignmentDefinitionView>,
+}
+
+/// Safe current projection of one complete public Alpha curriculum tree.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlphaCourseView {
+    /// Typed route locator resolved under current approved-Instructor authority.
+    pub reference: AlphaCourseReference,
+    /// Public curriculum title.
+    pub title: String,
+    /// Strong complete-aggregate revision.
+    pub revision: AlphaCourseRevision,
+    /// Immutable reviewed display-name snapshot, never account authority.
+    pub creator_byline: PublicByline,
+    /// Current reader or creator authority.
+    pub access: AlphaCourseAccess,
+    /// Labelled modules in retained aggregate-owned order.
+    pub modules: Vec<AlphaCourseModuleView>,
+}
+
+/// Meaning-level validation failure for a reusable curriculum command.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReusableCurriculumValidationError {
+    /// A reusable definition title is not durable instructor content.
+    InvalidDefinitionTitle,
+    /// An Alpha title is not durable instructor content.
+    InvalidAlphaTitle,
+    /// A module label is not durable instructor content.
+    InvalidModuleLabel,
+    /// A reusable definition has no usable entries or exceeds its shared bound.
+    InvalidEntryCount,
+    /// An Alpha has no usable modules or exceeds its shared bound.
+    InvalidModuleCount,
+    /// A module has no usable definitions or exceeds its shared bound.
+    InvalidModuleDefinitionCount,
+    /// A pool candidate list has no members or exceeds its shared bound.
+    InvalidPoolCandidates,
+    /// A pool draw count cannot select a meaningful subset of its candidates.
+    InvalidPoolDrawCount,
+    /// A pool repeats a candidate and therefore changes no selectable meaning.
+    DuplicatePoolCandidate,
+    /// All pool candidates exceed the assignment-level shared bound.
+    TooManyPoolCandidates,
+    /// Relative available, due, and close moments are not chronologically meaningful.
+    InvalidScheduleOrder,
+}
+
+impl std::fmt::Display for ReusableCurriculumValidationError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            Self::InvalidDefinitionTitle => "reusable definition title is invalid",
+            Self::InvalidAlphaTitle => "Alpha curriculum title is invalid",
+            Self::InvalidModuleLabel => "Alpha module label is invalid",
+            Self::InvalidEntryCount => "reusable definition must contain bounded ordered entries",
+            Self::InvalidModuleCount => "Alpha curriculum must contain bounded modules",
+            Self::InvalidModuleDefinitionCount => {
+                "Alpha module must contain bounded reusable definitions"
+            }
+            Self::InvalidPoolCandidates => "pool candidates must be present and within their bound",
+            Self::InvalidPoolDrawCount => "pool draw count must be between one and candidate count",
+            Self::DuplicatePoolCandidate => "pool candidates must be distinct",
+            Self::TooManyPoolCandidates => "pool candidates exceed the assignment-level bound",
+            Self::InvalidScheduleOrder => {
+                "relative availability, due, and close moments must be ordered"
+            }
+        })
+    }
+}
+
+impl std::error::Error for ReusableCurriculumValidationError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::taxonomy::License;
+    use crate::{
+        ActivityTimestamp, BackendCapabilities, CatalogDiscoveryEvidence, CatalogLifecycle,
+        CatalogProblemSummary, CatalogResponseFamily, PublicAuthorName, PublicationScope,
+        QuestionBackend, QuestionMetadata,
+    };
+
+    fn question_id() -> QuestionId {
+        "7K3-M9QX".parse().expect("valid question ID")
+    }
+
+    fn defaults() -> ReusableAssignmentDefaults {
+        ReusableAssignmentDefaults {
+            time_limit_seconds: None,
+            attempt_limit: None,
+            late_submission: LateSubmissionPolicy::Accept,
+            deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
+            run_policies: RunPolicies {
+                completion: crate::CompletionRequirement::AnswerAll,
+                grade: crate::GradePolicy::Highest,
+                continued_practice: crate::ContinuedPractice::Unlimited,
+                variation: crate::VariationPolicy::NewSeeds,
+            },
+            learner_disclosure: LearnerDisclosurePolicy::default(),
+        }
+    }
+
+    fn input(schedule: RelativeAssignmentSchedule) -> ReusableAssignmentDefinitionInput {
+        ReusableAssignmentDefinitionInput {
+            title: "Protein structure practice".to_string(),
+            instructions: AssignmentInstructions::try_new("Explain each choice.".to_string())
+                .expect("valid instructions"),
+            entries: vec![
+                ReusableAssignmentEntryInput::Fixed(ReusableFixedQuestionInput {
+                    question_id: question_id(),
+                    points_possible: PointValue::from_whole(3),
+                    scoring_mode: AssignmentScoringMode::Normal,
+                }),
+                ReusableAssignmentEntryInput::Pool(ReusablePoolInput {
+                    candidates: vec![
+                        question_id(),
+                        "12A-4BCZ".parse().expect("valid question ID"),
+                    ],
+                    draw_count: 1,
+                    points_per_item: PointValue::from_whole(2),
+                    ordering: SelectionOrdering::Randomized,
+                    algorithm: PoolDrawAlgorithm::V1,
+                }),
+            ],
+            defaults: defaults(),
+            schedule,
+        }
+    }
+
+    fn discovery() -> CatalogDiscoveryItem {
+        CatalogDiscoveryItem {
+            summary: CatalogProblemSummary {
+                question_id: question_id(),
+                backend: QuestionBackend::Native,
+                response_family: CatalogResponseFamily::MultipleChoice,
+                capabilities: BackendCapabilities::none(),
+                metadata: QuestionMetadata {
+                    title: "Safe catalog row".to_string(),
+                    tags: Vec::new(),
+                    taxonomy: Vec::new(),
+                    license: License::Cc0,
+                    language: "en".to_string(),
+                },
+                byline: PublicByline::new(vec![
+                    PublicAuthorName::new("Ada Lovelace".to_string()).expect("valid byline"),
+                ])
+                .expect("valid byline"),
+                scope: PublicationScope::Public,
+                lifecycle: CatalogLifecycle::Published,
+                published_at: ActivityTimestamp::from_unix_millis(0),
+            },
+            evidence: CatalogDiscoveryEvidence::InsufficientEvidence,
+        }
+    }
+
+    #[test]
+    fn curriculum_references_round_trip_as_compact_wire_values() {
+        let blueprint: BlueprintReference = "BP-42".parse().expect("valid reference");
+        let alpha: AlphaCourseReference = "AC-43".parse().expect("valid reference");
+        assert_eq!(
+            serde_json::to_value(blueprint).expect("serializes"),
+            "BP-42"
+        );
+        assert_eq!(serde_json::to_value(alpha).expect("serializes"), "AC-43");
+        assert!("BP-042".parse::<BlueprintReference>().is_err());
+        assert!("AC-0".parse::<AlphaCourseReference>().is_err());
+    }
+
+    #[test]
+    fn local_relative_schedule_keeps_partial_defaults_and_rejects_reversed_pairs() {
+        let time = |value| LocalTimeOfDay::parse(value).expect("valid local time");
+        let available = RelativeScheduleMoment {
+            day_offset: -1,
+            local_time: time("08:30:00.000"),
+        };
+        let due = RelativeScheduleMoment {
+            day_offset: 0,
+            local_time: time("17:00:00.000"),
+        };
+        let close = RelativeScheduleMoment {
+            day_offset: 1,
+            local_time: time("08:00:00.000"),
+        };
+        for schedule in [
+            RelativeAssignmentSchedule {
+                available_at: Some(available.clone()),
+                due_at: None,
+                closes_at: None,
+            },
+            RelativeAssignmentSchedule {
+                available_at: None,
+                due_at: Some(due.clone()),
+                closes_at: None,
+            },
+            RelativeAssignmentSchedule {
+                available_at: None,
+                due_at: None,
+                closes_at: Some(close.clone()),
+            },
+        ] {
+            assert!(schedule.validate().is_ok());
+        }
+        assert_eq!(
+            RelativeAssignmentSchedule {
+                available_at: None,
+                due_at: Some(due),
+                closes_at: Some(available),
+            }
+            .validate(),
+            Err(ReusableCurriculumValidationError::InvalidScheduleOrder)
+        );
+        assert!(LocalTimeOfDay::parse("08:30").is_err());
+    }
+
+    #[test]
+    fn ordered_definition_validation_uses_vector_order_and_pool_meaning() {
+        let definition = input(RelativeAssignmentSchedule::default());
+        assert!(definition.validate().is_ok());
+        let wire = serde_json::to_value(&definition).expect("definition serializes");
+        assert_eq!(wire["entries"][0]["kind"], "fixed");
+        assert_eq!(wire["entries"][0]["questionId"], "7K3-M9QX");
+        assert_eq!(wire["entries"][0]["pointsPossible"], "3");
+        assert_eq!(wire["entries"][1]["kind"], "pool");
+        assert_eq!(wire["entries"][1]["pointsPerItem"], "2");
+        assert!(wire["defaults"].is_object());
+        assert!(wire["schedule"].is_object());
+        assert_eq!(
+            serde_json::from_value::<ReusableAssignmentDefinitionInput>(wire)
+                .expect("definition round trips"),
+            definition
+        );
+        let duplicate_pool = ReusableAssignmentDefinitionInput {
+            entries: vec![ReusableAssignmentEntryInput::Pool(ReusablePoolInput {
+                candidates: vec![question_id(), question_id()],
+                draw_count: 1,
+                points_per_item: PointValue::from_whole(1),
+                ordering: SelectionOrdering::CandidateOrder,
+                algorithm: PoolDrawAlgorithm::V1,
+            })],
+            ..definition
+        };
+        assert_eq!(
+            duplicate_pool.validate(),
+            Err(ReusableCurriculumValidationError::DuplicatePoolCandidate)
+        );
+        let alpha = AlphaCourseDefinitionInput {
+            title: "Biochemistry Alpha".to_string(),
+            modules: vec![AlphaCourseModuleInput {
+                label: "Week 1".to_string(),
+                definitions: vec![input(RelativeAssignmentSchedule::default())],
+            }],
+        };
+        assert!(alpha.validate().is_ok());
+    }
+
+    #[test]
+    fn safe_projection_serializes_catalog_rows_without_internal_child_identity() {
+        let view = AlphaCourseView {
+            reference: "AC-12".parse().expect("valid reference"),
+            title: "Biochemistry Alpha".to_string(),
+            revision: AlphaCourseRevision::new(4).expect("valid revision"),
+            creator_byline: PublicByline::new(vec![
+                PublicAuthorName::new("Ada Lovelace".to_string()).expect("valid byline"),
+            ])
+            .expect("valid byline"),
+            access: AlphaCourseAccess::ApprovedInstructor,
+            modules: vec![AlphaCourseModuleView {
+                label: "Week 1".to_string(),
+                definitions: vec![ReusableAssignmentDefinitionView {
+                    title: "Protein structure practice".to_string(),
+                    instructions: AssignmentInstructions::default(),
+                    entries: vec![ReusableAssignmentEntryView::Fixed {
+                        question: ReusableQuestionView {
+                            catalog: discovery(),
+                            selection_availability: ReusableSelectionAvailability::Available,
+                        }
+                        .into(),
+                        points_possible: PointValue::from_whole(3),
+                        scoring_mode: AssignmentScoringMode::Normal,
+                    }],
+                    defaults: defaults(),
+                    schedule: RelativeAssignmentSchedule::default(),
+                }],
+            }],
+        };
+        let wire = serde_json::to_value(view).expect("safe projection serializes");
+        assert_eq!(wire["reference"], "AC-12");
+        assert_eq!(
+            wire["modules"][0]["definitions"][0]["entries"][0]["kind"],
+            "fixed"
+        );
+        assert!(
+            wire.pointer("/modules/0/definitions/0/entries/0/question/catalog")
+                .is_some()
+        );
+        assert!(
+            wire.pointer("/modules/0/definitions/0/entries/0/id")
+                .is_none()
+        );
+        assert!(
+            wire.pointer("/modules/0/definitions/0/entries/0/revision")
+                .is_none()
+        );
+    }
+}

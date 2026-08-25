@@ -29,8 +29,8 @@ and evidence, and M5-M7 state a bounded maximum parallel-doer count.
 - **Fix:** Replace both dependencies with the already satisfied,
   independently-reviewed production-composition prerequisite, for example:
   `the implemented and independently reviewed WP-RC8 provider-free production
-  composition, not WP-RC8 package acceptance`. Keep the separate operator
-  canonical-email-browser prerequisite as WP-B1's runtime entry criterion.
+composition, not WP-RC8 package acceptance`. Keep the separate operator
+  canonical-email-browser prerequisite as the onboarding preflight's runtime entry criterion.
   M3b/WP-W10 evidence can then contribute to, rather than wait for, final
   WP-RC8 acceptance.
 - **Retest:** Have a fresh reviewer trace the revised dependency wording to
@@ -60,6 +60,7 @@ and evidence, and M5-M7 state a bounded maximum parallel-doer count.
   created enrollment.
 
 ### High - Canonical email onboarding conflicts with the stated mailbox
+
 non-goal
 
 - **Location:** `docs/active_plans/peptidyle-walkthrough-plan.md:81-82`,
@@ -74,7 +75,7 @@ non-goal
 - **Fix:** State the boundary precisely: the simulator does not test SMTP
   provider implementation, deliverability, or mailbox-service behavior; it
   consumes an operator-provided test mailbox/account solely to complete the
-  PLE email-authentication browser ceremony. WP-B1 must require that access,
+  PLE email-authentication browser ceremony. The onboarding preflight must require that access,
   and WP-W10 must record the PLE browser outcome while redacting the challenge
   token and mailbox artifacts. Retain `BLOCKED` when the operator prerequisite
   is absent.
@@ -132,7 +133,7 @@ otherwise execution-ready after this one assignment-contract clarification.
 
 ### Confirmed fixes
 
-- M3b and WP-B1 now depend on the implemented, independently reviewed
+- M3b and the onboarding preflight now depend on the implemented, independently reviewed
   provider-free WP-RC8 production composition, explicitly not final WP-RC8
   package acceptance. WP-W10 contributes the browser evidence needed by that
   later acceptance, so the dependency is noncircular.
@@ -140,7 +141,7 @@ otherwise execution-ready after this one assignment-contract clarification.
   through supported authenticated assignment or course reads, and reuses the
   seeded course. It prohibits creating a course, membership, enrollment,
   account, local identity, or SQL fixture.
-- WP-B1 correctly treats an operator-selected provider, test mailbox, and
+- The onboarding preflight correctly treats an operator-selected provider, test mailbox, and
   delivered link as a runtime prerequisite. The simulator consumes that
   prerequisite to test the PLE browser ceremony, while explicitly excluding
   SMTP transport, deliverability, provider UI, and mailbox-service validation.

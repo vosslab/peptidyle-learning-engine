@@ -41,6 +41,7 @@ test("saved search filter keeps the current normalized Library meaning", () => {
     taxonomy: [],
     capabilities: [],
     licenses: [],
+    publicationScopes: [],
     evidence: "available",
     usedInMyCourses: "any",
     authorship: "any",
@@ -61,6 +62,7 @@ test("running a saved search starts with its current-catalog filters", () => {
       taxonomy: [{ scheme: "ncbi", code: "9606" }],
       capabilities: ["serverGrading"],
       licenses: ["ccBy"],
+      publicationScopes: ["public"],
       evidence: "available",
       usedInMyCourses: "used",
       authorship: "any",
@@ -79,6 +81,7 @@ test("running a saved search starts with its current-catalog filters", () => {
     evidence: "available",
     usedInMyCourses: "used",
     authorship: "any",
+    publicationScopes: ["public"],
   });
 });
 

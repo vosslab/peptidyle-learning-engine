@@ -63,8 +63,17 @@ def reset_live_demo_browser(
 	local_stack_control.browser_suite_ownership.require_live_demo_browser_ownership(before)
 	if _resource_count(before) == 0:
 		return before
-	for container in before.containers:
-		_run_remove(runner, repo_root, ["podman", "rm", "-f", container.id])
+	if len(before.containers) > 0:
+		# Podman tracks container dependency edges (for example, a database
+		# container depending on the project-owned volume-permissions helper).
+		# ``--depend`` asks the engine to remove dependent containers in the
+		# order it requires, rather than making this controller guess topology
+		# from service names or compose files.
+		_run_remove(
+			runner,
+			repo_root,
+			["podman", "rm", "-f", "--depend", *(container.id for container in before.containers)],
+		)
 	for volume in before.volumes:
 		_run_remove(runner, repo_root, ["podman", "volume", "rm", volume.name])
 	for network in before.networks:

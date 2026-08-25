@@ -8,6 +8,11 @@ use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 
 use super::*;
 
+// Isolated databases are created concurrently by the authority oracle.  Keep
+// their migration setup serialized while the shared live schema is validated
+// read-only by the parent fixture.
+static ISOLATED_MIGRATION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 pub(super) struct IsolatedDatabase {
     pub(super) pool: PgPool,
     admin: PgPool,
@@ -40,7 +45,7 @@ impl IsolatedDatabase {
             .connect_with(product_options)
             .await
             .expect("isolated authority database connection");
-        let _migration_guard = MIGRATION_LOCK.lock().await;
+        let _migration_guard = ISOLATED_MIGRATION_LOCK.lock().await;
         apply_migrations(&pool)
             .await
             .expect("migrate isolated authority database");

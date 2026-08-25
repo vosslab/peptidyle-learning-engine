@@ -22,6 +22,10 @@ function canUseLibrary(state: SessionBootstrapState): boolean {
   return canAccessRoute(state, "library");
 }
 
+function canUseCurriculum(state: SessionBootstrapState): boolean {
+  return canAccessRoute(state, "curriculum");
+}
+
 type ScopedRouteSectionProps = RouteSectionProps & { readonly pathname: string };
 
 function isPublicAccountRoute(pathname: string): boolean {
@@ -157,6 +161,11 @@ export function App(props: RouteSectionProps): JSX.Element {
           <Show when={canUseLibrary(session.state())}>
             <A href="/library" activeClass="active">
               Library
+            </A>
+          </Show>
+          <Show when={canUseCurriculum(session.state())}>
+            <A href="/curriculum" activeClass="active">
+              Curriculum
             </A>
           </Show>
           <Show when={canUseAuthoringTools(session.state())}>

@@ -61,11 +61,11 @@ def snapshot(
 
 
 #============================================
-def test_reset_removes_only_exact_verified_resources_in_dependency_order(
+def test_reset_uses_podman_dependency_order_for_exact_verified_resources(
 	monkeypatch: pytest.MonkeyPatch,
 	tmp_path: pathlib.Path,
 ) -> None:
-	"""The reset removes container IDs before known volume and network names."""
+	"""Podman resolves dependency-bearing containers before volume cleanup."""
 	runner = RecordingRunner()
 	values = iter((snapshot(), local_stack_control.models.ProjectSnapshot(
 		local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT, (), (), ()
@@ -74,10 +74,37 @@ def test_reset_removes_only_exact_verified_resources_in_dependency_order(
 	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path) as lease:
 		local_stack_control.browser_suite_reset.reset_live_demo_browser(lease, runner, tmp_path)
 	assert runner.commands == [
-		("podman", "rm", "-f", "container-one"),
+		("podman", "rm", "-f", "--depend", "container-one"),
 		("podman", "volume", "rm", "ple-live-demo-browser_ple_pgdata"),
 		("podman", "network", "rm", "ple-live-demo-browser_default"),
 	]
+
+
+#============================================
+def test_reset_passes_every_owned_container_to_dependency_cleanup(
+	monkeypatch: pytest.MonkeyPatch,
+	tmp_path: pathlib.Path,
+) -> None:
+	"""A dependency-bearing project is removed through one engine-owned graph operation."""
+	runner = RecordingRunner()
+	project = local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
+	first = snapshot()
+	second = local_stack_control.models.ContainerResource(
+		id="container-two", names=("postgres",), project=project, service="postgres",
+		state="running", running=True, exit_code=None, health="healthy", image="postgres",
+		ports=(), owner="live-demo-browser",
+	)
+	with_containers = local_stack_control.models.ProjectSnapshot(
+		project, (first.containers[0], second), first.volumes, first.networks,
+	)
+	empty = local_stack_control.models.ProjectSnapshot(project, (), (), ())
+	values = iter((with_containers, empty))
+	monkeypatch.setattr(local_stack_control.browser_suite_reset, "_browser_snapshot", lambda *args: next(values))
+	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path) as lease:
+		local_stack_control.browser_suite_reset.reset_live_demo_browser(lease, runner, tmp_path)
+	assert runner.commands[0] == (
+		"podman", "rm", "-f", "--depend", "container-one", "container-two",
+	)
 
 
 #============================================

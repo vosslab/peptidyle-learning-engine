@@ -412,7 +412,7 @@ async fn saved_searches_normalize_and_require_one_current_revision() {
             Method::POST,
             "/api/saved-problem-searches",
             Some(&fixture.elena_cookie),
-            r#"{"title":"Protein search","filter":{"text":"  kinase  ","bylines":[],"backends":[],"tags":[],"responseFamilies":[],"taxonomy":[],"capabilities":[],"licenses":[],"evidence":"any","usedInMyCourses":"any","authorship":"any"}}"#,
+            r#"{"title":"Protein search","filter":{"text":"  kinase  ","bylines":[],"backends":[],"tags":[],"responseFamilies":[],"taxonomy":[],"capabilities":[],"licenses":[],"publicationScopes":[],"evidence":"any","usedInMyCourses":"any","authorship":"any"}}"#,
         ),
     )
     .await;
@@ -430,7 +430,7 @@ async fn saved_searches_normalize_and_require_one_current_revision() {
             Method::PUT,
             &uri,
             Some(&fixture.elena_cookie),
-            r#"{"title":"Protein search","filter":{"text":"kinase","bylines":[],"backends":[],"tags":[],"responseFamilies":[],"taxonomy":[],"capabilities":[],"licenses":[],"evidence":"any","usedInMyCourses":"any","authorship":"any"}}"#,
+            r#"{"title":"Protein search","filter":{"text":"kinase","bylines":[],"backends":[],"tags":[],"responseFamilies":[],"taxonomy":[],"capabilities":[],"licenses":[],"publicationScopes":[],"evidence":"any","usedInMyCourses":"any","authorship":"any"}}"#,
         ),
     )
     .await;
@@ -440,7 +440,7 @@ async fn saved_searches_normalize_and_require_one_current_revision() {
         .uri(&uri)
         .header(COOKIE, &fixture.elena_cookie)
         .header(IF_MATCH, etag)
-        .body(Body::from(r#"{"title":"Kinase search","filter":{"text":"kinase","bylines":[],"backends":[],"tags":[],"responseFamilies":[],"taxonomy":[],"capabilities":[],"licenses":[],"evidence":"any","usedInMyCourses":"any","authorship":"any"}}"#))
+        .body(Body::from(r#"{"title":"Kinase search","filter":{"text":"kinase","bylines":[],"backends":[],"tags":[],"responseFamilies":[],"taxonomy":[],"capabilities":[],"licenses":[],"publicationScopes":[],"evidence":"any","usedInMyCourses":"any","authorship":"any"}}"#))
         .expect("update request");
     let updated = dispatch(&fixture.app, update).await;
     assert_eq!(updated.status(), StatusCode::OK);

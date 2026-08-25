@@ -728,6 +728,7 @@ pub(super) async fn aggregate_limits_title_conflicts_and_broker_input_validation
         ],
         "capabilities": ["serverGrading", "partialCredit", "hints"],
         "licenses": ["ccBySa", "ccByNc", "cc0"],
+        "publicationScopes": ["institution", "public"],
         "evidence": "any",
         "usedInMyCourses": "any",
         "authorship": "any"
@@ -771,6 +772,9 @@ pub(super) async fn aggregate_limits_title_conflicts_and_broker_input_validation
         serde_json::json!(["hints", "partialCredit", "serverGrading"]);
     let mut noncanonical_licenses = canonical_filter.clone();
     noncanonical_licenses["licenses"] = serde_json::json!(["cc0", "ccByNc", "ccBySa"]);
+    let mut noncanonical_publication_scopes = canonical_filter.clone();
+    noncanonical_publication_scopes["publicationScopes"] =
+        serde_json::json!(["public", "institution"]);
     let mut invalid_type = canonical_filter.clone();
     invalid_type["bylines"] = serde_json::json!("not-an-array");
     let mut invalid_enum = canonical_filter.clone();
@@ -801,6 +805,10 @@ pub(super) async fn aggregate_limits_title_conflicts_and_broker_input_validation
         ("noncanonical taxonomy order", noncanonical_taxonomy),
         ("noncanonical capability order", noncanonical_capabilities),
         ("noncanonical license order", noncanonical_licenses),
+        (
+            "noncanonical publication scope order",
+            noncanonical_publication_scopes,
+        ),
         ("invalid field type", invalid_type),
         ("invalid closed enum", invalid_enum),
         ("oversized array", oversized),
@@ -834,6 +842,7 @@ pub(super) async fn aggregate_limits_title_conflicts_and_broker_input_validation
         "taxonomy": [],
         "capabilities": [],
         "licenses": [],
+        "publicationScopes": [],
         "evidence": "availableToAnyone",
         "usedInMyCourses": "any",
         "authorship": "any"

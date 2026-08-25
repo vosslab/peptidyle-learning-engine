@@ -31,6 +31,7 @@ const CATALOG_RESPONSE_FAMILIES = [
   "fileUpload",
   "externalTool",
 ] as const;
+const CATALOG_PUBLICATION_SCOPES = ["institution", "public"] as const;
 const CATALOG_QUERY_FIELDS = [
   "text",
   "bylines",
@@ -43,6 +44,7 @@ const CATALOG_QUERY_FIELDS = [
   "evidence",
   "usedInMyCourses",
   "authorship",
+  "publicationScopes",
   "cursor",
   "pageSize",
 ] as const;
@@ -179,6 +181,17 @@ export function catalogSearchPath(query: CatalogSearchQuery): string {
   // Keep the current visible source explicit in every cursor-bound request.
   // `any` is a closed scope, not an omitted identity fallback.
   parameters.set("authorship", authorship);
+  boundedCatalogFilterValues(
+    query.publicationScopes,
+    CATALOG_PUBLICATION_SCOPES.length,
+    "catalog publicationScopes",
+  );
+  for (const scope of query.publicationScopes) {
+    parameters.append(
+      "publicationScopes",
+      catalogEnum(scope, CATALOG_PUBLICATION_SCOPES, "catalog publication scope"),
+    );
+  }
   if (query.cursor !== null) {
     parameters.set("cursor", catalogCursor(query.cursor));
   }

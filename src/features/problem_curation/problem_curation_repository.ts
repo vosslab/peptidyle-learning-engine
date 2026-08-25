@@ -49,6 +49,7 @@ export function createProblemCurationRepository(
   readonly picker: ProblemPickerSourceRepository;
 } {
   const authoredCatalog = createCatalogRepository(client, "authoredByCurrentActor");
+  const publicCatalog = createCatalogRepository(client, "any", ["public"]);
   const curation: ProblemCurationRepository = {
     async ensureFavorites() {
       const result = await client.ensureFavorites();
@@ -135,6 +136,9 @@ export function createProblemCurationRepository(
       if (request.source.kind === "catalog") {
         return await catalog.search(request.query, request.cursor);
       }
+      if (request.source.kind === "publicCatalog") {
+        return await publicCatalog.search(request.query, request.cursor);
+      }
       if (request.source.kind === "mine") {
         return await authoredCatalog.search(request.query, request.cursor);
       }
@@ -158,7 +162,9 @@ export function createProblemCurationRepository(
           ),
         );
       }
-      throw new Error("Choose a current Library, Favorites, or named collection source.");
+      throw new Error(
+        "Choose the current Library, Public library, Favorites, or a named collection source.",
+      );
     },
   };
   return { curation, picker };

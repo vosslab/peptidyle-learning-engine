@@ -7,7 +7,7 @@
 //! while stale, foreign, malformed, and direct-DML requests cannot.
 
 use learning_data_access::postgres::{
-    PostgresStore, apply_migrations, lazy_pool, migration_status,
+    PostgresStore, lazy_pool, migration_status, verify_application_schema,
 };
 use learning_data_access::{AssignmentRecord, CreateAssignmentCommand, Store, TenantContext};
 use question_model::run_policy::{
@@ -35,12 +35,9 @@ async fn pool() -> PgPool {
     let runtime = load_acceptance_runtime();
     let url = runtime.admin_url().expose();
     let pool = lazy_pool(url).expect("valid disposable PostgreSQL URL");
-    apply_migrations(&pool)
+    verify_application_schema(&pool)
         .await
-        .expect("full migration epoch applies");
-    apply_migrations(&pool)
-        .await
-        .expect("migration epoch converges");
+        .expect("full migrated application schema is compatible");
     let status = migration_status(&pool)
         .await
         .expect("migration status is readable");

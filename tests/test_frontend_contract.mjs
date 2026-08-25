@@ -8,18 +8,19 @@ import test from "node:test";
 import { createBrowserSessionBoundary } from "../src/auth/browser_session_boundary.ts";
 import { createSessionBootstrap, sessionFailureState } from "../src/auth/session_context.tsx";
 import { prefetchMatchesIssuedSuccessor } from "../src/features/attempt/prefetch_binding.ts";
-import {
-  rolesMayAccessRoute,
-  routeContractForPathname,
-  ROUTE_CONTRACT,
-} from "../src/route_contract.ts";
+import { rolesMayAccessRoute, routeContractForPathname } from "../src/route_contract.ts";
 
 test("route contracts fail closed and reserve authoring routes for teaching roles", () => {
   assert.equal(routeContractForPathname("/library/7K3-M9QP")?.id, "problemDetail");
   assert.equal(routeContractForPathname("/library/7K3-M9QP/extra"), undefined);
+  assert.equal(routeContractForPathname("/curriculum")?.id, "curriculum");
+  assert.equal(routeContractForPathname("/curriculum/BP-7")?.id, "curriculumDetail");
+  assert.equal(routeContractForPathname("/curriculum/BP-7/extra"), undefined);
   assert.equal(rolesMayAccessRoute("workspaceEditor", ["student"]), false);
   assert.equal(rolesMayAccessRoute("workspaceEditor", ["instructor"]), true);
-  assert.ok(ROUTE_CONTRACT.length > 0);
+  assert.equal(rolesMayAccessRoute("curriculum", ["student"]), false);
+  assert.equal(rolesMayAccessRoute("curriculum", ["sysadmin"]), false);
+  assert.equal(rolesMayAccessRoute("curriculum", ["instructor"]), true);
 });
 
 test("session bootstrap retains only safe session state with direct narrow dependencies", async () => {

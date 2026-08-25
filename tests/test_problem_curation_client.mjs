@@ -25,6 +25,7 @@ const FILTER = {
   taxonomy: [{ scheme: "Peptidyle", code: "BIOCHEM.PEPTIDE_BOND" }],
   capabilities: ["serverGrading"],
   licenses: ["ccBy"],
+  publicationScopes: [],
   evidence: "any",
   usedInMyCourses: "any",
   authorship: "any",
@@ -68,6 +69,9 @@ test("D2 curation decoders accept only closed safe projections and current D1 fi
   const unknownAuthorship = structuredClone(savedSearch());
   unknownAuthorship.filter.authorship = "otherActor";
   assert.throws(() => decodeSavedProblemSearchView(unknownAuthorship), DecodeError);
+  const unknownPublicationScope = structuredClone(savedSearch());
+  unknownPublicationScope.filter.publicationScopes = ["private"];
+  assert.throws(() => decodeSavedProblemSearchView(unknownPublicationScope), DecodeError);
   assert.throws(
     () => decodeProblemCollectionSummaryView({ ...collection(), owner: "private user" }),
     DecodeError,

@@ -38,10 +38,34 @@ canonical onboarding remain separate release work.
 ordinary live assignments, learner runs, deterministic server-owned grading, immutable issued
 evidence, receipt replay, and audited Instructor inspection as the canonical product path.
 WP-PROF-T5 is accepted after extending that model with visible item-pool authoring, policy-correct
-automatic variation, executable no-store preview, and ordinary Student delivery. WP-PROF-D1 is
-accepted, and WP-PROF-D2 advances live problem curation over the canonical Library/search path. The
+automatic variation, executable no-store preview, and ordinary Student delivery. WP-PROF-D1 and
+WP-PROF-D2 are accepted, and WP-PROF-B1 advances reusable curricula over the canonical Library,
+curation, and problem-selection path. The
 shared status registry owns the current handoff and migration allocation; the professor capability
 plan retains the accepted T5 contract and evidence boundary.
+
+## Grounded evidence rule for open packages
+
+Open-package acceptance starts with a binding contract that names owned modules, routes, migrations
+when persistence changes, dependency order, and an evidence-class table. Permanent tests retain
+deterministic, offline behavior that could plausibly regress. Disposable PostgreSQL, browser,
+multi-replica, and controlled-clock exercises retain connected behavior. Source inventories,
+rendered captures, capacity measurements, and query-plan inspections are one-time implementation or
+release evidence when they support a documented decision. Final Validation is the `./all_test.sh`
+gate on the final material tree after each package's local lanes are green.
+
+Responsive coverage uses maintained desktop, portrait, narrow-phone, and square profiles. Each
+profile is reviewed for semantic usability, focus, contrast, recovery, and readable hierarchy; exact
+pixels, viewport shares, screenshots hashes, and artifact totals have no acceptance authority.
+Server response tests cover declared success, validation, conflict, denial, and pagination families
+rather than enumerating individual response instances. Teaching-policy tests choose representative
+precedence partitions, including deny, grant, override, conflict, and no-op paths.
+
+Capacity, retention, signed-link expiry, and theme support use documented configuration models: a
+deployment declares workload shape, retained-record horizon, object and payload limits, expiry
+duration, supported appearance variants, and scaling policy. Tests exercise controlled-clock expiry
+and configured boundary behavior; one-time load, route-inventory, source-inventory, and rendered
+variant reviews record the model and observations without becoming permanent count gates.
 
 The completed local-stack lifecycle controller foundation is recorded in
 `docs/active_plans/workstreams/local_stack_controller_implementation.md`.
@@ -313,14 +337,14 @@ Three weaknesses neither review named, each becoming a requirement here:
 | H5P grading          | Native H5P is ungraded practice; `serverGrading: false`                                                                            | Owner's observation: H5P ships answer evaluation to the browser                                                                                                                                                        |
 | WASM contents        | Parameter generation, answer-format validation, timer display, state transitions                                                   | Non-secret work only, enforced by the dependency graph                                                                                                                                                                 |
 | Sharing boundary     | **Shared educational content; tenant-owned records and course artifacts**                                                          | Owner-selected, refined by reviewers. Assignments may be imported or copied as teaching structures while authorization and course records remain tenant-owned                                                          |
-| Activity model       | `assignment_enrollment` / `assignment_run` / `question_attempt`                                                                    | Owner's 30-runs observation. Completion is not terminal; practice continues with new variants                                                                                                                          |
-| Grade computation    | Transactionally maintained summary rows; never scan attempt history                                                                | At 300 M+ attempt rows, scanning for a course page is not an option                                                                                                                                                    |
+| Activity model       | `assignment_enrollment` / `assignment_run` / `question_attempt`                                                                    | Owner-reported repeated-practice observation used for planning; completion is not terminal and practice continues with new variants                                                                                      |
+| Grade computation    | Transactionally maintained summary rows; never scan attempt history                                                                | The declared capacity model keeps grade pages on summaries as workload grows; one-time query review records the observed plan                                                                                         |
 | Question identity    | One random checked `AAA-BBBB` Question ID; hidden UUIDs and snapshots remain internal                                              | The Question ID is the only human-facing identity. It is non-sequential, copiable, names one immutable published question, and never carries a version suffix                                                          |
-| Partitioning         | Monthly range partitions on the four highest-volume append-only tables only                                                        | 300 M rows per term makes this non-speculative; everything else stays unpartitioned per reviewer 3                                                                                                                     |
+| Partitioning         | Monthly range partitions on the four highest-volume append-only tables only                                                        | Capacity-model candidate for the declared planning workload; a one-time workload/query review validates it and other tables remain unpartitioned until observed need                                                                 |
 | Pagination           | Cursor only; `OFFSET` banned by lint and review                                                                                    | Large `OFFSET` scans are unusable at catalog and history scale                                                                                                                                                         |
 | Content storage      | Split by role with a size backstop (below)                                                                                         | Answers the owner's direct question                                                                                                                                                                                    |
 | Flat question source | Versioned PLE flat-question JSON, compiled into separate public and grader-only values                                             | Keeps ordinary static authoring small and deterministic; QTI remains an import/export adapter instead of defining the internal model                                                                                   |
-| Catalog table split  | `problem_version` metadata separate from hash-partitioned `problem_version_payload`                                                | 10 M payloads is ~100 GB; browse and search must run on the ~2 GB metadata table                                                                                                                                       |
+| Catalog table split  | `problem_version` metadata separate from hash-partitioned `problem_version_payload`                                                | Planning sizing observation favors a hot metadata projection and cold payload store; configured budgets and one-time query review decide when a partition or index change is needed                                      |
 | Object storage       | S3 with four physical security domains; MinIO locally                                                                              | `public-assets`, `private-content`, `student-records`, and `temp-processing` have distinct IAM/KMS, retention, and delivery policies                                                                                   |
 | Asset delivery       | CloudFront immutable URLs for activated public catalog assets; authorized POST-minted short-lived URLs for private/student records | CDN handles non-record public bytes; a protected navigation cannot mint an access grant                                                                                                                                |
 | Rendered output      | Cached by `(version_id, seed)` in `private-content`; no public renderer feature until externally managed renderer attestation      | Rendering remains deterministic, but the renderer is outside the production baseline until its identity and isolation are independently accepted                                                                       |
@@ -871,20 +895,24 @@ was produced is not acceptable.
 
 Regrading is supported and explicit: it creates a **new grade event** referencing the new grading
 version, never overwriting the old one. The history therefore shows both results and the reason for the
-change, which is what makes "why did my grade change" answerable. A test asserts every grading version
-referenced by the fixture corpus is still callable.
+change, which is what makes "why did my grade change" answerable. Durable replay behavior tests invoke
+representative retained grading implementations; a one-time compatibility review confirms that every
+version referenced by accepted historical records remains callable.
 
 ## Scale evaluation
 
-Target: 10,000,000 problems, 1,000 instructors, 50,000 students. Start: 500 problems, 2 instructors,
-100 students. The architecture holds at both ends, and the deployment size changes while the
-application model does not. The arithmetic, and the seven decisions it forces, follow.
+Planning scenarios: 10,000,000 problems, 1,000 instructors, and 50,000 students; starting
+observation: 500 problems, 2 instructors, and 100 students. These values are sizing assumptions,
+not acceptance thresholds. The application model stays stable while a configured deployment model
+responds to observed workload; the one-time capacity review records the evidence for each decision.
 
 ### Activity volume is the dominant concern
 
-With the owner's practice behavior included, per term:
+Planning assumption based on the owner's reported practice behavior, not a permanent acceptance
+target. The values give the capacity review a declared workload shape; observed workload and the
+configured storage/query budgets decide whether the deployment model needs to change.
 
-| Quantity                                           | Value                 |
+| Planning quantity                                  | Sizing observation    |
 | -------------------------------------------------- | --------------------- |
 | Students x assignments x questions x complete runs | 50,000 x 10 x 20 x 30 |
 | Question instances per term                        | ~300 M                |
@@ -893,61 +921,64 @@ With the owner's practice behavior included, per term:
 | Database writes per submission                     | ~4                    |
 | Peak write rate                                    | ~2,000 writes / s     |
 
-Two thousand small writes per second is routine for a provisioned RDS PostgreSQL instance, so the
-request path is fine. The row count is what drives design:
+These figures are one-time sizing observations. A class-start or release review records the actual
+workload shape, observed queue/error/latency distribution, and configured capacity budgets; no value
+in this table is a permanent pass/fail threshold. The planning scenario suggests the following
+design responses:
 
 - The four highest-volume tables (`question_attempt`, `submission`, `grade_event`, `audit_event`) use
-  monthly range partitions from the first migration. At 300 M rows per term this is not speculative,
-  and partitions cost nothing at 100 students. Reviewer 3 cautions against partitioning everything
-  from the prototype, which this follows: nothing else is partitioned, and every other table carries
-  the IDs and timestamps that permit partitioning later.
+  monthly range partitions from the first migration. A one-time workload and query-plan review
+  validates that choice against the configured retention and storage model; other tables remain
+  unpartitioned until observed workload justifies a change.
 - Grades come from `student_assignment_summary`, never from scanning attempts.
 - Attempt rows stay compact: seed plus parameter hash, not parameters.
 - Verbose render traces and temporary artifacts get retention rules, not indefinite storage.
 
-### 10 million problems
+### Planning sizing observation: 10 million problems
 
-Ten million rows is unremarkable for PostgreSQL. Ten million _payloads_ is not: at roughly 10 KB
-each that is ~100 GB in operational tables. Most are cold, so the schema splits hot metadata from
-cold payload:
+The 10-million-problem scenario is a planning assumption rather than a release gate. The one-time
+capacity review records the observed payload distribution and configured hot/cold storage budgets.
+The illustrative arithmetic below explains the proposed split without granting permanent authority
+to row, byte, or index counts:
 
 | Table                     | Contents                                                     | Size at 10 M              | Access                       |
 | ------------------------- | ------------------------------------------------------------ | ------------------------- | ---------------------------- |
 | `problem_version`         | Identity, lifecycle, capability and taxonomy refs, checksums | ~2 GB                     | Hot; browse, search, resolve |
 | `problem_version_payload` | Normalized question model                                    | ~100 GB, hash-partitioned | Cold; read on attempt issue  |
 
-Browse and search then run against ~2 GB with useful indexes. Tags at roughly five per problem is
-50 M join rows, ordinary for PostgreSQL. Full-text and trigram search over 10 M rows with a GIN index
-is fine; faceted search with live counts is the documented replacement point, and immutable versions
-are what make adding a search index safe later.
+Browse and search run against the configured metadata projection. A one-time query-plan and workload
+review decides whether the current PostgreSQL faceting remains suitable; immutable versions make a
+later search-index replacement safe when observed query volume or configured capacity calls for it.
 
-### 1,000 instructors
+### Planning sizing observation: 1,000 instructors
 
-Small, as reviewer 3 says -- but only because tenancy is logical. Database-per-instructor would mean
-1,000 catalogs, 1,000-step migrations, and constant connection-pool eviction, each rebuild paying a
-10-50 ms TLS handshake on a request path where that cost is pure overhead. One cluster with forced RLS
-removes the tenant pool
-registry, per-tenant migrations, and the RDS Proxy requirement entirely. This is the plan's largest
-simplification and it came from reviewer 3.
+This scenario tests the logical-tenancy choice. One cluster with forced RLS remains the configured
+starting model; observed tenant workload, regulatory requirements, and the deployment capacity model
+decide whether a later physical split is warranted. A one-time operations review records that
+decision and its evidence.
 
-Simultaneous students are the real number: 1,000 to 10,000 concurrent from 50,000 registered, met by
-adding stateless replicas.
+Simultaneous students are evaluated as observed concurrency against the configured replica and
+database budgets, with stateless replicas added when the measured workload requires them.
 
-### WeBWorK is the likely bottleneck
+### WeBWorK workload observation
 
-Rendering and grading are CPU-heavy Perl at roughly 100-500 ms per render. Mitigations, in order of
-leverage: deterministic render caching by `(version_id, seed)` turns repeat renders into CDN hits;
-question prefetch hides first-render latency; a worker pool autoscales on queue depth, grading
-latency, CPU, and timeout rate. Submitted answers are still graded server-side regardless of caching.
+Rendering and grading are CPU-heavy Perl in the observed provider configuration. A named load review
+records queue depth, CPU, timeout, and user-visible readiness behavior against configured budgets.
+Deterministic render caching by `(version_id, seed)`, question prefetch, and worker scaling remain
+the first responses when the observations show pressure. Submitted answers are still graded
+server-side regardless of caching.
 
-### Honest replacement thresholds
+### Capacity-model replacement decisions
 
-| Component                          | Holds until                                              | Then                                                              |
-| ---------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------- |
-| `FOR UPDATE SKIP LOCKED` job queue | ~5,000 jobs / min                                        | Move to SQS                                                       |
-| PostgreSQL faceted search          | ~10 M problems with live counts                          | Add a search index fed from immutable versions                    |
-| Single writer                      | ~2,000 writes / s sustained                              | Read replicas for catalog and reporting first, then shard tenants |
-| One cluster, logical tenancy       | Regulatory or contractual demand for physical separation | Split by tenant ID, which every record already carries            |
+| Component                          | Replacement signal                                      | Decision                                                        |
+| ---------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------- |
+| `FOR UPDATE SKIP LOCKED` job queue | Observed queue pressure exceeds its configured budget  | Evaluate a durable external queue with the same job contract   |
+| PostgreSQL faceted search          | Observed query workload exceeds configured index budget | Add a search index fed from immutable versions                 |
+| Single writer                      | Observed sustained writes exceed configured DB budget   | Add catalog/reporting replicas, then evaluate tenant partition |
+| One cluster, logical tenancy       | Regulatory or contractual physical-separation need     | Split by tenant ID, which every record already carries         |
+
+These are decision procedures, not permanent numeric gates. Each replacement requires a dated
+workload observation, the active configuration, and an architect-approved receipt.
 
 ### Deployment at each end
 
@@ -1215,7 +1246,7 @@ complete deterministic
 `validate_assignment_config` violation list. Capability failures render beside the affected selections so
 the instructor sees every violation at once rather than one per submission.
 
-At the canonical 1280 by 800 viewport, assignment organization uses the useful page width instead of
+In the maintained desktop profile, assignment organization uses the useful page width instead of
 confining the catalog to an aside. Selected questions form compact scan rows with drag ordering,
 small directional controls, and direct position selection; these mechanisms share one ordered-list
 mutation contract. Four questions, the policy summary, and the save action fit in the initial
@@ -1258,7 +1289,7 @@ substitution for a required production path.
 | ---------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | MOD-QM           | `question_model`                                                         | Types, capabilities, identity, taxonomy                                           | none                                                                  | n/a (root contract)                  | `cargo test`; `ts-rs` output compiles                                                                                                                                                                                               |
 | MOD-ID           | Identity and lifecycle                                                   | Draft workspace identity, published `ProblemId`/`VersionId`, lifecycle            | MOD-QM                                                                | n/a                                  | Lifecycle tests; no published identity construction outside publish                                                                                                                                                                 |
-| MOD-RUN          | Enrollment, run, attempt model and policies                              | Run lifecycle, four policy types                                                  | MOD-QM                                                                | n/a                                  | 30-run scenario; policy combinations                                                                                                                                                                                                |
+| MOD-RUN          | Enrollment, run, attempt model and policies                              | Run lifecycle, four policy types                                                  | MOD-QM                                                                | n/a                                  | Representative repeat-practice history preserves issued runs and summary behavior across policy combinations                                                                                                                        |
 | MOD-STATE        | Attempt state machine                                                    | `apply(state, event)`, within-run completion                                      | MOD-QM, MOD-RUN                                                       | n/a                                  | Every legal transition plus a rejected illegal one                                                                                                                                                                                  |
 | MOD-TIME         | Timing rules                                                             | `timer_verdict(...)` pure fn                                                      | MOD-QM                                                                | n/a                                  | Table-driven grace and pause cases                                                                                                                                                                                                  |
 | MOD-SCORE        | Scoring and grade policies                                               | `score(...)`, summary projection                                                  | MOD-QM, MOD-RUN                                                       | n/a                                  | First/latest/highest agree with a hand-computed fixture                                                                                                                                                                             |
@@ -1269,11 +1300,11 @@ substitution for a required production path.
 | MOD-STO          | Persistence and RLS context                                              | `Store` trait                                                                     | MOD-QM, MOD-ID, MOD-RUN, MOD-GRD (opaque flat private integrity only) | `MemoryStore`                        | Conformance suite on memory and PostgreSQL; cursor pagination only; no private material enters Wasm                                                                                                                                 |
 | MOD-SCHEMA       | Migrations, RLS policies, partitions                                     | Shared and tenant schema                                                          | MOD-ID, MOD-RUN                                                       | n/a                                  | Fresh apply; foreign tenant context returns zero rows                                                                                                                                                                               |
 | MOD-ADP-NAT      | Native adapter                                                           | Algorithmic families and strict PLE flat-question compiler                        | MOD-QM, MOD-GEN, MOD-GRD                                              | n/a                                  | End-to-end generated family; flat JSON public/private split and reproducible hash                                                                                                                                                   |
-| MOD-ADP-WW       | WeBWorK adapter                                                          | Adapter impl, renderer client, render cache                                       | MOD-QM, MOD-OBJ                                                       | Recorded renderer fixtures           | Exact immutable authored `which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades; repeat seed cache hit; private topology, timeout, PLE API, and browser gates pass; broad OPL corpus compatibility is out of scope |
+| MOD-ADP-WW       | WeBWorK adapter                                                          | Adapter impl, renderer client, render cache                                       | MOD-QM, MOD-OBJ                                                       | Recorded renderer fixtures           | Approved immutable authored `which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades; repeat seed cache hit; private topology, timeout, PLE API, and browser gates pass; broad OPL corpus compatibility is out of scope |
 | MOD-ADP-QTI      | QTI adapter                                                              | Import pipeline, export                                                           | MOD-QM, MOD-OBJ                                                       | `MemoryObjectStore`                  | Hostile-ZIP corpus rejected; unsupported features recorded                                                                                                                                                                          |
 | MOD-ADP-H5P      | H5P adapter                                                              | Adapter impl, `serverGrading: false`                                              | MOD-QM                                                                | n/a                                  | Capability honesty test; import path to internal model                                                                                                                                                                              |
 | MOD-ADP-IMATHAS  | iMathAS adapter                                                          | Immutable snapshot, verified remote broker, render cache, capabilities            | MOD-QM, MOD-OBJ, MOD-STO, MOD-API-RUN                                 | Recorded, redacted provider fixtures | Pinned seeded item renders and grades; replay, cache, outage, disclosure, and isolation gates                                                                                                                                       |
-| MOD-EXPORT       | Print model and writers                                                  | DOCX and PDF                                                                      | MOD-QM                                                                | Fixture version                      | Four artifacts; unexportable flagged pre-build                                                                                                                                                                                      |
+| MOD-EXPORT       | Print model and writers                                                  | DOCX and PDF                                                                      | MOD-QM                                                                | Fixture version                      | Each supported export path produces a valid document from one representative input; unexportable content is flagged before build                                                                                                    |
 | MOD-WASM         | WASM bridge                                                              | Typed exports                                                                     | MOD-QM, MOD-STATE, MOD-TIME, MOD-GEN, MOD-CAP                         | n/a                                  | Export allowlist; no `grading` in closure                                                                                                                                                                                           |
 | MOD-API-AUTH     | Auth and sessions                                                        | `/auth`                                                                           | MOD-STO                                                               | `MemoryStore`                        | Login on one replica, proceed on another                                                                                                                                                                                            |
 | MOD-API-CAT      | Catalog routes                                                           | `/problems`, taxonomy, publish                                                    | MOD-STO, MOD-ID, MOD-CAP                                              | `MemoryStore`                        | Publish refuses on violations; drafts hold no `problem_id`; cursor paging                                                                                                                                                           |
@@ -1282,18 +1313,18 @@ substitution for a required production path.
 | MOD-API-ASSET    | Asset delivery                                                           | `POST /api/assets/{id}`                                                           | MOD-OBJ, MOD-STO                                                      | `MemoryObjectStore`                  | Authorizes and logs before a bounded signed URL; only activated public catalog assets bypass to CDN                                                                                                                                 |
 | MOD-WORKER       | Jobs queue and worker pool                                               | Enqueue and drain                                                                 | MOD-STO                                                               | `MemoryStore`                        | Two workers never claim one job; scales on queue depth                                                                                                                                                                              |
 | MOD-STATS        | Anonymous question statistics                                            | Incremental aggregation, k-anonymity gate                                         | MOD-RUN, MOD-STO                                                      | `MemoryStore`                        | Aggregates match a hand-computed fixture; below-threshold cohorts suppressed; aggregates survive record deletion                                                                                                                    |
-| MOD-RETENTION    | Retention lifecycle                                                      | Scheduled notify, archive, delete; per-institution config                         | MOD-STO, MOD-OBJ, MOD-STATS                                           | `MemoryStore`                        | 30/100/365-day stages fire; deletion removes records and bucket artifacts and leaves catalog content and statistics intact                                                                                                          |
+| MOD-RETENTION    | Retention lifecycle                                                      | Scheduled notify, archive, delete; per-institution config                         | MOD-STO, MOD-OBJ, MOD-STATS                                           | `MemoryStore`                        | Controlled-clock checks exercise configured notification, archive, and deletion stages; deletion removes records and bucket artifacts while catalog content and statistics retain their declared state                                                                                                      |
 | MOD-CLIENT       | Typed API client                                                         | TS client from generated types                                                    | Generated types                                                       | Mock handler set                     | Type tests; no `any`, no unchecked `as`                                                                                                                                                                                             |
-| MOD-UI-SHELL     | App shell, routing, session context, error boundaries, focus conventions | Route tree, boundaries, layout                                                    | MOD-CLIENT, WP-C9                                                     | Mock handlers                        | Every route resolves; a thrown render error leaves the shell usable                                                                                                                                                                 |
+| MOD-UI-SHELL     | App shell, routing, session context, error boundaries, focus conventions | Route tree, boundaries, layout                                                    | MOD-CLIENT, WP-C9                                                     | Mock handlers                        | Representative registered routes resolve; a thrown render error leaves the shell usable. Route registration review is a one-time receipt.                                                                                         |
 | MOD-UI-COURSE    | Course shell and appearance settings                                     | Course-scoped three-color theme, entry banner, instructor appearance workflow     | MOD-UI-SHELL, MOD-CLIENT, MOD-API-COURSE, MOD-OBJ                     | Appearance mock repository           | Theme follows all course routes without global bleed; keyboard save/conflict flow; contrast and visual artifact gates                                                                                                               |
 | MOD-UI-WIDGETS   | Response widget set                                                      | One component per response type, with local format validation                     | MOD-WASM, WP-C9                                                       | Reference widget                     | Each widget satisfies `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`, is label-announced, and flags invalid shape without issuing a request                                                                                              |
-| MOD-UI-RENDER    | Question renderer                                                        | Envelope-to-component mapping, asset resolution, math and figure alternatives     | MOD-UI-WIDGETS                                                        | Fixture envelopes                    | Every block kind renders; a sanitized-markup fixture renders without script execution; missing accessibility text surfaces as an authoring error                                                                                    |
+| MOD-UI-RENDER    | Question renderer                                                        | Envelope-to-component mapping, asset resolution, math and figure alternatives     | MOD-UI-WIDGETS                                                        | Fixture envelopes                    | Representative supported block kinds render; sanitized markup renders without script execution; missing accessibility text surfaces as an authoring error. The supported-kind review is one-time evidence.                         |
 | MOD-UI-ATTEMPT   | Attempt loop                                                             | Submit, pending state, current learner-disclosure display, timer, prefetch, retry | MOD-UI-RENDER, MOD-CLIENT                                             | Mock handlers                        | Full mastery run; long-history practice remains available; timer expiry; offline submit recovers; server-projected disclosure respected                                                                                             |
-| MOD-UI-BROWSE    | Catalog browser                                                          | Virtualized cursor-paged list, facets, problem detail                             | MOD-CLIENT                                                            | Mock handlers                        | Ten-thousand-row synthetic list scrolls without a full fetch; facet counts come from aggregates                                                                                                                                     |
+| MOD-UI-BROWSE    | Catalog browser                                                          | Virtualized cursor-paged list, facets, problem detail                             | MOD-CLIENT                                                            | Mock handlers                        | Cursor navigation requests only the next bounded page while scrolling; facet counts come from aggregates and recover after an empty or stale page                                                                                   |
 | MOD-UI-EDITOR    | Draft and assignment editors                                             | Draft editing, WASM preview, policy controls, capability gating, publish flow     | MOD-UI-RENDER, MOD-WASM                                               | Mock handlers                        | Preview generates a real variant per seed offline; a policy a backend cannot support marks the question and names the capability; publish shows the version diff                                                                    |
 | MOD-UI-GRADEBOOK | Gradebook                                                                | Summary-row views, run-history drill-down                                         | MOD-CLIENT                                                            | Mock handlers                        | Default view issues one summary query regardless of run count                                                                                                                                                                       |
 | MOD-LTI          | LTI Advantage                                                            | Launch and grade passback                                                         | MOD-STO, MOD-API-AUTH                                                 | Sandbox fixtures                     | Passback verified against an LMS sandbox                                                                                                                                                                                            |
-| MOD-DEPLOY       | Containers and AWS                                                       | Compose, images, Fargate, RDS, buckets, CDN                                       | all                                                                   | n/a                                  | Burst load test scales out with no failed submissions                                                                                                                                                                               |
+| MOD-DEPLOY       | Containers and AWS                                                       | Compose, images, Fargate, RDS, buckets, CDN                                       | all                                                                   | n/a                                  | A declared workload-model exercise demonstrates independent replicas and records observed capacity, failures, and scaling decisions; numeric projections have no permanent gate authority                                      |
 
 Shared artifacts with exactly one owning module, so lanes never contend:
 
@@ -1314,9 +1345,9 @@ Shared artifacts with exactly one owning module, so lanes never contend:
 | M1  | Contract freeze          | Every contract, reference backend, and conformance suite              | Six or more lanes start without coordinating             |
 | M2  | Core lanes               | Domain, runs, grading boundary, storage, objects, native adapter, API | Parity, secrecy, and tenant-isolation gates green        |
 | M3  | Experience lanes         | Student and instructor UIs, worker pool, export                       | Long run history remains usable and correctly summarized |
-| M4  | Adapter lanes            | WeBWorK with render cache, QTI, H5P                                   | Three adapters live with zero diff in `crates/domain`    |
+| M4  | Adapter lanes            | WeBWorK with render cache, QTI, H5P                                   | Adapter behavior is green and a one-time source-boundary receipt is accepted |
 | M5  | Integration hardening    | Cross-cutting E2E, isolation, hostile inputs, retention               | Every gate green together, not just per lane             |
-| M6  | Platform and deploy      | LTI, analytics, AWS, autoscaling                                      | Passback verified; burst load scales out                 |
+| M6  | Platform and deploy      | LTI, analytics, AWS, autoscaling                                      | Passback verified; capacity-model workload demonstrates independent replicas |
 
 ### Milestone: M0 foundation and toolchain
 
@@ -1341,12 +1372,12 @@ Shared artifacts with exactly one owning module, so lanes never contend:
   export allowlist; the frontend architecture contract with `docs/SOLID_MODEL.md`,
   `docs/FRONTEND_ARCHITECTURE.md`, and one reference response widget; `docs/CONTRACTS.md`.
 - Entry criteria: M0 exit criteria met.
-- Exit criteria: every catalog module compiles against its stated contracts and executable reference
-  backends with no missing module; conformance suites pass against in-memory backends; generated TypeScript passes
+- Exit criteria: each declared catalog contract has compiling consumers and its executable reference
+  backend where required; conformance suites pass against in-memory backends; generated TypeScript passes
   `tsc --noEmit`, ESLint, and Prettier unchanged and contains no answer-bearing type; a UI lane builds a
   screen against the WASM facade and generated client with no backend running; isolated protocol tests
   use only narrow test-local fakes; a
-  reviewer walks every catalog row and confirms no contract gap.
+  reviewer examines the changed contract surfaces and their declared consumers for a contract gap.
 - Parallel-plan ready: partly. MOD-QM is serial and first; MOD-ID, MOD-RUN, the reference-backend
   packages, and the frontend contract then run as lanes.
 
@@ -1385,14 +1416,15 @@ widget exist to build against.
 - Entry criteria: M1 exit, including the frontend architecture contract, for browser-independent
   unit work;
   M2 exit for live integration.
-- Exit criteria: server-side grading processing time recorded at p50, p95, and p99 over 500 synthetic
-  submissions, with the numbers written to the tracker as the baseline later runs compare against;
-  end-to-end round trip recorded alongside it for context; a browser network trace confirmed free of
+- Exit criteria: a documented, configurable workload model drives a one-time server-side grading
+  measurement, with its environment, workload shape, and observed distribution recorded for release
+  capacity planning; end-to-end round trip is recorded alongside it for context; a browser network trace confirmed free of
   any answer or key; answer-format validation confirmed to resolve locally with no request issued; a
   student completes an assignment and starts another practice run with fresh variants and a correct
   summary row after a varied retained history;
-  publish refusal names the question and capability; a draft carries no catalog number; two workers
-  each claim distinct jobs; four export artifacts produced from one fixture; one instructor changes
+  publish refusal names the question and capability; a draft carries no catalog number; a
+  multi-worker exercise shows independent job claims; supported export variants render from one
+  fixture; one instructor changes
   a course theme/banner under CAS and a student sees the theme across every course route without a
   banner outside the entry page or palette bleed into global pages.
 - Parallel-plan ready: yes. Six lanes. The course appearance package supplies its own two-owner
@@ -1409,7 +1441,7 @@ widget exist to build against.
 - Lanes: (1) MOD-ADP-WW; (2) MOD-ADP-QTI; (3) MOD-ADP-H5P; (4) MOD-ADP-IMATHAS after the
   draft-identity contract amendment. These lanes do not modify `crates/domain`.
 - Entry criteria: M2 exit criteria met.
-- Exit criteria: the exact immutable licensed authored
+- Exit criteria: the immutable licensed authored
   `content/pilot/webwork/which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades
   through the shared model; a repeat `(version_id, seed)` is served from cache without touching the
   renderer; the renderer has no public endpoint, no PLE database access, enforced CPU, memory, and
@@ -1422,8 +1454,8 @@ widget exist to build against.
   unversioned and private, while publication archives a checksum-pinned snapshot and profile before
   minting a durable version; iMathAS grades only through an authenticated, idempotent
   server-to-server exchange; a browser message is presentation/readiness only; and an iMathAS
-  outage affects only that attempt. **Zero diff inside `crates/domain` across all adapters** is the
-  real test of the boundary.
+  outage affects only that attempt. Adapter conformance tests protect the behavior boundary; a
+  one-time source-diff receipt records that adapters leave `crates/domain` unchanged.
 - Parallel-plan ready: yes. Three independent lanes immediately; iMathAS begins after its atomic
   draft-identity contract amendment and then proceeds independently.
 
@@ -1449,7 +1481,8 @@ adapter may consume an intermediate form:
 
 This same patch must update the lifecycle, store conformance, catalog/API fixtures, generated clients,
 and published-problem corpus; it follows the frozen-contract change rule and blocks
-MOD-ADP-IMATHAS until complete. The adapter continues to make **zero diff inside `crates/domain`**.
+MOD-ADP-IMATHAS until complete. Adapter behavior remains covered by its owning conformance tests; a
+one-time source-boundary receipt records that the adapter adds no edits inside `crates/domain`.
 
 After that prerequisite:
 
@@ -1499,8 +1532,9 @@ permanent credentialed or network test.
   configuration; asynchronous analytics; `docs/SECURITY_MODEL.md`, `docs/RETENTION_POLICY.md`.
 - Lanes: (1) MOD-STATS; (2) MOD-RETENTION; (3) cross-cutting E2E, owned by `integrator`.
 - Entry criteria: M3 and M4 exit criteria met.
-- Exit criteria: every gate green in one run; clock-skew invariance, tenant isolation, answer-key
-  grants, object round trip, partition pruning on a large synthetic attempt table, and
+- Exit criteria: package-local lanes are green before final Validation; controlled-clock expiry,
+  tenant isolation, answer-key grants, object round trip, partition pruning under the documented
+  workload model, and
   renderer-outage degradation all proven together; a course deletion test proves student records and
   `student-records` bucket artifacts are gone while catalog content, instructor drafts, and anonymous
   statistics remain; a below-threshold cohort's statistics are proven suppressed.
@@ -1519,9 +1553,57 @@ permanent credentialed or network test.
 - Lanes: (1) MOD-LTI; (2) aggregate observability; (3) MOD-DEPLOY.
 - Entry criteria: M5 exit criteria met.
 - Exit criteria: passback verified against an LMS sandbox; encryption at rest and in transit
-  demonstrated; restore-from-backup exercised and timed; a controlled class-start burst triggers
-  scale-out with no failed submissions, replica count and p99 recorded.
+  demonstrated; restore-from-backup is exercised with the recovery evidence recorded; a controlled
+  class-start workload uses the documented capacity model to demonstrate multi-replica independence
+  and records observations for deployment sizing; the connected-term journey below demonstrates
+  the named semantic transitions on the same live product model.
 - Parallel-plan ready: yes. Three lanes.
+
+#### M6 connected-term journey
+
+M6 composes the already-gated capabilities in one smallest-useful live narrative. The journey uses
+Elena Instructor and the seeded Mary Student record for learner delivery and inspection. Elena
+and Morgan passkey enrollment, sign-out, and sign-in remain independent suite-owned scenarios; this
+journey starts from their ordinary authenticated sessions. Assisted tagging participates only when
+`WP-PROF-D3` has shipped; the core journey remains complete with human taxonomy and collection actions.
+
+1. **Discover.** Elena searches the published Library by concept, filters to safe evidence, and
+   opens a public question detail.
+2. **Collect.** Elena favorites the selected questions and places them in a named collection. The
+   same live selection is available to the assignment picker. If `WP-PROF-D3` is accepted, she may
+   review and confirm a proposed tag with recorded provenance; otherwise human taxonomy is the
+   demonstrated path.
+3. **Reuse.** Elena creates or revises a reusable curriculum with one fixed question and one pool
+   definition. The fixed member remains selected; the pool records its draw rule and delivery order
+   without becoming a learner assignment or grade.
+4. **Instantiate.** Elena instantiates that reusable definition into an ordinary Fall teaching term
+   with its start date and IANA time zone. The destination receives teaching-owned definitions and no
+   learner records.
+5. **Preview and accommodate.** Elena previews resolved schedule dates, then grants the enrolled
+   Mary an accommodation. The preview shows the effective window and its source before she saves
+   the assignment.
+6. **Deliver.** Mary enters the published assignment through the ordinary learner workflow,
+   receives fixed and policy-selected pool items bound to the issued run, submits, and receives the
+   deterministic grade, immutable receipt, and permitted disclosure. Elena inspects the same audited
+   learner work through the Instructor surface.
+7. **Recover and recalculate.** A deterministic grader exception for one issued item routes to
+   Elena's operation view. After the bounded correction, she requests the generation-fenced
+   recalculation and observes the refreshed course total without changing the original receipt.
+8. **Analyze and replace.** Elena opens course-local item analysis, inspects the affected learner
+   evidence and usage context, publishes a distinct linked replacement Question ID, and records the
+   decision. The replacement is selected for future teaching while the issued run remains pinned to
+   its original evidence.
+9. **Rollover.** Elena previews and creates the next-term rollover. The manifest carries reusable
+   teaching definitions and improvement notes while excluding roster membership, accommodations,
+   learner work, attempts, grades, and retention state.
+10. **Shift and improve.** Elena previews and applies the next term's date shift, resolves any
+    daylight-saving correction, and reviews the linked replacement's improvement evidence alongside
+    the source question. The receipt records the shifted schedule and the decision for later review.
+
+Each step asserts the semantic transition and its visible result; it does not require a fixed
+collection size, artifact total, screenshot match, or timing target. The named learner state is the
+smallest live state that demonstrates the transition, while aggregate/item-analysis evidence uses
+the configured privacy threshold and existing seeded contributions where required.
 
 ## Work packages
 
@@ -1683,7 +1765,7 @@ or implementer-authored specification is required.
   `server_core`, and Solid; typed course-banner object/delivery owners; one forward migration; route,
   generated client, Playwright, and durable documentation owners.
 - Progress: WP-CA1 through WP-CA7/WP-RC1 passed on 2026-08-09. The closed browser-safe
-  Rust/generated-TypeScript contract, exact 15 IDs and Grass default, strong revision and banner
+  Rust/generated-TypeScript contract, supported theme variants and Grass default, strong revision and banner
   mutation shapes, executable instructor route, and tenant/course-bound candidate/current banner
   object identities are accepted. Candidates are temporary and non-signable; current banners are
   protected course content whose delivery now requires the exact persisted current pointer. Memory
@@ -1692,18 +1774,19 @@ or implementer-authored specification is required.
   Production HTTP now supplies bounded JPEG/PNG/WebP candidate normalization, strong-ETag no-store
   appearance GET/PUT, bytes-first promotion, and current-only protected delivery. The Solid course
   scope now consumes one authorized course/appearance projection, reuses run data, clears across
-  course/global navigation, fails closed on unknown IDs, and passes rendered contrast across all 15
-  themes. The real instructor settings workflow, exact entry-only banner, combined PostgreSQL/MinIO
-  cleanup lifecycle, all-seven-route browser traversal, visual artifact set, durable documentation,
+  course/global navigation, fails closed on unknown IDs, and passes rendered contrast across supported
+  variants. The real instructor settings workflow, exact entry-only banner, combined PostgreSQL/MinIO
+  cleanup lifecycle, course-route browser traversal, maintained visual evidence, durable documentation,
   and independent no-P0/P1/P2 review are accepted.
-- Acceptance criteria: keep 15 measured themes, consolidating `woodland` into `forest`; store only a
-  closed theme ID and one revisioned current banner relation; apply exactly canvas, secondary, and
+- Acceptance criteria: retain the documented supported theme variants, including the `woodland` to
+  `forest` consolidation; store only a closed theme ID and one revisioned current banner relation; apply exactly canvas, secondary, and
   accent theme colors through one course scope; show the centered banner only on the course entry
   page; preserve global and semantic status colors; prove CAS recovery, forced RLS, current-pointer
   authorization, object lifecycle, 5.5:1 text contrast, keyboard behavior, responsive rendering, and
   absence of grading/answer/object-key data in browser contracts.
-- Evidence or review: focused Rust/Node/Playwright gates, disposable PostgreSQL and MinIO oracles, a
-  15-theme contact sheet plus palette metrics, and independent PASS with no P0/P1 finding.
+- Evidence or review: focused Rust/Node/Playwright gates, disposable PostgreSQL and MinIO oracles,
+  semantic review of representative supported variants with palette metrics, and independent PASS
+  with no P0/P1 finding.
 - Next dependency: WP-RC3 consumes the accepted production-seam module catalog, active status,
   architecture, file structure, contracts, frontend/route docs, retention/object docs, and changelog
   boundary.
@@ -1746,10 +1829,12 @@ or implementer-authored specification is required.
 - Scale gate: typed bounded-page Store contracts and behavior tests remain green. A one-time source and
   query-plan review verifies that new query paths use stable cursor predicates; a repository-wide
   lexical SQL scanner is not retained as a permanent pytest.
-- Integration gate: `tests/e2e/` and `./run_playwright_tests.sh` green, all in one run at M5.
+- Integration gate: each behavior-owned `tests/e2e/` and `./run_playwright_tests.sh` lane is green
+  with its declared disposable stack. The final material-tree Validation runs the complete required
+  suite after those connected lanes pass.
 - Course appearance gate: the frozen WP-M3-COURSE-APPEARANCE contract, real-role RLS/current-pointer
-  oracle, built-browser workflow, computed contrast metrics, and contact sheet are green before the
-  appearance capability may be called complete.
+  oracle, built-browser workflow, computed contrast metrics, and semantic supported-variant review
+  are green before the appearance capability may be called complete.
 - Performance evidence: record server-side grading, issue, and browse measurements during a named
   release or load investigation. Treat the result as one-time environment evidence until an actual
   user-facing SLO and reproducible benchmark environment exist; do not make a percentage of a local
@@ -1772,8 +1857,8 @@ or implementer-authored specification is required.
   not pass/fail assertions.
 - `tests/e2e/`: container-dependent checks -- restart durability, replica independence, clock-skew
   invariance, submission replay, migration application, RLS foreign-tenant isolation, answer-key
-  grants, object round trip, partition pruning on a synthetic large attempt table, render cache hit,
-  hostile-ZIP corpus, worker queue concurrency, renderer-outage degradation. Excluded from pytest by
+  grants, object round trip, partition selection under the declared workload model, render cache hit,
+  hostile-ZIP handling, worker queue concurrency, renderer-outage degradation. Excluded from pytest by
   the existing `collect_ignore`.
 
 Failure semantics: a red per-patch gate blocks the patch. A red determinism, secrecy, isolation,
@@ -1785,11 +1870,11 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 | --------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | An answer or key reaches the browser                | Assessment integrity lost, silent until exploited                            | A new WASM export, or grading code moved into `domain`                                                                        | `expert_coder`   | `grading` absent from the `wasm32` closure; export allowlist gate; M3 network trace (WP-C6)                                                                                                                                                                                                                                                                                                           |
 | RLS is bypassed, unset, or outlives membership      | Cross-tenant or revoked-learner exposure of educational records              | Application connects as a bypassing role, tenant context comes from client input, or a revoked learner uses stale identifiers | `expert_coder`   | `FORCE ROW LEVEL SECURITY`; non-superuser role; context from authenticated session only; actor-scoped Store reads/mutations lock and recheck active Student membership; foreign-context and revocation-race tests on every gate                                                                                                                                                                       |
-| A frozen contract turns out incomplete              | Parallel lanes stall or diverge                                              | A lane finds a missing trait method mid-flight                                                                                | `architect`      | Conformance suites shipped with contracts in M1; contract gate requires consumers updated in the same patch; M1 exit walks every catalog row                                                                                                                                                                                                                                                          |
+| A frozen contract turns out incomplete              | Parallel lanes stall or diverge                                              | A lane finds a missing trait method mid-flight                                                                                | `architect`      | Conformance suites ship with contracts in M1; the contract gate updates declared consumers in the same patch; one-time architecture review examines each changed contract surface                                                                                                                                                                                                                        |
 | Native and wasm32 generation diverge                | Historical attempts not reproducible; render cache serves wrong content      | Parity mismatch                                                                                                               | `tester`         | Ban known causes up front; measure before dependent lanes start; replace the primitive rather than special-case the platform (WP-C5)                                                                                                                                                                                                                                                                  |
-| Attempt tables outgrow the design                   | Slow gradebook, painful migrations                                           | Practice volume beyond 300 M rows per term                                                                                    | `expert_coder`   | Monthly partitions on the four append-only tables from the first migration; summary rows for all grade reads; compact attempt rows; partition-pruning test                                                                                                                                                                                                                                            |
+| Attempt tables outgrow the design                   | Slow gradebook, painful migrations                                           | Observed workload approaches a configured storage or query budget                                                            | `expert_coder`   | The documented capacity model sets partition, summary, and retention parameters; grade reads use summaries; one-time query-plan and workload review validates the chosen configuration                                                                                                                                                                                                               |
 | Grade computed by scanning history                  | Course pages time out at scale                                               | A convenient aggregate query in a page path                                                                                   | `expert_coder`   | Summary row is the only grade source; review rejects any aggregate over `question_attempt` in a request path                                                                                                                                                                                                                                                                                          |
-| Database bloat from payloads in operational tables  | Slow backups, restores, replication                                          | A large payload committed to a table                                                                                          | `expert_coder`   | Role-based split; strict 256 KiB flat source/private cap and other bounded payload constraints; oversized writes refuse; hot/cold table split                                                                                                                                                                                                                                                         |
+| Database bloat from payloads in operational tables  | Slow backups, restores, replication                                          | A payload exceeds its documented operational-storage budget                                                                   | `expert_coder`   | Role-based split; configured payload ceilings refuse oversized writes; archival source and binary data use typed object storage; hot and cold records remain separate                                                                                                                                                                                                                                 |
 | WeBWorK renderer saturates                          | Timed questions fail to load under burst                                     | Many students on WeBWorK questions at once                                                                                    | `expert_coder`   | Deterministic render cache; prefetch; worker pool autoscaled on queue depth, latency, CPU, and timeout rate                                                                                                                                                                                                                                                                                           |
 | External-tool callback or retry accepted as a grade | Assessment integrity or tenant isolation lost                                | Browser message, stale launch, an unverifiable provider response, or an ambiguous failed launch POST reaches grading          | `expert_coder`   | iMathAS browser messages are presentation-only; the same-origin launch is POST-only; a lease-bound dispatch marker is committed before provider contact and blocks retry, grading, new launch, and finalization after an indeterminate outcome; server-held correlation/idempotency and authenticated server-to-server verification have forged-message, cross-tenant, expiry, and crash-window gates |
 | Malicious archive during QTI import                 | Remote code execution or disk exhaustion                                     | A crafted ZIP uploaded                                                                                                        | `expert_coder`   | Import in the worker; size, expanded-size, and file-count limits; path and symlink rejection; media sniffing; never serve from an extracted path; hostile corpus test                                                                                                                                                                                                                                 |
@@ -1799,8 +1884,8 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 | Small-cohort statistics re-identify a student       | Privacy failure disguised as an anonymous aggregate                          | A question attempted by one or two students publishes its statistics                                                          | `architect`      | k-anonymity threshold (default 5) gates publication; suppression test in M5 exit                                                                                                                                                                                                                                                                                                                      |
 | Statistics lost when records are deleted            | The library stops learning, and deletion becomes something instructors avoid | Statistics computed on demand from attempt history                                                                            | `expert_coder`   | Incremental or scheduled aggregation while records exist; discrimination index computed before deletion; MOD-STATS ordered before MOD-RETENTION                                                                                                                                                                                                                                                       |
 | Retention deletes reusable content                  | Instructors lose authored work and stop trusting the system                  | A deletion path following assignment references into shared content                                                           | `expert_coder`   | Deletion is scoped to tenant-owned records by construction; the M5 deletion test asserts catalog content and drafts survive                                                                                                                                                                                                                                                                           |
-| Signed URL leakage                                  | Educational records exposed                                                  | A URL shared or logged                                                                                                        | `expert_coder`   | Minutes-long TTL, not ADAPT's seven days; `student-records` at 5 minutes; access logged per request                                                                                                                                                                                                                                                                                                   |
-| Draft problems leak into shared content             | The exact ADAPT failure this design exists to avoid                          | A code path minting `ProblemId` outside publish                                                                               | `architect`      | `ProblemId` constructible only on the publish transition (WP-C2); test asserting no other construction site                                                                                                                                                                                                                                                                                           |
+| Signed URL leakage                                  | Educational records exposed                                                  | A URL is shared, logged, or used after its configured expiry                                                                 | `expert_coder`   | The signed-link configuration supplies a short-lived expiry appropriate to its storage domain; controlled-clock tests prove issue, valid use, expiry refusal, and logged access                                                                                                                                                                                                                        |
+| Draft problems leak into shared content             | The exact ADAPT failure this design exists to avoid                          | A code path minting `ProblemId` outside publish                                                                               | `architect`      | Keep the `ProblemId` constructor private to the typed publish transition; durable behavior tests cover draft, publish, replay, and replacement outcomes, while a one-time source review receipts every construction path and confirms no alternate public boundary                                                                                                                                          |
 | Parallel lanes collide on a shared artifact         | Merge conflicts and lost work                                                | Two lanes editing migrations or the seed table                                                                                | `integrator`     | One owning module per shared artifact, tabulated in the catalog                                                                                                                                                                                                                                                                                                                                       |
 | Scope creep toward ADAPT parity                     | Version 1 never ships                                                        | Requests for rubrics, learning trees, discussions                                                                             | `architect`      | Binary out-of-scope ledger in the release-completion plan                                                                                                                                                                                                                                                                                                                                             |
 | Plan drifts from implementation                     | Reviews check the wrong thing                                                | Package work outpacing the tracker                                                                                            | `architect`      | Release-completion tracker updated at every WP-RC exit                                                                                                                                                                                                                                                                                                                                                |
@@ -1808,8 +1893,8 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 ## Rollout and release checklist
 
 - [ ] M0 through M4 run only on `podman compose` with MinIO; no cloud resources provisioned.
-- [x] `api` scaled to two replicas in the maintained Compose E2E from M2, so replica assumptions are
-      exercised continuously rather than discovered in production.
+- [x] The maintained Compose E2E exercises multi-replica request independence, so replica assumptions
+      are evidenced before deployment sizing.
 - [ ] RDS PostgreSQL with KMS encryption at rest, automated backups, and point-in-time recovery.
 - [ ] PostgreSQL in private subnets; TLS with certificate verification on every hop.
 - [ ] Application role is non-superuser and cannot bypass RLS; verified in the deployed environment,
@@ -1823,8 +1908,9 @@ contract, or scale gate blocks the milestone and triggers design review rather t
       public-asset publisher use queue/lease work. The externally managed renderer has no activation
       path until its attested private-network, CPU/memory/request-limit, image-identity, and protocol
       evidence is accepted.
-- [ ] Class-start burst load test run; replica count and p99 recorded.
-- [ ] Restore-from-backup exercised and timed.
+- [ ] Class-start workload review run from the documented capacity model; deployment-sizing observations
+      recorded.
+- [ ] Restore-from-backup exercised; the recovery evidence and environment are recorded.
 - [ ] FERPA control checklist completed with evidence per control; retention and deletion implemented
       for `student-records` and render traces.
 - [ ] Retention default configured to the privacy-preserving value, with the per-institution override
@@ -1832,7 +1918,7 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 - [ ] A real course deletion exercised end to end: records and bucket artifacts gone, catalog content
       and anonymous statistics intact, and the result recorded.
 - [ ] Course appearance acceptance completed: real-role RLS/current-pointer oracle, centered
-      entry-banner lifecycle, all-route theme scope, 15-theme contact sheet, and measured contrast.
+      entry-banner lifecycle, all-route theme scope, semantic supported-variant review, and measured contrast.
 - [ ] `devel/make_release.py` run for the first tagged release after WP-RC12 is green.
 
 ## Documentation close-out requirements

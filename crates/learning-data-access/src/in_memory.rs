@@ -6,6 +6,8 @@ mod activity;
 mod assets;
 mod authoring;
 mod catalog;
+#[cfg(test)]
+mod catalog_publication_scope_tests;
 mod catalog_search;
 #[cfg(test)]
 mod catalog_search_pagination_tests;
@@ -40,6 +42,9 @@ mod qti;
 mod qti_ingress;
 mod queue;
 mod retention;
+mod reusable_curriculum;
+#[cfg(test)]
+mod reusable_curriculum_tests;
 mod runs;
 mod sessions;
 mod state;
@@ -423,6 +428,8 @@ struct State {
     next_co_instructor_invitation_reference: u32,
     next_problem_collection_reference: u32,
     next_saved_problem_search_reference: u32,
+    next_blueprint_reference: u32,
+    next_alpha_course_reference: u32,
     course_references: BTreeMap<(TenantId, CourseId), question_model::CourseReference>,
     courses_by_reference: BTreeMap<(TenantId, question_model::CourseReference), CourseId>,
     assignment_references: BTreeMap<(TenantId, AssignmentId), question_model::AssignmentReference>,
@@ -481,6 +488,8 @@ struct State {
     sessions: BTreeMap<SessionTokenHash, sessions::StoredSession>,
     catalog_grants: BTreeSet<(TenantId, ProblemId, VersionId)>,
     problem_curation_cursors: BTreeMap<String, problem_curation::StoredProblemCurationCursor>,
+    reusable_curriculum_cursors:
+        BTreeMap<String, reusable_curriculum::StoredReusableCurriculumCursor>,
     problem_collections: BTreeMap<
         (TenantId, problem_curation::ProblemCollectionId),
         problem_curation::StoredProblemCollection,
@@ -489,6 +498,20 @@ struct State {
         (TenantId, problem_curation::SavedProblemSearchId),
         problem_curation::StoredSavedProblemSearch,
     >,
+    blueprint_references:
+        BTreeMap<(TenantId, reusable_curriculum::BlueprintId), question_model::BlueprintReference>,
+    blueprints_by_reference:
+        BTreeMap<(TenantId, question_model::BlueprintReference), reusable_curriculum::BlueprintId>,
+    blueprints: BTreeMap<
+        (TenantId, reusable_curriculum::BlueprintId),
+        reusable_curriculum::StoredBlueprint,
+    >,
+    alpha_course_references:
+        BTreeMap<reusable_curriculum::AlphaCourseId, question_model::AlphaCourseReference>,
+    alpha_courses_by_reference:
+        BTreeMap<question_model::AlphaCourseReference, reusable_curriculum::AlphaCourseId>,
+    alpha_courses:
+        BTreeMap<reusable_curriculum::AlphaCourseId, reusable_curriculum::StoredAlphaCourse>,
     drafts: BTreeMap<(TenantId, WorkspaceId), DraftRecord>,
     draft_revisions: BTreeMap<(TenantId, WorkspaceId), WorkspaceDraftRevision>,
     draft_access: BTreeMap<(TenantId, WorkspaceId, UserId), WorkspaceDraftRole>,

@@ -11,10 +11,10 @@ use crate::{AssignmentId, CourseId, EnrollmentId, RunId, WorkspaceId};
 /// Largest route number that remains compact and lossless in every product layer.
 pub const MAX_PUBLIC_ROUTE_NUMBER: u32 = i32::MAX as u32;
 
-/// Prefixes reserved by the route grammar. `AC-` is intentionally reserved without an Alpha
-/// reference type: the Alpha aggregate and its visibility rules belong to WP-PROF-B1.
-pub const RESERVED_REFERENCE_PREFIXES: &[&str] =
-    &["C", "A", "R", "W", "G", "U", "M", "CI", "PC", "PS", "AC"];
+/// Prefixes reserved by the route grammar.
+pub const RESERVED_REFERENCE_PREFIXES: &[&str] = &[
+    "C", "A", "R", "W", "G", "U", "M", "CI", "PC", "PS", "BP", "AC",
+];
 
 macro_rules! impl_reference {
     ($name:ident, $prefix:literal, $description:literal) => {
@@ -110,6 +110,14 @@ pub struct ProblemCollectionReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct SavedProblemSearchReference(NonZeroU32);
+/// An authorized locator for one personal reusable assignment blueprint.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct BlueprintReference(NonZeroU32);
+/// An authorized locator for one public reusable Alpha curriculum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct AlphaCourseReference(NonZeroU32);
 
 impl_reference!(CourseReference, "C", "course reference");
 impl_reference!(AssignmentReference, "A", "assignment reference");
@@ -137,6 +145,8 @@ impl_reference!(
     "PS",
     "saved-problem-search reference"
 );
+impl_reference!(BlueprintReference, "BP", "blueprint reference");
+impl_reference!(AlphaCourseReference, "AC", "Alpha course reference");
 
 /// One authorized navigation target. IDs remain transport details after Store authorization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -270,7 +280,22 @@ mod tests {
             "PS-01",
             "PS-2147483648"
         );
-        assert!("AC-1".parse::<CourseReference>().is_err());
+        assert_reference_wire!(
+            BlueprintReference,
+            "BP-133",
+            "AC-133",
+            "BP-0",
+            "BP-01",
+            "BP-2147483648"
+        );
+        assert_reference_wire!(
+            AlphaCourseReference,
+            "AC-134",
+            "BP-134",
+            "AC-0",
+            "AC-01",
+            "AC-2147483648"
+        );
         assert!(RESERVED_REFERENCE_PREFIXES.contains(&"AC"));
     }
 }

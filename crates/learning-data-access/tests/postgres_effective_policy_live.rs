@@ -18,9 +18,7 @@ use domain::effective_assignment_policy::{
     BaseAssignmentPolicy, GroupAccommodation, GroupScheduleOffset, IndividualPolicyException,
     PolicyModificationMode, PolicyPatch, PolicyPatchSet, PolicySource, ScheduleOffsetSeconds,
 };
-use learning_data_access::postgres::{
-    PostgresStore, apply_migrations, lazy_pool, verify_application_schema,
-};
+use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
     AssignmentRecord, CatalogStore, CourseGroupRecord, CourseRecord, CourseRosterStore,
     CreateCourseCommand, DraftRecord, FlatGradingCapability, IssueQuestionAttemptCommand,
@@ -301,9 +299,6 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
     let runtime = load_acceptance_runtime();
     let database_url = runtime.admin_url().expose();
     let pool = lazy_pool(database_url).expect("valid live PostgreSQL URL");
-    apply_migrations(&pool)
-        .await
-        .expect("apply the complete migration epoch to the disposable database");
     verify_application_schema(&pool)
         .await
         .expect("full migrated application schema is compatible");

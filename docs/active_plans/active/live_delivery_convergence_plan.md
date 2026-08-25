@@ -4,8 +4,8 @@
 
 WP-PROF-LD3 was accepted on 2026-08-24. It established the live demo as the canonical product and
 acceptance path over ordinary assignments, learner runs, grading, evidence, and Instructor
-inspection. WP-PROF-T5 item pools are accepted, and the current professor handoff is WP-PROF-D1
-discovery. [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) leads product behavior,
+inspection. WP-PROF-T5 item pools are accepted. [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) leads
+product behavior,
 [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) records durable owner decisions, and
 [implementation_status.md](../implementation_status.md) owns the current handoff and migration
 allocation.
@@ -75,8 +75,8 @@ WP-PROF-LD3 depends on accepted WP-PROF-T3 and the accepted learner-delivery and
 foundations. It is a convergence package, so discovery, collections, curricula, and grading
 operations continue to use their existing package identities and dependency order.
 
-WP-PROF-T5 accepted its item-pool productization on the canonical live path. The professor queue
-now advances to WP-PROF-D1 discovery over the existing Library/search path.
+WP-PROF-T5 accepted its item-pool productization on the canonical live path. The active professor
+handoff is recorded only in [implementation_status.md](../implementation_status.md).
 
 ## Validation
 

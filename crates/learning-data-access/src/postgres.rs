@@ -233,6 +233,8 @@ mod qti_ingress;
 #[cfg(feature = "postgres")]
 mod retention;
 #[cfg(feature = "postgres")]
+mod reusable_curriculum;
+#[cfg(feature = "postgres")]
 mod runs;
 #[cfg(feature = "postgres")]
 mod sessions;

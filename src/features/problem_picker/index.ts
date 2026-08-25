@@ -7,7 +7,6 @@ export {
   problemPickerSelection,
   toggleProblemPickerSelection,
   type ProblemCollectionReference,
-  type ProblemPickerAlphaCurriculumSource,
   type ProblemPickerCurationActions,
   type ProblemPickerCurationIntent,
   type ProblemPickerSearchRequest,
@@ -18,4 +17,5 @@ export {
   type ProblemPickerSourceRepository,
   type ProblemPickerState,
   type RetainedAssignmentReference,
+  reusableCurriculumProblemPickerRepository,
 } from "./problem_picker_model";

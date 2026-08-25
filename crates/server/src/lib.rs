@@ -72,6 +72,8 @@ pub mod request_lifecycle;
 pub mod retention;
 /// Private worker handler for staged retention notification and exact cleanup.
 pub mod retention_worker;
+/// Instructor-owned reusable Blueprints and shared public Alpha curricula.
+pub mod reusable_curriculum;
 /// Typed security contract for every public route's HTTP method.
 pub(crate) mod route_policy;
 /// Student runs, question attempts, submissions, and grading summaries.

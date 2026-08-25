@@ -27,6 +27,7 @@ import { AccountPendingInvitationsPage } from "./pages/account_pending_invitatio
 import { AssignmentAccessLivePage } from "./pages/assignment_access_live_page";
 import { TeachingOperationsPage } from "./pages/teaching_operations_page";
 import { AssignmentPreviewPage } from "./pages/assignment_preview_page";
+import { CurriculumDetailLivePage, CurriculumLivePage } from "./pages/curriculum_live_pages";
 
 export { ROUTE_CONTRACT } from "./route_contract";
 
@@ -44,6 +45,8 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   runSummary: RunSummaryPage,
   library: LibraryRoutePage,
   problemDetail: ProblemDetailPage,
+  curriculum: CurriculumLivePage,
+  curriculumDetail: CurriculumDetailLivePage,
   workspaceList: WorkspaceListLivePage,
   workspaceEditor: WorkspaceEditorLivePage,
   assignmentCreate: AssignmentEditorLivePage,

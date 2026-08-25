@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::Capability;
-use crate::catalog::{MAX_CATALOG_TAXONOMY_FACETS, QuestionBackend, QuestionId};
+use crate::catalog::{MAX_CATALOG_TAXONOMY_FACETS, PublicationScope, QuestionBackend, QuestionId};
 use crate::response::ResponseDefinition;
 use crate::taxonomy::{License, TaxonomyTerm};
 
@@ -27,6 +27,9 @@ pub const MAX_CATALOG_RESPONSE_FAMILY_FILTERS: usize = CatalogResponseFamily::AL
 
 /// Maximum response-family values returned in one catalog facet snapshot.
 pub const MAX_CATALOG_RESPONSE_FAMILY_FACETS: usize = CatalogResponseFamily::ALL.len();
+
+/// Maximum publication-scope values accepted in one catalog query.
+pub const MAX_CATALOG_PUBLICATION_SCOPE_FILTERS: usize = PublicationScope::ALL.len();
 
 /// Browser-safe immutable response family, derived at publication from the
 /// exact [`ResponseDefinition`] rather than a backend or grading implementation.
@@ -255,6 +258,8 @@ pub struct CatalogSearchQuery {
     pub capabilities: Vec<Capability>,
     /// Accepted license classes; any supplied value may match.
     pub licenses: Vec<CatalogLicenseValue>,
+    /// Publication visibility scopes; an empty list includes all visible scopes.
+    pub publication_scopes: Vec<PublicationScope>,
     /// Whether disclosed independent learner observations must be available.
     pub evidence: CatalogEvidenceAvailability,
     /// Whether a current actor-visible course use is required.
@@ -286,6 +291,8 @@ pub struct CatalogSearchFilter {
     pub taxonomy: Vec<CatalogTaxonomyFilter>,
     pub capabilities: Vec<Capability>,
     pub licenses: Vec<CatalogLicenseValue>,
+    /// Publication visibility scopes; an empty list includes all visible scopes.
+    pub publication_scopes: Vec<PublicationScope>,
     pub evidence: CatalogEvidenceAvailability,
     pub used_in_my_courses: CatalogUsedInMyCourses,
     pub authorship: CatalogAuthorship,
@@ -309,6 +316,7 @@ impl CatalogSearchFilter {
             taxonomy: query.taxonomy,
             capabilities: query.capabilities,
             licenses: query.licenses,
+            publication_scopes: query.publication_scopes,
             evidence: query.evidence,
             used_in_my_courses: query.used_in_my_courses,
             authorship: query.authorship,
@@ -332,6 +340,7 @@ impl From<CatalogSearchFilter> for CatalogSearchQuery {
             taxonomy: filter.taxonomy,
             capabilities: filter.capabilities,
             licenses: filter.licenses,
+            publication_scopes: filter.publication_scopes,
             evidence: filter.evidence,
             used_in_my_courses: filter.used_in_my_courses,
             authorship: filter.authorship,
@@ -352,6 +361,7 @@ impl Default for CatalogSearchQuery {
             taxonomy: Vec::new(),
             capabilities: Vec::new(),
             licenses: Vec::new(),
+            publication_scopes: Vec::new(),
             evidence: CatalogEvidenceAvailability::Any,
             used_in_my_courses: CatalogUsedInMyCourses::Any,
             authorship: CatalogAuthorship::Any,
@@ -422,6 +432,7 @@ impl CatalogSearchQuery {
             || self.licenses.len() > 6
             || self.backends.len() > QuestionBackend::ALL.len()
             || self.response_families.len() > MAX_CATALOG_RESPONSE_FAMILY_FILTERS
+            || self.publication_scopes.len() > MAX_CATALOG_PUBLICATION_SCOPE_FILTERS
         {
             return Err(CatalogSearchQueryError::TooLarge);
         }
@@ -435,6 +446,8 @@ impl CatalogSearchQuery {
         self.backends.dedup();
         self.response_families.sort();
         self.response_families.dedup();
+        self.publication_scopes.sort();
+        self.publication_scopes.dedup();
         if self.cursor.as_ref().is_some_and(String::is_empty) {
             return Err(CatalogSearchQueryError::EmptyCursor);
         }
@@ -585,6 +598,20 @@ mod tests {
         assert_eq!(
             filter.fresh_query().authorship,
             CatalogAuthorship::AuthoredByCurrentActor
+        );
+    }
+
+    #[test]
+    fn publication_scopes_normalize_and_survive_saved_search_conversion() {
+        let query = CatalogSearchQuery {
+            publication_scopes: vec![PublicationScope::Public, PublicationScope::Public],
+            ..CatalogSearchQuery::default()
+        };
+        let filter = CatalogSearchFilter::from_query(query).expect("scope filter normalizes");
+        assert_eq!(filter.publication_scopes, vec![PublicationScope::Public]);
+        assert_eq!(
+            filter.fresh_query().publication_scopes,
+            vec![PublicationScope::Public]
         );
     }
 }

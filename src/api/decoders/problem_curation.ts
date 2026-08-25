@@ -83,6 +83,7 @@ function decodeCatalogSearchFilter(value: unknown, path: string): CatalogSearchF
     "taxonomy",
     "capabilities",
     "licenses",
+    "publicationScopes",
     "evidence",
     "usedInMyCourses",
     "authorship",
@@ -178,6 +179,12 @@ function decodeCatalogSearchFilter(value: unknown, path: string): CatalogSearchF
           "cc0",
           "other",
         ]),
+    ),
+    publicationScopes: decodeBoundedArray(
+      field(record, "publicationScopes", path),
+      `${path}.publicationScopes`,
+      2,
+      (entry, entryPath) => decodeStringEnum(entry, entryPath, ["institution", "public"]),
     ),
     evidence: decodeStringEnum(field(record, "evidence", path), `${path}.evidence`, [
       "any",

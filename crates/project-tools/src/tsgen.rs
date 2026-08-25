@@ -425,6 +425,8 @@ fn map_type(rust_type: &Type, dependencies: &mut BTreeSet<String>) -> Result<Str
             let inner = first_argument(&arguments, "Option", dependencies)?;
             format!("{inner} | null")
         }
+        // Serde erases Box ownership, so the browser contract does too.
+        "Box" => first_argument(&arguments, "Box", dependencies)?,
         "Vec" | "BTreeSet" | "HashSet" | "VecDeque" => {
             let inner = first_argument(&arguments, &name, dependencies)?;
             format!("Array<{inner}>")
@@ -581,6 +583,10 @@ fn generate_enum(item: &syn::ItemEnum) -> Result<Generated> {
             (Fields::Unit, Some(tag_name)) => {
                 members.push(format!("{{ {tag_name}: \"{name}\" }}"));
             }
+            (Fields::Unnamed(fields), Some(tag_name)) if fields.unnamed.len() == 1 => {
+                let mapped = map_type(&fields.unnamed[0].ty, &mut dependencies)?;
+                members.push(format!("{{ {tag_name}: \"{name}\" }} & {mapped}"));
+            }
             (Fields::Named(fields), Some(tag_name)) => {
                 // Prettier indents the members of an object inside a union
                 // member by six spaces and closes the brace at four, so the
@@ -702,6 +708,9 @@ fn render(type_definition: &Generated) -> String {
     }
     out
 }
+
+#[cfg(test)]
+mod reusable_curriculum_tests;
 
 #[cfg(test)]
 mod tests {

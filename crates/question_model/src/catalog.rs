@@ -14,8 +14,9 @@ pub use crate::catalog_facets::{
     CatalogResponseFamily, CatalogResponseFamilyFacet, CatalogSearchFacets, CatalogSearchQuery,
     CatalogSearchQueryError, CatalogTagFacet, CatalogTaxonomyFacet, CatalogTaxonomyFilter,
     CatalogUsedInMyCourses, CatalogUsedInMyCoursesFacet, MAX_CATALOG_BACKEND_FACETS,
-    MAX_CATALOG_BYLINE_FACETS, MAX_CATALOG_BYLINE_FILTERS, MAX_CATALOG_RESPONSE_FAMILY_FACETS,
-    MAX_CATALOG_RESPONSE_FAMILY_FILTERS, MAX_CATALOG_TAG_FACETS, MAX_CATALOG_TAG_FILTERS,
+    MAX_CATALOG_BYLINE_FACETS, MAX_CATALOG_BYLINE_FILTERS, MAX_CATALOG_PUBLICATION_SCOPE_FILTERS,
+    MAX_CATALOG_RESPONSE_FAMILY_FACETS, MAX_CATALOG_RESPONSE_FAMILY_FILTERS,
+    MAX_CATALOG_TAG_FACETS, MAX_CATALOG_TAG_FILTERS,
 };
 
 /// Maximum taxonomy facet values returned with one bounded catalog page.
@@ -187,13 +188,18 @@ pub struct ProblemVersionRef {
 ///
 /// Private content remains a tenant-owned draft and therefore has no variant
 /// here and no `ProblemId`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PublicationScope {
     /// Discoverable only by the publishing institution.
     Institution,
     /// Discoverable across every tenant.
     Public,
+}
+
+impl PublicationScope {
+    /// Every publication scope supported by catalog discovery.
+    pub const ALL: [Self; 2] = [Self::Institution, Self::Public];
 }
 
 /// Catalog state after publication.

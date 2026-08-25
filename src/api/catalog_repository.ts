@@ -4,6 +4,7 @@ import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery"
 import type { CatalogAuthorship } from "../../generated/api/CatalogAuthorship";
 import type { Capability } from "../../generated/api/Capability";
 import type { CatalogLicenseValue } from "../../generated/api/CatalogLicenseValue";
+import type { PublicationScope } from "../../generated/api/PublicationScope";
 import type { ApiClient } from "./client";
 import type {
   CatalogBrowsePage,
@@ -153,6 +154,7 @@ export function catalogSearchRequest(
   query: CatalogBrowseQuery,
   cursor: string | null,
   authorship: CatalogAuthorship = "any",
+  publicationScopes: ReadonlyArray<PublicationScope> = query.publicationScopes,
 ): CatalogSearchQuery {
   return {
     text: query.search === "" ? null : query.search,
@@ -166,6 +168,7 @@ export function catalogSearchRequest(
     evidence: evidenceFilter(query.evidence),
     usedInMyCourses: query.usedInMyCourses === "used" ? "used" : "any",
     authorship,
+    publicationScopes: [...publicationScopes],
     cursor,
     pageSize: CATALOG_PAGE_SIZE,
   };
@@ -175,10 +178,16 @@ export function catalogSearchRequest(
 export function createCatalogRepository(
   client: ApiClient,
   authorship: CatalogAuthorship = "any",
+  publicationScopes?: ReadonlyArray<PublicationScope>,
 ): CatalogBrowseRepository {
   return {
     async search(query: CatalogBrowseQuery, cursor: string | null): Promise<unknown> {
-      const search = catalogSearchRequest(query, cursor, authorship);
+      const search = catalogSearchRequest(
+        query,
+        cursor,
+        authorship,
+        publicationScopes ?? query.publicationScopes,
+      );
       const page = await client.searchCatalog(search);
       return {
         items: page.items.map((item) => ({

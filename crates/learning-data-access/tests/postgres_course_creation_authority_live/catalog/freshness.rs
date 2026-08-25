@@ -2,6 +2,7 @@
 
 use super::*;
 use learning_data_access::postgres::SchemaCompatibilityError;
+use learning_data_access::postgres::apply_migrations;
 
 const ROLE: &str = "ple_base_course_freshness_broker";
 
@@ -27,6 +28,16 @@ async fn reconciliation_and_drift_detection(pool: &PgPool) {
         drop_oracle_relation(pool).await;
         panic!("freshness registration covers a later public relation: {error}");
     }
+
+    let policy_before_compatible_replay = freshness_policy_identity(pool).await;
+    apply_migrations(pool)
+        .await
+        .expect("a compatible schema epoch performs no freshness policy churn");
+    assert_eq!(
+        freshness_policy_identity(pool).await,
+        policy_before_compatible_replay,
+        "a compatible repeated apply retains the existing freshness policy"
+    );
 
     sqlx::raw_sql(
         "DROP POLICY ple_base_course_freshness_select \
@@ -115,6 +126,21 @@ async fn drop_oracle_relation(pool: &PgPool) {
         .execute(pool)
         .await
         .expect("freshness drift oracle cleanup");
+}
+
+async fn freshness_policy_identity(pool: &PgPool) -> i32 {
+    sqlx::query_scalar(
+        "SELECT policy_row.oid::integer \
+         FROM pg_catalog.pg_policy AS policy_row \
+         JOIN pg_catalog.pg_class AS relation_row ON relation_row.oid = policy_row.polrelid \
+         JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation_row.relnamespace \
+         WHERE namespace.nspname = 'public' \
+           AND relation_row.relname = 'ple_base_course_freshness_oracle' \
+           AND policy_row.polname = 'ple_base_course_freshness_select'",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("freshness oracle policy identity")
 }
 
 async fn relation_privileges(pool: &PgPool) {

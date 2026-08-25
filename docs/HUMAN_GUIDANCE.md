@@ -24,6 +24,8 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Permanent visual evidence is organized under `docs/screenshots/` by role and by student/access
   boundary. The exact CSS-pixel matrix is 1280 by 800 (16:10), 800 by 1280 (10:16), 393 by 852
   (iPhone Pro aspect), and 800 by 800 (square), with planning weights of 40%, 30%, 20%, and 10%.
+  These are maintained capture profiles and review contexts. Acceptance follows semantic usability,
+  accessibility, privacy, and task completion rather than screenshot dimensions or pixel equivalence.
 - A project **demo** uses actual PostgreSQL with the real migrations, schema, RLS, and persistent
   seeded data through the ordinary browser and server stack. It shows that the site works.
 - Every fresh installation includes the demo data as a persistent base course with the students

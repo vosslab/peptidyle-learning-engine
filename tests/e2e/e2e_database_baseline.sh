@@ -493,6 +493,12 @@ run_live_cargo_test "D2 problem curation session authority, immutable membership
 	postgres_problem_curation_live_oracle_is_sealed_and_atomic \
 	-- --ignored --exact --test-threads=1
 
+echo "database baseline E2E: B1 reusable curriculum authority, immutable pins, and revision safety"
+run_live_cargo_test "B1 reusable curriculum authority, immutable pins, and revision safety" cargo test -p learning-data-access --features postgres \
+	--test postgres_reusable_curriculum_live \
+	postgres_reusable_curriculum_live_oracle_is_brokered_and_atomic \
+	-- --ignored --exact --test-threads=1
+
 TEMP_DIR="$WORKSPACE/migration-checksum"
 mkdir "$TEMP_DIR"
 cp -R "$REPO_ROOT/schemas/migrations" "$TEMP_DIR/migrations"

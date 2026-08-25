@@ -346,11 +346,12 @@ no-transport assertions are required because a screenshot cannot prove authoriza
 boundary governs direct navigation and in-app links; it is not a learner projection or a second
 entitlement/policy authority.
 
-Permanent visual evidence uses the exact CSS-pixel matrix 1280 by 800 (16:10), 800 by 1280 (10:16),
-393 by 852 (iPhone Pro aspect), and 800 by 800 (square), with planning weights of 40%, 30%, 20%, and
-10%.
-Professor evidence remains desktop at 1280 by 800 or larger. Student evidence includes an allowed
-student surface and the visible denial of instructor-only routes. The committed corpus is organized
+Permanent visual evidence uses maintained desktop, portrait, narrow-phone, and square responsive
+profiles. The profiles are semantic coverage targets: each capture demonstrates readable hierarchy,
+visible focus, usable controls, and recoverable states for its form factor. Semantic user-facing
+outcomes provide the acceptance authority. Professor evidence includes a desktop profile; Student
+evidence includes an allowed student surface and the visible denial of instructor-only routes. The
+committed corpus is organized
 under `docs/screenshots/` by instructor, student, and the student/access boundary, with
 `tests/e2e/browser_screenshot_corpus.json` as its sole screenshot ownership authority. The
 TypeScript manifest and Python screenshot contract are strict consumers of that JSON authority.
@@ -359,7 +360,7 @@ Live evidence uses local-development credentials or invitations because email is
 must not claim email delivery. Fictional deterministic fixture addresses in `example.invalid` are
 permitted test data, while real email and identifying records remain prohibited. Public and private
 evidence remain separate. The accepted S4 evidence includes fresh capture, native-size inspection,
-manifest/provenance verification, and direct no-transport route proofs for all four viewports.
+manifest/provenance verification, and direct no-transport route proofs across the maintained profiles.
 
 ### 3.4 Derived state versus durable transitions
 
@@ -676,8 +677,8 @@ product-specific PostgreSQL harness or an exhaustive live matrix.
 WP-PROF-LD2 follows accepted WP-PROF-LD1 and the
 necessary existing WP-RC8 account-session/passkey/origin contracts. LD2 can implement and validate
 the seeded-entry seams against those contracts while unrelated WP-RC8 provider, mailbox,
-multi-replica, security, and HCI gates remain open. It adds a deployment-controlled selector for five
-fixed seeded personas that resolves only to seeded ordinary accounts and then follows the normal
+multi-replica, security, and HCI gates remain open. It adds a deployment-controlled selector for the
+seeded ordinary roles required by each live behavior journey and then follows the normal
 account-session and course/role-selection path. It extends, rather than replaces, WP-RC8's production
 authentication boundary. Its selector, passkey, account, and session data and
 semantics remain non-schema. A completed boundary review allocated `2026081809` for exactly two
@@ -756,8 +757,8 @@ union carries no resolved time, policy, provenance, disclosure, or subject metad
 the schedule/entitlement table, derives a role-only subject or constructs a synthetic subject,
 compares accommodation Before and After, and scrubs Now, Due, and Close disclosure moments. The page
 shows safe provenance and explicit shown/withheld text. Failures and stale revisions preserve the
-hypothetical draft and provide a focused retry or reload. The route is keyboard-complete, compact at
-1280x800, and responsive at the project corpus widths. Learner and outsider direct navigation mounts
+hypothetical draft and provide a focused retry or reload. The route is keyboard-complete, compact in the
+maintained desktop profile, and responsive across the maintained profiles. Learner and outsider direct navigation mounts
 no protected transport.
 
 **Installed Base Course.** After WP-PROF-LD1 accepts its lifecycle contract, every standard fresh
@@ -772,14 +773,14 @@ engineering lane.
 and the existing writable repeatable-read snapshot; accepted
 `2026081807_teaching_operations.sql` remains immutable. Acceptance requires:
 
-| Layer              | Required evidence                                                                                                                                                                                                                                                                                                                                      |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Domain and qmodel  | Closed subject/result types reject identity and answer-bearing fields; S5 -> S3 -> S4 parity, revision refusal, source labels, denied union, and disclosure moments are covered.                                                                                                                                                                       |
-| Memory             | Direct-Instructor derivation creates exactly one PII-minimal audit and no other state change; synthetic construction creates none; authorization, foreign, inactive, malformed, and denied paths create none.                                                                                                                                          |
-| PostgreSQL live    | Fresh baseline proves forced RLS, atomic audit snapshot, checksum and PII-free payload, concealment probes, and table-count proof of zero enrollment/run/attempt/grade/export/job mutation.                                                                                                                                                            |
-| Server             | Authorization precedes decode and lookup; exact-course binding, `no-store`, strict decoders, denial allowlist, and no identity/answer/score/audit transport are covered.                                                                                                                                                                               |
-| Browser            | A real-stack Instructor journey covers schedule scan, derived and synthetic subjects, Before/After, Now/Due/Close, recovery, and keyboard behavior; Playwright, accessibility, and fresh screenshots cover the required viewports and direct-route no-transport denial. Test-double tests remain subordinate and do not count as connected acceptance. |
-| Independent review | Architecture, security/privacy, HCI, and documentation/evidence reviewers find no unresolved P0--P3 issue.                                                                                                                                                                                                                                             |
+| Layer              | Required evidence                                                                                                                                                                                                                                                                                                                                              |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Domain and qmodel  | Closed subject/result types reject identity and answer-bearing fields; S5 -> S3 -> S4 parity, revision refusal, source labels, denied union, and disclosure moments are covered.                                                                                                                                                                               |
+| Memory             | Direct-Instructor derivation records the declared PII-minimal audit and preserves the declared teaching state; synthetic construction preserves the same before/after teaching state. Authorization, foreign, inactive, malformed, and denied paths preserve it as well.                                                                                       |
+| PostgreSQL live    | Fresh baseline proves forced RLS, atomic audit snapshot, checksum and PII-free payload, concealment probes, and declared before/after state equality for enrollment, runs, attempts, grades, exports, and jobs.                                                                                                                                                |
+| Server             | Authorization precedes decode and lookup; exact-course binding, `no-store`, strict decoders, denial allowlists, and the success, validation, conflict, and denial response families remain identity-, answer-, score-, and audit-free.                                                                                                                         |
+| Browser            | A real-stack Instructor journey covers schedule scan, derived and synthetic subjects, Before/After, Now/Due/Close, recovery, and keyboard behavior; Playwright, accessibility, and fresh screenshots cover maintained responsive profiles and direct-route no-transport denial. Test-double tests remain subordinate and do not count as connected acceptance. |
+| Independent review | Architecture, security/privacy, HCI, and documentation/evidence reviewers find no unresolved P0--P3 issue.                                                                                                                                                                                                                                                     |
 
 The existing named T2 policy-preview remains an Instructor teaching-operations inspection surface.
 T3 does not rebrand, remove, or use it as its identity-free subject contract.
@@ -800,14 +801,15 @@ T3 does not rebrand, remove, or use it as its identity-free subject contract.
 - **Item pools**: project the existing selection-group schema through the assignment editor. Draw N
   of M, per-item points, ordering policy, stored algorithm version, filled directly from a
   collection. Pools obey the first-issued-run rules and appear in the preview plane.
-- Add a `PublicInstructorByline` with a typed public reference and approved display name, carrying
-  no UUID, email, roster identity, or private institution record.
+- Use an immutable reviewed `PublicByline` display-name snapshot for public curriculum creator
+  attribution. A distinct public-Instructor locator requires a demonstrated product action before it
+  joins the contract.
 
 ## 10. Reusable curriculum
 
 - Alpha courses are a separate shared-curriculum aggregate, not a kind field on the FERPA-bearing
-  course. Public to approved Instructors, human route such as `AC-123`, creator-only editing,
-  inspect/fork/instantiate for everyone else.
+  course. Public to approved Instructors, human route such as `AC-123`, creator-only editing. B1
+  provides inspection and question reuse; B2 adds fork and instantiate.
 - Students cannot join, receive assignments, run, or generate grades, because Alpha records have no
   relationship to teaching membership or activity tables.
 - An Alpha stores an ordered curriculum with module or week labels and calendar-relative
@@ -983,12 +985,21 @@ cannot participate in any enrollment relationship. Completion-mode examples rema
 work and do not enter the S6 evaluator or consumer contracts; M1 exits with the two shipped modes.
 Three lanes after the serial core.
 
+### Evidence planning rule for open professor packages
+
+WP-PROF-B2, WP-PROF-G1 through WP-PROF-G5, WP-PROF-E1, and WP-PROF-E2 start only after an
+approved B1-style binding contract records the capability boundary, dependency order, an
+evidence-class table, owned modules, routes, migrations when persistence changes, and independent
+architecture review. Package-local fast, opt-in connected, one-time implementation, and human-review
+lanes state the behavior each proves. Final Validation remains the `./all_test.sh` gate on the final
+material tree after those package-local lanes are green.
+
 ### M2 Teaching projection
 
 Depends on M1. Lanes: lifecycle, schedule, late policy, instructions, scoring status; groups,
 entitlement, accommodations, co-instructors, retention and archive pages; preview plane, canonical
-live learner delivery, and item pools. Exit: every stored teaching policy in the inventory table is
-reachable, editable, and keyboard-complete at 1280 by 800; an enrolled Student completes an ordinary
+live learner delivery, and item pools. Exit: each teaching-policy category is reachable, editable,
+and keyboard-complete in the maintained responsive profiles; an enrolled Student completes an ordinary
 run through deterministic grading and Instructor review; a pool delivers its draw and respects the
 issued-run lock; each preview names the layer that produced every value. Three lanes plus one reviewer.
 
@@ -1007,10 +1018,14 @@ confirming user and recorded model provenance. Two lanes plus the optional packa
 
 ### M4 Reusable curriculum
 
-Depends on M2 and M3. Lanes: blueprints and Alpha authoring; clone, rollover, term shift, date
-resolution; provenance, fast-forward, selected copy, and evidence context. Exit: two Instructors in
-different tenants discover and clone one Alpha; only the creator edits it; the derived course
-contains no student record; the preview refuses an ambiguous local time. Three lanes.
+Depends on M2 and M3. B1 establishes personal blueprints and public Alpha authoring, typed references,
+creator-owned revision authority, approved-Instructor reads, answer-free evidence context, and shared
+picker reuse. Its exit is a live creator workflow plus Memory and PostgreSQL proof of cross-tenant
+approved-Instructor reading and structural separation from learner activity. B2 then adds fork,
+instantiate, rollover, term shift, date resolution, normalized manifests, fast-forward, and selected
+copy. M4 exits after seeded approved-Instructor roles in separate tenants discover and instantiate an
+Alpha. The derived teaching course carries curriculum definitions while retaining its declared empty
+learner-record state, and preview identifies an ambiguous local time for correction.
 
 ### M5 Evidence to action
 
@@ -1053,9 +1068,9 @@ P1 finding.
 | WP-PROF-LD3 | Expert coder         | Accepted 2026-08-24: converged ordinary live assignment authority, learner delivery, deterministic grading, immutable receipts, and audited Instructor inspection                                                                                                                                                            | WP-PROF-T3 accepted                                                                      |
 | WP-PROF-T5  | Coder                | Accepted 2026-08-24: accessible ordered fixed-or-pool authoring, policy-correct v1 draws, no-store preview, immutable issued evidence, and ordinary live Instructor/Student delivery; canonical HTTPS acceptance, screenshot provenance, independent visual approval, and final Validation passed                            | WP-PROF-T1 accepted                                                                      |
 | WP-PROF-D1  | Expert coder         | Accepted 2026-08-25: ranked metadata search, actor-scoped usage, first-attempt validity, disclosed evidence, and deterministic answer-free generated examples; canonical PostgreSQL, production HTTPS, screenshot, review, and final Validation evidence passed                                                              | WP-PROF-S7, WP-R2                                                                        |
-| WP-PROF-D2  | Coder                | Collections, Favorites, saved searches, bulk actions, ProblemPicker                                                                                                                                                                                                                                                          | WP-PROF-D1                                                                               |
+| WP-PROF-D2  | Coder                | Accepted 2026-08-25: live Favorites, private and institution collections, canonical saved searches, revision-checked bulk curation, and one shared ProblemPicker; PostgreSQL, production HTTPS, responsive visual, review, and final Validation evidence passed                                                              | WP-PROF-D1 accepted                                                                      |
 | WP-PROF-D3  | Coder                | Assisted tagging: worker, proposals, confirmation, provenance. **Optional; nothing depends on it**                                                                                                                                                                                                                           | WP-PROF-D1                                                                               |
-| WP-PROF-B1  | Expert coder         | Personal blueprints and public Alpha aggregates                                                                                                                                                                                                                                                                              | WP-PROF-D2, WP-PROF-S7                                                                   |
+| WP-PROF-B1  | Expert coder         | Revisioned personal assignment blueprints and public Alpha curriculum aggregates with typed references, creator-owned updates, answer-free projections, and shared `ProblemPicker` authoring and reuse                                                                                                                       | WP-PROF-D2, WP-PROF-S7                                                                   |
 | WP-PROF-B2  | Expert coder         | Fork, instantiate, rollover, term shift, manifests, fast-forward                                                                                                                                                                                                                                                             | WP-PROF-B1, WP-PROF-T1                                                                   |
 | WP-PROF-G1  | Expert coder         | Automated-grading operation queue grouped by question/learner; deterministic-grader exception routing, bounded retry, generation-fenced recalculation, and immutable operation receipts; no human scoring or manual-grade mutation                                                                                           | WP-PROF-T2                                                                               |
 | WP-PROF-G2  | Expert coder         | Audited learner-work inspection and grade-scheme-aware calculated gradebook, linked directly from G1 operations                                                                                                                                                                                                              | WP-PROF-S6, WP-PROF-G1                                                                   |
@@ -1137,16 +1152,16 @@ those focused contracts are green.
 
 **Required acceptance evidence.**
 
-| Layer                             | Required evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Domain, Store, and server         | Closed query/filter and result contracts preserve the opaque relevance cursor and snapshot boundary; strict decoders reject unknown response families and malformed filters; authorization resolves before protected actor-usage input; browser responses remain answer-free. Memory and PostgreSQL Stores agree on filtering, ranking, evidence suppression, and actor-scoped usage.                                                                                             |
-| PostgreSQL and RLS oracle         | The disposable database baseline runs the ranked-catalog cursor and continuation tests plus `postgres_catalog_discovery_evidence_and_usage_are_validity_and_actor_bound`. It proves immutable append-only evidence revisions, first-attempt independence, cross-course disclosure, snapshot-consistent reads, tenant isolation, and own-course detail under forced RLS.                                                                                                           |
-| Real-stack browser journey        | The production HTTPS `catalog_discovery_evidence` scenario uses visible PLE workflows. Elena finds the installed question and its initial insufficient-evidence state; ordinary Instructor and Student activity creates five independent observations across two courses; Library evidence updates to its disclosed state; filters find the question by byline, backend, tag, response family, and own-course use; Elena and Morgan each see only their authorized course detail. |
-| Visual and accessibility evidence | Capture the production scenario at 1280x800, 800x1280, 393x852, and 800x800 CSS pixels. Review Library search, filter controls, result cards, evidence, and usage detail for readable hierarchy, keyboard-complete controls, responsive recovery, and compact instructor use. Publish through the canonical screenshot corpus and provenance gate.                                                                                                                                |
-| Independent review                | Architecture, security/privacy, HCI/accessibility, and documentation/evidence review the final D1 artifact against this contract. Resolve every P0 through P3 finding before acceptance.                                                                                                                                                                                                                                                                                          |
-| Full Validation                   | Run `./all_test.sh` on the final material tree. Run `./capture_screenshots.sh` for the D1 visual corpus. Record exact commands, results, environment assumptions, and review receipts in the package handoff and changelog.                                                                                                                                                                                                                                                       |
+| Layer                             | Required evidence                                                                                                                                                                                                                                                                                                                                                                                        |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Domain, Store, and server         | Closed query/filter and result contracts preserve the opaque relevance cursor and snapshot boundary; strict decoders reject unknown response families and malformed filters; authorization resolves before protected actor-usage input; browser responses remain answer-free. Memory and PostgreSQL Stores agree on filtering, ranking, evidence suppression, and actor-scoped usage.                    |
+| PostgreSQL and RLS oracle         | The disposable database baseline runs the ranked-catalog cursor and continuation tests plus `postgres_catalog_discovery_evidence_and_usage_are_validity_and_actor_bound`. It proves immutable append-only evidence revisions, first-attempt independence, cross-course disclosure, snapshot-consistent reads, tenant isolation, and own-course detail under forced RLS.                                  |
+| Real-stack browser journey        | The production HTTPS `catalog_discovery_evidence` scenario uses visible PLE workflows. Seed the Instructor, Student, course, question, and taxonomy state required to demonstrate an initial insufficient-evidence state and a disclosed update. Library filters exercise byline, backend, taxonomy, response family, and own-course use, while each seeded role sees only its authorized course detail. |
+| Visual and accessibility evidence | Capture the production scenario in the maintained responsive profiles. Review Library search, filter controls, result cards, evidence, and usage detail for readable hierarchy, keyboard-complete controls, responsive recovery, and compact instructor use. Publish through the canonical screenshot corpus and provenance gate.                                                                        |
+| Independent review                | Architecture, security/privacy, HCI/accessibility, and documentation/evidence review the final D1 artifact against this contract. Resolve every P0 through P3 finding before acceptance.                                                                                                                                                                                                                 |
+| Full Validation                   | Run `./all_test.sh` on the final material tree. Run `./capture_screenshots.sh` for the D1 visual corpus. Record exact commands, results, environment assumptions, and review receipts in the package handoff and changelog.                                                                                                                                                                              |
 
-D1 is accepted when every required focused gate, real-stack journey, four-viewport review,
+D1 is accepted when every required focused gate, real-stack journey, semantic responsive review,
 independent review, screenshot publication gate, and full Validation gate is green on the final
 material tree.
 
@@ -1215,12 +1230,239 @@ full Validation evidence.
 | PostgreSQL and RLS oracle         | A fresh database applies migration 1836 and proves forced RLS, broker-only table authority, active session derivation, private concealment, tenant-institution reads, owner-only mutation, cross-tenant concealment, exact immutable member references, revision races, and complete rollback for malformed, invisible, or stale bulk input.                                                                                                                                                                                                                     |
 | Server and browser contracts      | Authentication and role resolution precede protected path, query, and body interpretation. Collection and saved-search representations are `no-store`, mutations use strong `If-Match`, strict decoders reject extensions, and every browser payload uses safe catalog metadata plus public references.                                                                                                                                                                                                                                                          |
 | Shared visible workflow           | Elena enters through the ordinary Instructor and passkey path, searches the Library, selects current results, updates Favorites, creates and revises a named collection, saves and reruns a current search, and uses the same picker to add fixed and pooled questions to a live assignment without typing IDs. Every interaction announces its result and next action; stale state preserves the selection and offers reload. Morgan's independent Sysadmin passkey journey remains green and institution collection reads expose the intended safe projection. |
-| Accessibility and visual evidence | Native labeled controls provide source, filters, result selection, selected-question tray, destination, and confirmation in task order. Focus opens and returns predictably, Escape cancels, bulk status is announced, and empty/error/conflict states retain recoverable work. Canonical screenshots cover 1280x800, 800x1280, 393x852, and 800x800 without clipping.                                                                                                                                                                                           |
+| Accessibility and visual evidence | Native labeled controls provide source, filters, result selection, selected-question tray, destination, and confirmation in task order. Focus opens and returns predictably, Escape cancels, bulk status is announced, and empty/error/conflict states retain recoverable work. Canonical screenshots cover the maintained responsive profiles and receive semantic review for clipping, readable hierarchy, focus, and recovery.                                                                                                                                |
 | Independent review and Validation | Architecture, security/privacy, HCI/accessibility, and documentation/evidence reviewers resolve every P0--P3 finding. The final material tree passes `./all_test.sh`; the D2 screenshot corpus passes publication, privacy, provenance, and visual review.                                                                                                                                                                                                                                                                                                       |
 
 D2 is accepted when the complete curation-to-live-assignment workflow, PostgreSQL authority oracle,
-four-viewport evidence, independent reviews, screenshot publication, and final Validation suite are
+semantic responsive evidence, independent reviews, screenshot publication, and final Validation suite are
 green on the same material tree.
+
+**Accepted evidence (2026-08-25).** Memory and PostgreSQL curation semantics, strict server and
+browser contracts, and the production HTTPS `problem_curation` journey are green. Elena uses her
+ordinary Instructor entry and passkey to search, curate, recover a revision conflict, and reuse the
+same safe public questions in a live assignment; Morgan's independent Sysadmin passkey path exposes
+the intended institution collection projection. The 66-migration database baseline proves forced
+RLS, broker authority, canonical saved filters, immutable membership, revision safety, and exact
+cleanup. The privacy-validated 93-artifact corpus includes 16 D2 views across all four canonical
+viewports. Architecture, security/privacy, HCI/accessibility, and documentation/evidence reviews
+closed with zero P0 through P3 findings. Final `source source_me.sh && ./all_test.sh` passed the Rust
+workspace, all five codebase gates including 297 Node tests, 6,982 pytest checks, the complete
+production-browser suite, the database baseline, and the browser-free service oracles.
+
+**WP-PROF-B1 binding contract.** A focused `ReusableCurriculumStore` owns two separate current-state
+aggregates over accepted D2 selection and S7 public references. A personal assignment blueprint is
+private to its approved Instructor owner and tenant. A public Alpha curriculum is readable by an
+approved Instructor across tenants and editable only by its creator. Both use strong revisions and
+whole-definition commands. Their stored question members pin exact immutable
+`ProblemVersionRef` values after the Store resolves submitted public Question IDs under the
+destination authority.
+
+- `BlueprintReference` uses the compact `BP-123` wire form. `AlphaCourseReference` activates the
+  reserved `AC-123` form. These references locate records; the active session supplies every read
+  and mutation capability.
+- A Blueprint is exactly one reusable-assignment definition. An Alpha owns an ordered list of
+  labelled curriculum modules; each module owns an ordered list of reusable-assignment definitions.
+  Definition positions are normalized within their parent, and the Alpha's strong revision covers
+  its complete module and assignment tree. B1 has one aggregate revision and one atomic replacement
+  boundary rather than independently mutable children.
+- The shared reusable-assignment definition carries title, instructions, ordered fixed questions,
+  ordered pool definitions, reusable policy defaults, and optional calendar-relative availability,
+  due, and close defaults. Relative values retain calendar-day and local-wall-clock meaning. B2 owns
+  target-term resolution, daylight-saving validation, and teaching-date preview.
+- Blueprint and Alpha child relations retain normalized ordered positions and exact publication
+  foreign keys. Alpha members resolve from public publications. Personal blueprints may retain
+  publications visible to their owner. Every new copy into another destination re-resolves the
+  public Question ID through that destination's current authority.
+- Browser projections carry typed references, strong revision evidence, an immutable reviewed creator
+  display-name snapshot using the existing `PublicByline` value contract, public Question IDs,
+  D1-safe catalog summaries, and disclosed evidence context. The creator snapshot carries display
+  names only; account, UUID, email, roster, tenant, and authority facts remain server-owned. The
+  projection vocabulary contains the complete reusable definition while learner records, question
+  source, response, grading, and answer material also remain server-owned.
+- Alpha and teaching courses remain distinct aggregates. Alpha has its own tables and broker,
+  carries no membership or learner-activity relationship, and provides curriculum inspection and
+  question reuse through B1. B2 adds fork, instantiate, rollover, term shift, normalized manifests,
+  fast-forward, and selected-copy behavior over the accepted B1 aggregate.
+- Complete replacement locks one aggregate, compares the observed revision, validates and resolves
+  every submitted Question ID, commits all ordered child state atomically, and advances the revision
+  once for a changed meaning. A semantic no-op preserves the revision. A stale command preserves
+  both the stored aggregate and the caller's local draft.
+- A stored exact publication pin remains inspectable with its current selection state after a later
+  publication lifecycle change. Every replacement or copy re-resolves its public Question ID under
+  the destination authority. D1 evidence context is a current disclosed read projection labelled as
+  current; B1 stores curriculum meaning rather than a frozen statistic.
+- The `2026081837_blueprint_alpha_curriculum.sql` migration creates a dedicated non-login,
+  `NOBYPASSRLS` reusable-curriculum broker. Narrow security-definer capabilities derive the actor
+  from the presented active session; blueprint reads and writes are owner-scoped, Alpha reads require
+  current Instructor approval, and Alpha writes require the creator's current approved-Instructor
+  session. Each operation derives approval from the caller's active session and caller tenant;
+  cross-tenant Alpha reading grants no creator-tenant authority. Authentication and role preflight
+  precede reference, revision, query, and body decoding. Direct application-table authority remains
+  closed.
+
+`ProblemPicker` remains the one visible question-selection feature. B1 adds typed blueprint sources
+and an Alpha descriptor shaped as `{ kind: "alphaCurriculum", alpha: AlphaCourseReference,
+modulePosition: positive integer, assignmentPosition: positive integer, label }`. The Alpha adapter
+resolves that exact reusable definition under current Instructor approval and returns the existing
+answer-free D1 rows and public Question IDs in definition order. The focused Curriculum surface lists
+personal blueprints beside public Alpha curricula and composes the same picker for creation and
+revision. Assignment authoring may reuse a selected ordered question set through its ordinary
+create/update path; B2 later instantiates the complete reusable definition, schedule, and provenance
+into a teaching course.
+
+**B1 dependency order.** Freeze the reusable definition, typed references, revision, authority, and
+safe projection contracts; implement Memory parity; add migration 1837 and the PostgreSQL Store;
+register strict server and generated browser contracts; connect the Curriculum surface and shared
+picker; then run focused real-stack, visual, independent-review, and final Validation evidence.
+
+**B1 required acceptance evidence.**
+
+| Evidence class                    | Required evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Permanent fast behavior tests     | Rust domain and Memory tests cover reference round trips, reusable-definition normalization, exact publication pinning, ordered fixed/pool meaning, owner and creator authority, cross-tenant approved-Instructor Alpha reads, semantic no-op and stale-revision behavior, atomic replacement, and safe projections. Server and Node tests cover preflight ordering, strict decoding, typed Alpha source switching, definition order, and local-draft preservation; accepted D2 picker retry and stale-response coverage remains green. |
+| Opt-in PostgreSQL and browser E2E | The disposable PostgreSQL oracle exercises the Store through migration 1837, forced RLS, broker least privilege, creator and reader roles, cross-tenant Alpha visibility, Student refusal, revision races, and rollback. One registered production HTTPS journey uses visible actions for Elena to create and revise a blueprint and Alpha, reload persisted state, and reuse Alpha questions through the shared picker. Elena and Morgan's independent passkey scenarios remain green.                                                 |
+| One-time implementation evidence  | Graphify impact review, migration and generated-contract registration, answer-free wire inspection, fresh screenshot capture, privacy/provenance publication, exact disposable cleanup, and source/route inventories remain package receipts. They are implementation checks rather than permanent fast tests.                                                                                                                                                                                                                          |
+| Human and independent review      | Responsive captures are reviewed semantically for hierarchy, readable ordered curriculum, focus visibility, creator versus reader presentation, compact instructor use, recovery clarity, privacy, and contrast. Architecture, security/privacy, HCI/accessibility, and documentation/evidence reviews resolve every P0 through P3 finding. Screenshot review uses rendered behavior rather than byte or pixel equivalence.                                                                                                             |
+| Full Validation                   | The final B1 material tree passes `./all_test.sh`; the B1 screenshot corpus passes publication, privacy, provenance, and visual review.                                                                                                                                                                                                                                                                                                                                                                                                 |
+
+Permanent pytest remains offline, deterministic, individually subsecond, and fixture-light under
+`PYTEST_STYLE.md`. PostgreSQL, browser, process, migration, and screenshot behavior stays in the
+named E2E or one-time evidence lane. B1 acceptance uses semantic behavior and resource ownership;
+elapsed-time thresholds, artifact counts, collection counts, and pixel-equivalence gates carry no
+acceptance authority.
+
+**WP-PROF-B2 binding contract.** B2 is the dedicated curriculum-adoption boundary. It consumes
+accepted B1 Blueprint and Alpha meaning and creates or updates ordinary teaching-course state. It
+does not turn a Blueprint or Alpha into a course: B1 source aggregates, ordinary teaching courses,
+learner activity, and immutable issued evidence remain separate aggregates. This is the approved
+architecture decision recorded by the Graphify-guided B2 audit. B2 starts only after B1 acceptance;
+its current handoff, migration allocation, and later receipt remain owned by
+[implementation_status.md](../implementation_status.md).
+
+**Source, destination, and operations.** Introduce a focused `CurriculumAdoptionStore`, separate
+from `ReusableCurriculumStore`, learner-work stores, and the generic browser Store. It owns one
+server-side command boundary for the following revision-bound operations:
+
+- **Fork Alpha:** an approved Instructor reads an answer-free public `AC-...` source and its
+  observed revision, creates an independently editable owner-scoped Alpha, and receives immutable
+  source-lineage evidence. The fork never has an implicit live tether to its source.
+- **Instantiate Blueprint or Alpha:** a Blueprint creates one normal draft assignment in an existing
+  teaching course; an Alpha creates a normal tenant-owned teaching course, initial direct Instructor
+  membership, ordinary assignment definitions/base policies, and import manifests atomically. The
+  target term, zone, title, source revision, and client idempotency key are explicit inputs.
+- **Rollover course:** an authorized source-course Instructor previews then creates a new ordinary
+  teaching course for the selected target `CourseTerm`. Copyable definition meaning travels through
+  a rollover manifest; roster memberships, learner records, attempts, grades, retention, and issued
+  evidence do not. The destination begins with no learner-linked state.
+- **Whole-course term shift:** an authorized Instructor previews then applies one target
+  `CourseTerm` to an existing unissued course. The operation resolves every assignment base schedule
+  as one atomic course operation. The destination course is eligible only when no assignment in it
+  has ever issued learner work. Any issued run refuses the operation without mutation; rollover is
+  the taught-course path, and issued evidence keeps its original term context.
+- **Inspect and update imports:** an Instructor lists durable curriculum imports, previews an
+  eligible fast-forward, then applies it against observed source, import, assignment, and schedule
+  revisions. A divergent import offers **Create new assignment from this source definition**. That
+  explicit command creates a separate draft from the selected source definition and preserves the
+  divergent assignment. B2 supplies no field-level or three-way merge engine.
+
+Every write is atomic, revision-checked, and idempotent where a completed retry is possible.
+References locate records only. The server derives actor, role, tenant, and session from the
+authenticated request; no browser payload supplies authority, tenant identity, or an internal ID.
+
+**Reusable semantic baseline and provenance.** Each adoption stores one normalized reusable-content
+payload and a separate immutable source-binding/provenance envelope. Only content meaning is
+canonicalized and hashed: ordered exact immutable question pins, pool algorithm/version, scoring
+mode, points, title, instructions, reusable policy defaults, relative schedule defaults, and every
+semantically meaningful ordering. Source kind/reference/revision and locator positions, destination
+identities/revisions, and actor, time, request, idempotency, audit, and receipt metadata are
+immutable binding/provenance and are excluded from semantic equality. Canonical ordering derives
+meaningful positions from vectors and normalizes object keys before calculating the semantic digest.
+Equivalent meaning therefore has one digest, while a meaningful content change produces a different
+digest; the immutable envelope and completed operation receipt retain the binding facts separately.
+
+At every adoption, rollover, fast-forward, or source-derived draft creation, the broker reauthorizes
+each exact source pin under destination authority and stores the authorized immutable pin. A pin no
+longer available for new destination use yields a field-specific correction and the existing shared
+`ProblemPicker` supplies an explicit replacement path. An already stored exact pin remains
+inspectable under the existing retention/lifecycle rules; B2 never silently changes its meaning.
+Target course terms, resolved delivery dates, accommodations, audience, roster, entitlement
+materialization, learner activity, grades, retention, and source-result evidence remain teaching
+owned and outside semantic reusable comparison.
+
+**Schedule and update semantics.** B2 reuses `CourseTerm`, `CourseLocalDateTime`, and server-owned
+local-time resolution. Relative availability, due, and close values keep their calendar-day offset
+and local wall-clock time. Preview resolves them in the target term's IANA zone, validates inclusive
+term bounds and chronological ordering, and returns local and absolute outcomes plus a field-specific
+DST gap or ambiguity correction. Browser time and machine-local time have no authority.
+
+Add a narrow `CourseScheduleRevision` at the course policy boundary. Every course-term writer and
+every assignment-base-schedule writer advances it in the same transaction. It binds a whole-course
+term-shift preview/apply pair. Preview returns the current `CourseScheduleRevision` plus every
+affected assignment revision; apply requires all returned revisions to remain unchanged. It locks
+the course first, then affected assignment schedules in stable identifier order, and serializes with
+first-run creation. Assignment-local edits continue to use `AssignmentRevision` while also advancing
+the course schedule revision in that transaction.
+
+**Reconciliation boundary.** Reconciliation repairs only B2-owned derived or index rows, using
+immutable completed B2 receipts together with the stored reusable-content payload and immutable
+source-binding/provenance envelope. It preserves every course, assignment, membership, schedule,
+learner record, run, grade, source, baseline payload, and envelope. Missing immutable evidence
+produces an integrity refusal requiring operator recovery; reconciliation never invents a receipt or
+silently reconstructs authoritative state. Replay requires both the stored request digest and the
+matching completed receipt.
+
+Fast-forward is eligible only when the destination import still names the same source and baseline,
+the current destination reusable projection equals that baseline, the selected source has a newer
+re-readable revision, destination reauthorization succeeds for every exact pin, no first-issued-run
+fence applies, and all observed revisions match. It atomically replaces only reusable meaning and
+creates the next baseline/envelope; teaching-owned dates, accommodations, audience, and local state
+remain intact. Revision drift, an idempotency key reused with a different request digest, or a
+divergence returns a typed recoverable outcome without a partial write. Divergence is resolved by the
+new source-derived draft action, never an automatic overwrite.
+
+**Persistence, authority, and API ownership.** The B2 migration is allocated by the release
+integrator before coding. The status ledger currently records only B1's allocation, so this plan
+requires the next allocated identity without naming or reserving one. The resulting migration owns
+B2 lineage/import/baseline/envelope/idempotency/receipt persistence, `CourseScheduleRevision`, forced
+RLS policies, and one `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` curriculum-adoption broker. The broker
+receives only required table/function privileges. Execute-only `SECURITY DEFINER` procedures use a
+fixed safe `search_path`, derive the active session, validate route bindings, authorize public-source
+reads and direct destination-course Instructor writes, lock in documented order, and return
+non-enumerating outcomes. Application roles receive no direct table or sequence authority.
+
+`crates/question_model/src/curriculum_adoption.rs` owns command/value types, normalized baseline
+inputs, comparison outcomes, schedule-preview values, revisions, and answer-free projections.
+`crates/learning-data-access/src/contracts/curriculum_adoption.rs` owns the Store contract, source
+resolver, Memory parity, and PostgreSQL adapter. `crates/server/src/curriculum_adoption.rs` owns
+adoption/rollover/term-shift/import routes; `reusable_curriculum.rs` owns only narrow Alpha-source
+and fork route additions. `src/features/curriculum_adoption/` owns the visible staged Instructor
+workflow. Route registration composes beside the existing course and reusable-curriculum routers.
+All request decoders are closed and bounded; responses are `no-store`, typed, answer-free, and exclude
+grader inputs, private source, internal UUIDs, email, and FERPA records.
+
+**B2 dependency order.** (1) Obtain migration allocation and architect-approved contract; (2) add
+question-model values, semantic comparison, schedule resolver adapter, and source/destination rules;
+(3) implement Memory Store parity and deterministic domain/server/Node behavior; (4) add the
+PostgreSQL migration, broker, and opt-in RLS oracle; (5) register strict routes and generated browser
+contracts; (6) compose the one visible workflow into ordinary course/assignment pages; (7) complete
+focused gates, connected browser evidence, semantic visual review, independent reviews, status and
+changelog receipt, then final `source source_me.sh && ./all_test.sh` on the material tree.
+
+**B2 required acceptance evidence.**
+
+| Evidence class | Required evidence |
+| --- | --- |
+| Permanent deterministic behavior | Focused Rust domain/Memory tests prove normalized semantic comparison, source-pin reauthorization, Alpha fork lineage, instantiation/rollover exclusions, relative schedule resolution and typed DST corrections, whole-course no-issued-work fencing, fast-forward eligibility, divergence preservation with new source-derived draft, revision conflicts, idempotency replay, and answer-free projections. Semantic digest behavior tests may prove equivalent meaning produces the same digest and a meaningful change produces a different digest; they exclude frozen literal-byte digests. Focused server and Node tests prove closed decoding, session preflight before body interpretation, route/reference binding, recoverable draft preservation, and safe DTOs. Tests use small inline cases and grounded behavior, never fixture-corpus size, route inventories, timing limits, or count gates. |
+| Opt-in PostgreSQL/RLS oracle | One ignored disposable PostgreSQL test exercises the B2 Store through the allocated migration: forced RLS, broker-only authority, approved-Instructor source reads, direct destination Instructor writes, Student and unrelated Sysadmin refusal, cross-tenant Alpha fork/instantiation, atomic rollback for invalid pins/schedules/stale revisions, durable provenance/receipt reload, empty learner destination state, fast-forward/divergence/issued-run outcomes, and reconciliation of missing rows. It asserts relationships and outcomes, not SQL shape or migration counts. |
+| Canonical production browser | A behavior-named production HTTPS scenario uses real PostgreSQL/RLS and visible UI-created state. Elena enters through the ordinary approved-Instructor path, creates and revises the B1 Blueprint/Alpha source through visible UI actions, previews and commits instantiation, rollover, and term shift, sees and corrects one DST outcome, fast-forwards an untouched import, and preserves a divergent assignment by creating a new source-derived draft. Catalog baseline publication is infrastructure-only setup. The journey uses accessible controls and semantic readiness waits. Elena and Morgan passkey enrollment, sign-out, and sign-in remain required independent scenarios; this B2 journey consumes Elena's ordinary authenticated Instructor path and does not duplicate their passkey ceremonies. |
+| One-time and human evidence | Retain Graphify/source-impact, migration allocation and broker/RLS inspection, generated-contract registration, answer-free wire inspection, browser origin/cleanup, and screenshot publication as dated package receipts. Semantically review the maintained responsive profiles for readable source/destination distinction, preview/correction/recovery, keyboard/focus/dialog behavior, responsive layout, privacy, and contrast. Screenshots and Graphify inventories are one-time evidence, not byte, pixel, artifact-count, or route-inventory gates. Architecture/security, HCI/accessibility, and documentation/evidence review resolve all P0/P1 findings; P2/P3 have a resolution or recorded owner decision. |
+| Full Validation | The final material tree passes `source source_me.sh && ./all_test.sh` with every required B2 gate green and no required skip. Connected PostgreSQL/RLS, production HTTPS browser, screenshots, Graphify/source inventories, and visual judgment retain the separate evidence lanes above. |
+
+The canonical browser journey is the smallest visible composition. It demonstrates selected
+assignments plus preview-before-save, the useful ADAPT product lesson. PLE retains ownership of
+server-side date resolution, revision binding, DST correction, atomic apply, destination authority,
+and issued-work fencing. Existing Student delivery, deterministic grading, immutable receipts, and
+Instructor inspection remain ordinary teaching-course behavior and are not reimplemented by B2.
 
 Each package owns its capability modules. The six named M1 schema packages and the accepted
 post-M1 WP-PROF-LD1 allocation are recorded in the shared registry; WP-PROF-LD2 has the
@@ -1350,10 +1592,11 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   ordinary enrolled Student, and inspects the resulting submission, deterministic grade, immutable
   receipt, and audited learner work.
 - A pool assignment delivers its draw per learner and honors the issued-run lock.
-- An Alpha course is non-enrollable, public to approved Instructors, creator-editable, cloneable, and
-  carries evidence context and improvement threads into the clone.
-- Fast-forward updates only untouched reusable fields before the first issued run; divergence
-  produces selected copy or new assignment, never an automatic merge.
+- `WP-PROF-B1`: an Alpha curriculum is non-enrollable, public to approved Instructors,
+  creator-editable, and exposes answer-free modules and ordered questions for shared picker reuse.
+- `WP-PROF-B2`: fork and teaching-course instantiation carry the declared reusable meaning and
+  provenance. Fast-forward updates apply only to untouched reusable fields before the first issued
+  run; divergence produces an explicitly selected copy or new assignment.
 - A flagged item leads from analysis to learner evidence to usage to a distinct linked replacement,
   and the decision is recorded and visible in next term's material.
 - After an explicitly linked replacement is published, the professor can compare its disclosed
@@ -1369,12 +1612,12 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   its own row.
 - No public, learner, non-author, collection, blueprint, or Alpha response contains answer keys,
   grading implementations, private source, email, UUID, or FERPA data.
-- Professor pages stay compact and keyboard-complete at 1280 by 800; student pages keep the tablet
-  and narrow-phone guards.
+- Professor pages stay compact and keyboard-complete in the maintained desktop profile; student pages
+  retain maintained tablet and narrow-phone profiles.
 - Student acceptance evidence includes an allowed student surface and fail-closed denial of
-  instructor-only routes at the exact 1280 by 800, 800 by 1280, 393 by 852, and 800 by 800 CSS-pixel
-  matrix. No-transport assertions and direct route probes accompany screenshots; pixels alone do not
-  prove authorization.
+  instructor-only routes across the maintained responsive profiles. No-transport assertions and
+  direct route probes accompany semantic screenshot review; rendered images alone do not prove
+  authorization.
 
 ## Test and verification strategy
 
@@ -1388,33 +1631,40 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   when the scored cohort is small, first-attempt independence, comparison of explicitly linked
   replacement/source questions with separately scoped exact-version evidence, and the
   insufficient-evidence answer contributing nothing to ranking.
-- Domain tests: resolver precedence and provenance for every gate and modifier combination,
+- Domain tests: resolver precedence and provenance for representative precedence partitions across
+  gates and modifiers,
   extend-only accommodation semantics, disclosure evaluation across the time axis, grade computation
   in both shipped modes with rounding and drop rules, relative-calendar scheduling and DST refusal,
   pool draw determinism by algorithm version, clone manifest normalization, fast-forward eligibility,
   quality-signal computation with insufficient-sample behavior, and issued-run structural locks.
 - Memory conformance: ordinary crate tests cover entitlement, group purposes and exclusivity policy,
-  collection ownership, usage-index aggregation boundaries, public Alpha reads and creator-only
-  writes, cross-tenant cloning, rollover exclusions, grader-operation receipts and recalculation,
-  audited work inspection, ordinary learner-work evidence, tagging provenance, and retention.
+  collection ownership, usage-index aggregation boundaries, B1 blueprint ownership, approved-
+  Instructor Alpha reads, creator-only writes, ordered definition replacement, grader-operation
+  receipts and recalculation, audited work inspection, ordinary learner-work evidence, tagging
+  provenance, and retention. B2 separately covers cross-tenant instantiation, rollover exclusions,
+  manifests, fast-forward eligibility, and selected copy.
 - PostgreSQL/RLS proof: a named disposable PostgreSQL E2E exercises the same selected Store semantics
   where transactions, persistence, roles, and forced RLS are the contract. It is opt-in and separate
   from ordinary Cargo, Node, and pytest gates.
 - Server tests: authentication, role checks, non-enumeration, strict decoding, strong revisions,
-  idempotency, cache policy, audited reads, and absence of secret fields in every new response.
+  idempotency, cache policy, audited reads, and absence of secret fields across each response family.
 - TypeScript and Node: strict decoders, short route references, query and cursor recovery, local
   state preservation.
 - Playwright, named for behavior rather than milestones: discovery to collection to assignment;
   schedule and accommodation with resolved-outcome and provenance checks; entitlement preview;
-  live Student delivery and Instructor evidence inspection; pool delivery; Alpha clone across instructors; fast-forward and
-  divergent selected copy; rollover and term shift preview; grader-exception routing by item and
-  recalculation; gradebook total and audited learner work inspection; analysis to fork to recorded decision;
-  attention-queue routing; keyboard, recovery, and canonical viewport behavior.
+  live Student delivery and Instructor evidence inspection; pool delivery; B1 blueprint and Alpha
+  authoring with shared-picker reuse; B2 Alpha instantiation across instructors, fast-forward,
+  divergent selected copy, rollover, and term-shift preview; grader-exception routing by item and
+  recalculation; gradebook total and audited learner-work inspection; analysis to fork to recorded
+  decision; attention-queue routing; keyboard, recovery, and maintained responsive-profile behavior.
 - S4 browser evidence must cover the student/access contract: allowed learner projection, direct
   roster and gradebook denial probes, a centrally derived fail-closed route boundary before transport,
   and no instructor payload on denied navigation. Fresh capture and inspection are required before
   screenshots count as acceptance evidence.
-- Use the canonical fixed real-stack suite for M6 professor-to-two-student composition behavior.
+- Use the canonical fixed real-stack suite for M6 professor-and-learner composition behavior, using
+  Elena Instructor and only the seeded learner state required for each semantic transition. Elena
+  Instructor and Morgan Sysadmin passkey enrollment, sign-out, and sign-in remain independent
+  suite-owned scenarios; the M6 journey begins from their ordinary authenticated sessions.
   `webwork_delivery` and `assignment_question_replacement` create their own namespaced visible state;
   the browser-free Chapter One publication and WebWork renderer oracles retain their bounded service
   claims. Aggregate acceptance invokes the canonical suite once after package invariants are green.
@@ -1435,6 +1685,8 @@ invariant below is green in a small permanent behavior test owned by its package
 - grade totals in every shipped mode, including the rounding and drop rules;
 - ordinary learner delivery producing an immutable receipt, deterministic grade, and auditable work;
 - pool draw determinism for a given algorithm version;
+- blueprint ownership, approved-Instructor Alpha reads, creator-only writes, ordered exact-version
+  pinning, answer-free projections, and Alpha separation from learner activity;
 - clone and term-shift date resolution, including daylight-saving refusal;
 - statistics suppression below the k-anonymity threshold and the insufficient-evidence answer;
 - audited learner-work reads;
@@ -1444,28 +1696,44 @@ M6 then runs the narrative once, and a failure there means composition, not unit
 
 ### The M6 connected term journey
 
-One narrative journey, run live, exercising the architecture as a system rather than visiting pages:
+The live journey uses Elena Instructor and the seeded Mary Student record only where learner state is
+needed to demonstrate a transition. It exercises the architecture as a system rather than visiting
+pages:
 
-1. Dr. Fake Professor searches the catalog by concept, filters to questions with disclosed evidence,
-   collects eight, and confirms three assisted tag proposals along the way.
-2. She builds an Alpha course with two modules, one fixed assignment and one pool assignment, using
-   relative dates.
-3. She instantiates it into a Fall term with a start date and time zone, two sections and one lab.
-4. She previews the schedule table, grants Mary Fake Student an extension, and confirms the resolved
-   window shows the extension as its source.
-5. She publishes the pool assignment, enters through an enrolled lab Student, and confirms the live
-   late marking and disclosure state through an ordinary run and submission.
-6. Two students practice repeatedly; one encounters a deterministic grader exception; one submits
-   late.
-7. She opens the routed by-item operation, audits the affected learner work, retries after the
-   grader/source correction, and watches the generation-fenced course total recalculate in the
-   selected grade mode.
-8. Analysis flags one item; she inspects a learner's exact variant, checks catalog usage and
-   cross-course behavior, publishes an explicitly linked replacement with a new Question ID, records
-   the decision, and deliberately replaces the item in next term's Alpha.
-9. She rolls the course into a Spring term with a term shift; the preview resolves every date, the
-   improvement thread is visible on the replaced item, and no student record travels.
-10. After the second term, she compares the linked replacement question's behavior with its source.
+1. Elena searches the published Library by concept, filters to safe evidence, and opens a public
+   question detail.
+2. Elena favorites selected questions and places them in a named collection; the same live selection
+   is available to the assignment picker. When `WP-PROF-D3` has shipped, she may review and confirm an
+   assisted tag with recorded provenance. Human taxonomy and collection actions complete the core
+   journey.
+3. Elena creates or revises reusable curriculum with a fixed-question definition and a pool
+   definition. The fixed member remains selected; the pool records its draw rule and delivery order
+   without becoming a learner assignment or grade.
+4. Elena instantiates the reusable definition into an ordinary Fall teaching term with its start date
+   and IANA time zone. The destination receives teaching-owned definitions and no learner records.
+5. Elena previews resolved schedule dates, then grants Mary an accommodation. The preview shows the
+   effective window and its source before she saves the assignment.
+6. Mary enters the published assignment through the ordinary learner workflow, receives fixed and
+   policy-selected pool items bound to the issued run, submits through the late-work path, and
+   observes the visible late-work marking, deterministic grade, immutable receipt, and permitted
+   disclosure. Elena inspects the same audited learner work through the Instructor surface.
+7. A deterministic grader exception for an issued item routes to Elena's operation view. After the
+   bounded correction, she requests the generation-fenced recalculation and observes the refreshed
+   course total without changing the original receipt.
+8. Elena opens course-local item analysis, inspects learner evidence and usage context, publishes a
+   distinct linked replacement Question ID, and records the decision. The replacement is selected for
+   future teaching while the issued run remains pinned to its original evidence.
+9. Elena previews and creates the next-term rollover. The manifest carries reusable teaching
+   definitions and improvement notes while excluding roster membership, accommodations, learner
+   work, attempts, grades, and retention state.
+10. Elena previews and applies the next term's date shift, resolves any daylight-saving correction,
+    and compares the linked replacement's behavior and improvement evidence with the source question.
+    The receipt records the shifted schedule and the decision for later review.
+
+Acceptance is the semantic behavior, configured privacy-threshold behavior, visible UI outcome, and
+live real-stack composition. Each transition uses the smallest live state needed to demonstrate its
+meaning; aggregate and item-analysis evidence uses configured privacy thresholds and seeded
+contributions where required.
 
 ## Migration and compatibility policy
 
@@ -1565,7 +1833,8 @@ One narrative journey, run live, exercising the architecture as a system rather 
 - `quality_signal` is adopted with a defined, explainable computation or removed from the schema.
 - Catalog-wide statistics stay anonymous under the existing disclosure boundary and always show
   sample size.
-- "Public Alpha course" means visible and cloneable by approved Instructors, not publicly runnable.
+- "Public Alpha course" means visible to approved Instructors through B1 and available for explicit
+  B2 instantiation; learner activity belongs to the resulting teaching course.
 - Alpha courses and teaching courses are separate aggregates, not convertible kinds.
 - Fork lineage is retained; contribution proposals stay outside this plan.
 - Existing answer-secrecy, role, first-issued-run, retention, human-reference, and

@@ -48,49 +48,49 @@ remain the scope and acceptance authorities.
 ## P0: seed only fresh state
 
 - [x] Allocate the `WP-PROF-LD1` schema package and migration through
-  [implementation_status.md](../implementation_status.md) before durable install-state work begins.
-  `WP-PROF-LD2` accepted immutable migration `2026081809` owns exactly two least-privilege
-  execute-only PostgreSQL brokers: safe normal Sysadmin approval-candidate discovery and read-only
-  completed live-demo installation-generation lookup.
-  Its separately accepted immutable `2026081810` is only the narrow Student pre-tenant account-course
-  context retention-boundary repair. Selector, passkey, account, and session data and semantics remain
-  non-schema; the generation-read broker is the accepted narrow auth-owned installation-state read.
-  `WP-PROF-T3` remains separate and current.
+      [implementation_status.md](../implementation_status.md) before durable install-state work begins.
+      `WP-PROF-LD2` accepted immutable migration `2026081809` owns exactly two least-privilege
+      execute-only PostgreSQL brokers: safe normal Sysadmin approval-candidate discovery and read-only
+      completed live-demo installation-generation lookup.
+      Its separately accepted immutable `2026081810` is only the narrow Student pre-tenant account-course
+      context retention-boundary repair. Selector, passkey, account, and session data and semantics remain
+      non-schema; the generation-read broker is the accepted narrow auth-owned installation-state read.
+      `WP-PROF-T3` remains separate and current.
 - [x] Give each fresh baseline installation a durable `installing`/`complete` state and generation,
-  serialize its installer, and bind its PostgreSQL rows and object-storage receipt to that
-  installation.
+      serialize its installer, and bind its PostgreSQL rows and object-storage receipt to that
+      installation.
 - [x] Prove an interrupted `installing` run retries the same deterministic baseline and exact
-  generation-bound receipt. Prove a pre-marker database or mixed PostgreSQL/object-storage state
-  fails closed and directs fresh regeneration of both stores.
+      generation-bound receipt. Prove a pre-marker database or mixed PostgreSQL/object-storage state
+      fails closed and directs fresh regeneration of both stores.
 - [x] Make an ordinary start with retained `complete` volumes run migrations and readiness only. A
-  completed start calls no seed writer and performs no storage inspection or equality scan.
+      completed start calls no seed writer and performs no storage inspection or equality scan.
 - [x] Keep explicit fresh database-and-storage regeneration as the one path that installs baseline
-  data.
+      data.
 - [x] Prove that an ordinary retained-volume start neither rewrites nor restores edited Base Course
-  accounts, memberships, assignments, problems, activity, or grades.
+      accounts, memberships, assignments, problems, activity, or grades.
 
 - [x] Extract the production installer into the focused product crate
-  `crates/base-course-installation/`, imported as `base_course_installation`. The crate owns the typed request, receipt, ordinary
-  Base Course recipe, and deterministic installation orchestration. `learning-data-access` alone
-  owns SQL, the PostgreSQL advisory lock, durable install-state transitions, migrations, and Store
-  implementation. `project-tools` is the direct `cargo tools base-course` CLI adapter only. The
-  product crate owns the baseline recipe, install-state transitions, and command contract. The
-  product crate has no HTTP route or server-start hook.
+      `crates/base-course-installation/`, imported as `base_course_installation`. The crate owns the typed request, receipt, ordinary
+      Base Course recipe, and deterministic installation orchestration. `learning-data-access` alone
+      owns SQL, the PostgreSQL advisory lock, durable install-state transitions, migrations, and Store
+      implementation. `project-tools` is the direct `cargo tools base-course` CLI adapter only. The
+      product crate owns the baseline recipe, install-state transitions, and command contract. The
+      product crate has no HTTP route or server-start hook.
 
 The host-side `base-course.json` receipt is diagnostics only; the generation-bound storage receipt
 is the lifecycle binding. The required repair is the fresh-state boundary above, not an expanded
 exact reconciliation. See
 [lifecycle.py](../../../local_stack_control/lifecycle.py) and the
-  direct `base-course` CLI adapter.
+direct `base-course` CLI adapter.
 
 ## Test artifact boundary
 
 - [x] Build ordinary `dist/` with HTTP transport and HTTP local credential login only.
 - [x] Build browser-test coverage in a separately named browser-test artifact with its own static
-  server; that server supplies bytes and SPA fallback only.
+      server; that server supplies bytes and SPA fallback only.
 - [x] Keep browser-test assets and test-double transport inside the browser-test artifact.
 - [x] Add an artifact-graph regression check proving ordinary and local live builds exclude the
-  browser-test transport and login modules.
+      browser-test transport and login modules.
 
 Use the repository fixture policy exactly:
 
@@ -112,34 +112,34 @@ and validate the seeded-entry seams against those contracts while unrelated prov
 multi-replica, security, and HCI gates remain open. It adds convenient entry for seeded Student
 and Instructor accounts while preserving `WP-RC8` as the production authentication owner.
 
-The live-demo handoff order is `WP-PROF-LD1` -> `WP-PROF-LD2` -> `WP-PROF-T3`; LD2 is accepted,
-and T3 is the separate current package.
+The live-demo handoff order was `WP-PROF-LD1` -> `WP-PROF-LD2` -> `WP-PROF-T3`; all three packages
+are accepted. [implementation_status.md](../implementation_status.md) owns the active handoff.
 
 - [x] Provide a deployment-controlled selector for five fixed seeded personas: Elena Instructor,
-  Mary Student, Jack Student, Avery Student, and Morgan Sysadmin.
-  The selector sends only a closed known persona to the server.
+      Mary Student, Jack Student, Avery Student, and Morgan Sysadmin.
+      The selector sends only a closed known persona to the server.
 - [x] Resolve each selected persona on the server to a known seeded PLE account and create the
-  ordinary account session. Derive roles, tenant context, memberships, and authorization from
-  persisted PLE state.
+      ordinary account session. Derive roles, tenant context, memberships, and authorization from
+      persisted PLE state.
 - [x] Continue from the ordinary account session through normal course/role selection to the
-  ordinary PLE session, cookie, RLS, and capability path.
+      ordinary PLE session, cookie, RLS, and capability path.
 - [x] Repair the pre-tenant account-course discovery boundary so `ple_auth` returns active Student
-  contexts, preserves archived/deleted/started-retention concealment, leaves Instructor behavior
-  unchanged, and proves connected Student login.
+      contexts, preserves archived/deleted/started-retention concealment, leaves Instructor behavior
+      unchanged, and proves connected Student login.
 - [x] Prove each seeded persona enters through normal sessions and only its stored normal role
-  capabilities. The selector replaces only passwordless identity verification.
+      capabilities. The selector replaces only passwordless identity verification.
 - [x] Directly select Morgan Sysadmin, choose Genetics, and prove ordinary server authorization from
-  the selected account's stored role and session state.
+      the selected account's stored role and session state.
 - [x] Prove real generic WebAuthn enrollment and authentication for Morgan Sysadmin and Elena
-  Instructor inside their respective scenarios: server-issued challenges bind the relying party and
-  origin, require the configured user-verification policy, resist replay, and establish the normal
-  protected session.
+      Instructor inside their respective scenarios: server-issued challenges bind the relying party and
+      origin, require the configured user-verification policy, resist replay, and establish the normal
+      protected session.
 - [x] Prove the seeded Sysadmin exercises full normal Sysadmin workflows, including the ordinary
-  instructor-discovery and approval workflow. Preserve the normal Student, Instructor, and
-  Sysadmin role boundaries.
+      instructor-discovery and approval workflow. Preserve the normal Student, Instructor, and
+      Sysadmin role boundaries.
 - [x] Prove fresh database and object-storage regeneration restores all five seeded personas to the
-  baseline account and stored-role state. Each browser scenario starts from that reset baseline and
-  performs its own visible passkey work; it does not require credential replay.
+      baseline account and stored-role state. Each browser scenario starts from that reset baseline and
+      performs its own visible passkey work; it does not require credential replay.
 
 Email is unavailable for this proof. Connected evidence uses seeded real accounts and normal
 sessions. Fresh database and storage regeneration restores the complete seeded baseline.
@@ -162,36 +162,36 @@ browser scenario.
 ### Student path
 
 - [x] Select the seeded Student account, enter the course, complete the new assignment, and submit
-  answers through the ordinary Student session.
+      answers through the ordinary Student session.
 - [x] View the permitted feedback and grades, then repeat the assignment where its policy allows.
 
 ### Item-pool continuation (WP-PROF-T5)
 
 - [x] Elena uses visible controls and public Question IDs to create a mixed fixed-plus-pool
-  assignment. She configures draw count, points, and ordering while the v1 algorithm label remains
-  read-only.
+      assignment. She configures draw count, points, and ordering while the v1 algorithm label remains
+      read-only.
 - [x] Elena previews a server-generated pool draw as an ephemeral no-store computation over the
-  current assignment revision. Durable learner activity remains unchanged.
+      current assignment revision. Durable learner activity remains unchanged.
 - [x] An ordinarily enrolled Student receives the fixed item plus the selected pool item, submits
-  both responses, sees permitted deterministic grading and feedback, and resumes the exact issued
-  selection.
+      both responses, sees permitted deterministic grading and feedback, and resumes the exact issued
+      selection.
 - [x] A permitted next run follows the selected variation policy. Evidence records the
-  policy-correct basis and freezes each issued selection.
+      policy-correct basis and freezes each issued selection.
 - [x] Elena inspects the resulting work and immutable evidence. A structural edit after first issue
-  presents the visible new-assignment recovery action and preserves issued work.
+      presents the visible new-assignment recovery action and preserves issued work.
 
 ### Sysadmin path
 
 - [x] Include a named, explicitly selectable seeded Student account outside the Base Course roster
-  and without Instructor authority as the Instructor-approval candidate. Its selector maps to the
-  same normal account session before and after approval. Avery remains the same selectable seeded
-  account; approval changes only eligibility.
+      and without Instructor authority as the Instructor-approval candidate. Its selector maps to the
+      same normal account session before and after approval. Avery remains the same selectable seeded
+      account; approval changes only eligibility.
 - [x] Use the normal Sysadmin path to discover only the public account reference and display label
-  needed for approval.
+      needed for approval.
 - [x] Approve that user as an Instructor; prove that Instructor-role approval is Sysadmin-only.
 - [x] Have the course Instructor invite the approved account from the Teaching Team. Invitation
-  acceptance creates the ordinary course Instructor membership; normal course selection then exposes
-  it. Approval alone neither creates that membership nor turns the selector into an Instructor persona.
+      acceptance creates the ordinary course Instructor membership; normal course selection then exposes
+      it. Approval alone neither creates that membership nor turns the selector into an Instructor persona.
 
 This preserves the fresh problem -> Question ID -> course -> assignment -> Student path. New
 account creation and email enrollment are separate scope. See the
@@ -207,41 +207,41 @@ account creation and email enrollment are separate scope. See the
 - [x] Complete the connected live-authoring proof with Student, Instructor, and Sysadmin sessions.
 - [x] Run a second ordinary start with the same volumes.
 - [x] Confirm created data and edited Base Course data remain stable, while project application
-  container identities are replaced.
+      container identities are replaced.
 - [x] Confirm the owned image inventory is stable with no dangling or accumulated images and no
-  accumulated containers.
+      accumulated containers.
 - [x] Explicitly regenerate fresh volumes and confirm the baseline returns; prior demo changes are
-  intentionally absent from this new instance.
+      intentionally absent from this new instance.
 
 ## Final gates
 
 - [x] The production-installer owner keeps non-browser lifecycle evidence in
-  `tests/e2e/e2e_live_demo_baseline.py`: fresh installation, retained restart, fresh regeneration,
-  and representative interrupted or mixed-state recovery demonstrate lifecycle semantics without
-  asserting global record totals.
+      `tests/e2e/e2e_live_demo_baseline.py`: fresh installation, retained restart, fresh regeneration,
+      and representative interrupted or mixed-state recovery demonstrate lifecycle semantics without
+      asserting global record totals.
 - [x] Keep installer evidence KISS: pure `base_course_installation` crate tests cover its typed
-  request, receipt, recipe, and deterministic convergence; the existing
-  `learning-data-access` PostgreSQL live oracle covers schema and lock behavior; the existing
-  `tests/e2e/e2e_live_demo_baseline.py` covers the connected full lifecycle. Do not add a second
-  product-specific PostgreSQL harness or an exhaustive live matrix.
+      request, receipt, recipe, and deterministic convergence; the existing
+      `learning-data-access` PostgreSQL live oracle covers schema and lock behavior; the existing
+      `tests/e2e/e2e_live_demo_baseline.py` covers the connected full lifecycle. Do not add a second
+      product-specific PostgreSQL harness or an exhaustive live matrix.
 - [x] The browser-evidence owner keeps the ordinary role journey in
-  `tests/playwright/e2e/live_demo.spec.ts`; `local_stack.py acceptance` runs that journey against
-  the disposable local stack. It verifies visible normal sessions and role-authorized outcomes,
-  including representative recovery, rather than an exhaustive live matrix.
+      `tests/playwright/e2e/live_demo.spec.ts`; `local_stack.py acceptance` runs that journey against
+      the disposable local stack. It verifies visible normal sessions and role-authorized outcomes,
+      including representative recovery, rather than an exhaustive live matrix.
 - [x] The canonical `item_pool_delivery` scenario and its two corpus artifacts,
-  `item_pool_delivery_pool_preview` and `item_pool_delivery_learner_delivered_pool`, ran through the
-  fixed production HTTPS owner. Capture provenance/privacy checks and independent visual approval
-  cover those published artifacts; the final aggregate suite proves the material tree.
+      `item_pool_delivery_pool_preview` and `item_pool_delivery_learner_delivered_pool`, ran through the
+      fixed production HTTPS owner. Capture provenance/privacy checks and independent visual approval
+      cover those published artifacts; the final aggregate suite proves the material tree.
 - [x] The integrator ran this complete Validation suite on the corrected final material tree,
-  after the 1809 scope correction. Historical post-repair runtime evidence ran in
-  order: `./check_rust.sh` passed; `./check_codebase.sh` passed five checks and 322 Node tests;
-  pytest passed 6,017 tests; the baseline E2E and all eight `local_stack.py acceptance` lanes
-  passed; and both diff checks passed with no Python bytecode artifacts. The terminal HTTPS
-  Playwright journey passed once under `ple-live-demo-browser-d0ff0e97f4ac`; typed cleanup left
-  zero labeled containers, volumes, and networks. The 256 MiB `createbuckets` repair received
-  independent acceptance. This documentation closeout does not itself prove final-goal completion;
-  final-goal completion additionally requires the complete final-material-tree Validation after
-  these record edits.
+      after the 1809 scope correction. Historical post-repair runtime evidence ran in
+      order: `./check_rust.sh` passed; `./check_codebase.sh` passed five checks and 322 Node tests;
+      pytest passed 6,017 tests; the baseline E2E and all eight `local_stack.py acceptance` lanes
+      passed; and both diff checks passed with no Python bytecode artifacts. The terminal HTTPS
+      Playwright journey passed once under `ple-live-demo-browser-d0ff0e97f4ac`; typed cleanup left
+      zero labeled containers, volumes, and networks. The 256 MiB `createbuckets` repair received
+      independent acceptance. This documentation closeout does not itself prove final-goal completion;
+      final-goal completion additionally requires the complete final-material-tree Validation after
+      these record edits.
 
   ```bash
   ./check_rust.sh
@@ -254,11 +254,11 @@ account creation and email enrollment are separate scope. See the
   ```
 
 - [x] Independent reviewers examined the production-installer boundary, seeded-auth
-  boundary, lifecycle evidence, rendered role journey, and the reconciled 1809 scope after the
-  package Validation. Their records name scope, environment, criteria, conclusion, limitations, and
-  any follow-up. The subsequent documentation closeout does not itself prove final-goal completion:
-  final-goal completion additionally requires the complete final-material-tree Validation after these
-  record edits.
+      boundary, lifecycle evidence, rendered role journey, and the reconciled 1809 scope after the
+      package Validation. Their records name scope, environment, criteria, conclusion, limitations, and
+      any follow-up. The subsequent documentation closeout does not itself prove final-goal completion:
+      final-goal completion additionally requires the complete final-material-tree Validation after these
+      record edits.
 
 [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md) defines the complete Validation suite. A
 static browser-test run, readiness probe, API setup, or historical receipt does not substitute for

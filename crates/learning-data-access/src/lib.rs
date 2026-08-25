@@ -106,6 +106,10 @@ pub use crate::contracts::{
     ProblemCollectionReplacementTarget, ProblemCurationCapability, ProblemCurationStore,
     ReplaceProblemCollectionCommand, ReplaceSavedProblemSearchCommand,
 };
+pub use crate::contracts::{
+    ReplaceAlphaCourseCommand, ReplaceBlueprintCommand, ReusableCurriculumCapability,
+    ReusableCurriculumStore,
+};
 pub use crate::course_appearance::{
     COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseAppearanceStore, CourseBannerCleanupBatch,
     CourseBannerCleanupClaim, CourseBannerCleanupToken, CourseBannerPromotion,

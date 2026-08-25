@@ -8,7 +8,7 @@ use learning_data_access::{
 use question_model::{
     Capability, CatalogAuthorship, CatalogEvidenceAvailability, CatalogLicenseValue,
     CatalogResponseFamily, CatalogSearchQuery, CatalogTaxonomyFilter, CatalogUsedInMyCourses,
-    ProblemDisplayRef, ProblemVersionRef, QuestionBackend, UserRole,
+    ProblemDisplayRef, ProblemVersionRef, PublicationScope, QuestionBackend, UserRole,
 };
 use serde::Deserialize;
 
@@ -41,6 +41,7 @@ pub(super) struct CatalogSearchHttpQuery {
     taxonomy: Vec<String>,
     capabilities: Vec<Capability>,
     licenses: Vec<CatalogLicenseValue>,
+    publication_scopes: Vec<PublicationScope>,
     evidence: Option<CatalogEvidenceAvailability>,
     used_in_my_courses: Option<CatalogUsedInMyCourses>,
     authorship: Option<CatalogAuthorship>,
@@ -75,6 +76,10 @@ impl CatalogSearchHttpQuery {
                 "licenses" => query.licenses.push(parse_catalog_enum(
                     &value,
                     "catalog license is not recognized",
+                )?),
+                "publicationScopes" => query.publication_scopes.push(parse_catalog_enum(
+                    &value,
+                    "catalog publication scope is not recognized",
                 )?),
                 "evidence" => set_catalog_scalar(
                     &mut query.evidence,
@@ -144,6 +149,7 @@ impl TryFrom<CatalogSearchHttpQuery> for CatalogSearchQuery {
             taxonomy,
             capabilities: query.capabilities,
             licenses: query.licenses,
+            publication_scopes: query.publication_scopes,
             evidence: query.evidence.unwrap_or_default(),
             used_in_my_courses: query.used_in_my_courses.unwrap_or_default(),
             authorship: query.authorship.unwrap_or_default(),
@@ -376,6 +382,22 @@ mod tests {
                 "authorship=any&authorship=authoredByCurrentActor",
             ))
             .is_err()
+        );
+    }
+
+    #[test]
+    fn publication_scopes_are_strict_repeated_closed_values() {
+        let query = CatalogSearchHttpQuery::from_raw_query(Some(
+            "publicationScopes=public&publicationScopes=institution",
+        ))
+        .and_then(CatalogSearchQuery::try_from)
+        .expect("publication scopes parse");
+        assert_eq!(
+            query.publication_scopes,
+            vec![PublicationScope::Public, PublicationScope::Institution]
+        );
+        assert!(
+            CatalogSearchHttpQuery::from_raw_query(Some("publicationScopes=unknown",)).is_err()
         );
     }
 }
