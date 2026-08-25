@@ -5,13 +5,13 @@ use axum::extract::Request;
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::http::header::{HeaderValue, IF_MATCH};
-use axum::response::Response;
 use learning_data_access::RetentionRevision;
 use serde::Serialize;
 use serde::de::{self, DeserializeOwned, MapAccess, Visitor};
 
 use super::MAX_RETENTION_BODY_BYTES;
 use super::projection::error_response;
+use crate::http_refusal::HttpResult;
 
 const JSON_MIME_TYPE: &str = "application/json";
 
@@ -56,10 +56,12 @@ pub(super) fn is_application_json_content_type(content_type: Option<&HeaderValue
         })
 }
 
-pub(super) async fn read_body(request: Request) -> Result<Bytes, Response> {
+pub(super) async fn read_body(request: Request) -> HttpResult<Bytes> {
     to_bytes(request.into_body(), MAX_RETENTION_BODY_BYTES)
         .await
-        .map_err(|_| error_response(StatusCode::PAYLOAD_TOO_LARGE, "request body is too large"))
+        .map_err(|_| {
+            error_response(StatusCode::PAYLOAD_TOO_LARGE, "request body is too large").into()
+        })
 }
 
 pub(super) fn parse_strict_json<T>(body: Bytes) -> Result<T, ()>

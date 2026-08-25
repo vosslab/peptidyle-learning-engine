@@ -31,6 +31,7 @@ use super::super::policy::require_course_access;
 use super::super::projection::{error_response, store_error_response};
 use super::super::routing::CourseRouteState;
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
+use crate::http_refusal::{HttpRefusal, HttpResult};
 
 const MAX_GROUP_JSON_BYTES: usize = 64 * 1024;
 
@@ -92,7 +93,7 @@ where
         Err(e) => return auth_error_response(e),
     };
     if let Err(r) = require_course_access(state.store.as_ref(), &auth, course, true).await {
-        return r;
+        return r.into_response();
     }
     let page = match page_request(query) {
         Ok(v) => v,
@@ -138,7 +139,7 @@ where
         Err(e) => return auth_error_response(e),
     };
     if let Err(r) = require_course_access(state.store.as_ref(), &auth, course, true).await {
-        return r;
+        return r.into_response();
     }
     let page = match page_request(query) {
         Ok(v) => v,
@@ -196,7 +197,7 @@ where
 {
     let (auth, body) = match authorize_body(state.store.as_ref(), course, request).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let input: CourseGroupCreateRequest = match serde_json::from_slice(&body) {
         Ok(v) => v,
@@ -204,7 +205,7 @@ where
     };
     let members = match members(state.store.as_ref(), &auth, course, input.members.into()).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let record = CourseGroupRecord {
         id: CourseGroupId::from_uuid(uuid::Uuid::now_v7()),
@@ -256,11 +257,11 @@ where
     let headers = request.headers().clone();
     let auth = match authorize(state.store.as_ref(), course, &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let expected = match revision(&headers) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let current = match state
         .store
@@ -281,11 +282,11 @@ where
     }
     let input: CourseGroupUpdateRequest = match read_json(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let values = match members(state.store.as_ref(), &auth, course, input.members.into()).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let record = CourseGroupRecord {
         id: current.group.record.id,
@@ -331,7 +332,7 @@ where
 {
     let auth = match authorize(state.store.as_ref(), course, &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state
         .store
@@ -360,11 +361,11 @@ where
     let headers = request.headers().clone();
     let auth = match authorize(state.store.as_ref(), course, &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let expected = match revision(&headers) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let current = match state
         .store
@@ -388,7 +389,7 @@ where
     }
     let input: CourseGroupPurposePolicyUpdateRequest = match read_json(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state
         .store
@@ -421,7 +422,7 @@ where
 {
     let auth = match authorize(state.store.as_ref(), course, &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state
         .store
@@ -461,11 +462,11 @@ where
         Err(e) => return auth_error_response(e),
     };
     if let Err(r) = require_course_access(state.store.as_ref(), &auth, course, true).await {
-        return r;
+        return r.into_response();
     }
     let expected = match revision(request.headers()) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let current = match state
         .store
@@ -509,7 +510,7 @@ async fn authorize_body<S>(
     store: &S,
     course: CourseId,
     request: Request,
-) -> Result<(Authorized, axum::body::Bytes), Response>
+) -> HttpResult<(Authorized, axum::body::Bytes)>
 where
     S: Store + CourseRecordsAccessStore + SessionStore + 'static,
 {
@@ -517,17 +518,13 @@ where
     Ok((auth, read_body(request).await?))
 }
 
-async fn authorize<S>(
-    store: &S,
-    course: CourseId,
-    headers: &HeaderMap,
-) -> Result<Authorized, Response>
+async fn authorize<S>(store: &S, course: CourseId, headers: &HeaderMap) -> HttpResult<Authorized>
 where
     S: Store + CourseRecordsAccessStore + SessionStore + 'static,
 {
     let auth = resolve_request_session(store, headers)
         .await
-        .map_err(auth_error_response)?;
+        .map_err(|error| HttpRefusal::from(auth_error_response(error)))?;
     require_course_access(store, &auth, course, true).await?;
     Ok(Authorized {
         tenant_context: auth.tenant_context,
@@ -535,32 +532,38 @@ where
     })
 }
 
-async fn read_json<T: serde::de::DeserializeOwned>(request: Request) -> Result<T, Response> {
+async fn read_json<T: serde::de::DeserializeOwned>(request: Request) -> HttpResult<T> {
     if !is_json(request.headers()) {
         return Err(error_response(
             StatusCode::UNSUPPORTED_MEDIA_TYPE,
             "group request must be JSON",
-        ));
+        )
+        .into());
     }
     let body = read_body(request).await?;
-    serde_json::from_slice(&body).map_err(|_| invalid())
+    serde_json::from_slice(&body).map_err(|_| invalid().into())
 }
 
-async fn read_body(request: Request) -> Result<axum::body::Bytes, Response> {
+async fn read_body(request: Request) -> HttpResult<axum::body::Bytes> {
     if !is_json(request.headers()) {
         return Err(error_response(
             StatusCode::UNSUPPORTED_MEDIA_TYPE,
             "group request must be JSON",
-        ));
+        )
+        .into());
     }
     let body = to_bytes(request.into_body(), MAX_GROUP_JSON_BYTES + 1)
         .await
-        .map_err(|_| error_response(StatusCode::PAYLOAD_TOO_LARGE, "group request is too large"))?;
+        .map_err(|_| {
+            HttpRefusal::from(error_response(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "group request is too large",
+            ))
+        })?;
     if body.len() > MAX_GROUP_JSON_BYTES {
-        return Err(error_response(
-            StatusCode::PAYLOAD_TOO_LARGE,
-            "group request is too large",
-        ));
+        return Err(
+            error_response(StatusCode::PAYLOAD_TOO_LARGE, "group request is too large").into(),
+        );
     }
     Ok(body)
 }
@@ -625,7 +628,7 @@ async fn members<S>(
     auth: &Authorized,
     course: CourseId,
     references: Vec<question_model::CourseMembershipReference>,
-) -> Result<Vec<question_model::CourseMembershipId>, Response>
+) -> HttpResult<Vec<question_model::CourseMembershipId>>
 where
     S: TeachingAuthorityReferenceStore,
 {
@@ -640,8 +643,13 @@ where
                     reference,
                 )
                 .await
-                .map_err(group_error)?
-                .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "membership not found"))?,
+                .map_err(|error| HttpRefusal::from(group_error(error)))?
+                .ok_or_else(|| {
+                    HttpRefusal::from(error_response(
+                        StatusCode::NOT_FOUND,
+                        "membership not found",
+                    ))
+                })?,
         );
     }
     Ok(result)
@@ -710,29 +718,32 @@ fn is_json(headers: &HeaderMap) -> bool {
             .next()
             .is_some_and(|v| v.trim().eq_ignore_ascii_case("application/json"))
 }
-#[allow(clippy::result_large_err)] // HTTP validation returns its exact refusal.
-fn revision(headers: &HeaderMap) -> Result<TeachingOperationRevision, Response> {
+fn revision(headers: &HeaderMap) -> HttpResult<TeachingOperationRevision> {
     let mut all = headers.get_all(IF_MATCH).iter();
     let Some(value) = all.next() else {
-        return Err(error_response(
-            StatusCode::PRECONDITION_REQUIRED,
-            "If-Match is required",
-        ));
+        return Err(
+            error_response(StatusCode::PRECONDITION_REQUIRED, "If-Match is required").into(),
+        );
     };
     if all.next().is_some() {
-        return Err(error_response(
-            StatusCode::BAD_REQUEST,
-            "If-Match is malformed",
-        ));
+        return Err(error_response(StatusCode::BAD_REQUEST, "If-Match is malformed").into());
     };
     let raw = value
         .to_str()
         .ok()
         .and_then(|v| v.strip_prefix('"').and_then(|v| v.strip_suffix('"')))
-        .ok_or_else(|| error_response(StatusCode::BAD_REQUEST, "If-Match is malformed"))?;
-    let value = raw
-        .parse()
-        .map_err(|_| error_response(StatusCode::BAD_REQUEST, "If-Match is malformed"))?;
+        .ok_or_else(|| {
+            HttpRefusal::from(error_response(
+                StatusCode::BAD_REQUEST,
+                "If-Match is malformed",
+            ))
+        })?;
+    let value = raw.parse().map_err(|_| {
+        HttpRefusal::from(error_response(
+            StatusCode::BAD_REQUEST,
+            "If-Match is malformed",
+        ))
+    })?;
     Ok(value)
 }
 fn invalid() -> Response {

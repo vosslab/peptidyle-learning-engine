@@ -689,7 +689,6 @@ fn launch_binding_digest(
 
 #[cfg(test)]
 mod tests {
-    use base64::Engine as _;
     use hmac::{Hmac, KeyInit, Mac};
     use question_model::{ProblemId, QuestionAttemptId, TenantId, generation::Seed};
     use uuid::Uuid;

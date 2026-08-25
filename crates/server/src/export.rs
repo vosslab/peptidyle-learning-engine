@@ -21,6 +21,7 @@ use learning_data_access::{
 use question_model::{AssignmentId, CourseMembershipRole};
 
 use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
+use crate::http_refusal::HttpResult;
 
 /// A deliberately small retry budget for the initial asynchronous export
 /// producer.  It is server policy rather than browser input.
@@ -72,7 +73,7 @@ where
     if let Err(response) =
         require_assignment_management(state.store.as_ref(), &authenticated, assignment).await
     {
-        return response;
+        return response.into_response();
     }
     // Authorize before consuming the body. This endpoint deliberately has no
     // request schema: accepting arbitrary fields would create an illusion
@@ -147,7 +148,7 @@ async fn require_assignment_management<S>(
     store: &S,
     authenticated: &AuthenticatedSession,
     assignment: AssignmentId,
-) -> Result<(), Response>
+) -> HttpResult<()>
 where
     S: Store,
 {
@@ -157,12 +158,9 @@ where
     {
         Ok(Some(assignment)) => assignment,
         Ok(None) => {
-            return Err(error_response(
-                StatusCode::NOT_FOUND,
-                "assignment not found",
-            ));
+            return Err(error_response(StatusCode::NOT_FOUND, "assignment not found").into());
         }
-        Err(error) => return Err(store_error_response(error)),
+        Err(error) => return Err(store_error_response(error).into()),
     };
     let manages = matches!(
         store
@@ -176,9 +174,9 @@ where
             .map(|membership| membership.role),
         Some(CourseMembershipRole::Instructor)
     );
-    manages
-        .then_some(())
-        .ok_or_else(|| error_response(StatusCode::FORBIDDEN, "assignment export is not authorized"))
+    manages.then_some(()).ok_or_else(|| {
+        error_response(StatusCode::FORBIDDEN, "assignment export is not authorized").into()
+    })
 }
 
 fn store_error_response(error: StoreError) -> Response {

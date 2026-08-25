@@ -5,7 +5,7 @@ use axum::body::to_bytes;
 use axum::extract::Request;
 use axum::http::StatusCode;
 use axum::http::header::CONTENT_TYPE;
-use axum::response::{IntoResponse, Response};
+use axum::response::IntoResponse;
 use learning_data_access::{AssignmentRecord, CatalogStore, SessionStore, Store, TenantContext};
 use question_model::{
     AssignmentDeliveryState, AssignmentItem, AssignmentItemId, AssignmentSelectionCandidate,
@@ -18,6 +18,7 @@ use serde::Serialize;
 use super::super::projection::{error_response, store_error_response};
 use super::super::routing::{AssignmentEntryRequest, CourseRouteState};
 use crate::auth::no_store;
+use crate::http_refusal::{HttpRefusal, HttpResult};
 
 const MAX_ASSIGNMENT_JSON_BYTES: usize = 64 * 1_024;
 
@@ -40,7 +41,7 @@ pub(super) async fn validate_assignment_request<S>(
     state: &CourseRouteState<S>,
     context: TenantContext,
     assignment: &AssignmentRecord,
-) -> Result<(), Response>
+) -> HttpResult<()>
 where
     S: Store + CatalogStore + SessionStore + 'static,
 {
@@ -50,7 +51,8 @@ where
         return Err(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "selection groups are unavailable with the selected-problem variation policy",
-        ));
+        )
+        .into());
     }
     let references = assignment.references().collect::<Vec<_>>();
     let mut selected = Vec::with_capacity(references.len());
@@ -60,18 +62,20 @@ where
             .store
             .get_catalog_problem(context, *reference)
             .await
-            .map_err(store_error_response)?
+            .map_err(|error| HttpRefusal::from(store_error_response(error)))?
         else {
             return Err(error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "assignment references a missing or hidden published version",
-            ));
+            )
+            .into());
         };
         if !published.lifecycle.is_assignable() {
             return Err(error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "assignment references a nonassignable published version",
-            ));
+            )
+            .into());
         }
         display.insert(
             *reference,
@@ -119,7 +123,8 @@ where
                 }),
             )
                 .into_response(),
-        ))
+        )
+        .into())
     }
 }
 
@@ -127,7 +132,7 @@ pub(super) async fn resolve_assignable_question_ids<S>(
     state: &CourseRouteState<S>,
     context: TenantContext,
     question_ids: &[QuestionId],
-) -> Result<Vec<ProblemVersionRef>, Response>
+) -> HttpResult<Vec<ProblemVersionRef>>
 where
     S: Store + CatalogStore + SessionStore + 'static,
 {
@@ -138,7 +143,8 @@ where
             return Err(error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "assignment question IDs must be unique",
-            ));
+            )
+            .into());
         }
         let Some(record) = state
             .store
@@ -149,18 +155,20 @@ where
                 },
             )
             .await
-            .map_err(store_error_response)?
+            .map_err(|error| HttpRefusal::from(store_error_response(error)))?
         else {
             return Err(error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "assignment question ID is unavailable",
-            ));
+            )
+            .into());
         };
         if !record.lifecycle.is_assignable() {
             return Err(error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "assignment question is not assignable",
-            ));
+            )
+            .into());
         }
         references.push(ProblemVersionRef {
             problem: record.problem,
@@ -179,7 +187,7 @@ pub(super) async fn resolve_assignment_entries<S>(
     context: TenantContext,
     entries: Vec<AssignmentEntryRequest>,
     current: Option<&AssignmentRecord>,
-) -> Result<(Vec<AssignmentItem>, Vec<AssignmentSelectionGroup>), Response>
+) -> HttpResult<(Vec<AssignmentItem>, Vec<AssignmentSelectionGroup>)>
 where
     S: Store + CatalogStore + SessionStore + 'static,
 {
@@ -206,7 +214,8 @@ where
                     return Err(error_response(
                         StatusCode::UNPROCESSABLE_ENTITY,
                         "each assignment entry needs a distinct position",
-                    ));
+                    )
+                    .into());
                 }
                 let reference = resolve_one_assignable_question_id(
                     state,
@@ -244,7 +253,8 @@ where
                     return Err(error_response(
                         StatusCode::UNPROCESSABLE_ENTITY,
                         "each assignment entry needs a distinct position",
-                    ));
+                    )
+                    .into());
                 }
                 let mut references = Vec::with_capacity(candidate_question_ids.len());
                 for question_id in candidate_question_ids {
@@ -315,7 +325,8 @@ where
         return Err(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "assignment entries must use consecutive positions starting at zero",
-        ));
+        )
+        .into());
     }
     Ok((items, groups))
 }
@@ -323,15 +334,13 @@ where
 /// Validates every browser-controlled collection bound before any Question ID
 /// enters the catalog resolver. PostgreSQL repeats these limits in its private
 /// definition codec as defense in depth.
-#[allow(clippy::result_large_err)] // HTTP validation returns its exact refusal.
-fn validate_assignment_entry_cardinalities(
-    entries: &[AssignmentEntryRequest],
-) -> Result<(), Response> {
+fn validate_assignment_entry_cardinalities(entries: &[AssignmentEntryRequest]) -> HttpResult<()> {
     if entries.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
         return Err(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Use no more than 1024 ordered assignment entries.",
-        ));
+        )
+        .into());
     }
     let mut total_candidates = 0_usize;
     for entry in entries {
@@ -347,27 +356,30 @@ fn validate_assignment_entry_cardinalities(
             return Err(error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "Add at least one candidate Question ID to each selection group.",
-            ));
+            )
+            .into());
         }
         if candidate_question_ids.len() > MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP {
             return Err(error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "Keep each selection group to 1024 candidate Question IDs or fewer.",
-            ));
+            )
+            .into());
         }
         total_candidates = total_candidates
             .checked_add(candidate_question_ids.len())
             .ok_or_else(|| {
-                error_response(
+                HttpRefusal::from(error_response(
                     StatusCode::UNPROCESSABLE_ENTITY,
                     "Keep the assignment within 8192 total candidate Question IDs.",
-                )
+                ))
             })?;
         if total_candidates > MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES {
             return Err(error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "Keep the assignment within 8192 total candidate Question IDs.",
-            ));
+            )
+            .into());
         }
         if *draw_count == 0
             || usize::try_from(*draw_count)
@@ -377,14 +389,15 @@ fn validate_assignment_entry_cardinalities(
             return Err(error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "Set a draw count that fits the candidate Question IDs in its selection group.",
-            ));
+            )
+            .into());
         }
     }
     Ok(())
 }
 
 /// Consumes an Instructor-authorized authoring request as one bounded JSON value.
-pub(super) async fn assignment_json_body(request: Request) -> Result<serde_json::Value, Response> {
+pub(super) async fn assignment_json_body(request: Request) -> HttpResult<serde_json::Value> {
     // ASVS 1.5.2: deserialize one closed JSON value only after authorization
     // and after enforcing the route's explicit resource bound.
     if !request
@@ -401,27 +414,30 @@ pub(super) async fn assignment_json_body(request: Request) -> Result<serde_json:
         return Err(error_response(
             StatusCode::UNSUPPORTED_MEDIA_TYPE,
             "Use the assignment editor to send JSON.",
-        ));
+        )
+        .into());
     }
     let bytes = to_bytes(request.into_body(), MAX_ASSIGNMENT_JSON_BYTES + 1)
         .await
         .map_err(|_| {
-            error_response(
+            HttpRefusal::from(error_response(
                 StatusCode::PAYLOAD_TOO_LARGE,
                 "Use a smaller assignment definition, then try again.",
-            )
+            ))
         })?;
     if bytes.len() > MAX_ASSIGNMENT_JSON_BYTES {
         return Err(error_response(
             StatusCode::PAYLOAD_TOO_LARGE,
             "Use a smaller assignment definition, then try again.",
-        ));
+        )
+        .into());
     }
     serde_json::from_slice(&bytes).map_err(|_| {
         error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Use the assignment editor to send a complete valid assignment definition.",
         )
+        .into()
     })
 }
 
@@ -430,7 +446,7 @@ async fn resolve_one_assignable_question_id<S>(
     context: TenantContext,
     question_id: QuestionId,
     seen: &mut std::collections::BTreeSet<QuestionId>,
-) -> Result<ProblemVersionRef, Response>
+) -> HttpResult<ProblemVersionRef>
 where
     S: Store + CatalogStore + SessionStore + 'static,
 {
@@ -438,24 +454,27 @@ where
         return Err(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "each Question ID can appear once in an assignment definition",
-        ));
+        )
+        .into());
     }
     let Some(record) = state
         .store
         .resolve_catalog_problem(context, question_model::ProblemDisplayRef { question_id })
         .await
-        .map_err(store_error_response)?
+        .map_err(|error| HttpRefusal::from(store_error_response(error)))?
     else {
         return Err(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "assignment Question ID is unavailable",
-        ));
+        )
+        .into());
     };
     if !record.lifecycle.is_assignable() {
         return Err(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "assignment Question ID is not assignable",
-        ));
+        )
+        .into());
     }
     Ok(ProblemVersionRef {
         problem: record.problem,

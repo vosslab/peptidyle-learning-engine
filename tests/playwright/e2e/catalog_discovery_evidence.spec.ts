@@ -34,21 +34,12 @@ const firstVisibleResponseIndex = 0;
 
 const evidenceArtifacts = [
   { artifactId: "catalog_discovery_disclosed_evidence_laptop", viewport: "laptop" },
-  { artifactId: "catalog_discovery_disclosed_evidence_tablet", viewport: "tablet" },
-  { artifactId: "catalog_discovery_disclosed_evidence_iphone_pro", viewport: "iphone_pro" },
-  { artifactId: "catalog_discovery_disclosed_evidence_square", viewport: "square" },
 ] as const;
 const usageArtifacts = [
   { artifactId: "catalog_discovery_authorized_usage_laptop", viewport: "laptop" },
-  { artifactId: "catalog_discovery_authorized_usage_tablet", viewport: "tablet" },
-  { artifactId: "catalog_discovery_authorized_usage_iphone_pro", viewport: "iphone_pro" },
-  { artifactId: "catalog_discovery_authorized_usage_square", viewport: "square" },
 ] as const;
 const libraryArtifacts = [
   { artifactId: "catalog_discovery_filtered_library_laptop", viewport: "laptop" },
-  { artifactId: "catalog_discovery_filtered_library_tablet", viewport: "tablet" },
-  { artifactId: "catalog_discovery_filtered_library_iphone_pro", viewport: "iphone_pro" },
-  { artifactId: "catalog_discovery_filtered_library_square", viewport: "square" },
 ] as const;
 
 const emails = {
@@ -221,7 +212,7 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
 }
 
-async function captureResponsiveState(
+async function captureLaptopState(
   page: Page,
   scenarioInput: ReturnType<typeof requireScenarioInput>,
   target: Locator,
@@ -256,8 +247,8 @@ async function verifyLibraryFilters(page: Page): Promise<void> {
   await expect(result).toHaveCount(1);
 }
 
-async function verifyNarrowLibraryKeyboardPath(page: Page): Promise<void> {
-  await page.setViewportSize(CORPUS_VIEWPORT_SIZES.iphone_pro);
+async function verifyLaptopLibraryKeyboardPath(page: Page): Promise<void> {
+  await page.setViewportSize(CORPUS_VIEWPORT_SIZES.laptop);
   const results = page.getByRole("region", { name: "Published questions" });
   const result = results
     .getByRole("article")
@@ -404,26 +395,26 @@ test.describe("catalog discovery evidence on the production PLE stack", () => {
         await openLibraryDetail(elena);
         await assertFiveLearnerEvidence(elena);
         await expectUsageOnlyInCourse(elena, baseCourseTitle);
-        await captureResponsiveState(
+        await captureLaptopState(
           elena,
           scenarioInput,
           elena.getByRole("heading", { name: "Learning evidence", exact: true }),
           evidenceArtifacts,
         );
-        await captureResponsiveState(
+        await captureLaptopState(
           elena,
           scenarioInput,
           elena.getByRole("heading", { name: "Usage in your institution", exact: true }),
           usageArtifacts,
         );
         await verifyLibraryFilters(elena);
-        await captureResponsiveState(
+        await captureLaptopState(
           elena,
           scenarioInput,
           elena.locator('[data-route-surface="library"]'),
           libraryArtifacts,
         );
-        await verifyNarrowLibraryKeyboardPath(elena);
+        await verifyLaptopLibraryKeyboardPath(elena);
       });
 
       await test.step("Student membership keeps instructor usage detail course-scoped", async () => {

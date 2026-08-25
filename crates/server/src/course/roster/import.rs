@@ -95,7 +95,7 @@ where
     if let Err(response) =
         require_roster_support_access(state.store.as_ref(), &authenticated, course).await
     {
-        return response;
+        return response.into_response();
     }
     if !is_csv(&headers) {
         return error_response(
@@ -175,7 +175,7 @@ where
     if let Err(response) =
         require_roster_support_access(state.store.as_ref(), &authenticated, course).await
     {
-        return response;
+        return response.into_response();
     }
     let expected_import_revision = match required_import_revision(&headers) {
         Ok(revision) => revision,

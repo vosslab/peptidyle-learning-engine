@@ -17,6 +17,7 @@ use super::{
     ACCOUNT_SESSION_COOKIE, AcceptedEmailResponse, EMAIL_BINDING_COOKIE, EMAIL_CHALLENGE_SECONDS,
     SECRET_BYTES,
 };
+use crate::http_refusal::HttpResult;
 
 /// Account identity coupled to the redacted proof that authorized it.
 ///
@@ -30,7 +31,7 @@ pub(in crate::auth) struct AuthenticatedAccountSession {
 pub(in crate::auth) async fn authenticated_account_session<S>(
     store: &S,
     headers: &HeaderMap,
-) -> Result<AuthenticatedAccountSession, Response>
+) -> HttpResult<AuthenticatedAccountSession>
 where
     S: AccountIdentityStore + AccountSessionStore,
 {
@@ -56,7 +57,7 @@ where
 pub(in crate::auth) async fn authenticated_account<S>(
     store: &S,
     headers: &HeaderMap,
-) -> Result<AccountRecord, Response>
+) -> HttpResult<AccountRecord>
 where
     S: AccountIdentityStore + AccountSessionStore,
 {

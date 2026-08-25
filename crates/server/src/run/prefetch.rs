@@ -335,7 +335,7 @@ where
     };
     let run = match owned_run(state.store.as_ref(), &authenticated, active.run).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if active.response.is_some() || run.completed_at.is_some() {
         return error_response(StatusCode::CONFLICT, "attempt is no longer active");
@@ -343,7 +343,7 @@ where
     if let Err(response) =
         require_run_binding(state.store.as_ref(), &authenticated, binding, &run).await
     {
-        return response;
+        return response.into_response();
     }
     let run_items = match state
         .store
@@ -360,7 +360,7 @@ where
     };
     let attempts = match all_attempts(state.store.as_ref(), &authenticated, run.id).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if attempts
         .iter()
@@ -379,7 +379,7 @@ where
     };
     let question = match load_run_question(state.store.as_ref(), &authenticated, reference).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let actor = authenticated.record.subject.user();
     let existing = match state
@@ -586,7 +586,7 @@ pub(super) async fn ensure_active_questions<S, B>(
     binding: LearnerWorkRoutingBinding,
     run: &AssignmentRun,
     predecessor: Option<QuestionAttemptId>,
-) -> Result<(), Response>
+) -> HttpResult<()>
 where
     S: Store + CatalogStore,
     B: RunBackend,
@@ -715,10 +715,10 @@ pub(super) async fn require_run_binding<S: Store>(
     authenticated: &AuthenticatedSession,
     binding: LearnerWorkRoutingBinding,
     run: &AssignmentRun,
-) -> Result<(), Response> {
+) -> HttpResult<()> {
     let assignment = owned_assignment_for_run(store, authenticated, run).await?;
     if assignment.id != binding.assignment || assignment.course_id != binding.course {
-        return Err(error_response(StatusCode::NOT_FOUND, "run not found"));
+        return Err(error_response(StatusCode::NOT_FOUND, "run not found").into());
     }
     Ok(())
 }
@@ -727,7 +727,7 @@ pub(super) async fn load_run_question<S: CatalogStore>(
     store: &S,
     authenticated: &AuthenticatedSession,
     reference: ProblemVersionRef,
-) -> Result<QuestionDefinition, Response> {
+) -> HttpResult<QuestionDefinition> {
     let record = store
         .get_catalog_problem(authenticated.tenant_context, reference)
         .await
@@ -742,13 +742,15 @@ pub(super) async fn load_run_question<S: CatalogStore>(
         return Err(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "published question identity does not match the requested version",
-        ));
+        )
+        .into());
     }
     if question.attempt_policy.max_attempts == Some(0) {
         return Err(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "question max attempts must be greater than zero",
-        ));
+        )
+        .into());
     }
     Ok(question)
 }
@@ -771,7 +773,7 @@ pub(super) async fn issue_question<S, B>(
     authenticated: &AuthenticatedSession,
     run: &AssignmentRun,
     request: IssueQuestionRequest<'_>,
-) -> Result<QuestionAttempt, Response>
+) -> HttpResult<QuestionAttempt>
 where
     S: Store,
     B: RunBackend,
@@ -822,7 +824,8 @@ where
             {
                 return Err(backend_error_response(RunBackendError::Invalid(
                     "prefetched question did not reproduce exactly".into(),
-                )));
+                ))
+                .into());
             }
             let presentation = question_model::presentation::rebuild_public_presentation_v1(
                 &value.presentation_snapshot.envelope,
@@ -838,7 +841,8 @@ where
             {
                 return Err(backend_error_response(RunBackendError::Invalid(
                     "prefetched receipt presentation does not match its binding".into(),
-                )));
+                ))
+                .into());
             }
             let webwork_replay =
                 bind_webwork_replay(request.question, &issued, Some(&presentation))
@@ -984,6 +988,7 @@ where
         )
         .await
         .map_err(store_error_response)
+        .map_err(Into::into)
 }
 
 #[cfg(test)]

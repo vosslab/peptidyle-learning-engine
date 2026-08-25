@@ -37,7 +37,7 @@ where
     if let Err(response) =
         require_course_access(state.store.as_ref(), &authenticated, course, true).await
     {
-        return response;
+        return response.into_response();
     }
     let body = match to_bytes(request.into_body(), MAX_EMPTY_EXPORT_BODY_BYTES).await {
         Ok(body) => body,

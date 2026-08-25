@@ -211,7 +211,9 @@ C1 follows R2 after the B2 gate.
 - Deliverable: the catalog and owner use a closed `schemaVersion: 2` private ABI. Every child gets
   a distinct input and origin receipt containing only scenario ID, namespace, HTTPS origin, closed
   personas, baseline reads, visible observation, and declared optional receipts or faults. The
-  registry rejects duplicate IDs, paths, and exclusive seed mutations.
+  registry rejects duplicate IDs and paths. Seed-state transitions use a closed catalog and may be
+  repeated by independently runnable scenarios when the visible workflow safely verifies or reaches
+  the same state from either the regenerated baseline or an earlier ordered scenario.
 - Current contract: `direct_role_entry` is Morgan's independently runnable Sysadmin scenario and
   `auth_authorization` is the independently runnable multi-persona authorization scenario. Both
   begin from the regenerated baseline, use visible seeded identity and course selection, and retain
@@ -360,8 +362,9 @@ C1 follows R2 after the B2 gate.
 - Owner: playwright operator.
 - Deliverable: the single JSON corpus authority defines 51 ordered, nested role-and-journey
   artifacts from accepted real-stack scenarios. Each artifact records its scenario, UI-created state,
-  role, journey, ordered journey step, privacy checks, production-browser path, and one of the named
-  `laptop`, `tablet`, `iphone_pro`, or `square` viewport profiles. The corpus supersedes each of the
+  role, journey, ordered journey step, privacy checks, production-browser path, and the role-appropriate
+  viewport profile. Instructor and Sysadmin evidence uses `laptop`; Student evidence may use
+  `laptop`, `tablet`, `iphone_pro`, or `square`. The corpus supersedes each of the
   47 prior PNG paths exactly once and retains all canonical evidence under the nested screenshot
   directory structure. The mapping of the 47 superseded PNG paths is one-time migration evidence,
   not a permanent path-count test.

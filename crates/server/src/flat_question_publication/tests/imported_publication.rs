@@ -165,7 +165,7 @@ async fn imported_archive_candidate_replay_accepts_only_the_exact_existing_objec
     )
     .await
     .expect_err("a divergent deterministic candidate must refuse");
-    let (status, headers, body) = response_parts(response).await;
+    let (status, headers, body) = response_parts(response.into_response()).await;
     assert_eq!(status, StatusCode::CONFLICT);
     assert_no_store(&headers);
     assert_no_private_tokens(&body);

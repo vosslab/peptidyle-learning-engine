@@ -5,7 +5,6 @@
 //! candidate, mint its version-scoped public identity, copy it, then verify
 //! the object store returned precisely that immutable candidate.
 
-use axum::response::Response;
 use learning_data_access::{
     AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, DraftRecord, FlatQuestionAssetStore,
     WorkspaceFlatQuestionAsset,
@@ -19,6 +18,7 @@ use question_model::{
 use super::{
     flat_source_changed_response, object_error_response, private_store_error, publication_license,
 };
+use crate::http_refusal::HttpResult;
 
 /// Resolves the exact private HOTSPOT image named by a compiled workspace draft.
 pub(super) async fn resolve_workspace_hotspot_asset<S>(
@@ -26,7 +26,7 @@ pub(super) async fn resolve_workspace_hotspot_asset<S>(
     context: learning_data_access::TenantContext,
     workspace: WorkspaceId,
     question: &DraftQuestionDefinition,
-) -> Result<Option<WorkspaceFlatQuestionAsset>, Response>
+) -> HttpResult<Option<WorkspaceFlatQuestionAsset>>
 where
     S: FlatQuestionAssetStore,
 {
@@ -40,8 +40,8 @@ where
         .await
     {
         Ok(Some(asset)) => Ok(Some(asset)),
-        Ok(None) => Err(flat_source_changed_response()),
-        Err(error) => Err(private_store_error(error)),
+        Ok(None) => Err(flat_source_changed_response().into()),
+        Err(error) => Err(private_store_error(error).into()),
     }
 }
 
@@ -57,7 +57,7 @@ pub(super) async fn copy_publication_candidate<O>(
     publication: ProblemVersionRef,
     scope: PublicationScope,
     asset: Option<&WorkspaceFlatQuestionAsset>,
-) -> Result<(Vec<AssetDeliveryRecord>, Option<AssetId>), Response>
+) -> HttpResult<(Vec<AssetDeliveryRecord>, Option<AssetId>)>
 where
     O: ObjectStore,
 {
@@ -69,7 +69,7 @@ where
         .await
         .map_err(object_error_response)?;
     if stored.record != asset.object || Sha256Digest::compute(&stored.bytes) != asset.checksum() {
-        return Err(flat_source_changed_response());
+        return Err(flat_source_changed_response().into());
     }
     let published_asset = AssetId::generate();
     let object = ObjectId::generate();
@@ -134,7 +134,7 @@ where
         || record.size_bytes != asset.object.size_bytes
         || record.media_type != asset.object.media_type
     {
-        return Err(flat_source_changed_response());
+        return Err(flat_source_changed_response().into());
     }
     Ok((
         vec![AssetDeliveryRecord {

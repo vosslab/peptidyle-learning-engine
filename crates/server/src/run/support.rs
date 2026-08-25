@@ -2,6 +2,7 @@
 
 pub(super) use std::sync::Arc;
 
+pub(super) use crate::http_refusal::HttpResult;
 pub(super) use axum::Json;
 pub(super) use axum::body::to_bytes;
 pub(super) use axum::extract::{Path, Query, State};
@@ -256,7 +257,7 @@ pub(crate) async fn learner_assignment_progress<
     authenticated: &AuthenticatedSession,
     assignment_id: question_model::AssignmentId,
     snapshot: Option<&LearnerAssignmentSummarySnapshot>,
-) -> Result<(LearnerAssignmentProgress, bool), Response> {
+) -> HttpResult<(LearnerAssignmentProgress, bool)> {
     let assignment = store
         .get_assignment_for_edit(authenticated.tenant_context, assignment_id)
         .await
@@ -275,10 +276,7 @@ pub(crate) async fn learner_assignment_progress<
         entitlement,
         domain::entitlement::EntitlementDecision::Granted(_)
     ) {
-        return Err(error_response(
-            StatusCode::NOT_FOUND,
-            "assignment not found",
-        ));
+        return Err(error_response(StatusCode::NOT_FOUND, "assignment not found").into());
     }
     // Even an empty summary must pass both S5 and S3: DuringAttempt may
     // disclose class statistics before the learner has submitted work.

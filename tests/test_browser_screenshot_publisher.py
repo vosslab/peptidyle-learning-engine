@@ -109,6 +109,20 @@ def test_receipt_viewport_must_match_the_manifest_profile(tmp_path: pathlib.Path
 		publisher.pending_from_staging(private, "https://localhost:55000", "b" * 64)
 
 
+@pytest.mark.parametrize("role", ["instructor", "sysadmin"])
+def test_role_owned_evidence_uses_the_canonical_laptop_profile(role: str) -> None:
+	"""Instructor and sysadmin evidence keeps the live-demo desktop contract."""
+	contract.validate_role_viewport(role, "laptop")
+	with pytest.raises(contract.ScreenshotContractError, match="canonical laptop"):
+		contract.validate_role_viewport(role, "tablet")
+
+
+def test_student_evidence_keeps_responsive_profiles() -> None:
+	"""Student evidence may use each maintained responsive review profile."""
+	for viewport in ("laptop", "tablet", "iphone_pro", "square"):
+		contract.validate_role_viewport("student", viewport)
+
+
 @pytest.mark.parametrize("scenario_id", ["direct_role_entry", "auth_authorization"])
 def test_screenshot_contract_requires_both_named_role_security_journeys(
 	monkeypatch: pytest.MonkeyPatch,

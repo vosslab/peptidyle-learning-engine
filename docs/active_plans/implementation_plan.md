@@ -39,8 +39,8 @@ ordinary live assignments, learner runs, deterministic server-owned grading, imm
 evidence, receipt replay, and audited Instructor inspection as the canonical product path.
 WP-PROF-T5 is accepted after extending that model with visible item-pool authoring, policy-correct
 automatic variation, executable no-store preview, and ordinary Student delivery. WP-PROF-D1 and
-WP-PROF-D2 are accepted, and WP-PROF-B1 advances reusable curricula over the canonical Library,
-curation, and problem-selection path. The
+WP-PROF-D2 and WP-PROF-B1 are accepted. WP-PROF-B2 advances reusable curricula into ordinary teaching
+courses through explicit adoption, rollover, term shifting, provenance, and controlled updates. The
 shared status registry owns the current handoff and migration allocation; the professor capability
 plan retains the accepted T5 contract and evidence boundary.
 
@@ -54,9 +54,11 @@ rendered captures, capacity measurements, and query-plan inspections are one-tim
 release evidence when they support a documented decision. Final Validation is the `./all_test.sh`
 gate on the final material tree after each package's local lanes are green.
 
-Responsive coverage uses maintained desktop, portrait, narrow-phone, and square profiles. Each
-profile is reviewed for semantic usability, focus, contrast, recovery, and readable hierarchy; exact
-pixels, viewport shares, screenshots hashes, and artifact totals have no acceptance authority.
+Role-specific visual coverage follows Human Guidance: Instructor and Sysadmin evidence uses only the
+canonical 1280 by 800 desktop profile; Student evidence may use the maintained laptop, portrait,
+narrow-phone, and square profiles. Each applicable profile is reviewed for semantic usability,
+focus, contrast, recovery, and readable hierarchy; exact pixels, viewport shares, screenshot hashes,
+and artifact totals have no acceptance authority.
 Server response tests cover declared success, validation, conflict, denial, and pagination families
 rather than enumerating individual response instances. Teaching-policy tests choose representative
 precedence partitions, including deny, grant, override, conflict, and no-op paths.

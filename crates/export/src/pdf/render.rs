@@ -311,7 +311,9 @@ fn image_object(image: &PngImage) -> Vec<u8> {
     } else {
         image
             .raw
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .flat_map(|pixel| pixel[..3].iter().copied())
             .collect()
     };

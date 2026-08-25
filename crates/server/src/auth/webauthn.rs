@@ -187,7 +187,7 @@ where
 {
     let account = match authenticated_account(state.store.as_ref(), &headers).await {
         Ok(account) => account,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let existing = match state.store.list_active_passkeys(account.user).await {
         Ok(existing) => existing,
@@ -259,7 +259,7 @@ where
 {
     let account = match authenticated_account(state.store.as_ref(), &headers).await {
         Ok(account) => account,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let binding = match cookie_secret(&headers, WEBAUTHN_BINDING_COOKIE) {
         Some(binding) => binding,
@@ -533,7 +533,7 @@ where
 {
     let account = match authenticated_account(state.store.as_ref(), &headers).await {
         Ok(account) => account,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state.store.list_active_passkeys(account.user).await {
         Ok(passkeys) => no_store(
@@ -559,7 +559,7 @@ where
 {
     let account = match authenticated_account(state.store.as_ref(), &headers).await {
         Ok(account) => account,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state
         .store

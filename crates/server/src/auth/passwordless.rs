@@ -648,7 +648,7 @@ where
 {
     let account = match authenticated_account(state.store.as_ref(), &headers).await {
         Ok(account) => account,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let invitation_token = match RandomSecret::decode(&request.invitation_token) {
         Some(token) => token,
@@ -724,7 +724,7 @@ where
 {
     let account = match authenticated_account(state.store.as_ref(), &headers).await {
         Ok(account) => account,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let size = match PageSize::new(query.page_size.unwrap_or(DEFAULT_ACCOUNT_COURSE_PAGE_SIZE)) {
         Ok(size) => size,
@@ -791,7 +791,7 @@ where
     let account_session = match authenticated_account_session(state.store.as_ref(), &headers).await
     {
         Ok(account_session) => account_session,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state
         .store
@@ -819,7 +819,7 @@ where
     let account_session = match authenticated_account_session(state.store.as_ref(), &headers).await
     {
         Ok(account_session) => account_session,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state
         .store
@@ -841,7 +841,7 @@ where
 {
     let account = match authenticated_account(state.store.as_ref(), &headers).await {
         Ok(account) => account,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let context = match state
         .store

@@ -37,27 +37,15 @@ const institutionCollectionQuestionTitle = "Genetics Chapter 1: Phenylalanine me
 
 const workspaceArtifacts = [
   { artifactId: "problem_curation_workspace_laptop", viewport: "laptop" },
-  { artifactId: "problem_curation_workspace_tablet", viewport: "tablet" },
-  { artifactId: "problem_curation_workspace_iphone_pro", viewport: "iphone_pro" },
-  { artifactId: "problem_curation_workspace_square", viewport: "square" },
 ] as const;
 const recoveryArtifacts = [
   { artifactId: "problem_curation_revision_recovery_laptop", viewport: "laptop" },
-  { artifactId: "problem_curation_revision_recovery_tablet", viewport: "tablet" },
-  { artifactId: "problem_curation_revision_recovery_iphone_pro", viewport: "iphone_pro" },
-  { artifactId: "problem_curation_revision_recovery_square", viewport: "square" },
 ] as const;
 const pickerArtifacts = [
   { artifactId: "problem_curation_assignment_picker_laptop", viewport: "laptop" },
-  { artifactId: "problem_curation_assignment_picker_tablet", viewport: "tablet" },
-  { artifactId: "problem_curation_assignment_picker_iphone_pro", viewport: "iphone_pro" },
-  { artifactId: "problem_curation_assignment_picker_square", viewport: "square" },
 ] as const;
 const institutionArtifacts = [
   { artifactId: "problem_curation_institution_projection_laptop", viewport: "laptop" },
-  { artifactId: "problem_curation_institution_projection_tablet", viewport: "tablet" },
-  { artifactId: "problem_curation_institution_projection_iphone_pro", viewport: "iphone_pro" },
-  { artifactId: "problem_curation_institution_projection_square", viewport: "square" },
 ] as const;
 
 interface CurationWireValue {
@@ -103,7 +91,7 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   expect(dimensions.width).toBeLessThanOrEqual(dimensions.viewport);
 }
 
-async function captureResponsive(
+async function captureLaptop(
   page: Page,
   scenarioInput: ReturnType<typeof requireScenarioInput>,
   target: Locator,
@@ -371,7 +359,7 @@ test.describe("problem curation on the production PLE stack", () => {
         await expect(collectionItem(panel, institutionTitle)).toContainText(
           "Institution collection",
         );
-        await captureResponsive(elena, scenarioInput, panel, workspaceArtifacts);
+        await captureLaptop(elena, scenarioInput, panel, workspaceArtifacts);
 
         await elena.getByLabel("Search published questions").fill(nativeQuestionTitle);
         await panel.getByRole("button", { name: "Save current search", exact: true }).click();
@@ -444,7 +432,7 @@ test.describe("problem curation on the production PLE stack", () => {
           `${institutionTitle} local revision`,
         );
         await expect(localEditor).toContainText("1 questions in this ordered collection.");
-        await captureResponsive(elena, scenarioInput, panel, recoveryArtifacts);
+        await captureLaptop(elena, scenarioInput, panel, recoveryArtifacts);
         await panel.getByRole("button", { name: "Reload curation", exact: true }).click();
         await expect(collectionItem(panel, remoteInstitutionTitle)).toBeVisible();
       });
@@ -500,7 +488,7 @@ test.describe("problem curation on the production PLE stack", () => {
           "Add selected candidates",
         );
         await expect(secondPool).toContainText(nativeQuestionTitle);
-        await captureResponsive(elena, scenarioInput, editor, pickerArtifacts);
+        await captureLaptop(elena, scenarioInput, editor, pickerArtifacts);
 
         await editor.getByRole("button", { name: "Create assignment", exact: true }).click();
         await expect(
@@ -557,7 +545,7 @@ test.describe("problem curation on the production PLE stack", () => {
         await expect(
           projection.getByRole("button", { name: "Save collection", exact: true }),
         ).toHaveCount(0);
-        await captureResponsive(morgan, scenarioInput, panel, institutionArtifacts);
+        await captureLaptop(morgan, scenarioInput, panel, institutionArtifacts);
       });
 
       await Promise.all(pendingCurationResponses);

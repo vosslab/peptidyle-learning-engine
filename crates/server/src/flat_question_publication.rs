@@ -43,6 +43,7 @@ use crate::catalog::{
     BackendRegistry, BackendRegistryError, PublicReviewGate, dispatch_publication, error_response,
     may_publish, mint_publication_reference,
 };
+use crate::http_refusal::HttpResult;
 
 mod hotspot_assets;
 
@@ -127,7 +128,7 @@ where
     .await
     {
         Ok(draft) => draft,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     // A normal workspace draft that is not a flat source is indistinguishable
     // from a workspace the caller may not read through this narrow endpoint.
@@ -283,7 +284,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let public_binding_sha256 = private.public_binding_sha256().to_string();
     let grading = match FlatQuestionGradingPayload::from_private(&private) {
@@ -412,14 +413,14 @@ where
     .await
     {
         Ok(draft) => draft,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if first.revision != expected_revision {
         return error_response(StatusCode::CONFLICT, "draft changed; reload it");
     }
     let _capabilities = match validate_flat_draft(state.backends.as_ref(), &first.record) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if request.scope == PublicationScope::Public {
         match state
@@ -451,14 +452,14 @@ where
     .await
     {
         Ok(draft) => draft,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if current.revision != expected_revision {
         return error_response(StatusCode::CONFLICT, "draft changed; reload it");
     }
     let capabilities = match validate_flat_draft(state.backends.as_ref(), &current.record) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let staged = match state
         .store
@@ -528,7 +529,7 @@ where
     .await
     {
         Ok(asset) => asset,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let publication = mint_publication_reference();
     let import_promotion = match state
@@ -540,7 +541,7 @@ where
             match prepare_flat_import_promotion(state.objects.as_ref(), &origin, publication).await
             {
                 Ok(promotion) => Some(promotion),
-                Err(response) => return response,
+                Err(response) => return response.into_response(),
             }
         }
         Ok(None) => None,
@@ -557,7 +558,7 @@ where
     {
         Ok(assets) => assets,
         Err(response) => {
-            return response;
+            return response.into_response();
         }
     };
     let published_document = match published_asset {
@@ -667,7 +668,7 @@ async fn prepare_flat_import_promotion<O>(
     objects: &O,
     origin: &WorkspaceFlatImportOrigin,
     publication: question_model::ProblemVersionRef,
-) -> Result<FlatImportPublicationPromotion, Response>
+) -> HttpResult<FlatImportPublicationPromotion>
 where
     O: ObjectStore,
 {
@@ -676,7 +677,7 @@ where
         .await
         .map_err(flat_import_archive_object_error)?;
     if !is_exact_workspace_import_archive(origin, &stored) {
-        return Err(flat_source_changed_response());
+        return Err(flat_source_changed_response().into());
     }
 
     let import = origin.import();
@@ -704,7 +705,7 @@ where
     let published_archive = match objects.put(candidate.clone()).await {
         Ok(record) => {
             if !is_exact_published_archive_replay(&record, &candidate) {
-                return Err(flat_source_changed_response());
+                return Err(flat_source_changed_response().into());
             }
             record
         }
@@ -716,14 +717,16 @@ where
             if !is_exact_published_archive_replay(&replay.record, &candidate)
                 || replay.bytes != candidate.bytes
             {
-                return Err(flat_source_changed_response());
+                return Err(flat_source_changed_response().into());
             }
             replay.record
         }
-        Err(error) => return Err(flat_import_archive_object_error(error)),
+        Err(error) => return Err(flat_import_archive_object_error(error).into()),
     };
-    FlatImportPublicationPromotion::new(origin, publication, published_archive)
-        .map_err(private_store_error)
+    match FlatImportPublicationPromotion::new(origin, publication, published_archive) {
+        Ok(value) => Ok(value),
+        Err(error) => Err(private_store_error(error).into()),
+    }
 }
 
 fn is_exact_workspace_import_archive(
@@ -800,22 +803,21 @@ async fn load_draft<S>(
     context: TenantContext,
     actor: UserId,
     workspace: WorkspaceId,
-) -> Result<WorkspaceDraft, Response>
+) -> HttpResult<WorkspaceDraft>
 where
     S: Store,
 {
     match store.get_draft(context, actor, workspace).await {
         Ok(Some(draft)) => Ok(draft),
-        Ok(None) => Err(error_response(StatusCode::NOT_FOUND, "workspace not found")),
-        Err(error) => Err(private_store_error(error)),
+        Ok(None) => Err(error_response(StatusCode::NOT_FOUND, "workspace not found").into()),
+        Err(error) => Err(private_store_error(error).into()),
     }
 }
 
-#[allow(clippy::result_large_err)] // Route validation deliberately returns the exact HTTP refusal.
 fn validate_flat_draft<B>(
     backends: &B,
     draft: &DraftRecord,
-) -> Result<question_model::BackendCapabilities, Response>
+) -> HttpResult<question_model::BackendCapabilities>
 where
     B: BackendRegistry,
 {
@@ -825,7 +827,8 @@ where
         return Err(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "draft is not a flat question",
-        ));
+        )
+        .into());
     }
     let capabilities = match backends.capabilities(&draft.question.source) {
         Ok(value) => value,
@@ -833,20 +836,22 @@ where
             return Err(error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "question backend is not registered",
-            ));
+            )
+            .into());
         }
         Err(BackendRegistryError::Unavailable(_)) => {
             return Err(error_response(
                 StatusCode::SERVICE_UNAVAILABLE,
                 "backend registry unavailable",
-            ));
+            )
+            .into());
         }
     };
     let violations = domain::policy::validate_draft_for_publication(&draft.question, &capabilities);
     if violations.is_empty() {
         Ok(capabilities)
     } else {
-        Err(no_store((StatusCode::UNPROCESSABLE_ENTITY, Json(serde_json::json!({"error":"publication validation failed","violations":violations}))).into_response()))
+        Err(no_store((StatusCode::UNPROCESSABLE_ENTITY, Json(serde_json::json!({"error":"publication validation failed","violations":violations}))).into_response()).into())
     }
 }
 

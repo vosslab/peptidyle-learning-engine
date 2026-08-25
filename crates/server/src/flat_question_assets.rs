@@ -24,6 +24,7 @@ use serde::Serialize;
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 use crate::hotspot_image::verify_hotspot_image;
+use crate::http_refusal::HttpResult;
 
 /// Native original images remain modest enough for an instructor browser and
 /// are separately constrained by decoded-pixel verification.
@@ -162,7 +163,7 @@ where
     }
     let metadata = match upload_metadata(request.headers()) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
 
     // Every authorization and metadata refusal above happens before this read.
@@ -262,8 +263,7 @@ struct UploadMetadata {
     provenance: String,
 }
 
-#[allow(clippy::result_large_err)] // HTTP validation returns its exact refusal.
-fn upload_metadata(headers: &HeaderMap) -> Result<UploadMetadata, Response> {
+fn upload_metadata(headers: &HeaderMap) -> HttpResult<UploadMetadata> {
     for (name, _) in headers {
         if name.as_str().starts_with("x-ple-")
             && name.as_str() != ASSET_LABEL_HEADER
@@ -272,7 +272,8 @@ fn upload_metadata(headers: &HeaderMap) -> Result<UploadMetadata, Response> {
             return Err(error_response(
                 StatusCode::BAD_REQUEST,
                 "image upload metadata is invalid",
-            ));
+            )
+            .into());
         }
     }
     Ok(UploadMetadata {
@@ -281,32 +282,29 @@ fn upload_metadata(headers: &HeaderMap) -> Result<UploadMetadata, Response> {
     })
 }
 
-#[allow(clippy::result_large_err)] // HTTP validation returns its exact refusal.
-fn one_safe_header(headers: &HeaderMap, name: &str, user_name: &str) -> Result<String, Response> {
+fn one_safe_header(headers: &HeaderMap, name: &str, user_name: &str) -> HttpResult<String> {
     let mut values = headers.get_all(name).iter();
     let Some(value) = values.next() else {
-        return Err(error_response(
-            StatusCode::BAD_REQUEST,
-            &format!("{user_name} is required"),
-        ));
+        return Err(
+            error_response(StatusCode::BAD_REQUEST, &format!("{user_name} is required")).into(),
+        );
     };
     if values.next().is_some() {
         return Err(error_response(
             StatusCode::BAD_REQUEST,
             &format!("{user_name} must appear once"),
-        ));
+        )
+        .into());
     }
     let Ok(value) = value.to_str() else {
-        return Err(error_response(
-            StatusCode::BAD_REQUEST,
-            &format!("{user_name} is invalid"),
-        ));
+        return Err(
+            error_response(StatusCode::BAD_REQUEST, &format!("{user_name} is invalid")).into(),
+        );
     };
     if value.trim().is_empty() || value.chars().any(char::is_control) {
-        return Err(error_response(
-            StatusCode::BAD_REQUEST,
-            &format!("{user_name} is invalid"),
-        ));
+        return Err(
+            error_response(StatusCode::BAD_REQUEST, &format!("{user_name} is invalid")).into(),
+        );
     }
     Ok(value.trim().to_string())
 }

@@ -18,7 +18,7 @@ def test_catalog_is_direct_role_only_and_consumes_its_own_inputs() -> None:
 	direct = browser_scenario_contract.require_contract("direct_role_entry", registry)
 	assert direct.personas == ("morgan_sysadmin",)
 	assert direct.ui_creates == ("passkey",)
-	assert direct.exclusive_seed_mutations == ()
+	assert direct.seed_state_transitions == ()
 	assert direct.screenshot_states == ("account_security_passkey",)
 	auth = browser_scenario_contract.require_contract("auth_authorization", registry)
 	assert "elena_instructor" in auth.personas
@@ -65,17 +65,21 @@ def test_registry_rejects_duplicate_scenarios_and_unsafe_selection() -> None:
 		browser_scenario_contract.resolve_selection(None, "unsafe.spec.ts", None, registry)
 
 
-def test_namespace_is_owner_bound_and_current_exclusive_mutation_is_unique() -> None:
-	"""Public namespaces and the one current mutation cannot be caller ambiguous."""
+def test_namespace_and_repeat_safe_seed_transition_are_owner_bound() -> None:
+	"""Public namespaces and visible seed transitions stay closed and repeat-safe."""
 	assert browser_scenario_contract.namespace_for("direct", "0123456789ab") == "bs1-0123456789ab-direct"
 	with pytest.raises(browser_scenario_contract.ScenarioContractError):
 		browser_scenario_contract.namespace_for("direct", "unsafe")
 	registry = browser_scenario_contract.scenario_contracts()
 	first = browser_scenario_contract.dataclasses.replace(
-		registry[0], exclusive_seed_mutations=("avery_instructor_approval",)
+		registry[0], seed_state_transitions=("avery_instructor_approval",)
 	)
 	second = browser_scenario_contract.dataclasses.replace(
-		registry[1], exclusive_seed_mutations=("avery_instructor_approval",)
+		registry[1], seed_state_transitions=("avery_instructor_approval",)
 	)
-	with pytest.raises(browser_scenario_contract.ScenarioContractError, match="exclusive"):
-		browser_scenario_contract.validate_registry((first, second, *registry[2:]))
+	browser_scenario_contract.validate_registry((first, second, *registry[2:]))
+	unsafe = browser_scenario_contract.dataclasses.replace(
+		registry[0], seed_state_transitions=("caller_defined_transition",)
+	)
+	with pytest.raises(browser_scenario_contract.ScenarioContractError, match="seed state"):
+		browser_scenario_contract.validate_contract(unsafe)

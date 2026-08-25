@@ -558,7 +558,7 @@ fn usage_snapshot_token_bytes(value: &str) -> Option<[u8; 32]> {
         return None;
     }
     let mut token = [0_u8; 32];
-    for (index, pair) in value.as_bytes().chunks_exact(2).enumerate() {
+    for (index, pair) in value.as_bytes().as_chunks::<2>().0.iter().enumerate() {
         let high = hex_nibble(pair[0])?;
         let low = hex_nibble(pair[1])?;
         token[index] = (high << 4) | low;

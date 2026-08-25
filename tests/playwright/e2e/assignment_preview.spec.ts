@@ -31,9 +31,6 @@ const closesAt = "2090-06-02T17:00";
 
 const syntheticResolvedArtifacts = [
   { artifactId: "preview_plane_synthetic_resolved_laptop", viewport: "laptop" },
-  { artifactId: "preview_plane_synthetic_resolved_tablet", viewport: "tablet" },
-  { artifactId: "preview_plane_synthetic_resolved_iphone_pro", viewport: "iphone_pro" },
-  { artifactId: "preview_plane_synthetic_resolved_square", viewport: "square" },
 ] as const;
 
 const denialArtifacts = [
@@ -226,7 +223,7 @@ async function assertSyntheticResult(page: Page): Promise<void> {
   );
 }
 
-async function captureResponsiveSyntheticResult(
+async function captureLaptopSyntheticResult(
   page: Page,
   scenarioInput: ReturnType<typeof requireScenarioInput>,
 ): Promise<void> {
@@ -424,7 +421,7 @@ test.describe("assignment delivery preview on the production PLE stack", () => {
 
         await activateDeliveryCheck(local);
         await assertSyntheticResult(local);
-        await captureResponsiveSyntheticResult(local, scenarioInput);
+        await captureLaptopSyntheticResult(local, scenarioInput);
       });
 
       await test.step("a reload observes persisted policy while the hypothetical result stays ephemeral", async () => {

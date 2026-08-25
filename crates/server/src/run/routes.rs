@@ -126,7 +126,7 @@ where
     };
     let attempts = match all_attempts(state.store.as_ref(), &authenticated, run.id).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let predecessor = if attempts.is_empty() {
         None
@@ -151,7 +151,7 @@ where
         )
         .await
     {
-        return response;
+        return response.into_response();
     }
     no_store((StatusCode::CREATED, Json(run)).into_response())
 }

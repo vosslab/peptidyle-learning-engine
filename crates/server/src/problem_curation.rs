@@ -26,6 +26,7 @@ use question_model::{
 use serde::Deserialize;
 
 use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
+use crate::http_refusal::{HttpRefusal, HttpResult};
 
 const MAX_CURATION_BODY_BYTES: usize = 64 * 1024;
 const DEFAULT_PAGE_SIZE: u16 = 50;
@@ -98,7 +99,7 @@ async fn require_curation_capability<S>(
     state: &CurationRouteState<S>,
     authenticated: &AuthenticatedSession,
     capability: ProblemCurationCapability,
-) -> Result<(), Response>
+) -> HttpResult<()>
 where
     S: ProblemCurationStore + SessionStore + 'static,
 {
@@ -110,7 +111,7 @@ where
             capability,
         )
         .await
-        .map_err(curation_authority_error)
+        .map_err(|error| HttpRefusal::from(curation_authority_error(error)))
 }
 
 async fn list_collections<S>(
@@ -132,7 +133,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let page = match page_request(raw_query.as_deref()) {
         Ok(value) => value,
@@ -171,7 +172,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let reference = match raw_reference.parse::<ProblemCollectionReference>() {
         Ok(value) => value,
@@ -215,7 +216,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let reference = match raw_reference.parse::<ProblemCollectionReference>() {
         Ok(value) => value,
@@ -265,7 +266,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     replace_collection_request(
         &state,
@@ -296,7 +297,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     replace_collection_request(
         &state,
@@ -326,7 +327,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     match state
         .store
@@ -361,7 +362,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let reference = match raw_reference.parse::<ProblemCollectionReference>() {
         Ok(value) => value,
@@ -407,7 +408,7 @@ where
     };
     let body = match strict_json_body::<ReplaceCollectionRequest>(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let command = ReplaceProblemCollectionCommand {
         target,
@@ -450,7 +451,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let reference = match raw_reference.parse::<ProblemCollectionReference>() {
         Ok(value) => value,
@@ -509,7 +510,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let page = match page_request(raw_query.as_deref()) {
         Ok(value) => value,
@@ -548,7 +549,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     replace_saved_search_request(&state, authenticated, request, None, StatusCode::CREATED).await
 }
@@ -572,7 +573,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let reference = match raw_reference.parse::<SavedProblemSearchReference>() {
         Ok(value) => value,
@@ -616,7 +617,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let reference = match raw_reference.parse::<SavedProblemSearchReference>() {
         Ok(value) => value,
@@ -662,7 +663,7 @@ where
     };
     let body = match strict_json_body::<ReplaceSavedSearchRequest>(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state
         .store
@@ -703,7 +704,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let reference = match raw_reference.parse::<SavedProblemSearchReference>() {
         Ok(value) => value,
@@ -743,20 +744,20 @@ where
     }
 }
 
-async fn strict_json_body<T: serde::de::DeserializeOwned>(request: Request) -> Result<T, Response> {
+async fn strict_json_body<T: serde::de::DeserializeOwned>(request: Request) -> HttpResult<T> {
     let bytes = to_bytes(request.into_body(), MAX_CURATION_BODY_BYTES)
         .await
         .map_err(|_| {
-            error_response(
+            HttpRefusal::from(error_response(
                 StatusCode::PAYLOAD_TOO_LARGE,
                 "curation request is too large",
-            )
+            ))
         })?;
     serde_json::from_slice(&bytes).map_err(|_| {
-        error_response(
+        HttpRefusal::from(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "curation request must use the documented JSON shape",
-        )
+        ))
     })
 }
 

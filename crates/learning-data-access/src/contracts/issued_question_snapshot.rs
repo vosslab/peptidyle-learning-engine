@@ -443,7 +443,7 @@ fn decode_sha256(value: &str) -> Result<[u8; 32], StoreError> {
         ));
     }
     let mut bytes = [0_u8; 32];
-    for (index, chunk) in value.as_bytes().chunks_exact(2).enumerate() {
+    for (index, chunk) in value.as_bytes().as_chunks::<2>().0.iter().enumerate() {
         let text = std::str::from_utf8(chunk).map_err(|_| {
             StoreError::Unavailable("stored issued snapshot checksum is invalid".to_string())
         })?;

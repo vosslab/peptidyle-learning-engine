@@ -1,5 +1,6 @@
 //! Instructor-only M2--M4 policy mutation routes.
 
+mod preview_projection;
 mod support;
 
 use std::sync::Arc;
@@ -13,8 +14,8 @@ use axum::routing::{get, put};
 use axum::{Json, Router};
 use domain::effective_assignment_policy::{
     AuthorizationGate, EffectivePolicyDecision, GroupAccommodation, GroupScheduleOffset,
-    IndividualPolicyException, LateVerdict, PolicyModificationMode, PolicyPatch, PolicyPatchSet,
-    PolicySource, ResolvedField, ScheduleOffsetSeconds, StartVerdict,
+    IndividualPolicyException, PolicyModificationMode, PolicyPatch, PolicyPatchSet,
+    ScheduleOffsetSeconds,
 };
 use learning_data_access::{
     AuthoritativeTimeStore, CourseGroupManagementStore, CourseRecordsAccessStore,
@@ -28,11 +29,8 @@ use question_model::{
     AssignmentId, AssignmentPolicyExceptionId, AssignmentPolicyPatchUpdateRequest,
     AssignmentTeachingSettingsField, CourseGroupReference, CourseId, CourseMembershipReference,
     GroupScheduleOffsetUpdateRequest, IndividualPolicyPatchUpdateRequest,
-    TeachingAttemptLimitFieldPatch, TeachingLateVerdict, TeachingLimitFieldPatch,
-    TeachingOperationRevision, TeachingOperationRevisionResponse,
-    TeachingPreviewDeadlineBehaviorField, TeachingPreviewDenialReason, TeachingPreviewFieldSource,
-    TeachingPreviewGroupSource, TeachingPreviewGroupSources, TeachingPreviewLateSubmissionField,
-    TeachingPreviewLimitField, TeachingPreviewTimeField, TeachingPreviewView, TeachingStartVerdict,
+    TeachingAttemptLimitFieldPatch, TeachingLimitFieldPatch, TeachingOperationRevision,
+    TeachingOperationRevisionResponse, TeachingPreviewDenialReason, TeachingPreviewView,
     TeachingTimeFieldPatch,
 };
 
@@ -41,8 +39,9 @@ use super::super::policy::require_course_access;
 use super::super::projection::{error_response, store_error_response};
 use super::super::routing::{CourseRouteState, MAX_COURSE_BODY_BYTES};
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
+use crate::http_refusal::{HttpRefusal, HttpResult};
 
-use support::{hypothetical_source_response, label};
+use preview_projection::preview_view;
 
 /// Builds the empty modifier and preview route group.
 pub(super) fn router<S>(store: Arc<S>) -> Router
@@ -90,7 +89,7 @@ where
     if let Err(response) =
         require_course_access(state.store.as_ref(), &authenticated, course, true).await
     {
-        return response;
+        return response.into_response();
     }
     let expected_revision = match required_assignment_revision(request.headers()) {
         Ok(value) => value,
@@ -213,11 +212,11 @@ where
     let (auth, revision) =
         match authorize_assignment(&state, course, assignment, request.headers()).await {
             Ok(value) => value,
-            Err(response) => return response,
+            Err(response) => return response.into_response(),
         };
     let group = match group_id(&state, &auth, course, group).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state
         .store
@@ -256,19 +255,19 @@ where
     let (auth, revision) =
         match authorize_assignment(&state, course, assignment, request.headers()).await {
             Ok(value) => value,
-            Err(response) => return response,
+            Err(response) => return response.into_response(),
         };
     let group = match group_id(&state, &auth, course, group).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let term = match course_term(&state, auth.tenant_context, course).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let bytes = match json_body(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let body: AssignmentPolicyPatchUpdateRequest = match serde_json::from_slice(&bytes) {
         Ok(value) => value,
@@ -276,7 +275,7 @@ where
     };
     let patch = match patch(body.patch, &term) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state
         .store
@@ -316,11 +315,11 @@ where
     let (auth, revision) =
         match authorize_assignment(&state, course, assignment, request.headers()).await {
             Ok(value) => value,
-            Err(response) => return response,
+            Err(response) => return response.into_response(),
         };
     let group = match group_id(&state, &auth, course, group).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state
         .store
@@ -364,19 +363,19 @@ where
     let (auth, revision) =
         match authorize_assignment(&state, course, assignment, request.headers()).await {
             Ok(value) => value,
-            Err(response) => return response,
+            Err(response) => return response.into_response(),
         };
     let target = match student_target(&state, &auth, course, student).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let term = match course_term(&state, auth.tenant_context, course).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let bytes = match json_body(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let body: IndividualPolicyPatchUpdateRequest = match serde_json::from_slice(&bytes) {
         Ok(value) => value,
@@ -384,7 +383,7 @@ where
     };
     let patch = match patch(body.patch, &term) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state
         .store
@@ -432,11 +431,11 @@ where
     let (auth, revision) =
         match authorize_assignment(&state, course, assignment, request.headers()).await {
             Ok(value) => value,
-            Err(response) => return response,
+            Err(response) => return response.into_response(),
         };
     let target = match student_target(&state, &auth, course, student).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state
         .store
@@ -483,7 +482,7 @@ where
         Err(error) => return auth_error_response(error),
     };
     if let Err(response) = require_course_access(state.store.as_ref(), &auth, course, true).await {
-        return response;
+        return response.into_response();
     }
     let assignment_record = match state
         .store
@@ -496,11 +495,11 @@ where
     };
     let target = match student_target(&state, &auth, course, student).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let term = match course_term(&state, auth.tenant_context, course).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let entitlement = match state
         .store
@@ -568,7 +567,7 @@ where
     let view =
         match preview_view(&state, &auth, course, target.student, &term, *policy, start).await {
             Ok(value) => value,
-            Err(response) => return response,
+            Err(response) => return response.into_response(),
         };
     let _ = assignment_record;
     no_store(Json(view).into_response())
@@ -578,13 +577,10 @@ async fn authorize_assignment<S>(
     course: CourseId,
     assignment: AssignmentId,
     headers: &axum::http::HeaderMap,
-) -> Result<
-    (
-        crate::auth::AuthenticatedSession,
-        learning_data_access::AssignmentRevision,
-    ),
-    Response,
->
+) -> HttpResult<(
+    crate::auth::AuthenticatedSession,
+    learning_data_access::AssignmentRevision,
+)>
 where
     S: Store + CourseRecordsAccessStore + SessionStore + 'static,
 {
@@ -595,16 +591,16 @@ where
     let revision = match required_assignment_revision(headers) {
         Ok(value) => value,
         Err(AssignmentRevisionHeaderError::Missing) => {
-            return Err(error_response(
+            return Err(HttpRefusal::from(error_response(
                 StatusCode::PRECONDITION_REQUIRED,
                 "If-Match assignment revision is required",
-            ));
+            )));
         }
         Err(AssignmentRevisionHeaderError::Malformed) => {
-            return Err(error_response(
+            return Err(HttpRefusal::from(error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "If-Match assignment revision is invalid",
-            ));
+            )));
         }
     };
     match state
@@ -615,33 +611,38 @@ where
         Ok(Some(value)) if value.record.course_id == course && value.revision == revision => {
             Ok((auth, revision))
         }
-        Ok(Some(value)) if value.record.course_id == course => Err(error_response(
-            StatusCode::PRECONDITION_FAILED,
-            "assignment changed; reload it",
-        )),
-        Ok(Some(_)) => Err(error_response(
+        Ok(Some(value)) if value.record.course_id == course => {
+            Err(HttpRefusal::from(error_response(
+                StatusCode::PRECONDITION_FAILED,
+                "assignment changed; reload it",
+            )))
+        }
+        Ok(Some(_)) => Err(HttpRefusal::from(error_response(
             StatusCode::NOT_FOUND,
             "assignment not found",
-        )),
-        Ok(None) => Err(error_response(
+        ))),
+        Ok(None) => Err(HttpRefusal::from(error_response(
             StatusCode::NOT_FOUND,
             "assignment not found",
-        )),
-        Err(error) => Err(store_error_response(error)),
+        ))),
+        Err(error) => Err(HttpRefusal::from(store_error_response(error))),
     }
 }
 async fn course_term<S>(
     state: &CourseRouteState<S>,
     context: learning_data_access::TenantContext,
     course: CourseId,
-) -> Result<question_model::CourseTerm, Response>
+) -> HttpResult<question_model::CourseTerm>
 where
     S: Store + 'static,
 {
     match state.store.get_course(context, course).await {
         Ok(Some(value)) => Ok(value.term),
-        Ok(None) => Err(error_response(StatusCode::NOT_FOUND, "course not found")),
-        Err(error) => Err(store_error_response(error)),
+        Ok(None) => Err(HttpRefusal::from(error_response(
+            StatusCode::NOT_FOUND,
+            "course not found",
+        ))),
+        Err(error) => Err(HttpRefusal::from(store_error_response(error))),
     }
 }
 async fn group_id<S>(
@@ -649,7 +650,7 @@ async fn group_id<S>(
     auth: &crate::auth::AuthenticatedSession,
     course: CourseId,
     reference: CourseGroupReference,
-) -> Result<question_model::CourseGroupId, Response>
+) -> HttpResult<question_model::CourseGroupId>
 where
     S: CourseGroupManagementStore + 'static,
 {
@@ -664,8 +665,11 @@ where
         .await
     {
         Ok(Some(value)) => Ok(value.group.record.id),
-        Ok(None) => Err(error_response(StatusCode::NOT_FOUND, "group not found")),
-        Err(error) => Err(store_error_response(error)),
+        Ok(None) => Err(HttpRefusal::from(error_response(
+            StatusCode::NOT_FOUND,
+            "group not found",
+        ))),
+        Err(error) => Err(HttpRefusal::from(store_error_response(error))),
     }
 }
 async fn student_target<S>(
@@ -673,7 +677,7 @@ async fn student_target<S>(
     auth: &crate::auth::AuthenticatedSession,
     course: CourseId,
     reference: CourseMembershipReference,
-) -> Result<learning_data_access::InstructorStudentTargetView, Response>
+) -> HttpResult<learning_data_access::InstructorStudentTargetView>
 where
     S: TeachingAuthorityReferenceStore + 'static,
 {
@@ -688,11 +692,14 @@ where
         .await
     {
         Ok(Some(value)) => Ok(value),
-        Ok(None) => Err(error_response(StatusCode::NOT_FOUND, "student not found")),
-        Err(error) => Err(store_error_response(error)),
+        Ok(None) => Err(HttpRefusal::from(error_response(
+            StatusCode::NOT_FOUND,
+            "student not found",
+        ))),
+        Err(error) => Err(HttpRefusal::from(store_error_response(error))),
     }
 }
-async fn json_body(request: Request) -> Result<axum::body::Bytes, Response> {
+async fn json_body(request: Request) -> HttpResult<axum::body::Bytes> {
     if !request
         .headers()
         .get(CONTENT_TYPE)
@@ -704,17 +711,17 @@ async fn json_body(request: Request) -> Result<axum::body::Bytes, Response> {
                 .is_some_and(|value| value.trim() == "application/json")
         })
     {
-        return Err(error_response(
+        return Err(HttpRefusal::from(error_response(
             StatusCode::UNSUPPORTED_MEDIA_TYPE,
             "request must be JSON",
-        ));
+        )));
     }
     match to_bytes(request.into_body(), MAX_COURSE_BODY_BYTES + 1).await {
         Ok(value) if value.len() <= MAX_COURSE_BODY_BYTES => Ok(value),
-        _ => Err(error_response(
+        _ => Err(HttpRefusal::from(error_response(
             StatusCode::PAYLOAD_TOO_LARGE,
             "request is too large",
-        )),
+        ))),
     }
 }
 fn mode(value: question_model::PolicyModificationModeView) -> PolicyModificationMode {
@@ -726,11 +733,10 @@ fn mode(value: question_model::PolicyModificationModeView) -> PolicyModification
     }
 }
 
-#[allow(clippy::result_large_err)]
 fn patch(
     value: question_model::PolicyPatchView,
     term: &question_model::CourseTerm,
-) -> Result<PolicyPatchSet, Response> {
+) -> HttpResult<PolicyPatchSet> {
     Ok(PolicyPatchSet {
         available_at: time_patch(
             value.available_at,
@@ -747,18 +753,17 @@ fn patch(
         attempt_limit: attempt_patch(value.attempt_limit),
     })
 }
-#[allow(clippy::result_large_err)]
 fn time_patch(
     value: TeachingTimeFieldPatch,
     term: &question_model::CourseTerm,
     field: AssignmentTeachingSettingsField,
-) -> Result<PolicyPatch<question_model::ActivityTimestamp>, Response> {
+) -> HttpResult<PolicyPatch<question_model::ActivityTimestamp>> {
     match value {
         TeachingTimeFieldPatch::Inherit => Ok(PolicyPatch::Inherit),
         TeachingTimeFieldPatch::Set { value } => {
             question_model::resolve_teaching_local_time(&value, term, field)
                 .map(PolicyPatch::Set)
-                .map_err(teaching_local_time_error)
+                .map_err(|error| HttpRefusal::from(teaching_local_time_error(error)))
         }
         TeachingTimeFieldPatch::Unrestricted => Ok(PolicyPatch::Unrestricted),
     }
@@ -799,198 +804,6 @@ fn attempt_patch(value: TeachingAttemptLimitFieldPatch) -> PolicyPatch<std::num:
         }
         TeachingAttemptLimitFieldPatch::Unrestricted => PolicyPatch::Unrestricted,
     }
-}
-async fn preview_view<S>(
-    state: &CourseRouteState<S>,
-    auth: &crate::auth::AuthenticatedSession,
-    course: CourseId,
-    student: question_model::StudentId,
-    term: &question_model::CourseTerm,
-    policy: domain::effective_assignment_policy::EffectiveAssignmentPolicy,
-    start: StartVerdict,
-) -> Result<TeachingPreviewView, Response>
-where
-    S: CourseGroupManagementStore + TeachingAuthorityReferenceStore + 'static,
-{
-    Ok(TeachingPreviewView::Allowed {
-        time_zone: term.time_zone().clone(),
-        start: start_view(start),
-        available_at: preview_time_field(
-            state,
-            auth,
-            course,
-            student,
-            term,
-            policy.available_at,
-            AssignmentTeachingSettingsField::AvailableAt,
-        )
-        .await?,
-        due_at: preview_time_field(
-            state,
-            auth,
-            course,
-            student,
-            term,
-            policy.due_at,
-            AssignmentTeachingSettingsField::DueAt,
-        )
-        .await?,
-        closes_at: preview_time_field(
-            state,
-            auth,
-            course,
-            student,
-            term,
-            policy.closes_at,
-            AssignmentTeachingSettingsField::ClosesAt,
-        )
-        .await?,
-        time_limit_seconds: TeachingPreviewLimitField {
-            value: policy.time_limit_seconds.value,
-            source: source(
-                state,
-                auth,
-                course,
-                student,
-                policy.time_limit_seconds.source,
-            )
-            .await?,
-        },
-        attempt_limit: TeachingPreviewLimitField {
-            value: policy.attempt_limit.value,
-            source: source(state, auth, course, student, policy.attempt_limit.source).await?,
-        },
-        late_submission: TeachingPreviewLateSubmissionField {
-            value: policy.late_submission.value,
-            source: source(state, auth, course, student, policy.late_submission.source).await?,
-        },
-        deadline_behavior: TeachingPreviewDeadlineBehaviorField {
-            value: policy.deadline_behavior.value,
-            source: source(
-                state,
-                auth,
-                course,
-                student,
-                policy.deadline_behavior.source,
-            )
-            .await?,
-        },
-    })
-}
-
-async fn preview_time_field<S>(
-    state: &CourseRouteState<S>,
-    auth: &crate::auth::AuthenticatedSession,
-    course: CourseId,
-    student: question_model::StudentId,
-    term: &question_model::CourseTerm,
-    field: ResolvedField<Option<question_model::ActivityTimestamp>>,
-    settings_field: AssignmentTeachingSettingsField,
-) -> Result<TeachingPreviewTimeField, Response>
-where
-    S: CourseGroupManagementStore + TeachingAuthorityReferenceStore + 'static,
-{
-    let source = source(state, auth, course, student, field.source).await?;
-    question_model::project_teaching_preview_time_field(field.value, source, term, settings_field)
-        .map_err(|_| error_response(StatusCode::SERVICE_UNAVAILABLE, "preview time is invalid"))
-}
-fn start_view(value: StartVerdict) -> TeachingStartVerdict {
-    match value {
-        StartVerdict::MayStart { late } => TeachingStartVerdict::MayStart {
-            late: match late {
-                LateVerdict::OnTime => TeachingLateVerdict::OnTime,
-                LateVerdict::AcceptedLate => TeachingLateVerdict::AcceptedLate,
-                LateVerdict::MarkedLate => TeachingLateVerdict::MarkedLate,
-                LateVerdict::RejectedLate => TeachingLateVerdict::MarkedLate,
-            },
-        },
-        StartVerdict::NotYetAvailable => TeachingStartVerdict::NotYetAvailable,
-        StartVerdict::Closed => TeachingStartVerdict::Closed,
-        StartVerdict::AttemptLimitReached => TeachingStartVerdict::AttemptLimitReached,
-        StartVerdict::DueDateRejectsNewRun => TeachingStartVerdict::DueDateRejectsNewRun,
-    }
-}
-async fn source<S>(
-    state: &CourseRouteState<S>,
-    auth: &crate::auth::AuthenticatedSession,
-    course: CourseId,
-    student: question_model::StudentId,
-    value: PolicySource,
-) -> Result<TeachingPreviewFieldSource, Response>
-where
-    S: CourseGroupManagementStore + TeachingAuthorityReferenceStore + 'static,
-{
-    match value {
-        PolicySource::Base => Ok(TeachingPreviewFieldSource::Base {
-            label: label("Assignment policy")?,
-        }),
-        PolicySource::GroupScheduleOffsets(groups) => {
-            Ok(TeachingPreviewFieldSource::GroupScheduleOffsets {
-                groups: groups_view(state, auth, course, groups).await?,
-            })
-        }
-        PolicySource::GroupAccommodations(groups) => {
-            Ok(TeachingPreviewFieldSource::GroupAccommodations {
-                groups: groups_view(state, auth, course, groups).await?,
-            })
-        }
-        PolicySource::IndividualException(_) => {
-            let view = state
-                .store
-                .active_student_membership_reference_view(
-                    auth.tenant_context,
-                    auth.record.subject.user(),
-                    course,
-                    student,
-                )
-                .await
-                .map_err(store_error_response)?;
-            let Some(view) = view else {
-                return Err(error_response(StatusCode::NOT_FOUND, "student not found"));
-            };
-            Ok(TeachingPreviewFieldSource::Membership {
-                membership: view.reference,
-                label: label(&view.display_name)?,
-            })
-        }
-        PolicySource::HypotheticalIndividualException => Err(hypothetical_source_response()),
-    }
-}
-async fn groups_view<S>(
-    state: &CourseRouteState<S>,
-    auth: &crate::auth::AuthenticatedSession,
-    course: CourseId,
-    groups: Vec<question_model::CourseGroupId>,
-) -> Result<TeachingPreviewGroupSources, Response>
-where
-    S: CourseGroupManagementStore + 'static,
-{
-    let mut views = Vec::with_capacity(groups.len());
-    for group in groups {
-        let view = state
-            .store
-            .get_course_group_by_id_for_instructor(
-                auth.tenant_context,
-                auth.record.subject.user(),
-                course,
-                group,
-            )
-            .await
-            .map_err(store_error_response)?;
-        let Some(view) = view else {
-            return Err(error_response(StatusCode::NOT_FOUND, "group not found"));
-        };
-        views.push(TeachingPreviewGroupSource {
-            group: view.reference,
-            label: label(&view.group.record.title)?,
-        });
-    }
-    TeachingPreviewGroupSources::try_from(views).map_err(|_| {
-        error_response(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "preview provenance is invalid",
-        )
-    })
 }
 #[cfg(test)]
 #[path = "modifiers_preview/tests.rs"]

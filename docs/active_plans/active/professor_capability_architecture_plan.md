@@ -346,11 +346,13 @@ no-transport assertions are required because a screenshot cannot prove authoriza
 boundary governs direct navigation and in-app links; it is not a learner projection or a second
 entitlement/policy authority.
 
-Permanent visual evidence uses maintained desktop, portrait, narrow-phone, and square responsive
-profiles. The profiles are semantic coverage targets: each capture demonstrates readable hierarchy,
-visible focus, usable controls, and recoverable states for its form factor. Semantic user-facing
-outcomes provide the acceptance authority. Professor evidence includes a desktop profile; Student
-evidence includes an allowed student surface and the visible denial of instructor-only routes. The
+Permanent visual evidence follows the owner-defined role profiles. Professor/Instructor and Sysadmin
+evidence uses only the canonical 1280 by 800 desktop profile. Student evidence may use the maintained
+laptop, portrait-tablet, iPhone Pro, and square profiles under the 40/30/20/10 planning mix. The
+profiles are semantic review contexts: each capture demonstrates readable hierarchy, visible focus,
+usable controls, and recoverable states for its form factor. Semantic user-facing outcomes provide
+the acceptance authority. Student evidence includes an allowed student surface and the visible denial
+of instructor-only routes. The
 committed corpus is organized
 under `docs/screenshots/` by instructor, student, and the student/access boundary, with
 `tests/e2e/browser_screenshot_corpus.json` as its sole screenshot ownership authority. The
@@ -360,7 +362,8 @@ Live evidence uses local-development credentials or invitations because email is
 must not claim email delivery. Fictional deterministic fixture addresses in `example.invalid` are
 permitted test data, while real email and identifying records remain prohibited. Public and private
 evidence remain separate. The accepted S4 evidence includes fresh capture, native-size inspection,
-manifest/provenance verification, and direct no-transport route proofs across the maintained profiles.
+manifest/provenance verification, and direct no-transport route proofs across the applicable Student
+profiles.
 
 ### 3.4 Derived state versus durable transitions
 
@@ -779,7 +782,7 @@ and the existing writable repeatable-read snapshot; accepted
 | Memory             | Direct-Instructor derivation records the declared PII-minimal audit and preserves the declared teaching state; synthetic construction preserves the same before/after teaching state. Authorization, foreign, inactive, malformed, and denied paths preserve it as well.                                                                                       |
 | PostgreSQL live    | Fresh baseline proves forced RLS, atomic audit snapshot, checksum and PII-free payload, concealment probes, and declared before/after state equality for enrollment, runs, attempts, grades, exports, and jobs.                                                                                                                                                |
 | Server             | Authorization precedes decode and lookup; exact-course binding, `no-store`, strict decoders, denial allowlists, and the success, validation, conflict, and denial response families remain identity-, answer-, score-, and audit-free.                                                                                                                         |
-| Browser            | A real-stack Instructor journey covers schedule scan, derived and synthetic subjects, Before/After, Now/Due/Close, recovery, and keyboard behavior; Playwright, accessibility, and fresh screenshots cover maintained responsive profiles and direct-route no-transport denial. Test-double tests remain subordinate and do not count as connected acceptance. |
+| Browser            | A real-stack Instructor journey covers schedule scan, derived and synthetic subjects, Before/After, Now/Due/Close, recovery, and keyboard behavior in the canonical 1280 by 800 desktop profile; Student direct-route denial uses the applicable Student profiles with no-transport proof. Test-double tests remain subordinate and do not count as connected acceptance. |
 | Independent review | Architecture, security/privacy, HCI, and documentation/evidence reviewers find no unresolved P0--P3 issue.                                                                                                                                                                                                                                                     |
 
 The existing named T2 policy-preview remains an Instructor teaching-operations inspection surface.
@@ -999,7 +1002,7 @@ material tree after those package-local lanes are green.
 Depends on M1. Lanes: lifecycle, schedule, late policy, instructions, scoring status; groups,
 entitlement, accommodations, co-instructors, retention and archive pages; preview plane, canonical
 live learner delivery, and item pools. Exit: each teaching-policy category is reachable, editable,
-and keyboard-complete in the maintained responsive profiles; an enrolled Student completes an ordinary
+and keyboard-complete in the maintained desktop profile; an enrolled Student completes an ordinary
 run through deterministic grading and Instructor review; a pool delivers its draw and respects the
 issued-run lock; each preview names the layer that produced every value. Three lanes plus one reviewer.
 
@@ -1056,7 +1059,7 @@ P1 finding.
 | WP-PROF-S2  | Expert coder         | Course term, zone, validation, migration (serial core); accepted 2026-08-18 after full Validation and independent final ACCEPT reviews                                                                                                                                                                                       | WP-PROF-S1 accepted                                                                      |
 | WP-PROF-S7  | Expert coder         | Typed references, shared value types, migration allocation, RLS, and immutable public bylines (serial core); accepted 2026-08-19 after full Validation and independent final ACCEPT reviews                                                                                                                                  | WP-PROF-S1                                                                               |
 | WP-PROF-S3  | Expert coder         | Accepted 2026-08-19: effective-policy resolver, ordered gates, grant-filtered modifiers, per-field provenance, and sealed attempt receipts (lane A); full Validation and three independent final reviews passed                                                                                                              | WP-PROF-S2, WP-PROF-S7, WP-PROF-S5                                                       |
-| WP-PROF-S4  | Expert coder         | Accepted 2026-08-19: assignment-owned five-field disclosure, learner-safe projections, fail-closed student access, class-statistics privacy, and the four-viewport role-based visual contract; full Validation and independent final reviews passed                                                                          | WP-PROF-S3                                                                               |
+| WP-PROF-S4  | Expert coder         | Accepted 2026-08-19: assignment-owned five-field disclosure, learner-safe projections, fail-closed student access, class-statistics privacy, and the four-profile Student/access visual contract; full Validation and independent final reviews passed                                                                         | WP-PROF-S3                                                                               |
 | WP-PROF-S5  | Expert coder         | Accepted 2026-08-19: entitlement authority, typed decision/reasons and applicable group-purpose scopes, derived authority, and materialization (lane B); full Validation and three independent final reviews passed                                                                                                          | WP-PROF-S2, WP-PROF-S7                                                                   |
 | WP-PROF-S6  | Expert coder         | Accepted 2026-08-19: two-mode course-grade scheme, deferred completion examples, totals, and audited export; full Validation and three independent final reviews passed                                                                                                                                                      | WP-PROF-S2, WP-PROF-S7                                                                   |
 | WP-PROF-T1  | Expert coder         | Lifecycle, schedule, late policy, instructions, scoring status                                                                                                                                                                                                                                                               | WP-PROF-S3                                                                               |
@@ -1068,9 +1071,9 @@ P1 finding.
 | WP-PROF-LD3 | Expert coder         | Accepted 2026-08-24: converged ordinary live assignment authority, learner delivery, deterministic grading, immutable receipts, and audited Instructor inspection                                                                                                                                                            | WP-PROF-T3 accepted                                                                      |
 | WP-PROF-T5  | Coder                | Accepted 2026-08-24: accessible ordered fixed-or-pool authoring, policy-correct v1 draws, no-store preview, immutable issued evidence, and ordinary live Instructor/Student delivery; canonical HTTPS acceptance, screenshot provenance, independent visual approval, and final Validation passed                            | WP-PROF-T1 accepted                                                                      |
 | WP-PROF-D1  | Expert coder         | Accepted 2026-08-25: ranked metadata search, actor-scoped usage, first-attempt validity, disclosed evidence, and deterministic answer-free generated examples; canonical PostgreSQL, production HTTPS, screenshot, review, and final Validation evidence passed                                                              | WP-PROF-S7, WP-R2                                                                        |
-| WP-PROF-D2  | Coder                | Accepted 2026-08-25: live Favorites, private and institution collections, canonical saved searches, revision-checked bulk curation, and one shared ProblemPicker; PostgreSQL, production HTTPS, responsive visual, review, and final Validation evidence passed                                                              | WP-PROF-D1 accepted                                                                      |
+| WP-PROF-D2  | Coder                | Accepted 2026-08-25: live Favorites, private and institution collections, canonical saved searches, revision-checked bulk curation, and one shared ProblemPicker; PostgreSQL, production HTTPS, canonical desktop visual, review, and final Validation evidence passed                                                       | WP-PROF-D1 accepted                                                                      |
 | WP-PROF-D3  | Coder                | Assisted tagging: worker, proposals, confirmation, provenance. **Optional; nothing depends on it**                                                                                                                                                                                                                           | WP-PROF-D1                                                                               |
-| WP-PROF-B1  | Expert coder         | Revisioned personal assignment blueprints and public Alpha curriculum aggregates with typed references, creator-owned updates, answer-free projections, and shared `ProblemPicker` authoring and reuse                                                                                                                       | WP-PROF-D2, WP-PROF-S7                                                                   |
+| WP-PROF-B1  | Expert coder         | Accepted 2026-08-25: revisioned personal assignment blueprints and public Alpha curriculum aggregates with typed references, creator-owned updates, answer-free projections, and shared `ProblemPicker` authoring and reuse; PostgreSQL, production HTTPS, canonical desktop visual, independent review, and final Validation evidence passed                                              | WP-PROF-D2 accepted, WP-PROF-S7 accepted                                                  |
 | WP-PROF-B2  | Expert coder         | Fork, instantiate, rollover, term shift, manifests, fast-forward                                                                                                                                                                                                                                                             | WP-PROF-B1, WP-PROF-T1                                                                   |
 | WP-PROF-G1  | Expert coder         | Automated-grading operation queue grouped by question/learner; deterministic-grader exception routing, bounded retry, generation-fenced recalculation, and immutable operation receipts; no human scoring or manual-grade mutation                                                                                           | WP-PROF-T2                                                                               |
 | WP-PROF-G2  | Expert coder         | Audited learner-work inspection and grade-scheme-aware calculated gradebook, linked directly from G1 operations                                                                                                                                                                                                              | WP-PROF-S6, WP-PROF-G1                                                                   |
@@ -1157,11 +1160,11 @@ those focused contracts are green.
 | Domain, Store, and server         | Closed query/filter and result contracts preserve the opaque relevance cursor and snapshot boundary; strict decoders reject unknown response families and malformed filters; authorization resolves before protected actor-usage input; browser responses remain answer-free. Memory and PostgreSQL Stores agree on filtering, ranking, evidence suppression, and actor-scoped usage.                    |
 | PostgreSQL and RLS oracle         | The disposable database baseline runs the ranked-catalog cursor and continuation tests plus `postgres_catalog_discovery_evidence_and_usage_are_validity_and_actor_bound`. It proves immutable append-only evidence revisions, first-attempt independence, cross-course disclosure, snapshot-consistent reads, tenant isolation, and own-course detail under forced RLS.                                  |
 | Real-stack browser journey        | The production HTTPS `catalog_discovery_evidence` scenario uses visible PLE workflows. Seed the Instructor, Student, course, question, and taxonomy state required to demonstrate an initial insufficient-evidence state and a disclosed update. Library filters exercise byline, backend, taxonomy, response family, and own-course use, while each seeded role sees only its authorized course detail. |
-| Visual and accessibility evidence | Capture the production scenario in the maintained responsive profiles. Review Library search, filter controls, result cards, evidence, and usage detail for readable hierarchy, keyboard-complete controls, responsive recovery, and compact instructor use. Publish through the canonical screenshot corpus and provenance gate.                                                                        |
+| Visual and accessibility evidence | Capture Instructor discovery in the canonical 1280 by 800 desktop profile. Review Library search, filter controls, result cards, evidence, and usage detail for readable hierarchy, keyboard-complete controls, recovery, and compact instructor use. Publish through the canonical screenshot corpus and provenance gate.                                                                                   |
 | Independent review                | Architecture, security/privacy, HCI/accessibility, and documentation/evidence review the final D1 artifact against this contract. Resolve every P0 through P3 finding before acceptance.                                                                                                                                                                                                                 |
 | Full Validation                   | Run `./all_test.sh` on the final material tree. Run `./capture_screenshots.sh` for the D1 visual corpus. Record exact commands, results, environment assumptions, and review receipts in the package handoff and changelog.                                                                                                                                                                              |
 
-D1 is accepted when every required focused gate, real-stack journey, semantic responsive review,
+D1 is accepted when every required focused gate, real-stack journey, semantic desktop review,
 independent review, screenshot publication gate, and full Validation gate is green on the final
 material tree.
 
@@ -1230,11 +1233,11 @@ full Validation evidence.
 | PostgreSQL and RLS oracle         | A fresh database applies migration 1836 and proves forced RLS, broker-only table authority, active session derivation, private concealment, tenant-institution reads, owner-only mutation, cross-tenant concealment, exact immutable member references, revision races, and complete rollback for malformed, invisible, or stale bulk input.                                                                                                                                                                                                                     |
 | Server and browser contracts      | Authentication and role resolution precede protected path, query, and body interpretation. Collection and saved-search representations are `no-store`, mutations use strong `If-Match`, strict decoders reject extensions, and every browser payload uses safe catalog metadata plus public references.                                                                                                                                                                                                                                                          |
 | Shared visible workflow           | Elena enters through the ordinary Instructor and passkey path, searches the Library, selects current results, updates Favorites, creates and revises a named collection, saves and reruns a current search, and uses the same picker to add fixed and pooled questions to a live assignment without typing IDs. Every interaction announces its result and next action; stale state preserves the selection and offers reload. Morgan's independent Sysadmin passkey journey remains green and institution collection reads expose the intended safe projection. |
-| Accessibility and visual evidence | Native labeled controls provide source, filters, result selection, selected-question tray, destination, and confirmation in task order. Focus opens and returns predictably, Escape cancels, bulk status is announced, and empty/error/conflict states retain recoverable work. Canonical screenshots cover the maintained responsive profiles and receive semantic review for clipping, readable hierarchy, focus, and recovery.                                                                                                                                |
+| Accessibility and visual evidence | Native labeled controls provide source, filters, result selection, selected-question tray, destination, and confirmation in task order. Focus opens and returns predictably, Escape cancels, bulk status is announced, and empty/error/conflict states retain recoverable work. Canonical Instructor and Sysadmin screenshots use the 1280 by 800 desktop profile and receive semantic review for clipping, readable hierarchy, focus, and recovery.                                                                                                         |
 | Independent review and Validation | Architecture, security/privacy, HCI/accessibility, and documentation/evidence reviewers resolve every P0--P3 finding. The final material tree passes `./all_test.sh`; the D2 screenshot corpus passes publication, privacy, provenance, and visual review.                                                                                                                                                                                                                                                                                                       |
 
 D2 is accepted when the complete curation-to-live-assignment workflow, PostgreSQL authority oracle,
-semantic responsive evidence, independent reviews, screenshot publication, and final Validation suite are
+semantic desktop evidence, independent reviews, screenshot publication, and final Validation suite are
 green on the same material tree.
 
 **Accepted evidence (2026-08-25).** Memory and PostgreSQL curation semantics, strict server and
@@ -1243,8 +1246,9 @@ ordinary Instructor entry and passkey to search, curate, recover a revision conf
 same safe public questions in a live assignment; Morgan's independent Sysadmin passkey path exposes
 the intended institution collection projection. The 66-migration database baseline proves forced
 RLS, broker authority, canonical saved filters, immutable membership, revision safety, and exact
-cleanup. The privacy-validated 93-artifact corpus includes 16 D2 views across all four canonical
-viewports. Architecture, security/privacy, HCI/accessibility, and documentation/evidence reviews
+cleanup. The privacy-validated corpus includes the four canonical D2 desktop views: Elena's
+curation workspace, revision recovery, and assignment picker plus Morgan's institution projection.
+Architecture, security/privacy, HCI/accessibility, and documentation/evidence reviews
 closed with zero P0 through P3 findings. Final `source source_me.sh && ./all_test.sh` passed the Rust
 workspace, all five codebase gates including 297 Node tests, 6,982 pytest checks, the complete
 production-browser suite, the database baseline, and the browser-free service oracles.
@@ -1330,6 +1334,32 @@ Permanent pytest remains offline, deterministic, individually subsecond, and fix
 named E2E or one-time evidence lane. B1 acceptance uses semantic behavior and resource ownership;
 elapsed-time thresholds, artifact counts, collection counts, and pixel-equivalence gates carry no
 acceptance authority.
+
+**Accepted evidence (2026-08-25).** The Memory and PostgreSQL Stores, strict server and browser
+contracts, and production HTTPS `reusable_curriculum` journey are green. Elena uses her ordinary
+Instructor entry and passkey to create and revise a Blueprint and public Alpha curriculum, recover a
+stale draft, reload persisted meaning, and reuse an Alpha question through the shared picker. Morgan's
+independent Sysadmin passkey supports Avery's visible approval path; Avery accepts Elena's invitation
+and reads the answer-free Alpha curriculum without mutation controls. The 67-migration database
+baseline proves forced RLS, dedicated broker authority, cross-tenant approved-Instructor reading,
+creator-only writing, Student refusal, revision safety, rollback, and exact cleanup. The
+privacy-validated corpus includes canonical desktop creator, picker, and approved-reader views.
+Final `source source_me.sh && ./all_test.sh`
+passed the Rust workspace, all five codebase gates, the complete production-browser suite, the
+database baseline, and the browser-free service oracles on this material tree.
+
+The repository-owned independent-review receipt is:
+
+| Review | Verdict and grounded evidence |
+| --- | --- |
+| Architecture | APPROVE with no P0--P3 finding. Separate revisioned Blueprint and Alpha aggregates, one focused Store boundary, atomic replacement, route preflight ordering, shared answer-free picker reuse, and the B1/B2 aggregate boundary were confirmed. |
+| Security/privacy | APPROVE with no P0--P3 finding. Active-session authority, creator-only mutation, cross-tenant approved-Instructor reading, forced RLS, dedicated broker authority, answer-free closed browser contracts, privacy validation, and provenance were confirmed. |
+| HCI/accessibility | APPROVE with no P0--P3 finding. Fresh production captures confirmed the 1280 by 800 creator workspace and save surface, creator-versus-reader distinction, actionable reader guidance, named Alpha picker source, ordered selection, keyboard-native controls, focus, contrast, and recovery. |
+| Documentation/evidence | APPROVE with no P0--P3 finding. Permanent, connected, one-time, and human-review evidence remains classified by repository policy; 138 focused scenario/publication pytest checks, focused B1 Node checks, production corpus verification, and exact cleanup passed without artifact-count, timing, or pixel-equivalence gates. |
+
+The HCI review's initial P2 reader-guidance finding was resolved before approval. The first
+documentation/evidence review requested this durable repository receipt; this table closes that
+evidence gap and preserves the four specialist verdicts with the binding B1 contract.
 
 **WP-PROF-B2 binding contract.** B2 is the dedicated curriculum-adoption boundary. It consumes
 accepted B1 Blueprint and Alpha meaning and creates or updates ordinary teaching-course state. It
@@ -1455,7 +1485,7 @@ changelog receipt, then final `source source_me.sh && ./all_test.sh` on the mate
 | Permanent deterministic behavior | Focused Rust domain/Memory tests prove normalized semantic comparison, source-pin reauthorization, Alpha fork lineage, instantiation/rollover exclusions, relative schedule resolution and typed DST corrections, whole-course no-issued-work fencing, fast-forward eligibility, divergence preservation with new source-derived draft, revision conflicts, idempotency replay, and answer-free projections. Semantic digest behavior tests may prove equivalent meaning produces the same digest and a meaningful change produces a different digest; they exclude frozen literal-byte digests. Focused server and Node tests prove closed decoding, session preflight before body interpretation, route/reference binding, recoverable draft preservation, and safe DTOs. Tests use small inline cases and grounded behavior, never fixture-corpus size, route inventories, timing limits, or count gates. |
 | Opt-in PostgreSQL/RLS oracle | One ignored disposable PostgreSQL test exercises the B2 Store through the allocated migration: forced RLS, broker-only authority, approved-Instructor source reads, direct destination Instructor writes, Student and unrelated Sysadmin refusal, cross-tenant Alpha fork/instantiation, atomic rollback for invalid pins/schedules/stale revisions, durable provenance/receipt reload, empty learner destination state, fast-forward/divergence/issued-run outcomes, and reconciliation of missing rows. It asserts relationships and outcomes, not SQL shape or migration counts. |
 | Canonical production browser | A behavior-named production HTTPS scenario uses real PostgreSQL/RLS and visible UI-created state. Elena enters through the ordinary approved-Instructor path, creates and revises the B1 Blueprint/Alpha source through visible UI actions, previews and commits instantiation, rollover, and term shift, sees and corrects one DST outcome, fast-forwards an untouched import, and preserves a divergent assignment by creating a new source-derived draft. Catalog baseline publication is infrastructure-only setup. The journey uses accessible controls and semantic readiness waits. Elena and Morgan passkey enrollment, sign-out, and sign-in remain required independent scenarios; this B2 journey consumes Elena's ordinary authenticated Instructor path and does not duplicate their passkey ceremonies. |
-| One-time and human evidence | Retain Graphify/source-impact, migration allocation and broker/RLS inspection, generated-contract registration, answer-free wire inspection, browser origin/cleanup, and screenshot publication as dated package receipts. Semantically review the maintained responsive profiles for readable source/destination distinction, preview/correction/recovery, keyboard/focus/dialog behavior, responsive layout, privacy, and contrast. Screenshots and Graphify inventories are one-time evidence, not byte, pixel, artifact-count, or route-inventory gates. Architecture/security, HCI/accessibility, and documentation/evidence review resolve all P0/P1 findings; P2/P3 have a resolution or recorded owner decision. |
+| One-time and human evidence | Retain Graphify/source-impact, migration allocation and broker/RLS inspection, generated-contract registration, answer-free wire inspection, browser origin/cleanup, and screenshot publication as dated package receipts. Semantically review B2's canonical 1280 by 800 Instructor profile for readable source/destination distinction, preview/correction/recovery, keyboard/focus/dialog behavior, privacy, and contrast. Screenshots and Graphify inventories are one-time evidence, not byte, pixel, artifact-count, or route-inventory gates. Architecture/security, HCI/accessibility, and documentation/evidence review resolve all P0/P1 findings; P2/P3 have a resolution or recorded owner decision. |
 | Full Validation | The final material tree passes `source source_me.sh && ./all_test.sh` with every required B2 gate green and no required skip. Connected PostgreSQL/RLS, production HTTPS browser, screenshots, Graphify/source inventories, and visual judgment retain the separate evidence lanes above. |
 
 The canonical browser journey is the smallest visible composition. It demonstrates selected
@@ -1656,7 +1686,7 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   authoring with shared-picker reuse; B2 Alpha instantiation across instructors, fast-forward,
   divergent selected copy, rollover, and term-shift preview; grader-exception routing by item and
   recalculation; gradebook total and audited learner-work inspection; analysis to fork to recorded
-  decision; attention-queue routing; keyboard, recovery, and maintained responsive-profile behavior.
+  decision; attention-queue routing; keyboard, recovery, and role-appropriate viewport behavior.
 - S4 browser evidence must cover the student/access contract: allowed learner projection, direct
   roster and gradebook denial probes, a centrally derived fail-closed route boundary before transport,
   and no instructor payload on denied navigation. Fresh capture and inspection are required before

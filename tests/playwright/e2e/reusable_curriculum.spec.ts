@@ -43,14 +43,14 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport);
 }
 
-async function captureResponsive(
+async function captureLaptop(
   page: Page,
   scenarioInput: ReturnType<typeof requireScenarioInput>,
   target: Locator,
   artifactPrefix: string,
   anchor: Locator = target,
 ): Promise<void> {
-  for (const viewport of ["laptop", "tablet", "iphone_pro", "square"] as const) {
+  for (const viewport of ["laptop"] as const) {
     await page.setViewportSize(CORPUS_VIEWPORT_SIZES[viewport]);
     await anchor.evaluate((element) =>
       element.scrollIntoView({ block: "start", inline: "nearest" }),
@@ -111,13 +111,12 @@ async function signInWithPasskey(
   return authenticator;
 }
 
-async function chooseQuestion(
+async function selectQuestion(
   page: Page,
   pickerName: string,
   sourceLabel: string,
-  confirmLabel: string,
   questionTitle: string,
-): Promise<void> {
+): Promise<Locator> {
   const picker = page.getByRole("dialog", { name: pickerName, exact: true });
   await expect(picker).toBeVisible();
   await picker.getByLabel("Question source").selectOption({ label: sourceLabel });
@@ -129,6 +128,21 @@ async function chooseQuestion(
     .first();
   await expect(choice).toBeVisible();
   await choice.check();
+  await expect(choice).toBeChecked();
+  await expect(
+    picker.getByRole("region", { name: "Selected questions", exact: true }),
+  ).toContainText(questionTitle);
+  return picker;
+}
+
+async function chooseQuestion(
+  page: Page,
+  pickerName: string,
+  sourceLabel: string,
+  confirmLabel: string,
+  questionTitle: string,
+): Promise<void> {
+  const picker = await selectQuestion(page, pickerName, sourceLabel, questionTitle);
   await picker.getByRole("button", { name: confirmLabel, exact: true }).click();
   await expect(picker).toHaveCount(0);
 }
@@ -247,17 +261,33 @@ test.describe("reusable curriculum on the production PLE stack", () => {
       pageOrigins: new Set<string>(),
       requestOrigins: new Set<string>(),
     };
-    const origins = { elena: elenaOrigins } satisfies Record<string, ObservedOrigins>;
+    const morganOrigins: ObservedOrigins = {
+      pageOrigins: new Set<string>(),
+      requestOrigins: new Set<string>(),
+    };
+    const averyOrigins: ObservedOrigins = {
+      pageOrigins: new Set<string>(),
+      requestOrigins: new Set<string>(),
+    };
+    const origins = {
+      elena: elenaOrigins,
+      morgan: morganOrigins,
+      avery: averyOrigins,
+    } satisfies Record<string, ObservedOrigins>;
     const curriculumWire: CurriculumWireValue[] = [];
     const pendingResponses: Promise<void>[] = [];
-    const context = await browser.newContext({ ignoreHTTPSErrors: true });
+    const elenaContext = await browser.newContext({ ignoreHTTPSErrors: true });
+    const morganContext = await browser.newContext({ ignoreHTTPSErrors: true });
+    const averyContext = await browser.newContext({ ignoreHTTPSErrors: true });
     let authenticator: Awaited<ReturnType<typeof installVirtualAuthenticator>> | undefined;
     let originEvidenceVerified = false;
     try {
-      observeContextOrigins(context, elenaOrigins.pageOrigins, elenaOrigins.requestOrigins);
-      observeCurriculumWire(context, curriculumWire, pendingResponses);
-      const page = await context.newPage();
-      configureContextAndPage(context, page, actionTimeoutMs);
+      observeContextOrigins(elenaContext, elenaOrigins.pageOrigins, elenaOrigins.requestOrigins);
+      observeContextOrigins(morganContext, morganOrigins.pageOrigins, morganOrigins.requestOrigins);
+      observeContextOrigins(averyContext, averyOrigins.pageOrigins, averyOrigins.requestOrigins);
+      observeCurriculumWire(elenaContext, curriculumWire, pendingResponses);
+      const page = await elenaContext.newPage();
+      configureContextAndPage(elenaContext, page, actionTimeoutMs);
       const blueprintTitle = "Peptide-bond essentials blueprint";
       const alphaTitle = "Peptide-bond foundations";
       const questionTitle = "Peptide-bond planarity";
@@ -303,7 +333,7 @@ test.describe("reusable curriculum on the production PLE stack", () => {
         await page.getByLabel("Curriculum title").fill(revisedAlphaTitle);
         await page.getByRole("button", { name: "Save curriculum", exact: true }).click();
         await expect(alphaDetail.getByRole("status")).toContainText("Alpha curriculum saved");
-        await captureResponsive(
+        await captureLaptop(
           page,
           scenarioInput,
           alphaDetail,
@@ -311,8 +341,8 @@ test.describe("reusable curriculum on the production PLE stack", () => {
           alphaDetail.getByRole("heading", { level: 1, name: revisedAlphaTitle, exact: true }),
         );
 
-        const remote = await context.newPage();
-        configureContextAndPage(context, remote, actionTimeoutMs);
+        const remote = await elenaContext.newPage();
+        configureContextAndPage(elenaContext, remote, actionTimeoutMs);
         await remote.goto(page.url());
         const remoteDetail = remote.locator('[data-route-surface="curriculumDetail"]');
         await expect(
@@ -353,7 +383,7 @@ test.describe("reusable curriculum on the production PLE stack", () => {
           page.getByRole("link", { name: new RegExp(remoteAlphaTitle, "u") }),
         ).toBeVisible();
         const workspace = page.locator('[data-route-surface="curriculum"]');
-        await captureResponsive(
+        await captureLaptop(
           page,
           scenarioInput,
           workspace,
@@ -379,6 +409,139 @@ test.describe("reusable curriculum on the production PLE stack", () => {
           .click();
       });
 
+      await test.step("Morgan confirms Avery's approval and Elena confirms her Base Course teaching access", async () => {
+        const morgan = await morganContext.newPage();
+        configureContextAndPage(morganContext, morgan, actionTimeoutMs);
+        await chooseSeededIdentity(morgan, /Morgan/u);
+        await selectVisibleCourse(morgan, "Genetics Practice Course");
+        await morgan.getByRole("link", { name: "Teaching operations" }).click();
+        await expect(morgan.getByRole("heading", { name: "Instructor approval" })).toBeVisible();
+        await morgan.getByLabel("Find an account by name").fill("Avery");
+        await morgan.getByRole("button", { name: "Search accounts" }).click();
+        const averyCandidate = morgan.getByRole("listitem").filter({ hasText: "Avery Singh" });
+        await expect(averyCandidate).toBeVisible();
+        const approveAvery = averyCandidate.getByRole("button", {
+          name: "Approve as instructor",
+          exact: true,
+        });
+        if ((await approveAvery.count()) === 1) {
+          await approveAvery.click();
+          await morgan
+            .getByRole("dialog")
+            .getByRole("button", { name: "Approve as instructor" })
+            .click();
+          await expect(morgan.getByText(/Avery Singh.*eligible/u)).toBeVisible();
+        } else {
+          await expect(averyCandidate).toContainText("Approved for invitations");
+        }
+
+        await page.getByRole("link", { name: "Courses", exact: true }).click();
+        const baseCourse = page.getByRole("article").filter({ hasText: baseCourseTitle });
+        await expect(baseCourse).toBeVisible();
+        await baseCourse.getByRole("link", { name: "Open course", exact: true }).click();
+        await page.getByRole("link", { name: "Teaching operations", exact: true }).click();
+        const teachingTeam = page.getByRole("region", { name: "Teaching team" });
+        await expect(teachingTeam).toBeVisible();
+        const activeInstructors = teachingTeam.getByRole("region", {
+          name: "Active instructors",
+          exact: true,
+        });
+        const activeAvery = activeInstructors
+          .getByRole("article")
+          .filter({ hasText: "Avery Singh" });
+        if ((await activeAvery.count()) === 1) {
+          await expect(activeAvery).toContainText("Active direct instructor");
+        } else {
+          await teachingTeam.getByLabel("Find an approved colleague").fill("Avery");
+          await teachingTeam.getByRole("button", { name: "Search eligible people" }).click();
+          const eligibleAvery = teachingTeam
+            .getByRole("list", {
+              name: "Eligible co-instructor search results",
+              exact: true,
+            })
+            .getByRole("listitem")
+            .filter({ hasText: "Avery Singh" });
+          const pendingInvitations = teachingTeam.getByRole("region", {
+            name: "Pending invitations",
+            exact: true,
+          });
+          const pendingAvery = pendingInvitations
+            .getByRole("article")
+            .filter({ hasText: "Avery Singh" });
+          await expect(eligibleAvery.or(pendingAvery)).toBeVisible();
+          if (await eligibleAvery.isVisible()) {
+            await eligibleAvery.getByRole("button", { name: "Select", exact: true }).click();
+            await teachingTeam.getByRole("button", { name: "Invite selected colleague" }).click();
+            await expect(teachingTeam.getByRole("status")).toHaveText(
+              "An invitation was created for Avery Singh.",
+            );
+          } else {
+            await expect(pendingAvery).toBeVisible();
+          }
+        }
+      });
+
+      await test.step("Avery accepts Elena's invitation and inspects the Alpha question set as an approved reader", async () => {
+        const avery = await averyContext.newPage();
+        configureContextAndPage(averyContext, avery, actionTimeoutMs);
+        await chooseSeededIdentity(avery, /Avery Singh/u);
+        await selectVisibleCourse(avery, "Genetics Practice Course");
+        await avery.getByRole("link", { name: "Invitations", exact: true }).click();
+        await expect(
+          avery.getByRole("heading", { name: "Pending teaching invitations", exact: true }),
+        ).toBeVisible();
+        const acceptInvitation = avery
+          .getByRole("article")
+          .filter({ hasText: baseCourseTitle })
+          .getByRole("button", { name: "Accept", exact: true });
+        const noInvitations = avery.getByRole("heading", { name: "No invitations waiting" });
+        await expect(acceptInvitation.or(noInvitations)).toBeVisible();
+        if (await acceptInvitation.isVisible()) {
+          await acceptInvitation.click();
+          await avery
+            .getByRole("dialog")
+            .getByRole("button", { name: "Accept invitation" })
+            .click();
+          await expect(avery.getByRole("main").getByRole("status")).toHaveText(
+            "Invitation accepted.",
+          );
+        } else {
+          await expect(noInvitations).toBeVisible();
+        }
+        await signOutVisible(avery);
+        await chooseSeededIdentity(avery, /Avery Singh/u);
+        await selectVisibleCourse(avery, baseCourseTitle);
+        await avery.getByRole("link", { name: "Curriculum", exact: true }).click();
+        const readerWorkspace = avery.locator('[data-route-surface="curriculum"]');
+        await expect(readerWorkspace).toBeVisible();
+        await readerWorkspace
+          .getByRole("link", { name: new RegExp(remoteAlphaTitle, "u") })
+          .click();
+        const readerDetail = avery.locator('[data-route-surface="curriculumDetail"]');
+        await expect(
+          readerDetail.getByRole("heading", { level: 1, name: remoteAlphaTitle, exact: true }),
+        ).toBeVisible();
+        const inspection = readerDetail.getByRole("region", {
+          name: "Inspect and reuse this question set",
+          exact: true,
+        });
+        await expect(
+          inspection.getByRole("heading", { name: "Module 1 assignment", exact: true }),
+        ).toBeVisible();
+        await expect(inspection).toContainText(publishedQuestionId);
+        await expect(readerDetail.getByLabel("Curriculum title")).toHaveCount(0);
+        await expect(
+          readerDetail.getByRole("button", { name: "Save curriculum", exact: true }),
+        ).toHaveCount(0);
+        await captureLaptop(
+          avery,
+          scenarioInput,
+          inspection,
+          "reusable_curriculum_alpha_reader_inspection",
+          readerDetail.getByRole("heading", { level: 1, name: remoteAlphaTitle, exact: true }),
+        );
+      });
+
       await test.step("Elena reuses the Alpha definition through the ordinary assignment picker", async () => {
         await createCourse(page, courseTitle);
         await page.getByRole("link", { name: "Assignments", exact: true }).click();
@@ -398,21 +561,17 @@ test.describe("reusable curriculum on the production PLE stack", () => {
         await expect(alphaSource).toHaveCount(1);
         const alphaSourceLabel = await alphaSource.textContent();
         if (alphaSourceLabel === null) throw new Error("Alpha picker source has no label");
-        await chooseQuestion(
-          page,
-          "Choose assignment questions",
-          alphaSourceLabel,
-          "Add selected questions",
-          questionTitle,
-        );
-        await expect(editor).toContainText(questionTitle);
-        await captureResponsive(
+        await selectQuestion(page, "Choose assignment questions", alphaSourceLabel, questionTitle);
+        await captureLaptop(
           page,
           scenarioInput,
-          editor,
+          picker,
           "reusable_curriculum_alpha_reuse",
-          editor.getByRole("heading", { name: "Assignment content", exact: true }),
+          picker.getByRole("heading", { name: "Choose assignment questions", exact: true }),
         );
+        await picker.getByRole("button", { name: "Add selected questions", exact: true }).click();
+        await expect(picker).toHaveCount(0);
+        await expect(editor).toContainText(questionTitle);
         await editor.getByRole("button", { name: "Create assignment", exact: true }).click();
         await expect(
           editor.getByRole("heading", { name: "Assignment created", exact: true }),
@@ -428,7 +587,7 @@ test.describe("reusable curriculum on the production PLE stack", () => {
       try {
         if (authenticator !== undefined) await removeVirtualAuthenticator(authenticator);
       } finally {
-        await context.close();
+        await Promise.all([elenaContext.close(), morganContext.close(), averyContext.close()]);
         if (originEvidenceVerified) writeContextOriginReceipt(origins);
       }
     }

@@ -419,6 +419,7 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
     setState("loading");
     setNotice({ kind: "status", text: "Loading the current curriculum version." });
     try {
+      let loadedForEditing = currentKind === "blueprint";
       if (currentKind === "blueprint") {
         const current = await props.client.getBlueprint(props.curriculumRef);
         const prior = blueprint();
@@ -432,6 +433,7 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
         });
       } else {
         const current = await props.client.getAlphaCourse(props.curriculumRef);
+        loadedForEditing = current.alpha.access === "creator";
         const prior = alpha();
         setAlpha({
           view: current.alpha,
@@ -446,7 +448,9 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
         kind: "status",
         text: keepDraft
           ? "Current version reloaded. Your local draft is still visible for comparison."
-          : "Current curriculum loaded. Review its definition, then make the next useful edit.",
+          : loadedForEditing
+            ? "Current curriculum loaded. Review its definition, then make the next useful edit."
+            : "Current curriculum loaded. Review the ordered Question IDs, then open the Library or an assignment editor to reuse them.",
       });
     } catch (error: unknown) {
       setState("error");
@@ -669,6 +673,7 @@ function BlueprintDetail(props: BlueprintDetailProps): JSX.Element {
           This is a reusable assignment definition. It has no students, assignment runs, or grades.
         </p>
       </header>
+      <DetailActions {...props} />
       <div class="curriculum-editor-content">
         <ReusableDefinitionEditor
           definition={props.current.draft.definition}
@@ -678,7 +683,6 @@ function BlueprintDetail(props: BlueprintDetailProps): JSX.Element {
           onChange={(definition, text) => props.onChange({ definition }, text)}
         />
       </div>
-      <DetailActions {...props} />
     </section>
   );
 }
@@ -703,6 +707,9 @@ function AlphaDetail(props: AlphaDetailProps): JSX.Element {
             : "You can inspect and reuse its answer-free question set."}
         </p>
       </header>
+      <Show when={editable()}>
+        <DetailActions {...props} />
+      </Show>
       <div class="curriculum-editor-content">
         <Show when={editable()} fallback={<AlphaInspection draft={props.current.draft} />}>
           <AlphaEditor
@@ -713,9 +720,6 @@ function AlphaDetail(props: AlphaDetailProps): JSX.Element {
           />
         </Show>
       </div>
-      <Show when={editable()}>
-        <DetailActions {...props} />
-      </Show>
     </section>
   );
 }

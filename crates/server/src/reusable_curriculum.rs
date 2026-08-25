@@ -23,6 +23,7 @@ use question_model::{
 };
 
 use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
+use crate::http_refusal::{HttpRefusal, HttpResult};
 
 const MAX_REUSABLE_CURRICULUM_BODY_BYTES: usize = 64 * 1024;
 const DEFAULT_PAGE_SIZE: u16 = 50;
@@ -70,7 +71,7 @@ async fn require_capability<S>(
     state: &ReusableCurriculumRouteState<S>,
     authenticated: &AuthenticatedSession,
     capability: ReusableCurriculumCapability,
-) -> Result<(), Response>
+) -> HttpResult<()>
 where
     S: ReusableCurriculumStore + SessionStore + 'static,
 {
@@ -82,7 +83,7 @@ where
             capability,
         )
         .await
-        .map_err(authority_error)
+        .map_err(|error| HttpRefusal::from(authority_error(error)))
 }
 
 async fn list_blueprints<S>(
@@ -95,7 +96,7 @@ where
 {
     let authenticated = match authenticate(state.store.as_ref(), &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if let Err(response) = require_capability(
         &state,
@@ -104,7 +105,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let page = match page_request(raw_query.as_deref()) {
         Ok(value) => value,
@@ -134,7 +135,7 @@ where
     let headers = request.headers().clone();
     let authenticated = match authenticate(state.store.as_ref(), &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if let Err(response) = require_capability(
         &state,
@@ -143,11 +144,11 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let definition = match strict_json_body(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     replace_blueprint_command(
         &state,
@@ -170,7 +171,7 @@ where
 {
     let authenticated = match authenticate(state.store.as_ref(), &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if let Err(response) = require_capability(
         &state,
@@ -179,7 +180,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let reference = match raw_reference.parse::<BlueprintReference>() {
         Ok(value) => value,
@@ -214,7 +215,7 @@ where
     let headers = request.headers().clone();
     let authenticated = match authenticate(state.store.as_ref(), &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if let Err(response) = require_capability(
         &state,
@@ -223,7 +224,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let reference = match raw_reference.parse::<BlueprintReference>() {
         Ok(value) => value,
@@ -235,7 +236,7 @@ where
     };
     let definition = match strict_json_body(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     replace_blueprint_command(
         &state,
@@ -288,7 +289,7 @@ where
     let headers = request.headers().clone();
     let authenticated = match authenticate(state.store.as_ref(), &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if let Err(response) = require_capability(
         &state,
@@ -297,7 +298,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let reference = match raw_reference.parse::<BlueprintReference>() {
         Ok(value) => value,
@@ -336,7 +337,7 @@ where
 {
     let authenticated = match authenticate(state.store.as_ref(), &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if let Err(response) = require_capability(
         &state,
@@ -345,7 +346,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let page = match page_request(raw_query.as_deref()) {
         Ok(value) => value,
@@ -375,7 +376,7 @@ where
     let headers = request.headers().clone();
     let authenticated = match authenticate(state.store.as_ref(), &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if let Err(response) = require_capability(
         &state,
@@ -384,11 +385,11 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let definition = match strict_json_body(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     replace_alpha_course_command(
         &state,
@@ -411,7 +412,7 @@ where
 {
     let authenticated = match authenticate(state.store.as_ref(), &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if let Err(response) = require_capability(
         &state,
@@ -420,7 +421,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let reference = match raw_reference.parse::<AlphaCourseReference>() {
         Ok(value) => value,
@@ -455,7 +456,7 @@ where
     let headers = request.headers().clone();
     let authenticated = match authenticate(state.store.as_ref(), &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if let Err(response) = require_capability(
         &state,
@@ -464,7 +465,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let reference = match raw_reference.parse::<AlphaCourseReference>() {
         Ok(value) => value,
@@ -476,7 +477,7 @@ where
     };
     let definition = match strict_json_body(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     replace_alpha_course_command(
         &state,
@@ -518,32 +519,32 @@ where
     }
 }
 
-async fn authenticate<S>(store: &S, headers: &HeaderMap) -> Result<AuthenticatedSession, Response>
+async fn authenticate<S>(store: &S, headers: &HeaderMap) -> HttpResult<AuthenticatedSession>
 where
     S: SessionStore,
 {
     resolve_request_session(store, headers)
         .await
-        .map_err(auth_error_response)
+        .map_err(|error| HttpRefusal::from(auth_error_response(error)))
 }
 
-async fn strict_json_body<T>(request: Request) -> Result<T, Response>
+async fn strict_json_body<T>(request: Request) -> HttpResult<T>
 where
     T: serde::de::DeserializeOwned,
 {
     let bytes = to_bytes(request.into_body(), MAX_REUSABLE_CURRICULUM_BODY_BYTES)
         .await
         .map_err(|_| {
-            error_response(
+            HttpRefusal::from(error_response(
                 StatusCode::PAYLOAD_TOO_LARGE,
                 "curriculum request is too large",
-            )
+            ))
         })?;
     serde_json::from_slice(&bytes).map_err(|_| {
-        error_response(
+        HttpRefusal::from(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "curriculum request must use the documented JSON shape",
-        )
+        ))
     })
 }
 

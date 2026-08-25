@@ -28,6 +28,7 @@ use question_model::{
 use uuid::Uuid;
 
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
+use crate::http_refusal::HttpResult;
 
 #[path = "course_appearance/image.rs"]
 mod image;
@@ -422,7 +423,7 @@ where
             .await
             {
                 Ok(object) => Some(object),
-                Err(response) => return response,
+                Err(response) => return response.into_response(),
             }
         }
         CourseBannerMutation::Keep { .. } | CourseBannerMutation::Remove => None,
@@ -522,7 +523,7 @@ async fn promote_candidate<S, O>(
     session: learning_data_access::SessionTokenHash,
     course: CourseId,
     candidate: CourseBannerCandidateId,
-) -> Result<ObjectRecord, Response>
+) -> HttpResult<ObjectRecord>
 where
     S: AuthoritativeTimeStore + CourseAppearanceStore + SessionStore + 'static,
     O: ObjectStore + 'static,
@@ -537,9 +538,10 @@ where
             return Err(error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "banner candidate is no longer available",
-            ));
+            )
+            .into());
         }
-        Err(error) => return Err(mutation_store_error(error)),
+        Err(error) => return Err(mutation_store_error(error).into()),
     };
     let candidate_key = ObjectKey::CourseBannerCandidate {
         tenant: context.tenant_id(),
@@ -560,7 +562,8 @@ where
         return Err(error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "banner candidate verification failed",
-        ));
+        )
+        .into());
     }
     let now = state
         .store
@@ -584,7 +587,8 @@ where
         Ok(_) => Err(error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "banner storage returned conflicting metadata",
-        )),
+        )
+        .into()),
         Err(ObjectStoreError::AlreadyExists) => {
             let existing = state
                 .objects
@@ -597,10 +601,11 @@ where
                 Err(error_response(
                     StatusCode::SERVICE_UNAVAILABLE,
                     "banner storage returned conflicting bytes",
-                ))
+                )
+                .into())
             }
         }
-        Err(error) => Err(object_error_response(error)),
+        Err(error) => Err(object_error_response(error).into()),
     }
 }
 

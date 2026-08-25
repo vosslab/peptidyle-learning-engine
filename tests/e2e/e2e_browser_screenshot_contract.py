@@ -14,6 +14,7 @@ _IDENTIFIER = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 _PATH_PART = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 _PRIVACY_CHECKS = frozenset({"no_private_material", "no_feedback", "email_masked"})
 _VIEWPORTS = frozenset({"laptop", "tablet", "iphone_pro", "square"})
+_LAPTOP_ONLY_ROLES = frozenset({"instructor", "sysadmin"})
 
 
 class ScreenshotContractError(ValueError):
@@ -134,7 +135,15 @@ def _validate_identifier(value: str, label: str) -> None:
 		raise ScreenshotContractError(f"{label} is invalid")
 
 
-def _validate_path(path: pathlib.PurePosixPath, role: str, journey: str, step: int, state: str, viewport: str) -> None:
+def _validate_path(
+	path: pathlib.PurePosixPath,
+	artifact_id: str,
+	role: str,
+	journey: str,
+	step: int,
+	state: str,
+	viewport: str,
+) -> None:
 	if path.suffix != ".png" or not path.is_relative_to(CORPUS_DIRECTORY):
 		raise ScreenshotContractError("screenshot path is outside the stable corpus")
 	parts = path.relative_to(CORPUS_DIRECTORY).parts
@@ -145,7 +154,8 @@ def _validate_path(path: pathlib.PurePosixPath, role: str, journey: str, step: i
 		if _PATH_PART.fullmatch(part) is None:
 			raise ScreenshotContractError("screenshot path hierarchy is invalid")
 	variant_count = sum(item.state_id == state and item.scenario_id == _scenario_for_path(path) for item in ARTIFACTS)
-	suffix = f"_{viewport}" if variant_count > 1 else ""
+	viewport_qualified_id = artifact_id.endswith(f"_{viewport}")
+	suffix = f"_{viewport}" if variant_count > 1 or viewport_qualified_id else ""
 	expected = f"{step:02d}_{state}{suffix}.png"
 	if path.name != expected:
 		raise ScreenshotContractError("screenshot path name is invalid")
@@ -165,6 +175,14 @@ def viewport_profile(viewport: str) -> ViewportProfile:
 		return VIEWPORT_PROFILES[viewport]
 	except KeyError as error:
 		raise ScreenshotContractError("screenshot viewport is invalid") from error
+
+
+def validate_role_viewport(role: str, viewport: str) -> None:
+	"""Keep role-owned visual evidence on its intended viewport profile."""
+	if role in _LAPTOP_ONLY_ROLES and viewport != "laptop":
+		raise ScreenshotContractError(
+			f"{role} screenshot evidence uses the canonical laptop viewport"
+		)
 
 
 def validate() -> None:
@@ -192,9 +210,18 @@ def validate() -> None:
 		_validate_identifier(artifact.role, "screenshot role")
 		if artifact.viewport not in VIEWPORT_PROFILES:
 			raise ScreenshotContractError("screenshot viewport is invalid")
+		validate_role_viewport(artifact.role, artifact.viewport)
 		if artifact.privacy_checks[0:1] != ("no_private_material",) or len(artifact.privacy_checks) != len(set(artifact.privacy_checks)) or not set(artifact.privacy_checks).issubset(_PRIVACY_CHECKS):
 			raise ScreenshotContractError("screenshot privacy checks are invalid")
-		_validate_path(artifact.path, artifact.role, artifact.journey, artifact.journey_step, artifact.state_id, artifact.viewport)
+		_validate_path(
+			artifact.path,
+			artifact.artifact_id,
+			artifact.role,
+			artifact.journey,
+			artifact.journey_step,
+			artifact.state_id,
+			artifact.viewport,
+		)
 		journey_key = (artifact.role, artifact.journey)
 		if artifact.journey_step < last_steps.get(journey_key, 0):
 			raise ScreenshotContractError("screenshot journey steps are invalid")

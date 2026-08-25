@@ -21,6 +21,7 @@ use super::super::policy::require_course_access;
 use super::super::projection::{error_response, store_error_response};
 use super::super::routing::CourseRouteState;
 use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
+use crate::http_refusal::{HttpRefusal, HttpResult};
 
 /// Builds the active Student picker route group.
 pub(super) fn router<S>(store: Arc<S>) -> Router
@@ -45,11 +46,11 @@ where
 {
     let auth = match instructor(state.store.as_ref(), course, request.headers()).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let page = match page_request(request.uri().query()) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state
         .store
@@ -76,7 +77,7 @@ async fn instructor<S>(
     store: &S,
     course: CourseId,
     headers: &HeaderMap,
-) -> Result<AuthenticatedSession, Response>
+) -> HttpResult<AuthenticatedSession>
 where
     S: Store + CourseRecordsAccessStore + SessionStore + 'static,
 {
@@ -89,18 +90,17 @@ where
 
 /// Parses after exact-course authorization so malformed input cannot enumerate
 /// a course to a Student or outsider.
-#[allow(clippy::result_large_err)] // HTTP validation returns its exact refusal.
-fn page_request(raw_query: Option<&str>) -> Result<PageRequest, Response> {
+fn page_request(raw_query: Option<&str>) -> HttpResult<PageRequest> {
     let mut after = None;
     let mut size = None;
     for (key, value) in url::form_urlencoded::parse(raw_query.unwrap_or_default().as_bytes()) {
         let slot = match key.as_ref() {
             "after" => &mut after,
             "size" => &mut size,
-            _ => return Err(invalid_page_response()),
+            _ => return Err(invalid_page_response().into()),
         };
         if slot.replace(value.into_owned()).is_some() {
-            return Err(invalid_page_response());
+            return Err(invalid_page_response().into());
         }
     }
     let size = match size {
@@ -115,7 +115,7 @@ fn page_request(raw_query: Option<&str>) -> Result<PageRequest, Response> {
     match after {
         Some(value) => Cursor::parse(value)
             .map(|cursor| PageRequest::after(cursor, size))
-            .map_err(|_| invalid_page_response()),
+            .map_err(|_| HttpRefusal::from(invalid_page_response())),
         None => Ok(PageRequest::first(size)),
     }
 }

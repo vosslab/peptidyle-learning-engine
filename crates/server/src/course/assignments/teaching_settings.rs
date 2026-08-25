@@ -27,7 +27,7 @@ where
     if let Err(response) =
         require_course_access(state.store.as_ref(), &authenticated, course, true).await
     {
-        return response;
+        return response.into_response();
     }
     let expected_revision = match required_assignment_revision(request.headers()) {
         Ok(revision) => revision,

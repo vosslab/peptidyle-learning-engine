@@ -22,6 +22,7 @@ use question_model::{ActivityTimestamp, CourseId, UserRole};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
+use crate::http_refusal::HttpResult;
 
 use super::invitation_capability::CourseInvitationIssuer;
 use super::policy::{course_records_are_visible, require_course_access};
@@ -99,7 +100,7 @@ pub(super) async fn require_roster_support_access<S>(
     store: &S,
     authenticated: &AuthenticatedSession,
     course: CourseId,
-) -> Result<(), Response>
+) -> HttpResult<()>
 where
     S: Store + CourseRecordsAccessStore,
 {
@@ -111,7 +112,7 @@ where
     {
         return match course_records_are_visible(store, authenticated, course).await {
             Ok(true) => Ok(()),
-            Ok(false) => Err(error_response(StatusCode::NOT_FOUND, "course not found")),
+            Ok(false) => Err(error_response(StatusCode::NOT_FOUND, "course not found").into()),
             Err(response) => Err(response),
         };
     }
@@ -222,7 +223,7 @@ where
     if let Err(response) =
         require_roster_support_access(state.store.as_ref(), &authenticated, course).await
     {
-        return response;
+        return response.into_response();
     }
     let page = match roster_page_request(query) {
         Ok(page) => page,
@@ -264,7 +265,7 @@ where
     if let Err(response) =
         require_roster_support_access(state.store.as_ref(), &authenticated, course).await
     {
-        return response;
+        return response.into_response();
     }
     let email = match AuthenticationEmail::parse(&request.email) {
         Ok(email) => email,
@@ -372,7 +373,7 @@ where
     if let Err(response) =
         require_roster_support_access(state.store.as_ref(), &authenticated, course).await
     {
-        return response;
+        return response.into_response();
     }
     let expected_revision = match required_roster_revision(&headers) {
         Ok(revision) => revision,
@@ -451,7 +452,7 @@ where
     if let Err(response) =
         require_roster_support_access(state.store.as_ref(), &authenticated, course).await
     {
-        return response;
+        return response.into_response();
     }
     let expected_revision = match required_roster_revision(&headers) {
         Ok(revision) => revision,
@@ -506,7 +507,7 @@ where
     if let Err(response) =
         require_roster_support_access(state.store.as_ref(), &authenticated, course).await
     {
-        return response;
+        return response.into_response();
     }
     let expected_revision = match required_roster_revision(&headers) {
         Ok(revision) => revision,

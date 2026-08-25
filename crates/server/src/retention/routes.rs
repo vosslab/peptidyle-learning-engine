@@ -39,7 +39,7 @@ where
     if let Err(response) =
         require_course_retention_authority(state.store.as_ref(), &authenticated, course).await
     {
-        return response;
+        return response.into_response();
     }
     let retention = match state
         .store
@@ -84,11 +84,11 @@ where
     if let Err(response) =
         require_course_retention_authority(state.store.as_ref(), &authenticated, course).await
     {
-        return response;
+        return response.into_response();
     }
     let body = match read_body(request).await {
         Ok(body) => body,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if !body.is_empty() {
         return error_response(
@@ -132,7 +132,7 @@ where
     if let Err(response) =
         require_course_retention_authority(state.store.as_ref(), &authenticated, course).await
     {
-        return response;
+        return response.into_response();
     }
     let expected_revision = match expected_revision(&headers) {
         Ok(revision) => revision,
@@ -146,7 +146,7 @@ where
     }
     let body = match read_body(request).await {
         Ok(body) => body,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let request = match parse_strict_json::<RetentionArchiveRequest>(body) {
         Ok(request) => request,
@@ -189,7 +189,7 @@ where
     if let Err(response) =
         require_course_retention_authority(state.store.as_ref(), &authenticated, course).await
     {
-        return response;
+        return response.into_response();
     }
     let expected_revision = match expected_revision(&headers) {
         Ok(revision) => revision,
@@ -197,7 +197,7 @@ where
     };
     let body = match read_body(request).await {
         Ok(body) => body,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if !body.is_empty() {
         return error_response(
@@ -241,7 +241,7 @@ where
     .await
     {
         Ok(access) => access,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if !access.is_sysadmin {
         return error_response(
@@ -261,7 +261,7 @@ where
     }
     let body = match read_body(request).await {
         Ok(body) => body,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let request = match parse_strict_json::<RetentionExtendRequest>(body) {
         Ok(request) => request,

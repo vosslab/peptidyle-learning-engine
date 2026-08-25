@@ -13,19 +13,21 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 
 ## Device and viewport priorities
 
-- Design desktop-first around a canonical 1280 by 800 laptop browser window, and make the interface
-  look its best there. This canonical laptop viewport applies to both instructors and students.
-  Instructors are expected to use laptops predominantly, and students are expected to use laptops
-  most often as well. A supported laptop browser may occupy only part of a larger physical display;
-  do not assume full-screen desktop use.
-- For planning, professor surfaces target at least 1280 by 800 CSS pixels. Use this student planning
-  mix: 1280 by 800 laptop 40%, 800 by 1280 portrait tablet 30%, iPhone Pro aspect 20%, and square
-  aspect 10%. These are planning weights, not test quotas or telemetry targets.
+- Professors/Instructors and Sysadmins are assumed to use 1280 by 800 CSS pixels or larger desktop
+  displays 100% of the time, always at a 16:10 aspect ratio. Design their workflows around the
+  canonical 1280 by 800 browser viewport, make the interface look its best there, and use only that
+  desktop profile for permanent Instructor and Sysadmin visual evidence. A supported browser may
+  occupy only part of a larger physical display; design for the viewport rather than assuming
+  full-screen use.
+- Student environments remain more variable. Use this student planning mix: 1280 by 800 laptop
+  40%, 800 by 1280 portrait tablet 30%, iPhone Pro aspect 20%, and square aspect 10%. These are
+  planning weights, not test quotas or telemetry targets.
 - Permanent visual evidence is organized under `docs/screenshots/` by role and by student/access
-  boundary. The exact CSS-pixel matrix is 1280 by 800 (16:10), 800 by 1280 (10:16), 393 by 852
-  (iPhone Pro aspect), and 800 by 800 (square), with planning weights of 40%, 30%, 20%, and 10%.
-  These are maintained capture profiles and review contexts. Acceptance follows semantic usability,
-  accessibility, privacy, and task completion rather than screenshot dimensions or pixel equivalence.
+  boundary. The maintained CSS-pixel profiles are 1280 by 800 (16:10), 800 by 1280 (10:16),
+  393 by 852 (iPhone Pro aspect), and 800 by 800 (square). Instructor and sysadmin evidence uses
+  the laptop profile; student and explicitly shared artifacts use the profiles declared for their
+  workflow. Acceptance follows semantic usability, accessibility, privacy, and task completion
+  rather than screenshot dimensions or pixel equivalence.
 - A project **demo** uses actual PostgreSQL with the real migrations, schema, RLS, and persistent
   seeded data through the ordinary browser and server stack. It shows that the site works.
 - Every fresh installation includes the demo data as a persistent base course with the students
@@ -38,7 +40,7 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Compose pages around the teaching task, not around individually padded components. Review
   typography, spacing, alignment, borders, controls, navigation, content width, and information
   grouping together.
-- Optimize instructor workflows first for a 1280 by 800 CSS-pixel laptop viewport. Assignment
+- Optimize instructor and sysadmin workflows first for a 1280 by 800 CSS-pixel laptop viewport. Assignment
   authoring, problem selection and organization, gradebook, roster, course management, workspace,
   and library pages should use most of the useful width when it improves scanning or editing. Four
   selected problems, their policies, and the save action should fit comfortably in that workspace.
@@ -160,6 +162,9 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   Instructor, and Sysadmin. A visitor's selection replaces only identity
   verification. PLE resolves the ordinary account, session, course,
   membership, role, and authorization state from the server-owned live data.
+- Email confirmation is not configured for the live demo. Use direct seeded-role entry to route
+  around the email-confirmation ceremony while retaining ordinary account, session, role,
+  authorization, and passkey behavior.
 - Direct role entry preserves ordinary account security. After entering a
   seeded role, a visitor can demonstrate passkey enrollment, sign-out, and
   passkey sign-in, including for Sysadmin. The selected Sysadmin retains the

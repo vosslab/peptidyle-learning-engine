@@ -15,8 +15,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     AlphaCourseReference, AssignmentDeadlineBehavior, AssignmentInstructions,
     AssignmentScoringMode, BlueprintReference, CatalogDiscoveryItem, LateSubmissionPolicy,
-    LearnerDisclosurePolicy, MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP,
-    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES,
+    LearnerDisclosurePolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
+    MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES,
     MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS, PointValue, PoolDrawAlgorithm, PublicByline,
     QuestionId, RunPolicies, SelectionOrdering,
 };
@@ -169,6 +170,25 @@ pub struct ReusableAssignmentDefaults {
     pub learner_disclosure: LearnerDisclosurePolicy,
 }
 
+impl ReusableAssignmentDefaults {
+    /// Validates reusable limits against the ordinary teaching-policy bounds.
+    pub fn validate(&self) -> Result<(), ReusableCurriculumValidationError> {
+        if self
+            .time_limit_seconds
+            .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_TIME_LIMIT_SECONDS)
+        {
+            return Err(ReusableCurriculumValidationError::TimeLimitOutOfRange);
+        }
+        if self
+            .attempt_limit
+            .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_ATTEMPT_LIMIT)
+        {
+            return Err(ReusableCurriculumValidationError::AttemptLimitOutOfRange);
+        }
+        Ok(())
+    }
+}
+
 /// One public Question ID submitted as a fixed ordered item.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -250,6 +270,7 @@ impl ReusableAssignmentDefinitionInput {
         if self.entries.is_empty() || self.entries.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
             return Err(ReusableCurriculumValidationError::InvalidEntryCount);
         }
+        self.defaults.validate()?;
         self.schedule.validate()?;
         let mut total_pool_candidates = 0_usize;
         for entry in &self.entries {
@@ -597,6 +618,10 @@ pub enum ReusableCurriculumValidationError {
     TooManyPoolCandidates,
     /// Relative available, due, and close moments are not chronologically meaningful.
     InvalidScheduleOrder,
+    /// A reusable whole-run time limit exceeds the ordinary assignment bound.
+    TimeLimitOutOfRange,
+    /// A reusable attempt limit exceeds the ordinary assignment bound.
+    AttemptLimitOutOfRange,
 }
 
 impl std::fmt::Display for ReusableCurriculumValidationError {
@@ -617,6 +642,8 @@ impl std::fmt::Display for ReusableCurriculumValidationError {
             Self::InvalidScheduleOrder => {
                 "relative availability, due, and close moments must be ordered"
             }
+            Self::TimeLimitOutOfRange => "reusable time limit exceeds the supported range",
+            Self::AttemptLimitOutOfRange => "reusable attempt limit exceeds the supported range",
         })
     }
 }

@@ -35,6 +35,8 @@ pub mod course_grade;
 pub mod course_term;
 /// Browser-safe collections, favorites, and saved-search contracts.
 pub mod curation;
+/// Normalized B2 reusable meaning, semantic digests, and target-term schedule resolution.
+pub mod curriculum_adoption;
 pub mod definition;
 /// Internal entitlement and materialization contracts. These types never
 /// cross the browser boundary.
@@ -140,6 +142,21 @@ pub use crate::curation::{
     ProblemCollectionRevision, ProblemCollectionSelectionAvailability,
     ProblemCollectionSummaryView, ProblemCollectionVisibility, ProblemCurationTitleError,
     SavedProblemSearchRevision, SavedProblemSearchView, validate_problem_curation_title,
+};
+pub use crate::curriculum_adoption::{
+    AlphaInstantiationCommand, AssignmentFastForwardCommand, AssignmentRevision,
+    AssignmentRevisionError, BlueprintInstantiationCommand, CourseRolloverCommand,
+    CourseScheduleRevision, CourseScheduleRevisionError, CourseScheduleWitness,
+    CourseScheduleWitnessError, CourseTermShiftCommand, CreateSourceDerivedAssignmentCommand,
+    CurriculumAdoptionCommand, CurriculumAdoptionCompleted, CurriculumAdoptionIdempotencyKey,
+    CurriculumAdoptionIdempotencyKeyError, CurriculumAdoptionOperation,
+    CurriculumAdoptionPreviewRequest, CurriculumAdoptionPreviewView,
+    CurriculumAdoptionReceiptBinding, CurriculumAdoptionResultView, CurriculumAdoptionTitle,
+    CurriculumAdoptionTitleError, CurriculumAssignmentView, CurriculumCourseImportView,
+    CurriculumImportRevision, CurriculumImportRevisionError, CurriculumImportSourceView,
+    CurriculumImportView, CurriculumReplayStatus, CurriculumScheduleCorrection,
+    CurriculumSourceView, ForkAlphaCommand, ObservedAlphaSource, ObservedAssignmentRevision,
+    ObservedBlueprintSource, ResolvedRelativeAssignmentSchedule, ResolvedRelativeScheduleMoment,
 };
 pub use crate::definition::{
     DraftQuestionDefinition, DraftQuestionSource, DraftSourcePublicationError, GradingDefinition,

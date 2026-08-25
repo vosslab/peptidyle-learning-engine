@@ -126,5 +126,8 @@ async fn mismatched_published_identity_never_reaches_envelope_or_grading() {
     .await
     .expect_err("mismatched immutable question IDs must be refused");
 
-    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        response.into_response().status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
 }

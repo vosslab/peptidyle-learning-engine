@@ -115,7 +115,7 @@ impl<'de> Deserialize<'de> for Sha256Digest {
                 }
 
                 let mut bytes = [0_u8; 32];
-                for (decoded, pair) in bytes.iter_mut().zip(encoded.chunks_exact(2)) {
+                for (decoded, pair) in bytes.iter_mut().zip(encoded.as_chunks::<2>().0) {
                     *decoded = (hex_nibble(pair[0]) << 4) | hex_nibble(pair[1]);
                 }
                 Ok(Sha256Digest::from_bytes(bytes))

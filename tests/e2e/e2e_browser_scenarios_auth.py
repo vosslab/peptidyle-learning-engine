@@ -29,7 +29,7 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			visible_observation=(
 				"instructor_passkey_reauthentication_and_seeded_sessions_avery_approval_and_course_boundaries"
 			),
-			exclusive_seed_mutations=("avery_instructor_approval",),
+			seed_state_transitions=("avery_instructor_approval",),
 			screenshot_states=(
 				"teaching_operations_groups",
 				"teaching_team_invited",

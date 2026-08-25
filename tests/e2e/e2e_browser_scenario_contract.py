@@ -49,7 +49,7 @@ RESOURCE_KINDS = frozenset(
 		"teaching_invitation",
 	}
 )
-EXCLUSIVE_SEED_MUTATIONS = frozenset({"avery_instructor_approval"})
+SEED_STATE_TRANSITIONS = frozenset({"avery_instructor_approval"})
 SERVICE_RECEIPTS = frozenset({"renderer_delivery", "worker_completion"})
 FAULT_TRANSITIONS = frozenset({"gateway_submit_outage"})
 REQUIRED_ROLE_SECURITY_SCENARIOS = {
@@ -80,7 +80,7 @@ class ScenarioContract:
 	baseline_reads: tuple[str, ...]
 	ui_creates: tuple[str, ...]
 	visible_observation: str
-	exclusive_seed_mutations: tuple[str, ...] = ()
+	seed_state_transitions: tuple[str, ...] = ()
 	service_receipt: str | None = None
 	fault_transition: str | None = None
 	# Closed visual states exposed only when the suite runs its screenshot corpus.
@@ -139,7 +139,7 @@ def validate_contract(contract: ScenarioContract) -> None:
 	_validate_fault_transition(contract.fault_transition)
 	if contract.screenshot_states:
 		_validate_screenshot_states(contract.screenshot_states)
-	_validate_exclusive_seed_mutations(contract.exclusive_seed_mutations)
+	_validate_seed_state_transitions(contract.seed_state_transitions)
 
 
 def validate_registry(
@@ -152,9 +152,8 @@ def validate_registry(
 		raise ScenarioContractError("browser scenario registry is empty")
 	seen_ids: set[str] = set()
 	seen_specs: set[str] = set()
-	seen_exclusive: set[str] = set()
 	for contract in registry:
-		_validate_registry_entry(contract, seen_ids, seen_specs, seen_exclusive)
+		_validate_registry_entry(contract, seen_ids, seen_specs)
 		if repo_root is not None:
 			_validate_spec_input_consumption(repo_root, contract)
 	_validate_required_role_security_scenarios(registry)
@@ -249,14 +248,14 @@ def _validate_fault_transition(value: str | None) -> None:
 		raise ScenarioContractError("browser scenario fault transition is invalid")
 
 
-def _validate_exclusive_seed_mutations(values: tuple[str, ...]) -> None:
+def _validate_seed_state_transitions(values: tuple[str, ...]) -> None:
 	if len(values) != len(set(values)):
 		raise ScenarioContractError(
-			"browser scenario exclusive seed mutations are invalid"
+			"browser scenario seed state transitions are invalid"
 		)
-	if not set(values).issubset(EXCLUSIVE_SEED_MUTATIONS):
+	if not set(values).issubset(SEED_STATE_TRANSITIONS):
 		raise ScenarioContractError(
-			"browser scenario exclusive seed mutations are invalid"
+			"browser scenario seed state transitions are invalid"
 		)
 
 
@@ -264,19 +263,13 @@ def _validate_registry_entry(
 	contract: ScenarioContract,
 	seen_ids: set[str],
 	seen_specs: set[str],
-	seen_exclusive: set[str],
 ) -> None:
 	if contract.scenario_id in seen_ids:
 		raise ScenarioContractError("browser scenario ids must be unique")
 	if contract.spec_path in seen_specs:
 		raise ScenarioContractError("browser scenario spec paths must be unique")
-	if seen_exclusive.intersection(contract.exclusive_seed_mutations):
-		raise ScenarioContractError(
-			"browser scenario exclusive seed mutations must be unique"
-		)
 	seen_ids.add(contract.scenario_id)
 	seen_specs.add(contract.spec_path)
-	seen_exclusive.update(contract.exclusive_seed_mutations)
 	validate_contract(contract)
 
 

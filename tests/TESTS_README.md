@@ -78,9 +78,11 @@ label-resolved target instead of deleting the receipt or broadening cleanup.
 
 ## How pytest stays fast
 
-`tests/conftest.py` declares
-`collect_ignore = ["e2e", "playwright"]`, so pytest never
-collects test functions from those subtrees, regardless of filename inside
+`tests/conftest.py` declares the E2E exclusions and omits the checkout disk
+budget check from permanent pytest collection. The disk budget is an
+operational, one-time developer-volume cleanup check rather than product
+behavior or release acceptance. Pytest never collects test functions from the
+excluded E2E subtrees, regardless of filename inside
 them. The filename conventions (`e2e_*` prefix in `tests/e2e/`, `*.spec.ts`
 for catalog-owned Playwright scenarios) are a readability layer on top of this active guard.
 

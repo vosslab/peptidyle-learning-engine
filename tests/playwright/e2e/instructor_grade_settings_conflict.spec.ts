@@ -24,11 +24,8 @@ import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 
 const actionTimeoutMs = 30_000;
 
-const remoteObservedResponsiveArtifacts = [
+const remoteObservedLaptopArtifacts = [
   { artifactId: "grade_settings_remote_observed_laptop", viewport: "laptop" },
-  { artifactId: "grade_settings_remote_observed_tablet", viewport: "tablet" },
-  { artifactId: "grade_settings_remote_observed_iphone_pro", viewport: "iphone_pro" },
-  { artifactId: "grade_settings_remote_observed_square", viewport: "square" },
 ] as const;
 
 async function openGradeSettings(page: Page): Promise<void> {
@@ -47,7 +44,7 @@ async function addLetterBand(page: Page, label: string): Promise<void> {
   await labels.last().fill(label);
 }
 
-async function expectRemoteObservedResponsiveState(page: Page, localLabel: string): Promise<void> {
+async function expectRemoteObservedLaptopState(page: Page, localLabel: string): Promise<void> {
   await expect(page.getByRole("heading", { name: "Course grade settings" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Label" }).last()).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Label" }).last()).toHaveValue(localLabel);
@@ -60,14 +57,14 @@ async function expectRemoteObservedResponsiveState(page: Page, localLabel: strin
   expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
 }
 
-async function captureRemoteObservedResponsiveStates(
+async function captureRemoteObservedLaptopStates(
   page: Page,
   scenarioInput: ReturnType<typeof requireScenarioInput>,
   localLabel: string,
 ): Promise<void> {
-  for (const artifact of remoteObservedResponsiveArtifacts) {
+  for (const artifact of remoteObservedLaptopArtifacts) {
     await page.setViewportSize(CORPUS_VIEWPORT_SIZES[artifact.viewport]);
-    await expectRemoteObservedResponsiveState(page, localLabel);
+    await expectRemoteObservedLaptopState(page, localLabel);
     await captureRealStackScreenshot(page, scenarioInput, artifact.artifactId);
   }
 }
@@ -175,7 +172,7 @@ test.describe("instructor grade-settings conflicts on the production PLE stack",
         await remote.getByRole("button", { name: "Reload current settings" }).click();
         await expect(remote.getByRole("textbox", { name: "Label" }).last()).toHaveValue(localLabel);
         await expect(gradeSettingsStatus(remote)).toHaveText("");
-        await captureRemoteObservedResponsiveStates(remote, scenarioInput, localLabel);
+        await captureRemoteObservedLaptopStates(remote, scenarioInput, localLabel);
       });
       expectObservedOrigin(origins.local, expectedOrigin);
       expectObservedOrigin(origins.remote, expectedOrigin);

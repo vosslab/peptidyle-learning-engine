@@ -28,11 +28,11 @@ where
             if let Err(response) =
                 redact_learner_run_score(state.store.as_ref(), &authenticated, &mut run).await
             {
-                return response;
+                return response.into_response();
             }
             no_store(Json(run).into_response())
         }
-        Err(response) => response,
+        Err(response) => response.into_response(),
     }
 }
 
@@ -82,7 +82,7 @@ where
     };
     let course = match run_summary_course(state.store.as_ref(), &authenticated, &page).await {
         Ok(course) => course,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let outcomes = page
         .outcomes
@@ -159,7 +159,7 @@ where
             .await
             {
                 Ok(value) => value,
-                Err(response) => return response,
+                Err(response) => return response.into_response(),
             };
             let mut run = page.run;
             if !score_disclosed {
@@ -176,7 +176,7 @@ where
                 .into_response(),
             )
         }
-        Err(response) => response,
+        Err(response) => response.into_response(),
     }
 }
 
@@ -239,7 +239,7 @@ where
     };
     let run = match authorized_run(state.store.as_ref(), &authenticated, run_id).await {
         Ok(run) => run,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let page = match page_request(query) {
         Ok(page) => page,
@@ -347,7 +347,7 @@ where
     };
     let run = match authorized_run(state.store.as_ref(), &authenticated, attempt.run).await {
         Ok(run) => run,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if attempt.response.is_some() {
         let record = match state
@@ -481,7 +481,7 @@ where
             .await
         {
             Ok(enrollment) => enrollment,
-            Err(response) => return response,
+            Err(response) => return response.into_response(),
         };
     let summary = match state
         .store
@@ -506,7 +506,7 @@ where
         .await
         {
             Ok(value) => value,
-            Err(response) => return response,
+            Err(response) => return response.into_response(),
         };
         no_store(
             Json(EnrollmentView {
@@ -546,7 +546,7 @@ where
             .await
         {
             Ok(enrollment) => enrollment,
-            Err(response) => return response,
+            Err(response) => return response.into_response(),
         };
     match state
         .store
@@ -567,7 +567,7 @@ where
             .await
             {
                 Ok((summary, _)) => no_store(Json(summary).into_response()),
-                Err(response) => response,
+                Err(response) => response.into_response(),
             }
         }
         Ok(Some(summary)) => no_store(Json(summary.summary).into_response()),
@@ -600,7 +600,7 @@ where
             .await
         {
             Ok(enrollment) => enrollment,
-            Err(response) => return response,
+            Err(response) => return response.into_response(),
         };
     let page = match page_request(query) {
         Ok(page) => page,
@@ -639,7 +639,7 @@ where
                 .await
                 {
                     Ok(value) => value,
-                    Err(response) => return response,
+                    Err(response) => return response.into_response(),
                 };
                 if !score_disclosed {
                     for run in &mut page.items {
@@ -658,7 +658,7 @@ pub(super) async fn all_attempts<S: Store>(
     store: &S,
     authenticated: &AuthenticatedSession,
     run: RunId,
-) -> Result<Vec<QuestionAttempt>, Response> {
+) -> HttpResult<Vec<QuestionAttempt>> {
     let size = PageSize::new(INTERNAL_ATTEMPT_PAGE_SIZE)
         .map_err(|error| error_response(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()))?;
     let mut page_request = PageRequest::first(size);
@@ -686,7 +686,7 @@ pub(super) async fn authorized_run<S: Store>(
     store: &S,
     authenticated: &AuthenticatedSession,
     run_id: RunId,
-) -> Result<AssignmentRun, Response> {
+) -> HttpResult<AssignmentRun> {
     let run = store
         .learner_get_run(
             authenticated.tenant_context,
@@ -706,7 +706,7 @@ async fn redact_learner_run_score<S: Store + AuthoritativeTimeStore + CourseItem
     store: &S,
     authenticated: &AuthenticatedSession,
     run: &mut AssignmentRun,
-) -> Result<(), Response> {
+) -> HttpResult<()> {
     let actor = authenticated.record.subject.user();
     let Some(enrollment) = store
         .learner_get_enrollment(authenticated.tenant_context, actor, run.enrollment)
@@ -741,7 +741,7 @@ async fn run_summary_enrollment_access<S: Store>(
     store: &S,
     authenticated: &AuthenticatedSession,
     enrollment_id: question_model::EnrollmentId,
-) -> Result<RunSummaryEnrollmentAccess, Response> {
+) -> HttpResult<RunSummaryEnrollmentAccess> {
     let actor = authenticated.record.subject.user();
     if let Some(enrollment) = store
         .instructor_get_enrollment(authenticated.tenant_context, actor, enrollment_id)
@@ -763,7 +763,7 @@ pub(super) async fn run_summary_course<S>(
     store: &S,
     authenticated: &AuthenticatedSession,
     page: &learning_data_access::RunSummaryPageInput,
-) -> Result<CourseRouteData, Response>
+) -> HttpResult<CourseRouteData>
 where
     S: Store + CourseAppearanceStore,
 {
@@ -804,7 +804,7 @@ pub(super) async fn owned_run<S: Store>(
     store: &S,
     authenticated: &AuthenticatedSession,
     run_id: RunId,
-) -> Result<AssignmentRun, Response> {
+) -> HttpResult<AssignmentRun> {
     let run = store
         .learner_get_run(
             authenticated.tenant_context,
@@ -822,7 +822,7 @@ pub(super) async fn owned_enrollment<S: Store>(
     store: &S,
     authenticated: &AuthenticatedSession,
     enrollment_id: question_model::EnrollmentId,
-) -> Result<AssignmentEnrollment, Response> {
+) -> HttpResult<AssignmentEnrollment> {
     authorized_enrollment(store, authenticated, enrollment_id, true).await
 }
 
@@ -830,13 +830,14 @@ pub(super) async fn owned_assignment_for_run<S: Store>(
     store: &S,
     authenticated: &AuthenticatedSession,
     run: &AssignmentRun,
-) -> Result<learning_data_access::AssignmentRecord, Response> {
+) -> HttpResult<learning_data_access::AssignmentRecord> {
     let enrollment = owned_enrollment(store, authenticated, run.enrollment).await?;
     store
         .get_assignment(authenticated.tenant_context, enrollment.assignment)
         .await
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "assignment not found"))
+        .map_err(Into::into)
 }
 
 pub(super) async fn authorized_enrollment<S: Store>(
@@ -844,7 +845,7 @@ pub(super) async fn authorized_enrollment<S: Store>(
     authenticated: &AuthenticatedSession,
     enrollment_id: question_model::EnrollmentId,
     require_owner: bool,
-) -> Result<AssignmentEnrollment, Response> {
+) -> HttpResult<AssignmentEnrollment> {
     let actor = authenticated.record.subject.user();
     if let Some(enrollment) = store
         .learner_get_enrollment(authenticated.tenant_context, actor, enrollment_id)
@@ -867,16 +868,10 @@ pub(super) async fn authorized_enrollment<S: Store>(
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "enrollment not found"))?;
     if enrollment.user == actor {
-        return Err(error_response(
-            StatusCode::NOT_FOUND,
-            "enrollment not found",
-        ));
+        return Err(error_response(StatusCode::NOT_FOUND, "enrollment not found").into());
     }
     if require_owner {
-        return Err(error_response(
-            StatusCode::NOT_FOUND,
-            "enrollment not found",
-        ));
+        return Err(error_response(StatusCode::NOT_FOUND, "enrollment not found").into());
     }
     let instructor = store
         .get_current_course_membership(authenticated.tenant_context, assignment.course_id, actor)
@@ -891,9 +886,6 @@ pub(super) async fn authorized_enrollment<S: Store>(
     if instructor {
         Ok(enrollment)
     } else {
-        Err(error_response(
-            StatusCode::NOT_FOUND,
-            "enrollment not found",
-        ))
+        Err(error_response(StatusCode::NOT_FOUND, "enrollment not found").into())
     }
 }

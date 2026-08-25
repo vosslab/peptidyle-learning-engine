@@ -187,7 +187,7 @@ where
         match course_records_are_visible(state.store.as_ref(), &authenticated, course).await {
             Ok(true) => {}
             Ok(false) => return error_response(StatusCode::NOT_FOUND, "course not found"),
-            Err(response) => return response,
+            Err(response) => return response.into_response(),
         }
     }
     let public_id = match state
@@ -222,7 +222,7 @@ where
     if let Err(response) =
         require_course_access(state.store.as_ref(), &authenticated, course, false).await
     {
-        return response;
+        return response.into_response();
     }
     let page = match page_request(query) {
         Ok(page) => page,
@@ -287,7 +287,7 @@ where
                 .await
                 {
                     Ok(value) => value,
-                    Err(response) => return response,
+                    Err(response) => return response.into_response(),
                 };
                 summaries.push(question_model::LearnerAssignmentSummary::from(
                     assignment.summary(public_id, items, selection_groups),
@@ -326,7 +326,7 @@ where
     if let Err(response) =
         require_course_access(state.store.as_ref(), &authenticated, course, true).await
     {
-        return response;
+        return response.into_response();
     }
     let page = match page_request(query) {
         Ok(page) => page,

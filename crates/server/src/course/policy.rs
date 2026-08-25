@@ -1,9 +1,9 @@
 use axum::http::StatusCode;
-use axum::response::Response;
 use learning_data_access::{CourseCreationAuthority, CourseRecordsAccessStore, Store};
 use question_model::{CourseId, CourseMembershipRole, UserRole};
 
 use crate::auth::AuthenticatedSession;
+use crate::http_refusal::HttpResult;
 
 use super::projection::{error_response, store_error_response};
 
@@ -12,7 +12,7 @@ pub(super) async fn require_course_access<S>(
     authenticated: &AuthenticatedSession,
     course: CourseId,
     manage: bool,
-) -> Result<(), Response>
+) -> HttpResult<()>
 where
     S: Store + CourseRecordsAccessStore,
 {
@@ -25,8 +25,8 @@ where
         .await
     {
         Ok(Some(membership)) => membership,
-        Ok(None) => return Err(error_response(StatusCode::NOT_FOUND, "course not found")),
-        Err(error) => return Err(store_error_response(error)),
+        Ok(None) => return Err(error_response(StatusCode::NOT_FOUND, "course not found").into()),
+        Err(error) => return Err(store_error_response(error).into()),
     };
     match membership.role {
         CourseMembershipRole::Instructor => Ok(()),
@@ -34,15 +34,15 @@ where
             match course_records_are_visible(store, authenticated, course).await {
                 Ok(true) => {}
                 Ok(false) => {
-                    return Err(error_response(StatusCode::NOT_FOUND, "course not found"));
+                    return Err(error_response(StatusCode::NOT_FOUND, "course not found").into());
                 }
                 Err(response) => return Err(response),
             }
             if manage {
-                Err(error_response(
-                    StatusCode::FORBIDDEN,
-                    "assignment change is not authorized",
-                ))
+                Err(
+                    error_response(StatusCode::FORBIDDEN, "assignment change is not authorized")
+                        .into(),
+                )
             } else {
                 Ok(())
             }
@@ -54,7 +54,7 @@ pub(super) async fn course_records_are_visible<S>(
     store: &S,
     authenticated: &AuthenticatedSession,
     course: CourseId,
-) -> Result<bool, Response>
+) -> HttpResult<bool>
 where
     S: CourseRecordsAccessStore,
 {
@@ -63,7 +63,7 @@ where
         .await
     {
         Ok(accessible) => Ok(accessible),
-        Err(error) => Err(store_error_response(error)),
+        Err(error) => Err(store_error_response(error).into()),
     }
 }
 

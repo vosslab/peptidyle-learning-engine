@@ -27,6 +27,7 @@ use crate::catalog::{
     BackendRegistry, BackendRegistryError, PublicReviewGate, dispatch_publication, error_response,
     may_publish, mint_publication_reference, store_error_response,
 };
+use crate::http_refusal::HttpResult;
 
 const MAX_QTI_PUBLICATION_BODY_BYTES: usize = 4 * 1024;
 
@@ -185,14 +186,14 @@ where
     .await
     {
         Ok(draft) => draft,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if first.revision != expected_revision {
         return error_response(StatusCode::CONFLICT, "draft changed; reload it");
     }
     let _capabilities = match validate_qti_draft(state.backends.as_ref(), &first.record) {
         Ok(capabilities) => capabilities,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if request.scope == PublicationScope::Public {
         match state
@@ -224,14 +225,14 @@ where
     .await
     {
         Ok(draft) => draft,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if current.revision != expected_revision {
         return error_response(StatusCode::CONFLICT, "draft changed; reload it");
     }
     let capabilities = match validate_qti_draft(state.backends.as_ref(), &current.record) {
         Ok(capabilities) => capabilities,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let (item_id, import) = match &current.record.question.source {
         question_model::DraftQuestionSource::Qti { item_id, import_id } => {
@@ -296,22 +297,21 @@ async fn load_qti_draft<S>(
     context: TenantContext,
     actor: UserId,
     workspace: WorkspaceId,
-) -> Result<learning_data_access::WorkspaceDraft, Response>
+) -> HttpResult<learning_data_access::WorkspaceDraft>
 where
     S: Store,
 {
     match store.get_draft(context, actor, workspace).await {
         Ok(Some(draft)) => Ok(draft),
-        Ok(None) => Err(error_response(StatusCode::NOT_FOUND, "draft not found")),
-        Err(error) => Err(store_error_response(error)),
+        Ok(None) => Err(error_response(StatusCode::NOT_FOUND, "draft not found").into()),
+        Err(error) => Err(store_error_response(error).into()),
     }
 }
 
-#[allow(clippy::result_large_err)] // Route validation deliberately returns the exact HTTP refusal.
 fn validate_qti_draft<B>(
     backends: &B,
     draft: &DraftRecord,
-) -> Result<question_model::BackendCapabilities, Response>
+) -> HttpResult<question_model::BackendCapabilities>
 where
     B: BackendRegistry,
 {
@@ -319,7 +319,8 @@ where
         return Err(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "question title is invalid",
-        ));
+        )
+        .into());
     }
     if !matches!(
         draft.question.source,
@@ -328,7 +329,8 @@ where
         return Err(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "draft is not a QTI import",
-        ));
+        )
+        .into());
     }
     let capabilities = match backends.capabilities(&draft.question.source) {
         Ok(capabilities) => capabilities,
@@ -336,13 +338,15 @@ where
             return Err(error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "question backend is not registered",
-            ));
+            )
+            .into());
         }
         Err(BackendRegistryError::Unavailable(_)) => {
             return Err(error_response(
                 StatusCode::SERVICE_UNAVAILABLE,
                 "backend registry unavailable",
-            ));
+            )
+            .into());
         }
     };
     let violations = domain::policy::validate_draft_for_publication(&draft.question, &capabilities);
@@ -358,7 +362,8 @@ where
                 })),
             )
                 .into_response(),
-        ))
+        )
+        .into())
     }
 }
 

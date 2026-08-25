@@ -32,6 +32,8 @@ pub mod flat_question_publication;
 pub mod health;
 /// Server-owned verification of original instructional images used by native hotspots.
 pub(crate) mod hotspot_image;
+/// Move-only preservation of constructed HTTP refusals at handler boundaries.
+pub(crate) mod http_refusal;
 /// Uniform non-cacheable API response and browser hardening headers.
 pub(crate) mod http_security;
 /// Server-only durable iMathAS broker bridge.  It is intentionally not wired

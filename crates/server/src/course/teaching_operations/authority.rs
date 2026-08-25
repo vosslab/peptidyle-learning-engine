@@ -35,6 +35,7 @@ use super::super::policy::require_course_access;
 use super::super::projection::{error_response, store_error_response};
 use super::super::routing::CourseRouteState;
 use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
+use crate::http_refusal::{HttpRefusal, HttpResult};
 
 const MAX_AUTHORITY_JSON_BYTES: usize = 16 * 1024;
 
@@ -102,11 +103,11 @@ where
 {
     let auth = match require_operator(state.store.as_ref(), request.headers()).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let search = match sysadmin_instructor_candidate_search_request(request.uri().query()) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     match state
         .store
@@ -140,11 +141,11 @@ where
 {
     let auth = match instructor(state.store.as_ref(), course, request.headers()).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let search = match co_instructor_target_search_request(request.uri().query()) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     match state
         .store
@@ -163,10 +164,9 @@ where
 
 /// Parses the compact GET transport without echoing private search input in a
 /// rejection. The qmodel request remains the one contract handed to the Store.
-#[allow(clippy::result_large_err)] // HTTP validation returns its exact refusal.
 fn co_instructor_target_search_request(
     raw_query: Option<&str>,
-) -> Result<CoInstructorTargetSearchRequest, Response> {
+) -> HttpResult<CoInstructorTargetSearchRequest> {
     let mut query = None;
     let mut after = None;
     let mut size = None;
@@ -175,24 +175,25 @@ fn co_instructor_target_search_request(
             "query" => &mut query,
             "after" => &mut after,
             "size" => &mut size,
-            _ => return Err(invalid_target_search_response()),
+            _ => return Err(invalid_target_search_response().into()),
         };
         if slot.replace(value.into_owned()).is_some() {
-            return Err(invalid_target_search_response());
+            return Err(invalid_target_search_response().into());
         }
     }
-    let query = query.ok_or_else(invalid_target_search_response)?;
+    let query = query.ok_or_else(|| HttpRefusal::from(invalid_target_search_response()))?;
     let query = CoInstructorTargetSearchQuery::try_from(query)
-        .map_err(|_| invalid_target_search_response())?;
+        .map_err(|_| HttpRefusal::from(invalid_target_search_response()))?;
     if let Some(cursor) = after.as_deref() {
-        Cursor::parse(cursor.to_owned()).map_err(|_| invalid_target_search_response())?;
+        Cursor::parse(cursor.to_owned())
+            .map_err(|_| HttpRefusal::from(invalid_target_search_response()))?;
     }
     let size = match size {
         Some(value) => value
             .parse::<u32>()
             .ok()
             .and_then(|value| TeachingPageSize::try_from(value).ok())
-            .ok_or_else(invalid_target_search_response)?,
+            .ok_or_else(|| HttpRefusal::from(invalid_target_search_response()))?,
         None => TeachingPageSize::try_from(50).expect("default teaching page size is valid"),
     };
     Ok(CoInstructorTargetSearchRequest { query, after, size })
@@ -200,12 +201,11 @@ fn co_instructor_target_search_request(
 
 /// Parses candidate discovery only after the persisted Sysadmin session has
 /// been authorized, keeping malformed input from reaching account discovery.
-#[allow(clippy::result_large_err)]
 fn sysadmin_instructor_candidate_search_request(
     raw_query: Option<&str>,
-) -> Result<SysadminInstructorCandidateSearchRequest, Response> {
+) -> HttpResult<SysadminInstructorCandidateSearchRequest> {
     let search = co_instructor_target_search_request(raw_query)
-        .map_err(|_| invalid_sysadmin_candidate_search_response())?;
+        .map_err(|_| HttpRefusal::from(invalid_sysadmin_candidate_search_response()))?;
     Ok(SysadminInstructorCandidateSearchRequest {
         query: search.query,
         after: search.after,
@@ -242,11 +242,11 @@ where
 {
     let auth = match require_operator(state.store.as_ref(), request.headers()).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let expected = match optional_approval_revision(request.headers()) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let target = match state
         .store
@@ -293,11 +293,11 @@ where
 {
     let auth = match require_operator(state.store.as_ref(), request.headers()).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let expected = match required_approval_revision(request.headers()) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let target = match state
         .store
@@ -345,11 +345,11 @@ where
 {
     let auth = match instructor(state.store.as_ref(), course, &headers).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let page = match page_request(query) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     match state
         .store
@@ -387,12 +387,12 @@ where
 {
     let auth = match instructor(state.store.as_ref(), course, request.headers()).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let input =
         match json_body::<question_model::CoInstructorInvitationCreateRequest>(request).await {
             Ok(v) => v,
-            Err(r) => return r,
+            Err(r) => return r.into_response(),
         };
     let target = match state
         .store
@@ -454,11 +454,11 @@ where
 {
     let auth = match instructor(state.store.as_ref(), course, request.headers()).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let expected = match required_invitation_revision(request.headers()) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let invitation = match state
         .store
@@ -508,11 +508,11 @@ where
 {
     let auth = match authenticated(state.store.as_ref(), &headers).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let page = match page_request(query) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     match state
         .store
@@ -553,11 +553,11 @@ where
 {
     let auth = match authenticated(state.store.as_ref(), request.headers()).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let expected = match required_invitation_revision(request.headers()) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let invitation = match state
         .store
@@ -574,7 +574,7 @@ where
     };
     let input = match json_body::<CoInstructorInvitationTerminalActionRequest>(request).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let command = RespondToCoInstructorInvitation {
         session: auth.record.token_hash,
@@ -618,11 +618,11 @@ where
 {
     let auth = match instructor(state.store.as_ref(), course, &headers).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let page = match page_request(query) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     match state
         .store
@@ -662,11 +662,11 @@ where
 {
     let auth = match instructor(state.store.as_ref(), course, request.headers()).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let expected = match required_roster_revision(request.headers()) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return r.into_response(),
     };
     let membership = match state
         .store
@@ -683,7 +683,7 @@ where
         Err(e) => return authority_error(e),
     };
     if let Err(r) = json_body::<question_model::InstructorMembershipRemovalRequest>(request).await {
-        return r;
+        return r.into_response();
     }
     match state
         .store
@@ -704,19 +704,19 @@ where
     }
 }
 
-async fn authenticated<S>(store: &S, headers: &HeaderMap) -> Result<AuthenticatedSession, Response>
+async fn authenticated<S>(store: &S, headers: &HeaderMap) -> HttpResult<AuthenticatedSession>
 where
     S: SessionStore + 'static,
 {
     resolve_request_session(store, headers)
         .await
-        .map_err(auth_error_response)
+        .map_err(|error| HttpRefusal::from(auth_error_response(error)))
 }
 async fn instructor<S>(
     store: &S,
     course: CourseId,
     headers: &HeaderMap,
-) -> Result<AuthenticatedSession, Response>
+) -> HttpResult<AuthenticatedSession>
 where
     S: Store + CourseRecordsAccessStore + SessionStore + 'static,
 {
@@ -724,10 +724,7 @@ where
     require_course_access(store, &auth, course, true).await?;
     Ok(auth)
 }
-async fn require_operator<S>(
-    store: &S,
-    headers: &HeaderMap,
-) -> Result<AuthenticatedSession, Response>
+async fn require_operator<S>(store: &S, headers: &HeaderMap) -> HttpResult<AuthenticatedSession>
 where
     S: SessionStore + 'static,
 {
@@ -735,101 +732,130 @@ where
     if auth.record.subject.roles().contains(&UserRole::Sysadmin) {
         Ok(auth)
     } else {
-        Err(error_response(
-            StatusCode::FORBIDDEN,
-            "operator approval is not authorized",
-        ))
+        Err(error_response(StatusCode::FORBIDDEN, "operator approval is not authorized").into())
     }
 }
 
-async fn json_body<T: serde::de::DeserializeOwned>(request: Request) -> Result<T, Response> {
+async fn json_body<T: serde::de::DeserializeOwned>(request: Request) -> HttpResult<T> {
     if !is_json(request.headers()) {
-        return Err(error_response(
-            StatusCode::UNSUPPORTED_MEDIA_TYPE,
-            "request must be JSON",
-        ));
+        return Err(
+            error_response(StatusCode::UNSUPPORTED_MEDIA_TYPE, "request must be JSON").into(),
+        );
     }
     let body = to_bytes(request.into_body(), MAX_AUTHORITY_JSON_BYTES + 1)
         .await
-        .map_err(|_| error_response(StatusCode::PAYLOAD_TOO_LARGE, "request is too large"))?;
+        .map_err(|_| {
+            HttpRefusal::from(error_response(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "request is too large",
+            ))
+        })?;
     if body.len() > MAX_AUTHORITY_JSON_BYTES {
-        return Err(error_response(
-            StatusCode::PAYLOAD_TOO_LARGE,
-            "request is too large",
-        ));
+        return Err(error_response(StatusCode::PAYLOAD_TOO_LARGE, "request is too large").into());
     }
-    serde_json::from_slice(&body)
-        .map_err(|_| error_response(StatusCode::UNPROCESSABLE_ENTITY, "request is invalid"))
+    serde_json::from_slice(&body).map_err(|_| {
+        HttpRefusal::from(error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "request is invalid",
+        ))
+    })
 }
-#[allow(clippy::result_large_err)] // HTTP validation returns its exact refusal.
-fn page_request(query: PageQuery) -> Result<PageRequest, Response> {
-    let size = PageSize::new(query.size.map(TeachingPageSize::get).unwrap_or(50) as u16)
-        .map_err(|_| error_response(StatusCode::BAD_REQUEST, "page size is invalid"))?;
+fn page_request(query: PageQuery) -> HttpResult<PageRequest> {
+    let size = PageSize::new(query.size.map(TeachingPageSize::get).unwrap_or(50) as u16).map_err(
+        |_| {
+            HttpRefusal::from(error_response(
+                StatusCode::BAD_REQUEST,
+                "page size is invalid",
+            ))
+        },
+    )?;
     match query.after {
         Some(value) => Cursor::parse(value)
             .map(|cursor| PageRequest::after(cursor, size))
-            .map_err(|_| error_response(StatusCode::BAD_REQUEST, "cursor is invalid")),
+            .map_err(|_| {
+                HttpRefusal::from(error_response(StatusCode::BAD_REQUEST, "cursor is invalid"))
+            }),
         None => Ok(PageRequest::first(size)),
     }
 }
-#[allow(clippy::result_large_err)] // HTTP validation returns its exact refusal.
 fn optional_approval_revision(
     headers: &HeaderMap,
-) -> Result<Option<InstructorApprovalRevision>, Response> {
+) -> HttpResult<Option<InstructorApprovalRevision>> {
     let Some(value) = one_if_match(headers)? else {
         return Ok(None);
     };
     InstructorApprovalRevision::try_from_i64(value)
         .map(Some)
-        .map_err(|_| error_response(StatusCode::UNPROCESSABLE_ENTITY, "If-Match is invalid"))
+        .map_err(|_| {
+            HttpRefusal::from(error_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "If-Match is invalid",
+            ))
+        })
 }
-#[allow(clippy::result_large_err)] // HTTP validation returns its exact refusal.
-fn required_approval_revision(headers: &HeaderMap) -> Result<InstructorApprovalRevision, Response> {
-    optional_approval_revision(headers)?
-        .ok_or_else(|| error_response(StatusCode::PRECONDITION_REQUIRED, "If-Match is required"))
+fn required_approval_revision(headers: &HeaderMap) -> HttpResult<InstructorApprovalRevision> {
+    optional_approval_revision(headers)?.ok_or_else(|| {
+        HttpRefusal::from(error_response(
+            StatusCode::PRECONDITION_REQUIRED,
+            "If-Match is required",
+        ))
+    })
 }
-#[allow(clippy::result_large_err)] // HTTP validation returns its exact refusal.
-fn required_invitation_revision(
-    headers: &HeaderMap,
-) -> Result<CoInstructorInvitationRevision, Response> {
-    let value = one_if_match(headers)?
-        .ok_or_else(|| error_response(StatusCode::PRECONDITION_REQUIRED, "If-Match is required"))?;
-    CoInstructorInvitationRevision::try_from_i64(value)
-        .map_err(|_| error_response(StatusCode::UNPROCESSABLE_ENTITY, "If-Match is invalid"))
+fn required_invitation_revision(headers: &HeaderMap) -> HttpResult<CoInstructorInvitationRevision> {
+    let value = one_if_match(headers)?.ok_or_else(|| {
+        HttpRefusal::from(error_response(
+            StatusCode::PRECONDITION_REQUIRED,
+            "If-Match is required",
+        ))
+    })?;
+    CoInstructorInvitationRevision::try_from_i64(value).map_err(|_| {
+        HttpRefusal::from(error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "If-Match is invalid",
+        ))
+    })
 }
-#[allow(clippy::result_large_err)] // HTTP validation returns its exact refusal.
-fn required_roster_revision(headers: &HeaderMap) -> Result<RosterRevision, Response> {
-    let value = one_if_match(headers)?
-        .ok_or_else(|| error_response(StatusCode::PRECONDITION_REQUIRED, "If-Match is required"))?;
-    RosterRevision::from_stored(value)
-        .map_err(|_| error_response(StatusCode::UNPROCESSABLE_ENTITY, "If-Match is invalid"))
+fn required_roster_revision(headers: &HeaderMap) -> HttpResult<RosterRevision> {
+    let value = one_if_match(headers)?.ok_or_else(|| {
+        HttpRefusal::from(error_response(
+            StatusCode::PRECONDITION_REQUIRED,
+            "If-Match is required",
+        ))
+    })?;
+    RosterRevision::from_stored(value).map_err(|_| {
+        HttpRefusal::from(error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "If-Match is invalid",
+        ))
+    })
 }
-#[allow(clippy::result_large_err)] // HTTP validation returns its exact refusal.
-fn one_if_match(headers: &HeaderMap) -> Result<Option<i64>, Response> {
+fn one_if_match(headers: &HeaderMap) -> HttpResult<Option<i64>> {
     let mut values = headers.get_all(IF_MATCH).iter();
     let Some(value) = values.next() else {
         return Ok(None);
     };
     if values.next().is_some() {
-        return Err(error_response(
-            StatusCode::BAD_REQUEST,
-            "If-Match is malformed",
-        ));
+        return Err(error_response(StatusCode::BAD_REQUEST, "If-Match is malformed").into());
     }
     let raw = value
         .to_str()
         .ok()
         .and_then(|v| v.strip_prefix('"').and_then(|v| v.strip_suffix('"')))
-        .ok_or_else(|| error_response(StatusCode::BAD_REQUEST, "If-Match is malformed"))?;
+        .ok_or_else(|| {
+            HttpRefusal::from(error_response(
+                StatusCode::BAD_REQUEST,
+                "If-Match is malformed",
+            ))
+        })?;
     if raw.is_empty() || !raw.bytes().all(|v| v.is_ascii_digit()) {
-        return Err(error_response(
+        return Err(error_response(StatusCode::BAD_REQUEST, "If-Match is malformed").into());
+    }
+    raw.parse().map(Some).map_err(|_| {
+        HttpRefusal::from(error_response(
             StatusCode::BAD_REQUEST,
             "If-Match is malformed",
-        ));
-    }
-    raw.parse()
-        .map(Some)
-        .map_err(|_| error_response(StatusCode::BAD_REQUEST, "If-Match is malformed"))
+        ))
+    })
 }
 fn is_json(headers: &HeaderMap) -> bool {
     let mut values = headers.get_all(CONTENT_TYPE).iter();

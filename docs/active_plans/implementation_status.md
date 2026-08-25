@@ -12,15 +12,17 @@ order, validation, and acceptance. Durable product decisions remain in
 
 ## Current handoff
 
-- **Current package:** `WP-PROF-B1` - reusable personal course blueprints and public Alpha curriculum
-  aggregates over accepted D2 problem selection and S7 public references. The package owns allocated
-  migration `2026081837`.
-- **Current acceptance predecessor:** `WP-PROF-D2` accepted 2026-08-25. Its live Library path now
-  owns Favorites, private and institution collections, canonical saved searches, revision-checked
-  bulk curation, and the shared `ProblemPicker` used by assignment authoring. Its final receipt is in
-  the professor plan and changelog: all 66 migrations and Store/RLS oracles; the canonical HTTPS
-  journey with Elena Instructor and Morgan Sysadmin passkeys; the 93-artifact visual corpus,
-  including 16 D2 views; four independent acceptance reviews; and exact resource cleanup passed.
+- **Current package:** `WP-PROF-B2` - explicit curriculum adoption, teaching-course instantiation,
+  rollover, term shifting, normalized manifests, provenance, and controlled fast-forward or selected
+  copy over accepted B1 reusable meaning. The package owns allocated migration `2026081838`.
+- **Current acceptance predecessor:** `WP-PROF-B1` accepted 2026-08-25. Its focused Store now owns
+  revisioned personal Blueprints and non-enrollable public Alpha curricula over exact publication
+  pins, with creator-owned updates, approved-Instructor reading, answer-free inspection, and shared
+  `ProblemPicker` reuse. Its final receipt is in the professor plan, independent review, and
+  changelog: all 67 migrations and Store/RLS oracles; the canonical HTTPS creator, reader, and picker
+  journey with Elena Instructor and Morgan Sysadmin passkeys; canonical desktop creator, picker, and
+  reader visual evidence; four independent acceptance approvals; exact cleanup; and final Validation
+  passed.
 - **Accepted prerequisites:** `WP-PROF-S1` through `S7`, `T1` through `T3`, `BS1`, `LD1` through
   `LD3`, and `T5` are accepted. Their scopes and evidence are retained in the owning plans and
   changelog.
@@ -91,7 +93,8 @@ receive an implicit allocation.
 | `2026081834`              | `WP-PROF-LD3`         | Reserved course-group policy broker repair                 |
 | `2026081835`              | `WP-PROF-LD1`         | Reserved catalog-derived Base Course freshness authority   |
 | `2026081836`              | `WP-PROF-D2`          | Accepted problem curation capabilities                     |
-| `2026081837`              | `WP-PROF-B1`          | Allocated blueprint and public Alpha capabilities          |
+| `2026081837`              | `WP-PROF-B1`          | Accepted blueprint and public Alpha capabilities           |
+| `2026081838`              | `WP-PROF-B2`          | Allocated curriculum-adoption lineage, schedule, provenance, receipt, RLS, and broker authority |
 
 `2026081803` (`S5`), `2026081804` (`S3`), and `2026081805` (`S4`) reflect the accepted
 pre-file allocation reorder. Allocations `2026081811`, `1813`, `1815`, `1821`, and `1822` retain
@@ -107,6 +110,7 @@ their numeric identities. The professor plan owns dependencies among reserved ca
 | `WP-PROF-T5`                | Fixed-or-pool assignment editing and deterministic issued draws     | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
 | `WP-PROF-D1`                | Canonical Library discovery and evidence-backed question detail     | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
 | `WP-PROF-D2`                | Live curation and shared problem selection                          | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-PROF-B1`                | Revisioned Blueprints, public Alpha curricula, and shared reuse      | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
 | `WP-R0`-`WP-R2`, `WP-PY-L1` | Accepted cross-roadmap capabilities                                 | [Release plan](active/release_completion_plan.md), [changelog](../CHANGELOG.md)                  |
 
 ## Dependency-ordered queue
@@ -115,9 +119,9 @@ The authoritative package sequence is in the [release completion plan](active/re
 and [professor capability plan](active/professor_capability_architecture_plan.md). The current
 handoff is:
 
-1. Complete `WP-PROF-B1` against its reusable blueprint, public Alpha, authority, and live-demo
-   acceptance contract.
-2. Continue the professor plan's remaining curriculum, grading-operation, and final
+1. Complete `WP-PROF-B2` against its curriculum-adoption, rollover, term-shift, provenance,
+   controlled-update, and live-demo acceptance contract.
+2. Continue the professor plan's remaining grading-operation and final
    production-stack packages in its declared dependency order.
 3. Resume the release queue at `WP-RC8`, then follow the release plan through native-family,
    learner-payload, reconciliation, LTI, upload, deployment, cost-control, and release closure

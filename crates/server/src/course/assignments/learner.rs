@@ -56,7 +56,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let member_role = match state
         .store
@@ -249,7 +249,7 @@ where
             .await
         {
             Ok(value) => value,
-            Err(response) => return response,
+            Err(response) => return response.into_response(),
         };
     no_store(
         Json(
@@ -304,7 +304,7 @@ where
             .await
             {
                 Ok((summary, _)) => no_store(Json(summary).into_response()),
-                Err(response) => response,
+                Err(response) => response.into_response(),
             };
         }
         Err(error) => return store_error_response(error),
@@ -331,7 +331,7 @@ where
     .await
     {
         Ok((summary, _)) => no_store(Json(summary).into_response()),
-        Err(response) => response,
+        Err(response) => response.into_response(),
     }
 }
 

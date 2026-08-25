@@ -16,7 +16,7 @@ where
     }
     let account = match authenticated_account(state.store.as_ref(), &headers).await {
         Ok(account) => account,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let email = match AuthenticationEmail::parse(&request.email) {
         Ok(email) => email,
@@ -130,7 +130,7 @@ where
 {
     let account = match authenticated_account(state.store.as_ref(), &headers).await {
         Ok(account) => account,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let Some(token) = RandomSecret::decode(&request.token) else {
         return authentication_rejected();

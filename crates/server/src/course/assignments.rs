@@ -27,6 +27,7 @@ use super::routing::{
     strict_assignment_request,
 };
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
+use crate::http_refusal::HttpResult;
 
 mod definition_request;
 mod learner;
@@ -59,11 +60,11 @@ where
     if let Err(response) =
         require_course_access(state.store.as_ref(), &authenticated, course, true).await
     {
-        return response;
+        return response.into_response();
     }
     let value = match definition_request::assignment_json_body(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let request = match strict_assignment_request::<CreateAssignmentRequest>(value) {
         Ok(request) => request,
@@ -83,7 +84,7 @@ where
     .await
     {
         Ok(publications) => publications,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let assignment = AssignmentRecord {
         id: AssignmentId::generate(),
@@ -105,7 +106,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     match state
         .store
@@ -160,7 +161,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     assignment_response(&state, &authenticated, StatusCode::OK, assignment).await
 }
@@ -188,7 +189,7 @@ where
     if let Err(response) =
         require_course_access(state.store.as_ref(), &authenticated, course, true).await
     {
-        return response;
+        return response.into_response();
     }
     let expected_revision = match required_assignment_revision(request.headers()) {
         Ok(revision) => revision,
@@ -218,7 +219,7 @@ where
     };
     let value = match definition_request::assignment_json_body(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let request = match strict_assignment_request::<UpdateAssignmentRequest>(value) {
         Ok(request) => request,
@@ -238,7 +239,7 @@ where
     .await
     {
         Ok(items) => items,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let replacement = AssignmentRecord {
         id: assignment,
@@ -260,7 +261,7 @@ where
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let structure_changed =
         !assignment_definition_structure_unchanged(&current.record, &replacement);
@@ -399,7 +400,7 @@ where
     if let Err(response) =
         require_course_access(state.store.as_ref(), &authenticated, course, true).await
     {
-        return response;
+        return response.into_response();
     }
     let expected_revision = match required_assignment_revision(&headers) {
         Ok(value) => value,
@@ -433,7 +434,7 @@ where
     .await
     {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let item = AssignmentItem {
         id: AssignmentItemId::generate(),
@@ -488,7 +489,7 @@ where
     if let Err(response) =
         require_course_access(state.store.as_ref(), &authenticated, course, true).await
     {
-        return response;
+        return response.into_response();
     }
     if !body.is_empty() {
         return error_response(
@@ -556,7 +557,7 @@ where
     if let Err(response) =
         require_course_access(state.store.as_ref(), &authenticated, course, true).await
     {
-        return response;
+        return response.into_response();
     }
     let expected_revision = match required_assignment_revision(&headers) {
         Ok(value) => value,
@@ -590,7 +591,7 @@ where
     .await
     {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state
         .store
@@ -698,7 +699,7 @@ where
             .await
         {
             Ok(value) => value,
-            Err(response) => return response,
+            Err(response) => return response.into_response(),
         };
     let settings = AssignmentTeachingSettings {
         lifecycle: assignment.record.lifecycle,
@@ -740,13 +741,10 @@ pub(super) async fn assignment_summary_items<S>(
     state: &CourseRouteState<S>,
     context: learning_data_access::TenantContext,
     assignment: &AssignmentRecord,
-) -> Result<
-    (
-        Vec<question_model::AssignmentItemSummary>,
-        Vec<question_model::AssignmentSelectionGroupSummary>,
-    ),
-    Response,
->
+) -> HttpResult<(
+    Vec<question_model::AssignmentItemSummary>,
+    Vec<question_model::AssignmentSelectionGroupSummary>,
+)>
 where
     S: Store + CatalogStore + SessionStore + 'static,
 {
@@ -756,12 +754,13 @@ where
             .store
             .get_catalog_problem(context, reference)
             .await
-            .map_err(store_error_response)?
+            .map_err(|error| crate::http_refusal::HttpRefusal::from(store_error_response(error)))?
         else {
             return Err(error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "assignment contains an unavailable published question",
-            ));
+            )
+            .into());
         };
         summaries.insert(reference, record);
     }

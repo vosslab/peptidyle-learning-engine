@@ -32,6 +32,7 @@ use super::super::policy::require_course_access;
 use super::super::projection::{error_response, store_error_response};
 use super::super::routing::{CourseRouteState, MAX_COURSE_BODY_BYTES};
 use crate::auth::{AuthenticatedSession, auth_error_response, no_store, resolve_request_session};
+use crate::http_refusal::{HttpRefusal, HttpResult};
 
 /// Builds the public-reference preview-plane routes.  `C-` and `A-` mirrors
 /// the existing course/assignment nesting while preserving public locators.
@@ -97,15 +98,15 @@ where
     // an Instructor sample must not persist in a shared cache.
     let bound = match authorize_bound(&state, &course, &assignment, request.headers()).await {
         Ok(value) => value,
-        Err(response) => return no_store(response),
+        Err(response) => return no_store(response.into_response()),
     };
     let revision = match revision(request.headers()) {
         Ok(value) => value,
-        Err(response) => return no_store(response),
+        Err(response) => return no_store(response.into_response()),
     };
     let body = match json_body::<PoolDrawPreviewRequest>(request).await {
         Ok(value) => value,
-        Err(response) => return no_store(response),
+        Err(response) => return no_store(response.into_response()),
     };
     let mut bytes = [0_u8; 16];
     if getrandom::fill(&mut bytes).is_err() {
@@ -158,15 +159,15 @@ where
 {
     let bound = match authorize_bound(&state, &course, &assignment, request.headers()).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let revision = match revision(request.headers()) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let page = match page_request(request.uri().query()) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match state
         .store
@@ -200,15 +201,15 @@ where
 {
     let bound = match authorize_bound(&state, &course, &assignment, request.headers()).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let revision = match revision(request.headers()) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let body = match json_body::<SyntheticBody>(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let result = state
         .store
@@ -243,15 +244,15 @@ where
 {
     let bound = match authorize_bound(&state, &course, &assignment, request.headers()).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let revision = match revision(request.headers()) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let body = match json_body::<DerivedBody>(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let result = state
         .store
@@ -283,7 +284,7 @@ async fn authorize_bound<S>(
     course_raw: &str,
     assignment_raw: &str,
     headers: &HeaderMap,
-) -> Result<BoundPreviewRoute, Response>
+) -> HttpResult<BoundPreviewRoute>
 where
     S: Store + CourseRecordsAccessStore + SessionStore + NavigationReferenceStore + 'static,
 {
@@ -309,11 +310,11 @@ where
         .await
         .is_err()
     {
-        return Err(preview_binding_refused(
+        return Err(HttpRefusal::from(preview_binding_refused(
             "course_access_unavailable",
             course_raw,
             assignment_raw,
-        ));
+        )));
     }
     let assignment = assignment_raw.parse::<AssignmentReference>().map_err(|_| {
         preview_binding_refused("assignment_reference_invalid", course_raw, assignment_raw)
@@ -344,37 +345,37 @@ fn preview_binding_refused(stage: &'static str, course: &str, assignment: &str) 
     concealed_route_response()
 }
 
-#[allow(clippy::result_large_err)] // HTTP validation returns its exact refusal.
-fn revision(headers: &HeaderMap) -> Result<TeachingOperationRevision, Response> {
+fn revision(headers: &HeaderMap) -> HttpResult<TeachingOperationRevision> {
     required_assignment_revision(headers)
         .map(|value| {
             TeachingOperationRevision::new(value.value())
                 .expect("stored assignment revision is within qmodel bounds")
         })
-        .map_err(|error| match error {
-            AssignmentRevisionHeaderError::Missing => error_response(
-                StatusCode::PRECONDITION_REQUIRED,
-                "If-Match assignment revision is required",
-            ),
-            AssignmentRevisionHeaderError::Malformed => error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "If-Match assignment revision is invalid",
-            ),
+        .map_err(|error| {
+            HttpRefusal::from(match error {
+                AssignmentRevisionHeaderError::Missing => error_response(
+                    StatusCode::PRECONDITION_REQUIRED,
+                    "If-Match assignment revision is required",
+                ),
+                AssignmentRevisionHeaderError::Malformed => error_response(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "If-Match assignment revision is invalid",
+                ),
+            })
         })
 }
 
-#[allow(clippy::result_large_err)] // HTTP validation returns its exact refusal.
-fn page_request(raw_query: Option<&str>) -> Result<PageRequest, Response> {
+fn page_request(raw_query: Option<&str>) -> HttpResult<PageRequest> {
     let mut after = None;
     let mut size = None;
     for (key, value) in url::form_urlencoded::parse(raw_query.unwrap_or_default().as_bytes()) {
         let slot = match key.as_ref() {
             "after" => &mut after,
             "size" => &mut size,
-            _ => return Err(invalid_page_response()),
+            _ => return Err(HttpRefusal::from(invalid_page_response())),
         };
         if slot.replace(value.into_owned()).is_some() {
-            return Err(invalid_page_response());
+            return Err(HttpRefusal::from(invalid_page_response()));
         }
     }
     let size = match size {
@@ -388,12 +389,12 @@ fn page_request(raw_query: Option<&str>) -> Result<PageRequest, Response> {
     match after {
         Some(value) => Cursor::parse(value)
             .map(|cursor| PageRequest::after(cursor, size))
-            .map_err(|_| invalid_page_response()),
+            .map_err(|_| HttpRefusal::from(invalid_page_response())),
         None => Ok(PageRequest::first(size)),
     }
 }
 
-async fn json_body<T>(request: Request) -> Result<T, Response>
+async fn json_body<T>(request: Request) -> HttpResult<T>
 where
     T: serde::de::DeserializeOwned,
 {
@@ -408,22 +409,31 @@ where
                 .is_some_and(|v| v.trim() == "application/json")
         })
     {
-        return Err(error_response(
+        return Err(HttpRefusal::from(error_response(
             StatusCode::UNSUPPORTED_MEDIA_TYPE,
             "request must be JSON",
-        ));
+        )));
     }
     let bytes = to_bytes(request.into_body(), MAX_COURSE_BODY_BYTES + 1)
         .await
-        .map_err(|_| error_response(StatusCode::PAYLOAD_TOO_LARGE, "request is too large"))?;
+        .map_err(|_| {
+            HttpRefusal::from(error_response(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "request is too large",
+            ))
+        })?;
     if bytes.len() > MAX_COURSE_BODY_BYTES {
-        return Err(error_response(
+        return Err(HttpRefusal::from(error_response(
             StatusCode::PAYLOAD_TOO_LARGE,
             "request is too large",
-        ));
+        )));
     }
-    serde_json::from_slice(&bytes)
-        .map_err(|_| error_response(StatusCode::UNPROCESSABLE_ENTITY, "request is invalid"))
+    serde_json::from_slice(&bytes).map_err(|_| {
+        HttpRefusal::from(error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "request is invalid",
+        ))
+    })
 }
 
 fn preview_result(result: Result<PreviewPlaneResult, StoreError>) -> Response {
