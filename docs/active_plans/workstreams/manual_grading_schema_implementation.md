@@ -9,7 +9,7 @@
 This is the approved pre-data baseline consolidation described by
 `partial_commit_status.md`: only the activity/feedback and retention migrations
 changed, and no seventh migration was added. The clean apply, no-op, status,
-and verify rehearsal remains package acceptance work after the PostgreSQL Store
+and verify validation remains package acceptance work after the PostgreSQL Store
 consumer lands.
 
 ## Implemented shape

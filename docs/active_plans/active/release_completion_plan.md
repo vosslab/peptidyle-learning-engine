@@ -223,8 +223,8 @@ WP-RC3R accepted catalog publication ---> WP-HG1 operational human references
 The human owner reprioritized WP-UI1 interface composition as the immediate repository-owned package, and it is now
 accepted. WP-RC8's generic identity, account, session, and passkey seams exist, while package acceptance and its
 provider, mailbox, multi-replica, security, and HCI gates remain open. WP-RC4 resumes after that acceptance; its
-internal version 2 implementation no longer waits
-on external QTI-JSONL artifacts. WP-P1 may proceed alongside RC4 closeout, but the complete WP-P1 through WP-P6
+internal version 2 implementation proceeds from the native flat-family contract. WP-P1 may proceed
+alongside RC4 closeout, but the complete WP-P1 through WP-P6
 boundary must be accepted before WP-RC5. WP-RC7's non-schema inventory work may proceed earlier; its schema work
 begins only after WP-P2 preserves the reserved migration ordering below.
 

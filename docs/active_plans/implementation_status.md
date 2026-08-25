@@ -804,24 +804,17 @@ are clean; and three independent reviewers reported no P0/P1/P2.
   arguments and one explicit schema-versioned private child-input boundary. Focused offline tests
   cover its validation and environment isolation. The rebuilt Podman/Playwright execution passed
   the strengthened J13 visible copy/paste path and supplied the one-time acceptance evidence.
-- Historical WP-HG1.T accepted the former revision-atomic
-  `assignmentTiming.timeLimitSeconds` boundary and its 900-second Mastery default. WP-PROF-T1
-  directly removes that wire and compatibility API: current whole-run timing is one field of the
-  revisioned `AssignmentTeachingSettings` aggregate with lifecycle, instructions, schedule, late,
-  and deadline behavior. The earlier timed Podman walkthrough remains historical evidence; it is
-  not the current contract or current T1 acceptance evidence.
+- WP-PROF-T1 owns whole-run timing as one field of the revisioned
+  `AssignmentTeachingSettings` aggregate with lifecycle, instructions, schedule, late, and deadline
+  behavior. Its accepted evidence is recorded in the professor capability plan and changelog.
 - The previous corrected-charter evidence in M8-M11 remains useful historical
   evidence for the bounded local pilot, but is superseded as acceptance evidence
   by the strengthened human-reference contract. WP-HG1 now records the rebuilt live J13
   copy/paste run, refreshed screenshots, and independent review. This vertical slice does not
   close RC4--RC12 or substitute the local-file authentication adapter for
   production account onboarding.
-- Post-acceptance WP-E2 remains accepted historical evidence. Its compatibility
-  entry points and `tests/walkthrough/` package were retired when the fixed
-  `tests/e2e/e2e_browser_suite_owner.py` plus `tests/playwright/e2e/` path became
-  the sole production-stack browser owner. The accepted host-bound run remains
-  evidence for its dated schema-v2 journeys; current acceptance uses the
-  canonical real-stack suite and does not restore that parallel harness.
+- The fixed `tests/e2e/e2e_browser_suite_owner.py` plus `tests/playwright/e2e/` path is the sole
+  production-stack browser owner for current acceptance.
 - WP-G1, the schema-v1 WP-G2 baseline, G3 documentation, and the prior final
   review remain accepted historical evidence for the narrower learner slice.
   They are superseded as final acceptance artifacts by schema v2 for this
@@ -890,8 +883,8 @@ The complete sequence is authoritative in
    acceptance; WP-RC4 resumes after that closeout. Email
    authentication is the canonical account path; no manager-assisted account merge or
    educational-record transfer is a version 1 dependency.
-6. WP-RC4's PLE flat JSON v2 implementation now covers the eight source/runtime families and awaits
-   independent closeout; external QTI-JSONL is no longer a prerequisite.
+6. WP-RC4's PLE flat JSON v2 implementation covers the eight source/runtime families and awaits
+   independent closeout. WP-RC5 proceeds from that native-family boundary.
 7. WP-HG1 accepted the issuance-owned presentation, family grading, timing, and immutable receipt
    boundary. WP-P1 through WP-P6 still own the compact public learner-payload cutover before WP-RC5
    acceptance. WP-P2 adds `2026080908_secure_question_grading_payloads.sql`; WP-RC5 then completes

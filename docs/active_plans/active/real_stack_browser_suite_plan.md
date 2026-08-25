@@ -106,7 +106,7 @@ single-flight, so normal operation never selects a random-suffix compatibility p
 
 ## Behavior-value inventory
 
-Before retirement, the migration matrix classifies each legacy browser case by the user or
+The migration matrix classifies each browser case by the user or
 contract behavior it protects: real-stack browser scenario, isolated unit test, existing service
 oracle, or obsolete implementation detail. It records the successor and evidence location. The
 matrix is a behavior-value inventory; legacy filenames, assertion counts, test doubles, and application
@@ -134,7 +134,7 @@ interaction, or inspection prerequisite.
 | BS1-10    | `WP-PROF-BS1-L1` | Migrate one learner delivery/response family                           | B0, C0                  | Reload or second-session learner evidence                                                                                                                      |
 | BS1-11    | `WP-PROF-BS1-A1` | Migrate ordinary auth, direct-role entry, and role-boundary families   | B2, B1, B0, C0          | Visible role/session and denial scenarios                                                                                                                      |
 | BS1-12    | `WP-PROF-BS1-S1` | Add semantic persistence receipts where claims require them            | I1, L1, A1              | Read-only Store/service receipts tied to named claims                                                                                                          |
-| BS1-13    | `WP-PROF-BS1-U1` | Move narrow former browser behavior to isolated unit owners           | C0                      | Focused Node/Rust unit tests plus one-time runtime-consumer closure inventory                                                                                  |
+| BS1-13    | `WP-PROF-BS1-U1` | Map browser-independent behavior to isolated unit owners               | C0                      | Focused Node/Rust unit tests plus one-time runtime-consumer closure inventory                                                                                  |
 | BS1-14    | `WP-PROF-BS1-X1` | Exercise real concurrent-session conflicts                             | I1, B0                  | Two-session UI conflict scenario                                                                                                                               |
 | BS1-15    | `WP-PROF-BS1-F1` | Exercise lifecycle-controlled infrastructure recovery                  | C0 plus affected family | Owner-fault scenario and visible recovery                                                                                                                      |
 | BS1-16    | `WP-PROF-BS1-V1` | Capture canonical screenshots from accepted real scenarios             | I1, L1, X1, F1          | Origin/provenance verifier and image-evaluator report                                                                                                          |
@@ -152,7 +152,7 @@ single-flight and exact-reset boundary before A1's connected real acceptance. I1
 independently after B0; A1 starts its implementation after B0 but its connected real acceptance waits
 for B1 and B2. U1 can proceed after C0. Each family creates its own UI state from the H2 baseline. S1, X1, F1,
 and V1 use accepted scenario contracts and separate owned files. D1, W1, and Q1 follow their
-named foundations and complete before R2 retires their predecessors. R1 and R2 integrate serially;
+named foundations and complete before browser-owner integration. R1 and R2 integrate serially;
 C1 follows R2 after the B2 gate.
 
 ## Work-package contracts
@@ -331,13 +331,12 @@ C1 follows R2 after the B2 gate.
   records every remaining mock Playwright or runtime consumer with its meaningful behavior and its
   later owner: I1 for instructor/teaching mutations, L1 for learner delivery and recovery, A1 for
   sign-in and role boundaries, S1 for service-specific claims, V1 for retained visual behavior, F1
-  for lifecycle faults, X1 for conflicts, or R1 for retired-application implementation coverage with no
-  product behavior to preserve. U1 does not retain alternate-server implementation coverage.
+  for lifecycle faults, X1 for conflicts, or R1 for browser-graph integration coverage.
 - Acceptance: each retained U1 test protects one isolated behavior using literal fixtures or a
   test-local focused fake; no retained U1 test imports `src/api/mock/**`. The one-time allocation
-  records every former alternate Playwright/runtime consumer and gives each one a real-scenario owner or
-  deletion disposition. U1's focused Node/Rust checks pass without a browser application,
-  production stack, or retired-server runtime; the allocation itself is not a permanent test.
+  records every allocated Playwright/runtime behavior and gives each one a real-scenario or focused
+  unit owner. U1's focused Node/Rust checks pass as browser-independent tests; the allocation itself
+  is one-time migration evidence.
 
 ### WP-PROF-BS1-X1: Exercise concurrent-session behavior
 
@@ -372,36 +371,28 @@ C1 follows R2 after the B2 gate.
   manifest, origin, digest, path, coverage, and privacy invariants, and `image_evaluator` returns an
   automated report with resolved findings. Retained evidence contains no private material.
 
-### WP-PROF-BS1-R1: Retire the parallel browser application
+### WP-PROF-BS1-R1: Establish the production browser graph
 
 - Owner: integrator.
-- Deliverable: one browser build graph and production client path after removal of the alternate
-  artifact, static helper, transport selection, browser login selection, mock globals, and former
-  runtime mock handlers represented as obsolete in the U1 behavior-value allocation. After the
-  one-time catalog closure inventory proves them unreachable, R1 also removes the retired legacy
-  live-demo spec and source.
+- Deliverable: one browser build graph and production client path, with browser-independent behavior
+  assigned to the U1 focused-unit owners.
 - Acceptance: the one-time build and consumer closure inventory shows one production browser artifact;
   Playwright creates
-  product state through visible PLE workflows against real services, and no catalog or source consumer
-  reaches the retired legacy live-demo path.
+  product state through visible PLE workflows against real services.
 
 ### WP-PROF-BS1-D1: Converge developer browser entry
 
 - Owner: expert coder.
 - Depends on: B2, C0.
 - Deliverable: immediately make the default developer browser entry use disposable seeded
-  production-auth HTTPS, then remove `PLE_BROWSER_LOCAL_DEVELOPMENT_AUTH`, the browser build switch,
-  local credential UI and transport, `local-login.txt`, and the local-login browser developer entry.
-  Retain deployment-gated server-resolved persona entry and the ordinary Sysadmin passkey ceremony.
+  production-auth HTTPS with deployment-gated server-resolved persona entry and the ordinary
+  Sysadmin passkey ceremony.
   The WebWork and replica service oracles use seeded production authentication with their narrow
-  service-observability capabilities; the former file-backed server feature and its local-teaching
-  roster/runtime graph are removed. Unit/static tests stay with their owning implementation and do
-  not justify a runtime capability. The retired feature is absent from `local_stack.py start`, every
-  browser command, the canonical suite, service oracles, and developer documentation.
+  service-observability capabilities. Unit/static tests stay with their owning implementation.
   The bounded developer-profile experiment then proves daily seeded Student and Instructor work, the
   real Sysadmin direct-role/passkey flow, reload and re-entry, real course authoring and learner submission,
   the production `dist/` artifact, normal session/auth traffic, and empty suite-labelled cleanup. This
-  package is distinct from R1's alternate-runtime retirement.
+  package is distinct from R1's production browser-build ownership.
 - Acceptance: fresh Student and Instructor browser contexts complete normal daily workflows and the
   seeded Sysadmin completes real direct-role/passkey entry; no request or served production bundle
   exposes `/api/auth/login`, `local-login.txt`, or local-development credentials. Build and lifecycle
@@ -444,21 +435,18 @@ C1 follows R2 after the B2 gate.
   demonstrate the issued learner problem remains stable, visibly show the instructor replacement and
   stale-editor reload, and show the replacement only for a newly issued learner run.
 
-### WP-PROF-BS1-R2: Retire alternate browser owners
+### WP-PROF-BS1-R2: Establish the canonical browser owner
 
 - Owner: integrator.
 - Depends on: R1, D1, W1, Q1.
-- Deliverable: retain `playwright.config.ts` as the canonical browser configuration and
-  `e2e_browser_suite_owner.py` as the one fixed real-stack browser owner. The alternate owner,
-  mounted test-only browser application, alternate browser graph, Chapter One browser,
-  WebWork browser tail, and WP-R2 host-seed runner are retired after their meaningful behavior moves
-  to W1/Q1 or a narrow unit. R2 removes any stale command and documentation consumers, and migrates
-  remaining pure parser or generic interaction-helper value to narrow unit ownership. Chapter One
+- Deliverable: use `playwright.config.ts` as the canonical browser configuration and
+  `e2e_browser_suite_owner.py` as the one fixed real-stack browser owner. W1/Q1 own WebWork and QTI
+  browser behavior; narrow units own pure parser and generic interaction-helper behavior. Chapter One
   semantic claims remain with the fixed lifecycle seed/manifest and Rust behavior tests. Keep the
   browser-free WebWork and replica service oracles as distinct boundaries; the WebWork script has no
   browser exports or Playwright tail.
-- Acceptance: a one-time static closure inventory finds no browser-launch command outside the canonical owner and no
-  source reference to retired WebWork or walkthrough configurations; all retained browser specs are
+- Acceptance: a one-time static closure inventory finds every browser-launch command under the
+  canonical owner; all retained browser specs are
   catalog-owned `tests/playwright/e2e/*.spec.ts` children of `playwright.config.ts`. The canonical
   complete suite passes under one fixed stack, and retained WebWork, replica, database/RLS, Rust, and
   renderer evidence makes only its distinct non-browser claims.

@@ -328,7 +328,7 @@ see and when, evaluated server-side for every learner-facing projection.
    during attempt | after submit | after due | after close | never
 ```
 
-The migration removes the former `feedback_disclosure` authority. `feedback_release` records remain
+The migration establishes `feedback_release` records as
 immutable, retention-fenced audit evidence of an instructor action; they are never a policy input
 and cannot unlock or otherwise change a learner projection.
 
@@ -1047,7 +1047,7 @@ P1 finding.
 | WP-PROF-T2  | Expert coder         | Groups, entitlement, accommodations, co-instructors, retention                                                                                                                                                                                                                                                                                                                         | WP-PROF-S5, WP-PROF-T1                                                                   |
 | WP-PROF-LD1 | Integrator           | Accepted 2026-08-20: `base_course_installation`, LDA-owned SQL/lock/migration lifecycle, deterministic product evidence, and real-stack lifecycle proof                                                                                                                                                                                                                                | WP-PROF-T2 accepted                                                                      |
 | WP-PROF-LD2 | Expert coder         | Direct entry for five seeded personas through ordinary WP-RC8 account-session paths; `2026081809` owns exactly two least-privilege execute-only brokers: Sysadmin approval-candidate discovery and read-only completed-installation-generation lookup; `2026081810` only repairs Student pre-tenant account-course retention | WP-PROF-LD1 accepted; necessary existing WP-RC8 account-session/passkey/origin contracts |
-| WP-PROF-BS1 | Integrator           | Accepted canonical disposable real-stack browser suite for Playwright, acceptance, and screenshots; UI-first scenario state; retirement of the test-only browser application and mock transport                                                                                                                                                                                        | WP-PROF-LD2 accepted                                                                     |
+| WP-PROF-BS1 | Integrator           | Accepted canonical disposable real-stack browser suite for Playwright, acceptance, and screenshots; UI-first scenario state against the production browser graph                                                                                                                                                                                                                       | WP-PROF-LD2 accepted                                                                     |
 | WP-PROF-T3  | Expert coder         | Accepted 2026-08-22: frozen-scope identity-free preview plane with real-stack browser and canonical screenshot evidence                                                                                                                                                                                                                                                              | WP-PROF-S4, WP-PROF-T1, WP-PROF-LD1 accepted, WP-PROF-LD2 accepted, WP-PROF-BS1 accepted |
 | WP-PROF-LD3 | Expert coder         | Accepted 2026-08-24: converged ordinary live assignment authority, learner delivery, deterministic grading, immutable receipts, and audited Instructor inspection                                                                                                                                                                                                                       | WP-PROF-T3 accepted                                                                      |
 | WP-PROF-T5  | Coder                | Accepted 2026-08-24: accessible ordered fixed-or-pool authoring, policy-correct v1 draws, no-store preview, immutable issued evidence, and ordinary live Instructor/Student delivery; canonical HTTPS acceptance, screenshot provenance, independent visual approval, and final Validation passed                                                                                           | WP-PROF-T1 accepted                                                                      |
@@ -1198,8 +1198,7 @@ manifest convergence. The canonical `webwork_delivery` and
 `assignment_question_replacement` scenarios own the browser-visible WebWork and issued-question
 replacement claims, while `tests/e2e/e2e_webwork_render_rpc.sh` and
 `tests/e2e/e2e_replica_restart.mjs` retain browser-free renderer and replica claims; fixed
-seed/manifest and Rust tests retain Chapter One publication semantics. The former
-`e2e_wp_r2_host_seed_renderer.py` runner is retired after coverage migration.
+seed/manifest and Rust tests retain Chapter One publication semantics.
 `tests/test_assignment_editor_ui.mjs` owns only narrow decoder/client/model behavior. The canonical
 `assignment_question_replacement` and `instructor_authoring` scenarios own visible assignment
 behavior. The aggregate dispatches the one fixed browser owner,

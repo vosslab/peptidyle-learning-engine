@@ -29,12 +29,10 @@ recorded in [implementation_status.md](implementation_status.md) and the changel
 accepted on 2026-08-15. The professor roadmap records M0 as accepted from the four evidenced
 release-truth packages; its subsequent work follows the professor dependency queue.
 
-The accepted historical [peptidyle-walkthrough-plan.md](peptidyle-walkthrough-plan.md) preserves its
-corrected M8-M11 evidence: visible instructor course, local roster, corpus-backed assignment setup,
-and student keyboard take/score/repeat. Current browser evidence is owned by the
+Current browser evidence is owned by the
 [real_stack_browser_suite_plan.md](active/real_stack_browser_suite_plan.md); the sole current-package
 handoff remains in [implementation_status.md](implementation_status.md). Production email and
-canonical onboarding remain separate release work and do not gate that historical walkthrough.
+canonical onboarding remain separate release work.
 
 **Current live-demo capability.** [WP-PROF-LD3](active/live_delivery_convergence_plan.md) established
 ordinary live assignments, learner runs, deterministic server-owned grading, immutable issued
@@ -66,9 +64,8 @@ and `crates/server/src/course/tests/assignment_revision.rs`. The disposable Post
 manifest convergence. The canonical `webwork_delivery` and
 `assignment_question_replacement` scenarios carry the retained browser behavior; the browser-free
 WebWork and replica restart commands retain their distinct service claims; fixed seed/manifest and
-Rust tests retain Chapter One publication semantics. The former `e2e_wp_r2_host_seed_renderer.py`
-owner is retired after that coverage migration. `tests/test_assignment_editor_ui.mjs` owns narrow
-decoder/client/model behavior. The canonical `assignment_question_replacement` and
+Rust tests retain Chapter One publication semantics. `tests/test_assignment_editor_ui.mjs` owns
+narrow decoder/client/model behavior. The canonical `assignment_question_replacement` and
 `instructor_authoring` scenarios own visible assignment behavior.
 `tests/e2e/e2e_browser_suite_owner.py`, dispatched by `local_stack_control/acceptance_lanes.py`, owns
 the one fixed live browser route and canonical composition scenarios. WP-R2 uses inline builders and
@@ -116,9 +113,9 @@ mock-only wiring is never completion evidence.
 
 ## Decisions
 
-The architecture decisions below remain authoritative. Every former scope uncertainty is now closed
-in the in-scope and out-of-scope ledgers in
-`docs/active_plans/active/release_completion_plan.md`. No implementer is expected to
+The architecture decisions below remain authoritative. The in-scope and out-of-scope ledgers in
+`docs/active_plans/active/release_completion_plan.md` record the release boundary. No implementer is
+expected to
 choose a product default, storage rule, source format, authentication method, deployment tool, or
 release boundary while writing code.
 
@@ -405,7 +402,7 @@ hyphens; Rust import and module names use underscores:
 | Project tools            | `crates/project-tools`                       | Cargo-only binary          | Direct `base-course` CLI adapter plus repository-only generation, fixtures, database operations, and E2E seeding invoked with `cargo tools` |
 
 `base_course_installation` owns the installed Base Course recipe and deterministic lifecycle;
-`project-tools` is its direct CLI adapter. The former `cargo xtask` alias is retired.
+`project-tools` is its direct CLI adapter.
 
 ```text
 browser                     ALB          stateless replicas
@@ -1882,8 +1879,7 @@ output lines, and any skipped check with a one-line scope note.
 
 ## Decision completeness
 
-There are no unresolved implementation or scope decisions in this plan. The former questions are
-settled as follows and expanded into dispatchable packages in
+The current implementation and scope decisions are expanded into dispatchable packages in
 `docs/active_plans/active/release_completion_plan.md`:
 
 - The protected visual author editor now supports all eight version 2 families. MC, MA, FIB,
@@ -1902,4 +1898,4 @@ settled as follows and expanded into dispatchable packages in
   lifecycle requirement.
 - Published WeBWorK PG source is an immutable PLE object with license/provenance, and the adapter
   calls the private external standalone `/render-api` service directly.
-- Native Rust `axum` remains the server runtime; the TypeScript-server alternative is closed.
+- Native Rust `axum` is the server runtime.

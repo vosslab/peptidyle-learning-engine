@@ -9,7 +9,7 @@ review remediation, the manual-grading and course-item-analysis packages, Store/
 extraction, the score precision/display package, the refreshed README, QTI import hardening,
 family-filtered production worker activation, and the strengthened live PostgreSQL acceptance
 gate with measured partition-pruning, current-summary gradebook evidence, and a one-time
-production-worker tenant-purge rehearsal, followed by a clean-cluster encrypted logical restore and
+production-worker tenant-purge validation, followed by a clean-cluster encrypted logical restore and
 the maintained three-part local whole-system gate, the first executable PLE flat-question JSON
 contract, and its completed persistence/publication/runtime package.
 
@@ -587,7 +587,7 @@ migration. The disposable acceptance container/database was removed after final 
   partitions, exact one-month pruning, bounded current-summary gradebook planning, serialization
   retry, concurrent family-filtered queue claims, QTI partial import, mixed automatic/manual
   scoring, and course item analysis: passed.
-- One-time isolated tenant-purge rehearsal through the production worker and typed object store:
+- One-time isolated tenant-purge validation through the production worker and typed object store:
   passed. The populated learner graph and student-record object were absent; the assignment,
   instructor membership, published catalog/version/source, workspace draft, and anonymous global
   statistics remained. Its temporary reconstruction harness was removed after evidence capture.
