@@ -16,6 +16,7 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
+acceptance-runtime = { path = "../acceptance-runtime" }
 adapter_native.workspace = true
 adapter_webwork.workspace = true
 anyhow.workspace = true

@@ -35,6 +35,6 @@ echo "Installing npm dependencies..."
 npm install
 
 echo "Setup complete."
-echo "  source source_me.sh && python3 local_stack.py start --no-open - start the local PLE stack"
+echo "  npm run serve - start the dev server"
 echo "  npm run check - full gate (typecheck, lint, format-check, css-policy, tests)"
 echo "  ./devel/setup_playwright.sh - install Playwright browsers, optional"

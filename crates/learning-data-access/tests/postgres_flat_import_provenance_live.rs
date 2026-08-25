@@ -703,3 +703,6 @@ async fn assert_published_origin_immutable(
             .expect("rollback immutability probe");
     }
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

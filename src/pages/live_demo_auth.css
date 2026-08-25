@@ -29,23 +29,8 @@
   margin: 0;
 }
 
-.sysadmin-setup-page {
-  width: min(100%, 42rem);
-}
-
-.sysadmin-setup-form {
-  display: grid;
-  gap: var(--ple-space-2);
-}
-
-.sysadmin-setup-form .primary-action {
-  min-height: 2.75rem;
-  justify-self: start;
-}
-
 @media (max-width: 30rem) {
-  .live-demo-persona-action,
-  .sysadmin-setup-form .primary-action {
+  .live-demo-persona-action {
     width: 100%;
   }
 }

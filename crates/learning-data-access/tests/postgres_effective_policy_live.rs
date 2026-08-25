@@ -298,9 +298,9 @@ async fn active_attempt_witness(
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 database baseline"]
 async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforced() {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let database_url = runtime.admin_url().expose();
+    let pool = lazy_pool(database_url).expect("valid live PostgreSQL URL");
     apply_migrations(&pool)
         .await
         .expect("apply the complete migration epoch to the disposable database");
@@ -833,7 +833,7 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
     .fetch_one(&pool)
     .await
     .expect("capture immutable attempt payload before failure injection");
-    sqlx::query(
+    let corruption_error = sqlx::query(
         "UPDATE question_attempt SET payload='null'::jsonb, payload_sha256=repeat('0',64) \
          WHERE tenant_id=$1 AND attempt_id=$2",
     )
@@ -841,35 +841,19 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
     .bind(issued.id.as_uuid())
     .execute(&pool)
     .await
-    .expect("inject malformed payload into disposable fixture");
-    let injected_failure = store
-        .put_assignment_teaching_settings(
-            context,
-            PutAssignmentTeachingSettingsCommand {
-                actor: instructor,
-                course,
-                assignment,
-                expected_revision: changed.revision,
-                settings: question_model::AssignmentTeachingSettings {
-                    lifecycle: question_model::AssignmentLifecycle::Published,
-                    instructions: question_model::AssignmentInstructions::default(),
-                    base_policy: BaseAssignmentPolicy {
-                        time_limit_seconds: Some(NonZeroU32::new(240).expect("positive limit")),
-                        ..changed.policy
-                    },
-                },
-            },
-        )
-        .await;
-    assert!(
-        injected_failure.is_err(),
-        "malformed protected payload aborts the policy mutation"
+    .expect_err("immutable attempt guard rejects malformed payload corruption");
+    assert_eq!(
+        corruption_error
+            .as_database_error()
+            .and_then(|error| error.code())
+            .as_deref(),
+        Some("22023")
     );
     assert_eq!(
         store
             .get_issued_effective_policy_receipt(context, issued.id)
             .await
-            .expect("read first receipt after injected failure")
+            .expect("read first receipt after rejected corruption")
             .expect("first receipt remains")
             .generation,
         current_receipt.generation
@@ -878,7 +862,7 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
         store
             .get_assignment_for_edit(context, assignment)
             .await
-            .expect("read assignment after injected failure")
+            .expect("read assignment after rejected corruption")
             .expect("assignment remains")
             .revision,
         changed.revision
@@ -887,7 +871,7 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
         store
             .get_issued_effective_policy_receipt(context, second_issued.id)
             .await
-            .expect("read second receipt after injected failure")
+            .expect("read second receipt after rejected corruption")
             .expect("second receipt remains")
             .generation,
         second_current_receipt.generation
@@ -901,7 +885,7 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
     .bind(expected_attempts.clone())
     .fetch_all(&pool)
     .await
-    .expect("read effect pointers after injected failure");
+    .expect("read effect pointers after rejected corruption");
     assert_eq!(effects_after_failure, current_effects);
     let job_ids = jobs.iter().map(|(job, _)| *job).collect::<Vec<_>>();
     let jobs_after_failure: Vec<(Uuid, String)> = sqlx::query_as(
@@ -911,19 +895,18 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
     .bind(job_ids)
     .fetch_all(&pool)
     .await
-    .expect("read timing jobs after injected failure");
+    .expect("read timing jobs after rejected corruption");
     assert_eq!(jobs_after_failure, jobs);
-    sqlx::query(
-        "UPDATE question_attempt SET payload=$3, payload_sha256=$4 \
+    let retained_payload: (serde_json::Value, String) = sqlx::query_as(
+        "SELECT payload, payload_sha256::text FROM question_attempt \
          WHERE tenant_id=$1 AND attempt_id=$2",
     )
     .bind(tenant.as_uuid())
     .bind(issued.id.as_uuid())
-    .bind(original_payload.0)
-    .bind(original_payload.1)
-    .execute(&pool)
+    .fetch_one(&pool)
     .await
-    .expect("restore disposable fixture payload");
+    .expect("read immutable attempt payload after rejected corruption");
+    assert_eq!(retained_payload, original_payload);
     assert!(
         store
             .get_base_assignment_policy(other_context, assignment)
@@ -933,3 +916,6 @@ async fn postgres_effective_policy_is_normalized_precedence_bound_and_rls_enforc
     );
     student_cannot_write_policy_relations(&pool, tenant).await;
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

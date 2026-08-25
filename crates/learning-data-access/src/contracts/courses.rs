@@ -1,5 +1,8 @@
 use super::*;
 
+mod selection;
+pub(crate) use selection::{select_assignment_group_candidates, select_assignment_run_items};
+
 /// Tenant-owned course. Direct access lives exclusively in
 /// [`CourseMembershipRecord`], never in this aggregate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -299,104 +302,6 @@ impl AssignmentRecord {
     }
 }
 
-/// Freezes current fixed items and deterministic group selections for one new run.
-pub(crate) fn select_assignment_run_items(
-    assignment: &AssignmentRecord,
-    run: RunId,
-) -> Result<Vec<AssignmentRunItem>, StoreError> {
-    enum Source<'a> {
-        Fixed(&'a AssignmentItem),
-        Group(&'a AssignmentSelectionGroup),
-    }
-    let mut sources = assignment
-        .active_items()
-        .map(|item| (item.position, Source::Fixed(item)))
-        .chain(
-            assignment
-                .selection_groups
-                .iter()
-                .map(|group| (group.position, Source::Group(group))),
-        )
-        .collect::<Vec<_>>();
-    sources.sort_by_key(|(position, _)| *position);
-    let mut selected = Vec::new();
-    for (source_position, source) in sources {
-        match source {
-            Source::Fixed(item) => {
-                selected.push((item.id, source_position, item.reference, None, None))
-            }
-            Source::Group(group) => {
-                let seed = assignment_selection_seed(run, group);
-                let mut candidates = group
-                    .candidates
-                    .iter()
-                    .filter(|candidate| candidate.delivery_state == AssignmentDeliveryState::Active)
-                    .map(|candidate| (assignment_selection_rank(seed, candidate.id), candidate))
-                    .collect::<Vec<_>>();
-                candidates.sort_by_key(|(rank, candidate)| (*rank, candidate.id));
-                candidates.truncate(usize::try_from(group.draw_count).map_err(|_| {
-                    StoreError::InvalidRecord("selection draw count is too large".to_string())
-                })?);
-                if group.ordering == SelectionOrdering::CandidateOrder {
-                    candidates.sort_by_key(|(_, candidate)| (candidate.position, candidate.id));
-                }
-                for (_, candidate) in candidates {
-                    selected.push((
-                        candidate.id,
-                        source_position,
-                        candidate.reference,
-                        Some(group.id),
-                        Some(seed),
-                    ));
-                }
-            }
-        }
-    }
-    selected
-        .into_iter()
-        .enumerate()
-        .map(
-            |(
-                issued_position,
-                (assignment_item, source_position, reference, selection_group, selection_seed),
-            )| {
-                Ok(AssignmentRunItem {
-                    run,
-                    assignment_item,
-                    source_position,
-                    issued_position: u32::try_from(issued_position).map_err(|_| {
-                        StoreError::InvalidRecord("too many selected run items".to_string())
-                    })?,
-                    reference,
-                    selection_group,
-                    selection_seed,
-                })
-            },
-        )
-        .collect()
-}
-
-fn assignment_selection_seed(run: RunId, group: &AssignmentSelectionGroup) -> u64 {
-    let mut bytes = Vec::with_capacity(34);
-    bytes.extend_from_slice(run.as_uuid().as_bytes());
-    bytes.extend_from_slice(group.id.as_uuid().as_bytes());
-    bytes.extend_from_slice(&group.algorithm_version.to_be_bytes());
-    let digest = Sha256Digest::compute(&bytes);
-    let mut seed = [0_u8; 8];
-    seed.copy_from_slice(&digest.as_bytes()[..8]);
-    u64::from_be_bytes(seed) & 9_007_199_254_740_991
-}
-
-fn assignment_selection_rank(seed: u64, candidate: AssignmentItemId) -> u64 {
-    let mut bytes = Vec::with_capacity(24);
-    bytes.extend_from_slice(&seed.to_be_bytes());
-    bytes.extend_from_slice(candidate.as_uuid().as_bytes());
-    let digest = Sha256Digest::compute(&bytes);
-    let mut rank = [0_u8; 8];
-    rank.copy_from_slice(&digest.as_bytes()[..8]);
-    u64::from_be_bytes(rank)
-}
-
 /// Applies current assignment scoring to one normalized backend result.
 pub(crate) fn current_attempt_points(
     assignment: &AssignmentRecord,
@@ -517,6 +422,24 @@ mod assignment_selection_tests {
         Uuid::from_u128(value)
     }
 
+    fn selection_run(id_value: u128, enrollment: u128, run_number: u32) -> AssignmentRun {
+        AssignmentRun {
+            id: RunId::from_uuid(id(id_value)),
+            reference: question_model::RunReference::new(
+                u64::try_from(id_value).expect("run reference"),
+            )
+            .expect("valid run reference"),
+            tenant: TenantId::from_uuid(id(2)),
+            enrollment: EnrollmentId::from_uuid(id(enrollment)),
+            run_number,
+            started_at: ActivityTimestamp::from_unix_millis(0),
+            completed_at: None,
+            score: None,
+            mode: question_model::RunMode::Assigned,
+            variation: question_model::VariationPolicy::NewSeeds,
+        }
+    }
+
     #[test]
     fn run_selection_is_reproducible_and_freezes_expanded_order() {
         let reference = |value| ProblemVersionRef {
@@ -545,7 +468,7 @@ mod assignment_selection_tests {
                 draw_count: 2,
                 points_per_item: PointValue::from_whole(2),
                 ordering: SelectionOrdering::Randomized,
-                algorithm_version: 1,
+                algorithm: question_model::PoolDrawAlgorithm::V1,
                 candidates: (1..=4)
                     .map(|value| AssignmentSelectionCandidate {
                         id: AssignmentItemId::from_uuid(id(40 + value)),
@@ -567,9 +490,9 @@ mod assignment_selection_tests {
                 variation: question_model::VariationPolicy::NewSeeds,
             },
         };
-        let run = RunId::from_uuid(id(100));
-        let first = select_assignment_run_items(&assignment, run).expect("valid selection");
-        let replay = select_assignment_run_items(&assignment, run).expect("repeat selection");
+        let run = selection_run(100, 101, 1);
+        let first = select_assignment_run_items(&assignment, &run).expect("valid selection");
+        let replay = select_assignment_run_items(&assignment, &run).expect("repeat selection");
 
         assert_eq!(first, replay);
         assert_eq!(first.len(), 3);
@@ -587,9 +510,54 @@ mod assignment_selection_tests {
                 .iter()
                 .all(|item| item.assignment_item != AssignmentItemId::from_uuid(id(44)))
         );
-        let next = select_assignment_run_items(&assignment, RunId::from_uuid(id(101)))
-            .expect("next run selection");
-        assert_ne!(first[1].selection_seed, next[1].selection_seed);
+        let later_run = selection_run(102, 101, 2);
+        let later = select_assignment_run_items(&assignment, &later_run)
+            .expect("later stable-enrollment selection");
+        assert_eq!(
+            first
+                .iter()
+                .map(|item| (item.assignment_item, item.selection_seed))
+                .collect::<Vec<_>>(),
+            later
+                .iter()
+                .map(|item| (item.assignment_item, item.selection_seed))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn full_regeneration_derives_a_new_draw_basis_without_promising_a_new_sample() {
+        let mut assignment = immutable_assignment_fixture();
+        assignment.policies.variation = question_model::VariationPolicy::FullRegeneration;
+        let first_run = selection_run(110, 111, 1);
+        let later_run = selection_run(112, 111, 2);
+
+        let first = select_assignment_run_items(&assignment, &first_run)
+            .expect("first regenerated selection");
+        let later = select_assignment_run_items(&assignment, &later_run)
+            .expect("later regenerated selection");
+
+        assert_ne!(
+            first
+                .iter()
+                .find_map(|item| item.selection_seed)
+                .expect("first selected seed"),
+            later
+                .iter()
+                .find_map(|item| item.selection_seed)
+                .expect("later selected seed")
+        );
+    }
+
+    #[test]
+    fn selected_problem_variants_refuse_pool_draws_until_a_variant_model_exists() {
+        let mut assignment = immutable_assignment_fixture();
+        assignment.policies.variation = question_model::VariationPolicy::SelectedProblemVariants;
+
+        assert!(matches!(
+            select_assignment_run_items(&assignment, &selection_run(120, 121, 1)),
+            Err(StoreError::InvalidRecord(message)) if message.contains("explicit pool-variant")
+        ));
     }
 
     #[test]
@@ -723,7 +691,7 @@ mod assignment_selection_tests {
     #[test]
     fn selected_group_items_complete_from_the_immutable_delivered_order() {
         let tenant = TenantId::from_uuid(id(300));
-        let run = RunId::from_uuid(id(301));
+        let run = selection_run(301, 305, 1);
         let reference = |value| ProblemVersionRef {
             problem: ProblemId::from_uuid(id(310 + value)),
             version: VersionId::from_uuid(id(320 + value)),
@@ -743,7 +711,7 @@ mod assignment_selection_tests {
                 draw_count: 2,
                 points_per_item: PointValue::from_whole(2),
                 ordering: SelectionOrdering::CandidateOrder,
-                algorithm_version: 1,
+                algorithm: question_model::PoolDrawAlgorithm::V1,
                 candidates: (0..2)
                     .map(|position| AssignmentSelectionCandidate {
                         id: AssignmentItemId::from_uuid(id(330 + u128::from(position))),
@@ -761,14 +729,14 @@ mod assignment_selection_tests {
                 variation: question_model::VariationPolicy::NewSeeds,
             },
         };
-        let run_items = select_assignment_run_items(&assignment, run).expect("selected run items");
+        let run_items = select_assignment_run_items(&assignment, &run).expect("selected run items");
         let attempts = run_items
             .iter()
             .enumerate()
             .map(|(index, item)| QuestionAttempt {
                 id: QuestionAttemptId::from_uuid(id(340 + index as u128)),
                 tenant,
-                run,
+                run: run.id,
                 problem: item.reference.problem,
                 question_version: item.reference.version,
                 assignment_position: item.issued_position,
@@ -852,7 +820,7 @@ mod assignment_selection_tests {
                 draw_count: 1,
                 points_per_item: PointValue::from_whole(1),
                 ordering: SelectionOrdering::CandidateOrder,
-                algorithm_version: 1,
+                algorithm: question_model::PoolDrawAlgorithm::V1,
                 candidates: vec![AssignmentSelectionCandidate {
                     id: AssignmentItemId::from_uuid(id(41)),
                     position: 0,

@@ -304,7 +304,6 @@ test.describe("assignment delivery preview on the production PLE stack", () => {
     test.setTimeout(scenarioTimeoutMs);
     const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
     expect(scenarioInput.scenarioId).toBe("preview_plane");
-    expect(scenarioInput.sysadminRequirement).toBe("not_required");
     const assignmentTitle = `Peptide Bond Structure Practice ${scenarioInput.namespace}`;
     const groupTitle = `Extended-time learners ${scenarioInput.namespace}`;
     const expectedOrigin = new URL(scenarioInput.baseUrl).origin;

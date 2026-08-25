@@ -15,9 +15,9 @@ fn id() -> Uuid {
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL acceptance database"]
 async fn postgres_catalog_statistics_disclosure_is_brokered_and_visibility_bound() {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let database_url = runtime.admin_url().expose();
+    let pool = lazy_pool(database_url).expect("valid live PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");
@@ -156,3 +156,6 @@ async fn postgres_catalog_statistics_disclosure_is_brokered_and_visibility_bound
     assert!(!privileges.get::<bool, _>("broker_select_sequence"));
     assert!(privileges.get::<bool, _>("forced_rls"));
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

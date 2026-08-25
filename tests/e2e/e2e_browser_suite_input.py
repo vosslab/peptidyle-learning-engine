@@ -1,9 +1,7 @@
 """Validation for the private owner-to-Playwright input ABI."""
 
-import base64
 import json
 import pathlib
-import re
 
 import local_stack_control.consumer
 
@@ -14,7 +12,6 @@ import e2e_browser_screenshot_contract
 # only owner-selected artifact/state identifiers, but the largest focused
 # scenario legitimately exceeds the original pre-corpus 1 KiB envelope.
 PRIVATE_INPUT_MAXIMUM_BYTES = 16_384
-PRIVATE_PROOF_PATTERN = re.compile(r"^[A-Za-z0-9_-]{43}$")
 
 
 class BrowserSuiteInputError(ValueError):
@@ -40,14 +37,12 @@ def validate(
 		raise BrowserSuiteInputError("browser-suite input has an invalid shape")
 	expected_keys = {
 		"schemaVersion", "scenarioId", "namespace", "baseUrl", "personas",
-		"baselineReads", "sysadminRequirement", "visibleObservation",
+		"baselineReads", "visibleObservation",
 	}
 	if contract.service_receipt is not None:
 		expected_keys.add("serviceReceipt")
 	if contract.fault_transition is not None:
 		expected_keys.add("faultTransition")
-	if contract.sysadmin_requirement == "unclaimed":
-		expected_keys.add("sysadminOwnershipProof")
 	if screenshot_mode:
 		expected_keys.add("screenshotCapture")
 	if set(value) != expected_keys:
@@ -67,7 +62,6 @@ def validate(
 		or tuple(value["personas"]) != contract.personas
 		or not isinstance(value["baselineReads"], list)
 		or tuple(value["baselineReads"]) != contract.baseline_reads
-		or value["sysadminRequirement"] != contract.sysadmin_requirement
 		or value["visibleObservation"] != contract.visible_observation
 		or value.get("serviceReceipt") != contract.service_receipt
 		or value.get("faultTransition") != contract.fault_transition
@@ -80,26 +74,13 @@ def validate(
 			)
 		except e2e_browser_screenshot_contract.ScreenshotContractError as error:
 			raise BrowserSuiteInputError(str(error)) from error
-	proof = value.get("sysadminOwnershipProof")
-	if contract.sysadmin_requirement == "unclaimed":
-		if not isinstance(proof, str) or PRIVATE_PROOF_PATTERN.fullmatch(proof) is None:
-			raise BrowserSuiteInputError("browser-suite input has an invalid shape")
-		try:
-			decoded = base64.urlsafe_b64decode(proof + "=")
-		except ValueError as error:
-			raise BrowserSuiteInputError("browser-suite input has an invalid shape") from error
-		if len(decoded) != 32 or base64.urlsafe_b64encode(decoded).decode("ascii").rstrip("=") != proof:
-			raise BrowserSuiteInputError("browser-suite input has an invalid shape")
-	elif proof is not None:
-		raise BrowserSuiteInputError("browser-suite input has an invalid shape")
 	canonical_value: dict[str, object] = {
 		"schemaVersion": value["schemaVersion"], "scenarioId": value["scenarioId"],
 		"namespace": value["namespace"], "baseUrl": value["baseUrl"],
 		"personas": value["personas"], "baselineReads": value["baselineReads"],
-		"sysadminRequirement": value["sysadminRequirement"],
 		"visibleObservation": value["visibleObservation"],
 	}
-	for key in ("serviceReceipt", "faultTransition", "sysadminOwnershipProof", "screenshotCapture"):
+	for key in ("serviceReceipt", "faultTransition", "screenshotCapture"):
 		if key in value:
 			canonical_value[key] = value[key]
 	if contents != json.dumps(canonical_value, separators=(",", ":"), ensure_ascii=True):

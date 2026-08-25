@@ -36,6 +36,7 @@ import type {
   LearnerQuestionAttempt,
   NextIssuedAttempt,
   PrefetchedNextQuestion,
+  PoolSelection,
   RunSummaryOutcome,
   RunSummaryResponse,
   SignedOutResponse,
@@ -247,16 +248,28 @@ export function decodeLearnerQuestionAttempt(
   path = "response",
 ): LearnerQuestionAttempt {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [...QUESTION_ATTEMPT_FIELDS, "scoringStatus"]);
-  const { scoringStatus, ...attempt } = record;
+  requireOnlyFields(record, path, [...QUESTION_ATTEMPT_FIELDS, "scoringStatus", "poolSelection"]);
+  const { scoringStatus, poolSelection, ...attempt } = record;
   const decoded = {
     ...decodeQuestionAttempt(attempt, path),
     scoringStatus: decodeStringEnum(scoringStatus, `${path}.scoringStatus`, SCORING_STATUSES),
+    poolSelection: decodePoolSelection(poolSelection, `${path}.poolSelection`),
   } satisfies LearnerQuestionAttempt;
   if (decoded.scoringStatus !== "current" && decoded.result !== null) {
     throw new DecodeError(`${path}.result`, "no numeric result while scoring is not current");
   }
   return decoded;
+}
+
+function decodePoolSelection(value: unknown, path: string): PoolSelection | null {
+  if (value === null) return null;
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["itemNumber", "itemCount"]);
+  const itemNumber = decodePositiveInteger(field(record, "itemNumber", path), `${path}.itemNumber`);
+  const itemCount = decodePositiveInteger(field(record, "itemCount", path), `${path}.itemCount`);
+  if (itemNumber > itemCount)
+    throw new DecodeError(path, "a pool item number no greater than its item count");
+  return { itemNumber, itemCount };
 }
 
 export function decodeAssignmentRun(value: unknown, path = "response"): AssignmentRun {
@@ -787,6 +800,7 @@ export function decodePrefetchedNextQuestion(
     "questionVersion",
     "seed",
     "renderedQuestionSha256",
+    "poolSelection",
     "envelope",
   ]);
   const decoded = {
@@ -804,6 +818,10 @@ export function decodePrefetchedNextQuestion(
     renderedQuestionSha256: decodeSha256(
       field(record, "renderedQuestionSha256", path),
       `${path}.renderedQuestionSha256`,
+    ),
+    poolSelection: decodePoolSelection(
+      field(record, "poolSelection", path),
+      `${path}.poolSelection`,
     ),
     envelope: decodeIssuedPresentationEnvelope(field(record, "envelope", path), `${path}.envelope`),
   } satisfies PrefetchedNextQuestion;

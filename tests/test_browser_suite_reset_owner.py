@@ -45,7 +45,7 @@ def test_owned_lifecycle_acquires_before_factory_and_resets_on_factory_failure(
 
 	with pytest.raises(e2e_browser_suite_owner.BrowserSuiteError, match="injected dependency"):
 		e2e_browser_suite_lifecycle.run_owned_selection(
-			e2e_browser_suite_owner.BrowserSuiteSelection("sysadmin_first_claim", None, False),
+			e2e_browser_suite_owner.BrowserSuiteSelection("direct_role_entry", None, False),
 			factory,
 		)
 	assert resets == ["reset", "reset"]
@@ -70,7 +70,7 @@ def test_contending_owner_stops_before_dependency_factory(
 	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path):
 		with pytest.raises(local_stack_control.browser_suite_lease.BrowserSuiteError, match="already running"):
 			e2e_browser_suite_lifecycle.run_owned_selection(
-				e2e_browser_suite_owner.BrowserSuiteSelection("sysadmin_first_claim", None, False),
+				e2e_browser_suite_owner.BrowserSuiteSelection("direct_role_entry", None, False),
 				factory,
 			)
 	assert not called
@@ -125,7 +125,7 @@ def _receipt() -> e2e_browser_suite_owner.BrowserSuiteReceipt:
 	)
 	origin = e2e_browser_suite_oracles.OriginReceipt("https://localhost:55001/", (), ())
 	return e2e_browser_suite_owner.BrowserSuiteReceipt(
-		"sysadmin_first_claim", "https://localhost:55001/",
+		"direct_role_entry", "https://localhost:55001/",
 		local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT, "private", True, True,
 		True, True, True, origin, inventory, inventory, inventory,
 	)
@@ -340,14 +340,14 @@ def test_owned_receipt_follows_final_reset_for_success_and_inner_failures(
 	monkeypatch.setattr(e2e_browser_suite_owner, "run_selection", run_inner)
 	if failure is None:
 		receipt = e2e_browser_suite_lifecycle.run_owned_selection(
-			e2e_browser_suite_owner.BrowserSuiteSelection("sysadmin_first_claim", None, False), factory
+			e2e_browser_suite_owner.BrowserSuiteSelection("direct_role_entry", None, False), factory
 		)
 		assert receipt.final_fixture_evidence is not None
 		assert all(receipt.final_fixture_evidence.as_value().values())
 	else:
 		with pytest.raises(e2e_browser_suite_owner.BrowserSuiteError, match=failure):
 			e2e_browser_suite_lifecycle.run_owned_selection(
-				e2e_browser_suite_owner.BrowserSuiteSelection("sysadmin_first_claim", None, False), factory
+				e2e_browser_suite_owner.BrowserSuiteSelection("direct_role_entry", None, False), factory
 			)
 		assert reported[-1].final_fixture_evidence is not None
 	assert events == ["reset", "factory", "run", "reset", "report"]
@@ -380,7 +380,7 @@ def test_complete_lifecycle_prints_pass_only_after_public_final_evidence(
 
 	monkeypatch.setattr(e2e_browser_suite_owner, "run_selection", run_inner)
 	e2e_browser_suite_lifecycle.run_owned_selection(
-		e2e_browser_suite_owner.BrowserSuiteSelection("sysadmin_first_claim", None, False),
+		e2e_browser_suite_owner.BrowserSuiteSelection("direct_role_entry", None, False),
 		lambda: _dependencies(tmp_path, lambda _receipt: print("public final receipt")),
 	)
 	assert capsys.readouterr().out.splitlines() == ["public final receipt", "Browser-suite: PASS"]
@@ -411,7 +411,7 @@ def test_child_failure_never_prints_pass(
 	)
 	with pytest.raises(e2e_browser_suite_owner.BrowserSuiteError, match="child failure"):
 		e2e_browser_suite_lifecycle.run_owned_selection(
-			e2e_browser_suite_owner.BrowserSuiteSelection("sysadmin_first_claim", None, False),
+			e2e_browser_suite_owner.BrowserSuiteSelection("direct_role_entry", None, False),
 			lambda: _dependencies(tmp_path, lambda _receipt: print("public final receipt")),
 		)
 	assert capsys.readouterr().out.splitlines() == ["public final receipt"]
@@ -446,7 +446,7 @@ def test_final_reset_failure_preserves_the_inner_failure_and_releases_lock(
 	)
 	with pytest.raises(BaseExceptionGroup) as raised:
 		e2e_browser_suite_lifecycle.run_owned_selection(
-			e2e_browser_suite_owner.BrowserSuiteSelection("sysadmin_first_claim", None, False),
+			e2e_browser_suite_owner.BrowserSuiteSelection("direct_role_entry", None, False),
 			lambda: _dependencies(tmp_path, lambda _receipt: None),
 		)
 	messages = str(raised.value)
@@ -481,7 +481,7 @@ def test_final_report_failure_preserves_the_inner_failure_and_releases_lock(
 	)
 	with pytest.raises(BaseExceptionGroup) as raised:
 		e2e_browser_suite_lifecycle.run_owned_selection(
-			e2e_browser_suite_owner.BrowserSuiteSelection("sysadmin_first_claim", None, False),
+			e2e_browser_suite_owner.BrowserSuiteSelection("direct_role_entry", None, False),
 			lambda: _dependencies(
 				tmp_path,
 				lambda _receipt: (_ for _ in ()).throw(
@@ -526,7 +526,7 @@ def test_successful_inner_run_requires_one_matching_captured_receipt(
 	monkeypatch.setattr(e2e_browser_suite_owner, "run_selection", run_inner)
 	with pytest.raises(e2e_browser_suite_owner.BrowserSuiteError, match="inner receipt is incomplete"):
 		e2e_browser_suite_lifecycle.run_owned_selection(
-			e2e_browser_suite_owner.BrowserSuiteSelection("sysadmin_first_claim", None, False),
+			e2e_browser_suite_owner.BrowserSuiteSelection("direct_role_entry", None, False),
 			lambda: _dependencies(tmp_path, lambda _receipt: None),
 		)
 	assert resets == ["reset", "reset"]
@@ -565,7 +565,7 @@ def test_final_process_observation_follows_reset_and_never_serializes_sessions(
 		return ()
 
 	receipt = e2e_browser_suite_lifecycle.run_owned_selection(
-		e2e_browser_suite_owner.BrowserSuiteSelection("sysadmin_first_claim", None, False),
+		e2e_browser_suite_owner.BrowserSuiteSelection("direct_role_entry", None, False),
 		lambda: _dependencies(tmp_path, lambda item: (events.append("report"), reported.append(item))),
 		owner_process_reader=read_processes,
 	)

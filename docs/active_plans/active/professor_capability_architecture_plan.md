@@ -675,24 +675,23 @@ product-specific PostgreSQL harness or an exhaustive live matrix.
 WP-PROF-LD2 follows accepted WP-PROF-LD1 and the
 necessary existing WP-RC8 account-session/passkey/origin contracts. LD2 can implement and validate
 the seeded-entry seams against those contracts while unrelated WP-RC8 provider, mailbox,
-multi-replica, security, and HCI gates remain open. It adds a deployment-controlled Student/Instructor
-persona selector that resolves only to seeded ordinary accounts and then follows the normal
+multi-replica, security, and HCI gates remain open. It adds a deployment-controlled selector for five
+fixed seeded personas that resolves only to seeded ordinary accounts and then follows the normal
 account-session and course/role-selection path. It extends, rather than replaces, WP-RC8's production
-authentication boundary. Its selector behavior and claim, passkey, account, and session data and
+authentication boundary. Its selector, passkey, account, and session data and
 semantics remain non-schema. A completed boundary review allocated `2026081809` for exactly two
 least-privilege execute-only PostgreSQL brokers: safe normal Sysadmin approval-candidate discovery,
-and a read-only completed live-demo installation-generation lookup that binds the configured
-first-ownership proof. The generation-read broker is the narrow schema authorization seam for that
-otherwise non-schema ownership flow; it grants no role and writes no lifecycle, identity, passkey,
-or session state. The separate `2026081810` allocation is only for the
+and a read-only completed live-demo installation-generation lookup. The accepted generation-read
+broker is a narrow auth-owned installation-state read; it grants no role and writes no lifecycle,
+identity, passkey, or session state. The separate `2026081810` allocation is only for the
 discovered Student pre-tenant account-course context repair: it must retain active Student contexts
 without disclosing archived, deleted, or started-retention course records, leave Instructor behavior
-unchanged, and prove connected Student login. Sysadmin remains a normal account-ownership and passkey
-flow with full ordinary Sysadmin capabilities.
+unchanged, and prove connected Student login. Sysadmin remains a normal account and passkey flow with
+full ordinary Sysadmin capabilities.
 
-The approved live-demo handoff is `WP-PROF-LD1` -> `WP-PROF-LD2` -> `WP-PROF-BS1` ->
-`WP-PROF-T3` -> `WP-PROF-LD3`. LD2 was accepted on 2026-08-21. The sole current-package handoff
-is recorded in [implementation_status.md](../implementation_status.md).
+The accepted live-demo handoff is `WP-PROF-LD1` -> `WP-PROF-LD2` -> `WP-PROF-BS1` ->
+`WP-PROF-T3` -> `WP-PROF-LD3`. WP-PROF-LD3 was accepted on 2026-08-24. The sole current-package
+handoff is recorded in [implementation_status.md](../implementation_status.md).
 
 `WP-PROF-BS1` now replaces the parallel mock-backed browser application and separate
 screenshot/browser owners with one canonical disposable real-stack suite. It establishes the
@@ -1047,13 +1046,12 @@ P1 finding.
 | WP-PROF-T1  | Expert coder         | Lifecycle, schedule, late policy, instructions, scoring status                                                                                                                                                                                                                                                                                                                         | WP-PROF-S3                                                                               |
 | WP-PROF-T2  | Expert coder         | Groups, entitlement, accommodations, co-instructors, retention                                                                                                                                                                                                                                                                                                                         | WP-PROF-S5, WP-PROF-T1                                                                   |
 | WP-PROF-LD1 | Integrator           | Accepted 2026-08-20: `base_course_installation`, LDA-owned SQL/lock/migration lifecycle, deterministic product evidence, and real-stack lifecycle proof                                                                                                                                                                                                                                | WP-PROF-T2 accepted                                                                      |
-| WP-PROF-LD2 | Expert coder         | Seeded Student/Instructor entry and initial Sysadmin claim through ordinary WP-RC8 account-session paths; `2026081809` owns exactly two least-privilege execute-only brokers: Sysadmin approval-candidate discovery and read-only completed-installation-generation lookup for configured first-ownership proof; `2026081810` only repairs Student pre-tenant account-course retention | WP-PROF-LD1 accepted; necessary existing WP-RC8 account-session/passkey/origin contracts |
+| WP-PROF-LD2 | Expert coder         | Direct entry for five seeded personas through ordinary WP-RC8 account-session paths; `2026081809` owns exactly two least-privilege execute-only brokers: Sysadmin approval-candidate discovery and read-only completed-installation-generation lookup; `2026081810` only repairs Student pre-tenant account-course retention | WP-PROF-LD1 accepted; necessary existing WP-RC8 account-session/passkey/origin contracts |
 | WP-PROF-BS1 | Integrator           | Accepted canonical disposable real-stack browser suite for Playwright, acceptance, and screenshots; UI-first scenario state; retirement of the test-only browser application and mock transport                                                                                                                                                                                        | WP-PROF-LD2 accepted                                                                     |
 | WP-PROF-T3  | Expert coder         | Accepted 2026-08-22: frozen-scope identity-free preview plane with real-stack browser and canonical screenshot evidence                                                                                                                                                                                                                                                              | WP-PROF-S4, WP-PROF-T1, WP-PROF-LD1 accepted, WP-PROF-LD2 accepted, WP-PROF-BS1 accepted |
-| WP-PROF-T4  | Retired              | Retired before acceptance; package identity remains reserved                                                                                                                                                                                                                                                                                                                            | none                                                                                     |
-| WP-PROF-LD3 | Expert coder         | Current package: converge ordinary live assignment authority, learner delivery, deterministic grading, immutable receipts, and audited Instructor inspection                                                                                                                                                                                                                           | WP-PROF-T3 accepted                                                                      |
-| WP-PROF-T5  | Coder                | Item pool authoring over selection groups                                                                                                                                                                                                                                                                                                                                              | WP-PROF-T1                                                                               |
-| WP-PROF-D1  | Expert coder         | Search metadata, usage index, validity contract, quality signal                                                                                                                                                                                                                                                                                                                        | WP-PROF-S7, WP-R2                                                                        |
+| WP-PROF-LD3 | Expert coder         | Accepted 2026-08-24: converged ordinary live assignment authority, learner delivery, deterministic grading, immutable receipts, and audited Instructor inspection                                                                                                                                                                                                                       | WP-PROF-T3 accepted                                                                      |
+| WP-PROF-T5  | Coder                | Accepted 2026-08-24: accessible ordered fixed-or-pool authoring, policy-correct v1 draws, no-store preview, immutable issued evidence, and ordinary live Instructor/Student delivery; canonical HTTPS acceptance, screenshot provenance, independent visual approval, and final Validation passed                                                                                           | WP-PROF-T1 accepted                                                                      |
+| WP-PROF-D1  | Expert coder         | Current package: search metadata, usage index, validity contract, quality signal                                                                                                                                                                                                                                                                                                       | WP-PROF-S7, WP-R2                                                                        |
 | WP-PROF-D2  | Coder                | Collections, Favorites, saved searches, bulk actions, ProblemPicker                                                                                                                                                                                                                                                                                                                    | WP-PROF-D1                                                                               |
 | WP-PROF-D3  | Coder                | Assisted tagging: worker, proposals, confirmation, provenance. **Optional; nothing depends on it**                                                                                                                                                                                                                                                                                     | WP-PROF-D1                                                                               |
 | WP-PROF-B1  | Expert coder         | Personal blueprints and public Alpha aggregates                                                                                                                                                                                                                                                                                                                                        | WP-PROF-D2, WP-PROF-S7                                                                   |
@@ -1066,10 +1064,49 @@ P1 finding.
 | WP-PROF-E1  | Playwright           | Behavior-named professor journeys and live-stack evidence                                                                                                                                                                                                                                                                                                                              | all behavior WPs                                                                         |
 | WP-PROF-E2  | Integrator           | Final gates, visual review, docs, changelog, baseline procedure                                                                                                                                                                                                                                                                                                                        | WP-PROF-E1                                                                               |
 
+**WP-PROF-T5 binding contract.** One ordered assignment-definition union owns fixed items and
+selection groups in the shared position namespace. Browser writes contain public Question IDs and
+teaching choices only. The server authorizes every Question ID, resolves its immutable publication,
+mints group and candidate identities, and assigns the closed `PoolDrawAlgorithm::V1`. The editor
+shows v1 read-only and offers accessible add, remove, and reorder controls plus clear next-action and
+recovery guidance.
+
+`VariationPolicy::NewSeeds` derives a stable pool draw from enrollment, assignment, and group while
+issuing fresh server-owned question seeds for each permitted run. `FullRegeneration` derives the draw
+from run, assignment, and group and also issues fresh question seeds. A selection group paired with
+`SelectedProblemVariants` is refused until that policy has an implemented instructor-selection
+model. Every successful draw is frozen in immutable `assignment_run_item` rows; resume reads those
+rows and never redraws.
+
+Pre-issue structural editing uses one complete, revision-checked
+`ple_replace_unissued_assignment_definition_v1` capability rather than independently composable
+group mutations. It serializes on the assignment with run creation, validates the whole mixed
+definition, and lets the database decide the edit-versus-first-run race. Once any learner run is
+issued, structural pool changes refuse with a visible path to create a new assignment or use a
+supported future-run replacement; issued draws, question evidence, receipts, and grades remain
+unchanged. The shared migration allocation is owned by
+[implementation_status.md](../implementation_status.md).
+
+Pool preview is an Instructor-authorized, assignment-revision-bound, `no-store` computation using
+the same v1 selector and a server-minted preview nonce. It returns only safe candidate and sampled
+Question IDs/titles and creates no enrollment, run, attempt, issued question, response, answer key,
+grade, receipt, job, or evidence record. Ordinary Student delivery and deterministic server-owned
+grading require no pool-specific runner. T5 acceptance is one production HTTPS journey from visible
+Instructor authoring and preview through Student issue, submission, receipt, repeat-run semantics,
+Instructor inspection, post-issue edit refusal, and exact cleanup.
+
+**Accepted evidence (2026-08-24).** The ordinary production HTTPS `item_pool_delivery` journey
+created the mixed definition through visible UI, previewed it without learner activity, delivered
+and graded its issued draw, preserved the same draw on resume, showed policy-correct permitted
+repeat behavior, permitted Instructor inspection, refused a structural post-issue edit with a
+recovery path, and ended with exact cleanup. Refreshed canonical screenshots passed
+provenance/privacy publication and independent visual review; final Validation passed on the
+material tree.
+
 Each package owns its capability modules. The six named M1 schema packages and the accepted
 post-M1 WP-PROF-LD1 allocation are recorded in the shared registry; WP-PROF-LD2 has the
 `2026081809` two-broker allocation (Sysadmin approval-candidate discovery and completed-installation-
-generation lookup for configured first-ownership proof) and the separate `2026081810` Student
+generation lookup) and the separate `2026081810` Student
 pre-tenant account-course retention-boundary repair allocation. Every later schema package
 receives a release-integrator allocation before implementation, and non-schema packages receive no
 migration implicitly. Shared route registration and migration ordering belong to the integrator.

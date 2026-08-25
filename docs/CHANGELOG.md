@@ -4,6 +4,30 @@
 
 ### Fixes and Maintenance
 
+- Accepted WP-PROF-T5 item pools on the canonical live-demo product path. Elena creates an ordered
+  mixed fixed/pool assignment using public Question IDs, previews a server-generated no-store draw,
+  and the normal Student path issues, grades, resumes, and exposes immutable evidence for the
+  selected items. Pre-issue structural edits serialize against first run; issued work stays
+  immutable and later structural editing presents a visible new-assignment recovery path.
+  Production HTTPS acceptance, refreshed screenshot provenance/privacy publication, independent
+  visual review, and complete final Validation passed; the professor handoff advances to
+  WP-PROF-D1 discovery.
+- Hardened WP-PROF-T5 assignment authoring: create and update now establish the session,
+  Instructor course authority, and update-route assignment binding before bounded JSON decoding;
+  every refusal remains `no-store`. Shared Rust/TypeScript cardinality limits now cap ordered
+  entries at 1,024, candidates per pool at 1,024, and total candidates at 8,192 before any catalog
+  resolution; accessible authoring recovery feedback names the applicable correction.
+- Accepted `WP-PROF-LD3` on the canonical live product path and advanced the professor queue to
+  `WP-PROF-T5` item pools. The production HTTPS browser completed all ten visible role, passkey,
+  authoring, preview, replacement, grading, learner-delivery, recovery, WebWork, and QTI-import
+  scenarios; the isolated WebWork and replica-restart oracles also passed with exact durable replay
+  and empty final resource, process, private-artifact, and workspace inventories. The 63-artifact
+  production screenshot corpus passed privacy checks and independent visual review. Reserved
+  `2026081826` for T5's one complete revision-checked pre-issue assignment-definition replacement,
+  closed v1 pool-draw authority, and database serialization against first run creation.
+- Initialized the browser owner's ordered execution contracts for ordinary and screenshot selections
+  after optional screenshot replacement, preventing ordinary acceptance from raising an unbound-local
+  failure; added a focused behavioral regression for the ordinary child-execution path.
 - Selected the live demo as PLE's single product and acceptance path and retired the unaccepted
   `WP-PROF-T4` parallel execution sidecar before production. New current package `WP-PROF-LD3`
   converges ordinary assignment mutation, learner delivery, deterministic server-owned grading,
@@ -20,36 +44,6 @@
   database serialization failures, so stale grade drafts reach the browser as the intended preserved
   412 workflow. The settings page also keeps a successful save acknowledged when its subsequent
   totals refresh fails and names the visible recovery action.
-- Advanced the current `WP-PROF-T4` rehearsal package over ordinary live courses, assignments,
-  published questions, and deterministic graders. Store-owned start now freezes the real ordered
-  assignment source, derives four-item progression without a mutable client ordinal, binds
-  submissions to the issued answer-free screen, and preserves receipt-only terminal replay.
-- Retired the application-visible frozen-material preload and the normal-build direct rehearsal
-  claim APIs. Route verification now returns only an integrity result, requires an active authorized
-  rehearsal, and discloses no candidate identity, question payload, snapshot, or grading material.
-  Fresh PostgreSQL 17 tests prove active success, terminal concealment, internally checksummed
-  corruption refusal, least-privilege function shape, ordered completion, and replay behavior.
-- Kept rehearsal as a live operating mode rather than a parallel demo data source. Its dedicated
-  persistence contains immutable execution and audit evidence outside learner records; the current
-  T4 package remains unaccepted pending production routes, visible UI, canonical HTTPS evidence,
-  and complete Validation.
-- Bound every issued rehearsal screen to a server-derived full commitment over the complete typed,
-  answer-free presentation; browser submissions carry only its public stale-screen token. Memory
-  and PostgreSQL now rehydrate and rederive that commitment before replay, read, claim, or submit,
-  and fail closed on corrupted screen content or evidence.
-- Completed immutable rehearsal timing authority without learner timers or a mutable current-item
-  pointer. Database/server time and frozen ordinary material derive the canonical witness;
-  per-question expiry alone permits same-item Retry, while per-attempt and subject limits persist a
-  replayable no-screen terminal. Fresh PostgreSQL 17 migration convergence and the focused live
-  rehearsal matrix passed 1/1 and 17/17; Memory rehearsal conformance passed 43/43, and strict
-  production-profile checks are warning-free.
-- Replaced the Base Course freshness broker's migration-order-dependent public-table scan with an
-  explicit, locked relation-domain registry and a separate sealed-rehearsal witness. Fresh installs
-  now fail closed on missing coverage, unsafe ownership, role, ACL, RLS, column, sequence, or
-  function authority; the delivery-material migration remains one atomic transaction. Base Course
-  completion now derives its transaction-local tenant context from the locked installation state
-  before invoking the sealed learner-work shape verifier. Corrected the invitation-broker catalog
-  oracle to include its intentional roster-state bootstrap insert.
 - Bound browser HTTP requests and Solid Router query entries to one abortable session generation.
   Confirmed logout and subsequent session establishment now retire pending work before another
   account can load, while the production-browser course picker waits for visible course identity

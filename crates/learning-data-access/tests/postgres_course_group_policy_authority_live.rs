@@ -36,9 +36,9 @@ struct Fixture {
 
 async fn pool() -> PgPool {
     let _guard = MIGRATION_LOCK.lock().await;
-    let url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL names a disposable PostgreSQL 17 database");
-    let pool = lazy_pool(&url).expect("PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose();
+    let pool = lazy_pool(url).expect("PostgreSQL URL");
     apply_migrations(&pool)
         .await
         .expect("full migration epoch applies");
@@ -277,7 +277,7 @@ async fn authority_catalog_is_exact(pool: &PgPool) {
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL and a disposable PostgreSQL 17 database"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn postgres_course_group_policy_cas_is_session_bound_and_least_privileged() {
     let pool = pool().await;
     let fixture = fixture(&pool).await;
@@ -402,3 +402,6 @@ async fn postgres_course_group_policy_cas_is_session_bound_and_least_privileged(
     app_direct_dml_is_denied(&pool, fixture).await;
     authority_catalog_is_exact(&pool).await;
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

@@ -22,7 +22,6 @@ import { AccountSecurityPage } from "./pages/account_security_page";
 import { CourseInvitationPage } from "./pages/course_invitation_page";
 import { CourseRosterPage } from "./pages/course_roster_page";
 import { EmailAuthenticationCompletePage, SignInPage } from "./pages/sign_in_page";
-import { LiveDemoSysadminSetupPage } from "./pages/live_demo_sysadmin_setup_page";
 import { EmailChangeCompletePage } from "./pages/email_change_complete_page";
 import { AccountPendingInvitationsPage } from "./pages/account_pending_invitations_page";
 import { AssignmentAccessLivePage } from "./pages/assignment_access_live_page";
@@ -34,7 +33,6 @@ export { ROUTE_CONTRACT } from "./route_contract";
 const routeComponents: Readonly<Record<RouteId, Component>> = {
   courses: CourseListPage,
   signIn: SignInPage,
-  liveDemoSysadminSetup: LiveDemoSysadminSetupPage,
   emailAuthenticationComplete: EmailAuthenticationCompletePage,
   emailChangeComplete: EmailChangeCompletePage,
   courseInvitation: CourseInvitationPage,

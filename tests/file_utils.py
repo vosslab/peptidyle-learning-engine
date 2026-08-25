@@ -15,8 +15,7 @@ import collections.abc
 # through the extra_filter callable on discover_files.
 SKIP_DIRS = frozenset({
 	".git", ".venv", "__pycache__", ".pytest_cache", ".mypy_cache",
-	"old_shell_folder", "legacy", "node_modules", "OTHER_REPOS", "target",
-	"dist", "generated", "dist_wasm", "graphify-out",
+	"old_shell_folder", "legacy",
 })
 
 
@@ -24,17 +23,19 @@ SKIP_DIRS = frozenset({
 @functools.lru_cache(maxsize=None)
 def get_repo_root() -> str:
 	"""
-	Get the repository root from this installed test helper's location.
+	Get the repository root using git rev-parse --show-toplevel.
 
-	The result is memoized for the process lifetime: the root does not change
-	while a pytest run executes, and this avoids coupling the test front door to
-	version-control metadata. The hygiene suite calls this helper hundreds of
-	times per run.
+	The result is memoized for the process lifetime: the repo root does not
+	change while a pytest run executes, so resolving it once avoids spawning
+	git on every rel_to_root/report_path/discover_files call. The hygiene
+	suite calls this helper hundreds of times per run.
 
 	Returns:
 		str: Absolute path to the repository root.
 	"""
-	return str(pathlib.Path(__file__).resolve().parent.parent)
+	output = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True)
+	repo_root = output.strip()
+	return repo_root
 
 
 #============================================
@@ -126,7 +127,7 @@ def rel_to_root(path: str, repo_root: str | None = None) -> str:
 	Returns:
 		str: Repo-relative path using forward slashes.
 	"""
-	# Default to the repository root when no root is supplied.
+	# Default to the git repo root when no root is supplied.
 	if repo_root is None:
 		repo_root = get_repo_root()
 	# Compute the relative path, then normalize Windows separators to POSIX.
@@ -465,10 +466,56 @@ def run_fixer_script(script_name: str, target: str) -> tuple[int, str]:
 
 
 #============================================
-# Per-repository-root cache of the whole source-tree listing. This excludes
-# generated/cache directories through the same universal rule the hygiene
-# scanners apply, so the test suite has one VCS-free definition of its input.
-_ALL_REPOSITORY_FILES_CACHE: dict[str, list[str]] = {}
+def _run_git(repo_root: str, args: list[str], error_message: str) -> str:
+	"""
+	Run a git command and return stdout.
+
+	Args:
+		repo_root: Repo root used as the working directory.
+		args: Git command argument list.
+		error_message: Fallback error message.
+
+	Returns:
+		str: Command stdout.
+	"""
+	result = subprocess.run(
+		args,
+		capture_output=True,
+		text=True,
+		cwd=repo_root,
+	)
+	if result.returncode != 0:
+		message = result.stderr.strip() or error_message
+		raise AssertionError(message)
+	return result.stdout
+
+
+#============================================
+def _split_null(output: str) -> list[str]:
+	"""
+	Split a NUL-separated stdout string into paths.
+
+	Args:
+		output: Raw stdout string from git ls-files -z, with NUL between paths.
+
+	Returns:
+		list[str]: Non-empty path strings split on the NUL delimiter.
+	"""
+	paths = []
+	for path in output.split("\0"):
+		if not path:
+			continue
+		paths.append(path)
+	return paths
+
+
+# Per-repo_root cache of the whole-repo tracked-file listing. Only the
+# no-pattern call (used by discover_files via _gather_all_paths) is cached,
+# because that is the listing the 11 hygiene modules each rebuild at
+# collection time. Pattern-scoped calls stay uncached. Keyed by repo_root so
+# regression tests that point at a temporary root never collide with the real
+# repo listing.
+_ALL_TRACKED_FILES_CACHE: dict[str, list[str]] = {}
 
 
 #============================================
@@ -478,52 +525,41 @@ def list_tracked_files(
 	error_message: str | None = None,
 ) -> list[str]:
 	"""
-	List repository source files without requiring version-control metadata.
+	List tracked files using git ls-files.
 
-	The no-pattern whole-tree listing (patterns is None or empty) is memoized
-	per repo_root. Discovery excludes universal generated, cache, and scratch
-	directories before tests apply their domain-specific filters. Pattern-scoped
-	calls derive from that same source list and accept shell-style relative-path
-	patterns. The cache is keyed by repo_root so temporary-root regression tests
-	remain isolated from the real repository.
+	The no-pattern whole-repo listing (patterns is None or empty) is memoized
+	per repo_root in _ALL_TRACKED_FILES_CACHE, so discover_files does not spawn
+	git ls-files once per hygiene module at collection time. Pattern-scoped
+	calls are never cached and always spawn git, since their result depends on
+	the pathspecs. The cache is keyed by repo_root so tmp-root regression tests
+	stay isolated from the real repo listing.
 
 	Args:
 		repo_root: Absolute path to the repository root directory.
-		patterns: Optional shell-style relative-path patterns. When None or
-			empty, all repository source files are listed.
-		error_message: Retained compatibility argument; filesystem discovery
-			raises its native error when the supplied root is unreadable.
+		patterns: Optional list of pathspecs to pass after -- to git ls-files.
+			When None or empty, all tracked files are listed.
+		error_message: Message for AssertionError on git failure. Defaults to
+			"Failed to list tracked files."
 
 	Returns:
-		list[str]: Repo-relative POSIX paths of all matching repository files.
+		list[str]: Repo-relative POSIX paths of all matching tracked files.
 	"""
-	root = os.path.abspath(os.fspath(repo_root))
-	cached = _ALL_REPOSITORY_FILES_CACHE.get(root)
-	if cached is None:
-		paths = []
-		for directory, directories, filenames in os.walk(root):
-			rel_directory = os.path.relpath(directory, root).replace("\\", "/")
-			directories[:] = [
-				name for name in directories
-				if not path_has_skip_dir(
-					name if rel_directory == "." else f"{rel_directory}/{name}"
-				)
-			]
-			for filename in filenames:
-				rel_path = (
-					filename if rel_directory == "." else f"{rel_directory}/{filename}"
-				)
-				if path_has_skip_dir(rel_path):
-					continue
-				paths.append(rel_path)
-			cached = sorted(paths)
-			_ALL_REPOSITORY_FILES_CACHE[root] = cached
+	if error_message is None:
+		error_message = "Failed to list tracked files."
+	# Serve the whole-repo (no-pattern) listing from the per-root cache.
 	if not patterns:
-		return list(cached)
-	return [
-		path for path in cached
-		if any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
-	]
+		cached = _ALL_TRACKED_FILES_CACHE.get(repo_root)
+		if cached is not None:
+			# Return a copy so callers cannot mutate the cached listing.
+			return list(cached)
+		output = _run_git(repo_root, ["git", "ls-files", "-z"], error_message)
+		paths = _split_null(output)
+		_ALL_TRACKED_FILES_CACHE[repo_root] = paths
+		return list(paths)
+	# Pattern-scoped listing: always spawn git, never cache.
+	command = ["git", "ls-files", "-z", "--"] + patterns
+	output = _run_git(repo_root, command, error_message)
+	return _split_null(output)
 
 
 #============================================
@@ -552,11 +588,6 @@ def path_has_skip_dir(path: str) -> bool:
 			return True
 		if index < len(parts) - 1 and part.startswith("dist_"):
 			return True
-	# Hygiene reports are generated at the repository root. Exclude that
-	# namespace during discovery so import-time parametrization cannot retain a
-	# report that the later autouse cleanup removes.
-	if len(parts) == 1 and parts[0].startswith("report_") and parts[0].endswith(".txt"):
-		return True
 	return False
 
 
@@ -611,13 +642,13 @@ def discover_files(
 	repo_root: str | None = None,
 ) -> list[str]:
 	"""
-	Discover all repository source files for a hygiene scan.
+	Discover all tracked files for a hygiene scan.
 
 	This is the canonical file-discovery helper for repo-hygiene tests. It
 	owns all invariant discovery work (absolute-path join, dedupe, skip-dir
 	filtering, extension filtering, isfile check, and sort). Tests inject
-	only what is genuinely per-test. Discovery always scans the repository tree
-	from this helper's location, with no version-control dependency.
+	only what is genuinely per-test. Discovery always scans all tracked files
+	via git ls-files with no env-var dependency.
 
 	Exclusion uses three layers, applied in this order:
 
@@ -655,8 +686,8 @@ def discover_files(
 	if extensions is not None:
 		extension_set = {ext.lower() for ext in extensions}
 
-	# Step 1: gather all repository file absolute paths. _gather_all_paths joins
-	# each relative path to repo_root with no environment dependency.
+	# Step 1: gather all tracked file absolute paths. _gather_all_paths joins
+	# each git-relative path to repo_root with no env dependency.
 	raw = _gather_all_paths(repo_root)
 
 	# Step 2-3: normalize to clean absolute paths and dedupe on the result.
@@ -715,8 +746,8 @@ def _gather_all_paths(repo_root: str) -> list[str]:
 			the base for os.path.join on each repo-relative path.
 
 	Returns:
-		list[str]: Absolute paths to every repository source file under repo_root,
-		in deterministic relative-path order.
+		list[str]: Absolute paths to every tracked file under repo_root,
+			in the order returned by git ls-files.
 	"""
 	paths = []
 	for path in list_tracked_files(repo_root):

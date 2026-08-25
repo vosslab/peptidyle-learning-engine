@@ -1,9 +1,9 @@
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL acceptance database"]
 async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let database_url = runtime.admin_url().expose();
+    let pool = lazy_pool(database_url).expect("valid live PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");
@@ -188,8 +188,20 @@ async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
         .bind(managed_course.as_uuid())
         .bind("Sysadmin-created course")
         .execute(&pool)
-        .await
-        .expect("insert course without direct sysadmin membership");
+    .await
+    .expect("insert course without direct sysadmin membership");
+    sqlx::query(
+        "INSERT INTO course_member (tenant_id, course_id, course_membership_id, user_id, \
+         role, student_id, status, joined_at) \
+         VALUES ($1, $2, $3, $4, 'instructor', NULL, 'active', transaction_timestamp())",
+    )
+    .bind(managed_tenant.as_uuid())
+    .bind(managed_course.as_uuid())
+    .bind(id())
+    .bind(instructor)
+    .execute(&pool)
+    .await
+    .expect("insert unrelated direct Instructor for Instructor-only roster mutation");
 
     let managed_context = TenantContext::from_authenticated_session(managed_tenant);
     let invitation_command = CreateCourseInvitation {

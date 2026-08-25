@@ -6,8 +6,9 @@ use axum::routing::{delete, get, post, put};
 use learning_data_access::{
     AuthoritativeTimeStore, CatalogStore, CourseGradebookStore, CourseGroupManagementStore,
     CourseInvitationDeliveryStore, CourseItemAnalysisStore, CourseRecordsAccessStore,
-    CourseRosterStore, ManualGradeExportStore, NavigationReferenceStore, PreviewPlaneStore,
-    SessionStore, Store, TeachingAuthorityReferenceStore, TeachingAuthorityStore,
+    CourseRosterStore, ManualGradeExportStore, NavigationReferenceStore, PoolPreviewStore,
+    PreviewPlaneStore, SessionStore, Store, TeachingAuthorityReferenceStore,
+    TeachingAuthorityStore,
 };
 use serde::{Deserialize, Serialize};
 
@@ -40,6 +41,7 @@ where
         + TeachingAuthorityReferenceStore
         + AuthoritativeTimeStore
         + NavigationReferenceStore
+        + PoolPreviewStore
         + PreviewPlaneStore
         + 'static,
 {
@@ -63,6 +65,7 @@ where
         + TeachingAuthorityReferenceStore
         + AuthoritativeTimeStore
         + NavigationReferenceStore
+        + PoolPreviewStore
         + PreviewPlaneStore
         + 'static,
 {
@@ -301,7 +304,7 @@ fn course_term_failure(
 #[serde(deny_unknown_fields)]
 pub(super) struct CreateAssignmentRequest {
     pub(super) title: String,
-    pub(super) question_ids: Vec<question_model::QuestionId>,
+    pub(super) entries: Vec<AssignmentEntryRequest>,
     pub(super) disclosure_policy: question_model::LearnerDisclosurePolicy,
     pub(super) policies: question_model::RunPolicies,
 }
@@ -310,7 +313,7 @@ pub(super) struct CreateAssignmentRequest {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct UpdateAssignmentRequest {
     pub(super) title: String,
-    pub(super) items: Vec<AssignmentItemUpdateRequest>,
+    pub(super) entries: Vec<AssignmentEntryRequest>,
     pub(super) disclosure_policy: question_model::LearnerDisclosurePolicy,
     pub(super) policies: question_model::RunPolicies,
 }
@@ -321,14 +324,27 @@ pub(super) type AssignmentTeachingSettingsRequest =
     question_model::assignment::InstructorAssignmentTeachingSettingsLocal;
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(super) struct AssignmentItemUpdateRequest {
-    pub(super) id: question_model::AssignmentItemId,
-    pub(super) question_id: question_model::QuestionId,
-    pub(super) position: u32,
-    pub(super) points_possible: question_model::PointValue,
-    pub(super) delivery_state: question_model::AssignmentDeliveryState,
-    pub(super) scoring_mode: question_model::AssignmentScoringMode,
+#[serde(
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields,
+    tag = "kind"
+)]
+pub(super) enum AssignmentEntryRequest {
+    Fixed {
+        question_id: question_model::QuestionId,
+        position: u32,
+        points_possible: question_model::PointValue,
+        delivery_state: question_model::AssignmentDeliveryState,
+        scoring_mode: question_model::AssignmentScoringMode,
+    },
+    SelectionGroup {
+        candidate_question_ids: Vec<question_model::QuestionId>,
+        position: u32,
+        draw_count: u32,
+        points_per_item: question_model::PointValue,
+        ordering: question_model::SelectionOrdering,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -365,7 +381,7 @@ mod tests {
     fn explicit_request() -> serde_json::Value {
         serde_json::to_value(CreateAssignmentRequest {
             title: "Mastery".to_string(),
-            question_ids: Vec::new(),
+            entries: Vec::new(),
             disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
             policies: question_model::RunPolicies {
                 completion: question_model::CompletionRequirement::AllCorrect,
@@ -439,7 +455,7 @@ mod tests {
 
         let update = serde_json::json!({
             "title": "Mastery",
-            "items": [],
+            "entries": [],
             "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
             "policies": question_model::RunPolicies {
                 completion: question_model::CompletionRequirement::AllCorrect,
@@ -455,5 +471,38 @@ mod tests {
             .expect("update request object")
             .remove("disclosurePolicy");
         assert!(strict_assignment_request::<UpdateAssignmentRequest>(omitted_update).is_err());
+    }
+
+    #[test]
+    fn assignment_entries_are_a_closed_tagged_union() {
+        let request = serde_json::json!({
+            "title": "Mastery",
+            "entries": [{
+                "kind": "selectionGroup",
+                "candidateQuestionIds": ["ABC-DEF1"],
+                "position": 0,
+                "drawCount": 1,
+                "pointsPerItem": "1",
+                "ordering": "candidateOrder"
+            }],
+            "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
+            "policies": question_model::RunPolicies {
+                completion: question_model::CompletionRequirement::AllCorrect,
+                grade: question_model::GradePolicy::Highest,
+                continued_practice: question_model::ContinuedPractice::Unlimited,
+                variation: question_model::VariationPolicy::NewSeeds,
+            },
+        });
+        let decoded = serde_json::from_value::<CreateAssignmentRequest>(request.clone());
+        assert!(decoded.is_ok(), "entry request decode: {decoded:?}");
+        assert!(strict_assignment_request::<CreateAssignmentRequest>(request.clone()).is_ok());
+
+        let mut internal_identity = request.clone();
+        internal_identity["entries"][0]["algorithmVersion"] = serde_json::json!(1);
+        assert!(strict_assignment_request::<CreateAssignmentRequest>(internal_identity).is_err());
+
+        let mut unknown_kind = request;
+        unknown_kind["entries"][0]["kind"] = serde_json::json!("pool");
+        assert!(strict_assignment_request::<CreateAssignmentRequest>(unknown_kind).is_err());
     }
 }

@@ -23,7 +23,6 @@ import local_stack_control.renderer
 import local_stack_control.status
 import local_stack_control.chapter_one
 import local_stack_control.base_course_lifecycle
-import local_stack_control.live_demo_claim_context
 import local_stack_control.live_demo_gateway
 
 
@@ -99,14 +98,8 @@ def bootstrap_default_state(
 	secret_directory = runtime_directory / ".secrets"
 	invitation_path = secret_directory / "invitation_token_secret"
 	question_path = secret_directory / "question_id_secret"
-	values = local_stack_control.env_file.env_settings(selected.env_file)
 	local_stack_control.local_environment.bootstrap_secret32_file(invitation_path)
 	local_stack_control.local_environment.bootstrap_secret32_file(question_path)
-	if local_stack_control.lifecycle_profiles.uses_live_demo_sysadmin_claim_context(target):
-		claim_context_path = absolute_value_path(
-			selected.repo_root, values["PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE"]
-		)
-		local_stack_control.live_demo_claim_context.ensure_bind_source(claim_context_path)
 
 
 #============================================
@@ -140,9 +133,6 @@ def configure_default_environment(
 	}
 	if local_stack_control.live_demo_gateway.is_tls_target(target):
 		defaults.update({
-			"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE": str(
-				runtime_directory / ".runtime/live-demo-sysadmin-claim-context.json"
-			),
 			"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID": LOCAL_INSTRUCTOR_ID,
 			"PLE_LIVE_DEMO_MARY_STUDENT_USER_ID": LOCAL_MARY_ID,
 			"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID": LOCAL_JACK_ID,
@@ -235,7 +225,6 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 	)
 	if local_stack_control.live_demo_gateway.is_tls_target(target):
 		required = required + (
-			"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE",
 			"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID", "PLE_LIVE_DEMO_MARY_STUDENT_USER_ID",
 			"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID", "PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID",
 			"PLE_LIVE_DEMO_SYSADMIN_USER_ID",
@@ -249,9 +238,6 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 	for name in ("PLE_INVITATION_TOKEN_SECRET_HOST_FILE", "PLE_QUESTION_ID_SECRET_HOST_FILE"):
 		path = absolute_value_path(target.repo_root, values[name])
 		local_stack_control.local_environment.read_secret32_file(path)
-	if local_stack_control.live_demo_gateway.is_tls_target(target):
-		claim_path = absolute_value_path(target.repo_root, values["PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE"])
-		local_stack_control.live_demo_claim_context.validate_bind_source(claim_path)
 	if target.with_smtp:
 		validate_smtp(values, target.repo_root)
 	return values
@@ -683,7 +669,6 @@ def finalize_installed_base_course(
 	selected = target_of(target)
 	if preparation.install_state == "complete":
 		write_base_course_diagnostic(selected, preparation.raw_output)
-		ensure_live_demo_claim_context(target, values, preparation)
 		return
 	local_stack_control.base_course_lifecycle.ensure_storage_receipt(
 		selected, runner, preparation, child_environment(selected)
@@ -707,24 +692,6 @@ def finalize_installed_base_course(
 			"installed Base Course install did not complete"
 		)
 	write_base_course_diagnostic(selected, completed.raw_output)
-	ensure_live_demo_claim_context(target, values, completed)
-
-
-#============================================
-def ensure_live_demo_claim_context(
-	target: local_stack_control.models.ComposeTarget
-	| local_stack_control.models.DisposableComposeTarget,
-	values: dict[str, str],
-	receipt: BaseCourseLifecycleReceipt,
-) -> None:
-	"""Bind the private Sysadmin proof to the completed Rust lifecycle receipt."""
-	if not local_stack_control.lifecycle_profiles.uses_live_demo_sysadmin_claim_context(target):
-		return
-	selected = target_of(target)
-	path = absolute_value_path(selected.repo_root, values["PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE"])
-	local_stack_control.live_demo_claim_context.ensure_context(
-		path, receipt.installation_generation, values["PLE_LIVE_DEMO_SYSADMIN_USER_ID"]
-	)
 
 
 #============================================

@@ -12,7 +12,6 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			personas=("elena_instructor",),
 			baseline_reads=("base_course",),
 			ui_creates=("question", "course", "assignment", "invitation"),
-			sysadmin_requirement="not_required",
 			visible_observation="instructor_authoring_persists_after_reload",
 			screenshot_states=(
 				"workspace",

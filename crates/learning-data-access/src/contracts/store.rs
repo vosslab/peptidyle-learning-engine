@@ -221,6 +221,16 @@ pub trait Store:
         CourseAssignmentStore::replace_assignment_impl(self, context, command).await
     }
 
+    /// Atomically replaces an unissued complete assignment definition.
+    async fn replace_unissued_assignment_definition(
+        &self,
+        context: TenantContext,
+        command: ReplaceUnissuedAssignmentDefinitionCommand,
+    ) -> Result<ReplaceUnissuedAssignmentDefinitionOutcome, StoreError> {
+        CourseAssignmentStore::replace_unissued_assignment_definition_impl(self, context, command)
+            .await
+    }
+
     /// Replaces one fixed assignment item through the focused
     /// revision-checked replacement capability.
     async fn replace_assignment_fixed_item(

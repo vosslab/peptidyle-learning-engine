@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import pathlib
 import socket
-import stat
 import subprocess
 from collections.abc import Callable
 
@@ -14,6 +13,7 @@ import local_stack_control.browser_suite_reset
 import local_stack_control.compose
 import local_stack_control.models
 import local_stack_control.process
+import local_stack_control.runtime_manifest
 
 
 #============================================
@@ -31,30 +31,23 @@ def _select_loopback_port() -> int:
 
 
 #============================================
-def _write_owner_input(workspace: pathlib.Path) -> pathlib.Path:
-	"""Write the private owner handoff that enables the shell oracle child."""
-	path = workspace / "database-baseline.owner"
-	descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-	try:
-		os.write(descriptor, b"lease-held\n")
-	finally:
-		os.close(descriptor)
-	metadata = path.stat()
-	if metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) != 0o600:
-		raise local_stack_control.models.ControllerError("database baseline owner input is unavailable")
-	return path
-
-
-#============================================
 def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, port: int) -> None:
-	"""Run the private shell oracle while its Python owner retains the lease."""
-	environment = os.environ.copy()
-	environment["PLE_DATABASE_BASELINE_OWNER_INPUT"] = str(_write_owner_input(workspace))
-	environment["PLE_DATABASE_BASELINE_WORKSPACE"] = str(workspace)
-	environment["PLE_DATABASE_BASELINE_PORT"] = str(port)
+	"""Run the private shell oracle with one generated non-secret manifest locator."""
+	local_stack_control.runtime_manifest.write_database_baseline_runtime(workspace, port)
+	environment = {
+		name: value
+		for name, value in os.environ.items()
+		if not name.startswith("PLE_") and not name.startswith("COMPOSE_")
+	}
 	result = subprocess.run(
-		["bash", "tests/e2e/e2e_database_baseline.sh", "--owned-child"],
-		cwd=repository_root,
+		[
+			"bash",
+			str(repository_root / "tests/e2e/e2e_database_baseline.sh"),
+			"--owned-child",
+			"--runtime-manifest",
+			local_stack_control.runtime_manifest.MANIFEST_NAME,
+		],
+		cwd=workspace,
 		env=environment,
 		check=False,
 	)

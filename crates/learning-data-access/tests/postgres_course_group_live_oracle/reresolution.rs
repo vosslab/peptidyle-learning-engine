@@ -4,9 +4,9 @@ use super::{fixture::*, published_assignment};
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 database baseline"]
 async fn postgres_course_group_edit_reresolves_zero_one_and_multiple_assignments() {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&database_url).expect("valid disposable PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let database_url = runtime.admin_url().expose();
+    let pool = lazy_pool(database_url).expect("valid disposable PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("full migrated application schema is compatible");

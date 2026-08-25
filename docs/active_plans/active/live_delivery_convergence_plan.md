@@ -2,10 +2,11 @@
 
 ## Status and authority
 
-WP-PROF-LD3 is the current professor package. The owner retired the unaccepted WP-PROF-T4
-execution sidecar on 2026-08-24 and selected the live demo as the canonical product and acceptance
-path. [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) leads product behavior,
-[HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) records the durable owner decision, and
+WP-PROF-LD3 was accepted on 2026-08-24. It established the live demo as the canonical product and
+acceptance path over ordinary assignments, learner runs, grading, evidence, and Instructor
+inspection. WP-PROF-T5 item pools are accepted, and the current professor handoff is WP-PROF-D1
+discovery. [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) leads product behavior,
+[HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) records durable owner decisions, and
 [implementation_status.md](../implementation_status.md) owns the current handoff and migration
 allocation.
 
@@ -29,20 +30,24 @@ connects through the same product records.
 
 ## Scope
 
-### Retire the unaccepted sidecar
+### Converge public seeded-role entry
 
-Remove the separate execution aggregate from domain models, stores, server composition, routes,
-generated contracts, migrations, tests, and active documentation. Retain its WP-PROF-T4 identity in
-the status ledger as retired so package names remain globally unambiguous.
+The live demo exposes one public role-entry surface for every seeded human role: Student, Instructor, and
+Sysadmin. Graphify's identity-path snapshot identifies `seeded_account_selector_router()` and
+`select_seeded_account()` in `crates/server/src/auth/seeded_account_selector.rs`, which issue an ordinary
+account session. LD3 makes that selector the direct seeded-role entry and keeps passkeys as ordinary
+account-security behavior after entry. The selector supplies identity; the server resolves the account,
+session, course, membership, role, and authorization state from live PLE records.
 
-Remove the unaccepted sidecar-only migration allocations `2026081811`, `2026081813`,
-`2026081815`, `2026081821`, and `2026081822`. The project is pre-production, so this cleanup
-recomposes the current migration epoch before the clean baseline instead of shipping compatibility
-tables or destructive forward cleanup.
+Direct Sysadmin entry preserves the full Sysadmin capability set and keeps ordinary passkey enrollment and sign-in
+demonstrable after entry. The public path opens the selected ordinary account immediately. PLE generates and
+manages disposable internal demo credentials only as installation-scoped process-isolation capabilities. SOPS is
+reserved for a later deployment design that needs persistent or externally supplied credentials. Ordinary live
+state, visible mutations, and reset-to-seeded-baseline behavior remain unchanged.
 
-### Preserve and finish ordinary live authority
+### Ordinary live authority
 
-WP-PROF-LD3 owns the still-unaccepted ordinary-course capabilities in `2026081812`,
+WP-PROF-LD3 owns the accepted ordinary-course capabilities in `2026081812`,
 `2026081814`, and `2026081816` through `2026081820`, plus `2026081823`:
 
 - assignment and complete assignment-definition mutation with revision conflict checks;
@@ -70,8 +75,8 @@ WP-PROF-LD3 depends on accepted WP-PROF-T3 and the accepted learner-delivery and
 foundations. It is a convergence package, so discovery, collections, curricula, and grading
 operations continue to use their existing package identities and dependency order.
 
-After WP-PROF-LD3 acceptance, the professor queue advances to dependency-ready WP-PROF-T5 item
-pools. WP-PROF-D1 discovery can proceed as an independent lane under the professor plan.
+WP-PROF-T5 accepted its item-pool productization on the canonical live path. The professor queue
+now advances to WP-PROF-D1 discovery over the existing Library/search path.
 
 ## Validation
 
@@ -86,16 +91,19 @@ Focused implementation evidence:
 4. The canonical production HTTPS browser suite exercises authoring, preview, learner delivery,
    deterministic grading, grade settings, and Instructor review on ordinary live state.
 5. The WebWork service and replica-restart oracles pass against the same product topology.
-6. `source source_me.sh && ./all_test.sh` passes on the final material tree with every required gate
+6. The connected browser lane starts as an anonymous visitor, visibly enters each seeded role including Sysadmin,
+   and verifies that account, session, course, membership, role, and authorization are resolved by the server from
+   ordinary live state rather than accepted as browser role claims.
+7. From direct role entry, the browser visibly exercises the ordinary passkey path for both named acceptance
+   personas: Elena Instructor and Morgan Sysadmin each enroll a passkey, sign out, and sign back in. Elena retains
+   Instructor authorization, and Morgan retains Sysadmin authorization and full capabilities throughout the flow.
+   Each journey begins directly from its selected ordinary account.
+8. Reset regenerates the seeded baseline, discards installation-scoped process-isolation credentials, and preserves
+   the ordinary live-state and full-capability contracts.
+9. `source source_me.sh && ./all_test.sh` passes on the final material tree with every required gate
    run and every owned cleanup receipt empty.
-
-One-time implementation inventories may confirm that the retired aggregate has no remaining active
-code, migration, route, generated-contract, or current-plan owner. Permanent tests stay focused on
-the live behavior and security boundary they protect.
 
 ## Acceptance
 
-WP-PROF-LD3 is accepted only when all validation above is green under
-[TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md), the active status and changelog record the
-final evidence, and the current package handoff advances. A partial focused suite remains bounded
-evidence rather than package acceptance.
+WP-PROF-LD3 is accepted under [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md). The active
+status and changelog record its final evidence, and the current package handoff has advanced.

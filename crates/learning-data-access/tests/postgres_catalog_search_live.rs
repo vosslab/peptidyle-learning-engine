@@ -124,9 +124,9 @@ async fn publish(
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL acceptance database"]
 async fn postgres_catalog_search_store_preserves_ranked_cursor_behavior() {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let database_url = runtime.admin_url().expose();
+    let pool = lazy_pool(database_url).expect("valid live PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");
@@ -253,9 +253,9 @@ async fn postgres_catalog_search_store_preserves_ranked_cursor_behavior() {
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL acceptance database"]
 async fn postgres_catalog_search_continuation_preserves_snapshot_visibility_boundaries() {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let database_url = runtime.admin_url().expose();
+    let pool = lazy_pool(database_url).expect("valid live PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");
@@ -354,3 +354,6 @@ async fn postgres_catalog_search_continuation_preserves_snapshot_visibility_boun
     assert!(fresh.facets.statistics.available > continuation.facets.statistics.available);
     assert!(fresh_total > continuation_total);
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

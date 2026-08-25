@@ -7,14 +7,12 @@ def contracts() -> tuple[ScenarioContract, ...]:
 	"""Return A1 journeys in transition-first catalog order."""
 	return (
 		ScenarioContract(
-			scenario_id="sysadmin_first_claim",
-			spec_path="tests/playwright/e2e/sysadmin_first_claim.spec.ts",
+			scenario_id="direct_role_entry",
+			spec_path="tests/playwright/e2e/direct_role_entry.spec.ts",
 			personas=("morgan_sysadmin",),
 			baseline_reads=("genetics_practice_course",),
 			ui_creates=("passkey",),
-			sysadmin_requirement="unclaimed",
-			visible_observation="sysadmin_passkey_reauthentication",
-			exclusive_seed_mutations=("sysadmin_first_claim",),
+			visible_observation="direct_sysadmin_passkey_reauthentication",
 			screenshot_states=("account_security_passkey",),
 		),
 		ScenarioContract(
@@ -27,9 +25,10 @@ def contracts() -> tuple[ScenarioContract, ...]:
 				"morgan_sysadmin",
 			),
 			baseline_reads=("base_course", "genetics_practice_course"),
-			ui_creates=("course_group", "teaching_invitation"),
-			sysadmin_requirement="claimed",
-			visible_observation="seeded_sessions_avery_approval_and_course_boundaries",
+			ui_creates=("passkey", "course_group", "teaching_invitation"),
+			visible_observation=(
+				"instructor_passkey_reauthentication_and_seeded_sessions_avery_approval_and_course_boundaries"
+			),
 			exclusive_seed_mutations=("avery_instructor_approval",),
 			screenshot_states=(
 				"teaching_operations_groups",

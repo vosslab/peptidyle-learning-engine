@@ -50,9 +50,12 @@ use question_model::{
 use std::num::NonZeroU32;
 use uuid::Uuid;
 
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
 #[path = "postgres_course_group_live_oracle/fixture.rs"]
 mod fixture;
 #[path = "postgres_course_group_live_oracle/policy_history.rs"]
 mod policy_history;
 #[path = "postgres_course_group_live_oracle/reresolution.rs"]
 mod reresolution;
+use acceptance_runtime::load as load_acceptance_runtime;

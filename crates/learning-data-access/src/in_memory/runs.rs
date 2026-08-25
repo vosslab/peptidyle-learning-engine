@@ -209,7 +209,7 @@ impl crate::RunStore for MemoryStore {
             summary_transition(&ActivityTransition::StartRun { run: run.clone() }),
             grade_policy(&assignment),
         )?;
-        let run_items = select_assignment_run_items(&assignment, run.id)?;
+        let run_items = select_assignment_run_items(&assignment, &run)?;
         state.runs.insert((tenant, run.id), run.clone());
         state.run_items.insert((tenant, run.id), run_items);
         state.summaries.insert((tenant, enrollment.id), next);
@@ -412,14 +412,20 @@ impl crate::RunStore for MemoryStore {
         {
             return Err(StoreError::Conflict);
         }
-        let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
-        require_course_records_accessible(&state, tenant, assignment.course_id)?;
+        if enrollment.assignment != command.binding.assignment {
+            return Err(StoreError::NotFound);
+        }
+        let assignment = assignment_record(&state, tenant, command.binding.assignment)?;
+        if assignment.course_id != command.binding.course {
+            return Err(StoreError::NotFound);
+        }
+        require_course_records_accessible(&state, tenant, command.binding.course)?;
         super::entitlement::require_current_enrollment_entitlement(
             &state,
             tenant,
             command.actor,
-            assignment.course_id,
-            assignment.id,
+            command.binding.course,
+            command.binding.assignment,
             &enrollment,
         )?;
         let expected = assignment

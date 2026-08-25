@@ -1,42 +1,48 @@
-// assignment_editor_page.tsx - focused instructor editing with QID-only replacement.
-
 import { A } from "@solidjs/router";
 import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js";
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseReference } from "../../generated/api/CourseReference";
+import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
 import type { TenantId } from "../../generated/api/TenantId";
 import { CourseManagementNav } from "../components/course_management_nav";
 import { CopyableQuestionId } from "../components/copyable_question_id";
-import {
-  AssignmentConflictError,
-  AssignmentTeachingSettingsValidationError,
-  AssignmentValidationError,
-  ApiRequestError,
-} from "../api/http_client";
+import { ApiRequestError, PreviewPlaneConflictError } from "../api/http_client";
 import { ASSIGNMENT_EDITOR_STYLES } from "./assignment_editor_styles";
 import {
   assignmentCreateInput,
+  assignmentEditorDraftFrom,
+  appendFixedEntries,
+  appendSelectionGroup,
   assignmentInput,
   capabilityLabel,
   createMasteryAssignmentDraft,
-  moveAssignmentItem,
+  fixedEntries,
+  fixedEntry,
+  moveAssignmentEntry,
   parseExactProblemDisplayReferences,
   questionBackendLabel,
+  validateAssignmentEditorDraft,
   type AssignmentCatalogRow,
   type AssignmentEditorDraft,
+  type AssignmentEditorSelectionGroupEntry,
 } from "./assignment_editor_model";
-import type { AssignmentEditorDetail } from "../api/contracts";
+import type { AssignmentEditorDetail, PoolDrawPreview } from "../api/contracts";
 import type { AssignmentEditorRepository } from "./assignment_editor_repository";
-import type { ReusableAssignment } from "./assignment_editor_repository";
 import { AssignmentEditorPolicyPanel } from "./assignment_editor_policy_panel";
+import { AssignmentEditorContentList } from "./assignment_editor_content_list";
+import { saveThenPreviewPoolDraw } from "./assignment_pool_preview_action";
+import { createAssignmentEditorReuseController } from "./assignment_editor_reuse_controller";
+import { createAssignmentEditorCatalogController } from "./assignment_editor_catalog_controller";
+import { resolveAssignmentEditorError } from "./assignment_editor_error";
+import { saveAssignmentEditorTeachingSettings } from "./assignment_editor_teaching_save";
 import {
   AssignmentTeachingOperationsPanel,
   assignmentCurrentStateCopy,
 } from "./assignment_teaching_operations_panel";
 import { assignmentRouteReference, courseRouteReference } from "../navigation/public_route";
-
+import { AssignmentEditorSavedLinks } from "./assignment_editor_saved_links";
 export type AssignmentEditorMode =
   { readonly kind: "edit"; readonly assignmentId: AssignmentId } | { readonly kind: "create" };
 export interface AssignmentEditorPageProps {
@@ -52,42 +58,23 @@ type EditorState = { readonly message?: string } & (
   | { readonly kind: "ready"; readonly draft: AssignmentEditorDraft }
   | { readonly kind: "error"; readonly message: string }
 );
-
-function draftFrom(detail: AssignmentEditorDetail): AssignmentEditorDraft {
-  return {
-    id: detail.id,
-    courseId: detail.courseId,
-    title: detail.title,
-    items: detail.items,
-    policies: detail.policies,
-    disclosurePolicy: detail.disclosurePolicy,
-    revision: detail.revision,
-  };
-}
-
 export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Element {
   const [state, setState] = createSignal<EditorState>({ kind: "loading" });
-  const [search, setSearch] = createSignal("");
-  const [rows, setRows] = createSignal<ReadonlyArray<AssignmentCatalogRow>>([]);
-  const [replacementText, setReplacementText] = createSignal("");
-  const [selected, setSelected] = createSignal<AssignmentCatalogRow>();
   const [targetItemId, setTargetItemId] = createSignal<string>();
   const [message, setMessage] = createSignal("");
+  const [definitionValidationMessage, setDefinitionValidationMessage] = createSignal("");
   const [busy, setBusy] = createSignal(false);
+  const [poolPreview, setPoolPreview] = createSignal<PoolDrawPreview>();
+  const [poolPreviewNeedsReload, setPoolPreviewNeedsReload] = createSignal(false);
   const [conflict, setConflict] = createSignal(false);
   const [directImportText, setDirectImportText] = createSignal("");
   const [directImportMessage, setDirectImportMessage] = createSignal("");
-  const [reuse, setReuse] = createSignal<ReadonlyArray<ReusableAssignment>>([]);
-  const [reuseMessage, setReuseMessage] = createSignal("");
-  const [reuseSourceIndex, setReuseSourceIndex] = createSignal<number>();
-  const [reuseQuestionIndexes, setReuseQuestionIndexes] = createSignal<ReadonlySet<number>>(
-    new Set(),
-  );
+  const reuseController = createAssignmentEditorReuseController(props.repository, props.courseId);
+  const catalogController = createAssignmentEditorCatalogController(props.repository);
   const [violations, setViolations] = createSignal<
     ReadonlyArray<import("../api/contracts").AssignmentCapabilityViolation>
   >([]);
   const [created, setCreated] = createSignal<AssignmentEditorDetail>();
-  // This is server-issued state, so a learner-facing route never exists for an unsaved draft.
   const [savedAssignmentReference, setSavedAssignmentReference] =
     createSignal<AssignmentReference>();
   const [teachingSettings, setTeachingSettings] =
@@ -100,6 +87,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
   const [latestTeachingSettings, setLatestTeachingSettings] =
     createSignal<AssignmentEditorDetail["teachingSettings"]>();
   const [teachingBusy, setTeachingBusy] = createSignal(false);
+  const editorBusy = (): boolean => busy() || teachingBusy();
   let violationHeading: HTMLHeadingElement | undefined;
   let replacementQuestionInput: HTMLInputElement | undefined;
   const currentDraft = createMemo<AssignmentEditorDraft | undefined>(() => {
@@ -110,15 +98,15 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
     const current = state();
     return current.kind === "ready" ? current : undefined;
   };
-
   function beginReplacement(itemId: string): void {
     setTargetItemId(itemId);
     queueMicrotask(() => replacementQuestionInput?.focus());
   }
-
   async function load(): Promise<void> {
     setState({ kind: "loading" });
     setConflict(false);
+    setPoolPreview(undefined);
+    setPoolPreviewNeedsReload(false);
     try {
       if (props.mode.kind === "create") {
         const draft = createMasteryAssignmentDraft(props.courseId);
@@ -135,7 +123,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
         detail.tenant !== props.tenant
       )
         throw new Error("The editor received an unrelated assignment.");
-      setState({ kind: "ready", draft: draftFrom(detail) });
+      setState({ kind: "ready", draft: assignmentEditorDraftFrom(detail) });
       setSavedAssignmentReference(detail.reference);
       setTeachingSettings(detail.teachingSettings);
       setTeachingCurrentState(detail.currentState);
@@ -149,119 +137,101 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
   }
   function update(next: AssignmentEditorDraft): void {
     setState({ kind: "ready", draft: next });
-    setMessage("Unsaved assignment changes.");
+    const validationError = validateAssignmentEditorDraft(next);
+    setDefinitionValidationMessage(
+      validationError === null ? "" : `${validationError} Correct the assignment, then save.`,
+    );
+    setPoolPreview(undefined);
+    setPoolPreviewNeedsReload(false);
+    setMessage("Change recorded. Review the complete assignment definition, then save.");
+  }
+  function replaceEntry(index: number, nextEntry: AssignmentEditorSelectionGroupEntry): void {
+    const current = ready();
+    if (current === undefined) return;
+    const entries = [...current.draft.entries];
+    entries[index] = nextEntry;
+    update({ ...current.draft, entries });
+  }
+  function removeEntry(index: number): void {
+    const current = ready();
+    if (current === undefined) return;
+    const entries = current.draft.entries
+      .filter((_entry, entryIndex) => entryIndex !== index)
+      .map((entry, position) => ({ ...entry, position }));
+    update({ ...current.draft, entries });
+    setMessage("Pool removed. Review the remaining ordered assignment definition, then save.");
+  }
+  function addSelectionGroup(): void {
+    const current = ready();
+    if (current === undefined) return;
+    if (current.draft.entries.length >= MAX_ASSIGNMENT_ORDERED_ENTRIES) {
+      setDefinitionValidationMessage(
+        `Keep this assignment to ${MAX_ASSIGNMENT_ORDERED_ENTRIES} ordered entries or fewer, then save.`,
+      );
+      return;
+    }
+    update(appendSelectionGroup(current.draft));
+    setMessage(
+      "Question pool added. Add candidate Question IDs, then set its draw count and save.",
+    );
   }
   async function saveTeachingSettings(
     settings: AssignmentEditorDetail["teachingSettings"],
   ): Promise<void> {
     const current = ready();
-    if (current === undefined || props.mode.kind !== "edit" || teachingBusy()) return;
+    if (current === undefined || props.mode.kind !== "edit" || editorBusy()) return;
     setTeachingBusy(true);
     setTeachingMessage("");
     setTeachingFailureField(undefined);
     try {
-      const saved = await props.repository.saveTeachingSettings(
+      await saveAssignmentEditorTeachingSettings(
+        props.repository,
         props.courseId,
         props.mode.assignmentId,
         settings,
         current.draft.revision,
-      );
-      await props.refreshCourseAssignmentList();
-      // Teaching operations are a separate transaction; keep ordinary content
-      // edits in the browser and only advance their shared revision.
-      setState({ kind: "ready", draft: { ...current.draft, revision: saved.revision } });
-      setTeachingSettings(saved.teachingSettings);
-      setTeachingCurrentState(saved.currentState);
-      setLatestTeachingSettings(undefined);
-      setTeachingSaveResult(
-        `${current.draft.title} is saved. ${assignmentCurrentStateCopy(
-          saved.teachingSettings.lifecycle,
-          saved.currentState,
-          saved.teachingSettings.timeZone,
-        )}`,
-      );
-      setTeachingMessage("Teaching operations saved.");
-    } catch (error: unknown) {
-      if (error instanceof AssignmentTeachingSettingsValidationError) {
-        setTeachingFailureField(error.failure.field);
-        setTeachingMessage(error.failure.message);
-      } else {
-        if (error instanceof AssignmentConflictError) {
-          try {
-            const latest = await props.repository.load(props.mode.assignmentId);
+        props.refreshCourseAssignmentList,
+        {
+          onSaved: (saved) => {
+            setState({ kind: "ready", draft: { ...current.draft, revision: saved.revision } });
+            setTeachingSettings(saved.teachingSettings);
+            setTeachingCurrentState(saved.currentState);
+            setLatestTeachingSettings(undefined);
+            setTeachingSaveResult(
+              `${current.draft.title} is saved. ${assignmentCurrentStateCopy(
+                saved.teachingSettings.lifecycle,
+                saved.currentState,
+                saved.teachingSettings.timeZone,
+              )}`,
+            );
+            setTeachingMessage("Teaching operations saved.");
+          },
+          onValidation: (field, message) => {
+            setTeachingFailureField(field);
+            setTeachingMessage(message);
+          },
+          onConflictLatest: (latest) => {
             setLatestTeachingSettings(latest.teachingSettings);
             setTeachingCurrentState(latest.currentState);
             setState({ kind: "ready", draft: { ...current.draft, revision: latest.revision } });
-          } catch {
-            // Keep the local draft even if the latest-version fetch is unavailable.
-          }
-        }
-        setTeachingMessage(
-          error instanceof AssignmentConflictError
-            ? "A newer teaching-settings revision was fetched. Your edits are still here; retry to save them, or adopt the latest teaching operations."
-            : "Teaching operations were not saved. Correct the schedule or try again.",
-        );
-      }
+          },
+          onMessage: setTeachingMessage,
+        },
+      );
     } finally {
       setTeachingBusy(false);
     }
-  }
-  async function loadReusableAssignments(): Promise<void> {
-    if (props.mode.kind !== "create") return;
-    try {
-      const values = await props.repository.listReusableAssignments(props.courseId, undefined);
-      setReuse(values);
-      setReuseSourceIndex(values.length > 0 ? 0 : undefined);
-      setReuseQuestionIndexes(new Set(values[0]?.questions.map((_item, index) => index) ?? []));
-    } catch {
-      setReuseMessage("Existing assignments could not be loaded. Your current work is unchanged.");
-    }
-  }
-  function selectedReuseSource(): ReusableAssignment | undefined {
-    const index = reuseSourceIndex();
-    return index === undefined ? undefined : reuse()[index];
-  }
-  function chooseReuseSource(index: number): void {
-    const source = reuse()[index];
-    if (source === undefined) return;
-    setReuseSourceIndex(index);
-    setReuseQuestionIndexes(new Set(source.questions.map((_item, itemIndex) => itemIndex)));
-  }
-  function toggleReuseQuestion(index: number, checked: boolean): void {
-    setReuseQuestionIndexes((previous) => {
-      const next = new Set(previous);
-      if (checked) next.add(index);
-      else next.delete(index);
-      return next;
-    });
   }
   function addRows(rowsToAdd: ReadonlyArray<AssignmentCatalogRow>, success: string): void {
     if (props.mode.kind !== "create") return;
     const current = ready();
     if (current === undefined) return;
-    const known = new Set(current.draft.items.map((item) => item.questionId));
-    const fresh = rowsToAdd.filter((row) => !known.has(row.questionId));
-    if (fresh.length === 0) {
+    const next = appendFixedEntries(current.draft, rowsToAdd);
+    if (next === current.draft) {
       setMessage("Every selected Question ID is already in this assignment.");
       return;
     }
-    update({
-      ...current.draft,
-      items: [
-        ...current.draft.items,
-        ...fresh.map((row, index) => ({
-          id: `new-${row.questionId}`,
-          questionId: row.questionId,
-          title: row.title,
-          backend: row.backend,
-          capabilities: [],
-          position: current.draft.items.length + index,
-          pointsPossible: "1",
-          deliveryState: "active" as const,
-          scoringMode: "normal" as const,
-        })),
-      ],
-    });
+    update(next);
     setMessage(success);
   }
   async function addByQuestionIds(): Promise<void> {
@@ -280,6 +250,16 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
       await addQuestion(questionIds[0]);
       return;
     }
+    const current = ready();
+    if (
+      current !== undefined &&
+      current.draft.entries.length + questionIds.length > MAX_ASSIGNMENT_ORDERED_ENTRIES
+    ) {
+      setDirectImportMessage(
+        `Keep this assignment to ${MAX_ASSIGNMENT_ORDERED_ENTRIES} ordered entries or fewer, then add Question IDs.`,
+      );
+      return;
+    }
     try {
       const resolved = await Promise.all(
         questionIds.map((questionId) => props.repository.resolvePublished(questionId)),
@@ -295,74 +275,49 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
       );
     }
   }
-  async function lookup(value: string): Promise<AssignmentCatalogRow> {
-    const ids = parseExactProblemDisplayReferences(value);
-    if (ids.length !== 1) throw new Error("Choose one Question ID for this action.");
-    const id = ids[0];
-    if (id === undefined) throw new Error("Choose one Question ID for this action.");
-    return await props.repository.resolvePublished(id);
-  }
-  async function searchCatalog(): Promise<void> {
-    try {
-      setRows(await props.repository.searchPublished(search()));
-      setMessage("Library results updated.");
-    } catch {
-      setMessage("The library could not be searched. Keep your Question ID and try again.");
-    }
-  }
-  async function chooseReplacement(): Promise<void> {
-    try {
-      const row = await lookup(replacementText());
-      setSelected(row);
-      setMessage(
-        `${row?.questionId ?? "Question"} is ready to replace the selected assignment question.`,
-      );
-    } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : "That Question ID could not be found.");
-    }
-  }
   async function addQuestion(questionId?: string): Promise<void> {
     const current = ready();
-    if (current === undefined || busy()) return;
+    if (current === undefined || editorBusy()) return;
     try {
       const row =
         questionId === undefined
-          ? await lookup(replacementText())
+          ? await catalogController.lookup(catalogController.replacementText())
           : await props.repository.resolvePublished(questionId);
       if (props.mode.kind === "create") {
         const id = row?.questionId;
         if (id === undefined) return;
-        if (current.draft.items.some((item) => item.questionId === id))
+        if (fixedEntries(current.draft).some((item) => item.questionId === id))
           throw new Error(`${id} is already selected.`);
         update({
           ...current.draft,
-          items: [
-            ...current.draft.items,
-            {
+          entries: [
+            ...current.draft.entries,
+            fixedEntry({
               id: `new-${id}`,
               questionId: id,
               title: row.title,
               backend: row.backend,
               capabilities: [],
-              position: current.draft.items.length,
+              position: current.draft.entries.length,
               pointsPossible: "1",
               deliveryState: "active",
               scoringMode: "normal",
-            },
+            }),
           ],
         });
-        setReplacementText("");
+        catalogController.setReplacementText("");
         return;
       }
       setBusy(true);
       const saved = await props.repository.add(
         props.courseId,
         props.mode.assignmentId,
-        { questionId: row?.questionId ?? "", position: current.draft.items.length },
+        { questionId: row?.questionId ?? "", position: current.draft.entries.length },
         current.draft.revision,
       );
-      setState({ kind: "ready", draft: draftFrom(saved) });
+      setState({ kind: "ready", draft: assignmentEditorDraftFrom(saved) });
       setSavedAssignmentReference(saved.reference);
+      setPoolPreview(undefined);
       setMessage("Question added. Add and remove are available before student work begins.");
     } catch (error: unknown) {
       handleError(error, "The question was not added. Your typed Question ID is still here.");
@@ -373,13 +328,13 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
   async function replaceQuestion(): Promise<void> {
     const current = ready();
     const itemId = targetItemId();
-    const row = selected();
+    const row = catalogController.selected();
     if (
       current === undefined ||
       itemId === undefined ||
       row === undefined ||
       props.mode.kind !== "edit" ||
-      busy()
+      editorBusy()
     )
       return;
     setBusy(true);
@@ -391,9 +346,10 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
         { questionId: row.questionId },
         current.draft.revision,
       );
-      setState({ kind: "ready", draft: draftFrom(saved) });
+      setState({ kind: "ready", draft: assignmentEditorDraftFrom(saved) });
       setSavedAssignmentReference(saved.reference);
-      setSelected(undefined);
+      setPoolPreview(undefined);
+      catalogController.setSelected(undefined);
       setTargetItemId(undefined);
       setMessage(
         "Replacement saved. Future runs use the replacement; issued work stays with its original question.",
@@ -406,7 +362,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
   }
   async function removeQuestion(itemId: string): Promise<void> {
     const current = ready();
-    if (current === undefined || props.mode.kind !== "edit" || busy()) return;
+    if (current === undefined || props.mode.kind !== "edit" || editorBusy()) return;
     setBusy(true);
     try {
       const saved = await props.repository.remove(
@@ -415,8 +371,9 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
         itemId,
         current.draft.revision,
       );
-      setState({ kind: "ready", draft: draftFrom(saved) });
+      setState({ kind: "ready", draft: assignmentEditorDraftFrom(saved) });
       setSavedAssignmentReference(saved.reference);
+      setPoolPreview(undefined);
       setMessage("Question removed before student work began.");
     } catch (error: unknown) {
       handleError(error, "The question was not removed. Reload to review the current assignment.");
@@ -426,7 +383,12 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
   }
   async function save(): Promise<void> {
     const current = ready();
-    if (current === undefined || busy()) return;
+    if (current === undefined || editorBusy()) return;
+    const validationError = validateAssignmentEditorDraft(current.draft);
+    if (validationError !== null) {
+      setDefinitionValidationMessage(`${validationError} Correct the assignment, then save.`);
+      return;
+    }
     setBusy(true);
     try {
       const saved =
@@ -439,8 +401,9 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
               current.draft.revision,
             );
       await props.refreshCourseAssignmentList();
-      setState({ kind: "ready", draft: draftFrom(saved) });
+      setState({ kind: "ready", draft: assignmentEditorDraftFrom(saved) });
       setSavedAssignmentReference(saved.reference);
+      setPoolPreview(undefined);
       if (props.mode.kind === "create") {
         setCreated(saved);
         setMessage("Assignment created. Open it to review the student-facing course link.");
@@ -451,35 +414,88 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
       setBusy(false);
     }
   }
-  function handleError(error: unknown, fallback: string): void {
+  async function previewPoolDraw(groupPosition: number): Promise<void> {
+    const current = ready();
+    const reference = savedAssignmentReference();
     if (
-      error instanceof AssignmentConflictError ||
-      (error instanceof ApiRequestError && error.status === 409)
+      current === undefined ||
+      props.mode.kind !== "edit" ||
+      reference === undefined ||
+      editorBusy()
     ) {
-      setConflict(true);
-      setMessage(
-        "A newer assignment revision exists. Your typed Question ID and selected replacement are still here.",
+      setMessage("Save this new assignment first, then preview a server-generated pool draw.");
+      return;
+    }
+    const validationError = validateAssignmentEditorDraft(current.draft);
+    if (validationError !== null) {
+      setDefinitionValidationMessage(
+        `${validationError} Correct the assignment, then preview its draw.`,
       );
       return;
     }
-    if (error instanceof AssignmentValidationError) {
-      setViolations(error.violations);
-      setMessage("The assignment settings need adjustment before they can be saved.");
+    setBusy(true);
+    setPoolPreviewNeedsReload(false);
+    try {
+      const result = await saveThenPreviewPoolDraw(
+        props.repository,
+        props.courseId,
+        props.mode.assignmentId,
+        props.courseReference,
+        current.draft,
+        groupPosition,
+      );
+      await props.refreshCourseAssignmentList();
+      setState({ kind: "ready", draft: result.draft });
+      setPoolPreview(result.preview);
+      setMessage(
+        `${result.preview.groupLabel} preview is ready. Review the server-sampled draw or preview another draw.`,
+      );
+    } catch (error: unknown) {
+      if (error instanceof PreviewPlaneConflictError) {
+        setPoolPreviewNeedsReload(true);
+        setMessage(
+          "This pool changed before the preview could be generated. Your local edits remain here; reload the assignment before previewing again.",
+        );
+      } else if (error instanceof ApiRequestError && error.status === 404) {
+        setMessage(
+          "This saved pool is unavailable for preview. Review the assignment and try again.",
+        );
+      } else {
+        setMessage(
+          error instanceof Error
+            ? `${error.message} Your local assignment edits remain here.`
+            : "The pool preview was not generated. Your local assignment edits remain here.",
+        );
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+  function handleError(error: unknown, fallback: string): void {
+    const resolution = resolveAssignmentEditorError(error, fallback);
+    if (resolution.kind === "conflict") {
+      setConflict(true);
+      setMessage(resolution.message);
+      return;
+    }
+    if (resolution.kind === "validation") {
+      setViolations(resolution.violations);
+      setMessage(resolution.message);
       queueMicrotask(() => violationHeading?.focus());
       return;
     }
-    setMessage(error instanceof Error ? `${error.message} ${fallback}` : fallback);
+    setMessage(resolution.message);
   }
   async function initialize(): Promise<void> {
     await load();
-    await loadReusableAssignments();
+    if (props.mode.kind === "create") await reuseController.load();
   }
   onMount(() => void initialize());
   return (
     <section
       class="page"
       data-route-surface="assignmentEditor"
-      aria-busy={state().kind === "loading"}
+      aria-busy={state().kind === "loading" || editorBusy()}
     >
       <style>{ASSIGNMENT_EDITOR_STYLES}</style>
       <p class="eyebrow">Instructor course design</p>
@@ -501,33 +517,21 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
           </section>
         )}
       </Show>
-      <Show when={savedAssignmentReference()}>
-        {(assignmentReference) => (
-          <>
-            <p>
-              <A
-                class="quiet-link"
-                // ASVS 1.2.2: validated, server-issued references construct this internal route.
-                href={`/courses/${courseRouteReference(props.courseReference)}/assignments/${assignmentRouteReference(assignmentReference())}`}
-              >
-                View learner-facing assignment overview
-              </A>
-            </p>
-            <p>
-              <A
-                class="quiet-link"
-                // ASVS 1.2.2: validated, server-issued references construct this internal route.
-                href={`/instructor/courses/${courseRouteReference(props.courseReference)}/assignments/${assignmentRouteReference(assignmentReference())}/delivery-check`}
-              >
-                Check assignment delivery
-              </A>
-            </p>
-          </>
-        )}
-      </Show>
+      <AssignmentEditorSavedLinks
+        assignmentReference={savedAssignmentReference}
+        courseReference={props.courseReference}
+      />
       <p role="status" aria-live="polite">
         {message()}
       </p>
+      <Show when={poolPreviewNeedsReload()}>
+        <section class="inline-error" role="alert">
+          <p>Reload the assignment to use its latest saved pool definition.</p>
+          <button class="quiet-action" type="button" onClick={() => void load()}>
+            Reload assignment
+          </button>
+        </section>
+      </Show>
       <Show when={state().kind === "loading"}>
         <p class="loading-state">Loading assignment editor...</p>
       </Show>
@@ -590,355 +594,365 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
               <section class="inline-error" role="alert">
                 <p>
                   A newer assignment revision is available. Your typed Question ID and selected
-                  replacement remain available.
+                  replacement remain available. If learner work has begun, create a new assignment
+                  or use the supported future-run replacement workflow.
                 </p>
                 <button class="quiet-action" onClick={() => void load()}>
                   Reload assignment
                 </button>
               </section>
             </Show>
-            <div class="assignment-editor-actions">
-              <button
-                class="primary-action"
-                disabled={busy() || draft().title.trim() === "" || draft().items.length === 0}
-                onClick={() => void save()}
-              >
-                {props.mode.kind === "create"
-                  ? "Create assignment"
-                  : "Save title, order, and settings"}
-              </button>
-            </div>
-            <div class="assignment-editor-grid">
-              <section class="assignment-editor-panel">
-                <h2>Assignment content</h2>
-                <label class="assignment-editor-field">
-                  Assignment title
-                  <input
-                    value={draft().title}
-                    onInput={(event) => update({ ...draft(), title: event.currentTarget.value })}
-                  />
-                </label>
-                <Show when={props.mode.kind === "create"}>
-                  <details class="assignment-editor-reuse">
-                    <summary>Reuse questions from an existing assignment</summary>
+            <Show when={definitionValidationMessage()}>
+              {(validationError) => (
+                <section class="inline-error" role="alert">
+                  <p>{validationError()}</p>
+                </section>
+              )}
+            </Show>
+            <fieldset class="assignment-editor-operation-boundary" disabled={editorBusy()}>
+              <div class="assignment-editor-actions">
+                <button
+                  class="primary-action"
+                  disabled={busy() || draft().title.trim() === "" || draft().entries.length === 0}
+                  onClick={() => void save()}
+                >
+                  {props.mode.kind === "create"
+                    ? "Create assignment"
+                    : "Save title, order, and settings"}
+                </button>
+              </div>
+              <div class="assignment-editor-grid">
+                <section class="assignment-editor-panel">
+                  <h2>Assignment content</h2>
+                  <label class="assignment-editor-field">
+                    Assignment title
+                    <input
+                      value={draft().title}
+                      onInput={(event) => update({ ...draft(), title: event.currentTarget.value })}
+                    />
+                  </label>
+                  <button class="quiet-action" type="button" onClick={addSelectionGroup}>
+                    Add question pool
+                  </button>
+                  <p class="assignment-editor-note">
+                    A pool draws a configured number of candidates with the fixed Draw algorithm v1.
+                    Its position is shared with fixed questions.
+                  </p>
+                  <Show when={props.mode.kind === "create"}>
+                    <details class="assignment-editor-reuse">
+                      <summary>Reuse questions from an existing assignment</summary>
+                      <div>
+                        <Show when={reuseController.message()}>
+                          {(value) => (
+                            <p class="inline-error" role="alert">
+                              {value()}
+                            </p>
+                          )}
+                        </Show>
+                        <Show
+                          when={reuseController.reuse().length > 0}
+                          fallback={
+                            <p class="assignment-editor-note">
+                              No other assignments are available in this course yet.
+                            </p>
+                          }
+                        >
+                          <label class="assignment-editor-field">
+                            Source assignment
+                            <select
+                              value={reuseController.sourceIndex() ?? ""}
+                              onChange={(event) =>
+                                reuseController.chooseSource(Number(event.currentTarget.value))
+                              }
+                            >
+                              <For each={reuseController.reuse()}>
+                                {(assignment, index) => (
+                                  <option value={index()}>{assignment.title}</option>
+                                )}
+                              </For>
+                            </select>
+                          </label>
+                          <p class="assignment-editor-note">
+                            Copy all questions or choose a subset. Your title and policies stay
+                            unchanged.
+                          </p>
+                          <div class="assignment-editor-reuse-checklist">
+                            <For each={reuseController.selectedSource()?.questions ?? []}>
+                              {(question, index) => (
+                                <label>
+                                  <input
+                                    type="checkbox"
+                                    checked={reuseController.questionIndexes().has(index())}
+                                    onChange={(event) =>
+                                      reuseController.toggleQuestion(
+                                        index(),
+                                        event.currentTarget.checked,
+                                      )
+                                    }
+                                  />
+                                  <span>
+                                    <strong>{question.title}</strong>
+                                    <small>{question.questionId}</small>
+                                  </span>
+                                </label>
+                              )}
+                            </For>
+                          </div>
+                          <div class="assignment-editor-reuse-actions">
+                            <button
+                              class="primary-action"
+                              type="button"
+                              onClick={() =>
+                                addRows(
+                                  (reuseController.selectedSource()?.questions ?? []).filter(
+                                    (_item, index) => reuseController.questionIndexes().has(index),
+                                  ),
+                                  "Selected questions copied to the unsaved assignment.",
+                                )
+                              }
+                            >
+                              Add selected questions
+                            </button>
+                            <button
+                              class="quiet-action"
+                              type="button"
+                              onClick={() =>
+                                addRows(
+                                  reuseController.selectedSource()?.questions ?? [],
+                                  "Assignment questions copied to the unsaved assignment.",
+                                )
+                              }
+                            >
+                              Add entire assignment
+                            </button>
+                          </div>
+                        </Show>
+                      </div>
+                    </details>
+                  </Show>
+                  <Show
+                    when={draft().entries.length > 0}
+                    fallback={
+                      <p class="empty-state">
+                        No questions yet. Search the library or paste one Question ID.
+                      </p>
+                    }
+                  >
+                    <AssignmentEditorContentList
+                      entries={draft().entries}
+                      createMode={props.mode.kind === "create"}
+                      busy={busy()}
+                      preview={poolPreview()}
+                      resolveCandidates={async (questionIds) =>
+                        await Promise.all(
+                          questionIds.map(
+                            async (questionId) =>
+                              await props.repository.resolvePublished(questionId),
+                          ),
+                        )
+                      }
+                      onMove={(entryIndex, direction) =>
+                        update(moveAssignmentEntry(draft(), entryIndex, direction))
+                      }
+                      onReplace={beginReplacement}
+                      onRemoveFixed={(itemId) => void removeQuestion(itemId)}
+                      onPoolChange={replaceEntry}
+                      onRemovePool={removeEntry}
+                      onMessage={setMessage}
+                      onPreviewPool={(groupPosition) => void previewPoolDraw(groupPosition)}
+                    />
+                  </Show>
+                  <details class="assignment-editor-direct-import">
+                    <summary>
+                      {props.mode.kind === "create"
+                        ? "Add several Question IDs"
+                        : "Add by Question ID"}
+                    </summary>
                     <div>
-                      <Show when={reuseMessage()}>
+                      <p id="add-by-id-help" class="assignment-editor-note">
+                        {props.mode.kind === "create"
+                          ? "Paste canonical Question IDs from the library, separated by commas or lines. These become the initial selection before you create the assignment."
+                          : "Add one canonical Question ID at a time. The server assigns its item identity before ordinary assignment settings can be saved."}
+                      </p>
+                      <label class="assignment-editor-field">
+                        {props.mode.kind === "create"
+                          ? "Question IDs"
+                          : "Direct import Question ID"}
+                        <textarea
+                          rows="2"
+                          value={directImportText()}
+                          placeholder="7K3-M9QP"
+                          aria-describedby="add-by-id-help"
+                          aria-invalid={directImportMessage() !== ""}
+                          onInput={(event) => {
+                            setDirectImportText(event.currentTarget.value);
+                            setDirectImportMessage("");
+                          }}
+                        />
+                      </label>
+                      <button
+                        class="primary-action"
+                        type="button"
+                        onClick={() => void addByQuestionIds()}
+                      >
+                        {props.mode.kind === "create" ? "Add questions by ID" : "Add Question ID"}
+                      </button>
+                      <Show when={directImportMessage()}>
                         {(value) => (
                           <p class="inline-error" role="alert">
                             {value()}
                           </p>
                         )}
                       </Show>
-                      <Show
-                        when={reuse().length > 0}
-                        fallback={
-                          <p class="assignment-editor-note">
-                            No other assignments are available in this course yet.
-                          </p>
-                        }
-                      >
-                        <label class="assignment-editor-field">
-                          Source assignment
-                          <select
-                            value={reuseSourceIndex() ?? ""}
-                            onChange={(event) =>
-                              chooseReuseSource(Number(event.currentTarget.value))
-                            }
-                          >
-                            <For each={reuse()}>
-                              {(assignment, index) => (
-                                <option value={index()}>{assignment.title}</option>
-                              )}
-                            </For>
-                          </select>
-                        </label>
-                        <p class="assignment-editor-note">
-                          Copy all questions or choose a subset. Your title and policies stay
-                          unchanged.
-                        </p>
-                        <div class="assignment-editor-reuse-checklist">
-                          <For each={selectedReuseSource()?.questions ?? []}>
-                            {(question, index) => (
-                              <label>
-                                <input
-                                  type="checkbox"
-                                  checked={reuseQuestionIndexes().has(index())}
-                                  onChange={(event) =>
-                                    toggleReuseQuestion(index(), event.currentTarget.checked)
-                                  }
-                                />
-                                <span>
-                                  <strong>{question.title}</strong>
-                                  <small>{question.questionId}</small>
-                                </span>
-                              </label>
-                            )}
-                          </For>
-                        </div>
-                        <div class="assignment-editor-reuse-actions">
-                          <button
-                            class="primary-action"
-                            type="button"
-                            onClick={() =>
-                              addRows(
-                                (selectedReuseSource()?.questions ?? []).filter((_item, index) =>
-                                  reuseQuestionIndexes().has(index),
-                                ),
-                                "Selected questions copied to the unsaved assignment.",
-                              )
-                            }
-                          >
-                            Add selected questions
-                          </button>
-                          <button
-                            class="quiet-action"
-                            type="button"
-                            onClick={() =>
-                              addRows(
-                                selectedReuseSource()?.questions ?? [],
-                                "Assignment questions copied to the unsaved assignment.",
-                              )
-                            }
-                          >
-                            Add entire assignment
-                          </button>
-                        </div>
-                      </Show>
                     </div>
                   </details>
-                </Show>
-                <Show
-                  when={draft().items.length > 0}
-                  fallback={
-                    <p class="empty-state">
-                      No questions yet. Search the library or paste one Question ID.
+                </section>
+                <section class="assignment-editor-panel">
+                  <AssignmentEditorPolicyPanel
+                    policies={() => draft().policies}
+                    disclosurePolicy={() => draft().disclosurePolicy}
+                    onPoliciesChange={(policies) => update({ ...draft(), policies })}
+                    onDisclosurePolicyChange={(disclosurePolicy) =>
+                      update({ ...draft(), disclosurePolicy })
+                    }
+                  />
+                  <Show when={props.mode.kind === "edit"}>
+                    <AssignmentTeachingOperationsPanel
+                      settings={teachingSettings}
+                      currentState={teachingCurrentState}
+                      busy={teachingBusy}
+                      message={teachingMessage}
+                      failureField={teachingFailureField}
+                      latestSettings={latestTeachingSettings}
+                      onAdoptLatest={() => {
+                        const latest = latestTeachingSettings();
+                        if (latest !== undefined) {
+                          setTeachingSettings(latest);
+                          setLatestTeachingSettings(undefined);
+                          setTeachingFailureField(undefined);
+                          setTeachingMessage("Latest teaching operations adopted.");
+                        }
+                      }}
+                      onSave={saveTeachingSettings}
+                    />
+                  </Show>
+                  <h2>
+                    {targetItemId() === undefined
+                      ? "Add from library"
+                      : "Replace assigned question"}
+                  </h2>
+                  <Show when={props.mode.kind === "edit" && targetItemId() === undefined}>
+                    <p class="assignment-editor-note">
+                      Add one published Question ID at a time. The server assigns its item identity.
+                      Add and remove are available before student work begins.
                     </p>
-                  }
-                >
-                  <ol class="assignment-editor-list">
-                    <For each={draft().items}>
-                      {(item) => (
-                        <li class="assignment-editor-row">
-                          <h3>{item.title}</h3>
-                          <p>
-                            <CopyableQuestionId displayId={item.questionId} />{" "}
-                            {questionBackendLabel(item.backend)}
-                          </p>
-                          <div class="assignment-editor-row-actions">
-                            <button
-                              class="quiet-action"
-                              type="button"
-                              disabled={item.position === 0}
-                              aria-label={`Move ${item.title} earlier`}
-                              onClick={() => update(moveAssignmentItem(draft(), item.id, -1))}
-                            >
-                              &uarr;
-                            </button>
-                            <button
-                              class="quiet-action"
-                              type="button"
-                              disabled={item.position === draft().items.length - 1}
-                              aria-label={`Move ${item.title} later`}
-                              onClick={() => update(moveAssignmentItem(draft(), item.id, 1))}
-                            >
-                              &darr;
-                            </button>
-                            <button
-                              class="quiet-action"
-                              disabled={props.mode.kind === "create"}
-                              onClick={() => beginReplacement(item.id)}
-                            >
-                              Replace
-                            </button>
-                            <button
-                              class="quiet-action"
-                              disabled={props.mode.kind === "create" || busy()}
-                              onClick={() => void removeQuestion(item.id)}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </li>
+                  </Show>
+                  <Show when={targetItemId() !== undefined}>
+                    <p class="assignment-editor-note">
+                      Future runs use the replacement. Already issued work stays with its original
+                      question.
+                    </p>
+                    <p>
+                      Current:{" "}
+                      <CopyableQuestionId
+                        displayId={
+                          fixedEntries(draft()).find((item) => item.id === targetItemId())
+                            ?.questionId ?? ""
+                        }
+                      />{" "}
+                      {fixedEntries(draft()).find((item) => item.id === targetItemId())?.title} (
+                      {questionBackendLabel(
+                        fixedEntries(draft()).find((item) => item.id === targetItemId())?.backend ??
+                          "native",
                       )}
-                    </For>
-                  </ol>
-                </Show>
-                <details class="assignment-editor-direct-import">
-                  <summary>
-                    {props.mode.kind === "create"
-                      ? "Add several Question IDs"
-                      : "Add by Question ID"}
-                  </summary>
-                  <div>
-                    <p id="add-by-id-help" class="assignment-editor-note">
-                      {props.mode.kind === "create"
-                        ? "Paste canonical Question IDs from the library, separated by commas or lines. These become the initial selection before you create the assignment."
-                        : "Add one canonical Question ID at a time. The server assigns its item identity before ordinary assignment settings can be saved."}
+                      )
                     </p>
-                    <label class="assignment-editor-field">
-                      {props.mode.kind === "create" ? "Question IDs" : "Direct import Question ID"}
-                      <textarea
-                        rows="2"
-                        value={directImportText()}
-                        placeholder="7K3-M9QP"
-                        aria-describedby="add-by-id-help"
-                        aria-invalid={directImportMessage() !== ""}
-                        onInput={(event) => {
-                          setDirectImportText(event.currentTarget.value);
-                          setDirectImportMessage("");
-                        }}
-                      />
-                    </label>
+                  </Show>
+                  <label class="assignment-editor-field">
+                    Question ID
+                    <input
+                      ref={(element) => {
+                        replacementQuestionInput = element;
+                      }}
+                      aria-label={
+                        targetItemId() === undefined ? "Add Question ID" : "Replacement Question ID"
+                      }
+                      value={catalogController.replacementText()}
+                      onInput={(event) =>
+                        catalogController.setReplacementText(event.currentTarget.value)
+                      }
+                      placeholder="7K3-M9QP"
+                    />
+                  </label>
+                  <div class="assignment-editor-actions">
+                    <button
+                      class="quiet-action"
+                      disabled={busy()}
+                      onClick={() => void catalogController.chooseReplacement(setMessage)}
+                    >
+                      Check Question ID
+                    </button>
                     <button
                       class="primary-action"
-                      type="button"
-                      onClick={() => void addByQuestionIds()}
+                      disabled={
+                        busy() ||
+                        (targetItemId() !== undefined && catalogController.selected() === undefined)
+                      }
+                      onClick={() =>
+                        targetItemId() === undefined ? void addQuestion() : void replaceQuestion()
+                      }
                     >
-                      {props.mode.kind === "create" ? "Add questions by ID" : "Add Question ID"}
+                      {targetItemId() === undefined
+                        ? "Add question"
+                        : "Replace with selected question"}
                     </button>
-                    <Show when={directImportMessage()}>
-                      {(value) => (
-                        <p class="inline-error" role="alert">
-                          {value()}
-                        </p>
-                      )}
-                    </Show>
                   </div>
-                </details>
-              </section>
-              <section class="assignment-editor-panel">
-                <AssignmentEditorPolicyPanel
-                  policies={() => draft().policies}
-                  disclosurePolicy={() => draft().disclosurePolicy}
-                  onPoliciesChange={(policies) => update({ ...draft(), policies })}
-                  onDisclosurePolicyChange={(disclosurePolicy) =>
-                    update({ ...draft(), disclosurePolicy })
-                  }
-                />
-                <Show when={props.mode.kind === "edit"}>
-                  <AssignmentTeachingOperationsPanel
-                    settings={teachingSettings}
-                    currentState={teachingCurrentState}
-                    busy={teachingBusy}
-                    message={teachingMessage}
-                    failureField={teachingFailureField}
-                    latestSettings={latestTeachingSettings}
-                    onAdoptLatest={() => {
-                      const latest = latestTeachingSettings();
-                      if (latest !== undefined) {
-                        setTeachingSettings(latest);
-                        setLatestTeachingSettings(undefined);
-                        setTeachingFailureField(undefined);
-                        setTeachingMessage("Latest teaching operations adopted.");
-                      }
-                    }}
-                    onSave={saveTeachingSettings}
-                  />
-                </Show>
-                <h2>
-                  {targetItemId() === undefined ? "Add from library" : "Replace assigned question"}
-                </h2>
-                <Show when={props.mode.kind === "edit" && targetItemId() === undefined}>
-                  <p class="assignment-editor-note">
-                    Add one published Question ID at a time. The server assigns its item identity.
-                    Add and remove are available before student work begins.
-                  </p>
-                </Show>
-                <Show when={targetItemId() !== undefined}>
-                  <p class="assignment-editor-note">
-                    Future runs use the replacement. Already issued work stays with its original
-                    question.
-                  </p>
-                  <p>
-                    Current:{" "}
-                    <CopyableQuestionId
-                      displayId={
-                        draft().items.find((item) => item.id === targetItemId())?.questionId ?? ""
-                      }
-                    />{" "}
-                    {draft().items.find((item) => item.id === targetItemId())?.title} (
-                    {questionBackendLabel(
-                      draft().items.find((item) => item.id === targetItemId())?.backend ?? "native",
+                  <Show when={catalogController.selected()}>
+                    {(row) => (
+                      <p class="success-state">
+                        Selected: <CopyableQuestionId displayId={row().questionId} /> {row().title}{" "}
+                        ({questionBackendLabel(row().backend)})
+                      </p>
                     )}
-                    )
-                  </p>
-                </Show>
-                <label class="assignment-editor-field">
-                  Question ID
-                  <input
-                    ref={(element) => {
-                      replacementQuestionInput = element;
-                    }}
-                    aria-label={
-                      targetItemId() === undefined ? "Add Question ID" : "Replacement Question ID"
-                    }
-                    value={replacementText()}
-                    onInput={(event) => setReplacementText(event.currentTarget.value)}
-                    placeholder="7K3-M9QP"
-                  />
-                </label>
-                <div class="assignment-editor-actions">
+                  </Show>
+                  <label class="assignment-editor-field">
+                    Search published questions
+                    <input
+                      value={catalogController.search()}
+                      onInput={(event) => catalogController.setSearch(event.currentTarget.value)}
+                    />
+                  </label>
                   <button
                     class="quiet-action"
-                    disabled={busy()}
-                    onClick={() => void chooseReplacement()}
+                    onClick={() => void catalogController.searchCatalog(setMessage)}
                   >
-                    Check Question ID
+                    Search library
                   </button>
-                  <button
-                    class="primary-action"
-                    disabled={busy() || (targetItemId() !== undefined && selected() === undefined)}
-                    onClick={() =>
-                      targetItemId() === undefined ? void addQuestion() : void replaceQuestion()
-                    }
-                  >
-                    {targetItemId() === undefined
-                      ? "Add question"
-                      : "Replace with selected question"}
-                  </button>
-                </div>
-                <Show when={selected()}>
-                  {(row) => (
-                    <p class="success-state">
-                      Selected: <CopyableQuestionId displayId={row().questionId} /> {row().title} (
-                      {questionBackendLabel(row().backend)})
-                    </p>
-                  )}
-                </Show>
-                <label class="assignment-editor-field">
-                  Search published questions
-                  <input
-                    value={search()}
-                    onInput={(event) => setSearch(event.currentTarget.value)}
-                  />
-                </label>
-                <button class="quiet-action" onClick={() => void searchCatalog()}>
-                  Search library
-                </button>
-                <div class="assignment-editor-catalog-results">
-                  <For each={rows()}>
-                    {(row) => (
-                      <article class="assignment-editor-row">
-                        <h3>{row.title}</h3>
-                        <p>
-                          <CopyableQuestionId displayId={row.questionId} />{" "}
-                          {questionBackendLabel(row.backend)}
-                        </p>
-                        <button
-                          class="quiet-action"
-                          onClick={() => {
-                            setReplacementText(row.questionId);
-                            setSelected(row);
-                          }}
-                        >
-                          Use this Question ID
-                        </button>
-                      </article>
-                    )}
-                  </For>
-                </div>
-              </section>
-            </div>
+                  <div class="assignment-editor-catalog-results">
+                    <For each={catalogController.rows()}>
+                      {(row) => (
+                        <article class="assignment-editor-row">
+                          <h3>{row.title}</h3>
+                          <p>
+                            <CopyableQuestionId displayId={row.questionId} />{" "}
+                            {questionBackendLabel(row.backend)}
+                          </p>
+                          <button
+                            class="quiet-action"
+                            onClick={() => {
+                              catalogController.setReplacementText(row.questionId);
+                              catalogController.setSelected(row);
+                            }}
+                          >
+                            Use this Question ID
+                          </button>
+                        </article>
+                      )}
+                    </For>
+                  </div>
+                </section>
+              </div>
+            </fieldset>
           </>
         )}
       </Show>

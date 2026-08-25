@@ -8,9 +8,12 @@ import type { PreviewPlaneResponse } from "../../../generated/api/PreviewPlaneRe
 import type { SyntheticPreviewSubjectRequest } from "../../../generated/api/SyntheticPreviewSubjectRequest";
 import type { TeachingOperationRevision } from "../../../generated/api/TeachingOperationRevision";
 import type { ApiClient } from "../client";
+import type { PoolDrawPreview } from "../contracts";
 import {
   decodeDerivedPreviewSubjectRequest,
   decodeInstructorPreviewSchedulePage,
+  decodePoolDrawPreview,
+  decodePoolDrawPreviewRequest,
   decodePreviewPlaneResponse,
   decodeSyntheticPreviewSubjectRequest,
 } from "../decoders";
@@ -121,7 +124,10 @@ export function createPreviewPlaneClient(
   basePath: string,
 ): Pick<
   ApiClient,
-  "listPreviewSchedule" | "constructSyntheticPreview" | "constructDerivedPreview"
+  | "listPreviewSchedule"
+  | "constructSyntheticPreview"
+  | "constructDerivedPreview"
+  | "previewPoolDraw"
 > {
   return {
     listPreviewSchedule: (
@@ -161,6 +167,20 @@ export function createPreviewPlaneClient(
       const path = `${previewRoutePath(course, assignment)}/preview-subjects/derived`;
       const body = derivedBody(assignment, revision, request);
       return previewJson(fetchImplementation, basePath, path, decodePreviewPlaneResponse, {
+        method: "POST",
+        body,
+        revision,
+      });
+    },
+    previewPoolDraw: async (
+      course,
+      assignment,
+      revision,
+      groupPosition,
+    ): Promise<PoolDrawPreview> => {
+      const path = `${previewRoutePath(course, assignment)}/preview-pool-draw`;
+      const body = decodePoolDrawPreviewRequest({ groupPosition }, "request");
+      return previewJson(fetchImplementation, basePath, path, decodePoolDrawPreview, {
         method: "POST",
         body,
         revision,

@@ -1,9 +1,10 @@
 # Live Demo Specification
 
-The demo is the real PLE system. The baseline is seeded data. Student and Instructor login only replaces the
-identity-verification ceremony. Sysadmin exercises the real passkey path and has full Sysadmin capabilities. All
-resulting data is ordinary live data. The data is disposable because the entire demo environment can be
-regenerated, not because demo records or roles behave differently.
+The demo is the real PLE system. The baseline is seeded data. Any visitor may directly select each seeded demo
+role: Student, Instructor, or Sysadmin. The selection replaces only the identity-verification ceremony; the server
+resolves the ordinary account, session, course, membership, role, and authorization state. All resulting data is
+ordinary live data. The data is disposable because the entire demo environment can be regenerated, not because demo
+records or roles behave differently.
 
 ## Purpose
 
@@ -49,6 +50,9 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
 - Create courses.
 - Create assignments.
 - Create problems.
+- Build one ordered assignment from fixed questions and reusable question pools by using public Question IDs. Configure
+  each pool's draw count and delivery order, then request fresh server-generated preview draws without creating learner
+  work or changing grades.
 - Add students to courses.
 - Preview current assignment policy, then exercise delivery and automated grading through the normal Student
   workflow.
@@ -56,12 +60,18 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
 
 Instructors do not add or approve other instructors. Instructor approval remains a Sysadmin function.
 
+Live acceptance uses the seeded Elena Instructor. After direct role entry, Elena visibly enrolls a passkey, signs
+out, and signs back in through the ordinary passkey path. Her Instructor authorization remains available throughout
+that acceptance flow.
+
 ## Student perspective
 
 The demo should allow a Student to use the normal student workflows, including:
 
 - Enter courses in which the Student is enrolled.
 - Complete assignments.
+- Receive the fixed questions and server-selected pool questions issued for that run. The issued selection remains
+  attached to the learner work even when an Instructor later changes teaching metadata or prepares future content.
 - Submit answers.
 - View permitted feedback and grades.
 - Repeat assignments where allowed.
@@ -75,10 +85,13 @@ normal Sysadmin functions. The demo Sysadmin is a normal PLE Sysadmin with the s
 in any other PLE installation. PLE continues to have only the normal Student, Instructor, and Sysadmin human
 roles. USER_ROLES.md
 
-The seeded Sysadmin account starts in an unclaimed state. First access requires completing the normal account
-ownership setup, including passkey enrollment. This allows the live demo to exercise the real passkey workflow
-immediately after a fresh deployment. Regenerating the demo restores the seeded Sysadmin account to its original
-unclaimed state.
+Any visitor may select the seeded Sysadmin directly. Direct entry preserves the full ordinary Sysadmin capability
+set and the normal account security surfaces, including passkey enrollment and passkey sign-in. Regenerating the
+demo restores the seeded baseline and its ordinary live state.
+
+Live acceptance uses the seeded Morgan Sysadmin. After direct role entry, Morgan visibly enrolls a passkey, signs
+out, and signs back in through the ordinary passkey path while retaining ordinary Sysadmin authorization and the
+full capability set.
 
 The integrity of the demo data does not need to be protected from changes made through normal Sysadmin
 capabilities. The entire installation is a disposable demonstration environment. A Sysadmin may modify or delete
@@ -87,18 +100,20 @@ restores the seeded baseline.
 
 ## Demo authentication
 
-Student and Instructor seeded accounts can be entered directly through the demo account selector.
+Every seeded demo role can be entered directly through the public demo role selector: Student, Instructor, and
+Sysadmin.
 
-Selecting a seeded account replaces only the normal passwordless identity-verification ceremony. The server
-resolves the configured seeded account and creates the ordinary account session. Normal persisted course and
-role selection then creates the ordinary PLE session.
+Selecting a seeded role replaces only the normal passwordless identity-verification ceremony. The selector supplies
+only a known seeded persona key. The server resolves the configured account, creates the ordinary account session,
+and applies the ordinary course, membership, role, and authorization rules from live PLE state. The selector does
+not supply or grant a browser-controlled role claim.
 
 The browser selects only a known demo persona. Account identity, roles, tenant context, course membership, and
 authorization continue to be derived by the server from normal PLE state.
 
 Conceptually:
 
-    Select seeded Student or Instructor
+    Select any seeded Student, Instructor, or Sysadmin role
                 |
                 v
     Server resolves seeded PLE account
@@ -107,41 +122,52 @@ Conceptually:
        Ordinary account session
                 |
                 v
-      Normal course/role selection
+    Ordinary course/role authorization
                 |
                 v
          Ordinary PLE session
 
 After authentication, there is no separate demo application path.
 
-## Sysadmin authentication and passkey setup
+## Passkey enrollment and sign-in
 
-The seeded Sysadmin account exists in the baseline data, but first access requires completing the normal account
-ownership setup, including passkey enrollment.
+Direct role entry leaves the normal passkey workflow available. Live acceptance explicitly covers Elena (Instructor)
+and Morgan (Sysadmin): after selecting each seeded persona, the visitor visibly uses the ordinary account-security
+surface to enroll a passkey, sign out, and sign back in with that passkey. Elena retains Instructor authorization and
+Morgan retains ordinary Sysadmin authorization and the full capability set throughout the flow.
 
-After setup, the account uses the normal Sysadmin authentication and session path. This allows a fresh live demo
-to exercise the real passkey workflow immediately rather than bypassing it for the Sysadmin.
+Direct role entry has no first-claim, password, or setup-code step. It replaces only identity verification; account
+ownership, session issuance, course context, and authorization continue to use normal PLE contracts.
 
 Conceptually:
 
     Fresh demo baseline
             |
             v
-    Seeded Sysadmin account
+    Select seeded Morgan Sysadmin role
             |
             v
-    Account ownership setup
+    Ordinary Sysadmin account session
             |
             v
-      Passkey enrollment
+    Passkey enrollment
             |
             v
-    Normal authentication
+    Sign out and passkey sign-in
             |
             v
     Ordinary Sysadmin session
 
-Regenerating the demo restores the Sysadmin account to its original seeded, unclaimed state.
+Regenerating the demo restores the seeded baseline and discards the passkey state with the disposable installation.
+
+## Demo credentials and deployment secrets
+
+PLE generates and manages any internal demo credentials needed for process isolation, service startup, or reset.
+These credentials are disposable process-isolation capabilities for the current demo installation; they are not
+visitor secrets, role claims, or durable application credentials, and they stay out of public browser evidence.
+
+SOPS is reserved for a later deployment design that needs persistent or externally supplied credentials. The public
+live demo does not require SOPS to protect its disposable internal process-isolation credentials.
 
 ## Demo lifecycle
 
@@ -152,8 +178,10 @@ uses the same learner-run, submission, deterministic-grading, receipt, and grade
 The distinction between a live demo and another PLE installation is primarily:
 
 1. The installation begins with a known seeded baseline.
-2. Student and Instructor demo personas provide a convenient entry into normal authentication and session handling.
-3. The seeded Sysadmin provides a path for demonstrating normal account ownership and passkey enrollment.
-4. The database and storage may be discarded and regenerated from the seeded baseline.
+2. Public seeded-role entry provides a convenient entry into normal account, session, course, and role handling for
+   Student, Instructor, and Sysadmin.
+3. Direct entry keeps ordinary passkey enrollment and sign-in demonstrable, including for Sysadmin.
+4. The database, storage, and disposable process-isolation credentials may be discarded and regenerated from the
+   seeded baseline.
 
 The live demo therefore remains the real PLE system. The initial state is simply seeded data for people to play with.

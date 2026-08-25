@@ -21,7 +21,6 @@ export interface RouteContract {
     | "courseGradeSettings"
     | "courseAppearance"
     | "signIn"
-    | "liveDemoSysadminSetup"
     | "emailAuthenticationComplete"
     | "emailChangeComplete"
     | "courseInvitation"
@@ -48,12 +47,6 @@ export const ROUTE_CONTRACT = [
     id: "signIn",
     path: "/sign-in",
     surface: "Passwordless account sign-in",
-    requiredRoles: [],
-  },
-  {
-    id: "liveDemoSysadminSetup",
-    path: "/live-demo/sysadmin-setup",
-    surface: "Operator-discovered live-demo administrator setup",
     requiredRoles: [],
   },
   {

@@ -41,6 +41,7 @@ const skipWasm = process.argv.includes("--skip-wasm");
 const distDir = path.join(repoRoot, "dist");
 const srcDir = path.join(repoRoot, "src");
 const wasmWebDir = path.join(repoRoot, "dist_wasm", "web");
+const STATIC_STYLESHEETS = ["style.css", "styles/accessibility.css"];
 
 //============================================
 
@@ -107,17 +108,44 @@ function copyWasmBridge() {
  * than it costs to prevent.
  *
  * @param {string} bundleHash short content hash of the built bundle
- * @param {string} stylesheetHash short content hash of the authored stylesheet
+ * @param {Record<string, string>} stylesheetHashes short content hashes keyed by source path
  * @param {string} componentStylesheetHash short content hash of bundled component styles
  * @returns {void}
  */
-function copyIndexHtml(bundleHash, stylesheetHash, componentStylesheetHash) {
+function copyIndexHtml(bundleHash, stylesheetHashes, componentStylesheetHash) {
   const source = fs.readFileSync(path.join(srcDir, "index.html"), "utf8");
-  const fingerprinted = source
+  let fingerprinted = source
     .replace(/(src=")(\.?\/?main\.js)(")/, `$1/main.js?v=${bundleHash}$3`)
-    .replace(/(href=")(\.?\/?style\.css)(")/, `$1/style.css?v=${stylesheetHash}$3`)
     .replace(/(href=")(\.?\/?main\.css)(")/, `$1/main.css?v=${componentStylesheetHash}$3`);
+  for (const stylesheet of STATIC_STYLESHEETS) {
+    const escapedPath = stylesheet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const stylesheetPattern = new RegExp(`(href=")(\\.?\\/?${escapedPath})(")`);
+    fingerprinted = fingerprinted.replace(
+      stylesheetPattern,
+      `$1/${stylesheet}?v=${stylesheetHashes[stylesheet]}$3`,
+    );
+  }
   fs.writeFileSync(path.join(distDir, "index.html"), fingerprinted);
+}
+
+//============================================
+
+/**
+ * Copies authored stylesheets into dist/, preserving nested asset paths.
+ *
+ * @returns {Record<string, string>} short content hashes keyed by source path
+ */
+function copyStaticStylesheets() {
+  const hashes = {};
+  for (const stylesheet of STATIC_STYLESHEETS) {
+    const sourcePath = path.join(srcDir, stylesheet);
+    const targetPath = path.join(distDir, stylesheet);
+    const bytes = fs.readFileSync(sourcePath);
+    hashes[stylesheet] = crypto.createHash("sha256").update(bytes).digest("hex").slice(0, 8);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.copyFileSync(sourcePath, targetPath);
+  }
+  return hashes;
 }
 
 //============================================
@@ -164,19 +192,12 @@ async function main() {
     .update(componentStylesheetBytes)
     .digest("hex")
     .slice(0, 8);
-  const stylesheetBytes = fs.readFileSync(path.join(srcDir, "style.css"));
-  const stylesheetHash = crypto
-    .createHash("sha256")
-    .update(stylesheetBytes)
-    .digest("hex")
-    .slice(0, 8);
-
-  copyIndexHtml(bundleHash, stylesheetHash, componentStylesheetHash);
-  fs.copyFileSync(path.join(srcDir, "style.css"), path.join(distDir, "style.css"));
+  const stylesheetHashes = copyStaticStylesheets();
+  copyIndexHtml(bundleHash, stylesheetHashes, componentStylesheetHash);
 
   copyWasmBridge();
 
-  for (const required of ["index.html", "main.js", "main.css", "style.css"]) {
+  for (const required of ["index.html", "main.js", "main.css", ...STATIC_STYLESHEETS]) {
     if (!fs.existsSync(path.join(distDir, required))) {
       throw new Error(`build finished but dist/${required} is missing`);
     }

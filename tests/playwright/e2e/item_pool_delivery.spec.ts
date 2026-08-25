@@ -1,0 +1,355 @@
+// Production-stack item-pool journey: all teaching state and learner work use visible PLE UI.
+//
+// Selector contract:
+// - src/pages/assignment_editor_page.tsx:638 owns mixed fixed/pool creation and post-issue saves.
+// - src/pages/assignment_pool_editor.tsx:109 owns candidate, draw, ordering, and preview controls.
+// - src/pages/assignment_teaching_operations_panel.tsx:148 owns the ordinary publishing controls.
+// - src/pages/run_page.tsx:401 owns issued learner questions, feedback, and completion surfaces.
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+
+import { configuredLiveDemoInputs } from "../../../playwright.config";
+import {
+  chooseSeededIdentity,
+  configureContextAndPage,
+  observeContextOrigins,
+  relativeIsoDate,
+  requireScenarioInput,
+  selectVisibleCourse,
+  writeOriginReceipt,
+} from "./real_stack_ui";
+import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
+
+const actionTimeoutMs = 30_000;
+const scenarioTimeoutMs = 300_000;
+const maryEmail = "mary.okafor@live-demo.ple.example";
+
+interface PublishedQuestion {
+  readonly id: string;
+  readonly title: string;
+  readonly correctChoice: string;
+}
+
+async function createPublishedQuestion(
+  page: Page,
+  title: string,
+  correctChoice: string,
+): Promise<PublishedQuestion> {
+  await page.getByRole("link", { name: "Workspace", exact: true }).click();
+  await page.getByRole("button", { name: "Create flat question", exact: true }).click();
+  await page.getByLabel("Question title").fill(title);
+  await page.getByLabel("Learner-facing prompt").fill(`Choose the supported statement: ${title}`);
+  await page.getByLabel("Choice text").nth(0).fill(correctChoice);
+  await page.getByLabel("Choice text").nth(1).fill(`Alternative statement for ${title}`);
+  await page
+    .getByRole("radio", { name: new RegExp(`Mark choice 1 as correct: ${correctChoice}`) })
+    .check();
+  await page.getByRole("button", { name: "Save private draft", exact: true }).click();
+  await page.getByRole("button", { name: "Review publication changes", exact: true }).click();
+  await page.getByLabel("Reviewed public byline").fill("Dr. Elena Rivera");
+  await page.getByRole("button", { name: "Confirm and publish", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Published", exact: true })).toBeVisible();
+
+  await page.getByRole("link", { name: "Library", exact: true }).click();
+  await page.getByLabel("Search published questions").fill(title);
+  const card = page
+    .getByRole("region", { name: "Published questions" })
+    .getByText(title, { exact: true })
+    .locator("..");
+  await expect(card).toBeVisible();
+  const id = await card.locator("code").innerText();
+  expect(id).toMatch(/^[A-Z0-9]{3}-[A-Z0-9]{4}$/u);
+  return { id, title, correctChoice };
+}
+
+async function createCourseWithMixedPool(
+  page: Page,
+  courseTitle: string,
+  assignmentTitle: string,
+  fixed: PublishedQuestion,
+  candidates: ReadonlyArray<PublishedQuestion>,
+  namespace: string,
+  scenarioInput: ReturnType<typeof requireScenarioInput>,
+): Promise<string> {
+  await page.getByRole("link", { name: "Courses", exact: true }).click();
+  await page.getByLabel("Course title").fill(courseTitle);
+  await page.getByLabel("Start date").fill(relativeIsoDate(-30));
+  await page.getByLabel("End date").fill(relativeIsoDate(365));
+  await page.getByLabel("Time zone (IANA)").fill("America/Chicago");
+  await page.getByRole("button", { name: "Create course", exact: true }).click();
+  const courseCard = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: courseTitle, exact: true }) });
+  await expect(courseCard).toHaveCount(1);
+  await courseCard.getByRole("link", { name: "Open course", exact: true }).click();
+  await page.getByRole("link", { name: "Assignments", exact: true }).click();
+  await page.getByRole("link", { name: "Create the first assignment", exact: true }).click();
+  await page.getByLabel("Assignment title").fill(assignmentTitle);
+  await page.getByText("Add several Question IDs", { exact: true }).click();
+  await page.getByLabel("Question IDs").fill(fixed.id);
+  await page.getByRole("button", { name: "Add questions by ID", exact: true }).click();
+  await page.getByRole("button", { name: "Add question pool", exact: true }).click();
+
+  const pool = page.getByRole("listitem", { name: "Question pool at position 2" });
+  await expect(pool).toBeVisible();
+  await pool
+    .getByLabel("Add candidate Question IDs")
+    .fill(candidates.map((candidate) => candidate.id).join(", "));
+  await pool.getByRole("button", { name: "Check and add candidates", exact: true }).click();
+  for (const candidate of candidates) await expect(pool).toContainText(candidate.title);
+  await pool.getByLabel("Draw count").fill("2");
+  await pool.getByLabel("Points per drawn question").fill("2");
+  await pool.getByLabel("Delivery order").selectOption("candidateOrder");
+  await expect(pool).toContainText("Draw algorithm v1");
+  await page.getByRole("button", { name: "Create assignment", exact: true }).click();
+  await expect(page.getByText(`${assignmentTitle} now appears in this course.`)).toBeVisible();
+  await page.getByRole("link", { name: `Open ${assignmentTitle}`, exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Assignment editor", exact: true })).toBeVisible();
+
+  const savedPool = page.getByRole("listitem", { name: "Question pool at position 2" });
+  await savedPool.getByRole("button", { name: "Preview draw", exact: true }).click();
+  const preview = savedPool
+    .getByRole("heading", { name: "Server-sampled draw", exact: true })
+    .locator("..");
+  await expect(preview).toBeVisible();
+  const previewCandidates = await preview
+    .getByRole("list")
+    .nth(0)
+    .getByRole("listitem")
+    .allTextContents();
+  const previewSample = await preview
+    .getByRole("list")
+    .nth(1)
+    .getByRole("listitem")
+    .allTextContents();
+  expect(previewCandidates).toHaveLength(candidates.length);
+  expect(previewSample).toHaveLength(2);
+  expect(new Set(previewSample).size).toBe(2);
+  for (const sample of previewSample) {
+    expect(previewCandidates).toContain(sample);
+  }
+  await preview.scrollIntoViewIfNeeded();
+  await captureRealStackScreenshot(page, scenarioInput, "item_pool_delivery_pool_preview");
+  await savedPool.getByRole("button", { name: "Preview another draw", exact: true }).click();
+  await expect(
+    savedPool.getByRole("heading", { name: "Server-sampled draw", exact: true }),
+  ).toBeVisible();
+
+  await page.getByLabel("Lifecycle").selectOption("published");
+  await page.getByRole("button", { name: "Save teaching operations", exact: true }).click();
+  await expect(page.getByTestId("assignment-current-state")).toHaveText("Published, open now.");
+  await page.getByRole("link", { name: "Students", exact: true }).click();
+  await page.getByLabel("Institutional email").fill(maryEmail);
+  await page.getByLabel("Institutional student ID").fill(`mary-${namespace}`);
+  await page.getByRole("button", { name: "Create invitation", exact: true }).click();
+  const invitation = page.getByLabel("Invitation link");
+  await expect(invitation).toBeVisible();
+  const invitationUrl = await invitation.inputValue();
+  expect(new URL(invitationUrl).origin).toBe(new URL(page.url()).origin);
+  return invitationUrl;
+}
+
+async function completeDeliveredPoolRun(
+  page: Page,
+  invitationUrl: string,
+  courseTitle: string,
+  assignmentTitle: string,
+  fixed: PublishedQuestion,
+  candidates: ReadonlyArray<PublishedQuestion>,
+  scenarioInput: ReturnType<typeof requireScenarioInput>,
+): Promise<void> {
+  await chooseSeededIdentity(page, /Mary Okafor/u);
+  await page.goto(invitationUrl);
+  await expect(page.getByRole("heading", { name: "Join your PLE course" })).toBeVisible();
+  await page.getByRole("button", { name: "Claim this course", exact: true }).click();
+  await expect(page.getByRole("heading", { name: courseTitle, exact: true })).toBeVisible();
+  const assignmentCard = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
+  await assignmentCard.getByRole("link", { name: "Start assignment", exact: true }).click();
+  await page.getByRole("button", { name: "Start or continue practice", exact: true }).click();
+  await expect(page.locator('[data-route-surface="runAttempt"]')).toBeVisible();
+
+  const byTitle = new Map(candidates.map((candidate) => [candidate.title, candidate]));
+  await expect(page.getByRole("heading", { name: fixed.title, exact: true })).toBeVisible();
+  await expect(page.locator(".run-pool-provenance")).toHaveCount(0);
+  await page.getByRole("radio", { name: fixed.correctChoice, exact: true }).check();
+  await page.getByRole("button", { name: "Submit answer", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Feedback", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+
+  const deliveredCandidateIndexes: number[] = [];
+  const questionHeading = page.locator(".run-header h1");
+  await expect(questionHeading).not.toHaveText(fixed.title);
+  for (let position = 0; position < 2; position += 1) {
+    await expect(page.locator(".run-pool-provenance")).toHaveText(
+      `Server-selected pool item ${position + 1} of 2 for this run.`,
+    );
+    const title = await questionHeading.innerText();
+    const candidate = byTitle.get(title);
+    expect(candidate).toBeDefined();
+    const candidateIndex = candidates.findIndex((item) => item.title === title);
+    expect(candidateIndex).toBeGreaterThanOrEqual(0);
+    deliveredCandidateIndexes.push(candidateIndex);
+    if (position === 0) {
+      await captureRealStackScreenshot(
+        page,
+        scenarioInput,
+        "item_pool_delivery_learner_delivered_pool",
+      );
+    }
+    await page.getByRole("radio", { name: candidate!.correctChoice, exact: true }).check();
+    await page.getByRole("button", { name: "Submit answer", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Feedback", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
+    await page
+      .getByRole("button", {
+        name: position === 0 ? "Continue" : "View completed run",
+        exact: true,
+      })
+      .click();
+    if (position === 0) await expect(questionHeading).not.toHaveText(title);
+  }
+  expect(deliveredCandidateIndexes).toEqual([...deliveredCandidateIndexes].sort((a, b) => a - b));
+  const summary = page.locator(".attempt-summary");
+  await expect(summary.getByText("Your completed run is recorded.")).toBeVisible();
+  await expect(summary.getByRole("region", { name: "Assignment score" })).toContainText("100%");
+  await page.reload();
+  await expect(
+    page.locator(".attempt-summary").getByText("Your completed run is recorded."),
+  ).toBeVisible();
+}
+
+async function inspectPostIssueEdits(
+  page: Page,
+  courseTitle: string,
+  assignmentTitle: string,
+): Promise<void> {
+  await chooseSeededIdentity(page, /Elena Rivera/u);
+  await selectVisibleCourse(page, courseTitle);
+  await page.getByRole("link", { name: "Gradebook", exact: true }).click();
+  await expect(page.locator("[data-route-surface=gradebook]")).toBeVisible();
+  const gradebookRow = page.getByRole("row", { name: new RegExp(assignmentTitle) });
+  await expect(gradebookRow).toBeVisible();
+  await expect(gradebookRow).toContainText("100%");
+  await page.getByRole("link", { name: "Assignments", exact: true }).click();
+  const assignmentCard = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
+  await assignmentCard.getByRole("link", { name: "Edit assignment", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Assignment editor", exact: true })).toBeVisible();
+  const pool = page.getByRole("listitem", { name: "Question pool at position 2" });
+  const revisedTitle = `${assignmentTitle} points updated`;
+  await page.getByLabel("Assignment title").fill(revisedTitle);
+  await pool.getByLabel("Points per drawn question").fill("3");
+  await page.getByRole("button", { name: "Save title, order, and settings", exact: true }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Assignment title, order, and settings saved." }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Assignment title")).toHaveValue(revisedTitle);
+  await expect(pool.getByLabel("Points per drawn question")).toHaveValue("3");
+
+  await pool.getByLabel("Draw count").fill("1");
+  await page.getByRole("button", { name: "Save title, order, and settings", exact: true }).click();
+  const recovery = page.getByRole("alert");
+  await expect(recovery).toContainText(
+    "create a new assignment or use the supported future-run replacement workflow",
+  );
+}
+
+test.describe("item-pool delivery on the production PLE stack", () => {
+  test.skip(
+    configuredLiveDemoInputs === undefined,
+    "the disposable production browser-suite owner supplies this scenario input",
+  );
+
+  test("server previews and delivers a fixed item plus an ordered immutable pool draw", async ({
+    browser,
+  }) => {
+    test.setTimeout(scenarioTimeoutMs);
+    const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
+    expect(scenarioInput.scenarioId).toBe("item_pool_delivery");
+    const tag = scenarioInput.namespace;
+    const courseTitle = `Item pool course ${tag}`;
+    const assignmentTitle = `Item pool assignment ${tag}`;
+    const pageOrigins = new Set<string>();
+    const requestOrigins = new Set<string>();
+    const contexts: BrowserContext[] = [];
+    let originEvidenceVerified = false;
+
+    try {
+      const elenaContext = await browser.newContext({
+        viewport: { width: 1280, height: 800 },
+        ignoreHTTPSErrors: true,
+      });
+      const maryContext = await browser.newContext({
+        viewport: { width: 1280, height: 800 },
+        ignoreHTTPSErrors: true,
+      });
+      const inspectionContext = await browser.newContext({
+        viewport: { width: 1280, height: 800 },
+        ignoreHTTPSErrors: true,
+      });
+      contexts.push(elenaContext, maryContext, inspectionContext);
+      for (const context of contexts) observeContextOrigins(context, pageOrigins, requestOrigins);
+      const elena = await elenaContext.newPage();
+      const mary = await maryContext.newPage();
+      const inspectingElena = await inspectionContext.newPage();
+      for (const [context, page] of [
+        [elenaContext, elena],
+        [maryContext, mary],
+        [inspectionContext, inspectingElena],
+      ] as const) {
+        configureContextAndPage(context, page, actionTimeoutMs);
+      }
+
+      await chooseSeededIdentity(elena, /Elena Rivera/u);
+      await selectVisibleCourse(elena, "Biochemistry Base Course");
+      const fixed = await createPublishedQuestion(
+        elena,
+        `Pool fixed question ${tag}`,
+        `Fixed correct choice ${tag}`,
+      );
+      const candidates: PublishedQuestion[] = [];
+      for (const label of ["one", "two", "three"]) {
+        candidates.push(
+          await createPublishedQuestion(
+            elena,
+            `Pool candidate ${label} ${tag}`,
+            `Pool candidate ${label} correct ${tag}`,
+          ),
+        );
+      }
+      const invitationUrl = await createCourseWithMixedPool(
+        elena,
+        courseTitle,
+        assignmentTitle,
+        fixed,
+        candidates,
+        tag,
+        scenarioInput,
+      );
+      await completeDeliveredPoolRun(
+        mary,
+        invitationUrl,
+        courseTitle,
+        assignmentTitle,
+        fixed,
+        candidates,
+        scenarioInput,
+      );
+      await inspectPostIssueEdits(inspectingElena, courseTitle, assignmentTitle);
+
+      const expectedOrigin = new URL(scenarioInput.baseUrl).origin;
+      expect([...pageOrigins].sort()).toEqual([expectedOrigin]);
+      expect([...requestOrigins].sort()).toEqual([expectedOrigin]);
+      originEvidenceVerified = true;
+    } finally {
+      try {
+        await Promise.all(contexts.map(async (context) => await context.close()));
+      } finally {
+        if (originEvidenceVerified) writeOriginReceipt(pageOrigins, requestOrigins);
+      }
+    }
+  });
+});

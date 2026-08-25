@@ -255,6 +255,7 @@ impl std::fmt::Debug for PrefetchedPrivateExecutionV1 {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReservePrefetchedQuestionCommand {
     pub actor: UserId,
+    pub binding: LearnerWorkRoutingBinding,
     pub reservation: PrefetchedQuestionDescriptorV1,
     pub private_execution: PrefetchedPrivateExecutionV1,
 }

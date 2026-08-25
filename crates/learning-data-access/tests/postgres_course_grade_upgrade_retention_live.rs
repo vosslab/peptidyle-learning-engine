@@ -32,7 +32,7 @@ fn fresh() -> Uuid {
 }
 
 fn disposable_url() -> String {
-    std::env::var("PLE_TEST_DATABASE_URL").expect("disposable acceptance database URL")
+    load_acceptance_runtime().admin_url().expose().to_owned()
 }
 
 fn generated_database_name() -> String {
@@ -383,3 +383,6 @@ async fn postgres_course_grade_upgrade_backfill_and_retention_wrapper_are_lifecy
     assert_upgrade_backfill().await;
     assert_retention_wrapper().await;
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

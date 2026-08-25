@@ -29,10 +29,6 @@ async fn rejected_course_insert(
     time_zone: Option<&str>,
 ) -> sqlx::Error {
     let mut transaction = pool.begin().await.expect("begin term constraint probe");
-    sqlx::query("SET LOCAL ROLE ple_app")
-        .execute(&mut *transaction)
-        .await
-        .expect("constraint probe assumes the application role");
     sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
         .bind(tenant.to_string())
         .execute(&mut *transaction)
@@ -73,9 +69,9 @@ fn constraint(error: &sqlx::Error) -> Option<&str> {
 #[tokio::test]
 #[ignore = "requires a fresh disposable PostgreSQL 17 database with the full migration chain"]
 async fn postgres_course_terms_round_trip_enforce_constraints_and_remain_tenant_isolated() {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let database_url = runtime.admin_url().expose();
+    let pool = lazy_pool(database_url).expect("valid live PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("full migrated application schema is compatible");
@@ -221,3 +217,6 @@ async fn postgres_course_terms_round_trip_enforce_constraints_and_remain_tenant_
         Err(StoreError::Unavailable(_))
     ));
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

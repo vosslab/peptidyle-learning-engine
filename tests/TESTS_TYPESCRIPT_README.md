@@ -2,24 +2,26 @@
 
 ## What this repo is
 
-PLE is a server platform. You write the browser client in `src/`; `./build.sh`
-creates production `dist/`, which the PLE gateway serves with its API. Browser
-testing uses that same artifact through a disposable real stack. The npm aliases
-mirror supported commands as an optional convenience.
+This is a TypeScript browser app. You write code in `src/`, bundle it into
+`dist/`, and ship `dist/` to GitHub Pages. A small set of named shell scripts
+is the whole interface: drive the repo through them and you never need to open
+`package.json`. The npm aliases (`npm run build`, `serve`, `check`, `clean`,
+`test:playwright`) mirror the scripts one to one as an optional convenience.
 
 ## Front door shell scripts
 
 | Script | What it does |
 | --- | --- |
 | `./check_codebase.sh` | Fast gate: typecheck, lint, format check, Node unit tests. |
-| `./build.sh` | Build Rust, Wasm, generated contracts, fixtures, and `dist/`. |
-| `source source_me.sh && python3 local_stack.py start --no-open` | Build and start ordinary local PLE. |
+| `./build_github_pages.sh` | Bundle `src/` into `dist/` (the Pages artifact). |
+| `./run_web_server.sh` | Build `dist/`, serve a local preview on a random port. |
 | `./run_playwright_tests.sh` | Run browser tests; builds `dist/` as needed. |
-| `./devel/clean_build.sh` | Wipe build outputs. |
+| `./dist_clean.sh` | Wipe `dist/`. |
 
-Run `./check_codebase.sh --help` for usage. `local_stack.py` owns the ordinary
-local service lifecycle. `./run_playwright_tests.sh` owns a fresh disposable
-HTTPS browser stack and accepts `--build` to force its production-artifact rebuild.
+Run `./check_codebase.sh --help` for usage. `./run_web_server.sh` picks a
+random port each run so the browser cache stays fresh; set `PORT` to override.
+`./run_playwright_tests.sh` lets Playwright's own `webServer` config start the
+test server, and accepts `--build` to force a rebuild first.
 
 ## Repo layout you edit
 
@@ -52,16 +54,18 @@ A typical edit loop runs the tiers in this order:
 
 - Edit files under `src/`.
 - Run `./check_codebase.sh` for the fast gate.
-- Run `source source_me.sh && python3 local_stack.py start --no-open` and use
-  the ordinary PLE gateway in a browser.
+- Run `./run_web_server.sh` and eyeball the app in a browser.
 - Run `./run_playwright_tests.sh` to confirm browser behavior.
 
-## Run PLE locally
+## Ship to GitHub Pages
 
-Use the local-stack controller for a normal, API-backed PLE installation. It
-builds and starts the application, database, and storage services together.
-Use `source source_me.sh && python3 local_stack.py acceptance` for the complete
-opt-in browser acceptance suite.
+- Run `./build_github_pages.sh` to emit `dist/`, including `dist/.nojekyll` so
+  Pages serves files whose names start with an underscore.
+- Deploy runs as a GitHub Action from `dist/`. The seed workflow ships as a
+  root-level `deploy-pages.yml`; move it into your repository workflows
+  directory to activate it.
+- Once the site is live, link `https://<owner>.github.io/<repo>/` near the top
+  of `README.md` so readers can open the app in one click.
 
 ## Common first run failures
 

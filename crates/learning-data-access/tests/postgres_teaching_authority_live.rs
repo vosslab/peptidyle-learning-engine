@@ -3,7 +3,7 @@
 //! Disposable PostgreSQL 17 authority and concurrency oracle for T2.
 //!
 //! This is intentionally ignored: it needs the disposable migrated database
-//! named by `PLE_TEST_DATABASE_URL`. Store calls create normal accounts,
+//! named by the private acceptance runtime workspace. Store calls create normal accounts,
 //! sessions, courses, and memberships; the small SQL probes cover catalog and
 //! RLS facts that the Store API cannot observe.
 
@@ -228,9 +228,9 @@ async fn approval_function_guards(pool: &sqlx::PgPool) {
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 database baseline"]
 async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
-    let url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&url).expect("disposable PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose();
+    let pool = lazy_pool(url).expect("disposable PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("migrated schema");
@@ -622,3 +622,6 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
     );
     approval_function_guards(&pool).await;
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

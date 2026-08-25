@@ -29,8 +29,6 @@ mod client_address;
 mod passwordless;
 #[path = "auth/seeded_account_selector.rs"]
 mod seeded_account_selector;
-#[path = "auth/seeded_sysadmin_ownership.rs"]
-mod seeded_sysadmin_ownership;
 #[path = "auth/session_cookie.rs"]
 mod session_cookie;
 #[path = "auth/webauthn.rs"]
@@ -46,9 +44,6 @@ pub use passwordless::{
     passwordless_router,
 };
 pub use seeded_account_selector::{SeededAccountSelectorConfig, seeded_account_selector_router};
-pub use seeded_sysadmin_ownership::{
-    SeededSysadminOwnershipConfig, seeded_sysadmin_ownership_router,
-};
 use session_cookie::{SessionToken, presented_token, session_cookie, wire_cookie_name};
 pub use webauthn::{PasswordlessWebauthn, passkey_router};
 

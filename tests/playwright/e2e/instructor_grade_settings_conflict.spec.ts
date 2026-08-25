@@ -85,7 +85,6 @@ test.describe("instructor grade-settings conflicts on the production PLE stack",
     const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
     expect(scenarioInput.scenarioId).toBe("grade_settings_conflict");
     expect(scenarioInput.namespace).toMatch(/^bs1-[0-9a-f]{12}-grade_settings_conflict$/u);
-    expect(scenarioInput.sysadminRequirement).toBe("not_required");
     const courseTitle = `Conflict course ${scenarioInput.namespace}`;
     const namespaceToken = scenarioInput.namespace.slice(4, 16);
     expect(namespaceToken).toMatch(/^[0-9a-f]{12}$/u);

@@ -63,9 +63,8 @@ GRANT EXECUTE ON FUNCTION public.ple_sysadmin_instructor_candidate_search(
     character, text, integer, integer
 ) TO ple_app;
 
--- The ownership route may compare its deployment-owned claim context with
--- the completed baseline generation, but it receives no lifecycle writes or
--- broader lifecycle state.  The auth role invokes this broker only.
+-- The auth role may read the completed baseline generation without receiving
+-- lifecycle writes or broader lifecycle state.
 DO $$
 BEGIN
     IF NOT EXISTS (

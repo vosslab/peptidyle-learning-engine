@@ -587,6 +587,17 @@ textarea:hover {
   font-size: clamp(1.35rem, 2.2vw, 1.8rem);
 }
 
+.run-pool-provenance {
+  width: fit-content;
+  margin: 0 0 0.65rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--ple-radius-control);
+  background: color-mix(in srgb, var(--ple-theme-primary) 10%, var(--ple-card-surface));
+  color: var(--ple-ink);
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
 .calm-status {
   display: inline-flex;
   min-height: 2rem;
@@ -973,26 +984,4 @@ html[data-contrast="increased"] .course-theme-scope {
     align-items: flex-start;
     flex-direction: column;
   }
-}
-
-@media (forced-colors: active) {
-  .primary-action,
-  .primary-link,
-  .quiet-action,
-  .quiet-link {
-    border: 1px solid ButtonText;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-  }
-}
-.plain-text-instructions {
-  white-space: pre-wrap;
 }

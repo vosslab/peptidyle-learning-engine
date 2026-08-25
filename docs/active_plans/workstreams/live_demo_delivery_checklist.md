@@ -12,7 +12,11 @@
 ## Product contract
 
 The live demo is a fully functional PLE instance, not a fixed walkthrough or read-only
-demonstration. It supports the normal Instructor, Student, and Sysadmin perspectives.
+demonstration. It supports the normal Instructor, Student, and Sysadmin perspectives. Its current
+public entry is a deployment-gated closed selector for five fixed personas: Elena Instructor, Mary
+Student, Jack Student, Avery Student, and Morgan Sysadmin. A selection establishes the ordinary
+account session, then visible course selection establishes the ordinary tenant session. The server
+continues to own stored roles, memberships, and authorization.
 
 The human-approved [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) is the product authority for this
 checklist. This checklist turns that specification into ordered delivery and evidence work.
@@ -30,6 +34,12 @@ Seeded instructors, students, courses, assignments, problems, and student activi
 data. Fresh database and object-storage regeneration restores the baseline. Retained stores
 preserve edits and new data across ordinary restarts.
 
+The current direct-role evidence is independently runnable: `direct_role_entry` selects Morgan,
+selects Genetics, proves Sysadmin authorization, and performs generic visible passkey enrollment and
+sign-in; `auth_authorization` does the same generic passkey proof for Elena before its ordinary
+Instructor and course-boundary checks. The fixed owner retains reset and cleanup responsibility;
+the scenarios share neither credentials nor setup state.
+
 This checklist applies the [professor capability architecture plan](../active/professor_capability_architecture_plan.md),
 the [implementation plan](../implementation_plan.md), and the current package handoff in
 [implementation status](../implementation_status.md). It records delivery work; those documents
@@ -41,11 +51,11 @@ remain the scope and acceptance authorities.
   [implementation_status.md](../implementation_status.md) before durable install-state work begins.
   `WP-PROF-LD2` accepted immutable migration `2026081809` owns exactly two least-privilege
   execute-only PostgreSQL brokers: safe normal Sysadmin approval-candidate discovery and read-only
-  completed live-demo installation-generation lookup used to bind configured first-ownership proof.
+  completed live-demo installation-generation lookup.
   Its separately accepted immutable `2026081810` is only the narrow Student pre-tenant account-course
-  context retention-boundary repair. Selector behavior and claim, passkey, account, and session data
-  and semantics remain non-schema; the generation-read broker is the narrow schema authorization seam
-  for that otherwise non-schema ownership flow. `WP-PROF-T3` remains separate and current.
+  context retention-boundary repair. Selector, passkey, account, and session data and semantics remain
+  non-schema; the generation-read broker is the accepted narrow auth-owned installation-state read.
+  `WP-PROF-T3` remains separate and current.
 - [x] Give each fresh baseline installation a durable `installing`/`complete` state and generation,
   serialize its installer, and bind its PostgreSQL rows and object-storage receipt to that
   installation.
@@ -105,7 +115,8 @@ and Instructor accounts while preserving `WP-RC8` as the production authenticati
 The live-demo handoff order is `WP-PROF-LD1` -> `WP-PROF-LD2` -> `WP-PROF-T3`; LD2 is accepted,
 and T3 is the separate current package.
 
-- [x] Provide a deployment-controlled selector for the seeded Student and Instructor personas.
+- [x] Provide a deployment-controlled selector for five fixed seeded personas: Elena Instructor,
+  Mary Student, Jack Student, Avery Student, and Morgan Sysadmin.
   The selector sends only a closed known persona to the server.
 - [x] Resolve each selected persona on the server to a known seeded PLE account and create the
   ordinary account session. Derive roles, tenant context, memberships, and authorization from
@@ -115,25 +126,20 @@ and T3 is the separate current package.
 - [x] Repair the pre-tenant account-course discovery boundary so `ple_auth` returns active Student
   contexts, preserves archived/deleted/started-retention concealment, leaves Instructor behavior
   unchanged, and proves connected Student login.
-- [x] Prove seeded Student and Instructor selection through normal sessions and their normal role
+- [x] Prove each seeded persona enters through normal sessions and only its stored normal role
   capabilities. The selector replaces only passwordless identity verification.
-- [x] Seed an ordinary, unclaimed Sysadmin account. First access completes the normal account
-  ownership and passkey-enrollment flow; later access uses the normal Sysadmin authentication and
-  session path.
-- [x] Require a deployment-controlled, server-verified ownership proof bound to the configured
-  seeded Sysadmin account before its first claim. Browser-supplied account, role, and persona data
-  remain insufficient to authorize that claim.
-- [x] Atomically commit successful ownership proof, first passkey enrollment, claimed state, and
-  the ordinary account session. One valid claim wins; replayed, invalid, and concurrent attempts
-  receive safe results without creating a new role.
-- [x] Prove real WebAuthn enrollment and authentication: server-issued challenges bind the relying
-  party and origin, require the configured user-verification policy, resist replay, and establish
-  the normal protected session.
+- [x] Directly select Morgan Sysadmin, choose Genetics, and prove ordinary server authorization from
+  the selected account's stored role and session state.
+- [x] Prove real generic WebAuthn enrollment and authentication for Morgan Sysadmin and Elena
+  Instructor inside their respective scenarios: server-issued challenges bind the relying party and
+  origin, require the configured user-verification policy, resist replay, and establish the normal
+  protected session.
 - [x] Prove the seeded Sysadmin exercises full normal Sysadmin workflows, including the ordinary
   instructor-discovery and approval workflow. Preserve the normal Student, Instructor, and
   Sysadmin role boundaries.
-- [x] Prove fresh database and object-storage regeneration creates the seeded Sysadmin in its
-  original unclaimed baseline state. Do not require credential replay.
+- [x] Prove fresh database and object-storage regeneration restores all five seeded personas to the
+  baseline account and stored-role state. Each browser scenario starts from that reset baseline and
+  performs its own visible passkey work; it does not require credential replay.
 
 Email is unavailable for this proof. Connected evidence uses seeded real accounts and normal
 sessions. Fresh database and storage regeneration restores the complete seeded baseline.
@@ -158,6 +164,21 @@ browser scenario.
 - [x] Select the seeded Student account, enter the course, complete the new assignment, and submit
   answers through the ordinary Student session.
 - [x] View the permitted feedback and grades, then repeat the assignment where its policy allows.
+
+### Item-pool continuation (WP-PROF-T5)
+
+- [x] Elena uses visible controls and public Question IDs to create a mixed fixed-plus-pool
+  assignment. She configures draw count, points, and ordering while the v1 algorithm label remains
+  read-only.
+- [x] Elena previews a server-generated pool draw as an ephemeral no-store computation over the
+  current assignment revision. Durable learner activity remains unchanged.
+- [x] An ordinarily enrolled Student receives the fixed item plus the selected pool item, submits
+  both responses, sees permitted deterministic grading and feedback, and resumes the exact issued
+  selection.
+- [x] A permitted next run follows the selected variation policy. Evidence records the
+  policy-correct basis and freezes each issued selection.
+- [x] Elena inspects the resulting work and immutable evidence. A structural edit after first issue
+  presents the visible new-assignment recovery action and preserves issued work.
 
 ### Sysadmin path
 
@@ -207,6 +228,10 @@ account creation and email enrollment are separate scope. See the
   `tests/playwright/e2e/live_demo.spec.ts`; `local_stack.py acceptance` runs that journey against
   the disposable local stack. It verifies visible normal sessions and role-authorized outcomes,
   including representative recovery, rather than an exhaustive live matrix.
+- [x] The canonical `item_pool_delivery` scenario and its two corpus artifacts,
+  `item_pool_delivery_pool_preview` and `item_pool_delivery_learner_delivered_pool`, ran through the
+  fixed production HTTPS owner. Capture provenance/privacy checks and independent visual approval
+  cover those published artifacts; the final aggregate suite proves the material tree.
 - [x] The integrator ran this complete Validation suite on the corrected final material tree,
   after the 1809 scope correction. Historical post-repair runtime evidence ran in
   order: `./check_rust.sh` passed; `./check_codebase.sh` passed five checks and 322 Node tests;

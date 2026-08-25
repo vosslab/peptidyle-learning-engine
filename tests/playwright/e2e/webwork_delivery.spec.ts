@@ -158,7 +158,6 @@ test("WebWork delivery: Elena assigns reviewed catalog material and Mary complet
   const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
   const baseline = requireWebworkCatalogBaselineInput(process.env);
   expect(scenarioInput.scenarioId).toBe("webwork_delivery");
-  expect(scenarioInput.sysadminRequirement).toBe("not_required");
   expect(baseline.scenarioId).toBe(scenarioInput.scenarioId);
   const courseTitle = `WebWork delivery course ${scenarioInput.namespace}`;
   const assignmentTitle = `WebWork delivery assignment ${scenarioInput.namespace}`;

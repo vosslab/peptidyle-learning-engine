@@ -3,9 +3,9 @@ use super::*;
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 database baseline"]
 async fn postgres_sysadmin_candidate_discovery_is_brokered_paged_and_safe() {
-    let url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&url).expect("disposable PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose();
+    let pool = lazy_pool(url).expect("disposable PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("migrated schema");

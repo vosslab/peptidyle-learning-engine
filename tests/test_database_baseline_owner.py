@@ -7,8 +7,10 @@ import stat
 
 import pytest
 
+import file_utils
 import local_stack_control.database_baseline_owner
 import local_stack_control.models
+import local_stack_control.runtime_manifest
 
 
 class FakeLease:
@@ -43,11 +45,11 @@ def empty_snapshot() -> local_stack_control.models.ProjectSnapshot:
 
 
 #============================================
-def test_private_oracle_child_receives_only_owner_created_runtime_input(
+def test_private_oracle_child_receives_only_owner_created_runtime_manifest(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-	"""The child launch receives the fixed command and its private handoff."""
+	"""The child launch receives only a non-secret runtime-manifest locator."""
 	calls: list[tuple[list[str], pathlib.Path, dict[str, str], bool]] = []
 
 	class Completed:
@@ -68,15 +70,38 @@ def test_private_oracle_child_receives_only_owner_created_runtime_input(
 	local_stack_control.database_baseline_owner._run_oracle(tmp_path, tmp_path, 48500)
 	assert len(calls) == 1
 	argv, cwd, environment, check = calls[0]
-	assert argv == ["bash", "tests/e2e/e2e_database_baseline.sh", "--owned-child"]
+	assert argv == [
+		"bash",
+		str(tmp_path / "tests/e2e/e2e_database_baseline.sh"),
+		"--owned-child",
+		"--runtime-manifest",
+		"runtime.yaml",
+	]
 	assert cwd == tmp_path
 	assert check is False
-	assert environment["PLE_DATABASE_BASELINE_WORKSPACE"] == str(tmp_path)
-	assert environment["PLE_DATABASE_BASELINE_PORT"] == "48500"
-	owner_input = pathlib.Path(environment["PLE_DATABASE_BASELINE_OWNER_INPUT"])
-	assert owner_input.parent == tmp_path
-	assert owner_input.read_bytes() == b"lease-held\n"
-	assert stat.S_IMODE(owner_input.stat().st_mode) == 0o600
+	assert not any(name.startswith("PLE_") or name.startswith("COMPOSE_") for name in environment)
+	runtime = local_stack_control.runtime_manifest.load_database_baseline_runtime(tmp_path)
+	assert runtime.manifest_path == tmp_path / "runtime.yaml"
+	assert stat.S_IMODE(runtime.manifest_path.stat().st_mode) == 0o600
+	assert stat.S_IMODE((tmp_path / "secrets").stat().st_mode) == 0o700
+	assert all(
+		stat.S_IMODE(path.stat().st_mode) == 0o600
+		for path in (tmp_path / "secrets").iterdir()
+	)
+
+
+#============================================
+def test_database_baseline_shell_selects_the_private_project_tools_runtime() -> None:
+	"""Migration administration opts into the non-secret runtime-file boundary."""
+	shell = pathlib.Path(file_utils.get_repo_root()) / "tests/e2e/e2e_database_baseline.sh"
+	content = shell.read_text(encoding="utf-8")
+	assert 'cargo run --manifest-path "$REPO_ROOT/Cargo.toml"' in content
+	assert 'database "$@" --acceptance-runtime' in content
+	assert 'cargo test --manifest-path "$REPO_ROOT/Cargo.toml"' in content
+	assert 'export PLE_ACCEPTANCE_RUNTIME_MANIFEST="$RUNTIME_MANIFEST_PATH"' in content
+	assert content.count("PLE_ACCEPTANCE_RUNTIME_MANIFEST") == 1
+	assert "PLE_TEST_DATABASE_URL" not in content
+	assert "PLE_TEST_GRADER_DATABASE_URL" not in content
 
 
 #============================================

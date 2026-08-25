@@ -11,6 +11,7 @@ import local_stack_control.browser_suite_developer
 import local_stack_control.browser_suite_lease
 import local_stack_control.browser_suite_reset
 import local_stack_control.models
+import local_stack_control.process
 
 
 def _receipt() -> local_stack_control.browser_suite_developer.DeveloperControlReceipt:
@@ -115,6 +116,37 @@ def test_stale_private_control_receipt_never_owns_the_suite_lease(tmp_path: path
 	_write_receipt(tmp_path)
 	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path) as lease:
 		assert lease.workspace == tmp_path / "target" / "live-demo-browser" / "workspace"
+
+
+#============================================
+def test_orphan_purge_removes_owned_resources_workspace_and_control_state(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""A released owner can be recovered without caller-selected cleanup scope."""
+	_write_receipt(tmp_path)
+	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path) as lease:
+		workspace = lease.reset_workspace()
+		(workspace / "abandoned").write_text("private\n", encoding="ascii")
+	events: list[str] = []
+	empty = local_stack_control.models.ProjectSnapshot("ple-live-demo-browser", (), (), ())
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_reset,
+		"reset_live_demo_browser",
+		lambda lease, runner, root: (events.append("reset"), empty)[1],
+	)
+	project = local_stack_control.browser_suite_developer.purge_orphaned_session(
+		tmp_path,
+		local_stack_control.process.SubprocessRunner(),
+	)
+	assert project == "ple-live-demo-browser"
+	assert events == ["reset"]
+	assert tuple((tmp_path / "target" / "live-demo-browser" / "workspace").iterdir()) == ()
+	with pytest.raises(
+		local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError,
+		match="session is not running",
+	):
+		local_stack_control.browser_suite_developer.read_control_receipt(tmp_path)
 
 
 #============================================

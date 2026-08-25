@@ -24,7 +24,6 @@ const input = {
   baseUrl,
   personas: ["mary_student"],
   baselineReads: ["base_course"],
-  sysadminRequirement: "not_required",
   visibleObservation: "learner_delivery",
   screenshotCapture: {
     version: 1,

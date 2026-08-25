@@ -1,7 +1,10 @@
 use async_trait::async_trait;
 
 use super::*;
-use crate::{CreateAssignmentCommand, ReplaceAssignmentCommand};
+use crate::{
+    CreateAssignmentCommand, ReplaceAssignmentCommand, ReplaceUnissuedAssignmentDefinitionCommand,
+    ReplaceUnissuedAssignmentDefinitionOutcome,
+};
 
 #[async_trait]
 impl crate::CourseAssignmentStore for PostgresStore {
@@ -106,6 +109,45 @@ impl crate::CourseAssignmentStore for PostgresStore {
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(returned)
     }
+
+    async fn replace_unissued_assignment_definition_impl(
+        &self,
+        context: TenantContext,
+        command: ReplaceUnissuedAssignmentDefinitionCommand,
+    ) -> Result<ReplaceUnissuedAssignmentDefinitionOutcome, StoreError> {
+        let ReplaceUnissuedAssignmentDefinitionCommand {
+            actor,
+            course,
+            assignment,
+            expected_revision,
+            definition,
+            base_policy,
+        } = command;
+        ensure_tenant(context, definition.tenant)?;
+        if definition.id != assignment || definition.course_id != course {
+            return Err(StoreError::InvalidRecord(
+                "unissued definition bindings do not match the command route".to_string(),
+            ));
+        }
+        validate_assignment(&definition)?;
+        let mut transaction = self.begin_tenant(context).await?;
+        // This reference check is an early diagnostic only. The capability
+        // repeats publication validation after its course/assignment locks,
+        // which makes the database the final authority (ASVS 2.2.2/2.3.4).
+        validate_postgres_assignment_references(&mut transaction, context, &definition).await?;
+        let returned = assignment_definition_capability::replace_unissued(
+            &mut transaction,
+            context,
+            actor,
+            &definition,
+            base_policy,
+            expected_revision,
+        )
+        .await?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(returned)
+    }
+
     async fn replace_assignment_fixed_item_impl(
         &self,
         context: TenantContext,

@@ -14,7 +14,10 @@ Core principles guide work in this repo. Cite them by name when making judgment 
 - **Dream big.** Build on the ambition already present. Pursue the strongest, most durable, and most complete version of the work, then turn that ambition into practical next steps.
 - **Perfect is the enemy of good.** Prefer a good solution delivered promptly when further refinement would not materially improve the outcome. Spend additional effort where it changes correctness, durability, or user value.
 - **Atomic task decomposition.** Break hard problems into the smallest independently completable tasks. Each task should have one owner, one clear outcome, and one verification step.
-- **Prompt positively.** Tell the model what to do, not what to avoid. Small LMs can confuse negative prompting with positive instructions, which can lead to poor code and seriously flawed results.     Prefer direct instructions like "use explicit key access" over negative ones, like "do not use dict.get()"
+- **Prompt positively.** Lead with the desired action or tool. Use direct instructions such as
+  "use explicit key access." Omit irrelevant alternatives and unwanted actions from the prompt so
+  small LMs have one clear behavior to follow. State an explicit prohibition only when a safety or
+  correctness boundary requires it.
 - **Fresh subagent per task.** Give each independent task to a new subagent with a self-contained prompt. Reusing a subagent across tasks carries stale context, encourages drift, and weakens independent judgment. When a subagent is performing suboptimal, kill and replace it rather than negotiating.
 - **Be efficient with time.** Subagents and tokens are cheap; wall time is not. Use parallel atomic tasks when the work is independent and doing so shortens implementation time.
 - **Finish the obvious.** Continue while the next safe step is defined by the plan, implied by the task, or required to verify the work. Obvious follow-on work is part of the task, not a bonus. Stop only at a real blocker, risky action, or change to the user's requested outcome.

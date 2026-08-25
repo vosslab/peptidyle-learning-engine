@@ -64,10 +64,8 @@ Use the repository's preferred setup script when available.
 Run Playwright scripts from the repository root so local dependencies resolve
 correctly.
 
-For PLE application behavior, use the canonical owner:
-
 ```bash
-./run_playwright_tests.sh --build
+node tools/capture_page.mjs
 ```
 
 When a repository provides a runner such as `run_playwright_tests.sh`, prefer that runner over
@@ -75,33 +73,34 @@ invoking `npx playwright test` directly. Repository-owned runners may provide re
 checks, configuration paths, server coordination, argument handling, and consistent result
 reporting.
 
-For PLE, this is a hard boundary: `run_playwright_tests.sh` is the sole application-browser front
-door. It builds the production `dist/` bundle, starts one disposable HTTPS gateway and real service
-stack, and invokes the fixed owner at `tests/e2e/e2e_browser_suite_owner.py`. The owner runs the
-selected catalog scenarios serially with one fresh fixed stack per invocation. Callers do not supply
-a URL, project, credential, transport, or alternate browser application.
-
-`capture_screenshots.sh` delegates to the same front door with `--screenshots`. It therefore captures
-the production browser path and its real-origin provenance rather than a test-only visual flow.
-Use a focused scenario selection when debugging; the acceptance contract still has one
-browser-suite invocation.
+This general guidance does not assume a TypeScript build, a `dist/` directory, or a development
+server. Each repository owns its build and server lifecycle through its local scripts and
+configuration.
 
 ## Common automation
 
-### Run a focused scenario
+### Open a local HTML file
 
-Use a fresh fixed real stack for a focused browser scenario:
+```javascript
+import { chromium } from "playwright";
+import path from "node:path";
 
-```bash
-./run_playwright_tests.sh --scenario instructor_authoring
+const html_path = path.resolve("index.html");
+
+const browser = await chromium.launch();
+const page = await browser.newPage();
+
+await page.goto(`file://${html_path}`);
+await browser.close();
 ```
 
-### Capture screenshots
+### Take a screenshot
 
-Capture the canonical production corpus through the shared front door:
-
-```bash
-./capture_screenshots.sh
+```javascript
+await page.screenshot({
+	path: "capture.png",
+	fullPage: true,
+});
 ```
 
 ### Generate a PDF
@@ -183,15 +182,13 @@ A common convention is:
 tests/playwright/
 ```
 
-PLE organizes its production browser scenarios under:
+Some repositories further organize complete browser walkthroughs under:
 
 ```
 tests/playwright/e2e/
 ```
 
-`playwright.config.ts` collects only this catalog-owned directory. Keep product-state setup in
-visible PLE controls. Narrow decoder, serialization, and transport checks may use literal fixtures
-in Node or other browser-free unit tests, but those fixtures are not a browser runtime.
+Repositories may use different layouts if they better fit the project.
 
 ### Headless execution
 
@@ -208,9 +205,6 @@ See `E2E_TESTS.md` for repository testing conventions.
 
 Temporary screenshots, recordings, traces, and similar evidence normally belong
 in an ignored output directory such as `test-results/`.
-
-The canonical visual corpus is the exception: `capture_screenshots.sh` publishes its manifest-owned
-documentation artifacts only after the production-origin and privacy checks pass.
 
 ## Troubleshooting
 

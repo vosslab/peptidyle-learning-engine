@@ -110,8 +110,6 @@ mod row_decode;
 #[cfg(feature = "postgres")]
 use row_decode::*;
 #[cfg(feature = "postgres")]
-mod seeded_sysadmin_ownership;
-#[cfg(feature = "postgres")]
 mod summary;
 #[cfg(feature = "postgres")]
 use summary::*;

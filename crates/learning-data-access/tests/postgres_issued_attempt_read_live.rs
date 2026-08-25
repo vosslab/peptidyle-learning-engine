@@ -406,12 +406,12 @@ async fn publish_webwork(
 }
 
 #[tokio::test]
-#[ignore = "requires disposable PLE_TEST_DATABASE_URL and PLE_TEST_GRADER_DATABASE_URL PostgreSQL 17 connections"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_aware() {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL").expect("disposable PostgreSQL URL");
-    let grader_url =
-        std::env::var("PLE_TEST_GRADER_DATABASE_URL").expect("disposable grader PostgreSQL URL");
-    let database = DisposableDatabase::provision(&database_url).await;
+    let runtime = load_acceptance_runtime();
+    let database_url = runtime.admin_url().expose();
+    let grader_url = runtime.grader_url().expose();
+    let database = DisposableDatabase::provision(database_url).await;
     let pool = database.pool.clone();
     verify_application_schema(&pool)
         .await
@@ -426,7 +426,7 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
     );
     let timing = OracleTimingWindow::from_database(&pool).await;
     let store = PostgresStore::with_question_id_secret(pool.clone(), [0x42; 32]);
-    let grader_options = PgConnectOptions::from_str(&grader_url)
+    let grader_options = PgConnectOptions::from_str(grader_url)
         .expect("valid disposable grader PostgreSQL URL")
         .database(&database.database);
     let child_grader_url = grader_options.to_url_lossy().to_string();
@@ -915,3 +915,6 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
     );
     database.cleanup().await;
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

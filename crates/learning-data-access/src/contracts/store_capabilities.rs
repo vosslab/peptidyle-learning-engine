@@ -237,6 +237,15 @@ pub trait CourseAssignmentStore: Send + Sync {
         command: ReplaceAssignmentCommand,
     ) -> Result<StoredAssignment, StoreError>;
 
+    /// Replaces the whole ordered fixed-item/selection-group definition before
+    /// the first learner run. Implementations serialize this command with run
+    /// creation and preserve issued rows as immutable evidence.
+    async fn replace_unissued_assignment_definition_impl(
+        &self,
+        context: TenantContext,
+        command: ReplaceUnissuedAssignmentDefinitionCommand,
+    ) -> Result<ReplaceUnissuedAssignmentDefinitionOutcome, StoreError>;
+
     /// Replaces one fixed item for future runs under the assignment's strong
     /// revision token. The command identifies the stable assignment-owned slot
     /// and supplies an exact publication already resolved from a Question ID;

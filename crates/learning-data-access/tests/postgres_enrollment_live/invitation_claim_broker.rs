@@ -100,12 +100,12 @@ fn claim_command(
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL and a disposable PostgreSQL 17 database"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn postgres_invitation_claim_broker_returns_one_checked_membership_and_truthful_delivery_terminal()
  {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL names the disposable PostgreSQL 17 database");
-    let pool = lazy_pool(&database_url).expect("live PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let database_url = runtime.admin_url().expose();
+    let pool = lazy_pool(database_url).expect("live PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("migrated PostgreSQL schema");

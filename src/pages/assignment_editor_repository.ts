@@ -3,12 +3,15 @@
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { InstructorAssignmentTeachingSettingsLocal } from "../../generated/api/InstructorAssignmentTeachingSettingsLocal";
 import type { CourseId } from "../../generated/api/CourseId";
+import type { CourseReference } from "../../generated/api/CourseReference";
+import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type {
   AssignmentCreateInput,
   AssignmentEditorDetail,
   AssignmentEditorInput,
   AddAssignmentItemInput,
   ReplaceAssignmentItemQuestionInput,
+  PoolDrawPreview,
 } from "../api/contracts";
 import type { ApiClient } from "../api/client";
 import type { AssignmentCatalogRow } from "./assignment_editor_model";
@@ -50,6 +53,12 @@ export interface AssignmentEditorRepository {
     input: ReplaceAssignmentItemQuestionInput,
     revision: string,
   ) => Promise<AssignmentEditorDetail>;
+  readonly previewPoolDraw: (
+    course: CourseReference,
+    assignment: AssignmentReference,
+    revision: string,
+    groupPosition: number,
+  ) => Promise<PoolDrawPreview>;
   readonly searchPublished: (text: string) => Promise<ReadonlyArray<AssignmentCatalogRow>>;
   readonly resolvePublished: (questionId: string) => Promise<AssignmentCatalogRow>;
   readonly listReusableAssignments: (
@@ -71,6 +80,16 @@ function catalogRow(item: {
   return { questionId: item.questionId, title: item.metadata.title, backend: item.backend };
 }
 
+function previewRevision(assignmentRevision: string): string {
+  const match = /^"([1-9][0-9]*)"$/u.exec(assignmentRevision);
+  const revision = match?.[1];
+  if (revision === undefined || BigInt(revision) > 9_223_372_036_854_775_807n)
+    throw new Error(
+      "A saved assignment needs one positive strong revision before previewing a pool.",
+    );
+  return revision;
+}
+
 export function createAssignmentEditorRepository(client: ApiClient): AssignmentEditorRepository {
   return {
     load: async (assignment) => await client.getAssignmentEditor(assignment),
@@ -85,6 +104,8 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
       await client.removeAssignmentItem(course, assignment, itemId, revision),
     replace: async (course, assignment, itemId, input, revision) =>
       await client.replaceAssignmentItemQuestion(course, assignment, itemId, input, revision),
+    previewPoolDraw: async (course, assignment, revision, groupPosition) =>
+      await client.previewPoolDraw(course, assignment, previewRevision(revision), groupPosition),
     searchPublished: async (text) =>
       (
         await client.searchCatalog({

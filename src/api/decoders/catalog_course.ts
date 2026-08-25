@@ -19,11 +19,6 @@ import type { CatalogStatisticsStatus } from "../../../generated/api/CatalogStat
 import type { CatalogTaxonomyFacet } from "../../../generated/api/CatalogTaxonomyFacet";
 import type { CompletionRequirement } from "../../../generated/api/CompletionRequirement";
 import type { ContinuedPractice } from "../../../generated/api/ContinuedPractice";
-import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
-import type { CourseAppearanceUpdate } from "../../../generated/api/CourseAppearanceUpdate";
-import type { CourseBannerAlternativeText } from "../../../generated/api/CourseBannerAlternativeText";
-import type { CourseBannerCandidateReceipt } from "../../../generated/api/CourseBannerCandidateReceipt";
-import type { CourseBannerPresentation } from "../../../generated/api/CourseBannerPresentation";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { AssignmentRouteReference, CourseRouteReference } from "../../navigation/public_route";
 import { decodePublicByline } from "../public_byline";
@@ -41,7 +36,6 @@ export function decodeAssignmentReference(value: unknown, path: string): Assignm
   if (reference === null) throw new DecodeError(path, "an A- reference");
   return reference;
 }
-import type { CourseThemeId } from "../../../generated/api/CourseThemeId";
 import type { PointValue } from "../../../generated/api/PointValue";
 import type { QuestionStatisticsView } from "../../../generated/api/QuestionStatisticsView";
 import type { RunPolicies } from "../../../generated/api/RunPolicies";
@@ -50,6 +44,7 @@ import type {
   AssignmentCapabilityViolation,
   AddAssignmentItemInput,
   AssignmentCreateInput,
+  AssignmentEditorEntryInput,
   AssignmentEditorDetail,
   AssignmentEditorInput,
   ReplaceAssignmentItemQuestionInput,
@@ -67,8 +62,10 @@ import {
   decodeRecord,
   decodeString,
   decodeStringEnum,
-  decodeUuid,
 } from "../decoder";
+import { MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP } from "../../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP";
+import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
+import { MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES } from "../../../generated/api/MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES";
 import {
   MAX_CATALOG_CAPABILITY_FACETS,
   MAX_CATALOG_LICENSE_FACETS,
@@ -93,10 +90,16 @@ import {
 import { decodeCourseTerm } from "./course_term";
 import { decodeContentBlock } from "./question_model";
 import { decodeLearnerDisclosurePolicy } from "./assignment_policy";
+import { decodeCourseAppearance } from "./course_appearance";
 
 // Retain the established catalog-course import surface while course-term owns its decoding rules.
 export { decodeCourseTerm, decodeCourseTermValidationFailure } from "./course_term";
 export { decodeLearnerDisclosurePolicy } from "./assignment_policy";
+export {
+  decodeCourseAppearance,
+  decodeCourseAppearanceUpdate,
+  decodeCourseBannerCandidateReceipt,
+} from "./course_appearance";
 
 function decodeQuestionId(value: unknown, path: string): string {
   const questionId = decodeString(value, path);
@@ -469,135 +472,6 @@ export function decodeCourseCreateInput(value: unknown, path = "request"): Cours
   return decoded;
 }
 
-const COURSE_THEME_IDS = [
-  "tundra",
-  "forest",
-  "desert",
-  "grass",
-  "arctic",
-  "ocean",
-  "tropical",
-  "coral-reef",
-  "swamp",
-  "underground",
-  "salt-marsh",
-  "wetland",
-  "sea-floor",
-  "magma",
-  "beach",
-] as const satisfies ReadonlyArray<CourseThemeId>;
-
-function decodeCourseBannerAlternativeText(
-  value: unknown,
-  path: string,
-): CourseBannerAlternativeText {
-  const record = decodeRecord(value, path);
-  const kind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
-    "decorative",
-    "informative",
-  ]);
-  if (kind === "decorative") {
-    requireOnlyFields(record, path, ["kind"]);
-    return { kind };
-  }
-  requireOnlyFields(record, path, ["kind", "text"]);
-  const text = decodeNonemptyString(field(record, "text", path), `${path}.text`);
-  if (text.trim().length === 0 || [...text].length > 160) {
-    throw new DecodeError(`${path}.text`, "1 through 160 nonblank characters");
-  }
-  return { kind, text };
-}
-
-function decodeCourseBannerPresentation(value: unknown, path: string): CourseBannerPresentation {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["id", "alternativeText"]);
-  return {
-    id: decodeUuid(field(record, "id", path), `${path}.id`),
-    alternativeText: decodeCourseBannerAlternativeText(
-      field(record, "alternativeText", path),
-      `${path}.alternativeText`,
-    ),
-  };
-}
-
-/** Strict decoder for the safe course-appearance projection. */
-export function decodeCourseAppearance(value: unknown, path = "response"): CourseAppearance {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["theme", "revision", "banner"]);
-  const revision = decodeString(field(record, "revision", path), `${path}.revision`);
-  if (!/^[1-9][0-9]*$/u.test(revision) || BigInt(revision) > 9_223_372_036_854_775_807n) {
-    throw new DecodeError(`${path}.revision`, "a canonical positive PostgreSQL bigint string");
-  }
-  return {
-    theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, COURSE_THEME_IDS),
-    revision,
-    banner: decodeNullable(
-      field(record, "banner", path),
-      `${path}.banner`,
-      decodeCourseBannerPresentation,
-    ),
-  };
-}
-
-/** Strict receipt for a course-bound, server-normalized temporary banner. */
-export function decodeCourseBannerCandidateReceipt(
-  value: unknown,
-  path = "response",
-): CourseBannerCandidateReceipt {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["candidate"]);
-  return { candidate: decodeUuid(field(record, "candidate", path), `${path}.candidate`) };
-}
-
-/** Strict atomic course-appearance update at the request decoder boundary. */
-export function decodeCourseAppearanceUpdate(
-  value: unknown,
-  path = "request",
-): CourseAppearanceUpdate {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["theme", "banner"]);
-  const theme = decodeStringEnum(field(record, "theme", path), `${path}.theme`, COURSE_THEME_IDS);
-  const banner = decodeRecord(field(record, "banner", path), `${path}.banner`);
-  const kind = decodeStringEnum(field(banner, "kind", `${path}.banner`), `${path}.banner.kind`, [
-    "keep",
-    "remove",
-    "replace",
-  ]);
-  switch (kind) {
-    case "remove":
-      requireOnlyFields(banner, `${path}.banner`, ["kind"]);
-      return { theme, banner: { kind } };
-    case "keep":
-      requireOnlyFields(banner, `${path}.banner`, ["kind", "alternativeText"]);
-      return {
-        theme,
-        banner: {
-          kind,
-          alternativeText: decodeCourseBannerAlternativeText(
-            field(banner, "alternativeText", `${path}.banner`),
-            `${path}.banner.alternativeText`,
-          ),
-        },
-      };
-    case "replace":
-      requireOnlyFields(banner, `${path}.banner`, ["kind", "candidate", "alternativeText"]);
-      return {
-        theme,
-        banner: {
-          kind,
-          candidate: decodeUuid(
-            field(banner, "candidate", `${path}.banner`),
-            `${path}.banner.candidate`,
-          ),
-          alternativeText: decodeCourseBannerAlternativeText(
-            field(banner, "alternativeText", `${path}.banner`),
-            `${path}.banner.alternativeText`,
-          ),
-        },
-      };
-  }
-}
-
 export function decodeCourseRouteData(value: unknown, path: string): CourseRouteData {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["summary", "appearance"]);
@@ -665,39 +539,101 @@ export function decodeAssignmentItem(value: unknown, path: string): AssignmentIt
   };
 }
 
-/** Request-only item shape: the server already owns display metadata. */
-function decodeAssignmentUpdateItem(
+/** Request-only entry shape: the server owns display metadata and all internal identities. */
+function decodeAssignmentEditorEntry(value: unknown, path: string): AssignmentEditorEntryInput {
+  const record = decodeRecord(value, path);
+  const entryKind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
+    "fixed",
+    "selectionGroup",
+  ] as const);
+  if (entryKind === "fixed") {
+    requireOnlyFields(record, path, [
+      "kind",
+      "questionId",
+      "position",
+      "pointsPossible",
+      "deliveryState",
+      "scoringMode",
+    ]);
+    return {
+      kind: "fixed",
+      questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
+      position: decodeNonnegativeInteger(field(record, "position", path), `${path}.position`),
+      pointsPossible: decodePointValue(
+        field(record, "pointsPossible", path),
+        `${path}.pointsPossible`,
+      ),
+      deliveryState: decodeStringEnum(
+        field(record, "deliveryState", path),
+        `${path}.deliveryState`,
+        ["active", "retired"] as const satisfies ReadonlyArray<AssignmentDeliveryState>,
+      ),
+      scoringMode: decodeStringEnum(field(record, "scoringMode", path), `${path}.scoringMode`, [
+        "normal",
+        "fullCredit",
+        "extraCredit",
+        "excluded",
+      ] as const satisfies ReadonlyArray<AssignmentScoringMode>),
+    };
+  }
+  requireOnlyFields(record, path, [
+    "kind",
+    "candidateQuestionIds",
+    "position",
+    "drawCount",
+    "pointsPerItem",
+    "ordering",
+  ]);
+  const candidateQuestionIds = decodeBoundedArray(
+    field(record, "candidateQuestionIds", path),
+    `${path}.candidateQuestionIds`,
+    MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP,
+    decodeQuestionId,
+  );
+  if (new Set(candidateQuestionIds).size !== candidateQuestionIds.length)
+    throw new DecodeError(`${path}.candidateQuestionIds`, "unique Question IDs");
+  const drawCount = decodePositiveInteger(field(record, "drawCount", path), `${path}.drawCount`);
+  if (drawCount > candidateQuestionIds.length)
+    throw new DecodeError(`${path}.drawCount`, "a value no greater than the candidate count");
+  return {
+    kind: "selectionGroup",
+    candidateQuestionIds,
+    position: decodeNonnegativeInteger(field(record, "position", path), `${path}.position`),
+    drawCount,
+    pointsPerItem: decodePointValue(field(record, "pointsPerItem", path), `${path}.pointsPerItem`),
+    ordering: decodeStringEnum(field(record, "ordering", path), `${path}.ordering`, [
+      "candidateOrder",
+      "randomized",
+    ] as const satisfies ReadonlyArray<SelectionOrdering>),
+  };
+}
+
+function decodeAssignmentEditorEntries(
   value: unknown,
   path: string,
-): AssignmentEditorInput["items"][number] {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "id",
-    "questionId",
-    "position",
-    "pointsPossible",
-    "deliveryState",
-    "scoringMode",
-  ]);
-  return {
-    id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    position: decodeNonnegativeInteger(field(record, "position", path), `${path}.position`),
-    pointsPossible: decodePointValue(
-      field(record, "pointsPossible", path),
-      `${path}.pointsPossible`,
-    ),
-    deliveryState: decodeStringEnum(field(record, "deliveryState", path), `${path}.deliveryState`, [
-      "active",
-      "retired",
-    ] as const satisfies ReadonlyArray<AssignmentDeliveryState>),
-    scoringMode: decodeStringEnum(field(record, "scoringMode", path), `${path}.scoringMode`, [
-      "normal",
-      "fullCredit",
-      "extraCredit",
-      "excluded",
-    ] as const satisfies ReadonlyArray<AssignmentScoringMode>),
-  };
+): ReadonlyArray<AssignmentEditorEntryInput> {
+  const entries = decodeBoundedArray(
+    value,
+    path,
+    MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    decodeAssignmentEditorEntry,
+  );
+  const totalCandidates = entries.reduce(
+    (total, entry) =>
+      total + (entry.kind === "selectionGroup" ? entry.candidateQuestionIds.length : 0),
+    0,
+  );
+  if (totalCandidates > MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES)
+    throw new DecodeError(
+      path,
+      `no more than ${MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES} selection-group candidate Question IDs`,
+    );
+  const positions = entries.map((entry) => entry.position).sort((left, right) => left - right);
+  for (let position = 0; position < positions.length; position += 1) {
+    if (positions[position] !== position)
+      throw new DecodeError(path, "one complete entry list with positions from zero in order");
+  }
+  return entries;
 }
 
 function decodeAssignmentSelectionCandidate(
@@ -828,10 +764,10 @@ export function decodeAssignmentEditorInput(
   path = "response",
 ): AssignmentEditorInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title", "items", "policies", "disclosurePolicy"]);
+  requireOnlyFields(record, path, ["title", "entries", "policies", "disclosurePolicy"]);
   const decoded = {
     title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
-    items: decodeArray(field(record, "items", path), `${path}.items`, decodeAssignmentUpdateItem),
+    entries: decodeAssignmentEditorEntries(field(record, "entries", path), `${path}.entries`),
     policies: decodeRunPolicies(field(record, "policies", path), `${path}.policies`, true),
     disclosurePolicy: decodeLearnerDisclosurePolicy(
       field(record, "disclosurePolicy", path),
@@ -846,14 +782,10 @@ export function decodeAssignmentCreateInput(
   path = "response",
 ): AssignmentCreateInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title", "questionIds", "policies", "disclosurePolicy"]);
+  requireOnlyFields(record, path, ["title", "entries", "policies", "disclosurePolicy"]);
   return {
     title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
-    questionIds: decodeArray(
-      field(record, "questionIds", path),
-      `${path}.questionIds`,
-      decodeQuestionId,
-    ),
+    entries: decodeAssignmentEditorEntries(field(record, "entries", path), `${path}.entries`),
     policies: decodeRunPolicies(field(record, "policies", path), `${path}.policies`, true),
     disclosurePolicy: decodeLearnerDisclosurePolicy(
       field(record, "disclosurePolicy", path),

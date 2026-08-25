@@ -77,6 +77,14 @@ pub(crate) fn validate_assignment(assignment: &AssignmentRecord) -> Result<(), S
             "assignment must reference at least one published problem version".to_string(),
         ));
     }
+    if !assignment.selection_groups.is_empty()
+        && assignment.policies.variation == question_model::VariationPolicy::SelectedProblemVariants
+    {
+        return Err(StoreError::InvalidRecord(
+            "selection groups require new seeds or full regeneration until explicit pool variants exist"
+                .to_string(),
+        ));
+    }
     let mut item_ids = std::collections::BTreeSet::new();
     let mut positions = std::collections::BTreeSet::new();
     for item in &assignment.items {
@@ -115,10 +123,9 @@ pub(crate) fn validate_assignment(assignment: &AssignmentRecord) -> Result<(), S
         if group.draw_count == 0
             || usize::try_from(group.draw_count)
                 .map_or(true, |draw_count| draw_count > active_candidates)
-            || group.algorithm_version == 0
         {
             return Err(StoreError::InvalidRecord(
-                "selection groups need a positive bounded draw and algorithm version".to_string(),
+                "selection groups need a positive bounded draw".to_string(),
             ));
         }
         let mut candidate_positions = std::collections::BTreeSet::new();

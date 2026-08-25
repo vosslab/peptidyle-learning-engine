@@ -144,22 +144,55 @@ def test_stop_uses_authenticated_owner_cleanup(
 
 
 #============================================
-@pytest.mark.parametrize(
-	"message",
-	("developer browser session is not running", "developer browser supervisor cleanup failed"),
-)
+def test_stop_purges_an_interrupted_fixed_owner(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+	capsys: pytest.CaptureFixture[str],
+) -> None:
+	"""Stop reconciles an orphan only through the lease-bound fixed reset owner."""
+	events: list[str] = []
+
+	def unavailable_owner(root: pathlib.Path) -> local_stack_control.browser_suite_developer.DeveloperStartReceipt:
+		"""Represent an interrupted supervisor whose containers can remain."""
+		assert root == tmp_path
+		raise local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError(
+			"developer browser session is not running"
+		)
+
+	monkeypatch.setattr(local_stack_control.browser_suite_developer, "request_stop", unavailable_owner)
+	monkeypatch.setattr(
+		local_stack_control.process,
+		"require_rootless_local_engine",
+		lambda runner, root: events.append("engine") if root == tmp_path else None,
+	)
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_developer,
+		"purge_orphaned_session",
+		lambda root, runner: (
+			events.append("purge"),
+			local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+		)[1],
+	)
+	result = local_stack_control.cli.run(["stop"], RecordingRunner(), tmp_path)
+	assert result == 0
+	assert events == ["engine", "purge"]
+	assert "ple-live-demo-browser" in capsys.readouterr().out
+
+
+#============================================
 def test_stop_reports_owner_protocol_failures(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
 	capsys: pytest.CaptureFixture[str],
-	message: str,
 ) -> None:
 	"""The CLI keeps stop failures at the concise controller error boundary."""
 	def failed_stop(root: pathlib.Path) -> local_stack_control.browser_suite_developer.DeveloperStartReceipt:
 		"""Return one protocol failure from the fixed supervisor."""
-		raise local_stack_control.models.ControllerError(message)
+		raise local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError(
+			"developer browser supervisor cleanup failed"
+		)
 
 	monkeypatch.setattr(local_stack_control.browser_suite_developer, "request_stop", failed_stop)
 	result = local_stack_control.cli.run(["stop"], RecordingRunner(), tmp_path)
 	assert result == 2
-	assert message in capsys.readouterr().err
+	assert "developer browser supervisor cleanup failed" in capsys.readouterr().err

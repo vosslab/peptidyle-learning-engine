@@ -22,10 +22,9 @@ ID and fresh opaque hidden `(ProblemId, VersionId)` evidence; existing assignmen
 remain exact; and an Instructor explicitly, revision-checked replaces an assignment item for future
 runs. Hidden exact references remain only for authorized replay, grading, audit, provenance, and
 transport; they are neither public locators nor a latest-resolution or instructor-selection feature.
-The pre-production schema and code no longer retain sequential `ProblemPublicId`/`P-...`,
-`ProblemVersionNumber`, or predecessor/version-chain question identity. Each native and WeBWorK host
-seed publication mints fresh opaque evidence; a rerun resumes through a protected explicit manifest
-or verified existing record, never tenant-derived question UUIDs. Final material-tree evidence is
+The pre-production schema and code use opaque Question IDs and immutable content identity. Each
+native and WeBWorK host seed publication mints fresh opaque evidence; a rerun resumes through a
+protected explicit manifest or verified existing record. Final material-tree evidence is
 recorded in [implementation_status.md](implementation_status.md) and the changelog. WP-PY-L1 is
 accepted on 2026-08-15. The professor roadmap records M0 as accepted from the four evidenced
 release-truth packages; its subsequent work follows the professor dependency queue.
@@ -37,15 +36,14 @@ and student keyboard take/score/repeat. Current browser evidence is owned by the
 handoff remains in [implementation_status.md](implementation_status.md). Production email and
 canonical onboarding remain separate release work and do not gate that historical walkthrough.
 
-**Current live-delivery convergence.** The owner retired the unaccepted `WP-PROF-T4` sidecar before
-production. The current professor package is
-[WP-PROF-LD3](active/live_delivery_convergence_plan.md), which converges the useful authority work
-from that in-flight branch onto ordinary live assignments, learner runs, deterministic server-owned
-grading, immutable issued evidence, receipt replay, and audited Instructor inspection. It removes
-the parallel execution aggregate and its migrations, routes, stores, generated contracts, and test
-owners. The shared status registry owns the changing handoff and the reallocated unaccepted
-migration chain. WP-PROF-LD3 must pass its focused live PostgreSQL and production-stack gates plus
-the complete Validation suite before the professor queue advances to item pools and discovery.
+**Current live-demo capability.** [WP-PROF-LD3](active/live_delivery_convergence_plan.md) established
+ordinary live assignments, learner runs, deterministic server-owned grading, immutable issued
+evidence, receipt replay, and audited Instructor inspection as the canonical product path.
+WP-PROF-T5 is accepted after extending that model with visible item-pool authoring, policy-correct
+automatic variation, executable no-store preview, and ordinary Student delivery. The sole current
+professor package is WP-PROF-D1 discovery over the canonical Library/search path. The shared status
+registry owns the changing handoff and migration allocation; the professor capability plan retains
+the accepted T5 contract and evidence boundary.
 
 The completed local-stack lifecycle controller foundation is recorded in
 `docs/active_plans/workstreams/local_stack_controller_implementation.md`.

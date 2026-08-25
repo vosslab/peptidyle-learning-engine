@@ -14,6 +14,7 @@ import local_stack_control.discovery
 import local_stack_control.env_file
 import local_stack_control.models
 import local_stack_control.process
+import local_stack_control.runtime_manifest
 
 
 MANIFEST_KEYS = ("OWNER", "PROJECT", "ENV_FILE", "CAPABILITY_FILE")
@@ -54,6 +55,7 @@ class DisposableManifest:
 	env_file: pathlib.Path
 	capability_file: pathlib.Path
 	live_demo_profile: local_stack_control.models.LiveDemoProfile | None = None
+	acceptance_runtime_workspace: pathlib.Path | None = None
 
 
 #============================================
@@ -112,6 +114,19 @@ def manifest_values(manifest_path: pathlib.Path) -> dict[str, str]:
 #============================================
 def load_manifest(repo_root: pathlib.Path, manifest_path: pathlib.Path) -> DisposableManifest:
 	"""Load and normalize one runner-owned non-secret target manifest."""
+	manifest_path = manifest_path.absolute()
+	if manifest_path.name == local_stack_control.runtime_manifest.MANIFEST_NAME:
+		runtime = local_stack_control.runtime_manifest.load_database_baseline_runtime(
+			manifest_path.parent
+		)
+		return DisposableManifest(
+			owner=local_stack_control.models.LIVE_DEMO_BROWSER_OWNER,
+			project=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+			env_file=runtime.compose_environment_path,
+			capability_file=runtime.cleanup_capability_path,
+			live_demo_profile=local_stack_control.models.LiveDemoProfile.DATABASE_BASELINE,
+			acceptance_runtime_workspace=runtime.workspace,
+		)
 	values = manifest_values(manifest_path)
 	env_path = pathlib.Path(values["ENV_FILE"])
 	if not env_path.is_absolute():
@@ -170,6 +185,11 @@ def disposable_target(
 		policy.owner,
 		manifest.live_demo_profile,
 	)
+	if manifest.acceptance_runtime_workspace is not None:
+		result = dataclasses.replace(
+			result,
+			acceptance_runtime_workspace=manifest.acceptance_runtime_workspace,
+		)
 	return result
 
 
@@ -641,6 +661,10 @@ def compose_command(
 		else:
 			raise local_stack_control.models.ControllerError(
 				"database baseline Compose commands are limited to PostgreSQL startup and psql"
+			)
+		if disposable.acceptance_runtime_workspace is not None:
+			local_stack_control.runtime_manifest.require_database_baseline_compose_password(
+				disposable.acceptance_runtime_workspace
 			)
 	elif not policy.allows_generic_compose:
 		raise local_stack_control.models.ControllerError(

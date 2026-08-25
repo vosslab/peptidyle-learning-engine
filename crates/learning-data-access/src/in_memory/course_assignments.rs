@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 
 use super::*;
+use crate::{
+    ReplaceUnissuedAssignmentDefinitionCommand, ReplaceUnissuedAssignmentDefinitionOutcome,
+};
 
 #[async_trait]
 impl crate::CourseAssignmentStore for MemoryStore {
@@ -217,6 +220,105 @@ impl crate::CourseAssignmentStore for MemoryStore {
         }
         Ok(stored)
     }
+
+    async fn replace_unissued_assignment_definition_impl(
+        &self,
+        context: TenantContext,
+        command: ReplaceUnissuedAssignmentDefinitionCommand,
+    ) -> Result<ReplaceUnissuedAssignmentDefinitionOutcome, StoreError> {
+        let ReplaceUnissuedAssignmentDefinitionCommand {
+            actor,
+            course,
+            assignment,
+            expected_revision,
+            definition,
+            base_policy,
+        } = command;
+        ensure_tenant(context, definition.tenant)?;
+        if definition.id != assignment || definition.course_id != course {
+            return Err(StoreError::InvalidRecord(
+                "unissued definition bindings do not match the command route".to_string(),
+            ));
+        }
+        validate_assignment(&definition)?;
+        let mut state = self.write_state()?;
+        require_assignment_editor(&state, context, course, actor)?;
+        let key = (context.tenant_id(), assignment);
+        let existing = state
+            .assignments
+            .get(&key)
+            .cloned()
+            .ok_or(StoreError::NotFound)?;
+        if existing.course_id != course {
+            return Err(StoreError::NotFound);
+        }
+        let current = state
+            .assignment_revisions
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        if current != expected_revision {
+            return Err(StoreError::Conflict);
+        }
+        if super::course_policy::memory_assignment_has_run(&state, &existing) {
+            return Ok(ReplaceUnissuedAssignmentDefinitionOutcome::Issued);
+        }
+        validate_memory_assignment_references(&state, context, &definition)?;
+        let course_term = state
+            .courses
+            .get(&(context.tenant_id(), course))
+            .ok_or(StoreError::NotFound)?
+            .term
+            .clone();
+        domain::effective_assignment_policy::validate_base_assignment_policy_for_course_term(
+            base_policy,
+            &course_term,
+        )
+        .map_err(|error| {
+            StoreError::InvalidRecord(format!("invalid assignment base policy: {error:?}"))
+        })?;
+
+        let next_revision = current.next()?;
+        let (scoring_generation, scoring_status) = state
+            .assignment_scoring
+            .get(&key)
+            .copied()
+            .ok_or(StoreError::NotFound)?;
+        let stored = StoredAssignment {
+            record: definition,
+            revision: next_revision,
+            base_policy,
+            scoring_generation,
+            scoring_status,
+        };
+        let snapshot = state.clone();
+        state.assignments.insert(key, stored.record.clone());
+        state.assignment_revisions.insert(key, stored.revision);
+        state.assignment_base_policy.insert(
+            key,
+            StoredBaseAssignmentPolicy {
+                tenant: context.tenant_id(),
+                course,
+                assignment,
+                policy: stored.base_policy,
+                revision: stored.revision,
+            },
+        );
+        if existing.title != stored.record.title
+            && let Err(error) = super::course_gradebook::advance_course_grade_scheme_revision(
+                &mut state,
+                context.tenant_id(),
+                course,
+            )
+        {
+            *state = snapshot;
+            return Err(error);
+        }
+        Ok(ReplaceUnissuedAssignmentDefinitionOutcome::Replaced(
+            Box::new(stored),
+        ))
+    }
+
     async fn replace_assignment_fixed_item_impl(
         &self,
         context: TenantContext,

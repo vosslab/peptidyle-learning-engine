@@ -451,6 +451,11 @@ fn constraint_message(constraint: Option<&str>, kind: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    fn acceptance_runtime() -> acceptance_runtime::AcceptanceRuntime {
+        acceptance_runtime::AcceptanceRuntime::load()
+            .unwrap_or_else(|error| panic!("acceptance runtime is required and invalid: {error}"))
+    }
+
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
@@ -865,10 +870,10 @@ mod tests {
     #[tokio::test]
     #[ignore = "requires the disposable PostgreSQL acceptance database"]
     async fn concurrent_serialization_failure_is_retried_and_commits() {
-        let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-            .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
+        let runtime = acceptance_runtime();
+        let database_url = runtime.admin_url().expose();
         let pool = pool_options(4)
-            .connect(&database_url)
+            .connect(database_url)
             .await
             .expect("connect retry acceptance pool");
         sqlx::query("DROP TABLE IF EXISTS public.ple_transaction_retry_test")

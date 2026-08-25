@@ -289,8 +289,9 @@ async fn claim_analysis(
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL acceptance database"]
 async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
-    let url = std::env::var("PLE_TEST_DATABASE_URL").expect("disposable database URL");
-    let pool = lazy_pool(&url).expect("valid PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose();
+    let pool = lazy_pool(url).expect("valid PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("baseline schema");
@@ -734,3 +735,6 @@ async fn postgres_item_analysis_is_current_private_and_generation_fenced() {
     );
     transaction.rollback().await.expect("finish RLS probe");
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

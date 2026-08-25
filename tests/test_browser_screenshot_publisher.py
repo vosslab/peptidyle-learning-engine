@@ -109,11 +109,18 @@ def test_receipt_viewport_must_match_the_manifest_profile(tmp_path: pathlib.Path
 		publisher.pending_from_staging(private, "https://localhost:55000", "b" * 64)
 
 
-def test_screenshot_contract_accepts_a_single_contiguous_artifact(monkeypatch: pytest.MonkeyPatch) -> None:
-	"""The corpus contract remains valid when growth leaves only one ordered artifact."""
-	artifact = contract.dataclasses.replace(contract.ARTIFACTS[0], capture_order=1)
-	monkeypatch.setattr(contract, "ARTIFACTS", (artifact,))
-	contract.validate()
+@pytest.mark.parametrize("scenario_id", ["direct_role_entry", "auth_authorization"])
+def test_screenshot_contract_requires_both_named_role_security_journeys(
+	monkeypatch: pytest.MonkeyPatch,
+	scenario_id: str,
+) -> None:
+	"""Screenshot execution retains both named passkey acceptance children."""
+	artifacts = tuple(
+		artifact for artifact in contract.ARTIFACTS if artifact.scenario_id != scenario_id
+	)
+	monkeypatch.setattr(contract, "ARTIFACTS", artifacts)
+	with pytest.raises(contract.ScreenshotContractError, match="role-security"):
+		contract.validate()
 
 
 def test_staging_and_existing_corpus_reject_links(tmp_path: pathlib.Path) -> None:

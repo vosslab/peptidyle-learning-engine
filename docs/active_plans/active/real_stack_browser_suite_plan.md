@@ -6,8 +6,11 @@
 Playwright, canonical screenshots, direct browser development, and aggregate acceptance all visit the
 same production `dist/` bundle through the private HTTPS gateway. That browser uses the real Rust
 API, PostgreSQL, MinIO, worker, renderer, authentication, authorization, and seeded live-demo data.
-The developer profile uses deployment-gated seeded production-auth entry and the real Sysadmin
-passkey ceremony, so daily browser work and canonical evidence share one browser application.
+The developer profile uses deployment-gated seeded production-auth entry. Any visitor can select one
+of five fixed personas; the server resolves that persona to the ordinary PLE account, account
+session, course selection, tenant session, and stored role state. Generic passkey enrollment and
+sign-in are exercised inside independent Elena Instructor and Morgan Sysadmin scenarios, so daily
+browser work and canonical evidence share one browser application.
 
 The suite owns one exact Compose project, `ple-live-demo-browser`. Each invocation regenerates a fresh
 disposable installation from the declared seed baseline under that fixed project: a focused invocation
@@ -19,9 +22,9 @@ error-mapping tests remain fast unit tests outside the product browser runtime g
 
 This package and its frozen-scope successor, `WP-PROF-T3`, were accepted on 2026-08-22. The sole
 current professor package is recorded only in [implementation_status.md](../implementation_status.md),
-which currently names `WP-PROF-LD3`; `WP-PROF-T4` was retired before acceptance. The accepted BS1
-closure remains the historical nine-scenario, 51-artifact record; T3 separately extends that evidence
-to ten scenarios and 63 artifacts.
+which now names `WP-PROF-D1` after accepted WP-PROF-T5 item-pool delivery. The accepted BS1 closure
+remains the historical nine-scenario, 51-artifact record; T3 separately extends that evidence to ten
+scenarios and 63 artifacts.
 
 ## Evidence and boundaries
 
@@ -62,32 +65,29 @@ not create a parallel demo application. The owner freezes these exact baseline r
 | Mary Okafor              | `00000000-0000-0000-0000-000000000102`, seeded Student                    | Base-course completed-run observation                               |
 | Jack Chen                | `00000000-0000-0000-0000-000000000103`, seeded Student                    | Base-course in-progress-run observation                             |
 | Avery Singh              | `00000000-0000-0000-0000-000000000104`, unapproved account                | Sysadmin approval journey and practice-course baseline read         |
-| Morgan Reyes             | `00000000-0000-0000-0000-000000000105`, seeded Sysadmin                   | One visible generation-bound first claim and ordinary passkey login |
+| Morgan Reyes             | `00000000-0000-0000-0000-000000000105`, seeded Sysadmin                   | Direct Sysadmin selection, ordinary authorization, and generic passkey login |
 | Biochemistry Base Course | `2026-01-01` through `2099-12-31`, `America/Chicago`                      | Baseline course, roster, activity, and assignment reads             |
 | Genetics Practice Course | Seeded course with Morgan as Instructor and Avery as Student              | Cross-course authorization and baseline reads                       |
 | Peptide bond publication | Published `peptide_bond_geometry` question and one-point assignment       | Visible problem, delivery, and grading baseline reads               |
 | WebWork catalog item     | One provenance-validated catalog publication and immutable private source | Visible Library discovery only; all teaching state is UI-created    |
 
 Mary has one completed correctly graded deterministic-seed-17 run; Jack has one open deterministic-
-seed-23 attempt. Elena, Mary, and Jack are active Base Course members. The fixed baseline has no
+seed-23 attempt. Elena, Mary, and Jack are active Base Course members. The five closed selector
+personas are Elena Instructor, Mary Student, Jack Student, Avery Student, and Morgan Sysadmin. The fixed baseline has no
 cross-course memberships beyond the stated practice-course membership. The one provenance-validated
 WebWork catalog item is recorded in [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) and is the sole
 WebWork publication bootstrap; course, assignment, roster, invitation, run, and submission state are
-created through visible UI. Student and Instructor selector entry establishes ordinary server sessions.
+created through visible UI. Every selector entry establishes an ordinary server session; the server
+continues to derive roles, tenant context, memberships, and authorization from stored PLE state.
 The installation generation, cryptographic service inputs, and selected infrastructure faults are
 harness concerns rather than product-state setup.
 
-The scenario contract uses `schemaVersion: 2` and declares one closed Sysadmin requirement:
-`not_required`, `unclaimed`, or `claimed`. `not_required` begins at the untouched seeded baseline
-and has no claim material. The one `unclaimed` first-claim scenario receives the generation-bound
-proof and completes Morgan's visible virtual-authenticator claim. A `claimed` scenario begins from
-a freshly regenerated installation under the fixed project, receives the owner's visible first-claim
-setup child once, and then uses ordinary passkey-ready state. I1 and L1 declare `not_required`. B0
-initially registers the current
-`live_demo` as the sole `unclaimed` transition; A1 atomically replaces it with
-`sysadmin_first_claim` and its `claimed` authorization scenario. A complete invocation runs the
-first claim only when a selected scenario requires it; focused invocations retain the same declared
-transition from its freshly regenerated installation.
+The scenario contract uses `schemaVersion: 2`. Each scenario declares its closed personas,
+baseline reads, UI-created resources, visible observation, optional service receipt, and screenshot
+states. The owner writes only that per-scenario private input and origin receipt. Every scenario
+starts independently through direct role entry and owns any generic passkey interaction it needs.
+`direct_role_entry` owns Morgan's direct-role and passkey journey; `auth_authorization` owns the
+multi-persona authorization journey and Elena's passkey journey.
 
 Each scenario declares:
 
@@ -127,12 +127,12 @@ interaction, or inspection prerequisite.
 | BS1-3     | `WP-PROF-BS1-H2` | Freeze seed-baseline and scenario-isolation contracts                  | H0                      | Offline contract tests and plan-backed scenario manifest check                                                                                                 |
 | BS1-4     | `WP-PROF-BS1-H3` | Add origin and suite-resource cleanup oracles                          | H0                      | Origin, labelled-inventory, process, and repeat-run checks                                                                                                     |
 | BS1-5     | `WP-PROF-BS1-C0` | Expand `all_test.sh` into the aggregate Validation front door          | H1, H3                  | Ordered aggregate receipts and one `local_stack.py acceptance` invocation                                                                                      |
-| BS1-6     | `WP-PROF-BS1-B0` | Establish the catalog and multi-scenario owner foundation              | H2, C0                  | Closed registry, exact selection, per-scenario input/origin receipts, and automated Sysadmin transition sequencing                                             |
-| BS1-7     | `WP-PROF-BS1-B1` | Carry a validated WebAuthn continuation between owned browser children | B0                      | Private continuation ABI, CDP import/export, proof isolation, and repeat-run cleanup evidence                                                                  |
+| BS1-6     | `WP-PROF-BS1-B0` | Establish the catalog and multi-scenario owner foundation              | H2, C0                  | Closed registry, exact selection, independent per-scenario input/origin receipts, and direct Sysadmin entry                                                    |
+| BS1-7     | `WP-PROF-BS1-B1` | Prove generic passkeys in independent browser journeys                 | B0                      | Visible Elena and Morgan enrollment/sign-in, ordinary authorization, and repeat-run cleanup evidence                                                           |
 | BS1-8     | `WP-PROF-BS1-B2` | Make the browser project single-flight with exact reset recovery       | B1                      | Fixed project, owner-labelled reset before regeneration and final cleanup, and sequential real-run proof                                                       |
 | BS1-9     | `WP-PROF-BS1-I1` | Migrate one instructor authoring/course family                         | B0, C0                  | Reload and second-session behavior evidence                                                                                                                    |
 | BS1-10    | `WP-PROF-BS1-L1` | Migrate one learner delivery/response family                           | B0, C0                  | Reload or second-session learner evidence                                                                                                                      |
-| BS1-11    | `WP-PROF-BS1-A1` | Migrate ordinary auth, Sysadmin claim, and role-boundary families      | B2, B1, B0, C0          | Visible role/session and denial scenarios                                                                                                                      |
+| BS1-11    | `WP-PROF-BS1-A1` | Migrate ordinary auth, direct-role entry, and role-boundary families   | B2, B1, B0, C0          | Visible role/session and denial scenarios                                                                                                                      |
 | BS1-12    | `WP-PROF-BS1-S1` | Add semantic persistence receipts where claims require them            | I1, L1, A1              | Read-only Store/service receipts tied to named claims                                                                                                          |
 | BS1-13    | `WP-PROF-BS1-U1` | Move narrow former browser behavior to isolated unit owners           | C0                      | Focused Node/Rust unit tests plus one-time runtime-consumer closure inventory                                                                                  |
 | BS1-14    | `WP-PROF-BS1-X1` | Exercise real concurrent-session conflicts                             | I1, B0                  | Two-session UI conflict scenario                                                                                                                               |
@@ -147,10 +147,10 @@ interaction, or inspection prerequisite.
 
 The manager may dispatch H1 and H2 after H0. C0 follows accepted H1 and H3. B0 follows C0 and
 supplies the shared catalog, multi-scenario owner, and generic browser helpers. B1 follows B0 and
-closes the cross-child passkey continuation. B2 then closes the fixed-project single-flight and
-exact-reset boundary before A1's connected real acceptance. I1 and L1 can proceed independently
-after B0; A1 starts its implementation after B0 but its connected real acceptance waits for B1 and
-B2. U1 can proceed after C0. Each family creates its own UI state from the H2 baseline. S1, X1, F1,
+proves generic passkeys inside independent Elena and Morgan journeys. B2 then closes the fixed-project
+single-flight and exact-reset boundary before A1's connected real acceptance. I1 and L1 can proceed
+independently after B0; A1 starts its implementation after B0 but its connected real acceptance waits
+for B1 and B2. U1 can proceed after C0. Each family creates its own UI state from the H2 baseline. S1, X1, F1,
 and V1 use accepted scenario contracts and separate owned files. D1, W1, and Q1 follow their
 named foundations and complete before R2 retires their predecessors. R1 and R2 integrate serially;
 C1 follows R2 after the B2 gate.
@@ -162,8 +162,8 @@ C1 follows R2 after the B2 gate.
 - Owner: expert coder.
 - Deliverable: a closed, typed browser-suite owner adapter around the existing live-demo lifecycle.
   It validates the selected scenario and caller-supplied configuration before allocation, launches
-  the lifecycle, generates the generation-bound Sysadmin private input after installation produces
-  its claim context, validates that input before Chromium, runs one visible production `dist/` HTTPS
+  the lifecycle, generates the generation-bound scenario private input after installation completes,
+  validates that input before Chromium, runs one visible production `dist/` HTTPS
   journey, and records lifecycle and typed-cleanup results.
 - Acceptance: invalid selection and caller configuration fail before allocation; generated
   generation-bound input validates before Chromium; success and synthetic Playwright failure each
@@ -208,115 +208,30 @@ C1 follows R2 after the B2 gate.
 ### WP-PROF-BS1-B0: Establish catalog and multi-scenario owner
 
 - Owner: expert coder.
-- Deliverable: promote the H2 contract to the closed `schemaVersion: 2` private ABI and place its
-  generic primitive and registry loader in `tests/e2e/e2e_browser_scenario_contract.py`. Its closed
-  `sysadminRequirement` values are `not_required`, `unclaimed`, and `claimed`; the registry rejects
-  duplicate scenario IDs, spec paths, and exclusive seed mutations. The flat provider modules
-  `tests/e2e/e2e_browser_scenarios_catalog.py`,
-  `tests/e2e/e2e_browser_scenarios_legacy_live_demo.py`,
-  `tests/e2e/e2e_browser_scenarios_auth.py`,
-  `tests/e2e/e2e_browser_scenarios_instructor.py`, and
-  `tests/e2e/e2e_browser_scenarios_learner.py` provide explicit deterministic provider order:
-  `legacy_live_demo`, `auth`, `instructor`, then `learner`. The legacy-live-demo provider registers
-  the current real `live_demo` as the V2 `unclaimed` contract and reserves its exclusive seed mutations, including
-  `sysadmin_first_claim` and `avery_instructor_approval`, so the catalog is nonempty without a
-  selection fallback. The three family providers begin empty. The suite owner resolves a selection
-  to one or many contracts, writes a distinct canonical input and origin-receipt path for each child,
-  and records ordered public scenario receipts. It sequences the visible Sysadmin first-claim setup
-  only for a declared `unclaimed` target or before a `claimed` target in its freshly regenerated
-  installation. Generic
-  browser helpers move to `tests/playwright/e2e/real_stack_ui.ts`, and the generic parser moves to
-  `browser_suite_live_config.ts`; a temporary re-export remains available through R1.
-- Acceptance: offline contract tests prove deterministic provider order, the nonempty legacy
-  `live_demo` registration, exact ID/path selection, grep anchoring, and duplicate/exclusive-surface
-  rejection before allocation. Owner tests prove a complete selection uses one lifecycle with
-  distinct V2 child inputs and origin paths, exact child argument arrays, and ordered receipts.
-  Focused tests prove an `unclaimed` target has no extra setup, a `claimed` target receives one
-  visible first-claim setup child, and proof appears only in the unclaimed child input/environment.
-  TypeScript tests prove each spec receives only its own canonical input and origin path.
+- Deliverable: the catalog and owner use a closed `schemaVersion: 2` private ABI. Every child gets
+  a distinct input and origin receipt containing only scenario ID, namespace, HTTPS origin, closed
+  personas, baseline reads, visible observation, and declared optional receipts or faults. The
+  registry rejects duplicate IDs, paths, and exclusive seed mutations.
+- Current contract: `direct_role_entry` is Morgan's independently runnable Sysadmin scenario and
+  `auth_authorization` is the independently runnable multi-persona authorization scenario. Both
+  begin from the regenerated baseline, use visible seeded identity and course selection, and retain
+  no browser credential or authenticated state from another scenario.
+- Acceptance: focused contract and owner tests prove deterministic exact selection, ordered
+  independent execution, strict input decoding, origin receipts, and the exact closed field set.
+  TypeScript tests prove each spec consumes only its own canonical input and origin path.
 
-  Package ownership is deliberately disjoint after B1:
-
-  | Package | Sole writable behavior files                                                                                                                                                | Contract/spec IDs         | Dependencies |
-  | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ------------ |
-  | B1      | `helper_live_demo.ts`, `browser_suite_live_config.ts`, continuation wiring in `e2e/sysadmin_first_claim.spec.ts`, and B1-local tests; owner continuation seam until B1 gate | WebAuthn continuation ABI | B0           |
-
-| B2 | `e2e_browser_suite_owner.py` lease/reset seam, `local_stack_control/browser_suite_lease.py`, fixed private workspace, and B2-local tests | Fixed project, lease, owner-labelled exact reset, and cleanup ABI | B1 |
-| I1 | `e2e_browser_scenarios_instructor.py`, `e2e/instructor_authoring.spec.ts`, and I1-local tests | `instructor_authoring` | B0, C0 |
-| L1 | `e2e_browser_scenarios_learner.py`, `e2e/learner_delivery.spec.ts`, and L1-local tests | `learner_delivery` | B0, C0 |
-| A1 | `e2e_browser_scenarios_auth.py`, `e2e/auth_authorization.spec.ts`, final auth assertions in `e2e/sysadmin_first_claim.spec.ts`, and A1-local tests | `sysadmin_first_claim`, `auth_authorization` | B2, B1, B0, C0 |
-
-B1 owns the shared continuation ABI and its setup/target wiring until its automated gates pass;
-B2 then owns the owner lease/reset seam before A1's connected acceptance. A1 owns the final
-auth and authorization behavior assertions. No two packages edit the same boundary concurrently.
-I1 and L1 consume B0's generic helpers and do not change the owner, catalog, aggregate commands,
-shared seed data, or another family's files. A1 consumes B1 and B2 helpers and does not
-reimplement credential transfer or lifecycle reset.
-
-This ownership table is the dispatch boundary; the handoff above makes the B1-to-A1 transition
-explicit.
-
-### WP-PROF-BS1-B1: Carry the WebAuthn continuation between children
+### WP-PROF-BS1-B1: Direct generic passkey browser evidence
 
 - Owner: expert coder.
-- Depends on: B0.
-- Deliverable: close the owned-child credential boundary for a claimed scenario. The unclaimed
-  `sysadmin_first_claim` setup child visibly enrolls Morgan and completes its same-child passkey
-  reauthentication, then writes one owner-created mode-0600 continuation file under the existing
-  fixed private workspace. The owner validates the file before starting any claimed child. A
-  claimed child receives only its own V2 input plus the private continuation path, creates a new
-  virtual authenticator, imports the validated CDP credential, and visibly chooses "Sign in with a
-  passkey." Every `claimed` contract structurally requires `morgan_sysadmin`; its declared meaning
-  includes importing the owner continuation and completing this ordinary visible passkey sign-in.
-  The contract does not declare `passkey` in `ui_creates`, because the target consumes the passkey
-  for authentication. The continuation is a capability for this run, never public evidence and
-  never a product API.
-- Owned boundary: `e2e_browser_suite_owner.py` owns creation, validation, propagation, and cleanup
-  until the B1 gate; B2 then takes its lease/reset seam;
-  `helper_live_demo.ts` owns typed CDP credential export/import;
-  `browser_suite_live_config.ts` owns the strict continuation decoder;
-  `sysadmin_first_claim.spec.ts` and B1-local tests own setup/target wiring and focused contract
-  evidence. A1 owns final authorization assertions after B1 and consumes these helpers rather than
-  reimplementing credential transfer. No storage-state or authenticated-session bearer crosses the
-  child boundary.
-- Continuation shape: canonical ASCII JSON contains only a version, exact
-  `https://localhost:<port>` origin, `localhost` RP ID, and the exact single resident credential
-  records accepted by `WebAuthn.addCredential`. The owner and TypeScript importer reject unknown
-  fields, symlinks, non-regular files, incorrect permissions, oversized or noncanonical JSON,
-  wrong origin/RP, malformed base64url/CDP fields, and multiple credentials. It contains no
-  ownership proof, cookie, session, database ID, answer, or scenario name.
-- Consumption acknowledgement: the owner allocates each claimed child a distinct mode-0600
-  exclusive-create path in private run state and passes it as
-  `PLE_BROWSER_SUITE_WEBAUTHN_CONTINUATION_ACK_FILE`. After the new authenticator produces the
-  visible post-passkey course chooser, the child writes these canonical ASCII bytes:
-
-  ```text
-  {"event":"visible_sysadmin_passkey_sign_in","namespace":"bs1-...","origin":"https://localhost:<port>","scenarioId":"...","schemaVersion":1}
-  ```
-
-  The acknowledgement contains no credential, proof, cookie, private continuation path, or database
-  identifier. The owner validates regular-file/no-symlink metadata, current-user ownership, exact
-  0600 mode, bounded size, canonical bytes, exact keys, expected scenario ID and namespace, and exact
-  gateway origin after the claimed child exits successfully. The public
-  `ScenarioRunReceipt.webAuthnContinuationConsumed` becomes true only after validation; otherwise
-  the run fails without a consumption claim. The acknowledgement follows normal private-state and
-  failed-cleanup diagnostics.
-
-- Acceptance: focused offline Python/TypeScript tests cover all continuation safety and shape
-  rejections; owner tests prove proof reaches only the unclaimed child, the continuation path reaches
-  only the owner-created unclaimed setup producer and claimed children, never `not_required`
-  children, and public receipts, logs, argv, and any serialized or logged environment representation
-  omit secrets and private continuation paths. The private child environment carries the continuation
-  path only to the owner-created setup producer and claimed consumers. CDP helper tests use a fake
-  protocol session to verify exact credential export and
-  `addVirtualAuthenticator`/`addCredential` import arrays. Tests cover success without an
-  acknowledgement, malformed/extra/mismatched/wrong-origin acknowledgements, unsafe metadata, and
-  duplicate writes. A fresh focused `auth_authorization` run visibly completes setup in its unclaimed
-  child, then Morgan completes a new passkey sign-in in the claimed target, writes the validated
-  acknowledgement, and approves Avery. A fresh focused `sysadmin_first_claim` run remains
-  proof-scoped and visibly proves reauthentication. Cleanup and repeat-run oracles prove the
-  continuation and acknowledgement files disappear with private run state; failed cleanup retains
-  only mode-0600 private diagnostics.
+- Current contract: generic passkeys are ordinary account-security behavior. `direct_role_entry`
+  enrolls Morgan's passkey through the visible UI, signs out, signs in through the visible passkey
+  path, selects Genetics, and proves Sysadmin authorization. `auth_authorization` performs the
+  same in-scenario ceremony for Elena before proving Instructor authorization. The browser owner
+  owns per-child private inputs, origins, reset, and cleanup; it neither transfers credentials nor
+  injects prerequisite state.
+- Acceptance: isolated generic-passkey journeys prove session replacement and retained
+  server-authorized role behavior. Public receipts contain only bounded public lifecycle and origin
+  evidence; private credentials, cookies, and file paths remain within the owner workspace.
 
 ### WP-PROF-BS1-B2: Make the browser project single-flight with exact reset
 
@@ -350,8 +265,8 @@ explicit.
   tags; image pruning remains ordinary lifecycle hygiene. The reset never accepts caller project,
   prefix, manifest, or general Compose arguments.
 - Workspace boundary: retain only the held lock in `target/live-demo-browser`; clear and recreate
-  one fixed private `workspace` after reset, then generate the env, manifest, capability, and claim
-  context needed for the next installation. Final cleanup repeats the exact reset, verifies the
+  one fixed private `workspace` after reset, then generate the strict runtime manifest and
+  installation-scoped capabilities needed for the next installation. Final cleanup repeats the exact reset, verifies the
   labelled inventory is empty, removes workspace contents, reports only project/reset/final-empty
   status, and releases the lease.
 - Crash and error behavior: a new lease holder repeats the same exact reset before any regeneration,
@@ -388,16 +303,16 @@ explicit.
 ### WP-PROF-BS1-A1: Migrate auth and authorization
 
 - Owner: expert coder.
-- Deliverable: real seeded Student/Instructor session entry, generation-bound Sysadmin first claim
-  with a virtual authenticator, logout/re-authentication, and role/cross-course route scenarios.
-  A1 atomically removes the legacy `live_demo` catalog entry while registering
-  `sysadmin_first_claim` and `auth_authorization`, transferring the exclusive claim and Avery
-  approval mutations to their owning A1 contracts.
+- Deliverable: real seeded entry for the five fixed personas, ordinary account and course sessions,
+  in-scenario generic passkey enrollment and sign-in for Elena Instructor and Morgan Sysadmin, and
+  role/cross-course route scenarios. The auth catalog registers `direct_role_entry` and
+  `auth_authorization`; Avery's instructor-approval mutation remains owned only by
+  `auth_authorization`.
 - Acceptance: visible role workflows and direct navigation demonstrate server enforcement; protected
   transport and durable mutation checks use network observation where that exact claim matters. The
   registry remains nonempty and valid throughout the replacement, with each exclusive mutation held
-  by exactly one A1 contract. Its real acceptance depends on B1's validated continuation boundary;
-  A1 consumes the B1 helper and does not add a second credential-transfer path.
+  by exactly one A1 contract. Each scenario starts independently and does not consume another
+  scenario's browser state, proof, or credential.
 
 ### WP-PROF-BS1-S1: Add semantic persistence receipts
 
@@ -484,11 +399,11 @@ explicit.
   not justify a runtime capability. The retired feature is absent from `local_stack.py start`, every
   browser command, the canonical suite, service oracles, and developer documentation.
   The bounded developer-profile experiment then proves daily seeded Student and Instructor work, the
-  real Sysadmin claim/passkey flow, reload and re-entry, real course authoring and learner submission,
+  real Sysadmin direct-role/passkey flow, reload and re-entry, real course authoring and learner submission,
   the production `dist/` artifact, normal session/auth traffic, and empty suite-labelled cleanup. This
   package is distinct from R1's alternate-runtime retirement.
 - Acceptance: fresh Student and Instructor browser contexts complete normal daily workflows and the
-  seeded Sysadmin completes real ownership/passkey entry; no request or served production bundle
+  seeded Sysadmin completes real direct-role/passkey entry; no request or served production bundle
   exposes `/api/auth/login`, `local-login.txt`, or local-development credentials. Build and lifecycle
   receipts show one production `dist/` artifact and one production-shaped auth graph for developer and
   canonical browser use. The WebWork and replica service oracles complete seeded-production-auth
@@ -568,17 +483,16 @@ subordinate gates prove that outcome:
   `dist/`; the origin verifier rejects direct service and external origins.
 - One browser application: developer entry and the canonical suite use the same production `dist/`
   client and production-shaped session/auth graph. The deployment-gated seeded persona entry stays
-  server-resolved, and the Sysadmin ownership/passkey journey remains an ordinary real auth flow.
+  server-resolved; it exposes five fixed personas and preserves ordinary account, course, and
+  server-owned authorization behavior.
 - UI-created state: scenario actions use visible PLE workflows, with the frozen seed baseline and
   harness-only infrastructure inputs as the declared exceptions.
 - Product-visible persistence: scenario results survive reload, a new authorized session, or a
   different authorized role as appropriate to the behavior.
-- WebAuthn continuation: the setup child writes one validated mode-0600 private continuation, the
-  owner gives its path only to claimed children, and a claimed child imports that credential into a
-  new virtual authenticator before visible passkey sign-in. Each claimed child writes one canonical
-  owner-validated acknowledgement after the visible course chooser; the public consumption boolean
-  is true only after that validation. Offline shape, protocol, proof-isolation, acknowledgement,
-  receipt-redaction, and cleanup tests cover malformed, mismatched, duplicate, and unsafe inputs.
+- Generic passkeys: Elena Instructor and Morgan Sysadmin each enroll a passkey through the visible
+  account UI, sign out, use the visible passkey sign-in path, choose an authorized course, and prove
+  their stored server-authorized capability. Each journey is self-contained; receipts omit
+  credentials, cookies, and private state.
 - Service-specific receipts: read-only PostgreSQL, MinIO, worker, renderer, and network evidence
   appears only for a requirement about that service boundary.
 - Screenshot provenance: the JSON-authoritative 51-artifact nested corpus comes from selected

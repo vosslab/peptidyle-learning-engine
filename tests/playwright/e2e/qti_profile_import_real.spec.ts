@@ -91,7 +91,6 @@ test.describe("QTI profile import on the production PLE stack", () => {
     const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
     expect(scenarioInput.scenarioId).toBe("qti_profile_import");
     expect(scenarioInput.namespace).toMatch(/^bs1-[0-9a-f]{12}-qti_profile_import$/u);
-    expect(scenarioInput.sysadminRequirement).toBe("not_required");
     const expectedOrigin = new URL(scenarioInput.baseUrl).origin;
     const origins = {
       initial: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },

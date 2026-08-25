@@ -42,6 +42,8 @@ pub mod feedback;
 pub mod generation;
 pub mod identity;
 pub mod lifecycle;
+/// Browser-safe, no-store Instructor samples of saved assignment item pools.
+pub mod pool_preview;
 /// Browser-safe, attempt-presentation-scoped question contracts.
 pub mod presentation;
 /// Strict non-mutating preview-plane contracts, separate from T2 teaching operations.
@@ -79,9 +81,10 @@ pub use crate::assignment::{
     AssignmentTeachingSettingsValidationFailure, BaseAssignmentPolicy, CourseLocalDateTime,
     CourseLocalDateTimeError, InstructorAssignmentCurrentState,
     InstructorAssignmentTeachingSettingsLocal, LateSubmissionPolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, PointValue,
-    ScoringGeneration, ScoringStatus, SelectionOrdering,
-    derive_instructor_assignment_current_state,
+    MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS,
+    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS,
+    MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, PointValue, PoolDrawAlgorithm, ScoringGeneration,
+    ScoringStatus, SelectionOrdering, derive_instructor_assignment_current_state,
 };
 pub use crate::auth::{UserId, UserRole};
 pub use crate::byline::{PublicAuthorName, PublicByline, PublicBylineError};
@@ -138,6 +141,7 @@ pub use crate::identity::{
     AssetId, ObjectId, ProblemId, VersionId, WorkspaceId, WorkspaceImportId,
 };
 pub use crate::lifecycle::{Lifecycle, LifecycleError, LifecycleEvent};
+pub use crate::pool_preview::{PoolDrawPreview, PoolDrawPreviewQuestion, PoolDrawPreviewRequest};
 pub use crate::presentation::{
     AssetBindingV1, LearnerAttemptDescriptorV1, LearnerRunScreenRunV1, LearnerRunScreenScopeV1,
     LearnerRunScreenV1, PresentationBindingV1, PresentationDigestTokenV1, PresentationDigestV1,
@@ -164,7 +168,8 @@ pub use crate::public_route::{
 pub use crate::response::{ResponseDefinition, StudentResponse};
 pub use crate::run_policy::{
     CompletionRequirement, ContinuedPractice, GradePolicy, LearnerDisclosurePolicy,
-    LearnerDisclosureTiming, RunPolicies, VariationPolicy,
+    LearnerDisclosureTiming, PoolDrawBasis, PoolDrawBasisError, PoolDrawPreviewNonce, RunPolicies,
+    VariationPolicy,
 };
 pub use crate::statistics::{
     DEFAULT_STATISTICS_MINIMUM_COHORT_SIZE, LearnerClassStatistics, QuestionStatisticsDisclosure,

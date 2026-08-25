@@ -1,158 +1,108 @@
 import assert from "node:assert/strict";
+import { chmodSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import { liveDemoInputsFromEnvironment } from "../tests/playwright/browser_suite_live_config.ts";
 
-const proof = "A".repeat(42) + "E";
-
-function validInput(overrides = {}) {
+function input(overrides = {}) {
   return {
     schemaVersion: 2,
-    scenarioId: "live_demo",
-    namespace: "bs1-0123456789ab-live_demo",
-    baseUrl: "https://localhost:55123/",
-    personas: ["elena_instructor", "mary_student", "avery_student", "morgan_sysadmin"],
-    baselineReads: [
-      "base_course",
-      "genetics_practice_course",
-      "mary_completed_run",
-      "jack_open_run",
-      "published_peptide_assignment",
-    ],
-    sysadminRequirement: "unclaimed",
-    visibleObservation: "avery_teaching_team_access_after_reauthentication",
-    sysadminOwnershipProof: proof,
+    scenarioId: "direct_role_entry",
+    namespace: "bs1-0123456789ab-direct_role_entry",
+    baseUrl: "https://localhost:55001/",
+    personas: ["morgan_sysadmin"],
+    baselineReads: ["genetics_practice_course"],
+    visibleObservation: "direct_sysadmin_passkey_reauthentication",
     ...overrides,
   };
 }
 
-function parse(contents) {
+function parse(value) {
   return liveDemoInputsFromEnvironment(
-    { PLE_LIVE_DEMO_BROWSER_REQUIRED: "1", PLE_LIVE_DEMO_BROWSER_INPUT_FILE: "/private/input" },
-    () => contents,
-    () => {},
+    {
+      PLE_LIVE_DEMO_BROWSER_REQUIRED: "1",
+      PLE_LIVE_DEMO_BROWSER_INPUT_FILE: "/private/input.json",
+    },
+    () => JSON.stringify(value),
+    () => undefined,
   );
 }
 
-test("live-demo parser accepts the exact V2 private TLS-origin ABI", () => {
-  const inputs = parse(JSON.stringify(validInput()));
-  assert.equal(inputs?.baseUrl, "https://localhost:55123/");
-  assert.equal(inputs?.namespace, "bs1-0123456789ab-live_demo");
+test("live-demo parser accepts direct role input without claim material", () => {
+  const parsed = parse(input());
+  assert.equal(parsed?.scenarioId, "direct_role_entry");
 });
 
-test("live-demo parser rejects extensions, omissions, noncanonical JSON, and mismatched scenario fields", () => {
-  const extra = validInput({ extra: true });
-  assert.throws(() => parse(JSON.stringify(extra)));
-  const missing = validInput();
-  delete missing.baselineReads;
-  assert.throws(() => parse(JSON.stringify(missing)));
-  assert.throws(() => parse(`${JSON.stringify(validInput())}\n`));
-  const reordered = validInput();
-  const reorderedContents = JSON.stringify({ baseUrl: reordered.baseUrl, ...reordered });
-  assert.throws(() => parse(reorderedContents));
-  assert.throws(() => parse(JSON.stringify(validInput({ namespace: "bs1-0123456789ab-other" }))));
-  assert.throws(() => parse(JSON.stringify(validInput({ baseUrl: "https://127.0.0.1:55123/" }))));
+test("live-demo parser rejects retired role-claim fields", () => {
+  assert.throws(() => parse(input({ sysadminRequirement: "claimed" })));
 });
 
-test("live-demo parser binds the ownership proof to the unclaimed first-claim transition", () => {
-  const claimed = validInput({ sysadminRequirement: "claimed" });
-  assert.throws(() => parse(JSON.stringify(claimed)));
-  const syntheticClaimed = validInput({
-    scenarioId: "synthetic_claimed",
-    namespace: "bs1-0123456789ab-synthetic_claimed",
-    sysadminRequirement: "claimed",
-  });
-  delete syntheticClaimed.sysadminOwnershipProof;
-  assert.equal(parse(JSON.stringify(syntheticClaimed))?.scenarioId, "synthetic_claimed");
-  assert.throws(() => parse(JSON.stringify({ ...syntheticClaimed, sysadminOwnershipProof: null })));
-  const unclaimed = validInput();
-  delete unclaimed.sysadminOwnershipProof;
-  assert.throws(() => parse(JSON.stringify(unclaimed)));
-  assert.throws(() => parse(JSON.stringify(validInput({ sysadminOwnershipProof: "short" }))));
-  assert.throws(() =>
-    parse(JSON.stringify(validInput({ sysadminOwnershipProof: `${proof.slice(0, -1)}F` }))),
+test("live-demo parser binds its namespace, origin, optional service evidence, and screenshot projection", () => {
+  const parsed = parse(
+    input({
+      serviceReceipt: "renderer_delivery",
+      faultTransition: "gateway_submit_outage",
+      screenshotCapture: {
+        version: 1,
+        artifacts: [{ artifactId: "account_security", stateId: "passkey_ready" }],
+      },
+    }),
   );
-  assert.throws(() => parse(JSON.stringify(validInput({ serviceReceipt: null }))));
-});
-
-test("V2 parser accepts only closed service receipt identifiers", () => {
-  const base = validInput();
-  const valid = {
-    schemaVersion: base.schemaVersion,
-    scenarioId: base.scenarioId,
-    namespace: base.namespace,
-    baseUrl: base.baseUrl,
-    personas: base.personas,
-    baselineReads: base.baselineReads,
-    sysadminRequirement: base.sysadminRequirement,
-    visibleObservation: base.visibleObservation,
-    serviceReceipt: "worker_completion",
-    sysadminOwnershipProof: base.sysadminOwnershipProof,
-  };
-  assert.equal(parse(JSON.stringify(valid))?.serviceReceipt, "worker_completion");
-  for (const serviceReceipt of [null, 9, "", "invalid receipt", "unknown_receipt"]) {
-    assert.throws(() => parse(JSON.stringify(validInput({ serviceReceipt }))));
+  assert.deepEqual(parsed?.screenshotCapture, {
+    version: 1,
+    artifacts: [{ artifactId: "account_security", stateId: "passkey_ready" }],
+  });
+  for (const invalid of [
+    input({ namespace: "bs1-0123456789ab-other" }),
+    input({ baseUrl: "http://localhost:55001/" }),
+    input({ serviceReceipt: "unknown" }),
+    input({ faultTransition: "unknown" }),
+    input({ screenshotCapture: { version: 2, artifacts: [] } }),
+    input({
+      screenshotCapture: {
+        version: 1,
+        artifacts: [
+          { artifactId: "one", stateId: "state" },
+          { artifactId: "one", stateId: "other" },
+        ],
+      },
+    }),
+  ]) {
+    assert.throws(() => parse(invalid));
   }
 });
 
-test("V2 parser accepts only the owner-declared gateway fault transition", () => {
-  const base = validInput({
-    scenarioId: "learner_gateway_recovery",
-    namespace: "bs1-0123456789ab-learner_gateway_recovery",
-    sysadminRequirement: "not_required",
-  });
-  delete base.sysadminOwnershipProof;
-  const valid = {
-    schemaVersion: base.schemaVersion,
-    scenarioId: base.scenarioId,
-    namespace: base.namespace,
-    baseUrl: base.baseUrl,
-    personas: base.personas,
-    baselineReads: base.baselineReads,
-    sysadminRequirement: base.sysadminRequirement,
-    visibleObservation: base.visibleObservation,
-    faultTransition: "gateway_submit_outage",
-  };
-  assert.equal(parse(JSON.stringify(valid))?.faultTransition, "gateway_submit_outage");
-  assert.throws(() => parse(JSON.stringify({ ...valid, faultTransition: "renderer_outage" })));
+test("live-demo parser rejects missing and unknown fields", () => {
+  const missing = input();
+  delete missing.personas;
+  assert.throws(() => parse(missing));
+  assert.throws(() => parse(input({ unexpected: true })));
 });
 
-test("V2 parser admits the full visual corpus input while retaining a bounded private ABI", () => {
-  const base = validInput({
-    scenarioId: "learner_delivery",
-    namespace: "bs1-0123456789ab-learner_delivery",
-    personas: ["elena_instructor", "mary_student"],
-    baselineReads: ["base_course"],
-    sysadminRequirement: "not_required",
-    visibleObservation: "learner_delivery",
-  });
-  delete base.sysadminOwnershipProof;
-  const artifacts = Array.from({ length: 64 }, (_, index) => ({
-    artifactId: `capture_${index + 1}`,
-    stateId: `state_${index + 1}`,
-  }));
-  const input = { ...base, screenshotCapture: { version: 1, artifacts } };
-  assert.equal(parse(JSON.stringify(input))?.screenshotCapture?.artifacts.length, 64);
-  assert.throws(() =>
-    parse(
-      JSON.stringify({
-        ...base,
-        screenshotCapture: {
-          version: 1,
-          artifacts: [...artifacts, { artifactId: "capture_65", stateId: "state_65" }],
-        },
-      }),
-    ),
-  );
-  assert.throws(() =>
-    parse(
-      JSON.stringify({
-        ...base,
-        screenshotCapture: {
-          version: 1,
-          artifacts: [...artifacts.slice(0, 63), artifacts[0]],
-        },
-      }),
-    ),
-  );
+test("live-demo parser accepts only a bounded regular private input file with exact mode", () => {
+  const directory = mkdtempSync(join(tmpdir(), "ple-live-input-"));
+  const path = join(directory, "input.json");
+  const environment = {
+    PLE_LIVE_DEMO_BROWSER_REQUIRED: "1",
+    PLE_LIVE_DEMO_BROWSER_INPUT_FILE: path,
+  };
+  try {
+    writeFileSync(path, JSON.stringify(input()), { mode: 0o600 });
+    chmodSync(path, 0o600);
+    assert.equal(liveDemoInputsFromEnvironment(environment)?.scenarioId, "direct_role_entry");
+    chmodSync(path, 0o644);
+    assert.throws(() => liveDemoInputsFromEnvironment(environment));
+    chmodSync(path, 0o600);
+    writeFileSync(path, "x".repeat(16_385), { mode: 0o600 });
+    assert.throws(() => liveDemoInputsFromEnvironment(environment));
+    const link = join(directory, "input-link.json");
+    symlinkSync(path, link);
+    assert.throws(() =>
+      liveDemoInputsFromEnvironment({ ...environment, PLE_LIVE_DEMO_BROWSER_INPUT_FILE: link }),
+    );
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
 });

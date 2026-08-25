@@ -25,7 +25,7 @@
   "artifacts": [
     {
       "artifactId": "sysadmin_account_security_passkey",
-      "scenarioId": "sysadmin_first_claim",
+      "scenarioId": "direct_role_entry",
       "stateId": "account_security_passkey",
       "role": "shared",
       "journey": "account",
@@ -777,6 +777,30 @@
       "journeyStep": 1,
       "viewport": "square",
       "path": "docs/screenshots/student/access/assignment_preview_denial/01_assignment_preview_denial_square.png",
+      "privacyChecks": ["no_private_material", "no_feedback"]
+    },
+    {
+      "artifactId": "item_pool_delivery_pool_preview",
+      "scenarioId": "item_pool_delivery",
+      "stateId": "pool_preview",
+      "role": "instructor",
+      "journey": "item_pool_delivery",
+      "captureOrder": 64,
+      "journeyStep": 1,
+      "viewport": "laptop",
+      "path": "docs/screenshots/instructor/item_pool_delivery/01_pool_preview.png",
+      "privacyChecks": ["no_private_material"]
+    },
+    {
+      "artifactId": "item_pool_delivery_learner_delivered_pool",
+      "scenarioId": "item_pool_delivery",
+      "stateId": "learner_delivered_pool",
+      "role": "student",
+      "journey": "item_pool_delivery",
+      "captureOrder": 65,
+      "journeyStep": 1,
+      "viewport": "laptop",
+      "path": "docs/screenshots/student/item_pool_delivery/01_learner_delivered_pool.png",
       "privacyChecks": ["no_private_material", "no_feedback"]
     }
   ],

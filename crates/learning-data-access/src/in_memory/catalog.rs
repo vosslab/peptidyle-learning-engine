@@ -369,6 +369,8 @@ impl CatalogStore for MemoryStore {
         context: TenantContext,
         reference: question_model::ProblemDisplayRef,
     ) -> Result<Option<PublishedProblemRecord>, StoreError> {
+        self.catalog_resolution_calls
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if !self.question_ids.validates(&reference.question_id) {
             return Ok(None);
         }

@@ -11,34 +11,51 @@ documents link here instead of copying those mutable values.
 The active [professor capability plan](active/professor_capability_architecture_plan.md) supplements
 the release plan and does not replace it. This file is the sole global current-package handoff
 registry: WP-PROF-T2 and WP-PROF-LD1 are accepted on 2026-08-20; WP-PROF-LD2 is accepted on
-2026-08-21; WP-PROF-BS1 and WP-PROF-T3 are accepted on 2026-08-22; WP-PROF-T4 is retired before
-acceptance; WP-PROF-LD3 is the sole current professor package; and the release queue is PARKED at
-still-open WP-RC8.
-WP-PROF-LD3 is current in-progress work. It removes the unaccepted parallel execution aggregate and
-converges its useful ordinary-assignment authority hardening onto the canonical live learner path.
-The package retains immutable issued-question evidence, deterministic server-owned grading,
-receipt replay, least-privilege mutation brokers, and audited Instructor inspection for normal
-courses. Fresh PostgreSQL evidence, canonical HTTPS production-stack evidence, and the complete
-package Validation suite remain required on the converged material tree.
+2026-08-21; WP-PROF-BS1 and WP-PROF-T3 are accepted on 2026-08-22; WP-PROF-LD3 and WP-PROF-T5 are
+accepted on 2026-08-24; WP-PROF-D1 is the sole current professor package; and the release queue is
+PARKED at still-open WP-RC8.
+WP-PROF-LD3 established the canonical ordinary-assignment learner path with immutable
+issued-question evidence, deterministic server-owned grading, receipt replay,
+least-privilege mutation brokers, and audited Instructor inspection for normal courses. Its
+live-demo path uses independent direct entry for five fixed seeded personas:
+the server resolves each selection through ordinary account, course, tenant-session, and stored-role
+state. `direct_role_entry` proves Morgan Sysadmin entry and a generic passkey round trip;
+`auth_authorization` independently proves Elena Instructor's generic passkey round trip and
+multi-persona authorization. The fixed owner regenerates, resets, and cleans the disposable stack;
+all product state is created through visible UI. Fresh PostgreSQL evidence, canonical HTTPS
+production-stack evidence, 63-artifact screenshot provenance with independent visual approval, and
+the complete package Validation suite passed on the converged material tree. The production browser
+completed all ten ordinary live scenarios, the isolated WebWork and replica-restart oracles passed,
+and every final cleanup inventory was empty.
+WP-PROF-T5 is accepted. It productized the selection-group and immutable issued-run-item model
+through one accessible ordered fixed-or-pool Instructor editor, closed v1 draw authority,
+policy-correct automatic variation, a revision-bound no-store pool preview, and ordinary Student
+delivery with deterministic server-owned grading. Browser inputs used public Question IDs and
+teaching choices; the server resolved immutable publications and owned opaque identities. The
+pre-issue structural definition capability serialized with first-run creation; issued draws,
+grading evidence, receipts, and grades remained immutable. The canonical production HTTPS
+`item_pool_delivery` journey, refreshed 65-artifact screenshot corpus and provenance, independent
+visual approval, and complete Validation passed with exact cleanup. WP-PROF-D1 now owns discovery
+over the canonical Library/search path.
 The professor and release plans own their scope and dependency queues, but defer current-handoff
 truth to this registry. WP-PROF-S1, WP-PROF-S2, WP-PROF-S3, WP-PROF-S4, WP-PROF-S5, and WP-PROF-S7
 are accepted, as are WP-PROF-S6, WP-PROF-T1, WP-PROF-T2, WP-PROF-LD1, and WP-PROF-LD2. LD1 delivered
-the live-demo baseline lifecycle. LD2 accepted its seeded-entry, initial-Sysadmin-claim, and
-connected-live-authoring capability. WP-PROF-BS1 is accepted. WP-PROF-T3 is the frozen-scope
-successor and is accepted; retired WP-PROF-T4 carries no product dependency; WP-PROF-LD3 follows T3
-as the live-delivery convergence package. LD2 uses the
-necessary existing WP-RC8 account-session/passkey/origin contracts; its claim, passkey, and
-Student/Instructor selector seams remain non-schema. WP-RC8 remains PARKED and open for provider,
+the live-demo baseline lifecycle. LD2 accepted its seeded-entry and connected-live-authoring
+capability. WP-PROF-LD3 now supplies direct entry for five seeded personas, ordinary account and
+course sessions, and independent generic passkey journeys for Elena Instructor and Morgan Sysadmin.
+WP-PROF-BS1 is accepted. WP-PROF-T3 is the frozen-scope
+successor and is accepted; WP-PROF-LD3 follows T3 as the live-delivery convergence package. LD2 uses the
+necessary existing WP-RC8 account-session/passkey/origin contracts; its direct persona selector and
+ordinary passkey seams remain non-schema. WP-RC8 remains PARKED and open for provider,
 mailbox, unrelated passkey, multi-replica, security, HCI, and release gates.
 Professor pre-production work may use the shared migration ledger; it does not accept or imply
 production email authentication, mailbox delivery, onboarding, deployment, or release acceptance.
 
 WP-PROF-BS1 accepted one production `dist/` browser application, one fixed
-`ple-live-demo-browser` owner, seeded production account/session entry, and serial acceptance lanes.
-The former mock browser runtime, alternate browser owners, local-file authentication, local-teaching
-roster activation, and Chapter One random owner are retired. The WebWork and replica service oracles
-now use the same seeded production-auth topology without a browser tail; aggregate acceptance owns one
-canonical browser invocation followed serially by those two distinct service oracles. The replica
+`ple-live-demo-browser` owner, seeded production account/session entry, serial acceptance lanes, and
+visible UI-created product state. The WebWork and replica service oracles use the same seeded
+production-auth topology; aggregate acceptance owns one canonical browser invocation followed
+serially by those two distinct service oracles. The replica
 oracle passed against PostgreSQL/MinIO and two API replicas with exact durable replay and complete
 owned-resource cleanup. The nine-scenario production browser catalog, nested 51-artifact screenshot
 publication and automated visual re-review, aggregate browser/WebWork/replica acceptance, and both
@@ -49,10 +66,10 @@ WP-PROF-LD1 and WP-PROF-LD2 are accepted. LD1 owns the durable live-demo install
 Base Course lifecycle named by the approved [live-demo specification](../LIVE_DEMO_SPEC.md), using
 accepted migration `2026081808_live_demo_install_state.sql`. LD2's immutable `2026081809` allocation
 owns exactly two least-privilege execute-only brokers for safe normal Sysadmin approval-candidate
-discovery and read-only completed-installation-generation lookup for configured first-ownership
-proof; immutable `2026081810` is only the narrow Student pre-tenant account-course context
-retention-boundary repair. Selector, claim, passkey, account, and session behavior remains
-non-schema; the generation-read broker is its narrow schema seam.
+discovery and read-only completed-installation-generation lookup; immutable `2026081810` is only the
+narrow Student pre-tenant account-course context retention-boundary repair. Selector, passkey,
+account, and session behavior remains non-schema; the generation-read broker is the accepted narrow
+auth-owned installation-state read.
 WP-PROF-BS1 and WP-PROF-T3 are accepted non-schema packages. BS1 owns the canonical disposable
 HTTPS production-browser suite; T3 owns the non-mutating preview plane and its PII-minimal audit,
 reusing forced-RLS `audit_event` and a writable repeatable-read snapshot for the one learner-derived
@@ -101,37 +118,39 @@ do not implicitly receive one.
 | `2026081806` | WP-PROF-S6 | Course grade scheme; accepted and immutable |
 | `2026081807` | WP-PROF-T2 | Teaching operations; accepted and immutable |
 | `2026081808` | WP-PROF-LD1 | Live-demo installation state; accepted and immutable |
-| `2026081809` | WP-PROF-LD2 | Accepted and immutable; exactly two least-privilege execute-only brokers: Sysadmin approval-candidate discovery and read-only completed-installation-generation lookup for configured first-ownership proof |
+| `2026081809` | WP-PROF-LD2 | Accepted and immutable; exactly two least-privilege execute-only brokers: Sysadmin approval-candidate discovery and read-only completed-installation-generation lookup |
 | `2026081810` | WP-PROF-LD2 | Accepted and immutable; only the narrow Student pre-tenant account-course context retention-boundary repair |
-| `2026081811` | WP-PROF-T4 retired | Unaccepted sidecar allocation retired; migration removed before the clean baseline |
-| `2026081812` | WP-PROF-LD3 | `2026081812_assignment_mutator_authority.sql`; ordinary live assignment mutation authority |
-| `2026081813` | WP-PROF-T4 retired | Unaccepted sidecar integration allocation retired; migration removed before the clean baseline |
-| `2026081814` | WP-PROF-LD3 | `2026081814_assignment_definition_capabilities.sql`; actor-authorized assignment-definition create and complete normalized replacement |
-| `2026081815` | WP-PROF-T4 retired | Unaccepted sidecar start allocation retired; migration removed before the clean baseline |
-| `2026081816` | WP-PROF-LD3 | `2026081816_course_group_mutator_capabilities.sql`; execute-only live course-group mutation brokers with exact affected-assignment witnesses |
-| `2026081817` | WP-PROF-LD3 | `2026081817_learner_work_source_preparation.sql`; typed live learner-work and entitlement preparation, including immutable issued-question source/execution snapshots |
-| `2026081818` | WP-PROF-LD3 | `2026081818_course_creation_authority.sql`; session-bound Instructor/Sysadmin course provisioning and attested Base Course installation |
-| `2026081819` | WP-PROF-LD3 | `2026081819_course_grade_control_capabilities.sql`; isolated grade-scheme and export-audit brokers |
-| `2026081820` | WP-PROF-LD3 | `2026081820_scoring_commit_source_preparation.sql`; isolated scoring-worker preparation and finalization brokers |
-| `2026081821` | WP-PROF-T4 retired | Unaccepted sidecar operation allocation retired; migration removed before the clean baseline |
-| `2026081822` | WP-PROF-T4 retired | Unaccepted sidecar delivery-material allocation retired; migration removed before the clean baseline |
-| `2026081823` | WP-PROF-LD3 | `2026081823_teaching_invitation_mutator_capabilities.sql`; session-derived create, revoke, and decline authority |
+| `2026081811` | Reserved | Reserved numeric identity |
+| `2026081812` | WP-PROF-LD3 | Accepted and immutable; `2026081812_assignment_mutator_authority.sql`; ordinary live assignment mutation authority |
+| `2026081813` | Reserved | Reserved numeric identity |
+| `2026081814` | WP-PROF-LD3 | Accepted and immutable; `2026081814_assignment_definition_capabilities.sql`; actor-authorized assignment-definition create and complete normalized replacement |
+| `2026081815` | Reserved | Reserved numeric identity |
+| `2026081816` | WP-PROF-LD3 | Accepted and immutable; `2026081816_course_group_mutator_capabilities.sql`; execute-only live course-group mutation brokers with exact affected-assignment witnesses |
+| `2026081817` | WP-PROF-LD3 | Accepted and immutable; `2026081817_learner_work_source_preparation.sql`; typed live learner-work and entitlement preparation, including immutable issued-question source/execution snapshots |
+| `2026081818` | WP-PROF-LD3 | Accepted and immutable; `2026081818_course_creation_authority.sql`; session-bound Instructor/Sysadmin course provisioning and attested Base Course installation |
+| `2026081819` | WP-PROF-LD3 | Accepted and immutable; `2026081819_course_grade_control_capabilities.sql`; isolated grade-scheme and export-audit brokers |
+| `2026081820` | WP-PROF-LD3 | Accepted and immutable; `2026081820_scoring_commit_source_preparation.sql`; isolated scoring-worker preparation and finalization brokers |
+| `2026081821` | Reserved | Reserved numeric identity |
+| `2026081822` | Reserved | Reserved numeric identity |
+| `2026081823` | WP-PROF-LD3 | Accepted and immutable; `2026081823_teaching_invitation_mutator_capabilities.sql`; session-derived create, revoke, and decline authority |
+| `2026081824` | WP-PROF-LD3 | Accepted and immutable; `2026081824_course_roster_procedure_ambiguity_repair.sql`; explicit column binding for live roster-policy replacement and staged-import commit |
+| `2026081825` | WP-PROF-LD3 | Accepted and immutable; `2026081825_entitlement_materialization_decision.sql`; explicit race-safe denied decision for inactive Student materialization |
+| `2026081826` | WP-PROF-T5 | Accepted and immutable; `2026081826_replace_unissued_assignment_definition.sql`; complete revision-checked pre-issue definition replacement, closed v1 pool-draw authority, and first-run serialization |
 
 The S3, S4, and S5 allocations were reordered before their migration files existed. Accepted S5
 occupies `2026081803`, S3 `2026081804`, S4 `2026081805`, S6 `2026081806`, and T2 `2026081807`.
 `2026081807_teaching_operations.sql` through `2026081810` are accepted and immutable; 1809 records
-its two brokers and needs no additional migration. WP-PROF-T4 and its sidecar-only allocations were
-retired before acceptance. Their numeric identities remain reserved in this registry while their
-migration files are removed from the pre-production ledger.
+its two brokers and needs no additional migration. Allocations `2026081811`, `2026081813`,
+`2026081815`, `2026081821`, and `2026081822` remain reserved numeric identities.
 
-WP-PROF-LD3 owns the surviving ordinary live authority chain in `2026081812`, `2026081814`, and
-`2026081816` through `2026081820`, plus `2026081823`. Assignment and course-group mutations,
-learner-work preparation, course creation, grade control, scoring commits, and teaching invitations
-use session-derived or route-bound broker capabilities with narrow lock and mutation authority.
-Immutable issued-question source and execution snapshots protect normal learner work and receipt
-replay. These allocations remain unaccepted until the focused PostgreSQL authority matrix, canonical
-production-stack journeys, and complete Validation suite pass on the converged tree. Numeric
-allocation records forward sequence; package dependency remains in the professor plan.
+WP-PROF-LD3 owns the accepted surviving ordinary live authority chain in `2026081812`,
+`2026081814`, and `2026081816` through `2026081820`, plus `2026081823` through `2026081825`.
+Assignment and course-group mutations, learner-work preparation, course creation, grade control,
+scoring commits, and teaching invitations use session-derived or route-bound broker capabilities
+with narrow lock and mutation authority. Immutable issued-question source and execution snapshots
+protect normal learner work and receipt replay. WP-PROF-T5 owns the accepted immutable `2026081826`
+pre-issuance structural definition capability and closed v1 pool boundary. Numeric allocation
+records forward sequence; package dependency remains in the professor plan.
 
 WP-PROF-LD1 accepted the durable `installing` and `complete` installation state; one advisory lock for
 single-writer first-install coordination; deterministic Base Course seeding with generation-bound
@@ -155,7 +174,8 @@ workspace checks and tests completed.`); `./check_codebase.sh` (five checks, 322
 `source source_me.sh && python3 -m pytest tests/` (6,017 passed, no skips); and `source
 source_me.sh && python3 tests/e2e/e2e_live_demo_baseline.py` (PASS: fresh install, retained edit
 without storage access, interruption repair, concurrency, pre-marker refusal, and fresh
-regeneration with unclaimed seeded Sysadmin). `source source_me.sh && python3 local_stack.py
+regeneration with the five seeded direct-entry personas restored to their baseline account and role
+state). `source source_me.sh && python3 local_stack.py
 acceptance` passed all eight lanes, including its terminal connected HTTPS Playwright journey (one
 passed) under project `ple-live-demo-browser-d0ff0e97f4ac`; typed cleanup and exact-label checks
 left zero containers, volumes, and networks. The baseline E2E project

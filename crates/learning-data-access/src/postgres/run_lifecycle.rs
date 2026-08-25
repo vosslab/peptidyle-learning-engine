@@ -179,7 +179,7 @@ pub(super) async fn start_or_resume_run(
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
-    insert_assignment_run_items(transaction, &assignment, run.id).await?;
+    insert_assignment_run_items(transaction, &assignment, &run).await?;
     store_summary(transaction, &next).await?;
     Ok(run)
 }
@@ -286,7 +286,7 @@ pub(super) async fn apply_start_run(
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
-    insert_assignment_run_items(transaction, &assignment, run.id).await?;
+    insert_assignment_run_items(transaction, &assignment, &run).await?;
     store_summary(transaction, &next).await?;
     Ok(next)
 }
@@ -295,7 +295,7 @@ pub(super) async fn apply_start_run(
 pub(super) async fn insert_assignment_run_items(
     transaction: &mut Transaction<'_, Postgres>,
     assignment: &AssignmentRecord,
-    run: RunId,
+    run: &AssignmentRun,
 ) -> Result<(), StoreError> {
     for item in select_assignment_run_items(assignment, run)? {
         sqlx::query(
@@ -305,7 +305,7 @@ pub(super) async fn insert_assignment_run_items(
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(assignment.tenant.as_uuid())
-        .bind(run.as_uuid())
+        .bind(run.id.as_uuid())
         .bind(item.assignment_item.as_uuid())
         .bind(i32::try_from(item.source_position).map_err(|_| {
             StoreError::InvalidRecord("run source position is too large".to_string())

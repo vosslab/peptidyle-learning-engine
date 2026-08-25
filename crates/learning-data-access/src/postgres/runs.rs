@@ -10,6 +10,7 @@ use crate::{
 
 pub(super) mod attempt_issuance;
 pub(super) mod authored_timing;
+pub(super) mod learner_projections;
 pub(super) mod learner_transition;
 pub(super) mod private_execution;
 pub(super) use authored_timing::add_seconds;
@@ -173,49 +174,6 @@ fn validate_submission_receipt_for_issued_attempt(
     }
 }
 
-/// Authorizes one active learner run for a projection without acquiring
-/// mutation locks. Attempt issuance and submission transitions use the 1817
-/// broker-prepared witnesses instead of escalating this read capability.
-async fn active_learner_run_for_read(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    actor: UserId,
-    run: RunId,
-) -> Result<Option<AssignmentRun>, StoreError> {
-    let record = match load_postgres_run(transaction, tenant, run).await {
-        Ok(value) => value,
-        Err(StoreError::NotFound) => return Ok(None),
-        Err(error) => return Err(error),
-    };
-    let enrollment = load_postgres_enrollment(transaction, tenant, record.enrollment).await?;
-    let assignment = load_assignment(transaction, tenant, enrollment.assignment).await?;
-    let accessible: bool =
-        sqlx::query_scalar("SELECT public.ple_course_records_accessible($1, $2)")
-            .bind(tenant.as_uuid())
-            .bind(assignment.course_id.as_uuid())
-            .fetch_one(&mut **transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-    if !accessible {
-        return Err(StoreError::NotFound);
-    }
-    let decision = super::entitlement::evaluate_current_read_only(
-        transaction,
-        tenant,
-        actor,
-        assignment.course_id,
-        enrollment.assignment,
-    )
-    .await?;
-    match decision {
-        domain::entitlement::EntitlementDecision::Granted(grant)
-            if grant.student() == enrollment.student => {}
-        domain::entitlement::EntitlementDecision::Granted(_)
-        | domain::entitlement::EntitlementDecision::Denied(_) => return Ok(None),
-    }
-    Ok(Some(record))
-}
-
 /// Accepts a concurrent successor-link write only when it retained the exact
 /// durable descriptor this transaction produced. The id alone is not enough:
 /// it would let a mismatched or checksum-invalid public successor replace the
@@ -297,9 +255,14 @@ impl crate::RunStore for PostgresStore {
         run: RunId,
     ) -> Result<Option<Vec<AssignmentRunItem>>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if active_learner_run_for_read(&mut transaction, context.tenant_id(), actor, run)
-            .await?
-            .is_none()
+        if learner_projections::active_learner_run_for_read(
+            &mut transaction,
+            context.tenant_id(),
+            actor,
+            run,
+        )
+        .await?
+        .is_none()
         {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(None);
@@ -445,37 +408,45 @@ impl crate::RunStore for PostgresStore {
             private_execution.webwork_replay.as_ref(),
         )?;
         let mut transaction = self.begin_tenant(context).await?;
-        learner_transition::lock_predecessor_for_learner_run(
+        // The route-bound 1817 capability is the single authority and lock
+        // owner for this live learner transition. It locks the course,
+        // assignment, membership, enrollment, run, predecessor, and summary
+        // in the same order used by submission, preventing a prefetch race
+        // from introducing a second authorization model.
+        let witness = super::learner_work_preparation::prepare_student_attempt_work(
             &mut transaction,
             context.tenant_id(),
+            command.binding,
             command.actor,
-            reservation.run,
             reservation.predecessor,
         )
         .await?;
-        // The transition helper locks the predecessor before this run. The
-        // locked run, enrollment, and membership below revalidate access.
-        let run =
-            load_run_for_update(&mut transaction, context.tenant_id(), reservation.run).await?;
+        if witness.run != reservation.run || witness.attempt_status != AttemptStatus::InProgress {
+            return Err(StoreError::Conflict);
+        }
+        // Hydrate projections with ordinary reads while the broker's exact
+        // source locks remain held. Application code does not reacquire those
+        // protected locks or repeat mutable policy evaluation.
+        let run = load_postgres_run(&mut transaction, context.tenant_id(), reservation.run).await?;
         if run.completed_at.is_some() || run.score.is_some() {
             return Err(StoreError::Conflict);
         }
         let enrollment =
-            load_enrollment_for_update(&mut transaction, context.tenant_id(), run.enrollment)
-                .await?;
+            load_postgres_enrollment(&mut transaction, context.tenant_id(), run.enrollment).await?;
+        if witness.source.existing_enrollment != Some(run.enrollment)
+            || enrollment.assignment != command.binding.assignment
+            || enrollment.user != command.actor
+        {
+            return Err(StoreError::Unavailable(
+                "prefetch source disagrees with learner-work preparation witness".to_string(),
+            ));
+        }
         let assignment =
             load_assignment(&mut transaction, context.tenant_id(), enrollment.assignment).await?;
-        let decision = super::entitlement::evaluate_current(
-            &mut transaction,
-            context.tenant_id(),
-            command.actor,
-            assignment.course_id,
-            enrollment.assignment,
-        )
-        .await?;
-        if !matches!(decision, domain::entitlement::EntitlementDecision::Granted(ref grant) if grant.student() == enrollment.student)
-        {
-            return Err(StoreError::NotFound);
+        if assignment.course_id != command.binding.course {
+            return Err(StoreError::Unavailable(
+                "prefetch assignment disagrees with learner-work preparation witness".to_string(),
+            ));
         }
         let submitted: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM submission_idempotency WHERE tenant_id = $1 AND attempt_id = $2)")
             .bind(context.tenant_id().as_uuid()).bind(reservation.predecessor.as_uuid())
@@ -605,9 +576,14 @@ impl crate::RunStore for PostgresStore {
         assignment_position: u32,
     ) -> Result<Option<PrefetchedQuestionDescriptorV1>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if active_learner_run_for_read(&mut transaction, context.tenant_id(), actor, run)
-            .await?
-            .is_none()
+        if learner_projections::active_learner_run_for_read(
+            &mut transaction,
+            context.tenant_id(),
+            actor,
+            run,
+        )
+        .await?
+        .is_none()
         {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(None);
@@ -702,9 +678,14 @@ impl crate::RunStore for PostgresStore {
         run: RunId,
     ) -> Result<Option<QuestionAttemptId>, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
-        if active_learner_run_for_read(&mut transaction, context.tenant_id(), actor, run)
-            .await?
-            .is_none()
+        if learner_projections::active_learner_run_for_read(
+            &mut transaction,
+            context.tenant_id(),
+            actor,
+            run,
+        )
+        .await?
+        .is_none()
         {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(None);
@@ -857,9 +838,14 @@ impl crate::RunStore for PostgresStore {
         let cursor = page.after.as_ref().map(|value| value.as_str().to_string());
         let limit = i64::from(page.size.get()) + 1;
         let mut transaction = self.begin_tenant(context).await?;
-        if active_learner_run_for_read(&mut transaction, context.tenant_id(), actor, run)
-            .await?
-            .is_none()
+        if learner_projections::active_learner_run_for_read(
+            &mut transaction,
+            context.tenant_id(),
+            actor,
+            run,
+        )
+        .await?
+        .is_none()
         {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(None);
@@ -970,26 +956,5 @@ impl crate::RunStore for PostgresStore {
             Ok(record)
         })
         .await
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn active_learner_run_projection_does_not_request_source_locks() {
-        let source = include_str!("runs.rs");
-        let helper = source
-            .split("async fn active_learner_run_for_read")
-            .nth(1)
-            .and_then(|section| {
-                section
-                    .split("/// Accepts a concurrent successor-link")
-                    .next()
-            })
-            .expect("active learner projection remains a discrete helper");
-        assert!(!helper.contains("FOR UPDATE"));
-        assert!(!helper.contains("load_enrollment_for_update"));
-        assert!(!helper.contains("load_run_for_update"));
-        assert!(!helper.contains("entitlement::evaluate_current("));
     }
 }

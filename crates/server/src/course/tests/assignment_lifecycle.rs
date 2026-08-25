@@ -13,6 +13,7 @@ use tower::ServiceExt;
 
 use crate::course::routing::CreateAssignmentRequest;
 
+mod authoring_boundary;
 mod fixture_setup;
 mod teaching_settings;
 
@@ -65,7 +66,13 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
 
     let assignment_request = CreateAssignmentRequest {
         title: "Peptide bond mastery".to_string(),
-        question_ids: vec![question_id.clone()],
+        entries: vec![crate::course::routing::AssignmentEntryRequest::Fixed {
+            question_id: question_id.clone(),
+            position: 0,
+            points_possible: question_model::PointValue::from_whole(1),
+            delivery_state: question_model::AssignmentDeliveryState::Active,
+            scoring_mode: question_model::AssignmentScoringMode::Normal,
+        }],
         disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
         policies: policies(),
     };
@@ -110,8 +117,8 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         created_assignment["currentState"],
         serde_json::json!({ "state": "draft" })
     );
-    let update_items = serde_json::json!([{
-        "id": created_assignment["items"][0]["id"],
+    let update_entries = serde_json::json!([{
+        "kind": "fixed",
         "questionId": created_assignment["items"][0]["questionId"],
         "position": created_assignment["items"][0]["position"],
         "pointsPossible": created_assignment["items"][0]["pointsPossible"],
@@ -130,7 +137,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     serde_json::json!({
-                        "title": "invalid timing", "items": update_items.clone(),
+                        "title": "invalid timing", "entries": update_entries.clone(),
                         "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(), "policies": policies(),
                         "assignmentTiming": null,
                     })
@@ -181,7 +188,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
             .header("content-type", "application/json")
             .body(Body::from(
                 serde_json::json!({
-                    "title": "foreign", "items": update_items.clone(),
+                    "title": "foreign", "entries": update_entries.clone(),
                     "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(), "policies": policies(),
                 })
                 .to_string(),
@@ -195,7 +202,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
             .header("content-type", "application/json")
             .body(Body::from(
                 serde_json::json!({
-                    "title": "foreign malformed", "items": update_items.clone(),
+                    "title": "foreign malformed", "entries": update_entries.clone(),
                     "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(), "policies": policies(),
                 })
                 .to_string(),
@@ -225,7 +232,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                 .body(Body::from(
                     serde_json::json!({
                         "title": "Peptide bond mastery",
-                        "items": update_items.clone(),
+                        "entries": update_entries.clone(),
                         "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
                         "policies": policies(),
                         "unexpected": true,
@@ -250,7 +257,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                 .body(Body::from(
                     serde_json::json!({
                         "title": "Peptide bond mastery revised",
-                        "items": update_items,
+                        "entries": update_entries.clone(),
                         "policies": policies(),
                         "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
                     })
@@ -328,7 +335,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     serde_json::json!({
-                        "title": "stale overwrite", "items": update_items.clone(),
+                        "title": "stale overwrite", "entries": update_entries.clone(),
                         "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(), "policies": policies(),
                     })
                     .to_string(),
@@ -402,7 +409,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                     .header(IF_MATCH, updated_etag)
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::json!({
-                        "title": "must not move course", "items": update_items.clone(),
+                        "title": "must not move course", "entries": update_entries.clone(),
                         "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(), "policies": policies(),
                     }).to_string()))
                     .expect("wrong-course update request"),
@@ -720,7 +727,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                     .header(IF_MATCH, &assignment_etag)
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::json!({
-                        "title": "student overwrite", "items": update_items.clone(),
+                        "title": "student overwrite", "entries": update_entries.clone(),
                         "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(), "policies": policies(),
                     }).to_string()))
                     .expect("student update request"),
@@ -739,7 +746,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                     .header("content-type", "application/json")
                     .body(Body::from(
                         serde_json::json!({
-                            "title": "student missing revision", "items": update_items.clone(),
+                            "title": "student missing revision", "entries": update_entries.clone(),
                             "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(), "policies": policies(),
                         })
                         .to_string(),

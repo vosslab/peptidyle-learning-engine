@@ -2,8 +2,7 @@
 
 //! Disposable PostgreSQL oracle for the T3 preview plane.
 //!
-//! Run with `PLE_TEST_DATABASE_URL` directed at a fresh migrated acceptance
-//! database.  This target remains ignored because its fixtures create normal
+//! Run from the private acceptance runtime workspace. This target remains ignored because its fixtures create normal
 //! accounts, course members, assignments, and one intentionally auditable
 //! derived preview subject.
 
@@ -182,11 +181,11 @@ async fn membership_reference(
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL for a disposable migrated PostgreSQL database"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn postgres_preview_plane_live_oracle_is_authorized_atomic_and_identity_free() {
-    let url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&url).expect("PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose();
+    let pool = lazy_pool(url).expect("PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("migrated schema");
@@ -611,3 +610,6 @@ async fn postgres_preview_plane_live_oracle_is_authorized_atomic_and_identity_fr
         "only derived audit changes state"
     );
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

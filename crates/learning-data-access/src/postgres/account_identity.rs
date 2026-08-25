@@ -17,12 +17,11 @@ use crate::{
     BeginEmailAuthentication, BeginWebauthnCeremony, BrowserBindingHash,
     CompleteEmailAuthentication, CompleteEmailAuthenticationAndCreateSession,
     CompleteEmailChangeAndRevokeUserSessions, CompletePasskeyAuthenticationAndCreateSession,
-    CompleteSeededSysadminOwnership, CompletedAccountSession, CompletedEmailAuthentication,
-    CompletedPasskeySession, ConsumeAuthenticationRateLimit, CredentialIdHash,
-    EmailAuthenticationChallenge, EmailAuthenticationPurpose, EmailChallengeId,
-    EmailChallengeSecretHash, Page, PageRequest, PasskeyId, PasskeyRecord, RegisterPasskey,
-    StoreError, WebauthnCeremony, WebauthnCeremonyId, WebauthnCeremonyKind, WebauthnState,
-    validated_account_display_name,
+    CompletedAccountSession, CompletedEmailAuthentication, CompletedPasskeySession,
+    ConsumeAuthenticationRateLimit, CredentialIdHash, EmailAuthenticationChallenge,
+    EmailAuthenticationPurpose, EmailChallengeId, EmailChallengeSecretHash, Page, PageRequest,
+    PasskeyId, PasskeyRecord, RegisterPasskey, StoreError, WebauthnCeremony, WebauthnCeremonyId,
+    WebauthnCeremonyKind, WebauthnState, validated_account_display_name,
 };
 
 const AUTH_EXPIRY_CLEANUP_BATCH: i64 = 128;
@@ -362,17 +361,6 @@ impl AccountIdentityStore for PostgresStore {
         let ceremony = row.as_ref().map(decode_ceremony).transpose()?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(ceremony)
-    }
-
-    async fn seeded_sysadmin_ownership_available(&self, user: UserId) -> Result<bool, StoreError> {
-        super::seeded_sysadmin_ownership::seeded_sysadmin_ownership_available(self, user).await
-    }
-
-    async fn complete_seeded_sysadmin_ownership(
-        &self,
-        command: CompleteSeededSysadminOwnership,
-    ) -> Result<CompletedPasskeySession, StoreError> {
-        super::seeded_sysadmin_ownership::complete_seeded_sysadmin_ownership(self, command).await
     }
 
     async fn insert_passkey(&self, command: RegisterPasskey) -> Result<PasskeyRecord, StoreError> {

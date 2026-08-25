@@ -5,6 +5,7 @@
 //! the bounded command for the `SECURITY DEFINER` capability.
 
 use super::*;
+use crate::ReplaceUnissuedAssignmentDefinitionOutcome;
 use serde::{Deserialize, Serialize};
 
 const MAX_PAYLOAD_BYTES: usize = 512 * 1024;
@@ -193,6 +194,45 @@ pub(super) async fn replace(
     )
     .await?;
     Ok(stored)
+}
+
+/// Executes the only structural assignment-definition replacement capability.
+/// SQL owns authorization, the revision transition, and serialization with
+/// first-run issuance. Every command binding remains a SQL parameter (ASVS
+/// 1.2.4); browser-shaped input never reaches this capability.
+pub(super) async fn replace_unissued(
+    tx: &mut Transaction<'_, Postgres>,
+    context: TenantContext,
+    actor: UserId,
+    assignment: &AssignmentRecord,
+    base_policy: question_model::BaseAssignmentPolicy,
+    expected_revision: AssignmentRevision,
+) -> Result<ReplaceUnissuedAssignmentDefinitionOutcome, StoreError> {
+    let payload = encode(assignment, base_policy)?;
+    let row = sqlx::query(
+        "SELECT outcome, revision, scoring_generation, scoring_status \
+         FROM ple_replace_unissued_assignment_definition_v1($1,$2,$3,$4,$5,$6)",
+    )
+    .bind(context.tenant_id().as_uuid())
+    .bind(actor.as_uuid())
+    .bind(assignment.course_id.as_uuid())
+    .bind(assignment.id.as_uuid())
+    .bind(i64::try_from(expected_revision.value()).map_err(|_| StoreError::Conflict)?)
+    .bind(payload)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(map_sqlx_error)?;
+    let outcome: String = row.try_get("outcome").map_err(map_sqlx_error)?;
+    match outcome.as_str() {
+        "replaced" => reload_and_compare(tx, assignment, base_policy, &row)
+            .await
+            .map(Box::new)
+            .map(ReplaceUnissuedAssignmentDefinitionOutcome::Replaced),
+        "issued" => Ok(ReplaceUnissuedAssignmentDefinitionOutcome::Issued),
+        _ => Err(StoreError::Unavailable(
+            "unissued definition capability returned an invalid outcome".to_string(),
+        )),
+    }
 }
 
 async fn reload_and_compare(
@@ -461,7 +501,7 @@ impl DefinitionWire {
                     draw_count: group.draw_count,
                     points_per_item: group.points_per_item.to_string(),
                     ordering: ordering_wire(group.ordering),
-                    algorithm_version: group.algorithm_version,
+                    algorithm_version: group.algorithm.storage_version(),
                     candidates: group
                         .candidates
                         .iter()

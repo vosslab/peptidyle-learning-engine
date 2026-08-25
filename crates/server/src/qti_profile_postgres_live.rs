@@ -180,17 +180,16 @@ fn assert_answer_free_conversion(body: &[u8]) {
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL acceptance database"]
 async fn postgres_profile_upload_worker_conversion_publication_and_grading_are_complete() {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let grader_url = std::env::var("PLE_TEST_GRADER_DATABASE_URL")
-        .expect("PLE_TEST_GRADER_DATABASE_URL must name the disposable grader connection");
-    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    let runtime = crate::test_acceptance_runtime::load();
+    let database_url = runtime.admin_url().expose();
+    let grader_url = runtime.grader_url().expose();
+    let pool = lazy_pool(database_url).expect("valid live PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");
     let store = Arc::new(PostgresStore::with_question_id_secret(pool, [0x42; 32]));
     let grader = Arc::new(
-        PostgresGraderStore::connect_local_development(&grader_url)
+        PostgresGraderStore::connect_local_development(grader_url)
             .await
             .expect("dedicated grader credentials are accepted"),
     );

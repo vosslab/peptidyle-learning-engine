@@ -460,9 +460,9 @@ async fn run_freshness_case(admin: &sqlx::PgPool, url: &str, case: FreshnessCase
 #[tokio::test]
 #[ignore = "requires a disposable PostgreSQL 17 database with CREATEDB"]
 async fn live_demo_migration_upgrades_ordinary_data_and_prepare_requires_fresh_state() {
-    let url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name a disposable PostgreSQL database");
-    let admin = admin_pool(&url).await;
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose();
+    let admin = admin_pool(url).await;
     for case in [
         FreshnessCase::Fresh,
         FreshnessCase::EmailChallenge,
@@ -472,6 +472,9 @@ async fn live_demo_migration_upgrades_ordinary_data_and_prepare_requires_fresh_s
         FreshnessCase::ProblemCollection,
         FreshnessCase::OrphanRecipe,
     ] {
-        run_freshness_case(&admin, &url, case).await;
+        run_freshness_case(&admin, url, case).await;
     }
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

@@ -306,7 +306,7 @@ async function claimCourseAndCompleteAssignment(
   );
   await expect(assignmentScore).toContainText("This run: 100%");
   await captureVisibleState(page, scenarioInput, "learner_delivery_completion", summary);
-  await summary.getByRole("button", { name: "Start another practice" }).click();
+  await summary.getByRole("button", { name: "Start fresh practice" }).click();
   await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible();
   const runHeader = page.locator(".run-header");
   await expect(runHeader).toBeVisible();
@@ -465,7 +465,6 @@ test("learner delivery: Mary completes and revisits an instructor-created assign
   test.setTimeout(journeyTimeoutMs);
   const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
   expect(scenarioInput.scenarioId).toBe("learner_delivery");
-  expect(scenarioInput.sysadminRequirement).toBe("not_required");
   const tag = scenarioInput.namespace;
   const questionTitle = `Learner delivery question ${tag}`;
   const correctChoice = `Supported learner choice ${tag}`;

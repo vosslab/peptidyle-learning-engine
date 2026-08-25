@@ -308,7 +308,7 @@ where
             draw_count: 1,
             points_per_item: PointValue::from_whole(1),
             ordering: SelectionOrdering::CandidateOrder,
-            algorithm_version: 1,
+            algorithm: question_model::PoolDrawAlgorithm::V1,
             candidates: vec![AssignmentSelectionCandidate {
                 id: AssignmentItemId::from_uuid(uuid(70_209)),
                 position: 0,
@@ -330,7 +330,7 @@ where
         completion: CompletionRequirement::AnswerAll,
         grade: GradePolicy::Latest,
         continued_practice: ContinuedPractice::Closed,
-        variation: VariationPolicy::SelectedProblemVariants,
+        variation: VariationPolicy::FullRegeneration,
     };
     let mut reordered_items = initial.items.clone();
     reordered_items.reverse();

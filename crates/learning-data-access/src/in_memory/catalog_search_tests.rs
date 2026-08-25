@@ -333,8 +333,8 @@ fn first_assigned_completion_records_collapsed_statistics_once() {
         mode: RunMode::Assigned,
         variation: question_model::VariationPolicy::NewSeeds,
     };
-    let run_items = select_assignment_run_items(&assignment, assigned_run)
-        .expect("statistics fixture run items");
+    let run_items =
+        select_assignment_run_items(&assignment, &run).expect("statistics fixture run items");
     {
         let mut state = store.write_state().expect("statistics fixture state");
         state.courses.insert(

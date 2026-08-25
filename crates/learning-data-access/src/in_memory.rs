@@ -36,8 +36,6 @@ mod qti_ingress;
 mod queue;
 mod retention;
 mod runs;
-#[cfg(test)]
-mod seeded_sysadmin_ownership_tests;
 mod sessions;
 mod state;
 mod statistics;
@@ -58,6 +56,7 @@ use runs::submit_question_attempt_locked;
 use statistics::stage_statistics_contributions;
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 use uuid::Uuid;
 
@@ -221,6 +220,7 @@ pub struct MemoryStore {
     state: Arc<RwLock<State>>,
     question_ids: crate::QuestionIdCodec,
     catalog_cursors: crate::CatalogCursorCodec,
+    catalog_resolution_calls: Arc<AtomicUsize>,
 }
 
 impl Default for MemoryStore {
@@ -286,6 +286,7 @@ impl MemoryStore {
             state: Arc::new(RwLock::new(State::default())),
             question_ids: crate::QuestionIdCodec::from_server_secret(secret),
             catalog_cursors: crate::CatalogCursorCodec::from_server_secret(secret),
+            catalog_resolution_calls: Arc::new(AtomicUsize::new(0)),
         }
     }
 
@@ -298,6 +299,7 @@ impl MemoryStore {
                 state: Arc::clone(&state),
                 question_ids: crate::QuestionIdCodec::from_server_secret([0x42; 32]),
                 catalog_cursors: crate::CatalogCursorCodec::from_server_secret([0x42; 32]),
+                catalog_resolution_calls: Arc::new(AtomicUsize::new(0)),
             },
             MemoryQtiGraderStore { state },
         )
@@ -311,9 +313,15 @@ impl MemoryStore {
                 state: Arc::clone(&state),
                 question_ids: crate::QuestionIdCodec::from_server_secret([0x42; 32]),
                 catalog_cursors: crate::CatalogCursorCodec::from_server_secret([0x42; 32]),
+                catalog_resolution_calls: Arc::new(AtomicUsize::new(0)),
             },
             MemoryFlatQuestionGraderStore { state },
         )
+    }
+
+    /// Returns catalog-resolution calls observed by a focused route test.
+    pub fn catalog_resolution_calls(&self) -> usize {
+        self.catalog_resolution_calls.load(Ordering::Relaxed)
     }
 }
 

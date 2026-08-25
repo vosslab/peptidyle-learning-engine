@@ -21,9 +21,9 @@ fn id() -> Uuid {
 #[tokio::test]
 #[ignore = "requires the disposable WP-R2 PostgreSQL acceptance database"]
 async fn postgres_wp_r2_persistence_rls_and_no_drift() {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&database_url).expect("valid disposable PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let database_url = runtime.admin_url().expose();
+    let pool = lazy_pool(database_url).expect("valid disposable PostgreSQL URL");
 
     apply_migrations(&pool)
         .await
@@ -189,3 +189,6 @@ async fn postgres_wp_r2_persistence_rls_and_no_drift() {
     // actual restricted role, forced RLS, global version uniqueness, and
     // direct application-role mutation refusal.
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

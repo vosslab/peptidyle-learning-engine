@@ -96,6 +96,7 @@ import type {
   PublicationRequest,
   PublicationValidationResponse,
   PrefetchedNextQuestion,
+  PoolDrawPreview,
 } from "./contracts";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { PublicRouteReference } from "../navigation/public_route";
@@ -220,6 +221,13 @@ export interface ApiClient extends CourseRosterClient {
     revision: TeachingOperationRevision,
     request: Omit<DerivedPreviewSubjectRequest, "assignment" | "revision">,
   ) => Promise<PreviewPlaneResponse>;
+  /** Samples one saved item pool with server-owned entropy and no learner activity. */
+  readonly previewPoolDraw: (
+    course: CourseReference,
+    assignment: AssignmentReference,
+    revision: TeachingOperationRevision,
+    groupPosition: number,
+  ) => Promise<PoolDrawPreview>;
   readonly approveInstructorAccount: (
     account: AccountReference,
     revision?: TeachingOperationRevision,

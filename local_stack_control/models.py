@@ -286,6 +286,7 @@ class DisposableComposeTarget:
 	project_prefix: str
 	private_environment_file: pathlib.Path
 	live_demo_profile: LiveDemoProfile | None = None
+	acceptance_runtime_workspace: pathlib.Path | None = None
 
 
 @dataclasses.dataclass(frozen=True)

@@ -1,0 +1,22 @@
+@media (forced-colors: active) {
+  .primary-action,
+  .primary-link,
+  .quiet-action,
+  .quiet-link {
+    border: 1px solid ButtonText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+.plain-text-instructions {
+  white-space: pre-wrap;
+}

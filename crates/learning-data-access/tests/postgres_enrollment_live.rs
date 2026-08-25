@@ -45,3 +45,6 @@ include!("postgres_enrollment_live/enrollment_capability.rs");
 include!("postgres_enrollment_live/expired_invitation_replay.rs");
 include!("postgres_enrollment_live/invitation_claim_broker.rs");
 include!("postgres_enrollment_live/passwordless_challenge.rs");
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

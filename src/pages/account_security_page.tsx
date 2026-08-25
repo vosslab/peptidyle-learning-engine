@@ -41,12 +41,14 @@ export function AccountSecurityPage(): JSX.Element {
   const [pendingRemoval, setPendingRemoval] = createSignal<PendingPasskeyRemoval | null>(null);
   let passkeyHeading: HTMLHeadingElement | undefined;
 
-  async function load(): Promise<void> {
+  async function load(): Promise<boolean> {
     setState({ kind: "loading" });
     try {
       setState({ kind: "ready", passkeys: await runtime.client.listPasskeys() });
+      return true;
     } catch {
       setState({ kind: "error", message: "Your passkeys could not load." });
+      return false;
     }
   }
 
@@ -56,8 +58,10 @@ export function AccountSecurityPage(): JSX.Element {
     try {
       await registerPasskeyWithBrowser(runtime.client, label());
       setLabel("");
-      setAnnouncement("Passkey added.");
-      await load();
+      const refreshed = await load();
+      setAnnouncement(
+        refreshed ? "Passkey added." : "Passkey added. Use Try again to refresh your passkey list.",
+      );
     } catch {
       setAnnouncement("The passkey was not added. Your existing sign-in methods are unchanged.");
     } finally {
@@ -69,8 +73,12 @@ export function AccountSecurityPage(): JSX.Element {
     setBusy(true);
     try {
       await runtime.client.revokePasskey(passkey.id);
-      setAnnouncement(`${passkey.label} was removed.`);
-      await load();
+      const refreshed = await load();
+      setAnnouncement(
+        refreshed
+          ? `${passkey.label} was removed.`
+          : `${passkey.label} was removed. Use Try again to refresh your passkey list.`,
+      );
       queueMicrotask(() => passkeyHeading?.focus());
     } catch {
       setAnnouncement(`${passkey.label} could not be removed.`);
@@ -124,9 +132,13 @@ export function AccountSecurityPage(): JSX.Element {
       <p class="page-lede">
         Passkeys are optional sign-in shortcuts. You can always use your verified email to sign in.
       </p>
-      <p class="sr-only" role="status" aria-live="polite">
-        {announcement()}
-      </p>
+      <Show when={announcement()}>
+        {(message) => (
+          <p class="calm-status" role="status" aria-live="polite">
+            {message()}
+          </p>
+        )}
+      </Show>
 
       <section class="auth-panel presentation-preference" aria-labelledby="presentation-heading">
         <div>

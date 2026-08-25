@@ -10,9 +10,9 @@ use learning_data_access::{
     TeachingAuthorityReferenceStore, TenantContext, UpsertCourseMember,
 };
 use question_model::{
-    AssignmentAudience, AssignmentId, AssignmentItem, AssignmentItemId, AssignmentLifecycle,
-    AssignmentScoringMode, AssignmentTeachingSettings, CourseId, CourseTerm, PointValue, TenantId,
-    UserId, UserRole,
+    AssignmentAudience, AssignmentId, AssignmentItemId, AssignmentLifecycle,
+    AssignmentSelectionCandidate, AssignmentSelectionGroup, AssignmentTeachingSettings, CourseId,
+    CourseTerm, PointValue, PoolDrawAlgorithm, SelectionOrdering, TenantId, UserId, UserRole,
 };
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -107,15 +107,21 @@ async fn fixture() -> Fixture {
                     title: "Peptide bonds".to_owned(),
                     lifecycle: AssignmentLifecycle::Draft,
                     instructions: question_model::AssignmentInstructions::default(),
-                    items: vec![AssignmentItem {
-                        id: AssignmentItemId::from_uuid(id(916)),
-                        reference: problem,
+                    items: Vec::new(),
+                    selection_groups: vec![AssignmentSelectionGroup {
+                        id: question_model::AssignmentSelectionGroupId::from_uuid(id(917)),
                         position: 0,
-                        points_possible: PointValue::from_whole(1),
-                        delivery_state: question_model::AssignmentDeliveryState::Active,
-                        scoring_mode: AssignmentScoringMode::Normal,
+                        draw_count: 1,
+                        points_per_item: PointValue::from_whole(1),
+                        ordering: SelectionOrdering::Randomized,
+                        algorithm: PoolDrawAlgorithm::V1,
+                        candidates: vec![AssignmentSelectionCandidate {
+                            id: AssignmentItemId::from_uuid(id(918)),
+                            position: 0,
+                            reference: problem,
+                            delivery_state: question_model::AssignmentDeliveryState::Active,
+                        }],
                     }],
-                    selection_groups: Vec::new(),
                     disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
                     policies: policies(),
                 },
@@ -308,6 +314,111 @@ async fn memory_preview_http_schedule_synthetic_and_derived_are_closed_and_uncac
         "only successful derivation records an audit"
     );
     assert_eq!(audits[0].actor, fixture.instructor);
+}
+
+#[tokio::test]
+async fn memory_pool_draw_preview_is_uncached_safe_and_creates_no_state() {
+    let fixture = fixture().await;
+    let before = fixture
+        .store
+        .preview_plane_state_effect_fingerprint()
+        .expect("state snapshot");
+    let response = fixture
+        .app
+        .clone()
+        .oneshot(request(
+            "POST",
+            uri(&fixture, "preview-pool-draw"),
+            &fixture.instructor_cookie,
+            fixture.revision,
+            Body::from(serde_json::json!({"groupPosition":0}).to_string()),
+        ))
+        .await
+        .expect("pool preview");
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()[CACHE_CONTROL], "no-store");
+    assert!(response.headers().get(ETAG).is_none());
+    let body = json(response).await;
+    assert_eq!(body["assignment"], fixture.assignment_ref.to_string());
+    assert_eq!(body["revision"], fixture.revision.to_string());
+    assert_eq!(body["groupPosition"], 0);
+    assert_eq!(body["groupLabel"], "Pool 1");
+    assert_eq!(body["drawCount"], 1);
+    assert_eq!(body["ordering"], "randomized");
+    assert_eq!(body["algorithm"], "v1");
+    assert_eq!(body["candidates"].as_array().expect("candidates").len(), 1);
+    assert_eq!(body["sampled"].as_array().expect("sampled").len(), 1);
+    let wire = body.to_string();
+    for forbidden in [
+        "nonce",
+        "seed",
+        "candidateId",
+        "selectionGroupId",
+        "answer",
+        "grade",
+        "receipt",
+        "audit",
+        "enrollment",
+        "run",
+        "attempt",
+        "execution",
+    ] {
+        assert!(!wire.contains(forbidden), "preview exposed {forbidden}");
+    }
+    let after = fixture
+        .store
+        .preview_plane_state_effect_fingerprint()
+        .expect("state snapshot");
+    assert!(after.is_unchanged_from(&before));
+}
+
+#[tokio::test]
+async fn memory_pool_draw_preview_refuses_without_decoding_or_state_changes() {
+    let fixture = fixture().await;
+    let before = fixture
+        .store
+        .preview_plane_state_effect_fingerprint()
+        .expect("state snapshot");
+    for (cookie, revision, body, expected) in [
+        (
+            fixture.student_cookie.as_str(),
+            fixture.revision,
+            Body::from("not JSON"),
+            StatusCode::NOT_FOUND,
+        ),
+        (
+            fixture.instructor_cookie.as_str(),
+            TeachingOperationRevision::new(fixture.revision.value() + 1).expect("stale"),
+            Body::from(serde_json::json!({"groupPosition":0}).to_string()),
+            StatusCode::PRECONDITION_FAILED,
+        ),
+        (
+            fixture.instructor_cookie.as_str(),
+            fixture.revision,
+            Body::from(serde_json::json!({"groupPosition":99}).to_string()),
+            StatusCode::NOT_FOUND,
+        ),
+    ] {
+        let response = fixture
+            .app
+            .clone()
+            .oneshot(request(
+                "POST",
+                uri(&fixture, "preview-pool-draw"),
+                cookie,
+                revision,
+                body,
+            ))
+            .await
+            .expect("refusal");
+        assert_eq!(response.status(), expected);
+        assert_eq!(response.headers()[CACHE_CONTROL], "no-store");
+    }
+    let after = fixture
+        .store
+        .preview_plane_state_effect_fingerprint()
+        .expect("state snapshot");
+    assert!(after.is_unchanged_from(&before));
 }
 
 #[tokio::test]

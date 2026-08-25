@@ -62,9 +62,6 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     mutation("/api/auth/account/email/complete", "POST"),
     read("/api/auth/live-demo/accounts"),
     mutation("/api/auth/live-demo/accounts", "POST"),
-    read("/api/auth/live-demo/sysadmin-ownership"),
-    mutation("/api/auth/live-demo/sysadmin-ownership", "POST"),
-    mutation("/api/auth/live-demo/sysadmin-ownership/complete", "POST"),
     mutation("/api/course-invitations/redeem", "POST"),
     read("/api/auth/account/courses"),
     read("/api/auth/account/presentation"),
@@ -196,6 +193,10 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     ),
     read("/api/courses/{course}/assignments/{assignment}/policy-preview/{student}"),
     read("/api/courses/{course}/assignments/{assignment}/preview-schedule"),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/preview-pool-draw",
+        "POST",
+    ),
     mutation(
         "/api/courses/{course}/assignments/{assignment}/preview-subjects/synthetic",
         "POST",
@@ -500,56 +501,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn live_demo_sysadmin_ownership_operations_reach_the_composed_policy_router() {
-        async fn no_content() -> StatusCode {
-            StatusCode::NO_CONTENT
-        }
-
-        let app = apply_route_method_policy(
-            Router::new()
-                .route(
-                    "/api/auth/live-demo/sysadmin-ownership",
-                    get(no_content).post(no_content),
-                )
-                .route(
-                    "/api/auth/live-demo/sysadmin-ownership/complete",
-                    post(no_content),
-                ),
-        );
-        for (path, method, intent) in [
-            (
-                "/api/auth/live-demo/sysadmin-ownership",
-                "GET",
-                RouteIntent::Representation,
-            ),
-            (
-                "/api/auth/live-demo/sysadmin-ownership",
-                "POST",
-                RouteIntent::StateTransition,
-            ),
-            (
-                "/api/auth/live-demo/sysadmin-ownership/complete",
-                "POST",
-                RouteIntent::StateTransition,
-            ),
-        ] {
-            assert_eq!(route_policy(path, method), Some(intent));
-            let response = app
-                .clone()
-                .oneshot(
-                    Request::builder()
-                        .method(method)
-                        .uri(path)
-                        .body(Body::empty())
-                        .expect("ownership operation request"),
-                )
-                .await
-                .expect("ownership operation response");
-            assert_eq!(response.status(), StatusCode::NO_CONTENT);
-        }
-    }
-
-    #[tokio::test]
     async fn teaching_operations_routes_reach_the_composed_policy_router_with_reviewed_intents() {
         async fn no_content() -> StatusCode {
             StatusCode::NO_CONTENT
@@ -596,6 +547,10 @@ mod tests {
                 .route(
                     "/api/courses/{course}/assignments/{assignment}/preview-schedule",
                     get(no_content),
+                )
+                .route(
+                    "/api/courses/{course}/assignments/{assignment}/preview-pool-draw",
+                    post(no_content),
                 )
                 .route(
                     "/api/courses/{course}/assignments/{assignment}/preview-subjects/synthetic",
@@ -744,6 +699,12 @@ mod tests {
                 "GET",
                 "/api/courses/course/assignments/assignment/preview-schedule",
                 RouteIntent::Representation,
+            ),
+            (
+                "/api/courses/{course}/assignments/{assignment}/preview-pool-draw",
+                "POST",
+                "/api/courses/course/assignments/assignment/preview-pool-draw",
+                RouteIntent::StateTransition,
             ),
             (
                 "/api/courses/{course}/assignments/{assignment}/preview-subjects/synthetic",

@@ -482,6 +482,7 @@ where
                     authenticated.tenant_context,
                     learning_data_access::ReservePrefetchedQuestionCommand {
                         actor,
+                        binding,
                         reservation: value.clone(),
                         private_execution,
                     },
@@ -571,6 +572,7 @@ where
             question_version: reference.version,
             seed: Seed::new(reservation.seed),
             rendered_question_sha256: reservation.provenance.rendered_question_sha256,
+            pool_selection: pool_selection_for_position(&run_items, assignment_position),
             envelope: issued.envelope,
         })
         .into_response(),

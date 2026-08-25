@@ -12,7 +12,6 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			personas=("elena_instructor",),
 			baseline_reads=("base_course",),
 			ui_creates=("question", "qti_import"),
-			sysadmin_requirement="not_required",
 			visible_observation="converted_qti_draft_persists_after_fresh_elena_session",
 		),
 	)

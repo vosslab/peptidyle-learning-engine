@@ -218,8 +218,9 @@ impl IssueFixture<'_> {
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 database baseline"]
 async fn postgres_assignment_teaching_projection_is_atomic_current_and_rls_bound() {
-    let url = std::env::var("PLE_TEST_DATABASE_URL").expect("disposable database URL");
-    let pool = lazy_pool(&url).expect("PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose();
+    let pool = lazy_pool(url).expect("PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("migrated schema");
@@ -498,3 +499,6 @@ async fn postgres_assignment_teaching_projection_is_atomic_current_and_rls_bound
         revised_policy
     );
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

@@ -14,7 +14,6 @@ sys.path.insert(0, str(SCRIPT_REPOSITORY_ROOT))
 
 import local_stack_control.consumer
 import local_stack_control.env_file
-import local_stack_control.live_demo_claim_context
 import local_stack_control.live_demo_target
 import local_stack_control.lifecycle
 import local_stack_control.models
@@ -28,16 +27,13 @@ import e2e_browser_screenshot_owner
 import e2e_browser_screenshot_publisher
 import e2e_browser_suite_evidence
 import e2e_browser_suite_oracles
-import e2e_browser_webauthn_continuation
 import e2e_browser_scenario_webwork_delivery
 browser_scenario_contract = e2e_browser_scenario_contract
 browser_scenario_execution = e2e_browser_scenario_execution
 browser_suite_oracles = e2e_browser_suite_oracles
-browser_webauthn_continuation = e2e_browser_webauthn_continuation
 webwork_delivery = e2e_browser_scenario_webwork_delivery
 PRIVATE_STATE_RELATIVE_DIRECTORY = pathlib.Path("target") / "live-demo-browser"
 PRIVATE_STATE_DIRECTORY_PREFIX = "run-"
-LOCAL_SYSADMIN_ID = local_stack_control.live_demo_target.LOCAL_SYSADMIN_ID
 MAXIMUM_TITLE_FILTER_CHARACTERS = 180
 TITLE_FILTER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ,.:_-]*$")
 WEBWORK_SEED_RUNTIME_ENVIRONMENT_NAMES = (
@@ -46,7 +42,7 @@ WEBWORK_SEED_RUNTIME_ENVIRONMENT_NAMES = (
 BrowserSuiteError = browser_scenario_execution.BrowserSuiteError
 ScenarioRunReceipt = browser_scenario_execution.ScenarioRunReceipt
 StateFactory = Callable[[pathlib.Path, pathlib.Path, str], local_stack_control.private_state.PrivateState]
-InputWriter = Callable[[pathlib.Path, int, pathlib.Path, browser_scenario_contract.ScenarioContract], None]
+InputWriter = Callable[[pathlib.Path, int, browser_scenario_contract.ScenarioContract], None]
 PortChecker = Callable[[tuple[int, int, int, int], local_stack_control.process.CommandRunner, pathlib.Path], None]
 LifecycleValidator = Callable[
 	[local_stack_control.process.CommandRunner, pathlib.Path, pathlib.Path], None
@@ -175,7 +171,6 @@ def private_file(path: pathlib.Path, content: str | bytes) -> None:
 			output.write(content.encode("ascii"))
 		else:
 			output.write(content)
-require_webauthn_path = browser_scenario_execution.require_webauthn_path
 require_command_success = browser_scenario_execution.require_command_success
 playwright_environment = browser_scenario_execution.playwright_environment
 validate_browser_input = browser_scenario_execution.validate_browser_input
@@ -299,14 +294,10 @@ def run_command(
 def write_browser_input(
 	path: pathlib.Path,
 	gateway_port: int,
-	claim_context_path: pathlib.Path,
 	contract: browser_scenario_contract.ScenarioContract,
 ) -> None:
 	"""Project one selected scenario into Playwright's single strict private ABI."""
 	browser_scenario_contract.validate_contract(contract)
-	context = local_stack_control.live_demo_claim_context.read_context(claim_context_path)
-	if context.sysadmin_user_id != LOCAL_SYSADMIN_ID:
-		raise BrowserSuiteError("installed live-demo claim context has the wrong Sysadmin account")
 	namespace = browser_scenario_contract.namespace_for(contract.scenario_id, secrets.token_hex(6))
 	value: dict[str, object] = {
 		"schemaVersion": browser_scenario_contract.SCHEMA_VERSION,
@@ -315,15 +306,12 @@ def write_browser_input(
 		"baseUrl": f"https://localhost:{gateway_port}/",
 		"personas": list(contract.personas),
 		"baselineReads": list(contract.baseline_reads),
-		"sysadminRequirement": contract.sysadmin_requirement,
 		"visibleObservation": contract.visible_observation,
 	}
 	if contract.service_receipt is not None:
 		value["serviceReceipt"] = contract.service_receipt
 	if contract.fault_transition is not None:
 		value["faultTransition"] = contract.fault_transition
-	if contract.sysadmin_requirement == "unclaimed":
-		value["sysadminOwnershipProof"] = context.ownership_proof
 	content = json.dumps(value, separators=(",", ":"), ensure_ascii=True)
 	private_file(path, content)
 def require_worker_ready(
@@ -464,32 +452,9 @@ def raise_lifecycle_failures(failures: list[BaseException]) -> None:
 		raise BaseExceptionGroup("browser suite lifecycle failures", failures)
 def ordered_execution_contracts(
 	contracts: Sequence[browser_scenario_contract.ScenarioContract],
-	registry: Sequence[browser_scenario_contract.ScenarioContract] | None = None,
 ) -> tuple[browser_scenario_contract.ScenarioContract, ...]:
-	"""Run the visible first claim immediately before the first claimed target."""
-	selected = tuple(contracts)
-	if not any(item.sysadmin_requirement == "claimed" for item in selected):
-		return selected
-	catalog = browser_scenario_contract.scenario_contracts() if registry is None else tuple(registry)
-	transition = next((item for item in selected if item.sysadmin_requirement == "unclaimed"), None)
-	if transition is None:
-		transition = next((item for item in catalog if item.sysadmin_requirement == "unclaimed"), None)
-	if transition is None:
-		raise BrowserSuiteError(
-			"claimed browser scenario requires a registered visible first-claim setup"
-		)
-	result: list[browser_scenario_contract.ScenarioContract] = []
-	transition_added = False
-	for contract in selected:
-		if contract.sysadmin_requirement == "claimed" and not transition_added:
-			result.append(transition)
-			transition_added = True
-		if contract is transition:
-			continue
-		result.append(contract)
-	if not transition_added:
-		result.append(transition)
-	return tuple(result)
+	"""Keep selected scenarios independent and in their catalog-selected order."""
+	return tuple(contracts)
 def default_dependencies() -> BrowserSuiteDependencies:
 	"""Create the real external boundaries owned by the standalone runner."""
 	root = repo_root()
@@ -526,7 +491,6 @@ class BrowserSuiteLifecycleState:
 	"""Mutable private state for one launch, scenario run, and cleanup sequence."""
 
 	private_state: local_stack_control.private_state.PrivateState
-	continuation_path: pathlib.Path
 	origin: str
 	project: str
 	provider: browser_suite_oracles.ProviderReceipt
@@ -543,7 +507,6 @@ class BrowserSuiteLifecycleState:
 	capture_dist_digest: str | None
 	failures: list[BaseException]
 	manifest_path: pathlib.Path | None = None
-	claim_context_path: pathlib.Path | None = None
 	lifecycle_launch_attempted: bool = False
 	lifecycle_launch_completed: bool = False
 	cleanup_attempted: bool = False
@@ -561,9 +524,6 @@ def prepare_lifecycle_state(
 		PRIVATE_STATE_RELATIVE_DIRECTORY,
 		PRIVATE_STATE_DIRECTORY_PREFIX,
 	)
-	continuation_path = require_webauthn_path(
-		browser_webauthn_continuation.continuation_path, private_state.directory
-	)
 	project = "not-created"
 	origin = f"https://localhost:{dependencies.ports[3]}/"
 	provider = browser_suite_oracles.ProviderReceipt("unavailable", (), False)
@@ -572,7 +532,6 @@ def prepare_lifecycle_state(
 	)
 	result = BrowserSuiteLifecycleState(
 		private_state=private_state,
-		continuation_path=continuation_path,
 		origin=origin,
 		project=project,
 		provider=provider,
@@ -603,7 +562,7 @@ def launch_production_stack(
 	selection: BrowserSuiteSelection,
 	dependencies: BrowserSuiteDependencies,
 	lifecycle: BrowserSuiteLifecycleState,
-) -> tuple[pathlib.Path, pathlib.Path]:
+) -> pathlib.Path:
 	"""Generate the private target and launch its production services."""
 	live_target = local_stack_control.live_demo_target.write_private_target(
 		lifecycle.private_state.directory,
@@ -613,11 +572,7 @@ def launch_production_stack(
 	)
 	lifecycle.project = live_target.project
 	lifecycle.manifest_path = live_target.manifest_path
-	lifecycle.claim_context_path = live_target.claim_context_path
 	manifest_path = require_target_path(lifecycle.manifest_path, "manifest")
-	claim_context_path = require_target_path(
-		lifecycle.claim_context_path, "claim context"
-	)
 	lifecycle.provider = dependencies.provider_reader(
 		dependencies.runner, dependencies.root, manifest_path
 	)
@@ -660,8 +615,7 @@ def launch_production_stack(
 		lifecycle.provider,
 		tuple(lifecycle.sessions),
 	)
-	result = manifest_path, claim_context_path
-	return result
+	return manifest_path
 
 
 def execute_visible_scenarios(
@@ -669,7 +623,6 @@ def execute_visible_scenarios(
 	contracts: Sequence[browser_scenario_contract.ScenarioContract],
 	execution_contracts: Sequence[browser_scenario_contract.ScenarioContract],
 	manifest_path: pathlib.Path,
-	claim_context_path: pathlib.Path,
 	dependencies: BrowserSuiteDependencies,
 	lifecycle: BrowserSuiteLifecycleState,
 ) -> None:
@@ -691,8 +644,6 @@ def execute_visible_scenarios(
 		selection.title_filter,
 		lifecycle.private_state.directory,
 		manifest_path,
-		claim_context_path,
-		lifecycle.continuation_path,
 		lifecycle.origin,
 		selection.screenshots,
 		lifecycle.screenshot_staging,
@@ -830,7 +781,7 @@ def run_selection(
 	dependencies.port_checker(dependencies.ports, dependencies.runner, dependencies.root)
 	lifecycle = prepare_lifecycle_state(selection, dependencies)
 	try:
-		manifest_path, claim_context_path = launch_production_stack(
+		manifest_path = launch_production_stack(
 			selection, dependencies, lifecycle
 		)
 		execute_visible_scenarios(
@@ -838,7 +789,6 @@ def run_selection(
 			contracts,
 			execution_contracts,
 			manifest_path,
-			claim_context_path,
 			dependencies,
 			lifecycle,
 		)

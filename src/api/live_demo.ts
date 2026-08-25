@@ -3,13 +3,11 @@
 import {
   DecodeError,
   decodeArray,
-  decodeBoolean,
   decodeField,
   decodeNonemptyString,
   decodeRecord,
   decodeStringEnum,
   decodeTrue,
-  decodeUuid,
 } from "./decoder";
 import { requireOnlyFields } from "./decoders/shared";
 
@@ -18,11 +16,10 @@ const SEEDED_DEMO_PERSONAS = [
   "maryStudent",
   "jackStudent",
   "averyStudent",
+  "morganSysadmin",
 ] as const;
 const MAX_SEEDED_DEMO_ACCOUNTS = SEEDED_DEMO_PERSONAS.length;
 const MAX_ACCOUNT_DISPLAY_NAME_CHARACTERS = 200;
-const MAX_PASSKEY_LABEL_CHARACTERS = 80;
-const OWNERSHIP_PROOF_PATTERN = /^[A-Za-z0-9_-]{43}$/u;
 
 export type SeededDemoPersona = (typeof SEEDED_DEMO_PERSONAS)[number];
 
@@ -39,35 +36,12 @@ export interface LiveDemoSelectedAccount {
   readonly authenticated: true;
 }
 
-export interface LiveDemoOwnershipStatus {
-  readonly available: boolean;
-}
-
-export interface LiveDemoOwnershipStart {
-  readonly ceremonyId: string;
-  readonly options: Readonly<Record<string, unknown>>;
-}
-
-export interface LiveDemoOwnershipComplete {
-  readonly authenticated: true;
-}
-
 /** Deployment-only authentication convenience; it is not a product identity model. */
 export interface LiveDemoClient {
   readonly listSeededDemoAccounts: () => Promise<SeededDemoAccounts>;
   readonly selectSeededDemoAccount: (
     persona: SeededDemoPersona,
   ) => Promise<LiveDemoSelectedAccount>;
-  readonly getLiveDemoSysadminOwnershipStatus: () => Promise<LiveDemoOwnershipStatus>;
-  readonly startLiveDemoSysadminOwnership: (
-    ownershipProof: string,
-  ) => Promise<LiveDemoOwnershipStart>;
-  readonly completeLiveDemoSysadminOwnership: (
-    ownershipProof: string,
-    ceremonyId: string,
-    label: string,
-    credential: RegistrationResponseJSON,
-  ) => Promise<LiveDemoOwnershipComplete>;
 }
 
 function closedRecord(
@@ -105,7 +79,7 @@ export function decodeSeededDemoAccounts(value: unknown, path = "response"): See
   const record = closedRecord(value, path, ["accounts"]);
   const accounts = decodeArray(record.accounts, `${path}.accounts`, decodeSeededDemoAccount);
   if (accounts.length > MAX_SEEDED_DEMO_ACCOUNTS) {
-    throw new DecodeError(`${path}.accounts`, "an array with at most four entries");
+    throw new DecodeError(`${path}.accounts`, "an array with at most five entries");
   }
   const personas = accounts.map((account) => account.persona);
   if (new Set(personas).size !== personas.length) {
@@ -126,56 +100,6 @@ export function decodeLiveDemoSelectedAccount(
   return decodeAuthenticated(value, path);
 }
 
-export function decodeLiveDemoOwnershipStatus(
-  value: unknown,
-  path = "response",
-): LiveDemoOwnershipStatus {
-  const record = closedRecord(value, path, ["available"]);
-  return { available: decodeBoolean(record.available, `${path}.available`) };
-}
-
-export function decodeLiveDemoOwnershipStart(
-  value: unknown,
-  path = "response",
-): LiveDemoOwnershipStart {
-  const record = closedRecord(value, path, ["ceremonyId", "options"]);
-  return {
-    ceremonyId: decodeUuid(record.ceremonyId, `${path}.ceremonyId`),
-    options: decodeRecord(record.options, `${path}.options`),
-  };
-}
-
-export function decodeLiveDemoCeremonyId(value: unknown, path = "ceremonyId"): string {
-  return decodeUuid(value, path);
-}
-
-export function decodeLiveDemoOwnershipComplete(
-  value: unknown,
-  path = "response",
-): LiveDemoOwnershipComplete {
-  return decodeAuthenticated(value, path);
-}
-
 export function decodeSeededDemoPersona(value: unknown, path = "persona"): SeededDemoPersona {
   return decodeStringEnum(value, path, SEEDED_DEMO_PERSONAS);
-}
-
-export function decodeLiveDemoOwnershipProof(value: unknown, path = "ownershipProof"): string {
-  const proof = decodeNonemptyString(value, path);
-  if (!OWNERSHIP_PROOF_PATTERN.test(proof)) {
-    throw new DecodeError(path, "one canonical 32-byte URL-safe ownership proof");
-  }
-  return proof;
-}
-
-export function decodeLiveDemoPasskeyLabel(value: unknown, path = "label"): string {
-  const label = decodeNonemptyString(value, path);
-  const trimmed = label.trim();
-  if (trimmed.length === 0 || Array.from(trimmed).length > MAX_PASSKEY_LABEL_CHARACTERS) {
-    throw new DecodeError(
-      path,
-      "nonblank passkey-label text no longer than 80 Unicode scalar values",
-    );
-  }
-  return trimmed;
 }

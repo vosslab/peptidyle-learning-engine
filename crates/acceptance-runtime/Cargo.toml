@@ -1,0 +1,12 @@
+[package]
+name = "acceptance-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+libc.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_yaml_ng.workspace = true
+url.workspace = true

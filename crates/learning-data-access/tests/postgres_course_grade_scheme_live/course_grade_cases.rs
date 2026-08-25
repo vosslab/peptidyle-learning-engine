@@ -1,3 +1,4 @@
+use super::load_acceptance_runtime;
 use super::{
     create_fixture_course, create_published_assignment, id, numeric_assignment,
     publish_fixture_question, session, set_summary_scores,
@@ -344,7 +345,8 @@ async fn retention_deletes_audit(pool: &sqlx::PgPool, tenant: TenantId, course: 
 
 #[rustfmt::skip]
 async fn postgres_course_grade_totals_use_only_summary_projection_and_preserve_transitions() {
-    let url = std::env::var("PLE_TEST_DATABASE_URL").expect("disposable database URL"); let pool = lazy_pool(&url).expect("PostgreSQL URL"); verify_application_schema(&pool).await.expect("migrated schema");
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose(); let pool = lazy_pool(url).expect("PostgreSQL URL"); verify_application_schema(&pool).await.expect("migrated schema");
     let store = PostgresStore::with_question_id_secret(pool.clone(), [0x66; 32]); let tenant = TenantId::from_uuid(id()); let context = TenantContext::from_authenticated_session(tenant); let instructor = UserId::from_uuid(id()); let token = session(&store, tenant, instructor).await; let course = create_fixture_course(&store, context, tenant, instructor).await; let reference = publish_fixture_question(&store, context, tenant, instructor).await;
     let records = [("Ten points", 10), ("Thirty points", 30), ("Zero-point extra", 0), ("Negative score", 10)].map(|(title, points)| numeric_assignment(tenant, course, reference, title, points)); let assignments = records.clone().map(|record| record.id);
     for record in records { create_published_assignment(&store, context, instructor, record, question_model::BaseAssignmentPolicy::default()).await.expect("Store creates and publishes numeric assignment"); }
@@ -502,9 +504,9 @@ async fn postgres_course_grade_totals_use_only_summary_projection_and_preserve_t
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL acceptance database"]
 async fn postgres_course_grade_scheme_is_migrated_defaulted_revisioned_bounded_and_rls_fenced() {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let database_url = runtime.admin_url().expose();
+    let pool = lazy_pool(database_url).expect("valid live PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("S6 migration must be compatible");

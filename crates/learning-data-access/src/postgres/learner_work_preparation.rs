@@ -5,6 +5,7 @@
 //! receive a value only after every identity, enum, and ordered collection is
 //! checked against the command that caused the capability call.
 
+use domain::entitlement::EntitlementDenial;
 use question_model::{
     AssignmentId, AttemptStatus, CourseGroupId, CourseId, CourseMembershipId, EnrollmentId,
     QuestionAttemptId, RunId, TenantId, UserId,
@@ -63,6 +64,11 @@ pub(super) struct EntitlementPreparationWitness {
     pub(super) existing_enrollment: Option<EnrollmentId>,
 }
 
+pub(super) enum EntitlementPreparationDecision {
+    Granted(EntitlementPreparationWitness),
+    Denied(EntitlementDenial),
+}
+
 /// Strict structural witness for one Student-owned run preparation.
 ///
 /// The SQL wrapper cannot represent an attempt target, so this closed value
@@ -101,7 +107,7 @@ pub(super) async fn prepare_entitlement_materialization(
     transaction: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
     command: MaterializeAssignmentEntitlementCommand,
-) -> Result<EntitlementPreparationWitness, StoreError> {
+) -> Result<EntitlementPreparationDecision, StoreError> {
     let (actor, authority) = match command.authority() {
         question_model::MaterializationAuthority::Rule(_) => return Err(StoreError::Forbidden),
         question_model::MaterializationAuthority::Actor(actor) => match command.purpose() {
@@ -147,7 +153,21 @@ pub(super) async fn prepare_entitlement_materialization(
             "learner-work preparation returned an unexpected row count".to_string(),
         ));
     };
-    decode_entitlement_witness(row, expected)
+    let decision_kind: String = row
+        .try_get("decision_kind")
+        .map_err(|_| invalid_witness("has a missing decision kind"))?;
+    match decision_kind.as_str() {
+        "granted" => {
+            decode_entitlement_witness(row, expected).map(EntitlementPreparationDecision::Granted)
+        }
+        "learner_not_active_course_student" => {
+            validate_denied_entitlement_witness(raw_entitlement_witness(row))?;
+            Ok(EntitlementPreparationDecision::Denied(
+                EntitlementDenial::LearnerNotActiveCourseStudent,
+            ))
+        }
+        _ => Err(invalid_witness("has an unknown decision kind")),
+    }
 }
 
 /// Calls the run-specific 1817 wrapper before any protected source read and
@@ -345,31 +365,40 @@ fn required<T>(value: WitnessCell<T>) -> Result<T, StoreError> {
     }
 }
 
+fn require_null<T>(value: WitnessCell<T>) -> Result<(), StoreError> {
+    match value {
+        WitnessCell::Null => Ok(()),
+        WitnessCell::Missing | WitnessCell::Value(_) => {
+            Err(invalid_witness("discloses fields for a denied decision"))
+        }
+    }
+}
+
+fn validate_denied_entitlement_witness(raw: RawEntitlementWitness) -> Result<(), StoreError> {
+    require_null(raw.tenant)?;
+    require_null(raw.course)?;
+    require_null(raw.assignment)?;
+    require_null(raw.actor)?;
+    require_null(raw.learner)?;
+    require_null(raw.authority)?;
+    require_null(raw.authority_membership)?;
+    require_null(raw.student_membership)?;
+    require_null(raw.assignment_revision)?;
+    require_null(raw.lifecycle)?;
+    require_null(raw.audience_kind)?;
+    require_null(raw.locked_audience_count)?;
+    require_null(raw.locked_audience_group_ids)?;
+    require_null(raw.locked_current_group_count)?;
+    require_null(raw.locked_current_group_ids)?;
+    require_null(raw.existing_enrollment)?;
+    Ok(())
+}
+
 fn decode_entitlement_witness(
     row: &sqlx::postgres::PgRow,
     expected: ExpectedEntitlementWitness,
 ) -> Result<EntitlementPreparationWitness, StoreError> {
-    validate_entitlement_witness(
-        RawEntitlementWitness {
-            tenant: cell(row, "tenant_id"),
-            course: cell(row, "course_id"),
-            assignment: cell(row, "assignment_id"),
-            actor: cell(row, "actor_id"),
-            learner: cell(row, "learner_id"),
-            authority: cell(row, "authority_kind"),
-            authority_membership: cell(row, "authority_membership_id"),
-            student_membership: cell(row, "student_membership_id"),
-            assignment_revision: cell(row, "assignment_revision"),
-            lifecycle: cell(row, "assignment_lifecycle"),
-            audience_kind: cell(row, "audience_kind"),
-            locked_audience_count: cell(row, "locked_audience_count"),
-            locked_audience_group_ids: cell(row, "locked_audience_group_ids"),
-            locked_current_group_count: cell(row, "locked_current_group_count"),
-            locked_current_group_ids: cell(row, "locked_current_group_ids"),
-            existing_enrollment: cell(row, "existing_enrollment_id"),
-        },
-        expected,
-    )
+    validate_entitlement_witness(raw_entitlement_witness(row), expected)
 }
 
 fn raw_entitlement_witness(row: &sqlx::postgres::PgRow) -> RawEntitlementWitness {

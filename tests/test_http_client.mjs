@@ -11,7 +11,11 @@ import {
   decodeQuestionEnvelope,
 } from "../src/api/decoders.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
-import { createRecordingFetch, jsonResponse } from "./http_client_test_support.mjs";
+import {
+  createRecordingFetch,
+  issuedQuestionWireFixture,
+  jsonResponse,
+} from "./http_client_test_support.mjs";
 
 test("question decoders reject answer-bearing and provider-secret fields", () => {
   const draft = publishedProblemFixture.draft;
@@ -119,6 +123,7 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
         questionVersion: "0198e000-0000-7000-8000-000000000099",
         seed: envelope.seed,
         renderedQuestionSha256: "a".repeat(64),
+        poolSelection: null,
         envelope,
       }),
   });
@@ -126,6 +131,29 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
     client.prefetchNextQuestion(course.id, assignment.id, predecessor.id),
     DecodeError,
   );
+});
+
+test("prefetch preserves safe pool provenance for the cache-hit successor", async () => {
+  const course = publishedProblemFixture.course;
+  const assignment = publishedProblemFixture.assignment;
+  const predecessor = publishedProblemFixture.attempts[0];
+  assert.ok(predecessor);
+  const envelope = issuedQuestionWireFixture(predecessor, publishedProblemFixture.publishedProblem);
+  const client = createHttpApiClient({
+    fetch: async () =>
+      jsonResponse({
+        predecessor: predecessor.id,
+        run: predecessor.run,
+        assignmentPosition: predecessor.assignmentPosition + 1,
+        questionVersion: envelope.version,
+        seed: envelope.seed,
+        renderedQuestionSha256: "b".repeat(64),
+        poolSelection: { itemNumber: 1, itemCount: 2 },
+        envelope,
+      }),
+  });
+  const prefetched = await client.prefetchNextQuestion(course.id, assignment.id, predecessor.id);
+  assert.deepEqual(prefetched?.poolSelection, { itemNumber: 1, itemCount: 2 });
 });
 
 test("external-tool launch is a strict same-origin route projection", async () => {
@@ -181,10 +209,11 @@ test("ordinary submission uses the explicit nested binding and answer-only body"
   const assignment = publishedProblemFixture.assignment;
   const attempt = publishedProblemFixture.attempts[0];
   assert.ok(attempt);
+  const { poolSelection: _poolSelection, ...receiptAttempt } = attempt;
   const response = { kind: "numeric", value: 18 };
   const receipt = {
     accepted: true,
-    attempt: { ...attempt, response, result: null },
+    attempt: { ...receiptAttempt, response, result: null },
     feedback: null,
     scoringStatus: "current",
     runCompletionStatus: "inProgress",
@@ -211,9 +240,10 @@ test("external-tool submission sends only the marker with its caller idempotency
   const assignment = publishedProblemFixture.assignment;
   const attempt = publishedProblemFixture.attempts[0];
   assert.ok(attempt);
+  const { poolSelection: _poolSelection, ...receiptAttempt } = attempt;
   const receipt = {
     accepted: true,
-    attempt: { ...attempt, response: { kind: "externalTool" }, result: null },
+    attempt: { ...receiptAttempt, response: { kind: "externalTool" }, result: null },
     feedback: null,
     scoringStatus: "current",
     runCompletionStatus: "inProgress",

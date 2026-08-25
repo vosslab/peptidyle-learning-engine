@@ -837,7 +837,7 @@ async fn relation_catalog(pool: &PgPool) {
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL and a disposable PostgreSQL 17 database"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn course_creation_authority_catalog_is_closed_and_minimal() {
     let pool = pool().await;
     role_catalog(&pool).await;

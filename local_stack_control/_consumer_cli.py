@@ -259,6 +259,8 @@ def main() -> None:
 	try:
 		runner = local_stack_control.process.SubprocessRunner()
 		root = repo_root()
+		# The owned caller passes a non-secret manifest locator.  Runtime YAML
+		# locates private files beneath its current private workspace.
 		manifest = local_stack_control.consumer.load_manifest(root, args.manifest)
 		disposable = local_stack_control.consumer.disposable_target(runner, root, manifest)
 		if args.action != "diagnostics":

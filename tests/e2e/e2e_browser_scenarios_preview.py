@@ -12,7 +12,6 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			personas=("elena_instructor", "mary_student"),
 			baseline_reads=("base_course", "published_peptide_assignment"),
 			ui_creates=("assignment", "course_group"),
-			sysadmin_requirement="not_required",
 			visible_observation=(
 				"derived_and_synthetic_delivery_preview_recovers_a_preserved_stale_draft"
 			),

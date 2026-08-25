@@ -149,7 +149,8 @@ async fn assert_existing_data_gate(pool: &sqlx::PgPool, migrations: &std::path::
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 upgrade database"]
 async fn teaching_operations_upgrade_schema_oracle() {
-    let url = std::env::var("PLE_TEST_DATABASE_URL").expect("disposable acceptance database URL");
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose().to_owned();
     let admin = admin_pool(&url).await;
     let database = format!("ple_t2_upgrade_{:x}", fresh().as_u128());
     assert!(database.starts_with("ple_t2_upgrade_") && database.len() < 64);
@@ -593,3 +594,6 @@ async fn teaching_operations_upgrade_schema_oracle() {
     );
     result.expect("upgrade task");
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

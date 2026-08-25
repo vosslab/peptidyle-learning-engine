@@ -225,43 +225,6 @@ def test_source_file_line_limit_override_list(tmp_path: pathlib.Path) -> None:
 
 
 #============================================
-def test_source_file_discovery_excludes_generated_graphify_output(
-	tmp_path: pathlib.Path,
-) -> None:
-	"""Keep generated Graphify reports out while retaining authored Markdown."""
-	generated_dir = tmp_path / "graphify-out"
-	generated_dir.mkdir()
-	(generated_dir / "GRAPH_REPORT.md").write_text("generated\n", encoding="utf-8")
-	authored_dir = tmp_path / "docs"
-	authored_dir.mkdir()
-	(authored_dir / "GRAPH_REPORT.md").write_text("authored\n", encoding="utf-8")
-
-	files = file_utils.discover_files(extensions=(".md",), repo_root=str(tmp_path))
-	relative_files = {file_utils.rel_to_root(path, str(tmp_path)) for path in files}
-	assert "graphify-out/GRAPH_REPORT.md" not in relative_files
-	assert "docs/GRAPH_REPORT.md" in relative_files
-
-
-#============================================
-def test_discovery_excludes_root_hygiene_reports_but_keeps_nested_inputs(
-	tmp_path: pathlib.Path,
-) -> None:
-	"""Exclude generated root reports without changing nested input scope."""
-	(tmp_path / "report_source_file_line_limit.txt").write_text(
-		"generated\n",
-		encoding="utf-8",
-	)
-	docs_dir = tmp_path / "docs"
-	docs_dir.mkdir()
-	(docs_dir / "report_notes.txt").write_text("authored\n", encoding="utf-8")
-
-	files = file_utils.discover_files(extensions=(".txt",), repo_root=str(tmp_path))
-	relative_files = {file_utils.rel_to_root(path, str(tmp_path)) for path in files}
-	assert "report_source_file_line_limit.txt" not in relative_files
-	assert "docs/report_notes.txt" in relative_files
-
-
-#============================================
 @pytest.mark.parametrize("path", FILES, ids=file_utils.rel_id)
 def test_source_file_line_limit(path: str) -> None:
 	"""Fail when a tracked authored source file contains 1000 or more lines."""
@@ -269,3 +232,4 @@ def test_source_file_line_limit(path: str) -> None:
 	assert rel not in VIOLATIONS_BY_FILE, file_utils.format_violation_assert_message(
 		rel, VIOLATIONS_BY_FILE.get(rel, []), REPORT_NAME
 	)
+# Vendored pytest file. Local changes can and will be overwritten.

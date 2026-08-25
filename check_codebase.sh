@@ -23,7 +23,7 @@
 # "check" alias just points back at this script, and every individual step
 # is owned by the shell script.
 #
-# Build is not part of this gate. Run ./build.sh for that
+# Build is not part of this gate. Run ./build_github_pages.sh for that
 # (npm run build mirrors it). Playwright is not part of this gate either;
 # run ./run_playwright_tests.sh (which handles build + run internally).
 #
@@ -62,10 +62,8 @@ while [ "$#" -gt 0 ]; do
 	esac
 done
 
-# Preflight (no summary on failure). The script location is the repository
-# contract, so this works from any caller directory without a VCS checkout.
-SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-cd "$SCRIPT_DIRECTORY"
+# Preflight (no summary on failure)
+cd "$(git rev-parse --show-toplevel)"
 
 if ! command -v node >/dev/null 2>&1; then
 	echo "ERROR: node not found on PATH." >&2

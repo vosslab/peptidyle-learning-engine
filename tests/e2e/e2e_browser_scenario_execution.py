@@ -17,11 +17,9 @@ import e2e_browser_screenshot_publisher
 import e2e_browser_suite_evidence
 import e2e_browser_suite_input
 import e2e_browser_suite_oracles
-import e2e_browser_webauthn_continuation
 
 browser_scenario_contract = e2e_browser_scenario_contract
 browser_suite_oracles = e2e_browser_suite_oracles
-browser_webauthn_continuation = e2e_browser_webauthn_continuation
 webwork_delivery = e2e_browser_scenario_webwork_delivery
 
 PLAYWRIGHT_RUNTIME_ENVIRONMENT_NAMES = (
@@ -29,7 +27,7 @@ PLAYWRIGHT_RUNTIME_ENVIRONMENT_NAMES = (
 )
 
 InputWriter = collections.abc.Callable[
-	[pathlib.Path, int, pathlib.Path, browser_scenario_contract.ScenarioContract], None
+	[pathlib.Path, int, browser_scenario_contract.ScenarioContract], None
 ]
 CommandRunner = collections.abc.Callable[
 	[
@@ -80,7 +78,6 @@ class ScenarioRunReceipt:
 	observed_request_origins: tuple[str, ...]
 	child_succeeded: bool
 	observed_contexts: tuple[browser_suite_oracles.ContextOriginReceipt, ...] = ()
-	webauthn_continuation_consumed: bool = False
 	fault_transition: str | None = None
 	fault_injected: bool = False
 	fault_recovered: bool = False
@@ -101,7 +98,6 @@ class ScenarioRunReceipt:
 				self.observed_contexts
 			),
 			"childSucceeded": self.child_succeeded,
-			"webAuthnContinuationConsumed": self.webauthn_continuation_consumed,
 			"faultTransition": self.fault_transition,
 			"faultInjected": self.fault_injected,
 			"faultRecovered": self.fault_recovered,
@@ -136,8 +132,6 @@ class ScenarioExecutionRequest:
 	title_filter: str | None
 	state_directory: pathlib.Path
 	manifest_path: pathlib.Path
-	claim_context_path: pathlib.Path
-	continuation_path: pathlib.Path
 	origin: str
 	screenshot_mode: bool
 	screenshot_staging: pathlib.Path | None
@@ -175,7 +169,6 @@ class PreparedScenario:
 	contract: browser_scenario_contract.ScenarioContract
 	namespace: str
 	origin_receipt_path: pathlib.Path
-	acknowledgement_path: pathlib.Path | None
 	child_environment: dict[str, str]
 	playwright_command: list[str]
 	webwork: WebworkObservation
@@ -205,26 +198,6 @@ class FaultAdapterRunner:
 		return result
 
 
-def require_webauthn(
-	function: collections.abc.Callable[..., object], *arguments: object
-) -> object:
-	"""Map the focused private transition contract to the public suite error boundary."""
-	try:
-		return function(*arguments)
-	except browser_webauthn_continuation.BrowserWebAuthnContinuationError as error:
-		raise BrowserSuiteError(str(error)) from error
-
-
-def require_webauthn_path(
-	function: collections.abc.Callable[..., object], *arguments: object
-) -> pathlib.Path:
-	"""Require a private WebAuthn helper to return the expected path value."""
-	value = require_webauthn(function, *arguments)
-	if not isinstance(value, pathlib.Path):
-		raise BrowserSuiteError("browser suite WebAuthn helper returned an invalid path")
-	return value
-
-
 def require_command_success(
 	result: local_stack_control.process.SessionCommandResult,
 	argv: list[str],
@@ -237,11 +210,7 @@ def require_command_success(
 		raise BrowserSuiteError("production browser-suite command failed: " + argv[0])
 
 
-def playwright_environment(
-	input_path: pathlib.Path,
-	webauthn_continuation: pathlib.Path | None = None,
-	webauthn_continuation_acknowledgement: pathlib.Path | None = None,
-) -> dict[str, str]:
+def playwright_environment(input_path: pathlib.Path) -> dict[str, str]:
 	"""Pass a small runtime allowlist and owner-selected private paths to Playwright."""
 	inherited = local_stack_control.process.current_environment()
 	# ASVS 13.3.2: each browser child receives only its required private capabilities.
@@ -252,14 +221,6 @@ def playwright_environment(
 	}
 	environment["PLE_LIVE_DEMO_BROWSER_REQUIRED"] = "1"
 	environment["PLE_LIVE_DEMO_BROWSER_INPUT_FILE"] = str(input_path)
-	if webauthn_continuation is not None:
-		environment["PLE_BROWSER_SUITE_WEBAUTHN_CONTINUATION_FILE"] = str(
-			webauthn_continuation
-		)
-	if webauthn_continuation_acknowledgement is not None:
-		environment["PLE_BROWSER_SUITE_WEBAUTHN_CONTINUATION_ACK_FILE"] = str(
-			webauthn_continuation_acknowledgement
-		)
 	return environment
 
 
@@ -343,7 +304,6 @@ def prepare_scenario(
 	request.dependencies.input_writer(
 		input_path,
 		request.dependencies.ports[3],
-		request.claim_context_path,
 		contract,
 	)
 	if request.screenshot_mode:
@@ -359,31 +319,7 @@ def prepare_scenario(
 	if not isinstance(namespace, str):
 		raise BrowserSuiteError("browser suite input namespace is invalid")
 	print("Browser-suite: executing visible scenario " + contract.scenario_id)
-	if contract.sysadmin_requirement == "claimed":
-		require_webauthn(
-			browser_webauthn_continuation.validate_continuation,
-			request.continuation_path,
-			request.dependencies.ports[3],
-		)
-	acknowledgement_path = (
-		require_webauthn_path(
-			browser_webauthn_continuation.acknowledgement_path,
-			request.state_directory,
-			contract.scenario_id,
-		)
-		if contract.sysadmin_requirement == "claimed"
-		else None
-	)
-	continuation_for_child = (
-		request.continuation_path
-		if contract.sysadmin_requirement in ("unclaimed", "claimed")
-		else None
-	)
-	child_environment = playwright_environment(
-		input_path,
-		continuation_for_child,
-		acknowledgement_path,
-	)
+	child_environment = playwright_environment(input_path)
 	child_environment["PLE_LIVE_DEMO_BROWSER_ORIGIN_RECEIPT_FILE"] = str(
 		origin_receipt_path
 	)
@@ -400,7 +336,6 @@ def prepare_scenario(
 		contract,
 		namespace,
 		origin_receipt_path,
-		acknowledgement_path,
 		child_environment,
 		command,
 		webwork,
@@ -508,20 +443,6 @@ def successful_scenario_receipt(
 	origin_receipt = request.dependencies.origin_checker(
 		prepared.origin_receipt_path, request.origin
 	)
-	if prepared.contract.sysadmin_requirement == "unclaimed":
-		require_webauthn(
-			browser_webauthn_continuation.validate_continuation,
-			request.continuation_path,
-			request.dependencies.ports[3],
-		)
-	if prepared.acknowledgement_path is not None:
-		require_webauthn(
-			browser_webauthn_continuation.validate_acknowledgement,
-			prepared.acknowledgement_path,
-			request.dependencies.ports[3],
-			prepared.contract,
-			prepared.namespace,
-		)
 	witness = renderer_call_witness(request, prepared)
 	receipt = ScenarioRunReceipt(
 		scenario_id=prepared.contract.scenario_id,
@@ -531,7 +452,6 @@ def successful_scenario_receipt(
 		observed_request_origins=origin_receipt.observed_request_origins,
 		child_succeeded=True,
 		observed_contexts=origin_receipt.observed_contexts,
-		webauthn_continuation_consumed=prepared.acknowledgement_path is not None,
 		fault_transition=(
 			None if fault_result is None else fault_result.fault_transition
 		),

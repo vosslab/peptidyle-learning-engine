@@ -39,12 +39,21 @@ RESOURCE_KINDS = frozenset(
 		"teaching_invitation",
 	}
 )
-SYSADMIN_REQUIREMENTS = frozenset({"not_required", "unclaimed", "claimed"})
-EXCLUSIVE_SEED_MUTATIONS = frozenset(
-	{"sysadmin_first_claim", "avery_instructor_approval"}
-)
+EXCLUSIVE_SEED_MUTATIONS = frozenset({"avery_instructor_approval"})
 SERVICE_RECEIPTS = frozenset({"renderer_delivery", "worker_completion"})
 FAULT_TRANSITIONS = frozenset({"gateway_submit_outage"})
+REQUIRED_ROLE_SECURITY_SCENARIOS = {
+	"direct_role_entry": (
+		"tests/playwright/e2e/direct_role_entry.spec.ts",
+		"morgan_sysadmin",
+		"direct_sysadmin_passkey_reauthentication",
+	),
+	"auth_authorization": (
+		"tests/playwright/e2e/auth_authorization.spec.ts",
+		"elena_instructor",
+		"instructor_passkey_reauthentication_and_seeded_sessions_avery_approval_and_course_boundaries",
+	),
+}
 
 
 class ScenarioContractError(ValueError):
@@ -60,15 +69,12 @@ class ScenarioContract:
 	personas: tuple[str, ...]
 	baseline_reads: tuple[str, ...]
 	ui_creates: tuple[str, ...]
-	sysadmin_requirement: str
 	visible_observation: str
 	exclusive_seed_mutations: tuple[str, ...] = ()
 	service_receipt: str | None = None
 	fault_transition: str | None = None
 	# Closed visual states exposed only when the suite runs its screenshot corpus.
 	screenshot_states: tuple[str, ...] = ()
-	# Compatibility-only construction field; V2 consumers use sysadmin_requirement.
-	sysadmin_state: str | None = None
 
 
 def scenario_contracts() -> tuple[ScenarioContract, ...]:
@@ -118,14 +124,12 @@ def validate_contract(contract: ScenarioContract) -> None:
 	_validate_closed_values("persona", contract.personas, PERSONAS)
 	_validate_closed_values("baseline alias", contract.baseline_reads, BASELINE_ALIASES)
 	_validate_closed_values("resource kind", contract.ui_creates, RESOURCE_KINDS)
-	_validate_sysadmin_requirement(contract)
 	_validate_visible_observation(contract.visible_observation)
 	_validate_service_receipt(contract.service_receipt)
 	_validate_fault_transition(contract.fault_transition)
 	if contract.screenshot_states:
 		_validate_screenshot_states(contract.screenshot_states)
 	_validate_exclusive_seed_mutations(contract.exclusive_seed_mutations)
-	_validate_sysadmin_dependency(contract)
 
 
 def validate_registry(
@@ -139,16 +143,11 @@ def validate_registry(
 	seen_ids: set[str] = set()
 	seen_specs: set[str] = set()
 	seen_exclusive: set[str] = set()
-	unclaimed_count = 0
 	for contract in registry:
 		_validate_registry_entry(contract, seen_ids, seen_specs, seen_exclusive)
-		unclaimed_count += contract.sysadmin_requirement == "unclaimed"
 		if repo_root is not None:
 			_validate_spec_input_consumption(repo_root, contract)
-	if unclaimed_count > 1:
-		raise ScenarioContractError(
-			"browser scenario registry has multiple first-claim contracts"
-		)
+	_validate_required_role_security_scenarios(registry)
 
 
 def namespace_for(scenario_id: str, entropy: str) -> str:
@@ -204,13 +203,24 @@ def _validate_spec_path(spec_path: str) -> None:
 		raise ScenarioContractError("browser scenario spec path is invalid")
 
 
-def _validate_sysadmin_requirement(contract: ScenarioContract) -> None:
-	if contract.sysadmin_requirement not in SYSADMIN_REQUIREMENTS:
-		raise ScenarioContractError("browser scenario Sysadmin requirement is invalid")
-	if contract.sysadmin_state is not None:
-		raise ScenarioContractError(
-			"browser scenario uses the retired Sysadmin state field"
-		)
+def _validate_required_role_security_scenarios(
+	registry: Sequence[ScenarioContract],
+) -> None:
+	"""Keep both named live-demo passkey journeys in every executable catalog."""
+	by_id = {contract.scenario_id: contract for contract in registry}
+	for scenario_id, requirement in REQUIRED_ROLE_SECURITY_SCENARIOS.items():
+		contract = by_id.get(scenario_id)
+		spec_path, persona, visible_observation = requirement
+		if (
+			contract is None
+			or contract.spec_path != spec_path
+			or persona not in contract.personas
+			or "passkey" not in contract.ui_creates
+			or contract.visible_observation != visible_observation
+		):
+			raise ScenarioContractError(
+				"browser scenario registry requires both named role-security journeys"
+			)
 
 
 def _validate_visible_observation(value: str) -> None:
@@ -237,56 +247,6 @@ def _validate_exclusive_seed_mutations(values: tuple[str, ...]) -> None:
 	if not set(values).issubset(EXCLUSIVE_SEED_MUTATIONS):
 		raise ScenarioContractError(
 			"browser scenario exclusive seed mutations are invalid"
-		)
-
-
-def _validate_sysadmin_dependency(contract: ScenarioContract) -> None:
-	"""Bind claim-dependent transitions and reject Sysadmin dependencies when absent."""
-	if contract.sysadmin_requirement == "not_required":
-		_validate_no_sysadmin_dependency(contract)
-		return
-	if contract.sysadmin_requirement == "unclaimed":
-		owns_first_claim = (
-			"morgan_sysadmin" in contract.personas
-			and "passkey" in contract.ui_creates
-			and "sysadmin_first_claim" in contract.exclusive_seed_mutations
-		)
-		if not owns_first_claim:
-			raise ScenarioContractError(
-				"unclaimed Sysadmin scenario must own the visible first claim"
-			)
-		return
-	if contract.sysadmin_requirement == "claimed":
-		if "morgan_sysadmin" not in contract.personas:
-			raise ScenarioContractError(
-				"claimed Sysadmin scenario must declare the Sysadmin persona"
-			)
-		if "passkey" in contract.ui_creates:
-			raise ScenarioContractError(
-				"claimed Sysadmin scenario consumes but does not create a passkey"
-			)
-	if (
-		contract.sysadmin_requirement != "unclaimed"
-		and "sysadmin_first_claim" in contract.exclusive_seed_mutations
-	):
-		raise ScenarioContractError(
-			"only unclaimed Sysadmin scenario can mutate first claim"
-		)
-
-
-def _validate_no_sysadmin_dependency(contract: ScenarioContract) -> None:
-	"""Keep an indifferent scenario independent of Sysadmin claim state."""
-	if "morgan_sysadmin" in contract.personas:
-		raise ScenarioContractError(
-			"not-required browser scenario has a Sysadmin persona dependency"
-		)
-	if "passkey" in contract.ui_creates:
-		raise ScenarioContractError(
-			"not-required browser scenario has a Sysadmin passkey dependency"
-		)
-	if "sysadmin_first_claim" in contract.exclusive_seed_mutations:
-		raise ScenarioContractError(
-			"not-required browser scenario has a Sysadmin first-claim dependency"
 		)
 
 

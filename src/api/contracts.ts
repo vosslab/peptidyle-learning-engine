@@ -38,6 +38,7 @@ import type { CatalogProblemSummary } from "../../generated/api/CatalogProblemSu
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { LearnerDisclosurePolicy } from "../../generated/api/LearnerDisclosurePolicy";
+import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 
 export type { AssignmentSummary, CourseSummary, LearnerAssignmentDetail, LearnerAssignmentSummary };
 export type { GradebookSummaryRow };
@@ -68,26 +69,65 @@ export interface AssignmentEditorDetail extends AssignmentSummary {
 /** Authorized resolution of one compact reference to a browser API identity. */
 export type { NavigationResolution };
 
-/** The exact mutable body accepted for assignment creation and replacement. */
+/** One safe catalog display fact returned from a server-owned item-pool sample. */
+export interface PoolDrawPreviewQuestion {
+  readonly questionId: string;
+  readonly title: string;
+}
+
+/** Strict browser request for one saved selection group by its shared definition position. */
+export interface PoolDrawPreviewRequest {
+  readonly groupPosition: number;
+}
+
+/** A no-store Instructor sample of one saved pool; it is never learner activity or evidence. */
+export interface PoolDrawPreview {
+  readonly assignment: AssignmentReference;
+  readonly revision: string;
+  readonly groupPosition: number;
+  readonly groupLabel: string;
+  readonly drawCount: number;
+  readonly ordering: "candidateOrder" | "randomized";
+  readonly algorithm: "v1";
+  readonly candidates: ReadonlyArray<PoolDrawPreviewQuestion>;
+  readonly sampled: ReadonlyArray<PoolDrawPreviewQuestion>;
+}
+
+/**
+ * One public, ordered assignment-definition entry. The browser sends compact Question IDs only;
+ * the server resolves immutable publications and owns all internal identities and algorithm state.
+ */
+export type AssignmentEditorEntryInput =
+  | {
+      readonly kind: "fixed";
+      readonly questionId: string;
+      readonly position: number;
+      readonly pointsPossible: string;
+      readonly deliveryState: "active" | "retired";
+      readonly scoringMode: "normal" | "fullCredit" | "extraCredit" | "excluded";
+    }
+  | {
+      readonly kind: "selectionGroup";
+      readonly candidateQuestionIds: ReadonlyArray<string>;
+      readonly position: number;
+      readonly drawCount: number;
+      readonly pointsPerItem: string;
+      readonly ordering: "candidateOrder" | "randomized";
+    };
+
+/** The exact mutable body accepted for assignment creation and complete definition replacement. */
 export interface AssignmentCreateInput {
   readonly title: string;
-  readonly questionIds: ReadonlyArray<string>;
+  readonly entries: ReadonlyArray<AssignmentEditorEntryInput>;
   readonly policies: RunPolicies;
   /** Assignment-owned timing for each learner-facing disclosure field. */
   readonly disclosurePolicy: LearnerDisclosurePolicy;
 }
 
-/** The ordinary editor save keeps each assigned Question ID unchanged. */
+/** A revision-checked complete replacement in the shared entry-position namespace. */
 export interface AssignmentEditorInput {
   readonly title: string;
-  readonly items: ReadonlyArray<{
-    readonly id: string;
-    readonly questionId: string;
-    readonly position: number;
-    readonly pointsPossible: string;
-    readonly deliveryState: "active" | "retired";
-    readonly scoringMode: "normal" | "fullCredit" | "extraCredit" | "excluded";
-  }>;
+  readonly entries: ReadonlyArray<AssignmentEditorEntryInput>;
   readonly policies: RunPolicies;
   /** Assignment-owned timing for each learner-facing disclosure field. */
   readonly disclosurePolicy: LearnerDisclosurePolicy;
@@ -147,6 +187,13 @@ export interface EnrollmentView {
 /** Learner attempt projection with the current server-owned score freshness gate. */
 export interface LearnerQuestionAttempt extends QuestionAttempt {
   readonly scoringStatus: ScoringStatus;
+  /** Null for a fixed item; a safe ordinal explanation for one server-selected pool item. */
+  readonly poolSelection: PoolSelection | null;
+}
+
+export interface PoolSelection {
+  readonly itemNumber: number;
+  readonly itemCount: number;
 }
 
 /** Explicit acknowledgement of an idempotent response submission. */
@@ -182,6 +229,8 @@ export interface PrefetchedNextQuestion {
   readonly questionVersion: VersionId;
   readonly seed: Seed;
   readonly renderedQuestionSha256: string;
+  /** Same safe ordinal provenance used when this cached successor becomes current. */
+  readonly poolSelection: PoolSelection | null;
   readonly envelope: QuestionEnvelope;
 }
 

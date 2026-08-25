@@ -8,24 +8,27 @@ use learning_data_access::{
     AddAssignmentFixedItemCommand, AssignmentRecord, AssignmentRevision, AuthoritativeTimeStore,
     CatalogStore, CourseRecordsAccessStore, CreateAssignmentCommand,
     RemoveAssignmentFixedItemCommand, ReplaceAssignmentCommand, ReplaceAssignmentFixedItemCommand,
+    ReplaceUnissuedAssignmentDefinitionCommand, ReplaceUnissuedAssignmentDefinitionOutcome,
     SessionStore, Store, StoreError, StoredAssignment,
 };
 use question_model::{
     AssignmentDeliveryState, AssignmentId, AssignmentInstructions, AssignmentItem,
-    AssignmentItemId, AssignmentLifecycle, AssignmentScoringMode, AssignmentTeachingSettings,
-    BaseAssignmentPolicy, Capability, CourseId, PointValue, ProblemVersionRef, QuestionId,
+    AssignmentItemId, AssignmentLifecycle, AssignmentScoringMode, AssignmentSelectionCandidate,
+    AssignmentSelectionGroup, AssignmentTeachingSettings, BaseAssignmentPolicy, CourseId,
+    PointValue,
 };
 use serde::Serialize;
 
 use super::policy::require_course_access;
 use super::projection::{error_response, store_error_response};
 use super::routing::{
-    AddAssignmentItemRequest, AssignmentItemUpdateRequest, AssignmentTeachingSettingsRequest,
-    CourseRouteState, CreateAssignmentRequest, ReplaceAssignmentItemQuestionRequest,
-    UpdateAssignmentRequest, strict_assignment_request,
+    AddAssignmentItemRequest, AssignmentTeachingSettingsRequest, CourseRouteState,
+    CreateAssignmentRequest, ReplaceAssignmentItemQuestionRequest, UpdateAssignmentRequest,
+    strict_assignment_request,
 };
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
 
+mod definition_request;
 mod learner;
 mod teaching_settings;
 
@@ -35,9 +38,8 @@ pub(super) use learner::{get_assignment_summary, get_learner_assignment};
 
 pub(super) async fn create_assignment<S>(
     State(state): State<CourseRouteState<S>>,
-    headers: HeaderMap,
     Path(course): Path<CourseId>,
-    Json(value): Json<serde_json::Value>,
+    request: Request,
 ) -> Response
 where
     S: Store
@@ -47,7 +49,10 @@ where
         + SessionStore
         + 'static,
 {
-    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
+    // ASVS 8.2.1 and 8.3.1: establish session-derived course authority before
+    // consuming untrusted authoring JSON.
+    let authenticated = match resolve_request_session(state.store.as_ref(), request.headers()).await
+    {
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
@@ -56,19 +61,24 @@ where
     {
         return response;
     }
+    let value = match definition_request::assignment_json_body(request).await {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
     let request = match strict_assignment_request::<CreateAssignmentRequest>(value) {
         Ok(request) => request,
         Err(()) => {
             return error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
-                "assignment request is invalid",
+                "Use the assignment editor to send a complete valid assignment definition.",
             );
         }
     };
-    let publications = match resolve_assignable_question_ids(
+    let (items, selection_groups) = match definition_request::resolve_assignment_entries(
         &state,
         authenticated.tenant_context,
-        &request.question_ids,
+        request.entries,
+        None,
     )
     .await
     {
@@ -83,13 +93,17 @@ where
         lifecycle: AssignmentLifecycle::Draft,
         instructions: AssignmentInstructions::default(),
         audience: question_model::AssignmentAudience::CourseWide,
-        items: assignment_items(publications, None),
-        selection_groups: Vec::new(),
+        items,
+        selection_groups,
         disclosure_policy: request.disclosure_policy,
         policies: request.policies,
     };
-    if let Err(response) =
-        validate_assignment_request(&state, authenticated.tenant_context, &assignment).await
+    if let Err(response) = definition_request::validate_assignment_request(
+        &state,
+        authenticated.tenant_context,
+        &assignment,
+    )
+    .await
     {
         return response;
     }
@@ -153,9 +167,8 @@ where
 
 pub(super) async fn update_assignment<S>(
     State(state): State<CourseRouteState<S>>,
-    headers: HeaderMap,
     Path((course, assignment)): Path<(CourseId, AssignmentId)>,
-    Json(value): Json<serde_json::Value>,
+    request: Request,
 ) -> Response
 where
     S: Store
@@ -165,7 +178,10 @@ where
         + SessionStore
         + 'static,
 {
-    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
+    // ASVS 8.2.1 and 8.3.1: establish session-derived course authority before
+    // consuming untrusted authoring JSON.
+    let authenticated = match resolve_request_session(state.store.as_ref(), request.headers()).await
+    {
         Ok(authenticated) => authenticated,
         Err(error) => return auth_error_response(error),
     };
@@ -174,7 +190,7 @@ where
     {
         return response;
     }
-    let expected_revision = match required_assignment_revision(&headers) {
+    let expected_revision = match required_assignment_revision(request.headers()) {
         Ok(revision) => revision,
         Err(AssignmentRevisionHeaderError::Missing) => {
             return error_response(
@@ -189,15 +205,6 @@ where
             );
         }
     };
-    let request = match strict_assignment_request::<UpdateAssignmentRequest>(value) {
-        Ok(request) => request,
-        Err(()) => {
-            return error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "assignment request is invalid",
-            );
-        }
-    };
     let current = match state
         .store
         .get_assignment_for_edit(authenticated.tenant_context, assignment)
@@ -209,11 +216,24 @@ where
         }
         Err(error) => return store_error_response(error),
     };
-    let items = match preserved_assignment_items(
+    let value = match definition_request::assignment_json_body(request).await {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let request = match strict_assignment_request::<UpdateAssignmentRequest>(value) {
+        Ok(request) => request,
+        Err(()) => {
+            return error_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Use the assignment editor to send a complete valid assignment definition.",
+            );
+        }
+    };
+    let (items, selection_groups) = match definition_request::resolve_assignment_entries(
         &state,
         authenticated.tenant_context,
-        &current.record.items,
-        request.items,
+        request.entries,
+        Some(&current.record),
     )
     .await
     {
@@ -229,36 +249,69 @@ where
         instructions: current.record.instructions.clone(),
         audience: current.record.audience.clone(),
         items: items.clone(),
-        selection_groups: current.record.selection_groups.clone(),
+        selection_groups: selection_groups.clone(),
         disclosure_policy: request.disclosure_policy,
         policies: request.policies,
     };
-    if let Err(response) =
-        validate_assignment_request(&state, authenticated.tenant_context, &replacement).await
+    if let Err(response) = definition_request::validate_assignment_request(
+        &state,
+        authenticated.tenant_context,
+        &replacement,
+    )
+    .await
     {
         return response;
     }
-    match state
-        .store
-        .replace_assignment(
-            authenticated.tenant_context,
-            ReplaceAssignmentCommand {
-                actor: authenticated.record.subject.user(),
-                course,
-                assignment,
-                expected_revision,
-                update: learning_data_access::AssignmentUpdate {
-                    title: request.title,
-                    audience: current.record.audience,
-                    items,
-                    selection_groups: current.record.selection_groups,
-                    disclosure_policy: request.disclosure_policy,
-                    policies: request.policies,
+    let structure_changed =
+        !assignment_definition_structure_unchanged(&current.record, &replacement);
+    let result: Result<StoredAssignment, StoreError> = if structure_changed {
+        match state
+            .store
+            .replace_unissued_assignment_definition(
+                authenticated.tenant_context,
+                ReplaceUnissuedAssignmentDefinitionCommand {
+                    actor: authenticated.record.subject.user(),
+                    course,
+                    assignment,
+                    expected_revision,
+                    definition: replacement,
+                    base_policy: current.base_policy,
                 },
-            },
-        )
-        .await
-    {
+            )
+            .await
+        {
+            Ok(ReplaceUnissuedAssignmentDefinitionOutcome::Replaced(assignment)) => Ok(*assignment),
+            Ok(ReplaceUnissuedAssignmentDefinitionOutcome::Issued) => {
+                return error_response(
+                    StatusCode::CONFLICT,
+                    "This assignment already has learner work. Create a new assignment for this structural pool change.",
+                );
+            }
+            Err(error) => Err(error),
+        }
+    } else {
+        state
+            .store
+            .replace_assignment(
+                authenticated.tenant_context,
+                ReplaceAssignmentCommand {
+                    actor: authenticated.record.subject.user(),
+                    course,
+                    assignment,
+                    expected_revision,
+                    update: learning_data_access::AssignmentUpdate {
+                        title: request.title,
+                        audience: current.record.audience,
+                        items,
+                        selection_groups,
+                        disclosure_policy: request.disclosure_policy,
+                        policies: request.policies,
+                    },
+                },
+            )
+            .await
+    };
+    match result {
         Ok(assignment) => {
             assignment_response(&state, &authenticated, StatusCode::OK, assignment).await
         }
@@ -267,6 +320,62 @@ where
         }
         Err(error) => store_error_response(error),
     }
+}
+
+/// Separates the immutable future-run definition from ordinary assignment
+/// teaching and scoring settings. A pool's presence is not structural by
+/// itself: after learner work exists, an instructor can still change title,
+/// disclosure, policies, points, and fixed-item delivery/scoring through the
+/// established revisioned replacement path. Only a change that could alter
+/// which positions or immutable publications a future run receives uses the
+/// pre-issue structural capability.
+fn assignment_definition_structure_unchanged(
+    current: &AssignmentRecord,
+    replacement: &AssignmentRecord,
+) -> bool {
+    let fixed_unchanged = |before: &AssignmentItem, after: &AssignmentItem| {
+        before.id == after.id
+            && before.reference == after.reference
+            && before.position == after.position
+    };
+    let candidate_unchanged = |before: &AssignmentSelectionCandidate,
+                               after: &AssignmentSelectionCandidate| {
+        before.id == after.id
+            && before.reference == after.reference
+            && before.position == after.position
+            && before.delivery_state == after.delivery_state
+    };
+    let group_unchanged = |before: &AssignmentSelectionGroup, after: &AssignmentSelectionGroup| {
+        before.id == after.id
+            && before.position == after.position
+            && before.draw_count == after.draw_count
+            && before.ordering == after.ordering
+            && before.algorithm == after.algorithm
+            && before.candidates.len() == after.candidates.len()
+            && before.candidates.iter().all(|candidate| {
+                after
+                    .candidates
+                    .iter()
+                    .find(|other| other.id == candidate.id)
+                    .is_some_and(|other| candidate_unchanged(candidate, other))
+            })
+    };
+    current.items.len() == replacement.items.len()
+        && current.items.iter().all(|item| {
+            replacement
+                .items
+                .iter()
+                .find(|other| other.id == item.id)
+                .is_some_and(|other| fixed_unchanged(item, other))
+        })
+        && current.selection_groups.len() == replacement.selection_groups.len()
+        && current.selection_groups.iter().all(|group| {
+            replacement
+                .selection_groups
+                .iter()
+                .find(|other| other.id == group.id)
+                .is_some_and(|other| group_unchanged(group, other))
+        })
 }
 
 pub(super) async fn add_assignment_item<S>(
@@ -316,7 +425,7 @@ where
             );
         }
     };
-    let references = match resolve_assignable_question_ids(
+    let references = match definition_request::resolve_assignable_question_ids(
         &state,
         authenticated.tenant_context,
         &[request.question_id],
@@ -473,7 +582,7 @@ where
             );
         }
     };
-    let references = match resolve_assignable_question_ids(
+    let references = match definition_request::resolve_assignable_question_ids(
         &state,
         authenticated.tenant_context,
         &[request.question_id],
@@ -685,7 +794,7 @@ where
             draw_count: group.draw_count,
             points_per_item: group.points_per_item,
             ordering: group.ordering,
-            algorithm_version: group.algorithm_version,
+            algorithm_version: group.algorithm.storage_version(),
             candidates: group
                 .candidates
                 .iter()
@@ -709,226 +818,98 @@ where
     Ok((fixed, groups))
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct AssignmentCapabilityViolation {
-    title: String,
-    question_id: QuestionId,
-    capability: Capability,
-}
+#[cfg(test)]
+mod structural_update_tests {
+    use super::*;
+    use question_model::{AssignmentSelectionGroupId, PoolDrawAlgorithm, ProblemVersionRef};
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct AssignmentValidationFailure {
-    error: &'static str,
-    violations: Vec<AssignmentCapabilityViolation>,
-}
-
-async fn validate_assignment_request<S>(
-    state: &CourseRouteState<S>,
-    context: learning_data_access::TenantContext,
-    assignment: &AssignmentRecord,
-) -> Result<(), Response>
-where
-    S: Store + CatalogStore + SessionStore + 'static,
-{
-    let references = assignment.references().collect::<Vec<_>>();
-    let mut selected = Vec::with_capacity(references.len());
-    let mut display = std::collections::BTreeMap::new();
-    for reference in &references {
-        let Some(published) = state
-            .store
-            .get_catalog_problem(context, *reference)
-            .await
-            .map_err(store_error_response)?
-        else {
-            return Err(error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "assignment references a missing or hidden published version",
-            ));
-        };
-        if !published.lifecycle.is_assignable() {
-            return Err(error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "assignment references a nonassignable published version",
-            ));
-        }
-        display.insert(
-            *reference,
-            (
-                published.question.metadata.title.clone(),
-                published.question_id.clone(),
-            ),
-        );
-        selected.push(domain::policy::AssignmentQuestionConfig {
-            question: published.question,
-            backend_capabilities: published.capabilities,
-        });
+    fn id(value: u128) -> uuid::Uuid {
+        uuid::Uuid::from_u128(value)
     }
-    let violations =
-        domain::policy::validate_assignment_config(&domain::policy::AssignmentConfig {
-            questions: selected,
-            required_capabilities: Vec::new(),
-        })
-        .into_iter()
-        .map(|violation| {
-            let reference = assignment
-                .references()
-                .find(|reference| reference.version == violation.question)
-                .expect("domain validation only reports a selected question version");
-            let (title, question_id) = display
-                .get(&reference)
-                .expect("every selected question has its immutable title")
-                .clone();
-            AssignmentCapabilityViolation {
-                title,
-                question_id,
-                capability: violation.capability,
-            }
-        })
-        .collect::<Vec<_>>();
-    if violations.is_empty() {
-        Ok(())
-    } else {
-        Err(no_store(
-            (
-                StatusCode::UNPROCESSABLE_ENTITY,
-                Json(AssignmentValidationFailure {
-                    error: "assignment configuration is not supported",
-                    violations,
-                }),
-            )
-                .into_response(),
-        ))
-    }
-}
 
-async fn resolve_assignable_question_ids<S>(
-    state: &CourseRouteState<S>,
-    context: learning_data_access::TenantContext,
-    question_ids: &[QuestionId],
-) -> Result<Vec<ProblemVersionRef>, Response>
-where
-    S: Store + CatalogStore + SessionStore + 'static,
-{
-    let mut seen = std::collections::BTreeSet::new();
-    let mut references = Vec::with_capacity(question_ids.len());
-    for question_id in question_ids {
-        if !seen.insert(question_id.clone()) {
-            return Err(error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "assignment question IDs must be unique",
-            ));
-        }
-        let Some(record) = state
-            .store
-            .resolve_catalog_problem(
-                context,
-                question_model::ProblemDisplayRef {
-                    question_id: question_id.clone(),
+    fn assignment() -> AssignmentRecord {
+        AssignmentRecord {
+            id: AssignmentId::from_uuid(id(1)),
+            tenant: question_model::TenantId::from_uuid(id(2)),
+            course_id: CourseId::from_uuid(id(3)),
+            title: "Original title".to_string(),
+            lifecycle: AssignmentLifecycle::Draft,
+            instructions: AssignmentInstructions::default(),
+            audience: question_model::AssignmentAudience::CourseWide,
+            items: vec![AssignmentItem {
+                id: AssignmentItemId::from_uuid(id(4)),
+                reference: ProblemVersionRef {
+                    problem: question_model::ProblemId::from_uuid(id(5)),
+                    version: question_model::VersionId::from_uuid(id(6)),
                 },
-            )
-            .await
-            .map_err(store_error_response)?
-        else {
-            return Err(error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "assignment question ID is unavailable",
-            ));
-        };
-        if !record.lifecycle.is_assignable() {
-            return Err(error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "assignment question is not assignable",
-            ));
+                position: 0,
+                points_possible: PointValue::from_whole(1),
+                delivery_state: AssignmentDeliveryState::Active,
+                scoring_mode: AssignmentScoringMode::Normal,
+            }],
+            selection_groups: vec![AssignmentSelectionGroup {
+                id: AssignmentSelectionGroupId::from_uuid(id(7)),
+                position: 1,
+                draw_count: 1,
+                points_per_item: PointValue::from_whole(1),
+                ordering: question_model::SelectionOrdering::CandidateOrder,
+                algorithm: PoolDrawAlgorithm::V1,
+                candidates: vec![AssignmentSelectionCandidate {
+                    id: AssignmentItemId::from_uuid(id(8)),
+                    position: 0,
+                    reference: ProblemVersionRef {
+                        problem: question_model::ProblemId::from_uuid(id(9)),
+                        version: question_model::VersionId::from_uuid(id(10)),
+                    },
+                    delivery_state: AssignmentDeliveryState::Active,
+                }],
+            }],
+            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            policies: question_model::RunPolicies {
+                completion: question_model::CompletionRequirement::AllCorrect,
+                grade: question_model::GradePolicy::Highest,
+                continued_practice: question_model::ContinuedPractice::Unlimited,
+                variation: question_model::VariationPolicy::NewSeeds,
+            },
         }
-        references.push(ProblemVersionRef {
-            problem: record.problem,
-            version: record.version,
-        });
     }
-    Ok(references)
-}
 
-async fn preserved_assignment_items<S>(
-    state: &CourseRouteState<S>,
-    context: learning_data_access::TenantContext,
-    current: &[AssignmentItem],
-    requests: Vec<AssignmentItemUpdateRequest>,
-) -> Result<Vec<AssignmentItem>, Response>
-where
-    S: Store + CatalogStore + SessionStore + 'static,
-{
-    if requests.len() != current.len() {
-        return Err(error_response(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "ordinary assignment save preserves every fixed item",
+    #[test]
+    fn pool_points_and_teaching_settings_are_ordinary_updates() {
+        let current = assignment();
+        let mut replacement = current.clone();
+        replacement.title = "Revised title".to_string();
+        replacement.items[0].points_possible = PointValue::from_whole(3);
+        replacement.selection_groups[0].points_per_item = PointValue::from_whole(2);
+        replacement.disclosure_policy.score = question_model::LearnerDisclosureTiming::AfterDue;
+        replacement.policies.grade = question_model::GradePolicy::First;
+
+        assert!(assignment_definition_structure_unchanged(
+            &current,
+            &replacement
         ));
     }
-    let mut current_by_id = current
-        .iter()
-        .map(|item| (item.id, item))
-        .collect::<std::collections::BTreeMap<_, _>>();
-    let mut items = Vec::with_capacity(requests.len());
-    for request in requests {
-        let Some(prior) = current_by_id.remove(&request.id) else {
-            return Err(error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "ordinary assignment save uses existing item IDs",
-            ));
-        };
-        let references =
-            resolve_assignable_question_ids(state, context, &[request.question_id]).await?;
-        if references[0] != prior.reference {
-            return Err(error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "ordinary assignment save preserves each item question",
-            ));
-        }
-        items.push(AssignmentItem {
-            id: prior.id,
-            reference: prior.reference,
-            position: request.position,
-            points_possible: request.points_possible,
-            delivery_state: request.delivery_state,
-            scoring_mode: request.scoring_mode,
-        });
-    }
-    Ok(items)
-}
 
-fn assignment_items(
-    references: Vec<ProblemVersionRef>,
-    existing: Option<&[AssignmentItem]>,
-) -> Vec<AssignmentItem> {
-    let mut claimed = std::collections::BTreeSet::new();
-    references
-        .into_iter()
-        .enumerate()
-        .map(|(position, reference)| {
-            let prior = existing.and_then(|items| {
-                items.iter().find(|item| {
-                    item.reference == reference
-                        && item.delivery_state == AssignmentDeliveryState::Active
-                        && !claimed.contains(&item.id)
-                })
-            });
-            let id = prior
-                .map(|item| item.id)
-                .unwrap_or_else(question_model::AssignmentItemId::generate);
-            claimed.insert(id);
-            AssignmentItem {
-                id,
-                reference,
-                position: u32::try_from(position).expect("bounded request body fits u32"),
-                points_possible: prior
-                    .map(|item| item.points_possible)
-                    .unwrap_or_else(|| PointValue::from_whole(1)),
-                delivery_state: AssignmentDeliveryState::Active,
-                scoring_mode: prior
-                    .map(|item| item.scoring_mode)
-                    .unwrap_or(AssignmentScoringMode::Normal),
-            }
-        })
-        .collect()
+    #[test]
+    fn pool_draw_membership_and_order_changes_are_structural() {
+        let current = assignment();
+        let mut draw = current.clone();
+        draw.selection_groups[0].draw_count = 2;
+        assert!(!assignment_definition_structure_unchanged(&current, &draw));
+
+        let mut membership = current.clone();
+        membership.selection_groups[0].candidates[0].delivery_state =
+            AssignmentDeliveryState::Retired;
+        assert!(!assignment_definition_structure_unchanged(
+            &current,
+            &membership
+        ));
+
+        let mut reorder = current.clone();
+        reorder.items[0].position = 1;
+        reorder.selection_groups[0].position = 0;
+        assert!(!assignment_definition_structure_unchanged(
+            &current, &reorder
+        ));
+    }
 }

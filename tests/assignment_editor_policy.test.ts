@@ -40,7 +40,7 @@ test("assignment disclosure policy round-trips in create and update bodies", () 
   const draft = {
     ...createMasteryAssignmentDraft(courseId),
     title: "Peptide practice",
-    items: [item],
+    entries: [{ ...item, kind: "fixed" as const }],
     disclosurePolicy: {
       score: "duringAttempt" as const,
       perItemCorrectness: "afterSubmit" as const,
@@ -60,7 +60,7 @@ test("assignment disclosure policy rejects omissions and unknown members", () =>
   const valid = assignmentCreateInput({
     ...createMasteryAssignmentDraft(courseId),
     title: "Peptide practice",
-    items: [item],
+    entries: [{ ...item, kind: "fixed" as const }],
   });
   const missing = {
     ...valid,
@@ -87,7 +87,16 @@ test("assignment create request decoder rejects unknown disclosure policy member
   assert.throws(() =>
     decodeAssignmentCreateInput({
       title: "Disclosure policy",
-      questionIds: ["7K3-M9QP"],
+      entries: [
+        {
+          kind: "fixed",
+          questionId: "7K3-M9QP",
+          position: 0,
+          pointsPossible: "1",
+          deliveryState: "active",
+          scoringMode: "normal",
+        },
+      ],
       policies: {
         completion: { kind: "allCorrect" },
         grade: "highest",
@@ -98,6 +107,41 @@ test("assignment create request decoder rejects unknown disclosure policy member
         ...createMasteryAssignmentDraft(courseId).disclosurePolicy,
         privateAnswerKey: "not allowed",
       },
+    }),
+  );
+});
+
+test("assignment request decoders reject pool cardinalities beyond the server contract", () => {
+  const valid = assignmentCreateInput({
+    ...createMasteryAssignmentDraft(courseId),
+    title: "Bounded pool",
+    entries: [{ ...item, kind: "fixed" as const }],
+  });
+  assert.throws(() =>
+    decodeAssignmentCreateInput({
+      ...valid,
+      entries: Array.from({ length: 1025 }, (_value, position) => ({
+        ...valid.entries[0],
+        position,
+      })),
+    }),
+  );
+  assert.throws(() =>
+    decodeAssignmentCreateInput({
+      ...valid,
+      entries: [
+        {
+          kind: "selectionGroup",
+          candidateQuestionIds: Array.from(
+            { length: 1025 },
+            (_value, index) => `${index.toString(16).padStart(3, "0").toUpperCase()}-0000`,
+          ),
+          position: 0,
+          drawCount: 1,
+          pointsPerItem: "1",
+          ordering: "candidateOrder",
+        },
+      ],
     }),
   );
 });

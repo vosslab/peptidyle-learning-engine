@@ -19,11 +19,12 @@ use question_model::{
     AssignmentSummary, AttemptProvenance, AttemptResult, AttemptStatus, BackendCapabilities,
     CatalogLifecycle, CatalogProblemDetail, CatalogProblemSummary, CatalogSearchPage,
     CatalogSearchQuery, CourseGroupId, CourseId, CourseMembershipRole, CourseSummary,
-    DraftQuestionDefinition, EnrollmentId, GradePolicy, GradebookSummaryRow, PresentationBindingV1,
-    PresentationEnvelopeV1, ProblemId, PublicationScope, QuestionAttempt, QuestionAttemptId,
-    QuestionBackend, QuestionDefinition, QuestionStatisticsDisclosure, RunId, RunPolicies,
-    ScoringGeneration, ScoringStatus, SelectionOrdering, StudentAssignmentSummary, StudentId,
-    StudentResponse, TenantId, UserId, VersionId, WorkspaceDraftSummary, WorkspaceId,
+    DraftQuestionDefinition, EnrollmentId, GradePolicy, GradebookSummaryRow, PoolDrawAlgorithm,
+    PoolDrawBasis, PresentationBindingV1, PresentationEnvelopeV1, ProblemId, PublicationScope,
+    QuestionAttempt, QuestionAttemptId, QuestionBackend, QuestionDefinition,
+    QuestionStatisticsDisclosure, RunId, RunPolicies, ScoringGeneration, ScoringStatus,
+    SelectionOrdering, StudentAssignmentSummary, StudentId, StudentResponse, TenantId, UserId,
+    VersionId, WorkspaceDraftSummary, WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -81,12 +82,12 @@ pub use crate::account_identity::{
     AuthenticationRateLimitPolicy, AuthenticationRateLimitScope, BeginEmailAuthentication,
     BeginWebauthnCeremony, BrowserBindingHash, CompleteEmailAuthentication,
     CompleteEmailAuthenticationAndCreateSession, CompleteEmailChangeAndRevokeUserSessions,
-    CompletePasskeyAuthenticationAndCreateSession, CompleteSeededSysadminOwnership,
-    CompletedAccountSession, CompletedEmailAuthentication, CompletedPasskeySession,
-    ConsumeAuthenticationRateLimit, CredentialIdHash, EmailAuthenticationChallenge,
-    EmailAuthenticationPurpose, EmailChallengeId, EmailChallengeLifetime, EmailChallengeSecretHash,
-    EmailDomain, PasskeyId, PasskeyRecord, RegisterPasskey, WebauthnCeremony, WebauthnCeremonyId,
-    WebauthnCeremonyKind, WebauthnCeremonyLifetime, WebauthnState, validated_account_display_name,
+    CompletePasskeyAuthenticationAndCreateSession, CompletedAccountSession,
+    CompletedEmailAuthentication, CompletedPasskeySession, ConsumeAuthenticationRateLimit,
+    CredentialIdHash, EmailAuthenticationChallenge, EmailAuthenticationPurpose, EmailChallengeId,
+    EmailChallengeLifetime, EmailChallengeSecretHash, EmailDomain, PasskeyId, PasskeyRecord,
+    RegisterPasskey, WebauthnCeremony, WebauthnCeremonyId, WebauthnCeremonyKind,
+    WebauthnCeremonyLifetime, WebauthnState, validated_account_display_name,
     validated_passkey_label,
 };
 pub use crate::account_presentation::{
@@ -265,5 +266,6 @@ pub(crate) use contracts::{
     FeedbackStore, RunStore, StatisticsStore, assignment_item_is_retired,
     assignment_scoring_changed, current_attempt_points, decode_catalog_search_cursor,
     decode_workspace_draft_cursor, delete_and_regrade_update, encode_catalog_search_cursor,
-    encode_workspace_draft_cursor, recalculated_enrollment_projection, select_assignment_run_items,
+    encode_workspace_draft_cursor, recalculated_enrollment_projection,
+    select_assignment_group_candidates, select_assignment_run_items,
 };

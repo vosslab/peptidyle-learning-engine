@@ -259,6 +259,19 @@ where
         Ok(None) => return error_response(StatusCode::NOT_FOUND, "run not found"),
         Err(error) => return store_error_response(error),
     };
+    let run_items = match state
+        .store
+        .learner_assignment_run_items(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            run.id,
+        )
+        .await
+    {
+        Ok(Some(items)) => items,
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "run not found"),
+        Err(error) => return store_error_response(error),
+    };
     let scoring_status =
         learner_scoring_status(state.store.as_ref(), &authenticated, run.enrollment).await;
     for attempt in &mut page.items {
@@ -292,6 +305,10 @@ where
                 .items
                 .into_iter()
                 .map(|attempt| LearnerAttemptProjection {
+                    pool_selection: pool_selection_for_position(
+                        &run_items,
+                        attempt.assignment_position,
+                    ),
                     attempt,
                     scoring_status,
                 })
@@ -328,7 +345,7 @@ where
         Ok(None) => return error_response(StatusCode::NOT_FOUND, "attempt not found"),
         Err(error) => return store_error_response(error),
     };
-    let _run = match authorized_run(state.store.as_ref(), &authenticated, attempt.run).await {
+    let run = match authorized_run(state.store.as_ref(), &authenticated, attempt.run).await {
         Ok(run) => run,
         Err(response) => return response,
     };
@@ -353,18 +370,32 @@ where
         };
         attempt = record.attempt;
         let scoring_status =
-            learner_scoring_status(state.store.as_ref(), &authenticated, _run.enrollment).await;
+            learner_scoring_status(state.store.as_ref(), &authenticated, run.enrollment).await;
         apply_learner_disclosure(record.disclosure.decision(), scoring_status, &mut attempt);
     }
+    let pool_selection = match state
+        .store
+        .learner_assignment_run_items(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            run.id,
+        )
+        .await
+    {
+        Ok(Some(items)) => pool_selection_for_position(&items, attempt.assignment_position),
+        Ok(None) => return error_response(StatusCode::NOT_FOUND, "run not found"),
+        Err(error) => return store_error_response(error),
+    };
     no_store(
         Json(LearnerAttemptProjection {
             attempt,
             scoring_status: learner_scoring_status(
                 state.store.as_ref(),
                 &authenticated,
-                _run.enrollment,
+                run.enrollment,
             )
             .await,
+            pool_selection,
         })
         .into_response(),
     )

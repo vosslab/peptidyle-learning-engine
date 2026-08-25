@@ -12,7 +12,6 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			personas=("elena_instructor", "mary_student"),
 			baseline_reads=("base_course",),
 			ui_creates=("question", "course", "assignment", "invitation", "response"),
-			sysadmin_requirement="not_required",
 			visible_observation="issued_question_persists_while_future_run_uses_replacement",
 		),
 	)

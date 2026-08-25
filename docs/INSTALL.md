@@ -75,9 +75,11 @@ source source_me.sh && python3 local_stack.py start --no-open
 ```
 
 The first command opens the canonical HTTPS origin. The second starts the same
-session without opening a browser and prints the origin. Complete sign-in and
-first-claim actions through the visible production-auth UI; no alternate auth
-switch is part of this entry point. For the complete
+session without opening a browser and prints the origin. In the visible
+production-auth UI, choose one of the five seeded personas and then choose an
+authorized course. The server creates the ordinary account and tenant sessions
+and derives roles from stored PLE state; no alternate auth switch is part of
+this entry point. For the complete
 stack and lease/cleanup contract, see
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) and
 [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md).

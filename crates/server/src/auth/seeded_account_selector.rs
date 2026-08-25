@@ -35,14 +35,16 @@ enum SeededAccountPersona {
     MaryStudent,
     JackStudent,
     AveryStudent,
+    MorganSysadmin,
 }
 
 impl SeededAccountPersona {
-    const ALL: [Self; 4] = [
+    const ALL: [Self; 5] = [
         Self::ElenaInstructor,
         Self::MaryStudent,
         Self::JackStudent,
         Self::AveryStudent,
+        Self::MorganSysadmin,
     ];
 
     const fn config_key(self) -> &'static str {
@@ -51,20 +53,21 @@ impl SeededAccountPersona {
             Self::MaryStudent => "mary_student",
             Self::JackStudent => "jack_student",
             Self::AveryStudent => "avery_student",
+            Self::MorganSysadmin => "morgan_sysadmin",
         }
     }
 }
 
-/// Exact four-account mapping enabled only for a live-demo deployment.
+/// Exact five-account mapping enabled only for a live-demo deployment.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeededAccountSelectorConfig {
     origin: Arc<str>,
-    accounts: [UserId; 4],
+    accounts: [UserId; 5],
 }
 
 impl SeededAccountSelectorConfig {
     /// Builds the closed mapping after deployment configuration validation.
-    pub fn new(origin: Arc<str>, accounts: [UserId; 4]) -> Result<Self, String> {
+    pub fn new(origin: Arc<str>, accounts: [UserId; 5]) -> Result<Self, String> {
         let duplicate_account = accounts
             .iter()
             .enumerate()
@@ -81,9 +84,11 @@ impl SeededAccountSelectorConfig {
             SeededAccountPersona::MaryStudent => self.accounts[1],
             SeededAccountPersona::JackStudent => self.accounts[2],
             SeededAccountPersona::AveryStudent => self.accounts[3],
+            SeededAccountPersona::MorganSysadmin => self.accounts[4],
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn contains_user(&self, user: UserId) -> bool {
         self.accounts.contains(&user)
     }
@@ -376,8 +381,11 @@ mod tests {
     }
 
     fn selector_config() -> SeededAccountSelectorConfig {
-        SeededAccountSelectorConfig::new(Arc::from(ORIGIN), [user(1), user(2), user(3), user(4)])
-            .expect("closed selector configuration")
+        SeededAccountSelectorConfig::new(
+            Arc::from(ORIGIN),
+            [user(1), user(2), user(3), user(4), user(5)],
+        )
+        .expect("closed selector configuration")
     }
 
     fn session_config() -> SessionConfig {
@@ -419,6 +427,7 @@ mod tests {
             (user(2), "Mary Student"),
             (user(3), "Jack Student"),
             (user(4), "Avery Student"),
+            (user(5), "Morgan Sysadmin"),
         ] {
             provision(store, user, name).await;
         }
@@ -510,7 +519,7 @@ mod tests {
     async fn availability_exposes_only_safe_persisted_labels() {
         let store = Arc::new(MemoryStore::default());
         provision_selector_accounts(store.as_ref()).await;
-        let response = app(store, Some(selector_config()))
+        let response = app(Arc::clone(&store), Some(selector_config()))
             .oneshot(
                 Request::builder()
                     .uri("/api/auth/live-demo/accounts")
@@ -527,7 +536,11 @@ mod tests {
         )
         .expect("utf8");
         assert!(
-            body.contains("Elena Instructor") && !body.contains("role") && !body.contains("tenant")
+            body.contains("Elena Instructor")
+                && body.contains("Morgan Sysadmin")
+                && body.contains("morganSysadmin")
+                && !body.contains("role")
+                && !body.contains("tenant")
         );
     }
 
@@ -541,7 +554,7 @@ mod tests {
                     .method("POST")
                     .uri("/api/auth/live-demo/accounts")
                     .header("content-type", "application/json")
-                    .body(Body::from(r#"{"persona":"maryStudent"}"#))
+                    .body(Body::from(r#"{"persona":"morganSysadmin"}"#))
                     .expect("request"),
             )
             .await
@@ -567,7 +580,7 @@ mod tests {
     fn selector_config_rejects_non_adjacent_duplicate_accounts() {
         let result = SeededAccountSelectorConfig::new(
             Arc::from(ORIGIN),
-            [user(1), user(2), user(1), user(4)],
+            [user(1), user(2), user(1), user(4), user(5)],
         );
         assert!(result.is_err());
     }
@@ -613,7 +626,7 @@ mod tests {
                     .uri("/api/auth/live-demo/accounts")
                     .header("content-type", "text/plain")
                     .header("origin", ORIGIN)
-                    .body(Body::from(r#"{"persona":"maryStudent"}"#))
+                    .body(Body::from(r#"{"persona":"morganSysadmin"}"#))
                     .expect("wrong content type request"),
             )
             .await
@@ -666,14 +679,14 @@ mod tests {
     async fn selected_account_gets_only_account_proof_before_course_selection() {
         let store = Arc::new(MemoryStore::default());
         provision_selector_accounts(store.as_ref()).await;
-        let response = app(store, Some(selector_config()))
+        let response = app(Arc::clone(&store), Some(selector_config()))
             .oneshot(
                 Request::builder()
                     .method("POST")
                     .uri("/api/auth/live-demo/accounts")
                     .header("content-type", "application/json")
                     .header("origin", ORIGIN)
-                    .body(Body::from(r#"{"persona":"maryStudent"}"#))
+                    .body(Body::from(r#"{"persona":"morganSysadmin"}"#))
                     .expect("request"),
             )
             .await
@@ -692,6 +705,11 @@ mod tests {
                     .iter()
                     .any(|value| value.starts_with("__Host-ple_session=;"))
         );
+        let account = store
+            .resolve_account_session(account_token_hash(&account_cookie_pair(&response)))
+            .await
+            .expect("account session lookup");
+        assert_eq!(account.map(|session| session.user), Some(user(5)));
     }
 
     #[tokio::test]

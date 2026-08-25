@@ -16,9 +16,9 @@ pub(super) struct IsolatedDatabase {
 
 impl IsolatedDatabase {
     pub(super) async fn provision(label: &str) -> Self {
-        let url = std::env::var("PLE_TEST_DATABASE_URL")
-            .expect("PLE_TEST_DATABASE_URL names a disposable PostgreSQL 17 database");
-        let admin_options = PgConnectOptions::from_str(&url)
+        let runtime = load_acceptance_runtime();
+        let url = runtime.admin_url().expose();
+        let admin_options = PgConnectOptions::from_str(url)
             .expect("disposable PostgreSQL URL")
             .database("postgres");
         let admin = PgPoolOptions::new()
@@ -32,7 +32,7 @@ impl IsolatedDatabase {
             .execute(&admin)
             .await
             .expect("create isolated authority database");
-        let product_options = PgConnectOptions::from_str(&url)
+        let product_options = PgConnectOptions::from_str(url)
             .expect("disposable PostgreSQL URL")
             .database(&name);
         let pool = PgPoolOptions::new()

@@ -586,11 +586,10 @@ pub enum PreviewEvaluation {
     },
 }
 
-/// Typed names for future packages; T3 intentionally has no executable implementation for them.
+/// Typed names for later packages that have no executable implementation yet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PreviewDeferredCapability {
-    PoolDrawSample,
     CloneAndTermShift,
 }
 
@@ -849,13 +848,13 @@ mod tests {
     }
 
     #[test]
-    fn closed_future_and_denial_wires_stay_minimal() {
+    fn remaining_future_seam_and_denial_wires_stay_minimal() {
         assert_eq!(
             serde_json::to_value(PreviewFutureSeam::Unavailable {
-                capability: PreviewDeferredCapability::PoolDrawSample
+                capability: PreviewDeferredCapability::CloneAndTermShift
             })
             .unwrap(),
-            serde_json::json!({"kind":"unavailable","capability":"poolDrawSample"})
+            serde_json::json!({"kind":"unavailable","capability":"cloneAndTermShift"})
         );
         assert_eq!(
             serde_json::to_value(PreviewFutureSeam::Unavailable {

@@ -318,38 +318,124 @@ A wider type-check pass covers `tests/` and `tools/` via `tsconfig.lint.json` (`
 
 Heads-up: `tsc -p tsconfig.lint.json` exits 2 with `TS18003` ("No inputs were found in config file") when its `include` list matches no files. A consumer with no `tests/*.ts` and no `tools/*.ts` will hit this on `check_codebase.sh` step 2. Workarounds: (1) seed a stub `.ts` in either tree, or (2) edit the consumer-owned `tsconfig.lint.json` and narrow `include` to a tree that exists.
 
-## Build system
+## BUILD SYSTEM
 
-Run `./build.sh` for the production browser artifact. It builds the Rust
-workspace, Wasm bridge, generated TypeScript definitions, fixture projection,
-and Solid client in dependency order. The client build uses
-`pipeline/build.mjs`, the esbuild JavaScript API, and `esbuild-plugin-solid`.
-The Solid plugin is required to compile JSX correctly.
+Use `npx tsc --noEmit -p tsconfig.json` to type-check, and `npx esbuild <entry>.ts --bundle --format=esm --target=es2020 --platform=browser --minify --sourcemap --outfile=dist/main.js` for runtime bundle.
 
-`dist/` is an ordinary PLE browser bundle, served at the same origin as the
-API by the application gateway. It is not a static deployment artifact.
+### Why this shape
 
-### Artifact boundaries
+esbuild produces a single deterministic ESM bundle GitHub Pages serves without per-file MIME quirks. The alternative (repo-root `tsc -p tsconfig.json` emitting many `.js` files served alongside `index.html`) multiplies HTTP requests and produces inconsistent module-resolution across browsers.
 
-The default client entry `src/main.tsx` imports `src/api/browser_client.ts`,
-which creates the same-origin HTTP client used by production and browser
-testing. `run_playwright_tests.sh` builds `dist/` and the suite owner serves it
-through its disposable HTTPS gateway. The remaining alternate browser-test
-build code is a retirement-inventory concern; it is not a supported browser
-execution path.
+### Output convention
 
-### Operational commands
+Single `dist/main.js` + `dist/index.html` + `dist/.nojekyll`. GitHub Pages serves `dist/`. No `dist-single/` portable single-file variant in the canonical base.
 
-- `./check_codebase.sh` runs the fast TypeScript gate.
-- `./build.sh` builds the complete PLE application artifact.
-- `source source_me.sh && python3 local_stack.py start --no-open` starts ordinary local PLE.
-- `./run_playwright_tests.sh` runs a focused production-browser real-stack scenario.
-- `source source_me.sh && python3 local_stack.py acceptance` runs the complete connected browser acceptance.
-- `./devel/clean_build.sh` removes build outputs.
+### esbuild CLI vs JS-API
 
-`npm run build`, `npm run launch`, `npm run check`, `npm run clean`, and
-`npm run test:playwright` are convenience aliases. The direct commands remain
-the documented interface.
+The default canonical bundler path is the esbuild CLI, invoked inline from
+`build_github_pages.sh` (the `npx esbuild ...` command above). Use the CLI unless a build
+plugin forces the JS-API.
+
+The esbuild JS-API path -- a `pipeline/build.mjs` script that imports esbuild and calls
+`esbuild.build(...)` -- is sanctioned ONLY when a required plugin cannot load through the CLI.
+The live case is `esbuild-plugin-solid` (Solid apps such as `pseudo-code-mapper`,
+`concept-map-maker`, and `virtual-lab-protocol-simulation`): the CLI cannot load the plugin, so
+those repos bundle through `node pipeline/build.mjs`. This is a need-driven second path, not a
+co-equal option to the CLI.
+
+### Build variants tied to a need
+
+Document a build variant only where a real design need drives it, not by head count:
+
+- esbuild loaders: map a non-JS extension to a loader, e.g. `--loader:.csv=text` and
+  `--loader:.json=json`, so the bundle inlines the data and `dist/` stays self-contained
+  (`sports-life-game`).
+- Multi-entry builds: one esbuild bundle per entry when a repo ships several pages
+  (`virtual-lab-protocol-simulation` builds multiple bundles plus per-protocol HTML).
+- Pre-build codegen: a generation step run BEFORE bundling, e.g. compiling YAML to JSON or
+  generating SVG assets, wired into `build_github_pages.sh` ahead of the esbuild call.
+
+### Front door: run the shell scripts directly
+
+The named shell scripts are the operational interface for everyone, including
+non-TypeScript coders and non-technical users. Run them directly by name; you
+never need to open `package.json` to learn how to drive a repo:
+
+- `./check_codebase.sh` (run the fast typecheck, lint, format, and unit-test gate).
+- `./build_github_pages.sh` (build the GitHub Pages bundle).
+- `./run_web_server.sh` (build and serve a local preview).
+- `./devel/clean_build.sh` (wipe `dist/`).
+- `./run_playwright_tests.sh` (build as needed, then run the Playwright
+  browser tests). This is its own front door so `check_codebase.sh` stays the fast gate.
+
+Each script invokes its tools directly (`npx tsc`, `npx eslint`, `npx prettier`,
+`node --test`). The `package.json` `scripts` block is a thin pass-through: the
+front-door aliases call the same shell scripts 1:1. The script name is the
+interface; the npm alias is an optional mirror for coders with npm muscle memory.
+
+Two audiences, one interface:
+
+- General and non-TypeScript coders: use the named repo scripts. They are the
+  project interface. You should not need to inspect `package.json`, learn npm
+  aliases, or know which JS tool runs underneath.
+- TypeScript coders: the shell scripts are still the source of truth. npm
+  aliases may exist as ecosystem mirrors, so `package.json` never becomes the
+  hidden command router.
+
+This is a command-architecture rule, not an alias inventory. Real, directly-runnable
+commands and named scripts are the operational interface; `package.json` is never a hidden
+command router. Every major operation -- check, build, serve, clean, Playwright -- is
+reachable by a real script name without opening `package.json`. An npm alias earns its place
+only as a thin 1:1 mirror of a shell script or a shortcut for a verbose tool command. The
+specific alias set (`check`, `build`, `serve`, `clean`, `format:write`) only illustrates the
+principle; the principle is primary.
+
+`check_codebase.sh` is the single check gate regardless of which `package.json` scripts a repo
+exposes. Granular-only per-tool scripts (`typecheck`, `lint`, `format:check` with no
+front-door script) are a legacy/divergent shape seen in older repos (`sports-life-game`,
+`hantavirus-outbreak-game`): migrate them toward the named front-door scripts rather than
+treating the per-tool list as canonical.
+
+Alias rules:
+
+- Shell scripts are the canonical project interface; this is the cross-language
+  repo convention. Documentation leads with the shell or direct command, then
+  mentions the npm alias as an optional convenience.
+- Allow an npm alias only when it mirrors a shell script or shortens a verbose
+  tool command. `npm run check` mirroring `./check_codebase.sh` is fine;
+  `format:write` is fine because it hides a long Prettier glob.
+- Remove weak aliases that are niche, broken, or barely simplify. Keep an alias that
+  mirrors a real tool command: the optional `pdf` alias (`node tools/html_to_pdf.mjs`) is
+  present in several repos and is a fine thin mirror of a real tool.
+- Repo-specific domain scripts are acceptable additions when they mirror a real tool, e.g.
+  `virtual-lab-protocol-simulation`'s `layout:*` and `*:png` scripts (`node tools/...`). They
+  are optional per-repo extras, not part of the canonical alias set.
+- Keep a small mirror set. Do not gut all npm scripts unless the repo is
+  intentionally non-idiomatic TypeScript; a TypeScript developer expects some
+  `package.json` scripts.
+
+| Shell script | npm alias | Job |
+| --- | --- | --- |
+| `./check_codebase.sh` | `npm run check` | Typecheck, lint, format-check, Node unit tests |
+| `./build_github_pages.sh` | `npm run build` | Build the esbuild bundle into `dist/` |
+| `./run_web_server.sh` | `npm run serve` | Build and serve `dist/` on a random port |
+| `./devel/clean_build.sh` | `npm run clean` | Remove `dist/` |
+| `./run_playwright_tests.sh` | `npm run test:playwright` | Build as needed, then run Playwright browser tests |
+
+The remaining `package.json` aliases have no shell-script front door. Run their
+direct command instead of the alias when you are not in an npm workflow. Use the
+locally-installed form (`npx ...`) so the command works without a global install:
+
+| npm alias | Direct command |
+| --- | --- |
+| `npm run format:write` | `npx prettier --write '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'` |
+| `npm run setup` | `./devel/setup_typescript.sh` |
+| `npm run setup:playwright` | `./devel/setup_playwright.sh` |
+
+The `tools/html_to_pdf.mjs` HTML-to-PDF tool is run directly
+(`node tools/html_to_pdf.mjs`), documented in the `PLAYWRIGHT_USAGE.md` doc
+where it ships; several repos also expose an optional `pdf` npm
+alias that mirrors it 1:1.
 
 ### Shell scripts versus Python scripts
 
@@ -360,6 +446,26 @@ future Python helper stays named and directly runnable
 (`./calculate_scene_metrics.py` or `python3 calculate_scene_metrics.py`), with a
 shell wrapper only when it improves usability, never a hidden alias.
 
+### Canonical scripts
+
+See the shell-script/npm-alias table above for the full list of scripts and their jobs.
+Script names for reference:
+`build_github_pages.sh`, `run_web_server.sh`, `check_codebase.sh`,
+`devel/clean_build.sh`, `run_playwright_tests.sh`.
+
+### Repo-local extras
+
+Consumer repos often add thin domain-specific commands beyond the shared front
+doors. Examples in the current corpus include:
+
+- `layout:*` scripts for layout metrics and diffs
+- `protocol:png` and `scene:png` for image export helpers
+- `pdf` as a thin wrapper around `node tools/html_to_pdf.mjs`
+- a `dev` command for watch-mode builds in some browser-game repos
+
+Treat these as repo-owned conveniences, not replacements for the shared
+front-door scripts.
+
 ### Module system
 
 ESM only. No IIFE. No file:// loading path.
@@ -368,12 +474,31 @@ ESM only. No IIFE. No file:// loading path.
 
 `package-lock.json` committed in every TS consumer repo. Not propagated (per-repo artifact, generated by `npm install` at bootstrap). `yarn.lock` and `pnpm-lock.yaml` not used.
 
-## Live PLE deployment
+## Live demo / GitHub Pages
 
-PLE deploys as its server platform. A browser reaches the same-origin gateway,
-which serves `dist/` and proxies API requests. PostgreSQL and object storage
-remain normal application services. The live-demo lifecycle changes seeded
-baseline data and authentication entry, while retaining that same system.
+When a repo deploys to GitHub Pages, link the live instance near the top of the README so
+readers can play or run the project in one click, right from the browser without cloning or
+building it locally. Treat this as a chosen convention: it began as
+`science-choose-adventure`'s single "Play it live:" line and is promoted here to a standard
+that any Pages-deploying repo opts into.
+
+### Pages deployment shape
+
+These repos deploy through GitHub Actions from the build output:
+
+- `build_github_pages.sh` emits the site into `dist/`, including `dist/.nojekyll`, and `dist/`
+  is the published site root.
+- A root-level `deploy-pages.yml` workflow seed ships alongside the repo files. A human moves
+  it into the workflows directory to activate it. Root placement is the convention: agents
+  edit only repo-root files, so the seed ships cleanly at the root and a human completes the
+  move into the workflows directory.
+
+### Live URL in the README
+
+- Link the live instance as `https://<owner>.github.io/<repo>/`.
+- Place the link near the top of the README, on its own line just below the first paragraph.
+- Keep the first paragraph as pure prose. It is the GitHub About source text per the README
+  first-paragraph rule in docs/REPO_STYLE.md, so the live-URL line sits just below it.
 
 ## CONFIGURATION
 
@@ -388,9 +513,12 @@ This is the baseline TypeScript repository layout:
 - `src/main.ts` &mdash; canonical entry point (`src/main.tsx` for JSX or Solid).
 - `src/index.html` &mdash; HTML host with `<script type="module" src="main.js">`.
 - `src/style.css` &mdash; stylesheet copied verbatim into `dist/`.
-- `dist/` &mdash; ordinary gateway-served browser build output.
+- `dist/` &mdash; only build output (canonical GitHub Pages artifact).
 
-Entry point: `src/main.ts` (or `src/main.tsx` for JSX/Solid) is canonical.
+Entry point: `src/main.ts` (or `src/main.tsx` for JSX/Solid) is canonical. `src/init.ts` is
+LEGACY: `build_github_pages.sh` still accepts it as a fallback and prints a rename warning, so
+migrate it to `src/main.ts`. The names are not co-equal; `main.ts`/`main.tsx` is the target
+and `init.ts` is deprecated.
 
 This is the canonical floor, not a ceiling. Per-repo additions (`src/*.ts` modules, `tests/test_*.mjs`, `tests/playwright/*.spec.ts`) are expected and not constrained. `src/` modules use snake_case filenames and may be organized into grouping subdirectories as a repo grows. `check_codebase.sh` step 6 (`node --import tsx --test 'tests/test_*.mjs'`) SKIPs cleanly (does not fail the gate) when no `tests/test_*.mjs` files are present, so a fresh consumer can land its first test without a placeholder smoke file shipped by the template.
 

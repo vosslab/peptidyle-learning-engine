@@ -290,36 +290,6 @@ def verify_courses_and_memberships(
 
 
 #============================================
-def verify_unclaimed_authentication_state(
-	stack: e2e_live_demo_stack.DisposableStack,
-	database: str,
-) -> None:
-	"""Verify candidate approval and Sysadmin ownership remain unclaimed."""
-	absent = (
-		(
-			f"SELECT user_id FROM instructor_approval WHERE user_id = '{APPROVAL_CANDIDATE_ID}'",
-			"approval-candidate approval",
-		),
-		(
-			f"SELECT user_id FROM account_passkey WHERE user_id = '{SYSADMIN_ID}'",
-			"seeded Sysadmin passkey",
-		),
-		(
-			"SELECT user_id FROM account_authentication_session "
-			f"WHERE user_id = '{SYSADMIN_ID}'",
-			"seeded Sysadmin account session",
-		),
-		(
-			f"SELECT user_id FROM auth_session WHERE tenant_id = '{TENANT_ID}' "
-			f"AND user_id = '{SYSADMIN_ID}'",
-			"seeded Sysadmin tenant session",
-		),
-	)
-	for sql, description in absent:
-		require_exact_value(stack, database, sql, "", description)
-
-
-#============================================
 def verify_exact_baseline(
 	stack: e2e_live_demo_stack.DisposableStack,
 	database: str,
@@ -342,7 +312,6 @@ def verify_exact_baseline(
 		)
 	verify_accounts(stack, database)
 	course_id, _ = verify_courses_and_memberships(stack, database)
-	verify_unclaimed_authentication_state(stack, database)
 	require_exact_value(
 		stack, database,
 		f"SELECT title || '|' || lifecycle FROM assignment WHERE tenant_id = '{TENANT_ID}' "

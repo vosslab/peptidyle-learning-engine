@@ -3,14 +3,7 @@
 
 services:
   identity-secret-init:
-    volumes:
-      - type: bind
-        source: ${PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE:?set by e2e_browser_suite_owner.py}
-        target: /run/source/live_demo_sysadmin_claim_context.json
-        read_only: true
-        bind:
-          create_host_path: false
-    command: ["/bin/sh", "-ec", "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; cp /run/source/question_id_secret /run/ple-secrets/question_id_secret; cp /run/source/live_demo_sysadmin_claim_context.json /run/ple-secrets/live_demo_sysadmin_claim_context.json; chmod 600 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret /run/ple-secrets/live_demo_sysadmin_claim_context.json; chown 10001:10001 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret /run/ple-secrets/live_demo_sysadmin_claim_context.json"]
+    command: ["/bin/sh", "-ec", "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; cp /run/source/question_id_secret /run/ple-secrets/question_id_secret; chmod 600 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret; chown 10001:10001 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret"]
 
   api:
     build:
@@ -24,7 +17,6 @@ services:
       PLE_LIVE_DEMO_JACK_STUDENT_USER_ID: ${PLE_LIVE_DEMO_JACK_STUDENT_USER_ID:?set by e2e_browser_suite_owner.py}
       PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID: ${PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID:?set by e2e_browser_suite_owner.py}
       PLE_LIVE_DEMO_SYSADMIN_USER_ID: ${PLE_LIVE_DEMO_SYSADMIN_USER_ID:?set by e2e_browser_suite_owner.py}
-      PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_FILE: /run/ple-secrets/live_demo_sysadmin_claim_context.json
     volumes: !override
       - ple_identity_runtime:/run/ple-secrets:ro
 

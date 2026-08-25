@@ -37,5 +37,6 @@ test-support = []
 [dev-dependencies]
 tokio.workspace = true
 uuid.workspace = true
+acceptance-runtime = { path = "../acceptance-runtime" }
 adapter_native = { path = "../adapters/native" }
 base_course_installation.workspace = true

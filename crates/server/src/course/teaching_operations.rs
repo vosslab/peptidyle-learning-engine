@@ -11,7 +11,7 @@ use std::sync::Arc;
 use axum::Router;
 use learning_data_access::{
     AuthoritativeTimeStore, CourseGroupManagementStore, CourseRecordsAccessStore,
-    NavigationReferenceStore, PreviewPlaneStore, SessionStore, Store,
+    NavigationReferenceStore, PoolPreviewStore, PreviewPlaneStore, SessionStore, Store,
     TeachingAuthorityReferenceStore, TeachingAuthorityStore,
 };
 
@@ -26,6 +26,7 @@ where
         + TeachingAuthorityStore
         + TeachingAuthorityReferenceStore
         + NavigationReferenceStore
+        + PoolPreviewStore
         + PreviewPlaneStore
         + 'static,
 {

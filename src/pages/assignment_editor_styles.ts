@@ -1,6 +1,12 @@
 // assignment_editor_styles.ts - compact desktop-first instructor workspace.
 
 export const ASSIGNMENT_EDITOR_STYLES = `
+.assignment-editor-operation-boundary {
+  border: 0;
+  margin: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
 .assignment-editor-save-result {
   display: grid;
   gap: 0.25rem;
@@ -161,6 +167,72 @@ export const ASSIGNMENT_EDITOR_STYLES = `
 
 .assignment-editor-row-actions .quiet-action:last-child {
   color: var(--ple-danger);
+}
+
+.assignment-editor-pool {
+  grid-template-columns: minmax(0, 1fr) auto;
+  border-inline-start: 0.3rem solid var(--ple-accent-strong);
+}
+
+.assignment-editor-pool-fields,
+.assignment-editor-pool-candidates {
+  grid-column: 1 / -1;
+}
+
+.assignment-editor-pool-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ple-compact-gap, 0.35rem);
+}
+
+.assignment-editor-pool-candidates {
+  margin-top: 0.5rem;
+  padding: 0.6rem;
+  border-radius: var(--ple-radius-control, 0.45rem);
+  background: color-mix(in srgb, var(--ple-theme-primary) 7%, var(--ple-card-surface));
+}
+
+.assignment-editor-pool-candidates h4 {
+  margin: 0;
+}
+
+.assignment-editor-pool-candidates ul {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.45rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assignment-editor-pool-candidates li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.assignment-editor-pool-preview {
+  grid-column: 1 / -1;
+  margin-top: 0.5rem;
+  padding: 0.7rem;
+  border: 1px solid var(--ple-border-strong, var(--ple-border));
+  border-radius: var(--ple-radius-control, 0.45rem);
+  background: color-mix(in srgb, var(--ple-success, #237447) 8%, var(--ple-card-surface));
+}
+
+.assignment-editor-pool-preview h4,
+.assignment-editor-pool-preview h5,
+.assignment-editor-pool-preview p {
+  margin: 0.2rem 0;
+}
+
+.assignment-editor-pool-preview ul,
+.assignment-editor-pool-preview ol {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.35rem 0;
+  padding-inline-start: 1.2rem;
 }
 
 .assignment-editor-direct-import {
@@ -326,7 +398,8 @@ export const ASSIGNMENT_EDITOR_STYLES = `
 
 @media (max-width: 60rem) {
   .assignment-editor-grid,
-  .assignment-editor-policy-panel {
+  .assignment-editor-policy-panel,
+  .assignment-editor-pool-fields {
     grid-template-columns: 1fr;
   }
 

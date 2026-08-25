@@ -874,9 +874,7 @@ def test_closed_teaching_owner_is_a_teaching_profile_but_custom_target_is_not(
 		project_prefix="ple_live_demo_baseline_", private_environment_file=target.env_file,
 	)
 	assert local_stack_control.lifecycle_profiles.uses_local_teaching_state(disposable)
-	assert not local_stack_control.lifecycle_profiles.uses_live_demo_sysadmin_claim_context(disposable)
 	assert not local_stack_control.lifecycle_profiles.uses_local_teaching_state(target)
-	assert not local_stack_control.lifecycle_profiles.uses_live_demo_sysadmin_claim_context(target)
 
 
 #============================================
@@ -886,10 +884,7 @@ def test_live_teaching_bootstrap_keeps_seed_inputs_without_local_auth_files(
 	"""The TLS owner creates seed inputs without introducing local-file credentials."""
 	target = lifecycle_target(tmp_path, "ple-live-demo-browser", "live/env.local")
 	target.env_file.parent.mkdir()
-	target.env_file.write_text(
-		"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE=live/.runtime/claim-context.json\n",
-		encoding="ascii",
-	)
+	target.env_file.write_text("\n", encoding="ascii")
 	target.env_file.chmod(0o600)
 	disposable = local_stack_control.models.DisposableComposeTarget(
 		target=target,

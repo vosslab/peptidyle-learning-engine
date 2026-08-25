@@ -467,9 +467,9 @@ BEGIN
 
     -- Only an authorized, locked course/assignment may reveal target bindings.
     IF p_attempt IS NOT NULL THEN
-        SELECT run_row.run_id, enrollment_row.enrollment_id, enrollment_row.course_membership_id,
+        SELECT run_row.run_id, enrollment_row.enrollment_id,
                enrollment_row.user_id, enrollment_row.student_id
-          INTO locked_run, enrollment, target_membership, target_user, target_student
+          INTO locked_run, enrollment, target_user, target_student
           FROM public.question_attempt AS attempt_row
           JOIN public.assignment_run AS run_row
             ON run_row.tenant_id = attempt_row.tenant_id AND run_row.run_id = attempt_row.run_id
@@ -480,9 +480,9 @@ BEGIN
            AND attempt_row.course_id = p_course AND enrollment_row.course_id = p_course
            AND enrollment_row.assignment_id = p_assignment;
     ELSIF p_run IS NOT NULL THEN
-        SELECT run_row.run_id, enrollment_row.enrollment_id, enrollment_row.course_membership_id,
+        SELECT run_row.run_id, enrollment_row.enrollment_id,
                enrollment_row.user_id, enrollment_row.student_id
-          INTO locked_run, enrollment, target_membership, target_user, target_student
+          INTO locked_run, enrollment, target_user, target_student
           FROM public.assignment_run AS run_row
           JOIN public.enrollment AS enrollment_row
             ON enrollment_row.tenant_id = run_row.tenant_id
@@ -499,6 +499,17 @@ BEGIN
     IF NOT FOUND OR (p_authority_kind IN ('student_self_service', 'student_self')
                      AND target_user IS DISTINCT FROM p_actor) THEN
         PERFORM public.ple_learner_work_deny_internal();
+    END IF;
+    -- Enrollment and run rows retain their original membership episode as
+    -- evidence. Current authority follows the stable Student identity to the
+    -- active membership episode created by a later re-invitation.
+    IF p_run IS NOT NULL OR p_attempt IS NOT NULL THEN
+        SELECT member.course_membership_id INTO target_membership
+          FROM public.course_member AS member
+         WHERE member.tenant_id = p_tenant AND member.course_id = p_course
+           AND member.user_id = target_user AND member.student_id = target_student
+           AND member.role = 'student' AND member.status = 'active';
+        IF NOT FOUND THEN PERFORM public.ple_learner_work_deny_internal(); END IF;
     END IF;
 
     SELECT COALESCE(array_agg(DISTINCT audience.course_group_id ORDER BY audience.course_group_id),
@@ -551,18 +562,21 @@ BEGIN
     IF NOT FOUND THEN PERFORM public.ple_learner_work_deny_internal(); END IF;
 
     IF enrollment IS NULL THEN
+        -- One immutable receipt follows the Student identity across membership
+        -- episodes; its original course_membership_id remains provenance.
         SELECT enrollment_row.enrollment_id INTO enrollment
           FROM public.enrollment AS enrollment_row
          WHERE enrollment_row.tenant_id = p_tenant AND enrollment_row.course_id = p_course
            AND enrollment_row.assignment_id = p_assignment
-           AND enrollment_row.course_membership_id = target_membership
+           AND enrollment_row.user_id = target_user
+           AND enrollment_row.student_id = target_student
          ORDER BY enrollment_row.enrollment_id FOR UPDATE;
     ELSE
         PERFORM 1 FROM public.enrollment AS enrollment_row
          WHERE enrollment_row.tenant_id = p_tenant AND enrollment_row.enrollment_id = enrollment
            AND enrollment_row.course_id = p_course AND enrollment_row.assignment_id = p_assignment
-           AND enrollment_row.course_membership_id = target_membership
-           AND enrollment_row.user_id = target_user FOR UPDATE;
+           AND enrollment_row.user_id = target_user
+           AND enrollment_row.student_id = target_student FOR UPDATE;
         IF NOT FOUND THEN PERFORM public.ple_learner_work_deny_internal(); END IF;
     END IF;
     IF locked_run IS NOT NULL THEN

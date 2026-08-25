@@ -3,16 +3,15 @@ use super::*;
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL acceptance database"]
 async fn postgres_flat_import_conversion_edit_and_publication_are_atomic_and_private() {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let grader_url = std::env::var("PLE_TEST_GRADER_DATABASE_URL")
-        .expect("PLE_TEST_GRADER_DATABASE_URL must name the disposable grader connection");
-    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let database_url = runtime.admin_url().expose();
+    let grader_url = runtime.grader_url().expose();
+    let pool = lazy_pool(database_url).expect("valid live PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");
     let store = PostgresStore::with_question_id_secret(pool.clone(), [0x42; 32]);
-    let grader = PostgresGraderStore::connect_local_development(&grader_url)
+    let grader = PostgresGraderStore::connect_local_development(grader_url)
         .await
         .expect("dedicated grader credentials are accepted");
 

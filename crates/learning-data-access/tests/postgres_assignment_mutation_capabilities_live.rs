@@ -22,6 +22,9 @@ use serde_json::{Value, json};
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
+#[path = "postgres_assignment_mutation_capabilities_live/unissued_definition.rs"]
+mod unissued_definition;
+
 fn id() -> Uuid {
     let mut bytes = [0_u8; 16];
     getrandom::fill(&mut bytes).expect("fixture UUID randomness");
@@ -29,9 +32,9 @@ fn id() -> Uuid {
 }
 
 async fn pool() -> PgPool {
-    let url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL names a disposable PostgreSQL 17 database");
-    let pool = lazy_pool(&url).expect("valid disposable PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose();
+    let pool = lazy_pool(url).expect("valid disposable PostgreSQL URL");
     apply_migrations(&pool)
         .await
         .expect("full migration epoch applies");
@@ -48,6 +51,13 @@ async fn pool() -> PgPool {
             .iter()
             .any(|entry| entry.version() == 2026081814),
         "the complete authority migration is present"
+    );
+    assert!(
+        status
+            .entries()
+            .iter()
+            .any(|entry| entry.version() == 2026081826),
+        "the structural replacement authority migration is present"
     );
     pool
 }
@@ -284,7 +294,7 @@ async fn active_attempt_witness(
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL and a disposable PostgreSQL 17 database"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn definition_create_replace_and_focused_capabilities_are_authorized_atomic_and_revisioned() {
     let pool = pool().await;
     let source = source(&pool).await;
@@ -435,7 +445,7 @@ async fn definition_create_replace_and_focused_capabilities_are_authorized_atomi
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL and a disposable PostgreSQL 17 database"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn assignment_capabilities_refuse_stale_foreign_malformed_and_direct_dml_without_partial_state()
  {
     let pool = pool().await;
@@ -621,7 +631,7 @@ async fn assignment_capabilities_refuse_stale_foreign_malformed_and_direct_dml_w
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL and a disposable PostgreSQL 17 database"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn creation_prepare_catalog_and_membership_lock_preserve_least_authority() {
     let pool = pool().await;
     let source = source(&pool).await;
@@ -809,3 +819,6 @@ async fn creation_prepare_catalog_and_membership_lock_preserve_least_authority()
         "denied preparation leaves no partial assignment"
     );
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

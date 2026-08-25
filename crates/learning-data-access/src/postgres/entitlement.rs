@@ -223,7 +223,14 @@ pub(super) async fn prepare_materialization(
     tenant: TenantId,
     command: MaterializeAssignmentEntitlementCommand,
 ) -> Result<PreparedEntitlementMaterialization, StoreError> {
-    let witness = prepare_entitlement_materialization(transaction, tenant, command).await?;
+    let witness = match prepare_entitlement_materialization(transaction, tenant, command).await? {
+        super::learner_work_preparation::EntitlementPreparationDecision::Granted(witness) => {
+            witness
+        }
+        super::learner_work_preparation::EntitlementPreparationDecision::Denied(reason) => {
+            return Ok(PreparedEntitlementMaterialization::Denied(reason));
+        }
+    };
     let (membership, audience, groups) =
         hydrate_entitlement_witness_sources(transaction, &witness).await?;
     let decision = evaluate_assignment_entitlement(EntitlementFacts {

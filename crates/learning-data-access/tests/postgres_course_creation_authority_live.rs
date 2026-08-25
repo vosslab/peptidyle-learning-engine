@@ -55,9 +55,9 @@ fn session_hash(seed: u8) -> String {
 
 async fn pool() -> PgPool {
     let _migration_guard = MIGRATION_LOCK.lock().await;
-    let url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL names a disposable PostgreSQL 17 database");
-    let pool = lazy_pool(&url).expect("valid disposable PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose();
+    let pool = lazy_pool(url).expect("valid disposable PostgreSQL URL");
     apply_migrations(&pool)
         .await
         .expect("full migration epoch applies");
@@ -191,7 +191,7 @@ async fn sysadmin_contender(
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL and a disposable PostgreSQL 17 database"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn ordinary_course_creation_authorizes_sessions_and_preserves_complete_aggregates() {
     let pool = pool().await;
     let people = seed_people(&pool).await;
@@ -362,7 +362,7 @@ async fn ordinary_course_creation_authorizes_sessions_and_preserves_complete_agg
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL and a disposable PostgreSQL 17 database"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn ordinary_authority_blocks_direct_dml_private_core_and_duplicate_identity() {
     let pool = pool().await;
     let people = seed_people(&pool).await;
@@ -400,7 +400,7 @@ async fn ordinary_authority_blocks_direct_dml_private_core_and_duplicate_identit
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL and a disposable PostgreSQL 17 database"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn capability_matrix_and_authority_races_remain_serialized() {
     let pool = pool().await;
     let people = seed_people(&pool).await;
@@ -498,7 +498,7 @@ async fn capability_matrix_and_authority_races_remain_serialized() {
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL and a disposable PostgreSQL 17 database"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn installer_capability_is_locked_recipe_bound_and_converges_exact_course_prefixes() {
     let isolated = recipe_guards::IsolatedDatabase::provision("installer").await;
     let pool = isolated.pool.clone();
@@ -944,3 +944,6 @@ async fn installer_capability_is_locked_recipe_bound_and_converges_exact_course_
     assert_complete_aggregate(&pool, people.tenant, genetics, base_people.morgan, 1).await;
     isolated.cleanup().await;
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

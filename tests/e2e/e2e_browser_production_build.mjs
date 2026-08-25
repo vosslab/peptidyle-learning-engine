@@ -3,6 +3,7 @@
 // Node unit-test lane because it inspects the emitted browser artifact.
 
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 
@@ -14,8 +15,27 @@ const browserBundle = fs.readFileSync("dist/main.js", "utf8");
 
 assert.match(
   indexHtml,
-  /<(?:link|script)\b[^>]+(?:href|src)="\/(?:style|main)\.css\?v=[0-9a-f]{8}"/u,
-  "the production build resolves browser assets from the gateway root",
+  /<link rel="stylesheet" href="\/style\.css\?v=[0-9a-f]{8}"\s*\/>/u,
+  "the production build fingerprints the shared stylesheet",
+);
+const accessibilityStylesheet = fs.readFileSync("dist/styles/accessibility.css", "utf8");
+const accessibilityHash = crypto
+  .createHash("sha256")
+  .update(accessibilityStylesheet)
+  .digest("hex")
+  .slice(0, 8);
+assert.match(
+  indexHtml,
+  new RegExp(
+    `<link rel="stylesheet" href="/styles/accessibility\\.css\\?v=${accessibilityHash}"\\s*/>`,
+    "u",
+  ),
+  "the production build fingerprints the extracted accessibility stylesheet",
+);
+assert.match(
+  accessibilityStylesheet,
+  /@media \(prefers-reduced-motion: reduce\)/u,
+  "the production artifact contains the reduced-motion accessibility rules",
 );
 assert.match(
   indexHtml,

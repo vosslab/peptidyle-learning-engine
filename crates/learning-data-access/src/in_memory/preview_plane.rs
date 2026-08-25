@@ -22,6 +22,73 @@ use question_model::{
 use super::*;
 
 #[async_trait]
+impl crate::PoolPreviewStore for MemoryStore {
+    async fn preview_pool_draw(
+        &self,
+        context: TenantContext,
+        command: crate::PoolPreviewCommand,
+    ) -> Result<question_model::PoolDrawPreview, StoreError> {
+        let state = self.read_state()?;
+        let tenant = context.tenant_id();
+        super::teaching_authority::require_direct_instructor(
+            &state,
+            tenant,
+            command.course,
+            command.actor,
+        )?;
+        let (assignment_id, assignment) = preview_assignment(
+            &state,
+            tenant,
+            command.course,
+            command.assignment,
+            command.revision,
+        )?;
+        let group = assignment
+            .selection_groups
+            .iter()
+            .find(|group| group.position == command.group_position)
+            .ok_or(StoreError::NotFound)?;
+        let (_, sampled) = crate::select_assignment_group_candidates(
+            group,
+            question_model::PoolDrawBasis::preview(assignment_id, group.id, command.nonce),
+        )?;
+        let question = |candidate: &question_model::AssignmentSelectionCandidate| {
+            let published = state
+                .published
+                .get(&(candidate.reference.problem, candidate.reference.version))
+                .ok_or(StoreError::NotFound)?;
+            Ok::<question_model::PoolDrawPreviewQuestion, StoreError>(
+                question_model::PoolDrawPreviewQuestion {
+                    question_id: published.question_id.clone(),
+                    title: published.question.metadata.title.clone(),
+                },
+            )
+        };
+        Ok(question_model::PoolDrawPreview {
+            assignment: command.assignment,
+            revision: command.revision,
+            group_position: command.group_position,
+            group_label: pool_preview_group_label(command.group_position),
+            draw_count: group.draw_count,
+            ordering: group.ordering,
+            algorithm: group.algorithm,
+            candidates: group
+                .candidates
+                .iter()
+                .filter(|candidate| {
+                    candidate.delivery_state == question_model::AssignmentDeliveryState::Active
+                })
+                .map(question)
+                .collect::<Result<Vec<_>, _>>()?,
+            sampled: sampled
+                .into_iter()
+                .map(question)
+                .collect::<Result<Vec<_>, _>>()?,
+        })
+    }
+}
+
+#[async_trait]
 impl crate::PreviewPlaneStore for MemoryStore {
     async fn list_instructor_preview_schedule(
         &self,
@@ -192,6 +259,10 @@ impl crate::PreviewPlaneStore for MemoryStore {
         }
         Ok(result)
     }
+}
+
+fn pool_preview_group_label(position: u32) -> String {
+    format!("Pool {}", position.saturating_add(1))
 }
 
 pub(super) fn resolve_synthetic_preview_locked(

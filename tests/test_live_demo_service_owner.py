@@ -183,7 +183,6 @@ def offline_dependencies(
 			workspace / "disposable.capability",
 			"https://localhost:55001/",
 			ports,
-			workspace / "claim-context.json",
 		)
 		return result
 

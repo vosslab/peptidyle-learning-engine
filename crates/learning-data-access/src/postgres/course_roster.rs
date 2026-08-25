@@ -279,7 +279,6 @@ impl CourseRosterStore for PostgresStore {
             let mut transaction = self.begin_tenant(context).await?;
             let actor =
                 precheck_course_roster_authority(&mut transaction, session, command.course).await?;
-            lock_course_roster_cross_product(&mut transaction, tenant, command.course).await?;
             let revision = member_revoke_capability::revoke_course_student(
                 &mut transaction,
                 tenant,

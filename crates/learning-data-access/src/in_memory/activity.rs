@@ -271,7 +271,7 @@ impl crate::ActivityStore for MemoryStore {
 
         match transition {
             ActivityTransition::StartRun { run } => {
-                let run_items = select_assignment_run_items(&assignment, run.id)?;
+                let run_items = select_assignment_run_items(&assignment, &run)?;
                 state.run_items.insert((tenant, run.id), run_items);
                 state.runs.insert((tenant, run.id), run);
             }

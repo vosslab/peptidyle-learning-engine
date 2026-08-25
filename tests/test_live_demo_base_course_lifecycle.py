@@ -10,7 +10,6 @@ import local_stack_control.base_course_lifecycle
 import local_stack_control.commands
 import local_stack_control.compose
 import local_stack_control.env_file
-import local_stack_control.live_demo_claim_context
 import local_stack_control.lifecycle
 import local_stack_control.lifecycle_profiles
 import local_stack_control.models
@@ -321,7 +320,7 @@ def test_base_course_failure_redacts_both_child_database_urls() -> None:
 
 
 #============================================
-def test_baseline_owner_finalizes_without_sysadmin_claim_context(
+def test_baseline_owner_finalizes_without_browser_ownership_setup(
 	tmp_path: pathlib.Path,
 ) -> None:
 	"""The database and storage baseline owner does not exercise browser ownership setup."""
@@ -337,8 +336,6 @@ def test_baseline_owner_finalizes_without_sysadmin_claim_context(
 	preparation = local_stack_control.base_course_lifecycle.decode(
 		base_course_receipt("retained", "complete"), "prepare"
 	)
-
-	assert not local_stack_control.lifecycle_profiles.uses_live_demo_sysadmin_claim_context(disposable)
 
 	local_stack_control.lifecycle.finalize_installed_base_course(
 		BaseCourseRunner(),
@@ -524,59 +521,6 @@ def test_custom_target_skips_base_course(tmp_path: pathlib.Path) -> None:
 	)
 
 	assert (preparation, runner.calls) == (None, [])
-
-
-#============================================
-def test_claim_context_preserves_matching_generation_and_rotates_new_generation(
-
-	tmp_path: pathlib.Path,
-) -> None:
-	"""The authoritative receipt retains or rotates the private proof by generation."""
-	path = tmp_path / ".runtime/live-demo-sysadmin-claim-context.json"
-	first = local_stack_control.live_demo_claim_context.ensure_context(
-		path,
-		"00000000-0000-0000-0000-000000000006",
-		local_stack_control.lifecycle.LOCAL_SYSADMIN_ID,
-		lambda _: b"a" * 32,
-	)
-	same = local_stack_control.live_demo_claim_context.ensure_context(
-		path,
-		"00000000-0000-0000-0000-000000000006",
-		local_stack_control.lifecycle.LOCAL_SYSADMIN_ID,
-		lambda _: b"b" * 32,
-	)
-	rotated = local_stack_control.live_demo_claim_context.ensure_context(
-		path,
-		"00000000-0000-0000-0000-000000000007",
-		local_stack_control.lifecycle.LOCAL_SYSADMIN_ID,
-		lambda _: b"c" * 32,
-	)
-
-	assert (same.ownership_proof, rotated.installation_generation) == (
-		first.ownership_proof,
-		"00000000-0000-0000-0000-000000000007",
-	)
-	assert rotated.ownership_proof != first.ownership_proof
-	assert stat.S_IMODE(path.stat().st_mode) == 0o600
-
-
-#============================================
-def test_malformed_claim_context_fails_without_replacement(tmp_path: pathlib.Path) -> None:
-	"""An ambiguous private context never becomes a new unreviewed proof."""
-	path = tmp_path / ".runtime/live-demo-sysadmin-claim-context.json"
-	path.parent.mkdir()
-	path.write_text("not-json", encoding="ascii")
-	path.chmod(0o600)
-
-	with pytest.raises(local_stack_control.models.ControllerError):
-		local_stack_control.live_demo_claim_context.ensure_context(
-			path,
-			"00000000-0000-0000-0000-000000000006",
-			local_stack_control.lifecycle.LOCAL_SYSADMIN_ID,
-			lambda _: b"a" * 32,
-		)
-
-	assert path.read_text(encoding="ascii") == "not-json"
 
 
 #============================================

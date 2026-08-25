@@ -93,18 +93,6 @@ impl PasswordlessRateLimitIssuer {
         self.key_in_domain(b"ple-live-demo-selector-rate-limit-v1\\0", scope, value)
     }
 
-    pub(in crate::auth) fn seeded_sysadmin_ownership_key(
-        &self,
-        scope: AuthenticationRateLimitScope,
-        value: &[u8],
-    ) -> Option<AuthenticationRateLimitKey> {
-        self.key_in_domain(
-            b"ple-seeded-sysadmin-ownership-rate-limit-v1\\0",
-            scope,
-            value,
-        )
-    }
-
     fn key_in_domain(
         &self,
         domain: &[u8],

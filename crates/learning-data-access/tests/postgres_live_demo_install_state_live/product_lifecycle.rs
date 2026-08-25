@@ -1,3 +1,4 @@
+use super::load_acceptance_runtime;
 use std::str::FromStr;
 
 use base_course_installation::{
@@ -41,13 +42,13 @@ fn exact_sha256(output: &Value, field: &str) -> String {
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL for a fresh disposable PostgreSQL database"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn base_course_product_serializes_restart_and_retains_exact_evidence() {
-    let url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name a fresh disposable database");
-    let admin = super::admin_pool(&url).await;
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose();
+    let admin = super::admin_pool(url).await;
     super::reset_disposable_course_capability_memberships(&admin).await;
-    let pool = lazy_pool(&url).expect("PostgreSQL URL");
+    let pool = lazy_pool(url).expect("PostgreSQL URL");
     apply_migrations(&pool)
         .await
         .expect("embedded migrations apply to the disposable database");
@@ -93,12 +94,12 @@ async fn base_course_product_serializes_restart_and_retains_exact_evidence() {
         .await
         .expect("disposable oracle clears only its lifecycle marker");
 
-    let database = PgConnectOptions::from_str(&url)
+    let database = PgConnectOptions::from_str(url)
         .expect("PostgreSQL URL")
         .get_database()
         .expect("database name")
         .to_string();
-    let product = ProductDatabase::provision(&admin, &url, &database).await;
+    let product = ProductDatabase::provision(&admin, url, &database).await;
     let participants = Participants::fresh();
     let store = product.store();
     let api_store = product.api_store();

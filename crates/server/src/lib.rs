@@ -77,6 +77,8 @@ pub mod run;
 /// Current-score worker with private staging and generation-fenced publication.
 pub mod scoring_worker;
 #[cfg(test)]
+pub(crate) mod test_acceptance_runtime;
+#[cfg(test)]
 pub(crate) mod test_fixtures;
 /// Server-owned, generation-fenced deadline finalization.
 pub mod timing_worker;

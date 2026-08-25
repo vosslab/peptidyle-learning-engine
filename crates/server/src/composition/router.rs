@@ -35,7 +35,6 @@ pub(super) fn compose_passwordless_router<S, O, C, B, R>(
     passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
     client_address_policy: crate::auth::ClientAddressPolicy,
     live_demo_selector: Option<crate::auth::SeededAccountSelectorConfig>,
-    live_demo_sysadmin_ownership: Option<crate::auth::SeededSysadminOwnershipConfig>,
     webauthn: Option<crate::auth::PasswordlessWebauthn>,
     health: Arc<HealthState>,
 ) -> Router
@@ -60,11 +59,11 @@ where
         + learning_data_access::CourseGroupManagementStore
         + learning_data_access::AccountIdentityStore
         + learning_data_access::AccountSessionStore
-        + learning_data_access::LiveDemoInstallationStore
         + SessionStore
         + learning_data_access::TeachingAuthorityStore
         + learning_data_access::TeachingAuthorityReferenceStore
         + learning_data_access::NavigationReferenceStore
+        + learning_data_access::PoolPreviewStore
         + learning_data_access::PreviewPlaneStore
         + AssetStore
         + CourseAppearanceStore
@@ -156,14 +155,6 @@ where
         .layer(Extension(health));
 
     if let Some(webauthn) = webauthn {
-        router = router.merge(crate::auth::seeded_sysadmin_ownership_router(
-            Arc::clone(&store),
-            live_demo_sysadmin_ownership,
-            webauthn.clone(),
-            passwordless_rate_limit_issuer.clone(),
-            client_address_policy.clone(),
-            session_config,
-        ));
         router = router.merge(crate::auth::passkey_router(
             Arc::clone(&store),
             webauthn,

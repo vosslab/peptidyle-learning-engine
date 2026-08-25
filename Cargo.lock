@@ -3,6 +3,16 @@
 version = 4
 
 [[package]]
+name = "acceptance-runtime"
+version = "26.8.0"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_yaml_ng",
+ "url",
+]
+
+[[package]]
 name = "adapter_h5p"
 version = "26.8.0"
 dependencies = [
@@ -1973,6 +1983,7 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 name = "learning-data-access"
 version = "26.8.0"
 dependencies = [
+ "acceptance-runtime",
  "adapter_native",
  "async-trait",
  "base-course-installation",
@@ -2514,6 +2525,7 @@ dependencies = [
 name = "project-tools"
 version = "26.8.0"
 dependencies = [
+ "acceptance-runtime",
  "adapter_native",
  "adapter_webwork",
  "anyhow",
@@ -3064,6 +3076,7 @@ dependencies = [
 name = "server_core"
 version = "26.8.0"
 dependencies = [
+ "acceptance-runtime",
  "adapter_imathas",
  "adapter_native",
  "adapter_qti",

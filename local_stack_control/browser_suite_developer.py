@@ -671,18 +671,26 @@ def _terminate_child(child: object, timeout_seconds: float) -> None:
 
 
 #============================================
-def _recover_failed_start(repository_root: pathlib.Path) -> None:
-	"""Reacquire B2 after child exit and prove one exact empty fixed fixture."""
+def purge_orphaned_session(
+	repository_root: pathlib.Path,
+	runner: local_stack_control.process.CommandRunner,
+) -> str:
+	"""Reacquire the fixed lease and purge one interrupted browser owner.
+
+	The caller reaches this path only after its authenticated supervisor protocol
+	is unavailable.  The lease proves no live owner remains; the reset then uses
+	the closed project/label registry rather than a caller-selected target.
+	"""
 	lease = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(repository_root)
 	try:
 		snapshot = local_stack_control.browser_suite_reset.reset_live_demo_browser(
-			lease, local_stack_control.process.SubprocessRunner(), repository_root
+			lease, runner, repository_root
 		)
 		if snapshot.containers or snapshot.volumes or snapshot.networks:
-			raise DeveloperBrowserSuiteError("developer browser failed-start reset left owned resources")
+			raise DeveloperBrowserSuiteError("developer browser purge left owned resources")
 		workspace = lease.reset_workspace()
 		if tuple(workspace.iterdir()):
-			raise DeveloperBrowserSuiteError("developer browser failed-start reset left workspace artifacts")
+			raise DeveloperBrowserSuiteError("developer browser purge left workspace artifacts")
 		root_descriptor = _checked_root_descriptor(repository_root)
 		try:
 			_remove_private_entry(root_descriptor, CONTROL_NAME)
@@ -690,8 +698,19 @@ def _recover_failed_start(repository_root: pathlib.Path) -> None:
 			_remove_private_entry(root_descriptor, RESULT_NAME)
 		finally:
 			os.close(root_descriptor)
+		_remove_socket_path(repository_root)
 	finally:
 		lease.release()
+	return local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
+
+
+#============================================
+def _recover_failed_start(repository_root: pathlib.Path) -> None:
+	"""Reacquire B2 after child exit and prove one exact empty fixed fixture."""
+	purge_orphaned_session(
+		repository_root,
+		local_stack_control.process.SubprocessRunner(),
+	)
 
 
 #============================================

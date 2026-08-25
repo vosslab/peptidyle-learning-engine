@@ -12,9 +12,10 @@ use published_assignment::create_published_assignment;
 
 use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 use learning_data_access::{
-    AssignmentRecord, CatalogStore, CourseRecord, CourseRosterStore, CreateCourseCommand,
-    DraftRecord, LearnerWorkRoutingBinding, NavigationReferenceStore, PublishDraftCommand, Store,
-    TenantContext, UpsertCourseMember,
+    AssignmentRecord, CatalogStore, CourseGroupManagementStore, CourseGroupRecord, CourseRecord,
+    CourseRosterStore, CreateCourseCommand, DraftRecord, LearnerWorkRoutingBinding,
+    NavigationReferenceStore, PublishDraftCommand, PutCourseGroupCommand, Store, TenantContext,
+    UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -26,12 +27,13 @@ use question_model::run_policy::{
 use question_model::taxonomy::License;
 use question_model::{
     AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId, AssignmentScoringMode,
-    BackendCapabilities, Capability, CourseGroupReference, CourseId, DraftQuestionDefinition,
-    DraftQuestionSource, GradingDefinition, PointValue, ProblemId, ProblemVersionRef,
-    PublicAuthorName, PublicByline, PublicationScope, QuestionMetadata, QuestionSource,
-    ResponseDefinition, RunId, TenantId, UserId, VersionId, WorkspaceId,
+    BackendCapabilities, Capability, CourseGroupId, CourseGroupPurpose, CourseGroupReference,
+    CourseId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, PointValue,
+    ProblemId, ProblemVersionRef, PublicAuthorName, PublicByline, PublicationScope,
+    QuestionMetadata, QuestionSource, ResponseDefinition, RunId, TenantId, UserId, VersionId,
+    WorkspaceId,
 };
-use sqlx::{PgPool, Row};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 fn id() -> Uuid {
@@ -225,40 +227,46 @@ async fn assert_invalid_byline_insert_rolls_back(pool: &PgPool) {
     );
 }
 
-async fn insert_group_and_read_public_id(pool: &PgPool, tenant: TenantId, course: CourseId) -> i32 {
-    let mut transaction = pool.begin().await.expect("begin group allocation probe");
-    sqlx::query("SET LOCAL ROLE ple_app")
-        .execute(&mut *transaction)
+async fn create_group_and_read_reference(
+    store: &PostgresStore,
+    context: TenantContext,
+    actor: UserId,
+    tenant: TenantId,
+    course: CourseId,
+) -> CourseGroupReference {
+    let group = CourseGroupId::from_uuid(id());
+    store
+        .put_course_group(
+            context,
+            PutCourseGroupCommand {
+                actor,
+                expected_revision: None,
+                record: CourseGroupRecord {
+                    id: group,
+                    tenant,
+                    course,
+                    purpose: CourseGroupPurpose::Section,
+                    title: "Reference group".to_string(),
+                    members: Vec::new(),
+                },
+            },
+        )
         .await
-        .expect("use application RLS role");
-    sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
-        .bind(tenant.to_string())
-        .execute(&mut *transaction)
+        .expect("production group capability allocates the reference group");
+    store
+        .get_course_group_by_id_for_instructor(context, actor, course, group)
         .await
-        .expect("set group tenant context");
-    let public_id: i32 = sqlx::query(
-        "INSERT INTO course_group \
-         (tenant_id, course_id, course_group_id, purpose, title) \
-         VALUES ($1, $2, $3, 'section', 'Reference group') RETURNING public_id",
-    )
-    .bind(tenant.as_uuid())
-    .bind(course.as_uuid())
-    .bind(id())
-    .fetch_one(&mut *transaction)
-    .await
-    .expect("tenant-local group insert allocates global identity")
-    .try_get("public_id")
-    .expect("group identity is an integer");
-    transaction.commit().await.expect("commit group allocation");
-    public_id
+        .expect("production group projection reads the reference")
+        .expect("created reference group remains visible")
+        .reference
 }
 
 #[tokio::test]
 #[ignore = "requires a fresh disposable PostgreSQL 17 database with the full migration chain"]
 async fn postgres_public_references_and_bylines_are_normalized_authorized_and_immutable() {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let database_url = runtime.admin_url().expose();
+    let pool = lazy_pool(database_url).expect("valid live PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("full migrated application schema is compatible");
@@ -504,13 +512,21 @@ async fn postgres_public_references_and_bylines_are_normalized_authorized_and_im
         Ok(None)
     );
 
-    let own_group = insert_group_and_read_public_id(&pool, tenant, course).await;
-    let foreign_group =
-        insert_group_and_read_public_id(&pool, foreign_tenant, foreign_course).await;
-    assert!(own_group > 0 && foreign_group > 0);
-    assert_ne!(own_group, foreign_group, "group route scalar is global");
-    let group_reference = CourseGroupReference::new(own_group as u64)
-        .expect("positive PostgreSQL group identity is a route reference");
+    let group_reference =
+        create_group_and_read_reference(&store, context, instructor, tenant, course).await;
+    let foreign_group_reference = create_group_and_read_reference(
+        &store,
+        foreign_context,
+        outsider,
+        foreign_tenant,
+        foreign_course,
+    )
+    .await;
+    assert_ne!(
+        group_reference.number(),
+        foreign_group_reference.number(),
+        "group route scalar is global"
+    );
     assert_eq!(
         group_reference.to_string().parse(),
         Ok(group_reference),
@@ -527,7 +543,7 @@ async fn postgres_public_references_and_bylines_are_normalized_authorized_and_im
         .await
         .expect("set foreign tenant context");
     let visible: i64 = sqlx::query_scalar("SELECT count(*) FROM course_group WHERE public_id = $1")
-        .bind(own_group)
+        .bind(i64::from(group_reference.number()))
         .fetch_one(&mut *foreign_group_read)
         .await
         .expect("foreign group query is filtered");
@@ -615,3 +631,6 @@ async fn postgres_public_references_and_bylines_are_normalized_authorized_and_im
             .any(|item| item.byline == byline())
     );
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

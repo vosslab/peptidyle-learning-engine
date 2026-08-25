@@ -1,5 +1,6 @@
 //! Fresh PostgreSQL 17 runtime evidence for Base Course completion receipts.
 
+use super::load_acceptance_runtime;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -35,9 +36,9 @@ struct CompletionFixture {
 
 impl CompletionFixture {
     async fn installing_with_full_product_graph() -> Self {
-        let url = std::env::var("PLE_TEST_DATABASE_URL")
-            .expect("PLE_TEST_DATABASE_URL must name a PostgreSQL 17 server with CREATEDB");
-        let admin = super::admin_pool(&url).await;
+        let runtime = load_acceptance_runtime();
+        let url = runtime.admin_url().expose();
+        let admin = super::admin_pool(url).await;
         reset_disposable_course_capability_memberships(&admin).await;
         let database = format!("ple_t4_completion_{:x}", fresh().as_u128());
         assert!(
@@ -48,7 +49,7 @@ impl CompletionFixture {
             .execute(&admin)
             .await
             .expect("create isolated completion-evidence child database");
-        let options = PgConnectOptions::from_str(&url)
+        let options = PgConnectOptions::from_str(url)
             .expect("PostgreSQL test URL")
             .database(&database);
         let pool = PgPoolOptions::new()
@@ -67,7 +68,7 @@ impl CompletionFixture {
             (170_000..180_000).contains(&version),
             "completion evidence requires PostgreSQL 17, found {version}"
         );
-        let product = ProductDatabase::provision(&admin, &url, &database).await;
+        let product = ProductDatabase::provision(&admin, url, &database).await;
         let participants = Participants::fresh();
         let installer = product.installer_pool();
         let store = product.store();
@@ -530,7 +531,7 @@ async fn assert_grade_scheme_refusal(
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL for a fresh PostgreSQL 17 server with CREATEDB"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn completion_refuses_base_course_scheme_revision_one_without_a_receipt() {
     let _guard = COMPLETION_TEST_LOCK.lock().await;
     let fixture = CompletionFixture::installing_with_full_product_graph().await;
@@ -545,7 +546,7 @@ async fn completion_refuses_base_course_scheme_revision_one_without_a_receipt() 
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL for a fresh PostgreSQL 17 server with CREATEDB"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn completion_refuses_practice_course_scheme_revision_two_without_a_receipt() {
     let _guard = COMPLETION_TEST_LOCK.lock().await;
     let fixture = CompletionFixture::installing_with_full_product_graph().await;
@@ -560,7 +561,7 @@ async fn completion_refuses_practice_course_scheme_revision_two_without_a_receip
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL for a fresh PostgreSQL 17 server with CREATEDB"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn completion_receipt_is_atomic_immutable_and_closed_to_runtime_logins() {
     let _guard = COMPLETION_TEST_LOCK.lock().await;
     let fixture = CompletionFixture::installing_with_full_product_graph().await;
@@ -696,7 +697,7 @@ async fn completion_receipt_is_atomic_immutable_and_closed_to_runtime_logins() {
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL for a fresh PostgreSQL 17 server with CREATEDB"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn serializable_completion_retries_the_full_verifier_for_invalid_and_valid_conflicts() {
     let _guard = COMPLETION_TEST_LOCK.lock().await;
     let invalid = CompletionFixture::installing_with_full_product_graph().await;

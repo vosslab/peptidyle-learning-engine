@@ -22,10 +22,11 @@ pub(super) use question_model::presentation::{
     AssetBindingV1, PresentationV1, build_presentation_v1,
 };
 pub(super) use question_model::{
-    AssignmentEnrollment, AssignmentId, AssignmentRun, AttemptResult, CourseAppearance, CourseId,
-    CourseSummary, DisclosedFeedback, FeedbackContent, LearnerAssignmentProgress,
-    PresentationBindingV1, ProblemVersionRef, QuestionAttempt, QuestionAttemptId,
-    QuestionDefinition, QuestionEnvelope, RunId, StudentAssignmentSummary, StudentResponse,
+    AssignmentEnrollment, AssignmentId, AssignmentRun, AssignmentRunItem, AttemptResult,
+    CourseAppearance, CourseId, CourseSummary, DisclosedFeedback, FeedbackContent,
+    LearnerAssignmentProgress, PresentationBindingV1, ProblemVersionRef, QuestionAttempt,
+    QuestionAttemptId, QuestionDefinition, QuestionEnvelope, RunId, StudentAssignmentSummary,
+    StudentResponse,
 };
 pub(super) use serde::{Deserialize, Serialize};
 
@@ -119,6 +120,46 @@ pub(super) struct LearnerAttemptProjection {
     #[serde(flatten)]
     pub(super) attempt: QuestionAttempt,
     pub(super) scoring_status: question_model::ScoringStatus,
+    /// Visible placement inside the pool that supplied this issued item.
+    pub(super) pool_selection: Option<PoolSelection>,
+}
+
+/// Answer-free learner-visible placement within one immutable pool draw.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct PoolSelection {
+    /// One-based position in the ordered selected items from this pool.
+    pub(super) item_number: u32,
+    /// Number of issued items selected from the same pool.
+    pub(super) item_count: u32,
+}
+
+/// Projects only the ordinal and size of the immutable selection group that
+/// supplied an issued position. Group identities, candidates, and draw seeds
+/// remain server-only evidence.
+pub(super) fn pool_selection_for_position(
+    run_items: &[AssignmentRunItem],
+    issued_position: u32,
+) -> Option<PoolSelection> {
+    let group = run_items
+        .iter()
+        .find(|item| item.issued_position == issued_position)?
+        .selection_group?;
+    let mut selected = run_items
+        .iter()
+        .filter(|item| item.selection_group == Some(group))
+        .collect::<Vec<_>>();
+    selected.sort_by_key(|item| item.issued_position);
+    let item_number = selected
+        .iter()
+        .position(|item| item.issued_position == issued_position)
+        .and_then(|index| u32::try_from(index).ok())?
+        .checked_add(1)?;
+    let item_count = u32::try_from(selected.len()).ok()?;
+    Some(PoolSelection {
+        item_number,
+        item_count,
+    })
 }
 
 /// Browser-safe identity binding for a just-issued next attempt.
@@ -143,6 +184,8 @@ pub(super) struct PrefetchedNextQuestion {
     pub(super) question_version: question_model::VersionId,
     pub(super) seed: Seed,
     pub(super) rendered_question_sha256: String,
+    /// Visible placement inside the pool that supplied this next question.
+    pub(super) pool_selection: Option<PoolSelection>,
     pub(super) envelope: QuestionEnvelope,
 }
 
@@ -365,4 +408,64 @@ pub(super) fn error_response(status: StatusCode, message: &str) -> Response {
 
 pub(super) async fn no_store_response(response: Response) -> Response {
     no_store(response)
+}
+
+#[cfg(test)]
+mod pool_selection_tests {
+    use super::*;
+    use question_model::{AssignmentItemId, AssignmentSelectionGroupId, ProblemId, VersionId};
+    use uuid::Uuid;
+
+    fn id(value: u128) -> Uuid {
+        Uuid::from_u128(value)
+    }
+
+    fn item(position: u32, group: Option<u128>) -> AssignmentRunItem {
+        AssignmentRunItem {
+            run: RunId::from_uuid(id(1)),
+            assignment_item: AssignmentItemId::from_uuid(id(10 + u128::from(position))),
+            source_position: position,
+            issued_position: position,
+            reference: ProblemVersionRef {
+                problem: ProblemId::from_uuid(id(20 + u128::from(position))),
+                version: VersionId::from_uuid(id(30 + u128::from(position))),
+            },
+            selection_group: group.map(|value| AssignmentSelectionGroupId::from_uuid(id(value))),
+            selection_seed: group.map(|_| 42),
+        }
+    }
+
+    #[test]
+    fn fixed_items_have_no_pool_selection() {
+        assert_eq!(pool_selection_for_position(&[item(0, None)], 0), None);
+    }
+
+    #[test]
+    fn pooled_items_report_one_based_issued_order_and_group_size() {
+        let items = vec![item(2, Some(90)), item(0, None), item(1, Some(90))];
+
+        assert_eq!(
+            pool_selection_for_position(&items, 2),
+            Some(PoolSelection {
+                item_number: 2,
+                item_count: 2,
+            })
+        );
+    }
+
+    #[test]
+    fn pool_selection_serialization_exposes_counts_without_private_draw_evidence() {
+        let json = serde_json::to_value(PoolSelection {
+            item_number: 1,
+            item_count: 2,
+        })
+        .expect("pool selection serializes");
+
+        assert_eq!(json, serde_json::json!({"itemNumber": 1, "itemCount": 2}));
+        assert!(
+            !json.to_string().contains("selectionGroup")
+                && !json.to_string().contains("selectionSeed")
+                && !json.to_string().contains("candidate")
+        );
+    }
 }

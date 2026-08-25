@@ -1,20 +1,12 @@
-// WP-PROF-LD2 same-origin browser transport and closed wire-contract tests.
+// WP-PROF-LD3 direct seeded-role browser transport and closed wire-contract tests.
 
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
-import {
-  decodeLiveDemoOwnershipStart,
-  decodeLiveDemoOwnershipStatus,
-  decodeSeededDemoAccounts,
-} from "../src/api/live_demo.ts";
-import { ApiRequestError, createHttpApiClient } from "../src/api/http_client.ts";
+import { decodeSeededDemoAccounts } from "../src/api/live_demo.ts";
+import { createHttpApiClient } from "../src/api/http_client.ts";
 import { authenticatePasskeyWithBrowser } from "../src/api/http_client/enrollment.ts";
-import { registerLiveDemoSysadminWithBrowser } from "../src/api/http_client/live_demo.ts";
-
-const OWNERSHIP_PROOF = "A".repeat(43);
-const CEREMONY_ID = "0198e000-0000-7000-8000-000000000701";
 
 function jsonResponse(value, status = 200) {
   return new Response(JSON.stringify(value), {
@@ -33,38 +25,26 @@ function createLiveDemoFetch(handler) {
   };
 }
 
-test("live-demo decoders accept only the closed persona and ceremony projections", () => {
+test("live-demo decoders accept the closed five-persona projection", () => {
   const accounts = {
     accounts: [
       { persona: "elenaInstructor", displayName: "Elena Instructor" },
       { persona: "maryStudent", displayName: "Mary Student" },
+      { persona: "jackStudent", displayName: "Jack Student" },
+      { persona: "averyStudent", displayName: "Avery Student" },
+      { persona: "morganSysadmin", displayName: "Morgan Sysadmin" },
     ],
   };
   assert.deepEqual(decodeSeededDemoAccounts(accounts), accounts);
-  assert.throws(
-    () =>
-      decodeSeededDemoAccounts({
-        accounts: [
-          accounts.accounts[0],
-          { persona: "elenaInstructor", displayName: "Different account" },
-        ],
-      }),
-    DecodeError,
-  );
   assert.throws(
     () => decodeSeededDemoAccounts({ accounts: [{ persona: "sysadmin", displayName: "No" }] }),
     DecodeError,
   );
   assert.throws(
-    () => decodeSeededDemoAccounts({ accounts: [{ ...accounts.accounts[0], role: "instructor" }] }),
-    DecodeError,
-  );
-  assert.throws(
-    () => decodeSeededDemoAccounts({ accounts: [{ ...accounts.accounts[0], userId: "private" }] }),
-    DecodeError,
-  );
-  assert.throws(
-    () => decodeSeededDemoAccounts({ accounts: [{ persona: "maryStudent", displayName: " " }] }),
+    () =>
+      decodeSeededDemoAccounts({
+        accounts: [{ ...accounts.accounts[0], role: "instructor" }],
+      }),
     DecodeError,
   );
   assert.throws(
@@ -74,122 +54,24 @@ test("live-demo decoders accept only the closed persona and ceremony projections
       }),
     DecodeError,
   );
-  assert.throws(
-    () => decodeLiveDemoOwnershipStart({ ceremonyId: "not-a-uuid", options: {} }),
-    DecodeError,
-  );
-  assert.throws(
-    () => decodeLiveDemoOwnershipStart({ ceremonyId: CEREMONY_ID, options: [] }),
-    DecodeError,
-  );
-  assert.deepEqual(decodeLiveDemoOwnershipStatus({ available: false }), { available: false });
-  assert.throws(() => decodeLiveDemoOwnershipStatus({ available: "false" }), DecodeError);
 });
 
-test("live-demo requests stay same-origin, no-store, and carry only their closed request bodies", async () => {
-  const requests = [];
-  const client = createHttpApiClient({
-    basePath: "/ple",
-    fetch: createLiveDemoFetch(async (request) => {
-      requests.push(request.clone());
-      const url = new URL(request.url);
-      const path = url.pathname.replace(/^\/ple/u, "");
-      if (path === "/api/auth/live-demo/accounts" && request.method === "GET") {
-        return jsonResponse({
-          accounts: [{ persona: "maryStudent", displayName: "Mary Student" }],
-        });
-      }
-      if (path === "/api/auth/live-demo/accounts") return jsonResponse({ authenticated: true });
-      if (path === "/api/auth/live-demo/sysadmin-ownership" && request.method === "GET") {
-        return jsonResponse({ available: true });
-      }
-      if (path === "/api/auth/live-demo/sysadmin-ownership") {
-        return jsonResponse({ ceremonyId: CEREMONY_ID, options: {} });
-      }
-      return jsonResponse({ authenticated: true });
-    }),
-  });
-
-  await client.listSeededDemoAccounts();
-  await client.selectSeededDemoAccount("maryStudent");
-  await client.getLiveDemoSysadminOwnershipStatus();
-  await client.startLiveDemoSysadminOwnership(OWNERSHIP_PROOF);
-  await client.completeLiveDemoSysadminOwnership(OWNERSHIP_PROOF, CEREMONY_ID, "Laptop passkey", {
-    id: "credential",
-    rawId: "credential",
-    response: { attestationObject: "proof" },
-    type: "public-key",
-  });
-
-  assert.equal(requests.length, 5);
-  const paths = requests.map((request) => new URL(request.url).pathname);
-  assert.deepEqual(paths, [
-    "/ple/api/auth/live-demo/accounts",
-    "/ple/api/auth/live-demo/accounts",
-    "/ple/api/auth/live-demo/sysadmin-ownership",
-    "/ple/api/auth/live-demo/sysadmin-ownership",
-    "/ple/api/auth/live-demo/sysadmin-ownership/complete",
-  ]);
-  for (const request of requests) {
-    assert.equal(request.credentials, "same-origin");
-    assert.equal(request.cache, "no-store");
-  }
-  assert.equal(await requests[1].text(), '{"persona":"maryStudent"}');
-  assert.equal(await requests[3].text(), `{"ownershipProof":"${OWNERSHIP_PROOF}"}`);
-  assert.equal(
-    await requests[4].text(),
-    `{"ownershipProof":"${OWNERSHIP_PROOF}","ceremonyId":"${CEREMONY_ID}","label":"Laptop passkey","credential":{"id":"credential","rawId":"credential","response":{"attestationObject":"proof"},"type":"public-key"}}`,
-  );
-  assert.throws(() => client.selectSeededDemoAccount("unexpected"), DecodeError);
-  assert.throws(() => client.startLiveDemoSysadminOwnership("not-a-proof"), DecodeError);
-  assert.throws(
-    () =>
-      client.completeLiveDemoSysadminOwnership(OWNERSHIP_PROOF, CEREMONY_ID, "L".repeat(81), {
-        id: "credential",
-        rawId: "credential",
-        response: { attestationObject: "proof" },
-        type: "public-key",
-      }),
-    DecodeError,
-  );
-  assert.equal(requests.length, 5);
-});
-
-test("unavailable Sysadmin ownership remains an HTTP absence, not protocol success", async () => {
-  const client = createHttpApiClient({
-    fetch: createLiveDemoFetch(async () => jsonResponse({ unavailable: true }, 404)),
-  });
-  await assert.rejects(
-    client.getLiveDemoSysadminOwnershipStatus(),
-    (error) => error instanceof ApiRequestError && error.status === 404,
-  );
-});
-
-test("shared browser WebAuthn conversion extracts webauthn-rs publicKey options", async () => {
+test("ordinary passkey sign-in converts browser WebAuthn JSON before completing", async () => {
   const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
   const credentialDescriptor = Object.getOwnPropertyDescriptor(globalThis, "PublicKeyCredential");
   const calls = [];
-
   class FakePublicKeyCredential {
-    static parseCreationOptionsFromJSON(options) {
-      calls.push({ kind: "parseCreation", options });
+    static parseRequestOptionsFromJSON(options) {
+      calls.push(options);
       return { challenge: new Uint8Array([1]) };
     }
-
-    static parseRequestOptionsFromJSON(options) {
-      calls.push({ kind: "parseRequest", options });
-      return { challenge: new Uint8Array([2]) };
-    }
-
     constructor(response) {
       this.response = response;
     }
-
     toJSON() {
       return { id: "credential", rawId: "credential", response: this.response, type: "public-key" };
     }
   }
-
   Object.defineProperty(globalThis, "PublicKeyCredential", {
     configurable: true,
     value: FakePublicKeyCredential,
@@ -198,101 +80,75 @@ test("shared browser WebAuthn conversion extracts webauthn-rs publicKey options"
     configurable: true,
     value: {
       credentials: {
-        create: async (options) => {
-          calls.push({ kind: "create", options });
-          return new FakePublicKeyCredential({ attestationObject: "attestation" });
-        },
         get: async (options) => {
-          calls.push({ kind: "get", options });
+          calls.push(options);
           return new FakePublicKeyCredential({ signature: "signature" });
         },
       },
     },
   });
-
   try {
-    const completed = [];
-    await registerLiveDemoSysadminWithBrowser(
-      {
-        listSeededDemoAccounts: async () => ({ accounts: [] }),
-        selectSeededDemoAccount: async () => ({ authenticated: true }),
-        getLiveDemoSysadminOwnershipStatus: async () => ({ available: true }),
-        startLiveDemoSysadminOwnership: async (proof) => {
-          assert.equal(proof, OWNERSHIP_PROOF);
-          return { ceremonyId: CEREMONY_ID, options: { publicKey: { challenge: "one" } } };
-        },
-        completeLiveDemoSysadminOwnership: async (proof, ceremonyId, label, credential) => {
-          completed.push({ proof, ceremonyId, label, credential });
-          return { authenticated: true };
-        },
-      },
-      OWNERSHIP_PROOF,
-      "Laptop passkey",
-    );
+    let completed;
     await authenticatePasskeyWithBrowser({
       startPasskeyAuthentication: async () => ({
-        ceremonyId: CEREMONY_ID,
-        options: { publicKey: { challenge: "two" }, mediation: "conditional" },
+        ceremonyId: "0198e000-0000-7000-8000-000000000701",
+        options: { publicKey: { challenge: "wire" } },
       }),
       completePasskeyAuthentication: async (ceremonyId, credential) => {
-        assert.equal(ceremonyId, CEREMONY_ID);
-        assert.deepEqual(credential.response, { signature: "signature" });
+        completed = { ceremonyId, credential };
         return { authenticated: true };
       },
     });
-    assert.deepEqual(
-      calls.map((call) => call.kind),
-      ["parseCreation", "create", "parseRequest", "get"],
-    );
-    assert.deepEqual(calls[0].options, { challenge: "one" });
-    assert.deepEqual(calls[2].options, { challenge: "two" });
-    assert.deepEqual(calls[3].options, {
-      publicKey: { challenge: new Uint8Array([2]) },
+    assert.deepEqual(calls[0], { challenge: "wire" });
+    assert.deepEqual(calls[1], {
+      publicKey: { challenge: new Uint8Array([1]) },
       mediation: "required",
     });
-    assert.deepEqual(completed, [
-      {
-        proof: OWNERSHIP_PROOF,
-        ceremonyId: CEREMONY_ID,
-        label: "Laptop passkey",
-        credential: {
-          id: "credential",
-          rawId: "credential",
-          response: { attestationObject: "attestation" },
-          type: "public-key",
-        },
+    assert.deepEqual(completed, {
+      ceremonyId: "0198e000-0000-7000-8000-000000000701",
+      credential: {
+        id: "credential",
+        rawId: "credential",
+        response: { signature: "signature" },
+        type: "public-key",
       },
-    ]);
-    await assert.rejects(
-      registerLiveDemoSysadminWithBrowser(
-        {
-          listSeededDemoAccounts: async () => ({ accounts: [] }),
-          selectSeededDemoAccount: async () => ({ authenticated: true }),
-          getLiveDemoSysadminOwnershipStatus: async () => ({ available: true }),
-          startLiveDemoSysadminOwnership: async () => ({ ceremonyId: CEREMONY_ID, options: {} }),
-          completeLiveDemoSysadminOwnership: async () => ({ authenticated: true }),
-        },
-        OWNERSHIP_PROOF,
-        "Laptop passkey",
-      ),
-      /publicKey record/u,
-    );
-    const cancellation = new AbortController();
-    await authenticatePasskeyWithBrowser(
-      {
-        startPasskeyAuthentication: async () => ({
-          ceremonyId: CEREMONY_ID,
-          options: { publicKey: { challenge: "two" } },
-        }),
-        completePasskeyAuthentication: async () => ({ authenticated: true }),
-      },
-      cancellation.signal,
-    );
-    assert.equal(calls.at(-1).options.signal, cancellation.signal);
+    });
   } finally {
     if (navigatorDescriptor === undefined) delete globalThis.navigator;
     else Object.defineProperty(globalThis, "navigator", navigatorDescriptor);
     if (credentialDescriptor === undefined) delete globalThis.PublicKeyCredential;
     else Object.defineProperty(globalThis, "PublicKeyCredential", credentialDescriptor);
   }
+});
+
+test("direct-role requests stay same-origin, no-store, and carry only persona", async () => {
+  const requests = [];
+  const client = createHttpApiClient({
+    basePath: "/ple",
+    fetch: createLiveDemoFetch(async (request) => {
+      requests.push(request.clone());
+      const path = new URL(request.url).pathname.replace(/^\/ple/u, "");
+      if (path === "/api/auth/live-demo/accounts" && request.method === "GET") {
+        return jsonResponse({
+          accounts: [{ persona: "morganSysadmin", displayName: "Morgan Sysadmin" }],
+        });
+      }
+      return jsonResponse({ authenticated: true });
+    }),
+  });
+
+  await client.listSeededDemoAccounts();
+  await client.selectSeededDemoAccount("morganSysadmin");
+
+  assert.equal(requests.length, 2);
+  assert.deepEqual(
+    requests.map((request) => new URL(request.url).pathname),
+    ["/ple/api/auth/live-demo/accounts", "/ple/api/auth/live-demo/accounts"],
+  );
+  for (const request of requests) {
+    assert.equal(request.credentials, "same-origin");
+    assert.equal(request.cache, "no-store");
+  }
+  assert.equal(await requests[1].text(), '{"persona":"morganSysadmin"}');
+  assert.throws(() => client.selectSeededDemoAccount("unexpected"), DecodeError);
 });

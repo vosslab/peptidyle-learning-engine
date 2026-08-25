@@ -557,9 +557,9 @@ fn minio_objects() -> Arc<objects::s3::S3ObjectStore> {
 async fn postgres_minio_cleanup_deletes_superseded_objects_and_preserves_current() {
     use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_application_schema};
 
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    let runtime = crate::test_acceptance_runtime::load();
+    let database_url = runtime.admin_url().expose();
+    let pool = lazy_pool(database_url).expect("valid live PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");

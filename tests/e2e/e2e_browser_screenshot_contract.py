@@ -171,6 +171,12 @@ def validate() -> None:
 	"""Confirm a nonempty, unique, contiguous ordered UI evidence corpus."""
 	if not ARTIFACTS:
 		raise ScreenshotContractError("screenshot corpus must not be empty")
+	if not set(e2e_browser_scenario_contract.REQUIRED_ROLE_SECURITY_SCENARIOS).issubset(
+		{item.scenario_id for item in ARTIFACTS}
+	):
+		raise ScreenshotContractError(
+			"screenshot corpus requires both named role-security journeys"
+		)
 	if tuple(item.capture_order for item in ARTIFACTS) != tuple(range(1, len(ARTIFACTS) + 1)):
 		raise ScreenshotContractError("screenshot capture order is invalid")
 	if len({item.artifact_id for item in ARTIFACTS}) != len(ARTIFACTS):

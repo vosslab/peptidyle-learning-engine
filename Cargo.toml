@@ -16,6 +16,8 @@ members = [
     "crates/server",
     # Build tooling, not part of the product boundary.
     "crates/project-tools",
+    # Disposable acceptance-process boundary, not part of the product boundary.
+    "crates/acceptance-runtime",
 ]
 resolver = "2"
 
@@ -46,6 +48,7 @@ hmac = "*"
 html5ever = "*"
 image = { version = "*", default-features = false, features = ["jpeg", "png", "webp"] }
 idna = "*"
+libc = "*"
 lettre = { version = "*", default-features = false, features = [
     "builder",
     "pool",

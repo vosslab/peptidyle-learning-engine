@@ -8,9 +8,9 @@ use question_model::teaching_operations::{
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 database baseline"]
 async fn postgres_co_instructor_target_search_oracle() {
-    let url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&url).expect("disposable PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose();
+    let pool = lazy_pool(url).expect("disposable PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("migrated schema");
@@ -117,9 +117,9 @@ async fn postgres_co_instructor_target_search_oracle() {
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 database baseline"]
 async fn postgres_teaching_authority_is_target_bound_atomic_and_least_privilege() {
-    let url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&url).expect("disposable PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose();
+    let pool = lazy_pool(url).expect("disposable PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("migrated schema");

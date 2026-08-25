@@ -271,9 +271,9 @@ test.describe("assignment question replacement on the production PLE stack", () 
       await expect(mary.getByRole("heading", { name: "Feedback", exact: true })).toBeVisible();
       await mary.getByRole("button", { name: "View completed run", exact: true }).click();
       await expect(
-        mary.getByRole("button", { name: "Start another practice", exact: true }),
+        mary.getByRole("button", { name: "Start fresh practice", exact: true }),
       ).toBeVisible();
-      await mary.getByRole("button", { name: "Start another practice", exact: true }).click();
+      await mary.getByRole("button", { name: "Start fresh practice", exact: true }).click();
       await expect(
         mary.getByRole("heading", { name: replacementQuestionTitle, exact: true }),
       ).toBeVisible();

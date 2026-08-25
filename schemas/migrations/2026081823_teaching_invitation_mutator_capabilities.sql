@@ -44,7 +44,7 @@ CREATE OR REPLACE FUNCTION public.ple_accept_co_instructor_invitation_v1(
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path TO 'pg_catalog', 'public', pg_temp
 AS $$
-#variable_conflict use_column
+#variable_conflict error
 DECLARE
     v_actor uuid;
     v_course uuid;

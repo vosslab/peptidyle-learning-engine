@@ -17,6 +17,7 @@ import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type {
   PrefetchedNextQuestion,
+  PoolSelection,
   NextIssuedAttempt,
   RunScreenData,
   RunSummaryOutcome,
@@ -143,6 +144,9 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
   const seenSummaryCursors = new Set<string>();
   const [practiceError, setPracticeError] = createSignal<string | null>(null);
   const [prefetched, setPrefetched] = createSignal<PrefetchedNextQuestion | null>(null);
+  const [poolSelection, setPoolSelection] = createSignal<PoolSelection | null>(
+    props.initialScreen.attempt.poolSelection,
+  );
   let requestedPrefetchFor: string | null = null;
   let prefetchController: AbortController | null = null;
 
@@ -219,18 +223,24 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
           envelope: cached.envelope,
         }),
       );
+      setPoolSelection(cached.poolSelection);
       setPrefetched(null);
       requestPrefetch(receiptNext.id);
       return;
     }
     if (receiptNext === null) {
       machine.finish(acknowledgement.runCompletionStatus);
+      if (acknowledgement.runCompletionStatus === "completed") {
+        navigate(`/runs/${runRouteReference(screen().run.reference)}/summary`, { replace: true });
+        return;
+      }
       setSummaryVisible(true);
       void loadSummary();
       return;
     }
     let advancedScreen: RunScreenData | null = null;
     let advancedAttemptId: string | null = null;
+    let advancedPoolSelection: PoolSelection | null | undefined;
     await machine.advance(async () => {
       // Router query results can still describe the submitted attempt. A receipt
       // with a successor must read a current server-issued screen before advancing.
@@ -240,11 +250,18 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
       }
       advancedScreen = next;
       advancedAttemptId = next.attempt.id;
+      advancedPoolSelection = next.attempt.poolSelection;
       const nextContext = attemptContext(next.attempt);
       return { context: nextContext, envelope: next.issuedQuestion };
     });
-    if (advancedScreen === null || advancedAttemptId === null) return;
+    if (
+      advancedScreen === null ||
+      advancedAttemptId === null ||
+      advancedPoolSelection === undefined
+    )
+      return;
     setScreen(advancedScreen);
+    setPoolSelection(advancedPoolSelection);
     setPrefetched(null);
     requestPrefetch(advancedAttemptId);
   }
@@ -410,6 +427,14 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
           )}
         </span>
       </header>
+      <Show when={poolSelection()}>
+        {(selection) => (
+          <p class="run-pool-provenance" role="status">
+            Server-selected pool item {selection().itemNumber} of {selection().itemCount} for this
+            run.
+          </p>
+        )}
+      </Show>
 
       <Show when={summaryVisible() || currentState()?.phase === "terminal"}>
         <section class="attempt-summary" aria-labelledby="attempt-summary-heading">

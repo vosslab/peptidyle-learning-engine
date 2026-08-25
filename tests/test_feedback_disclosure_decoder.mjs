@@ -61,6 +61,29 @@ test("learner attempts require score freshness and redact stale numeric results"
   );
 });
 
+test("learner pool provenance exposes only a valid server-selected ordinal", () => {
+  const attempt = structuredClone(publishedProblemFixture.attempts[0]);
+  const pooled = {
+    ...attempt,
+    scoringStatus: "current",
+    poolSelection: { itemNumber: 1, itemCount: 2 },
+  };
+  assert.deepEqual(decodeLearnerQuestionAttempt(pooled), pooled);
+  assert.throws(
+    () =>
+      decodeLearnerQuestionAttempt({ ...pooled, poolSelection: { itemNumber: 3, itemCount: 2 } }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeLearnerQuestionAttempt({
+        ...pooled,
+        poolSelection: { itemNumber: 1, itemCount: 2, seed: 7 },
+      }),
+    DecodeError,
+  );
+});
+
 test("run summary decoder accepts only its compact redacted wire shape", () => {
   const run = publishedProblemFixture.runs[0];
   const summary = {
@@ -109,9 +132,10 @@ test("run summary decoder accepts only its compact redacted wire shape", () => {
 });
 
 test("submission receipts require an exact feedback field and reject hostile nested material", () => {
+  const { poolSelection: _poolSelection, ...attempt } = publishedProblemFixture.attempts[0];
   const receipt = {
     accepted: true,
-    attempt: publishedProblemFixture.attempts[0],
+    attempt,
     feedback: { correctness: true },
     scoringStatus: "current",
     runCompletionStatus: "inProgress",

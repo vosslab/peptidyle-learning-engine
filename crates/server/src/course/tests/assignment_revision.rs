@@ -119,7 +119,7 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
                 .header("content-type", "application/json")
                 .body(Body::from(
                     serde_json::json!({
-                        "title": "Unavailable", "questionIds": ["000-0000"], "policies": policies(),
+                        "title": "Unavailable", "entries": [{"kind": "fixed", "questionId": "000-0000", "position": 0, "pointsPossible": "1", "deliveryState": "active", "scoringMode": "normal"}], "policies": policies(),
                         "disclosurePolicy": question_model::LearnerDisclosurePolicy::default()
                     })
                     .to_string(),
@@ -137,7 +137,7 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
                 .header("cookie", &cookie)
                 .header("content-type", "application/json")
                 .body(Body::from(serde_json::json!({
-                    "title": "Peptide practice", "questionIds": [question_id], "policies": policies(),
+                    "title": "Peptide practice", "entries": [{"kind": "fixed", "questionId": question_id, "position": 0, "pointsPossible": "1", "deliveryState": "active", "scoringMode": "normal"}], "policies": policies(),
                     "disclosurePolicy": question_model::LearnerDisclosurePolicy::default()
                 }).to_string()))
                 .expect("request"),
@@ -176,8 +176,8 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
         solution: question_model::LearnerDisclosureTiming::AfterClose,
         class_statistics: question_model::LearnerDisclosureTiming::Never,
     };
-    let update_items = serde_json::json!([{
-        "id": created["items"][0]["id"],
+    let update_entries = serde_json::json!([{
+        "kind": "fixed",
         "questionId": created["items"][0]["questionId"],
         "position": created["items"][0]["position"],
         "pointsPossible": created["items"][0]["pointsPossible"],
@@ -194,7 +194,7 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
                 .body(Body::from(
                     serde_json::json!({
                         "title": "Peptide practice",
-                        "items": update_items,
+                        "entries": update_entries,
                         "disclosurePolicy": revised_policy,
                         "policies": policies()
                     })

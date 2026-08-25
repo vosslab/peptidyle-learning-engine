@@ -18,7 +18,7 @@ services:
     image: docker.io/library/postgres@sha256:${PLE_POSTGRES_IMAGE_SHA256:?set by the canonical stack selection}
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?set by e2e_database_baseline.sh}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set by e2e_database_baseline.sh}
+      POSTGRES_PASSWORD_FILE: ${POSTGRES_PASSWORD_FILE:?set by the private acceptance runtime}
       POSTGRES_DB: ${POSTGRES_DB:?set by e2e_database_baseline.sh}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
@@ -29,6 +29,7 @@ services:
       - "127.0.0.1:${PLE_POSTGRES_HOST_PORT:?set by e2e_database_baseline.sh}:5432"
     volumes:
       - ple_pgdata:/var/lib/postgresql/data
+      - ${PLE_DATABASE_BASELINE_POSTGRES_PASSWORD_FILE:?set by the private acceptance runtime}:/run/ple-runtime/postgres-password:ro
 
 volumes:
   ple_pgdata:

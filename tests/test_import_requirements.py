@@ -26,18 +26,6 @@ LOCAL_IMPORT_WHITELIST = {
 	# Vendored at ~/nsh/local-llm-wrapper and made importable via PYTHONPATH.
 	# Imported by bioproblems_site/llm_helpers.py and problem_set_title.py.
 	"local_llm_wrapper",
-	# E2E peer modules load from the explicit tests/e2e harness directory.
-	"e2e_browser_scenario_contract",
-	"e2e_browser_scenarios_conflict",
-	"e2e_browser_scenarios_failure",
-	"e2e_browser_scenarios_qti",
-	"e2e_browser_fault_orchestrator",
-	"e2e_browser_suite_oracles",
-	"e2e_browser_suite_owner",
-	"e2e_browser_suite_input",
-	"e2e_browser_screenshot_contract",
-	"e2e_browser_screenshot_owner",
-	"e2e_browser_screenshot_publisher",
 }
 IMPORT_REQUIREMENT_ALIASES = {
 	"applefoundationmodels": "apple-foundation-models",
@@ -459,3 +447,4 @@ def test_import_requirements(path: str) -> None:
 	assert rel not in VIOLATIONS_BY_FILE, file_utils.format_violation_assert_message(
 		rel, VIOLATIONS_BY_FILE.get(rel, []), REPORT_NAME
 	)
+# Vendored pytest file. Local changes can and will be overwritten.

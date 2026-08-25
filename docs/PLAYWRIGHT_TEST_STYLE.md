@@ -14,26 +14,35 @@ beside this one in a consumer repo's docs/ folder.
 Existing tests are evidence of what works, not a compliance checklist. Apply
 this guide to new and revised tests; leave working tests in place.
 
-## One execution model
+## Two execution models
 
-PLE uses the Playwright test runner through one owner. `run_playwright_tests.sh` owns the build,
-disposable HTTPS gateway, real services, environment handoff, scenario selection, and cleanup;
-`playwright.config.ts` owns collection under `tests/playwright/e2e/`. Do not add a second browser
-launcher, bare Chromium runner, test-only application, alternate browser client, or
-alternate configuration. Browser-free decoder and serialization behavior belongs in narrow Node, Rust, or
-pytest tests.
+Pick the model that fits your repo, then follow it consistently.
+
+- Use the Playwright test runner (`@playwright/test` with a
+  `playwright.config.ts` and `.spec.ts` files) as the default for durable app
+  tests in a repo that already has a build and config. The runner gives
+  web-first auto-retrying assertions, parallel workers, and a managed server.
+- Use the bare-library model (`import { chromium } from "playwright"` in an
+  `.mjs` script) for config-less repos and for survey, screenshot, or
+  walkthrough workflows. A MkDocs-Material site typically uses this model: it
+  serves rendered routes and drives them from `node` scripts.
+
+Both models are first-class. Choose one per repo and keep a single file on one
+model.
 
 ## File layout and naming
 
 - Put browser tests under `tests/playwright/` at the repo root.
-- Name scenario children after their product behavior and use `.spec.ts`.
+- Name the first, broadest test `smoke` (`smoke.spec.ts` or `*_smoke.mjs`).
+- Use `.spec.ts` for runner tests and `.mjs` for library scripts.
 - Prefix non-test helper files with `helper_` (`helper_server.mjs`) so they
   read as support, not tests. Reserve a bare leading underscore for deletable
   scratch: `_name` files match the hook's rm-allowed patterns and are treated
   as temporary.
 - Import the propagated `tests/playwright/repo_root.mjs` anchor to resolve paths
   from the git root.
-- Group all catalog-owned production journeys in `tests/playwright/e2e/`.
+- Group multi-step user journeys in an optional `tests/playwright/e2e/`
+  subfolder when you have several worth grouping.
 
 Keep every file that imports Playwright under `tests/playwright/`; that keeps
 the browser tests out of the fast pytest lane.
@@ -43,15 +52,22 @@ the browser tests out of the fast pytest lane.
 Test the shipped or rendered output over HTTP, so a passing test reflects what a
 user actually receives.
 
-- Build first, then serve the production `dist/` bundle through the disposable HTTPS gateway.
-- The fixed owner supplies the exact origin and sanitized environment to `playwright.config.ts`.
-- Run one worker serially; scenario isolation comes from a fresh fixed stack and unique namespace,
-  not parallel browser processes or random compatibility projects.
-- The owner starts and cleans the stack. A spec must not start a server, choose a port, or select
-  authentication and transport settings.
+- Build first, then serve the build. A game builds to `dist/` and serves that
+  directory; a MkDocs site builds rendered routes (`mkdocs build` or
+  `mkdocs serve`, output under `site/`).
+- In the runner model, let the `playwright.config.ts` `webServer` block own the
+  server so every worker shares one managed instance.
+- Set `testIgnore: ["**/_temp*", "**/dist_*/**"]` in `playwright.config.ts` so
+  scratch specs and private lane-build directories are never collected as durable tests.
+- In the library model, start a small repo-local static server (keep the setup
+  in one helper) or target an already-running dev server.
+- Pin a random free port into an environment variable so parallel workers agree
+  on the same URL.
 
-The wrapper accepts the closed scenario selections and `--screenshots`; screenshots must use the
-same wrapper. Do not invoke `npx playwright test` directly for application behavior.
+A repo can wrap the runner flow in a `run_playwright_tests.sh` that preflights
+tooling, rebuilds on `--build`, forwards remaining arguments to
+`npx playwright test`, and prints a single PASS or FAIL line. Reuse that shape
+where a repo wants one entry point.
 
 ## Selectors
 
@@ -91,9 +107,8 @@ Assert visible behavior and app state, and signal pass or fail one way per file.
 
 ## Setup idioms
 
-- Seed only non-product browser state with `page.addInitScript(...)` when the scenario contract
-  permits it. Product state (courses, assignments, invitations, runs, and submissions) is created
-  through visible PLE controls.
+- Seed pre-boot state with `page.addInitScript(...)`: clear autosave, stub
+  `navigator.clipboard`, or set a `localStorage` theme before the app loads.
 - Capture diagnostics by subscribing to `page.on("console", ...)` and
   `page.on("pageerror", ...)` so console errors surface in the test output.
 - Share setup through plain exported helper functions. These tests are small and
@@ -104,8 +119,8 @@ Assert visible behavior and app state, and signal pass or fail one way per file.
 - Run headless Chromium (`chromium.launch()` with no arguments defaults to
   headless).
 - Write screenshots to `test-results/`, which is gitignored.
-- Capture manifest-owned scenario steps through `capture_screenshots.sh`; do not create a second
-  visual corpus or test-only screenshot lane.
+- Number per-step screenshots (`00_initial.png`, `01_after_click.png`) for
+  walkthroughs so the sequence is readable.
 - Sweep a matrix with `browser.newContext({ viewport, colorScheme })` when you
   need desktop and mobile across light and dark.
 
@@ -117,7 +132,7 @@ Each row pairs a house default with the pitfall it replaces.
 | --- | --- | --- |
 | Web-first waits (`expect`, `expect.poll`, `waitForFunction`) | Fixed `waitForTimeout` sleeps | Sleeps flake as timing shifts; readiness waits are stable |
 | Real visible clicks | Synthetic event dispatch on hidden nodes | A real click proves the control is reachable |
-| Production `dist/` over the HTTPS gateway | Loading a raw file or test-only page | The gateway matches shipped auth, API, and Wasm behavior |
+| Built output over HTTP | Loading a raw file over `file://` | HTTP matches shipped behavior and avoids CORS gaps |
 | `getByRole` / `getByLabel`, then `data-*` | `data-testid` hooks | Accessible selectors test user intent |
 | One signaling style per file | Mixing `expect`, `assert`, and bare exits | Consistent signaling makes failures unambiguous |
 | Behavior and visibility assertions | Pixel, elapsed-ms, or motion-magnitude checks | Behavioral checks stay deterministic |
@@ -139,9 +154,27 @@ test("smoke: the app boots and adds a row", async ({ page }) => {
 });
 ```
 
-The canonical instructor scenario also asserts the visible `WebAssembly` runtime status. This is the
-browser-Wasm proof; the Node/Rust decoder and serialization checks remain narrow browser-free unit
-evidence and do not replace it.
+A library script (`tests/playwright/smoke.mjs`), driving a rendered route over
+HTTP:
 
-Each production scenario loads the HTTPS gateway, selects accessible controls, waits for visible
-behavior, and signals pass or fail through the shared owner.
+```javascript
+import { chromium } from "playwright";
+import assert from "node:assert/strict";
+
+const BASE_URL = process.env.PW_BASE_URL ?? "http://127.0.0.1:8000";
+
+const browser = await chromium.launch();
+const page = await browser.newPage();
+page.on("pageerror", (error) => { throw error; });
+
+await page.goto(`${BASE_URL}/topic01/`);
+await page.getByRole("button", { name: "Check answer" }).click();
+const verdict = page.getByRole("status");
+await verdict.waitFor({ state: "visible" });
+assert.equal(await verdict.textContent(), "Correct");
+
+await browser.close();
+```
+
+Each example loads over HTTP, selects an accessible control, waits for visible
+behavior, and signals pass or fail in its model's idiom.

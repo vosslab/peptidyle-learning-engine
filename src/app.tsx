@@ -28,7 +28,6 @@ function isPublicAccountRoute(pathname: string): boolean {
   const routeId = routeContractForPathname(pathname)?.id;
   return (
     routeId === "signIn" ||
-    routeId === "liveDemoSysadminSetup" ||
     routeId === "emailAuthenticationComplete" ||
     routeId === "emailChangeComplete" ||
     routeId === "courseInvitation"

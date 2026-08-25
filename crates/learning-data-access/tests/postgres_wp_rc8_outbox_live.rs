@@ -121,9 +121,9 @@ async fn delivery_state(pool: &sqlx::PgPool, delivery: Uuid) -> (String, bool, b
 #[tokio::test]
 #[ignore = "requires the disposable WP-RC8 PostgreSQL acceptance database"]
 async fn postgres_wp_rc8_invitation_delivery_authority_and_outbox() {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let owner_pool = lazy_pool(&database_url).expect("valid disposable PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let database_url = runtime.admin_url().expose();
+    let owner_pool = lazy_pool(database_url).expect("valid disposable PostgreSQL URL");
     apply_migrations(&owner_pool)
         .await
         .expect("fresh embedded migrations apply");
@@ -445,3 +445,6 @@ async fn postgres_wp_rc8_invitation_delivery_authority_and_outbox() {
         "fresh disposable DB accepts an isolated malformed role fixture"
     );
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

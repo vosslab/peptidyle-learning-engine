@@ -1,25 +1,18 @@
-// UI-first ordinary session and boundary proof after the owner's visible Sysadmin setup child.
+// UI-first independent seeded-role sessions and authorization-boundary proof.
 //
 // Selector contract:
 // - src/pages/sign_in_page.tsx:157 owns passkey sign-in and course-choice headings.
 // - src/pages/teaching_operations_page.tsx:95 and
 //   src/pages/teaching_operations/course_groups_panel.tsx:340 own teaching-team, approval, and
 //   group controls.
-// - src/pages/account_pending_invitations_page.tsx:121 and src/pages/account_security_page.tsx:114
-//   own invitation acceptance and passkey headings.
+// - src/pages/account_pending_invitations_page.tsx:121 and src/pages/account_security_page.tsx
+//   own invitation acceptance plus the account-security route surface, passkey status, and card.
 // - src/pages/course_list_page.tsx:330 owns the course heading and return-to-courses controls.
 
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import {
-  webAuthnContinuationAcknowledgementPathFromEnvironment,
-  webAuthnContinuationFromEnvironment,
-} from "../browser_suite_live_config";
-import {
-  importWebAuthnContinuation,
-  writeWebAuthnContinuationAcknowledgement,
-} from "../helper_live_demo";
+import { installVirtualAuthenticator, removeVirtualAuthenticator } from "../helper_live_demo";
 import {
   chooseSeededIdentity,
   observeContextOrigins,
@@ -47,12 +40,6 @@ test("authentication and authorization: sessions, approval, and course boundarie
   const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
   expect(scenarioInput.scenarioId).toBe("auth_authorization");
   expect(scenarioInput.namespace).toMatch(/^bs1-[0-9a-f]{12}-auth_authorization$/u);
-  expect(scenarioInput.sysadminRequirement).toBe("claimed");
-  expect(scenarioInput.sysadminOwnershipProof).toBeUndefined();
-  const continuation = webAuthnContinuationFromEnvironment(
-    process.env,
-    new URL(scenarioInput.baseUrl).origin,
-  );
 
   const contexts: BrowserContext[] = [];
   const pageOrigins = new Set<string>();
@@ -71,8 +58,33 @@ test("authentication and authorization: sessions, approval, and course boundarie
     const mary = await maryContext.newPage();
     const morgan = await morganContext.newPage();
     const avery = await averyContext.newPage();
-    await test.step("Elena enters and reenters her Base Course session", async () => {
-      await enterThenReenter(elena, /Elena Rivera/u, "Biochemistry Base Course");
+    await test.step("Elena retains Instructor authorization after generic passkey sign-in", async () => {
+      const authenticator = await installVirtualAuthenticator(elena);
+      try {
+        await chooseSeededIdentity(elena, /Elena Rivera/u);
+        await selectVisibleCourse(elena, "Biochemistry Base Course");
+        await elena.getByRole("link", { name: "Account", exact: true }).click();
+        const accountSecurity = elena
+          .getByRole("main")
+          .locator('[data-route-surface="accountSecurity"]');
+        const passkeyLabel = "Elena's biology laptop";
+        await accountSecurity.getByLabel("Passkey name").fill(passkeyLabel);
+        await accountSecurity.getByRole("button", { name: "Add passkey" }).click();
+        await expect(accountSecurity.getByRole("status")).toHaveText("Passkey added.");
+        const passkeyCard = accountSecurity
+          .locator(".passkey-card")
+          .filter({ hasText: passkeyLabel });
+        await expect(passkeyCard).toBeVisible();
+        await expect(
+          passkeyCard.getByRole("heading", { name: passkeyLabel, exact: true }),
+        ).toBeVisible();
+        await signOutVisible(elena);
+        await elena.getByRole("button", { name: "Sign in with a passkey" }).click();
+        await selectVisibleCourse(elena, "Biochemistry Base Course");
+        await expect(elena.getByRole("link", { name: "Teaching operations" })).toBeVisible();
+      } finally {
+        await removeVirtualAuthenticator(authenticator);
+      }
     });
     await test.step("Mary enters and reenters her Base Course session", async () => {
       await enterThenReenter(mary, /Mary Okafor/u, "Biochemistry Base Course");
@@ -81,14 +93,7 @@ test("authentication and authorization: sessions, approval, and course boundarie
     });
 
     await test.step("Morgan accesses Genetics and approves Avery", async () => {
-      await importWebAuthnContinuation(morgan, continuation);
-      await morgan.goto("/sign-in");
-      await morgan.getByRole("button", { name: "Sign in with a passkey" }).click();
-      await expect(morgan.getByRole("heading", { name: "Choose your course" })).toBeVisible();
-      writeWebAuthnContinuationAcknowledgement(
-        webAuthnContinuationAcknowledgementPathFromEnvironment(process.env),
-        scenarioInput,
-      );
+      await chooseSeededIdentity(morgan, /Morgan/u);
       await selectVisibleCourse(morgan, "Genetics Practice Course");
       await expect(morgan.getByRole("link", { name: "Teaching operations" })).toBeVisible();
       geneticsPath = new URL(morgan.url()).pathname;

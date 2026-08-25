@@ -123,9 +123,11 @@ source source_me.sh && python3 local_stack.py start --no-open
 `start` always builds production `dist/`, regenerates the disposable stack, and
 waits for the HTTPS origin. Without `--no-open` it opens that origin; with
 `--no-open` it prints the origin for a headless or manually opened browser.
-Complete sign-in and first-claim actions through the visible seeded
-production-auth UI. The start boundary accepts no project, environment,
-identity, SMTP, or skipped-build option.
+Use the visible seeded production-auth UI to choose one of the five fixed
+personas and then an authorized course. The server resolves the persona to the
+ordinary account, account session, tenant session, and stored role state. The
+start boundary accepts no project, environment, identity, SMTP, or skipped-build
+option.
 
 The lifecycle returns success only after `postgres`, `minio`,
 `webwork-renderer`, `api`, `worker`, and `gateway` are running, every declared
@@ -243,6 +245,17 @@ against a malicious same-UID process. Before any mutation, the adapter checks
 the runner-held capability digest on every labelled resource. Once discovery
 proves that no labelled resource remains, it may remove only the owner's exact
 project-derived image tags (never an image ID, default tag, or shared image).
+
+The database-baseline owner holds its mode-0700 runtime workspace while it
+generates and validates the private manifest and companion files. Browser and
+visitor processes have no path into that workspace. Immediately before Compose
+starts PostgreSQL, the owner revalidates the bound administrative password;
+the resulting administrative database connection provides the post-start
+behavioral attestation. This boundary trusts the local stack owner: a
+same-UID Podman administrator already controls the engine and its mounts, so
+the runtime contract focuses on preventing accidental disclosure and confused
+cross-process configuration rather than treating that administrator as a
+separate tenant.
 
 ## Whole-system verification
 

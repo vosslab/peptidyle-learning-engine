@@ -27,6 +27,15 @@ const MAX_SCALED_POINTS: i64 = MAX_WHOLE_POINTS * POINT_SCALE + (POINT_SCALE - 1
 /// Largest accepted assignment-instructions length, measured in Unicode scalars.
 pub const MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS: usize = 50_000;
 
+/// Maximum fixed-or-pool entries in one ordered assignment definition.
+pub const MAX_ASSIGNMENT_ORDERED_ENTRIES: usize = 1_024;
+
+/// Maximum candidate Question IDs in one assignment selection group.
+pub const MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP: usize = 1_024;
+
+/// Maximum candidate Question IDs across all selection groups in one assignment definition.
+pub const MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES: usize = 8_192;
+
 /// Professor-controlled lifecycle intent for an assignment.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -400,6 +409,36 @@ pub enum SelectionOrdering {
     Randomized,
 }
 
+/// Reviewed deterministic pool-draw implementation stored with a selection
+/// group.
+///
+/// This closed value makes the persisted draw contract explicit. A later
+/// algorithm may be added without changing how existing definitions or issued
+/// run evidence are interpreted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PoolDrawAlgorithm {
+    /// The first reviewed candidate-ranking implementation.
+    V1,
+}
+
+impl PoolDrawAlgorithm {
+    /// Integer representation retained by the normalized PostgreSQL schema.
+    pub const fn storage_version(self) -> u16 {
+        match self {
+            Self::V1 => 1,
+        }
+    }
+
+    /// Decodes only algorithms the current server can execute.
+    pub const fn from_storage_version(version: u16) -> Option<Self> {
+        match version {
+            1 => Some(Self::V1),
+            _ => None,
+        }
+    }
+}
+
 /// One pinned candidate eligible for a random-selection group.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -428,8 +467,8 @@ pub struct AssignmentSelectionGroup {
     pub points_per_item: PointValue,
     /// Output ordering after selection.
     pub ordering: SelectionOrdering,
-    /// Stable algorithm version needed to reproduce selection.
-    pub algorithm_version: u16,
+    /// Closed reviewed algorithm needed to reproduce selection.
+    pub algorithm: PoolDrawAlgorithm,
     /// Pinned candidate set; search criteria are deliberately absent.
     pub candidates: Vec<AssignmentSelectionCandidate>,
 }
@@ -485,6 +524,12 @@ mod tests {
     }
 
     #[test]
+    fn pool_draw_algorithm_accepts_only_the_reviewed_storage_version() {
+        assert_eq!(PoolDrawAlgorithm::V1.storage_version(), 1);
+        assert_eq!(PoolDrawAlgorithm::from_storage_version(2), None);
+    }
+
+    #[test]
     fn point_values_add_and_multiply_exact_scaled_values() {
         let one_and_a_half = PointValue::from_scaled(15_000).expect("in range");
         let quarter = PointValue::from_scaled(2_500).expect("in range");
@@ -516,6 +561,9 @@ mod tests {
     fn assignment_time_limit_domain_matches_postgres_integer() {
         assert_eq!(MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, 2_147_483_647);
         assert_eq!(MAX_ASSIGNMENT_ATTEMPT_LIMIT, 2_147_483_647);
+        assert_eq!(MAX_ASSIGNMENT_ORDERED_ENTRIES, 1_024);
+        assert_eq!(MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, 1_024);
+        assert_eq!(MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, 8_192);
     }
 
     #[test]

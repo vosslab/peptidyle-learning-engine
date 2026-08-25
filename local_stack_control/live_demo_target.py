@@ -96,7 +96,6 @@ class LiveDemoTarget:
 	capability_path: pathlib.Path
 	origin: str
 	ports: LiveDemoPorts
-	claim_context_path: pathlib.Path
 	project: str = local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
 	owner: str = local_stack_control.models.LIVE_DEMO_BROWSER_OWNER
 
@@ -203,7 +202,6 @@ def write_private_target(
 	_write_private_file(invitation_path, canonical_secret32())
 	_write_private_file(question_path, canonical_secret32())
 	renderer_provenance_path = directory / "webwork-renderer.provenance"
-	claim_context_path = directory / "live-demo-sysadmin-claim-context.json"
 	environment_path = directory / "env.local"
 	application_image_setting = ""
 	if policy.application_image is not None:
@@ -227,7 +225,6 @@ def write_private_target(
 		"PLE_STORAGE_TOPOLOGY=disposable-local\n"
 		f"PLE_INVITATION_TOKEN_SECRET_HOST_FILE={invitation_path}\n"
 		f"PLE_QUESTION_ID_SECRET_HOST_FILE={question_path}\n"
-		f"PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE={claim_context_path}\n"
 		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID=00000000-0000-0000-0000-000000000101\n"
 		"PLE_LIVE_DEMO_MARY_STUDENT_USER_ID=00000000-0000-0000-0000-000000000102\n"
 		"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID=00000000-0000-0000-0000-000000000103\n"
@@ -266,7 +263,6 @@ def write_private_target(
 		capability_path=capability_path,
 		origin=f"https://localhost:{ports.gateway}/",
 		ports=ports,
-		claim_context_path=claim_context_path,
 	)
 	return result
 

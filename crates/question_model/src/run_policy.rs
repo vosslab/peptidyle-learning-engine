@@ -13,6 +13,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::{AssignmentId, AssignmentRun, AssignmentSelectionGroupId};
+
 /// The point in an assignment lifecycle when one learner-facing field may be
 /// disclosed.
 ///
@@ -177,6 +179,110 @@ pub enum VariationPolicy {
     SelectedProblemVariants,
     /// Questions are redrawn from the pool as well as reseeded.
     FullRegeneration,
+}
+
+/// Stable input for a pool draw.
+///
+/// The basis contains only server-owned durable identities. It chooses
+/// candidate references; question issuance separately creates the fresh
+/// private server seed for every selected question.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PoolDrawBasis {
+    /// Repeat draws for one enrollment retain the same candidate selection.
+    StableEnrollment {
+        enrollment: crate::EnrollmentId,
+        assignment: AssignmentId,
+        group: AssignmentSelectionGroupId,
+    },
+    /// Each new run receives an independently derived candidate selection.
+    RegeneratedRun {
+        run: crate::RunId,
+        assignment: AssignmentId,
+        group: AssignmentSelectionGroupId,
+    },
+    /// An instructor-authorized, server-minted no-store preview sample.
+    Preview {
+        assignment: AssignmentId,
+        group: AssignmentSelectionGroupId,
+        nonce: PoolDrawPreviewNonce,
+    },
+}
+
+/// Opaque server-minted entropy for an instructor pool-preview request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PoolDrawPreviewNonce([u8; 16]);
+
+impl PoolDrawPreviewNonce {
+    /// Builds the nonce from server-generated entropy.
+    pub const fn from_bytes(bytes: [u8; 16]) -> Self {
+        Self(bytes)
+    }
+
+    /// Returns the exact entropy used by the v1 derivation.
+    pub const fn as_bytes(self) -> [u8; 16] {
+        self.0
+    }
+}
+
+/// Variation policy cannot derive a pool draw until the instructor supplies a
+/// real selected-variant model.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PoolDrawBasisError {
+    /// A selection group has no instructor-selected variant source.
+    SelectedProblemVariantsRequireExplicitPoolSelection,
+}
+
+impl std::fmt::Display for PoolDrawBasisError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::SelectedProblemVariantsRequireExplicitPoolSelection => formatter.write_str(
+                "selected problem variants require an explicit pool-variant selection model",
+            ),
+        }
+    }
+}
+
+impl std::error::Error for PoolDrawBasisError {}
+
+impl VariationPolicy {
+    /// Derives the only accepted server-owned basis for one pool group.
+    pub fn pool_draw_basis(
+        self,
+        assignment: AssignmentId,
+        run: &AssignmentRun,
+        group: AssignmentSelectionGroupId,
+    ) -> Result<PoolDrawBasis, PoolDrawBasisError> {
+        match self {
+            Self::NewSeeds => Ok(PoolDrawBasis::StableEnrollment {
+                enrollment: run.enrollment,
+                assignment,
+                group,
+            }),
+            Self::FullRegeneration => Ok(PoolDrawBasis::RegeneratedRun {
+                run: run.id,
+                assignment,
+                group,
+            }),
+            Self::SelectedProblemVariants => {
+                Err(PoolDrawBasisError::SelectedProblemVariantsRequireExplicitPoolSelection)
+            }
+        }
+    }
+}
+
+impl PoolDrawBasis {
+    /// Creates the independent no-store preview basis for a saved definition.
+    pub const fn preview(
+        assignment: AssignmentId,
+        group: AssignmentSelectionGroupId,
+        nonce: PoolDrawPreviewNonce,
+    ) -> Self {
+        Self::Preview {
+            assignment,
+            group,
+            nonce,
+        }
+    }
 }
 
 /// The four run policies an assignment chooses, gathered for convenience.

@@ -46,9 +46,9 @@ async fn wait_for_eligibility_lock(
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 database baseline"]
 async fn postgres_teaching_authority_exact_expiry_boundary_oracle() {
-    let url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&url).expect("disposable PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose();
+    let pool = lazy_pool(url).expect("disposable PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("migrated schema");
@@ -191,9 +191,9 @@ async fn postgres_teaching_authority_exact_expiry_boundary_oracle() {
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 database baseline"]
 async fn postgres_teaching_authority_acceptance_precedes_queued_approval_revoke() {
-    let url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&url).expect("disposable PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let url = runtime.admin_url().expose();
+    let pool = lazy_pool(url).expect("disposable PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("migrated schema");
@@ -256,7 +256,7 @@ async fn postgres_teaching_authority_acceptance_precedes_queued_approval_revoke(
 
     let acceptance_pool = PgPoolOptions::new()
         .max_connections(1)
-        .connect(&url)
+        .connect(url)
         .await
         .expect("single-connection acceptance pool");
     let expected_accept_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")

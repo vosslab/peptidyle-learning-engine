@@ -6,6 +6,8 @@
 //! final statement before commit. Source mutation brokers own serialization;
 //! this application-role projection never acquires mutation row locks.
 
+use std::collections::BTreeMap;
+
 use async_trait::async_trait;
 use domain::effective_assignment_policy::{
     AuthorizationGate, HypotheticalIndividualPolicyException, PolicyModificationMode, PolicyPatch,
@@ -18,16 +20,87 @@ use domain::entitlement::{
 use question_model::{
     ActivityTimestamp, AssignmentId, AssignmentReference, AssignmentTeachingSettingsField,
     CourseGroupId, CourseGroupPurpose, CourseId, CourseMembershipId, DerivedPreviewSubjectRequest,
-    InstructorPreviewSchedulePage, InstructorPreviewScheduleRow, PreviewAccommodationComparison,
-    PreviewDenialReason, PreviewDisclosureMoment, PreviewEntitlementGrantReason, PreviewEvaluation,
-    PreviewGroupFact, PreviewPriorRunCount, PreviewSubject, PreviewSubjectKind,
-    SyntheticPreviewSubjectRequest, TeachingAttemptLimitFieldPatch, TeachingLimitFieldPatch,
-    TeachingOperationRevision, TeachingTimeFieldPatch, TenantId, UserId,
+    InstructorPreviewSchedulePage, InstructorPreviewScheduleRow, PoolDrawBasis, PoolDrawPreview,
+    PoolDrawPreviewQuestion, PreviewAccommodationComparison, PreviewDenialReason,
+    PreviewDisclosureMoment, PreviewEntitlementGrantReason, PreviewEvaluation, PreviewGroupFact,
+    PreviewPriorRunCount, PreviewSubject, PreviewSubjectKind, SyntheticPreviewSubjectRequest,
+    TeachingAttemptLimitFieldPatch, TeachingLimitFieldPatch, TeachingOperationRevision,
+    TeachingTimeFieldPatch, TenantId, UserId,
 };
 use sqlx::types::Uuid;
 use sqlx::{Postgres, Row, Transaction};
 
 use super::*;
+
+#[async_trait]
+impl crate::PoolPreviewStore for PostgresStore {
+    async fn preview_pool_draw(
+        &self,
+        context: TenantContext,
+        command: crate::PoolPreviewCommand,
+    ) -> Result<PoolDrawPreview, StoreError> {
+        let tenant = context.tenant_id();
+        // This route is deliberately a read-only snapshot. Its transaction
+        // role and SQL shape make it incapable of recording an enrollment,
+        // issued item, execution, receipt, job, or audit event.
+        let mut tx = self.begin_tenant_snapshot(context).await?;
+        require_direct_instructor_read_only(&mut tx, tenant, command.course, command.actor).await?;
+        let (assignment_id, assignment) = preview_assignment_read_only(
+            &mut tx,
+            tenant,
+            command.course,
+            command.assignment,
+            command.revision,
+        )
+        .await?;
+        let group = assignment
+            .selection_groups
+            .iter()
+            .find(|group| group.position == command.group_position)
+            .ok_or(StoreError::NotFound)?;
+        let (_, sampled) = crate::select_assignment_group_candidates(
+            group,
+            PoolDrawBasis::preview(assignment_id, group.id, command.nonce),
+        )?;
+        let mut refs = group
+            .candidates
+            .iter()
+            .filter(|candidate| {
+                candidate.delivery_state == question_model::AssignmentDeliveryState::Active
+            })
+            .map(|candidate| candidate.reference)
+            .collect::<Vec<_>>();
+        refs.extend(sampled.iter().map(|candidate| candidate.reference));
+        let titles = preview_question_titles(&mut tx, &refs).await?;
+        let question = |candidate: &question_model::AssignmentSelectionCandidate| {
+            titles
+                .get(&(candidate.reference.problem, candidate.reference.version))
+                .cloned()
+                .ok_or(StoreError::NotFound)
+        };
+        Ok(PoolDrawPreview {
+            assignment: command.assignment,
+            revision: command.revision,
+            group_position: command.group_position,
+            group_label: pool_preview_group_label(command.group_position),
+            draw_count: group.draw_count,
+            ordering: group.ordering,
+            algorithm: group.algorithm,
+            candidates: group
+                .candidates
+                .iter()
+                .filter(|candidate| {
+                    candidate.delivery_state == question_model::AssignmentDeliveryState::Active
+                })
+                .map(question)
+                .collect::<Result<Vec<_>, _>>()?,
+            sampled: sampled
+                .into_iter()
+                .map(question)
+                .collect::<Result<Vec<_>, _>>()?,
+        })
+    }
+}
 
 #[async_trait]
 impl crate::PreviewPlaneStore for PostgresStore {
@@ -201,6 +274,10 @@ impl crate::PreviewPlaneStore for PostgresStore {
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
     }
+}
+
+fn pool_preview_group_label(position: u32) -> String {
+    format!("Pool {}", position.saturating_add(1))
 }
 
 /// Preserves the browser route's identity-free, read-only snapshot contract.
@@ -445,6 +522,45 @@ async fn preview_assignment_read_only(
         .then_some((assignment, record))
         .ok_or(StoreError::Conflict)
 }
+/// Resolves only public catalog display facts for already-saved candidate
+/// references. It intentionally reads no payload, grading, source, or
+/// learner-work relation.
+async fn preview_question_titles(
+    tx: &mut Transaction<'_, Postgres>,
+    references: &[question_model::ProblemVersionRef],
+) -> Result<
+    BTreeMap<(question_model::ProblemId, question_model::VersionId), PoolDrawPreviewQuestion>,
+    StoreError,
+> {
+    let mut titles = BTreeMap::new();
+    for reference in references {
+        if titles.contains_key(&(reference.problem, reference.version)) {
+            continue;
+        }
+        let row = sqlx::query(
+            "SELECT question_id, title FROM catalog_search_document \
+             WHERE problem_id=$1 AND version_id=$2",
+        )
+        .bind(reference.problem.as_uuid())
+        .bind(reference.version.as_uuid())
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
+        let question_id = row
+            .try_get::<String, _>("question_id")
+            .map_err(map_sqlx_error)?
+            .parse()
+            .map_err(|_| StoreError::Unavailable("stored question ID is invalid".to_string()))?;
+        let title = row.try_get("title").map_err(map_sqlx_error)?;
+        titles.insert(
+            (reference.problem, reference.version),
+            PoolDrawPreviewQuestion { question_id, title },
+        );
+    }
+    Ok(titles)
+}
+
 async fn completed_run_count(
     tx: &mut Transaction<'_, Postgres>,
     tenant: TenantId,

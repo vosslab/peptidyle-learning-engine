@@ -1,28 +1,295 @@
 """Offline contracts for the private WebWork renderer hand-off."""
 
 import dataclasses
+import json
 import pathlib
 import sys
 
 import pytest
 
 import local_stack_control.models
+import local_stack_control.private_state
 import local_stack_control.process
 
-from test_browser_suite_owner import (
-	browser_scenario_contract,
-	browser_suite_owner,
-	offline_dependencies,
-	webwork_contract,
-)
+E2E_DIRECTORY = pathlib.Path(__file__).resolve().parent / "e2e"
+sys.path.insert(0, str(E2E_DIRECTORY))
+
+import e2e_browser_scenario_contract as browser_scenario_contract
+import e2e_browser_scenario_webwork_delivery as webwork_delivery
+import e2e_browser_suite_oracles as browser_suite_oracles
+import e2e_browser_suite_owner as browser_suite_owner
+
+
+#============================================
+def webwork_contract() -> browser_scenario_contract.ScenarioContract:
+	"""Return the production WebWork journey used by these focused owner cases."""
+	return browser_scenario_contract.require_contract(webwork_delivery.SCENARIO_ID)
+
+
+#============================================
+def installed_receipt() -> str:
+	"""Return one completed Base Course receipt for the private temporary workspace."""
+	generation = "00000000-0000-0000-0000-000000000006"
+	storage = json.dumps(
+		{
+			"schemaVersion": 1,
+			"baselineVersion": "base-course-v1",
+			"installationGeneration": generation,
+			"storageReceiptBucket": "private-content",
+			"storageReceiptKey": "ple/live-demo/base-course-install-receipt.json",
+			"objectManifest": [],
+		},
+		separators=(",", ":"),
+	)
+	return json.dumps(
+		{
+			"schemaVersion": 1,
+			"action": "installed",
+			"installState": "complete",
+			"baselineVersion": "base-course-v1",
+			"objectManifest": [],
+			"installationGeneration": generation,
+			"storageReceiptBucket": "private-content",
+			"storageReceiptKey": "ple/live-demo/base-course-install-receipt.json",
+			"storageReceiptJson": storage,
+			"storageReceiptSha256": "a" * 64,
+			"completionReceiptSha256": "b" * 64,
+			"manifest": {
+				"assignmentId": "a",
+				"enrollmentId": "e",
+				"questionId": "q",
+				"problemId": "p",
+				"versionId": "v",
+			},
+		},
+		separators=(",", ":"),
+	)
+
+
+class OfflineRunner(local_stack_control.process.CommandRunner):
+	"""Provide the runner protocol without starting a subprocess."""
+
+	def run(
+		self,
+		argv: list[str],
+		environment: dict[str, str] | None = None,
+		cwd: pathlib.Path | None = None,
+		stdin: str | None = None,
+	) -> local_stack_control.models.CommandResult:
+		return local_stack_control.models.CommandResult(tuple(argv), 0, "", "")
+
+	def stream(
+		self,
+		argv: list[str],
+		environment: dict[str, str] | None = None,
+		cwd: pathlib.Path | None = None,
+	) -> int:
+		return 0
+
+
+#============================================
+def selections() -> dict[str, str]:
+	"""Return the closed image and renderer selection shape used by the owner."""
+	return {
+		"PLE_WEBWORK_RENDERER_IMAGE": "renderer",
+		"PLE_WEBWORK_RENDERER_BASE_URL": "http://renderer",
+		"PLE_WEBWORK_RENDERER_ID": "renderer-id",
+		"PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS": "10",
+		"PLE_WEBWORK_MAX_RESPONSE_BYTES": "1000",
+		"PLE_GATEWAY_IMAGE_SHA256": "gateway",
+		"PLE_POSTGRES_IMAGE_SHA256": "postgres",
+		"PLE_MINIO_IMAGE_SHA256": "minio",
+		"PLE_MINIO_MC_IMAGE_SHA256": "minio-mc",
+		"PLE_SECRET_INIT_IMAGE_SHA256": "secret-init",
+	}
+
+
+#============================================
+def offline_dependencies(
+	tmp_path: pathlib.Path,
+	*,
+	webwork_seed_failure: bool = False,
+	webwork_seed_receipt: str | None = None,
+	webwork_evidence_windows: list[str] | None = None,
+	produce_webwork_acknowledgement: bool = True,
+	webwork_acknowledgement_content: str | None = None,
+) -> tuple[
+	browser_suite_owner.BrowserSuiteDependencies,
+	list[list[str]],
+	list[browser_suite_owner.BrowserSuiteReceipt],
+]:
+	"""Build the narrow temporary owner boundary exercised by this module."""
+	commands: list[list[str]] = []
+	receipts: list[browser_suite_owner.BrowserSuiteReceipt] = []
+
+	def write_input(
+		path: pathlib.Path,
+		port: int,
+		contract: browser_scenario_contract.ScenarioContract,
+	) -> None:
+		value: dict[str, object] = {
+			"schemaVersion": 2,
+			"scenarioId": contract.scenario_id,
+			"namespace": f"bs1-0123456789ab-{contract.scenario_id}",
+			"baseUrl": f"https://localhost:{port}/",
+			"personas": list(contract.personas),
+			"baselineReads": list(contract.baseline_reads),
+			"visibleObservation": contract.visible_observation,
+		}
+		if contract.service_receipt is not None:
+			value["serviceReceipt"] = contract.service_receipt
+		if contract.fault_transition is not None:
+			value["faultTransition"] = contract.fault_transition
+		browser_suite_owner.private_file(
+			path, json.dumps(value, separators=(",", ":"))
+		)
+
+	def run_command(
+		runner: local_stack_control.process.CommandRunner,
+		argv: list[str],
+		root: pathlib.Path,
+		environment: dict[str, str] | None,
+	) -> local_stack_control.process.SessionCommandResult:
+		commands.append(argv)
+		if argv[0] == "npx":
+			assert environment is not None
+			input_path = pathlib.Path(
+				environment["PLE_LIVE_DEMO_BROWSER_INPUT_FILE"]
+			)
+			input_value = json.loads(input_path.read_text(encoding="ascii"))
+			if (
+				produce_webwork_acknowledgement
+				and input_value["scenarioId"] == webwork_delivery.SCENARIO_ID
+			):
+				acknowledgement_path = pathlib.Path(
+					environment["PLE_WEBWORK_RENDERER_ISSUANCE_ACK_FILE"]
+				)
+				content = webwork_acknowledgement_content
+				if content is None:
+					content = json.dumps(
+						{
+							"event": "visible_question_issued",
+							"namespace": input_value["namespace"],
+							"scenarioId": webwork_delivery.SCENARIO_ID,
+							"schemaVersion": 1,
+						},
+						separators=(",", ":"),
+					)
+				browser_suite_owner.private_file(acknowledgement_path, content)
+			origin_path = pathlib.Path(
+				environment["PLE_LIVE_DEMO_BROWSER_ORIGIN_RECEIPT_FILE"]
+			)
+			browser_suite_owner.private_file(
+				origin_path,
+				json.dumps(
+					{
+						"pageOrigins": ["https://localhost:55001"],
+						"requestOrigins": ["https://localhost:55001"],
+					},
+					separators=(",", ":"),
+				),
+			)
+		return local_stack_control.process.SessionCommandResult(
+			local_stack_control.process.ProcessSession(-1, 1, "injected", ""), 0
+		)
+
+	def make_state(
+		root: pathlib.Path, relative_root: pathlib.Path, prefix: str
+	) -> local_stack_control.private_state.PrivateState:
+		state = local_stack_control.private_state.prepare(root, relative_root, prefix)
+		baseline = state.directory / ".runtime"
+		baseline.mkdir()
+		browser_suite_owner.private_file(
+			baseline / "base-course.json", installed_receipt()
+		)
+		return state
+
+	def read_inventory(
+		project: str,
+		directory: pathlib.Path,
+		runner: local_stack_control.process.CommandRunner,
+		root: pathlib.Path,
+		provider: browser_suite_oracles.ProviderReceipt,
+		sessions: tuple[local_stack_control.process.ProcessSession, ...],
+	) -> browser_suite_oracles.SuiteInventory:
+		return browser_suite_oracles.SuiteInventory(
+			project,
+			(),
+			(),
+			(),
+			browser_suite_oracles.private_artifacts(directory),
+			(),
+			provider,
+		)
+
+	def read_provider(
+		runner: local_stack_control.process.CommandRunner,
+		root: pathlib.Path,
+		manifest: pathlib.Path,
+	) -> browser_suite_oracles.ProviderReceipt:
+		return browser_suite_oracles.ProviderReceipt(
+			"podman-compose", ("podman-compose", "--in-pod", "false"), False
+		)
+
+	def seed_webwork_catalog(
+		runner: local_stack_control.process.CommandRunner,
+		root: pathlib.Path,
+		directory: pathlib.Path,
+		minio_port: int,
+	) -> webwork_delivery.CatalogBaseline:
+		commands.append(browser_suite_owner.webwork_catalog_seed_argv(minio_port))
+		if webwork_seed_failure:
+			raise browser_suite_owner.BrowserSuiteError(
+				"WebWork catalog baseline publication failed"
+			)
+		contents = webwork_seed_receipt
+		if contents is None:
+			contents = (
+				'{"questionId":"ABC-1234","title":'
+				'"Biochemistry: Identify hydrophobic compounds from formulas"}'
+			)
+		return webwork_delivery.decode_catalog_baseline_receipt(contents)
+
+	evidence_windows = list(webwork_evidence_windows or ())
+
+	def read_webwork_logs(
+		runner: local_stack_control.process.CommandRunner,
+		root: pathlib.Path,
+		manifest: pathlib.Path,
+	) -> str:
+		if not evidence_windows:
+			return ""
+		return browser_suite_owner.redacted_renderer_evidence_logs(
+			evidence_windows.pop(0)
+		)
+
+	dependencies = browser_suite_owner.BrowserSuiteDependencies(
+		root=tmp_path,
+		runner=OfflineRunner(),
+		selections=selections(),
+		ports=(53501, 54001, 54501, 55001),
+		state_factory=make_state,
+		input_writer=write_input,
+		port_checker=lambda ports, runner, root: None,
+		topology_validator=lambda runner, root, manifest: None,
+		worker_readiness_checker=lambda runner, manifest, root: None,
+		command_runner=run_command,
+		provider_reader=read_provider,
+		inventory_reader=read_inventory,
+		origin_checker=browser_suite_oracles.origin_receipt_from_file,
+		cleanup_checker=browser_suite_oracles.empty_after_cleanup,
+		receipt_reporter=receipts.append,
+		webwork_catalog_seeder=seed_webwork_catalog,
+		evidence_log_reader=read_webwork_logs,
+	)
+	return dependencies, commands, receipts
 
 #============================================
 def test_webwork_delivery_seed_and_renderer_witness_are_private_and_scenario_scoped(
-	tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch,
+	tmp_path: pathlib.Path,
 ) -> None:
 	"""The one catalog seed and content-free renderer receipt stay inside WebWork's child."""
 	contract = webwork_contract()
-	monkeypatch.setattr(browser_scenario_contract, "scenario_contracts", lambda: (contract,))
 	prior_event = 'INFO ple.webwork.cache event="renderer_call" request="private"\n'
 	dependencies, commands, receipts = offline_dependencies(
 		tmp_path,
@@ -75,15 +342,14 @@ def test_webwork_private_capabilities_do_not_reach_neighboring_scenarios(
 	tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
 	"""A complete serial suite passes the WebWork hand-off to its one selected child."""
-	ordinary = dataclasses.replace(
-		webwork_contract(),
-		scenario_id="ordinary",
-		spec_path="tests/playwright/e2e/ordinary.spec.ts",
-		service_receipt=None,
-		visible_observation="ordinary_visible_observation",
-	)
+	direct = browser_scenario_contract.require_contract("direct_role_entry")
+	authorization = browser_scenario_contract.require_contract("auth_authorization")
 	webwork = webwork_contract()
-	monkeypatch.setattr(browser_scenario_contract, "scenario_contracts", lambda: (ordinary, webwork))
+	monkeypatch.setattr(
+		browser_scenario_contract,
+		"scenario_contracts",
+		lambda: (direct, authorization, webwork),
+	)
 	dependencies, _commands, _receipts = offline_dependencies(
 		tmp_path,
 		webwork_evidence_windows=["", 'ple.webwork.cache event="renderer_call"'],
@@ -110,7 +376,8 @@ def test_webwork_private_capabilities_do_not_reach_neighboring_scenarios(
 		"PLE_WEBWORK_CATALOG_BASELINE_INPUT_FILE",
 		"PLE_WEBWORK_RENDERER_ISSUANCE_ACK_FILE",
 	):
-		assert name not in child_environments["ordinary"]
+		assert name not in child_environments["direct_role_entry"]
+		assert name not in child_environments["auth_authorization"]
 		assert name in child_environments["webwork_delivery"]
 
 
@@ -124,14 +391,12 @@ def test_webwork_private_capabilities_do_not_reach_neighboring_scenarios(
 )
 def test_webwork_delivery_seed_stops_before_browser_on_failure(
 	tmp_path: pathlib.Path,
-	monkeypatch: pytest.MonkeyPatch,
 	seed_failure: bool,
 	seed_receipt: str | None,
 	error: str,
 ) -> None:
 	"""Seed command and its two-field receipt fail closed before Chromium starts."""
 	contract = webwork_contract()
-	monkeypatch.setattr(browser_scenario_contract, "scenario_contracts", lambda: (contract,))
 	dependencies, commands, receipts = offline_dependencies(
 		tmp_path,
 		webwork_seed_failure=seed_failure,
@@ -154,14 +419,12 @@ def test_webwork_delivery_seed_stops_before_browser_on_failure(
 )
 def test_webwork_delivery_requires_a_namespace_bound_visible_issuance_acknowledgement(
 	tmp_path: pathlib.Path,
-	monkeypatch: pytest.MonkeyPatch,
 	produce_acknowledgement: bool,
 	acknowledgement: str | None,
 	error: str,
 ) -> None:
 	"""Renderer evidence follows a successful UI-issued acknowledgement only."""
 	contract = webwork_contract()
-	monkeypatch.setattr(browser_scenario_contract, "scenario_contracts", lambda: (contract,))
 	dependencies, commands, receipts = offline_dependencies(
 		tmp_path,
 		produce_webwork_acknowledgement=produce_acknowledgement,
@@ -184,11 +447,10 @@ def test_webwork_delivery_requires_a_namespace_bound_visible_issuance_acknowledg
 	],
 )
 def test_webwork_delivery_renderer_witness_requires_exactly_one_new_event(
-	tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, after_logs: str,
+	tmp_path: pathlib.Path, after_logs: str,
 ) -> None:
 	"""A zero or duplicate renderer receipt cannot be credited to a visible journey."""
 	contract = webwork_contract()
-	monkeypatch.setattr(browser_scenario_contract, "scenario_contracts", lambda: (contract,))
 	dependencies, _commands, receipts = offline_dependencies(
 		tmp_path,
 		webwork_evidence_windows=['ple.webwork.cache event="renderer_call"', after_logs],

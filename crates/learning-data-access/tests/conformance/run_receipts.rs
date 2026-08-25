@@ -348,6 +348,7 @@ where
                 context,
                 ReservePrefetchedQuestionCommand {
                     actor: student_user,
+                    binding: LearnerWorkRoutingBinding::new(course, assignment),
                     reservation: reservation.clone(),
                     private_execution: reservation_private_execution.clone(),
                 },
@@ -362,6 +363,7 @@ where
                 context,
                 ReservePrefetchedQuestionCommand {
                     actor: student_user,
+                    binding: LearnerWorkRoutingBinding::new(course, assignment),
                     reservation: reservation.clone(),
                     private_execution: reservation_private_execution.clone(),
                 },
@@ -376,6 +378,7 @@ where
                 context,
                 ReservePrefetchedQuestionCommand {
                     actor: student_user,
+                    binding: LearnerWorkRoutingBinding::new(course, assignment),
                     reservation: PrefetchedQuestionDescriptorV1 {
                         seed: reservation.seed + 1,
                         ..reservation.clone()
@@ -393,6 +396,7 @@ where
                 context,
                 ReservePrefetchedQuestionCommand {
                     actor: unrelated_user,
+                    binding: LearnerWorkRoutingBinding::new(course, assignment),
                     reservation: reservation.clone(),
                     private_execution: reservation_private_execution.clone(),
                 },
@@ -810,6 +814,7 @@ where
                 context,
                 ReservePrefetchedQuestionCommand {
                     actor: student_user,
+                    binding: LearnerWorkRoutingBinding::new(course, assignment),
                     reservation: reservation.clone(),
                     private_execution: reservation_private_execution.clone(),
                 },

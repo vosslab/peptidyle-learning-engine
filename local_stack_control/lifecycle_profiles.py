@@ -51,18 +51,6 @@ def uses_local_teaching_state(
 
 
 #============================================
-def uses_live_demo_sysadmin_claim_context(
-	target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget,
-) -> bool:
-	"""Return whether the selected owner exercises Sysadmin ownership setup."""
-	return (
-		isinstance(target, local_stack_control.models.DisposableComposeTarget)
-		and target.owner_policy == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER
-		and target.live_demo_profile is not None
-	)
-
-
-#============================================
 def expected_long_running_count(
 	target: local_stack_control.models.ComposeTarget
 	| local_stack_control.models.DisposableComposeTarget,

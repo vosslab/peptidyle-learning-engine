@@ -6,6 +6,7 @@ import e2e_browser_scenarios_assignment_replacement as assignment_replacement
 import e2e_browser_scenarios_conflict as conflict
 import e2e_browser_scenarios_failure as failure
 import e2e_browser_scenarios_instructor as instructor
+import e2e_browser_scenarios_item_pool as item_pool
 import e2e_browser_scenarios_learner as learner
 import e2e_browser_scenarios_preview as preview
 import e2e_browser_scenarios_qti as qti
@@ -19,6 +20,7 @@ def contracts() -> tuple[ScenarioContract, ...]:
 		+ instructor.contracts()
 		+ preview.contracts()
 		+ assignment_replacement.contracts()
+		+ item_pool.contracts()
 		+ conflict.contracts()
 		+ learner.contracts()
 		+ (
@@ -28,7 +30,6 @@ def contracts() -> tuple[ScenarioContract, ...]:
 				personas=("elena_instructor", "mary_student"),
 				baseline_reads=("base_course",),
 				ui_creates=("course", "assignment", "invitation", "response"),
-				sysadmin_requirement="not_required",
 				visible_observation="visible_webwork_completion_persists_in_a_fresh_session",
 				service_receipt="renderer_delivery",
 			),

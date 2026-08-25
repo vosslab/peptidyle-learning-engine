@@ -16,6 +16,11 @@ import type { PreviewScheduleProjection } from "../../../generated/api/PreviewSc
 import type { PreviewSelectedMoment } from "../../../generated/api/PreviewSelectedMoment";
 import type { PreviewSubject } from "../../../generated/api/PreviewSubject";
 import type { SyntheticPreviewSubjectRequest } from "../../../generated/api/SyntheticPreviewSubjectRequest";
+import type {
+  PoolDrawPreview,
+  PoolDrawPreviewQuestion,
+  PoolDrawPreviewRequest,
+} from "../contracts";
 import {
   DecodeError,
   decodeBoolean,
@@ -80,6 +85,82 @@ function revision(value: unknown, path: string): string {
     throw new DecodeError(path, "a canonical positive PostgreSQL bigint revision");
   }
   return parsed;
+}
+
+function previewQuestion(value: unknown, path: string): PoolDrawPreviewQuestion {
+  const record = closed(value, path, ["questionId", "title"]);
+  return {
+    questionId: questionId(record.questionId, `${path}.questionId`),
+    title: label(record.title, `${path}.title`),
+  };
+}
+
+function questionId(value: unknown, path: string): string {
+  const parsed = decodeString(value, path);
+  if (!/^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u.test(parsed))
+    throw new DecodeError(path, "a canonical Question ID");
+  return parsed;
+}
+
+export function decodePoolDrawPreviewRequest(
+  value: unknown,
+  path = "request",
+): PoolDrawPreviewRequest {
+  const record = closed(value, path, ["groupPosition"]);
+  return { groupPosition: decodeSafeInteger(record.groupPosition, `${path}.groupPosition`) };
+}
+
+export function decodePoolDrawPreview(value: unknown, path = "response"): PoolDrawPreview {
+  const record = closed(value, path, [
+    "assignment",
+    "revision",
+    "groupPosition",
+    "groupLabel",
+    "drawCount",
+    "ordering",
+    "algorithm",
+    "candidates",
+    "sampled",
+  ]);
+  const candidates = decodeBoundedArray(
+    record.candidates,
+    `${path}.candidates`,
+    MAX_TEACHING_PAGE_SIZE,
+    previewQuestion,
+  );
+  const sampled = decodeBoundedArray(
+    record.sampled,
+    `${path}.sampled`,
+    MAX_TEACHING_PAGE_SIZE,
+    previewQuestion,
+  );
+  const drawCount = decodeSafeInteger(record.drawCount, `${path}.drawCount`);
+  const groupPosition = decodeSafeInteger(record.groupPosition, `${path}.groupPosition`);
+  if (groupPosition < 0) throw new DecodeError(`${path}.groupPosition`, "a nonnegative position");
+  if (drawCount < 1 || drawCount > candidates.length || sampled.length !== drawCount)
+    throw new DecodeError(`${path}.drawCount`, "a valid draw count for the returned pool");
+  const sampledIds = new Set(sampled.map((question) => question.questionId));
+  if (
+    sampledIds.size !== sampled.length ||
+    !sampled.every((question) =>
+      candidates.some((candidate) => candidate.questionId === question.questionId),
+    )
+  )
+    throw new DecodeError(`${path}.sampled`, "unique candidate Question IDs");
+  return {
+    assignment: reference(record.assignment, `${path}.assignment`, "A"),
+    revision: revision(record.revision, `${path}.revision`),
+    groupPosition,
+    groupLabel: label(record.groupLabel, `${path}.groupLabel`),
+    drawCount,
+    ordering: decodeStringEnum(record.ordering, `${path}.ordering`, [
+      "candidateOrder",
+      "randomized",
+    ] as const),
+    algorithm: decodeStringEnum(record.algorithm, `${path}.algorithm`, ["v1"] as const),
+    candidates,
+    sampled,
+  };
 }
 
 function label(value: unknown, path: string): string {

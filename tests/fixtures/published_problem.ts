@@ -126,6 +126,7 @@ function attempt(
       renderedQuestionSha256: "b".repeat(64),
     },
     issuedCapability: "flatPresentation",
+    poolSelection: null,
   };
 }
 

@@ -193,7 +193,7 @@ async fn effect_counts(pool: &PgPool, fixture: RosterFixture, user: UserId) -> (
 }
 
 #[tokio::test]
-#[ignore = "requires PLE_TEST_DATABASE_URL and a disposable PostgreSQL 17 database"]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn direct_instructor_roster_capability_is_atomic_replay_safe_and_narrow() {
     let pool = pool().await;
     let fixture = seed(&pool).await;

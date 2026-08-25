@@ -78,7 +78,7 @@ export function RunSummaryPage(): JSX.Element {
     }
   }
   return (
-    <section class="page" data-route-surface="runSummary">
+    <section class="page attempt-summary" data-route-surface="runSummary">
       <p class="eyebrow">Completed practice run</p>
       <h1>Run summary</h1>
       <Show
@@ -87,11 +87,10 @@ export function RunSummaryPage(): JSX.Element {
       >
         {(current) => (
           <>
-            <p>
-              {current().practiceAllowed
-                ? "You can start a fresh practice run from your assignment."
-                : "This run is recorded."}
-            </p>
+            <p>Your completed run is recorded.</p>
+            <Show when={current().practiceAllowed}>
+              <p>You can start a fresh practice run from your assignment.</p>
+            </Show>
             <section aria-label="Assignment score">
               <h2>Assignment score</h2>
               <p>{learnerProgressSummary(current().summary)}</p>

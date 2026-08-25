@@ -1,4 +1,5 @@
 use super::*;
+use question_model::PoolDrawAlgorithm;
 
 mod assignment_support;
 pub(crate) use assignment_support::*;
@@ -262,11 +263,16 @@ pub(super) async fn load_assignment_relations(
                     &row.try_get::<String, _>("ordering_policy")
                         .map_err(map_sqlx_error)?,
                 )?,
-                algorithm_version: stored_u16(
+                algorithm: PoolDrawAlgorithm::from_storage_version(stored_u16(
                     row,
                     "algorithm_version",
                     "selection algorithm version",
-                )?,
+                )?)
+                .ok_or_else(|| {
+                    StoreError::Unavailable(
+                        "stored selection algorithm version is unsupported".to_string(),
+                    )
+                })?,
                 candidates: candidates.remove(&id).unwrap_or_default(),
             })
         })

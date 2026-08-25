@@ -135,3 +135,7 @@ async fn set_summary_scores(pool: &sqlx::PgPool, tenant: TenantId, student: User
 
 #[path = "postgres_course_grade_scheme_live/course_grade_cases.rs"]
 mod course_grade_cases;
+
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;

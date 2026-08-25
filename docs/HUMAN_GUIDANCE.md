@@ -154,6 +154,27 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - The only human user roles are Sysadmin, Instructor, and Student. There are no
   Manager, Administrator, or Publisher users. The repository owner is the
   current sysadmin and is also an instructor.
+- The public live demo offers direct entry for every seeded role: Student,
+  Instructor, and Sysadmin. A visitor's selection replaces only identity
+  verification. PLE resolves the ordinary account, session, course,
+  membership, role, and authorization state from the server-owned live data.
+- Direct role entry preserves ordinary account security. After entering a
+  seeded role, a visitor can demonstrate passkey enrollment, sign-out, and
+  passkey sign-in, including for Sysadmin. The selected Sysadmin retains the
+  full ordinary Sysadmin capability set.
+- Live acceptance names Elena as the seeded Instructor and Morgan as the
+  seeded Sysadmin. After direct role entry, both personas visibly enroll a
+  passkey, sign out, and sign back in through the ordinary passkey path. Elena
+  retains Instructor authorization, and Morgan retains full Sysadmin
+  authorization throughout the flow.
+- PLE generates and manages disposable internal demo credentials used for
+  process isolation, service startup, and reset. Treat those credentials as
+  installation-scoped capabilities rather than visitor secrets or durable
+  deployment credentials. Reserve SOPS for a later deployment design that
+  supplies persistent or external credentials.
+- Preserve ordinary live state and reset behavior: visitors may create and
+  modify normal records, and regenerating the demo restores the seeded
+  baseline together with its disposable process-isolation credentials.
 - Approve every Instructor manually after real-person validation. Do not add a
   self-service promotion path.
 - Student users fall under FERPA. Treat their course-linked data, not their

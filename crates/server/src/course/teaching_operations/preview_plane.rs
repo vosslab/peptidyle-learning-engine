@@ -16,12 +16,14 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use learning_data_access::{
     CourseRecordsAccessStore, Cursor, NavigationReferenceStore, PageRequest, PageSize,
-    PreviewPlaneResult, PreviewPlaneStore, SessionStore, Store, StoreError,
+    PoolPreviewCommand, PoolPreviewStore, PreviewPlaneResult, PreviewPlaneStore, SessionStore,
+    Store, StoreError,
 };
 use question_model::{
     AssignmentReference, CourseId, CourseMembershipReference, CourseReference,
-    DerivedPreviewSubjectRequest, PreviewSelectedMoment, PreviewSyntheticGroupReferences,
-    SyntheticPreviewModifiers, SyntheticPreviewSubjectRequest, TeachingOperationRevision,
+    DerivedPreviewSubjectRequest, PoolDrawPreviewNonce, PoolDrawPreviewRequest,
+    PreviewSelectedMoment, PreviewSyntheticGroupReferences, SyntheticPreviewModifiers,
+    SyntheticPreviewSubjectRequest, TeachingOperationRevision,
 };
 use serde::Deserialize;
 
@@ -39,6 +41,7 @@ where
         + CourseRecordsAccessStore
         + SessionStore
         + NavigationReferenceStore
+        + PoolPreviewStore
         + PreviewPlaneStore
         + 'static,
 {
@@ -46,6 +49,10 @@ where
         .route(
             "/api/courses/{course}/assignments/{assignment}/preview-schedule",
             get(list_schedule::<S>),
+        )
+        .route(
+            "/api/courses/{course}/assignments/{assignment}/preview-pool-draw",
+            post(preview_pool_draw::<S>),
         )
         .route(
             "/api/courses/{course}/assignments/{assignment}/preview-subjects/synthetic",
@@ -71,6 +78,69 @@ struct SyntheticBody {
 struct DerivedBody {
     selected_moment: PreviewSelectedMoment,
     membership: CourseMembershipReference,
+}
+
+async fn preview_pool_draw<S>(
+    State(state): State<CourseRouteState<S>>,
+    Path((course, assignment)): Path<(String, String)>,
+    request: Request,
+) -> Response
+where
+    S: Store
+        + CourseRecordsAccessStore
+        + SessionStore
+        + NavigationReferenceStore
+        + PoolPreviewStore
+        + 'static,
+{
+    // This route always wraps both a result and every refusal in no-store:
+    // an Instructor sample must not persist in a shared cache.
+    let bound = match authorize_bound(&state, &course, &assignment, request.headers()).await {
+        Ok(value) => value,
+        Err(response) => return no_store(response),
+    };
+    let revision = match revision(request.headers()) {
+        Ok(value) => value,
+        Err(response) => return no_store(response),
+    };
+    let body = match json_body::<PoolDrawPreviewRequest>(request).await {
+        Ok(value) => value,
+        Err(response) => return no_store(response),
+    };
+    let mut bytes = [0_u8; 16];
+    if getrandom::fill(&mut bytes).is_err() {
+        return no_store(error_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "preview sample is temporarily unavailable",
+        ));
+    }
+    match state
+        .store
+        .preview_pool_draw(
+            bound.auth.tenant_context,
+            PoolPreviewCommand {
+                actor: bound.auth.record.subject.user(),
+                course: bound.course,
+                assignment: bound.assignment,
+                revision,
+                group_position: body.group_position,
+                nonce: PoolDrawPreviewNonce::from_bytes(bytes),
+            },
+        )
+        .await
+    {
+        Ok(value) => no_store(Json(value).into_response()),
+        Err(error) => {
+            tracing::warn!(
+                event = "pool_preview_refused",
+                error = ?error,
+                course = %bound.course,
+                assignment = %bound.assignment,
+                group_position = body.group_position,
+            );
+            no_store(preview_store_error(error))
+        }
+    }
 }
 
 async fn list_schedule<S>(
@@ -220,9 +290,9 @@ where
     let auth = resolve_request_session(state.store.as_ref(), headers)
         .await
         .map_err(auth_error_response)?;
-    let course_reference = course_raw
-        .parse::<CourseReference>()
-        .map_err(|_| concealed_route_response())?;
+    let course_reference = course_raw.parse::<CourseReference>().map_err(|_| {
+        preview_binding_refused("course_reference_invalid", course_raw, assignment_raw)
+    })?;
     let course = state
         .store
         .resolve_course_reference(
@@ -232,29 +302,46 @@ where
         )
         .await
         .map_err(store_error_response)?
-        .ok_or_else(concealed_route_response)?;
+        .ok_or_else(|| {
+            preview_binding_refused("course_reference_unavailable", course_raw, assignment_raw)
+        })?;
     if require_course_access(state.store.as_ref(), &auth, course, true)
         .await
         .is_err()
     {
-        return Err(concealed_route_response());
+        return Err(preview_binding_refused(
+            "course_access_unavailable",
+            course_raw,
+            assignment_raw,
+        ));
     }
-    let assignment = assignment_raw
-        .parse::<AssignmentReference>()
-        .map_err(|_| concealed_route_response())?;
+    let assignment = assignment_raw.parse::<AssignmentReference>().map_err(|_| {
+        preview_binding_refused("assignment_reference_invalid", course_raw, assignment_raw)
+    })?;
     let identity = state
         .store
         .resolve_assignment_reference(auth.tenant_context, auth.record.subject.user(), assignment)
         .await
         .map_err(store_error_response)?
         .filter(|identity| identity.course == course)
-        .ok_or_else(concealed_route_response)?;
+        .ok_or_else(|| {
+            preview_binding_refused(
+                "assignment_reference_unavailable",
+                course_raw,
+                assignment_raw,
+            )
+        })?;
     let _ = identity;
     Ok(BoundPreviewRoute {
         auth,
         course,
         assignment,
     })
+}
+
+fn preview_binding_refused(stage: &'static str, course: &str, assignment: &str) -> Response {
+    tracing::warn!(event = "preview_route_refused", stage, course, assignment,);
+    concealed_route_response()
 }
 
 #[allow(clippy::result_large_err)] // HTTP validation returns its exact refusal.

@@ -150,7 +150,6 @@ pub(super) fn composed_memory_router_and_store_with_live_demo_selector(
         crate::auth::PasswordlessRateLimitIssuer::unavailable(),
         crate::auth::ClientAddressPolicy::direct(),
         live_demo_selector,
-        None,
         Some(
             crate::auth::PasswordlessWebauthn::new(
                 "localhost",
@@ -171,6 +170,7 @@ async fn deployment_enabled_selector_reaches_the_complete_route_composition() {
         UserId::from_uuid(uuid::Uuid::from_u128(2)),
         UserId::from_uuid(uuid::Uuid::from_u128(3)),
         UserId::from_uuid(uuid::Uuid::from_u128(4)),
+        UserId::from_uuid(uuid::Uuid::from_u128(5)),
     ];
     let selector = crate::auth::SeededAccountSelectorConfig::new(
         Arc::from("https://demo.example.test"),
@@ -179,7 +179,10 @@ async fn deployment_enabled_selector_reaches_the_complete_route_composition() {
     .expect("selector configuration");
     let (app, store) =
         composed_memory_router_and_store_with_live_demo_selector(session_config(), Some(selector));
-    for (user, name) in users.into_iter().zip(["Elena", "Mary", "Jack", "Avery"]) {
+    for (user, name) in users
+        .into_iter()
+        .zip(["Elena", "Mary", "Jack", "Avery", "Morgan"])
+    {
         account_fixture::provision_account(store.as_ref(), user, name).await;
     }
     let response = app
@@ -390,7 +393,6 @@ fn production_settings() -> ProductionSettings {
         .expect("test browser boundary"),
         client_address_policy: crate::auth::ClientAddressPolicy::direct(),
         live_demo_selector: None,
-        live_demo_sysadmin_ownership: None,
     }
 }
 

@@ -88,7 +88,7 @@ async fn course_grade_scheme_uses_no_store_strong_etag_and_strict_put_body() {
                 .body(Body::from(
                     serde_json::json!({
                         "title": "Read-only title",
-                        "questionIds": [question_id],
+                        "entries": [{"kind": "fixed", "questionId": question_id, "position": 0, "pointsPossible": "1", "deliveryState": "active", "scoringMode": "normal"}],
                         "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
                         "policies": super::fixtures::policies()
                     })
@@ -379,7 +379,7 @@ async fn course_grade_export_emits_rectangular_inert_csv_rows_from_the_real_http
                 .body(Body::from(
                     serde_json::json!({
                         "title": "CSV proof assignment",
-                        "questionIds": [question_id],
+                        "entries": [{"kind": "fixed", "questionId": question_id, "position": 0, "pointsPossible": "1", "deliveryState": "active", "scoringMode": "normal"}],
                         "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
                         "policies": super::fixtures::policies()
                     })

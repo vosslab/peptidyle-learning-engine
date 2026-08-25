@@ -263,9 +263,9 @@ async fn publish_question(
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL acceptance database"]
 async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concurrent_prefetch() {
-    let database_url = std::env::var("PLE_TEST_DATABASE_URL")
-        .expect("PLE_TEST_DATABASE_URL must name the disposable acceptance database");
-    let pool = lazy_pool(&database_url).expect("valid live PostgreSQL URL");
+    let runtime = load_acceptance_runtime();
+    let database_url = runtime.admin_url().expose();
+    let pool = lazy_pool(database_url).expect("valid live PostgreSQL URL");
     verify_application_schema(&pool)
         .await
         .expect("live PostgreSQL schema compatibility");
@@ -412,6 +412,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
             context,
             ReservePrefetchedQuestionCommand {
                 actor: student,
+                binding: LearnerWorkRoutingBinding::new(course, assignment),
                 reservation: prefetched_successor.clone(),
                 private_execution: prefetched_private_execution.clone(),
             },
@@ -465,6 +466,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
                 context,
                 ReservePrefetchedQuestionCommand {
                     actor: student,
+                    binding: LearnerWorkRoutingBinding::new(course, assignment),
                     reservation,
                     private_execution: prefetched_private_execution.clone(),
                 },
@@ -526,7 +528,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         .await
         .expect("current policy revision leaves the retained receipt intact");
     let replay_store =
-        PostgresStore::new(lazy_pool(&database_url).expect("fresh replay PostgreSQL pool"));
+        PostgresStore::new(lazy_pool(database_url).expect("fresh replay PostgreSQL pool"));
     let replayed = replay_store
         .replay_submission(context, student, attempt.id, &response, &key)
         .await
@@ -626,7 +628,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         .await
         .expect("commit disposable successor corruption");
     let successor_verification_store =
-        PostgresStore::new(lazy_pool(&database_url).expect("fresh successor verification pool"));
+        PostgresStore::new(lazy_pool(database_url).expect("fresh successor verification pool"));
     assert!(matches!(
         successor_verification_store
             .finalize_submission_next_attempt(
@@ -656,9 +658,8 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         .commit()
         .await
         .expect("commit disposable receipt corruption");
-    let checksum_replay_store = PostgresStore::new(
-        lazy_pool(&database_url).expect("fresh checksum replay PostgreSQL pool"),
-    );
+    let checksum_replay_store =
+        PostgresStore::new(lazy_pool(database_url).expect("fresh checksum replay PostgreSQL pool"));
     assert!(matches!(
         checksum_replay_store
             .replay_submission(context, student, attempt.id, &response, &key)
@@ -682,15 +683,18 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
     .expect("corrupt the disposable receipt fixture");
     assert_eq!(deleted.rows_affected(), 1);
     assert!(matches!(
-        PostgresStore::new(lazy_pool(&database_url).expect("fresh missing-receipt PostgreSQL pool"))
+        PostgresStore::new(lazy_pool(database_url).expect("fresh missing-receipt PostgreSQL pool"))
             .replay_submission(context, student, attempt.id, &response, &key)
             .await,
         Err(StoreError::Unavailable(message)) if message.contains("receipt snapshot is missing")
     ));
     assert!(matches!(
-        PostgresStore::new(lazy_pool(&database_url).expect("fresh missing-receipt GET PostgreSQL pool"))
+        PostgresStore::new(lazy_pool(database_url).expect("fresh missing-receipt GET PostgreSQL pool"))
             .submission_record(context, student, attempt.id)
             .await,
         Err(StoreError::Unavailable(message)) if message.contains("receipt snapshot is missing")
     ));
 }
+#[path = "support/acceptance_runtime.rs"]
+mod acceptance_runtime;
+use acceptance_runtime::load as load_acceptance_runtime;
