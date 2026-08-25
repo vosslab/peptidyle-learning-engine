@@ -84,6 +84,19 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     mutation("/api/problems/by-id/{reference}/deprecate", "POST"),
     mutation("/api/problems/by-id/{reference}/archive", "POST"),
     read("/api/taxonomy"),
+    read("/api/problem-collections"),
+    mutation("/api/problem-collections", "POST"),
+    mutation("/api/problem-collections/favorites", "POST"),
+    mutation("/api/problem-collections/favorites", "PUT"),
+    read("/api/problem-collections/{collection}"),
+    mutation("/api/problem-collections/{collection}", "PUT"),
+    mutation("/api/problem-collections/{collection}", "DELETE"),
+    read("/api/problem-collections/{collection}/members"),
+    read("/api/saved-problem-searches"),
+    mutation("/api/saved-problem-searches", "POST"),
+    read("/api/saved-problem-searches/{search}"),
+    mutation("/api/saved-problem-searches/{search}", "PUT"),
+    mutation("/api/saved-problem-searches/{search}", "DELETE"),
     read("/api/workspaces"),
     read("/api/workspaces/{workspace}"),
     mutation("/api/workspaces/{workspace}", "PUT"),
@@ -406,6 +419,34 @@ mod tests {
             route_policy("/api/navigation/{reference}", "GET"),
             Some(RouteIntent::Representation),
         );
+    }
+
+    #[test]
+    fn problem_curation_routes_keep_reads_and_revisioned_mutations_distinct() {
+        for path in [
+            "/api/problem-collections",
+            "/api/problem-collections/{collection}",
+            "/api/problem-collections/{collection}/members",
+            "/api/saved-problem-searches",
+            "/api/saved-problem-searches/{search}",
+        ] {
+            assert_eq!(route_policy(path, "GET"), Some(RouteIntent::Representation));
+        }
+        for (path, method) in [
+            ("/api/problem-collections", "POST"),
+            ("/api/problem-collections/favorites", "POST"),
+            ("/api/problem-collections/favorites", "PUT"),
+            ("/api/problem-collections/{collection}", "PUT"),
+            ("/api/problem-collections/{collection}", "DELETE"),
+            ("/api/saved-problem-searches", "POST"),
+            ("/api/saved-problem-searches/{search}", "PUT"),
+            ("/api/saved-problem-searches/{search}", "DELETE"),
+        ] {
+            assert_eq!(
+                route_policy(path, method),
+                Some(RouteIntent::StateTransition)
+            );
+        }
     }
 
     #[test]

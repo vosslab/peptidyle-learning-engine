@@ -11,7 +11,8 @@ import argparse
 import subprocess
 
 
-MODEL = "qwen2.5-coder:7b-instruct"
+CLAUDE_LABEL_MODEL = "sonnet"
+OLLAMA_MODEL = "qwen2.5-coder:7b-instruct"
 GRAPHIFY_PACKAGE = "graphifyy[ollama,sql,terraform]"
 LABEL_BACKEND = "claude-cli"
 OLLAMA_BACKEND = "ollama"
@@ -41,9 +42,9 @@ def build_parser() -> argparse.ArgumentParser:
 		"  With no mode, update graphify-out/graph.json when it exists; otherwise extract a\n"
 		"  fresh graph. Updates perform only Graphify's incremental update before rewriting\n"
 		"  manager context. Fresh builds upgrade Graphify, extract, fully label, and benchmark.\n"
-		"  Claude CLI is the default label backend; --ollama selects the local model for fresh\n"
-		"  builds. Context prints orientation without running Graphify. Before the first map\n"
-		"  exists, context prints this help instead.\n"
+		f"  Claude CLI uses {CLAUDE_LABEL_MODEL} for labels. --ollama selects the local model for\n"
+		"  fresh builds. Context prints orientation without running\n"
+		"  Graphify. Before the first map exists, context prints this help instead.\n"
 		"\n"
 		"Examples:\n"
 		"  %(prog)s              # automatically choose fresh or update\n"
@@ -53,7 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
 		"  %(prog)s --context    # print orientation without rebuilding\n"
 		"\n"
 		f"Fresh-build setup: pip upgrades {GRAPHIFY_PACKAGE}.\n"
-		f"Label backend: Claude CLI by default; --ollama pulls {MODEL}.\n"
+		f"Label backend: Claude CLI with {CLAUDE_LABEL_MODEL}; --ollama pulls {OLLAMA_MODEL}.\n"
 		"Run graphify benchmark directly for measurements outside a fresh build.\n"
 		f"Manager context: {OUTPUT_DIR_NAME}/{MANAGER_CONTEXT_FILE_NAME}"
 	)
@@ -93,7 +94,7 @@ def build_parser() -> argparse.ArgumentParser:
 		dest="label_backend",
 		action="store_const",
 		const=OLLAMA_BACKEND,
-		help=f"use local Ollama model {MODEL} for fresh builds",
+		help=f"use local Ollama model {OLLAMA_MODEL} for fresh builds",
 	)
 	parser.set_defaults(mode=MODE_AUTO, label_backend=LABEL_BACKEND)
 	return parser
@@ -201,8 +202,8 @@ def prepare_label_backend(repo_root: pathlib.Path, label_backend: str) -> None:
 		"ollama" if label_backend == OLLAMA_BACKEND else "claude"
 	)
 	if label_backend == OLLAMA_BACKEND:
-		print_step(f"PULLING OLLAMA MODEL: {MODEL}")
-		run_command([backend_executable, "pull", MODEL], repo_root)
+		print_step(f"PULLING OLLAMA MODEL: {OLLAMA_MODEL}")
+		run_command([backend_executable, "pull", OLLAMA_MODEL], repo_root)
 
 
 #============================================
@@ -254,14 +255,17 @@ def label_graph(
 	# ASVS 2.2.1: accept only the two documented label backends.
 	if label_backend not in (LABEL_BACKEND, OLLAMA_BACKEND):
 		raise ValueError(f"Unsupported Graphify label backend: {label_backend}")
+	label_model = (
+		OLLAMA_MODEL if label_backend == OLLAMA_BACKEND else CLAUDE_LABEL_MODEL
+	)
+	# ASVS 1.2.5: fixed backend and model values remain isolated in the argv list.
 	command = [
 		graphify_executable,
 		"label",
 		".",
 		f"--backend={label_backend}",
+		f"--model={label_model}",
 	]
-	if label_backend == OLLAMA_BACKEND:
-		command.append(f"--model={MODEL}")
 	run_command(command, repo_root)
 
 

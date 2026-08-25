@@ -28,6 +28,7 @@ export interface AssignmentPoolEditorProps {
   readonly preview: PoolDrawPreview | undefined;
   readonly previewBusy: boolean;
   readonly onPreview: () => void;
+  readonly onChooseCandidates: (trigger: HTMLButtonElement) => void;
 }
 
 function poolLabel(entry: AssignmentEditorSelectionGroupEntry): string {
@@ -267,6 +268,14 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
           onClick={() => void addCandidates()}
         >
           Check and add candidates
+        </button>
+        <button
+          class="quiet-action"
+          type="button"
+          disabled={candidateBusy()}
+          onClick={(event) => props.onChooseCandidates(event.currentTarget)}
+        >
+          Choose candidates
         </button>
         <Show when={candidateError()}>
           {(error) => (

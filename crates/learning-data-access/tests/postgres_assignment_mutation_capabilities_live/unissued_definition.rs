@@ -188,8 +188,19 @@ async fn unissued_definition_replacement_reports_issued_without_mutating_committ
         .expect("owner tenant");
     let student_membership: Uuid = sqlx::query_scalar("SELECT course_membership_id FROM course_member WHERE tenant_id=$1 AND course_id=$2 AND user_id=$3 AND role='student'")
         .bind(source.tenant).bind(source.course).bind(source.student).fetch_one(&mut *owner).await.expect("student membership");
+    sqlx::query("INSERT INTO course_group_member (tenant_id,course_id,course_group_id,course_membership_id) VALUES ($1,$2,$3,$4)")
+        .bind(source.tenant).bind(source.course).bind(source.group).bind(student_membership)
+        .execute(&mut *owner).await.expect("materialize group-audience membership");
     sqlx::query("INSERT INTO enrollment (tenant_id,enrollment_id,assignment_id,student_id,user_id,course_id,course_membership_id,materialized_at,materialization_purpose,materialized_by_user_id,evaluator_version) VALUES ($1,$2,$3,$4,$4,$5,$6,transaction_timestamp(),'instructor_issue',$7,1)")
         .bind(source.tenant).bind(enrollment).bind(assignment).bind(source.student).bind(source.course).bind(student_membership).bind(source.actor).execute(&mut *owner).await.expect("materialize learner enrollment");
+    sqlx::query("INSERT INTO enrollment_entitlement_basis_receipt (tenant_id,enrollment_id,scope_receipt_id,scope_kind,course_id,course_group_id,course_group_purpose) VALUES ($1,$2,$3,'group_audience',$4,$5,'section')")
+        .bind(source.tenant).bind(enrollment).bind(id()).bind(source.course).bind(source.group)
+        .execute(&mut *owner).await.expect("persist entitlement basis receipt");
+    sqlx::query("INSERT INTO enrollment_applicable_policy_scope_receipt (tenant_id,enrollment_id,course_id,course_group_id,course_group_purpose) VALUES ($1,$2,$3,$4,'section')")
+        .bind(source.tenant).bind(enrollment).bind(source.course).bind(source.group)
+        .execute(&mut *owner).await.expect("persist applicable policy scope receipt");
+    sqlx::query("UPDATE enrollment SET entitlement_receipts_sealed_at=transaction_timestamp() WHERE tenant_id=$1 AND enrollment_id=$2")
+        .bind(source.tenant).bind(enrollment).execute(&mut *owner).await.expect("seal entitlement receipt set");
     sqlx::query("INSERT INTO assignment_run (tenant_id,run_id,enrollment_id,run_number,started_at,payload,payload_sha256) VALUES ($1,$2,$3,1,transaction_timestamp(),'{}'::jsonb,$4)")
         .bind(source.tenant).bind(id()).bind(enrollment).bind("0".repeat(64)).execute(&mut *owner).await.expect("write committed learner run evidence");
     owner.commit().await.expect("commit learner run");
@@ -284,7 +295,7 @@ async fn unissued_definition_replacement_orders_shared_publications_across_assig
         .expect("owner tenant");
     sqlx::query("INSERT INTO problem (problem_id,owner_tenant_id,owner_user_id,visibility,license,lifecycle,question_id) VALUES ($1,$2,$3,'institution','CC-BY','published',$4)")
         .bind(second_problem).bind(source.tenant).bind(source.actor).bind(id().simple().to_string()[..7].to_ascii_uppercase()).execute(&mut *owner).await.expect("second problem");
-    sqlx::query("INSERT INTO problem_version (problem_id,version_id,content_sha256,workspace_id,title,lifecycle,backend,publication_scope,author_ids,public_byline) VALUES ($1,$2,$3,$4,'Second authority problem','published','native','institution',jsonb_build_array($5::text),ARRAY['Oracle author'])")
+    sqlx::query("INSERT INTO problem_version (problem_id,version_id,content_sha256,workspace_id,title,lifecycle,backend,publication_scope,author_ids,public_byline,response_family) VALUES ($1,$2,$3,$4,'Second authority problem','published','native','institution',jsonb_build_array($5::text),ARRAY['Oracle author'],'shortText')")
         .bind(second_problem).bind(second_version).bind("b".repeat(64)).bind(id()).bind(source.actor).execute(&mut *owner).await.expect("second published version");
     sqlx::query(
         "INSERT INTO catalog_tenant_grant (tenant_id,problem_id,version_id) VALUES ($1,$2,$3)",

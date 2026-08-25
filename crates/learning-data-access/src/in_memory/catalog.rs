@@ -1,5 +1,20 @@
 use super::*;
 
+mod search;
+
+const MAX_CATALOG_USAGE_SNAPSHOT_ROWS: usize = 5_000;
+const MAX_CATALOG_USAGE_SNAPSHOTS_PER_ACTOR: usize = 8;
+
+#[derive(Debug, Clone)]
+pub(super) struct CatalogUsageSnapshot {
+    tenant: TenantId,
+    actor: UserId,
+    created_at_millis: u64,
+    expires_at_millis: u64,
+    instructor_courses: BTreeSet<CourseId>,
+    publications: BTreeSet<(ProblemId, VersionId)>,
+}
+
 #[async_trait]
 impl CatalogStore for MemoryStore {
     async fn publish_draft(
@@ -427,168 +442,39 @@ impl CatalogStore for MemoryStore {
     async fn search_catalog(
         &self,
         context: TenantContext,
+        session: SessionTokenHash,
         query: CatalogSearchQuery,
     ) -> Result<CatalogSearchPage, StoreError> {
-        let query = query
-            .normalized()
-            .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-        let page = search_page_request(&query)?;
-        let fingerprint = catalog_search_fingerprint(&query);
-        let after = page
-            .after
-            .as_ref()
-            .map(|cursor| {
-                decode_catalog_search_cursor(&self.catalog_cursors, cursor.as_str(), &fingerprint)
-            })
-            .transpose()?
-            .map(|(boundary, rank, similarity, problem, version)| {
-                (
-                    boundary,
-                    rank,
-                    similarity,
-                    ProblemId::from_uuid(problem),
-                    VersionId::from_uuid(version),
-                )
-            });
-        let state = self.read_state()?;
-        let snapshot_boundary = after
-            .as_ref()
-            .map(|after| after.0)
-            .unwrap_or_else(|| state_catalog_snapshot_boundary(&state));
-        let matching = state
-            .published
-            .iter()
-            .filter_map(|((problem, version), record)| {
-                if state
-                    .catalog_publication_sequences
-                    .get(&(*problem, *version))
-                    .is_some_and(|sequence| *sequence > snapshot_boundary)
-                {
-                    return None;
-                }
-                if !record.lifecycle.is_discoverable()
-                    || !catalog_record_visible(&state, context.tenant_id(), record)
-                {
-                    return None;
-                }
-                let statistics_available = state
-                    .question_statistics
-                    .get(&(*problem, *version))
-                    .is_some_and(|aggregate| {
-                        matches!(
-                            aggregate.disclose(StatisticsDisclosurePolicy::default()),
-                            QuestionStatisticsDisclosure::Available(_)
-                        )
-                    })
-                    && state
-                        .catalog_statistics_disclosure_sequences
-                        .get(&(*problem, *version))
-                        .is_some_and(|sequence| *sequence <= snapshot_boundary);
-                super::catalog_search::catalog_search_score(
-                    record,
-                    &query,
-                    &self.question_ids,
-                    statistics_available,
-                )
-                .map(|(rank, similarity)| {
-                    (
-                        rank,
-                        similarity,
-                        *problem,
-                        *version,
-                        record,
-                        statistics_available,
-                    )
-                })
-            })
-            .collect::<Vec<_>>();
-        let facets = catalog_search_facets(
-            matching
-                .iter()
-                .map(|(_, _, _, _, record, available)| (*record, *available)),
-        );
-        let mut matching = matching;
-        matching.sort_by(|left, right| {
-            right
-                .0
-                .cmp(&left.0)
-                .then_with(|| right.1.cmp(&left.1))
-                .then_with(|| left.2.cmp(&right.2))
-                .then_with(|| left.3.cmp(&right.3))
-        });
-        let mut selected = matching
-            .into_iter()
-            .filter(|(rank, similarity, problem, version, _, _)| {
-                after.as_ref().is_none_or(|after| {
-                    *rank < after.1
-                        || (*rank == after.1
-                            && (*similarity < after.2
-                                || (*similarity == after.2
-                                    && (*problem, *version) > (after.3, after.4))))
-                })
-            })
-            .take(usize::from(page.size.get()) + 1)
-            .collect::<Vec<_>>();
-        let has_more = selected.len() > usize::from(page.size.get());
-        if has_more {
-            selected.pop();
-        }
-        let next_cursor = if has_more {
-            selected
-                .last()
-                .map(|(rank, similarity, problem, version, _, _)| {
-                    encode_catalog_search_cursor(
-                        &self.catalog_cursors,
-                        &fingerprint,
-                        snapshot_boundary,
-                        *rank,
-                        *similarity,
-                        problem.as_uuid(),
-                        version.as_uuid(),
-                    )
-                })
-        } else {
-            None
-        };
-        Ok(CatalogSearchPage {
-            items: selected
-                .into_iter()
-                .map(|(_, _, _, _, record, _)| record.summary())
-                .collect(),
-            next_cursor,
-            facets,
-        })
+        search::search_catalog(self, context, session, query).await
     }
 
     async fn get_catalog_detail(
         &self,
         context: TenantContext,
+        session: SessionTokenHash,
         reference: ProblemVersionRef,
     ) -> Result<Option<CatalogProblemDetail>, StoreError> {
         let state = self.read_state()?;
-        Ok(state
+        let actor = catalog_search_actor(&state, context, session)?;
+        let Some(record) = state
             .published
             .get(&(reference.problem, reference.version))
             .filter(|record| catalog_record_visible(&state, context.tenant_id(), record))
-            .map(|record| {
-                let statistics = state
-                    .question_statistics
-                    .get(&(reference.problem, reference.version))
-                    .map(|aggregate| aggregate.disclose(StatisticsDisclosurePolicy::default()))
-                    .unwrap_or(QuestionStatisticsDisclosure::Suppressed);
-                CatalogProblemDetail {
-                    summary: record.summary(),
-                    prompt: record.question.prompt.clone(),
-                    statistics: match statistics {
-                        QuestionStatisticsDisclosure::Suppressed => {
-                            question_model::CatalogStatisticsStatus::Unavailable
-                        }
-                        QuestionStatisticsDisclosure::Available(view) => {
-                            question_model::CatalogStatisticsStatus::Available(view)
-                        }
-                    },
-                }
-            }))
+        else {
+            return Ok(None);
+        };
+        let prompt = crate::catalog_prompt::catalog_prompt_projection(&record.question)?;
+        Ok(Some(CatalogProblemDetail {
+            summary: record.summary(),
+            prompt,
+            evidence: catalog_discovery_evidence(
+                &state,
+                (reference.problem, reference.version),
+                state_catalog_snapshot_boundary(&state),
+            )
+            .0,
+            usage: catalog_usage_detail(&state, context.tenant_id(), actor, reference),
+        }))
     }
 
     async fn transition_catalog_problem(
@@ -633,8 +519,232 @@ impl CatalogStore for MemoryStore {
     }
 }
 
+fn catalog_usage_detail(
+    state: &State,
+    tenant: TenantId,
+    actor: UserId,
+    reference: ProblemVersionRef,
+) -> CatalogUsageDetail {
+    let assignment_uses = state
+        .assignments
+        .values()
+        .filter(|assignment| assignment.tenant == tenant)
+        .filter(|assignment| assignment_references(assignment, reference))
+        .collect::<Vec<_>>();
+    let institution_courses = assignment_uses
+        .iter()
+        .map(|assignment| assignment.course_id)
+        .collect::<BTreeSet<_>>();
+    let own_course_ids = state
+        .course_memberships
+        .values()
+        .filter(|membership| {
+            membership.tenant == tenant
+                && membership.user == actor
+                && membership.role == CourseMembershipRole::Instructor
+                && membership.status == CourseMemberStatus::Active
+                && super::course_records_accessible(state, tenant, membership.course)
+        })
+        .map(|membership| membership.course)
+        .collect::<BTreeSet<_>>();
+    let mut own_courses = institution_courses
+        .iter()
+        .filter(|course| own_course_ids.contains(course))
+        .filter_map(|course| {
+            let record = state.courses.get(&(tenant, *course))?;
+            let reference = state.course_references.get(&(tenant, *course)).copied()?;
+            let assignment_count = assignment_uses
+                .iter()
+                .filter(|assignment| assignment.course_id == *course)
+                .count() as u64;
+            Some(CatalogOwnCourseUsage {
+                course: reference,
+                title: record.title.clone(),
+                assignment_count,
+            })
+        })
+        .collect::<Vec<_>>();
+    own_courses.sort_by_key(|usage| usage.course);
+    let own_course_count = own_courses.len() as u64;
+    let own_courses_truncated = own_courses.len() > MAX_CATALOG_OWN_COURSE_USAGES;
+    own_courses.truncate(MAX_CATALOG_OWN_COURSE_USAGES);
+    let own_assignment_count = assignment_uses
+        .iter()
+        .filter(|assignment| own_course_ids.contains(&assignment.course_id))
+        .count() as u64;
+    CatalogUsageDetail {
+        summary: CatalogUsageSummary {
+            institution_course_count: institution_courses.len() as u64,
+            institution_assignment_count: assignment_uses.len() as u64,
+            own_course_count,
+            own_assignment_count,
+        },
+        own_courses,
+        own_courses_truncated,
+    }
+}
+
+fn catalog_search_actor(
+    state: &State,
+    context: TenantContext,
+    session: SessionTokenHash,
+) -> Result<UserId, StoreError> {
+    let subject =
+        super::sessions::active_subject(state, context, session).ok_or(StoreError::NotFound)?;
+    if subject
+        .roles()
+        .contains(&question_model::UserRole::Sysadmin)
+    {
+        return Ok(subject.user());
+    }
+    if !subject
+        .roles()
+        .contains(&question_model::UserRole::Instructor)
+    {
+        return Err(StoreError::Forbidden);
+    }
+    let approval = state
+        .instructor_approvals
+        .get(&subject.user())
+        .ok_or(StoreError::Forbidden)?;
+    domain::teaching_authority::validate_instructor_approval(
+        &approval.approval,
+        state.authoritative_time,
+    )
+    .map_err(|error| {
+        StoreError::InvalidRecord(format!("invalid instructor approval: {error:?}"))
+    })?;
+    if approval.approval.user != subject.user() || approval.approval.revoked_at.is_some() {
+        return Err(StoreError::Forbidden);
+    }
+    Ok(subject.user())
+}
+
+fn catalog_usage_snapshot_values(
+    state: &State,
+    tenant: TenantId,
+    actor: UserId,
+) -> (BTreeSet<(ProblemId, VersionId)>, BTreeSet<CourseId>) {
+    let own_course_ids = state
+        .course_memberships
+        .values()
+        .filter(|membership| {
+            membership.tenant == tenant
+                && membership.user == actor
+                && membership.role == CourseMembershipRole::Instructor
+                && membership.status == CourseMemberStatus::Active
+                && super::course_records_accessible(state, tenant, membership.course)
+        })
+        .map(|membership| membership.course)
+        .collect::<BTreeSet<_>>();
+    let mut used = BTreeSet::new();
+    let mut used_courses = BTreeSet::new();
+    for assignment in state.assignments.values().filter(|assignment| {
+        assignment.tenant == tenant && own_course_ids.contains(&assignment.course_id)
+    }) {
+        let mut assignment_has_active_reference = false;
+        for item in assignment
+            .items
+            .iter()
+            .filter(|item| item.delivery_state == AssignmentDeliveryState::Active)
+        {
+            used.insert((item.reference.problem, item.reference.version));
+            assignment_has_active_reference = true;
+        }
+        for candidate in assignment
+            .selection_groups
+            .iter()
+            .flat_map(|group| &group.candidates)
+            .filter(|candidate| candidate.delivery_state == AssignmentDeliveryState::Active)
+        {
+            used.insert((candidate.reference.problem, candidate.reference.version));
+            assignment_has_active_reference = true;
+        }
+        if assignment_has_active_reference {
+            used_courses.insert(assignment.course_id);
+        }
+    }
+    (used, used_courses)
+}
+
+fn catalog_snapshot_courses_are_authorized(
+    state: &State,
+    tenant: TenantId,
+    actor: UserId,
+    courses: &BTreeSet<CourseId>,
+) -> bool {
+    courses.iter().all(|course| {
+        state.courses.contains_key(&(tenant, *course))
+            && state.course_memberships.values().any(|membership| {
+                membership.tenant == tenant
+                    && membership.course == *course
+                    && membership.user == actor
+                    && membership.role == CourseMembershipRole::Instructor
+                    && membership.status == CourseMemberStatus::Active
+            })
+    })
+}
+
+fn catalog_usage_snapshot_token(
+    fingerprint: &str,
+    tenant: TenantId,
+    actor: UserId,
+    expires_at_millis: u64,
+    publications: &BTreeSet<(ProblemId, VersionId)>,
+    instructor_courses: &BTreeSet<CourseId>,
+) -> [u8; 32] {
+    let mut canonical = String::new();
+    canonical.push_str(fingerprint);
+    canonical.push('|');
+    canonical.push_str(&tenant.as_uuid().to_string());
+    canonical.push('|');
+    canonical.push_str(&actor.as_uuid().to_string());
+    canonical.push('|');
+    canonical.push_str(&expires_at_millis.to_string());
+    for (problem, version) in publications {
+        canonical.push('|');
+        canonical.push_str(&problem.as_uuid().to_string());
+        canonical.push('/');
+        canonical.push_str(&version.as_uuid().to_string());
+    }
+    for course in instructor_courses {
+        canonical.push('|');
+        canonical.push_str(&course.as_uuid().to_string());
+    }
+    *objects::Sha256Digest::compute(canonical.as_bytes()).as_bytes()
+}
+
+fn assignment_references(assignment: &AssignmentRecord, reference: ProblemVersionRef) -> bool {
+    assignment.items.iter().any(|item| {
+        item.delivery_state == AssignmentDeliveryState::Active && item.reference == reference
+    }) || assignment.selection_groups.iter().any(|group| {
+        group.candidates.iter().any(|candidate| {
+            candidate.delivery_state == AssignmentDeliveryState::Active
+                && candidate.reference == reference
+        })
+    })
+}
+
 fn state_catalog_snapshot_boundary(state: &State) -> u64 {
     state.next_catalog_publication_sequence.saturating_sub(1)
+}
+
+fn catalog_discovery_evidence(
+    state: &State,
+    reference: (ProblemId, VersionId),
+    snapshot_boundary: u64,
+) -> (CatalogDiscoveryEvidence, i64) {
+    state
+        .catalog_discovery_evidence_revisions
+        .get(&reference)
+        .and_then(|revisions| {
+            revisions
+                .iter()
+                .rev()
+                .find(|revision| revision.sequence <= snapshot_boundary)
+        })
+        .map(|revision| (revision.evidence.clone(), revision.quality))
+        .unwrap_or((CatalogDiscoveryEvidence::InsufficientEvidence, 0))
 }
 
 #[async_trait]
@@ -689,10 +799,30 @@ pub(super) fn search_page_request(query: &CatalogSearchQuery) -> Result<PageRequ
 /// Stable digest of filters only. The digest avoids exposing title/taxonomy
 /// contents through a cursor and makes a cursor from a different filter set a
 /// deterministic client error rather than a subtly stale page.
-pub(super) fn catalog_search_fingerprint(query: &CatalogSearchQuery) -> String {
+pub(super) fn catalog_search_fingerprint(query: &CatalogSearchQuery, actor: UserId) -> String {
     let mut canonical = String::new();
     canonical.push_str(query.text.as_deref().unwrap_or(""));
     canonical.push('\u{1f}');
+    for byline in &query.bylines {
+        canonical.push_str(byline);
+        canonical.push('\u{1f}');
+    }
+    canonical.push('|');
+    for backend in &query.backends {
+        canonical.push_str(&format!("{backend:?}"));
+        canonical.push('\u{1f}');
+    }
+    canonical.push('|');
+    for tag in &query.tags {
+        canonical.push_str(tag);
+        canonical.push('\u{1f}');
+    }
+    canonical.push('|');
+    for response_family in &query.response_families {
+        canonical.push_str(&format!("{response_family:?}"));
+        canonical.push('\u{1f}');
+    }
+    canonical.push('|');
     for term in &query.taxonomy {
         canonical.push_str(&term.scheme);
         canonical.push('\u{1e}');
@@ -710,71 +840,29 @@ pub(super) fn catalog_search_fingerprint(query: &CatalogSearchQuery) -> String {
         canonical.push('\u{1f}');
     }
     canonical.push('|');
-    canonical.push_str(&format!("{:?}", query.statistics));
+    canonical.push_str(&format!("{:?}", query.evidence));
+    canonical.push('|');
+    canonical.push_str(&format!("{:?}", query.used_in_my_courses));
+    canonical.push('|');
+    canonical.push_str(&format!("{:?}", query.authorship));
+    canonical.push('|');
+    canonical.push_str(&actor.as_uuid().to_string());
     Sha256Digest::compute(canonical.as_bytes()).to_string()
 }
 
-fn catalog_search_facets<'a>(
-    records: impl Iterator<Item = (&'a PublishedProblemRecord, bool)>,
-) -> CatalogSearchFacets {
-    let mut taxonomy = BTreeMap::<String, (TaxonomyTerm, u64)>::new();
-    let mut capabilities = BTreeMap::new();
-    let mut licenses = BTreeMap::new();
-    let mut unavailable = 0_u64;
-    let mut available = 0_u64;
-    for (record, statistics_available) in records {
-        if statistics_available {
-            available += 1;
-        } else {
-            unavailable += 1;
-        }
-        for term in &record.question.metadata.taxonomy {
-            let entry = taxonomy
-                .entry(taxonomy_cursor_key(term))
-                .or_insert_with(|| (term.clone(), 0));
-            entry.1 += 1;
-            // A controlled identity is `(scheme, code)`. Legacy imports may
-            // disagree on display text; choose the lexicographically smallest
-            // label so Memory and PostgreSQL remain deterministic.
-            if term.label < entry.0.label {
-                entry.0.label = term.label.clone();
-            }
-        }
-        for capability in record.capabilities.declared() {
-            *capabilities.entry(capability).or_insert(0_u64) += 1;
-        }
-        *licenses
-            .entry(CatalogLicenseValue::from_license(
-                &record.question.metadata.license,
-            ))
-            .or_insert(0_u64) += 1;
-    }
-    let mut taxonomy = taxonomy
-        .into_values()
-        .map(|(term, count)| CatalogTaxonomyFacet { term, count })
-        .collect::<Vec<_>>();
-    taxonomy.sort_by(|left, right| {
-        right
-            .count
-            .cmp(&left.count)
-            .then_with(|| left.term.scheme.cmp(&right.term.scheme))
-            .then_with(|| left.term.code.cmp(&right.term.code))
-    });
-    taxonomy.truncate(MAX_CATALOG_TAXONOMY_FACETS);
-    CatalogSearchFacets {
-        taxonomy,
-        capabilities: capabilities
-            .into_iter()
-            .map(|(capability, count)| CatalogCapabilityFacet { capability, count })
-            .collect(),
-        licenses: licenses
-            .into_iter()
-            .map(|(license, count)| CatalogLicenseFacet { license, count })
-            .collect(),
-        statistics: CatalogStatisticsFacet {
-            available,
-            unavailable,
-        },
+fn catalog_response_family_key(
+    response_family: question_model::CatalogResponseFamily,
+) -> &'static str {
+    match response_family {
+        question_model::CatalogResponseFamily::Numeric => "numeric",
+        question_model::CatalogResponseFamily::MultipleChoice => "multiple_choice",
+        question_model::CatalogResponseFamily::ShortText => "short_text",
+        question_model::CatalogResponseFamily::MultiBlank => "multi_blank",
+        question_model::CatalogResponseFamily::Matching => "matching",
+        question_model::CatalogResponseFamily::Ordering => "ordering",
+        question_model::CatalogResponseFamily::Hotspot => "hotspot",
+        question_model::CatalogResponseFamily::FileUpload => "file_upload",
+        question_model::CatalogResponseFamily::ExternalTool => "external_tool",
     }
 }
 

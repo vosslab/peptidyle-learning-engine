@@ -1,5 +1,5 @@
 use super::*;
-use hmac::{KeyInit, Mac};
+use hmac::Mac;
 
 mod assignment_definition;
 mod assignment_editing;
@@ -10,6 +10,7 @@ mod entitlement;
 mod issued_question_snapshot;
 mod pool_preview;
 mod preview_plane;
+mod problem_curation;
 mod runs;
 mod store;
 mod store_capabilities;
@@ -28,6 +29,10 @@ pub use entitlement::*;
 pub use issued_question_snapshot::*;
 pub use pool_preview::*;
 pub use preview_plane::*;
+pub use problem_curation::{
+    ProblemCollectionMembersPage, ProblemCollectionReplacementTarget, ProblemCurationCapability,
+    ProblemCurationStore, ReplaceProblemCollectionCommand, ReplaceSavedProblemSearchCommand,
+};
 pub use runs::*;
 pub use store::Store;
 pub(crate) use store_capabilities::{

@@ -78,17 +78,15 @@ async function createAssignment(page: Page, assignmentTitle: string): Promise<vo
   await page.getByRole("link", { name: "New assignment", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Create assignment", exact: true })).toBeVisible();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
-  await page.getByText("Add several Question IDs", { exact: true }).click();
-  await page.getByLabel("Search published questions").fill(seededQuestionTitle);
-  await page.getByRole("button", { name: "Search library", exact: true }).click();
-  const catalogQuestion = page
-    .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: seededQuestionTitle, exact: true }) });
-  await expect(catalogQuestion).toHaveCount(1);
-  const questionId = await catalogQuestion.locator("code").innerText();
-  expect(questionId).toMatch(/^[A-Z0-9]{3}-[A-Z0-9]{4}$/u);
-  await page.getByLabel("Question IDs").fill(questionId);
-  await page.getByRole("button", { name: "Add questions by ID" }).click();
+  await page.getByRole("button", { name: "Choose questions", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "Choose assignment questions", exact: true });
+  await expect(picker).toBeVisible();
+  await picker.getByLabel("Search questions", { exact: true }).fill(seededQuestionTitle);
+  await picker.getByRole("button", { name: "Search questions", exact: true }).click();
+  await picker.getByRole("checkbox", { name: new RegExp(seededQuestionTitle) }).check();
+  await picker.getByRole("button", { name: "Add selected questions", exact: true }).click();
+  await expect(picker).toHaveCount(0);
+  await expect(page.locator(".assignment-editor-list")).toContainText(seededQuestionTitle);
   await page.getByRole("button", { name: "Create assignment" }).click();
   await expect(page.getByText(`${assignmentTitle} now appears in this course.`)).toBeVisible();
 }
@@ -145,11 +143,20 @@ function resultRegion(page: Page): Locator {
   return page.getByRole("heading", { name: "Resolved delivery", exact: true }).locator("..");
 }
 
-async function activateDeliveryCheck(page: Page): Promise<void> {
+async function activateDeliveryCheck(page: Page, expectedStatus = 200): Promise<void> {
   const check = page.getByRole("button", { name: "Check assignment delivery", exact: true });
+  const responsePromise = page.waitForResponse((response) =>
+    new URL(response.url()).pathname.includes("/preview-subjects/"),
+  );
   await check.focus();
   await expect(check).toBeFocused();
   await page.keyboard.press("Enter");
+  const response = await responsePromise;
+  if (response.status() !== expectedStatus) {
+    throw new Error(
+      `Preview request returned HTTP ${response.status()} instead of ${expectedStatus}: ${await response.text()}`,
+    );
+  }
 }
 
 async function assertDerivedResult(page: Page): Promise<void> {
@@ -379,7 +386,7 @@ test.describe("assignment delivery preview on the production PLE stack", () => {
         await enterAssignmentEditorFromList(remote, assignmentTitle);
         await changeDisclosureInSecondSession(remote);
 
-        await activateDeliveryCheck(local);
+        await activateDeliveryCheck(local, 412);
         await expect(
           local.getByRole("status").filter({ hasText: "Your hypothetical draft is preserved" }),
         ).toBeVisible();

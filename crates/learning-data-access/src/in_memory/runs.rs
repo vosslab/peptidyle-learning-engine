@@ -934,14 +934,7 @@ pub(super) fn submit_question_attempt_locked(
         }
     }
     if let Some(contributions) = &statistics_contributions {
-        stage_statistics_contributions(
-            state,
-            tenant,
-            enrollment.id,
-            run.id,
-            submitted.id,
-            contributions,
-        )?;
+        stage_statistics_contributions(state, tenant, enrollment.id, run.id, contributions)?;
     }
     let record = SubmissionRecord {
         attempt: submitted,

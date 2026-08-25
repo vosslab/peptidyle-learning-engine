@@ -187,40 +187,12 @@ pub(super) async fn apply_postgres_attempt_support(
     .await
     .map_err(map_sqlx_error)?;
     if action == AttemptSupportAction::Clear && has_evaluation {
-        let row = sqlx::query(
-            "UPDATE assignment \
-             SET scoring_generation = scoring_generation + 1, \
-                 scoring_status = 'recalculating', updated_at = transaction_timestamp() \
-             WHERE tenant_id = $1 AND assignment_id = $2 \
-             RETURNING scoring_generation",
+        super::assignment_recalculation::enqueue_assignment_recalculation(
+            transaction,
+            tenant,
+            assignment.id,
         )
-        .bind(tenant.as_uuid())
-        .bind(assignment.id.as_uuid())
-        .fetch_optional(&mut **transaction)
-        .await
-        .map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
-        let generation = decode_scoring_generation(&row)?;
-        let job = JobId::generate()?;
-        let payload = serde_json::to_value(JobPayload::RecalculateAssignment {
-            assignment: assignment.id,
-            generation,
-        })
-        .map_err(|error| {
-            StoreError::InvalidRecord(format!(
-                "attempt clear scoring job serialization failed: {error}"
-            ))
-        })?;
-        sqlx::query(
-            "INSERT INTO worker_job (job_id, tenant_id, payload, state, max_attempts) \
-             VALUES ($1, $2, $3, 'ready', 10)",
-        )
-        .bind(job.as_uuid())
-        .bind(tenant.as_uuid())
-        .bind(payload)
-        .execute(&mut **transaction)
-        .await
-        .map_err(map_sqlx_error)?;
+        .await?;
     }
 
     let occurred_at = database_timestamp(transaction).await?;
@@ -667,7 +639,7 @@ pub(super) async fn submit_question_attempt(
             .bind(tenant.as_uuid())
             .bind(enrollment.id.as_uuid())
             .bind(run.id.as_uuid())
-            .bind(submitted.id.as_uuid())
+            .bind(contribution.first_scored_attempt.as_uuid())
             .bind(contribution.reference.problem.as_uuid())
             .bind(contribution.reference.version.as_uuid())
             .bind(contribution.observation.normalized_score())

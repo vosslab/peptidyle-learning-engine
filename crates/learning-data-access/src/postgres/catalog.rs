@@ -5,9 +5,10 @@ mod search;
 use async_trait::async_trait;
 use question_model::taxonomy::TaxonomyTerm;
 use question_model::{
-    ActivityTimestamp, CatalogLifecycle, CatalogProblemDetail, CatalogProblemSummary,
-    CatalogSearchPage, CatalogSearchQuery, DraftQuestionSource, ProblemVersionRef,
-    PublicationScope, QuestionDefinition, QuestionStatisticsDisclosure, UserId,
+    ActivityTimestamp, CatalogDiscoveryEvidence, CatalogLifecycle, CatalogOwnCourseUsage,
+    CatalogProblemDetail, CatalogProblemSummary, CatalogSearchPage, CatalogSearchQuery,
+    CatalogUsageDetail, DraftQuestionSource, MAX_CATALOG_OWN_COURSE_USAGES, ProblemVersionRef,
+    PublicationScope, QuestionDefinition, UserId,
 };
 use serde_json::Value;
 use sqlx::Row;
@@ -16,17 +17,18 @@ use sqlx::types::Uuid;
 use super::connection::{map_sqlx_error, retry_transaction};
 use super::{
     PostgresStore, catalog_lifecycle_parts, catalog_summary_page_from_rows,
-    decode_catalog_payload_row, decode_payload_row, decode_payload_row_named, encode_payload,
-    insert_catalog_asset_delivery, insert_problem_version, insert_published_source_artifact,
-    publication_scope_name, question_backend_name, question_statistics_disclosure_from_row,
-    taxonomy_page_from_rows, validated_deprecation_reason,
+    decode_catalog_discovery_evidence_row, decode_catalog_own_course_usage_row,
+    decode_catalog_payload_row, decode_catalog_usage_summary_row, decode_payload_row,
+    decode_payload_row_named, encode_payload, insert_catalog_asset_delivery,
+    insert_problem_version, insert_published_source_artifact, publication_scope_name,
+    question_backend_name, taxonomy_page_from_rows, validated_deprecation_reason,
 };
 use crate::{
     CatalogSourceStore, CatalogStore, CatalogTransition, DraftRecord, Page, PageRequest,
     PublishDraftCommand, PublishedProblemRecord, PublishedSourceArtifact, QtiImportRegistry,
-    StoreError, TenantContext, WorkspaceDraftRevision, WorkspaceFlatQuestionSource, ensure_tenant,
-    validate_draft, validate_flat_question_publication, validate_publication_source,
-    validate_published, validate_qti_publication_promotion,
+    SessionTokenHash, StoreError, TenantContext, WorkspaceDraftRevision,
+    WorkspaceFlatQuestionSource, ensure_tenant, validate_draft, validate_flat_question_publication,
+    validate_publication_source, validate_published, validate_qti_publication_promotion,
     validate_source_artifact_for_publication, validate_source_artifact_identity,
 };
 
@@ -538,7 +540,7 @@ impl CatalogStore for PostgresStore {
         let mut transaction = self.begin_tenant(context).await?;
         let rows = sqlx::query(
             "SELECT document.question_id AS stable_key, document.question_id, \
-                    document.backend, document.capabilities, \
+                    document.backend, document.response_family, document.capabilities, \
                     document.metadata, document.publication_scope, document.lifecycle, \
                     document.lifecycle_reason, \
                     floor(extract(epoch FROM document.published_at) * 1000)::bigint \
@@ -600,20 +602,26 @@ impl CatalogStore for PostgresStore {
     async fn search_catalog(
         &self,
         context: TenantContext,
+        session: SessionTokenHash,
         query: CatalogSearchQuery,
     ) -> Result<CatalogSearchPage, StoreError> {
-        search::search_catalog(self, context, query).await
+        search::search_catalog(self, context, session, query).await
     }
     async fn get_catalog_detail(
         &self,
         context: TenantContext,
+        session: SessionTokenHash,
         reference: ProblemVersionRef,
     ) -> Result<Option<CatalogProblemDetail>, StoreError> {
         retry_transaction(|| async move {
-        // Keep the authored prompt and its safe aggregate projection in one
-        // tenant-scoped snapshot. The statistics statement calls only the
-        // k-gated reader; it never joins catalog payload or learner history.
         let mut transaction = self.begin_tenant_snapshot(context).await?;
+        // ASVS 8.2.2 and 8.3.3: the SQL capability resolves the presented
+        // session instead of accepting a browser-provided actor identity.
+        sqlx::query("SELECT set_config('ple.session_hash', $1, true)")
+            .bind(session.to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
         let row = sqlx::query(
             "SELECT pv.problem_id, p.question_id, pv.version_id, \
                     pvp.payload, pvp.payload_sha256, pv.lifecycle, pv.lifecycle_reason, pv.author_ids, pv.public_byline \
@@ -628,32 +636,77 @@ impl CatalogStore for PostgresStore {
         .await
         .map_err(map_sqlx_error)?;
         let record = row.as_ref().map(decode_catalog_payload_row).transpose()?;
-        let statistics = if record.is_some() {
-            let row = sqlx::query(
-                "SELECT cohort_size, difficulty_index, attempts_mean, time_median_seconds_estimate, \
-                        discrimination_index \
-                 FROM ple_question_statistics_view($1, $2)",
-            )
-            .bind(reference.problem.as_uuid())
-            .bind(reference.version.as_uuid())
-            .fetch_optional(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-            question_statistics_disclosure_from_row(row.as_ref())?
-        } else {
-            QuestionStatisticsDisclosure::Suppressed
+        let Some(record) = record else {
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(None);
         };
+        let evidence_boundary: i64 = sqlx::query_scalar(
+            "SELECT COALESCE(max(evidence_sequence), 0) \
+             FROM catalog_discovery_evidence_revision",
+        )
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let evidence_row = sqlx::query(
+            "SELECT evidence_sequence IS NOT NULL AS evidence_visible, formula_version, \
+                    course_count, first_attempt_count, difficulty_index, attempts_mean, \
+                    time_median_seconds_estimate, discrimination_index, \
+                    floor(extract(epoch FROM evidence_at) * 1000)::bigint AS evidence_at_millis \
+             FROM ple_catalog_discovery_evidence_at($1, $2, $3)",
+        )
+        .bind(reference.problem.as_uuid())
+        .bind(reference.version.as_uuid())
+        .bind(evidence_boundary)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let evidence = match evidence_row.as_ref() {
+            Some(row) => decode_catalog_discovery_evidence_row(row)?,
+            None => CatalogDiscoveryEvidence::InsufficientEvidence,
+        };
+        let question_id = record.question_id.compact();
+        // ASVS 1.2.4: typed query bindings keep tenant, session, and public
+        // Question ID values out of SQL syntax and the returned DTO omits IDs.
+        let usage_row = sqlx::query(
+            "SELECT institution_course_count, institution_assignment_count, \
+                    own_course_count, own_assignment_count \
+             FROM ple_instructor_catalog_usage_summary($1, $2, $3)",
+        )
+        .bind(context.tenant_id().as_uuid())
+        .bind(session.to_string())
+        .bind(&question_id)
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let usage_summary = decode_catalog_usage_summary_row(&usage_row)?;
+        let own_course_rows = sqlx::query(
+            "SELECT course_reference, course_title, assignment_count \
+             FROM ple_instructor_catalog_course_usage($1, $2, $3, $4, $5)",
+        )
+        .bind(context.tenant_id().as_uuid())
+        .bind(session.to_string())
+        .bind(&question_id)
+        .bind(None::<i32>)
+        .bind(i32::try_from(MAX_CATALOG_OWN_COURSE_USAGES).expect("catalog usage limit fits i32"))
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let own_courses = own_course_rows
+            .iter()
+            .map(decode_catalog_own_course_usage_row)
+            .collect::<Result<Vec<CatalogOwnCourseUsage>, StoreError>>()?;
+        let own_courses_truncated = usage_summary.own_course_count
+            > u64::try_from(own_courses.len()).expect("catalog usage length fits u64");
+        let prompt = crate::catalog_prompt::catalog_prompt_projection(&record.question)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(record.map(|record| CatalogProblemDetail {
+        Ok(Some(CatalogProblemDetail {
             summary: record.summary(),
-            prompt: record.question.prompt,
-            statistics: match statistics {
-                QuestionStatisticsDisclosure::Suppressed => {
-                    question_model::CatalogStatisticsStatus::Unavailable
-                }
-                QuestionStatisticsDisclosure::Available(view) => {
-                    question_model::CatalogStatisticsStatus::Available(view)
-                }
+            prompt,
+            evidence,
+            usage: CatalogUsageDetail {
+                summary: usage_summary,
+                own_courses,
+                own_courses_truncated,
             },
         }))
         })

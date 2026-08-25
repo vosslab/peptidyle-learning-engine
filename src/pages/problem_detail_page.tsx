@@ -1,12 +1,14 @@
 // problem_detail_page.tsx - safe current-question catalog detail and lineage projection.
 
 import { A, createAsync, useParams } from "@solidjs/router";
-import { For, Show, Suspense, type JSX } from "solid-js";
+import { Show, Suspense, type JSX } from "solid-js";
 
 import { useApiRuntime } from "../api/runtime";
 import { CopyableQuestionId } from "../components/copyable_question_id";
+import { QuestionPromptRenderer } from "../components/question_renderer";
 import { parseProblemRouteReference } from "../navigation/public_route";
-import { CatalogStatisticsPanel } from "./catalog_statistics_panel";
+import { CatalogStatisticsPanel, CatalogUsagePanel } from "./catalog_statistics_panel";
+import "./problem_detail_page.css";
 
 export function ProblemDetailPage(): JSX.Element {
   const runtime = useApiRuntime();
@@ -48,24 +50,25 @@ export function ProblemDetailPage(): JSX.Element {
               <CopyableQuestionId displayId={record().summary.questionId} />
               <p aria-label="Published by">By {record().summary.byline.names.join(", ")}</p>
               <p>{`Backend: ${record().summary.backend}`}</p>
+              <Show when={record().prompt.kind === "generatedExample"}>
+                <aside class="catalog-generated-example" aria-label="Generated example">
+                  <strong>Generated example</strong>
+                  <p>
+                    This example uses resolved values for catalog viewing. Assigned versions may use
+                    different values.
+                  </p>
+                </aside>
+              </Show>
               <section aria-label="Problem prompt">
-                <For each={record().prompt}>
-                  {(block) => (
-                    <p>
-                      {block.kind === "text"
-                        ? block.markdown
-                        : block.kind === "math"
-                          ? block.description
-                          : block.kind === "image"
-                            ? block.description
-                            : block.kind === "code"
-                              ? block.source
-                              : block.description}
-                    </p>
-                  )}
-                </For>
+                <QuestionPromptRenderer
+                  blocks={record().prompt.blocks}
+                  assetUrl={(asset) =>
+                    new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
+                  }
+                />
               </section>
-              <CatalogStatisticsPanel statistics={record().statistics} />
+              <CatalogStatisticsPanel evidence={record().evidence} />
+              <CatalogUsagePanel usage={record().usage} />
             </article>
           )}
         </Show>

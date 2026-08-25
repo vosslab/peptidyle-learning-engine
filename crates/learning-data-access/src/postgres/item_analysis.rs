@@ -245,12 +245,8 @@ impl CourseItemAnalysisWorkerStore for PostgresStore {
         let expected_payload = analysis_payload(command.assignment, command.generation)?;
         let mut transaction = self.begin_tenant(context).await?;
 
-        // The assignment row serializes generation publication. The exact leased
-        // claim owns its private staging row, so this ordinary read keeps the
-        // worker on the existing SELECT/DELETE least-privilege grant.
         let assignment =
-            analysis_assignment_state_for_update(&mut transaction, tenant, command.assignment)
-                .await?;
+            analysis_assignment_state(&mut transaction, tenant, command.assignment).await?;
         let staging = sqlx::query(
             "SELECT course_id, assignment_id, source_scoring_generation, report_schema_version, \
                     report_payload, report_payload_sha256, \
@@ -272,91 +268,67 @@ impl CourseItemAnalysisWorkerStore for PostgresStore {
         let generation =
             i64::try_from(command.generation.value()).map_err(|_| StoreError::Conflict)?;
         let current = assignment.generation == command.generation && assignment.status == "current";
-        if !current {
-            sqlx::query(
-                "DELETE FROM course_item_analysis_staging WHERE tenant_id = $1 AND job_id = $2",
-            )
-            .bind(tenant.as_uuid())
-            .bind(command.job.as_uuid())
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-            super::jobs::complete_postgres_claimed_job(
-                &mut transaction,
-                command.job,
-                command.lease,
-            )
-            .await?;
-            transaction.commit().await.map_err(map_sqlx_error)?;
-            return Ok(CourseItemAnalysisCommitOutcome::Superseded);
+        if current {
+            let Some(staging) = staging else {
+                return Err(StoreError::Conflict);
+            };
+            let staging_course: Uuid = staging.try_get("course_id").map_err(map_sqlx_error)?;
+            let staging_assignment: Uuid =
+                staging.try_get("assignment_id").map_err(map_sqlx_error)?;
+            let staging_generation: i64 = staging
+                .try_get("source_scoring_generation")
+                .map_err(map_sqlx_error)?;
+            let staging_schema_version: i32 = staging
+                .try_get("report_schema_version")
+                .map_err(map_sqlx_error)?;
+            let prepared_at_millis: i64 = staging
+                .try_get("prepared_at_millis")
+                .map_err(map_sqlx_error)?;
+            let report: CourseItemAnalysisReport =
+                decode_payload_row_named(&staging, "report_payload", "report_payload_sha256")?;
+            validate_report_identity(
+                &report,
+                tenant,
+                assignment.course,
+                command.assignment,
+                command.generation,
+            )?;
+            if staging_course != assignment.course.as_uuid()
+                || staging_assignment != command.assignment.as_uuid()
+                || staging_generation != generation
+                || staging_schema_version != REPORT_SCHEMA_VERSION
+                || prepared_at_millis != report.analyzed_at.as_unix_millis()
+            {
+                return Err(StoreError::Unavailable(
+                    "staged item-analysis identity is inconsistent".to_string(),
+                ));
+            }
         }
-        let Some(staging) = staging else {
-            return Err(StoreError::Conflict);
-        };
-        let staging_course: Uuid = staging.try_get("course_id").map_err(map_sqlx_error)?;
-        let staging_assignment: Uuid = staging.try_get("assignment_id").map_err(map_sqlx_error)?;
-        let staging_generation: i64 = staging
-            .try_get("source_scoring_generation")
-            .map_err(map_sqlx_error)?;
-        let staging_schema_version: i32 = staging
-            .try_get("report_schema_version")
-            .map_err(map_sqlx_error)?;
-        let prepared_at_millis: i64 = staging
-            .try_get("prepared_at_millis")
-            .map_err(map_sqlx_error)?;
-        let report: CourseItemAnalysisReport =
-            decode_payload_row_named(&staging, "report_payload", "report_payload_sha256")?;
-        validate_report_identity(
-            &report,
+        let outcome = super::item_analysis_publication::commit_item_analysis_generation(
+            &mut transaction,
             tenant,
-            assignment.course,
+            command.job,
+            command.lease,
             command.assignment,
             command.generation,
-        )?;
-        if staging_course != assignment.course.as_uuid()
-            || staging_assignment != command.assignment.as_uuid()
-            || staging_generation != generation
-            || staging_schema_version != REPORT_SCHEMA_VERSION
-            || prepared_at_millis != report.analyzed_at.as_unix_millis()
-        {
-            return Err(StoreError::Unavailable(
-                "staged item-analysis identity is inconsistent".to_string(),
-            ));
+        )
+        .await?;
+        use super::item_analysis_publication::ItemAnalysisPublicationOutcome;
+        match outcome {
+            ItemAnalysisPublicationOutcome::ClaimNoLongerActive => {
+                transaction.rollback().await.map_err(map_sqlx_error)?;
+                Ok(CourseItemAnalysisCommitOutcome::ClaimNoLongerActive)
+            }
+            ItemAnalysisPublicationOutcome::Superseded => {
+                transaction.commit().await.map_err(map_sqlx_error)?;
+                Ok(CourseItemAnalysisCommitOutcome::Superseded)
+            }
+            ItemAnalysisPublicationOutcome::StagingUnavailable => Err(StoreError::Conflict),
+            ItemAnalysisPublicationOutcome::Committed => {
+                transaction.commit().await.map_err(map_sqlx_error)?;
+                Ok(CourseItemAnalysisCommitOutcome::Committed)
+            }
         }
-        sqlx::query(
-            "DELETE FROM course_item_analysis_current WHERE tenant_id = $1 AND assignment_id = $2",
-        )
-        .bind(tenant.as_uuid())
-        .bind(command.assignment.as_uuid())
-        .execute(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        sqlx::query(
-            "INSERT INTO course_item_analysis_current \
-             (tenant_id, course_id, assignment_id, source_scoring_generation, \
-              report_schema_version, report_payload, report_payload_sha256, analyzed_at) \
-             SELECT tenant_id, course_id, assignment_id, source_scoring_generation, \
-                    report_schema_version, report_payload, report_payload_sha256, prepared_at \
-               FROM course_item_analysis_staging \
-              WHERE tenant_id = $1 AND job_id = $2",
-        )
-        .bind(tenant.as_uuid())
-        .bind(command.job.as_uuid())
-        .execute(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        sqlx::query(
-            "DELETE FROM course_item_analysis_staging WHERE tenant_id = $1 AND job_id = $2",
-        )
-        .bind(tenant.as_uuid())
-        .bind(command.job.as_uuid())
-        .execute(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        super::jobs::complete_postgres_claimed_job(&mut transaction, command.job, command.lease)
-            .await?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(CourseItemAnalysisCommitOutcome::Committed)
     }
 }
 
@@ -375,24 +347,6 @@ async fn analysis_assignment_state(
     let row = sqlx::query(
         "SELECT course_id, scoring_generation, scoring_status FROM assignment \
          WHERE tenant_id = $1 AND assignment_id = $2",
-    )
-    .bind(tenant.as_uuid())
-    .bind(assignment.as_uuid())
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?
-    .ok_or(StoreError::NotFound)?;
-    decode_analysis_assignment_state(&row)
-}
-
-async fn analysis_assignment_state_for_update(
-    transaction: &mut Transaction<'_, Postgres>,
-    tenant: TenantId,
-    assignment: AssignmentId,
-) -> Result<AnalysisAssignmentState, StoreError> {
-    let row = sqlx::query(
-        "SELECT course_id, scoring_generation, scoring_status FROM assignment \
-         WHERE tenant_id = $1 AND assignment_id = $2 FOR UPDATE",
     )
     .bind(tenant.as_uuid())
     .bind(assignment.as_uuid())

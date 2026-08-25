@@ -13,6 +13,7 @@ use learning_data_access::StoreError;
 use learning_data_access::postgres::{
     BaseCourseInstallerPool, PostgresStore, ProductionLoginProfile, apply_migrations,
     local_base_course_application_pool, local_base_course_installer_pool, local_development_pool,
+    verify_base_course_freshness_capability,
 };
 use question_model::{TenantId, UserId};
 use sqlx::AssertSqlSafe;
@@ -373,6 +374,9 @@ async fn run_freshness_case(admin: &sqlx::PgPool, url: &str, case: FreshnessCase
     apply_migrations(&pool)
         .await
         .expect("ordinary application schema upgrades through the current product migration");
+    verify_base_course_freshness_capability(&pool).await.expect(
+        "Base Course freshness capability reconciles through the current product migration",
+    );
     case.seed_after_migrations(&pool).await;
     let ledger_count: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM public._sqlx_migrations \

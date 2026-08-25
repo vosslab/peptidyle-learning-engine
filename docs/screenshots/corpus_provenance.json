@@ -12,7 +12,7 @@
       ],
       "role": "shared",
       "scenarioId": "direct_role_entry",
-      "sha256": "d6ab046d46e87391561c65ba7c64df679844971a2c801f6012076becd7c45119",
+      "sha256": "d62ec6482b02cbb05027903ba91302e5d504f776365b408b627083ccc9f878ff",
       "stateId": "account_security_passkey",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -34,7 +34,7 @@
       ],
       "role": "instructor",
       "scenarioId": "auth_authorization",
-      "sha256": "1b2d3d29ec9c6cc6ebbe658d249ef9d5062608d0d900bade6734522dec6266c5",
+      "sha256": "82e3397e2da7d6084a4a9318bf0aa498e20e5a5183954da117dc9d15ef338cf9",
       "stateId": "teaching_operations_groups",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -56,7 +56,7 @@
       ],
       "role": "instructor",
       "scenarioId": "auth_authorization",
-      "sha256": "b3719a3bd930688c2aa15e4e6177c5733b2e4beaa10f5d439f3846bfc1529ee6",
+      "sha256": "0fbb54bbe56f35bf7a413b94c7babbe2677b954f43b79b812d0e17d5554e0e0d",
       "stateId": "teaching_team_invited",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -78,7 +78,7 @@
       ],
       "role": "instructor",
       "scenarioId": "auth_authorization",
-      "sha256": "a376111d2ce66cee8f491f158fb19180fc6c2bc652f0b8d32463f6cf7094b3ea",
+      "sha256": "e4e97f7849a3c6b32d2587105cb7de846139332de4f1276e5d08e4a6f7b3a409",
       "stateId": "teaching_operations_retention",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -100,7 +100,7 @@
       ],
       "role": "shared",
       "scenarioId": "auth_authorization",
-      "sha256": "82d7f28bc2f6f3a1cb055f6a9a7f51054aae801e5710c6a6288c3f693a6f0f9a",
+      "sha256": "30e790840b40a756e2f16a296bd7bd48107f7001de221506d7b1579ade146f84",
       "stateId": "pending_teaching_invitation",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -254,7 +254,7 @@
       ],
       "role": "instructor",
       "scenarioId": "instructor_authoring",
-      "sha256": "13d44d1ca503a60597245a73ddebdce9deec0fa8fe49a416ba1f6bc11a97de6e",
+      "sha256": "2a841e0fe6d1d10ea293083407733d5c08ef1de756eb3ccb23e95645b1300965",
       "stateId": "workspace_draft_saved",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -276,7 +276,7 @@
       ],
       "role": "instructor",
       "scenarioId": "instructor_authoring",
-      "sha256": "8df499393ee0a40a07573ac1351a04c9c85028e09c52d64c927ec76b9755621f",
+      "sha256": "73dbd29b028da17e434dfb9deb10a96f033b3ae083edd5ef7b34f70f2b5db720",
       "stateId": "publication_success",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -298,7 +298,7 @@
       ],
       "role": "instructor",
       "scenarioId": "instructor_authoring",
-      "sha256": "b99451f50149a601d1d6c1008810e27a845598bbd49d4303c7eefd05f1f2c4ed",
+      "sha256": "fa84f7fdcd3bc9b59d725c62aae33ef6e1cae1dcb1a3ef4b1328d292846d38e9",
       "stateId": "library",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -320,7 +320,7 @@
       ],
       "role": "instructor",
       "scenarioId": "instructor_authoring",
-      "sha256": "f9306ec0bb413e8a6bc8fc4278e9c1d84bf0a9adc79096bd9b7a531577f6768d",
+      "sha256": "0afaf4c2126cbfefce4e8e86b4dc5fbff7037983a565a24bfee6b9e8f07b07e2",
       "stateId": "question_detail",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -342,7 +342,7 @@
       ],
       "role": "instructor",
       "scenarioId": "instructor_authoring",
-      "sha256": "2cd4fee336b7325f2a573450206e9abb04b01e9f1ba4222ed95e6372489950bc",
+      "sha256": "ee450c30640b8d34ff1999d47b7527fd3daf06ef0be582aca9e79aa7440cc5cf",
       "stateId": "course_created",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -364,7 +364,7 @@
       ],
       "role": "instructor",
       "scenarioId": "instructor_authoring",
-      "sha256": "f9bdf33d881aae7bb2a0214cc72aeaeca49b42522ee0e44b08f18332f4059cd5",
+      "sha256": "b41b06dee574024ddd0cb55fb84dc436de1474a6fd7dab6d1ec4d3b57816fae5",
       "stateId": "course_assignments",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -386,7 +386,7 @@
       ],
       "role": "instructor",
       "scenarioId": "instructor_authoring",
-      "sha256": "ed85ecae43c11f2e92ae8508cb135de6ba8f8d67797be821d253a29c73ed11f9",
+      "sha256": "6464c14fc2b5e9fdedbf478a59f12f272ec66ce31f8765dd68713b57f7239638",
       "stateId": "assignment_create",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -408,7 +408,7 @@
       ],
       "role": "instructor",
       "scenarioId": "instructor_authoring",
-      "sha256": "19fb9f3538e90e7fce8a6c64a59153da06f3718687707dc7167971dd89416198",
+      "sha256": "5c887dab820535e772491ed53d4e63efd1c201bc48e966b9dd16461cc280194c",
       "stateId": "problem_catalog",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -430,7 +430,7 @@
       ],
       "role": "instructor",
       "scenarioId": "instructor_authoring",
-      "sha256": "b93e9908b6aa81a3d332ce461087d10ac54c75b2c85efa2f3f8caa40b8a796ac",
+      "sha256": "131139d434b661464661455f77d87f6317953613d879a2b017e7d5e3fa588222",
       "stateId": "assignment_created",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -452,7 +452,7 @@
       ],
       "role": "instructor",
       "scenarioId": "instructor_authoring",
-      "sha256": "a0f6790809fcd9238b51862e4aa9c58e513dd46382655e882c3896443ceb7170",
+      "sha256": "570c7445f47f1d4af37946142c505b92f0da1b7000126c9af0865069815f714e",
       "stateId": "assignment_editor",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -474,7 +474,7 @@
       ],
       "role": "instructor",
       "scenarioId": "instructor_authoring",
-      "sha256": "461d08949b686f9a6a02edc4aa5b5ba9dcfa3698ff5b8625960b609a5bffaa53",
+      "sha256": "3900036267a11376a392df21af904a95a252c4ff3a506489105ea21dc3ca4d96",
       "stateId": "assignment_published",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -496,7 +496,7 @@
       ],
       "role": "instructor",
       "scenarioId": "instructor_authoring",
-      "sha256": "ddab9b9899ff2bd814349b45aeef49c63b710762d7e57f5226d3601c3e5c0b14",
+      "sha256": "c138e723632f83d8542f0c6d8419e9c82cba8fe7285312e9a824c1859ef961f7",
       "stateId": "assignment_overview",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -519,7 +519,7 @@
       ],
       "role": "instructor",
       "scenarioId": "instructor_authoring",
-      "sha256": "af42340983a10c8449e59e63e30566608ae6912223394790bfea3f070aefa537",
+      "sha256": "d0e2db818236ce19620780f9bff6badf536c37d905eb09ad394504801db07ff1",
       "stateId": "invitation_pending",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -541,7 +541,7 @@
       ],
       "role": "instructor",
       "scenarioId": "instructor_authoring",
-      "sha256": "656064107dfb40bdf14a748ef00c3b9b20874940d1afeff39edfc05944c518d5",
+      "sha256": "05b022f3be0b88dce96fd83fda2f5c4b1db0ccbd9a438e66e7774ad46c0bef5d",
       "stateId": "fresh_session_assignment",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -564,7 +564,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_delivery",
-      "sha256": "8c924264afc8c0589fd9a6c547a7a144e5161b369597893c880865e1cc6d2e96",
+      "sha256": "1df571ee756cfdd03deab3ba5c555c0b2bf93506700f730d3b48ed037a7a25cf",
       "stateId": "assignment_list",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -587,7 +587,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_delivery",
-      "sha256": "28cc64a9a90977505453cd28ac8cdd6694a67d1a6e2880a0611659d0024ac8ec",
+      "sha256": "86ee78bf5c7b6e1ba850207dd13f37587f557a2abc7982ee03b0781ea2754fc4",
       "stateId": "assignment_overview",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -610,7 +610,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_delivery",
-      "sha256": "0da22a20b5263fcb2f9167b50486c2c494a75b07f1347c8ba4f38901edeacab1",
+      "sha256": "b7f597fa7ad30ec98519ddfc46408cc3335297bc010e224b2bf4513f7e041f42",
       "stateId": "assignment_overview",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -633,7 +633,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_delivery",
-      "sha256": "6dd0885568e468e4e3615ee36dcbbc231d8e38fb37961e023775f8a6f4dfbc5c",
+      "sha256": "42a48f475fa8c4acbba8056ad9bb96e981bb94757d884505ba728daea31b7eea",
       "stateId": "assignment_overview",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -656,7 +656,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_delivery",
-      "sha256": "364e6b44de6ca5c411251de6d80f2328264737f01dcff0362f6d165b120d0482",
+      "sha256": "5355237d49f49f7665c83830d75ce820c1b865c19b367c754e2b076980ebb313",
       "stateId": "assignment_overview",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -679,7 +679,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_delivery",
-      "sha256": "b87894db61859a5bf53fa87da1b4f8b7e3cbf0a143c60f7617ed41e47d854cf7",
+      "sha256": "d478939d8f2bf4ffaaba4ec7d2efe2dd5ac459e80582586001f252ef0a3f9350",
       "stateId": "problem_ready",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -702,7 +702,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_delivery",
-      "sha256": "cf2f23e5ed67a6570568937283fafa5ce3e5d51060d305be5383d82e870bdb9c",
+      "sha256": "544425691800f6e81a96344f059f3e2a1e19b0ee268a6a3450d0ccaab8969316",
       "stateId": "response_selected",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -724,7 +724,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_delivery",
-      "sha256": "577b789549c7075ec440c9e56ce878ac015d203e7e4075ddf8ac1b91ac1c1373",
+      "sha256": "5a8411a1cb40b5926b0eaac1cecbb49c49bf4bc4511bde1d2d5a73ba6f94da89",
       "stateId": "feedback_correct",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -746,7 +746,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_delivery",
-      "sha256": "68a3a5b5bd513f4f9a4221d15e819e17484e9f8f30fc231fcf3291c28f982b61",
+      "sha256": "67080734f60f96a5ad51747bfe1bcfd78ec2d2ec283869eb970f9e1749bcae8b",
       "stateId": "completion",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -769,7 +769,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_delivery",
-      "sha256": "4fc091e032d04a9045a4ccd0992bfbb7f0bcbce3c17cf89ffe47118aeeeb0442",
+      "sha256": "f91ea3bbbb8da43ee72ea401239d31a1c943629a9e09920376dfbe5e2fab561c",
       "stateId": "repeat_run",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -791,7 +791,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_delivery",
-      "sha256": "01a215d01111f96936cbc76faa0db12d090c47ebf7d6f22a16add33bac451942",
+      "sha256": "231ef3419dcb9763232ebd637eca50a51fa1f668b8c4d50f4906e8acebc5f651",
       "stateId": "fresh_session_score",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -814,7 +814,7 @@
       ],
       "role": "instructor",
       "scenarioId": "learner_delivery",
-      "sha256": "f1e7f0703ff9746841ae336dfb251356bf15c73a0bfa9eb366a59e4a7338ba9e",
+      "sha256": "27fd6e7908a24a7a034c8a0974fb4b31e50a5961f86e849a93d5fc3302be1a63",
       "stateId": "instructor_active_roster",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -836,7 +836,7 @@
       ],
       "role": "instructor",
       "scenarioId": "learner_delivery",
-      "sha256": "e497b348795ae410c30b0577bb97c98114e19989b24240370faacdaa4b568ce3",
+      "sha256": "5e4f5a44ef02b77b0d4b17bb963e4d1806cbfffd8208f53ef74380a671c6b251",
       "stateId": "instructor_gradebook",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -858,7 +858,7 @@
       ],
       "role": "instructor",
       "scenarioId": "learner_delivery",
-      "sha256": "167b9dea9ce730c51411bf4e692d06193f74e571a73c2dfba26c97a649121f0c",
+      "sha256": "7c80df4d9f465237d449c6a9ab18e8555808884cd87c5ea79e88dc61d6516859",
       "stateId": "appearance_saved",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -924,7 +924,7 @@
       ],
       "role": "instructor",
       "scenarioId": "grade_settings_conflict",
-      "sha256": "cc73346091c86619070bee7782a64266807ae86163aa76be7683bd3064978950",
+      "sha256": "23e25631682b705924a2ee19c3c5305cb3c809672f2cf75373c9cb8762b95bca",
       "stateId": "conflict_detected",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -946,7 +946,7 @@
       ],
       "role": "instructor",
       "scenarioId": "grade_settings_conflict",
-      "sha256": "fe826c9f20a23a38d983659f8b19c391ef9932093e491727cbdcf4a5ecd32ce6",
+      "sha256": "5e78b4f88610ae85bb8d5ef4f69bbcb5b95be7bf3b1742c5994016d276decdc1",
       "stateId": "retry_saved",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -968,7 +968,7 @@
       ],
       "role": "instructor",
       "scenarioId": "grade_settings_conflict",
-      "sha256": "b39d670a03a093b551b810e20298f5120a71fec2b8eafe6cf90f684667b833af",
+      "sha256": "de1a7226f1a59cf651d2b37b2ffdf4bd4551daac913471a2950ad6076841ddc9",
       "stateId": "remote_observed",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -990,7 +990,7 @@
       ],
       "role": "instructor",
       "scenarioId": "grade_settings_conflict",
-      "sha256": "6b28062971607bf12452eabfce2621766a63c12f3b7bc1387ea421a7fb0d73c2",
+      "sha256": "f8fe2d30187d22f835912d06abfd5a43d1302be520f1b9d3681507a5324d70b4",
       "stateId": "remote_observed",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1034,7 +1034,7 @@
       ],
       "role": "instructor",
       "scenarioId": "grade_settings_conflict",
-      "sha256": "93754cbf8aeb53ecaf8795ab91bed5731166c0a10ccd649598a7ae147c2ae1e8",
+      "sha256": "683967eab688480bcdcf9bfb0b6f773eae752460c4a104feeca6ef628d9ed2ce",
       "stateId": "remote_observed",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1057,7 +1057,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_gateway_recovery",
-      "sha256": "4c053bc558a08bc7e1808e0109b7e80da956f18c9e9a01c198924c593571c7eb",
+      "sha256": "8ecfc0edadcef61601da731c7e43fb945750c2cc033b4185ed72f3b3f7543e89",
       "stateId": "gateway_retry",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1079,7 +1079,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_gateway_recovery",
-      "sha256": "61cd5b5dee4aa92d822eb34737caa5367b9a17159eb2ab7bedc03fcc79f2c067",
+      "sha256": "0527a7282c795e102f1a3511a73b539634236c0df9de67cc8dc86b1b30c75a4e",
       "stateId": "recovered_feedback",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1101,7 +1101,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_gateway_recovery",
-      "sha256": "544a7676e8d3625862401a24b6c02e9a1dcbeff5a82cb7aaaa7afc7d34198569",
+      "sha256": "ca40a9f32bd55c9f7ff8fe1ff272aaf1324f351d8ea8d2499eb6d2f1ab01074e",
       "stateId": "recovered_completion",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1123,7 +1123,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_gateway_recovery",
-      "sha256": "947ad7da85561dc7156f51e60fd5257af74ee283e9016be9fe9de499cadc3b08",
+      "sha256": "2809ec424a957f5a22c818cff259e4c602860a10db376b3c2d7817ff93dcc325",
       "stateId": "fresh_session_score",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1189,7 +1189,7 @@
       ],
       "role": "instructor",
       "scenarioId": "preview_plane",
-      "sha256": "6df8d7537e762caa84e2d0afc6de3ea1585532bf52aee99a7eed72820d39b082",
+      "sha256": "9b762119c186c896624b6fc5f337aac6d609dc41809817be017a570f81a5eb82",
       "stateId": "revision_conflict",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1211,7 +1211,7 @@
       ],
       "role": "instructor",
       "scenarioId": "preview_plane",
-      "sha256": "b6fc3a0ba603472897fb438a566660f35b958b9445003d565b661e02423c0ea6",
+      "sha256": "ce9babb5cc4a857538b8c241d34bdd9b0b4775f86091e90e1688c8bdbae3b6f0",
       "stateId": "revision_reloaded",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1255,7 +1255,7 @@
       ],
       "role": "instructor",
       "scenarioId": "preview_plane",
-      "sha256": "a7437ac2f16915af016d205e559bd2557bdcd1bb5b16f5014ae5481054e6f5ab",
+      "sha256": "c290b343ef6dfb0b03568f1c6d6a1bfec6603a583f5896926a290b320b0d3eae",
       "stateId": "synthetic_resolved",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1299,7 +1299,7 @@
       ],
       "role": "instructor",
       "scenarioId": "preview_plane",
-      "sha256": "427b9ca3bab2902f6767fbc3efe9ebdb2a0c30fbd79fb9cd48fb2026ddb3f30f",
+      "sha256": "580a58827bf8d9a6a44aacb56cb3642e85c39362968740b83dad2102b9d2734b",
       "stateId": "synthetic_resolved",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1413,7 +1413,7 @@
       ],
       "role": "instructor",
       "scenarioId": "item_pool_delivery",
-      "sha256": "e91f357bbe3e2ee2f014b3f0b8ca8c4bd5f62d3140a3c62b9c84381c5049cdc9",
+      "sha256": "1aee827b47279d756e7d2d24fa2a1725e539ba4d18c682a736fcef03c4662de6",
       "stateId": "pool_preview",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1436,7 +1436,7 @@
       ],
       "role": "student",
       "scenarioId": "item_pool_delivery",
-      "sha256": "be1ca09c5cb16b741f9ca1aabe5d0987b54983e27a430cd14e3601dceb8bd826",
+      "sha256": "37f2442a0a69172775524252fe0996e5f3bc3d2b847ddda455eccd4e18ea14ec",
       "stateId": "learner_delivered_pool",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1445,12 +1445,628 @@
         "width": 1280
       },
       "width": 1280
+    },
+    {
+      "artifactId": "catalog_discovery_disclosed_evidence_laptop",
+      "captureOrder": 66,
+      "height": 800,
+      "journey": "catalog_discovery",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/catalog_discovery/01_disclosed_evidence_laptop.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "catalog_discovery_evidence",
+      "sha256": "93951009442771d2b5f58356813ebcf2973e66591c76aa4bd36c8a30902ed191",
+      "stateId": "disclosed_evidence",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "catalog_discovery_disclosed_evidence_tablet",
+      "captureOrder": 67,
+      "height": 1280,
+      "journey": "catalog_discovery",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/catalog_discovery/01_disclosed_evidence_tablet.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "catalog_discovery_evidence",
+      "sha256": "48b5c04eaf27c5faa02aa5dad0804cd34017901b7f41aebf1b115cdebdcb534f",
+      "stateId": "disclosed_evidence",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1280,
+        "name": "tablet",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "catalog_discovery_disclosed_evidence_iphone_pro",
+      "captureOrder": 68,
+      "height": 852,
+      "journey": "catalog_discovery",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/catalog_discovery/01_disclosed_evidence_iphone_pro.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "catalog_discovery_evidence",
+      "sha256": "67698537d9ed4ea7a78b14f4f0b95597ad7e3285944b0483fd10cba020a7d8ee",
+      "stateId": "disclosed_evidence",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 852,
+        "name": "iphone_pro",
+        "width": 393
+      },
+      "width": 393
+    },
+    {
+      "artifactId": "catalog_discovery_disclosed_evidence_square",
+      "captureOrder": 69,
+      "height": 800,
+      "journey": "catalog_discovery",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/catalog_discovery/01_disclosed_evidence_square.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "catalog_discovery_evidence",
+      "sha256": "cd9d1664b43bfd51bfc5a6b0b44567c3f0655b868b11489a68cca88fb95025e6",
+      "stateId": "disclosed_evidence",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "square",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "catalog_discovery_authorized_usage_laptop",
+      "captureOrder": 70,
+      "height": 800,
+      "journey": "catalog_discovery",
+      "journeyStep": 2,
+      "path": "docs/screenshots/instructor/catalog_discovery/02_authorized_usage_laptop.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "catalog_discovery_evidence",
+      "sha256": "eaace84370d9dd346c1b2443937dc2d7e19df1c1c60e6893ccb059511208e728",
+      "stateId": "authorized_usage",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "catalog_discovery_authorized_usage_tablet",
+      "captureOrder": 71,
+      "height": 1280,
+      "journey": "catalog_discovery",
+      "journeyStep": 2,
+      "path": "docs/screenshots/instructor/catalog_discovery/02_authorized_usage_tablet.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "catalog_discovery_evidence",
+      "sha256": "dcf41c3124f643432de01fcfd8e9a06519492979722a1337985cd2c33810dc85",
+      "stateId": "authorized_usage",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1280,
+        "name": "tablet",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "catalog_discovery_authorized_usage_iphone_pro",
+      "captureOrder": 72,
+      "height": 852,
+      "journey": "catalog_discovery",
+      "journeyStep": 2,
+      "path": "docs/screenshots/instructor/catalog_discovery/02_authorized_usage_iphone_pro.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "catalog_discovery_evidence",
+      "sha256": "1f03ca1166d45264b6420a9ab3dbcb61eb6ec0f5d3bb2add9d599c83ebdf02f8",
+      "stateId": "authorized_usage",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 852,
+        "name": "iphone_pro",
+        "width": 393
+      },
+      "width": 393
+    },
+    {
+      "artifactId": "catalog_discovery_authorized_usage_square",
+      "captureOrder": 73,
+      "height": 800,
+      "journey": "catalog_discovery",
+      "journeyStep": 2,
+      "path": "docs/screenshots/instructor/catalog_discovery/02_authorized_usage_square.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "catalog_discovery_evidence",
+      "sha256": "b9fbdee9fd14c590d4358571e4934937a01480e9ee5febe64acb6cfca6e2c1a3",
+      "stateId": "authorized_usage",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "square",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "catalog_discovery_filtered_library_laptop",
+      "captureOrder": 74,
+      "height": 800,
+      "journey": "catalog_discovery",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/catalog_discovery/03_filtered_library_laptop.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "catalog_discovery_evidence",
+      "sha256": "e811813c10fc658c1f2660d9dcc8962065f083e39b0c7abbb4e7b9f57515ff28",
+      "stateId": "filtered_library",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "catalog_discovery_filtered_library_tablet",
+      "captureOrder": 75,
+      "height": 1280,
+      "journey": "catalog_discovery",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/catalog_discovery/03_filtered_library_tablet.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "catalog_discovery_evidence",
+      "sha256": "9cdf1d837c7a0d8d545b8c08a179adecb8aca0ea6980d0e24962b1c2b4b115d2",
+      "stateId": "filtered_library",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1280,
+        "name": "tablet",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "catalog_discovery_filtered_library_iphone_pro",
+      "captureOrder": 76,
+      "height": 852,
+      "journey": "catalog_discovery",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/catalog_discovery/03_filtered_library_iphone_pro.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "catalog_discovery_evidence",
+      "sha256": "28ef620f7aa1e4d4760706d3d986700e32730896ff00c07e8e8f3a076e77ac84",
+      "stateId": "filtered_library",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 852,
+        "name": "iphone_pro",
+        "width": 393
+      },
+      "width": 393
+    },
+    {
+      "artifactId": "catalog_discovery_filtered_library_square",
+      "captureOrder": 77,
+      "height": 800,
+      "journey": "catalog_discovery",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/catalog_discovery/03_filtered_library_square.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "catalog_discovery_evidence",
+      "sha256": "4541e8ffe3e9e5e8c51aa13adbcfd9b21892be0b8004eaff80e8eb279bfc368e",
+      "stateId": "filtered_library",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "square",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "problem_curation_workspace_laptop",
+      "captureOrder": 78,
+      "height": 800,
+      "journey": "problem_curation",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/problem_curation/01_curation_workspace_laptop.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "problem_curation",
+      "sha256": "3447e64fe5744291714b7319ed57d8ff999ed48dc2712b60d708c90cd14c0f5e",
+      "stateId": "curation_workspace",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "problem_curation_workspace_tablet",
+      "captureOrder": 79,
+      "height": 1280,
+      "journey": "problem_curation",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/problem_curation/01_curation_workspace_tablet.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "problem_curation",
+      "sha256": "8a924a31e755a43b7a1a60acf0fa6ad686007273819e0a2e45d0bc561f482a4e",
+      "stateId": "curation_workspace",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1280,
+        "name": "tablet",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "problem_curation_workspace_iphone_pro",
+      "captureOrder": 80,
+      "height": 852,
+      "journey": "problem_curation",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/problem_curation/01_curation_workspace_iphone_pro.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "problem_curation",
+      "sha256": "b326c04db043612ca407edcf1a6218f7dc9211c8bf4b5693a6b1fc3c41d7c8ca",
+      "stateId": "curation_workspace",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 852,
+        "name": "iphone_pro",
+        "width": 393
+      },
+      "width": 393
+    },
+    {
+      "artifactId": "problem_curation_workspace_square",
+      "captureOrder": 81,
+      "height": 800,
+      "journey": "problem_curation",
+      "journeyStep": 1,
+      "path": "docs/screenshots/instructor/problem_curation/01_curation_workspace_square.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "problem_curation",
+      "sha256": "a0397da9f77c25d8682d246b4641b943b0fd8d5cb760a1c7024aa72a2cf9a2cd",
+      "stateId": "curation_workspace",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "square",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "problem_curation_revision_recovery_laptop",
+      "captureOrder": 82,
+      "height": 800,
+      "journey": "problem_curation",
+      "journeyStep": 2,
+      "path": "docs/screenshots/instructor/problem_curation/02_revision_recovery_laptop.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "problem_curation",
+      "sha256": "8aff9364e38bc9f24c8df4d2b1cd11ebb8b6d65ad92d7224d3c2c7470fe9b465",
+      "stateId": "revision_recovery",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "problem_curation_revision_recovery_tablet",
+      "captureOrder": 83,
+      "height": 1280,
+      "journey": "problem_curation",
+      "journeyStep": 2,
+      "path": "docs/screenshots/instructor/problem_curation/02_revision_recovery_tablet.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "problem_curation",
+      "sha256": "09e14c15c798419461fa62b7b81e7616587013986c37440cc3c70e9f5837eaec",
+      "stateId": "revision_recovery",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1280,
+        "name": "tablet",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "problem_curation_revision_recovery_iphone_pro",
+      "captureOrder": 84,
+      "height": 852,
+      "journey": "problem_curation",
+      "journeyStep": 2,
+      "path": "docs/screenshots/instructor/problem_curation/02_revision_recovery_iphone_pro.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "problem_curation",
+      "sha256": "4d6d6a1c4160aab7ca6e7d124b8e8e56fb82cf4714dc59e9c19d7f393a8aee74",
+      "stateId": "revision_recovery",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 852,
+        "name": "iphone_pro",
+        "width": 393
+      },
+      "width": 393
+    },
+    {
+      "artifactId": "problem_curation_revision_recovery_square",
+      "captureOrder": 85,
+      "height": 800,
+      "journey": "problem_curation",
+      "journeyStep": 2,
+      "path": "docs/screenshots/instructor/problem_curation/02_revision_recovery_square.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "problem_curation",
+      "sha256": "7f895d2d7d679329f7985a210c338fb2f8e033e3079b1a86ab64bb6bd5ade7cb",
+      "stateId": "revision_recovery",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "square",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "problem_curation_assignment_picker_laptop",
+      "captureOrder": 86,
+      "height": 800,
+      "journey": "problem_curation",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/problem_curation/03_assignment_picker_laptop.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "problem_curation",
+      "sha256": "701f0f5f5c6586cef7d64f6f5a2f24dddb487d62cd338e56dd8d3c5f795ebc02",
+      "stateId": "assignment_picker",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "problem_curation_assignment_picker_tablet",
+      "captureOrder": 87,
+      "height": 1280,
+      "journey": "problem_curation",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/problem_curation/03_assignment_picker_tablet.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "problem_curation",
+      "sha256": "4b703d1ef53de37e87bdcfb707d333a5474a3cc8718873f986ec62367003fc70",
+      "stateId": "assignment_picker",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1280,
+        "name": "tablet",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "problem_curation_assignment_picker_iphone_pro",
+      "captureOrder": 88,
+      "height": 852,
+      "journey": "problem_curation",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/problem_curation/03_assignment_picker_iphone_pro.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "problem_curation",
+      "sha256": "2bdea9f6bebad66996b27fd7a17e5375722db30c47cfb452f1cae9f79e53e0b2",
+      "stateId": "assignment_picker",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 852,
+        "name": "iphone_pro",
+        "width": 393
+      },
+      "width": 393
+    },
+    {
+      "artifactId": "problem_curation_assignment_picker_square",
+      "captureOrder": 89,
+      "height": 800,
+      "journey": "problem_curation",
+      "journeyStep": 3,
+      "path": "docs/screenshots/instructor/problem_curation/03_assignment_picker_square.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "instructor",
+      "scenarioId": "problem_curation",
+      "sha256": "ccbe149dffd52520835da1a62765eb4dd0f5f47ecf72289f4ded8c36d4685af4",
+      "stateId": "assignment_picker",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "square",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "problem_curation_institution_projection_laptop",
+      "captureOrder": 90,
+      "height": 800,
+      "journey": "problem_curation",
+      "journeyStep": 1,
+      "path": "docs/screenshots/sysadmin/problem_curation/01_institution_projection_laptop.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "sysadmin",
+      "scenarioId": "problem_curation",
+      "sha256": "dc7d57bef44156c31b5e4f44b2101d4d318037acf65077192111d43e5dfd1cd6",
+      "stateId": "institution_projection",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "laptop",
+        "width": 1280
+      },
+      "width": 1280
+    },
+    {
+      "artifactId": "problem_curation_institution_projection_tablet",
+      "captureOrder": 91,
+      "height": 1280,
+      "journey": "problem_curation",
+      "journeyStep": 1,
+      "path": "docs/screenshots/sysadmin/problem_curation/01_institution_projection_tablet.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "sysadmin",
+      "scenarioId": "problem_curation",
+      "sha256": "631a86cf007e102474b1b24231ab143e88cfb770b8c3d4f8d1676ea93670682e",
+      "stateId": "institution_projection",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 1280,
+        "name": "tablet",
+        "width": 800
+      },
+      "width": 800
+    },
+    {
+      "artifactId": "problem_curation_institution_projection_iphone_pro",
+      "captureOrder": 92,
+      "height": 852,
+      "journey": "problem_curation",
+      "journeyStep": 1,
+      "path": "docs/screenshots/sysadmin/problem_curation/01_institution_projection_iphone_pro.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "sysadmin",
+      "scenarioId": "problem_curation",
+      "sha256": "aa3082da1908a58f188e06e58884cdd249151b3b33584291047031dcfdc5d30c",
+      "stateId": "institution_projection",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 852,
+        "name": "iphone_pro",
+        "width": 393
+      },
+      "width": 393
+    },
+    {
+      "artifactId": "problem_curation_institution_projection_square",
+      "captureOrder": 93,
+      "height": 800,
+      "journey": "problem_curation",
+      "journeyStep": 1,
+      "path": "docs/screenshots/sysadmin/problem_curation/01_institution_projection_square.png",
+      "privacyChecks": [
+        "no_private_material"
+      ],
+      "role": "sysadmin",
+      "scenarioId": "problem_curation",
+      "sha256": "29a47f10aa52bb98b02fb20b3372002fa9b23812d57ebd1ebf6ca44690d1e2ca",
+      "stateId": "institution_projection",
+      "viewport": {
+        "deviceScaleFactor": 1,
+        "height": 800,
+        "name": "square",
+        "width": 800
+      },
+      "width": 800
     }
   ],
   "browserSuite": "ple-live-demo-browser",
-  "generationIdentity": "869a125b983c6db021a137b02080f2b0640ea609f06200d94954a08e9930180e",
-  "origin": "https://localhost:55230",
+  "generationIdentity": "fdc86beeab7f3679a6b79155ea619a5207caf7dc64ad502d3965bed95245e3c7",
+  "origin": "https://localhost:55172",
   "pipeline": "realStack",
-  "productionDistDigest": "90f0730c88bf0ef5518e46527633ef81f793ae3d5460344136ba76a20ce8abc9",
+  "productionDistDigest": "330779f44d0e5e01550f131a3462cf862ecdc37b97fe12f1f290d3b29b29d828",
   "schemaVersion": 2
 }

@@ -33,6 +33,7 @@ mod account_identity;
 mod account_presentation;
 mod activity_policy;
 mod asset_delivery;
+mod catalog_prompt;
 mod course_appearance;
 mod course_gradebook;
 mod course_roster;
@@ -101,7 +102,9 @@ pub use crate::asset_delivery::{
 pub use crate::contracts::CourseGroupManagementStore;
 pub use crate::contracts::{
     IssuedNativeAssetBindingV1, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1,
-    PreviewPlaneResult, PreviewPlaneStore, PreviewSubjectAudit,
+    PreviewPlaneResult, PreviewPlaneStore, PreviewSubjectAudit, ProblemCollectionMembersPage,
+    ProblemCollectionReplacementTarget, ProblemCurationCapability, ProblemCurationStore,
+    ReplaceProblemCollectionCommand, ReplaceSavedProblemSearchCommand,
 };
 pub use crate::course_appearance::{
     COURSE_BANNER_HEIGHT, COURSE_BANNER_WIDTH, CourseAppearanceStore, CourseBannerCleanupBatch,
@@ -262,8 +265,8 @@ pub(crate) use publication_validation::{
 mod contracts;
 pub use contracts::*;
 pub(crate) use contracts::{
-    ActivityStore, AuthoringStore, CourseAssignmentStore, CourseStore, EffectivePolicyStore,
-    FeedbackStore, RunStore, StatisticsStore, assignment_item_is_retired,
+    ActivityStore, AuthoringStore, CatalogSearchCursorKey, CourseAssignmentStore, CourseStore,
+    EffectivePolicyStore, FeedbackStore, RunStore, StatisticsStore, assignment_item_is_retired,
     assignment_scoring_changed, current_attempt_points, decode_catalog_search_cursor,
     decode_workspace_draft_cursor, delete_and_regrade_update, encode_catalog_search_cursor,
     encode_workspace_draft_cursor, recalculated_enrollment_projection,

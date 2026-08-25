@@ -46,7 +46,7 @@
   --ple-row-padding-inline: 0.62rem;
   --ple-dense-row-min-height: 3.6rem;
   --ple-catalog-window-block-size: min(65vh, 33rem);
-  --ple-catalog-row-block-size: 132px;
+  --ple-catalog-row-block-size: 164px;
   --ple-assignment-field-gap: 0.25rem;
   --ple-assignment-field-margin-block: 0.45rem;
   --ple-assignment-field-font-size: 0.9rem;
@@ -961,7 +961,7 @@ html[data-contrast="increased"] .course-theme-scope {
 
 @media (max-width: 40rem) {
   :root {
-    --ple-catalog-row-block-size: 184px;
+    --ple-catalog-row-block-size: 216px;
   }
 }
 

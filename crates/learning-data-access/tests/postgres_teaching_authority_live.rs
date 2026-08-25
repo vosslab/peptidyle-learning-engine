@@ -242,12 +242,14 @@ async fn postgres_teaching_authority_concurrent_lifecycle_oracle() {
     let target = UserId::from_uuid(id());
     let alternate = UserId::from_uuid(id());
     create_account(&store, sysadmin).await;
+    create_account(&store, instructor).await;
     create_account(&store, target).await;
     create_account(&store, alternate).await;
     let sysadmin_session = session(&store, tenant, sysadmin, vec![UserRole::Sysadmin]).await;
     let instructor_session = session(&store, tenant, instructor, vec![UserRole::Instructor]).await;
     let target_session = session(&store, tenant, target, vec![UserRole::Instructor]).await;
     let alternate_session = session(&store, tenant, alternate, vec![UserRole::Instructor]).await;
+    approval(&store, context, sysadmin_session, instructor).await;
     assert_eq!(
         sysadmin_session.to_string().len(),
         64,

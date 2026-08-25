@@ -14,23 +14,13 @@ async fn wait_for_eligibility_lock(
 ) -> Result<(), String> {
     let deadline = tokio::time::Instant::now() + LIVE_TIMEOUT;
     loop {
-        let waiters: i64 = sqlx::query_scalar(concat!(
-            "SELECT count(*) FROM pg_stat_activity AS activity ",
-            "JOIN pg_locks AS blocked ON blocked.pid=activity.pid ",
-            "JOIN pg_locks AS held ON held.locktype=blocked.locktype ",
-            "AND held.transactionid=blocked.transactionid ",
-            "WHERE activity.pid=$2 ",
-            "AND activity.query LIKE '%ple_lock_instructor_approval_eligibility%' ",
-            "AND activity.wait_event_type='Lock' AND activity.wait_event='transactionid' ",
-            "AND blocked.locktype='transactionid' AND NOT blocked.granted ",
-            "AND held.pid=$1 AND held.granted",
-        ))
-        .bind(blocker_pid)
-        .bind(expected_accept_pid)
-        .fetch_one(pool)
-        .await
-        .expect("approval-lock wait probe");
-        if waiters == 1 {
+        let blocked_by_fixture: bool = sqlx::query_scalar("SELECT $1 = ANY(pg_blocking_pids($2))")
+            .bind(blocker_pid)
+            .bind(expected_accept_pid)
+            .fetch_one(pool)
+            .await
+            .expect("approval-lock wait probe");
+        if blocked_by_fixture {
             return Ok(());
         }
         if tokio::time::Instant::now() >= deadline {
@@ -64,6 +54,7 @@ async fn postgres_teaching_authority_exact_expiry_boundary_oracle() {
     let sysadmin_session = session(&store, tenant, sysadmin, vec![UserRole::Sysadmin]).await;
     let instructor_session = session(&store, tenant, instructor, vec![UserRole::Instructor]).await;
     let target_session = session(&store, tenant, target, vec![UserRole::Instructor]).await;
+    approval(&store, context, sysadmin_session, instructor).await;
     let course = CourseId::from_uuid(id());
     store
         .create_course(
@@ -209,6 +200,7 @@ async fn postgres_teaching_authority_acceptance_precedes_queued_approval_revoke(
     let sysadmin_session = session(&store, tenant, sysadmin, vec![UserRole::Sysadmin]).await;
     let instructor_session = session(&store, tenant, instructor, vec![UserRole::Instructor]).await;
     let target_session = session(&store, tenant, target, vec![UserRole::Instructor]).await;
+    approval(&store, context, sysadmin_session, instructor).await;
     let course = CourseId::from_uuid(id());
     store
         .create_course(

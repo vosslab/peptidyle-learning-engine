@@ -150,10 +150,9 @@ async fn physical_scheme_and_score_guards(
 ) {
     let other_course = CourseId::from_uuid(id());
     let mut tx = pool.begin().await.expect("physical guard transaction");
-    sqlx::query("SET LOCAL ROLE ple_app")
-        .execute(&mut *tx)
-        .await
-        .expect("app role");
+    // These rolled-back statements probe physical constraints as the schema
+    // owner. Product mutation authority is exercised separately through the
+    // Store capability and explicit ple_app denial checks.
     sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
         .bind(tenant.to_string())
         .execute(&mut *tx)
@@ -792,8 +791,25 @@ async fn postgres_course_grade_scheme_is_migrated_defaulted_revisioned_bounded_a
              AND grantee='ple_app' AND privilege_type='INSERT'",
         )
         .await,
-        1,
-        "application role receives only the audited export write grant",
+        0,
+        "application role uses the audited export capability instead of a direct table grant",
+    );
+    assert_eq!(
+        scalar_i64(
+            &pool,
+            "SELECT count(*) FROM pg_proc AS procedure_row \
+             CROSS JOIN LATERAL aclexplode(COALESCE(\
+                 procedure_row.proacl, acldefault('f', procedure_row.proowner)\
+             )) AS privilege_row \
+             WHERE procedure_row.oid IN (\
+                 'public.ple_replace_course_grade_scheme_v1(uuid,character,uuid,bigint,jsonb)'::regprocedure, \
+                 'public.ple_record_course_grade_export_audit_v1(uuid,character,uuid,uuid,integer,bigint,text,text)'::regprocedure\
+             ) AND privilege_row.grantee='ple_app'::regrole \
+               AND privilege_row.privilege_type='EXECUTE'",
+        )
+        .await,
+        2,
+        "application role receives exactly the two grade-control capabilities",
     );
     assert_eq!(
         scalar_i64(

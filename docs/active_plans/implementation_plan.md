@@ -38,10 +38,10 @@ canonical onboarding remain separate release work.
 ordinary live assignments, learner runs, deterministic server-owned grading, immutable issued
 evidence, receipt replay, and audited Instructor inspection as the canonical product path.
 WP-PROF-T5 is accepted after extending that model with visible item-pool authoring, policy-correct
-automatic variation, executable no-store preview, and ordinary Student delivery. The sole current
-professor package is WP-PROF-D1 discovery over the canonical Library/search path. The shared status
-registry owns the changing handoff and migration allocation; the professor capability plan retains
-the accepted T5 contract and evidence boundary.
+automatic variation, executable no-store preview, and ordinary Student delivery. WP-PROF-D1 is
+accepted, and WP-PROF-D2 advances live problem curation over the canonical Library/search path. The
+shared status registry owns the current handoff and migration allocation; the professor capability
+plan retains the accepted T5 contract and evidence boundary.
 
 The completed local-stack lifecycle controller foundation is recorded in
 `docs/active_plans/workstreams/local_stack_controller_implementation.md`.

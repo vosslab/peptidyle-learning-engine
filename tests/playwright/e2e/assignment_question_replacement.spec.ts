@@ -61,7 +61,7 @@ async function createPublishedAssignmentAndInvitation(
   page: Page,
   courseTitle: string,
   assignmentTitle: string,
-  originalQuestionId: string,
+  originalQuestionTitle: string,
   namespace: string,
 ): Promise<string> {
   await page.getByRole("link", { name: "Courses", exact: true }).click();
@@ -78,9 +78,15 @@ async function createPublishedAssignmentAndInvitation(
   await page.getByRole("link", { name: "Assignments", exact: true }).click();
   await page.getByRole("link", { name: "Create the first assignment", exact: true }).click();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
-  await page.getByText("Add several Question IDs", { exact: true }).click();
-  await page.getByLabel("Question IDs").fill(originalQuestionId);
-  await page.getByRole("button", { name: "Add questions by ID", exact: true }).click();
+  await page.getByRole("button", { name: "Choose questions", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "Choose assignment questions", exact: true });
+  await expect(picker).toBeVisible();
+  await picker.getByLabel("Search questions", { exact: true }).fill(originalQuestionTitle);
+  await picker.getByRole("button", { name: "Search questions", exact: true }).click();
+  await picker.getByRole("checkbox", { name: new RegExp(originalQuestionTitle) }).check();
+  await picker.getByRole("button", { name: "Add selected questions", exact: true }).click();
+  await expect(picker).toHaveCount(0);
+  await expect(page.locator(".assignment-editor-list")).toContainText(originalQuestionTitle);
   await page.getByRole("button", { name: "Create assignment", exact: true }).click();
   await expect(page.getByText(`${assignmentTitle} now appears in this course.`)).toBeVisible();
   await page.getByRole("link", { name: `Open ${assignmentTitle}`, exact: true }).click();
@@ -139,7 +145,6 @@ async function openAssignmentEditor(
 async function replaceAssignedQuestion(
   page: Page,
   originalQuestionTitle: string,
-  replacementQuestionId: string,
   replacementQuestionTitle: string,
 ): Promise<void> {
   const originalRow = page
@@ -151,13 +156,17 @@ async function replaceAssignedQuestion(
   await expect(
     page.getByRole("heading", { name: "Replace assigned question", exact: true }),
   ).toBeVisible();
-  await page
-    .getByRole("textbox", { name: "Replacement Question ID", exact: true })
-    .fill(replacementQuestionId);
-  await page.getByRole("button", { name: "Check Question ID", exact: true }).click();
-  await expect(
-    page.getByText(`Selected: ${replacementQuestionId}`, { exact: false }),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Choose replacement", exact: true }).click();
+  const picker = page.getByRole("dialog", {
+    name: "Choose a replacement question",
+    exact: true,
+  });
+  await expect(picker).toBeVisible();
+  await picker.getByLabel("Search questions", { exact: true }).fill(replacementQuestionTitle);
+  await picker.getByRole("button", { name: "Search questions", exact: true }).click();
+  await picker.getByRole("radio", { name: new RegExp(replacementQuestionTitle) }).check();
+  await picker.getByRole("button", { name: "Use selected replacement", exact: true }).click();
+  await expect(picker).toHaveCount(0);
   await page.getByRole("button", { name: "Replace with selected question", exact: true }).click();
   await expect(
     page.getByText(
@@ -217,21 +226,13 @@ test.describe("assignment question replacement on the production PLE stack", () 
 
       await chooseSeededIdentity(elena, /Elena Rivera/u);
       await selectVisibleCourse(elena, "Biochemistry Base Course");
-      const originalQuestionId = await createPublishedQuestion(
-        elena,
-        originalQuestionTitle,
-        originalChoice,
-      );
-      const replacementQuestionId = await createPublishedQuestion(
-        elena,
-        replacementQuestionTitle,
-        replacementChoice,
-      );
+      await createPublishedQuestion(elena, originalQuestionTitle, originalChoice);
+      await createPublishedQuestion(elena, replacementQuestionTitle, replacementChoice);
       const invitationUrl = await createPublishedAssignmentAndInvitation(
         elena,
         courseTitle,
         assignmentTitle,
-        originalQuestionId,
+        originalQuestionTitle,
         tag,
       );
       await openAssignmentEditor(elena, courseTitle, assignmentTitle);
@@ -247,7 +248,6 @@ test.describe("assignment question replacement on the production PLE stack", () 
       await replaceAssignedQuestion(
         replacingElena,
         originalQuestionTitle,
-        replacementQuestionId,
         replacementQuestionTitle,
       );
 

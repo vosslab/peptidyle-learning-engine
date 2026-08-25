@@ -18,14 +18,12 @@ pub(super) async fn learner_class_statistics(
     assignment: AssignmentId,
 ) -> Result<LearnerClassStatistics, StoreError> {
     let tenant = context.tenant_id();
-    // S5 takes row locks while it derives current membership and group facts,
-    // so this must use the ordinary writable transaction helper rather than a
-    // read-only snapshot transaction.
-    let mut transaction = store.begin_tenant(context).await?;
-    // S5 owns all current student membership and audience decisions. Do
-    // not substitute historical enrollment evidence for this evaluation.
+    // Evaluate current membership, audience, and analysis from one read-only
+    // snapshot. The learner read needs a coherent authorization decision, not
+    // mutation authority over the assignment or its roster aggregates.
+    let mut transaction = store.begin_tenant_snapshot(context).await?;
     if !matches!(
-        super::super::entitlement::evaluate_current(
+        super::super::entitlement::evaluate_current_read_only(
             &mut transaction,
             tenant,
             learner,

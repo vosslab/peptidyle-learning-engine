@@ -175,6 +175,20 @@ pub(crate) async fn insert_problem_version(
     content_sha256: &str,
 ) -> Result<(), StoreError> {
     let backend = question_backend_name(QuestionBackend::from(&record.question.source));
+    // Response family is immutable publication metadata. Its explicit wire
+    // value lets hot catalog search classify content without loading payloads.
+    let response_family =
+        match question_model::CatalogResponseFamily::from(&record.question.response) {
+            question_model::CatalogResponseFamily::Numeric => "numeric",
+            question_model::CatalogResponseFamily::MultipleChoice => "multipleChoice",
+            question_model::CatalogResponseFamily::ShortText => "shortText",
+            question_model::CatalogResponseFamily::MultiBlank => "multiBlank",
+            question_model::CatalogResponseFamily::Matching => "matching",
+            question_model::CatalogResponseFamily::Ordering => "ordering",
+            question_model::CatalogResponseFamily::Hotspot => "hotspot",
+            question_model::CatalogResponseFamily::FileUpload => "fileUpload",
+            question_model::CatalogResponseFamily::ExternalTool => "externalTool",
+        };
     let (lifecycle, lifecycle_reason) = catalog_lifecycle_parts(&record.lifecycle);
     let derived_from_problem = record.derived_from.map(|source| source.problem.as_uuid());
     let derived_from_version = record.derived_from.map(|source| source.version.as_uuid());
@@ -183,8 +197,8 @@ pub(crate) async fn insert_problem_version(
          (problem_id, version_id, content_sha256, workspace_id, title, \
           backend, capabilities, metadata, \
           publication_scope, lifecycle, lifecycle_reason, author_ids, public_byline, \
-          derived_from_problem_id, derived_from_version_id) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
+          response_family, derived_from_problem_id, derived_from_version_id) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)",
     )
     .bind(record.problem.as_uuid())
     .bind(record.version.as_uuid())
@@ -206,6 +220,7 @@ pub(crate) async fn insert_problem_version(
             .map(|name| name.as_str())
             .collect::<Vec<_>>(),
     )
+    .bind(response_family)
     .bind(derived_from_problem)
     .bind(derived_from_version)
     .execute(&mut **transaction)

@@ -32,10 +32,10 @@ use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
     ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId,
     AssignmentItemId, AssignmentItemSummary, AssignmentRun, AssignmentScoringMode,
-    AssignmentSummary, AttemptTimerRecord, CatalogLifecycle, CatalogProblemSummary, CourseId,
-    CourseMembershipRole, CourseSummary, EnrollmentId, GradebookSummaryRow, PointValue,
-    PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionBackend, RunId, RunMode,
-    StudentAssignmentSummary, StudentId, TenantId, UserId,
+    AssignmentSummary, AttemptTimerRecord, CatalogLifecycle, CatalogProblemSummary,
+    CatalogResponseFamily, CourseId, CourseMembershipRole, CourseSummary, EnrollmentId,
+    GradebookSummaryRow, PointValue, PublicationScope, QuestionAttempt, QuestionAttemptId,
+    QuestionBackend, RunId, RunMode, StudentAssignmentSummary, StudentId, TenantId, UserId,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -199,6 +199,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
             .parse()
             .expect("fixture Question ID is canonical"),
         backend: QuestionBackend::Native,
+        response_family: CatalogResponseFamily::MultipleChoice,
         capabilities: adapter.capabilities(&published_problem.source)?,
         metadata: published_problem.metadata.clone(),
         byline: question_model::PublicByline::new(vec![question_model::PublicAuthorName::new(

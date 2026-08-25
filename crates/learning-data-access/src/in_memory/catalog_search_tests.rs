@@ -1,15 +1,34 @@
 use super::*;
-use crate::{CourseMemberStatus, Store};
+use std::collections::BTreeMap;
+
+use crate::{
+    CourseMemberStatus, SessionLifetime, SessionStore, SessionSubject, SessionTokenHash, Store,
+};
 use question_model::answer::NumericTolerance;
-use question_model::generation::RandomizationDefinition;
+use question_model::envelope::ContentBlock;
+use question_model::generation::{GeneratorReference, ParameterSpec, RandomizationDefinition};
 use question_model::run_policy::AttemptPolicy;
 use question_model::taxonomy::{License, Tag};
 use question_model::{
-    AssignmentRun, AttemptProvenance, AttemptResult, AttemptTimerRecord, BackendCapabilities,
-    Capability, CourseMembershipId, CourseMembershipRole, DraftQuestionDefinition,
-    DraftQuestionSource, GradingDefinition, ImplementationVersion, QuestionDefinition,
-    QuestionMetadata, ResponseDefinition, StudentId,
+    AttemptProvenance, AttemptResult, AttemptTimerRecord, BackendCapabilities, Capability,
+    CourseMembershipId, CourseMembershipRole, DraftQuestionDefinition, DraftQuestionSource,
+    GradingDefinition, ImplementationVersion, QuestionDefinition, QuestionMetadata,
+    ResponseDefinition,
 };
+
+fn seed_catalog(store: &MemoryStore, records: impl IntoIterator<Item = PublishedProblemRecord>) {
+    let mut state = store.write_state().expect("catalog fixture state");
+    for record in records {
+        let sequence = state.next_catalog_publication_sequence;
+        state.next_catalog_publication_sequence += 1;
+        state
+            .catalog_publication_sequences
+            .insert((record.problem, record.version), sequence);
+        state
+            .published
+            .insert((record.problem, record.version), record);
+    }
+}
 
 pub(super) fn record(number: u128) -> PublishedProblemRecord {
     let problem = ProblemId::from_uuid(Uuid::from_u128(number));
@@ -76,7 +95,27 @@ pub(super) fn record(number: u128) -> PublishedProblemRecord {
     }
 }
 
-fn statistics_attempt(
+fn seeded_record(number: u128) -> PublishedProblemRecord {
+    let mut published = record(number);
+    published.question.prompt = vec![ContentBlock::Text {
+        markdown: "A {{residue}} example.".to_string(),
+    }];
+    published.question.randomization = RandomizationDefinition::Seeded {
+        generator: GeneratorReference {
+            id: "catalog-projection-fixture".to_string(),
+            version: "1".to_string(),
+        },
+        parameters: BTreeMap::from([(
+            "residue".to_string(),
+            ParameterSpec::Choice {
+                options: vec!["glycine".to_string()],
+            },
+        )]),
+    };
+    published
+}
+
+pub(super) fn statistics_attempt(
     number: u128,
     tenant: TenantId,
     run: RunId,
@@ -120,14 +159,14 @@ fn statistics_attempt(
     }
 }
 
-struct StatisticsSubmissionFixture {
-    context: TenantContext,
-    actor: UserId,
-    binding: LearnerWorkRoutingBinding,
-    attempt: QuestionAttempt,
+pub(super) struct StatisticsSubmissionFixture {
+    pub(super) context: TenantContext,
+    pub(super) actor: UserId,
+    pub(super) binding: LearnerWorkRoutingBinding,
+    pub(super) attempt: QuestionAttempt,
 }
 
-fn submit_statistics_attempt(
+pub(super) fn submit_statistics_attempt(
     store: &MemoryStore,
     fixture: StatisticsSubmissionFixture,
     submitted_at: i64,
@@ -169,7 +208,7 @@ fn submit_statistics_attempt(
 /// Statistics fixtures install only the authority a real issue transaction
 /// persists. Submission must therefore succeed even after the catalog record
 /// is unavailable; it has no permission to recover timing from current policy.
-fn insert_statistics_issued_authority(state: &mut State, attempt: &QuestionAttempt) {
+pub(super) fn insert_statistics_issued_authority(state: &mut State, attempt: &QuestionAttempt) {
     let run = state
         .runs
         .get(&(attempt.tenant, attempt.run))
@@ -243,394 +282,6 @@ fn insert_statistics_issued_authority(state: &mut State, attempt: &QuestionAttem
         },
     )
     .expect("statistics fixture effective-policy receipt");
-}
-
-#[test]
-fn first_assigned_completion_records_collapsed_statistics_once() {
-    let store = MemoryStore::default();
-    let tenant = TenantId::from_uuid(Uuid::from_u128(72_001));
-    let context = TenantContext::from_authenticated_session(tenant);
-    let actor = UserId::from_uuid(Uuid::from_u128(72_002));
-    let assignment_id = AssignmentId::from_uuid(Uuid::from_u128(72_003));
-    let enrollment_id = EnrollmentId::from_uuid(Uuid::from_u128(72_004));
-    let assigned_run = RunId::from_uuid(Uuid::from_u128(72_005));
-    let mut published_a = record(72_010);
-    let mut published_b = record(72_011);
-    published_a.scope = PublicationScope::Public;
-    published_b.scope = PublicationScope::Public;
-    let a = ProblemVersionRef {
-        problem: published_a.problem,
-        version: published_a.version,
-    };
-    let b = ProblemVersionRef {
-        problem: published_b.problem,
-        version: published_b.version,
-    };
-    let issued_snapshot_a = crate::IssuedQuestionSnapshotV1::new(
-        published_a.question.clone(),
-        crate::IssuedQuestionFamilyWitnessV1::Native {
-            physical_asset_bindings: Vec::new(),
-        },
-    )
-    .expect("statistics fixture issued snapshot A");
-    let issued_snapshot_b = crate::IssuedQuestionSnapshotV1::new(
-        published_b.question.clone(),
-        crate::IssuedQuestionFamilyWitnessV1::Native {
-            physical_asset_bindings: Vec::new(),
-        },
-    )
-    .expect("statistics fixture issued snapshot B");
-    let assignment = AssignmentRecord {
-        id: assignment_id,
-        tenant,
-        course_id: CourseId::from_uuid(Uuid::from_u128(72_006)),
-        title: "Statistics completion fixture".to_string(),
-        lifecycle: question_model::AssignmentLifecycle::Draft,
-        instructions: question_model::AssignmentInstructions::default(),
-        audience: question_model::AssignmentAudience::CourseWide,
-        items: [a, b, a]
-            .into_iter()
-            .enumerate()
-            .map(|(position, reference)| question_model::AssignmentItem {
-                id: question_model::AssignmentItemId::from_uuid(Uuid::from_u128(
-                    72_100 + position as u128,
-                )),
-                reference,
-                position: u32::try_from(position).expect("fixture position fits"),
-                points_possible: question_model::PointValue::from_whole(1),
-                delivery_state: question_model::AssignmentDeliveryState::Active,
-                scoring_mode: question_model::AssignmentScoringMode::Normal,
-            })
-            .collect(),
-        selection_groups: Vec::new(),
-        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-        policies: question_model::RunPolicies {
-            completion: question_model::CompletionRequirement::AnswerAll,
-            grade: question_model::GradePolicy::First,
-            continued_practice: question_model::ContinuedPractice::Unlimited,
-            variation: question_model::VariationPolicy::NewSeeds,
-        },
-    };
-    let enrollment = AssignmentEnrollment {
-        id: enrollment_id,
-        tenant,
-        assignment: assignment_id,
-        user: actor,
-        student: StudentId::from_uuid(Uuid::from_u128(72_007)),
-        first_completed_at: None,
-        current_grade_run: None,
-        best_grade_run: None,
-    };
-    let run = AssignmentRun {
-        id: assigned_run,
-        reference: question_model::RunReference::new(1).expect("valid run reference"),
-        tenant,
-        enrollment: enrollment_id,
-        run_number: 1,
-        started_at: ActivityTimestamp::from_unix_millis(0),
-        completed_at: None,
-        score: None,
-        mode: RunMode::Assigned,
-        variation: question_model::VariationPolicy::NewSeeds,
-    };
-    let run_items =
-        select_assignment_run_items(&assignment, &run).expect("statistics fixture run items");
-    {
-        let mut state = store.write_state().expect("statistics fixture state");
-        state.courses.insert(
-            (tenant, assignment.course_id),
-            CourseRecord {
-                id: assignment.course_id,
-                tenant,
-                title: "Statistics fixture course".to_string(),
-                term: question_model::CourseTerm::from_parts(
-                    "2026-08-24",
-                    "2026-12-18",
-                    "America/Chicago",
-                )
-                .expect("explicit fixture course term"),
-            },
-        );
-        let membership = CourseMembershipId::from_uuid(Uuid::from_u128(72_008));
-        state.course_memberships.insert(
-            (tenant, membership),
-            CourseMembershipRecord {
-                id: membership,
-                tenant,
-                course: assignment.course_id,
-                user: actor,
-                student: Some(StudentId::from_uuid(Uuid::from_u128(72_007))),
-                role: CourseMembershipRole::Student,
-                roster_id: None,
-                status: CourseMemberStatus::Active,
-                joined_at: ActivityTimestamp::from_unix_millis(0),
-                revoked_at: None,
-            },
-        );
-        state
-            .active_course_membership_by_user
-            .insert((tenant, assignment.course_id, actor), membership);
-        state
-            .published
-            .insert((published_a.problem, published_a.version), published_a);
-        state
-            .published
-            .insert((published_b.problem, published_b.version), published_b);
-        state
-            .assignments
-            .insert((tenant, assignment_id), assignment);
-        state.assignment_scoring.insert(
-            (tenant, assignment_id),
-            (ScoringGeneration::INITIAL, ScoringStatus::Current),
-        );
-        state
-            .enrollments
-            .insert((tenant, enrollment_id), enrollment);
-        state.runs.insert((tenant, assigned_run), run);
-        state.run_items.insert((tenant, assigned_run), run_items);
-        state.summaries.insert(
-            (tenant, enrollment_id),
-            StudentAssignmentSummary::empty(tenant, enrollment_id),
-        );
-        for (number, snapshot) in [
-            (72_098, issued_snapshot_a.clone()),
-            (72_099, issued_snapshot_a.clone()),
-            (72_100, issued_snapshot_a.clone()),
-            (72_101, issued_snapshot_a.clone()),
-            (72_102, issued_snapshot_b.clone()),
-            (72_103, issued_snapshot_a.clone()),
-            (72_201, issued_snapshot_a.clone()),
-            (72_202, issued_snapshot_b.clone()),
-            (72_203, issued_snapshot_a.clone()),
-        ] {
-            state.attempt_issued_question_snapshots.insert(
-                (
-                    tenant,
-                    QuestionAttemptId::from_uuid(Uuid::from_u128(number)),
-                ),
-                snapshot,
-            );
-        }
-    }
-
-    let regressive = statistics_attempt(72_099, tenant, assigned_run, a, 0, 2_000);
-    let binding =
-        LearnerWorkRoutingBinding::new(CourseId::from_uuid(Uuid::from_u128(72_006)), assignment_id);
-    let regressive_command = SubmitQuestionAttemptCommand {
-        actor,
-        binding,
-        attempt: regressive.id,
-        response: StudentResponse::Numeric { value: 0.0 },
-        result: AttemptResult {
-            correct: false,
-            points_earned: 0.0,
-            points_possible: 2.0,
-        },
-        feedback: question_model::FeedbackContent::default(),
-        idempotency_key: SubmissionIdempotencyKey::parse("statistics-regressive-time")
-            .expect("valid fixture idempotency key"),
-    };
-    let missing_timing = statistics_attempt(72_098, tenant, assigned_run, a, 0, 1_000);
-    {
-        let mut state = store.write_state().expect("missing timing fixture state");
-        state.authoritative_time = ActivityTimestamp::from_unix_millis(1_500);
-        insert_statistics_issued_authority(&mut state, &missing_timing);
-        state.attempt_timing.remove(&(tenant, missing_timing.id));
-        state
-            .attempts
-            .insert((tenant, missing_timing.id), missing_timing.clone());
-        assert!(matches!(
-            submit_question_attempt_locked(
-                &mut state,
-                context,
-                SubmitQuestionAttemptCommand {
-                    binding,
-                    attempt: missing_timing.id,
-                    idempotency_key: SubmissionIdempotencyKey::parse("statistics-missing-timing")
-                        .expect("valid missing-timing key"),
-                    ..regressive_command.clone()
-                },
-            ),
-            Err(StoreError::Unavailable(_))
-        ));
-        assert!(
-            !state.submissions.contains_key(&(tenant, missing_timing.id)),
-            "missing issued timing must fail before receipt mutation"
-        );
-    }
-    {
-        let mut state = store.write_state().expect("regressive statistics state");
-        state.authoritative_time = ActivityTimestamp::from_unix_millis(1_500);
-        state
-            .attempts
-            .insert((tenant, regressive.id), regressive.clone());
-        insert_statistics_issued_authority(&mut state, &regressive);
-        assert!(matches!(
-            submit_question_attempt_locked(&mut state, context, regressive_command),
-            Err(StoreError::InvalidRecord(_))
-        ));
-        assert!(!state.submissions.contains_key(&(tenant, regressive.id)));
-        assert_eq!(
-            state.summaries[&(tenant, enrollment_id)],
-            StudentAssignmentSummary::empty(tenant, enrollment_id)
-        );
-        assert_eq!(state.runs[&(tenant, assigned_run)].completed_at, None);
-        assert!(state.question_statistics.is_empty());
-        assert!(state.question_statistics_receipts.is_empty());
-    }
-
-    {
-        let mut state = store
-            .write_state()
-            .expect("withdrawn catalog fixture state");
-        state.published.clear();
-    }
-
-    // Every first submission below succeeds with only its issued timing and
-    // receipt authority. No current catalog policy remains to reconstruct.
-    submit_statistics_attempt(
-        &store,
-        StatisticsSubmissionFixture {
-            context,
-            actor,
-            binding,
-            attempt: statistics_attempt(72_100, tenant, assigned_run, a, 0, 0),
-        },
-        1_500,
-        0.0,
-        2.0,
-    );
-    submit_statistics_attempt(
-        &store,
-        StatisticsSubmissionFixture {
-            context,
-            actor,
-            binding,
-            attempt: statistics_attempt(72_101, tenant, assigned_run, a, 0, 2_000),
-        },
-        4_500,
-        1.0,
-        2.0,
-    );
-    submit_statistics_attempt(
-        &store,
-        StatisticsSubmissionFixture {
-            context,
-            actor,
-            binding,
-            attempt: statistics_attempt(72_102, tenant, assigned_run, b, 1, 5_000),
-        },
-        6_000,
-        1.0,
-        4.0,
-    );
-    let (_, final_command) = submit_statistics_attempt(
-        &store,
-        StatisticsSubmissionFixture {
-            context,
-            actor,
-            binding,
-            attempt: statistics_attempt(72_103, tenant, assigned_run, a, 2, 7_000),
-        },
-        100_007_000,
-        2.0,
-        2.0,
-    );
-
-    let completed_statistics = {
-        let state = store.read_state().expect("completed statistics state");
-        assert_eq!(state.question_statistics_receipts.len(), 2);
-        let a_snapshot = state.question_statistics[&(a.problem, a.version)].snapshot();
-        assert_eq!(a_snapshot.cohort_size, 1);
-        assert_eq!(a_snapshot.score_sum, 0.75);
-        assert_eq!(a_snapshot.attempts_sum, 3);
-        assert_eq!(a_snapshot.durations.bins[9], 1);
-        assert_eq!(a_snapshot.discrimination.count, 1);
-        assert_eq!(a_snapshot.discrimination.mean_x, 0.75);
-        assert_eq!(a_snapshot.discrimination.mean_y, 0.25);
-        let b_snapshot = state.question_statistics[&(b.problem, b.version)].snapshot();
-        assert_eq!(b_snapshot.cohort_size, 1);
-        assert_eq!(b_snapshot.score_sum, 0.25);
-        assert_eq!(b_snapshot.attempts_sum, 1);
-        assert_eq!(b_snapshot.durations.bins[0], 1);
-        assert_eq!(b_snapshot.discrimination.mean_x, 0.25);
-        assert_eq!(b_snapshot.discrimination.mean_y, 0.75);
-        (
-            state.question_statistics.clone(),
-            state.question_statistics_receipts.clone(),
-        )
-    };
-
-    {
-        let mut state = store.write_state().expect("replay statistics state");
-        let replay = submit_question_attempt_locked(&mut state, context, final_command)
-            .expect("exact completed submission replay");
-        assert_eq!(replay.run.id, assigned_run);
-        assert_eq!(state.question_statistics, completed_statistics.0);
-        assert_eq!(state.question_statistics_receipts.len(), 2);
-    }
-
-    let practice_run = RunId::from_uuid(Uuid::from_u128(72_200));
-    {
-        let mut state = store.write_state().expect("practice statistics state");
-        let practice_items = state.run_items[&(tenant, assigned_run)]
-            .iter()
-            .cloned()
-            .map(|mut item| {
-                item.run = practice_run;
-                item
-            })
-            .collect();
-        state.runs.insert(
-            (tenant, practice_run),
-            AssignmentRun {
-                id: practice_run,
-                reference: question_model::RunReference::new(2).expect("valid run reference"),
-                tenant,
-                enrollment: enrollment_id,
-                run_number: 2,
-                started_at: ActivityTimestamp::from_unix_millis(200_000_000),
-                completed_at: None,
-                score: None,
-                mode: RunMode::Practice,
-                variation: question_model::VariationPolicy::NewSeeds,
-            },
-        );
-        state
-            .run_items
-            .insert((tenant, practice_run), practice_items);
-    }
-    for (number, reference, position, earned, possible) in [
-        (72_201, a, 0, 1.0, 2.0),
-        (72_202, b, 1, 1.0, 4.0),
-        (72_203, a, 2, 2.0, 2.0),
-    ] {
-        submit_statistics_attempt(
-            &store,
-            StatisticsSubmissionFixture {
-                context,
-                actor,
-                binding,
-                attempt: statistics_attempt(
-                    number,
-                    tenant,
-                    practice_run,
-                    reference,
-                    position,
-                    200_000_000,
-                ),
-            },
-            200_001_000 + i64::from(position),
-            earned,
-            possible,
-        );
-    }
-    let state = store.read_state().expect("practice completion state");
-    assert_eq!(state.question_statistics, completed_statistics.0);
-    assert_eq!(
-        state.question_statistics_receipts.len(),
-        completed_statistics.1.len()
-    );
 }
 
 #[tokio::test]
@@ -800,7 +451,7 @@ async fn catalog_search_finds_an_exact_question_id_beyond_the_first_page() {
     }
 
     let page = store
-        .search_catalog(
+        .search_catalog_as_instructor(
             context,
             CatalogSearchQuery {
                 text: Some(exact_reference.clone()),
@@ -812,8 +463,341 @@ async fn catalog_search_finds_an_exact_question_id_beyond_the_first_page() {
         .expect("exact display reference search");
 
     assert_eq!(page.items.len(), 1);
-    assert_eq!(page.items[0].question_id.to_string(), exact_reference);
+    assert_eq!(
+        page.items[0].summary.question_id.to_string(),
+        exact_reference
+    );
     assert_eq!(page.next_cursor, None);
+}
+
+#[tokio::test]
+async fn catalog_search_authorship_uses_the_authenticated_actor_and_includes_coauthors() {
+    let store = MemoryStore::default();
+    let tenant = TenantId::from_uuid(Uuid::from_u128(73_090));
+    let context = TenantContext::from_authenticated_session(tenant);
+    let mut authored = record(73_091);
+    authored.author_ids = vec![
+        UserId::from_uuid(Uuid::from_u128(73_092)),
+        UserId::from_uuid(tenant.as_uuid()),
+    ];
+    let mut foreign = record(73_093);
+    foreign.author_ids = vec![UserId::from_uuid(Uuid::from_u128(73_094))];
+    let mut coauthored = record(73_095);
+    coauthored.author_ids = vec![
+        UserId::from_uuid(Uuid::from_u128(73_096)),
+        UserId::from_uuid(tenant.as_uuid()),
+    ];
+    seed_catalog(&store, [authored.clone(), coauthored, foreign.clone()]);
+
+    let page = store
+        .search_catalog_as_instructor(
+            context,
+            CatalogSearchQuery {
+                authorship: question_model::CatalogAuthorship::AuthoredByCurrentActor,
+                page_size: Some(1),
+                ..CatalogSearchQuery::default()
+            },
+        )
+        .await
+        .expect("authenticated authored scope search");
+
+    assert_eq!(page.items.len(), 1);
+    assert!(
+        page.items
+            .iter()
+            .all(|item| item.summary.question_id != foreign.question_id)
+    );
+    let cursor = page.next_cursor.expect("authored page has a continuation");
+    assert!(matches!(
+        store
+            .search_catalog_as_instructor(
+                context,
+                CatalogSearchQuery {
+                    cursor: Some(cursor),
+                    ..CatalogSearchQuery::default()
+                },
+            )
+            .await,
+        Err(StoreError::InvalidRecord(_))
+    ));
+}
+
+#[tokio::test]
+async fn catalog_search_applies_metadata_filters_facets_and_actor_course_usage() {
+    let store = MemoryStore::default();
+    let tenant = TenantId::from_uuid(Uuid::from_u128(73_100));
+    let actor = UserId::from_uuid(Uuid::from_u128(73_101));
+    let context = TenantContext::from_authenticated_session(tenant);
+    let session = SessionTokenHash::compute(b"catalog-metadata-parity");
+    let publication = record(73_102);
+    let mut later_publication = record(73_108);
+    later_publication.question.metadata.tags = vec![Tag::new("other")];
+    let reference = ProblemVersionRef {
+        problem: publication.problem,
+        version: publication.version,
+    };
+    let later_reference = ProblemVersionRef {
+        problem: later_publication.problem,
+        version: later_publication.version,
+    };
+    seed_catalog(&store, [publication.clone(), later_publication]);
+    store
+        .create_session(
+            session,
+            SessionSubject::new(
+                tenant,
+                actor,
+                "Catalog metadata parity",
+                vec![question_model::UserRole::Instructor],
+            )
+            .expect("valid instructor session subject"),
+            SessionLifetime::from_seconds(60).expect("positive session lifetime"),
+        )
+        .await
+        .expect("metadata parity session");
+    {
+        let mut state = store.write_state().expect("metadata parity state");
+        state.instructor_approvals.insert(
+            actor,
+            crate::StoredInstructorApproval {
+                approval: question_model::InstructorApproval {
+                    user: actor,
+                    approved_by: actor,
+                    approved_at: ActivityTimestamp::from_unix_millis(0),
+                    revoked_at: None,
+                },
+                revision: crate::InstructorApprovalRevision::INITIAL,
+            },
+        );
+        let course = CourseId::from_uuid(Uuid::from_u128(73_103));
+        state.courses.insert(
+            (tenant, course),
+            CourseRecord {
+                id: course,
+                tenant,
+                title: "Metadata parity course".to_string(),
+                term: question_model::CourseTerm::from_parts(
+                    "2026-08-24",
+                    "2026-12-18",
+                    "America/Chicago",
+                )
+                .expect("valid metadata parity term"),
+            },
+        );
+        state.course_references.insert(
+            (tenant, course),
+            question_model::CourseReference::new(73_104).unwrap(),
+        );
+        let membership = CourseMembershipId::from_uuid(Uuid::from_u128(73_105));
+        state.course_memberships.insert(
+            (tenant, membership),
+            CourseMembershipRecord {
+                id: membership,
+                tenant,
+                course,
+                user: actor,
+                student: None,
+                role: CourseMembershipRole::Instructor,
+                roster_id: None,
+                status: CourseMemberStatus::Active,
+                joined_at: ActivityTimestamp::from_unix_millis(0),
+                revoked_at: None,
+            },
+        );
+        let assignment_id = AssignmentId::from_uuid(Uuid::from_u128(73_106));
+        state.assignments.insert(
+            (tenant, assignment_id),
+            AssignmentRecord {
+                id: assignment_id,
+                tenant,
+                course_id: course,
+                title: "Metadata parity assignment".to_string(),
+                lifecycle: question_model::AssignmentLifecycle::Draft,
+                instructions: question_model::AssignmentInstructions::default(),
+                audience: question_model::AssignmentAudience::CourseWide,
+                items: [reference, later_reference]
+                    .into_iter()
+                    .enumerate()
+                    .map(|(position, reference)| question_model::AssignmentItem {
+                        id: question_model::AssignmentItemId::from_uuid(Uuid::from_u128(
+                            73_107 + position as u128,
+                        )),
+                        reference,
+                        position: u32::try_from(position).expect("fixture position fits"),
+                        points_possible: question_model::PointValue::from_whole(1),
+                        delivery_state: question_model::AssignmentDeliveryState::Active,
+                        scoring_mode: question_model::AssignmentScoringMode::Normal,
+                    })
+                    .collect(),
+                selection_groups: Vec::new(),
+                disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+                policies: question_model::RunPolicies {
+                    completion: question_model::CompletionRequirement::AnswerAll,
+                    grade: question_model::GradePolicy::First,
+                    continued_practice: question_model::ContinuedPractice::Unlimited,
+                    variation: question_model::VariationPolicy::NewSeeds,
+                },
+            },
+        );
+    }
+
+    let page = store
+        .search_catalog(
+            context,
+            session,
+            CatalogSearchQuery {
+                bylines: vec!["CATALOG TEST AUTHOR".to_string()],
+                backends: vec![question_model::QuestionBackend::Native],
+                tags: vec!["PEPTIDE".to_string()],
+                response_families: vec![question_model::CatalogResponseFamily::Numeric],
+                taxonomy: vec![question_model::CatalogTaxonomyFilter {
+                    scheme: "discipline".to_string(),
+                    code: "biochemistry".to_string(),
+                }],
+                capabilities: vec![Capability::ServerGrading],
+                licenses: vec![CatalogLicenseValue::CcBy],
+                used_in_my_courses: question_model::CatalogUsedInMyCourses::Used,
+                ..CatalogSearchQuery::default()
+            },
+        )
+        .await
+        .expect("metadata parity search");
+
+    assert_eq!(page.items.len(), 1);
+    assert_eq!(page.facets.bylines[0].count, 1);
+    assert_eq!(
+        page.facets.backends[0].backend,
+        question_model::QuestionBackend::Native
+    );
+    assert_eq!(page.facets.tags[0].tag, "peptide");
+    assert_eq!(
+        page.facets.response_families[0].response_family,
+        question_model::CatalogResponseFamily::Numeric
+    );
+    assert_eq!(page.facets.used_in_my_courses.used, 1);
+
+    let first_page = store
+        .search_catalog(
+            context,
+            session,
+            CatalogSearchQuery {
+                page_size: Some(1),
+                used_in_my_courses: question_model::CatalogUsedInMyCourses::Used,
+                ..CatalogSearchQuery::default()
+            },
+        )
+        .await
+        .expect("first actor-usage snapshot page");
+    let cursor = first_page
+        .next_cursor
+        .clone()
+        .expect("actor-usage continuation cursor");
+    store
+        .write_state()
+        .expect("mutate actor usage")
+        .assignments
+        .values_mut()
+        .next()
+        .expect("actor usage assignment")
+        .items
+        .clear();
+    let second_page = store
+        .search_catalog(
+            context,
+            session,
+            CatalogSearchQuery {
+                page_size: Some(1),
+                cursor: Some(cursor.clone()),
+                used_in_my_courses: question_model::CatalogUsedInMyCourses::Used,
+                ..CatalogSearchQuery::default()
+            },
+        )
+        .await
+        .expect("stable actor-usage continuation");
+    assert_eq!(second_page.items.len(), 1);
+    assert_eq!(second_page.facets.used_in_my_courses.used, 2);
+
+    for membership in store
+        .write_state()
+        .expect("revoke actor membership")
+        .course_memberships
+        .values_mut()
+        .filter(|membership| membership.user == actor)
+    {
+        membership.status = CourseMemberStatus::Revoked;
+        membership.revoked_at = Some(ActivityTimestamp::from_unix_millis(1));
+    }
+    assert!(matches!(
+        store
+            .search_catalog(
+                context,
+                session,
+                CatalogSearchQuery {
+                    page_size: Some(1),
+                    cursor: Some(cursor),
+                    used_in_my_courses: question_model::CatalogUsedInMyCourses::Used,
+                    ..CatalogSearchQuery::default()
+                },
+            )
+            .await,
+        Err(StoreError::InvalidRecord(_))
+    ));
+}
+
+#[tokio::test]
+async fn catalog_search_requires_approved_instructor_or_sysadmin_session() {
+    let store = MemoryStore::default();
+    let tenant = TenantId::from_uuid(Uuid::from_u128(73_110));
+    let context = TenantContext::from_authenticated_session(tenant);
+    seed_catalog(&store, [record(73_111)]);
+    let mut sessions = Vec::new();
+    for (number, role) in [
+        (73_112_u128, question_model::UserRole::Student),
+        (73_113_u128, question_model::UserRole::Instructor),
+        (73_114_u128, question_model::UserRole::Sysadmin),
+    ] {
+        let token = SessionTokenHash::compute(&number.to_be_bytes());
+        store
+            .create_session(
+                token,
+                SessionSubject::new(
+                    tenant,
+                    UserId::from_uuid(Uuid::from_u128(number)),
+                    "Catalog authority parity",
+                    vec![role],
+                )
+                .expect("valid authority session subject"),
+                SessionLifetime::from_seconds(60).expect("positive session lifetime"),
+            )
+            .await
+            .expect("authority parity session");
+        sessions.push(token);
+    }
+    let [student, unapproved_instructor, sysadmin] =
+        sessions.try_into().expect("three authority sessions");
+
+    assert!(matches!(
+        store
+            .search_catalog(context, student, CatalogSearchQuery::default())
+            .await,
+        Err(StoreError::Forbidden)
+    ));
+    assert!(matches!(
+        store
+            .search_catalog(
+                context,
+                unapproved_instructor,
+                CatalogSearchQuery::default()
+            )
+            .await,
+        Err(StoreError::Forbidden)
+    ));
+    let page = store
+        .search_catalog(context, sysadmin, CatalogSearchQuery::default())
+        .await
+        .expect("sysadmin catalog search");
+    assert_eq!(page.items.len(), 1);
+    assert_eq!(page.facets.used_in_my_courses.used, 0);
 }
 
 #[tokio::test]
@@ -821,7 +805,10 @@ async fn catalog_statistics_filter_facets_and_detail_use_only_k_gated_aggregates
     let store = MemoryStore::default();
     let tenant = TenantId::from_uuid(Uuid::from_u128(73_001));
     let context = TenantContext::from_authenticated_session(tenant);
-    let published = record(73_002);
+    let mut published = record(73_002);
+    published.question.prompt = vec![ContentBlock::Text {
+        markdown: "Fixed catalog prompt.".to_string(),
+    }];
     let reference = ProblemVersionRef {
         problem: published.problem,
         version: published.version,
@@ -831,6 +818,38 @@ async fn catalog_statistics_filter_facets_and_detail_use_only_k_gated_aggregates
         .expect("catalog statistics state")
         .published
         .insert((reference.problem, reference.version), published);
+    let detail_user = UserId::from_uuid(Uuid::from_u128(73_999));
+    let detail_session = SessionTokenHash::compute(b"catalog-detail-evidence-test");
+    store
+        .write_state()
+        .expect("catalog detail authority state")
+        .instructor_approvals
+        .insert(
+            detail_user,
+            crate::StoredInstructorApproval {
+                approval: question_model::InstructorApproval {
+                    user: detail_user,
+                    approved_by: detail_user,
+                    approved_at: ActivityTimestamp::from_unix_millis(0),
+                    revoked_at: None,
+                },
+                revision: crate::InstructorApprovalRevision::INITIAL,
+            },
+        );
+    store
+        .create_session(
+            detail_session,
+            SessionSubject::new(
+                tenant,
+                detail_user,
+                "Catalog detail",
+                vec![question_model::UserRole::Instructor],
+            )
+            .expect("valid detail session subject"),
+            SessionLifetime::from_seconds(60).expect("positive session lifetime"),
+        )
+        .await
+        .expect("detail session");
 
     for number in 0..4_u128 {
         store
@@ -846,17 +865,17 @@ async fn catalog_statistics_filter_facets_and_detail_use_only_k_gated_aggregates
             .expect("statistics receipt");
     }
     let below_k = store
-        .search_catalog(context, CatalogSearchQuery::default())
+        .search_catalog_as_instructor(context, CatalogSearchQuery::default())
         .await
         .expect("below-k catalog search");
-    assert_eq!(below_k.facets.statistics.available, 0);
-    assert_eq!(below_k.facets.statistics.unavailable, 1);
+    assert_eq!(below_k.facets.evidence.available, 0);
+    assert_eq!(below_k.facets.evidence.unavailable, 1);
     assert!(
         store
-            .search_catalog(
+            .search_catalog_as_instructor(
                 context,
                 CatalogSearchQuery {
-                    statistics: CatalogStatisticsAvailability::Available,
+                    evidence: CatalogEvidenceAvailability::Available,
                     ..CatalogSearchQuery::default()
                 },
             )
@@ -867,13 +886,26 @@ async fn catalog_statistics_filter_facets_and_detail_use_only_k_gated_aggregates
     );
     assert!(matches!(
         store
-            .get_catalog_detail(context, reference)
+            .get_catalog_detail(context, detail_session, reference)
             .await
             .expect("below-k detail")
             .expect("visible detail")
-            .statistics,
-        question_model::CatalogStatisticsStatus::Unavailable
+            .evidence,
+        question_model::CatalogDiscoveryEvidence::InsufficientEvidence
     ));
+    assert_eq!(
+        store
+            .get_catalog_detail(context, detail_session, reference)
+            .await
+            .expect("below-k static detail")
+            .expect("visible static detail")
+            .prompt,
+        question_model::CatalogPromptProjection::Static {
+            blocks: vec![ContentBlock::Text {
+                markdown: "Fixed catalog prompt.".to_string(),
+            }],
+        }
+    );
 
     store
         .record_question_statistics_contribution(
@@ -887,17 +919,17 @@ async fn catalog_statistics_filter_facets_and_detail_use_only_k_gated_aggregates
         )
         .expect("fifth statistics receipt");
     let at_k = store
-        .search_catalog(context, CatalogSearchQuery::default())
+        .search_catalog_as_instructor(context, CatalogSearchQuery::default())
         .await
         .expect("at-k catalog search");
-    assert_eq!(at_k.facets.statistics.available, 1);
-    assert_eq!(at_k.facets.statistics.unavailable, 0);
+    assert_eq!(at_k.facets.evidence.available, 1);
+    assert_eq!(at_k.facets.evidence.unavailable, 0);
     assert_eq!(
         store
-            .search_catalog(
+            .search_catalog_as_instructor(
                 context,
                 CatalogSearchQuery {
-                    statistics: CatalogStatisticsAvailability::Available,
+                    evidence: CatalogEvidenceAvailability::Available,
                     ..CatalogSearchQuery::default()
                 },
             )
@@ -909,11 +941,38 @@ async fn catalog_statistics_filter_facets_and_detail_use_only_k_gated_aggregates
     );
     assert!(matches!(
         store
-            .get_catalog_detail(context, reference)
+            .get_catalog_detail(context, detail_session, reference)
             .await
             .expect("at-k detail")
             .expect("visible detail")
-            .statistics,
-        question_model::CatalogStatisticsStatus::Available(view) if view.cohort_size == 5
+            .evidence,
+        question_model::CatalogDiscoveryEvidence::Available {
+            independent_learner_observation_count: 5,
+            ..
+        }
     ));
+
+    let seeded = seeded_record(73_003);
+    let seeded_reference = ProblemVersionRef {
+        problem: seeded.problem,
+        version: seeded.version,
+    };
+    store
+        .write_state()
+        .expect("seeded catalog state")
+        .published
+        .insert((seeded_reference.problem, seeded_reference.version), seeded);
+    assert_eq!(
+        store
+            .get_catalog_detail(context, detail_session, seeded_reference)
+            .await
+            .expect("seeded detail")
+            .expect("visible seeded detail")
+            .prompt,
+        question_model::CatalogPromptProjection::GeneratedExample {
+            blocks: vec![ContentBlock::Text {
+                markdown: "A glycine example.".to_string(),
+            }],
+        }
+    );
 }

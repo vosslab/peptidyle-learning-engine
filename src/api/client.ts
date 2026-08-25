@@ -101,6 +101,7 @@ import type {
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { PublicRouteReference } from "../navigation/public_route";
 import type { LiveDemoClient } from "./live_demo";
+import type { ProblemCurationClient } from "./problem_curation";
 
 /** Sysadmin-only discovery capability over generated public account references. */
 export interface SysadminInstructorCandidateClient {
@@ -110,7 +111,7 @@ export interface SysadminInstructorCandidateClient {
 }
 
 /** Browser-safe client contract implemented by the current same-origin HTTP transport. */
-export interface ApiClient extends CourseRosterClient {
+export interface ApiClient extends CourseRosterClient, ProblemCurationClient {
   readonly listCourseGroups: (
     courseId: CourseId,
     cursor?: string,

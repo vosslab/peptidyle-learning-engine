@@ -120,6 +120,9 @@ async fn run_action(action: &str, pool: &Pool, migrations_dir: Option<&Path>) ->
             learning_data_access::postgres::verify_application_schema(pool)
                 .await
                 .context("verifying the migrated application schema")?;
+            learning_data_access::postgres::verify_base_course_freshness_capability(pool)
+                .await
+                .context("verifying the migrated Base Course freshness capability")?;
             println!("database migrate: complete and compatible");
             Ok(())
         }
@@ -127,6 +130,9 @@ async fn run_action(action: &str, pool: &Pool, migrations_dir: Option<&Path>) ->
             learning_data_access::postgres::verify_application_schema(pool)
                 .await
                 .context("verifying the application database epoch")?;
+            learning_data_access::postgres::verify_base_course_freshness_capability(pool)
+                .await
+                .context("verifying the Base Course freshness capability")?;
             println!("database verify: compatible");
             Ok(())
         }

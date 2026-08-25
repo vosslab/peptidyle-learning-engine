@@ -1,0 +1,114 @@
+/* problem_curation.css - responsive visible curation actions beside D1 discovery. */
+
+.problem-curation-panel {
+  display: grid;
+  gap: var(--ple-layout-gap);
+  margin-block: var(--ple-section-gap);
+  padding: var(--ple-panel-padding);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-group);
+  background: color-mix(in srgb, var(--ple-card-surface) 88%, var(--ple-page-background));
+}
+
+.problem-curation-panel h2,
+.problem-curation-panel h3,
+.problem-curation-panel p {
+  margin-block: 0;
+}
+
+.problem-curation-panel > header,
+.problem-curation-editor,
+.problem-curation-staged,
+.problem-curation-list,
+.problem-curation-detail {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.problem-curation-notice {
+  min-block-size: 1.5rem;
+  padding: 0.55rem 0.7rem;
+  border-inline-start: 0.25rem solid var(--ple-border);
+  color: var(--ple-muted);
+  background: color-mix(in srgb, var(--ple-page-background) 64%, transparent);
+}
+
+.problem-curation-notice.success {
+  border-color: var(--ple-success, #25734d);
+}
+
+.problem-curation-notice.error {
+  border-color: var(--ple-danger, #a22d38);
+}
+
+.problem-curation-notice.working {
+  border-color: var(--ple-accent);
+}
+
+.problem-curation-actions,
+.problem-curation-member-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.problem-curation-staged,
+.problem-curation-editor,
+.problem-curation-list,
+.problem-curation-detail {
+  padding: 0.9rem;
+  border: 1px solid var(--ple-border);
+  border-radius: calc(var(--ple-radius-group) - 0.15rem);
+}
+
+.problem-curation-editor > label {
+  display: grid;
+  gap: 0.3rem;
+  max-inline-size: 44rem;
+  color: var(--ple-muted);
+  font-size: 0.85rem;
+  font-weight: 680;
+}
+
+.problem-curation-editor input,
+.problem-curation-editor select {
+  inline-size: 100%;
+}
+
+.problem-curation-list ul,
+.problem-curation-members {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.problem-curation-list li,
+.problem-curation-members li {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: 0.45rem;
+  border-block-end: 1px solid var(--ple-border);
+}
+
+.problem-curation-list li > div:first-child {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.problem-curation-list li span:not(.problem-curation-actions),
+.problem-curation-members li > span:first-child {
+  color: var(--ple-muted);
+}
+
+@media (max-width: 42rem) {
+  .problem-curation-list li,
+  .problem-curation-members li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

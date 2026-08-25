@@ -14,6 +14,14 @@ import type {
   PoolDrawPreview,
 } from "../api/contracts";
 import type { ApiClient } from "../api/client";
+import { createCatalogRepository } from "../api/catalog_repository";
+import type { CatalogBrowsePage, CatalogBrowseQuery, CatalogBrowseRow } from "./library_page_model";
+import type {
+  ProblemPickerSearchRequest,
+  ProblemPickerSource,
+  ProblemPickerSourceRepository,
+} from "../features/problem_picker";
+import { createProblemCurationRepository } from "../features/problem_curation/problem_curation_repository";
 import type { AssignmentCatalogRow } from "./assignment_editor_model";
 
 export interface AssignmentEditorRepository {
@@ -59,8 +67,13 @@ export interface AssignmentEditorRepository {
     revision: string,
     groupPosition: number,
   ) => Promise<PoolDrawPreview>;
-  readonly searchPublished: (text: string) => Promise<ReadonlyArray<AssignmentCatalogRow>>;
   readonly resolvePublished: (questionId: string) => Promise<AssignmentCatalogRow>;
+  /** Sources and answer-free rows for the shared D2 picker. */
+  readonly listProblemPickerSources: (
+    course: CourseId,
+    exclude?: AssignmentId,
+  ) => Promise<ReadonlyArray<ProblemPickerSource>>;
+  readonly problemPickerRepository: ProblemPickerSourceRepository;
   readonly listReusableAssignments: (
     course: CourseId,
     exclude?: AssignmentId,
@@ -68,8 +81,30 @@ export interface AssignmentEditorRepository {
 }
 
 export interface ReusableAssignment {
+  readonly assignmentId: AssignmentId;
   readonly title: string;
   readonly questions: ReadonlyArray<AssignmentCatalogRow>;
+}
+
+function retainedQueryMatches(row: CatalogBrowseRow, query: CatalogBrowseQuery): boolean {
+  const search = query.search.trim().toLocaleLowerCase();
+  if (search !== "") {
+    const haystack = [row.title, row.displayId, row.summary, ...row.taxonomy, ...row.byline]
+      .join(" ")
+      .toLocaleLowerCase();
+    if (!haystack.includes(search)) return false;
+  }
+  if (query.byline !== null && !row.byline.includes(query.byline)) return false;
+  if (query.backend !== null || query.responseFamily !== null || query.tag !== null) return false;
+  if (query.taxonomy !== null && !row.taxonomy.includes(query.taxonomy)) return false;
+  if (query.capability !== null && !row.capabilities.includes(query.capability)) return false;
+  if (query.license !== null && row.license !== query.license) return false;
+  if (query.evidence === "available" || query.usedInMyCourses === "used") return false;
+  return true;
+}
+
+function page(rows: ReadonlyArray<CatalogBrowseRow>, nextCursor: string | null): CatalogBrowsePage {
+  return { items: rows, nextCursor, aggregates: [] };
 }
 
 function catalogRow(item: {
@@ -91,6 +126,46 @@ function previewRevision(assignmentRevision: string): string {
 }
 
 export function createAssignmentEditorRepository(client: ApiClient): AssignmentEditorRepository {
+  const catalog = createCatalogRepository(client);
+  const curation = createProblemCurationRepository(client, catalog);
+  const problemPickerRepository: ProblemPickerSourceRepository = {
+    async search(request: ProblemPickerSearchRequest): Promise<unknown> {
+      if (request.source.kind !== "retainedAssignment")
+        return await curation.picker.search(request);
+      const assignment = await client.getAssignmentEditor(
+        request.source.retainedAssignment.assignment,
+      );
+      if (request.cursor !== null) return page([], null);
+      const fixedRows = assignment.items
+        .filter((item) => item.deliveryState === "active")
+        .map((item) => ({
+          displayId: item.questionId,
+          title: item.title,
+          summary: "Active fixed question retained in this assignment.",
+          byline: [],
+          taxonomy: [],
+          capabilities: item.capabilities,
+          license: "allRightsReserved",
+          evidence: { state: "insufficientEvidence" as const },
+        }));
+      const poolRows = assignment.selectionGroups.flatMap((group) =>
+        group.candidates.map((candidate) => ({
+          displayId: candidate.questionId,
+          title: candidate.title,
+          summary: "Question retained in this assignment pool.",
+          byline: [],
+          taxonomy: [],
+          capabilities: [],
+          license: "allRightsReserved",
+          evidence: { state: "insufficientEvidence" as const },
+        })),
+      );
+      const rows = [...fixedRows, ...poolRows].filter((row) =>
+        retainedQueryMatches(row, request.query),
+      );
+      return page(rows, null);
+    },
+  };
   return {
     load: async (assignment) => await client.getAssignmentEditor(assignment),
     create: async (course, input) => await client.createAssignment(course, input),
@@ -106,48 +181,66 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
       await client.replaceAssignmentItemQuestion(course, assignment, itemId, input, revision),
     previewPoolDraw: async (course, assignment, revision, groupPosition) =>
       await client.previewPoolDraw(course, assignment, previewRevision(revision), groupPosition),
-    searchPublished: async (text) =>
-      (
-        await client.searchCatalog({
-          text: text.trim() || null,
-          taxonomy: [],
-          capabilities: [],
-          licenses: [],
-          statistics: "any",
-          cursor: null,
-          pageSize: 20,
-        })
-      ).items.map(catalogRow),
     resolvePublished: async (questionId) =>
       catalogRow(await client.resolveCatalogProblem(questionId)),
-    listReusableAssignments: async (
+    problemPickerRepository,
+    listProblemPickerSources: async (
       course,
       exclude,
-    ): Promise<ReadonlyArray<ReusableAssignment>> => {
-      const assignments = [];
-      let cursor: string | undefined;
-      for (let pageNumber = 0; pageNumber < 5; pageNumber += 1) {
-        const page = await client.listAssignments(course, cursor);
-        assignments.push(...page.items);
-        if (page.nextCursor === null || assignments.length >= 100) break;
-        cursor = page.nextCursor;
-      }
-      const details = await Promise.all(
-        assignments
-          .filter((assignment) => assignment.id !== exclude)
-          .slice(0, 100)
-          .map(async (assignment) => await client.getAssignmentEditor(assignment.id)),
-      );
-      return details.map((assignment) => ({
-        title: assignment.title,
-        questions: assignment.items
-          .filter((item) => item.deliveryState === "active")
-          .map((item) => ({
-            questionId: item.questionId,
-            title: item.title,
-            backend: item.backend,
+    ): Promise<ReadonlyArray<ProblemPickerSource>> => {
+      const collections = await client.listProblemCollections();
+      const reusable = await listReusableAssignments(client, course, exclude);
+      return [
+        { kind: "catalog", label: "Library" },
+        { kind: "mine", label: "My published questions" },
+        { kind: "favorites", label: "Favorites" },
+        ...collections.items
+          .filter((collection) => collection.kind === "named")
+          .map((collection) => ({
+            kind: "collection" as const,
+            label: collection.title,
+            collection: collection.reference,
           })),
-      }));
+        ...reusable.map((assignment) => ({
+          kind: "retainedAssignment" as const,
+          label: `Assignment: ${assignment.title}`,
+          retainedAssignment: { course, assignment: assignment.assignmentId },
+        })),
+      ];
     },
+    listReusableAssignments: async (course, exclude): Promise<ReadonlyArray<ReusableAssignment>> =>
+      await listReusableAssignments(client, course, exclude),
   };
+}
+
+async function listReusableAssignments(
+  client: ApiClient,
+  course: CourseId,
+  exclude: AssignmentId | undefined,
+): Promise<ReadonlyArray<ReusableAssignment>> {
+  const assignments = [];
+  let cursor: string | undefined;
+  for (let pageNumber = 0; pageNumber < 5; pageNumber += 1) {
+    const page = await client.listAssignments(course, cursor);
+    assignments.push(...page.items);
+    if (page.nextCursor === null || assignments.length >= 100) break;
+    cursor = page.nextCursor;
+  }
+  const details = await Promise.all(
+    assignments
+      .filter((assignment) => assignment.id !== exclude)
+      .slice(0, 100)
+      .map(async (assignment) => await client.getAssignmentEditor(assignment.id)),
+  );
+  return details.map((assignment) => ({
+    assignmentId: assignment.id,
+    title: assignment.title,
+    questions: assignment.items
+      .filter((item) => item.deliveryState === "active")
+      .map((item) => ({
+        questionId: item.questionId,
+        title: item.title,
+        backend: item.backend,
+      })),
+  }));
 }

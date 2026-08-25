@@ -286,9 +286,9 @@ async fn postgres_course_group_edit_reresolves_zero_one_and_multiple_assignments
         "ple_app must not update assignment rows"
     );
 
-    // A failed member validation occurs before the group write and therefore
-    // exercises the transaction's all-or-nothing boundary without weakening
-    // the production schema with a fault-injection hook.
+    // Shared closed-record validation rejects duplicate members before either
+    // backend writes the group. The unchanged read below proves the operation
+    // remains all-or-nothing without a production fault-injection hook.
     let before_failed = store
         .get_course_group(context, zero_group)
         .await
@@ -307,7 +307,7 @@ async fn postgres_course_group_edit_reresolves_zero_one_and_multiple_assignments
                 },
             )
             .await,
-        Err(StoreError::NotFound)
+        Err(StoreError::InvalidRecord(_))
     ));
     assert_eq!(
         store

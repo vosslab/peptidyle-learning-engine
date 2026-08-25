@@ -113,11 +113,22 @@ pub(super) fn stage_statistics_contributions(
     tenant: TenantId,
     enrollment: EnrollmentId,
     first_completed_run: RunId,
-    trigger_attempt: QuestionAttemptId,
     contributions: &[StatisticsContribution],
 ) -> Result<(), StoreError> {
+    let enrollment_record = state
+        .enrollments
+        .get(&(tenant, enrollment))
+        .ok_or(StoreError::NotFound)?;
+    let course = state
+        .assignments
+        .get(&(tenant, enrollment_record.assignment))
+        .map(|assignment| assignment.course_id)
+        .ok_or(StoreError::NotFound)?;
+    let learner_fingerprint = discovery_learner_fingerprint(tenant, enrollment_record.student);
     let mut aggregate_updates = BTreeMap::new();
     let mut receipt_updates = BTreeMap::new();
+    let mut observed_course_updates = BTreeSet::new();
+    let mut learner_updates = BTreeSet::new();
     for contribution in contributions {
         let receipt_key = (
             tenant,
@@ -127,7 +138,7 @@ pub(super) fn stage_statistics_contributions(
         );
         if let Some(receipt) = state.question_statistics_receipts.get(&receipt_key) {
             if receipt.first_completed_run == first_completed_run
-                && receipt.attempt == trigger_attempt
+                && receipt.attempt == contribution.first_scored_attempt
                 && receipt.checksum == contribution.checksum
             {
                 continue;
@@ -141,53 +152,104 @@ pub(super) fn stage_statistics_contributions(
             contribution.reference.problem,
             contribution.reference.version,
         );
-        let aggregate = aggregate_updates.entry(aggregate_key).or_insert_with(|| {
-            state
-                .question_statistics
-                .get(&aggregate_key)
-                .cloned()
-                .unwrap_or_default()
-        });
-        aggregate
-            .record(contribution.observation)
-            .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+        let learner_key = (aggregate_key.0, aggregate_key.1, learner_fingerprint);
+        let independent = !state.catalog_evidence_learners.contains(&learner_key)
+            && !learner_updates.contains(&learner_key);
+        if independent {
+            let aggregate = aggregate_updates.entry(aggregate_key).or_insert_with(|| {
+                state
+                    .question_statistics
+                    .get(&aggregate_key)
+                    .cloned()
+                    .unwrap_or_default()
+            });
+            aggregate
+                .record(contribution.observation)
+                .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+            observed_course_updates.insert(aggregate_key);
+        }
         receipt_updates.insert(
             receipt_key,
             StatisticsContributionReceipt {
                 first_completed_run,
-                attempt: trigger_attempt,
+                attempt: contribution.first_scored_attempt,
                 #[cfg(test)]
                 observation: contribution.observation,
                 checksum: contribution.checksum,
             },
         );
-    }
-    for (reference, aggregate) in &aggregate_updates {
-        let was_disclosed = state
-            .question_statistics
-            .get(reference)
-            .is_some_and(|current| {
-                matches!(
-                    current.disclose(question_model::StatisticsDisclosurePolicy::default()),
-                    question_model::QuestionStatisticsDisclosure::Available(_)
-                )
-            });
-        let is_disclosed = matches!(
-            aggregate.disclose(question_model::StatisticsDisclosurePolicy::default()),
-            question_model::QuestionStatisticsDisclosure::Available(_)
-        );
-        if is_disclosed && !was_disclosed {
-            let sequence = state.next_catalog_publication_sequence;
-            state.next_catalog_publication_sequence = sequence.checked_add(1).ok_or_else(|| {
-                StoreError::Unavailable("catalog event sequence exhausted".to_string())
-            })?;
-            state
-                .catalog_statistics_disclosure_sequences
-                .entry(*reference)
-                .or_insert(sequence);
-        }
+        learner_updates.insert(learner_key);
     }
     state.question_statistics.extend(aggregate_updates);
     state.question_statistics_receipts.extend(receipt_updates);
+    state.catalog_evidence_learners.extend(learner_updates);
+    for reference in observed_course_updates {
+        state
+            .catalog_evidence_courses
+            .entry(reference)
+            .or_default()
+            .insert(course);
+        append_catalog_discovery_evidence_revision(state, reference)?;
+    }
+    Ok(())
+}
+
+pub(super) fn discovery_learner_fingerprint(tenant: TenantId, student: StudentId) -> [u8; 32] {
+    let mut bytes = Vec::with_capacity(80);
+    bytes.extend_from_slice(b"ple-discovery-learner-v1");
+    bytes.extend_from_slice(tenant.as_uuid().as_bytes());
+    bytes.extend_from_slice(student.as_uuid().as_bytes());
+    *objects::Sha256Digest::compute(&bytes).as_bytes()
+}
+
+/// Appends the current evidence projection only after both independent
+/// privacy thresholds are met.  The revision remains immutable after the
+/// event boundary is issued to a catalog continuation.
+pub(super) fn append_catalog_discovery_evidence_revision(
+    state: &mut State,
+    reference: (ProblemId, VersionId),
+) -> Result<(), StoreError> {
+    let Some(question_model::QuestionStatisticsDisclosure::Available(view)) = state
+        .question_statistics
+        .get(&reference)
+        .map(|aggregate| aggregate.disclose(StatisticsDisclosurePolicy::default()))
+    else {
+        return Ok(());
+    };
+    let observed_course_count = state
+        .catalog_evidence_courses
+        .get(&reference)
+        .map_or(0_u64, |courses| courses.len() as u64);
+    if observed_course_count < 2 {
+        return Ok(());
+    }
+    let sequence = state.next_catalog_publication_sequence;
+    state.next_catalog_publication_sequence = sequence
+        .checked_add(1)
+        .ok_or_else(|| StoreError::Unavailable("catalog event sequence exhausted".to_string()))?;
+    let discrimination = view.discrimination_index.unwrap_or(0.0).max(0.0);
+    let quality = ((1.0_f64 + observed_course_count as f64).ln()
+        + (1.0_f64 + view.cohort_size as f64).ln()
+        + discrimination)
+        .mul_add(1_000_000.0, 0.0)
+        .round() as i64;
+    state
+        .catalog_discovery_evidence_revisions
+        .entry(reference)
+        .or_default()
+        .push(CatalogDiscoveryEvidenceRevision {
+            sequence,
+            quality,
+            evidence: CatalogDiscoveryEvidence::Available {
+                formula_version: 1,
+                observed_course_count,
+                independent_learner_observation_count: view.cohort_size,
+                difficulty_index: view.difficulty_index,
+                attempts_mean: view.attempts_mean,
+                time_median_seconds_estimate: view.time_median_seconds_estimate,
+                discrimination_index: view.discrimination_index,
+                evidence_at: state.authoritative_time,
+            },
+        });
     Ok(())
 }

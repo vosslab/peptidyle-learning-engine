@@ -14,8 +14,8 @@ use learning_data_access::postgres::{PostgresStore, lazy_pool, verify_applicatio
 use learning_data_access::{
     AssignmentRecord, CatalogStore, CourseGroupManagementStore, CourseGroupRecord, CourseRecord,
     CourseRosterStore, CreateCourseCommand, DraftRecord, LearnerWorkRoutingBinding,
-    NavigationReferenceStore, PublishDraftCommand, PutCourseGroupCommand, Store, TenantContext,
-    UpsertCourseMember,
+    NavigationReferenceStore, PublishDraftCommand, PutCourseGroupCommand, SessionLifetime,
+    SessionStore, SessionSubject, SessionTokenHash, Store, TenantContext, UpsertCourseMember,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -30,8 +30,8 @@ use question_model::{
     BackendCapabilities, Capability, CourseGroupId, CourseGroupPurpose, CourseGroupReference,
     CourseId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, PointValue,
     ProblemId, ProblemVersionRef, PublicAuthorName, PublicByline, PublicationScope,
-    QuestionMetadata, QuestionSource, ResponseDefinition, RunId, TenantId, UserId, VersionId,
-    WorkspaceId,
+    QuestionMetadata, QuestionSource, ResponseDefinition, RunId, TenantId, UserId, UserRole,
+    VersionId, WorkspaceId,
 };
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -171,9 +171,10 @@ async fn assert_invalid_byline_insert_rolls_back(pool: &PgPool) {
     .expect("prepare invalid public-byline parent problem atomically");
     let error = sqlx::query(
         "INSERT INTO problem_version \
-         (problem_id, version_id, content_sha256, workspace_id, title, author_ids, public_byline) \
+         (problem_id, version_id, content_sha256, workspace_id, title, author_ids, public_byline, \
+          response_family) \
          VALUES ($1, $2, repeat('a', 64), $3, 'Rejected byline publication', \
-                 jsonb_build_array($4::text), $5)",
+                 jsonb_build_array($4::text), $5, 'numeric')",
     )
     .bind(problem)
     .bind(version)
@@ -280,6 +281,24 @@ async fn postgres_public_references_and_bylines_are_normalized_authorized_and_im
     let instructor = UserId::from_uuid(id());
     let student = UserId::from_uuid(id());
     let outsider = UserId::from_uuid(id());
+    let instructor_email = format!("public-byline-{instructor}@example.test");
+    sqlx::query(
+        "INSERT INTO ple_account (user_id, normalized_email, delivery_email, display_name) \
+         VALUES ($1, $2, $2, 'Public byline instructor')",
+    )
+    .bind(instructor.as_uuid())
+    .bind(&instructor_email)
+    .execute(&pool)
+    .await
+    .expect("persist public-byline instructor account");
+    sqlx::query(
+        "INSERT INTO instructor_approval (user_id, approved_by, approved_at, revision) \
+         VALUES ($1, $1, transaction_timestamp(), 1)",
+    )
+    .bind(instructor.as_uuid())
+    .execute(&pool)
+    .await
+    .expect("approve public-byline instructor");
 
     store
         .create_course(
@@ -614,9 +633,25 @@ async fn postgres_public_references_and_bylines_are_normalized_authorized_and_im
     .await
     .expect("immutable publication keeps catalog projection unchanged");
     assert_eq!(unchanged, (stored_byline.clone(), search_text.clone()));
+    let instructor_session = SessionTokenHash::compute(id().as_bytes());
+    store
+        .create_session(
+            instructor_session,
+            SessionSubject::new(
+                tenant,
+                instructor,
+                "Public byline instructor",
+                vec![UserRole::Instructor],
+            )
+            .expect("valid instructor session"),
+            SessionLifetime::from_seconds(3_600).expect("positive session lifetime"),
+        )
+        .await
+        .expect("persist instructor session for actor-bound catalog search");
     let byline_search = store
         .search_catalog(
             context,
+            instructor_session,
             question_model::CatalogSearchQuery {
                 text: Some("Grace Hopper".to_string()),
                 ..question_model::CatalogSearchQuery::default()
@@ -628,7 +663,7 @@ async fn postgres_public_references_and_bylines_are_normalized_authorized_and_im
         byline_search
             .items
             .iter()
-            .any(|item| item.byline == byline())
+            .any(|item| item.summary.byline == byline())
     );
 }
 #[path = "support/acceptance_runtime.rs"]

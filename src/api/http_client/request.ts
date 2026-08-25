@@ -107,6 +107,33 @@ export function cursorPath(path: string, cursor: string | undefined): string {
 export function encodedId(value: string): string {
   return encodeURIComponent(value);
 }
+
+/**
+ * Canonical same-origin transport dispatch for every browser API operation.
+ *
+ * Mutation routes receive the browser's same-origin request context here; feature
+ * clients add only their closed body and strong revision headers through
+ * `RequestOptions`. Keeping dispatch in one owner prevents a feature-specific
+ * fetch path from drifting from the deployed cookie and cache boundary.
+ */
+export async function requestSameOrigin(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  path: string,
+  options: RequestOptions = {},
+): Promise<Response> {
+  const headers: Record<string, string> = { accept: "application/json", ...options.headers };
+  const body = options.body === undefined ? undefined : JSON.stringify(options.body);
+  if (body !== undefined) headers["content-type"] = "application/json";
+  return fetchImplementation(requestPath(basePath, path), {
+    method: options.method ?? "GET",
+    headers,
+    body,
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+}
+
 export async function requestJson<T>(
   fetchImplementation: ApiFetch,
   basePath: string,
@@ -114,16 +141,7 @@ export async function requestJson<T>(
   decoder: (value: unknown, path?: string) => T,
   options: RequestOptions = {},
 ): Promise<T> {
-  const headers: Record<string, string> = { accept: "application/json", ...options.headers };
-  const body = options.body === undefined ? undefined : JSON.stringify(options.body);
-  if (body !== undefined) headers["content-type"] = "application/json";
-  const response = await fetchImplementation(requestPath(basePath, path), {
-    method: options.method ?? "GET",
-    headers,
-    body,
-    credentials: "same-origin",
-    cache: "no-store",
-  });
+  const response = await requestSameOrigin(fetchImplementation, basePath, path, options);
   if (!response.ok) throw new ApiRequestError(response.status, path);
   responseContentType(response, path);
   const text = await response.text();

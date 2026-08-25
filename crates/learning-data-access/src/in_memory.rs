@@ -13,6 +13,8 @@ mod catalog_search_pagination_tests;
 mod catalog_search_tests;
 #[cfg(test)]
 mod catalog_snapshot_tests;
+#[cfg(test)]
+mod catalog_submission_statistics_tests;
 mod course_appearance;
 mod course_assignments;
 mod course_gradebook;
@@ -31,6 +33,9 @@ mod item_analysis;
 mod manual_grade_export;
 mod navigation_references;
 mod preview_plane;
+mod problem_curation;
+#[cfg(test)]
+mod problem_curation_tests;
 mod qti;
 mod qti_ingress;
 mod queue;
@@ -70,14 +75,16 @@ use domain::timing::{TimerEvaluation, TimerVerdict, timer_verdict};
 use question_model::run_policy::TimingPolicy;
 use question_model::taxonomy::TaxonomyTerm;
 use question_model::{
-    ActivityTimestamp, AssignmentEnrollment, AssignmentId, AssignmentRun, AssignmentRunItem,
-    AttemptStatus, AttemptTimerRecord, CatalogCapabilityFacet, CatalogLicenseFacet,
-    CatalogLicenseValue, CatalogLifecycle, CatalogProblemDetail, CatalogProblemSummary,
-    CatalogSearchFacets, CatalogSearchPage, CatalogSearchQuery, CatalogStatisticsAvailability,
-    CatalogStatisticsFacet, CatalogTaxonomyFacet, CourseGroupId, CourseId, CourseMembershipId,
+    ActivityTimestamp, AssignmentDeliveryState, AssignmentEnrollment, AssignmentId, AssignmentRun,
+    AssignmentRunItem, AttemptStatus, AttemptTimerRecord, CatalogCapabilityFacet,
+    CatalogDiscoveryEvidence, CatalogDiscoveryItem, CatalogEvidenceAvailability,
+    CatalogEvidenceFacet, CatalogLicenseFacet, CatalogLicenseValue, CatalogLifecycle,
+    CatalogOwnCourseUsage, CatalogProblemDetail, CatalogProblemSummary, CatalogSearchFacets,
+    CatalogSearchPage, CatalogSearchQuery, CatalogTaxonomyFacet, CatalogUsageDetail,
+    CatalogUsageSummary, CatalogUsedInMyCoursesFacet, CourseGroupId, CourseId, CourseMembershipId,
     CourseMembershipRole, CourseSummary, EnrollmentId, EnrollmentStatus,
-    MAX_CATALOG_TAXONOMY_FACETS, PresentationBindingV1, ProblemId, ProblemVersionRef,
-    PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionEnvelope,
+    MAX_CATALOG_OWN_COURSE_USAGES, MAX_CATALOG_TAXONOMY_FACETS, PresentationBindingV1, ProblemId,
+    ProblemVersionRef, PublicationScope, QuestionAttempt, QuestionAttemptId, QuestionEnvelope,
     QuestionStatisticsDisclosure, RunId, RunMode, ScoringGeneration, ScoringStatus,
     StatisticsDisclosurePolicy, StudentAssignmentSummary, StudentId, StudentResponse, TenantId,
     UserId, VersionId, WorkspaceId, WorkspaceImportId,
@@ -93,39 +100,100 @@ use crate::{
     AddAssignmentFixedItemCommand, AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord,
     AssignmentDefinitionDisposition, AssignmentRecord, AssignmentRevision, AttemptSupportAction,
     AttemptSupportActionId, AttemptSupportRecord, AuthenticationRateLimitKey,
-    AuthenticationRateLimitScope, CatalogSourceStore, CatalogStore, CatalogTransition,
-    ClearAttemptCommand, CourseEnrollmentPolicy, CourseGroupRecord, CourseGroupRevision,
-    CourseInvitationId, CourseInvitationSecretHash, CourseListScope, CourseMembershipRecord,
-    CourseRecord, CourseRecordsAccessStore, CourseRetentionRecord, CourseRetentionSnapshot,
-    CourseRetentionState, CourseRetentionView, CourseRosterId, CourseRosterSupportAudit,
-    CreateAssignmentCommand, CredentialIdHash, Cursor, DeleteAndRegradeAssignmentItemCommand,
-    DeleteGroupAccommodationCommand, DeleteGroupScheduleOffsetCommand,
-    DeleteIndividualPolicyExceptionCommand, DraftRecord, EffectivePolicyResolution,
-    EmailChallengeSecretHash, FeedbackReleaseRecord, FlatQuestionGradingPayload,
-    ForceSubmitAttemptCommand, InstitutionRetentionPolicy, IssueQuestionAttemptCommand,
-    IssuedEffectivePolicyReceipt, Page, PageRequest, PageSize, PasskeyId, PasskeyRecord,
-    PrefetchedPrivateExecutionV1, PrefetchedQuestionDescriptorV1, PublishDraftCommand,
-    PublishedProblemRecord, PublishedSourceArtifact, PutAssignmentTeachingSettingsCommand,
-    PutCourseGroupCommand, PutGroupAccommodationCommand, PutGroupScheduleOffsetCommand,
-    PutIndividualPolicyExceptionCommand, RETENTION_JOB_MAX_ATTEMPTS, ReleaseAttemptFeedbackCommand,
-    RemoveAssignmentFixedItemCommand, ReplaceAssignmentCommand, ReplaceAssignmentFixedItemCommand,
-    ReservePrefetchedQuestionCommand, ResolveEffectivePolicyCommand, RetentionApiStore,
-    RetentionCleanupManifest, RetentionDays, RetentionDispatchBatch, RetentionRevision,
-    RetentionScheduleStore, RetentionStore, RetentionWork, RetentionWorkerCommand,
-    RetentionWorkerStore, RosterIdempotencyKey, RunSummaryOutcomeInput, RunSummaryPageInput,
-    SessionTokenHash, StoreError, StoredAssignment, StoredBaseAssignmentPolicy, StoredCourseGroup,
-    SubmissionIdempotencyKey, SubmissionNextAttempt, SubmissionRecord,
-    SubmitQuestionAttemptCommand, TenantContext, WebauthnCeremony, WebauthnCeremonyId,
-    WebworkGradeReplayStateV1, WorkspaceDraft, WorkspaceDraftRevision, WorkspaceDraftRole,
-    WorkspaceFlatQuestionSource, assignment_item_is_retired, assignment_scoring_changed,
-    completed_run_score, current_run_questions, decode_catalog_search_cursor,
-    delete_and_regrade_update, encode_catalog_search_cursor, ensure_tenant, grade_policy,
-    private_feedback_record, project_enrollment_completion, select_assignment_run_items,
-    summary_transition, validate_assignment, validate_course, validate_course_group,
-    validate_draft, validate_published, validate_qti_publication_promotion,
+    AuthenticationRateLimitScope, CatalogSearchCursorKey, CatalogSourceStore, CatalogStore,
+    CatalogTransition, ClearAttemptCommand, CourseEnrollmentPolicy, CourseGroupRecord,
+    CourseGroupRevision, CourseInvitationId, CourseInvitationSecretHash, CourseListScope,
+    CourseMemberStatus, CourseMembershipRecord, CourseRecord, CourseRecordsAccessStore,
+    CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState, CourseRetentionView,
+    CourseRosterId, CourseRosterSupportAudit, CreateAssignmentCommand, CredentialIdHash, Cursor,
+    DeleteAndRegradeAssignmentItemCommand, DeleteGroupAccommodationCommand,
+    DeleteGroupScheduleOffsetCommand, DeleteIndividualPolicyExceptionCommand, DraftRecord,
+    EffectivePolicyResolution, EmailChallengeSecretHash, FeedbackReleaseRecord,
+    FlatQuestionGradingPayload, ForceSubmitAttemptCommand, InstitutionRetentionPolicy,
+    IssueQuestionAttemptCommand, IssuedEffectivePolicyReceipt, Page, PageRequest, PageSize,
+    PasskeyId, PasskeyRecord, PrefetchedPrivateExecutionV1, PrefetchedQuestionDescriptorV1,
+    PublishDraftCommand, PublishedProblemRecord, PublishedSourceArtifact,
+    PutAssignmentTeachingSettingsCommand, PutCourseGroupCommand, PutGroupAccommodationCommand,
+    PutGroupScheduleOffsetCommand, PutIndividualPolicyExceptionCommand, RETENTION_JOB_MAX_ATTEMPTS,
+    ReleaseAttemptFeedbackCommand, RemoveAssignmentFixedItemCommand, ReplaceAssignmentCommand,
+    ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand,
+    ResolveEffectivePolicyCommand, RetentionApiStore, RetentionCleanupManifest, RetentionDays,
+    RetentionDispatchBatch, RetentionRevision, RetentionScheduleStore, RetentionStore,
+    RetentionWork, RetentionWorkerCommand, RetentionWorkerStore, RosterIdempotencyKey,
+    RunSummaryOutcomeInput, RunSummaryPageInput, SessionTokenHash, StoreError, StoredAssignment,
+    StoredBaseAssignmentPolicy, StoredCourseGroup, SubmissionIdempotencyKey, SubmissionNextAttempt,
+    SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext, WebauthnCeremony,
+    WebauthnCeremonyId, WebworkGradeReplayStateV1, WorkspaceDraft, WorkspaceDraftRevision,
+    WorkspaceDraftRole, WorkspaceFlatQuestionSource, assignment_item_is_retired,
+    assignment_scoring_changed, completed_run_score, current_run_questions,
+    decode_catalog_search_cursor, delete_and_regrade_update, encode_catalog_search_cursor,
+    ensure_tenant, grade_policy, private_feedback_record, project_enrollment_completion,
+    select_assignment_run_items, summary_transition, validate_assignment, validate_course,
+    validate_course_group, validate_draft, validate_published, validate_qti_publication_promotion,
 };
 
 mod manual_grading;
+
+/// Test fixture adapter that establishes an active instructor session before
+/// exercising the production actor-bound catalog capability.
+#[cfg(test)]
+#[async_trait]
+pub(super) trait CatalogSearchTestStore {
+    async fn search_catalog_as_instructor(
+        &self,
+        context: TenantContext,
+        query: CatalogSearchQuery,
+    ) -> Result<CatalogSearchPage, StoreError>;
+}
+
+#[cfg(test)]
+#[async_trait]
+impl CatalogSearchTestStore for MemoryStore {
+    async fn search_catalog_as_instructor(
+        &self,
+        context: TenantContext,
+        query: CatalogSearchQuery,
+    ) -> Result<CatalogSearchPage, StoreError> {
+        let tenant = context.tenant_id();
+        let session = SessionTokenHash::compute(tenant.as_uuid().as_bytes());
+        let subject = crate::SessionSubject::new(
+            tenant,
+            UserId::from_uuid(tenant.as_uuid()),
+            "Catalog test instructor",
+            vec![question_model::UserRole::Instructor],
+        )
+        .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+        match crate::SessionStore::create_session(
+            self,
+            session,
+            subject,
+            crate::SessionLifetime::from_seconds(60)
+                .expect("positive catalog test session lifetime"),
+        )
+        .await
+        {
+            Ok(_) | Err(StoreError::AlreadyExists) => {}
+            Err(error) => return Err(error),
+        }
+        {
+            let mut state = self.write_state()?;
+            let actor = UserId::from_uuid(tenant.as_uuid());
+            let now = state.authoritative_time;
+            state.instructor_approvals.entry(actor).or_insert_with(|| {
+                crate::StoredInstructorApproval {
+                    approval: question_model::InstructorApproval {
+                        user: actor,
+                        approved_by: actor,
+                        approved_at: now,
+                        revoked_at: None,
+                    },
+                    revision: crate::InstructorApprovalRevision::INITIAL,
+                }
+            });
+        }
+        <Self as CatalogStore>::search_catalog(self, context, session, query).await
+    }
+}
 
 #[async_trait]
 impl crate::AuthoritativeTimeStore for MemoryStore {
@@ -220,6 +288,7 @@ pub struct MemoryStore {
     state: Arc<RwLock<State>>,
     question_ids: crate::QuestionIdCodec,
     catalog_cursors: crate::CatalogCursorCodec,
+    catalog_usage_snapshots: Arc<RwLock<BTreeMap<[u8; 32], catalog::CatalogUsageSnapshot>>>,
     catalog_resolution_calls: Arc<AtomicUsize>,
 }
 
@@ -286,6 +355,7 @@ impl MemoryStore {
             state: Arc::new(RwLock::new(State::default())),
             question_ids: crate::QuestionIdCodec::from_server_secret(secret),
             catalog_cursors: crate::CatalogCursorCodec::from_server_secret(secret),
+            catalog_usage_snapshots: Arc::new(RwLock::new(BTreeMap::new())),
             catalog_resolution_calls: Arc::new(AtomicUsize::new(0)),
         }
     }
@@ -299,6 +369,7 @@ impl MemoryStore {
                 state: Arc::clone(&state),
                 question_ids: crate::QuestionIdCodec::from_server_secret([0x42; 32]),
                 catalog_cursors: crate::CatalogCursorCodec::from_server_secret([0x42; 32]),
+                catalog_usage_snapshots: Arc::new(RwLock::new(BTreeMap::new())),
                 catalog_resolution_calls: Arc::new(AtomicUsize::new(0)),
             },
             MemoryQtiGraderStore { state },
@@ -313,6 +384,7 @@ impl MemoryStore {
                 state: Arc::clone(&state),
                 question_ids: crate::QuestionIdCodec::from_server_secret([0x42; 32]),
                 catalog_cursors: crate::CatalogCursorCodec::from_server_secret([0x42; 32]),
+                catalog_usage_snapshots: Arc::new(RwLock::new(BTreeMap::new())),
                 catalog_resolution_calls: Arc::new(AtomicUsize::new(0)),
             },
             MemoryFlatQuestionGraderStore { state },
@@ -349,6 +421,8 @@ struct State {
     next_account_reference: u32,
     next_course_membership_reference: u32,
     next_co_instructor_invitation_reference: u32,
+    next_problem_collection_reference: u32,
+    next_saved_problem_search_reference: u32,
     course_references: BTreeMap<(TenantId, CourseId), question_model::CourseReference>,
     courses_by_reference: BTreeMap<(TenantId, question_model::CourseReference), CourseId>,
     assignment_references: BTreeMap<(TenantId, AssignmentId), question_model::AssignmentReference>,
@@ -376,6 +450,22 @@ struct State {
         (TenantId, question_model::CoInstructorInvitationReference),
         question_model::CoInstructorInvitationId,
     >,
+    problem_collection_references: BTreeMap<
+        (TenantId, problem_curation::ProblemCollectionId),
+        question_model::ProblemCollectionReference,
+    >,
+    problem_collections_by_reference: BTreeMap<
+        (TenantId, question_model::ProblemCollectionReference),
+        problem_curation::ProblemCollectionId,
+    >,
+    saved_problem_search_references: BTreeMap<
+        (TenantId, problem_curation::SavedProblemSearchId),
+        question_model::SavedProblemSearchReference,
+    >,
+    saved_problem_searches_by_reference: BTreeMap<
+        (TenantId, question_model::SavedProblemSearchReference),
+        problem_curation::SavedProblemSearchId,
+    >,
     accounts: BTreeMap<UserId, AccountRecord>,
     account_presentation: BTreeMap<UserId, crate::AccountPresentationPreference>,
     account_by_email: BTreeMap<String, UserId>,
@@ -390,6 +480,15 @@ struct State {
     passkey_by_credential: BTreeMap<CredentialIdHash, PasskeyId>,
     sessions: BTreeMap<SessionTokenHash, sessions::StoredSession>,
     catalog_grants: BTreeSet<(TenantId, ProblemId, VersionId)>,
+    problem_curation_cursors: BTreeMap<String, problem_curation::StoredProblemCurationCursor>,
+    problem_collections: BTreeMap<
+        (TenantId, problem_curation::ProblemCollectionId),
+        problem_curation::StoredProblemCollection,
+    >,
+    saved_problem_searches: BTreeMap<
+        (TenantId, problem_curation::SavedProblemSearchId),
+        problem_curation::StoredSavedProblemSearch,
+    >,
     drafts: BTreeMap<(TenantId, WorkspaceId), DraftRecord>,
     draft_revisions: BTreeMap<(TenantId, WorkspaceId), WorkspaceDraftRevision>,
     draft_access: BTreeMap<(TenantId, WorkspaceId, UserId), WorkspaceDraftRole>,
@@ -399,10 +498,18 @@ struct State {
     /// is deliberately independent of the map's length: a later publication
     /// must not enter a browse session that already has an opaque boundary.
     catalog_publication_sequences: BTreeMap<(ProblemId, VersionId), u64>,
-    /// First event at which the aggregate became safely disclosable.  This is
-    /// distinct from the current aggregate, which may continue to grow while
-    /// a catalog continuation remains bound to its first-page event boundary.
-    catalog_statistics_disclosure_sequences: BTreeMap<(ProblemId, VersionId), u64>,
+    /// Anonymous distinct course presences derived from the canonical
+    /// enrollment-to-assignment relation for accepted first attempts.
+    catalog_evidence_courses: BTreeMap<(ProblemId, VersionId), BTreeSet<CourseId>>,
+    /// Retention-safe, exact-publication learner fingerprints.  Receipts stay
+    /// per enrollment for replay, while discovery evidence accepts at most one
+    /// independent observation per tenant-scoped learner.
+    catalog_evidence_learners: BTreeSet<(ProblemId, VersionId, [u8; 32])>,
+    /// Append-only discovery projections. A continuation resolves the latest
+    /// revision at or before its catalog event boundary, so new evidence never
+    /// changes a page that was already opened.
+    catalog_discovery_evidence_revisions:
+        BTreeMap<(ProblemId, VersionId), Vec<CatalogDiscoveryEvidenceRevision>>,
     next_catalog_publication_sequence: u64,
     source_artifacts: BTreeMap<(ProblemId, VersionId), PublishedSourceArtifact>,
     flat_question_sources: BTreeMap<(TenantId, WorkspaceId), WorkspaceFlatQuestionSource>,
@@ -725,6 +832,16 @@ struct StatisticsContributionReceipt {
     #[cfg(test)]
     observation: CollapsedQuestionObservation,
     checksum: objects::Sha256Digest,
+}
+
+/// Private, immutable revision of the browser-safe discovery projection.
+#[derive(Debug, Clone)]
+struct CatalogDiscoveryEvidenceRevision {
+    sequence: u64,
+    evidence: CatalogDiscoveryEvidence,
+    /// Fixed-point v1 tie-break contribution. Browser DTOs retain the
+    /// decomposed evidence rather than this implementation value.
+    quality: i64,
 }
 
 /// Private broker state. No field here is exposed through a browser projection.

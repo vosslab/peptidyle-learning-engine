@@ -11,6 +11,7 @@ import {
   validateAssignmentEditorDraft,
   validateSelectionGroupEntry,
 } from "../src/pages/assignment_editor_model.ts";
+import { assignmentPickerMaximum } from "../src/pages/assignment_editor_picker_model.ts";
 
 test("assignment editor uses Question IDs as its only question identity", () => {
   const draft = createMasteryAssignmentDraft("course-1");
@@ -163,4 +164,27 @@ test("pool authoring reports shared cardinality recovery paths before save", () 
     validateAssignmentEditorDraft(tooManyCandidates),
     "Keep all pools to 8192 candidate Question IDs or fewer.",
   );
+});
+
+test("shared picker caps each assignment destination before the dialog opens", () => {
+  const fixed = publishedProblemFixture.assignment.items[0];
+  assert.ok(fixed);
+  const draft = {
+    ...createMasteryAssignmentDraft("course-1"),
+    entries: [
+      { ...fixed, kind: "fixed" },
+      {
+        kind: "selectionGroup",
+        position: 1,
+        candidates: [{ questionId: "7K4-M9QP", title: "Candidate", backend: "native" }],
+        drawCount: 1,
+        pointsPerItem: "1",
+        ordering: "candidateOrder",
+        algorithmVersion: 1,
+      },
+    ],
+  };
+  assert.equal(assignmentPickerMaximum(draft, { kind: "fixed" }), 1022);
+  assert.equal(assignmentPickerMaximum(draft, { kind: "pool", entryIndex: 1 }), 1023);
+  assert.equal(assignmentPickerMaximum(draft, { kind: "replacement", itemId: fixed.id }), 1);
 });

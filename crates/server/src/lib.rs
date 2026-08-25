@@ -45,6 +45,8 @@ pub mod item_analysis_worker;
 /// Server composition bridge for first-party native question families.
 pub mod native_backend;
 pub mod navigation;
+/// Instructor-owned Favorites, collections, and saved catalog-search definitions.
+pub mod problem_curation;
 /// Post-commit materialization of immutable CDN-readable catalog assets.
 pub(crate) mod public_asset_publication_worker;
 /// Immutable published-QTI replay and server-side grading bridge.

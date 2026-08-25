@@ -24,6 +24,7 @@ pub mod byline;
 pub mod capability;
 /// Shared catalog metadata, visibility, lineage, and browse projections.
 pub mod catalog;
+mod catalog_facets;
 /// Tenant-owned course and assignment browser projections.
 pub mod course;
 /// Closed, browser-safe course appearance and banner presentation contracts.
@@ -32,6 +33,8 @@ pub mod course_appearance;
 pub mod course_grade;
 /// Validated inclusive course-calendar bounds and authoritative IANA zone.
 pub mod course_term;
+/// Browser-safe collections, favorites, and saved-search contracts.
+pub mod curation;
 pub mod definition;
 /// Internal entitlement and materialization contracts. These types never
 /// cross the browser boundary.
@@ -90,14 +93,21 @@ pub use crate::auth::{UserId, UserRole};
 pub use crate::byline::{PublicAuthorName, PublicByline, PublicBylineError};
 pub use crate::capability::{BackendCapabilities, Capability};
 pub use crate::catalog::{
-    CatalogCapabilityFacet, CatalogLicenseFacet, CatalogLicenseValue, CatalogLifecycle,
-    CatalogProblemDetail, CatalogProblemSummary, CatalogSearchFacets, CatalogSearchPage,
-    CatalogSearchQuery, CatalogSearchQueryError, CatalogStatisticsAvailability,
-    CatalogStatisticsFacet, CatalogStatisticsStatus, CatalogTaxonomyFacet, CatalogTaxonomyFilter,
+    CatalogAuthorship, CatalogBackendFacet, CatalogBylineFacet, CatalogCapabilityFacet,
+    CatalogDiscoveryEvidence, CatalogDiscoveryItem, CatalogEvidenceAvailability,
+    CatalogEvidenceFacet, CatalogLicenseFacet, CatalogLicenseValue, CatalogLifecycle,
+    CatalogOwnCourseUsage, CatalogProblemDetail, CatalogProblemSummary, CatalogPromptProjection,
+    CatalogResponseFamily, CatalogResponseFamilyFacet, CatalogSearchFacets, CatalogSearchPage,
+    CatalogSearchQuery, CatalogSearchQueryError, CatalogTagFacet, CatalogTaxonomyFacet,
+    CatalogTaxonomyFilter, CatalogUsageDetail, CatalogUsageSummary, CatalogUsedInMyCourses,
+    CatalogUsedInMyCoursesFacet, MAX_CATALOG_BACKEND_FACETS, MAX_CATALOG_BYLINE_FACETS,
+    MAX_CATALOG_BYLINE_FILTERS, MAX_CATALOG_OWN_COURSE_USAGES, MAX_CATALOG_RESPONSE_FAMILY_FACETS,
+    MAX_CATALOG_RESPONSE_FAMILY_FILTERS, MAX_CATALOG_TAG_FACETS, MAX_CATALOG_TAG_FILTERS,
     MAX_CATALOG_TAXONOMY_FACETS, MAX_QUESTION_ID_COUNT, ProblemDisplayRef, ProblemVersionRef,
     PublicationScope, QUESTION_ID_ALPHABET, QUESTION_ID_COMPACT_LENGTH,
     QUESTION_ID_IDENTIFIER_LENGTH, QuestionBackend, QuestionId,
 };
+pub use crate::catalog_facets::CatalogSearchFilter;
 pub use crate::course::{
     AssignmentItemSummary, AssignmentSelectionCandidateSummary, AssignmentSelectionGroupSummary,
     AssignmentSummary, CourseMembershipRole, CourseSummary, GradebookSummaryRow,
@@ -120,6 +130,14 @@ pub use crate::course_term::{
     CourseDate, CourseDateError, CourseTerm, CourseTermError, CourseTermFailureCode,
     CourseTermFailureReason, CourseTermField, CourseTermValidationFailure, IanaTimeZone,
     IanaTimeZoneError,
+};
+pub use crate::curation::{
+    MAX_NAMED_PROBLEM_COLLECTIONS, MAX_PROBLEM_COLLECTION_MEMBERS,
+    MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS, MAX_SAVED_PROBLEM_SEARCHES,
+    ProblemCollectionAccess, ProblemCollectionKind, ProblemCollectionMemberView,
+    ProblemCollectionRevision, ProblemCollectionSelectionAvailability,
+    ProblemCollectionSummaryView, ProblemCollectionVisibility, ProblemCurationTitleError,
+    SavedProblemSearchRevision, SavedProblemSearchView, validate_problem_curation_title,
 };
 pub use crate::definition::{
     DraftQuestionDefinition, DraftQuestionSource, DraftSourcePublicationError, GradingDefinition,
@@ -163,7 +181,8 @@ pub use crate::preview_plane::{
 pub use crate::public_route::{
     AccountReference, AssignmentReference, CoInstructorInvitationReference, CourseGroupReference,
     CourseMembershipReference, CourseReference, MAX_PUBLIC_ROUTE_NUMBER, NavigationResolution,
-    RESERVED_REFERENCE_PREFIXES, RunReference, WorkspaceReference,
+    ProblemCollectionReference, RESERVED_REFERENCE_PREFIXES, RunReference,
+    SavedProblemSearchReference, WorkspaceReference,
 };
 pub use crate::response::{ResponseDefinition, StudentResponse};
 pub use crate::run_policy::{

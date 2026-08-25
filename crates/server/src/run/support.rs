@@ -430,6 +430,7 @@ mod pool_selection_tests {
                 problem: ProblemId::from_uuid(id(20 + u128::from(position))),
                 version: VersionId::from_uuid(id(30 + u128::from(position))),
             },
+            statistics_eligible: true,
             selection_group: group.map(|value| AssignmentSelectionGroupId::from_uuid(id(value))),
             selection_seed: group.map(|_| 42),
         }

@@ -28,6 +28,7 @@ async fn postgres_co_instructor_target_search_oracle() {
     let sysadmin_session = session(&store, tenant, sysadmin, vec![UserRole::Sysadmin]).await;
     let instructor_session = session(&store, tenant, instructor, vec![UserRole::Instructor]).await;
     let target_session = session(&store, tenant, target, vec![UserRole::Instructor]).await;
+    approval(&store, context, sysadmin_session, instructor).await;
     let course = CourseId::from_uuid(id());
     store
         .create_course(
@@ -143,6 +144,7 @@ async fn postgres_teaching_authority_is_target_bound_atomic_and_least_privilege(
     let other_session = session(&store, tenant, other, vec![UserRole::Instructor]).await;
     let foreign_sysadmin =
         session(&store, foreign_tenant, sysadmin, vec![UserRole::Sysadmin]).await;
+    approval(&store, context, sysadmin_session, instructor).await;
     let course = CourseId::from_uuid(id());
     store
         .create_course(
@@ -686,8 +688,8 @@ async fn postgres_teaching_authority_is_target_bound_atomic_and_least_privilege(
         store
             .remove_direct_instructor_membership(context, removal)
             .await,
-        Err(StoreError::NotFound),
-        "removed membership no longer exists as active direct authority"
+        Err(StoreError::Conflict),
+        "a replay carries the stale roster revision produced by the first removal"
     );
 
     assert_eq!(

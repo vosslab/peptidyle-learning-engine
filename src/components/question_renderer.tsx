@@ -189,6 +189,13 @@ export interface QuestionRendererProps {
   readonly onRetry?: () => void;
 }
 
+/** The semantic, answer-free prompt block surface shared by question views. */
+export interface QuestionPromptRendererProps {
+  readonly blocks: ReadonlyArray<ContentBlock>;
+  readonly assetUrl: AssetUrlResolver;
+  readonly suppliedMarkup?: ReadonlyArray<SanitizedMarkupProjection>;
+}
+
 export class QuestionContentError extends Error {
   public constructor(message: string) {
     super(message);
@@ -754,23 +761,36 @@ function RendererFailure(props: {
   );
 }
 
-function QuestionContent(props: QuestionRendererProps): JSX.Element {
+/** Renders prompt blocks without requiring a response or grading projection. */
+export function QuestionPromptRenderer(props: QuestionPromptRendererProps): JSX.Element {
   const suppliedMarkup = props.suppliedMarkup ?? [];
   return (
-    <section class="question-renderer" aria-labelledby="question-prompt-heading">
+    <>
       <style>{QUESTION_RENDERER_STYLES}</style>
+      <For each={props.blocks}>
+        {(block, index) => (
+          <PromptProjection
+            index={index()}
+            block={block}
+            assetUrl={props.assetUrl}
+            suppliedMarkup={suppliedMarkup}
+          />
+        )}
+      </For>
+    </>
+  );
+}
+
+function QuestionContent(props: QuestionRendererProps): JSX.Element {
+  return (
+    <section class="question-renderer" aria-labelledby="question-prompt-heading">
       <div class="question-renderer__prompt">
         <h2 id="question-prompt-heading">Question</h2>
-        <For each={props.presentation.prompt}>
-          {(block, index) => (
-            <PromptProjection
-              index={index()}
-              block={block}
-              assetUrl={props.assetUrl}
-              suppliedMarkup={suppliedMarkup}
-            />
-          )}
-        </For>
+        <QuestionPromptRenderer
+          blocks={props.presentation.prompt}
+          assetUrl={props.assetUrl}
+          suppliedMarkup={props.suppliedMarkup}
+        />
       </div>
     </section>
   );

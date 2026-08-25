@@ -8,14 +8,27 @@ pub(super) fn catalog_search_score(
     record: &PublishedProblemRecord,
     query: &CatalogSearchQuery,
     question_ids: &crate::QuestionIdCodec,
-    statistics_available: bool,
+    evidence_available: bool,
+    used_in_my_courses: bool,
+    actor: UserId,
 ) -> Option<(i64, i64)> {
-    if matches!(query.statistics, CatalogStatisticsAvailability::Available) && !statistics_available
+    if matches!(query.evidence, CatalogEvidenceAvailability::Available) && !evidence_available {
+        return None;
+    }
+    if matches!(query.evidence, CatalogEvidenceAvailability::Unavailable) && evidence_available {
+        return None;
+    }
+    if matches!(
+        query.used_in_my_courses,
+        question_model::CatalogUsedInMyCourses::Used
+    ) && !used_in_my_courses
     {
         return None;
     }
-    if matches!(query.statistics, CatalogStatisticsAvailability::Unavailable)
-        && statistics_available
+    if matches!(
+        query.authorship,
+        question_model::CatalogAuthorship::AuthoredByCurrentActor
+    ) && !record.author_ids.contains(&actor)
     {
         return None;
     }
@@ -40,6 +53,47 @@ pub(super) fn catalog_search_score(
             .iter()
             .any(|term| term.scheme == wanted.scheme && term.code == wanted.code)
     }) {
+        return None;
+    }
+    if !(query.bylines.is_empty()
+        || query.bylines.iter().any(|wanted| {
+            record
+                .byline
+                .names
+                .iter()
+                .any(|name| name.as_str().to_lowercase() == *wanted)
+        }))
+    {
+        return None;
+    }
+    if !(query.backends.is_empty()
+        || query
+            .backends
+            .contains(&question_model::QuestionBackend::from(
+                &record.question.source,
+            )))
+    {
+        return None;
+    }
+    if !(query.tags.is_empty()
+        || query.tags.iter().any(|wanted| {
+            record
+                .question
+                .metadata
+                .tags
+                .iter()
+                .any(|tag| tag.as_str().to_lowercase() == *wanted)
+        }))
+    {
+        return None;
+    }
+    if !(query.response_families.is_empty()
+        || query
+            .response_families
+            .contains(&question_model::CatalogResponseFamily::from(
+                &record.question.response,
+            )))
+    {
         return None;
     }
     if !query

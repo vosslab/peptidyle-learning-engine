@@ -13,6 +13,7 @@ import {
 import { createResponseClient } from "./http_client/response";
 import { createTeachingOperationsClient } from "./http_client/teaching_operations";
 import { createPreviewPlaneClient } from "./http_client/preview_plane";
+import { createProblemCurationClient } from "./http_client/problem_curation";
 
 export {
   ApiProtocolError,
@@ -24,6 +25,7 @@ export {
   CourseAppearanceConflictError,
   CourseAppearanceFileError,
   CourseGradeSchemeConflictError,
+  ProblemCurationConflictError,
   CourseTermValidationError,
   PublicationValidationError,
   WorkspaceConflictError,
@@ -45,6 +47,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createLiveDemoClient(fetchImplementation, basePath),
     createTeachingOperationsClient(fetchImplementation, basePath),
     createPreviewPlaneClient(fetchImplementation, basePath),
+    createProblemCurationClient(fetchImplementation, basePath),
     responses,
     requests,
   );

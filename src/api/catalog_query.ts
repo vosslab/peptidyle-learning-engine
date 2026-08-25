@@ -1,6 +1,8 @@
 // catalog_query.ts - one strict request boundary for the production client and boundary tests.
 
 import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery";
+import { MAX_CATALOG_BYLINE_FILTERS } from "../../generated/api/MAX_CATALOG_BYLINE_FILTERS";
+import { MAX_CATALOG_TAG_FILTERS } from "../../generated/api/MAX_CATALOG_TAG_FILTERS";
 
 const MAX_CATALOG_TEXT_UNICODE_SCALARS = 256;
 const MAX_CATALOG_TAXONOMY_FILTERS = 64;
@@ -17,6 +19,33 @@ const CATALOG_CAPABILITIES = [
   "offlinePreview",
 ] as const;
 const CATALOG_LICENSES = ["allRightsReserved", "ccBy", "ccBySa", "ccByNc", "cc0", "other"] as const;
+const CATALOG_BACKENDS = ["native", "webwork", "qti", "h5p", "imathas"] as const;
+const CATALOG_RESPONSE_FAMILIES = [
+  "numeric",
+  "multipleChoice",
+  "shortText",
+  "multiBlank",
+  "matching",
+  "ordering",
+  "hotspot",
+  "fileUpload",
+  "externalTool",
+] as const;
+const CATALOG_QUERY_FIELDS = [
+  "text",
+  "bylines",
+  "backends",
+  "tags",
+  "responseFamilies",
+  "taxonomy",
+  "capabilities",
+  "licenses",
+  "evidence",
+  "usedInMyCourses",
+  "authorship",
+  "cursor",
+  "pageSize",
+] as const;
 
 function catalogEnum(value: string, allowed: ReadonlyArray<string>, fieldName: string): string {
   if (!allowed.includes(value)) {
@@ -34,6 +63,26 @@ function catalogFilterText(value: string, fieldName: string, maximum: number): s
   return value;
 }
 
+function normalizedCatalogFilterText(value: string, fieldName: string, maximum: number): string {
+  const normalized = value.trim().split(/\s+/u).join(" ").toLowerCase();
+  if (normalized.length === 0 || Array.from(normalized).length > maximum) {
+    throw new Error(
+      `${fieldName} must contain non-whitespace text no longer than ${maximum} characters`,
+    );
+  }
+  return normalized;
+}
+
+function boundedCatalogFilterValues(
+  values: ReadonlyArray<string>,
+  maximum: number,
+  fieldName: string,
+): void {
+  if (values.length > maximum) {
+    throw new Error(`${fieldName} must contain at most ${maximum} entries`);
+  }
+}
+
 function catalogCursor(value: string): string {
   if (value.length === 0) {
     throw new Error("catalog cursor must not be empty");
@@ -41,13 +90,44 @@ function catalogCursor(value: string): string {
   return value;
 }
 
-/** Validates and serializes the only cursor-based catalog search request shape. */
+/**
+ * ASVS 2.2.1: validates and serializes the only bounded, allowlisted
+ * cursor-based catalog-search request shape.
+ */
 export function catalogSearchPath(query: CatalogSearchQuery): string {
+  for (const field of Object.keys(query)) {
+    if (!CATALOG_QUERY_FIELDS.includes(field as (typeof CATALOG_QUERY_FIELDS)[number])) {
+      throw new Error(`catalog search query contains unknown field: ${field}`);
+    }
+  }
   const parameters = new URLSearchParams();
   if (query.text !== null) {
     parameters.set(
       "text",
       catalogFilterText(query.text, "catalog text", MAX_CATALOG_TEXT_UNICODE_SCALARS),
+    );
+  }
+  boundedCatalogFilterValues(query.bylines, MAX_CATALOG_BYLINE_FILTERS, "catalog bylines");
+  for (const byline of query.bylines) {
+    parameters.append("bylines", normalizedCatalogFilterText(byline, "catalog byline", 120));
+  }
+  boundedCatalogFilterValues(query.backends, CATALOG_BACKENDS.length, "catalog backends");
+  for (const backend of query.backends) {
+    parameters.append("backends", catalogEnum(backend, CATALOG_BACKENDS, "catalog backend"));
+  }
+  boundedCatalogFilterValues(query.tags, MAX_CATALOG_TAG_FILTERS, "catalog tags");
+  for (const tag of query.tags) {
+    parameters.append("tags", normalizedCatalogFilterText(tag, "catalog tag", 256));
+  }
+  boundedCatalogFilterValues(
+    query.responseFamilies,
+    CATALOG_RESPONSE_FAMILIES.length,
+    "catalog responseFamilies",
+  );
+  for (const responseFamily of query.responseFamilies) {
+    parameters.append(
+      "responseFamilies",
+      catalogEnum(responseFamily, CATALOG_RESPONSE_FAMILIES, "catalog response family"),
     );
   }
   if (query.taxonomy.length > MAX_CATALOG_TAXONOMY_FILTERS) {
@@ -75,14 +155,30 @@ export function catalogSearchPath(query: CatalogSearchQuery): string {
   for (const license of query.licenses) {
     parameters.append("licenses", catalogEnum(license, CATALOG_LICENSES, "catalog license"));
   }
-  const statistics = catalogEnum(
-    query.statistics,
+  const evidence = catalogEnum(
+    query.evidence,
     ["any", "available", "unavailable"],
-    "catalog statistics",
+    "catalog evidence",
   );
-  if (statistics !== "any") {
-    parameters.set("statistics", statistics);
+  if (evidence !== "any") {
+    parameters.set("evidence", evidence);
   }
+  const usedInMyCourses = catalogEnum(
+    query.usedInMyCourses,
+    ["any", "used"],
+    "catalog usedInMyCourses",
+  );
+  if (usedInMyCourses !== "any") {
+    parameters.set("usedInMyCourses", usedInMyCourses);
+  }
+  const authorship = catalogEnum(
+    query.authorship,
+    ["any", "authoredByCurrentActor"],
+    "catalog authorship scope",
+  );
+  // Keep the current visible source explicit in every cursor-bound request.
+  // `any` is a closed scope, not an omitted identity fallback.
+  parameters.set("authorship", authorship);
   if (query.cursor !== null) {
     parameters.set("cursor", catalogCursor(query.cursor));
   }

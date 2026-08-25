@@ -27,6 +27,7 @@ export interface AssignmentEditorContentListProps {
   readonly onRemovePool: (entryIndex: number) => void;
   readonly onMessage: (message: string) => void;
   readonly onPreviewPool: (groupPosition: number) => void;
+  readonly onChoosePoolCandidates: (entryIndex: number, trigger: HTMLButtonElement) => void;
 }
 
 export function AssignmentEditorContentList(props: AssignmentEditorContentListProps): JSX.Element {
@@ -45,6 +46,7 @@ export function AssignmentEditorContentList(props: AssignmentEditorContentListPr
           preview={props.preview?.groupPosition === entry.position ? props.preview : undefined}
           previewBusy={props.busy}
           onPreview={() => props.onPreviewPool(entry.position)}
+          onChooseCandidates={(trigger) => props.onChoosePoolCandidates(entryIndex, trigger)}
         />
       );
     }

@@ -4,12 +4,28 @@ use serde::{Deserialize, Serialize};
 
 use crate::taxonomy::{License, Tag, TaxonomyTerm};
 use crate::{
-    ActivityTimestamp, BackendCapabilities, Capability, DraftQuestionSource, ProblemId,
-    QuestionMetadata, QuestionSource, QuestionStatisticsView, VersionId,
+    ActivityTimestamp, BackendCapabilities, CourseReference, DraftQuestionSource, ProblemId,
+    QuestionMetadata, QuestionSource, VersionId,
+};
+
+pub use crate::catalog_facets::{
+    CatalogAuthorship, CatalogBackendFacet, CatalogBylineFacet, CatalogCapabilityFacet,
+    CatalogEvidenceAvailability, CatalogEvidenceFacet, CatalogLicenseFacet, CatalogLicenseValue,
+    CatalogResponseFamily, CatalogResponseFamilyFacet, CatalogSearchFacets, CatalogSearchQuery,
+    CatalogSearchQueryError, CatalogTagFacet, CatalogTaxonomyFacet, CatalogTaxonomyFilter,
+    CatalogUsedInMyCourses, CatalogUsedInMyCoursesFacet, MAX_CATALOG_BACKEND_FACETS,
+    MAX_CATALOG_BYLINE_FACETS, MAX_CATALOG_BYLINE_FILTERS, MAX_CATALOG_RESPONSE_FAMILY_FACETS,
+    MAX_CATALOG_RESPONSE_FAMILY_FILTERS, MAX_CATALOG_TAG_FACETS, MAX_CATALOG_TAG_FILTERS,
 };
 
 /// Maximum taxonomy facet values returned with one bounded catalog page.
 pub const MAX_CATALOG_TAXONOMY_FACETS: usize = 64;
+
+/// Maximum own-course rows included with one exact catalog usage detail.
+///
+/// The aggregate summary remains complete while the named course list stays a
+/// compact, visible decision aid rather than an unbounded course inventory.
+pub const MAX_CATALOG_OWN_COURSE_USAGES: usize = 100;
 
 /// Crockford Base32 alphabet used by the one human-facing Question ID.
 pub const QUESTION_ID_ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -230,6 +246,28 @@ pub enum QuestionBackend {
     Imathas,
 }
 
+impl QuestionBackend {
+    /// Every browser-safe adapter family supported by this release.
+    pub const ALL: [Self; 5] = [
+        Self::Native,
+        Self::Webwork,
+        Self::Qti,
+        Self::H5p,
+        Self::Imathas,
+    ];
+
+    /// Canonical public wire value for this closed backend family.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Native => "native",
+            Self::Webwork => "webwork",
+            Self::Qti => "qti",
+            Self::H5p => "h5p",
+            Self::Imathas => "imathas",
+        }
+    }
+}
+
 impl From<&QuestionSource> for QuestionBackend {
     fn from(source: &QuestionSource) -> Self {
         match source {
@@ -256,12 +294,14 @@ impl From<&DraftQuestionSource> for QuestionBackend {
 
 /// Hot catalog metadata returned by browse endpoints without loading payloads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CatalogProblemSummary {
     /// Sole human-facing identity of this immutable published question.
     pub question_id: QuestionId,
     /// Adapter family, without private source-locator fields.
     pub backend: QuestionBackend,
+    /// Immutable browser-safe response family derived at publication time.
+    pub response_family: CatalogResponseFamily,
     /// Capabilities declared by the owning adapter at publication time.
     pub capabilities: BackendCapabilities,
     /// Shared metadata used for title, taxonomy, license, and language facets.
@@ -293,304 +333,148 @@ impl CatalogProblemSummary {
     }
 }
 
-/// One exact controlled-vocabulary term selected in catalog search.
+/// Explainable, privacy-governed discovery evidence for one exact publication.
 ///
-/// The label is intentionally absent.  It is presentation metadata, while a
-/// `(scheme, code)` pair is the durable term identity.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+/// The evidence contains only disclosed aggregate observations. It never
+/// exposes a ranking contribution, learner work, or a course identity.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(
+    tag = "state",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+pub enum CatalogDiscoveryEvidence {
+    /// The publication has no valid disclosed aggregate yet. This is neither
+    /// a favorable nor unfavorable quality judgment.
+    InsufficientEvidence,
+    /// A versioned formula produced a safely disclosed aggregate observation.
+    Available {
+        /// Server-owned version of the disclosed evidence formula.
+        formula_version: u16,
+        /// Number of anonymous courses observed by the formula.
+        observed_course_count: u64,
+        /// Independent first-valid learner observations for this exact publication.
+        independent_learner_observation_count: u64,
+        /// Mean normalized score, in the inclusive range `0.0..=1.0`.
+        difficulty_index: f64,
+        /// Mean submitted attempts represented by one first-run observation.
+        attempts_mean: f64,
+        /// Fixed-histogram estimate of the median response duration in seconds.
+        time_median_seconds_estimate: u64,
+        /// Correlation of question score with rest-of-run score when valid.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        discrimination_index: Option<f64>,
+        /// Database-authoritative time at which this evidence was computed.
+        evidence_at: ActivityTimestamp,
+    },
+}
+
+/// One context-free search item. Search results contain immutable catalog
+/// metadata and anonymous discovery evidence only.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CatalogTaxonomyFilter {
-    /// Vocabulary namespace.
-    pub scheme: String,
-    /// Controlled term within the namespace.
-    pub code: String,
+pub struct CatalogDiscoveryItem {
+    /// Exact immutable hot catalog metadata.
+    pub summary: CatalogProblemSummary,
+    /// Decomposed anonymous evidence suitable for search discovery.
+    pub evidence: CatalogDiscoveryEvidence,
 }
 
-/// Reuse-license values accepted by catalog search.
+/// Scope-explicit usage counts for one exact publication.
 ///
-/// `Other` deliberately means the supported "other SPDX" class, rather than
-/// accepting an arbitrary browser-provided SPDX string as a query primitive.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum CatalogLicenseValue {
-    /// All rights reserved.
-    AllRightsReserved,
-    /// Creative Commons Attribution.
-    CcBy,
-    /// Creative Commons Attribution-ShareAlike.
-    CcBySa,
-    /// Creative Commons Attribution-NonCommercial.
-    CcByNc,
-    /// Public-domain dedication.
-    Cc0,
-    /// A named SPDX license outside the common set.
-    Other,
-}
-
-impl CatalogLicenseValue {
-    /// Whether this value describes one metadata license.
-    pub fn matches(self, license: &License) -> bool {
-        matches!(
-            (self, license),
-            (Self::AllRightsReserved, License::AllRightsReserved)
-                | (Self::CcBy, License::CcBy)
-                | (Self::CcBySa, License::CcBySa)
-                | (Self::CcByNc, License::CcByNc)
-                | (Self::Cc0, License::Cc0)
-                | (Self::Other, License::Other { .. })
-        )
-    }
-
-    /// Classifies stored metadata without exposing an SPDX value as a facet key.
-    pub fn from_license(license: &License) -> Self {
-        match license {
-            License::AllRightsReserved => Self::AllRightsReserved,
-            License::CcBy => Self::CcBy,
-            License::CcBySa => Self::CcBySa,
-            License::CcByNc => Self::CcByNc,
-            License::Cc0 => Self::Cc0,
-            License::Other { .. } => Self::Other,
-        }
-    }
-}
-
-/// Availability filter for k-anonymous catalog statistics.
-///
-/// Statistics storage lands in MOD-STATS.  Until then every visible result is
-/// honestly `Unavailable`; this enum keeps the later aggregate implementation
-/// additive without pretending attempt history is catalog metadata.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum CatalogStatisticsAvailability {
-    /// Include results regardless of aggregate availability.
-    #[default]
-    Any,
-    /// Include only publications with a releasable anonymous aggregate.
-    Available,
-    /// Include only publications without a releasable anonymous aggregate.
-    Unavailable,
-}
-
-/// Strict, bounded catalog-search request carried across the browser boundary.
-///
-/// The server normalizes this value before both paging and aggregation.  The
-/// cursor is opaque and tied to that normalized query by the catalog store;
-/// positional paging is deliberately not representable.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CatalogSearchQuery {
-    /// Optional full-text-like text query over hot catalog metadata.
-    pub text: Option<String>,
-    /// Exact controlled-term filters. Every supplied term must be present.
-    pub taxonomy: Vec<CatalogTaxonomyFilter>,
-    /// Required adapter capabilities. Every supplied capability must be present.
-    pub capabilities: Vec<Capability>,
-    /// Accepted license classes. Any supplied value may match.
-    pub licenses: Vec<CatalogLicenseValue>,
-    /// Whether anonymous aggregate statistics must be available.
-    pub statistics: CatalogStatisticsAvailability,
-    /// Opaque continuation cursor from this exact normalized query.
-    pub cursor: Option<String>,
-    /// Requested bounded page size. `None` selects the server default.
-    pub page_size: Option<u16>,
-}
-
-impl Default for CatalogSearchQuery {
-    fn default() -> Self {
-        Self {
-            text: None,
-            taxonomy: Vec::new(),
-            capabilities: Vec::new(),
-            licenses: Vec::new(),
-            statistics: CatalogStatisticsAvailability::Any,
-            cursor: None,
-            page_size: None,
-        }
-    }
-}
-
-/// Rejection reason for a catalog search request.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CatalogSearchQueryError {
-    /// Text or a controlled-term component was blank after normalization.
-    BlankFilter,
-    /// A string field or filter collection exceeded the bounded contract.
-    TooLarge,
-    /// An opaque continuation token was empty.
-    EmptyCursor,
-}
-
-impl std::fmt::Display for CatalogSearchQueryError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::BlankFilter => formatter.write_str("catalog filter must not be blank"),
-            Self::TooLarge => formatter.write_str("catalog filter exceeds its bounded limit"),
-            Self::EmptyCursor => formatter.write_str("catalog cursor must not be empty"),
-        }
-    }
-}
-
-impl std::error::Error for CatalogSearchQueryError {}
-
-impl CatalogSearchQuery {
-    /// Returns the immutable-publication Question ID named in the text field.
-    /// Catalog text remains case-insensitive, while the ID is canonicalized
-    /// before it reaches a store. Hidden trusted evidence never appears in
-    /// this search primitive.
-    pub fn exact_question_id(&self) -> Option<QuestionId> {
-        let text = self.text.as_deref()?;
-        text.parse::<QuestionId>().ok()
-    }
-
-    /// Produces the canonical query used for both rows and facet aggregates.
-    ///
-    /// Text is Unicode-lowercased with internal whitespace collapsed.  Exact
-    /// controlled terms retain their durable case but have surrounding
-    /// whitespace removed.  Sets are sorted and deduplicated so a cursor is
-    /// stable across equivalent browser requests.
-    pub fn normalized(mut self) -> Result<Self, CatalogSearchQueryError> {
-        self.text = self
-            .text
-            .map(|text| {
-                text.split_whitespace()
-                    .collect::<Vec<_>>()
-                    .join(" ")
-                    .to_lowercase()
-            })
-            .filter(|text| !text.is_empty());
-        if self
-            .text
-            .as_ref()
-            .is_some_and(|text| text.chars().count() > 256)
-        {
-            return Err(CatalogSearchQueryError::TooLarge);
-        }
-        for term in &mut self.taxonomy {
-            term.scheme = term.scheme.trim().to_string();
-            term.code = term.code.trim().to_string();
-            if term.scheme.is_empty() || term.code.is_empty() {
-                return Err(CatalogSearchQueryError::BlankFilter);
-            }
-            if term.scheme.chars().count() > 128 || term.code.chars().count() > 128 {
-                return Err(CatalogSearchQueryError::TooLarge);
-            }
-        }
-        if self.taxonomy.len() > 64
-            || self.capabilities.len() > Capability::ALL.len()
-            || self.licenses.len() > 6
-        {
-            return Err(CatalogSearchQueryError::TooLarge);
-        }
-        self.taxonomy.sort();
-        self.taxonomy.dedup();
-        self.capabilities.sort();
-        self.capabilities.dedup();
-        self.licenses.sort();
-        self.licenses.dedup();
-        if self.cursor.as_ref().is_some_and(String::is_empty) {
-            return Err(CatalogSearchQueryError::EmptyCursor);
-        }
-        Ok(self)
-    }
-}
-
-/// Server-computed count for a controlled taxonomy value.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CatalogTaxonomyFacet {
-    /// Controlled term identity and display label.
-    pub term: TaxonomyTerm,
-    /// Number of matching discoverable publications in the query snapshot.
-    pub count: u64,
-}
-
-/// Server-computed count for one capability.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CatalogCapabilityFacet {
-    /// Capability represented by the count.
-    pub capability: Capability,
-    /// Number of matching discoverable publications in the query snapshot.
-    pub count: u64,
-}
-
-/// Server-computed count for one license class.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CatalogLicenseFacet {
-    /// License class represented by the count.
-    pub license: CatalogLicenseValue,
-    /// Number of matching discoverable publications in the query snapshot.
-    pub count: u64,
-}
-
-/// Anonymous-statistics availability counts, never attempt-derived values.
+/// Institution totals do not identify a course. Own counts describe only the
+/// requesting instructor's visible course references and are expanded by
+/// [`CatalogUsageDetail`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CatalogStatisticsFacet {
-    /// Versions whose aggregate is safely releasable. Zero before MOD-STATS.
-    pub available: u64,
-    /// Versions whose aggregate is suppressed or has not been computed.
-    pub unavailable: u64,
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CatalogUsageSummary {
+    /// Institution-wide number of distinct courses with an assignment use.
+    pub institution_course_count: u64,
+    /// Institution-wide number of assignment uses.
+    pub institution_assignment_count: u64,
+    /// Current actor's distinct courses that use this publication.
+    pub own_course_count: u64,
+    /// Current actor's assignment uses across their visible courses.
+    pub own_assignment_count: u64,
 }
 
-/// Aggregates computed by the server from the same normalized search snapshot.
+/// One current actor-visible course using an exact publication.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CatalogSearchFacets {
-    /// At most [`MAX_CATALOG_TAXONOMY_FACETS`] controlled taxonomy counts,
-    /// ordered by count descending and then `(scheme, code)`.
-    pub taxonomy: Vec<CatalogTaxonomyFacet>,
-    /// Adapter capability counts.
-    pub capabilities: Vec<CatalogCapabilityFacet>,
-    /// Reuse-license counts.
-    pub licenses: Vec<CatalogLicenseFacet>,
-    /// Honest k-anonymity availability counts.
-    pub statistics: CatalogStatisticsFacet,
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CatalogOwnCourseUsage {
+    /// Authorized public course locator; it is never authority by itself.
+    pub course: CourseReference,
+    /// Current course title visible to the requesting instructor.
+    pub title: String,
+    /// Number of current assignment uses in this course.
+    pub assignment_count: u64,
+}
+
+/// Bounded exact-detail usage projection for a requesting instructor.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CatalogUsageDetail {
+    /// Scope-explicit aggregate counts for this exact publication.
+    pub summary: CatalogUsageSummary,
+    /// At most [`MAX_CATALOG_OWN_COURSE_USAGES`] actor-visible course rows.
+    pub own_courses: Vec<CatalogOwnCourseUsage>,
+    /// Whether additional actor-visible course rows remain beyond this bounded list.
+    pub own_courses_truncated: bool,
 }
 
 /// Bounded search page with aggregates from the same catalog snapshot.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CatalogSearchPage {
-    /// At most the request's validated page size of hot metadata rows.
-    pub items: Vec<CatalogProblemSummary>,
+    /// At most the request's validated page size of context-free discovery rows.
+    pub items: Vec<CatalogDiscoveryItem>,
     /// Opaque continuation token, bound to the normalized query.
     pub next_cursor: Option<String>,
     /// Server-side facet counts; clients must not infer them from `items`.
     pub facets: CatalogSearchFacets,
 }
 
-/// Explicit anonymous-statistics status for an exact catalog detail page.
-///
-/// `Unavailable` preserves the established scalar wire value and deliberately
-/// does not distinguish a below-k cohort from an aggregate not yet populated.
-/// The available variant carries only the k-anonymity-gated safe projection.
+/// Safe immutable content projection for catalog detail.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum CatalogStatisticsStatus {
-    /// No releasable anonymous aggregate is available yet or the cohort is
-    /// below the disclosure threshold.
-    Unavailable,
-    /// A k-anonymity-gated shared aggregate is safe to disclose.
-    Available(QuestionStatisticsView),
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+pub enum CatalogPromptProjection {
+    /// The immutable publication contains one fixed prompt.
+    Static {
+        /// Browser-safe prompt blocks in authored order.
+        blocks: Vec<crate::envelope::ContentBlock>,
+    },
+    /// One deterministic, server-materialized example of a variable prompt.
+    GeneratedExample {
+        /// Browser-safe prompt blocks with every authored parameter resolved.
+        blocks: Vec<crate::envelope::ContentBlock>,
+    },
 }
 
 /// Safe immutable content projection for catalog detail.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CatalogProblemDetail {
     /// Exact immutable hot metadata for this publication.
     pub summary: CatalogProblemSummary,
-    /// Authored display content only; source, response, grading, and keys are excluded.
-    pub prompt: Vec<crate::envelope::ContentBlock>,
-    /// Anonymous-statistics state, intentionally unavailable before MOD-STATS.
-    pub statistics: CatalogStatisticsStatus,
+    /// Static content or one server-materialized example; source, response,
+    /// randomization, grading, keys, and the preview seed are excluded.
+    pub prompt: CatalogPromptProjection,
+    /// Explainable anonymous evidence for this exact publication.
+    pub evidence: CatalogDiscoveryEvidence,
+    /// Bounded current-actor usage evidence for this exact publication.
+    pub usage: CatalogUsageDetail,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Capability;
 
     #[test]
     fn question_ids_normalize_forgiving_input_without_accepting_other_characters() {
@@ -673,6 +557,10 @@ mod tests {
             serde_json::to_string(&QuestionBackend::Webwork).expect("backend serializes"),
             "\"webwork\""
         );
+        assert_eq!(
+            QuestionBackend::ALL.map(QuestionBackend::as_str),
+            ["native", "webwork", "qti", "h5p", "imathas"]
+        );
     }
 
     #[test]
@@ -696,6 +584,16 @@ mod tests {
     fn catalog_search_normalizes_equivalent_filters_and_bounds_hostile_input() {
         let query = CatalogSearchQuery {
             text: Some("  Peptide\tBond  ".to_string()),
+            bylines: vec![
+                "  Dr. Ada  Lovelace ".to_string(),
+                "dr. ada lovelace".to_string(),
+            ],
+            backends: vec![QuestionBackend::Native, QuestionBackend::Native],
+            tags: vec![
+                " Protein   Structure ".to_string(),
+                "protein structure".to_string(),
+            ],
+            response_families: vec![CatalogResponseFamily::MultipleChoice; 2],
             taxonomy: vec![
                 CatalogTaxonomyFilter {
                     scheme: "  discipline ".to_string(),
@@ -713,6 +611,13 @@ mod tests {
         .normalized()
         .expect("equivalent filters normalize");
         assert_eq!(query.text.as_deref(), Some("peptide bond"));
+        assert_eq!(query.bylines, vec!["dr. ada lovelace"]);
+        assert_eq!(query.backends, vec![QuestionBackend::Native]);
+        assert_eq!(query.tags, vec!["protein structure"]);
+        assert_eq!(
+            query.response_families,
+            vec![CatalogResponseFamily::MultipleChoice]
+        );
         assert_eq!(query.taxonomy.len(), 1);
         assert_eq!(query.capabilities, vec![Capability::Hints]);
         assert_eq!(query.licenses, vec![CatalogLicenseValue::CcBy]);
@@ -732,6 +637,7 @@ mod tests {
             summary: CatalogProblemSummary {
                 question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
                 backend: QuestionBackend::Native,
+                response_family: CatalogResponseFamily::MultipleChoice,
                 capabilities: BackendCapabilities::none(),
                 metadata: QuestionMetadata {
                     title: "Safe detail".to_string(),
@@ -749,39 +655,56 @@ mod tests {
                 lifecycle: CatalogLifecycle::Published,
                 published_at: ActivityTimestamp::from_unix_millis(0),
             },
-            prompt: Vec::new(),
-            statistics: CatalogStatisticsStatus::Unavailable,
+            prompt: CatalogPromptProjection::Static { blocks: Vec::new() },
+            evidence: CatalogDiscoveryEvidence::InsufficientEvidence,
+            usage: CatalogUsageDetail {
+                summary: CatalogUsageSummary {
+                    institution_course_count: 0,
+                    institution_assignment_count: 0,
+                    own_course_count: 0,
+                    own_assignment_count: 0,
+                },
+                own_courses: Vec::new(),
+                own_courses_truncated: false,
+            },
         };
         let wire = serde_json::to_value(detail).expect("detail serializes");
         assert!(wire.get("source").is_none());
         assert!(wire.get("response").is_none());
+        assert!(wire.get("randomization").is_none());
+        assert!(wire.get("seed").is_none());
         assert!(wire.get("grading").is_none());
         assert!(wire.get("answerKey").is_none());
     }
 
     #[test]
-    fn statistics_status_preserves_unavailable_wire_and_adds_available() {
+    fn discovery_evidence_serializes_as_a_closed_explainable_union() {
         assert_eq!(
-            serde_json::to_value(CatalogStatisticsStatus::Unavailable)
-                .expect("unavailable status serializes"),
-            serde_json::json!("unavailable")
+            serde_json::to_value(CatalogDiscoveryEvidence::InsufficientEvidence)
+                .expect("insufficient evidence serializes"),
+            serde_json::json!({ "state": "insufficientEvidence" })
         );
         assert_eq!(
-            serde_json::to_value(CatalogStatisticsStatus::Available(QuestionStatisticsView {
-                cohort_size: 5,
+            serde_json::to_value(CatalogDiscoveryEvidence::Available {
+                formula_version: 1,
+                observed_course_count: 2,
+                independent_learner_observation_count: 5,
                 difficulty_index: 0.7,
                 attempts_mean: 1.2,
                 time_median_seconds_estimate: 30,
                 discrimination_index: None,
-            }))
-            .expect("available status serializes"),
+                evidence_at: ActivityTimestamp::from_unix_millis(0),
+            })
+            .expect("available evidence serializes"),
             serde_json::json!({
-                "available": {
-                    "cohortSize": 5,
-                    "difficultyIndex": 0.7,
-                    "attemptsMean": 1.2,
-                    "timeMedianSecondsEstimate": 30
-                }
+                "state": "available",
+                "formulaVersion": 1,
+                "observedCourseCount": 2,
+                "independentLearnerObservationCount": 5,
+                "difficultyIndex": 0.7,
+                "attemptsMean": 1.2,
+                "timeMedianSecondsEstimate": 30,
+                "evidenceAt": 0
             })
         );
     }

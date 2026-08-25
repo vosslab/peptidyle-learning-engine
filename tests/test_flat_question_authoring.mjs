@@ -86,6 +86,7 @@ function publicationSummary(backend = "native") {
   return {
     questionId: "7K3-M9QP",
     backend,
+    responseFamily: "multipleChoice",
     capabilities: ["serverGrading"],
     metadata: publicDefinition().metadata,
     byline: { names: ["Fixture Instructor"] },

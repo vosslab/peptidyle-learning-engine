@@ -567,8 +567,14 @@ fn generate_enum(item: &syn::ItemEnum) -> Result<Generated> {
                         bail!("named field without an identifier");
                     };
                     let field_name = apply_rename(&ident.to_string(), field_rule.as_deref())?;
-                    let mapped = map_type(&field.ty, &mut dependencies)?;
-                    lines.push(format!("    {field_name}: {mapped};"));
+                    let optional = skips_when_none(&field.attrs);
+                    let mapped = if optional {
+                        option_inner_type(&field.ty, &mut dependencies)?
+                    } else {
+                        map_type(&field.ty, &mut dependencies)?
+                    };
+                    let marker = if optional { "?" } else { "" };
+                    lines.push(format!("    {field_name}{marker}: {mapped};"));
                 }
                 members.push(format!("{{ {name}: {{\n{}\n  }} }}", lines.join("\n")));
             }
@@ -588,8 +594,14 @@ fn generate_enum(item: &syn::ItemEnum) -> Result<Generated> {
                         bail!("named field without an identifier");
                     };
                     let field_name = apply_rename(&ident.to_string(), field_rule.as_deref())?;
-                    let mapped = map_type(&field.ty, &mut dependencies)?;
-                    lines.push(format!("      {field_name}: {mapped};"));
+                    let optional = skips_when_none(&field.attrs);
+                    let mapped = if optional {
+                        option_inner_type(&field.ty, &mut dependencies)?
+                    } else {
+                        map_type(&field.ty, &mut dependencies)?
+                    };
+                    let marker = if optional { "?" } else { "" };
+                    lines.push(format!("      {field_name}{marker}: {mapped};"));
                 }
                 members.push(format!("{{\n{}\n    }}", lines.join("\n")));
             }
@@ -902,6 +914,27 @@ mod tests {
             "\"unavailable\" | { available: Statistics }"
         );
         assert!(generated.dependencies.contains("Statistics"));
+    }
+
+    #[test]
+    fn tagged_enum_omitted_options_become_optional_properties() {
+        let item: syn::ItemEnum = syn::parse_quote! {
+            #[derive(Serialize)]
+            #[serde(tag = "state", rename_all = "camelCase", rename_all_fields = "camelCase")]
+            pub enum Evidence {
+                Available {
+                    #[serde(skip_serializing_if = "Option::is_none")]
+                    discrimination_index: Option<f64>,
+                },
+            }
+        };
+        let generated = generate_enum(&item).expect("generation should support omitted options");
+        assert!(generated.body.contains("discriminationIndex?: number;"));
+        assert!(
+            !generated
+                .body
+                .contains("discriminationIndex: number | null;")
+        );
     }
 
     #[test]

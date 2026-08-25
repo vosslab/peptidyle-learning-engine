@@ -1,0 +1,225 @@
+// assignment_editor_picker_controller.ts - shared-picker composition for assignment destinations.
+
+import { createSignal, type Accessor } from "solid-js";
+
+import type { AssignmentId } from "../../generated/api/AssignmentId";
+import type { CourseId } from "../../generated/api/CourseId";
+import {
+  appendFixedEntries,
+  assignmentEditorDraftFrom,
+  fixedEntries,
+  type AssignmentCatalogRow,
+  type AssignmentEditorDraft,
+} from "./assignment_editor_model";
+import {
+  assignmentPickerMaximum,
+  type AssignmentPickerIntent,
+} from "./assignment_editor_picker_model";
+import type { AssignmentEditorRepository } from "./assignment_editor_repository";
+import type { AssignmentEditorDetail } from "../api/contracts";
+import type { ProblemPickerSelection, ProblemPickerSource } from "../features/problem_picker";
+
+export type AssignmentPickerMode =
+  { readonly kind: "edit"; readonly assignmentId: AssignmentId } | { readonly kind: "create" };
+
+export interface PendingPickerSelection {
+  readonly intent: AssignmentPickerIntent;
+  readonly questionIds: ReadonlyArray<string>;
+}
+
+export interface AssignmentEditorPickerControllerProps {
+  readonly repository: AssignmentEditorRepository;
+  readonly courseId: CourseId;
+  readonly mode: AssignmentPickerMode;
+  readonly currentDraft: () => AssignmentEditorDraft | undefined;
+  readonly editorBusy: () => boolean;
+  readonly setBusy: (value: boolean) => void;
+  readonly onDraftChange: (draft: AssignmentEditorDraft) => void;
+  readonly onSaved: (saved: AssignmentEditorDetail) => void;
+  readonly onReplacementPrepared: (row: AssignmentCatalogRow, itemId: string) => void;
+  readonly onMessage: (message: string) => void;
+  readonly onError: (error: unknown, fallback: string) => void;
+}
+
+export interface AssignmentEditorPickerController {
+  readonly sources: Accessor<ReadonlyArray<ProblemPickerSource>>;
+  readonly intent: Accessor<AssignmentPickerIntent | undefined>;
+  readonly pendingSelection: Accessor<PendingPickerSelection | undefined>;
+  readonly trigger: () => HTMLButtonElement | undefined;
+  readonly loadSources: () => Promise<void>;
+  readonly open: (intent: AssignmentPickerIntent, trigger: HTMLButtonElement) => void;
+  readonly useSelection: (selection: ProblemPickerSelection) => Promise<void>;
+  readonly retryPendingSelection: () => Promise<void>;
+  readonly cancel: () => void;
+  readonly maximum: (intent: AssignmentPickerIntent) => number;
+}
+
+async function resolveRows(
+  repository: AssignmentEditorRepository,
+  questionIds: ReadonlyArray<string>,
+): Promise<ReadonlyArray<AssignmentCatalogRow>> {
+  return await Promise.all(
+    questionIds.map(async (questionId) => await repository.resolvePublished(questionId)),
+  );
+}
+
+export function createAssignmentEditorPickerController(
+  props: AssignmentEditorPickerControllerProps,
+): AssignmentEditorPickerController {
+  const [sources, setSources] = createSignal<ReadonlyArray<ProblemPickerSource>>([]);
+  const [intent, setIntent] = createSignal<AssignmentPickerIntent>();
+  const [pendingSelection, setPendingSelection] = createSignal<PendingPickerSelection>();
+  let pickerTrigger: HTMLButtonElement | undefined;
+
+  function maximum(nextIntent: AssignmentPickerIntent): number {
+    const draft = props.currentDraft();
+    return draft === undefined ? 0 : assignmentPickerMaximum(draft, nextIntent);
+  }
+
+  function open(nextIntent: AssignmentPickerIntent, trigger: HTMLButtonElement): void {
+    if (maximum(nextIntent) < 1) {
+      props.onMessage(
+        nextIntent.kind === "pool"
+          ? "This pool has reached its candidate limit. Remove a candidate before choosing another."
+          : "This assignment has reached its ordered-entry limit. Remove an entry before adding another question.",
+      );
+      return;
+    }
+    pickerTrigger = trigger;
+    setIntent(nextIntent);
+    setPendingSelection(undefined);
+  }
+
+  function addCreateRows(rows: ReadonlyArray<AssignmentCatalogRow>): void {
+    const draft = props.currentDraft();
+    if (draft === undefined) return;
+    const nextDraft = appendFixedEntries(draft, rows);
+    if (nextDraft === draft) {
+      props.onMessage("Every selected Question ID is already in this assignment.");
+      return;
+    }
+    props.onDraftChange(nextDraft);
+    props.onMessage(
+      `Added ${rows.length} selected question${rows.length === 1 ? "" : "s"} to this unsaved assignment.`,
+    );
+  }
+
+  async function addSavedRows(rows: ReadonlyArray<AssignmentCatalogRow>): Promise<void> {
+    if (props.mode.kind !== "edit") return;
+    const initialDraft = props.currentDraft();
+    if (initialDraft === undefined) return;
+    let draft = initialDraft;
+    let added = 0;
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index];
+      if (
+        row === undefined ||
+        fixedEntries(draft).some((entry) => entry.questionId === row.questionId)
+      ) {
+        continue;
+      }
+      try {
+        const saved = await props.repository.add(
+          props.courseId,
+          props.mode.assignmentId,
+          { questionId: row.questionId, position: draft.entries.length },
+          draft.revision,
+        );
+        draft = assignmentEditorDraftFrom(saved);
+        added += 1;
+        props.onSaved(saved);
+      } catch (error: unknown) {
+        const questionIds = rows.slice(index).map((candidate) => candidate.questionId);
+        setPendingSelection({ intent: { kind: "fixed" }, questionIds });
+        throw error;
+      }
+    }
+    props.onMessage(
+      added === 0
+        ? "Every selected Question ID is already in this assignment."
+        : `${added} selected question${added === 1 ? " was" : "s were"} added. The server confirmed each assignment item.`,
+    );
+  }
+
+  function addPoolRows(entryIndex: number, rows: ReadonlyArray<AssignmentCatalogRow>): void {
+    const draft = props.currentDraft();
+    const entry = draft?.entries[entryIndex];
+    if (draft === undefined || entry === undefined || entry.kind !== "selectionGroup") return;
+    const known = new Set(entry.candidates.map((candidate) => candidate.questionId));
+    const candidates = [...entry.candidates, ...rows.filter((row) => !known.has(row.questionId))];
+    if (candidates.length === entry.candidates.length) {
+      props.onMessage("Every selected Question ID is already a candidate in this pool.");
+      return;
+    }
+    const entries = [...draft.entries];
+    entries[entryIndex] = { ...entry, candidates };
+    props.onDraftChange({ ...draft, entries });
+    const added = candidates.length - entry.candidates.length;
+    props.onMessage(
+      `${added} candidate Question ID${added === 1 ? "" : "s"} added to this pool. Set its draw count, then save the assignment.`,
+    );
+  }
+
+  async function useSelection(selection: ProblemPickerSelection): Promise<void> {
+    const currentIntent = intent();
+    if (currentIntent === undefined || props.editorBusy()) return;
+    props.setBusy(true);
+    try {
+      if (currentIntent.kind === "replacement") {
+        const questionId = selection.questionIds[0];
+        if (questionId === undefined) return;
+        const row = await props.repository.resolvePublished(questionId);
+        props.onReplacementPrepared(row, currentIntent.itemId);
+      } else {
+        const rows = await resolveRows(props.repository, selection.questionIds);
+        if (currentIntent.kind === "pool") addPoolRows(currentIntent.entryIndex, rows);
+        else if (props.mode.kind === "create") addCreateRows(rows);
+        else await addSavedRows(rows);
+      }
+      setIntent(undefined);
+    } catch (error: unknown) {
+      if (pendingSelection() === undefined) {
+        setPendingSelection({ intent: currentIntent, questionIds: selection.questionIds });
+      }
+      props.onError(
+        error,
+        "The selected questions were not added. Your ordered Question IDs remain ready to retry.",
+      );
+    } finally {
+      props.setBusy(false);
+    }
+  }
+
+  async function retryPendingSelection(): Promise<void> {
+    const pending = pendingSelection();
+    if (pending === undefined) return;
+    setIntent(pending.intent);
+    await useSelection({ questionIds: pending.questionIds, questions: [] });
+    if (pendingSelection()?.questionIds === pending.questionIds) setPendingSelection(undefined);
+  }
+
+  async function loadSources(): Promise<void> {
+    try {
+      const exclude = props.mode.kind === "edit" ? props.mode.assignmentId : undefined;
+      setSources(await props.repository.listProblemPickerSources(props.courseId, exclude));
+    } catch {
+      setSources([{ kind: "catalog", label: "Library" }]);
+      props.onMessage(
+        "Collections could not load. The Library and direct Question ID entry are ready.",
+      );
+    }
+  }
+
+  return {
+    sources,
+    intent,
+    pendingSelection,
+    trigger: () => pickerTrigger,
+    loadSources,
+    open,
+    useSelection,
+    retryPendingSelection,
+    cancel: () => setIntent(undefined),
+    maximum,
+  };
+}

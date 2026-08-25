@@ -407,4 +407,19 @@ export const ASSIGNMENT_EDITOR_STYLES = `
     max-height: none;
   }
 }
+
+@media (max-width: 40rem) {
+  .assignment-editor-row,
+  .assignment-editor-pool,
+  .assignment-editor-catalog-results .assignment-editor-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .assignment-editor-row-actions {
+    grid-row: auto;
+    grid-column: 1;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
 `;

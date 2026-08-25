@@ -4,7 +4,9 @@
 //! This database-facing test proves that the `1818` capability boundary remains closed when a
 //! future Rust caller changes or migration privilege is accidentally widened.
 
-use learning_data_access::postgres::{apply_migrations, lazy_pool, migration_status};
+use learning_data_access::postgres::{
+    apply_migrations, lazy_pool, migration_status, verify_base_course_freshness_capability,
+};
 use serde_json::{Value, json};
 use sqlx::{PgPool, Postgres, Row, Transaction};
 use uuid::Uuid;
@@ -38,6 +40,7 @@ mod roster_mutator;
 use prefix_support::*;
 
 const COURSE_CREATION_MIGRATION: i64 = 2_026_081_818;
+const BASE_COURSE_FRESHNESS_REGISTRATION_MIGRATION: i64 = 2_026_081_835;
 const RECEIPT: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 static MIGRATION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
@@ -64,6 +67,9 @@ async fn pool() -> PgPool {
     apply_migrations(&pool)
         .await
         .expect("migration epoch converges");
+    verify_base_course_freshness_capability(&pool)
+        .await
+        .expect("Base Course freshness capability is catalog-complete");
     let version: i32 = sqlx::query_scalar("SELECT current_setting('server_version_num')::int4")
         .fetch_one(&pool)
         .await
@@ -85,6 +91,13 @@ async fn pool() -> PgPool {
             .iter()
             .any(|entry| entry.version() == COURSE_CREATION_MIGRATION),
         "course-creation authority migration is installed"
+    );
+    assert!(
+        status
+            .entries()
+            .iter()
+            .any(|entry| entry.version() == BASE_COURSE_FRESHNESS_REGISTRATION_MIGRATION),
+        "Base Course freshness registration migration is installed"
     );
     pool
 }

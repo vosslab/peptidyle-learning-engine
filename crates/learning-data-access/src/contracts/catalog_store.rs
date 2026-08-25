@@ -50,6 +50,7 @@ pub trait CatalogStore: Send + Sync {
     async fn search_catalog(
         &self,
         context: TenantContext,
+        session: SessionTokenHash,
         query: CatalogSearchQuery,
     ) -> Result<CatalogSearchPage, StoreError>;
 
@@ -59,16 +60,28 @@ pub trait CatalogStore: Send + Sync {
     async fn get_catalog_detail(
         &self,
         context: TenantContext,
+        _session: SessionTokenHash,
         reference: ProblemVersionRef,
     ) -> Result<Option<CatalogProblemDetail>, StoreError> {
-        Ok(self
-            .get_catalog_problem(context, reference)
-            .await?
-            .map(|record| CatalogProblemDetail {
-                summary: record.summary(),
-                prompt: record.question.prompt,
-                statistics: question_model::CatalogStatisticsStatus::Unavailable,
-            }))
+        let Some(record) = self.get_catalog_problem(context, reference).await? else {
+            return Ok(None);
+        };
+        let prompt = crate::catalog_prompt::catalog_prompt_projection(&record.question)?;
+        Ok(Some(CatalogProblemDetail {
+            summary: record.summary(),
+            prompt,
+            evidence: question_model::CatalogDiscoveryEvidence::InsufficientEvidence,
+            usage: question_model::CatalogUsageDetail {
+                summary: question_model::CatalogUsageSummary {
+                    institution_course_count: 0,
+                    institution_assignment_count: 0,
+                    own_course_count: 0,
+                    own_assignment_count: 0,
+                },
+                own_courses: Vec::new(),
+                own_courses_truncated: false,
+            },
+        }))
     }
 
     /// Applies an author-owned, one-way post-publication transition.

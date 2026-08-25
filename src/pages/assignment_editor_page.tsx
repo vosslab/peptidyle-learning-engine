@@ -43,6 +43,8 @@ import {
 } from "./assignment_teaching_operations_panel";
 import { assignmentRouteReference, courseRouteReference } from "../navigation/public_route";
 import { AssignmentEditorSavedLinks } from "./assignment_editor_saved_links";
+import { createAssignmentEditorPickerController } from "./assignment_editor_picker_controller";
+import { AssignmentEditorProblemPicker } from "./assignment_editor_problem_picker";
 export type AssignmentEditorMode =
   { readonly kind: "edit"; readonly assignmentId: AssignmentId } | { readonly kind: "create" };
 export interface AssignmentEditorPageProps {
@@ -98,6 +100,27 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
     const current = state();
     return current.kind === "ready" ? current : undefined;
   };
+  const pickerController = createAssignmentEditorPickerController({
+    repository: props.repository,
+    courseId: props.courseId,
+    mode: props.mode,
+    currentDraft: () => ready()?.draft,
+    editorBusy,
+    setBusy,
+    onDraftChange: update,
+    onSaved: (saved) => {
+      setState({ kind: "ready", draft: assignmentEditorDraftFrom(saved) });
+      setSavedAssignmentReference(saved.reference);
+      setPoolPreview(undefined);
+    },
+    onReplacementPrepared: (row, itemId) => {
+      catalogController.setSelected(row);
+      setTargetItemId(itemId);
+      setMessage(`${row.questionId} is ready to replace the selected assignment question.`);
+    },
+    onMessage: setMessage,
+    onError: handleError,
+  });
   function beginReplacement(itemId: string): void {
     setTargetItemId(itemId);
     queueMicrotask(() => replacementQuestionInput?.focus());
@@ -489,6 +512,7 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
   async function initialize(): Promise<void> {
     await load();
     if (props.mode.kind === "create") await reuseController.load();
+    await pickerController.loadSources();
   }
   onMount(() => void initialize());
   return (
@@ -606,6 +630,24 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
               {(validationError) => (
                 <section class="inline-error" role="alert">
                   <p>{validationError()}</p>
+                </section>
+              )}
+            </Show>
+            <Show when={pickerController.pendingSelection()}>
+              {(pending) => (
+                <section class="inline-error assignment-editor-picker-retry" role="alert">
+                  <p>
+                    {pending().questionIds.length} selected Question ID
+                    {pending().questionIds.length === 1 ? " remains" : "s remain"} ready to add.
+                    Review the current assignment, then retry the server-backed update.
+                  </p>
+                  <button
+                    class="quiet-action"
+                    type="button"
+                    onClick={() => void pickerController.retryPendingSelection()}
+                  >
+                    Retry selected questions
+                  </button>
                 </section>
               )}
             </Show>
@@ -760,6 +802,9 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                       onRemovePool={removeEntry}
                       onMessage={setMessage}
                       onPreviewPool={(groupPosition) => void previewPoolDraw(groupPosition)}
+                      onChoosePoolCandidates={(entryIndex, trigger) =>
+                        pickerController.open({ kind: "pool", entryIndex }, trigger)
+                      }
                     />
                   </Show>
                   <details class="assignment-editor-direct-import">
@@ -837,14 +882,12 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                     />
                   </Show>
                   <h2>
-                    {targetItemId() === undefined
-                      ? "Add from library"
-                      : "Replace assigned question"}
+                    {targetItemId() === undefined ? "Add questions" : "Replace assigned question"}
                   </h2>
                   <Show when={props.mode.kind === "edit" && targetItemId() === undefined}>
                     <p class="assignment-editor-note">
-                      Add one published Question ID at a time. The server assigns its item identity.
-                      Add and remove are available before student work begins.
+                      Choose one or more published questions. The server assigns each item identity
+                      and confirms every addition before student work begins.
                     </p>
                   </Show>
                   <Show when={targetItemId() !== undefined}>
@@ -906,6 +949,21 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                         ? "Add question"
                         : "Replace with selected question"}
                     </button>
+                    <button
+                      class="quiet-action"
+                      type="button"
+                      disabled={pickerController.sources().length === 0 || busy()}
+                      onClick={(event) =>
+                        pickerController.open(
+                          targetItemId() === undefined
+                            ? { kind: "fixed" }
+                            : { kind: "replacement", itemId: targetItemId()! },
+                          event.currentTarget,
+                        )
+                      }
+                    >
+                      {targetItemId() === undefined ? "Choose questions" : "Choose replacement"}
+                    </button>
                   </div>
                   <Show when={catalogController.selected()}>
                     {(row) => (
@@ -915,44 +973,13 @@ export function AssignmentEditorPage(props: AssignmentEditorPageProps): JSX.Elem
                       </p>
                     )}
                   </Show>
-                  <label class="assignment-editor-field">
-                    Search published questions
-                    <input
-                      value={catalogController.search()}
-                      onInput={(event) => catalogController.setSearch(event.currentTarget.value)}
-                    />
-                  </label>
-                  <button
-                    class="quiet-action"
-                    onClick={() => void catalogController.searchCatalog(setMessage)}
-                  >
-                    Search library
-                  </button>
-                  <div class="assignment-editor-catalog-results">
-                    <For each={catalogController.rows()}>
-                      {(row) => (
-                        <article class="assignment-editor-row">
-                          <h3>{row.title}</h3>
-                          <p>
-                            <CopyableQuestionId displayId={row.questionId} />{" "}
-                            {questionBackendLabel(row.backend)}
-                          </p>
-                          <button
-                            class="quiet-action"
-                            onClick={() => {
-                              catalogController.setReplacementText(row.questionId);
-                              catalogController.setSelected(row);
-                            }}
-                          >
-                            Use this Question ID
-                          </button>
-                        </article>
-                      )}
-                    </For>
-                  </div>
                 </section>
               </div>
             </fieldset>
+            <AssignmentEditorProblemPicker
+              repository={props.repository}
+              controller={pickerController}
+            />
           </>
         )}
       </Show>

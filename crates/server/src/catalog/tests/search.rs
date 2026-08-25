@@ -204,7 +204,7 @@ async fn catalog_search_and_safe_detail_are_authenticated_bounded_and_non_cachea
     let tenant = TenantId::from_uuid(id(1));
     let context = TenantContext::from_authenticated_session(tenant);
     let publisher = UserId::from_uuid(id(901));
-    let cookie = issued_cookie(&store, vec![UserRole::Instructor], publisher).await;
+    let cookie = issued_approved_instructor_cookie(&store, publisher).await;
     let workspace = WorkspaceId::from_uuid(id(902));
     let version = VersionId::from_uuid(id(903));
     let draft_revision = store
@@ -240,7 +240,9 @@ async fn catalog_search_and_safe_detail_are_authenticated_bounded_and_non_cachea
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/api/problems/search?text=catalog&pageSize=1")
+                .uri(
+                    "/api/problems/search?text=catalog&bylines=PLE%20fixture&backends=native&backends=qti&responseFamilies=numeric&responseFamilies=shortText&licenses=ccBySa&licenses=cc0&usedInMyCourses=any&pageSize=1",
+                )
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .expect("search request"),
@@ -251,10 +253,11 @@ async fn catalog_search_and_safe_detail_are_authenticated_bounded_and_non_cachea
     assert_eq!(search.headers()["cache-control"], "no-store");
     let search = response_json(search).await;
     assert_eq!(search["items"].as_array().map(Vec::len), Some(1));
-    assert_eq!(search["facets"]["statistics"]["available"], 0);
-    assert_eq!(search["facets"]["statistics"]["unavailable"], 1);
+    assert_eq!(search["facets"]["evidence"]["available"], 0);
+    assert_eq!(search["facets"]["evidence"]["unavailable"], 1);
+    assert_eq!(search["items"][0]["summary"]["responseFamily"], "numeric");
 
-    let display_reference = search["items"][0]["questionId"]
+    let display_reference = search["items"][0]["summary"]["questionId"]
         .as_str()
         .expect("Question ID")
         .to_string();
@@ -273,11 +276,11 @@ async fn catalog_search_and_safe_detail_are_authenticated_bounded_and_non_cachea
     let exact_search = response_json(exact_search).await;
     assert_eq!(exact_search["items"].as_array().map(Vec::len), Some(1));
     assert_eq!(
-        exact_search["items"][0]["questionId"],
-        search["items"][0]["questionId"]
+        exact_search["items"][0]["summary"]["questionId"],
+        search["items"][0]["summary"]["questionId"]
     );
-    assert!(exact_search["items"][0].get("problem").is_none());
-    assert!(exact_search["items"][0].get("version").is_none());
+    assert!(exact_search["items"][0]["summary"].get("problem").is_none());
+    assert!(exact_search["items"][0]["summary"].get("version").is_none());
 
     let retired = app
         .clone()
@@ -309,7 +312,45 @@ async fn catalog_search_and_safe_detail_are_authenticated_bounded_and_non_cachea
     for forbidden in ["source", "response", "grading", "answerKey", "provider"] {
         assert!(detail.get(forbidden).is_none(), "detail leaked {forbidden}");
     }
-    assert_eq!(detail["statistics"], "unavailable");
+    assert_eq!(detail["prompt"]["kind"], "static");
+    let prompt = detail["prompt"]
+        .as_object()
+        .expect("catalog prompt is one closed projection");
+    assert_eq!(prompt.len(), 2);
+    assert!(prompt.contains_key("kind"));
+    assert!(prompt.contains_key("blocks"));
+    for forbidden in [
+        "seed",
+        "randomization",
+        "source",
+        "response",
+        "grading",
+        "answer",
+        "answerKey",
+    ] {
+        assert!(
+            prompt.get(forbidden).is_none(),
+            "catalog prompt leaked {forbidden}"
+        );
+    }
+    assert_eq!(detail["evidence"]["state"], "insufficientEvidence");
+    assert!(detail.get("statistics").is_none());
+    assert_eq!(detail["usage"]["summary"]["ownCourseCount"], 0);
+    assert_eq!(detail["usage"]["ownCourses"], serde_json::json!([]));
+
+    let duplicate_text = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/problems/search?text=catalog&text=duplicate")
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .expect("duplicate scalar request"),
+        )
+        .await
+        .expect("duplicate scalar response");
+    assert_eq!(duplicate_text.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(duplicate_text.headers()["cache-control"], "no-store");
 
     let hostile = app
         .oneshot(
@@ -418,7 +459,7 @@ async fn catalog_search_rejects_a_cursor_forged_with_an_ordinary_sha256() {
     let tenant = TenantId::from_uuid(id(1));
     let context = TenantContext::from_authenticated_session(tenant);
     let publisher = UserId::from_uuid(id(951));
-    let cookie = issued_cookie(&store, vec![UserRole::Instructor], publisher).await;
+    let cookie = issued_approved_instructor_cookie(&store, publisher).await;
     let app = router(
         Arc::clone(&store),
         Arc::new(FixtureRegistry {

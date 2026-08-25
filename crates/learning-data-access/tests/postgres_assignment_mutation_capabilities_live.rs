@@ -119,7 +119,7 @@ async fn source(pool: &PgPool) -> Source {
         .bind(source.tenant).bind(source.course).bind(source.accommodation_group).execute(&mut *tx).await.expect("accommodation group");
     sqlx::query("INSERT INTO problem (problem_id,owner_tenant_id,owner_user_id,visibility,license,lifecycle,question_id) VALUES ($1,$2,$3,'institution','CC-BY','published',$4)")
         .bind(source.problem).bind(source.tenant).bind(source.actor).bind(question_id).execute(&mut *tx).await.expect("problem");
-    sqlx::query("INSERT INTO problem_version (problem_id,version_id,content_sha256,workspace_id,title,lifecycle,backend,publication_scope,author_ids,public_byline) VALUES ($1,$2,$3,$4,'Authority problem','published','native','institution',jsonb_build_array($5::text),ARRAY['Oracle author'])")
+    sqlx::query("INSERT INTO problem_version (problem_id,version_id,content_sha256,workspace_id,title,lifecycle,backend,publication_scope,author_ids,public_byline,response_family) VALUES ($1,$2,$3,$4,'Authority problem','published','native','institution',jsonb_build_array($5::text),ARRAY['Oracle author'],'shortText')")
         .bind(source.problem).bind(source.version).bind("a".repeat(64)).bind(id()).bind(source.actor).execute(&mut *tx).await.expect("published version");
     sqlx::query(
         "INSERT INTO catalog_tenant_grant (tenant_id,problem_id,version_id) VALUES ($1,$2,$3)",

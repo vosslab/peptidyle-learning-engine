@@ -77,7 +77,7 @@ use crate::{
     ReservePrefetchedQuestionCommand, RetentionApiStore, RetentionCleanupManifest, RetentionDays,
     RetentionDispatchBatch, RetentionRevision, RetentionScheduleStore, RetentionStore,
     RetentionWork, RetentionWorkerCommand, RetentionWorkerStore, RunSummaryOutcomeInput,
-    RunSummaryPageInput, Store, StoreError, StoredAssignment, StoredCourseGroup,
+    RunSummaryPageInput, SessionTokenHash, Store, StoreError, StoredAssignment, StoredCourseGroup,
     SubmissionIdempotencyKey, SubmissionNextAttempt, SubmissionRecord,
     SubmitQuestionAttemptCommand, TenantContext, WorkspaceDraft, WorkspaceDraftRevision,
     assignment_scoring_changed, completed_run_score, current_run_questions,
@@ -128,7 +128,11 @@ pub use base_course_install::{
     acquire_base_course_install_lock,
 };
 #[cfg(feature = "postgres")]
+mod assignment_recalculation;
+#[cfg(feature = "postgres")]
 mod assignment_records;
+#[cfg(feature = "postgres")]
+mod assignment_scoring_publication;
 #[cfg(feature = "postgres")]
 use assignment_records::*;
 #[cfg(feature = "postgres")]
@@ -206,6 +210,8 @@ mod invitation_delivery;
 #[cfg(feature = "postgres")]
 mod item_analysis;
 #[cfg(feature = "postgres")]
+mod item_analysis_publication;
+#[cfg(feature = "postgres")]
 mod jobs;
 #[cfg(feature = "postgres")]
 mod manual_grade_export;
@@ -215,6 +221,8 @@ mod migrations;
 mod navigation_references;
 #[cfg(feature = "postgres")]
 mod preview_plane;
+#[cfg(feature = "postgres")]
+mod problem_curation;
 #[cfg(feature = "postgres")]
 mod publisher;
 #[cfg(feature = "postgres")]
@@ -248,8 +256,8 @@ use connection::{
 pub use migrations::{
     MigrationDisposition, MigrationStatus, MigrationStatusEntry, SchemaCompatibilityError,
     apply_migrations, migration_principal, migration_status, migration_status_from_directory,
-    verify_application_schema, verify_invitation_delivery_worker_schema,
-    verify_public_asset_publisher_schema,
+    verify_application_schema, verify_base_course_freshness_capability,
+    verify_invitation_delivery_worker_schema, verify_public_asset_publisher_schema,
 };
 #[cfg(feature = "postgres")]
 pub use publisher::PostgresPublicAssetPublisherStore;
@@ -396,6 +404,25 @@ impl PostgresStore {
         Ok(transaction)
     }
 
+    /// Starts a tenant transaction bound to the one presented active session.
+    ///
+    /// Session-authorized brokers read `ple.session_hash` through forced RLS;
+    /// centralizing both local settings keeps a caller from presenting a token
+    /// argument without also establishing its database visibility boundary.
+    async fn begin_tenant_session(
+        &self,
+        context: TenantContext,
+        session: SessionTokenHash,
+    ) -> Result<Transaction<'_, Postgres>, StoreError> {
+        let mut transaction = self.begin_tenant(context).await?;
+        sqlx::query("SELECT set_config('ple.session_hash', $1, true)")
+            .bind(session.to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        Ok(transaction)
+    }
+
     /// Starts a read-only tenant transaction whose page and aggregate queries
     /// observe one PostgreSQL snapshot.  `SET TRANSACTION` must be the first
     /// statement, so this cannot delegate to [`Self::begin_tenant`].
@@ -414,6 +441,21 @@ impl PostgresStore {
             .map_err(map_sqlx_error)?;
         sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
             .bind(context.tenant_id().to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        Ok(transaction)
+    }
+
+    /// Starts one read-only tenant snapshot bound to the presented session.
+    async fn begin_tenant_session_snapshot(
+        &self,
+        context: TenantContext,
+        session: SessionTokenHash,
+    ) -> Result<Transaction<'_, Postgres>, StoreError> {
+        let mut transaction = self.begin_tenant_snapshot(context).await?;
+        sqlx::query("SELECT set_config('ple.session_hash', $1, true)")
+            .bind(session.to_string())
             .execute(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;

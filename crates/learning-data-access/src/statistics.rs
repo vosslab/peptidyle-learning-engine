@@ -4,20 +4,29 @@ use std::collections::BTreeMap;
 
 use domain::statistics::{CollapsedQuestionObservation, MAX_DURATION_SECONDS};
 use objects::Sha256Digest;
-use question_model::{AssignmentRunItem, AttemptResult, ProblemVersionRef, QuestionAttempt};
+use question_model::{
+    AssignmentRunItem, AttemptResult, ProblemVersionRef, QuestionAttempt, QuestionAttemptId,
+};
 
 use crate::StoreError;
 
-/// One identity-free contribution for an immutable problem version.
+/// One retention-safe contribution for an immutable problem version.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct StatisticsContribution {
     pub(crate) reference: ProblemVersionRef,
+    /// Deterministic immutable witness for this collapsed first-scored observation.
+    pub(crate) first_scored_attempt: QuestionAttemptId,
     pub(crate) observation: CollapsedQuestionObservation,
     pub(crate) checksum: Sha256Digest,
 }
 
 /// Derives one collapsed observation per exact version in a newly completed
-/// run. This reads only published identities, points, and server timestamps;
+/// run. Difficulty and discrimination use the first scored submitted attempt
+/// at the first eligible immutable position for each exact version.
+/// Submitted-attempt counts and elapsed time remain behavior measures for
+/// that same first exposure. Later duplicate positions stay outside this
+/// independent-observation contribution.
+/// This reads only published identities, points, and server timestamps;
 /// response, feedback, source, provider, and grading-key material never enter
 /// the aggregation boundary.
 pub(crate) fn derive_statistics_contributions(
@@ -41,17 +50,35 @@ pub(crate) fn derive_statistics_contributions(
             "statistics require one final result per delivered position".to_string(),
         ));
     }
-    let mut groups = BTreeMap::<ProblemVersionRef, GroupAccumulator>::new();
-    for (item, result) in items.iter().copied().zip(final_results) {
-        let reference = item.reference;
-        let result = result.expect("missing result rejected before statistics derivation");
-        crate::validate_attempt_result(result)?;
-        let group = groups.entry(reference).or_default();
-        group.positions += 1;
-        group.earned += result.points_earned;
-        group.possible += result.points_possible;
+
+    let Some(run) = items.first().map(|item| item.run) else {
+        return Ok(Vec::new());
+    };
+    for result in final_results.iter().flatten() {
+        crate::validate_attempt_result(*result)?;
+        normalized_score(result.points_earned, result.points_possible)?;
     }
-    for attempt in attempts {
+    let mut first_eligible_positions = BTreeMap::<ProblemVersionRef, usize>::new();
+    for (position, item) in items.iter().enumerate() {
+        if item.statistics_eligible {
+            first_eligible_positions
+                .entry(item.reference)
+                .or_insert(position);
+        }
+    }
+    let mut groups = first_eligible_positions
+        .keys()
+        .copied()
+        .map(|reference| (reference, GroupAccumulator::default()))
+        .collect::<BTreeMap<_, _>>();
+
+    let mut first_scored = vec![None; items.len()];
+    for (attempt_index, attempt) in attempts.iter().enumerate() {
+        if attempt.run != run {
+            return Err(StoreError::InvalidRecord(
+                "statistics attempt does not belong to the completed run".to_string(),
+            ));
+        }
         let position = usize::try_from(attempt.assignment_position).map_err(|_| {
             StoreError::InvalidRecord("statistics attempt position is invalid".to_string())
         })?;
@@ -69,12 +96,6 @@ pub(crate) fn derive_statistics_contributions(
         let Some(submitted_at) = attempt.timer.submitted_at else {
             continue;
         };
-        let group = groups
-            .get_mut(&reference)
-            .expect("assignment establishes group");
-        group.attempts = group.attempts.checked_add(1).ok_or_else(|| {
-            StoreError::InvalidRecord("statistics attempt count overflows".to_string())
-        })?;
         let elapsed = submitted_at
             .as_unix_millis()
             .checked_sub(attempt.timer.issued_at.as_unix_millis())
@@ -84,10 +105,68 @@ pub(crate) fn derive_statistics_contributions(
         let elapsed = u64::try_from(elapsed).map_err(|_| {
             StoreError::InvalidRecord("statistics attempt time is invalid".to_string())
         })?;
+        if first_eligible_positions.get(&reference) != Some(&position) {
+            continue;
+        }
+        let group = groups
+            .get_mut(&reference)
+            .expect("eligible immutable positions establish their groups");
+        group.attempts = group.attempts.checked_add(1).ok_or_else(|| {
+            StoreError::InvalidRecord("statistics attempt count overflows".to_string())
+        })?;
         group.duration_millis = group
             .duration_millis
             .saturating_add(elapsed)
             .min(MAX_DURATION_SECONDS.saturating_mul(1_000));
+
+        if matches!(
+            attempt.status,
+            question_model::AttemptStatus::Submitted | question_model::AttemptStatus::AutoSubmitted
+        ) && let Some(result) = attempt.result
+        {
+            crate::validate_attempt_result(result)?;
+            let candidate = &mut first_scored[position];
+            if candidate.is_none_or(|prior| {
+                scored_attempt_order(attempt) < scored_attempt_order(&attempts[prior])
+            }) {
+                *candidate = Some(attempt_index);
+            }
+        }
+    }
+    for (position, item) in items.iter().copied().enumerate() {
+        if item.run != run {
+            return Err(StoreError::InvalidRecord(
+                "statistics run items disagree about their run".to_string(),
+            ));
+        }
+        if first_eligible_positions.get(&item.reference) != Some(&position) {
+            continue;
+        }
+        let attempt = first_scored[position]
+            .map(|index| &attempts[index])
+            .ok_or_else(|| {
+                StoreError::InvalidRecord(
+                    "statistics require one scored submission per eligible position".to_string(),
+                )
+            })?;
+        let result = attempt
+            .result
+            .expect("first scored attempt retains its validated result");
+        let group = groups
+            .get_mut(&item.reference)
+            .expect("first eligible immutable position establishes its group");
+        group.positions = group.positions.checked_add(1).ok_or_else(|| {
+            StoreError::InvalidRecord("statistics position count overflows".to_string())
+        })?;
+        group.earned += result.points_earned;
+        group.possible += result.points_possible;
+        let candidate_order = scored_attempt_order(attempt);
+        if group
+            .first_scored_attempt
+            .is_none_or(|current| candidate_order < current)
+        {
+            group.first_scored_attempt = Some(candidate_order);
+        }
     }
     let groups = groups.into_iter().collect::<Vec<_>>();
     let mut prefix = vec![(0.0, 0.0); groups.len() + 1];
@@ -105,10 +184,14 @@ pub(crate) fn derive_statistics_contributions(
             suffix[index + 1].1 + group.possible,
         );
     }
-    let mut contributions = Vec::with_capacity(groups.len());
+    let group_count = groups.len();
+    let mut contributions = Vec::with_capacity(group_count);
     for (index, (reference, group)) in groups.into_iter().enumerate() {
+        let (_, first_scored_attempt) = group
+            .first_scored_attempt
+            .expect("eligible positions retain one scored submission each");
         let question_score = normalized_score(group.earned, group.possible)?;
-        let rest_score = (group.positions < items.len())
+        let rest_score = (group_count > 1)
             .then(|| {
                 normalized_score(
                     prefix[index].0 + suffix[index + 1].0,
@@ -130,11 +213,27 @@ pub(crate) fn derive_statistics_contributions(
         .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
         contributions.push(StatisticsContribution {
             reference,
+            first_scored_attempt,
             observation,
-            checksum: contribution_checksum(reference, observation),
+            checksum: contribution_checksum(reference, first_scored_attempt, observation),
         });
     }
     Ok(contributions)
+}
+
+fn scored_attempt_order(
+    attempt: &QuestionAttempt,
+) -> (
+    question_model::ActivityTimestamp,
+    question_model::QuestionAttemptId,
+) {
+    (
+        attempt
+            .timer
+            .submitted_at
+            .expect("scored-attempt selection requires a submission time"),
+        attempt.id,
+    )
 }
 
 #[derive(Default)]
@@ -142,6 +241,7 @@ struct GroupAccumulator {
     positions: usize,
     earned: f64,
     possible: f64,
+    first_scored_attempt: Option<(question_model::ActivityTimestamp, QuestionAttemptId)>,
     attempts: u64,
     duration_millis: u64,
 }
@@ -163,12 +263,14 @@ fn normalized_score(earned: f64, possible: f64) -> Result<f64, StoreError> {
 
 fn contribution_checksum(
     reference: ProblemVersionRef,
+    first_scored_attempt: QuestionAttemptId,
     observation: CollapsedQuestionObservation,
 ) -> Sha256Digest {
     let mut bytes = Vec::with_capacity(96);
-    bytes.extend_from_slice(b"ple-question-statistics-v1");
+    bytes.extend_from_slice(b"ple-question-statistics-v2");
     bytes.extend_from_slice(reference.problem.as_uuid().as_bytes());
     bytes.extend_from_slice(reference.version.as_uuid().as_bytes());
+    bytes.extend_from_slice(first_scored_attempt.as_uuid().as_bytes());
     bytes.extend_from_slice(&observation.normalized_score().to_bits().to_be_bytes());
     bytes.extend_from_slice(&observation.attempts().to_be_bytes());
     bytes.extend_from_slice(&observation.duration_seconds().to_be_bytes());
@@ -213,6 +315,7 @@ mod tests {
                 source_position: u32::try_from(position).expect("fixture position fits"),
                 issued_position: u32::try_from(position).expect("fixture position fits"),
                 reference,
+                statistics_eligible: true,
                 selection_group: None,
                 selection_seed: None,
             })
@@ -279,6 +382,19 @@ mod tests {
         }
     }
 
+    fn scored_attempt(
+        number: u128,
+        reference: ProblemVersionRef,
+        position: u32,
+        elapsed_millis: i64,
+        earned: f64,
+        possible: f64,
+    ) -> QuestionAttempt {
+        let mut attempt = attempt(number, reference, position, Some(elapsed_millis));
+        attempt.result = result(earned, possible);
+        attempt
+    }
+
     fn contribution(
         contributions: &[StatisticsContribution],
         reference: ProblemVersionRef,
@@ -291,16 +407,16 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_positions_collapse_retries_and_bounded_total_time() {
+    fn first_exposure_uses_its_first_scored_attempt_and_omits_later_duplicates() {
         let a = reference(1);
         let b = reference(2);
         let run_items = run_items(vec![a, b, a]);
-        let results = vec![result(1.0, 2.0), result(1.0, 4.0), result(2.0, 2.0)];
+        let results = vec![result(2.0, 2.0), result(4.0, 4.0), result(2.0, 2.0)];
         let attempts = vec![
-            attempt(1, a, 0, Some(1_500)),
-            attempt(2, a, 0, Some(2_500)),
-            attempt(3, b, 1, Some(1_000)),
-            attempt(4, a, 2, Some(100_000_000)),
+            scored_attempt(1, a, 0, 1_500, 0.0, 2.0),
+            scored_attempt(2, a, 0, 2_500, 2.0, 2.0),
+            scored_attempt(3, b, 1, 1_000, 1.0, 4.0),
+            scored_attempt(4, a, 2, 100_000_000, 2.0, 2.0),
             attempt(5, a, 2, None),
         ];
 
@@ -308,13 +424,17 @@ mod tests {
             .expect("valid collapsed contributions");
         assert_eq!(derived.len(), 2);
         let a_observation = contribution(&derived, a).observation;
-        assert_eq!(a_observation.normalized_score(), 0.75);
+        assert_eq!(a_observation.normalized_score(), 0.0);
         assert_eq!(a_observation.rest_score(), Some(0.25));
-        assert_eq!(a_observation.attempts(), 3);
-        assert_eq!(a_observation.duration_seconds(), MAX_DURATION_SECONDS);
+        assert_eq!(a_observation.attempts(), 2);
+        assert_eq!(a_observation.duration_seconds(), 4);
+        assert_eq!(
+            contribution(&derived, a).first_scored_attempt,
+            attempts[0].id
+        );
         let b_observation = contribution(&derived, b).observation;
         assert_eq!(b_observation.normalized_score(), 0.25);
-        assert_eq!(b_observation.rest_score(), Some(0.75));
+        assert_eq!(b_observation.rest_score(), Some(0.0));
         assert_eq!(b_observation.attempts(), 1);
         assert_eq!(b_observation.duration_seconds(), 1);
         assert_eq!(
@@ -322,6 +442,32 @@ mod tests {
                 .expect("deterministic replay"),
             derived,
         );
+    }
+
+    #[test]
+    fn ineligible_positions_are_validated_but_never_enter_evidence_or_behavior_measures() {
+        let a = reference(6);
+        let b = reference(7);
+        let mut run_items = run_items(vec![a, b]);
+        run_items[1].statistics_eligible = false;
+        let attempts = vec![
+            scored_attempt(6, a, 0, 1_000, 1.0, 1.0),
+            scored_attempt(7, b, 1, 100_000_000, 0.0, 1.0),
+        ];
+
+        let derived = derive_statistics_contributions(
+            &run_items,
+            &[result(1.0, 1.0), result(0.0, 1.0)],
+            &attempts,
+        )
+        .expect("ineligible delivery remains valid but absent from evidence");
+
+        assert_eq!(derived.len(), 1);
+        let observation = contribution(&derived, a).observation;
+        assert_eq!(observation.normalized_score(), 1.0);
+        assert_eq!(observation.attempts(), 1);
+        assert_eq!(observation.duration_seconds(), 1);
+        assert_eq!(observation.rest_score(), None);
     }
 
     #[test]
@@ -335,9 +481,9 @@ mod tests {
             result(2.5e307, 5.0e307),
         ];
         let attempts = vec![
-            attempt(10, a, 0, Some(1)),
-            attempt(11, b, 1, Some(1)),
-            attempt(12, a, 2, Some(1)),
+            scored_attempt(10, a, 0, 1, 2.5e307, 5.0e307),
+            scored_attempt(11, b, 1, 1, 0.0, 1.0),
+            scored_attempt(12, a, 2, 1, 2.5e307, 5.0e307),
         ];
 
         let derived = derive_statistics_contributions(&run_items, &results, &attempts)
@@ -359,7 +505,7 @@ mod tests {
         let derived = derive_statistics_contributions(
             &run_items,
             &[result(-0.0, 1.0)],
-            &[attempt(20, a, 0, Some(1_001))],
+            &[scored_attempt(20, a, 0, 1_001, -0.0, 1.0)],
         )
         .expect("one-question observation");
         let observation = derived[0].observation;

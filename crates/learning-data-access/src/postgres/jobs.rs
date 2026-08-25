@@ -655,7 +655,7 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
         }
         let current_generation: i64 = sqlx::query_scalar(
             "SELECT scoring_generation FROM assignment \
-             WHERE tenant_id = $1 AND assignment_id = $2 FOR UPDATE",
+             WHERE tenant_id = $1 AND assignment_id = $2",
         )
         .bind(tenant.as_uuid())
         .bind(command.assignment.as_uuid())
@@ -771,53 +771,20 @@ impl crate::AssignmentScoringWorkerStore for PostgresStore {
             .execute(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
-            let updated = sqlx::query(
-                "UPDATE assignment SET scoring_status = 'current', \
-                        updated_at = transaction_timestamp() \
-                 WHERE tenant_id = $1 AND assignment_id = $2 \
-                   AND scoring_generation = $3 AND scoring_status = 'recalculating'",
-            )
-            .bind(tenant.as_uuid())
-            .bind(command.assignment.as_uuid())
-            .bind(generation)
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-            if updated.rows_affected() != 1 {
-                return Err(StoreError::Conflict);
-            }
             // Item analysis is a separate, retryable projection.  Its later
             // failure cannot undo this already-published scoring generation.
-            let analysis_job = JobId::generate()?;
-            let analysis_payload =
-                serde_json::to_value(JobPayload::RecalculateCourseItemAnalysis {
-                    assignment: command.assignment,
-                    generation: command.generation,
-                })
-                .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-            let inserted = sqlx::query(
-                "INSERT INTO worker_job (job_id, tenant_id, payload, state, max_attempts) \
-                 VALUES ($1, $2, $3, 'ready', 10) ON CONFLICT DO NOTHING",
-            )
-            .bind(analysis_job.as_uuid())
-            .bind(tenant.as_uuid())
-            .bind(analysis_payload.clone())
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-            if inserted.rows_affected() == 0 {
-                let already_enqueued: bool = sqlx::query_scalar(
-                    "SELECT EXISTS(SELECT 1 FROM worker_job \
-                     WHERE tenant_id = $1 AND payload = $2)",
+            let published =
+                super::assignment_scoring_publication::publish_assignment_scoring_generation(
+                    &mut transaction,
+                    tenant,
+                    command.job,
+                    command.lease,
+                    command.assignment,
+                    command.generation,
                 )
-                .bind(tenant.as_uuid())
-                .bind(analysis_payload)
-                .fetch_one(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
-                if !already_enqueued {
-                    return Err(StoreError::Conflict);
-                }
+                .await?;
+            if !published {
+                return Err(StoreError::Conflict);
             }
         }
         sqlx::query("DELETE FROM assignment_scoring_staging WHERE tenant_id = $1 AND job_id = $2")

@@ -23,11 +23,18 @@ BASELINE_ALIASES = frozenset(
 	}
 )
 PERSONAS = frozenset(
-	{"elena_instructor", "mary_student", "avery_student", "morgan_sysadmin"}
+	{
+		"elena_instructor",
+		"mary_student",
+		"jack_student",
+		"avery_student",
+		"morgan_sysadmin",
+	}
 )
 RESOURCE_KINDS = frozenset(
 	{
 		"assignment",
+		"collection",
 		"course",
 		"course_group",
 		"grade_scheme",
@@ -36,6 +43,7 @@ RESOURCE_KINDS = frozenset(
 		"question",
 		"qti_import",
 		"response",
+		"saved_search",
 		"teaching_invitation",
 	}
 )

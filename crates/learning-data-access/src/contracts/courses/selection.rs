@@ -1,7 +1,7 @@
 //! Deterministic item-pool selection for assignment runs and previews.
 
 use super::*;
-use question_model::AssignmentSelectionCandidate;
+use question_model::{AssignmentScoringMode, AssignmentSelectionCandidate, PointValue};
 
 type RankedCandidate<'a> = (u64, &'a AssignmentSelectionCandidate);
 
@@ -31,9 +31,15 @@ pub(crate) fn select_assignment_run_items(
     let mut selected = Vec::new();
     for (source_position, source) in sources {
         match source {
-            Source::Fixed(item) => {
-                selected.push((item.id, source_position, item.reference, None, None))
-            }
+            Source::Fixed(item) => selected.push((
+                item.id,
+                source_position,
+                item.reference,
+                item.points_possible != PointValue::ZERO
+                    && item.scoring_mode != AssignmentScoringMode::Excluded,
+                None,
+                None,
+            )),
             Source::Group(group) => {
                 let basis = assignment
                     .policies
@@ -46,6 +52,7 @@ pub(crate) fn select_assignment_run_items(
                         candidate.id,
                         source_position,
                         candidate.reference,
+                        group.points_per_item != PointValue::ZERO,
                         Some(group.id),
                         Some(seed),
                     ));
@@ -59,7 +66,14 @@ pub(crate) fn select_assignment_run_items(
         .map(
             |(
                 issued_position,
-                (assignment_item, source_position, reference, selection_group, selection_seed),
+                (
+                    assignment_item,
+                    source_position,
+                    reference,
+                    statistics_eligible,
+                    selection_group,
+                    selection_seed,
+                ),
             )| {
                 Ok(AssignmentRunItem {
                     run: run.id,
@@ -69,6 +83,7 @@ pub(crate) fn select_assignment_run_items(
                         StoreError::InvalidRecord("too many selected run items".to_string())
                     })?,
                     reference,
+                    statistics_eligible,
                     selection_group,
                     selection_seed,
                 })

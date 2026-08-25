@@ -48,7 +48,7 @@ async fn ten_thousand_catalog_rows_return_one_bounded_page_with_server_facets() 
     let context =
         TenantContext::from_authenticated_session(TenantId::from_uuid(Uuid::from_u128(50_000)));
     let first = store
-        .search_catalog(
+        .search_catalog_as_instructor(
             context,
             CatalogSearchQuery {
                 text: Some(" peptide   catalog ".to_string()),
@@ -59,8 +59,8 @@ async fn ten_thousand_catalog_rows_return_one_bounded_page_with_server_facets() 
         .await
         .expect("bounded search");
     assert_eq!(first.items.len(), 37);
-    assert_eq!(first.facets.statistics.available, 0);
-    assert_eq!(first.facets.statistics.unavailable, 10_066);
+    assert_eq!(first.facets.evidence.available, 0);
+    assert_eq!(first.facets.evidence.unavailable, 10_066);
     assert_eq!(first.facets.taxonomy[0].count, 10_000);
     assert_eq!(first.facets.taxonomy.len(), MAX_CATALOG_TAXONOMY_FACETS);
     assert_eq!(first.facets.taxonomy[1].term.code, "00");
@@ -88,7 +88,7 @@ async fn ten_thousand_catalog_rows_return_one_bounded_page_with_server_facets() 
         first
             .items
             .iter()
-            .all(|item| item.scope == PublicationScope::Public)
+            .all(|item| item.summary.scope == PublicationScope::Public)
     );
     let cursor = first.next_cursor.clone().expect("next cursor");
     let mut tampered = cursor.clone().into_bytes();
@@ -96,7 +96,7 @@ async fn ten_thousand_catalog_rows_return_one_bounded_page_with_server_facets() 
     tampered[last] = if tampered[last] == b'A' { b'B' } else { b'A' };
     assert!(matches!(
         store
-            .search_catalog(
+            .search_catalog_as_instructor(
                 context,
                 CatalogSearchQuery {
                     text: Some("peptide catalog".to_string()),
@@ -108,7 +108,7 @@ async fn ten_thousand_catalog_rows_return_one_bounded_page_with_server_facets() 
         Err(StoreError::InvalidRecord(_))
     ));
     let second = store
-        .search_catalog(
+        .search_catalog_as_instructor(
             context,
             CatalogSearchQuery {
                 text: Some("peptide catalog".to_string()),
@@ -124,11 +124,11 @@ async fn ten_thousand_catalog_rows_return_one_bounded_page_with_server_facets() 
         second
             .items
             .iter()
-            .all(|right| left.question_id != right.question_id)
+            .all(|right| left.summary.question_id != right.summary.question_id)
     }));
     assert!(matches!(
         store
-            .search_catalog(
+            .search_catalog_as_instructor(
                 context,
                 CatalogSearchQuery {
                     text: Some("different query".to_string()),

@@ -41,6 +41,7 @@ pub(super) fn compose_passwordless_router<S, O, C, B, R>(
 where
     S: Store
         + CatalogStore
+        + learning_data_access::ProblemCurationStore
         + learning_data_access::FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
@@ -101,6 +102,7 @@ where
             Arc::clone(&backends),
             Arc::clone(&review_gate),
         ))
+        .merge(crate::problem_curation::router(Arc::clone(&store)))
         .merge(crate::qti_publication::router(
             Arc::clone(&store),
             Arc::clone(&objects),

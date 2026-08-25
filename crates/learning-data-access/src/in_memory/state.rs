@@ -2,6 +2,58 @@ use super::*;
 
 mod test_support;
 
+/// Canonical identity witness for a test statistics contribution.
+///
+/// Grouping the enrollment, course, learner, run, and attempt identities keeps
+/// the test seam aligned with the production broker's evidence boundary.
+#[cfg(test)]
+pub(super) struct TestStatisticsContributionScope {
+    tenant: TenantId,
+    enrollment: EnrollmentId,
+    course: CourseId,
+    learner: StudentId,
+    first_completed_run: RunId,
+    attempt: QuestionAttemptId,
+}
+
+#[cfg(test)]
+impl TestStatisticsContributionScope {
+    pub(super) fn for_course(
+        tenant: TenantId,
+        enrollment: EnrollmentId,
+        course: CourseId,
+        first_completed_run: RunId,
+        attempt: QuestionAttemptId,
+    ) -> Self {
+        Self::for_course_and_learner(
+            tenant,
+            enrollment,
+            course,
+            StudentId::from_uuid(enrollment.as_uuid()),
+            first_completed_run,
+            attempt,
+        )
+    }
+
+    pub(super) fn for_course_and_learner(
+        tenant: TenantId,
+        enrollment: EnrollmentId,
+        course: CourseId,
+        learner: StudentId,
+        first_completed_run: RunId,
+        attempt: QuestionAttemptId,
+    ) -> Self {
+        Self {
+            tenant,
+            enrollment,
+            course,
+            learner,
+            first_completed_run,
+            attempt,
+        }
+    }
+}
+
 impl MemoryStore {
     /// Inserts a pre-validation legacy draft for route-boundary tests only.
     ///
@@ -197,6 +249,35 @@ impl MemoryStore {
         reference: ProblemVersionRef,
         observation: CollapsedQuestionObservation,
     ) -> Result<bool, StoreError> {
+        self.record_question_statistics_contribution_for_scope(
+            TestStatisticsContributionScope::for_course(
+                tenant,
+                enrollment,
+                CourseId::from_uuid(enrollment.as_uuid()),
+                first_completed_run,
+                attempt,
+            ),
+            reference,
+            observation,
+        )
+    }
+
+    /// Test-only contribution with an explicit canonical identity witness.
+    #[cfg(test)]
+    pub(super) fn record_question_statistics_contribution_for_scope(
+        &self,
+        scope: TestStatisticsContributionScope,
+        reference: ProblemVersionRef,
+        observation: CollapsedQuestionObservation,
+    ) -> Result<bool, StoreError> {
+        let TestStatisticsContributionScope {
+            tenant,
+            enrollment,
+            course,
+            learner,
+            first_completed_run,
+            attempt,
+        } = scope;
         let mut state = self.write_state()?;
         let receipt_key = (tenant, enrollment, reference.problem, reference.version);
         if let Some(receipt) = state.question_statistics_receipts.get(&receipt_key) {
@@ -210,38 +291,23 @@ impl MemoryStore {
             };
         }
         let aggregate_key = (reference.problem, reference.version);
-        let mut aggregate = state
-            .question_statistics
-            .get(&aggregate_key)
-            .cloned()
-            .unwrap_or_default();
-        aggregate
-            .record(observation)
-            .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-        let was_disclosed = state
-            .question_statistics
-            .get(&aggregate_key)
-            .is_some_and(|current| {
-                matches!(
-                    current.disclose(question_model::StatisticsDisclosurePolicy::default()),
-                    question_model::QuestionStatisticsDisclosure::Available(_)
-                )
-            });
-        let is_disclosed = matches!(
-            aggregate.disclose(question_model::StatisticsDisclosurePolicy::default()),
-            question_model::QuestionStatisticsDisclosure::Available(_)
+        let learner_key = (
+            aggregate_key.0,
+            aggregate_key.1,
+            super::statistics::discovery_learner_fingerprint(tenant, learner),
         );
-        if is_disclosed && !was_disclosed {
-            let sequence = state.next_catalog_publication_sequence;
-            state.next_catalog_publication_sequence = sequence.checked_add(1).ok_or_else(|| {
-                StoreError::Unavailable("catalog event sequence exhausted".to_string())
-            })?;
-            state
-                .catalog_statistics_disclosure_sequences
-                .entry(aggregate_key)
-                .or_insert(sequence);
+        let independent = state.catalog_evidence_learners.insert(learner_key);
+        if independent {
+            let mut aggregate = state
+                .question_statistics
+                .get(&aggregate_key)
+                .cloned()
+                .unwrap_or_default();
+            aggregate
+                .record(observation)
+                .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+            state.question_statistics.insert(aggregate_key, aggregate);
         }
-        state.question_statistics.insert(aggregate_key, aggregate);
         state.question_statistics_receipts.insert(
             receipt_key,
             StatisticsContributionReceipt {
@@ -252,6 +318,17 @@ impl MemoryStore {
                 checksum: objects::Sha256Digest::compute(b"statistics test contribution"),
             },
         );
+        if independent {
+            state
+                .catalog_evidence_courses
+                .entry(aggregate_key)
+                .or_default()
+                .insert(course);
+            super::statistics::append_catalog_discovery_evidence_revision(
+                &mut state,
+                aggregate_key,
+            )?;
+        }
         Ok(true)
     }
 

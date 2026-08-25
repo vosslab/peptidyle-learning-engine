@@ -13,7 +13,11 @@ use axum::http::header::IF_MATCH;
 use axum::response::Response;
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
-    DraftRecord, SessionLifetime, SessionSubject, Store, TenantContext, WorkspaceDraftRevision,
+    AccountIdentityStore, ApproveInstructorAccount, AuthenticationEmail,
+    AuthenticationRateLimitKey, BeginEmailAuthentication, BrowserBindingHash,
+    CompleteEmailAuthentication, DraftRecord, EmailAuthenticationPurpose, EmailChallengeId,
+    EmailChallengeLifetime, EmailChallengeSecretHash, SessionLifetime, SessionSubject, Store,
+    TeachingAuthorityStore, TenantContext, WorkspaceDraftRevision,
 };
 use question_model::answer::NumericTolerance;
 use question_model::envelope::ContentBlock;
@@ -184,6 +188,71 @@ async fn issued_cookie(store: &MemoryStore, roles: Vec<UserRole>, user: UserId) 
         .next()
         .expect("cookie pair")
         .to_string()
+}
+
+async fn create_instructor_account(store: &MemoryStore, user: UserId) {
+    let token = EmailChallengeSecretHash::compute(b"catalog-approved-instructor-token");
+    let binding = BrowserBindingHash::compute(b"catalog-approved-instructor-binding");
+    store
+        .begin_email_authentication(BeginEmailAuthentication {
+            id: EmailChallengeId::from_uuid(id(101)),
+            token_hash: token,
+            browser_binding: binding,
+            email_rate_limit_key: AuthenticationRateLimitKey::compute(
+                b"catalog-approved-instructor-rate",
+            ),
+            email: AuthenticationEmail::parse("catalog-instructor@example.edu")
+                .expect("fixture email"),
+            purpose: EmailAuthenticationPurpose::SignInOrRegister,
+            lifetime: EmailChallengeLifetime::from_seconds(600).expect("fixture lifetime"),
+        })
+        .await
+        .expect("fixture account challenge");
+    store
+        .complete_email_authentication(CompleteEmailAuthentication {
+            token_hash: token,
+            browser_binding: binding,
+            proposed_user: user,
+            proposed_display_name: "Catalog Instructor".to_owned(),
+        })
+        .await
+        .expect("fixture account");
+}
+
+async fn issued_approved_instructor_cookie(store: &MemoryStore, user: UserId) -> String {
+    let tenant = TenantId::from_uuid(id(1));
+    create_instructor_account(store, user).await;
+    let instructor_cookie = issued_cookie(store, vec![UserRole::Instructor], user).await;
+    let sysadmin = UserId::from_uuid(id(u128::MAX));
+    let sysadmin_subject = SessionSubject::new(
+        tenant,
+        sysadmin,
+        "Catalog Fixture Sysadmin",
+        vec![UserRole::Sysadmin],
+    )
+    .expect("fixture Sysadmin identity");
+    let sysadmin_session = crate::auth::issue_session(
+        store,
+        sysadmin_subject,
+        crate::auth::SessionConfig::new(
+            SessionLifetime::from_seconds(3_600).expect("positive lifetime"),
+            crate::auth::CookieTransport::FirstPartyHttps,
+        ),
+    )
+    .await
+    .expect("fixture Sysadmin session");
+    store
+        .approve_instructor_account(
+            TenantContext::from_authenticated_session(tenant),
+            ApproveInstructorAccount {
+                session: sysadmin_session.record.token_hash,
+                target: user,
+                expected_revision: None,
+            },
+        )
+        .await
+        .expect("fixture Instructor approval");
+    instructor_cookie
 }
 
 async fn response_json(response: Response) -> serde_json::Value {

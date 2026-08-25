@@ -134,6 +134,7 @@ export const publishedProblemFixture = {
   catalogProblem: {
     questionId: "7K3-M9QP",
     backend: "native",
+    responseFamily: "multipleChoice",
     capabilities: [
       "algorithmicGeneration",
       "clientRendering",

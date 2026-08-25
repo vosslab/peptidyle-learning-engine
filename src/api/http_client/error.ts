@@ -78,6 +78,16 @@ export class CourseGradeSchemeConflictError extends ApiRequestError {
   }
 }
 
+/** A curation mutation lost its strong revision race; reload its current state before retrying. */
+export class ProblemCurationConflictError extends ApiRequestError {
+  declare public readonly status: 412;
+
+  public constructor(path: string) {
+    super(412, path);
+    this.name = "ProblemCurationConflictError";
+  }
+}
+
 /** A local banner cannot satisfy the bounded upload transport contract. */
 export class CourseAppearanceFileError extends Error {
   public constructor(message: string) {

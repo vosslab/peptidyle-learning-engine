@@ -4,6 +4,9 @@ import { A } from "@solidjs/router";
 import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import { CopyableQuestionId } from "../components/copyable_question_id";
+import { ProblemCurationPanel } from "../features/problem_curation/problem_curation_panel";
+import type { ProblemCurationRepository } from "../features/problem_curation/problem_curation_model";
+import type { ProblemPickerSourceRepository } from "../features/problem_picker";
 import "./library_page.css";
 import {
   EMPTY_CATALOG_QUERY,
@@ -17,15 +20,70 @@ import {
 
 /* Each virtual row reserves room for a title, two-line summary, byline, and taxonomy.
  * Keep this fallback aligned with --ple-catalog-row-block-size in src/style.css. */
-const FALLBACK_ROW_HEIGHT_PX = 132;
+const FALLBACK_ROW_HEIGHT_PX = 164;
 const OVERSCAN_ROWS = 5;
+const percentage = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 0 });
+const wholeNumber = new Intl.NumberFormat("en-US");
+const decimalNumber = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
 function catalogLink(row: CatalogBrowseRow): string {
   return `/library/${encodeURIComponent(row.displayId)}`;
 }
 
+function responseFamilyLabel(value: string): string {
+  const labels: Readonly<Record<string, string>> = {
+    numeric: "Numeric",
+    multipleChoice: "Multiple choice",
+    shortText: "Short text",
+    multiBlank: "Multiple blanks",
+    matching: "Matching",
+    ordering: "Ordering",
+    hotspot: "Hotspot",
+    fileUpload: "File upload",
+    externalTool: "External tool",
+  };
+  return labels[value] ?? value;
+}
+
+function backendLabel(value: string): string {
+  const labels: Readonly<Record<string, string>> = {
+    native: "Native",
+    webwork: "WeBWorK",
+    qti: "QTI",
+    h5p: "H5P",
+    imathas: "IMathAS",
+  };
+  return labels[value] ?? value;
+}
+
+function CatalogEvidencePreview(props: { readonly row: CatalogBrowseRow }): JSX.Element {
+  const availableEvidence = ():
+    Extract<CatalogBrowseRow["evidence"], { readonly state: "available" }> | undefined =>
+    props.row.evidence.state === "available" ? props.row.evidence : undefined;
+  return (
+    <p class="catalog-row-evidence" aria-label="Learning evidence">
+      <Show
+        when={availableEvidence()}
+        fallback="More evidence is needed. This question remains ranked by relevance."
+      >
+        {(available) => {
+          const discrimination = available().discriminationIndex;
+          const discriminationText =
+            discrimination === undefined
+              ? ""
+              : `; discrimination ${decimalNumber.format(discrimination)}`;
+          return `${wholeNumber.format(available().observedCourseCount)} observed courses; ${wholeNumber.format(available().independentLearnerObservationCount)} independent learner observations; mean score ${percentage.format(available().difficultyIndex)}${discriminationText}.`;
+        }}
+      </Show>
+    </p>
+  );
+}
+
 export interface LibraryPageProps {
   readonly repository: CatalogBrowseRepository;
+  readonly curation: ProblemCurationRepository;
+  readonly pickerRepository: ProblemPickerSourceRepository;
+  readonly mayMutatePersonalCuration: boolean;
 }
 
 /** Catalog UI with the production repository injected by the route composition. */
@@ -55,7 +113,16 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     return current.aggregates;
   };
   const facets = (
-    group: "taxonomy" | "capability" | "license" | "statistic",
+    group:
+      | "byline"
+      | "backend"
+      | "tag"
+      | "responseFamily"
+      | "taxonomy"
+      | "capability"
+      | "license"
+      | "evidence"
+      | "usedInMyCourses",
   ): (() => ReadonlyArray<{ readonly value: string; readonly count: number }>) => {
     return () => aggregates().filter((aggregate) => aggregate.group === group);
   };
@@ -132,6 +199,62 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           />
         </label>
         <label>
+          Byline
+          <select
+            value={query().byline ?? ""}
+            onChange={(event) => changeQuery({ byline: event.currentTarget.value || null })}
+          >
+            <option value="">All bylines</option>
+            <For each={facets("byline")()}>
+              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
+            </For>
+          </select>
+        </label>
+        <label>
+          Backend
+          <select
+            value={query().backend ?? ""}
+            onChange={(event) => changeQuery({ backend: event.currentTarget.value || null })}
+          >
+            <option value="">All backends</option>
+            <For each={facets("backend")()}>
+              {(facet) => (
+                <option
+                  value={facet.value}
+                >{`${backendLabel(facet.value)} (${facet.count})`}</option>
+              )}
+            </For>
+          </select>
+        </label>
+        <label>
+          Tag
+          <select
+            value={query().tag ?? ""}
+            onChange={(event) => changeQuery({ tag: event.currentTarget.value || null })}
+          >
+            <option value="">All tags</option>
+            <For each={facets("tag")()}>
+              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
+            </For>
+          </select>
+        </label>
+        <label>
+          Response family
+          <select
+            value={query().responseFamily ?? ""}
+            onChange={(event) => changeQuery({ responseFamily: event.currentTarget.value || null })}
+          >
+            <option value="">All response families</option>
+            <For each={facets("responseFamily")()}>
+              {(facet) => (
+                <option
+                  value={facet.value}
+                >{`${responseFamilyLabel(facet.value)} (${facet.count})`}</option>
+              )}
+            </For>
+          </select>
+        </label>
+        <label>
           Topic
           <select
             value={query().taxonomy ?? ""}
@@ -158,15 +281,31 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
         <label>
           Evidence
           <select
-            value={query().statistic ?? ""}
-            onChange={(event) => changeQuery({ statistic: event.currentTarget.value || null })}
+            value={query().evidence ?? ""}
+            onChange={(event) => changeQuery({ evidence: event.currentTarget.value || null })}
           >
             <option value="">Any evidence</option>
-            <For each={facets("statistic")()}>
+            <For each={facets("evidence")()}>
               {(facet) => (
                 <option value={facet.value}>
                   {`${facet.value === "available" ? "Has disclosed evidence" : "Insufficient evidence"} (${facet.count})`}
                 </option>
+              )}
+            </For>
+          </select>
+        </label>
+        <label>
+          Used in my courses
+          <select
+            value={query().usedInMyCourses ?? ""}
+            onChange={(event) =>
+              changeQuery({ usedInMyCourses: event.currentTarget.value || null })
+            }
+          >
+            <option value="">Any course use</option>
+            <For each={facets("usedInMyCourses")()}>
+              {(facet) => (
+                <option value={facet.value}>{`Used in my courses (${facet.count})`}</option>
               )}
             </For>
           </select>
@@ -184,6 +323,13 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           </select>
         </label>
       </form>
+      <ProblemCurationPanel
+        repository={props.curation}
+        pickerRepository={props.pickerRepository}
+        query={query}
+        applyQuery={changeQuery}
+        mayMutatePersonalCuration={props.mayMutatePersonalCuration}
+      />
       <Show when={state().kind === "error"}>
         <section class="route-error" role="alert">
           <h2>The library could not load</h2>
@@ -224,6 +370,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                       By {row.byline.join(", ")}
                     </p>
                     <p class="catalog-row-taxonomy card-kicker">{row.taxonomy.join(" / ")}</p>
+                    <CatalogEvidencePreview row={row} />
                     <CopyableQuestionId displayId={row.displayId} />
                     <A class="quiet-link" href={catalogLink(row)}>
                       Open question

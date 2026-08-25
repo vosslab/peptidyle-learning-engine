@@ -22,6 +22,9 @@ use learning_data_access::{
 use question_model::answer::NumericTolerance;
 use question_model::envelope::{ContentBlock, QuestionEnvelope};
 use question_model::generation::{RandomizationDefinition, Seed};
+use question_model::presentation::{
+    NonceSourceV1, PresentationBuildError, build_presentation_v1_with_nonce_source,
+};
 use question_model::run_policy::{
     AttemptPolicy, CompletionRequirement, ContinuedPractice, GradePolicy, RunPolicies,
     TimingPolicy, VariationPolicy,
@@ -32,9 +35,9 @@ use question_model::{
     AssignmentInstructions, AssignmentItem, AssignmentItemId, AssignmentLifecycle,
     AssignmentScoringMode, AssignmentTeachingSettings, BackendCapabilities, Capability, CourseId,
     DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, ImplementationVersion,
-    LateSubmissionPolicy, PointValue, ProblemId, ProblemVersionRef, PublicationScope,
-    QuestionAttemptId, QuestionMetadata, QuestionSource, ResponseDefinition, RunId, TenantId,
-    UserId, VersionId, WorkspaceId,
+    LateSubmissionPolicy, PointValue, PresentationBindingV1, ProblemId, ProblemVersionRef,
+    PublicationScope, QuestionAttemptId, QuestionMetadata, QuestionSource, ResponseDefinition,
+    RunId, TenantId, UserId, VersionId, WorkspaceId,
 };
 use std::num::NonZeroU32;
 use uuid::Uuid;
@@ -51,6 +54,14 @@ fn policies() -> RunPolicies {
         grade: GradePolicy::Highest,
         continued_practice: ContinuedPractice::Unlimited,
         variation: VariationPolicy::NewSeeds,
+    }
+}
+
+struct TeachingProjectionNonce([u8; 16]);
+
+impl NonceSourceV1 for TeachingProjectionNonce {
+    fn next_nonce(&mut self) -> Result<[u8; 16], PresentationBuildError> {
+        Ok(self.0)
     }
 }
 
@@ -171,6 +182,15 @@ impl IssueFixture<'_> {
             prompt: published.question.prompt.clone(),
             response: published.question.response.clone(),
         };
+        let mut nonce = TeachingProjectionNonce([0x54; 16]);
+        let rendered = build_presentation_v1_with_nonce_source(&grading_envelope, &[], &mut nonce)
+            .expect("render exact teaching-projection presentation");
+        let presentation =
+            PresentationBindingV1::new(rendered.envelope.presentation_nonce, rendered.digest);
+        let presentation_snapshot = learning_data_access::ReceiptPresentationSnapshot {
+            envelope: rendered.envelope,
+            asset_bindings: rendered.asset_bindings,
+        };
         IssueQuestionAttemptCommand {
             actor: self.learner,
             binding: LearnerWorkRoutingBinding::new(self.course, self.assignment),
@@ -181,9 +201,9 @@ impl IssueFixture<'_> {
             question_version: self.reference.version,
             issued_question_snapshot,
             seed: 1,
-            presentation_capability: PresentationCapability::NotApplicable,
-            presentation: None,
-            presentation_snapshot: None,
+            presentation_capability: PresentationCapability::EnvelopeV1,
+            presentation: Some(presentation),
+            presentation_snapshot: Some(presentation_snapshot),
             grading_envelope: Some(grading_envelope),
             native_execution_envelope_capability: NativeExecutionEnvelopeCapability::Required,
             flat_grading: None,

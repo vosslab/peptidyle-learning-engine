@@ -301,8 +301,8 @@ pub(super) async fn insert_assignment_run_items(
         sqlx::query(
             "INSERT INTO assignment_run_item \
              (tenant_id, run_id, assignment_item_id, source_position, issued_position, \
-              problem_id, version_id, selection_group_id, selection_seed) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+              problem_id, version_id, statistics_eligible, selection_group_id, selection_seed) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         )
         .bind(assignment.tenant.as_uuid())
         .bind(run.id.as_uuid())
@@ -315,6 +315,7 @@ pub(super) async fn insert_assignment_run_items(
         })?)
         .bind(item.reference.problem.as_uuid())
         .bind(item.reference.version.as_uuid())
+        .bind(item.statistics_eligible)
         .bind(item.selection_group.map(|group| group.as_uuid()))
         .bind(
             item.selection_seed
@@ -339,7 +340,7 @@ pub(super) async fn load_assignment_run_items(
 ) -> Result<Vec<AssignmentRunItem>, StoreError> {
     let rows = sqlx::query(
         "SELECT assignment_item_id, source_position, issued_position, problem_id, \
-                version_id, selection_group_id, selection_seed \
+                version_id, statistics_eligible, selection_group_id, selection_seed \
          FROM assignment_run_item WHERE tenant_id = $1 AND run_id = $2 \
          ORDER BY issued_position",
     )
@@ -367,6 +368,7 @@ pub(super) async fn load_assignment_run_items(
                         row.try_get("version_id").map_err(map_sqlx_error)?,
                     ),
                 },
+                statistics_eligible: row.try_get("statistics_eligible").map_err(map_sqlx_error)?,
                 selection_group: row
                     .try_get::<Option<Uuid>, _>("selection_group_id")
                     .map_err(map_sqlx_error)?

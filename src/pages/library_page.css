@@ -2,9 +2,10 @@
 
 .library-page .catalog-controls {
   display: grid;
-  grid-template-columns:
-    minmax(var(--ple-filter-search-min-inline), 2fr)
-    repeat(4, minmax(var(--ple-filter-control-min-inline), 1fr));
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, var(--ple-filter-control-min-inline)), 1fr)
+  );
   gap: calc(var(--ple-layout-gap) - 0.45rem);
   margin-block: calc(var(--ple-section-gap) - 0.1rem);
   padding: calc(var(--ple-panel-padding) - 0.2rem);
@@ -19,6 +20,10 @@
   color: var(--ple-muted);
   font-size: 0.78rem;
   font-weight: 680;
+}
+
+.library-page .catalog-controls label:first-child {
+  grid-column: span 2;
 }
 
 .library-page .catalog-controls input,
@@ -57,10 +62,11 @@
   grid-template-areas:
     "title action"
     "summary action"
+    "evidence action"
     "byline action"
     "taxonomy identity";
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto minmax(0, 2.6em) auto auto;
+  grid-template-rows: auto minmax(0, 2.6em) auto auto auto;
   gap: 0.18rem 1rem;
   align-content: center;
   overflow: hidden;
@@ -94,6 +100,15 @@
   white-space: nowrap;
 }
 
+.library-page .catalog-row-evidence {
+  grid-area: evidence;
+  margin: 0;
+  color: var(--ple-muted);
+  font-size: 0.8rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
 .library-page .catalog-row-taxonomy {
   grid-area: taxonomy;
   margin: 0;
@@ -113,20 +128,12 @@
 }
 
 @media (max-width: 68rem) {
-  .library-page .catalog-controls {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .library-page .catalog-controls label:first-child {
     grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 40rem) {
-  .library-page .catalog-controls {
-    grid-template-columns: 1fr;
-  }
-
   .library-page .catalog-controls label:first-child {
     grid-column: auto;
   }
@@ -135,11 +142,12 @@
     grid-template-areas:
       "title"
       "summary"
+      "evidence"
       "byline"
       "taxonomy"
       "identity action";
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto minmax(0, 2.6em) auto auto auto;
+    grid-template-rows: auto minmax(0, 2.6em) auto auto auto auto;
     align-content: start;
   }
 

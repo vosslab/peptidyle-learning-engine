@@ -1,6 +1,7 @@
 // library_page_model.ts - bounded, transport-validated catalog browse state.
 
 import { normalizeQuestionIdSyntax } from "../question_id";
+import type { CatalogAuthorship } from "../../generated/api/CatalogAuthorship";
 
 /** A browser-safe current-question catalog record. */
 export interface CatalogBrowseRow {
@@ -13,21 +14,56 @@ export interface CatalogBrowseRow {
   readonly taxonomy: ReadonlyArray<string>;
   readonly capabilities: ReadonlyArray<string>;
   readonly license: string;
+  /** Server-disclosed learning evidence for this exact immutable publication. */
+  readonly evidence: CatalogBrowseEvidence;
 }
+
+/**
+ * A presentation-ready, answer-free view of the server-owned discovery evidence.
+ *
+ * The browser intentionally receives no quality contribution. Available evidence
+ * supplies only the disclosed observations instructors can interpret; an
+ * insufficient state stays explicitly neutral in relevance-ranked search.
+ */
+export type CatalogBrowseEvidence =
+  | { readonly state: "insufficientEvidence" }
+  | {
+      readonly state: "available";
+      readonly observedCourseCount: number;
+      readonly independentLearnerObservationCount: number;
+      readonly difficultyIndex: number;
+      readonly discriminationIndex: number | undefined;
+    };
 
 /** Server-computed count for the exact active query; never derived from loaded rows. */
 export interface CatalogFacetAggregate {
-  readonly group: "taxonomy" | "capability" | "license" | "statistic";
+  readonly group:
+    | "byline"
+    | "backend"
+    | "tag"
+    | "responseFamily"
+    | "taxonomy"
+    | "capability"
+    | "license"
+    | "evidence"
+    | "usedInMyCourses";
   readonly value: string;
   readonly count: number;
 }
 
 export interface CatalogBrowseQuery {
   readonly search: string;
+  readonly byline: string | null;
+  readonly backend: string | null;
+  readonly tag: string | null;
+  readonly responseFamily: string | null;
   readonly taxonomy: string | null;
   readonly capability: string | null;
   readonly license: string | null;
-  readonly statistic: string | null;
+  readonly evidence: string | null;
+  readonly usedInMyCourses: string | null;
+  /** Closed server-resolved authorship scope; browser rows never carry actor identity. */
+  readonly authorship: CatalogAuthorship;
 }
 
 export interface CatalogBrowsePage {
@@ -110,6 +146,7 @@ function decodeRow(value: unknown, path: string): CatalogBrowseRow {
       "summary",
       "taxonomy",
       "title",
+      "evidence",
     ])
   ) {
     throw new Error(`${path} has an unexpected shape`);
@@ -118,6 +155,7 @@ function decodeRow(value: unknown, path: string): CatalogBrowseRow {
   if (displayId === null) {
     throw new Error(`${path}.displayId must be a canonical Question ID`);
   }
+  const evidence = decodeBrowseEvidence(value["evidence"], `${path}.evidence`);
   return {
     displayId,
     title: boundedText(value["title"], `${path}.title`),
@@ -126,7 +164,81 @@ function decodeRow(value: unknown, path: string): CatalogBrowseRow {
     taxonomy: stringList(value["taxonomy"], `${path}.taxonomy`),
     capabilities: stringList(value["capabilities"], `${path}.capabilities`),
     license: boundedText(value["license"], `${path}.license`),
+    evidence,
   };
+}
+
+function decodeBrowseEvidence(value: unknown, path: string): CatalogBrowseEvidence {
+  if (!isRecord(value) || typeof value["state"] !== "string") {
+    throw new Error(`${path} has an unexpected shape`);
+  }
+  if (value["state"] === "insufficientEvidence") {
+    if (!hasExactKeys(value, ["state"])) throw new Error(`${path} has an unexpected shape`);
+    return { state: "insufficientEvidence" };
+  }
+  if (value["state"] !== "available")
+    throw new Error(`${path}.state is not a known evidence state`);
+  if (
+    !hasExactKeys(value, [
+      "state",
+      "observedCourseCount",
+      "independentLearnerObservationCount",
+      "difficultyIndex",
+      "discriminationIndex",
+    ])
+  ) {
+    throw new Error(`${path} has an unexpected shape`);
+  }
+  const observedCourseCount = boundedEvidenceCount(
+    value["observedCourseCount"],
+    `${path}.observedCourseCount`,
+  );
+  const independentLearnerObservationCount = boundedEvidenceCount(
+    value["independentLearnerObservationCount"],
+    `${path}.independentLearnerObservationCount`,
+  );
+  if (observedCourseCount < 2 || independentLearnerObservationCount < observedCourseCount) {
+    throw new Error(`${path} must contain comparable evidence from two courses`);
+  }
+  const difficultyIndex = unitInterval(value["difficultyIndex"], `${path}.difficultyIndex`);
+  const discrimination = value["discriminationIndex"];
+  const discriminationIndex =
+    discrimination === undefined
+      ? undefined
+      : correlation(discrimination, `${path}.discriminationIndex`);
+  return {
+    state: "available",
+    observedCourseCount,
+    independentLearnerObservationCount,
+    difficultyIndex,
+    discriminationIndex,
+  };
+}
+
+function boundedEvidenceCount(value: unknown, path: string): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isSafeInteger(value) ||
+    value < 1 ||
+    value > MAX_FACET_COUNT
+  ) {
+    throw new Error(`${path} must be a positive safe integer`);
+  }
+  return value;
+}
+
+function unitInterval(value: unknown, path: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
+    throw new Error(`${path} must be a finite number from 0 through 1`);
+  }
+  return value;
+}
+
+function correlation(value: unknown, path: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < -1 || value > 1) {
+    throw new Error(`${path} must be a finite correlation from -1 through 1`);
+  }
+  return value;
 }
 
 function decodeAggregate(value: unknown, path: string): CatalogFacetAggregate {
@@ -135,10 +247,15 @@ function decodeAggregate(value: unknown, path: string): CatalogFacetAggregate {
   }
   const group = value["group"];
   if (
+    group !== "byline" &&
+    group !== "backend" &&
+    group !== "tag" &&
+    group !== "responseFamily" &&
     group !== "taxonomy" &&
     group !== "capability" &&
     group !== "license" &&
-    group !== "statistic"
+    group !== "evidence" &&
+    group !== "usedInMyCourses"
   ) {
     throw new Error(`${path}.group is not a catalog facet`);
   }
@@ -187,19 +304,31 @@ export function decodeCatalogBrowsePage(value: unknown): CatalogBrowsePage {
 
 export const EMPTY_CATALOG_QUERY: CatalogBrowseQuery = {
   search: "",
+  byline: null,
+  backend: null,
+  tag: null,
+  responseFamily: null,
   taxonomy: null,
   capability: null,
   license: null,
-  statistic: null,
+  evidence: null,
+  usedInMyCourses: null,
+  authorship: "any",
 };
 
 export function normalizeCatalogBrowseQuery(query: CatalogBrowseQuery): CatalogBrowseQuery {
   return {
     search: query.search.trim().replace(/\s+/g, " "),
+    byline: query.byline,
+    backend: query.backend,
+    tag: query.tag,
+    responseFamily: query.responseFamily,
     taxonomy: query.taxonomy,
     capability: query.capability,
     license: query.license,
-    statistic: query.statistic,
+    evidence: query.evidence,
+    usedInMyCourses: query.usedInMyCourses,
+    authorship: query.authorship,
   };
 }
 

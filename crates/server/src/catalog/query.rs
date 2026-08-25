@@ -1,13 +1,14 @@
 use axum::Json;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, Query, RawQuery, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use learning_data_access::{
     CatalogStore, Cursor, PageRequest, PageSize, PaginationError, SessionStore, Store,
 };
 use question_model::{
-    Capability, CatalogLicenseValue, CatalogSearchQuery, CatalogStatisticsAvailability,
-    CatalogTaxonomyFilter, ProblemDisplayRef, ProblemVersionRef, UserRole,
+    Capability, CatalogAuthorship, CatalogEvidenceAvailability, CatalogLicenseValue,
+    CatalogResponseFamily, CatalogSearchQuery, CatalogTaxonomyFilter, CatalogUsedInMyCourses,
+    ProblemDisplayRef, ProblemVersionRef, QuestionBackend, UserRole,
 };
 use serde::Deserialize;
 
@@ -27,23 +28,94 @@ pub(super) struct CatalogQuery {
     page_size: Option<u16>,
 }
 
-/// Query-string transport for strict catalog search. Repeated scalar keys keep
-/// URLs inspectable (`taxonomy=scheme:code&capabilities=serverGrading`) while
-/// the model receives typed exact filters after this boundary validates them.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+/// Query-string transport for strict catalog search. Repeated collection keys
+/// keep URLs inspectable while the model receives typed exact filters only
+/// after this boundary validates every browser value.
+#[derive(Debug, Default)]
 pub(super) struct CatalogSearchHttpQuery {
     text: Option<String>,
-    #[serde(default)]
+    bylines: Vec<String>,
+    backends: Vec<QuestionBackend>,
+    tags: Vec<String>,
+    response_families: Vec<CatalogResponseFamily>,
     taxonomy: Vec<String>,
-    #[serde(default)]
     capabilities: Vec<Capability>,
-    #[serde(default)]
     licenses: Vec<CatalogLicenseValue>,
-    #[serde(default)]
-    statistics: CatalogStatisticsAvailability,
+    evidence: Option<CatalogEvidenceAvailability>,
+    used_in_my_courses: Option<CatalogUsedInMyCourses>,
+    authorship: Option<CatalogAuthorship>,
     cursor: Option<String>,
     page_size: Option<u16>,
+}
+
+impl CatalogSearchHttpQuery {
+    /// Parses the compact repeated-key browser transport without allowing an
+    /// ambiguous scalar value to change the authenticated search meaning.
+    fn from_raw_query(raw_query: Option<&str>) -> Result<Self, &'static str> {
+        let mut query = Self::default();
+        for (key, value) in url::form_urlencoded::parse(raw_query.unwrap_or_default().as_bytes()) {
+            let value = value.into_owned();
+            match key.as_ref() {
+                "text" => set_catalog_scalar(&mut query.text, value)?,
+                "bylines" => query.bylines.push(value),
+                "backends" => query.backends.push(parse_catalog_enum(
+                    &value,
+                    "catalog backend is not recognized",
+                )?),
+                "tags" => query.tags.push(value),
+                "responseFamilies" => query.response_families.push(parse_catalog_enum(
+                    &value,
+                    "catalog response family is not recognized",
+                )?),
+                "taxonomy" => query.taxonomy.push(value),
+                "capabilities" => query.capabilities.push(parse_catalog_enum(
+                    &value,
+                    "catalog capability is not recognized",
+                )?),
+                "licenses" => query.licenses.push(parse_catalog_enum(
+                    &value,
+                    "catalog license is not recognized",
+                )?),
+                "evidence" => set_catalog_scalar(
+                    &mut query.evidence,
+                    parse_catalog_enum(&value, "catalog evidence availability is not recognized")?,
+                )?,
+                "usedInMyCourses" => set_catalog_scalar(
+                    &mut query.used_in_my_courses,
+                    parse_catalog_enum(&value, "catalog course-use filter is not recognized")?,
+                )?,
+                "authorship" => set_catalog_scalar(
+                    &mut query.authorship,
+                    parse_catalog_enum(&value, "catalog authorship scope is not recognized")?,
+                )?,
+                "cursor" => set_catalog_scalar(&mut query.cursor, value)?,
+                "pageSize" => set_catalog_scalar(
+                    &mut query.page_size,
+                    value
+                        .parse::<u16>()
+                        .map_err(|_| "catalog pageSize must be an unsigned integer")?,
+                )?,
+                _ => return Err("catalog query contains an unknown key"),
+            }
+        }
+        Ok(query)
+    }
+}
+
+fn set_catalog_scalar<T>(slot: &mut Option<T>, value: T) -> Result<(), &'static str> {
+    if slot.replace(value).is_some() {
+        return Err("catalog query scalar key may appear only once");
+    }
+    Ok(())
+}
+
+/// Reads a closed browser value from its canonical Serde wire contract, so a
+/// future enum variant is available here without a second match table.
+fn parse_catalog_enum<T>(value: &str, error: &'static str) -> Result<T, &'static str>
+where
+    T: serde::de::DeserializeOwned,
+{
+    serde_json::from_value(serde_json::Value::String(value.to_string())).map_err(|_| error)
 }
 
 impl TryFrom<CatalogSearchHttpQuery> for CatalogSearchQuery {
@@ -65,10 +137,16 @@ impl TryFrom<CatalogSearchHttpQuery> for CatalogSearchQuery {
             .collect::<Result<Vec<_>, _>>()?;
         Ok(CatalogSearchQuery {
             text: query.text,
+            bylines: query.bylines,
+            backends: query.backends,
+            tags: query.tags,
+            response_families: query.response_families,
             taxonomy,
             capabilities: query.capabilities,
             licenses: query.licenses,
-            statistics: query.statistics,
+            evidence: query.evidence.unwrap_or_default(),
+            used_in_my_courses: query.used_in_my_courses.unwrap_or_default(),
+            authorship: query.authorship.unwrap_or_default(),
             cursor: query.cursor,
             page_size: query.page_size,
         })
@@ -143,7 +221,7 @@ where
 pub(super) async fn search_problems<S, B, R>(
     State(state): State<CatalogRouteState<S, B, R>>,
     headers: HeaderMap,
-    Query(query): Query<CatalogSearchHttpQuery>,
+    RawQuery(raw_query): RawQuery,
 ) -> Response
 where
     S: Store + CatalogStore + SessionStore + 'static,
@@ -157,13 +235,19 @@ where
     if !may_read_catalog(authenticated.record.subject.roles()) {
         return error_response(StatusCode::FORBIDDEN, "catalog access is not authorized");
     }
-    let query = match CatalogSearchQuery::try_from(query) {
+    let query = match CatalogSearchHttpQuery::from_raw_query(raw_query.as_deref())
+        .and_then(CatalogSearchQuery::try_from)
+    {
         Ok(query) => query,
         Err(error) => return error_response(StatusCode::BAD_REQUEST, error),
     };
     match state
         .store
-        .search_catalog(authenticated.tenant_context, query)
+        .search_catalog(
+            authenticated.tenant_context,
+            authenticated.session_hash,
+            query,
+        )
         .await
     {
         Ok(page) => no_store(Json(page).into_response()),
@@ -240,6 +324,7 @@ where
         .store
         .get_catalog_detail(
             authenticated.tenant_context,
+            authenticated.session_hash,
             ProblemVersionRef {
                 problem: publication.problem,
                 version: publication.version,
@@ -268,4 +353,29 @@ fn may_read_catalog(roles: &[UserRole]) -> bool {
     roles
         .iter()
         .any(|role| matches!(role, UserRole::Instructor | UserRole::Sysadmin))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn authored_scope_accepts_only_its_closed_browser_value() {
+        let query =
+            CatalogSearchHttpQuery::from_raw_query(Some("authorship=authoredByCurrentActor"))
+                .and_then(CatalogSearchQuery::try_from)
+                .expect("closed authorship scope parses");
+        assert_eq!(query.authorship, CatalogAuthorship::AuthoredByCurrentActor);
+        assert!(
+            CatalogSearchHttpQuery::from_raw_query(Some("authorship=other-user"))
+                .and_then(CatalogSearchQuery::try_from)
+                .is_err()
+        );
+        assert!(
+            CatalogSearchHttpQuery::from_raw_query(Some(
+                "authorship=any&authorship=authoredByCurrentActor",
+            ))
+            .is_err()
+        );
+    }
 }

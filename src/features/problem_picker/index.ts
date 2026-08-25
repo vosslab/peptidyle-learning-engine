@@ -1,0 +1,21 @@
+export { ProblemPicker, type ProblemPickerProps } from "./problem_picker";
+export {
+  MAX_PROBLEM_PICKER_SELECTION_CAP,
+  ProblemPickerSession,
+  catalogProblemPickerRepository,
+  moveProblemPickerSelection,
+  problemPickerSelection,
+  toggleProblemPickerSelection,
+  type ProblemCollectionReference,
+  type ProblemPickerAlphaCurriculumSource,
+  type ProblemPickerCurationActions,
+  type ProblemPickerCurationIntent,
+  type ProblemPickerSearchRequest,
+  type ProblemPickerSelection,
+  type ProblemPickerSelectedQuestion,
+  type ProblemPickerSelectionMode,
+  type ProblemPickerSource,
+  type ProblemPickerSourceRepository,
+  type ProblemPickerState,
+  type RetainedAssignmentReference,
+} from "./problem_picker_model";

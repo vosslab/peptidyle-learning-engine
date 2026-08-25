@@ -61,6 +61,7 @@ impl CatalogStore for MismatchedCatalogTestStore {
     async fn search_catalog(
         &self,
         _context: TenantContext,
+        _session: SessionTokenHash,
         _query: CatalogSearchQuery,
     ) -> Result<CatalogSearchPage, StoreError> {
         Err(StoreError::InvalidRecord(

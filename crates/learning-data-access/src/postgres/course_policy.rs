@@ -26,6 +26,15 @@ pub(super) use active_attempts::{
     reresolve_prelocked_active_attempts,
 };
 
+fn map_assignment_mutator_error(error: sqlx::Error) -> StoreError {
+    if let sqlx::Error::Database(database_error) = &error
+        && database_error.code().as_deref() == Some("42501")
+    {
+        return StoreError::NotFound;
+    }
+    map_sqlx_error(error)
+}
+
 #[async_trait]
 impl crate::EffectivePolicyStore for PostgresStore {
     async fn get_base_assignment_policy_impl(
@@ -70,7 +79,7 @@ impl crate::EffectivePolicyStore for PostgresStore {
                 .bind(settings)
                 .fetch_one(&mut *tx)
                 .await
-                .map_err(map_sqlx_error)?;
+                .map_err(map_assignment_mutator_error)?;
                 let next = finish_policy_mutation(
                     &mut tx,
                     context,
@@ -262,7 +271,7 @@ async fn prepare_policy_mutation(
             .bind(expected)
             .fetch_one(&mut **tx)
             .await
-            .map_err(map_sqlx_error)?;
+            .map_err(map_assignment_mutator_error)?;
     if returned != expected {
         return Err(StoreError::Conflict);
     }
@@ -308,7 +317,7 @@ pub(super) async fn prepare_post_mutation_active_attempt_reresolution(
     .bind(stored_revision(revision)?)
     .fetch_one(&mut **tx)
     .await
-    .map_err(map_sqlx_error)?;
+    .map_err(map_assignment_mutator_error)?;
     let witness = active_attempts::ActiveAttemptPrepareWitness::decode(&row)?;
     witness.require_revision(revision)?;
     Ok(witness)
@@ -686,7 +695,7 @@ async fn mutate_group_offset(
         .bind(command.offset.offset_seconds.get())
         .fetch_one(&mut *tx)
         .await
-        .map_err(map_sqlx_error)?;
+        .map_err(map_assignment_mutator_error)?;
         let revision = finish_policy_mutation(
             &mut tx,
             context,
@@ -730,7 +739,7 @@ async fn delete_group_offset(
         .bind(command.group.as_uuid())
         .fetch_one(&mut *tx)
         .await
-        .map_err(map_sqlx_error)?;
+        .map_err(map_assignment_mutator_error)?;
         let revision = finish_policy_mutation(
             &mut tx,
             context,
@@ -778,7 +787,7 @@ async fn mutate_accommodation(
         )?)
         .fetch_one(&mut *tx)
         .await
-        .map_err(map_sqlx_error)?;
+        .map_err(map_assignment_mutator_error)?;
         let revision = finish_policy_mutation(
             &mut tx,
             context,
@@ -822,7 +831,7 @@ async fn delete_accommodation(
         .bind(command.group.as_uuid())
         .fetch_one(&mut *tx)
         .await
-        .map_err(map_sqlx_error)?;
+        .map_err(map_assignment_mutator_error)?;
         let revision = finish_policy_mutation(
             &mut tx,
             context,
@@ -869,7 +878,7 @@ async fn mutate_individual(
         .bind(patch_payload(e.exception.mode, e.exception.patch)?)
         .fetch_one(&mut *tx)
         .await
-        .map_err(map_sqlx_error)?;
+        .map_err(map_assignment_mutator_error)?;
         let revision = finish_policy_mutation(
             &mut tx,
             context,
@@ -913,7 +922,7 @@ async fn delete_individual(
         .bind(command.student.as_uuid())
         .fetch_one(&mut *tx)
         .await
-        .map_err(map_sqlx_error)?;
+        .map_err(map_assignment_mutator_error)?;
         let revision = finish_policy_mutation(
             &mut tx,
             context,

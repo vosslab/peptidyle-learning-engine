@@ -127,7 +127,9 @@ async fn set_summary_scores(pool: &sqlx::PgPool, tenant: TenantId, student: User
             .execute(&mut *tx).await.expect("summary projection update");
         assert_eq!(updated.rows_affected(), 1, "one materialized learner summary is updated");
         if let Some(status) = status {
+            sqlx::query("RESET ROLE").execute(&mut *tx).await.expect("schema owner fixture role");
             sqlx::query("UPDATE assignment SET scoring_status=$3 WHERE tenant_id=$1 AND assignment_id=$2").bind(tenant.as_uuid()).bind(assignment.as_uuid()).bind(status).execute(&mut *tx).await.expect("assignment scoring state update");
+            sqlx::query("SET LOCAL ROLE ple_app").execute(&mut *tx).await.expect("restore app role");
         }
     }
     tx.commit().await.expect("summary fixture commit");

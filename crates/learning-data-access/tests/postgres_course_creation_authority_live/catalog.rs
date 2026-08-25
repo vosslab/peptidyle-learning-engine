@@ -4,6 +4,8 @@ use super::*;
 
 #[path = "catalog/completion_verifier.rs"]
 mod completion_verifier;
+#[path = "catalog/freshness.rs"]
+mod freshness;
 #[path = "catalog/invitation_broker.rs"]
 mod invitation_broker;
 #[path = "catalog/roster_mutator.rs"]
@@ -845,6 +847,7 @@ async fn course_creation_authority_catalog_is_closed_and_minimal() {
     policy_catalog(&pool).await;
     relation_catalog(&pool).await;
     completion_verifier::catalog(&pool).await;
+    freshness::catalog(&pool).await;
     invitation_broker::catalog(&pool).await;
     roster_mutator::catalog(&pool).await;
 }

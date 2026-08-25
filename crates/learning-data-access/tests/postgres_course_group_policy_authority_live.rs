@@ -54,13 +54,14 @@ async fn pool() -> PgPool {
 }
 
 async fn account(pool: &PgPool, user: Uuid, label: &str) {
+    let email_label = label.to_ascii_lowercase().replace(' ', "-");
     sqlx::query(
         "INSERT INTO public.ple_account \
          (user_id,normalized_email,delivery_email,display_name,platform_roles) \
          VALUES($1,$2,$2,$3,'[]'::jsonb)",
     )
     .bind(user)
-    .bind(format!("{label}-{}@example.edu", user.simple()))
+    .bind(format!("{email_label}-{}@example.edu", user.simple()))
     .bind(label)
     .execute(pool)
     .await
@@ -131,6 +132,27 @@ async fn fixture(pool: &PgPool) -> Fixture {
     let other_course = CourseId::from_uuid(id());
     course(pool, tenant, course_id, Some(instructor)).await;
     course(pool, tenant, other_course, None).await;
+    let initial_policies: Vec<(String, String, i64)> = sqlx::query_as(
+        "SELECT purpose,multiple_membership,revision \
+           FROM public.course_group_membership_policy \
+          WHERE tenant_id=$1 AND course_id=$2 ORDER BY purpose",
+    )
+    .bind(tenant.as_uuid())
+    .bind(course_id.as_uuid())
+    .fetch_all(pool)
+    .await
+    .expect("course policy aggregate fixture");
+    assert_eq!(
+        initial_policies,
+        vec![
+            ("accommodation".to_string(), "allow".to_string(), 1),
+            ("cohort".to_string(), "allow".to_string(), 1),
+            ("lab".to_string(), "allow".to_string(), 1),
+            ("section".to_string(), "warn".to_string(), 1),
+            ("work".to_string(), "allow".to_string(), 1),
+        ],
+        "a live course owns the closed five-purpose policy aggregate"
+    );
     Fixture {
         tenant,
         foreign_tenant,

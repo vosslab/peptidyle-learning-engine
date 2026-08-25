@@ -19,6 +19,16 @@ use crate::{
     TenantContext,
 };
 
+fn map_invitation_mutator_error(error: sqlx::Error) -> StoreError {
+    if let sqlx::Error::Database(database_error) = &error
+        && database_error.code().as_deref() == Some("23505")
+        && database_error.message() == "co-instructor invitation revision conflicts"
+    {
+        return StoreError::Conflict;
+    }
+    map_sqlx_error(error)
+}
+
 #[async_trait]
 impl TeachingAuthorityStore for PostgresStore {
     async fn approve_instructor_account(
@@ -281,7 +291,7 @@ impl TeachingAuthorityStore for PostgresStore {
         .bind(command.expected_revision.as_i64())
         .fetch_optional(&mut *transaction)
         .await
-        .map_err(map_sqlx_error)?
+        .map_err(map_invitation_mutator_error)?
         .ok_or(StoreError::NotFound)?;
         validate_invitation_capability_identity(
             &row,
@@ -357,7 +367,7 @@ async fn target_terminal(
             .bind(command.expected_revision.as_i64())
             .fetch_optional(&mut *transaction)
             .await
-            .map_err(map_sqlx_error)?
+            .map_err(map_invitation_mutator_error)?
             .ok_or(StoreError::NotFound)?;
     let course = CourseId::from_uuid(row.try_get("course_id").map_err(map_sqlx_error)?);
     validate_invitation_capability_identity(

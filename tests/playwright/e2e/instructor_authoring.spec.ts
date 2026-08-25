@@ -170,23 +170,28 @@ test.describe("instructor authoring on the production PLE stack", () => {
       ).toHaveCount(0);
       await captureInstructorState(elena, scenarioInput, "instructor_authoring_assignment_create");
       await elena.getByLabel("Assignment title").fill(assignmentTitle);
-      await elena.getByText("Add several Question IDs", { exact: true }).click();
-      await expect(elena.getByLabel("Question IDs")).toBeVisible();
-      await elena.getByLabel("Search published questions").fill(questionTitle);
-      await elena.getByRole("button", { name: "Search library", exact: true }).click();
-      const catalogQuestion = elena
-        .getByRole("article")
-        .filter({ has: elena.getByRole("heading", { name: questionTitle, exact: true }) });
-      await expect(catalogQuestion).toHaveCount(1);
-      await expect(catalogQuestion.locator("code")).toHaveText(questionId);
+      await elena.getByRole("button", { name: "Choose questions", exact: true }).click();
+      const picker = elena.getByRole("dialog", {
+        name: "Choose assignment questions",
+        exact: true,
+      });
+      await expect(picker).toBeVisible();
+      // AssignmentEditorRepository orders its sources with the current Library first, so the
+      // assignment journey starts in the intended source without an extra source mutation.
+      await picker.getByLabel("Search questions", { exact: true }).fill(questionTitle);
+      await picker.getByRole("button", { name: "Search questions", exact: true }).click();
+      const catalogQuestion = picker.getByRole("checkbox", { name: new RegExp(questionTitle) });
+      await expect(catalogQuestion).toBeVisible();
       await captureInstructorState(
         elena,
         scenarioInput,
         "instructor_authoring_problem_catalog",
-        catalogQuestion,
+        picker,
       );
-      await elena.getByLabel("Question IDs").fill(questionId);
-      await elena.getByRole("button", { name: "Add questions by ID" }).click();
+      await catalogQuestion.check();
+      await picker.getByRole("button", { name: "Add selected questions", exact: true }).click();
+      await expect(picker).toHaveCount(0);
+      await expect(elena.locator(".assignment-editor-list")).toContainText(questionTitle);
       await elena.getByRole("button", { name: "Create assignment" }).click();
       await expect(elena.getByText(`${assignmentTitle} now appears in this course.`)).toBeVisible();
       await expect(

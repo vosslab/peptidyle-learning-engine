@@ -29,6 +29,25 @@ interface PublishedQuestion {
   readonly correctChoice: string;
 }
 
+async function selectQuestionsInPicker(
+  page: Page,
+  triggerName: string,
+  dialogName: string,
+  titles: ReadonlyArray<string>,
+  confirmName: string,
+): Promise<void> {
+  await page.getByRole("button", { name: triggerName, exact: true }).click();
+  const picker = page.getByRole("dialog", { name: dialogName, exact: true });
+  await expect(picker).toBeVisible();
+  for (const title of titles) {
+    await picker.getByLabel("Search questions", { exact: true }).fill(title);
+    await picker.getByRole("button", { name: "Search questions", exact: true }).click();
+    await picker.getByRole("checkbox", { name: new RegExp(title) }).check();
+  }
+  await picker.getByRole("button", { name: confirmName, exact: true }).click();
+  await expect(picker).toHaveCount(0);
+}
+
 async function createPublishedQuestion(
   page: Page,
   title: string,
@@ -84,17 +103,28 @@ async function createCourseWithMixedPool(
   await page.getByRole("link", { name: "Assignments", exact: true }).click();
   await page.getByRole("link", { name: "Create the first assignment", exact: true }).click();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
-  await page.getByText("Add several Question IDs", { exact: true }).click();
-  await page.getByLabel("Question IDs").fill(fixed.id);
-  await page.getByRole("button", { name: "Add questions by ID", exact: true }).click();
+  await selectQuestionsInPicker(
+    page,
+    "Choose questions",
+    "Choose assignment questions",
+    [fixed.title],
+    "Add selected questions",
+  );
+  await expect(page.locator(".assignment-editor-list")).toContainText(fixed.title);
   await page.getByRole("button", { name: "Add question pool", exact: true }).click();
 
   const pool = page.getByRole("listitem", { name: "Question pool at position 2" });
   await expect(pool).toBeVisible();
-  await pool
-    .getByLabel("Add candidate Question IDs")
-    .fill(candidates.map((candidate) => candidate.id).join(", "));
-  await pool.getByRole("button", { name: "Check and add candidates", exact: true }).click();
+  await pool.getByRole("button", { name: "Choose candidates", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "Choose pool candidates", exact: true });
+  await expect(picker).toBeVisible();
+  for (const candidate of candidates) {
+    await picker.getByLabel("Search questions", { exact: true }).fill(candidate.title);
+    await picker.getByRole("button", { name: "Search questions", exact: true }).click();
+    await picker.getByRole("checkbox", { name: new RegExp(candidate.title) }).check();
+  }
+  await picker.getByRole("button", { name: "Add selected candidates", exact: true }).click();
+  await expect(picker).toHaveCount(0);
   for (const candidate of candidates) await expect(pool).toContainText(candidate.title);
   await pool.getByLabel("Draw count").fill("2");
   await pool.getByLabel("Points per drawn question").fill("2");

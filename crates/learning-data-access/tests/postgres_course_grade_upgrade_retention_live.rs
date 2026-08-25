@@ -52,14 +52,20 @@ async fn admin_pool(url: &str) -> sqlx::PgPool {
         .expect("admin connection derived from disposable URL")
 }
 
-fn copied_migrations(exclude_s6: bool) -> std::path::PathBuf {
+fn copied_migrations(maximum_version: Option<u64>) -> std::path::PathBuf {
     let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../schemas/migrations");
     let destination = std::env::temp_dir().join(format!("ple-s6-migrations-{}", fresh()));
     fs::create_dir_all(&destination).expect("temporary migration directory");
     for entry in fs::read_dir(source).expect("migration directory") {
         let entry = entry.expect("migration entry");
         let name = entry.file_name();
-        if exclude_s6 && name.to_string_lossy().starts_with("2026081806_") {
+        let version = name
+            .to_string_lossy()
+            .split('_')
+            .next()
+            .and_then(|value| value.parse::<u64>().ok())
+            .expect("migration filename begins with its numeric version");
+        if maximum_version.is_some_and(|maximum| version > maximum) {
             continue;
         }
         fs::copy(entry.path(), destination.join(name)).expect("copy immutable migration");
@@ -102,7 +108,7 @@ async fn assert_upgrade_backfill() {
             .connect_with(base_options)
             .await
             .expect("upgrade database connection");
-        let before = copied_migrations(true);
+        let before = copied_migrations(Some(2026081805));
         sqlx::migrate::Migrator::new(before.clone())
             .await
             .expect("1805 migrator")
@@ -112,7 +118,7 @@ async fn assert_upgrade_backfill() {
         let tenant = fresh();
         let existing = fresh();
         create_pre_s6_course(&upgrade_pool, tenant, existing).await;
-        let full = copied_migrations(false);
+        let full = copied_migrations(None);
         sqlx::migrate::Migrator::new(full.clone())
             .await
             .expect("full migrator")
@@ -225,14 +231,9 @@ async fn insert_s6_records(
     course: CourseId,
     instructor: UserId,
 ) {
-    // This lifecycle test has no question-publication concern.  It uses the
-    // app's row shape for one active course assignment, then the Store's
-    // grade-export and retention APIs for the protected lifecycle boundaries.
-    let mut tx = pool.begin().await.expect("app transaction");
-    sqlx::query("SET LOCAL ROLE ple_app")
-        .execute(&mut *tx)
-        .await
-        .expect("app role");
+    // The schema owner installs normalized lifecycle rows, then the Store's
+    // grade-export and retention capabilities own every product transition.
+    let mut tx = pool.begin().await.expect("fixture transaction");
     sqlx::query("SELECT set_config('ple.tenant_id',$1,true)")
         .bind(tenant.to_string())
         .execute(&mut *tx)

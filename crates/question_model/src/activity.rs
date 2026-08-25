@@ -264,6 +264,11 @@ pub struct AssignmentRunItem {
     pub issued_position: u32,
     /// Exact immutable catalog version selected for delivery.
     pub reference: ProblemVersionRef,
+    /// Whether this issued item may contribute to cross-course learning evidence.
+    ///
+    /// The value is frozen when the run begins so later assignment scoring
+    /// changes cannot rewrite the validity of an observed learner response.
+    pub statistics_eligible: bool,
     /// Selection group that produced this item, if it was drawn.
     pub selection_group: Option<AssignmentSelectionGroupId>,
     /// Deterministic selection seed, absent for fixed items.

@@ -1,22 +1,20 @@
 // Catalog, course, and assignment browser-visible API DTOs.
 
-import { MAX_CATALOG_TAXONOMY_FACETS } from "../../../generated/api/MAX_CATALOG_TAXONOMY_FACETS";
 import type { AssignmentDeliveryState } from "../../../generated/api/AssignmentDeliveryState";
 import type { AssignmentItemSummary as AssignmentItem } from "../../../generated/api/AssignmentItemSummary";
 import type { AssignmentScoringMode } from "../../../generated/api/AssignmentScoringMode";
 import type { AssignmentSelectionCandidateSummary as AssignmentSelectionCandidate } from "../../../generated/api/AssignmentSelectionCandidateSummary";
 import type { AssignmentSelectionGroupSummary as AssignmentSelectionGroup } from "../../../generated/api/AssignmentSelectionGroupSummary";
 import type { AssignmentSummary } from "../../../generated/api/AssignmentSummary";
-import type { CatalogCapabilityFacet } from "../../../generated/api/CatalogCapabilityFacet";
-import type { CatalogLicenseFacet } from "../../../generated/api/CatalogLicenseFacet";
-import type { CatalogLicenseValue } from "../../../generated/api/CatalogLicenseValue";
+import type { CatalogDiscoveryEvidence } from "../../../generated/api/CatalogDiscoveryEvidence";
+import type { CatalogDiscoveryItem } from "../../../generated/api/CatalogDiscoveryItem";
+import type { CatalogOwnCourseUsage } from "../../../generated/api/CatalogOwnCourseUsage";
 import type { CatalogProblemDetail } from "../../../generated/api/CatalogProblemDetail";
 import type { CatalogProblemSummary } from "../../../generated/api/CatalogProblemSummary";
-import type { CatalogSearchFacets } from "../../../generated/api/CatalogSearchFacets";
+import type { CatalogPromptProjection } from "../../../generated/api/CatalogPromptProjection";
 import type { CatalogSearchPage } from "../../../generated/api/CatalogSearchPage";
-import type { CatalogStatisticsFacet } from "../../../generated/api/CatalogStatisticsFacet";
-import type { CatalogStatisticsStatus } from "../../../generated/api/CatalogStatisticsStatus";
-import type { CatalogTaxonomyFacet } from "../../../generated/api/CatalogTaxonomyFacet";
+import type { CatalogUsageDetail } from "../../../generated/api/CatalogUsageDetail";
+import type { CatalogUsageSummary } from "../../../generated/api/CatalogUsageSummary";
 import type { CompletionRequirement } from "../../../generated/api/CompletionRequirement";
 import type { ContinuedPractice } from "../../../generated/api/ContinuedPractice";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
@@ -37,7 +35,6 @@ export function decodeAssignmentReference(value: unknown, path: string): Assignm
   return reference;
 }
 import type { PointValue } from "../../../generated/api/PointValue";
-import type { QuestionStatisticsView } from "../../../generated/api/QuestionStatisticsView";
 import type { RunPolicies } from "../../../generated/api/RunPolicies";
 import type { SelectionOrdering } from "../../../generated/api/SelectionOrdering";
 import type {
@@ -54,6 +51,7 @@ import type {
 import {
   DecodeError,
   decodeArray,
+  decodeBoolean,
   decodeFiniteNumber,
   decodeNonemptyString,
   decodeNonnegativeInteger,
@@ -66,9 +64,8 @@ import {
 import { MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP } from "../../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
 import { MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES } from "../../../generated/api/MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES";
+import { MAX_CATALOG_OWN_COURSE_USAGES } from "../../../generated/api/MAX_CATALOG_OWN_COURSE_USAGES";
 import {
-  MAX_CATALOG_CAPABILITY_FACETS,
-  MAX_CATALOG_LICENSE_FACETS,
   MAX_CATALOG_PAGE_ITEMS,
   MINIMUM_STATISTICS_COHORT_SIZE,
   STATISTICS_DURATION_ESTIMATES_SECONDS,
@@ -81,7 +78,6 @@ import {
   decodeEnvelopeTitle,
   decodeIdentifier,
   decodeQuestionMetadata,
-  decodeTaxonomyTerm,
   decodeTimestamp,
   field,
   kind,
@@ -91,6 +87,7 @@ import { decodeCourseTerm } from "./course_term";
 import { decodeContentBlock } from "./question_model";
 import { decodeLearnerDisclosurePolicy } from "./assignment_policy";
 import { decodeCourseAppearance } from "./course_appearance";
+import { decodeCatalogSearchFacets } from "./catalog_search_facets";
 
 // Retain the established catalog-course import surface while course-term owns its decoding rules.
 export { decodeCourseTerm, decodeCourseTermValidationFailure } from "./course_term";
@@ -119,6 +116,7 @@ export function decodeCatalogProblemSummary(
     requireOnlyFields(record, path, [
       "questionId",
       "backend",
+      "responseFamily",
       "capabilities",
       "metadata",
       "scope",
@@ -136,6 +134,21 @@ export function decodeCatalogProblemSummary(
       "h5p",
       "imathas",
     ]),
+    responseFamily: decodeStringEnum(
+      field(record, "responseFamily", path),
+      `${path}.responseFamily`,
+      [
+        "numeric",
+        "multipleChoice",
+        "shortText",
+        "multiBlank",
+        "matching",
+        "ordering",
+        "hotspot",
+        "fileUpload",
+        "externalTool",
+      ],
+    ),
     capabilities: decodeBackendCapabilities(
       field(record, "capabilities", path),
       `${path}.capabilities`,
@@ -173,78 +186,6 @@ export function isPublishedNativeCatalogProblemSummary(
   );
 }
 
-function decodeCatalogTaxonomyFacet(value: unknown, path: string): CatalogTaxonomyFacet {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["term", "count"]);
-  return {
-    term: decodeTaxonomyTerm(field(record, "term", path), `${path}.term`, true),
-    count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
-  };
-}
-
-function decodeCatalogCapabilityFacet(value: unknown, path: string): CatalogCapabilityFacet {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["capability", "count"]);
-  return {
-    capability: decodeCapability(field(record, "capability", path), `${path}.capability`),
-    count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
-  };
-}
-
-function decodeCatalogLicenseFacet(value: unknown, path: string): CatalogLicenseFacet {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["license", "count"]);
-  return {
-    license: decodeStringEnum<CatalogLicenseValue>(
-      field(record, "license", path),
-      `${path}.license`,
-      ["allRightsReserved", "ccBy", "ccBySa", "ccByNc", "cc0", "other"],
-    ),
-    count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
-  };
-}
-
-function decodeCatalogStatisticsFacet(value: unknown, path: string): CatalogStatisticsFacet {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["available", "unavailable"]);
-  return {
-    available: decodeNonnegativeInteger(field(record, "available", path), `${path}.available`),
-    unavailable: decodeNonnegativeInteger(
-      field(record, "unavailable", path),
-      `${path}.unavailable`,
-    ),
-  };
-}
-
-function decodeCatalogSearchFacets(value: unknown, path: string): CatalogSearchFacets {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["taxonomy", "capabilities", "licenses", "statistics"]);
-  return {
-    taxonomy: decodeBoundedArray(
-      field(record, "taxonomy", path),
-      `${path}.taxonomy`,
-      MAX_CATALOG_TAXONOMY_FACETS,
-      decodeCatalogTaxonomyFacet,
-    ),
-    capabilities: decodeBoundedArray(
-      field(record, "capabilities", path),
-      `${path}.capabilities`,
-      MAX_CATALOG_CAPABILITY_FACETS,
-      decodeCatalogCapabilityFacet,
-    ),
-    licenses: decodeBoundedArray(
-      field(record, "licenses", path),
-      `${path}.licenses`,
-      MAX_CATALOG_LICENSE_FACETS,
-      decodeCatalogLicenseFacet,
-    ),
-    statistics: decodeCatalogStatisticsFacet(
-      field(record, "statistics", path),
-      `${path}.statistics`,
-    ),
-  };
-}
-
 function decodeUnitInterval(value: unknown, path: string): number {
   const decoded = decodeFiniteNumber(value, path);
   if (decoded < 0 || decoded > 1) {
@@ -261,44 +202,71 @@ function decodeCorrelation(value: unknown, path: string): number {
   return decoded;
 }
 
-function decodeQuestionStatisticsView(value: unknown, path: string): QuestionStatisticsView {
+function decodeCatalogDiscoveryEvidence(value: unknown, path: string): CatalogDiscoveryEvidence {
   const record = decodeRecord(value, path);
+  const evidenceState = decodeStringEnum(field(record, "state", path), `${path}.state`, [
+    "insufficientEvidence",
+    "available",
+  ]);
+  if (evidenceState === "insufficientEvidence") {
+    requireOnlyFields(record, path, ["state"]);
+    return { state: evidenceState };
+  }
   requireOnlyFields(record, path, [
-    "cohortSize",
+    "state",
+    "formulaVersion",
+    "observedCourseCount",
+    "independentLearnerObservationCount",
     "difficultyIndex",
     "attemptsMean",
     "timeMedianSecondsEstimate",
     "discriminationIndex",
+    "evidenceAt",
   ]);
-  const discriminationIndex =
-    "discriminationIndex" in record
-      ? decodeCorrelation(field(record, "discriminationIndex", path), `${path}.discriminationIndex`)
-      : undefined;
-  const decoded = {
-    cohortSize: decodeNonnegativeInteger(field(record, "cohortSize", path), `${path}.cohortSize`),
-    difficultyIndex: decodeUnitInterval(
-      field(record, "difficultyIndex", path),
-      `${path}.difficultyIndex`,
-    ),
-    attemptsMean: decodeFiniteNumber(field(record, "attemptsMean", path), `${path}.attemptsMean`),
-    timeMedianSecondsEstimate: decodeNonnegativeInteger(
-      field(record, "timeMedianSecondsEstimate", path),
-      `${path}.timeMedianSecondsEstimate`,
-    ),
-    ...(discriminationIndex === undefined ? {} : { discriminationIndex }),
-  } satisfies QuestionStatisticsView;
-  if (decoded.cohortSize < MINIMUM_STATISTICS_COHORT_SIZE) {
+  const formulaVersion = decodePositiveInteger(
+    field(record, "formulaVersion", path),
+    `${path}.formulaVersion`,
+  );
+  if (formulaVersion > 65_535) {
+    throw new DecodeError(`${path}.formulaVersion`, "a positive 16-bit formula version");
+  }
+  const observedCourseCount = decodePositiveInteger(
+    field(record, "observedCourseCount", path),
+    `${path}.observedCourseCount`,
+  );
+  if (observedCourseCount < 2) {
+    throw new DecodeError(`${path}.observedCourseCount`, "a safe integer at least 2");
+  }
+  const independentLearnerObservationCount = decodeNonnegativeInteger(
+    field(record, "independentLearnerObservationCount", path),
+    `${path}.independentLearnerObservationCount`,
+  );
+  if (independentLearnerObservationCount < MINIMUM_STATISTICS_COHORT_SIZE) {
     throw new DecodeError(
-      `${path}.cohortSize`,
+      `${path}.independentLearnerObservationCount`,
       `a safe integer at least ${MINIMUM_STATISTICS_COHORT_SIZE}`,
     );
   }
-  if (decoded.attemptsMean < 1) {
+  if (independentLearnerObservationCount < observedCourseCount) {
+    throw new DecodeError(
+      `${path}.independentLearnerObservationCount`,
+      "a count at least as large as observedCourseCount",
+    );
+  }
+  const attemptsMean = decodeFiniteNumber(
+    field(record, "attemptsMean", path),
+    `${path}.attemptsMean`,
+  );
+  if (attemptsMean < 1) {
     throw new DecodeError(`${path}.attemptsMean`, "a finite number at least 1");
   }
+  const timeMedianSecondsEstimate = decodeNonnegativeInteger(
+    field(record, "timeMedianSecondsEstimate", path),
+    `${path}.timeMedianSecondsEstimate`,
+  );
   if (
     !STATISTICS_DURATION_ESTIMATES_SECONDS.some(
-      (estimate) => estimate === decoded.timeMedianSecondsEstimate,
+      (estimate) => estimate === timeMedianSecondsEstimate,
     )
   ) {
     throw new DecodeError(
@@ -306,21 +274,148 @@ function decodeQuestionStatisticsView(value: unknown, path: string): QuestionSta
       "a supported fixed-histogram duration estimate",
     );
   }
-  return decoded;
-}
-
-function decodeCatalogStatisticsStatus(value: unknown, path: string): CatalogStatisticsStatus {
-  if (value === "unavailable") {
-    return value;
-  }
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["available"]);
+  const discriminationIndex =
+    "discriminationIndex" in record
+      ? decodeCorrelation(field(record, "discriminationIndex", path), `${path}.discriminationIndex`)
+      : undefined;
   const decoded = {
-    available: decodeQuestionStatisticsView(field(record, "available", path), `${path}.available`),
-  } satisfies CatalogStatisticsStatus;
+    state: evidenceState,
+    formulaVersion,
+    observedCourseCount,
+    independentLearnerObservationCount,
+    difficultyIndex: decodeUnitInterval(
+      field(record, "difficultyIndex", path),
+      `${path}.difficultyIndex`,
+    ),
+    attemptsMean,
+    timeMedianSecondsEstimate,
+    ...(discriminationIndex === undefined ? {} : { discriminationIndex }),
+    evidenceAt: decodeNonnegativeInteger(field(record, "evidenceAt", path), `${path}.evidenceAt`),
+  } satisfies CatalogDiscoveryEvidence;
   return decoded;
 }
 
+function decodeCatalogDiscoveryItem(value: unknown, path: string): CatalogDiscoveryItem {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["summary", "evidence"]);
+  return {
+    summary: decodeCatalogProblemSummary(field(record, "summary", path), `${path}.summary`, true),
+    evidence: decodeCatalogDiscoveryEvidence(field(record, "evidence", path), `${path}.evidence`),
+  };
+}
+
+function decodeCatalogUsageSummary(value: unknown, path: string): CatalogUsageSummary {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "institutionCourseCount",
+    "institutionAssignmentCount",
+    "ownCourseCount",
+    "ownAssignmentCount",
+  ]);
+  const institutionCourseCount = decodeNonnegativeInteger(
+    field(record, "institutionCourseCount", path),
+    `${path}.institutionCourseCount`,
+  );
+  const institutionAssignmentCount = decodeNonnegativeInteger(
+    field(record, "institutionAssignmentCount", path),
+    `${path}.institutionAssignmentCount`,
+  );
+  const ownCourseCount = decodeNonnegativeInteger(
+    field(record, "ownCourseCount", path),
+    `${path}.ownCourseCount`,
+  );
+  const ownAssignmentCount = decodeNonnegativeInteger(
+    field(record, "ownAssignmentCount", path),
+    `${path}.ownAssignmentCount`,
+  );
+  if (ownCourseCount > institutionCourseCount || ownAssignmentCount > institutionAssignmentCount) {
+    throw new DecodeError(path, "usage counts within their institution-wide totals");
+  }
+  if (institutionAssignmentCount < institutionCourseCount || ownAssignmentCount < ownCourseCount) {
+    throw new DecodeError(path, "assignment counts at least as large as their course counts");
+  }
+  return {
+    institutionCourseCount,
+    institutionAssignmentCount,
+    ownCourseCount,
+    ownAssignmentCount,
+  };
+}
+
+function decodeCatalogOwnCourseUsage(value: unknown, path: string): CatalogOwnCourseUsage {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["course", "title", "assignmentCount"]);
+  return {
+    course: decodeCourseReference(field(record, "course", path), `${path}.course`),
+    title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
+    assignmentCount: decodePositiveInteger(
+      field(record, "assignmentCount", path),
+      `${path}.assignmentCount`,
+    ),
+  };
+}
+
+function decodeCatalogUsageDetail(value: unknown, path: string): CatalogUsageDetail {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["summary", "ownCourses", "ownCoursesTruncated"]);
+  const summary = decodeCatalogUsageSummary(field(record, "summary", path), `${path}.summary`);
+  const ownCourses = decodeBoundedArray(
+    field(record, "ownCourses", path),
+    `${path}.ownCourses`,
+    MAX_CATALOG_OWN_COURSE_USAGES,
+    decodeCatalogOwnCourseUsage,
+  );
+  const seenCourses = new Set<string>();
+  for (const courseUsage of ownCourses) {
+    if (seenCourses.has(courseUsage.course)) {
+      throw new DecodeError(`${path}.ownCourses`, "unique course references");
+    }
+    seenCourses.add(courseUsage.course);
+  }
+  const ownCoursesTruncated = decodeBoolean(
+    field(record, "ownCoursesTruncated", path),
+    `${path}.ownCoursesTruncated`,
+  );
+  if (!ownCoursesTruncated && ownCourses.length !== summary.ownCourseCount) {
+    throw new DecodeError(
+      `${path}.ownCourses`,
+      "a complete list matching ownCourseCount when not truncated",
+    );
+  }
+  if (
+    ownCoursesTruncated &&
+    (ownCourses.length !== MAX_CATALOG_OWN_COURSE_USAGES ||
+      summary.ownCourseCount <= MAX_CATALOG_OWN_COURSE_USAGES)
+  ) {
+    throw new DecodeError(
+      `${path}.ownCoursesTruncated`,
+      `true only for ${MAX_CATALOG_OWN_COURSE_USAGES} listed rows with additional own courses`,
+    );
+  }
+  return {
+    summary,
+    ownCourses,
+    ownCoursesTruncated,
+  };
+}
+
+function decodeCatalogPromptProjection(value: unknown, path: string): CatalogPromptProjection {
+  const record = decodeRecord(value, path);
+  const projectionKind = kind(record, path);
+  if (projectionKind !== "static" && projectionKind !== "generatedExample") {
+    throw new DecodeError(`${path}.kind`, "a known catalog prompt projection");
+  }
+  requireOnlyFields(record, path, ["kind", "blocks"]);
+  return {
+    kind: projectionKind,
+    blocks: decodeBoundedArray(
+      field(record, "blocks", path),
+      `${path}.blocks`,
+      MAX_CATALOG_PAGE_ITEMS,
+      (block, blockPath) => decodeContentBlock(block, blockPath, true),
+    ),
+  };
+}
 /** Strict, bounded metadata-only projection used by the catalog search endpoint. */
 export function decodeCatalogSearchPage(value: unknown, path = "response"): CatalogSearchPage {
   const record = decodeRecord(value, path);
@@ -330,7 +425,7 @@ export function decodeCatalogSearchPage(value: unknown, path = "response"): Cata
       field(record, "items", path),
       `${path}.items`,
       MAX_CATALOG_PAGE_ITEMS,
-      (item, itemPath) => decodeCatalogProblemSummary(item, itemPath, true),
+      decodeCatalogDiscoveryItem,
     ),
     nextCursor: decodeNullable(
       field(record, "nextCursor", path),
@@ -347,19 +442,12 @@ export function decodeCatalogProblemDetail(
   path = "response",
 ): CatalogProblemDetail {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["summary", "prompt", "statistics"]);
+  requireOnlyFields(record, path, ["summary", "prompt", "evidence", "usage"]);
   return {
     summary: decodeCatalogProblemSummary(field(record, "summary", path), `${path}.summary`, true),
-    prompt: decodeBoundedArray(
-      field(record, "prompt", path),
-      `${path}.prompt`,
-      MAX_CATALOG_PAGE_ITEMS,
-      (block, blockPath) => decodeContentBlock(block, blockPath, true),
-    ),
-    statistics: decodeCatalogStatisticsStatus(
-      field(record, "statistics", path),
-      `${path}.statistics`,
-    ),
+    prompt: decodeCatalogPromptProjection(field(record, "prompt", path), `${path}.prompt`),
+    evidence: decodeCatalogDiscoveryEvidence(field(record, "evidence", path), `${path}.evidence`),
+    usage: decodeCatalogUsageDetail(field(record, "usage", path), `${path}.usage`),
   };
 }
 
@@ -878,7 +966,6 @@ export function decodeAssignmentEditorDetail(
   } satisfies Omit<AssignmentEditorDetail, "revision">;
   return decoded;
 }
-
 export function decodeAssignmentCapabilityViolations(
   value: unknown,
   path = "response",
@@ -909,5 +996,4 @@ export function decodeAssignmentCapabilityViolations(
     },
   );
 }
-
 export * from "./question_model";

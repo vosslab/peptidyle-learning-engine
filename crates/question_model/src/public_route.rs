@@ -13,7 +13,8 @@ pub const MAX_PUBLIC_ROUTE_NUMBER: u32 = i32::MAX as u32;
 
 /// Prefixes reserved by the route grammar. `AC-` is intentionally reserved without an Alpha
 /// reference type: the Alpha aggregate and its visibility rules belong to WP-PROF-B1.
-pub const RESERVED_REFERENCE_PREFIXES: &[&str] = &["C", "A", "R", "W", "G", "U", "M", "CI", "AC"];
+pub const RESERVED_REFERENCE_PREFIXES: &[&str] =
+    &["C", "A", "R", "W", "G", "U", "M", "CI", "PC", "PS", "AC"];
 
 macro_rules! impl_reference {
     ($name:ident, $prefix:literal, $description:literal) => {
@@ -101,6 +102,14 @@ pub struct CourseMembershipReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct CoInstructorInvitationReference(NonZeroU32);
+/// An authorized locator for one personal or institution-visible problem collection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct ProblemCollectionReference(NonZeroU32);
+/// An authorized locator for one personal saved catalog search.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct SavedProblemSearchReference(NonZeroU32);
 
 impl_reference!(CourseReference, "C", "course reference");
 impl_reference!(AssignmentReference, "A", "assignment reference");
@@ -117,6 +126,16 @@ impl_reference!(
     CoInstructorInvitationReference,
     "CI",
     "co-instructor invitation reference"
+);
+impl_reference!(
+    ProblemCollectionReference,
+    "PC",
+    "problem-collection reference"
+);
+impl_reference!(
+    SavedProblemSearchReference,
+    "PS",
+    "saved-problem-search reference"
 );
 
 /// One authorized navigation target. IDs remain transport details after Store authorization.
@@ -234,6 +253,22 @@ mod tests {
             "CI-0",
             "CI-01",
             "CI-2147483648"
+        );
+        assert_reference_wire!(
+            ProblemCollectionReference,
+            "PC-131",
+            "PS-131",
+            "PC-0",
+            "PC-01",
+            "PC-2147483648"
+        );
+        assert_reference_wire!(
+            SavedProblemSearchReference,
+            "PS-132",
+            "PC-132",
+            "PS-0",
+            "PS-01",
+            "PS-2147483648"
         );
         assert!("AC-1".parse::<CourseReference>().is_err());
         assert!(RESERVED_REFERENCE_PREFIXES.contains(&"AC"));

@@ -16,14 +16,16 @@ async fn postgres_sysadmin_candidate_discovery_is_brokered_paged_and_safe() {
     let ordinary = UserId::from_uuid(id());
     let alpha = UserId::from_uuid(id());
     let alpine = UserId::from_uuid(id());
+    let candidate_marker = alpha.as_uuid().simple().to_string();
+    let candidate_prefix = format!("Candidate {}", &candidate_marker[..12]);
     create_account_named(&store, sysadmin, "Sysadmin").await;
     create_account_named(&store, ordinary, "Ordinary").await;
-    create_account_named(&store, alpha, "Alpha Candidate").await;
-    create_account_named(&store, alpine, "Alpine Candidate").await;
+    create_account_named(&store, alpha, &format!("{candidate_prefix} Alpha")).await;
+    create_account_named(&store, alpine, &format!("{candidate_prefix} Alpine")).await;
     let sysadmin_session = session(&store, tenant, sysadmin, vec![UserRole::Sysadmin]).await;
     let ordinary_session = session(&store, tenant, ordinary, vec![UserRole::Student]).await;
     let request = question_model::SysadminInstructorCandidateSearchRequest {
-        query: "Al".to_owned().try_into().expect("bounded query"),
+        query: candidate_prefix.clone().try_into().expect("bounded query"),
         after: None,
         size: question_model::TeachingPageSize::try_from(1).expect("bounded page"),
     };
@@ -74,7 +76,7 @@ async fn postgres_sysadmin_candidate_discovery_is_brokered_paged_and_safe() {
             context,
             sysadmin_session,
             question_model::SysadminInstructorCandidateSearchRequest {
-                query: "Al".to_owned().try_into().expect("bounded query"),
+                query: candidate_prefix.try_into().expect("bounded query"),
                 after: None,
                 size: question_model::TeachingPageSize::try_from(100).expect("bounded page"),
             },

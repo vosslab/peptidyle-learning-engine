@@ -34,6 +34,11 @@ def lanes() -> tuple[ValidationLane, ...]:
 			EvidenceBoundary.CANONICAL_PRODUCTION_BROWSER,
 		),
 		ValidationLane(
+			"disposable PostgreSQL schema, authority, and persistence oracle",
+			("bash", "tests/e2e/e2e_database_baseline.sh"),
+			EvidenceBoundary.REAL_SERVICE,
+		),
+		ValidationLane(
 			"isolated WebWork renderer service oracle",
 			("bash", "tests/e2e/e2e_webwork_render_rpc.sh"),
 			EvidenceBoundary.REAL_SERVICE,
@@ -56,7 +61,7 @@ def run(
 	"""Run every fixed lane in order and preserve its nonzero result exactly."""
 	for lane in lanes():
 		print()
-		print(f"==> Playwright validation: {lane.name}")
+		print(f"==> Live acceptance: {lane.name}")
 		print(f"Evidence boundary: {lane.evidence_boundary.value}")
 		print("Command: " + shlex.join(lane.argv))
 		result = runner.stream(list(lane.argv), environment, repo_root)
@@ -64,5 +69,5 @@ def run(
 			return result
 		print(f"PASS: {lane.name}")
 	print()
-	print("PASS: complete Playwright validation is green.")
+	print("PASS: complete live acceptance is green.")
 	return 0

@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-08-25
+
+### Fixes and Maintenance
+
+- Accepted WP-PROF-D1 question discovery on the canonical live product path and advanced the
+  professor queue to WP-PROF-D2 collections, Favorites, saved searches, bulk curation, and reusable
+  problem selection. Library search now combines public metadata and response-family facets with
+  validity-governed cross-course evidence and actor-authorized own-course usage. Generated
+  questions show one deterministic server-materialized example through the shared semantic prompt
+  renderer; the answer-free browser contract excludes seed, randomization, response, grading,
+  source, and answer material.
+- Completed D1 production evidence: the disposable PostgreSQL baseline passed all 65 migrations and
+  Store/RLS oracles; the visible HTTPS journey produced five independent observations across two
+  courses while retaining Elena Instructor and Morgan Sysadmin passkey entry; and the canonical
+  77-artifact screenshot corpus passed provenance, privacy, responsive, keyboard, and independent
+  visual review with exact resource cleanup. Architecture, security/privacy, and HCI reviews
+  reported no P0--P3 findings.
+- Restored the repository quality gates after the discovery expansion by splitting the Memory
+  catalog search implementation and its statistics/detail tests into focused modules, moving
+  problem-detail presentation into a page-owned stylesheet, registering the discovery scenario in
+  the canonical local-import inventory, and clearing regeneratable stale Rust build output before
+  final Validation.
+- Final `source source_me.sh && ./all_test.sh` passed the Rust workspace, all five codebase gates
+  including 275 Node tests, 6,727 pytest checks, and the aggregate connected acceptance path.
+  `source source_me.sh && ./capture_screenshots.sh` separately passed all production visual
+  scenarios and committed the privacy-validated 77-artifact corpus.
+
 ## 2026-08-24
 
 ### Fixes and Maintenance

@@ -169,9 +169,9 @@ SELECT problem_id, 'M4Y9K21', tenant_id, actor_id, 'institution', 'CC0-1.0'
   FROM qti_provenance_probe;
 INSERT INTO public.problem_version
     (problem_id, version_id, content_sha256, workspace_id, title,
-     backend, publication_scope, author_ids, public_byline)
+     backend, publication_scope, author_ids, public_byline, response_family)
 SELECT problem_id, version_id, repeat('a', 64), workspace_id,
-       'QTI provenance Unicode boundary', 'native', 'institution', '["E2E"]'::jsonb, ARRAY['E2E fixture']
+       'QTI provenance Unicode boundary', 'native', 'institution', '["E2E"]'::jsonb, ARRAY['E2E fixture'], 'multipleChoice'
   FROM qti_provenance_probe;
 INSERT INTO public.published_qti_grading
     (problem_id, version_id, item_id, payload, payload_sha256)
@@ -651,11 +651,11 @@ VALUES ('22222222-2222-4222-8222-0000000000b6',
         '22222222-2222-4222-8222-0000000000b5', 'institution', 'CC0-1.0');
 INSERT INTO public.problem_version
     (problem_id, version_id, content_sha256, workspace_id, title,
-     backend, publication_scope, author_ids, public_byline)
+     backend, publication_scope, author_ids, public_byline, response_family)
 VALUES ('22222222-2222-4222-8222-0000000000b6',
         '22222222-2222-4222-8222-0000000000b7', repeat('a', 64),
         '22222222-2222-4222-8222-0000000000b2', 'tenant B provenance',
-        'native', 'institution', '["E2E"]'::jsonb, ARRAY['E2E fixture']);
+        'native', 'institution', '["E2E"]'::jsonb, ARRAY['E2E fixture'], 'multipleChoice');
 INSERT INTO public.published_flat_import_origin
     (owner_tenant_id, problem_id, version_id, source_import_id, source_archive_object_id,
      source_archive_sha256, source_item_identifier, profile_id, profile_version,

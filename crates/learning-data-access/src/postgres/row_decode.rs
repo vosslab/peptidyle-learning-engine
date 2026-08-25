@@ -79,6 +79,7 @@ pub(super) fn decode_catalog_summary_row(row: &PgRow) -> Result<CatalogProblemSu
             .map_err(map_sqlx_error)?,
     )?;
     let backend: String = row.try_get("backend").map_err(map_sqlx_error)?;
+    let response_family: String = row.try_get("response_family").map_err(map_sqlx_error)?;
     let Json(capabilities): Json<BackendCapabilities> =
         row.try_get("capabilities").map_err(map_sqlx_error)?;
     let Json(metadata): Json<QuestionMetadata> = row.try_get("metadata").map_err(map_sqlx_error)?;
@@ -99,6 +100,7 @@ pub(super) fn decode_catalog_summary_row(row: &PgRow) -> Result<CatalogProblemSu
     Ok(CatalogProblemSummary {
         question_id,
         backend: parse_question_backend(&backend)?,
+        response_family: parse_catalog_response_family(&response_family)?,
         capabilities,
         metadata,
         byline,
@@ -108,11 +110,150 @@ pub(super) fn decode_catalog_summary_row(row: &PgRow) -> Result<CatalogProblemSu
     })
 }
 
+/// Decodes only the anonymous, decomposed evidence projection selected by the
+/// catalog reader. A partial or out-of-range row is unavailable rather than a
+/// weaker disclosure.
+#[cfg(feature = "postgres")]
+pub(super) fn decode_catalog_discovery_evidence_row(
+    row: &PgRow,
+) -> Result<question_model::CatalogDiscoveryEvidence, StoreError> {
+    let is_available: bool = row.try_get("evidence_visible").map_err(map_sqlx_error)?;
+    if !is_available {
+        return Ok(question_model::CatalogDiscoveryEvidence::InsufficientEvidence);
+    }
+
+    let formula_version = u16::try_from(
+        row.try_get::<i16, _>("formula_version")
+            .map_err(map_sqlx_error)?,
+    )
+    .ok()
+    .filter(|version| *version > 0)
+    .ok_or_else(|| StoreError::Unavailable("stored evidence formula is invalid".to_string()))?;
+    let observed_course_count = nonnegative_evidence_count(row, "course_count")?;
+    // Storage retains its audit-oriented receipt name. The browser contract
+    // describes the actual release rule: one valid observation per learner
+    // and exact immutable publication within this tenant.
+    let independent_learner_observation_count =
+        nonnegative_evidence_count(row, "first_attempt_count")?;
+    let difficulty_index = bounded_evidence_float(row, "difficulty_index", 0.0, 1.0)?;
+    let attempts_mean = bounded_evidence_float(row, "attempts_mean", 1.0, f64::INFINITY)?;
+    let time_median_seconds_estimate =
+        nonnegative_evidence_count(row, "time_median_seconds_estimate")?;
+    let discrimination_index = row
+        .try_get::<Option<f64>, _>("discrimination_index")
+        .map_err(map_sqlx_error)?
+        .map(|value| bounded_evidence_float_value(value, "discrimination_index", -1.0, 1.0))
+        .transpose()?;
+    let evidence_at_millis: i64 = row.try_get("evidence_at_millis").map_err(map_sqlx_error)?;
+
+    Ok(question_model::CatalogDiscoveryEvidence::Available {
+        formula_version,
+        observed_course_count,
+        independent_learner_observation_count,
+        difficulty_index,
+        attempts_mean,
+        time_median_seconds_estimate,
+        discrimination_index,
+        evidence_at: ActivityTimestamp::from_unix_millis(evidence_at_millis),
+    })
+}
+
+#[cfg(feature = "postgres")]
+pub(super) fn decode_catalog_discovery_item_row(
+    row: &PgRow,
+) -> Result<question_model::CatalogDiscoveryItem, StoreError> {
+    Ok(question_model::CatalogDiscoveryItem {
+        summary: decode_catalog_summary_row(row)?,
+        evidence: decode_catalog_discovery_evidence_row(row)?,
+    })
+}
+
+#[cfg(feature = "postgres")]
+pub(super) fn decode_catalog_usage_summary_row(
+    row: &PgRow,
+) -> Result<question_model::CatalogUsageSummary, StoreError> {
+    Ok(question_model::CatalogUsageSummary {
+        institution_course_count: nonnegative_evidence_count(row, "institution_course_count")?,
+        institution_assignment_count: nonnegative_evidence_count(
+            row,
+            "institution_assignment_count",
+        )?,
+        own_course_count: nonnegative_evidence_count(row, "own_course_count")?,
+        own_assignment_count: nonnegative_evidence_count(row, "own_assignment_count")?,
+    })
+}
+
+#[cfg(feature = "postgres")]
+pub(super) fn decode_catalog_own_course_usage_row(
+    row: &PgRow,
+) -> Result<question_model::CatalogOwnCourseUsage, StoreError> {
+    let course_reference: i32 = row.try_get("course_reference").map_err(map_sqlx_error)?;
+    let course =
+        question_model::CourseReference::new(u64::try_from(course_reference).map_err(|_| {
+            StoreError::Unavailable("stored course route number is invalid".to_string())
+        })?)
+        .ok_or_else(|| {
+            StoreError::Unavailable("stored course route number is invalid".to_string())
+        })?;
+    let title: String = row.try_get("course_title").map_err(map_sqlx_error)?;
+    if title.trim().is_empty() {
+        return Err(StoreError::Unavailable(
+            "stored catalog course title is invalid".to_string(),
+        ));
+    }
+    Ok(question_model::CatalogOwnCourseUsage {
+        course,
+        title,
+        assignment_count: nonnegative_evidence_count(row, "assignment_count")?,
+    })
+}
+
+#[cfg(feature = "postgres")]
+fn nonnegative_evidence_count(row: &PgRow, column: &str) -> Result<u64, StoreError> {
+    let value: i64 = row.try_get(column).map_err(map_sqlx_error)?;
+    u64::try_from(value).map_err(|_| StoreError::Unavailable(format!("stored {column} is invalid")))
+}
+
+#[cfg(feature = "postgres")]
+fn bounded_evidence_float(
+    row: &PgRow,
+    column: &str,
+    minimum: f64,
+    maximum: f64,
+) -> Result<f64, StoreError> {
+    let value: f64 = row.try_get(column).map_err(map_sqlx_error)?;
+    bounded_evidence_float_value(value, column, minimum, maximum)
+}
+
+#[cfg(feature = "postgres")]
+fn bounded_evidence_float_value(
+    value: f64,
+    column: &str,
+    minimum: f64,
+    maximum: f64,
+) -> Result<f64, StoreError> {
+    if !value.is_finite() || value < minimum || value > maximum {
+        return Err(StoreError::Unavailable(format!(
+            "stored {column} is invalid"
+        )));
+    }
+    Ok(value)
+}
+
 #[cfg(feature = "postgres")]
 pub(super) fn decode_question_id(value: String) -> Result<question_model::QuestionId, StoreError> {
     value
         .parse()
         .map_err(|_| StoreError::Unavailable("stored Question ID is invalid".to_string()))
+}
+
+#[cfg(feature = "postgres")]
+fn parse_catalog_response_family(
+    value: &str,
+) -> Result<question_model::CatalogResponseFamily, StoreError> {
+    serde_json::from_value(Value::String(value.to_string())).map_err(|_| {
+        StoreError::Unavailable("stored catalog response family is invalid".to_string())
+    })
 }
 
 #[cfg(feature = "postgres")]
@@ -130,10 +271,33 @@ pub(super) fn postgres_search_page_request(
 }
 
 #[cfg(feature = "postgres")]
-pub(super) fn postgres_catalog_search_fingerprint(query: &CatalogSearchQuery) -> String {
+pub(super) fn postgres_catalog_search_fingerprint(
+    query: &CatalogSearchQuery,
+    actor: Uuid,
+) -> String {
     let mut canonical = String::new();
     canonical.push_str(query.text.as_deref().unwrap_or(""));
     canonical.push('\u{1f}');
+    for byline in &query.bylines {
+        canonical.push_str(byline);
+        canonical.push('\u{1f}');
+    }
+    canonical.push('|');
+    for backend in &query.backends {
+        canonical.push_str(backend.as_str());
+        canonical.push('\u{1f}');
+    }
+    canonical.push('|');
+    for tag in &query.tags {
+        canonical.push_str(tag);
+        canonical.push('\u{1f}');
+    }
+    canonical.push('|');
+    for response_family in &query.response_families {
+        canonical.push_str(&format!("{response_family:?}"));
+        canonical.push('\u{1f}');
+    }
+    canonical.push('|');
     for term in &query.taxonomy {
         canonical.push_str(&term.scheme);
         canonical.push('\u{1e}');
@@ -151,7 +315,13 @@ pub(super) fn postgres_catalog_search_fingerprint(query: &CatalogSearchQuery) ->
         canonical.push('\u{1f}');
     }
     canonical.push('|');
-    canonical.push_str(&format!("{:?}", query.statistics));
+    canonical.push_str(&format!("{:?}", query.evidence));
+    canonical.push('|');
+    canonical.push_str(&format!("{:?}", query.used_in_my_courses));
+    canonical.push('|');
+    canonical.push_str(&format!("{:?}", query.authorship));
+    canonical.push('|');
+    canonical.push_str(&actor.to_string());
     Sha256Digest::compute(canonical.as_bytes()).to_string()
 }
 
@@ -210,6 +380,23 @@ pub(super) fn catalog_summary_page_from_rows(
                 .try_get::<String, _>("stable_key")
                 .map_err(map_sqlx_error)?;
             Ok((key, decode_catalog_summary_row(row)?))
+        })
+        .collect::<Result<Vec<_>, StoreError>>()?;
+    page_from_keyed_records(&mut records, page_size)
+}
+
+#[cfg(feature = "postgres")]
+pub(super) fn catalog_discovery_item_page_from_rows(
+    rows: Vec<PgRow>,
+    page_size: u16,
+) -> Result<Page<question_model::CatalogDiscoveryItem>, StoreError> {
+    let mut records = rows
+        .iter()
+        .map(|row| {
+            let key = row
+                .try_get::<String, _>("stable_key")
+                .map_err(map_sqlx_error)?;
+            Ok((key, decode_catalog_discovery_item_row(row)?))
         })
         .collect::<Result<Vec<_>, StoreError>>()?;
     page_from_keyed_records(&mut records, page_size)

@@ -39,7 +39,8 @@ INSERT INTO public.problem_version (
     workspace_id,
     title,
     author_ids,
-    public_byline
+    public_byline,
+    response_family
 ) VALUES (
     'f1000000-0000-4000-8000-000000000001',
     'f1000000-0000-4000-8000-000000000004',
@@ -47,7 +48,8 @@ INSERT INTO public.problem_version (
     'f1000000-0000-4000-8000-000000000005',
     'Partition pruning fixture',
     '[{"name":"Partition gate"}]'::jsonb,
-    ARRAY['Partition gate']
+    ARRAY['Partition gate'],
+    'numeric'
 );
 
 INSERT INTO public.course (
@@ -182,8 +184,9 @@ INSERT INTO public.question_attempt (
     assignment_position,
     course_id,
     presentation_capability,
-    flat_grading_required,
-    webwork_grading_required
+    issued_question_snapshot_payload,
+    issued_question_snapshot_payload_sha256,
+    authored_timing_grace_seconds
 )
 SELECT
     'f1000000-0000-4000-8000-000000000002'::uuid,
@@ -199,8 +202,9 @@ SELECT
     0,
     'f1000000-0000-4000-8000-000000000006'::uuid,
     'not_applicable',
-    false,
-    false
+    '{}'::jsonb,
+    repeat('5', 64),
+    0
 FROM generate_series(1, 260000) AS series(generated)
 CROSS JOIN LATERAL (
     SELECT date '2026-08-01'

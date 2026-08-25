@@ -33,6 +33,7 @@ readonly TENANT_A="00000000-0000-4000-8000-0000000000a1"
 readonly TENANT_B="00000000-0000-4000-8000-0000000000b2"
 readonly POSTGRES_USER="ple_e2e_migrator"
 readonly POSTGRES_DB="postgres"
+readonly D2_PROBLEM_CURATION_MIGRATION="2026081836_problem_curation_capabilities.sql"
 
 TEMP_DIR=""
 COMPOSE_STARTED=0
@@ -262,11 +263,15 @@ wait_for_postgres
 psql_in_container -d postgres -c "CREATE DATABASE $DATABASE_NAME"
 EXPECTED_MIGRATION_COUNT="$(find "$REPO_ROOT/schemas/migrations" -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
 [ "$EXPECTED_MIGRATION_COUNT" -gt 0 ] || fail "migration inventory is empty"
+[ -f "$REPO_ROOT/schemas/migrations/$D2_PROBLEM_CURATION_MIGRATION" ] || \
+	fail "required D2 problem-curation migration is missing: $D2_PROBLEM_CURATION_MIGRATION"
 
 initial_status="$(run_project_tools status)"
 printf '%s\n' "$initial_status"
 [ "$(printf '%s\n' "$initial_status" | grep -c ': pending')" -eq "$EXPECTED_MIGRATION_COUNT" ] || \
 	fail "empty database did not report every tracked migration as pending"
+printf '%s\n' "$initial_status" | grep -q "2026081836 problem curation capabilities: pending" || \
+	fail "empty database did not report the D2 problem-curation migration as pending"
 
 run_project_tools migrate
 run_project_tools migrate
@@ -274,6 +279,8 @@ final_status="$(run_project_tools status)"
 printf '%s\n' "$final_status"
 [ "$(printf '%s\n' "$final_status" | grep -c ': applied')" -eq "$EXPECTED_MIGRATION_COUNT" ] || \
 	fail "migrated database did not report every tracked migration as applied"
+printf '%s\n' "$final_status" | grep -q "2026081836 problem curation capabilities: applied" || \
+	fail "migrated database did not report the D2 problem-curation migration as applied"
 run_project_tools verify
 (
 	cd "$REPO_ROOT"
@@ -321,10 +328,16 @@ run_live_cargo_test "ranked catalog operator capability" cargo test -p learning-
 	postgres_catalog_discovery_predicates_have_index_capability_evidence \
 	-- --ignored --exact --test-threads=1
 
-echo "database baseline E2E: catalog statistics disclosure broker boundary"
-run_live_cargo_test "catalog statistics disclosure broker boundary" cargo test -p learning-data-access --features postgres \
-	--test postgres_catalog_disclosure_live \
-	postgres_catalog_statistics_disclosure_is_brokered_and_visibility_bound \
+echo "database baseline E2E: validity-governed catalog evidence and actor-owned usage"
+run_live_cargo_test "validity-governed catalog evidence and actor-owned usage" cargo test -p learning-data-access --features postgres \
+	--test postgres_catalog_discovery_evidence_usage_live \
+	postgres_catalog_discovery_evidence_and_usage_are_validity_and_actor_bound \
+	-- --ignored --exact --test-threads=1
+
+echo "database baseline E2E: catalog detail Store disclosure and actor-owned usage"
+run_live_cargo_test "catalog detail Store disclosure and actor-owned usage" cargo test -p learning-data-access --features postgres \
+	--test postgres_catalog_detail_store_live \
+	postgres_catalog_detail_store_discloses_evidence_and_actor_owned_usage_only \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: course appearance revision, role, and current-pointer policy"
@@ -422,7 +435,7 @@ run_live_cargo_test "mixed automatic/manual generation fence" cargo test -p lear
 echo "database baseline E2E: course-grade scheme, compact totals, export audit, and RLS"
 run_live_cargo_test "course-grade scheme, compact totals, export audit, and RLS" cargo test -p learning-data-access --features postgres \
 	--test postgres_course_grade_scheme_live \
-	postgres_course_grade_scheme_is_migrated_defaulted_revisioned_bounded_and_rls_fenced \
+	course_grade_cases::postgres_course_grade_scheme_is_migrated_defaulted_revisioned_bounded_and_rls_fenced \
 	-- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: course-grade upgrade backfill and retention wrapper"
@@ -474,6 +487,12 @@ run_live_cargo_test "T3 preview plane authorization, atomic audit, and identity-
 	postgres_preview_plane_live_oracle_is_authorized_atomic_and_identity_free \
 	-- --ignored --exact --test-threads=1
 
+echo "database baseline E2E: D2 problem curation session authority, immutable membership, and revision safety"
+run_live_cargo_test "D2 problem curation session authority, immutable membership, and revision safety" cargo test -p learning-data-access --features postgres \
+	--test postgres_problem_curation_live \
+	postgres_problem_curation_live_oracle_is_sealed_and_atomic \
+	-- --ignored --exact --test-threads=1
+
 TEMP_DIR="$WORKSPACE/migration-checksum"
 mkdir "$TEMP_DIR"
 cp -R "$REPO_ROOT/schemas/migrations" "$TEMP_DIR/migrations"
@@ -503,11 +522,11 @@ VALUES
     ('00000000-0000-4000-8000-000000000102', 'H5Q8X32', '$TENANT_B'::uuid, '00000000-0000-4000-8000-000000000202', 'institution', 'CC0-1.0'),
     ('00000000-0000-4000-8000-000000000103', 'N7P4Y98', '$TENANT_B'::uuid, '00000000-0000-4000-8000-000000000203', 'institution', 'CC0-1.0');
 INSERT INTO public.problem_version
-    (problem_id, version_id, content_sha256, workspace_id, title, publication_scope, author_ids, public_byline)
+    (problem_id, version_id, content_sha256, workspace_id, title, publication_scope, author_ids, public_byline, response_family)
 VALUES
-    ('00000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000000111', repeat('a', 64), '00000000-0000-4000-8000-000000000211', 'public grader probe', 'public', '["E2E"]'::jsonb, ARRAY['E2E fixture']),
-    ('00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000112', repeat('b', 64), '00000000-0000-4000-8000-000000000212', 'granted grader probe', 'institution', '["E2E"]'::jsonb, ARRAY['E2E fixture']),
-    ('00000000-0000-4000-8000-000000000103', '00000000-0000-4000-8000-000000000113', repeat('c', 64), '00000000-0000-4000-8000-000000000213', 'private grader probe', 'institution', '["E2E"]'::jsonb, ARRAY['E2E fixture']);
+    ('00000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000000111', repeat('a', 64), '00000000-0000-4000-8000-000000000211', 'public grader probe', 'public', '["E2E"]'::jsonb, ARRAY['E2E fixture'], 'shortText'),
+    ('00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000112', repeat('b', 64), '00000000-0000-4000-8000-000000000212', 'granted grader probe', 'institution', '["E2E"]'::jsonb, ARRAY['E2E fixture'], 'shortText'),
+    ('00000000-0000-4000-8000-000000000103', '00000000-0000-4000-8000-000000000113', repeat('c', 64), '00000000-0000-4000-8000-000000000213', 'private grader probe', 'institution', '["E2E"]'::jsonb, ARRAY['E2E fixture'], 'shortText');
 INSERT INTO public.catalog_tenant_grant (tenant_id, problem_id, version_id)
 VALUES ('$TENANT_A'::uuid, '00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000112');
 INSERT INTO public.answer_key (problem_id, version_id, key_payload, key_sha256)

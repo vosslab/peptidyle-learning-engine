@@ -496,21 +496,12 @@ async fn set_postgres_manual_grade(
         .await
         .map_err(map_sqlx_error)?;
     }
-    let generation_row = sqlx::query(
-        "UPDATE assignment SET scoring_generation = scoring_generation + 1, scoring_status = 'recalculating', \
-             updated_at = transaction_timestamp() WHERE tenant_id = $1 AND assignment_id = $2 RETURNING scoring_generation",
+    let generation = super::assignment_recalculation::enqueue_assignment_recalculation(
+        transaction,
+        tenant,
+        assignment.id,
     )
-    .bind(tenant.as_uuid()).bind(assignment.id.as_uuid()).fetch_optional(&mut **transaction).await.map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
-    let generation = decode_scoring_generation(&generation_row)?;
-    let job = JobId::generate()?;
-    let payload = serde_json::to_value(JobPayload::RecalculateAssignment {
-        assignment: assignment.id,
-        generation,
-    })
-    .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-    sqlx::query("INSERT INTO worker_job (job_id, tenant_id, payload, state, max_attempts) VALUES ($1, $2, $3, 'ready', 10)")
-        .bind(job.as_uuid()).bind(tenant.as_uuid()).bind(payload).execute(&mut **transaction).await.map_err(map_sqlx_error)?;
+    .await?;
     let occurred_at = database_timestamp(transaction).await?;
     sqlx::query(
         "INSERT INTO manual_grade_receipt \
