@@ -192,6 +192,8 @@ mod course_roster_decode;
 #[cfg(feature = "postgres")]
 mod courses;
 #[cfg(feature = "postgres")]
+mod curriculum_adoption;
+#[cfg(feature = "postgres")]
 mod effective_policy_receipts;
 #[cfg(feature = "postgres")]
 mod exports;

@@ -43,6 +43,7 @@ where
         + CatalogStore
         + learning_data_access::ProblemCurationStore
         + learning_data_access::ReusableCurriculumStore
+        + learning_data_access::CurriculumAdoptionStore
         + learning_data_access::FlatQuestionAssetStore
         + FlatQuestionStore
         + FlatImportProvenanceStore
@@ -105,6 +106,7 @@ where
         ))
         .merge(crate::problem_curation::router(Arc::clone(&store)))
         .merge(crate::reusable_curriculum::router(Arc::clone(&store)))
+        .merge(crate::curriculum_adoption::router(Arc::clone(&store)))
         .merge(crate::qti_publication::router(
             Arc::clone(&store),
             Arc::clone(&objects),

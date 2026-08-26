@@ -75,16 +75,28 @@ fn copied_migrations(maximum_version: Option<u64>) -> std::path::PathBuf {
 
 async fn create_pre_s6_course(pool: &sqlx::PgPool, tenant: Uuid, course: Uuid) {
     // This connection is the disposable migration principal, not the app role.
-    // The values satisfy the pre-S6 course shape through migration 1805.
+    // The values satisfy the pre-S6 course shape through migration 1805.  The
+    // same helper also runs after the full upgrade, where the canonical course
+    // topology trigger requires the tenant-scoped default module write.
+    let mut transaction = pool.begin().await.expect("pre-S6 course transaction");
+    sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
+        .bind(tenant.to_string())
+        .execute(&mut *transaction)
+        .await
+        .expect("pre-S6 course tenant context");
     sqlx::query(
         "INSERT INTO public.course (tenant_id, course_id, title, term_start_date, term_end_date, time_zone) \
          VALUES ($1,$2,'Pre-S6 upgrade fixture','2026-08-24','2026-12-18','America/Chicago')",
     )
     .bind(tenant)
     .bind(course)
-    .execute(pool)
+    .execute(&mut *transaction)
     .await
     .expect("pre-S6 course persists");
+    transaction
+        .commit()
+        .await
+        .expect("pre-S6 course transaction commits");
 }
 
 async fn assert_upgrade_backfill() {

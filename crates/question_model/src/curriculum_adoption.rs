@@ -29,19 +29,25 @@ pub use contracts::{
     BlueprintInstantiationPreviewRequest, BlueprintInstantiationPreviewView, CourseRolloverCommand,
     CourseRolloverCompleted, CourseRolloverPreviewRequest, CourseRolloverPreviewView,
     CourseScheduleWitness, CourseScheduleWitnessError, CourseTermShiftCommand,
-    CourseTermShiftCompleted, CourseTermShiftPreviewRequest, CourseTermShiftPreviewView,
+    CourseTermShiftCompleted, CourseTermShiftIneligibility, CourseTermShiftPreviewOutcome,
+    CourseTermShiftPreviewRequest, CourseTermShiftPreviewView, CourseTermShiftRecoveryAction,
     CreateSourceDerivedAssignmentCommand, CurriculumAdoptionCommandError,
     CurriculumAdoptionIdempotencyKey, CurriculumAdoptionIdempotencyKeyError,
-    CurriculumAdoptionReceiptBinding, CurriculumAdoptionTitle, CurriculumAdoptionTitleError,
-    CurriculumAssignmentView, CurriculumCourseImportView, CurriculumImportRevision,
-    CurriculumImportRevisionError, CurriculumImportView, CurriculumPinPosition,
-    CurriculumPinPositionError, CurriculumPinReplacement, CurriculumPinReplacements,
-    CurriculumPinReplacementsError, CurriculumReplayStatus, CurriculumScheduleCorrection,
-    CurriculumSourceView, ForkAlphaCommand, ForkAlphaCompleted, ForkAlphaPreviewRequest,
-    ForkAlphaPreviewView, ObservedAlphaAssignmentSource, ObservedAlphaAssignmentSourceError,
-    ObservedAlphaSource, ObservedAssignmentRevision, ObservedBlueprintSource,
-    PreparedCurriculumAssignmentView, PreparedCurriculumCourseView,
-    PreservedAssignmentRecoveryAction, ReplacementQuestionChoices, ReplacementQuestionChoicesError,
+    CurriculumAdoptionReceiptBinding, CurriculumAdoptionReconciliationResult,
+    CurriculumAdoptionRepairedProjection, CurriculumAdoptionRepairedProjections,
+    CurriculumAdoptionRepairedProjectionsError, CurriculumAdoptionTitle,
+    CurriculumAdoptionTitleError, CurriculumAssignmentImportSourceView, CurriculumAssignmentView,
+    CurriculumCourseImportOriginView, CurriculumCourseImportView, CurriculumCourseImportViewError,
+    CurriculumImportRevision, CurriculumImportRevisionError, CurriculumImportView,
+    CurriculumPinPosition, CurriculumPinPositionError, CurriculumPinReplacement,
+    CurriculumPinReplacements, CurriculumPinReplacementsError, CurriculumReplayStatus,
+    CurriculumScheduleCorrection, CurriculumSourceView, ForkAlphaCommand, ForkAlphaCompleted,
+    ForkAlphaPreviewRequest, ForkAlphaPreviewView, ObservedAlphaAssignmentSource,
+    ObservedAlphaAssignmentSourceError, ObservedAlphaSource, ObservedAssignmentRevision,
+    ObservedBlueprintSource, PreparedCurriculumAssignmentView, PreparedCurriculumCourseView,
+    PreservedAssignmentRecoveryAction, ReconcileCurriculumAdoptionCommand,
+    ReplacementQuestionChoices, ReplacementQuestionChoicesError, RolloverAssignmentSourceView,
+    RolloverAssignmentSourceViewError, RolloverCourseImportOriginView,
     SourceDerivedAssignmentCompleted, SourceDerivedAssignmentPreviewRequest,
     SourceDerivedAssignmentPreviewView, UnavailablePinRecoveryAction,
 };
@@ -72,9 +78,19 @@ impl CurriculumSemanticPayload {
     pub const fn canonical_version(&self) -> u8 {
         CURRICULUM_SEMANTIC_CANONICAL_VERSION
     }
+    /// Produces the one validated persistence envelope for this reusable meaning.
+    pub fn canonical_envelope(&self) -> CurriculumSemanticEnvelope {
+        let canonical_bytes = canonical_bytes(self);
+        let digest = CurriculumSemanticDigest(Sha256::digest(&canonical_bytes).into());
+        CurriculumSemanticEnvelope {
+            version: CURRICULUM_SEMANTIC_CANONICAL_VERSION,
+            canonical_bytes,
+            digest,
+        }
+    }
     /// Computes the full versioned digest of reusable meaning only.
     pub fn digest(&self) -> CurriculumSemanticDigest {
-        CurriculumSemanticDigest(Sha256::digest(canonical_bytes(self)).into())
+        self.canonical_envelope().digest()
     }
     /// Compares validated meaning and reports both digests when it changed.
     pub fn compare(&self, other: &Self) -> CurriculumSemanticComparison {
@@ -297,6 +313,34 @@ impl CurriculumSemanticDigest {
     /// Returns all persistence bytes without truncation.
     pub fn as_bytes(self) -> [u8; 32] {
         self.0
+    }
+}
+
+/// Validated server-side canonical semantic bytes and their complete digest.
+///
+/// Construction remains payload-owned so arbitrary persisted bytes cannot be
+/// mistaken for normalized qmodel meaning.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CurriculumSemanticEnvelope {
+    version: u8,
+    canonical_bytes: Vec<u8>,
+    digest: CurriculumSemanticDigest,
+}
+
+impl CurriculumSemanticEnvelope {
+    /// Returns the canonical encoding version included in the hashed bytes.
+    pub const fn version(&self) -> u8 {
+        self.version
+    }
+
+    /// Borrows the complete domain-separated canonical semantic encoding.
+    pub fn canonical_bytes(&self) -> &[u8] {
+        &self.canonical_bytes
+    }
+
+    /// Returns the complete SHA-256 digest of `canonical_bytes`.
+    pub const fn digest(&self) -> CurriculumSemanticDigest {
+        self.digest
     }
 }
 /// Meaning-level comparison used by fast-forward and divergence decisions.

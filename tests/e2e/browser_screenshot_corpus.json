@@ -862,6 +862,66 @@
       "viewport": "laptop",
       "path": "docs/screenshots/instructor/reusable_curriculum/04_alpha_reader_inspection_laptop.png",
       "privacyChecks": ["no_private_material"]
+    },
+    {
+      "artifactId": "curriculum_adoption_alpha_fork_review_laptop",
+      "scenarioId": "curriculum_adoption",
+      "stateId": "alpha_fork_review",
+      "role": "instructor",
+      "journey": "curriculum_adoption",
+      "captureOrder": 71,
+      "journeyStep": 1,
+      "viewport": "laptop",
+      "path": "docs/screenshots/instructor/curriculum_adoption/01_alpha_fork_review_laptop.png",
+      "privacyChecks": ["no_private_material"]
+    },
+    {
+      "artifactId": "curriculum_adoption_dst_correction_laptop",
+      "scenarioId": "curriculum_adoption",
+      "stateId": "dst_correction",
+      "role": "instructor",
+      "journey": "curriculum_adoption",
+      "captureOrder": 72,
+      "journeyStep": 2,
+      "viewport": "laptop",
+      "path": "docs/screenshots/instructor/curriculum_adoption/02_dst_correction_laptop.png",
+      "privacyChecks": ["no_private_material"]
+    },
+    {
+      "artifactId": "curriculum_adoption_controlled_update_decision_laptop",
+      "scenarioId": "curriculum_adoption",
+      "stateId": "controlled_update_decision",
+      "role": "instructor",
+      "journey": "curriculum_adoption",
+      "captureOrder": 73,
+      "journeyStep": 3,
+      "viewport": "laptop",
+      "path": "docs/screenshots/instructor/curriculum_adoption/03_controlled_update_decision_laptop.png",
+      "privacyChecks": ["no_private_material"]
+    },
+    {
+      "artifactId": "curriculum_adoption_divergent_recovery_laptop",
+      "scenarioId": "curriculum_adoption",
+      "stateId": "divergent_recovery",
+      "role": "instructor",
+      "journey": "curriculum_adoption",
+      "captureOrder": 74,
+      "journeyStep": 4,
+      "viewport": "laptop",
+      "path": "docs/screenshots/instructor/curriculum_adoption/04_divergent_recovery_laptop.png",
+      "privacyChecks": ["no_private_material"]
+    },
+    {
+      "artifactId": "curriculum_adoption_completed_destination_evidence_laptop",
+      "scenarioId": "curriculum_adoption",
+      "stateId": "completed_destination_evidence",
+      "role": "instructor",
+      "journey": "curriculum_adoption",
+      "captureOrder": 75,
+      "journeyStep": 5,
+      "viewport": "laptop",
+      "path": "docs/screenshots/instructor/curriculum_adoption/05_completed_destination_evidence_laptop.png",
+      "privacyChecks": ["no_private_material"]
     }
   ],
   "corpusDirectory": "docs/screenshots"

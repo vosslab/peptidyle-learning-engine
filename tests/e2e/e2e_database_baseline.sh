@@ -159,6 +159,9 @@ run_project_tools() {
 run_live_cargo_test() {
 	local label="$1"
 	shift
+	if [ "${B2_ONLY:-0}" = "1" ] && [[ "$label" != *"B2 curriculum adoption"* ]]; then
+		return 0
+	fi
 	[ "${1:-}" = "cargo" ] && [ "${2:-}" = "test" ] ||
 		fail "$label must use the repository-owned Cargo test boundary"
 	shift 2
@@ -497,6 +500,12 @@ echo "database baseline E2E: B1 reusable curriculum authority, immutable pins, a
 run_live_cargo_test "B1 reusable curriculum authority, immutable pins, and revision safety" cargo test -p learning-data-access --features postgres \
 	--test postgres_reusable_curriculum_live \
 	postgres_reusable_curriculum_live_oracle_is_brokered_and_atomic \
+	-- --ignored --exact --test-threads=1
+
+echo "database baseline E2E: B2 curriculum adoption, rollover, term shift, and reconciliation"
+run_live_cargo_test "B2 curriculum adoption, rollover, term shift, and reconciliation" cargo test -p learning-data-access --features postgres \
+	--test postgres_curriculum_adoption_live \
+	postgres_curriculum_adoption_live::postgres_curriculum_adoption_is_brokered_atomic_and_recoverable \
 	-- --ignored --exact --test-threads=1
 
 TEMP_DIR="$WORKSPACE/migration-checksum"

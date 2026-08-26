@@ -15,6 +15,8 @@ use crate::{
 };
 
 mod commands;
+mod inspection;
+mod reconciliation;
 mod recovery;
 
 fn reference(value: u128) -> ProblemVersionRef {
@@ -107,6 +109,13 @@ fn assert_changed(original: &CurriculumSemanticPayload, changed: CurriculumSeman
 fn semantic_digest_binds_every_assignment_meaning_category() {
     let original_assignment = assignment();
     let original = CurriculumSemanticPayload::assignment(original_assignment.clone());
+    let envelope = original.canonical_envelope();
+    assert_eq!(envelope.version(), original.canonical_version());
+    assert_eq!(envelope.digest(), original.digest());
+    assert_eq!(
+        envelope,
+        CurriculumSemanticPayload::assignment(original_assignment.clone()).canonical_envelope()
+    );
     assert_eq!(
         original.compare(&CurriculumSemanticPayload::assignment(
             original_assignment.clone()
@@ -851,41 +860,6 @@ fn operation_specific_completed_shapes_bind_their_own_receipts() {
     assert!(
         serde_json::from_value::<SourceDerivedAssignmentCompleted>(source_derived_wire).is_ok()
     );
-}
-
-#[test]
-fn course_and_assignment_import_views_expose_only_route_safe_provenance() {
-    let term = CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago").expect("term");
-    let course = CourseReference::new(7).expect("course reference");
-    let assignment = AssignmentReference::new(9).expect("assignment reference");
-    let source = ObservedAlphaSource {
-        reference: AlphaCourseReference::new(4).expect("Alpha reference"),
-        revision: "3".parse().expect("Alpha revision"),
-    };
-    let schedule = RelativeAssignmentSchedule::default()
-        .resolve_for_target_term(&term)
-        .expect("default schedule");
-    let assignment_import = CurriculumImportView {
-        course,
-        assignment,
-        source: alpha_assignment_source(source, 2, 3),
-        revision: "5".parse().expect("import revision"),
-        reusable_meaning_matches_baseline: true,
-    };
-    let view = CurriculumCourseImportView {
-        course,
-        source,
-        term,
-        schedule_revision: CourseScheduleRevision::new(4).expect("schedule revision"),
-        assignments: vec![assignment_import],
-    };
-    let wire = serde_json::to_value(&view).expect("course import serializes");
-    assert_eq!(wire["course"], "C-7");
-    assert_eq!(wire["assignments"][0]["assignment"], "A-9");
-    assert_eq!(wire["assignments"][0]["source"]["moduleIndex"], 2);
-    assert_eq!(wire["assignments"][0]["source"]["assignmentIndex"], 3);
-    assert!(serde_json::from_value::<CurriculumCourseImportView>(wire).is_ok());
-    assert_eq!(schedule.time_zone.as_str(), "America/Chicago");
 }
 
 #[test]

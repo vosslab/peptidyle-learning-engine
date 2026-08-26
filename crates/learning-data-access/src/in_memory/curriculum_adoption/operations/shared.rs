@@ -1,18 +1,22 @@
-use question_model::curriculum_adoption::CurriculumSemanticAssignment;
+use question_model::curriculum_adoption::{
+    CurriculumSemanticAssignment, CurriculumSemanticPayload,
+};
 use question_model::{
-    AlphaInstantiationCompleted, AssignmentFastForwardCompleted, BlueprintInstantiationCompleted,
-    CourseRolloverCompleted, CourseTermShiftCompleted, CurriculumAdoptionIdempotencyKey,
-    CurriculumAdoptionReceiptBinding, CurriculumImportRevision, CurriculumReplayStatus,
-    ForkAlphaCompleted, SourceDerivedAssignmentCompleted,
+    AlphaInstantiationCompleted, AssignmentDefinitionSourceView, AssignmentFastForwardCompleted,
+    AssignmentId, BlueprintInstantiationCompleted, CourseRolloverCompleted,
+    CourseTermShiftCompleted, CurriculumAdoptionIdempotencyKey, CurriculumAdoptionReceiptBinding,
+    CurriculumImportRevision, CurriculumReplayStatus, ForkAlphaCompleted,
+    SourceDerivedAssignmentCompleted, UserId,
 };
 
-use super::{
-    CurriculumAdoptionOperation, MemoryCurriculumAdoptionOutcome, State, StoreError,
-    StoredAssignmentAdoptionEvidence, StoredCurriculumBaseline, StoredCurriculumEnvelope,
-    StoredCurriculumSource, TenantId,
+use super::dispatch::{
+    MemoryCurriculumAdoptionOutcome, State, StoreError, StoredAssignmentAdoptionEvidence,
+    StoredAssignmentImport, StoredAssignmentImportProvenance, StoredAssignmentImportSource,
+    StoredCurriculumBaseline,
 };
+use question_model::TenantId;
 
-pub(super) fn store_import(
+pub(crate) fn store_import(
     state: &mut State,
     tenant: TenantId,
     assignment: AssignmentId,
@@ -27,30 +31,34 @@ pub(super) fn store_import(
         digest,
         revision: CurriculumImportRevision::new(1).expect("initial import revision"),
     };
-    let envelope = StoredCurriculumEnvelope {
-        source: StoredCurriculumSource::Assignment(source),
+    let provenance = StoredAssignmentImportProvenance {
+        source: StoredAssignmentImportSource::Reusable(source),
         actor,
         occurred_at: state.authoritative_time,
         receipt: receipt.clone(),
     };
-    state
-        .curriculum_import_baselines
-        .insert((tenant, assignment), baseline.clone());
-    state
-        .curriculum_import_envelopes
-        .insert((tenant, assignment), envelope.clone());
-    state.curriculum_assignment_adoption_evidence.insert(
+    state.curriculum_adoption.import_records.insert(
+        (tenant, assignment),
+        StoredAssignmentImport {
+            baseline: baseline.clone(),
+            provenance: provenance.clone(),
+        },
+    );
+    state.curriculum_adoption.assignment_evidence.insert(
         (tenant, receipt.clone(), assignment),
-        StoredAssignmentAdoptionEvidence { baseline, envelope },
+        StoredAssignmentAdoptionEvidence {
+            baseline,
+            provenance,
+        },
     );
 }
 
-pub(super) fn store_rollover_import(
+pub(crate) fn store_rollover_import(
     state: &mut State,
     tenant: TenantId,
     assignment: AssignmentId,
     semantic: CurriculumSemanticAssignment,
-    source: StoredCurriculumSource,
+    source: StoredAssignmentImportSource,
     actor: UserId,
     receipt: &CurriculumAdoptionIdempotencyKey,
 ) {
@@ -60,25 +68,29 @@ pub(super) fn store_rollover_import(
         digest,
         revision: CurriculumImportRevision::new(1).expect("initial import revision"),
     };
-    let envelope = StoredCurriculumEnvelope {
+    let provenance = StoredAssignmentImportProvenance {
         source,
         actor,
         occurred_at: state.authoritative_time,
         receipt: receipt.clone(),
     };
-    state
-        .curriculum_import_baselines
-        .insert((tenant, assignment), baseline.clone());
-    state
-        .curriculum_import_envelopes
-        .insert((tenant, assignment), envelope.clone());
-    state.curriculum_assignment_adoption_evidence.insert(
+    state.curriculum_adoption.import_records.insert(
+        (tenant, assignment),
+        StoredAssignmentImport {
+            baseline: baseline.clone(),
+            provenance: provenance.clone(),
+        },
+    );
+    state.curriculum_adoption.assignment_evidence.insert(
         (tenant, receipt.clone(), assignment),
-        StoredAssignmentAdoptionEvidence { baseline, envelope },
+        StoredAssignmentAdoptionEvidence {
+            baseline,
+            provenance,
+        },
     );
 }
 
-pub(super) fn next_import_revision(
+pub(crate) fn next_import_revision(
     revision: CurriculumImportRevision,
 ) -> Result<CurriculumImportRevision, StoreError> {
     revision
@@ -94,7 +106,7 @@ fn receipt(key: &CurriculumAdoptionIdempotencyKey) -> CurriculumAdoptionReceiptB
     }
 }
 
-pub(super) fn fork_completed(
+pub(crate) fn fork_completed(
     outcome: MemoryCurriculumAdoptionOutcome,
     key: &CurriculumAdoptionIdempotencyKey,
     replayed: bool,
@@ -110,7 +122,7 @@ pub(super) fn fork_completed(
     })
 }
 
-pub(super) fn blueprint_completed(
+pub(crate) fn blueprint_completed(
     outcome: MemoryCurriculumAdoptionOutcome,
     key: &CurriculumAdoptionIdempotencyKey,
     replayed: bool,
@@ -127,7 +139,7 @@ pub(super) fn blueprint_completed(
     })
 }
 
-pub(super) fn alpha_completed(
+pub(crate) fn alpha_completed(
     outcome: MemoryCurriculumAdoptionOutcome,
     key: &CurriculumAdoptionIdempotencyKey,
     replayed: bool,
@@ -143,7 +155,7 @@ pub(super) fn alpha_completed(
     })
 }
 
-pub(super) fn rollover_completed(
+pub(crate) fn rollover_completed(
     outcome: MemoryCurriculumAdoptionOutcome,
     key: &CurriculumAdoptionIdempotencyKey,
     replayed: bool,
@@ -163,7 +175,7 @@ pub(super) fn rollover_completed(
     })
 }
 
-pub(super) fn term_shift_completed(
+pub(crate) fn term_shift_completed(
     outcome: MemoryCurriculumAdoptionOutcome,
     key: &CurriculumAdoptionIdempotencyKey,
     replayed: bool,
@@ -179,7 +191,7 @@ pub(super) fn term_shift_completed(
     })
 }
 
-pub(super) fn fast_forward_completed(
+pub(crate) fn fast_forward_completed(
     outcome: MemoryCurriculumAdoptionOutcome,
     key: &CurriculumAdoptionIdempotencyKey,
     replayed: bool,
@@ -201,7 +213,7 @@ pub(super) fn fast_forward_completed(
     })
 }
 
-pub(super) fn source_derived_completed(
+pub(crate) fn source_derived_completed(
     outcome: MemoryCurriculumAdoptionOutcome,
     key: &CurriculumAdoptionIdempotencyKey,
     replayed: bool,

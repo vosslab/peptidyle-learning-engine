@@ -837,4 +837,47 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn curriculum_adoption_immutable_evidence_binds_the_complete_qmodel_envelope() {
+        let sql = MIGRATOR
+            .iter()
+            .find(|migration| migration.version == 2026081838)
+            .expect("curriculum-adoption foundation migration is embedded")
+            .sql
+            .as_ref();
+
+        for table in [
+            "curriculum_assignment_adoption_evidence",
+            "curriculum_whole_course_adoption",
+            "curriculum_alpha_fork_lineage",
+        ] {
+            let start = sql
+                .find(&format!("CREATE TABLE public.{table} ("))
+                .expect("immutable evidence relation is present");
+            let definition = &sql[start..]
+                .split_once("\n);\n")
+                .expect("immutable evidence relation has a bounded definition")
+                .0;
+
+            assert!(
+                definition.contains("semantic_payload jsonb NOT NULL")
+                    && definition.contains("semantic_canonical_version smallint NOT NULL")
+                    && definition.contains("semantic_canonical_bytes bytea NOT NULL")
+                    && definition.contains("semantic_sha256 bytea NOT NULL")
+                    && definition.contains("CHECK (jsonb_typeof(semantic_payload) = 'object')")
+                    && definition.contains(
+                        "CHECK (octet_length(semantic_payload::text) BETWEEN 2 AND 524288)"
+                    )
+                    && definition.contains("CHECK (semantic_canonical_version BETWEEN 1 AND 255)")
+                    && definition.contains(
+                        "CHECK (octet_length(semantic_canonical_bytes) BETWEEN 1 AND 524288)"
+                    )
+                    && definition.contains(
+                        "CHECK (semantic_sha256 = digest(semantic_canonical_bytes, 'sha256'))"
+                    ),
+                "{table} must retain its reconstruction DTO separately from the exact, bounded, versioned qmodel semantic envelope"
+            );
+        }
+    }
 }

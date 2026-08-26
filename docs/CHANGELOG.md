@@ -4,6 +4,9 @@
 
 ### Fixes and Maintenance
 
+- Made API schema startup topology-aware: disposable local PostgreSQL now fails before serving
+  when schema verification is unavailable, while AWS workload retains its degraded-start diagnostic;
+  incompatible schemas remain fatal for both topologies.
 - Established the audited `WP-PROF-B2` domain and browser-contract foundation for explicit
   curriculum adoption. Validated server-only assignment and course semantic baselines bind exact
   publication pins, authored order, pools, defaults, and relative schedules; structural equality

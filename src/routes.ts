@@ -28,6 +28,7 @@ import { AssignmentAccessLivePage } from "./pages/assignment_access_live_page";
 import { TeachingOperationsPage } from "./pages/teaching_operations_page";
 import { AssignmentPreviewPage } from "./pages/assignment_preview_page";
 import { CurriculumDetailLivePage, CurriculumLivePage } from "./pages/curriculum_live_pages";
+import { CurriculumAdoptionLivePage } from "./pages/curriculum_adoption_live_page";
 
 export { ROUTE_CONTRACT } from "./route_contract";
 
@@ -58,6 +59,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   courseAppearance: CourseAppearancePage,
   courseRoster: CourseRosterPage,
   teachingOperations: TeachingOperationsPage,
+  curriculumAdoption: CurriculumAdoptionLivePage,
 };
 
 /** Router definitions derived from the frozen contract, not a second path list. */

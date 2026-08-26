@@ -288,7 +288,7 @@ use crate::{
 use crate::{QtiImportGradingPayload, QtiImportRegistry};
 use objects::Sha256Digest;
 
-/// Memory backend used by conformance tests and pre-PostgreSQL lanes.
+/// In-process backend used only by deterministic tests and conformance oracles.
 #[derive(Debug, Clone)]
 pub struct MemoryStore {
     state: Arc<RwLock<State>>,
@@ -300,13 +300,13 @@ pub struct MemoryStore {
 
 impl Default for MemoryStore {
     fn default() -> Self {
-        // MemoryStore is a local/offline implementation. Production composition
-        // supplies the durable secret through PostgresStore instead.
+        // A fixed test secret keeps conformance results deterministic. Production
+        // composition uses PostgresStore and its durable configured secret.
         Self::with_question_id_secret([0x42; 32])
     }
 }
 
-/// Injected test/local grader capability. It is intentionally a different
+/// Injected test grader capability. It is intentionally a different
 /// handle from [`MemoryStore`], so application persistence cannot read QTI
 /// answer material merely by having a tenant context.
 #[derive(Clone)]
@@ -314,7 +314,7 @@ pub struct MemoryQtiGraderStore {
     state: Arc<RwLock<State>>,
 }
 
-/// Injected test/local grader capability for private flat-question grading material.
+/// Injected test grader capability for private flat-question grading material.
 #[derive(Clone)]
 pub struct MemoryFlatQuestionGraderStore {
     state: Arc<RwLock<State>>,
@@ -515,30 +515,9 @@ struct State {
         BTreeMap<reusable_curriculum::AlphaCourseId, reusable_curriculum::StoredAlphaCourse>,
     course_schedule_revisions:
         BTreeMap<(TenantId, CourseId), question_model::CourseScheduleRevision>,
-    curriculum_import_baselines:
-        BTreeMap<(TenantId, AssignmentId), curriculum_adoption::StoredCurriculumBaseline>,
-    curriculum_import_envelopes:
-        BTreeMap<(TenantId, AssignmentId), curriculum_adoption::StoredCurriculumEnvelope>,
-    curriculum_assignment_adoption_evidence: BTreeMap<
-        (
-            TenantId,
-            question_model::CurriculumAdoptionIdempotencyKey,
-            AssignmentId,
-        ),
-        curriculum_adoption::StoredAssignmentAdoptionEvidence,
-    >,
-    curriculum_course_adoptions:
-        BTreeMap<(TenantId, CourseId), curriculum_adoption::StoredCourseAdoptionRecord>,
-    curriculum_course_imports:
-        BTreeMap<(TenantId, CourseId), curriculum_adoption::StoredCourseImportEnvelope>,
-    curriculum_course_envelopes:
-        BTreeMap<(TenantId, CourseId), curriculum_adoption::StoredCurriculumEnvelope>,
-    curriculum_alpha_fork_lineage:
-        BTreeMap<question_model::AlphaCourseReference, curriculum_adoption::StoredAlphaForkLineage>,
-    curriculum_adoption_receipts: BTreeMap<
-        (TenantId, question_model::CurriculumAdoptionIdempotencyKey),
-        curriculum_adoption::MemoryCurriculumAdoptionReceipt,
-    >,
+    /// Immutable curriculum-adoption records. The single enclosing state lock
+    /// keeps every adoption operation and rollback atomic across capabilities.
+    curriculum_adoption: curriculum_adoption::CurriculumAdoptionState,
     drafts: BTreeMap<(TenantId, WorkspaceId), DraftRecord>,
     draft_revisions: BTreeMap<(TenantId, WorkspaceId), WorkspaceDraftRevision>,
     draft_access: BTreeMap<(TenantId, WorkspaceId, UserId), WorkspaceDraftRole>,
@@ -748,7 +727,7 @@ enum StoredLiveDemoInstallationState {
     },
 }
 
-/// Test-only lifecycle inputs for the read-only live-demo generation seam.
+/// Test-only lifecycle inputs for live-demo installation-state conformance.
 #[cfg(feature = "test-support")]
 #[derive(Debug, Clone, Copy)]
 pub enum MemoryLiveDemoInstallationState {

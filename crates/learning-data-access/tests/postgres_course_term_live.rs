@@ -202,6 +202,12 @@ async fn postgres_course_terms_round_trip_enforce_constraints_and_remain_tenant_
     foreign.rollback().await.expect("foreign probe rolls back");
 
     let corrupt_course = CourseId::from_uuid(id());
+    let mut corrupt_fixture = pool.begin().await.expect("begin corrupt course fixture");
+    sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
+        .bind(tenant.to_string())
+        .execute(&mut *corrupt_fixture)
+        .await
+        .expect("corrupt course fixture sets its tenant context");
     sqlx::query(
         "INSERT INTO course (tenant_id, course_id, title, term_start_date, term_end_date, \
          time_zone) VALUES ($1, $2, 'Corrupt zone fixture', DATE '2026-08-24', \
@@ -209,9 +215,13 @@ async fn postgres_course_terms_round_trip_enforce_constraints_and_remain_tenant_
     )
     .bind(tenant.as_uuid())
     .bind(corrupt_course.as_uuid())
-    .execute(&pool)
+    .execute(&mut *corrupt_fixture)
     .await
     .expect("database owner can manufacture shape-valid corrupt IANA evidence");
+    corrupt_fixture
+        .commit()
+        .await
+        .expect("commit corrupt course fixture");
     assert!(matches!(
         store.get_course(context, corrupt_course).await,
         Err(StoreError::Unavailable(_))

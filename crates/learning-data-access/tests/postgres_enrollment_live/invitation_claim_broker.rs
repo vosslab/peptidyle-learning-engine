@@ -25,6 +25,11 @@ async fn seed_claim_fixture(
         email: AuthenticationEmail::parse("claimed-learner@example.edu").expect("fixture email"),
     };
     let mut transaction = pool.begin().await.expect("claim fixture transaction");
+    sqlx::query("SELECT set_config('ple.tenant_id',$1,true)")
+        .bind(fixture.tenant.as_uuid().to_string())
+        .execute(&mut *transaction)
+        .await
+        .expect("trusted fixture tenant");
     sqlx::query(
         "INSERT INTO public.course(tenant_id,course_id,title,term_start_date,term_end_date,time_zone) \
          VALUES($1,$2,'Claim witness fixture',DATE '2026-01-01',DATE '2026-12-31','America/Chicago')",
@@ -40,11 +45,6 @@ async fn seed_claim_fixture(
         .execute(&mut *transaction)
         .await
         .expect("fixture roster state");
-    sqlx::query("SELECT set_config('ple.tenant_id',$1,true)")
-        .bind(fixture.tenant.as_uuid().to_string())
-        .execute(&mut *transaction)
-        .await
-        .expect("trusted fixture tenant");
     sqlx::query(
         "INSERT INTO public.course_invitation(tenant_id,course_id,invitation_id,token_hash, \
          normalized_email,delivery_email,roster_id,invited_by,idempotency_key,created_at,expires_at) \

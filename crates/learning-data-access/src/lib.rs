@@ -38,16 +38,20 @@ mod catalog_prompt;
 mod course_appearance;
 mod course_gradebook;
 mod course_roster;
+#[cfg(any(test, feature = "test-support", feature = "postgres"))]
+mod curriculum_adoption;
 mod external_tool;
 mod feedback;
 mod flat_import_provenance;
 mod flat_question;
 mod flat_question_assets;
 mod gradebook_cursor;
+/// In-memory backend for deterministic unit and conformance tests.
+#[cfg(any(test, feature = "test-support"))]
 pub mod in_memory;
 mod invitation_delivery;
 mod item_analysis;
-/// In-memory backend used by tests and lanes waiting for PostgreSQL.
+/// Background-job contracts shared by queue implementations.
 pub mod jobs;
 mod live_demo_installation;
 mod manual_grade_export;
@@ -274,12 +278,14 @@ pub(crate) use publication_validation::{
 };
 
 mod contracts;
+#[cfg(any(test, feature = "test-support"))]
+pub(crate) use contracts::assignment_item_is_retired;
 pub use contracts::*;
 pub(crate) use contracts::{
     ActivityStore, AuthoringStore, CatalogSearchCursorKey, CourseAssignmentStore, CourseStore,
-    EffectivePolicyStore, FeedbackStore, RunStore, StatisticsStore, assignment_item_is_retired,
-    assignment_scoring_changed, current_attempt_points, decode_catalog_search_cursor,
-    decode_workspace_draft_cursor, delete_and_regrade_update, encode_catalog_search_cursor,
-    encode_workspace_draft_cursor, recalculated_enrollment_projection,
-    select_assignment_group_candidates, select_assignment_run_items,
+    EffectivePolicyStore, FeedbackStore, RunStore, StatisticsStore, assignment_scoring_changed,
+    current_attempt_points, decode_catalog_search_cursor, decode_workspace_draft_cursor,
+    delete_and_regrade_update, encode_catalog_search_cursor, encode_workspace_draft_cursor,
+    recalculated_enrollment_projection, select_assignment_group_candidates,
+    select_assignment_run_items,
 };

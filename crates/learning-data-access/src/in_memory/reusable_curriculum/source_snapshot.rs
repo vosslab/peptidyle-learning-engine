@@ -2,14 +2,23 @@
 
 use question_model::curriculum_adoption::{
     CurriculumSemanticAssignment, CurriculumSemanticAssignmentEntry, CurriculumSemanticCourse,
-    CurriculumSemanticModule, CurriculumSemanticPayload, CurriculumSemanticPool,
+    CurriculumSemanticPayload,
 };
 use question_model::{
-    AssignmentDefinitionSourceView, CurriculumSourceView, ObservedAlphaAssignmentSource,
-    ObservedAlphaSource, ObservedBlueprintSource,
+    AlphaCourseRevision, AssignmentDefinitionSourceView, CurriculumSourceView,
+    ObservedAlphaAssignmentSource, ObservedAlphaSource, ObservedBlueprintSource,
 };
 
-use super::*;
+use super::{
+    AlphaCourseId, StoredAlphaCourse, StoredDefinition, StoredEntry, allocate_alpha_reference,
+    creator_byline, random_uuid, reconciliation_error,
+};
+use crate::curriculum_adoption::{
+    SemanticAssignmentEntryInputV1, SemanticAssignmentInputV1, SemanticModuleInputV1,
+    SemanticPayloadInputV1, SemanticPlannerError, SemanticPoolInputV1, normalize_payload,
+};
+use crate::in_memory::State;
+use crate::{StoreError, UserId};
 
 /// Private exact-pin source snapshot used by B2 under the already-held Memory lock.
 ///
@@ -259,23 +268,36 @@ fn semantic_course(row: &StoredAlphaCourse) -> Result<CurriculumSemanticCourse, 
     let modules = row
         .modules
         .iter()
-        .map(|(label, definitions)| {
-            CurriculumSemanticModule::new(
-                label.clone(),
-                definitions
-                    .iter()
-                    .map(semantic_assignment)
-                    .collect::<Result<Vec<_>, _>>()?,
-            )
-            .map_err(validation_error)
+        .map(|(label, definitions)| SemanticModuleInputV1 {
+            label: label.clone(),
+            assignments: definitions.iter().map(semantic_assignment_input).collect(),
         })
-        .collect::<Result<Vec<_>, _>>()?;
-    CurriculumSemanticCourse::new(row.title.clone(), modules).map_err(validation_error)
+        .collect();
+    let payload = normalize_payload(SemanticPayloadInputV1::Course {
+        title: row.title.clone(),
+        modules,
+    })
+    .map_err(semantic_error)?;
+    let CurriculumSemanticPayload::Course(course) = payload else {
+        unreachable!("course input normalizes to course meaning")
+    };
+    Ok(course)
 }
 
 fn semantic_assignment(
     definition: &StoredDefinition,
 ) -> Result<CurriculumSemanticAssignment, StoreError> {
+    let payload = normalize_payload(SemanticPayloadInputV1::Assignment {
+        definition: semantic_assignment_input(definition),
+    })
+    .map_err(semantic_error)?;
+    let CurriculumSemanticPayload::Assignment(assignment) = payload else {
+        unreachable!("assignment input normalizes to assignment meaning")
+    };
+    Ok(assignment)
+}
+
+fn semantic_assignment_input(definition: &StoredDefinition) -> SemanticAssignmentInputV1 {
     let entries = definition
         .entries
         .iter()
@@ -284,34 +306,36 @@ fn semantic_assignment(
                 pin,
                 points_possible,
                 scoring_mode,
-            } => Ok(CurriculumSemanticAssignmentEntry::Fixed {
+            } => SemanticAssignmentEntryInputV1::Fixed {
                 reference: *pin,
                 points_possible: *points_possible,
                 scoring_mode: *scoring_mode,
-            }),
+            },
             StoredEntry::Pool {
                 pins,
                 draw_count,
                 points_per_item,
                 ordering,
                 algorithm,
-            } => CurriculumSemanticPool::new(
-                pins.clone(),
-                *draw_count,
-                *points_per_item,
-                *ordering,
-                *algorithm,
-            )
-            .map(CurriculumSemanticAssignmentEntry::Pool)
-            .map_err(validation_error),
+            } => SemanticPoolInputV1 {
+                candidates: pins.clone(),
+                draw_count: *draw_count,
+                points_per_item: *points_per_item,
+                ordering: *ordering,
+                algorithm: *algorithm,
+            }
+            .into(),
         })
-        .collect::<Result<Vec<_>, _>>()?;
-    CurriculumSemanticAssignment::new(
-        definition.title.clone(),
-        definition.instructions.clone(),
+        .collect();
+    SemanticAssignmentInputV1 {
+        title: definition.title.clone(),
+        instructions: definition.instructions.clone(),
         entries,
-        definition.defaults.clone(),
-        definition.schedule.clone(),
-    )
-    .map_err(validation_error)
+        defaults: definition.defaults.clone(),
+        schedule: definition.schedule.clone(),
+    }
+}
+
+fn semantic_error(error: SemanticPlannerError) -> StoreError {
+    StoreError::InvalidRecord(error.to_string())
 }

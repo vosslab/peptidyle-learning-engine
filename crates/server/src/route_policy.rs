@@ -101,6 +101,43 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     mutation("/api/alpha-courses", "POST"),
     read("/api/alpha-courses/{alpha}"),
     mutation("/api/alpha-courses/{alpha}", "PUT"),
+    mutation("/api/alpha-courses/{alpha}/fork/preview", "POST"),
+    mutation("/api/alpha-courses/{alpha}/fork/apply", "POST"),
+    mutation(
+        "/api/course-blueprints/{blueprint}/instantiate/preview",
+        "POST",
+    ),
+    mutation(
+        "/api/course-blueprints/{blueprint}/instantiate/apply",
+        "POST",
+    ),
+    mutation("/api/alpha-courses/{alpha}/instantiate/preview", "POST"),
+    mutation("/api/alpha-courses/{alpha}/instantiate/apply", "POST"),
+    mutation("/api/courses/{course}/curriculum-rollover/preview", "POST"),
+    mutation("/api/courses/{course}/curriculum-rollover/apply", "POST"),
+    mutation(
+        "/api/courses/{course}/curriculum-term-shift/preview",
+        "POST",
+    ),
+    mutation("/api/courses/{course}/curriculum-term-shift/apply", "POST"),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/curriculum-fast-forward/preview",
+        "POST",
+    ),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/curriculum-fast-forward/apply",
+        "POST",
+    ),
+    mutation(
+        "/api/courses/{course}/curriculum-source-derived-assignment/preview",
+        "POST",
+    ),
+    mutation(
+        "/api/courses/{course}/curriculum-source-derived-assignment/apply",
+        "POST",
+    ),
+    read("/api/courses/{course}/curriculum-imports"),
+    mutation("/api/curriculum-adoption/reconcile", "POST"),
     read("/api/saved-problem-searches"),
     mutation("/api/saved-problem-searches", "POST"),
     read("/api/saved-problem-searches/{search}"),

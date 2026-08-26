@@ -1,5 +1,8 @@
 //! Storage-topology behavior owned by the native composition root.
 
+use learning_data_access::postgres::SchemaCompatibilityError;
+
+use super::backend::{StartupSchemaPolicy, startup_schema_policy};
 use super::settings::{
     ProcessRole, StorageRuntime, StorageSettings, StorageTopology, browser_boundary_for,
 };
@@ -79,4 +82,48 @@ fn publisher_refuses_disposable_local_storage() {
         topology: StorageTopology::DisposableLocal,
     };
     assert!(StorageSettings::from_env(publisher).is_err());
+}
+
+#[test]
+fn startup_schema_policy_matches_each_topology_and_result() {
+    let incompatible = || {
+        Err(SchemaCompatibilityError::Incompatible(
+            "test-only schema drift".to_string(),
+        ))
+    };
+
+    assert_eq!(
+        startup_schema_policy(StorageTopology::AwsWorkload, Ok(())),
+        StartupSchemaPolicy::Ready
+    );
+    assert_eq!(
+        startup_schema_policy(StorageTopology::DisposableLocal, Ok(())),
+        StartupSchemaPolicy::Ready
+    );
+    assert_eq!(
+        startup_schema_policy(
+            StorageTopology::AwsWorkload,
+            Err(SchemaCompatibilityError::Unavailable),
+        ),
+        StartupSchemaPolicy::StartDegraded
+    );
+    assert_eq!(
+        startup_schema_policy(
+            StorageTopology::DisposableLocal,
+            Err(SchemaCompatibilityError::Unavailable),
+        ),
+        StartupSchemaPolicy::Refuse(SchemaCompatibilityError::Unavailable)
+    );
+    assert_eq!(
+        startup_schema_policy(StorageTopology::AwsWorkload, incompatible()),
+        StartupSchemaPolicy::Refuse(SchemaCompatibilityError::Incompatible(
+            "test-only schema drift".to_string(),
+        ))
+    );
+    assert_eq!(
+        startup_schema_policy(StorageTopology::DisposableLocal, incompatible()),
+        StartupSchemaPolicy::Refuse(SchemaCompatibilityError::Incompatible(
+            "test-only schema drift".to_string(),
+        ))
+    );
 }

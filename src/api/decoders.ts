@@ -10,3 +10,4 @@ export * from "./decoders/course_grade";
 export * from "./decoders/teaching_operations";
 export * from "./decoders/preview_plane";
 export * from "./decoders/problem_curation";
+export * from "./decoders/curriculum_adoption";

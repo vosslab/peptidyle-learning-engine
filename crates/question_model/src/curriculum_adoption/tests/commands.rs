@@ -198,9 +198,13 @@ fn every_write_command_is_derived_from_its_exact_preview() {
         corrections: Vec::new(),
     };
     let term_shift_key = CurriculumAdoptionIdempotencyKey::parse("shift-term").expect("key");
-    let term_shift_command =
-        CourseTermShiftCommand::from_preview(&term_shift_preview, term_shift_key.clone())
-            .expect("corrected term-shift preview creates apply command");
+    let term_shift_command = CourseTermShiftCommand::from_preview(
+        &CourseTermShiftPreviewOutcome::Eligible {
+            preview: term_shift_preview.clone(),
+        },
+        term_shift_key.clone(),
+    )
+    .expect("corrected term-shift preview creates apply command");
     assert_eq!(term_shift_command.preview_witness(), &witness);
     assert_eq!(term_shift_command.target_term(), &term);
     assert_eq!(term_shift_command.idempotency_key(), &term_shift_key);
@@ -209,7 +213,12 @@ fn every_write_command_is_derived_from_its_exact_preview() {
         .corrections
         .push(schedule_correction());
     assert_eq!(
-        CourseTermShiftCommand::from_preview(&term_shift_with_correction, term_shift_key.clone()),
+        CourseTermShiftCommand::from_preview(
+            &CourseTermShiftPreviewOutcome::Eligible {
+                preview: term_shift_with_correction,
+            },
+            term_shift_key.clone(),
+        ),
         Err(CurriculumAdoptionCommandError::CorrectionsRequired)
     );
 

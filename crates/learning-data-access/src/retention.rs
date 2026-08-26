@@ -4,6 +4,7 @@
 //! authorize deletion. Store and worker implementations bind these deterministic
 //! values to tenant-scoped configuration, database time, and private jobs.
 
+#[cfg(any(test, feature = "test-support"))]
 use std::collections::BTreeSet;
 use std::num::NonZeroU16;
 
@@ -444,6 +445,7 @@ impl CourseRetentionSnapshot {
     ///
     /// Only the Store's generation-fenced schedule transaction uses this; it
     /// cannot be constructed from a browser timestamp or policy request.
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn with_generation_and_disposition(
         self,
         generation: u64,
@@ -519,6 +521,7 @@ impl RetentionCleanupManifest {
         &self.objects
     }
 
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn from_iter(objects: BTreeSet<ObjectKey>) -> Self {
         Self {
             objects: objects.into_iter().collect(),
@@ -527,6 +530,7 @@ impl RetentionCleanupManifest {
 }
 
 /// Private durable cleanup manifest lifecycle for one stage identity.
+#[cfg(any(test, feature = "test-support"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RetentionCleanupManifestState {
     Prepared,
@@ -534,6 +538,7 @@ pub(crate) enum RetentionCleanupManifestState {
 }
 
 /// Private, persisted in-memory state of one cleanup manifest.
+#[cfg(any(test, feature = "test-support"))]
 #[derive(Debug, Clone)]
 pub(crate) struct StoredRetentionCleanupManifest {
     pub(crate) job: crate::JobId,

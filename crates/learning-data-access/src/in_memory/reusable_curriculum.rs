@@ -798,6 +798,28 @@ fn allocate_alpha_reference(
     state.alpha_courses_by_reference.insert(reference, id);
     Ok(reference)
 }
+
+/// Requires current creator authority for an Alpha aggregate after proving its
+/// forward and reverse public locator records agree. Adoption replay and
+/// reconciliation use this narrow seam without coupling an independently
+/// editable Alpha's current meaning to its immutable fork lineage.
+pub(crate) fn require_alpha_creator(
+    state: &State,
+    reference: AlphaCourseReference,
+    actor: UserId,
+) -> Result<(), StoreError> {
+    let id = *state
+        .alpha_courses_by_reference
+        .get(&reference)
+        .ok_or_else(|| reconciliation_error("Alpha"))?;
+    if state.alpha_course_references.get(&id) != Some(&reference) {
+        return Err(reconciliation_error("Alpha forward"));
+    }
+    if state.alpha_courses.get(&id).map(|row| row.creator) != Some(actor) {
+        return Err(StoreError::NotFound);
+    }
+    Ok(())
+}
 fn random_uuid(label: &str) -> Result<Uuid, StoreError> {
     crate::random_uuid::random_uuid_v4(|error| {
         StoreError::Unavailable(format!("{label} randomness is unavailable: {error}"))

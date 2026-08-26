@@ -1,23 +1,23 @@
-use question_model::curriculum_adoption::{
-    CurriculumSemanticCourse, CurriculumSemanticModule, CurriculumSemanticPayload,
-};
+use question_model::curriculum_adoption::{CurriculumSemanticCourse, CurriculumSemanticPayload};
 use question_model::{
     AlphaInstantiationCommand, AlphaInstantiationCompleted, AssignmentDefinitionSourceView,
     CourseRolloverCommand, CourseRolloverCompleted, CourseRolloverPreviewRequest,
     CourseRolloverPreviewView, CurriculumSourceView, ObservedAlphaAssignmentSource,
 };
 
-use super::{
-    CurriculumAdoptionOperation, MemoryCurriculumAdoptionOutcome, MemoryStore, SessionTokenHash,
-    State, StoreError, StoredCourseAdoptionRecord, StoredCourseImportEnvelope,
-    StoredCurriculumEnvelope, StoredCurriculumSource, TenantContext, TenantId,
-    adopted_course_semantic, apply_pin_replacements, authorized_actor, current_with_retained_schedule,
-    destination, matching_receipt, pin_correction, preview_course, require_course_instructor,
-    require_exact_witness, request_digest, rollback, source_snapshot_with_replacements,
-    store_import, store_receipt, store_rollover_import, validate_destination_pins,
+use super::dispatch::{
+    CurriculumAdoptionOperation, MemoryCurriculumAdoptionOutcome, RolloverAssignmentProvenance,
+    SessionTokenHash, StoreError, StoredAssignmentImportSource, StoredWholeCourseAdoption,
+    StoredWholeCourseOrigin, TenantContext, alpha_completed, apply_pin_replacements,
+    authorized_actor, destination, matching_receipt, pin_correction, request_digest,
+    require_course_instructor, require_exact_witness, rollback, rollover_completed, rollover_input,
+    semantic_preview_error, source_snapshot_with_replacements, store_import, store_receipt,
+    store_rollover_import, validate_destination_pins,
 };
 use crate::CourseRecord;
+use crate::curriculum_adoption::preview_course;
 use crate::in_memory::MemoryStore;
+use question_model::CourseId;
 
 pub(super) async fn apply_new_alpha_course(
     store: &MemoryStore,
@@ -29,9 +29,9 @@ pub(super) async fn apply_new_alpha_course(
     let mut state = store.write_state()?;
     let actor = authorized_actor(&state, context, session)?;
     let digest = request_digest(
-        "instantiate-alpha",
+        CurriculumAdoptionOperation::InstantiateAlpha,
         actor,
-        (
+        &(
             command.source(),
             command.title(),
             command.target_term(),
@@ -116,31 +116,15 @@ pub(super) async fn apply_new_alpha_course(
         let occurred_at = state.authoritative_time;
         let adopted_payload = adopted_course_semantic(command.title(), &course_semantic)?;
         let adopted_digest = CurriculumSemanticPayload::course(adopted_payload.clone()).digest();
-        state.curriculum_course_imports.insert(
+        state.curriculum_adoption.whole_course_adoptions.insert(
             (tenant, course),
-            StoredCourseImportEnvelope {
-                source: command.source(),
-                assignments: assignment_ids.clone(),
-                actor,
-                occurred_at,
-                receipt: command.idempotency_key().clone(),
-            },
-        );
-        state.curriculum_course_adoptions.insert(
-            (tenant, course),
-            StoredCourseAdoptionRecord {
-                assignments: assignment_ids,
+            StoredWholeCourseAdoption {
+                destination_assignments: assignment_ids,
                 payload: adopted_payload,
                 digest: adopted_digest,
-                receipt: command.idempotency_key().clone(),
-            },
-        );
-        state.curriculum_course_envelopes.insert(
-            (tenant, course),
-            StoredCurriculumEnvelope {
-                source: StoredCurriculumSource::WholeReusable(CurriculumSourceView::Alpha(
-                    command.source(),
-                )),
+                origin: StoredWholeCourseOrigin::Alpha {
+                    source: command.source(),
+                },
                 actor,
                 occurred_at,
                 receipt: command.idempotency_key().clone(),
@@ -175,13 +159,13 @@ pub(super) async fn preview_rollover(
     let actor = authorized_actor(&state, context, session)?;
     let course = require_exact_witness(&state, tenant, &request.witness)?;
     require_course_instructor(&state, tenant, course, actor)?;
-    let payload = rollover_payload(&state, tenant, course)?;
+    let payload = rollover_input(&state, tenant, course)?.payload()?;
     let payload = apply_pin_replacements(&state, store, tenant, &payload, &request.replacements)?;
     let CurriculumSemanticPayload::Course(semantic) = &payload else {
         unreachable!("rollover payload is course-sized")
     };
-    let (course_view, corrections) =
-        preview_course(&request.title, semantic, &request.target_term)?;
+    let (course_view, corrections) = preview_course(&request.title, semantic, &request.target_term)
+        .map_err(semantic_preview_error)?;
     Ok(CourseRolloverPreviewView {
         witness: request.witness,
         target_term: request.target_term,
@@ -202,9 +186,9 @@ pub(super) async fn apply_rollover(
     let mut state = store.write_state()?;
     let actor = authorized_actor(&state, context, session)?;
     let digest = request_digest(
-        "rollover-course",
+        CurriculumAdoptionOperation::RolloverCourse,
         actor,
-        (
+        &(
             command.preview_witness(),
             command.title(),
             command.target_term(),
@@ -226,20 +210,15 @@ pub(super) async fn apply_rollover(
         let source_course = require_exact_witness(&state, tenant, command.preview_witness())?;
         require_course_instructor(&state, tenant, source_course, actor)?;
         let source_reference = command.preview_witness().course;
-        let source_assignments = rollover_source_assignments(&state, tenant, source_course)?;
-        let payload = rollover_payload(&state, tenant, source_course)?;
+        let source = rollover_input(&state, tenant, source_course)?;
+        let payload = source.payload()?;
         let payload =
             apply_pin_replacements(&state, store, tenant, &payload, command.replacements())?;
         validate_destination_pins(&state, tenant, &payload).map_err(|_| StoreError::Conflict)?;
-        let CurriculumSemanticPayload::Course(semantic) = payload else {
-            unreachable!("rollover payload is course-sized")
-        };
-        for assignment in semantic
-            .modules()
-            .iter()
-            .flat_map(|module| module.assignments())
-        {
+        let paired = source.with_replaced_payload(payload)?;
+        for assignment in paired.assignments() {
             assignment
+                .semantic
                 .schedule()
                 .resolve_for_target_term(command.target_term())
                 .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
@@ -255,50 +234,42 @@ pub(super) async fn apply_rollover(
             },
             actor,
         )?;
-        let semantic_assignments = semantic
-            .modules()
-            .iter()
-            .flat_map(|module| module.assignments())
-            .collect::<Vec<_>>();
-        if semantic_assignments.len() != source_assignments.len() {
-            return Err(destination::integrity("rollover source assignment pairing"));
-        }
-        let mut assignment_ids = Vec::with_capacity(semantic_assignments.len());
-        for (assignment, source_assignment) in semantic_assignments.iter().zip(source_assignments) {
+        let mut assignment_ids = Vec::new();
+        for input in paired.assignments() {
             let (assignment_id, _) = destination::materialize_semantic_assignment(
-                &mut state, context, course, assignment,
+                &mut state,
+                context,
+                course,
+                input.semantic,
             )?;
             store_rollover_import(
                 &mut state,
                 tenant,
                 assignment_id,
-                (*assignment).clone(),
-                StoredCurriculumSource::RolloverAssignment {
+                input.semantic.clone(),
+                StoredAssignmentImportSource::Rollover(RolloverAssignmentProvenance {
                     source_course: source_reference,
                     source_schedule_revision: command.preview_witness().schedule_revision,
-                    source_assignment,
-                },
+                    source_assignment: input.source,
+                }),
                 actor,
                 command.idempotency_key(),
             );
             assignment_ids.push(assignment_id);
         }
         let occurred_at = state.authoritative_time;
-        let adopted_payload = adopted_course_semantic(command.title(), &semantic)?;
+        let CurriculumSemanticPayload::Course(mut adopted_payload) = paired.payload()? else {
+            unreachable!("rollover payload is course-sized")
+        };
+        adopted_payload = adopted_course_semantic(command.title(), &adopted_payload)?;
         let adopted_digest = CurriculumSemanticPayload::course(adopted_payload.clone()).digest();
-        state.curriculum_course_adoptions.insert(
+        state.curriculum_adoption.whole_course_adoptions.insert(
             (tenant, course),
-            StoredCourseAdoptionRecord {
-                assignments: assignment_ids,
+            StoredWholeCourseAdoption {
+                destination_assignments: assignment_ids,
                 payload: adopted_payload,
                 digest: adopted_digest,
-                receipt: command.idempotency_key().clone(),
-            },
-        );
-        state.curriculum_course_envelopes.insert(
-            (tenant, course),
-            StoredCurriculumEnvelope {
-                source: StoredCurriculumSource::Rollover {
+                origin: StoredWholeCourseOrigin::Rollover {
                     source_course: source_reference,
                     source_schedule_revision: command.preview_witness().schedule_revision,
                 },
@@ -323,64 +294,6 @@ pub(super) async fn apply_rollover(
         rollover_completed(outcome, command.idempotency_key(), false)
     })();
     rollback(&mut state, before, result)
-}
-
-fn rollover_source_assignments(
-    state: &State,
-    tenant: TenantId,
-    course: CourseId,
-) -> Result<Vec<ObservedAssignmentRevision>, StoreError> {
-    let mut assignment_ids = state
-        .assignments
-        .iter()
-        .filter_map(|((record_tenant, assignment), record)| {
-            (*record_tenant == tenant && record.course_id == course).then_some(*assignment)
-        })
-        .collect::<Vec<_>>();
-    assignment_ids.sort_unstable();
-    assignment_ids
-        .into_iter()
-        .map(|assignment| {
-            Ok(ObservedAssignmentRevision {
-                assignment: *state
-                    .assignment_references
-                    .get(&(tenant, assignment))
-                    .ok_or_else(|| destination::integrity("source assignment reference"))?,
-                revision: *state
-                    .assignment_revisions
-                    .get(&(tenant, assignment))
-                    .ok_or_else(|| destination::integrity("source assignment revision"))?,
-            })
-        })
-        .collect()
-}
-
-fn rollover_payload(
-    state: &State,
-    tenant: TenantId,
-    course: CourseId,
-) -> Result<CurriculumSemanticPayload, StoreError> {
-    let row = state
-        .courses
-        .get(&(tenant, course))
-        .ok_or(StoreError::NotFound)?;
-    let mut ids = state
-        .assignments
-        .iter()
-        .filter_map(|((record_tenant, assignment), record)| {
-            (*record_tenant == tenant && record.course_id == course).then_some(*assignment)
-        })
-        .collect::<Vec<_>>();
-    ids.sort_unstable();
-    let assignments = ids
-        .into_iter()
-        .map(|assignment| current_with_retained_schedule(state, tenant, assignment))
-        .collect::<Result<Vec<_>, _>>()?;
-    let module = CurriculumSemanticModule::new("Assignments".into(), assignments)
-        .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-    let course = CurriculumSemanticCourse::new(row.title.clone(), vec![module])
-        .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-    Ok(CurriculumSemanticPayload::course(course))
 }
 
 fn adopted_course_semantic(

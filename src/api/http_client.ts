@@ -15,6 +15,7 @@ import { createTeachingOperationsClient } from "./http_client/teaching_operation
 import { createPreviewPlaneClient } from "./http_client/preview_plane";
 import { createProblemCurationClient } from "./http_client/problem_curation";
 import { createReusableCurriculumClient } from "./http_client/reusable_curriculum";
+import { createCurriculumAdoptionClient } from "./http_client/curriculum_adoption";
 
 export {
   ApiProtocolError,
@@ -51,6 +52,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createPreviewPlaneClient(fetchImplementation, basePath),
     createProblemCurationClient(fetchImplementation, basePath),
     createReusableCurriculumClient(fetchImplementation, basePath),
+    createCurriculumAdoptionClient(fetchImplementation, basePath),
     responses,
     requests,
   );

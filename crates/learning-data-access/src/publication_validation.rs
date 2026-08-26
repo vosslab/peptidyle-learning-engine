@@ -13,9 +13,9 @@ use question_model::{DraftQuestionSource, QuestionSource};
 
 mod flat_question;
 
-pub(crate) use flat_question::{
-    validate_flat_question_publication, validate_flat_question_publication_grading,
-};
+pub(crate) use flat_question::validate_flat_question_publication;
+#[cfg(any(test, feature = "test-support"))]
+pub(crate) use flat_question::validate_flat_question_publication_grading;
 
 /// Profile item identities and per-item result source identities are bounded
 /// in Unicode scalar values to match the QTI adapter's safe source-identifier

@@ -154,6 +154,7 @@ pub(crate) fn issued_attempt_capability_from_issue(
 }
 
 /// Refuses protected-column damage that could otherwise prompt catalog recovery.
+#[cfg(any(test, feature = "test-support"))]
 pub(crate) fn validate_attempt_issuance_capability(
     attempt: &QuestionAttempt,
     presentation: PresentationCapability,

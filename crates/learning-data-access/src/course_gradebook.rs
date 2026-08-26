@@ -371,6 +371,7 @@ pub(crate) fn validate_course_grade_scheme_update_shape(
 
 /// Validates one whole-scheme command against an already synchronized
 /// in-memory assignment set.
+#[cfg(any(test, feature = "test-support"))]
 pub(crate) fn validate_course_grade_scheme_update(
     command: &UpdateCourseGradeScheme,
     current_assignments: &std::collections::BTreeSet<AssignmentId>,

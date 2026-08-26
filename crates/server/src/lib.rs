@@ -18,6 +18,8 @@ pub mod composition;
 /// Tenant courses, course-local membership, and assignment routes.
 pub mod course;
 pub mod course_appearance;
+/// Revision-bound reusable-curriculum adoption into ordinary teaching courses.
+pub mod curriculum_adoption;
 /// Instructor-authorized asynchronous assignment export requests.
 pub mod export;
 /// Frozen assignment export preparation and atomic four-artifact finalization.

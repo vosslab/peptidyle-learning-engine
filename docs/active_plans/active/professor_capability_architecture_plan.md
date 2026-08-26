@@ -1450,10 +1450,13 @@ remain intact. Revision drift, an idempotency key reused with a different reques
 divergence returns a typed recoverable outcome without a partial write. Divergence is resolved by the
 new source-derived draft action, never an automatic overwrite.
 
-**Persistence, authority, and API ownership.** The B2 migration is allocated by the release
+**Persistence, authority, and API ownership.** The B2 migration set is allocated by the release
 integrator before coding. The globally mutable allocation is recorded in
 [implementation_status.md](../implementation_status.md); this plan links to that ledger instead of
-copying its current identity. The resulting migration owns
+copying its current identity. The migration set separates the durable schema, integrity, and forced
+RLS foundation from the common broker and retention boundary and from the relational snapshots,
+atomic materializers, inspection, reconciliation, and final authority grants. Together the
+migrations own
 B2 lineage/import/baseline/envelope/idempotency/receipt persistence, `CourseScheduleRevision`, forced
 RLS policies, and one `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` curriculum-adoption broker. The broker
 receives only required table/function privileges. Execute-only `SECURITY DEFINER` procedures use a
@@ -1474,7 +1477,7 @@ grader inputs, private source, internal UUIDs, email, and FERPA records.
 **B2 dependency order.** (1) Obtain migration allocation and architect-approved contract; (2) add
 question-model values, semantic comparison, schedule resolver adapter, and source/destination rules;
 (3) implement Memory Store parity and deterministic domain/server/Node behavior; (4) add the
-PostgreSQL migration, broker, and opt-in RLS oracle; (5) register strict routes and generated browser
+PostgreSQL migrations, broker, and opt-in RLS oracle; (5) register strict routes and generated browser
 contracts; (6) compose the one visible workflow into ordinary course/assignment pages; (7) complete
 focused gates, connected browser evidence, semantic visual review, independent reviews, status and
 changelog receipt, then final `source source_me.sh && ./all_test.sh` on the material tree.

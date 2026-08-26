@@ -54,7 +54,7 @@ container build context, or runtime dependency.
 | [crates/domain/](../crates/domain/)                             | Attempt state, policies, pure learner-disclosure evaluation, seeded generation, timing inputs, and answer-free validation.                                |
 | [crates/grading/](../crates/grading/)                           | Answer keys, checkers, and correctness decisions.                                                                     |
 | [crates/objects/](../crates/objects/)                           | Typed object-store interface, four bucket domains, checksums, image validation, and MinIO/S3 backends.                |
-| [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, in-memory and PostgreSQL implementations, RLS, capability roles, migrations, and conformance tests.  |
+| [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, concrete PostgreSQL production persistence, compiler-gated deterministic test adapters, RLS, capability roles, migrations, and conformance tests.  |
 | `crates/base-course-installation/`                               | Focused product crate, imported as `base_course_installation`, for typed Base Course request/receipt, recipe, and deterministic orchestration. |
 | [crates/adapters/native/](../crates/adapters/native/)           | First-party generated questions and flat-question source compilation.                                                 |
 | [crates/adapters/webwork/](../crates/adapters/webwork/)         | Private renderer protocol, safe projection, cache, and grading delegation.                                            |
@@ -85,14 +85,16 @@ crates/learning-data-access/
 |  +- contracts/       Store and capability contracts
 |  |  `- catalog.rs    Catalog query contract and HMAC continuation codec
 |  |  `- curriculum_adoption.rs Revision-bound `CurriculumAdoptionStore` contract
-|  +- in_memory/       Database-free capability implementations
+|  +- in_memory/       `test-support`-gated deterministic contract adapters
 |  |  +- catalog.rs    Catalog state projection, pagination, and snapshot assembly
 |  |  `- catalog_search.rs Portable ranked-search admission and fixed-point scoring helpers
 |  |  +- curriculum_adoption/ Dedicated B2 adoption state, destination materialization, atomic operations, and focused behavior tests
-|  |  |  +- state.rs   Private baselines, provenance envelopes, receipts, and adoption outcomes
+|  |  |  +- state.rs   One immutable receipt/evidence history plus the explicitly repairable current import projection
+|  |  |  +- course_structure.rs Ordered module-tree rollover and exact source-assignment correspondence
 |  |  |  +- destination.rs Assignment/course materialization and reusable-meaning replacement
-|  |  |  +- operations/ Preview/apply flows shared by instantiation, rollover, term shift, and controlled updates
-|  |  |  `- tests/      Focused invalid-state and recovery behavior cases
+|  |  |  +- receipt_evidence.rs Completed-outcome, locator, provenance, and immutable-evidence binding
+|  |  |  +- operations/ Preview/apply, inspection, and receipt-led reconciliation flows
+|  |  |  `- tests/      Focused operations, rollover, inspection, integrity, recovery, and reconciliation contracts
 |  |  `- reusable_curriculum/source_snapshot.rs Trusted exact-pin and assignment-source snapshot resolution
 |  +- postgres/        PostgreSQL implementations and connection attestation
 |  |  `- catalog/search.rs Canonical ranked full-text and word-similarity search

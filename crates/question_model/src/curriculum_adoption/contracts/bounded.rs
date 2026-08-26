@@ -4,7 +4,10 @@ use std::marker::PhantomData;
 
 use serde::{Deserialize, Deserializer, de};
 
-use super::{CurriculumPinReplacement, ObservedAssignmentRevision};
+use super::{
+    CurriculumAdoptionRepairedProjection, CurriculumImportView, CurriculumPinReplacement,
+    ObservedAssignmentRevision,
+};
 use crate::{
     MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, MAX_ASSIGNMENT_ORDERED_ENTRIES,
     MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, QuestionId,
@@ -57,6 +60,15 @@ where
     deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_ORDERED_ENTRIES>(deserializer)
 }
 
+pub(super) fn deserialize_course_imports<'de, D>(
+    deserializer: D,
+) -> Result<Vec<CurriculumImportView>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_ORDERED_ENTRIES>(deserializer)
+}
+
 pub(super) fn deserialize_replacement_questions<'de, D>(
     deserializer: D,
 ) -> Result<Vec<QuestionId>, D::Error>
@@ -73,4 +85,13 @@ where
     D: Deserializer<'de>,
 {
     deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES>(deserializer)
+}
+
+pub(super) fn deserialize_repaired_projections<'de, D>(
+    deserializer: D,
+) -> Result<Vec<CurriculumAdoptionRepairedProjection>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_ORDERED_ENTRIES>(deserializer)
 }

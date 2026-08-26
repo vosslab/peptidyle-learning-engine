@@ -1,6 +1,6 @@
 # Implementation status and handoff
 
-Last updated: 2026-08-25
+Last updated: 2026-08-26
 
 This is the sole mutable registry for the global current-package handoff and shared migration
 allocations. The [implementation plan](implementation_plan.md), active
@@ -14,7 +14,8 @@ order, validation, and acceptance. Durable product decisions remain in
 
 - **Current package:** `WP-PROF-B2` - explicit curriculum adoption, teaching-course instantiation,
   rollover, term shifting, normalized manifests, provenance, and controlled fast-forward or selected
-  copy over accepted B1 reusable meaning. The package owns allocated migration `2026081838`.
+  copy over accepted B1 reusable meaning. The package owns allocated migrations `2026081838`,
+  `2026081839`, `2026081840`, and `2026081841`.
 - **Current acceptance predecessor:** `WP-PROF-B1` accepted 2026-08-25. Its focused Store now owns
   revisioned personal Blueprints and non-enrollable public Alpha curricula over exact publication
   pins, with creator-owned updates, approved-Instructor reading, answer-free inspection, and shared
@@ -94,7 +95,16 @@ receive an implicit allocation.
 | `2026081835`              | `WP-PROF-LD1`         | Reserved catalog-derived Base Course freshness authority   |
 | `2026081836`              | `WP-PROF-D2`          | Accepted problem curation capabilities                     |
 | `2026081837`              | `WP-PROF-B1`          | Accepted blueprint and public Alpha capabilities           |
-| `2026081838`              | `WP-PROF-B2`          | Allocated curriculum-adoption lineage, schedule, provenance, receipt, RLS, and broker authority |
+| `2026081838`              | `WP-PROF-B2`          | Allocated curriculum-adoption schema, lineage, schedule, provenance, receipt, integrity, and forced RLS foundation |
+| `2026081839`              | `WP-PROF-B2`          | Allocated curriculum-adoption common broker authority, retention integration, and shared capability boundary |
+| `2026081840`              | `WP-PROF-B2`          | Allocated curriculum-adoption relational snapshots, locked preparation, inspection, and reconciliation helpers |
+| `2026081841`              | `WP-PROF-B2`          | Allocated canonical ordinary-course topology, issued-work fencing, and topology capability assertions |
+| `2026081842`              | `WP-PROF-B2`          | Allocated curriculum-adoption source authorization, closed request validation, and source snapshot facts |
+| `2026081843`              | `WP-PROF-B2`          | Allocated teaching-course, import, inspection, reconciliation, and controlled schedule snapshot facts |
+| `2026081844`              | `WP-PROF-B2`          | Allocated curriculum-adoption shared materializer validation, idempotency, receipt, and evidence helpers |
+| `2026081845`              | `WP-PROF-B2`          | Allocated fork, assignment adoption, fast-forward, and reconciliation materializers |
+| `2026081846`              | `WP-PROF-B2`          | Allocated whole-course instantiation, rollover, and term-shift materializers |
+| `2026081847`              | `WP-PROF-B2`          | Allocated canonical public bridge completion and final broker catalog assertions |
 
 `2026081803` (`S5`), `2026081804` (`S3`), and `2026081805` (`S4`) reflect the accepted
 pre-file allocation reorder. Allocations `2026081811`, `1813`, `1815`, `1821`, and `1822` retain

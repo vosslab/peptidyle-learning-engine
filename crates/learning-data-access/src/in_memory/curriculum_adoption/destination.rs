@@ -4,13 +4,16 @@ use question_model::curriculum_adoption::{
 use question_model::{
     AssignmentAudience, AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId,
     AssignmentLifecycle, AssignmentRevision, AssignmentSelectionCandidate,
-    AssignmentSelectionGroup, AssignmentSelectionGroupId, BaseAssignmentPolicy,
-    ResolvedRelativeAssignmentSchedule,
+    AssignmentSelectionGroup, AssignmentSelectionGroupId,
 };
 
 use super::super::{
-    AssignmentRecord, CourseId, State, StoreError, StoredBaseAssignmentPolicy, TenantContext, TenantId,
-    validate_assignment, validate_memory_assignment_references,
+    AssignmentRecord, CourseId, State, StoreError, StoredBaseAssignmentPolicy, TenantContext,
+    TenantId, validate_assignment, validate_memory_assignment_references,
+};
+use crate::curriculum_adoption::{
+    AssignmentMaterializationEntry, AssignmentMaterializationPlan, SemanticPlannerError,
+    plan_assignment_entries, plan_assignment_materialization,
 };
 
 pub(super) fn materialize_semantic_assignment(
@@ -20,78 +23,29 @@ pub(super) fn materialize_semantic_assignment(
     semantic: &CurriculumSemanticAssignment,
 ) -> Result<(AssignmentId, question_model::AssignmentReference), StoreError> {
     let tenant = context.tenant_id();
+    let term = &state
+        .courses
+        .get(&(tenant, course))
+        .ok_or(StoreError::NotFound)?
+        .term;
+    let plan: AssignmentMaterializationPlan =
+        plan_assignment_materialization(semantic, term).map_err(semantic_error)?;
     let assignment = random_assignment_id()?;
-    let mut items = Vec::new();
-    let mut selection_groups = Vec::new();
-    for (position, entry) in semantic.entries().iter().enumerate() {
-        let position = u32::try_from(position)
-            .map_err(|_| StoreError::InvalidRecord("assignment position overflow".into()))?;
-        match entry {
-            CurriculumSemanticAssignmentEntry::Fixed {
-                reference,
-                points_possible,
-                scoring_mode,
-            } => items.push(AssignmentItem {
-                id: random_item_id()?,
-                reference: *reference,
-                position,
-                points_possible: *points_possible,
-                delivery_state: AssignmentDeliveryState::Active,
-                scoring_mode: *scoring_mode,
-            }),
-            CurriculumSemanticAssignmentEntry::Pool(pool) => {
-                let candidates = pool
-                    .candidates()
-                    .iter()
-                    .enumerate()
-                    .map(|(candidate_position, reference)| {
-                        Ok(AssignmentSelectionCandidate {
-                            id: random_item_id()?,
-                            position: u32::try_from(candidate_position).map_err(|_| {
-                                StoreError::InvalidRecord("pool position overflow".into())
-                            })?,
-                            reference: *reference,
-                            delivery_state: AssignmentDeliveryState::Active,
-                        })
-                    })
-                    .collect::<Result<Vec<_>, StoreError>>()?;
-                selection_groups.push(AssignmentSelectionGroup {
-                    id: random_group_id()?,
-                    position,
-                    draw_count: pool.draw_count(),
-                    points_per_item: pool.points_per_item(),
-                    ordering: pool.ordering(),
-                    algorithm: pool.algorithm(),
-                    candidates,
-                });
-            }
-        }
-    }
-    let resolved = semantic
-        .schedule()
-        .resolve_for_target_term(
-            &state
-                .courses
-                .get(&(tenant, course))
-                .ok_or(StoreError::NotFound)?
-                .term,
-        )
-        .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-    let defaults = semantic.defaults();
+    let (items, selection_groups) = materialize_entries(&plan.entries)?;
+    let base_policy = plan.base_policy();
     let record = AssignmentRecord {
         id: assignment,
         tenant,
         course_id: course,
-        title: semantic.title().to_owned(),
+        title: plan.title,
         lifecycle: AssignmentLifecycle::Draft,
-        instructions: semantic.instructions().clone(),
+        instructions: plan.instructions,
         audience: AssignmentAudience::CourseWide,
         items,
         selection_groups,
-        disclosure_policy: defaults.learner_disclosure,
-        policies: defaults.run_policies,
+        disclosure_policy: plan.defaults.learner_disclosure,
+        policies: plan.defaults.run_policies,
     };
-    let base_policy = base_policy(defaults, &resolved);
     super::super::course_assignments::materialize_assignment_locked(
         state,
         context,
@@ -122,7 +76,8 @@ pub(super) fn replace_reusable_meaning(
         .get(&key)
         .ok_or_else(|| integrity("assignment revision"))?;
     let next = crate::assignment_revision_checked_next(current)?;
-    let (items, selection_groups) = materialize_entries(semantic)?;
+    let entries = plan_assignment_entries(semantic).map_err(semantic_error)?;
+    let (items, selection_groups) = materialize_entries(&entries)?;
     let mut replacement = existing;
     let title_changed = replacement.title != semantic.title();
     let course = replacement.course_id;
@@ -161,9 +116,7 @@ pub(super) fn replace_reusable_meaning(
     );
     if title_changed {
         super::super::course_gradebook::advance_course_grade_scheme_revision(
-            state,
-            tenant,
-            course,
+            state, tenant, course,
         )?;
     }
     Ok(next)
@@ -237,69 +190,58 @@ pub(super) fn current_semantic_assignment(
 }
 
 fn materialize_entries(
-    semantic: &CurriculumSemanticAssignment,
+    entries: &[AssignmentMaterializationEntry],
 ) -> Result<(Vec<AssignmentItem>, Vec<AssignmentSelectionGroup>), StoreError> {
     let mut items = Vec::new();
     let mut groups = Vec::new();
-    for (position, entry) in semantic.entries().iter().enumerate() {
-        let position = u32::try_from(position)
-            .map_err(|_| StoreError::InvalidRecord("assignment position overflow".into()))?;
+    for entry in entries {
         match entry {
-            CurriculumSemanticAssignmentEntry::Fixed {
+            AssignmentMaterializationEntry::Fixed {
+                position,
                 reference,
                 points_possible,
                 scoring_mode,
             } => items.push(AssignmentItem {
                 id: random_item_id()?,
                 reference: *reference,
-                position,
+                position: *position,
                 points_possible: *points_possible,
                 delivery_state: AssignmentDeliveryState::Active,
                 scoring_mode: *scoring_mode,
             }),
-            CurriculumSemanticAssignmentEntry::Pool(pool) => {
-                groups.push(AssignmentSelectionGroup {
-                    id: random_group_id()?,
-                    position,
-                    draw_count: pool.draw_count(),
-                    points_per_item: pool.points_per_item(),
-                    ordering: pool.ordering(),
-                    algorithm: pool.algorithm(),
-                    candidates: pool
-                        .candidates()
-                        .iter()
-                        .enumerate()
-                        .map(|(position, reference)| {
-                            Ok(AssignmentSelectionCandidate {
-                                id: random_item_id()?,
-                                position: u32::try_from(position).map_err(|_| {
-                                    StoreError::InvalidRecord("pool position overflow".into())
-                                })?,
-                                reference: *reference,
-                                delivery_state: AssignmentDeliveryState::Active,
-                            })
+            AssignmentMaterializationEntry::Pool {
+                position,
+                candidates,
+                draw_count,
+                points_per_item,
+                ordering,
+                algorithm,
+            } => groups.push(AssignmentSelectionGroup {
+                id: random_group_id()?,
+                position: *position,
+                draw_count: *draw_count,
+                points_per_item: *points_per_item,
+                ordering: *ordering,
+                algorithm: *algorithm,
+                candidates: candidates
+                    .iter()
+                    .map(|candidate| {
+                        Ok(AssignmentSelectionCandidate {
+                            id: random_item_id()?,
+                            position: candidate.position,
+                            reference: candidate.reference,
+                            delivery_state: AssignmentDeliveryState::Active,
                         })
-                        .collect::<Result<Vec<_>, StoreError>>()?,
-                })
-            }
+                    })
+                    .collect::<Result<Vec<_>, StoreError>>()?,
+            }),
         }
     }
     Ok((items, groups))
 }
 
-fn base_policy(
-    defaults: &question_model::ReusableAssignmentDefaults,
-    schedule: &ResolvedRelativeAssignmentSchedule,
-) -> BaseAssignmentPolicy {
-    BaseAssignmentPolicy {
-        available_at: schedule.available_at.as_ref().map(|value| value.timestamp),
-        due_at: schedule.due_at.as_ref().map(|value| value.timestamp),
-        closes_at: schedule.closes_at.as_ref().map(|value| value.timestamp),
-        time_limit_seconds: defaults.time_limit_seconds,
-        attempt_limit: defaults.attempt_limit,
-        late_submission: defaults.late_submission,
-        deadline_behavior: defaults.deadline_behavior,
-    }
+fn semantic_error(error: SemanticPlannerError) -> StoreError {
+    StoreError::InvalidRecord(error.to_string())
 }
 
 fn random_assignment_id() -> Result<AssignmentId, StoreError> {

@@ -1,210 +1,29 @@
 use crate::{
     AccountRecord, AuthenticationEmail, CurriculumAdoptionStore, ReplaceAlphaCourseCommand,
-    ReplaceBlueprintCommand, ReplaceUnissuedAssignmentDefinitionCommand, ReusableCurriculumStore,
-    SessionLifetime, SessionStore, SessionSubject, Store,
+    ReplaceUnissuedAssignmentDefinitionCommand, ReusableCurriculumStore, SessionLifetime,
+    SessionStore, SessionSubject, Store,
 };
 use question_model::{
-    AlphaCourseDefinitionInput, AlphaCourseModuleInput, AlphaInstantiationCommand,
-    AlphaInstantiationCompleted, AlphaInstantiationPreviewRequest, AssignmentDeadlineBehavior,
+    ActivityTimestamp, AlphaInstantiationCommand, AlphaInstantiationPreviewRequest,
     AssignmentDefinitionSourceView, AssignmentEnrollment, AssignmentFastForwardDecision,
-    AssignmentFastForwardPreviewRequest, AssignmentInstructions, AssignmentRun,
-    AssignmentScoringMode, BlueprintDefinitionInput, BlueprintInstantiationCommand,
-    BlueprintInstantiationPreviewRequest, CompletionRequirement, ContinuedPractice, CourseTerm,
-    CourseTermShiftCommand, CourseTermShiftPreviewRequest, CurriculumAdoptionIdempotencyKey,
+    AssignmentFastForwardPreviewRequest, AssignmentId, AssignmentRun,
+    BlueprintInstantiationCommand, BlueprintInstantiationPreviewRequest, CourseReference,
+    CourseScheduleWitness, CourseTerm, CourseTermShiftCommand, CourseTermShiftPreviewRequest,
     CurriculumAdoptionTitle, CurriculumPinReplacement, CurriculumPinReplacements, EnrollmentId,
-    GradePolicy, LateSubmissionPolicy, LearnerDisclosurePolicy, ObservedAlphaAssignmentSource,
-    ObservedAlphaSource, ObservedAssignmentRevision, ObservedBlueprintSource, PointValue,
-    RelativeAssignmentSchedule, ReusableAssignmentDefaults, ReusableAssignmentDefinitionInput,
-    ReusableAssignmentEntryInput, ReusableFixedQuestionInput, RunId, RunMode, RunPolicies,
-    RunReference, SourceDerivedAssignmentPreviewRequest, StudentId, UserRole, VariationPolicy,
+    ObservedAlphaAssignmentSource, ObservedAlphaSource, ObservedAssignmentRevision, RunId, RunMode,
+    RunReference, SourceDerivedAssignmentPreviewRequest, StudentId, TenantId, UserId, UserRole,
+    VariationPolicy,
 };
 use uuid::Uuid;
 
-use super::super::*;
+use super::super::{course_witness, resolve_course};
+use crate::{SessionTokenHash, StoreError, TenantContext};
 
-struct Fixture {
-    store: MemoryStore,
-    tenant: TenantId,
-    context: TenantContext,
-    actor: UserId,
-    session: SessionTokenHash,
-    alpha: ObservedAlphaSource,
-    blueprint: ObservedBlueprintSource,
-    alpha_input: AlphaCourseDefinitionInput,
-    term: CourseTerm,
-    source_question: question_model::QuestionId,
-    replacement_question: question_model::QuestionId,
-}
-
-impl Fixture {
-    async fn new() -> Self {
-        let store = MemoryStore::default();
-        let tenant = TenantId::from_uuid(Uuid::from_u128(121_001));
-        let context = TenantContext::from_authenticated_session(tenant);
-        let actor = UserId::from_uuid(Uuid::from_u128(121_002));
-        let session = SessionTokenHash::compute(b"curriculum-adoption-negative");
-        let source_record = super::super::super::catalog_search_tests::record(121_003);
-        let replacement_record = super::super::super::catalog_search_tests::record(121_004);
-        let source_question = source_record.question_id.clone();
-        let replacement_question = replacement_record.question_id.clone();
-        {
-            let mut state = store.write_state().expect("fixture state");
-            state.published.insert(
-                (source_record.problem, source_record.version),
-                source_record,
-            );
-            state.published.insert(
-                (replacement_record.problem, replacement_record.version),
-                replacement_record,
-            );
-            state.instructor_approvals.insert(
-                actor,
-                crate::StoredInstructorApproval {
-                    approval: question_model::InstructorApproval {
-                        user: actor,
-                        approved_by: actor,
-                        approved_at: ActivityTimestamp::from_unix_millis(0),
-                        revoked_at: None,
-                    },
-                    revision: crate::InstructorApprovalRevision::INITIAL,
-                },
-            );
-            state.accounts.insert(
-                actor,
-                AccountRecord {
-                    user: actor,
-                    email: AuthenticationEmail::parse("negative@example.edu").expect("email"),
-                    display_name: "Negative Instructor".into(),
-                    platform_roles: Vec::new(),
-                    created_at: ActivityTimestamp::from_unix_millis(0),
-                    updated_at: ActivityTimestamp::from_unix_millis(0),
-                },
-            );
-        }
-        store
-            .create_session(
-                session,
-                SessionSubject::new(tenant, actor, "Negative", vec![UserRole::Instructor])
-                    .expect("subject"),
-                SessionLifetime::from_seconds(3_600).expect("lifetime"),
-            )
-            .await
-            .expect("session");
-        let alpha_input = AlphaCourseDefinitionInput {
-            title: "Adoption source".into(),
-            modules: vec![AlphaCourseModuleInput {
-                label: "Exact module".into(),
-                definitions: vec![definition(source_question.clone())],
-            }],
-        };
-        let alpha = store
-            .replace_alpha_course(
-                context,
-                session,
-                ReplaceAlphaCourseCommand {
-                    reference: None,
-                    expected_revision: None,
-                    definition: alpha_input.clone(),
-                },
-            )
-            .await
-            .expect("Alpha source");
-        let blueprint = store
-            .replace_blueprint(
-                context,
-                session,
-                ReplaceBlueprintCommand {
-                    reference: None,
-                    expected_revision: None,
-                    definition: BlueprintDefinitionInput {
-                        definition: definition(source_question.clone()),
-                    },
-                },
-            )
-            .await
-            .expect("Blueprint source");
-        Self {
-            store,
-            tenant,
-            context,
-            actor,
-            session,
-            alpha: ObservedAlphaSource {
-                reference: alpha.reference,
-                revision: alpha.revision,
-            },
-            blueprint: ObservedBlueprintSource {
-                reference: blueprint.reference,
-                revision: blueprint.revision,
-            },
-            alpha_input,
-            term: CourseTerm::from_parts("2026-08-24", "2026-12-18", "America/Chicago")
-                .expect("term"),
-            source_question,
-            replacement_question,
-        }
-    }
-
-    async fn instantiate(&self, suffix: &str) -> AlphaInstantiationCompleted {
-        let title = format!("Course {suffix}");
-        let preview = self
-            .store
-            .preview_alpha_instantiation(
-                self.context,
-                self.session,
-                AlphaInstantiationPreviewRequest {
-                    source: self.alpha,
-                    title: CurriculumAdoptionTitle::parse(&title).expect("title"),
-                    target_term: self.term.clone(),
-                    replacements: CurriculumPinReplacements::default(),
-                },
-            )
-            .await
-            .expect("preview");
-        self.store
-            .apply_alpha_instantiation(
-                self.context,
-                self.session,
-                AlphaInstantiationCommand::from_preview(&preview, key(suffix))
-                    .expect("corrected preview"),
-            )
-            .await
-            .expect("apply")
-    }
-}
-
-fn definition(question_id: question_model::QuestionId) -> ReusableAssignmentDefinitionInput {
-    ReusableAssignmentDefinitionInput {
-        title: "Protein structure practice".into(),
-        instructions: AssignmentInstructions::try_new("Explain each choice.".into())
-            .expect("instructions"),
-        entries: vec![ReusableAssignmentEntryInput::Fixed(
-            ReusableFixedQuestionInput {
-                question_id,
-                points_possible: PointValue::from_whole(3),
-                scoring_mode: AssignmentScoringMode::Normal,
-            },
-        )],
-        defaults: ReusableAssignmentDefaults {
-            time_limit_seconds: None,
-            attempt_limit: None,
-            late_submission: LateSubmissionPolicy::Accept,
-            deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
-            run_policies: RunPolicies {
-                completion: CompletionRequirement::AnswerAll,
-                grade: GradePolicy::Highest,
-                continued_practice: ContinuedPractice::Unlimited,
-                variation: VariationPolicy::NewSeeds,
-            },
-            learner_disclosure: LearnerDisclosurePolicy::default(),
-        },
-        schedule: RelativeAssignmentSchedule::default(),
-    }
-}
-
-fn key(value: &str) -> CurriculumAdoptionIdempotencyKey {
-    CurriculumAdoptionIdempotencyKey::parse(value).expect("key")
-}
+mod dst;
+mod integrity;
+use super::adoption_inputs::key;
+use super::scenario::AdoptionScenario;
+type Fixture = AdoptionScenario;
 
 #[tokio::test]
 async fn authority_revision_and_idempotency_conflicts_do_not_mutate() {
@@ -437,14 +256,24 @@ async fn completed_receipt_requires_current_destination_membership_without_losin
     let (course, adoption_assignments) = {
         let state = fixture.store.read_state().expect("state");
         let course = resolve_course(&state, fixture.tenant, applied.course).expect("course");
-        (course, state.curriculum_course_adoptions[&(fixture.tenant, course)].assignments.clone())
+        (
+            course,
+            state.curriculum_adoption.whole_course_adoptions[&(fixture.tenant, course)]
+                .destination_assignments
+                .clone(),
+        )
     };
     {
         let mut state = fixture.store.write_state().expect("state");
-        let membership = state.active_course_membership_by_user.remove(&(fixture.tenant, course, fixture.actor))
+        let membership = state
+            .active_course_membership_by_user
+            .remove(&(fixture.tenant, course, fixture.actor))
             .expect("direct instructor membership");
-        state.course_memberships.get_mut(&(fixture.tenant, membership)).expect("membership").revoked_at =
-            Some(ActivityTimestamp::from_unix_millis(1));
+        state
+            .course_memberships
+            .get_mut(&(fixture.tenant, membership))
+            .expect("membership")
+            .revoked_at = Some(ActivityTimestamp::from_unix_millis(1));
     }
     assert_eq!(
         fixture
@@ -454,9 +283,12 @@ async fn completed_receipt_requires_current_destination_membership_without_losin
         Err(StoreError::NotFound)
     );
     let state = fixture.store.read_state().expect("state");
-    assert!(adoption_assignments.iter().all(|assignment| state
-        .curriculum_assignment_adoption_evidence
-        .contains_key(&(fixture.tenant, key("receipt-authority"), *assignment))));
+    assert!(adoption_assignments.iter().all(|assignment| {
+        state
+            .curriculum_adoption
+            .assignment_evidence
+            .contains_key(&(fixture.tenant, key("receipt-authority"), *assignment))
+    }));
 }
 
 #[tokio::test]
@@ -515,7 +347,7 @@ async fn stale_witness_and_first_issued_run_fence_roll_back_term_shift() {
         )
         .await
         .expect("ordinary writer");
-    let before_stale = course_state(&fixture, applied.course);
+    let before_stale = b2_snapshot(&fixture);
     assert_eq!(
         fixture
             .store
@@ -523,7 +355,7 @@ async fn stale_witness_and_first_issued_run_fence_roll_back_term_shift() {
             .await,
         Err(StoreError::Conflict)
     );
-    assert_eq!(course_state(&fixture, applied.course), before_stale);
+    assert_eq!(b2_snapshot(&fixture), before_stale);
 
     let fresh_preview = fixture
         .store
@@ -538,7 +370,7 @@ async fn stale_witness_and_first_issued_run_fence_roll_back_term_shift() {
         .await
         .expect("fresh preview");
     issue_run(&fixture, applied.course);
-    let before_issued = course_state(&fixture, applied.course);
+    let before_issued = b2_snapshot(&fixture);
     assert_eq!(
         fixture
             .store
@@ -551,7 +383,7 @@ async fn stale_witness_and_first_issued_run_fence_roll_back_term_shift() {
             .await,
         Err(StoreError::Conflict)
     );
-    assert_eq!(course_state(&fixture, applied.course), before_issued);
+    assert_eq!(b2_snapshot(&fixture), before_issued);
 }
 
 #[tokio::test]
@@ -657,7 +489,9 @@ async fn pin_reauthorization_and_fast_forward_recovery_preserve_existing_meaning
 
     {
         let mut state = fixture.store.write_state().expect("state");
-        let baseline_title = state.curriculum_import_baselines[&(fixture.tenant, assignment_id)]
+        let baseline_title = state.curriculum_adoption.import_records
+            [&(fixture.tenant, assignment_id)]
+            .baseline
             .payload
             .title()
             .to_owned();
@@ -750,12 +584,7 @@ async fn pin_reauthorization_and_fast_forward_recovery_preserve_existing_meaning
             reason: "retired".into(),
         };
     }
-    let before_reauthorization = fixture
-        .store
-        .read_state()
-        .expect("state")
-        .assignments
-        .clone();
+    let before_reauthorization = b2_snapshot(&fixture);
     assert_eq!(
         fixture
             .store
@@ -771,10 +600,7 @@ async fn pin_reauthorization_and_fast_forward_recovery_preserve_existing_meaning
             .await,
         Err(StoreError::Conflict)
     );
-    assert_eq!(
-        fixture.store.read_state().expect("state").assignments,
-        before_reauthorization
-    );
+    assert_eq!(b2_snapshot(&fixture), before_reauthorization);
 
     let recovery = fixture
         .store
@@ -819,9 +645,43 @@ async fn pin_reauthorization_and_fast_forward_recovery_preserve_existing_meaning
         .await
         .expect("corrected preview");
     assert!(corrected_preview.pin_correction.is_none());
+    let corrected_applied = fixture
+        .store
+        .apply_blueprint_instantiation(
+            fixture.context,
+            fixture.session,
+            BlueprintInstantiationCommand::from_preview(&corrected_preview, key("replacement"))
+                .expect("corrected command"),
+        )
+        .await
+        .expect("corrected replacement applies");
+    let state = fixture.store.read_state().expect("state");
+    let assignment =
+        state.assignments_by_reference[&(fixture.tenant, corrected_applied.assignment)];
+    let replacement = state
+        .published
+        .values()
+        .find(|record| record.question_id == fixture.replacement_question)
+        .expect("replacement publication");
+    assert!(
+        state.assignments[&(fixture.tenant, assignment)]
+            .items
+            .iter()
+            .any(|item| {
+                item.reference.problem == replacement.problem
+                    && item.reference.version == replacement.version
+            })
+    );
+    let evidence = &state.curriculum_adoption.assignment_evidence
+        [&(fixture.tenant, key("replacement"), assignment)];
+    assert!(matches!(
+        evidence.baseline.payload.entries().first(),
+        Some(question_model::curriculum_adoption::CurriculumSemanticAssignmentEntry::Fixed { reference, .. })
+            if reference.problem == replacement.problem && reference.version == replacement.version
+    ));
 }
 
-fn witness(fixture: &Fixture, course: CourseReference) -> CourseScheduleWitness {
+pub(super) fn witness(fixture: &Fixture, course: CourseReference) -> CourseScheduleWitness {
     let state = fixture.store.read_state().expect("state");
     let course = resolve_course(&state, fixture.tenant, course).expect("course");
     course_witness(&state, fixture.tenant, course).expect("witness")
@@ -845,12 +705,17 @@ fn assignment(
     )
 }
 
-fn course_state(fixture: &Fixture, course: CourseReference) -> (CourseTerm, CourseScheduleWitness) {
+/// The B2-owned durable records that must be unchanged after a refused command.
+pub(super) fn b2_snapshot(fixture: &Fixture) -> impl PartialEq + std::fmt::Debug {
     let state = fixture.store.read_state().expect("state");
-    let course_id = resolve_course(&state, fixture.tenant, course).expect("course");
     (
-        state.courses[&(fixture.tenant, course_id)].term.clone(),
-        course_witness(&state, fixture.tenant, course_id).expect("witness"),
+        state.curriculum_adoption.clone(),
+        state.course_schedule_revisions.clone(),
+        state.course_memberships.clone(),
+        state.assignments.clone(),
+        state.assignment_revisions.clone(),
+        state.enrollments.clone(),
+        state.runs.clone(),
     )
 }
 

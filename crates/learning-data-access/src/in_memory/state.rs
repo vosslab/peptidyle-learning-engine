@@ -207,7 +207,7 @@ impl MemoryStore {
             .collect())
     }
 
-    /// Sets the stub backend clock used by session tests and local development.
+    /// Sets the deterministic backend clock used by conformance tests.
     pub fn set_authoritative_time(&self, now: ActivityTimestamp) -> Result<(), StoreError> {
         let mut state = self.write_state()?;
         if now < state.authoritative_time {

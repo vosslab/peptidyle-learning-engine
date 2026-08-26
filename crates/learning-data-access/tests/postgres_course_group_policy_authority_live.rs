@@ -63,6 +63,12 @@ async fn account(pool: &PgPool, user: Uuid, label: &str) {
 }
 
 async fn course(pool: &PgPool, tenant: TenantId, course: CourseId, instructor: Option<UserId>) {
+    let mut transaction = pool.begin().await.expect("course fixture transaction");
+    sqlx::query("SELECT set_config('ple.tenant_id',$1,true)")
+        .bind(tenant.to_string())
+        .execute(&mut *transaction)
+        .await
+        .expect("course fixture tenant");
     sqlx::query(
         "INSERT INTO public.course \
          (tenant_id,course_id,title,term_start_date,term_end_date,time_zone) \
@@ -70,7 +76,7 @@ async fn course(pool: &PgPool, tenant: TenantId, course: CourseId, instructor: O
     )
     .bind(tenant.as_uuid())
     .bind(course.as_uuid())
-    .execute(pool)
+    .execute(&mut *transaction)
     .await
     .expect("course fixture");
     if let Some(instructor) = instructor {
@@ -83,10 +89,11 @@ async fn course(pool: &PgPool, tenant: TenantId, course: CourseId, instructor: O
         .bind(course.as_uuid())
         .bind(instructor.as_uuid())
         .bind(id())
-        .execute(pool)
+        .execute(&mut *transaction)
         .await
         .expect("direct Instructor fixture");
     }
+    transaction.commit().await.expect("commit course fixture");
 }
 
 async fn session(

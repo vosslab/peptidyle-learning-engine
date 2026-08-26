@@ -22,13 +22,16 @@ use crate::{AssignmentRevision, StoreError};
 pub struct CourseGroupRevision(u64);
 
 impl CourseGroupRevision {
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) const INITIAL: Self = Self(1);
+    #[cfg(any(test, feature = "test-support"))]
     const MAX: u64 = i64::MAX as u64;
 
     pub fn value(self) -> u64 {
         self.0
     }
 
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn next(self) -> Result<Self, StoreError> {
         self.0
             .checked_add(1)
@@ -80,13 +83,19 @@ pub struct CourseGroupView {
 pub struct CourseGroupPurposePolicyRevision(u64);
 
 impl CourseGroupPurposePolicyRevision {
+    /// Initial durable revision assigned when a purpose policy is created.
+    ///
+    /// This is part of the public revision contract used by connected store
+    /// clients as well as the in-memory implementation.
     pub const INITIAL: Self = Self(1);
+    #[cfg(any(test, feature = "test-support"))]
     const MAX: u64 = i64::MAX as u64;
 
     pub const fn value(self) -> u64 {
         self.0
     }
 
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn next(self) -> Result<Self, StoreError> {
         self.0
             .checked_add(1)

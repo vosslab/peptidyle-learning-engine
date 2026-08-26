@@ -14,6 +14,7 @@ import type {
   ReusableCurriculumClient,
   ReusableCurriculumEtag,
 } from "../../api/reusable_curriculum";
+import type { CurriculumAdoptionClient } from "../../api/curriculum_adoption";
 import type { ProblemPickerSource, ProblemPickerSourceRepository } from "../problem_picker";
 import {
   alphaInputFromView,
@@ -33,6 +34,7 @@ import {
 } from "./reusable_curriculum_model";
 import { ReusableDefinitionEditor } from "./reusable_definition_editor";
 import { CurriculumCreateDialog } from "./reusable_curriculum_create_dialog";
+import { AlphaForkAction } from "../curriculum_adoption/alpha_fork_action";
 import "./reusable_curriculum.css";
 
 type LoadState = "loading" | "ready" | "error";
@@ -65,6 +67,7 @@ export interface CurriculumWorkspaceProps {
 
 export interface CurriculumDetailWorkspaceProps extends CurriculumWorkspaceProps {
   readonly curriculumRef: string;
+  readonly adoptionClient: CurriculumAdoptionClient;
 }
 
 function referencePath(reference: string): string {
@@ -604,6 +607,7 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
           {(current) => (
             <AlphaDetail
               current={current}
+              adoptionClient={props.adoptionClient}
               pickerRepository={props.pickerRepository}
               onChange={changeAlpha}
               onSave={() => void save()}
@@ -689,6 +693,7 @@ function BlueprintDetail(props: BlueprintDetailProps): JSX.Element {
 
 interface AlphaDetailProps extends DetailActionsProps {
   readonly current: LoadedAlpha;
+  readonly adoptionClient: CurriculumAdoptionClient;
   readonly pickerRepository: ProblemPickerSourceRepository;
   readonly onChange: (draft: AlphaCourseDefinitionInput, text: string) => void;
 }
@@ -707,6 +712,9 @@ function AlphaDetail(props: AlphaDetailProps): JSX.Element {
             : "You can inspect and reuse its answer-free question set."}
         </p>
       </header>
+      <Show when={!editable() && props.current.view.access === "approvedInstructor"}>
+        <AlphaForkAction source={props.current.view} client={props.adoptionClient} />
+      </Show>
       <Show when={editable()}>
         <DetailActions {...props} />
       </Show>

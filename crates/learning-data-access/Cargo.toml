@@ -24,15 +24,14 @@ bigdecimal.workspace = true
 grading.workspace = true
 idna.workspace = true
 
-# Enabled by the `postgres` feature so `MemoryStore` builds without a database.
+# Enabled by the `postgres` feature; the in-memory backend has no database dependency.
 sqlx = { workspace = true, optional = true }
 
 [features]
 default = []
 postgres = ["dep:sqlx"]
-# Enables deliberate non-production Memory seams for focused conformance and
-# server-boundary tests. Production compositions never enable it, so destructive
-# fixtures and legacy-record injection cannot create a persistence bypass.
+# Explicit non-production in-memory backend and test seam for focused conformance
+# and server-boundary tests. Production compositions never enable this feature.
 test-support = []
 
 [dev-dependencies]

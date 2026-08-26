@@ -27,6 +27,15 @@ async fn postgres_expired_invitation_replay_materializes_terminal_delivery_befor
         )
         .await
         .expect("persist Sysadmin session");
+    let mut fixture = pool
+        .begin()
+        .await
+        .expect("begin expired invitation course fixture");
+    sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
+        .bind(tenant.to_string())
+        .execute(&mut *fixture)
+        .await
+        .expect("set expired invitation fixture tenant");
     sqlx::query(
         "INSERT INTO course (tenant_id, course_id, title, term_start_date, term_end_date, \
          time_zone) VALUES ($1, $2, $3, DATE '2026-08-24', DATE '2026-12-18', \
@@ -35,9 +44,13 @@ async fn postgres_expired_invitation_replay_materializes_terminal_delivery_befor
         .bind(tenant.as_uuid())
         .bind(course.as_uuid())
         .bind("Expired replay course")
-        .execute(&pool)
+        .execute(&mut *fixture)
         .await
         .expect("insert disposable course");
+    fixture
+        .commit()
+        .await
+        .expect("commit expired invitation course fixture");
     let command = CreateCourseInvitation {
         course,
         email: AuthenticationEmail::parse("expired-replay@example.edu").expect("valid email"),

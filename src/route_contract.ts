@@ -29,6 +29,7 @@ export interface RouteContract {
     | "accountSecurity"
     | "courseRoster"
     | "teachingOperations"
+    | "curriculumAdoption"
     | "assignmentAccess"
     | "assignmentPreview"
     | "pendingCoInstructorInvitations";
@@ -193,6 +194,12 @@ export const ROUTE_CONTRACT = [
     id: "teachingOperations",
     path: "/instructor/courses/:courseRef/teaching-operations",
     surface: "Course teaching operations hub",
+    requiredRoles: ["instructor", "sysadmin"],
+  },
+  {
+    id: "curriculumAdoption",
+    path: "/instructor/courses/:courseRef/curriculum",
+    surface: "Instructor curriculum adoption, rollover, schedule shift, and import evidence",
     requiredRoles: ["instructor", "sysadmin"],
   },
 ] as const satisfies ReadonlyArray<RouteContract>;

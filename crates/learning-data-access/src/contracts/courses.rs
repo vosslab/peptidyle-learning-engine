@@ -359,6 +359,7 @@ pub(crate) fn current_attempt_points(
     ))
 }
 
+#[cfg(any(test, feature = "test-support"))]
 pub(crate) fn assignment_item_is_retired(
     assignment: &AssignmentRecord,
     assignment_item: AssignmentItemId,

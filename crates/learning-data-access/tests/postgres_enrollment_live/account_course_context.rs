@@ -4,6 +4,15 @@ async fn insert_context_course(
     course: Uuid,
     title: &str,
 ) {
+    let mut fixture = pool
+        .begin()
+        .await
+        .expect("begin account-context course fixture");
+    sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
+        .bind(tenant.to_string())
+        .execute(&mut *fixture)
+        .await
+        .expect("set account-context fixture tenant");
     sqlx::query(
         "INSERT INTO course \
          (tenant_id, course_id, title, term_start_date, term_end_date, time_zone) \
@@ -12,9 +21,13 @@ async fn insert_context_course(
     .bind(tenant)
     .bind(course)
     .bind(title)
-    .execute(pool)
+    .execute(&mut *fixture)
     .await
     .expect("insert disposable account-context course");
+    fixture
+        .commit()
+        .await
+        .expect("commit account-context course fixture");
 }
 
 async fn insert_active_student_membership(

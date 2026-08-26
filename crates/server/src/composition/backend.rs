@@ -40,22 +40,51 @@ pub(super) struct ConfiguredImathas {
     pub(super) aead: Arc<LaunchStateAead>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum StartupSchemaPolicy {
+    Ready,
+    StartDegraded,
+    Refuse(SchemaCompatibilityError),
+}
+
+/// Selects API startup behavior for the configured storage topology.
+/// AWS workloads retain degraded startup; disposable local requires schema availability.
+pub(super) fn startup_schema_policy(
+    topology: StorageTopology,
+    verification: Result<(), SchemaCompatibilityError>,
+) -> StartupSchemaPolicy {
+    match verification {
+        Ok(()) => StartupSchemaPolicy::Ready,
+        Err(SchemaCompatibilityError::Unavailable) if topology == StorageTopology::AwsWorkload => {
+            StartupSchemaPolicy::StartDegraded
+        }
+        Err(error) => StartupSchemaPolicy::Refuse(error),
+    }
+}
+
 impl PersistentDependencies {
     pub(super) async fn from_env(runtime: StorageRuntime) -> Result<Self> {
         let settings = ProductionSettings::from_env(runtime)?;
+        let topology = settings.storage.runtime.topology;
         let dependencies = Self::from_settings(&settings).await?;
-        dependencies.verify_startup_schema().await?;
+        dependencies.verify_startup_schema(topology).await?;
         Ok(dependencies)
     }
 
-    async fn verify_startup_schema(&self) -> Result<()> {
-        match verify_application_schema_bounded(&self.health.postgres).await {
-            Ok(()) => Ok(()),
-            Err(SchemaCompatibilityError::Unavailable) => {
+    async fn verify_startup_schema(&self, topology: StorageTopology) -> Result<()> {
+        match startup_schema_policy(
+            topology,
+            verify_application_schema_bounded(&self.health.postgres).await,
+        ) {
+            StartupSchemaPolicy::Ready => Ok(()),
+            StartupSchemaPolicy::StartDegraded => {
                 eprintln!("database schema check unavailable; API starting degraded");
                 Ok(())
             }
-            Err(SchemaCompatibilityError::Incompatible(reason)) => {
+            StartupSchemaPolicy::Refuse(SchemaCompatibilityError::Unavailable) => {
+                bail!("database schema check unavailable; disposable local API cannot start")
+            }
+            StartupSchemaPolicy::Refuse(SchemaCompatibilityError::Incompatible(reason)) => {
                 bail!("database schema is incompatible: {reason}")
             }
         }

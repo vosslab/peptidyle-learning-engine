@@ -85,7 +85,7 @@ browser-visible assessment transition.
 | Question model           | [crates/question_model/](../crates/question_model/)                                       | Question taxonomy, typed public references, immutable public bylines, mandatory course-term values, canonical assignment revisions, reusable-curriculum meaning, bounded adoption previews, browser-safe presentations, learner-progress projections, and response schemas. |
 | Domain                   | [crates/domain/](../crates/domain/)                                                       | Run state, pure effective-policy and learner-disclosure evaluation after entitlement, the two shipped course-grade evaluators, seeded generation, timing inputs, and validation without a database or wall clock. |
 | Grading                  | [crates/grading/](../crates/grading/)                                                     | Answer-bearing checkers and correctness decisions; server-side only.                                                                                                                              |
-| Learning data access     | [crates/learning-data-access/](../crates/learning-data-access/)                           | Store contracts, isolated course-grade capability with Memory/PostgreSQL implementations, current receipt/projection boundaries, migrations, forced RLS context, capability roles, and conformance tests. |
+| Learning data access     | [crates/learning-data-access/](../crates/learning-data-access/)                           | Store contracts, concrete PostgreSQL production persistence, compiler-gated deterministic test adapters, current receipt/projection boundaries, migrations, forced RLS context, capability roles, and conformance tests. |
 | Base Course installation | `crates/base-course-installation/`                                                        | Focused product crate for typed Base Course request/receipt, ordinary recipe, and deterministic orchestration. It has no HTTP route or server-start hook. |
 | Object storage           | [crates/objects/](../crates/objects/)                                                     | Typed object keys, checksums, strict image ingress validation, and MinIO/S3-compatible implementations.                                                                                           |
 | Native adapter           | [crates/adapters/native/](../crates/adapters/native/)                                     | First-party generated questions and static flat-question compilation.                                                                                                                             |
@@ -102,19 +102,29 @@ providers, and adapters.
 
 Reusable curriculum has two deliberate aggregate boundaries. `ReusableCurriculumStore` owns
 personal Blueprint and shared Alpha CRUD. `CurriculumAdoptionStore` owns revision-bound fork,
-instantiation, rollover, term-shift, import inspection, and controlled-update operations. The
+instantiation, rollover, term-shift, import inspection, controlled-update, and receipt-led
+reconciliation operations. The
 question model keeps semantic baselines separate from immutable source provenance, resolves relative
 schedules by target-term calendar days and IANA local time, bounds every browser witness, and derives
 course-creation commands from the exact previewed source, title, term, and revision evidence.
 
 An adoption preserves reusable meaning separately from teaching-owned state. Its normalized semantic
 payload contains the ordered pins, pool behavior, scoring, reusable defaults, and relative schedule;
-its immutable envelope records the exact source definition, observed revision, destination binding,
-actor, time, and receipt. The Store reauthorizes every exact pin for the destination, records the
-authorized pin, and keeps the original evidence inspectable. Rollover creates an empty ordinary
-course from reusable definition meaning, while term shift updates one unissued course atomically.
+receipt-keyed immutable evidence records the exact source definition, observed revision, destination
+binding, actor, time, and completed outcome. A separate current import projection is explicitly
+repairable from that evidence; reconciliation changes only that projection and refuses when the
+immutable evidence is incomplete. The Store reauthorizes every exact pin for the destination,
+records the authorized pin, and keeps the original evidence inspectable. Rollover preserves the
+source course's ordered module tree while creating an empty ordinary teaching course, and term shift
+returns a typed rollover recovery when issued work makes in-place shifting ineligible.
 Roster, learner activity, issued work, grades, accommodations, audience, retention, and delivered
 evidence remain teaching-owned state.
+
+The deterministic in-memory adapter is compiled only for crate tests or the explicit
+`test-support` Cargo feature. The production and live-demo server composition has one concrete
+`PostgresStore`; it has no runtime storage selector or in-memory fallback. This makes the adapter a
+contract-test tool rather than an alternate application architecture. The B2 PostgreSQL migration,
+broker/RLS oracle, routes, browser client, and connected workflow remain the next dependency stages.
 
 For Base Course installation, `learning-data-access` remains the sole SQL, PostgreSQL
 lock, durable install-state, migration, and Store owner. `base_course_installation` orchestrates
@@ -174,8 +184,8 @@ retained educational evidence, never an access grant.
 The data-access Store contracts make authority explicit at the persistence
 boundary. Learner operations accept an actor and require active learner access;
 Instructor-history operations use their own contracts. PostgreSQL evaluates those
-operations in transactions with tenant context and row-level security, while
-the in-memory store supplies the same behavior for conformance testing.
+operations in transactions with tenant context and row-level security. The compiler-gated
+in-memory adapter supplies deterministic contract behavior for unit and conformance testing.
 
 The effective-policy resolver is a separate pure domain boundary. It consumes the entitlement
 decision and evaluator-approved scopes supplied by S5, then applies lifecycle, entitlement, and

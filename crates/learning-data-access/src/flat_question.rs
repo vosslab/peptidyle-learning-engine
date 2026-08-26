@@ -157,6 +157,7 @@ impl IssuedFlatGradingContract {
         &self.grading
     }
 
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn validate(&self) -> Result<(), StoreError> {
         self.grading.validate_for_question(&self.question)
     }

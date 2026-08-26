@@ -56,6 +56,7 @@ impl RosterImportRevision {
         self.0
     }
 
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn next(self) -> Result<Self, StoreError> {
         self.0.checked_add(1).map(Self).ok_or(StoreError::Conflict)
     }

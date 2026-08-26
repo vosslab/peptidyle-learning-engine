@@ -15,6 +15,11 @@ async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
     let second_invitation = id();
     let token_hash = [0x5a_u8; 32];
     let mut transaction = pool.begin().await.expect("begin capability fixture");
+    sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
+        .bind(tenant.to_string())
+        .execute(&mut *transaction)
+        .await
+        .expect("set trusted fixture tenant");
     sqlx::query(
         "INSERT INTO course (tenant_id, course_id, title, term_start_date, term_end_date, \
          time_zone) VALUES ($1, $2, $3, DATE '2026-08-24', DATE '2026-12-18', \
@@ -32,11 +37,6 @@ async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
         .execute(&mut *transaction)
         .await
         .expect("insert fixture roster state");
-    sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
-        .bind(tenant.to_string())
-        .execute(&mut *transaction)
-        .await
-        .expect("set trusted fixture tenant");
     sqlx::query(
         "INSERT INTO course_invitation \
          (tenant_id, course_id, invitation_id, token_hash, normalized_email, delivery_email, \
@@ -179,6 +179,15 @@ async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
         )
         .await
         .expect("sysadmin session should persist");
+    let mut managed_fixture = pool
+        .begin()
+        .await
+        .expect("begin managed course fixture");
+    sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
+        .bind(managed_tenant.to_string())
+        .execute(&mut *managed_fixture)
+        .await
+        .expect("set managed fixture tenant");
     sqlx::query(
         "INSERT INTO course (tenant_id, course_id, title, term_start_date, term_end_date, \
          time_zone) VALUES ($1, $2, $3, DATE '2026-08-24', DATE '2026-12-18', \
@@ -187,7 +196,7 @@ async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
         .bind(managed_tenant.as_uuid())
         .bind(managed_course.as_uuid())
         .bind("Sysadmin-created course")
-        .execute(&pool)
+        .execute(&mut *managed_fixture)
     .await
     .expect("insert course without direct sysadmin membership");
     sqlx::query(
@@ -199,9 +208,13 @@ async fn postgres_enrollment_capability_is_locked_unique_and_role_separated() {
     .bind(managed_course.as_uuid())
     .bind(id())
     .bind(instructor)
-    .execute(&pool)
+    .execute(&mut *managed_fixture)
     .await
     .expect("insert unrelated direct Instructor for Instructor-only roster mutation");
+    managed_fixture
+        .commit()
+        .await
+        .expect("commit managed course fixture");
 
     let managed_context = TenantContext::from_authenticated_session(managed_tenant);
     let invitation_command = CreateCourseInvitation {

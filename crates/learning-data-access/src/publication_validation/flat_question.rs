@@ -149,6 +149,7 @@ pub(crate) fn validate_flat_question_publication(
 /// widening PostgreSQL application-role access to private grader bytes.
 /// PostgreSQL performs the equivalent stored-only binding and copy inside its
 /// grader-owned promotion capability.
+#[cfg(any(test, feature = "test-support"))]
 pub(crate) fn validate_flat_question_publication_grading(
     command: &PublishDraftCommand,
     staged: &crate::WorkspaceFlatQuestionSource,

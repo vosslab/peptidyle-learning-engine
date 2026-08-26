@@ -4,6 +4,7 @@ from e2e_browser_scenario_contract import ScenarioContract
 import e2e_browser_scenarios_auth as auth
 import e2e_browser_scenarios_assignment_replacement as assignment_replacement
 import e2e_browser_scenarios_conflict as conflict
+import e2e_browser_scenarios_curriculum_adoption as curriculum_adoption
 import e2e_browser_scenarios_problem_curation as problem_curation
 import e2e_browser_scenarios_reusable_curriculum as reusable_curriculum
 import e2e_browser_scenarios_discovery as discovery
@@ -29,6 +30,7 @@ def contracts() -> tuple[ScenarioContract, ...]:
 		+ discovery.contracts()
 		+ problem_curation.contracts()
 		+ reusable_curriculum.contracts()
+		+ curriculum_adoption.contracts()
 		+ (
 			ScenarioContract(
 				scenario_id=webwork_delivery.SCENARIO_ID,

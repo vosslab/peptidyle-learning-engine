@@ -444,6 +444,7 @@ impl IssuedWebworkGradingContract {
         &self.question
     }
 
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn validate_for_attempt(&self, attempt: &QuestionAttempt) -> Result<(), StoreError> {
         if !matches!(
             self.question.source,

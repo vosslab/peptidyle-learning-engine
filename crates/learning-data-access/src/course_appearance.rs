@@ -86,6 +86,7 @@ impl CourseBannerCleanupBatch {
 pub struct CourseBannerCleanupToken(Uuid);
 
 impl CourseBannerCleanupToken {
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn generate() -> Result<Self, StoreError> {
         crate::random_uuid::random_128_bits(|error| {
             StoreError::Unavailable(format!("banner cleanup token generation failed: {error}"))

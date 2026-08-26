@@ -3,7 +3,7 @@
 use super::{
     AlphaInstantiationPreviewView, AssignmentDefinitionSourceView, AssignmentFastForwardDecision,
     AssignmentFastForwardPreviewView, BlueprintInstantiationPreviewView, CourseRolloverPreviewView,
-    CourseScheduleWitness, CourseTermShiftPreviewView, CurriculumAdoptionIdempotencyKey,
+    CourseScheduleWitness, CourseTermShiftPreviewOutcome, CurriculumAdoptionIdempotencyKey,
     CurriculumAdoptionTitle, CurriculumImportRevision, CurriculumPinReplacements,
     ForkAlphaPreviewView, ObservedAlphaSource, ObservedAssignmentRevision, ObservedBlueprintSource,
     SourceDerivedAssignmentPreviewView,
@@ -224,9 +224,12 @@ pub struct CourseTermShiftCommand {
 impl CourseTermShiftCommand {
     /// Binds apply to the exact witness and target term returned by preview.
     pub fn from_preview(
-        preview: &CourseTermShiftPreviewView,
+        outcome: &CourseTermShiftPreviewOutcome,
         idempotency_key: CurriculumAdoptionIdempotencyKey,
     ) -> Result<Self, CurriculumAdoptionCommandError> {
+        let CourseTermShiftPreviewOutcome::Eligible { preview } = outcome else {
+            return Err(CurriculumAdoptionCommandError::TermShiftNotEligible);
+        };
         require_corrected_preview(&preview.corrections, None)?;
         Ok(Self {
             preview_witness: preview.witness.clone(),
@@ -319,6 +322,8 @@ pub enum CurriculumAdoptionCommandError {
     CorrectionsRequired,
     /// Fast-forward recovery outcomes preserve the current assignment instead of applying.
     FastForwardNotEligible,
+    /// A course with issued learner work has no whole-course term-shift apply action.
+    TermShiftNotEligible,
 }
 
 impl std::fmt::Display for CurriculumAdoptionCommandError {
@@ -329,6 +334,9 @@ impl std::fmt::Display for CurriculumAdoptionCommandError {
             }
             Self::FastForwardNotEligible => {
                 formatter.write_str("fast-forward apply requires an eligible preview")
+            }
+            Self::TermShiftNotEligible => {
+                formatter.write_str("term shift apply requires an eligible preview")
             }
         }
     }

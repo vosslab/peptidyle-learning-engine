@@ -1,34 +1,62 @@
-use question_model::curriculum_adoption::{
-    CurriculumSemanticAssignment, CurriculumSemanticPayload,
-};
+use question_model::curriculum_adoption::CurriculumSemanticPayload;
 use question_model::{
     AssignmentDefinitionSourceView, AssignmentFastForwardCommand, AssignmentFastForwardCompleted,
     AssignmentFastForwardDecision, AssignmentFastForwardPreviewRequest,
-    AssignmentFastForwardPreviewView, CourseTermShiftCommand, CourseTermShiftCompleted,
-    CourseTermShiftPreviewRequest, CourseTermShiftPreviewView,
-    CreateSourceDerivedAssignmentCommand, CurriculumCourseImportView, CurriculumImportView,
-    PreservedAssignmentRecoveryAction, SourceDerivedAssignmentCompleted,
-    SourceDerivedAssignmentPreviewRequest, SourceDerivedAssignmentPreviewView,
+    AssignmentFastForwardPreviewView, AssignmentId, CourseId, CourseReference,
+    CourseScheduleRevision, CourseScheduleWitness, CourseTermShiftCommand,
+    CourseTermShiftCompleted, CourseTermShiftIneligibility, CourseTermShiftPreviewOutcome,
+    CourseTermShiftPreviewRequest, CourseTermShiftPreviewView, CourseTermShiftRecoveryAction,
+    CreateSourceDerivedAssignmentCommand, CurriculumAssignmentImportSourceView,
+    CurriculumCourseImportOriginView, CurriculumCourseImportView, RolloverAssignmentSourceView,
+    RolloverCourseImportOriginView, SourceDerivedAssignmentCompleted,
+    SourceDerivedAssignmentPreviewRequest, SourceDerivedAssignmentPreviewView, TenantId,
 };
 
-use super::*;
+use super::dispatch::{
+    CurriculumAdoptionOperation, MemoryCurriculumAdoptionOutcome, MemoryStore, SessionTokenHash,
+    State, StoreError, StoredAssignmentAdoptionEvidence, StoredAssignmentImport,
+    StoredAssignmentImportProvenance, StoredAssignmentImportSource, StoredCurriculumBaseline,
+    StoredWholeCourseOrigin, TenantContext, UserId, advance_course_schedule_revision,
+    assignment_has_run, assignment_source_snapshot_with_replacements, authorized_actor,
+    course_assignment_ids, course_has_any_run, course_witness,
+    current_with_projected_teaching_schedule, destination, fast_forward_completed,
+    matching_receipt, next_import_revision, only_assignment, pin_correction,
+    refuse_detached_whole_course_receipt, replacement_question_choices, request_digest,
+    require_course_instructor, require_exact_witness, resolve_course, rollback,
+    semantic_preview_error, source_derived_completed, store_import, store_receipt,
+    term_shift_completed, unavailable_destination_pin, validate_current_assignment_import_evidence,
+    validate_destination_pins, validate_whole_course_adoption,
+};
+use crate::curriculum_adoption::{
+    CurrentTeachingImportInput, CurriculumImportInspectionInput, FastForwardProjectionInput,
+    ObservedSemanticEnvelope, preview_assignment, project_current_teaching_import,
+    project_curriculum_import_inspection, project_fast_forward_decision, same_source_locator,
+};
 
 pub(super) async fn preview_term_shift(
     store: &MemoryStore,
     context: TenantContext,
     session: SessionTokenHash,
     request: CourseTermShiftPreviewRequest,
-) -> Result<CourseTermShiftPreviewView, StoreError> {
+) -> Result<CourseTermShiftPreviewOutcome, StoreError> {
     let tenant = context.tenant_id();
     let state = store.read_state()?;
     let actor = authorized_actor(&state, context, session)?;
     let course = require_exact_witness(&state, tenant, &request.witness)?;
     require_course_instructor(&state, tenant, course, actor)?;
+    if course_has_any_run(&state, tenant, course) {
+        return Ok(CourseTermShiftPreviewOutcome::Ineligible {
+            course: request.witness.course,
+            reason: CourseTermShiftIneligibility::IssuedWork,
+            recovery: CourseTermShiftRecoveryAction::RolloverCourse,
+        });
+    }
     let mut assignments = Vec::new();
     let mut corrections = Vec::new();
     for assignment in course_assignment_ids(&state, tenant, course) {
-        let semantic = current_with_retained_schedule(&state, tenant, assignment)?;
-        let (prepared, mut row_corrections) = preview_assignment(&semantic, &request.target_term)?;
+        let semantic = current_with_projected_teaching_schedule(&state, tenant, assignment)?;
+        let (prepared, mut row_corrections) =
+            preview_assignment(&semantic, &request.target_term).map_err(semantic_preview_error)?;
         let reference = *state
             .assignment_references
             .get(&(tenant, assignment))
@@ -45,11 +73,13 @@ pub(super) async fn preview_term_shift(
         });
         corrections.append(&mut row_corrections);
     }
-    Ok(CourseTermShiftPreviewView {
-        witness: request.witness,
-        target_term: request.target_term,
-        assignments,
-        corrections,
+    Ok(CourseTermShiftPreviewOutcome::Eligible {
+        preview: CourseTermShiftPreviewView {
+            witness: request.witness,
+            target_term: request.target_term,
+            assignments,
+            corrections,
+        },
     })
 }
 
@@ -63,9 +93,9 @@ pub(super) async fn apply_term_shift(
     let mut state = store.write_state()?;
     let actor = authorized_actor(&state, context, session)?;
     let digest = request_digest(
-        "shift-course-term",
+        CurriculumAdoptionOperation::ShiftCourseTerm,
         actor,
-        (command.preview_witness(), command.target_term()),
+        &(command.preview_witness(), command.target_term()),
     )?;
     if let Some(outcome) = matching_receipt(
         &state,
@@ -88,7 +118,8 @@ pub(super) async fn apply_term_shift(
         let resolved = ids
             .iter()
             .map(|assignment| {
-                let semantic = current_with_retained_schedule(&state, tenant, *assignment)?;
+                let semantic =
+                    current_with_projected_teaching_schedule(&state, tenant, *assignment)?;
                 let schedule = semantic
                     .schedule()
                     .resolve_for_target_term(command.target_term())
@@ -159,24 +190,21 @@ pub(super) async fn preview_fast_forward(
     {
         return Err(StoreError::Conflict);
     }
-    let baseline = state
-        .curriculum_import_baselines
+    let import = state
+        .curriculum_adoption
+        .import_records
         .get(&(tenant, assignment))
-        .ok_or_else(|| destination::integrity("import baseline"))?;
-    if baseline.revision != request.import_revision {
+        .ok_or_else(|| destination::integrity("current import record"))?;
+    if import.baseline.revision != request.import_revision {
         return Err(StoreError::Conflict);
     }
-    let envelope = state
-        .curriculum_import_envelopes
-        .get(&(tenant, assignment))
-        .ok_or_else(|| destination::integrity("import envelope"))?;
     let decision = fast_forward_decision(
         &state,
         tenant,
         actor,
         assignment,
-        baseline,
-        envelope,
+        &import.baseline,
+        &import.provenance,
         request.source,
     )?;
     Ok(AssignmentFastForwardPreviewView {
@@ -199,9 +227,9 @@ pub(super) async fn apply_fast_forward(
     let mut state = store.write_state()?;
     let actor = authorized_actor(&state, context, session)?;
     let digest = request_digest(
-        "fast-forward-assignment",
+        CurriculumAdoptionOperation::FastForwardAssignment,
         actor,
-        (
+        &(
             command.course(),
             command.assignment(),
             command.import_revision(),
@@ -236,26 +264,22 @@ pub(super) async fn apply_fast_forward(
         {
             return Err(StoreError::Conflict);
         }
-        let baseline = state
-            .curriculum_import_baselines
+        let import = state
+            .curriculum_adoption
+            .import_records
             .get(&(tenant, assignment))
             .cloned()
-            .ok_or_else(|| destination::integrity("import baseline"))?;
-        if baseline.revision != command.import_revision() {
+            .ok_or_else(|| destination::integrity("current import record"))?;
+        if import.baseline.revision != command.import_revision() {
             return Err(StoreError::Conflict);
         }
-        let envelope = state
-            .curriculum_import_envelopes
-            .get(&(tenant, assignment))
-            .cloned()
-            .ok_or_else(|| destination::integrity("import envelope"))?;
         if fast_forward_decision(
             &state,
             tenant,
             actor,
             assignment,
-            &baseline,
-            &envelope,
+            &import.baseline,
+            &import.provenance,
             command.source(),
         )? != AssignmentFastForwardDecision::Eligible
         {
@@ -271,31 +295,32 @@ pub(super) async fn apply_fast_forward(
         let semantic = only_assignment(&source.payload)?.clone();
         destination::replace_reusable_meaning(&mut state, tenant, assignment, &semantic)?;
         advance_course_schedule_revision(&mut state, tenant, course)?;
-        let import_revision = next_import_revision(baseline.revision)?;
+        let import_revision = next_import_revision(import.baseline.revision)?;
         let semantic_digest = CurriculumSemanticPayload::assignment(semantic.clone()).digest();
         let next_baseline = StoredCurriculumBaseline {
             payload: semantic,
             digest: semantic_digest,
             revision: import_revision,
         };
-        state
-            .curriculum_import_baselines
-            .insert((tenant, assignment), next_baseline.clone());
         let occurred_at = state.authoritative_time;
-        let next_envelope = StoredCurriculumEnvelope {
-            source: StoredCurriculumSource::Assignment(command.source()),
+        let next_provenance = StoredAssignmentImportProvenance {
+            source: StoredAssignmentImportSource::Reusable(command.source()),
             actor,
             occurred_at,
             receipt: command.idempotency_key().clone(),
         };
-        state
-            .curriculum_import_envelopes
-            .insert((tenant, assignment), next_envelope.clone());
-        state.curriculum_assignment_adoption_evidence.insert(
+        state.curriculum_adoption.import_records.insert(
+            (tenant, assignment),
+            StoredAssignmentImport {
+                baseline: next_baseline.clone(),
+                provenance: next_provenance.clone(),
+            },
+        );
+        state.curriculum_adoption.assignment_evidence.insert(
             (tenant, command.idempotency_key().clone(), assignment),
             StoredAssignmentAdoptionEvidence {
                 baseline: next_baseline,
-                envelope: next_envelope,
+                provenance: next_provenance,
             },
         );
         let outcome = MemoryCurriculumAdoptionOutcome::FastForwardAssignment {
@@ -341,7 +366,8 @@ pub(super) async fn preview_source_derived(
         .get(&(tenant, course))
         .ok_or(StoreError::NotFound)?
         .term;
-    let (assignment, corrections) = preview_assignment(only_assignment(&source.payload)?, term)?;
+    let (assignment, corrections) = preview_assignment(only_assignment(&source.payload)?, term)
+        .map_err(semantic_preview_error)?;
     Ok(SourceDerivedAssignmentPreviewView {
         course: request.course,
         source: request.source,
@@ -363,9 +389,9 @@ pub(super) async fn apply_source_derived(
     let mut state = store.write_state()?;
     let actor = authorized_actor(&state, context, session)?;
     let digest = request_digest(
-        "create-source-derived-assignment",
+        CurriculumAdoptionOperation::CreateSourceDerivedAssignment,
         actor,
-        (
+        &(
             command.course(),
             command.source(),
             command.preview_witness(),
@@ -449,68 +475,176 @@ pub(super) async fn inspect_imports(
     let actor = authorized_actor(&state, context, session)?;
     let course = resolve_course(&state, tenant, course_reference)?;
     require_course_instructor(&state, tenant, course, actor)?;
-    let Some(import) = state.curriculum_course_imports.get(&(tenant, course)) else {
-        return Ok(None);
-    };
-    if !state
-        .curriculum_adoption_receipts
-        .contains_key(&(tenant, import.receipt.clone()))
-    {
-        return Err(destination::integrity("course import receipt"));
+    let witness = course_witness(&state, tenant, course)?;
+    let adoption = state
+        .curriculum_adoption
+        .whole_course_adoptions
+        .get(&(tenant, course));
+    if let Some(adoption) = adoption {
+        validate_whole_course_adoption(&state, tenant, course)?;
+        if adoption.destination_assignments.iter().any(|assignment| {
+            !state
+                .curriculum_adoption
+                .import_records
+                .contains_key(&(tenant, *assignment))
+        }) {
+            return Err(destination::integrity(
+                "whole-course current import projection",
+            ));
+        }
+    } else {
+        refuse_detached_whole_course_receipt(&state, tenant, course_reference)?;
     }
+    let assignment_ids = course_assignment_ids(&state, tenant, course)
+        .into_iter()
+        .filter(|assignment| {
+            state
+                .curriculum_adoption
+                .import_records
+                .contains_key(&(tenant, *assignment))
+        })
+        .collect::<Vec<_>>();
+    if assignment_ids.is_empty() {
+        return Ok(None);
+    }
+    let origin = inspection_origin(&state, tenant, course, adoption)?;
+    let rollover_source = match &origin {
+        CurriculumCourseImportOriginView::Rollover { source } => Some(&source.source_schedule),
+        CurriculumCourseImportOriginView::Ordinary
+        | CurriculumCourseImportOriginView::Alpha { .. } => None,
+    };
     let mut assignments = Vec::new();
-    for assignment in &import.assignments {
-        let baseline = state
-            .curriculum_import_baselines
+    for assignment in &assignment_ids {
+        let import = state
+            .curriculum_adoption
+            .import_records
             .get(&(tenant, *assignment))
-            .ok_or_else(|| destination::integrity("import baseline"))?;
-        let envelope = state
-            .curriculum_import_envelopes
-            .get(&(tenant, *assignment))
-            .ok_or_else(|| destination::integrity("import envelope"))?;
-        validate_current_assignment_import_evidence(
-            &state, tenant, *assignment, baseline, envelope,
-        )?;
+            .ok_or_else(|| destination::integrity("current import record"))?;
+        validate_current_assignment_import_evidence(&state, tenant, *assignment, import)?;
         let current = destination::current_semantic_assignment(
             &state,
             tenant,
             *assignment,
-            baseline.payload.schedule().clone(),
+            import.baseline.payload.schedule().clone(),
         )?;
-        let source = match envelope.source {
-            StoredCurriculumSource::Assignment(source) => source,
-            StoredCurriculumSource::WholeReusable(_)
-            | StoredCurriculumSource::Rollover { .. }
-            | StoredCurriculumSource::RolloverAssignment { .. } => {
-                return Err(destination::integrity("reusable import source"));
+        let source = match &import.provenance.source {
+            StoredAssignmentImportSource::Reusable(source) => {
+                CurriculumAssignmentImportSourceView::Reusable {
+                    definition: *source,
+                }
+            }
+            StoredAssignmentImportSource::Rollover(provenance) => {
+                CurriculumAssignmentImportSourceView::Rollover {
+                    source: RolloverAssignmentSourceView::new(
+                        rollover_source
+                            .ok_or_else(|| destination::integrity("rollover course origin"))?,
+                        provenance.source_assignment,
+                    )
+                    .map_err(|error| StoreError::InvalidRecord(error.to_string()))?,
+                }
             }
         };
-        assignments.push(CurriculumImportView {
-            course: course_reference,
-            assignment: *state
-                .assignment_references
-                .get(&(tenant, *assignment))
-                .ok_or_else(|| destination::integrity("assignment reference"))?,
-            source,
-            revision: baseline.revision,
-            reusable_meaning_matches_baseline: current == baseline.payload,
-        });
+        let baseline_payload =
+            CurriculumSemanticPayload::assignment(import.baseline.payload.clone());
+        let baseline_envelope = baseline_payload.canonical_envelope();
+        let current_payload = CurriculumSemanticPayload::assignment(current);
+        assignments.push(
+            project_current_teaching_import(CurrentTeachingImportInput {
+                assignment: *state
+                    .assignment_references
+                    .get(&(tenant, *assignment))
+                    .ok_or_else(|| destination::integrity("assignment reference"))?,
+                source,
+                revision: import.baseline.revision,
+                baseline: &baseline_payload,
+                baseline_evidence: ObservedSemanticEnvelope {
+                    canonical_version: baseline_envelope.version(),
+                    canonical_bytes: baseline_envelope.canonical_bytes(),
+                    digest: import.baseline.digest.as_bytes(),
+                },
+                current: &current_payload,
+            })
+            .map_err(semantic_preview_error)?,
+        );
     }
-    Ok(Some(CurriculumCourseImportView {
-        course: course_reference,
-        source: import.source,
+    project_curriculum_import_inspection(CurriculumImportInspectionInput {
+        witness,
+        origin,
         term: state
             .courses
             .get(&(tenant, course))
             .ok_or(StoreError::NotFound)?
             .term
             .clone(),
-        schedule_revision: *state
-            .course_schedule_revisions
-            .get(&(tenant, course))
-            .ok_or_else(|| destination::integrity("course schedule revision"))?,
         assignments,
-    }))
+    })
+    .map(Some)
+    .map_err(semantic_preview_error)
+}
+
+fn inspection_origin(
+    state: &State,
+    tenant: TenantId,
+    course: CourseId,
+    adoption: Option<&super::dispatch::StoredWholeCourseAdoption>,
+) -> Result<CurriculumCourseImportOriginView, StoreError> {
+    let Some(_) = adoption else {
+        return Ok(CurriculumCourseImportOriginView::Ordinary);
+    };
+    let adoption = validate_whole_course_adoption(state, tenant, course)?;
+    match adoption.origin {
+        StoredWholeCourseOrigin::Alpha { source } => {
+            Ok(CurriculumCourseImportOriginView::Alpha { source })
+        }
+        StoredWholeCourseOrigin::Rollover {
+            source_course,
+            source_schedule_revision,
+        } => Ok(CurriculumCourseImportOriginView::Rollover {
+            source: RolloverCourseImportOriginView {
+                source_schedule: rollover_source_witness(
+                    state,
+                    tenant,
+                    source_course,
+                    source_schedule_revision,
+                    adoption,
+                )?,
+            },
+        }),
+    }
+}
+
+fn rollover_source_witness(
+    state: &State,
+    tenant: TenantId,
+    source_course: CourseReference,
+    source_schedule_revision: CourseScheduleRevision,
+    adoption: &super::dispatch::StoredWholeCourseAdoption,
+) -> Result<CourseScheduleWitness, StoreError> {
+    let assignments = adoption
+        .destination_assignments
+        .iter()
+        .map(|assignment| {
+            let evidence = state
+                .curriculum_adoption
+                .assignment_evidence
+                .get(&(tenant, adoption.receipt.clone(), *assignment))
+                .ok_or_else(|| destination::integrity("rollover assignment evidence"))?;
+            let StoredAssignmentImportSource::Rollover(provenance) = &evidence.provenance.source
+            else {
+                return Err(destination::integrity("rollover assignment source"));
+            };
+            if provenance.source_course != source_course
+                || provenance.source_schedule_revision != source_schedule_revision
+            {
+                return Err(destination::integrity(
+                    "rollover assignment witness binding",
+                ));
+            }
+            Ok(provenance.source_assignment)
+        })
+        .collect::<Result<Vec<_>, StoreError>>()?;
+    CourseScheduleWitness::new(source_course, source_schedule_revision, assignments)
+        .map_err(|error| StoreError::InvalidRecord(error.to_string()))
 }
 
 fn fast_forward_decision(
@@ -519,45 +653,45 @@ fn fast_forward_decision(
     actor: UserId,
     assignment: AssignmentId,
     baseline: &StoredCurriculumBaseline,
-    envelope: &StoredCurriculumEnvelope,
+    provenance: &StoredAssignmentImportProvenance,
     requested_source: AssignmentDefinitionSourceView,
 ) -> Result<AssignmentFastForwardDecision, StoreError> {
-    let StoredCurriculumSource::Assignment(imported_source) = envelope.source else {
-        return Ok(AssignmentFastForwardDecision::SourceRevisionDrift {
-            source: requested_source,
-        });
+    let imported_source = match &provenance.source {
+        StoredAssignmentImportSource::Reusable(source) => Some(*source),
+        StoredAssignmentImportSource::Rollover(_) => None,
     };
-    if !same_source_locator(imported_source, requested_source) {
-        return Ok(AssignmentFastForwardDecision::SourceRevisionDrift {
-            source: requested_source,
-        });
-    }
-    let current_source = super::super::super::reusable_curriculum::current_assignment_source(
-        state,
-        tenant,
-        actor,
-        requested_source,
-    )?;
-    if current_source != requested_source || !source_is_newer(imported_source, requested_source) {
-        return Ok(AssignmentFastForwardDecision::SourceRevisionDrift {
-            source: current_source,
-        });
-    }
-    let current = destination::current_semantic_assignment(
+    let current_source =
+        if imported_source.is_some_and(|source| same_source_locator(source, requested_source)) {
+            super::super::super::reusable_curriculum::current_assignment_source(
+                state,
+                tenant,
+                actor,
+                requested_source,
+            )?
+        } else {
+            requested_source
+        };
+    let current_assignment = destination::current_semantic_assignment(
         state,
         tenant,
         assignment,
         baseline.payload.schedule().clone(),
     )?;
-    if current != baseline.payload {
-        return Ok(AssignmentFastForwardDecision::Divergent {
-            recovery: PreservedAssignmentRecoveryAction::CreateSourceDerivedAssignment,
-        });
-    }
-    if assignment_has_run(state, tenant, assignment) {
-        return Ok(AssignmentFastForwardDecision::IssuedWork {
-            recovery: PreservedAssignmentRecoveryAction::CreateSourceDerivedAssignment,
-        });
+    let baseline_payload = CurriculumSemanticPayload::assignment(baseline.payload.clone());
+    let current_payload = CurriculumSemanticPayload::assignment(current_assignment);
+    let initial = project_fast_forward_decision(FastForwardProjectionInput {
+        imported_source,
+        requested_source,
+        current_source,
+        baseline: &baseline_payload,
+        current: &current_payload,
+        issued_work: assignment_has_run(state, tenant, assignment),
+        unavailable_pin: None,
+        replacement_choices: None,
+    })
+    .map_err(semantic_preview_error)?;
+    if initial != AssignmentFastForwardDecision::Eligible {
+        return Ok(initial);
     }
     let source = super::super::super::reusable_curriculum::curriculum_assignment_source_snapshot(
         state,
@@ -567,48 +701,21 @@ fn fast_forward_decision(
     )?;
     let source_assignment = only_assignment(&source.payload)?;
     let assignment_payload = CurriculumSemanticPayload::assignment(source_assignment.clone());
-    if let Some(recovery) = pin_correction(state, tenant, &assignment_payload)? {
-        return Ok(AssignmentFastForwardDecision::UnavailablePin { recovery });
-    }
-    Ok(AssignmentFastForwardDecision::Eligible)
-}
-
-fn same_source_locator(
-    left: AssignmentDefinitionSourceView,
-    right: AssignmentDefinitionSourceView,
-) -> bool {
-    match (left, right) {
-        (
-            AssignmentDefinitionSourceView::Blueprint(left),
-            AssignmentDefinitionSourceView::Blueprint(right),
-        ) => left.reference == right.reference,
-        (
-            AssignmentDefinitionSourceView::Alpha(left),
-            AssignmentDefinitionSourceView::Alpha(right),
-        ) => {
-            left.source().reference == right.source().reference
-                && left.module_index() == right.module_index()
-                && left.assignment_index() == right.assignment_index()
-        }
-        _ => false,
-    }
-}
-
-fn source_is_newer(
-    old: AssignmentDefinitionSourceView,
-    new: AssignmentDefinitionSourceView,
-) -> bool {
-    match (old, new) {
-        (
-            AssignmentDefinitionSourceView::Blueprint(old),
-            AssignmentDefinitionSourceView::Blueprint(new),
-        ) => new.revision.value() > old.revision.value(),
-        (
-            AssignmentDefinitionSourceView::Alpha(old),
-            AssignmentDefinitionSourceView::Alpha(new),
-        ) => new.source().revision.value() > old.source().revision.value(),
-        _ => false,
-    }
+    let unavailable_pin = unavailable_destination_pin(state, tenant, &assignment_payload)?;
+    let replacement_choices = unavailable_pin
+        .map(|_| replacement_question_choices(state, tenant))
+        .transpose()?;
+    project_fast_forward_decision(FastForwardProjectionInput {
+        imported_source,
+        requested_source,
+        current_source,
+        baseline: &baseline_payload,
+        current: &current_payload,
+        issued_work: false,
+        unavailable_pin,
+        replacement_choices,
+    })
+    .map_err(semantic_preview_error)
 }
 
 fn resolve_assignment(
@@ -627,46 +734,4 @@ fn resolve_assignment(
         .filter(|record| record.course_id == course)
         .map(|_| assignment)
         .ok_or(StoreError::NotFound)
-}
-
-fn course_assignment_ids(state: &State, tenant: TenantId, course: CourseId) -> Vec<AssignmentId> {
-    let mut ids = state
-        .assignments
-        .iter()
-        .filter_map(|((record_tenant, assignment), record)| {
-            (*record_tenant == tenant && record.course_id == course).then_some(*assignment)
-        })
-        .collect::<Vec<_>>();
-    ids.sort_unstable();
-    ids
-}
-
-pub(super) fn current_with_retained_schedule(
-    state: &State,
-    tenant: TenantId,
-    assignment: AssignmentId,
-) -> Result<CurriculumSemanticAssignment, StoreError> {
-    let schedule = state
-        .curriculum_import_baselines
-        .get(&(tenant, assignment))
-        .map(|baseline| baseline.payload.schedule().clone())
-        .map(Ok)
-        .unwrap_or_else(|| {
-            let record = state
-                .assignments
-                .get(&(tenant, assignment))
-                .ok_or(StoreError::NotFound)?;
-            let policy = state
-                .assignment_base_policy
-                .get(&(tenant, assignment))
-                .ok_or_else(|| destination::integrity("assignment base policy"))?;
-            let term = &state
-                .courses
-                .get(&(tenant, record.course_id))
-                .ok_or(StoreError::NotFound)?
-                .term;
-            question_model::RelativeAssignmentSchedule::from_base_policy(&policy.policy, term)
-                .map_err(|error| StoreError::InvalidRecord(error.to_string()))
-        })?;
-    destination::current_semantic_assignment(state, tenant, assignment, schedule)
 }

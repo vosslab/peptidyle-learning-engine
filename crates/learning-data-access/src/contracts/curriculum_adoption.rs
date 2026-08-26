@@ -9,11 +9,11 @@ use question_model::{
     BlueprintInstantiationPreviewRequest, BlueprintInstantiationPreviewView, CourseReference,
     CourseRolloverCommand, CourseRolloverCompleted, CourseRolloverPreviewRequest,
     CourseRolloverPreviewView, CourseTermShiftCommand, CourseTermShiftCompleted,
-    CourseTermShiftPreviewRequest, CourseTermShiftPreviewView,
-    CreateSourceDerivedAssignmentCommand, CurriculumCourseImportView, ForkAlphaCommand,
-    ForkAlphaCompleted, ForkAlphaPreviewRequest, ForkAlphaPreviewView,
-    SourceDerivedAssignmentCompleted, SourceDerivedAssignmentPreviewRequest,
-    SourceDerivedAssignmentPreviewView,
+    CourseTermShiftPreviewOutcome, CourseTermShiftPreviewRequest,
+    CreateSourceDerivedAssignmentCommand, CurriculumAdoptionReconciliationResult,
+    CurriculumCourseImportView, ForkAlphaCommand, ForkAlphaCompleted, ForkAlphaPreviewRequest,
+    ForkAlphaPreviewView, ReconcileCurriculumAdoptionCommand, SourceDerivedAssignmentCompleted,
+    SourceDerivedAssignmentPreviewRequest, SourceDerivedAssignmentPreviewView,
 };
 
 use super::{SessionTokenHash, StoreError, TenantContext};
@@ -91,7 +91,7 @@ pub trait CurriculumAdoptionStore: Send + Sync {
         context: TenantContext,
         session: SessionTokenHash,
         request: CourseTermShiftPreviewRequest,
-    ) -> Result<CourseTermShiftPreviewView, StoreError>;
+    ) -> Result<CourseTermShiftPreviewOutcome, StoreError>;
     async fn apply_course_term_shift(
         &self,
         context: TenantContext,
@@ -135,4 +135,17 @@ pub trait CurriculumAdoptionStore: Send + Sync {
         session: SessionTokenHash,
         course: CourseReference,
     ) -> Result<Option<CurriculumCourseImportView>, StoreError>;
+
+    /// Rebuilds only B2-owned derived/current-index projections from one completed receipt.
+    ///
+    /// Implementations require matching immutable receipt, baseline, and envelope evidence.
+    /// Missing evidence returns an integrity refusal that keeps the capability unavailable for
+    /// operator recovery; no authoritative course, assignment, schedule, learner, grade, source,
+    /// baseline, envelope, or receipt is changed.
+    async fn reconcile_curriculum_adoption(
+        &self,
+        context: TenantContext,
+        session: SessionTokenHash,
+        command: ReconcileCurriculumAdoptionCommand,
+    ) -> Result<CurriculumAdoptionReconciliationResult, StoreError>;
 }
