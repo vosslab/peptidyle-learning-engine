@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the installed Base Course against disposable PostgreSQL and MinIO."""
+"""Exercise the installed Biochemistry course against disposable PostgreSQL and MinIO."""
 
 import hashlib
 import json
@@ -31,6 +31,7 @@ SYSADMIN_ID = "00000000-0000-0000-0000-000000000105"
 USER_CREATED_COURSE_ID = "00000000-0000-4000-8000-000000000999"
 RECEIPT_BUCKET = "private-content"
 RECEIPT_KEY = "ple/live-demo/base-course-install-receipt.json"
+BIOCHEMISTRY_COURSE_TITLE = "Biochemistry: Protein Structure and Function"
 
 
 #============================================
@@ -104,7 +105,7 @@ def phase_environment(
 	database: str,
 	base_course_database_urls: tuple[str, str],
 ) -> dict[str, str]:
-	"""Build an answerable Base Course child without migration administration."""
+	"""Build an answerable installed Biochemistry course child without migration administration."""
 	installer_database_url, app_database_url = local_stack_control.base_course_logins.require_urls(
 		base_course_database_urls
 	)
@@ -137,7 +138,7 @@ def run_phase(
 	phase: str,
 	receipt: str | None = None,
 ) -> local_stack_control.base_course_lifecycle.Receipt:
-	"""Run one ordinary Base Course CLI phase."""
+	"""Run one ordinary installed Biochemistry course CLI phase."""
 	environment = phase_environment(stack, database, base_course_database_urls)
 	result = local_stack_control.lifecycle.run_base_course_phase(
 		stack.runner,
@@ -248,8 +249,8 @@ def verify_courses_and_memberships(
 		database,
 		f"SELECT title FROM course WHERE tenant_id = '{TENANT_ID}' "
 		f"AND course_id = '{base_course_id}'",
-		"Biochemistry Base Course",
-		"named Base Course",
+		BIOCHEMISTRY_COURSE_TITLE,
+		"named installed Biochemistry course",
 	)
 	require_exact_value(
 		stack,
@@ -260,11 +261,11 @@ def verify_courses_and_memberships(
 		"named Genetics Practice Course",
 	)
 	memberships = (
-		(base_course_id, PRIMARY_INSTRUCTOR_ID, "instructor|active", "Base Course Instructor"),
-		(base_course_id, MARY_ID, "student|active", "Base Course Mary"),
-		(base_course_id, JACK_ID, "student|active", "Base Course Jack"),
-		(base_course_id, APPROVAL_CANDIDATE_ID, "", "Base Course approval candidate absence"),
-		(base_course_id, SYSADMIN_ID, "", "Base Course Sysadmin absence"),
+		(base_course_id, PRIMARY_INSTRUCTOR_ID, "instructor|active", "Biochemistry course Instructor"),
+		(base_course_id, MARY_ID, "student|active", "Biochemistry course Mary"),
+		(base_course_id, JACK_ID, "student|active", "Biochemistry course Jack"),
+		(base_course_id, APPROVAL_CANDIDATE_ID, "", "Biochemistry course approval candidate absence"),
+		(base_course_id, SYSADMIN_ID, "", "Biochemistry course Sysadmin absence"),
 		(practice_course_id, PRIMARY_INSTRUCTOR_ID, "", "practice-course Instructor absence"),
 		(practice_course_id, MARY_ID, "", "practice-course Mary absence"),
 		(practice_course_id, JACK_ID, "", "practice-course Jack absence"),
@@ -316,7 +317,7 @@ def verify_exact_baseline(
 		stack, database,
 		f"SELECT title || '|' || lifecycle FROM assignment WHERE tenant_id = '{TENANT_ID}' "
 		f"AND assignment_id = '{assignment_id}' AND course_id = '{course_id}'",
-		"Peptide Bonds: Structure and Resonance|published", "named Base Course assignment",
+		"Peptide Bonds: Structure and Resonance|published", "named Biochemistry course assignment",
 	)
 	require_exact_value(
 		stack, database,
@@ -549,7 +550,7 @@ def verify_prefix_state(
 			f"SELECT title FROM course WHERE tenant_id = '{TENANT_ID}' "
 			f"AND course_id = '{deterministic_id('course')}'"
 		)
-		expected = "Biochemistry Base Course"
+		expected = BIOCHEMISTRY_COURSE_TITLE
 	elif boundary == "activity":
 		sql = (
 			f"SELECT completed_at IS NULL FROM assignment_run WHERE tenant_id = '{TENANT_ID}' "
@@ -564,7 +565,7 @@ def verify_prefix_state(
 		)
 	if stack.psql(database, "SELECT state FROM live_demo_install_state") != "installing":
 		raise local_stack_control.models.ControllerError(
-			"interrupted Base Course did not remain in installing state"
+			"interrupted installed Biochemistry course did not remain in installing state"
 		)
 
 
@@ -642,19 +643,19 @@ def verify_concurrent_installers(stack: e2e_live_demo_stack.DisposableStack) -> 
 			failure, base_course_private_values(base_course_database_urls)
 		)
 		raise local_stack_control.models.ControllerError(
-			"concurrent Base Course installers failed: " + detail
+			"concurrent installed Biochemistry course installers failed: " + detail
 		)
 	actions = {json.loads(first_stdout)["action"], json.loads(second_stdout)["action"]}
 	if actions != {"resumed", "retained"}:
 		raise local_stack_control.models.ControllerError(
-			"concurrent Base Course installers did not serialize to one writer"
+			"concurrent installed Biochemistry course installers did not serialize to one writer"
 		)
 	verify_exact_baseline(stack, database)
 
 
 #============================================
 def verify_pre_marker_refusal(stack: e2e_live_demo_stack.DisposableStack) -> None:
-	"""Prove ordinary upgrades work while first Base Course install rejects live state."""
+	"""Prove ordinary upgrades work while first installed Biochemistry course install rejects live state."""
 	database = "ple_live_demo_pre_marker"
 	stack.create_database(database)
 	base_course_database_urls = prepare_database(stack, database)
@@ -685,14 +686,14 @@ def verify_pre_marker_refusal(stack: e2e_live_demo_stack.DisposableStack) -> Non
 	result = stack.runner.run(prepare_argv, environment, stack.root)
 	if result.ok():
 		raise local_stack_control.models.ControllerError(
-			"Base Course installer accepted populated unmarked application state"
+			"installed Biochemistry course installer accepted populated unmarked application state"
 		)
 	state = stack.psql(
 		database, "SELECT count(*) FROM live_demo_install_state WHERE singleton"
 	)
 	if state != "0":
 		raise local_stack_control.models.ControllerError(
-			"rejected Base Course install left a lifecycle marker"
+			"rejected installed Biochemistry course install left a lifecycle marker"
 		)
 
 
@@ -707,7 +708,7 @@ def verify_retained_data(
 	practice_course_id = deterministic_id("practice-course")
 	stack.psql(
 		database,
-		f"UPDATE course SET title = 'Instructor edited Base Course' "
+		f"UPDATE course SET title = 'Instructor edited Biochemistry course' "
 		f"WHERE tenant_id = '{TENANT_ID}' AND course_id = '{course_id}'; INSERT INTO course "
 		"(tenant_id, course_id, title, term_start_date, term_end_date, time_zone) VALUES "
 		f"('{TENANT_ID}', '{USER_CREATED_COURSE_ID}', "
@@ -739,14 +740,14 @@ def verify_retained_data(
 		"cargo", "tools", "base-course"
 	):
 		raise local_stack_control.models.ControllerError(
-			"retained Base Course startup touched storage or invoked a second writer"
+			"retained installed Biochemistry course startup touched storage or invoked a second writer"
 		)
 	require_exact_value(
 		stack,
 		database,
 		f"SELECT title FROM course WHERE tenant_id = '{TENANT_ID}' "
 		f"AND course_id = '{course_id}'",
-		"Instructor edited Base Course",
+		"Instructor edited Biochemistry course",
 		"retained Instructor edit",
 	)
 	require_exact_value(
@@ -770,7 +771,7 @@ def verify_retained_data(
 	)
 	if ordinary_object != "preserve me":
 		raise local_stack_control.models.ControllerError(
-			"retained Base Course startup changed ordinary live storage"
+			"retained installed Biochemistry course startup changed ordinary live storage"
 		)
 
 
@@ -817,7 +818,7 @@ def verify_regeneration(stack: e2e_live_demo_stack.DisposableStack) -> None:
 
 #============================================
 def run_connected_lane(stack: e2e_live_demo_stack.DisposableStack) -> None:
-	"""Run the connected Base Course lifecycle checks in dependency order."""
+	"""Run the connected installed Biochemistry course lifecycle checks in dependency order."""
 	local_stack_control.process.require_rootless_local_engine(stack.runner, stack.root)
 	print("live-demo baseline E2E: preparing against isolated PostgreSQL 17")
 	stack.start_service("postgres")
@@ -839,11 +840,11 @@ def run_connected_lane(stack: e2e_live_demo_stack.DisposableStack) -> None:
 	)
 	if prepared is None:
 		raise local_stack_control.models.ControllerError(
-			"live-demo baseline E2E owner did not select Base Course installation"
+			"live-demo baseline E2E owner did not select installed Biochemistry course installation"
 		)
 	if stack.running_services() != ("postgres",):
 		raise local_stack_control.models.ControllerError(
-			"Base Course prepare did not complete before MinIO startup"
+			"installed Biochemistry course prepare did not complete before MinIO startup"
 		)
 	if (
 		prepared.storage_receipt_bucket != RECEIPT_BUCKET
@@ -887,7 +888,7 @@ def run_connected_lane(stack: e2e_live_demo_stack.DisposableStack) -> None:
 
 #============================================
 def main() -> None:
-	"""Run the connected Base Course lifecycle acceptance lane."""
+	"""Run the connected installed Biochemistry course lifecycle acceptance lane."""
 	stack = e2e_live_demo_stack.DisposableStack(SCRIPT_REPOSITORY_ROOT)
 	test_failure: BaseException | None = None
 	try:

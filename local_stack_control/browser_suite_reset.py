@@ -63,20 +63,29 @@ def reset_live_demo_browser(
 	local_stack_control.browser_suite_ownership.require_live_demo_browser_ownership(before)
 	if _resource_count(before) == 0:
 		return before
-	if len(before.containers) > 0:
+	current = before
+	while len(current.containers) > 0:
 		# Podman tracks container dependency edges (for example, a database
 		# container depending on the project-owned volume-permissions helper).
-		# ``--depend`` asks the engine to remove dependent containers in the
-		# order it requires, rather than making this controller guess topology
-		# from service names or compose files.
+		# Remove one inventoried container with ``--depend``, then inventory
+		# again because that operation can remove several dependency-related
+		# containers. Reusing the original IDs would ask Podman to remove an ID
+		# that the same operation already removed.
+		previous_count = len(current.containers)
 		_run_remove(
 			runner,
 			repo_root,
-			["podman", "rm", "-f", "--depend", *(container.id for container in before.containers)],
+			["podman", "rm", "-f", "--depend", current.containers[0].id],
 		)
-	for volume in before.volumes:
+		current = _browser_snapshot(runner, repo_root)
+		local_stack_control.browser_suite_ownership.require_live_demo_browser_ownership(current)
+		if len(current.containers) >= previous_count:
+			raise local_stack_control.models.ControllerError(
+				"live-demo browser reset made no container-removal progress"
+			)
+	for volume in current.volumes:
 		_run_remove(runner, repo_root, ["podman", "volume", "rm", volume.name])
-	for network in before.networks:
+	for network in current.networks:
 		_run_remove(runner, repo_root, ["podman", "network", "rm", network.name])
 	after = _browser_snapshot(runner, repo_root)
 	local_stack_control.browser_suite_ownership.require_live_demo_browser_ownership(after)

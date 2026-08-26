@@ -68,7 +68,7 @@ legacy controller or retained local data.
 | `status [--project NAME]` | Read-only typed project snapshot and semantic status: required long-running health, one-shot completion, and published ports. Nonzero means the requested stack is not ready. |
 | `logs [SERVICE...]` | Read-only scoped Compose logs. It warns that logs may contain local diagnostics and does not claim redaction. |
 | `validate` | Runs typed read-only validation, then reports current label-derived status when a stack exists. It does not create an env file, start a machine, build, or mutate containers. |
-| `start` | Calls the selected normal target's typed lifecycle directly, including `--skip-build`, `--no-open`, `--with-smtp`, and `--env-file`. |
+| `start` | Calls the selected normal target's typed lifecycle directly, including `--skip-build`, `--headless`, `--with-smtp`, and `--env-file`. |
 | `stop` | Resolves and prints the default target, then runs scoped `compose down --remove-orphans`; named volumes remain. |
 | `restart SERVICE` | Recreates only the declared stateless service set (`api`, `worker`, `gateway`, `webwork-renderer`) after target resolution. It rejects PostgreSQL and MinIO. |
 | `reset --confirm-project containers` | Prints the exact labelled resources and scoped `compose down --volumes --remove-orphans` command, then removes only the default project's Compose data. `--dry-run` is inspection only. It preserves ignored host configuration and tells the operator to use `start` for reinitialization. |
@@ -242,7 +242,7 @@ On the explicitly resolved `containers` project, inspect the displayed target, t
 1. `stop` stops only the labelled default stack and its named data volumes remain observable.
 2. A confirmed `reset --confirm-project containers` removes only the previewed default-project
    Compose resources, never a foreign/disposable target or image store.
-3. `start --no-open` rebuilds only through the typed lifecycle and reaches its one-shot,
+3. `start --headless` rebuilds only through the typed lifecycle and reaches its one-shot,
    health, PostgreSQL, MinIO, renderer, seed, and gateway readiness evidence.
 4. `restart webwork-renderer` recreates that stateless service and the maintained WebWork live
    acceptance verifies a render/grade round trip.

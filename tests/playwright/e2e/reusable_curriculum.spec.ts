@@ -11,6 +11,7 @@ import { expect, test, type BrowserContext, type Locator, type Page } from "@pla
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import { installVirtualAuthenticator, removeVirtualAuthenticator } from "../helper_live_demo";
 import { CORPUS_VIEWPORT_SIZES } from "../ui_corpus_manifest";
+import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 import {
   chooseSeededIdentity,
@@ -27,8 +28,6 @@ import {
 
 const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 600_000;
-const baseCourseTitle = "Biochemistry Base Course";
-
 interface CurriculumWireValue {
   readonly direction: "request" | "response";
   readonly path: string;
@@ -94,20 +93,19 @@ function observeCurriculumWire(
 
 async function signInWithPasskey(
   page: Page,
-  namespace: string,
 ): Promise<Awaited<ReturnType<typeof installVirtualAuthenticator>>> {
   const authenticator = await installVirtualAuthenticator(page);
   await chooseSeededIdentity(page, /Elena Rivera/u);
-  await selectVisibleCourse(page, baseCourseTitle);
+  await selectVisibleCourse(page, BIOCHEMISTRY_COURSE_TITLE);
   await page.getByRole("link", { name: "Account", exact: true }).click();
   const account = page.locator('[data-route-surface="accountSecurity"]');
   await expect(account).toBeVisible();
-  await account.getByLabel("Passkey name").fill(`Elena B1 key ${namespace}`);
+  await account.getByLabel("Passkey name").fill("Elena curriculum passkey");
   await account.getByRole("button", { name: "Add passkey", exact: true }).click();
   await expect(account.getByRole("status")).toHaveText("Passkey added.");
   await signOutVisible(page);
   await page.getByRole("button", { name: "Sign in with a passkey", exact: true }).click();
-  await selectVisibleCourse(page, baseCourseTitle);
+  await selectVisibleCourse(page, BIOCHEMISTRY_COURSE_TITLE);
   return authenticator;
 }
 
@@ -183,11 +181,7 @@ async function createReusable(
   ).toBeVisible();
 }
 
-async function createPublicQuestion(
-  page: Page,
-  questionTitle: string,
-  namespace: string,
-): Promise<string> {
+async function createPublicQuestion(page: Page, questionTitle: string): Promise<string> {
   await page.getByRole("link", { name: "Workspace", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Draft, preview, and publish a learning question" }),
@@ -196,15 +190,12 @@ async function createPublicQuestion(
   await page.getByLabel("Question title").fill(questionTitle);
   await page
     .getByLabel("Learner-facing prompt")
-    .fill(`Which statements describe peptide-bond planarity? ${namespace}`);
+    .fill("Which statements describe peptide-bond planarity?");
   await page.getByLabel("Question format").selectOption("multipleAnswer");
-  await page.getByLabel("Choice text").nth(0).fill(`Resonance restricts rotation ${namespace}`);
-  await page
-    .getByLabel("Choice text")
-    .nth(1)
-    .fill(`The peptide bond is usually planar ${namespace}`);
+  await page.getByLabel("Choice text").nth(0).fill("Resonance restricts rotation");
+  await page.getByLabel("Choice text").nth(1).fill("The peptide bond is usually planar");
   await page.getByRole("button", { name: "Add choice", exact: true }).click();
-  await page.getByLabel("Choice text").nth(2).fill(`Peptide bonds freely rotate ${namespace}`);
+  await page.getByLabel("Choice text").nth(2).fill("Peptide bonds freely rotate");
   const correctAnswers = page.getByRole("checkbox", { name: "Correct answer", exact: true });
   await correctAnswers.nth(0).check();
   await correctAnswers.nth(1).check();
@@ -300,12 +291,8 @@ test.describe("reusable curriculum on the production PLE stack", () => {
       let publishedQuestionId = "";
 
       await test.step("Elena completes ordinary passkey entry and creates the reusable definitions through the visible shared picker", async () => {
-        authenticator = await signInWithPasskey(page, scenarioInput.namespace);
-        publishedQuestionId = await createPublicQuestion(
-          page,
-          questionTitle,
-          scenarioInput.namespace,
-        );
+        authenticator = await signInWithPasskey(page);
+        publishedQuestionId = await createPublicQuestion(page, questionTitle);
         await page.getByRole("link", { name: "Curriculum", exact: true }).click();
         const workspace = page.locator('[data-route-surface="curriculum"]');
         await expect(workspace).toBeVisible();
@@ -409,7 +396,7 @@ test.describe("reusable curriculum on the production PLE stack", () => {
           .click();
       });
 
-      await test.step("Morgan confirms Avery's approval and Elena confirms her Base Course teaching access", async () => {
+      await test.step("Morgan confirms Avery's approval and Elena confirms her installed Biochemistry course teaching access", async () => {
         const morgan = await morganContext.newPage();
         configureContextAndPage(morganContext, morgan, actionTimeoutMs);
         await chooseSeededIdentity(morgan, /Morgan/u);
@@ -436,7 +423,7 @@ test.describe("reusable curriculum on the production PLE stack", () => {
         }
 
         await page.getByRole("link", { name: "Courses", exact: true }).click();
-        const baseCourse = page.getByRole("article").filter({ hasText: baseCourseTitle });
+        const baseCourse = page.getByRole("article").filter({ hasText: BIOCHEMISTRY_COURSE_TITLE });
         await expect(baseCourse).toBeVisible();
         await baseCourse.getByRole("link", { name: "Open course", exact: true }).click();
         await page.getByRole("link", { name: "Teaching operations", exact: true }).click();
@@ -492,7 +479,7 @@ test.describe("reusable curriculum on the production PLE stack", () => {
         ).toBeVisible();
         const acceptInvitation = avery
           .getByRole("article")
-          .filter({ hasText: baseCourseTitle })
+          .filter({ hasText: BIOCHEMISTRY_COURSE_TITLE })
           .getByRole("button", { name: "Accept", exact: true });
         const noInvitations = avery.getByRole("heading", { name: "No invitations waiting" });
         await expect(acceptInvitation.or(noInvitations)).toBeVisible();
@@ -510,7 +497,7 @@ test.describe("reusable curriculum on the production PLE stack", () => {
         }
         await signOutVisible(avery);
         await chooseSeededIdentity(avery, /Avery Singh/u);
-        await selectVisibleCourse(avery, baseCourseTitle);
+        await selectVisibleCourse(avery, BIOCHEMISTRY_COURSE_TITLE);
         await avery.getByRole("link", { name: "Curriculum", exact: true }).click();
         const readerWorkspace = avery.locator('[data-route-surface="curriculum"]');
         await expect(readerWorkspace).toBeVisible();

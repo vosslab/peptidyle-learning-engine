@@ -51,8 +51,8 @@ class LifecycleResult:
 	renderer_oci_id: str
 
 
-RendererStatusRead = collections.abc.Callable[[], local_stack_control.models.StatusReport]
-RendererPoll = collections.abc.Callable[[RendererStatusRead, float], local_stack_control.models.StatusReport]
+StatusRead = collections.abc.Callable[[], local_stack_control.models.StatusReport]
+ReadinessPoll = collections.abc.Callable[[StatusRead, float], local_stack_control.models.StatusReport]
 
 
 BaseCourseLifecycleReceipt = local_stack_control.base_course_lifecycle.Receipt
@@ -212,7 +212,7 @@ def default_gateway_running(
 def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[str, str]:
 	"""Validate selected settings, secret file contracts, and Compose topology read-only."""
 	request = local_stack_control.lifecycle_validation.LifecycleRequest(
-		target=target, release=False, skip_build=False, no_open=True, mutation=False
+		target=target, release=False, skip_build=False, headless=True, mutation=False
 	)
 	values = local_stack_control.lifecycle_validation.validate_request(request)
 	required = (
@@ -340,7 +340,7 @@ def start_lifecycle(
 	compose_run(selected, runner, ["--profile", "maintenance", "run", "--rm", "--no-deps", "-T", "postgres-major-guard"])
 	compose_run(selected, runner, ["up", "-d", "postgres"])
 	wait_for_postgres(selected, runner, values, options)
-	synchronize_database(target, runner, values)
+	synchronize_database(target, runner, values, options)
 	run_migrations(runner, repo_root, values, environment)
 	base_course_database_urls = None
 	if local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
@@ -580,8 +580,8 @@ def wait_for_renderer_ready(
 	options: LifecycleOptions,
 	oci_id: str,
 	*,
-	read_status: RendererStatusRead | None = None,
-	poll_ready: RendererPoll = local_stack_control.lifecycle_wait.poll_ready,
+	read_status: StatusRead | None = None,
+	poll_ready: ReadinessPoll = local_stack_control.lifecycle_wait.poll_ready,
 ) -> None:
 	"""Await the one selected healthy renderer before its behavior is probed."""
 	status_reader = read_status
@@ -597,8 +597,16 @@ def wait_for_renderer_ready(
 
 
 #============================================
-def synchronize_database(target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget, runner: local_stack_control.process.CommandRunner, values: dict[str, str]) -> None:
-	"""Synchronize the local database login only for the default local target."""
+def synchronize_database(
+	target: local_stack_control.models.ComposeTarget
+	| local_stack_control.models.DisposableComposeTarget,
+	runner: local_stack_control.process.CommandRunner,
+	values: dict[str, str],
+	options: LifecycleOptions,
+	*,
+	poll_ready: ReadinessPoll = local_stack_control.lifecycle_wait.poll_ready,
+) -> None:
+	"""Synchronize the local login across PostgreSQL's bounded startup handoff."""
 	if not local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
 		return
 	selected = target_of(target)
@@ -607,7 +615,21 @@ def synchronize_database(target: local_stack_control.models.ComposeTarget | loca
 	environment["PGPASSWORD"] = password
 	argv = local_stack_control.compose.compose_argv(selected, ["exec", "-T", "postgres", "psql", "-v", "ON_ERROR_STOP=1", "-U", values["POSTGRES_USER"], "-d", values["POSTGRES_DB"]])
 	sql = postgres_role_sql(values["POSTGRES_USER"], password)
-	require_command(runner.run(argv, environment, selected.repo_root, sql), "local database login synchronization")
+	private_values = local_stack_control.consumer.private_environment_values(
+		selected.env_file
+	)
+	def read_report() -> local_stack_control.models.StatusReport:
+		result = runner.run(argv, environment, selected.repo_root, sql)
+		if result.ok():
+			return ready_report(selected)
+		detail = local_stack_control.lifecycle_diagnostics.redacted_failure_detail(
+			result, private_values
+		)
+		return dataclasses.replace(
+			unavailable_report(selected),
+			message=f"database login synchronization is pending ({detail})",
+		)
+	poll_ready(read_report, options.timeout_seconds)
 
 
 #============================================
@@ -753,7 +775,12 @@ def provision_grading_role(target: local_stack_control.models.ComposeTarget, run
 	environment["PLE_LOCAL_GRADER_PASSWORD"] = values["PLE_LOCAL_GRADER_PASSWORD"]
 	argv = local_stack_control.compose.compose_argv(target, ["exec", "-T", "postgres", "psql", "-v", "ON_ERROR_STOP=1", "-U", values["POSTGRES_USER"], "-d", values["POSTGRES_DB"]])
 	sql = postgres_role_sql("ple_grading_reader", values["PLE_LOCAL_GRADER_PASSWORD"])
-	require_command(runner.run(argv, environment, target.repo_root, sql), "grading role provisioning")
+	private_values = local_stack_control.consumer.private_environment_values(target.env_file)
+	require_command(
+		runner.run(argv, environment, target.repo_root, sql),
+		"grading role provisioning",
+		private_values,
+	)
 
 
 #============================================

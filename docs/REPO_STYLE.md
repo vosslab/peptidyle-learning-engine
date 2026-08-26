@@ -1,5 +1,7 @@
 # REPO_STYLE.md
 
+> This file is vendored. Local changes can and will be overwritten by propagation.
+
 Repo-wide conventions for this project and related repos.
 
 ## Core philosophies
@@ -98,9 +100,13 @@ Preferred structure:
   one exact repo-relative path per line.
 
 ## Changelog rotation
-- Rotate `docs/CHANGELOG.md` when it reaches about 1000 lines (`wc -l docs/CHANGELOG.md`).
+- Rotate `docs/CHANGELOG.md` once it exceeds 800 physical lines (`wc -l docs/CHANGELOG.md`).
 - Keep complete day blocks together. Do not split entries from the same `## YYYY-MM-DD` heading across files.
 - Keep the last two date-heading day blocks in active `docs/CHANGELOG.md` and move older day blocks to archive files.
+- Target 800-900 physical lines for each new archive. Keep every day block whole; when no
+  day-block boundary fits the target, choose the closest grouping that remains strictly below
+  1000 lines. Refuse a single day block at or above 1000 lines rather than writing an archive
+  that fails `tests/test_source_file_line_limit.py`.
 - "Last two days" means the two most recent `## YYYY-MM-DD` headings present in the changelog, not a rolling 48-hour window; dates may be non-consecutive.
 - Use archive filenames in the form `docs/CHANGELOG-YYYY-MM[a-z].md` (for example `docs/CHANGELOG-2026-02a.md`), choosing the next letter for additional rotations in the same month.
 - When an archived range spans multiple months, name the archive after the **most recent month included** (the YYYY-MM closest to the active changelog), not the earliest. Example: a rotation moving 2026-01-23 through 2026-04-14 into one file becomes `docs/CHANGELOG-2026-04a.md`. This keeps the most recent archive sortable next to the still-active file.
@@ -117,7 +123,7 @@ Preferred structure:
 - Categories are not required when they would be empty, but every changelog entry must belong to one category.
 - Changelog entries are never removed, but they may be rephrased for accuracy and clarity.
 - Legacy archives that use the older `CHANGELOG_ARCHIVE_NN.md` form must be renamed to the documented `CHANGELOG-YYYY-MM[a-z].md` form. The new name follows the most-recent-month-in-range rule above (use the most recent `## YYYY-MM-DD` heading inside the archive). Use `git mv` so history is preserved. Only one archive naming style should exist in the repo at any time.
-- Automation: [devel/rotate_changelog.py](../devel/rotate_changelog.py) enforces this rotation policy (keeps the two newest day blocks, archives the rest into `docs/CHANGELOG-YYYY-MM[a-z].md`, refuses to clobber boundary dates). [devel/query_changelog.py](../devel/query_changelog.py) searches the active changelog and archives by date range, category, keyword, or source. [devel/commit_changelog.py](../devel/commit_changelog.py) drafts the seed commit message from the changelog bullets newly ADDED in the working tree (via `git diff HEAD` on `docs/CHANGELOG.md`), then restricts those to the most recent run of consecutive day-block headings so an edited older bullet does not leak into the seed. All three share [devel/changelog_lib.py](../devel/changelog_lib.py) (parser/serializer, git helpers, console + prompt helpers).
+- Automation: [devel/rotate_changelog.py](../devel/rotate_changelog.py) enforces this rotation policy (keeps the two newest day blocks, partitions older blocks into target-sized archives below 1000 lines, and refuses to clobber boundary dates). [devel/query_changelog.py](../devel/query_changelog.py) searches the active changelog and archives by date range, category, keyword, or source. [devel/commit_changelog.py](../devel/commit_changelog.py) drafts the seed commit message from the changelog bullets newly ADDED in the working tree (via `git diff HEAD` on `docs/CHANGELOG.md`), then restricts those to the most recent run of consecutive day-block headings so an edited older bullet does not leak into the seed. All three share [devel/changelog_lib.py](../devel/changelog_lib.py) (parser/serializer, git helpers, console + prompt helpers).
 
 ## Active plans folder organization
 - Working planning artifacts under `docs/active_plans/` are filed into a closed set of subdirectories by kind.

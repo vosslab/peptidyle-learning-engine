@@ -10,7 +10,7 @@ use question_model::response::ChoiceOption;
 
 const PILOT_PROVENANCE: &str = "Reviewed Chapter 1 pilot corpus from biology-problems-website revision 11f9ff635bd20d8fa334c360a8cba86bb0ab6527";
 const PILOT_CONVERGENCE_ATTEMPTS: u8 = 3;
-pub(super) const CHAPTER_ONE_FAKE_STUDENT_DISPLAY_NAME: &str = "Mary Fake Student";
+pub(super) const CHAPTER_ONE_STUDENT_DISPLAY_NAME: &str = "Mary Okafor";
 
 const GENETICS_WEBWORK_MC: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -299,6 +299,7 @@ pub(super) async fn seed_chapter_one_pilot(
             student,
             course_id,
             assignment_id,
+            CHAPTER_ONE_STUDENT_DISPLAY_NAME,
         )
         .await?;
         chapters.push(ChapterManifest {
@@ -311,7 +312,7 @@ pub(super) async fn seed_chapter_one_pilot(
     }
     let statistics_fixture = statistics_fixture
         .ok_or_else(|| anyhow::anyhow!("Chapter 1 catalog-statistics fixture is missing"))?;
-    seed_chapter_one_statistics(&store, context, arguments, statistics_fixture).await?;
+    seed_chapter_one_statistics(&store, context, arguments, statistics_fixture, &chapters).await?;
     let output = ChapterOnePilotManifest { chapters };
     if resumed.as_ref().is_some_and(|input| input != &output) {
         bail!(
@@ -331,6 +332,7 @@ pub(super) async fn upsert_chapter_one_student<S>(
     student: UserId,
     course: CourseId,
     assignment: AssignmentId,
+    display_name: &str,
 ) -> Result<AssignmentEnrollment>
 where
     S: Store + CourseRosterStore,
@@ -342,7 +344,7 @@ where
             UpsertCourseMember {
                 course,
                 user: student,
-                display_name: CHAPTER_ONE_FAKE_STUDENT_DISPLAY_NAME.to_string(),
+                display_name: display_name.to_string(),
                 roster_contact: None,
             },
         )

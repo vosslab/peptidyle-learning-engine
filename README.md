@@ -1,12 +1,12 @@
 # Peptidyle Learning Engine
 
-An open platform for mastery teaching across question formats. Students retry varied problems until they can solve them consistently, then keep practicing fresh versions after completion, while grading and answer keys stay securely on the server.
+An open mastery-learning platform for biology instructors and students that delivers varied practice, keeps grading and answer keys on the server, and supports meaningful work beyond assignment completion.
 
-**Project status: advanced implementation, not ready for production deployment.** Core learning,
-privacy, browser, and developer paths work together, including a bounded external WeBWorK PG
-renderer. Read the [current implementation handoff](docs/active_plans/implementation_status.md)
-for verified current scope and the [implementation plan](docs/active_plans/implementation_plan.md) for
-planned work.
+**Project status: advanced implementation, not ready for production deployment.** The local live demo
+is a disposable, production-shaped PLE installation for development and acceptance evidence; it is
+not a public deployment. [docs/active_plans/implementation_status.md](docs/active_plans/implementation_status.md)
+records the current handoff, and [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md)
+owns planned work.
 
 ## Practice past completion
 
@@ -21,23 +21,24 @@ that implement it.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Instructor assignment editor showing four selected Genetics Chapter 1 immutable versions and Mastery run policies](docs/screenshots/instructor/course_authoring/06_assignment_editor.png)
+![Instructor editor for Peptide Bonds and Planarity showing a selected published question and Mastery run policies](docs/screenshots/instructor/course_authoring/06_assignment_editor.png)
 
-![Instructor Assignment created confirmation showing Genetics Chapter 1 Practice and its Open assignment link](docs/screenshots/instructor/course_authoring/05_assignment_created.png)
+![Instructor confirmation that Peptide Bonds and Planarity is a live course assignment](docs/screenshots/instructor/course_authoring/05_assignment_created.png)
 
-![Student Genetics Chapter 1 problem showing the server-authoritative countdown and keyboard-focused response](docs/screenshots/student/delivery/03_problem_ready.png)
+![Student Peptide Bond Planarity problem showing an unanswered keyboard-accessible response](docs/screenshots/student/delivery/03_problem_ready.png)
 
-![Student completed-run summary showing a correct score and keyboard focus on Start another practice run](docs/screenshots/student/delivery/06_completion.png)
+![Student completed-run summary showing a server-graded correct response and fresh-practice action](docs/screenshots/student/delivery/06_completion.png)
 
-![Student Practice run 2 showing a reset 15-minute timer and an unanswered focused response](docs/screenshots/student/delivery/07_repeat_run.png)
+![Student Peptide Bond Planarity practice run 2 showing a fresh unanswered response](docs/screenshots/student/delivery/07_repeat_run.png)
 <!-- screenshots:end -->
 
-These are real-stack captures from the accepted teaching workflow. See
-the dedicated [instructor guide](docs/INSTRUCTOR_GUIDE.md) and
-[student guide](docs/STUDENT_GUIDE.md) for the complete visible workflow. It demonstrates a
-disposable live demo rather than a production deployment; every displayed person and course record
-is fictional seeded data. The fixed labels `Dr. Fake Professor`, `Mary Fake Student`, and
-`Jack Fake Student` make that status explicit in screenshots.
+These five views are highlights from the freshly published 75-artifact real-stack corpus. The
+publication gate verified image integrity, privacy, provenance, and declared coverage; human review
+checked the visible course, learner, curation, and curriculum-adoption states. The demo records
+behave as ordinary live PLE data inside a disposable installation.
+[docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md) defines that boundary, and
+[docs/INSTRUCTOR_GUIDE.md](docs/INSTRUCTOR_GUIDE.md) and
+[docs/STUDENT_GUIDE.md](docs/STUDENT_GUIDE.md) explain the visible workflows.
 
 ## Why this project
 
@@ -60,8 +61,8 @@ The design answers both:
   server rules on whether an answer arrived before expiry.
 - Capability validation before publication, so the platform can answer whether a question backend
   supports an assignment policy while the instructor is still editing.
-- Mixed automatic and manual grading with generation-fenced score publication, followed by a
-  separate course-local item analysis that never delays a learner-visible grade.
+- Deterministic server-owned grading for supported question families, followed by separate
+  course-local item analysis that never delays a learner-visible grade.
 - Exam export to DOCX and PDF, with separate student and answer-key artifacts.
 
 ## Two guarantees the structure enforces
@@ -152,12 +153,12 @@ cd peptidyle-learning-engine
 ./run_live_demo.sh
 ```
 
-On a fresh clone, `run_live_demo.sh` visibly invokes the root `setup.sh` dependency installer before
+On a fresh clone, `run_live_demo.sh` visibly invokes `devel/setup_typescript.sh` before
 delegating to the canonical local-stack owner. It builds the
 production `dist/` bundle, creates a fresh disposable
 `ple-live-demo-browser` HTTPS stack, waits for production-auth readiness, and opens
 the canonical browser origin. For a headless alternative, run
-`./run_live_demo.sh --no-open`; it keeps the same stack and prints the origin
+`./run_live_demo.sh --headless`; it keeps the same stack and prints the origin
 without opening a browser. Use `./run_live_demo.sh stop` for owner-scoped cleanup.
 Follow the visible seeded production-auth flow.
 
@@ -173,7 +174,7 @@ session. Developer and browser tests serialize through the same owner lease. See
 [docs/LOCAL_STACK_OPERATIONS.md](docs/LOCAL_STACK_OPERATIONS.md) for the controller contract and
 [docs/USAGE.md](docs/USAGE.md) for detailed everyday workflows.
 
-For the smallest complete offline first success, install current Rust through `rustup`. The
+For the smallest complete offline verification result, install current Rust through `rustup`. The
 repository's [rust-toolchain.toml](rust-toolchain.toml) selects stable Rust, rustfmt, Clippy, and the
 `wasm32-unknown-unknown` target. Then run its behavior suite:
 
@@ -187,7 +188,7 @@ mastery and server-side contracts without requiring containers or local credenti
 repository gate also needs current Node.js and npm, plus Python 3.12 with pytest:
 
 ```bash
-./setup.sh
+./devel/setup_typescript.sh
 ./check_codebase.sh
 ./check_rust.sh
 ```
@@ -205,7 +206,7 @@ author draft
   -> publish one immutable problem version
   -> assign that exact version to a course
   -> issue a fresh server-seeded learner attempt
-  -> persist an automatic result or a pending manual evaluation
+  -> persist an automatic result
   -> publish the newest scoring generation atomically
   -> rebuild the current course item analysis on a lower-priority job
 ```
@@ -219,12 +220,12 @@ generation is discarded without delaying or rolling back the current grade.
 
 | Area                                 | State                                                                                                                                                                                                                                                                                                       |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rust domain and learning data access | Attempt, timing, scoring, manual-grading, item-analysis, retention, catalog, and worker contracts; in-memory and PostgreSQL implementations share conformance tests                                                                                                                                         |
+| Rust domain and learning data access | Attempt, timing, deterministic scoring, item analysis, retention, catalog, and worker contracts; in-memory and PostgreSQL implementations share conformance tests                                                                                                                                           |
 | Reusable curriculum                  | Revisioned private Blueprints, public Alpha curricula, immutable publication pins, answer-free inspection, and shared question selection                                                                                                                                                                    |
-| API server                           | Auth, catalog, course, assignment, run, submission, manual grade, item analysis, asset, export, workspace, retention, reusable curriculum, and curriculum-adoption route groups                                                                                                                             |
+| API server                           | Auth, catalog, course, assignment, run, submission, deterministic grading, item analysis, asset, export, workspace, retention, reusable curriculum, and curriculum-adoption route groups                                                                                                                    |
 | WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                                                              |
 | Browser client                       | Solid routes for courses, assignments, attempt loop, summary, library, authoring, flat-question editing, assignment editing, gradebook, reusable curricula, and Instructor curriculum adoption                                                                                                              |
-| Curriculum adoption                  | Preview-before-save fork and instantiation, rollover, term shifting, provenance receipts, controlled fast-forward, divergence recovery, and teaching-operation API/browser capabilities; B2 acceptance remains open                                                                                         |
+| Curriculum adoption                  | Accepted preview-before-save fork and instantiation, rollover, term shifting, provenance receipts, controlled fast-forward, divergence recovery, and teaching-operation API/browser capabilities                                                                                                            |
 | PostgreSQL                           | Forward-only SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification                                                                                                                                                                                    |
 | Question engines                     | PLE flat-question JSON v2 implements all eight required native families; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
 | DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                                                                                  |
@@ -275,59 +276,26 @@ devel/      Maintenance and release helper scripts
 
 ## Documentation
 
-Start with a local run and the system map:
+Use these routes after the first local result:
 
-- [docs/INSTALL.md](docs/INSTALL.md) - required tools, setup, verification, and the optional
-  private WeBWorK profile.
-- [docs/USAGE.md](docs/USAGE.md) - fixed developer session, sign-in, health, and validation commands.
-- [docs/INSTRUCTOR_GUIDE.md](docs/INSTRUCTOR_GUIDE.md) and
-  [docs/STUDENT_GUIDE.md](docs/STUDENT_GUIDE.md) - role-focused course setup, assignment practice,
-  scoring, and repeat-workflow guides with real-stack screenshots.
-- [docs/INSTRUCTOR_PAGE_VISUALS.md](docs/INSTRUCTOR_PAGE_VISUALS.md) - the current 1280 by 800
-  fictional seeded-data overview of every instructor work page.
-- [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) - system shape, crate ownership, storage,
-  API, browser, and security boundaries.
-- [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) - repository map and the owner of each major
-  directory.
-- [docs/USER_ROLES.md](docs/USER_ROLES.md) - the closed Student, Instructor,
-  and Sysadmin model, direct course authority, and FERPA radioactive-data
-  boundary.
-- [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md) and the current
-  [live-demo handoff](docs/active_plans/implementation_status.md) - the connected live-demo
-  contract and current work; its selector and passkey behavior are deployment-controlled,
-  owner-locked validation, not public production activation.
-
-The durable documentation has three layers:
-
-- Source authorities are [docs/HUMAN_GUIDANCE.md](docs/HUMAN_GUIDANCE.md), the active
-  [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md),
-  [docs/CONTRACTS.md](docs/CONTRACTS.md), and the named code owner.
-- [docs/DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md) is the conceptual entrypoint: it explains
-  why the platform has its key boundaries and directs readers to the detailed contract maps.
-- Operating and reference documents cover the local stack, question formats, browser behavior,
-  security, storage, and external backends. [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md)
-  and [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) provide the curated map rather than
-  repeating every link here.
-
-For status and contribution work:
-
-- [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md) - implementation
-  roadmap, module catalog, contracts, and validation for this build.
+- [docs/INSTALL.md](docs/INSTALL.md) - required tools, setup, and verification.
+- [docs/USAGE.md](docs/USAGE.md) - local session, sign-in, health, and validation commands.
+- [docs/INSTRUCTOR_GUIDE.md](docs/INSTRUCTOR_GUIDE.md) - visible course, roster, assignment, and
+  gradebook workflows.
+- [docs/STUDENT_GUIDE.md](docs/STUDENT_GUIDE.md) - keyboard-accessible assignment, feedback, and
+  repeat-practice workflow.
+- [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md) - ordinary live-product behavior within the
+  disposable seeded installation.
+- [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) - system boundaries and component ownership.
+- [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) - repository layout and major-directory owners.
 - [docs/active_plans/implementation_status.md](docs/active_plans/implementation_status.md) - current
-  package handoff and shared migration allocation registry.
-- [docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md) - historical Aug. 10 executive status,
-  verification evidence, milestone posture, blockers, and next work.
-- [docs/active_plans/project_status_report_2026-08-09.md](docs/active_plans/project_status_report_2026-08-09.md)
-  - historical Aug. 9 snapshot retained for comparison.
-- [docs/active_plans/partial_commit_status.md](docs/active_plans/partial_commit_status.md) - historical
-  handoff record; it is not the current status authority.
-- [docs/CHANGELOG.md](docs/CHANGELOG.md) - dated record of changes, decisions, and failures.
-- [AGENTS.md](AGENTS.md) - working method, validation loop, and constraints for contributors and
-  coding agents.
-- [docs/NAMING_CONVENTIONS.md](docs/NAMING_CONVENTIONS.md),
-  [docs/RUST_STYLE.md](docs/RUST_STYLE.md), [docs/TYPESCRIPT_STYLE.md](docs/TYPESCRIPT_STYLE.md), and
-  [docs/MARKDOWN_STYLE.md](docs/MARKDOWN_STYLE.md) - repository, language, and documentation
-  conventions.
+  package handoff and evidence boundary.
+
+For contributor rules and design sources, begin with [AGENTS.md](AGENTS.md),
+[docs/HUMAN_GUIDANCE.md](docs/HUMAN_GUIDANCE.md),
+[docs/CONTRACTS.md](docs/CONTRACTS.md), and
+[docs/DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md). The dated
+[docs/CHANGELOG.md](docs/CHANGELOG.md) retains package history.
 
 ## License
 

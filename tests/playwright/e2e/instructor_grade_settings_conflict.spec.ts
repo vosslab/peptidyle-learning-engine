@@ -9,6 +9,7 @@ import { expect, test, type BrowserContext, type Locator, type Page } from "@pla
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import { CORPUS_VIEWPORT_SIZES } from "../ui_corpus_manifest";
+import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
   configureContextAndPage,
@@ -82,11 +83,9 @@ test.describe("instructor grade-settings conflicts on the production PLE stack",
     const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
     expect(scenarioInput.scenarioId).toBe("grade_settings_conflict");
     expect(scenarioInput.namespace).toMatch(/^bs1-[0-9a-f]{12}-grade_settings_conflict$/u);
-    const courseTitle = `Conflict course ${scenarioInput.namespace}`;
-    const namespaceToken = scenarioInput.namespace.slice(4, 16);
-    expect(namespaceToken).toMatch(/^[0-9a-f]{12}$/u);
-    const remoteLabel = `Remote ${namespaceToken}`;
-    const localLabel = `Local ${namespaceToken}`;
+    const courseTitle = "Biochemistry: Grade Policy Workshop";
+    const remoteLabel = "Remote update";
+    const localLabel = "Local draft";
     expect(remoteLabel.length).toBeLessThanOrEqual(32);
     expect(localLabel.length).toBeLessThanOrEqual(32);
     const expectedOrigin = new URL(scenarioInput.baseUrl).origin;
@@ -120,7 +119,7 @@ test.describe("instructor grade-settings conflicts on the production PLE stack",
 
       await test.step("Elena creates and opens this scenario's course through the visible UI", async () => {
         await chooseSeededIdentity(local, /Elena Rivera/u);
-        await selectVisibleCourse(local, "Biochemistry Base Course");
+        await selectVisibleCourse(local, BIOCHEMISTRY_COURSE_TITLE);
         await local.getByRole("link", { name: "Courses", exact: true }).click();
         await local.getByLabel("Course title").fill(courseTitle);
         await local.getByLabel("Start date").fill(relativeIsoDate(-30));

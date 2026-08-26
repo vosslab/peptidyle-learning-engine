@@ -4,27 +4,48 @@
 //! so the Store owns every statistics receipt and aggregate update.
 
 use super::*;
+use grading::GradeOutcome;
 use question_model::generation::Seed;
 use question_model::presentation::build_presentation_v1;
 use question_model::{QuestionEnvelope, ResponseDefinition, StudentResponse};
 
-const STATISTICS_COHORT_SLUG: &str = "chapter-one-statistics";
-const STATISTICS_LEARNERS: [&str; 5] = [
-    "statistics-learner-one",
-    "statistics-learner-two",
-    "statistics-learner-three",
-    "statistics-learner-four",
-    "statistics-learner-five",
+const STATISTICS_SEED_SLUG: &str = "chapter-one-statistics";
+const STATISTICS_ASSIGNMENT_TITLE: &str = "Molecular Foundations: Charged Functional Groups";
+const STATISTICS_LEARNERS: [(&str, &str); 5] = [
+    ("statistics-learner-one", "Amina Okoye"),
+    ("statistics-learner-two", "Diego Ramirez"),
+    ("statistics-learner-three", "Keiko Tanaka"),
+    ("statistics-learner-four", "Noah Williams"),
+    ("statistics-learner-five", "Priya Shah"),
 ];
 
-/// Completes five distinct assigned runs for exactly one published flat
-/// question. The ordinary submission transition records anonymous evidence;
-/// every other Chapter 1 question remains suppressed in this corpus.
+#[derive(Clone, Copy)]
+struct StatisticsAssignment {
+    course: CourseId,
+    assignment: AssignmentId,
+}
+
+fn statistics_instructions(chapter_slug: &str) -> Result<&'static str> {
+    match chapter_slug {
+        "genetics-chapter-1" => Ok(
+            "Use charged functional groups to connect molecular structure with the biochemical consequences of genetic variation.",
+        ),
+        "biochemistry-chapter-1" => Ok(
+            "Use charged functional groups to explain how molecular structure supports protein function.",
+        ),
+        _ => bail!("Chapter 1 statistics evidence has an unrecognized teaching course"),
+    }
+}
+
+/// Completes five distinct assigned runs for one published flat question in
+/// the two ordinary Chapter 1 teaching courses. The ordinary submission
+/// transition records anonymous evidence through the Store-owned path.
 pub(super) async fn seed_chapter_one_statistics(
     store: &learning_data_access::postgres::PostgresStore,
     context: TenantContext,
     arguments: &SeedArguments,
     fixture: ChapterOneStatisticsFixture,
+    chapters: &[ChapterManifest],
 ) -> Result<()> {
     let question = store
         .get_catalog_problem(context, fixture.reference)
@@ -39,34 +60,16 @@ pub(super) async fn seed_chapter_one_statistics(
         .into_parts();
     let grading = FlatQuestionGradingPayload::from_private(&private)
         .context("encoding Chapter 1 statistics private grading")?;
-    for (index, learner_slug) in STATISTICS_LEARNERS.iter().enumerate() {
-        let course = CourseId::from_uuid(pilot_uuid(
-            arguments.tenant,
-            STATISTICS_COHORT_SLUG,
-            &format!("{learner_slug}-course"),
-        ));
+    if chapters.len() != 2 {
+        bail!("Chapter 1 statistics evidence requires exactly two teaching courses");
+    }
+    let mut assignments = Vec::with_capacity(chapters.len());
+    for chapter in chapters {
         let assignment = AssignmentId::from_uuid(pilot_uuid(
             arguments.tenant,
-            STATISTICS_COHORT_SLUG,
-            &format!("{learner_slug}-assignment"),
+            &chapter.slug,
+            "statistics-assignment",
         ));
-        ensure_webwork_pilot_course(
-            store,
-            context,
-            arguments.instructor,
-            CourseRecord {
-                id: course,
-                tenant: arguments.tenant,
-                title: format!("Chapter 1 discovery evidence cohort {}", index + 1),
-                term: question_model::CourseTerm::from_parts(
-                    "2026-08-24",
-                    "2026-12-18",
-                    "America/Chicago",
-                )
-                .expect("explicit fixture course term"),
-            },
-        )
-        .await?;
         ensure_webwork_pilot_assignment(
             store,
             context,
@@ -74,11 +77,11 @@ pub(super) async fn seed_chapter_one_statistics(
             AssignmentRecord {
                 id: assignment,
                 tenant: arguments.tenant,
-                course_id: course,
-                title: "Chapter 1 phenylalanine evidence activity".to_string(),
+                course_id: chapter.course_id,
+                title: STATISTICS_ASSIGNMENT_TITLE.to_string(),
                 lifecycle: question_model::AssignmentLifecycle::Published,
                 instructions: question_model::AssignmentInstructions::try_new(
-                    "Compare the molecular evidence before you choose an answer.".to_string(),
+                    statistics_instructions(&chapter.slug)?.to_string(),
                 )
                 .expect("statistics seed instructions are valid"),
                 audience: question_model::AssignmentAudience::CourseWide,
@@ -86,8 +89,8 @@ pub(super) async fn seed_chapter_one_statistics(
                 items: vec![AssignmentItem {
                     id: AssignmentItemId::from_uuid(pilot_uuid(
                         arguments.tenant,
-                        STATISTICS_COHORT_SLUG,
-                        &format!("{learner_slug}-assignment-item"),
+                        &chapter.slug,
+                        "statistics-assignment-item",
                     )),
                     reference: fixture.reference,
                     position: 0,
@@ -105,9 +108,18 @@ pub(super) async fn seed_chapter_one_statistics(
             },
         )
         .await?;
+        assignments.push(StatisticsAssignment {
+            course: chapter.course_id,
+            assignment,
+        });
+    }
+    for (index, (learner_slug, display_name)) in STATISTICS_LEARNERS.iter().enumerate() {
+        let target = assignments
+            .get(index % assignments.len())
+            .expect("two Chapter 1 statistics assignments exist");
         let learner = UserId::from_uuid(pilot_uuid(
             arguments.tenant,
-            STATISTICS_COHORT_SLUG,
+            STATISTICS_SEED_SLUG,
             learner_slug,
         ));
         upsert_chapter_one_student(
@@ -115,13 +127,14 @@ pub(super) async fn seed_chapter_one_statistics(
             context,
             arguments.instructor,
             learner,
-            course,
-            assignment,
+            target.course,
+            target.assignment,
+            display_name,
         )
         .await?;
         let run_id = RunId::from_uuid(pilot_uuid(
             arguments.tenant,
-            STATISTICS_COHORT_SLUG,
+            STATISTICS_SEED_SLUG,
             &format!("{learner_slug}-run"),
         ));
         if store
@@ -136,7 +149,10 @@ pub(super) async fn seed_chapter_one_statistics(
             .start_or_resume_run(
                 context,
                 learner,
-                learning_data_access::LearnerWorkRoutingBinding::new(course, assignment),
+                learning_data_access::LearnerWorkRoutingBinding::new(
+                    target.course,
+                    target.assignment,
+                ),
                 run_id,
             )
             .await
@@ -145,6 +161,13 @@ pub(super) async fn seed_chapter_one_statistics(
         let issued = NativeAdapter::new()
             .issue(&question.question, Seed::new(seed), &[])
             .context("issuing Chapter 1 statistics question")?;
+        let response = indexed_choice_response(&issued.envelope, index)?;
+        let evaluation = private
+            .evaluate(&question.question, &response)
+            .context("grading Chapter 1 statistics response with the private flat contract")?;
+        let GradeOutcome::Graded(result) = evaluation.outcome else {
+            bail!("Chapter 1 statistics flat question must produce a numeric grade");
+        };
         let presentation = build_presentation_v1(&issued.envelope, &[])
             .context("building Chapter 1 statistics presentation")?;
         let attempt = store
@@ -153,11 +176,12 @@ pub(super) async fn seed_chapter_one_statistics(
                 IssueQuestionAttemptCommand {
                     actor: learner,
                     binding: learning_data_access::LearnerWorkRoutingBinding::new(
-                        course, assignment,
+                        target.course,
+                        target.assignment,
                     ),
                     attempt: QuestionAttemptId::from_uuid(pilot_uuid(
                         arguments.tenant,
-                        STATISTICS_COHORT_SLUG,
+                        STATISTICS_SEED_SLUG,
                         &format!("{learner_slug}-attempt"),
                     )),
                     run: run.id,
@@ -210,16 +234,13 @@ pub(super) async fn seed_chapter_one_statistics(
                 SubmitQuestionAttemptCommand {
                     actor: learner,
                     binding: learning_data_access::LearnerWorkRoutingBinding::new(
-                        course, assignment,
+                        target.course,
+                        target.assignment,
                     ),
                     attempt: attempt.id,
-                    response: first_choice_response(&issued.envelope)?,
-                    result: AttemptResult {
-                        correct: false,
-                        points_earned: 0.0,
-                        points_possible: 1.0,
-                    },
-                    feedback: FeedbackContent::default(),
+                    response,
+                    result,
+                    feedback: evaluation.feedback,
                     idempotency_key: SubmissionIdempotencyKey::parse(format!(
                         "chapter-one-statistics-{index}"
                     ))?,
@@ -255,13 +276,24 @@ fn chapter_one_statistics_snapshot(
     Ok(snapshot)
 }
 
-fn first_choice_response(envelope: &QuestionEnvelope) -> Result<StudentResponse> {
+/// Selects one valid issued choice without consulting private answer material.
+///
+/// The learner index keeps the disposable evidence varied while the private
+/// grading contract remains the sole source of the recorded outcome and
+/// feedback.
+fn indexed_choice_response(
+    envelope: &QuestionEnvelope,
+    response_index: usize,
+) -> Result<StudentResponse> {
     let ResponseDefinition::MultipleChoice { choices, .. } = &envelope.response else {
         bail!("Chapter 1 statistics question must remain a multiple-choice question");
     };
+    if choices.is_empty() {
+        bail!("Chapter 1 statistics question has no choices");
+    }
     let choice = choices
-        .first()
-        .ok_or_else(|| anyhow::anyhow!("Chapter 1 statistics question has no choices"))?;
+        .get(response_index % choices.len())
+        .expect("a modulo index is within the issued choices");
     Ok(StudentResponse::MultipleChoice {
         selected: vec![choice.id.clone()],
     })

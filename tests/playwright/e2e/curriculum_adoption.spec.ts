@@ -13,6 +13,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
+import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 import {
   chooseSeededIdentity,
@@ -28,7 +29,6 @@ import {
 
 const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 600_000;
-const baseCourseTitle = "Biochemistry Base Course";
 const averyCourseTitle = "Genetics Practice Course";
 const initialDstTerm = {
   startDate: "2027-03-14",
@@ -42,8 +42,8 @@ const shiftedTerm = {
   timeZone: "America/Chicago",
 };
 const rolloverTerm = {
-  startDate: "2027-09-01",
-  endDate: "2027-12-15",
+  startDate: "2028-01-18",
+  endDate: "2028-05-05",
   timeZone: "America/Chicago",
 };
 
@@ -187,7 +187,7 @@ async function approveAvery(page: Page): Promise<void> {
 
 async function inviteAveryToBaseCourse(page: Page): Promise<void> {
   await page.getByRole("link", { name: "Courses", exact: true }).click();
-  const baseCourse = page.getByRole("article").filter({ hasText: baseCourseTitle });
+  const baseCourse = page.getByRole("article").filter({ hasText: BIOCHEMISTRY_COURSE_TITLE });
   await expect(baseCourse).toBeVisible();
   await baseCourse.getByRole("link", { name: "Open course", exact: true }).click();
   await page.getByRole("link", { name: "Teaching operations", exact: true }).click();
@@ -227,7 +227,7 @@ async function acceptBaseCourseInvitation(page: Page): Promise<void> {
   await page.getByRole("link", { name: "Invitations", exact: true }).click();
   const acceptInvitation = page
     .getByRole("article")
-    .filter({ hasText: baseCourseTitle })
+    .filter({ hasText: BIOCHEMISTRY_COURSE_TITLE })
     .getByRole("button", { name: "Accept", exact: true });
   const noInvitations = page.getByRole("heading", { name: "No invitations waiting" });
   await expect(acceptInvitation.or(noInvitations)).toBeVisible();
@@ -238,7 +238,7 @@ async function acceptBaseCourseInvitation(page: Page): Promise<void> {
   }
   await signOutVisible(page);
   await chooseSeededIdentity(page, /Avery Singh/u);
-  await selectVisibleCourse(page, baseCourseTitle);
+  await selectVisibleCourse(page, BIOCHEMISTRY_COURSE_TITLE);
 }
 
 async function forkAlphaAsAvery(
@@ -323,19 +323,18 @@ test.describe("curriculum adoption on the production PLE stack", () => {
       configureContextAndPage(averyContext, avery, actionTimeoutMs);
       configureContextAndPage(freshElenaContext, freshElena, actionTimeoutMs);
 
-      const tag = scenarioInput.namespace;
-      const questionTitle = `Curriculum adoption question ${tag}`;
-      const alphaTitle = `Alpha adoption source ${tag}`;
-      const sourceRevisionTwoTitle = `Alpha assignment revision two ${tag}`;
-      const sourceRevisionThreeTitle = `Alpha assignment revision three ${tag}`;
-      const locallyDivergentTitle = `Local divergent assignment ${tag}`;
-      const destinationCourseTitle = `Alpha adoption destination ${tag}`;
-      const rolloverCourseTitle = `Alpha adoption rollover ${tag}`;
+      const questionTitle = "Peptide-Bond Planarity Review";
+      const alphaTitle = "Protein Structure Foundations";
+      const sourceRevisionTwoTitle = "Peptide Bond Practice: Expanded";
+      const sourceRevisionThreeTitle = "Peptide Bond Practice: Refined";
+      const locallyDivergentTitle = "Peptide Bond Practice: Local Adaptation";
+      const destinationCourseTitle = "Biochemistry: Protein Structure Fall 2027";
+      const rolloverCourseTitle = "Biochemistry: Protein Structure Spring 2028";
       let alphaReference = "";
 
       await test.step("Elena visibly publishes an Alpha source with a relative schedule", async () => {
         await chooseSeededIdentity(elena, /Elena Rivera/u);
-        await selectVisibleCourse(elena, baseCourseTitle);
+        await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
         await createPublishedQuestion(elena, questionTitle);
         alphaReference = await createScheduledAlpha(elena, alphaTitle, questionTitle);
       });
@@ -352,14 +351,16 @@ test.describe("curriculum adoption on the production PLE stack", () => {
 
       await test.step("Elena corrects a DST proposal before instantiating the Alpha course", async () => {
         await elena.getByRole("link", { name: "Courses", exact: true }).click();
-        const baseCourse = elena.getByRole("article").filter({ hasText: baseCourseTitle });
+        const baseCourse = elena
+          .getByRole("article")
+          .filter({ hasText: BIOCHEMISTRY_COURSE_TITLE });
         await expect(baseCourse).toBeVisible();
         await baseCourse.getByRole("link", { name: "Open course", exact: true }).click();
         await openCurriculumChanges(elena);
         await elena.getByRole("radio", { name: /Create a course from Alpha/u }).check();
         await elena
           .getByRole("radio", {
-            name: new RegExp(`${alphaTitle} ${alphaReference} · revision`, "u"),
+            name: new RegExp(`${alphaTitle} ${alphaReference}`, "u"),
           })
           .check();
         await elena.getByLabel("New course title").fill(destinationCourseTitle);

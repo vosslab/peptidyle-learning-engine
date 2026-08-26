@@ -12,6 +12,7 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
+import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
   configureContextAndPage,
@@ -159,8 +160,8 @@ test("WebWork delivery: Elena assigns reviewed catalog material and Mary complet
   const baseline = requireWebworkCatalogBaselineInput(process.env);
   expect(scenarioInput.scenarioId).toBe("webwork_delivery");
   expect(baseline.scenarioId).toBe(scenarioInput.scenarioId);
-  const courseTitle = `WebWork delivery course ${scenarioInput.namespace}`;
-  const assignmentTitle = `WebWork delivery assignment ${scenarioInput.namespace}`;
+  const courseTitle = "Biochemistry: WebWork Practice";
+  const assignmentTitle = "Peptide Bond WebWork Practice";
   const expectedOrigin = new URL(scenarioInput.baseUrl).origin;
   const pageOrigins = new Set<string>();
   const requestOrigins = new Set<string>();
@@ -178,7 +179,7 @@ test("WebWork delivery: Elena assigns reviewed catalog material and Mary complet
     configureContextAndPage(maryContext, mary, actionTimeoutMs);
 
     await chooseSeededIdentity(elena, /Elena Rivera/u);
-    await selectVisibleCourse(elena, "Biochemistry Base Course");
+    await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
     await findCatalogQuestion(elena, baseline.title, baseline.questionId);
     const invitationUrl = await createCourseAssignmentAndInvitation(
       elena,

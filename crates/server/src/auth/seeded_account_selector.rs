@@ -24,7 +24,6 @@ use super::passwordless::{
 use super::{ClientAddressPolicy, SessionConfig, clear_session_cookie, no_store, revoke_session};
 
 const SELECTOR_SERVICE_KEY: &[u8] = b"seeded-account-selector-v1";
-const SELECTOR_PRINCIPAL_ATTEMPTS: u32 = 24;
 const MAX_SELECTOR_BODY_BYTES: usize = 1_024;
 
 /// Closed deployment selector keys. They are not product roles or identities.
@@ -46,16 +45,6 @@ impl SeededAccountPersona {
         Self::AveryStudent,
         Self::MorganSysadmin,
     ];
-
-    const fn config_key(self) -> &'static str {
-        match self {
-            Self::ElenaInstructor => "elena_instructor",
-            Self::MaryStudent => "mary_student",
-            Self::JackStudent => "jack_student",
-            Self::AveryStudent => "avery_student",
-            Self::MorganSysadmin => "morgan_sysadmin",
-        }
-    }
 }
 
 /// Exact five-account mapping enabled only for a live-demo deployment.
@@ -237,18 +226,15 @@ where
     ) else {
         return selector_unavailable();
     };
-    let Some(principal_key) = state.rate_limit_issuer.live_demo_key(
-        AuthenticationRateLimitScope::Principal,
-        request.persona.config_key().as_bytes(),
-    ) else {
-        return selector_unavailable();
-    };
     let Some(service_key) = state
         .rate_limit_issuer
         .live_demo_key(AuthenticationRateLimitScope::Service, SELECTOR_SERVICE_KEY)
     else {
         return selector_unavailable();
     };
+    // The personas are public shared demo entries. Bound their request cost at
+    // caller-network and deployment-service scopes so independent visitors can
+    // continue choosing the same role.
     match consume_rate_limits(
         state.store.as_ref(),
         [
@@ -256,11 +242,6 @@ where
                 AuthenticationRateLimitScope::Network,
                 network_key,
                 NETWORK_RATE_LIMIT_ATTEMPTS,
-            ),
-            (
-                AuthenticationRateLimitScope::Principal,
-                principal_key,
-                SELECTOR_PRINCIPAL_ATTEMPTS,
             ),
             (
                 AuthenticationRateLimitScope::Service,

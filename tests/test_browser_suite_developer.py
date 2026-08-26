@@ -45,7 +45,11 @@ def _write_receipt(root: pathlib.Path) -> None:
 def test_control_receipt_requires_checked_private_mode(tmp_path: pathlib.Path) -> None:
 	"""A replaced or broadly-readable receipt cannot direct a developer shutdown."""
 	_write_receipt(tmp_path)
-	path = tmp_path / "target" / "live-demo-browser" / "developer-control.json"
+	path = (
+		tmp_path
+		/ local_stack_control.browser_suite_lease.PRIVATE_ROOT
+		/ local_stack_control.browser_suite_developer.CONTROL_NAME
+	)
 	path.chmod(0o644)
 	with pytest.raises(local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError):
 		local_stack_control.browser_suite_developer.read_control_receipt(tmp_path)
@@ -115,7 +119,11 @@ def test_stale_private_control_receipt_never_owns_the_suite_lease(tmp_path: path
 	"""A crashed supervisor's old receipt cannot prevent the next fixed owner from resetting."""
 	_write_receipt(tmp_path)
 	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path) as lease:
-		assert lease.workspace == tmp_path / "target" / "live-demo-browser" / "workspace"
+		assert lease.workspace == (
+			tmp_path
+			/ local_stack_control.browser_suite_lease.PRIVATE_ROOT
+			/ local_stack_control.browser_suite_lease.WORKSPACE_NAME
+		)
 
 
 #============================================
@@ -131,6 +139,11 @@ def test_orphan_purge_removes_owned_resources_workspace_and_control_state(
 	events: list[str] = []
 	empty = local_stack_control.models.ProjectSnapshot("ple-live-demo-browser", (), (), ())
 	monkeypatch.setattr(
+		local_stack_control.process,
+		"require_rootless_local_engine",
+		lambda runner, root: events.append("engine"),
+	)
+	monkeypatch.setattr(
 		local_stack_control.browser_suite_reset,
 		"reset_live_demo_browser",
 		lambda lease, runner, root: (events.append("reset"), empty)[1],
@@ -140,8 +153,13 @@ def test_orphan_purge_removes_owned_resources_workspace_and_control_state(
 		local_stack_control.process.SubprocessRunner(),
 	)
 	assert project == "ple-live-demo-browser"
-	assert events == ["reset"]
-	assert tuple((tmp_path / "target" / "live-demo-browser" / "workspace").iterdir()) == ()
+	assert events == ["engine", "reset"]
+	workspace = (
+		tmp_path
+		/ local_stack_control.browser_suite_lease.PRIVATE_ROOT
+		/ local_stack_control.browser_suite_lease.WORKSPACE_NAME
+	)
+	assert tuple(workspace.iterdir()) == ()
 	with pytest.raises(
 		local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError,
 		match="session is not running",
@@ -157,6 +175,11 @@ def test_start_early_supervisor_exit_terminates_child_then_exact_resets_fixed_ow
 	"""An exited unready supervisor immediately yields its lease to exact cleanup."""
 	events: list[str] = []
 	empty = local_stack_control.models.ProjectSnapshot("ple-live-demo-browser", (), (), ())
+	monkeypatch.setattr(
+		local_stack_control.process,
+		"require_rootless_local_engine",
+		lambda runner, root: events.append("engine"),
+	)
 	monkeypatch.setattr(
 		local_stack_control.browser_suite_reset,
 		"reset_live_demo_browser",
@@ -177,6 +200,6 @@ def test_start_early_supervisor_exit_terminates_child_then_exact_resets_fixed_ow
 			lambda _root, _lease: child,
 			lambda observed, _timeout: events.append("terminated") if observed is child else None,
 		)
-	assert events == ["poll", "terminated", "reset"]
+	assert events == ["poll", "terminated", "engine", "reset"]
 	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path) as lease:
 		assert tuple(lease.reset_workspace().iterdir()) == ()

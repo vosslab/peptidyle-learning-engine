@@ -17,6 +17,25 @@ commands, see [INSTALL.md](INSTALL.md), [USAGE.md](USAGE.md), and
   receipt and lease failure, then rerun the fixed command. Do not add a project,
   environment, identity, SMTP, or build selector.
 
+## Read-only diagnostics
+
+Run these commands before changing the stack. They use the controller's
+validated Podman and project discovery paths:
+
+```bash
+source source_me.sh && python3 local_stack.py doctor
+source source_me.sh && python3 local_stack.py projects
+source source_me.sh && python3 local_stack.py status --project ple-live-demo-browser
+source source_me.sh && python3 local_stack.py logs --project ple-live-demo-browser --tail 120 gateway api worker
+```
+
+`doctor` reports Podman, the Compose provider, the macOS machine, the local
+environment file, and labelled projects. `projects` includes retained
+data-only projects. `status` reports semantic readiness; a running container
+alone is not readiness. `logs` prints a warning because application logs may
+contain private local diagnostic data. Use `--follow` only while actively
+diagnosing the selected services.
+
 ## Podman is unavailable
 
 On macOS, a normal controller `start` attempts to start the Podman machine after configuration validation.
@@ -33,6 +52,18 @@ its resources, and start it again using the documented values in [MACOS_PODMAN.m
 Do not treat `--check` as a machine-start command: it is intentionally read-only.
 
 ## Startup does not finish
+
+- **`host artifact build failed (...)`:** reproduce the production browser
+  artifact failure directly, then retry the fixed owner after correcting the
+  reported build error:
+
+  ```bash
+  ./build.sh --debug
+  source source_me.sh && python3 local_stack.py start --headless
+  ```
+
+  The lifecycle builds `dist/` before it reconciles the Compose project. Do not
+  switch to an alternate browser build or selector.
 
 - **`PostgreSQL did not become ready`:** the launcher leaves its containers running. Inspect the
   service state and recent logs, then correct the reported container failure before retrying.

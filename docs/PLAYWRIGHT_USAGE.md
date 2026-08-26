@@ -54,7 +54,7 @@ Node project.
 Some repositories provide a helper such as:
 
 ```bash
-./setup_playwright.sh
+bash devel/setup_playwright.sh
 ```
 
 Use the repository's preferred setup script when available.

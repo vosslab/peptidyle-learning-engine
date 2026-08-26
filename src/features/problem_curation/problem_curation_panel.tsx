@@ -620,7 +620,7 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
             {openedCollection()!.visibility === "institution"
               ? "Shared with this institution"
               : "Private collection"}{" "}
-            · revision {openedCollection()!.revision} · access: {openedCollection()!.access}
+            - revision {openedCollection()!.revision} - institution reader access
           </p>
           <p>
             Browse these current published questions or reuse them through a question picker. The
@@ -631,7 +631,7 @@ export function ProblemCurationPanel(props: ProblemCurationPanelProps): JSX.Elem
               {(member) => (
                 <li>
                   <span>
-                    <strong>{member.summary.metadata.title}</strong> · {member.questionId}
+                    <strong>{member.summary.metadata.title}</strong> - {member.questionId}
                   </span>
                   <span>
                     {member.selectionAvailability === "available"

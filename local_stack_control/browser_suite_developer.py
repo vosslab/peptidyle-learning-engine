@@ -32,10 +32,10 @@ SOCKET_DIRECTORY = pathlib.Path("/private/tmp") / "ple-live-demo-browser-control
 MAXIMUM_CONTROL_BYTES = 1024
 LIFECYCLE_LAUNCH_TIMEOUT_SECONDS = 240.0
 DEVELOPER_STOP_WAIT_SECONDS = 20.0
-DEVELOPER_START_HANDOFF_CLEANUP_MARGIN_SECONDS = 20.0
-DEVELOPER_START_WAIT_SECONDS = (
-	LIFECYCLE_LAUNCH_TIMEOUT_SECONDS + DEVELOPER_START_HANDOFF_CLEANUP_MARGIN_SECONDS
-)
+# The parent wait covers a clean host build before the child's separately
+# bounded service-readiness stages. This is an operator recovery ceiling, not
+# a startup-performance acceptance requirement.
+DEVELOPER_START_WAIT_SECONDS = 600.0
 
 
 class DeveloperBrowserSuiteError(local_stack_control.models.ControllerError):
@@ -318,11 +318,16 @@ def _socket_directory_descriptor() -> int:
 #============================================
 def _socket_path(repository_root: pathlib.Path) -> pathlib.Path:
 	"""Return a short fixed endpoint inside the checked private control directory."""
-	root_descriptor = _checked_root_descriptor(repository_root)
+	repository_descriptor, _repository_identity = (
+		local_stack_control.browser_suite_lease._open_checked_directory(
+			repository_root,
+			None,
+		)
+	)
 	try:
-		identity = os.fstat(root_descriptor)
+		identity = os.fstat(repository_descriptor)
 	finally:
-		os.close(root_descriptor)
+		os.close(repository_descriptor)
 	material = str(repository_root.resolve()) + ":" + str(identity.st_dev) + ":" + str(identity.st_ino)
 	digest = hashlib.sha256(material.encode("utf-8")).hexdigest()[:24]
 	result = SOCKET_DIRECTORY / (digest + ".sock")
@@ -683,6 +688,9 @@ def purge_orphaned_session(
 	"""
 	lease = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(repository_root)
 	try:
+		# ASVS 15.4.3: the lease stays held while engine validation and exact
+		# project reconciliation run, so another owner cannot enter between them.
+		local_stack_control.process.require_rootless_local_engine(runner, repository_root)
 		snapshot = local_stack_control.browser_suite_reset.reset_live_demo_browser(
 			lease, runner, repository_root
 		)
@@ -705,8 +713,30 @@ def purge_orphaned_session(
 
 
 #============================================
+def reconcile_developer_session(
+	repository_root: pathlib.Path,
+	runner: local_stack_control.process.CommandRunner,
+) -> str:
+	"""Stop an active owner or purge one lease-proven orphan before replacement.
+
+	ASVS 2.3.1 and 15.4.3: the fixed owner completes cleanup before the next
+	owner may acquire the same lease. ASVS 8.2.2: orphan recovery remains bound
+	to the immutable live-demo project and its verified resource labels.
+	"""
+	try:
+		result = request_stop(repository_root)
+		project = result.project
+	except DeveloperBrowserSuiteError:
+		# Any unavailable or incomplete control protocol can fall back only after
+		# reacquiring the same exclusive lease. A live owner keeps the lease and
+		# this path therefore fails before engine or Podman work.
+		project = purge_orphaned_session(repository_root, runner)
+	return project
+
+
+#============================================
 def _recover_failed_start(repository_root: pathlib.Path) -> None:
-	"""Reacquire B2 after child exit and prove one exact empty fixed fixture."""
+	"""Reacquire the browser-suite lease and prove the fixed live-demo project is empty."""
 	purge_orphaned_session(
 		repository_root,
 		local_stack_control.process.SubprocessRunner(),
@@ -730,7 +760,7 @@ def start_developer_session(
 	"""Launch the background lease owner and return only its fixed HTTPS origin."""
 	if timeout_seconds <= 0:
 		raise DeveloperBrowserSuiteError("developer browser start timeout is invalid")
-	# The probe shares the actual B2 lease.  It makes stale receipts powerless
+	# The probe shares the browser-suite lease. It makes stale receipts powerless
 	# before any child can publish readiness (ASVS 15.4.2 and 15.4.3).
 	lease = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(repository_root)
 	root_descriptor = -1

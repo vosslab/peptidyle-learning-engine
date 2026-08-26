@@ -10,10 +10,58 @@
 
 ### Fixes and Maintenance
 
-- Made root shell scripts the canonical setup interface. A fresh-clone `run_live_demo.sh` now
-  invokes visible lockfile-defined dependency setup only when `node_modules` is absent;
-  `setup.sh` and `setup_playwright.sh` own the explicit setup commands, while npm entries remain
-  optional mirrors.
+- Reconciled the real-stack browser plan with the complete live-demo baseline, including the two
+  ordinary Chapter 1 teaching courses, five persisted learner observations, and the current
+  75-artifact screenshot corpus. Updated operator examples to the canonical root launcher and
+  repaired small documentation, ASCII, and Python-readability issues found by the six-pass audit.
+- Rebuilt `docs/RELATED_PROJECTS.md` as an evidence-first visitor guide using the current
+  relationship taxonomy and confidence tiers. Every retained or added destination now states its
+  shared audience outcome and authoritative evidence; current integrations and explicit prior art
+  remain separate from adjacent alternatives and the planned LTI Advantage reference.
+- Removed the healthy browser-Wasm implementation banner from the live product shell. The
+  production UI now stays focused on teaching work while an inert diagnostic preserves connected
+  browser evidence; visible fallback copy accurately explains that slower checks use the server.
+  Republished all 75 declared real-stack screenshots against the corrected shell.
+- Made the live-demo Student-to-Instructor relationship explicit: seeded students and their
+  Instructor share ordinary course relationships, and the connected learner journey now verifies
+  Mary's persisted best score, latest score, and completed-run count in Elena's authorized
+  gradebook projection.
+- Made `run_live_demo.sh` a complete fresh-clone launch path: when `node_modules` is absent it
+  visibly invokes the propagated `devel/setup_typescript.sh` before the production build, while
+  the propagated `devel/setup_playwright.sh` remains the single optional browser installer. Each
+  start now completes fixed-owner cleanup before creating a fresh seeded demo, so rerunning the
+  root command replaces the prior session instead of failing on its single-flight lease. The
+  browser-free operator mode is exposed consistently as `--headless` by both the root launcher and
+  typed controller.
+- Moved the live-demo lease, workspace, and authenticated control receipts from Cargo's disposable
+  `target/` tree to the dedicated mode-0700 `local_runtime/live_demo_browser/` boundary, preserving
+  operator control when build cleanup runs while a demo is active.
+- Separated the developer parent's clean-build handoff allowance from the child lifecycle's bounded
+  service-readiness waits, so a distribution-clean launch is not terminated while a healthy build
+  is still progressing.
+- Refreshed the owned README, development, installation, usage, and cookbook surfaces for the
+  propagated setup paths and current curriculum-adoption ownership. The current README and role
+  guides now describe the freshly published live-demo evidence.
+- Recorded the owner-approved pre-production baseline decision: the reviewed clean-cluster v1
+  baseline reissues `2026081818` with `Biochemistry: Protein Structure and Function` as the final
+  visible installed teaching-course title, regenerates disposable live-demo volumes, and records
+  the resulting canonical immutable checksum. The same ordinary-course topology names
+  `Genetics: Foundations of Inheritance` and `Biochemistry: Molecular Foundations`, while Morgan
+  and Avery retain their separate ordinary authorization course. Blueprint and Alpha vocabulary
+  remains aggregate-specific; five deterministic Chapter 1 observations appear through ordinary
+  item-analysis and discovery surfaces. Role-visible courses derive from active relationship
+  authority. Focused relationship tests are permanent evidence, while the fresh live-stack
+  database and visual walkthrough are one-time package evidence.
+- Published all 75 declared live-demo screenshots from the production-shaped HTTPS stack. PNG,
+  privacy, provenance, atomic-publication, and cleanup checks passed; human review covered the
+  Instructor, Student, Sysadmin, discovery, curation, reusable-curriculum, and rollover surfaces.
+  Instructor and Sysadmin artifacts remain 1280 by 800 desktop-only, while Student artifacts retain
+  the declared variable viewport mix.
+- Added the human-facing assignment title to the answer-free curriculum import-inspection contract.
+  Instructor evidence now leads with meaningful assignment names while retaining compact `A-N`
+  references as secondary audit evidence. The rollover journey also uses a coherent Spring 2028
+  term, learner questions use biology misconceptions instead of placeholder alternatives, and
+  institution collection access is presented in user-facing language.
 - Split the visible curriculum-adoption page into focused workflow and proposal-panel modules so
   each authored TypeScript source remains within the repository source-size boundary.
 - Covered B1/B2 migrations `2026081837` through `2026081847`: accepted `1837` remains immutable;
@@ -21,6 +69,28 @@
   migration directory and shared status ledger as the physical and allocation authorities.
 - Bound term-shift client refusals to the real course-scoped apply path and removed the fabricated
   generic apply-path diagnostic.
+- Bound the curriculum-adoption browser journey to the Alpha source's visible title and public
+  reference, keeping source identity under test while allowing presentation punctuation to evolve.
+- Repaired live-demo role entry after the full connected suite exposed a shared-persona rate-limit
+  lockout. The public selector now applies caller-network and deployment-service budgets, preserving
+  bounded request cost while allowing independent visitors to choose the same seeded role.
+- Replaced the browser-catalog source-text assertion with the boundaries that carry behavior value:
+  strict owner-input decoding, registered selection, mandatory Instructor and Sysadmin passkey
+  journeys, and focused real-stack execution. Scenario namespaces remain available for identities
+  that need collision resistance while visible records use meaningful teaching language.
+- Routed PostgreSQL login synchronization and restricted-grader provisioning failures through the
+  existing bounded private-environment redactor, preserving actionable child diagnostics while
+  protecting generated live-stack credentials.
+- Made the idempotent PostgreSQL login update part of bounded semantic readiness, so a fresh stack
+  tolerates the official image's temporary-to-final server handoff before migrations begin.
+
+### Decisions and Failures
+
+- A distribution clean exposed that Cargo's `target/` directory could not safely own a long-lived
+  demo lease or control receipt. The interrupted legacy run also exposed that passing every
+  dependency-related container ID to one `podman rm --depend` command can partially succeed and then
+  fail on an ID removed by that same command. The durable repair separates runtime state from build
+  output and re-inventories after each dependency-aware removal.
 
 ### Developer Tests and Notes
 
@@ -35,8 +105,17 @@
   7,361 pytest checks. The complete Rust gate passed generated contracts and fixtures, formatting,
   both compile graphs, all three strict Clippy graphs, both test/doctest graphs, and the browser Wasm
   target. Independent post-fix review returned ACCEPT with no unresolved P0, P1, or P2 finding.
-- B2 acceptance remains open pending screenshot publication, the full database baseline, and
-  final `source source_me.sh && ./all_test.sh` on the final material tree.
+- Passed all 15 connected production-browser journeys, the 77-migration PostgreSQL/RLS/persistence
+  baseline, the isolated WebWork scoring and outage oracle, and the API replica restart/replay
+  oracle. Each disposable owner returned an exact cleanup receipt.
+- Accepted WP-PROF-B2 and advanced the professor handoff to WP-PROF-G1. Final
+  `source source_me.sh && ./all_test.sh` passed the complete Rust, 322-case Node, 7,361-case pytest,
+  15-journey production-browser, 77-migration PostgreSQL, WebWork, replica-restart, and exact-cleanup
+  gates on the published material tree.
+- Passed 26 focused developer-lease, exact-reset, and CLI contracts. Two consecutive real
+  `./run_live_demo.sh --headless` launches proved active-owner replacement; the replacement exposed
+  only its loopback HTTPS gateway, returned HTTP 200, reached six running long-lived services, and
+  printed the matching root stop command for operator handoff.
 
 ## 2026-08-25
 

@@ -4,8 +4,8 @@
 	"type": "module",
 	"private": true,
 	"scripts": {
-		"setup": "./setup.sh",
-		"setup:playwright": "./setup_playwright.sh",
+		"setup": "./devel/setup_typescript.sh",
+		"setup:playwright": "./devel/setup_playwright.sh",
 		"build": "./build.sh",
 		"launch": "./run_live_demo.sh",
 		"build:wasm": "./pipeline/build_wasm.sh",

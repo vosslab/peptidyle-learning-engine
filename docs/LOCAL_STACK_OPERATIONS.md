@@ -110,19 +110,19 @@ shared prefix.
 
 ## First run
 
-`source source_me.sh && python3 local_stack.py start [--no-open]` is the normal
+`source source_me.sh && python3 local_stack.py start [--headless]` is the normal
 developer lifecycle. It resolves the fixed `ple-live-demo-browser` project and
 calls the canonical production-browser owner. The owner holds one lease through
 build, bootstrap, migration, seed, renderer provenance, readiness, and cleanup.
 
 ```bash
 source source_me.sh && python3 local_stack.py start
-source source_me.sh && python3 local_stack.py start --no-open
+source source_me.sh && python3 local_stack.py start --headless
 ```
 
 `start` always builds production `dist/`, regenerates the disposable stack, and
-waits for the HTTPS origin. Without `--no-open` it opens that origin; with
-`--no-open` it prints the origin for a headless or manually opened browser.
+waits for the HTTPS origin. Without `--headless` it opens that origin; with
+`--headless` it prints the origin for a manually opened browser.
 Use the visible seeded production-auth UI to choose one of the five fixed
 personas and then an authorized course. The server resolves the persona to the
 ordinary account, account session, tenant session, and stored role state. The
@@ -218,7 +218,7 @@ recovery tool for the owner, not the normal lifecycle interface.
 
 ```bash
 source source_me.sh && python3 local_stack.py start          # build, start, wait, and open
-source source_me.sh && python3 local_stack.py start --no-open
+source source_me.sh && python3 local_stack.py start --headless
 source source_me.sh && python3 local_stack.py stop           # authenticated cleanup
 ```
 

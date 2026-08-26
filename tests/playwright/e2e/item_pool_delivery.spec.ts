@@ -8,6 +8,7 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
+import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
   configureContextAndPage,
@@ -86,7 +87,6 @@ async function createCourseWithMixedPool(
   assignmentTitle: string,
   fixed: PublishedQuestion,
   candidates: ReadonlyArray<PublishedQuestion>,
-  namespace: string,
   scenarioInput: ReturnType<typeof requireScenarioInput>,
 ): Promise<string> {
   await page.getByRole("link", { name: "Courses", exact: true }).click();
@@ -169,7 +169,7 @@ async function createCourseWithMixedPool(
   await expect(page.getByTestId("assignment-current-state")).toHaveText("Published, open now.");
   await page.getByRole("link", { name: "Students", exact: true }).click();
   await page.getByLabel("Institutional email").fill(maryEmail);
-  await page.getByLabel("Institutional student ID").fill(`mary-${namespace}`);
+  await page.getByLabel("Institutional student ID").fill("BIO-MARY-003");
   await page.getByRole("button", { name: "Create invitation", exact: true }).click();
   const invitation = page.getByLabel("Invitation link");
   await expect(invitation).toBeVisible();
@@ -299,9 +299,8 @@ test.describe("item-pool delivery on the production PLE stack", () => {
     test.setTimeout(scenarioTimeoutMs);
     const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
     expect(scenarioInput.scenarioId).toBe("item_pool_delivery");
-    const tag = scenarioInput.namespace;
-    const courseTitle = `Item pool course ${tag}`;
-    const assignmentTitle = `Item pool assignment ${tag}`;
+    const courseTitle = "Biochemistry: Protein Structure Variations";
+    const assignmentTitle = "Peptide Bonds: Mixed Practice";
     const pageOrigins = new Set<string>();
     const requestOrigins = new Set<string>();
     const contexts: BrowserContext[] = [];
@@ -334,19 +333,19 @@ test.describe("item-pool delivery on the production PLE stack", () => {
       }
 
       await chooseSeededIdentity(elena, /Elena Rivera/u);
-      await selectVisibleCourse(elena, "Biochemistry Base Course");
+      await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
       const fixed = await createPublishedQuestion(
         elena,
-        `Pool fixed question ${tag}`,
-        `Fixed correct choice ${tag}`,
+        "Peptide Bond Geometry",
+        "Peptide bonds are usually planar",
       );
       const candidates: PublishedQuestion[] = [];
       for (const label of ["one", "two", "three"]) {
         candidates.push(
           await createPublishedQuestion(
             elena,
-            `Pool candidate ${label} ${tag}`,
-            `Pool candidate ${label} correct ${tag}`,
+            `Peptide Bond Variation ${label}`,
+            `Supported peptide-bond statement ${label}`,
           ),
         );
       }
@@ -356,7 +355,6 @@ test.describe("item-pool delivery on the production PLE stack", () => {
         assignmentTitle,
         fixed,
         candidates,
-        tag,
         scenarioInput,
       );
       await completeDeliveredPoolRun(

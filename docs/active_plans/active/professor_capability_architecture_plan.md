@@ -143,7 +143,7 @@ cannot name one does not belong here.
 - Question usage and replacement impact -> usage index and explicit replacement impact.
 - Course-wide ungraded work -> instructor attention queue.
 - Term-level date shifting with preview -> term shift through the preview plane.
-- Assignment templates and course import -> blueprints, Alpha courses, rollover.
+- Assignment templates and course import -> blueprints, Alpha curricula, rollover.
 
 ### Where Peptidyle is structurally stronger, and this plan presses the advantage
 
@@ -161,7 +161,7 @@ schemas change directly and carry no compatibility readers.
 Ownership tree; each level adds context without changing the layer beneath it:
 
 ```text
-Question ID -> personal collection -> assignment blueprint -> Alpha course assignment
+Question ID -> personal collection -> assignment blueprint -> Alpha curriculum assignment
             -> teaching-course assignment -> issued student run
 ```
 
@@ -181,7 +181,7 @@ accumulated evidence, cross-instructor reuse).
 |     catalog statistics | usage index | improvement threads | attention queue      |
 +---------------------------------------------------------------------------------+
 | L3  Reuse                                                                        |
-|     blueprints | Alpha courses | clone | rollover | term shift | fast-forward      |
+|     blueprints | Alpha curricula | clone | rollover | term shift | fast-forward    |
 +---------------------------------------------------------------------------------+
 | L2  Teaching operations                                                          |
 |     lifecycle | entitlement | accommodations | pools | live grading       |
@@ -650,8 +650,8 @@ data. It is allocated `2026081808_live_demo_install_state.sql` in the shared
 installation state with only `installing` and `complete` states and takes one advisory lock for
 single-writer first-install coordination.
 
-While the state is `installing`, deterministic Base Course seeding is resumable after an
-interruption and retries reuse the same generation-bound storage receipt. A fresh PostgreSQL and
+While the state is `installing`, deterministic installed-teaching-course seeding is resumable after
+an interruption and retries reuse the same generation-bound storage receipt. A fresh PostgreSQL and
 object-storage pair is required for this path. A retained `complete` pair starts normally without
 seed writes, storage inspection, or equality scans. A pre-marker database or mixed database/storage
 pair fails closed and directs fresh regeneration of both stores; no partial baseline is adopted as
@@ -661,11 +661,12 @@ LD1 owns the migration and live lifecycle evidence for first install, interrupti
 restart, fail-closed mixed-state handling, and fresh regeneration. `learning-data-access` is the
 sole SQL, PostgreSQL-lock, durable install-state, migration, and Store owner. It does not add
 account, demo persona, role, session, passkey, authentication, origin, or replica behavior or
-schema. WP-RC8 retains those account and security boundaries. The Base Course itself is ordinary
-live data after provisioning.
+schema. WP-RC8 retains those account and security boundaries. The installed teaching course itself
+is ordinary live data after provisioning. Installer diagnostics call its recipe `Base Course`; product
+surfaces use the installed teaching-course title.
 
 The focused product crate `crates/base-course-installation/` (`base_course_installation`) owns the
-narrow typed request/receipt API, ordinary Base Course recipe, and deterministic installation
+narrow typed request/receipt API, ordinary installed-course recipe, and deterministic installation
 orchestration. `project-tools` is only the direct `cargo tools base-course` CLI adapter; the product
 crate has no HTTP route or server-start hook. The baseline recipe, install-state transitions, and
 command contract are product-crate owned.
@@ -764,13 +765,14 @@ hypothetical draft and provide a focused retry or reload. The route is keyboard-
 maintained desktop profile, and responsive across the maintained profiles. Learner and outsider direct navigation mounts
 no protected transport.
 
-**Installed Base Course.** After WP-PROF-LD1 accepts its lifecycle contract, every standard fresh
-installation provisions the persistent live Base Course through the ordinary migration and
-first-run setup path. Its fictional Instructor, existing students, assignments, attempts, and grades
-exercise the same PostgreSQL, RLS, server, and browser boundaries used by an ongoing course. T3
-connected acceptance selects its derived learner from those persisted course memberships and
-preserves the course across repeated check-ins. Focused test-double coverage remains a subordinate
-engineering lane.
+**Installed teaching course.** After WP-PROF-LD1 accepts its lifecycle contract, every standard fresh
+installation provisions the persistent live teaching baseline through the ordinary migration and
+first-run setup path. The installed course is visibly named `Biochemistry: Protein Structure and
+Function`; the baseline also contains a Genetics teaching course. Their instructors, students,
+assignments, active memberships, learner runs, and grades exercise the same PostgreSQL, RLS, server,
+and browser boundaries used by an ongoing course. T3 connected acceptance selects its derived learner
+from those persisted course memberships and preserves the courses across repeated check-ins. Focused
+test-double coverage remains a subordinate engineering lane.
 
 **Schema and acceptance.** T3 receives no migration allocation. It reuses forced-RLS `audit_event`
 and the existing writable repeatable-read snapshot; accepted
@@ -810,9 +812,12 @@ T3 does not rebrand, remove, or use it as its identity-free subject contract.
 
 ## 10. Reusable curriculum
 
-- Alpha courses are a separate shared-curriculum aggregate, not a kind field on the FERPA-bearing
-  course. Public to approved Instructors, human route such as `AC-123`, creator-only editing. B1
-  provides inspection and question reuse; B2 adds fork and instantiate.
+- Blueprints are personal reusable-assignment aggregates. They are non-enrollable and remain separate
+  from teaching assignments, teaching courses, memberships, and learner work.
+- Alpha curricula are a separate shared-curriculum aggregate alongside FERPA-bearing teaching
+  courses. They are non-enrollable, public to approved Instructors, and use a human route such as
+  `AC-123` with creator-only editing. B1 provides inspection and question reuse; B2 adds fork and
+  instantiate. The names `Blueprint` and `Alpha` identify those respective reusable aggregates.
 - Students cannot join, receive assignments, run, or generate grades, because Alpha records have no
   relationship to teaching membership or activity tables.
 - An Alpha stores an ordered curriculum with module or week labels and calendar-relative
@@ -909,7 +914,7 @@ M1  Course spine         Term, policy resolver, disclosure, entitlement, groups,
 M2  Teaching projection  Lifecycle, schedule, accommodations, pools, preview, live delivery.
 M3  Discovery commons    Search metadata, collections, picker, usage index, evidence validity.
                          Assisted tagging is an optional package, not on the critical path.
-M4  Reusable curriculum  Blueprints, Alpha courses, clone, rollover, term shift, fast-forward.
+M4  Reusable curriculum  Blueprints, Alpha curricula, clone, rollover, term shift, fast-forward.
 M5  Evidence to action   Grader-exception routing, recalculation, audited work inspection,
                          analysis, improvement threads, attention queue.
 M6  Connected term       Prove the whole professor cycle at term scale on the final tree.
@@ -1074,7 +1079,7 @@ P1 finding.
 | WP-PROF-D2  | Coder                | Accepted 2026-08-25: live Favorites, private and institution collections, canonical saved searches, revision-checked bulk curation, and one shared ProblemPicker; PostgreSQL, production HTTPS, canonical desktop visual, review, and final Validation evidence passed                                                                        | WP-PROF-D1 accepted                                                                      |
 | WP-PROF-D3  | Coder                | Assisted tagging: worker, proposals, confirmation, provenance. **Optional; nothing depends on it**                                                                                                                                                                                                                                            | WP-PROF-D1                                                                               |
 | WP-PROF-B1  | Expert coder         | Accepted 2026-08-25: revisioned personal assignment blueprints and public Alpha curriculum aggregates with typed references, creator-owned updates, answer-free projections, and shared `ProblemPicker` authoring and reuse; PostgreSQL, production HTTPS, canonical desktop visual, independent review, and final Validation evidence passed | WP-PROF-D2 accepted, WP-PROF-S7 accepted                                                 |
-| WP-PROF-B2  | Expert coder         | Fork, instantiate, rollover, term shift, manifests, fast-forward                                                                                                                                                                                                                                                                              | WP-PROF-B1, WP-PROF-T1                                                                   |
+| WP-PROF-B2  | Expert coder         | Accepted 2026-08-26: fork, instantiation, rollover, term shift, manifests, provenance, controlled fast-forward, divergence recovery, canonical PostgreSQL/browser/screenshot evidence, and final Validation passed                                                                                                                            | WP-PROF-B1 accepted, WP-PROF-T1 accepted                                                 |
 | WP-PROF-G1  | Expert coder         | Automated-grading operation queue grouped by question/learner; deterministic-grader exception routing, bounded retry, generation-fenced recalculation, and immutable operation receipts; no human scoring or manual-grade mutation                                                                                                            | WP-PROF-T2                                                                               |
 | WP-PROF-G2  | Expert coder         | Audited learner-work inspection and grade-scheme-aware calculated gradebook, linked directly from G1 operations                                                                                                                                                                                                                               | WP-PROF-S6, WP-PROF-G1                                                                   |
 | WP-PROF-G3  | Coder                | Item and course analysis connected to catalog evidence, audited learner-work context, and explicitly linked replacement/source impact                                                                                                                                                                                                         | WP-PROF-G1, WP-PROF-G2, WP-PROF-D1                                                       |
@@ -1425,6 +1430,17 @@ and local wall-clock time. Preview resolves them in the target term's IANA zone,
 term bounds and chronological ordering, and returns local and absolute outcomes plus a field-specific
 DST gap or ambiguity correction. Browser time and machine-local time have no authority.
 
+**Seeded course-model correction.** The live-demo baseline is composed of recognizable ordinary
+teaching courses with ordinary active memberships and learner work. The installed teaching course is
+named `Biochemistry: Protein Structure and Function`; installer diagnostics call its seed recipe
+`Base Course`, while product surfaces use the teaching-course title. Five deterministic learner
+observations are distributed across meaningful ordinary Chapter 1 assignments titled
+`Molecular Foundations: Charged Functional Groups` in the Genetics and Biochemistry teaching
+courses. Existing item-analysis and discovery surfaces
+present this evidence in context, while course navigation derives from active server-owned membership
+under ASVS 8.2.2 and 8.3.1. Seeded memberships provide representative course context for the visual
+walkthrough.
+
 Add a narrow `CourseScheduleRevision` at the course policy boundary. Every course-term writer and
 every assignment-base-schedule writer advances it in the same transaction. It binds a whole-course
 term-shift preview/apply pair. Preview returns the current `CourseScheduleRevision` plus every
@@ -1491,6 +1507,32 @@ changelog receipt, then final `source source_me.sh && ./all_test.sh` on the mate
 | Canonical production browser     | A behavior-named production HTTPS scenario uses real PostgreSQL/RLS and visible UI-created state. Elena enters through the ordinary approved-Instructor path, creates and revises the B1 Blueprint/Alpha source through visible UI actions, previews and commits instantiation, rollover, and term shift, sees and corrects one DST outcome, fast-forwards an untouched import, and preserves a divergent assignment by creating a new source-derived draft. Catalog baseline publication is infrastructure-only setup. The journey uses accessible controls and semantic readiness waits. Elena and Morgan passkey enrollment, sign-out, and sign-in remain required independent scenarios; this B2 journey consumes Elena's ordinary authenticated Instructor path and does not duplicate their passkey ceremonies.                                                                                        |
 | One-time and human evidence      | Retain Graphify/source-impact, migration allocation and broker/RLS inspection, generated-contract registration, answer-free wire inspection, browser origin/cleanup, and screenshot publication as dated package receipts. Semantically review B2's canonical 1280 by 800 Instructor profile for readable source/destination distinction, preview/correction/recovery, keyboard/focus/dialog behavior, privacy, and contrast. Screenshots and Graphify inventories are one-time evidence, not byte, pixel, artifact-count, or route-inventory gates. Architecture/security, HCI/accessibility, and documentation/evidence review resolve all P0/P1 findings; P2/P3 have a resolution or recorded owner decision.                                                                                                                                                                                             |
 | Full Validation                  | The final material tree passes `source source_me.sh && ./all_test.sh` with every required B2 gate green and no required skip. Connected PostgreSQL/RLS, production HTTPS browser, screenshots, Graphify/source inventories, and visual judgment retain the separate evidence lanes above.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+
+The seeded course-model correction establishes three recognizable ordinary teaching courses:
+`Biochemistry: Protein Structure and Function`, `Genetics: Foundations of Inheritance`, and
+`Biochemistry: Molecular Foundations`. Morgan and Avery retain their separate ordinary authorization course.
+Instructor, Student, and Sysadmin course visibility follows the applicable active teaching membership, learner
+membership, or audited support relationship, respectively. These durable relationships are the course-navigation
+contract; fresh-stack walkthroughs establish the representative seed presentation.
+
+Before first production deployment, the reviewed clean-cluster baseline reissues `2026081818` with the final visible
+Biochemistry teaching title and regenerates disposable live-demo volumes. Its resulting checksum is the canonical
+immutable v1 baseline. The first shipped baseline thus contains the reviewed teaching-course topology; once v1 ships,
+the general accepted-migration immutability rule resumes for every forward migration.
+
+The seeded course-model correction has a separate evidence classification. Focused permanent relationship tests
+protect the ordinary-course, active-membership, reusable-aggregate, learner-observation, item-analysis/discovery,
+and membership-derived navigation relationships. A fresh live-stack database and visual walkthrough are one-time
+package evidence for the corrected seed and screenshot context. These checks fed B2 acceptance.
+
+**Accepted evidence (2026-08-26).** B2's deterministic domain, Memory, server, and browser-contract
+checks are green. The 77-migration PostgreSQL baseline proves the dedicated broker, forced RLS,
+atomic operations, provenance, reconciliation, and exact cleanup. All 15 production HTTPS journeys
+passed, including visible adoption, rollover, term shifting, controlled updates, ordinary learner
+delivery, and the independent Elena Instructor and Morgan Sysadmin passkey journeys. The 75-artifact
+privacy-validated screenshot corpus passed publication and semantic review. Final
+`source source_me.sh && ./all_test.sh` passed the complete Rust, Node, pytest, browser, database,
+WebWork, replica-restart, and cleanup gates on the accepted material tree.
 
 The canonical browser journey is the smallest visible composition. It demonstrates selected
 assignments plus preview-before-save, the useful ADAPT product lesson. PLE retains ownership of
@@ -1771,7 +1813,11 @@ contributions where required.
 
 ## Migration and compatibility policy
 
-- Preserve the active migration ledger until RC12 and this plan's accepted schema packages complete.
+- Preserve the active migration ledger until RC12 and this plan's accepted schema packages complete. Before first
+  production deployment, the reviewed clean-cluster v1 baseline reissues `2026081818` with the final visible
+  Biochemistry teaching title, regenerates disposable live-demo volumes, and records its resulting canonical
+  immutable checksum. After v1 ships, the accepted migration ledger is immutable and every change receives a
+  forward migration.
 - No durable production data exists, so foundational schemas change directly with no compatibility
   readers. Course term, group purpose, entitlement, grade scheme, disclosure, usage index, and
   improvement threads join the existing epoch rather than arriving as bolt-ons.
@@ -1867,9 +1913,9 @@ contributions where required.
 - `quality_signal` is adopted with a defined, explainable computation or removed from the schema.
 - Catalog-wide statistics stay anonymous under the existing disclosure boundary and always show
   sample size.
-- "Public Alpha course" means visible to approved Instructors through B1 and available for explicit
+- "Public Alpha curriculum" means visible to approved Instructors through B1 and available for explicit
   B2 instantiation; learner activity belongs to the resulting teaching course.
-- Alpha courses and teaching courses are separate aggregates, not convertible kinds.
+- Alpha curricula and teaching courses are separate aggregates, not convertible kinds.
 - Fork lineage is retained; contribution proposals stay outside this plan.
 - Existing answer-secrecy, role, first-issued-run, retention, human-reference, and
   no-generic-dashboard decisions remain authoritative.

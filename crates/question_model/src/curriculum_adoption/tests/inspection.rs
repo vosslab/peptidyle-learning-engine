@@ -49,6 +49,8 @@ fn rollover_source(assignment: ObservedAssignmentRevision) -> CurriculumAssignme
 fn reusable_import() -> CurriculumImportView {
     CurriculumImportView {
         assignment: AssignmentReference::new(11).expect("assignment reference"),
+        title: CurriculumAdoptionTitle::parse("Protein Structure Practice")
+            .expect("assignment title"),
         source: CurriculumAssignmentImportSourceView::Reusable {
             definition: alpha_assignment_source(source(), 2, 3),
         },
@@ -207,6 +209,7 @@ fn inspection_binds_rollover_assignments_to_the_course_origin_witness() {
     };
     let rollover_import = CurriculumImportView {
         assignment: AssignmentReference::new(12).expect("assignment reference"),
+        title: CurriculumAdoptionTitle::parse("Peptide Bond Review").expect("assignment title"),
         source: rollover_source(source_assignment),
         revision: "5".parse().expect("import revision"),
         reusable_meaning_matches_baseline: true,

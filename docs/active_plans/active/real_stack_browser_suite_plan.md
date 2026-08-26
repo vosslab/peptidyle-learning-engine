@@ -16,7 +16,9 @@ The suite owns one exact Compose project, `ple-live-demo-browser`. Each invocati
 disposable installation from the declared seed baseline under that fixed project: a focused invocation
 uses one lifecycle, and a complete invocation shares one lifecycle across its selected scenarios.
 Every scenario remains independently runnable: it starts from the regenerated seed baseline, creates a
-unique namespace through visible PLE workflows, and observes its own results without a prior scenario.
+meaningful set of records through visible PLE workflows, and observes its own results without a prior
+scenario. The owner-issued namespace supplies collision resistance for internal scenario identities;
+visible labels remain recognizable teaching language.
 The live-demo E2E owner becomes the shared browser-suite owner. Narrow decoder, serialization, and
 error-mapping tests remain fast unit tests outside the product browser runtime graph.
 
@@ -58,27 +60,32 @@ The sole allowed non-UI product-state bootstrap is the live-demo baseline define
 [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md). Regeneration restores this normal PLE data; it does
 not create a parallel demo application. The owner freezes these exact baseline records:
 
-| Baseline record          | Fixed identifier or state                                                 | Allowed scenario use                                                         |
-| ------------------------ | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Demo tenant              | `00000000-0000-0000-0000-000000000100`                                    | Tenant context and baseline reads                                            |
-| Dr. Elena Rivera         | `00000000-0000-0000-0000-000000000101`, seeded Instructor                 | Ordinary Instructor entry and baseline reads                                 |
-| Mary Okafor              | `00000000-0000-0000-0000-000000000102`, seeded Student                    | Base-course completed-run observation                                        |
-| Jack Chen                | `00000000-0000-0000-0000-000000000103`, seeded Student                    | Base-course in-progress-run observation                                      |
-| Avery Singh              | `00000000-0000-0000-0000-000000000104`, unapproved account                | Sysadmin approval journey and practice-course baseline read                  |
-| Morgan Reyes             | `00000000-0000-0000-0000-000000000105`, seeded Sysadmin                   | Direct Sysadmin selection, ordinary authorization, and generic passkey login |
-| Biochemistry Base Course | `2026-01-01` through `2099-12-31`, `America/Chicago`                      | Baseline course, roster, activity, and assignment reads                      |
-| Genetics Practice Course | Seeded course with Morgan as Instructor and Avery as Student              | Cross-course authorization and baseline reads                                |
-| Peptide bond publication | Published `peptide_bond_geometry` question and one-point assignment       | Visible problem, delivery, and grading baseline reads                        |
-| WebWork catalog item     | One provenance-validated catalog publication and immutable private source | Visible Library discovery only; all teaching state is UI-created             |
+| Baseline record                              | Fixed identifier or state                                                 | Allowed scenario use                                                         |
+| -------------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Demo tenant                                  | `00000000-0000-0000-0000-000000000100`                                    | Tenant context and baseline reads                                            |
+| Dr. Elena Rivera                             | `00000000-0000-0000-0000-000000000101`, seeded Instructor                 | Ordinary Instructor entry and baseline reads                                 |
+| Mary Okafor                                  | `00000000-0000-0000-0000-000000000102`, seeded Student                    | Installed-course completed-run observation                                   |
+| Jack Chen                                    | `00000000-0000-0000-0000-000000000103`, seeded Student                    | Installed-course in-progress-run observation                                 |
+| Avery Singh                                  | `00000000-0000-0000-0000-000000000104`, unapproved account                | Sysadmin approval journey and practice-course baseline read                  |
+| Morgan Reyes                                 | `00000000-0000-0000-0000-000000000105`, seeded Sysadmin                   | Direct Sysadmin selection, ordinary authorization, and generic passkey login |
+| Biochemistry: Protein Structure and Function | `2026-01-01` through `2099-12-31`, `America/Chicago`                      | Baseline course, roster, activity, and assignment reads                      |
+| Genetics Practice Course                     | Seeded course with Morgan as Instructor and Avery as Student              | Cross-course authorization and baseline reads                                |
+| Genetics: Foundations of Inheritance         | Ordinary Chapter 1 teaching course with assignments and learner work      | Discovery, item analysis, and course evidence                                |
+| Biochemistry: Molecular Foundations          | Ordinary Chapter 1 teaching course with assignments and learner work      | Discovery, item analysis, and course evidence                                |
+| Peptide bond publication                     | Published `peptide_bond_geometry` question and one-point assignment       | Visible problem, delivery, and grading baseline reads                        |
+| WebWork catalog item                         | One provenance-validated catalog publication and immutable private source | Visible Library discovery; its teaching state is UI-created                  |
 
 Mary has one completed correctly graded deterministic-seed-17 run; Jack has one open deterministic-
-seed-23 attempt. Elena, Mary, and Jack are active Base Course members. The five closed selector
-personas are Elena Instructor, Mary Student, Jack Student, Avery Student, and Morgan Sysadmin. The fixed baseline has no
-cross-course memberships beyond the stated practice-course membership. The one provenance-validated
-WebWork catalog item is recorded in [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) and is the sole
-WebWork publication bootstrap; course, assignment, roster, invitation, run, and submission state are
-created through visible UI. Every selector entry establishes an ordinary server session; the server
-continues to derive roles, tenant context, memberships, and authorization from stored PLE state.
+seed-23 attempt. Elena, Mary, and Jack are active members of `Biochemistry: Protein Structure and
+Function`. The Chapter 1 teaching courses contain their reviewed four-question assignments plus the
+`Molecular Foundations: Charged Functional Groups` assignment; five named learners contribute five
+completed deterministic runs across those two courses through ordinary memberships and learner-work
+records. The five closed selector personas are Elena Instructor, Mary Student, Jack Student, Avery
+Student, and Morgan Sysadmin. The one provenance-validated WebWork catalog item is recorded in
+[LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) and is the sole WebWork publication bootstrap; teaching
+state that uses that WebWork item is created through visible UI. Every selector entry establishes an
+ordinary server session; the server continues to derive roles, tenant context, memberships, and
+authorization from stored PLE state.
 The installation generation, cryptographic service inputs, and selected infrastructure faults are
 harness concerns rather than product-state setup.
 
@@ -92,13 +99,14 @@ multi-persona authorization journey and Elena's passkey journey.
 Each scenario declares:
 
 - its allowed baseline personas and baseline records;
-- a scenario ID and collision-resistant namespace used in every UI-created name;
+- a scenario ID and collision-resistant namespace for scenario identities that require uniqueness;
 - the visible actions that create and mutate product state;
 - the reload, cross-session, or cross-role observation that proves its outcome; and
 - any read-only receipt and its service-specific claim.
 
 The complete suite shares one regenerated installation for efficient service startup, while each
-scenario creates and owns unique records in its namespace. Focused selection receives its own freshly
+scenario creates and owns its records and uses the namespace where collision resistance is relevant.
+Focused selection receives its own freshly
 regenerated installation under the same fixed project and runs the same scenario contract. The
 harness runs selected scenarios serially under the single-flight lease; the default order carries no
 behavior dependency, but real browser-suite invocations never overlap. B2 makes these invocations
@@ -220,7 +228,8 @@ C1 follows R2 after the B2 gate.
   no browser credential or authenticated state from another scenario.
 - Acceptance: focused contract and owner tests prove deterministic exact selection, ordered
   independent execution, strict input decoding, origin receipts, and the exact closed field set.
-  TypeScript tests prove each spec consumes only its own canonical input and origin path.
+  TypeScript parser tests prove the canonical private-input and origin-path boundary; focused real-stack
+  execution proves that each selected scenario starts independently and completes its declared behavior.
 
 ### WP-PROF-BS1-B1: Direct generic passkey browser evidence
 
@@ -253,7 +262,7 @@ C1 follows R2 after the B2 gate.
   outside this fixture's reset authority. The existing per-run capability label may continue to
   establish normal-run integrity, but it is not reset authority.
 - Lease boundary: create the mode-0600 non-inheritable lock under the verified mode-0700
-  `target/live-demo-browser` root and hold `flock(LOCK_EX | LOCK_NB)` through reset, workspace
+  `local_runtime/live_demo_browser` root and hold `flock(LOCK_EX | LOCK_NB)` through reset, workspace
   creation, launch, reporting, final reset, and cleanup. Acquire it after pure selection/contract
   validation but before port checks, workspace/provider/build work, lifecycle-adapter invocation,
   Podman, or PostgreSQL work. Contention fails immediately with a bounded `BrowserSuiteError`; it
@@ -266,7 +275,7 @@ C1 follows R2 after the B2 gate.
   re-inventories and requires an empty inventory. It may remove only unused browser fixture build
   tags; image pruning remains ordinary lifecycle hygiene. The reset never accepts caller project,
   prefix, manifest, or general Compose arguments.
-- Workspace boundary: retain only the held lock in `target/live-demo-browser`; clear and recreate
+- Workspace boundary: retain only the held lock in `local_runtime/live_demo_browser`; clear and recreate
   one fixed private `workspace` after reset, then generate the strict runtime manifest and
   installation-scoped capabilities needed for the next installation. Final cleanup repeats the exact reset, verifies the
   labelled inventory is empty, removes workspace contents, reports only project/reset/final-empty
@@ -290,7 +299,7 @@ C1 follows R2 after the B2 gate.
 - Owner: expert coder.
 - Deliverable: UI-first instructor scenarios for questions, courses, assignments, roster changes,
   teaching operations, and real concurrent edit conflicts that carry behavior value.
-- Acceptance: visible actions create namespaced state; reload and a second authorized instructor
+- Acceptance: visible actions create meaningful scenario-owned state; reload and a second authorized instructor
   observe the intended result. PostgreSQL or MinIO inspection appears only for a stated service claim.
 
 ### WP-PROF-BS1-L1: Migrate learner behavior
@@ -346,7 +355,7 @@ C1 follows R2 after the B2 gate.
 - Deliverable: two ordinary visible sessions that create a revision conflict through the product's
   real concurrency boundary.
 - Acceptance: the initiating user sees the recovery state and the observing session verifies the
-  product result after reload; the scenario creates its own namespaced resources.
+  product result after reload; the scenario creates and owns the resources required by the journey.
 
 ### WP-PROF-BS1-F1: Exercise real failure behavior
 
@@ -414,7 +423,7 @@ C1 follows R2 after the B2 gate.
   the baseline installer validates tracked provenance, publishes one immutable private source/catalog
   record, and exposes no private source, object key, renderer identity, credential, answer, or opaque
   provider ID to Playwright. The scenario then uses visible PLE UI to find the public Question ID and
-  creates its namespaced course, assignment, roster, invitation, learner run, and submission state
+  creates its meaningful course, assignment, roster, invitation, learner run, and submission state
   through visible UI. It verifies durable completion in a fresh session and records one narrow,
   non-sensitive renderer-call receipt; cache/replay, grading, outage, and privacy service claims
   remain bounded non-browser oracles.
@@ -430,7 +439,7 @@ C1 follows R2 after the B2 gate.
 - Owner: expert coder.
 - Depends on: B0, I1, L1, X1.
 - Deliverable: add the canonical `assignment_question_replacement` scenario. Elena creates a
-  namespaced second question, assignment, and invitation through visible UI; Mary starts a run; a
+  meaningful second question, assignment, and invitation through visible UI; Mary starts a run; a
   second Elena session visibly replaces the assignment question; the stale first editor reloads the
   authoritative revision; Mary reloads and retains her issued original while a new run receives the
   replacement. This is distinct from grade-settings conflict behavior.
@@ -486,7 +495,7 @@ subordinate gates prove that outcome:
   credentials, cookies, and private state.
 - Service-specific receipts: read-only PostgreSQL, MinIO, worker, renderer, and network evidence
   appears only for a requirement about that service boundary.
-- Screenshot provenance: the JSON-authoritative 51-artifact nested corpus comes from selected
+- Screenshot provenance: the JSON-authoritative 75-artifact nested corpus comes from selected
   production-browser scenarios. Every artifact records the same HTTPS production origin and `dist/`
   provenance, its real UI-created scenario state, role, journey, ordered step, viewport profile, and
   privacy checks; the atomic publisher, verifier, and automated image evaluator confirm the complete
@@ -540,13 +549,13 @@ and at final cleanup. Image pruning is available after that check as ordinary li
 
 ## Risks and recovery
 
-| Risk                                    | Recovery rule                                                                                                                                |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| A scenario relies on another scenario   | Run it focused from a freshly regenerated installation under the fixed project; add its missing UI setup and namespace before closing it     |
-| UI setup lacks a product workflow       | Record the missing workflow, keep the concern harness-scoped, and create product state through the visible path when the workflow ships      |
-| A live service claim is ambiguous       | Use product-visible evidence first and add the smallest read-only service receipt that states the exact boundary                             |
-| A real suite failure leaves resources   | Acquire the lease, run the exact owner-labelled reset, verify an empty inventory, then run a fresh focused scenario before accepting the fix |
-| Visual capture changes evidence quality | Re-capture from the accepted real scenario and use the image-evaluator report to resolve findings                                            |
+| Risk                                    | Recovery rule                                                                                                                                                 |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A scenario relies on another scenario   | Run it focused from a freshly regenerated installation under the fixed project; add the visible setup and scenario ownership needed for independent execution |
+| UI setup lacks a product workflow       | Record the missing workflow, keep the concern harness-scoped, and create product state through the visible path when the workflow ships                       |
+| A live service claim is ambiguous       | Use product-visible evidence first and add the smallest read-only service receipt that states the exact boundary                                              |
+| A real suite failure leaves resources   | Acquire the lease, run the exact owner-labelled reset, verify an empty inventory, then run a fresh focused scenario before accepting the fix                  |
+| Visual capture changes evidence quality | Re-capture from the accepted real scenario and use the image-evaluator report to resolve findings                                                             |
 
 ## Closure record
 

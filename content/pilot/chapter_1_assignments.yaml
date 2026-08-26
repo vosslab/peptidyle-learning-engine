@@ -10,7 +10,7 @@ source_project:
 chapters:
   - slug: genetics-chapter-1
     course: Genetics
-    course_title: Genetics Fall 2026 pilot
+    course_title: "Genetics: Foundations of Inheritance"
     chapter: 1
     assignment_title: Genetics Chapter 1 Mastery
     questions:
@@ -59,7 +59,7 @@ chapters:
 
   - slug: biochemistry-chapter-1
     course: Biochemistry
-    course_title: Biochemistry Fall 2026 pilot
+    course_title: "Biochemistry: Molecular Foundations"
     chapter: 1
     assignment_title: Biochemistry Chapter 1 Mastery
     questions:

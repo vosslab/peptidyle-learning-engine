@@ -52,8 +52,8 @@ def receipt() -> local_stack_control.browser_suite_developer.DeveloperStartRecei
 #============================================
 def test_start_parser_exposes_only_the_opening_convenience() -> None:
 	"""The public start surface cannot select another environment or artifact."""
-	args = local_stack_control.cli.build_parser().parse_args(["start", "--no-open"])
-	assert args.no_open
+	args = local_stack_control.cli.build_parser().parse_args(["start", "--headless"])
+	assert args.headless
 	with pytest.raises(SystemExit):
 		local_stack_control.cli.build_parser().parse_args(["start", "--project", "other"])
 
@@ -65,14 +65,36 @@ def test_start_uses_the_fixed_owner_and_opens_its_safe_origin(
 	capsys: pytest.CaptureFixture[str],
 ) -> None:
 	"""Start delegates build, seed, and origin selection to the fixed owner."""
-	started: list[pathlib.Path] = []
+	events: list[str] = []
 
-	def start_owner(root: pathlib.Path) -> local_stack_control.browser_suite_developer.DeveloperStartReceipt:
+	def reconcile(
+		root: pathlib.Path,
+		runner: local_stack_control.process.CommandRunner,
+	) -> str:
+		"""Record the mandatory fixed-owner cleanup before replacement."""
+		assert root == tmp_path
+		assert isinstance(runner, RecordingRunner)
+		events.append("reconcile")
+		return receipt().project
+
+	def start_owner(
+		root: pathlib.Path,
+	) -> local_stack_control.browser_suite_developer.DeveloperStartReceipt:
 		"""Record the owner input and return its verified public receipt."""
-		started.append(root)
+		assert root == tmp_path
+		events.append("start")
 		return receipt()
 
-	monkeypatch.setattr(local_stack_control.browser_suite_developer, "start_developer_session", start_owner)
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_developer,
+		"reconcile_developer_session",
+		reconcile,
+	)
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_developer,
+		"start_developer_session",
+		start_owner,
+	)
 	monkeypatch.setattr(
 		local_stack_control.lifecycle,
 		"start_lifecycle",
@@ -82,39 +104,82 @@ def test_start_uses_the_fixed_owner_and_opens_its_safe_origin(
 	result = local_stack_control.cli.run(["start"], runner, tmp_path)
 	output = capsys.readouterr().out
 	assert result == 0
-	assert started == [tmp_path]
+	assert events == ["reconcile", "start"]
 	assert runner.argvs == [["open", receipt().origin]]
-	assert "Stop with: python3 local_stack.py stop" in output
+	assert "Stop with: ./run_live_demo.sh stop" in output
 
 
 #============================================
-def test_start_no_open_preserves_the_same_canonical_session(
+def test_start_headless_preserves_the_same_canonical_session(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
-	) -> None:
-	"""No-open changes only local presentation, never the production session."""
-	monkeypatch.setattr(local_stack_control.browser_suite_developer, "start_developer_session", lambda root: receipt())
+) -> None:
+	"""Headless mode changes only local presentation, never the production session."""
+	def reconcile(
+		root: pathlib.Path,
+		runner: local_stack_control.process.CommandRunner,
+	) -> str:
+		"""Return the fixed project after the replacement boundary is prepared."""
+		return receipt().project
+
+	def start_owner(
+		root: pathlib.Path,
+	) -> local_stack_control.browser_suite_developer.DeveloperStartReceipt:
+		"""Return the fixed safe developer receipt."""
+		return receipt()
+
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_developer,
+		"reconcile_developer_session",
+		reconcile,
+	)
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_developer,
+		"start_developer_session",
+		start_owner,
+	)
 	runner = RecordingRunner()
-	result = local_stack_control.cli.run(["start", "--no-open"], runner, tmp_path)
+	result = local_stack_control.cli.run(["start", "--headless"], runner, tmp_path)
 	assert result == 0
 	assert runner.argvs == []
 
 
 #============================================
-def test_start_reports_an_existing_owner_without_generic_recovery(
+def test_start_replaces_an_existing_owner_before_launching_the_fresh_session(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
-	capsys: pytest.CaptureFixture[str],
 ) -> None:
-	"""An active fixed owner stays authoritative instead of starting another stack."""
-	def already_running(root: pathlib.Path) -> local_stack_control.browser_suite_developer.DeveloperStartReceipt:
-		"""Represent the owner's single-flight refusal."""
-		raise local_stack_control.models.ControllerError("developer browser session already running")
+	"""Start completes owner-scoped cleanup before acquiring the fresh lease."""
+	events: list[str] = []
 
-	monkeypatch.setattr(local_stack_control.browser_suite_developer, "start_developer_session", already_running)
-	result = local_stack_control.cli.run(["start", "--no-open"], RecordingRunner(), tmp_path)
-	assert result == 2
-	assert "already running" in capsys.readouterr().err
+	def reconcile(
+		root: pathlib.Path,
+		runner: local_stack_control.process.CommandRunner,
+	) -> str:
+		"""Record the owner-scoped cleanup boundary."""
+		events.append("reconcile")
+		return receipt().project
+
+	def start_owner(
+		root: pathlib.Path,
+	) -> local_stack_control.browser_suite_developer.DeveloperStartReceipt:
+		"""Record the fresh owner launch."""
+		events.append("start")
+		return receipt()
+
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_developer,
+		"reconcile_developer_session",
+		reconcile,
+	)
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_developer,
+		"start_developer_session",
+		start_owner,
+	)
+	result = local_stack_control.cli.run(["start", "--headless"], RecordingRunner(), tmp_path)
+	assert result == 0
+	assert events == ["reconcile", "start"]
 
 
 #============================================
@@ -161,10 +226,35 @@ def test_stop_purges_an_interrupted_fixed_owner(
 
 	monkeypatch.setattr(local_stack_control.browser_suite_developer, "request_stop", unavailable_owner)
 	monkeypatch.setattr(
-		local_stack_control.process,
-		"require_rootless_local_engine",
-		lambda runner, root: events.append("engine") if root == tmp_path else None,
+		local_stack_control.browser_suite_developer,
+		"purge_orphaned_session",
+		lambda root, runner: (
+			events.append("purge"),
+			local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+		)[1],
 	)
+	result = local_stack_control.cli.run(["stop"], RecordingRunner(), tmp_path)
+	assert result == 0
+	assert events == ["purge"]
+	assert "ple-live-demo-browser" in capsys.readouterr().out
+
+
+#============================================
+def test_stop_lease_reconciles_owner_protocol_failures(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+	capsys: pytest.CaptureFixture[str],
+) -> None:
+	"""A released failed owner yields to exact lease-bound orphan cleanup."""
+	events: list[str] = []
+
+	def failed_stop(root: pathlib.Path) -> local_stack_control.browser_suite_developer.DeveloperStartReceipt:
+		"""Return one protocol failure from the fixed supervisor."""
+		raise local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError(
+			"developer browser supervisor cleanup failed"
+		)
+
+	monkeypatch.setattr(local_stack_control.browser_suite_developer, "request_stop", failed_stop)
 	monkeypatch.setattr(
 		local_stack_control.browser_suite_developer,
 		"purge_orphaned_session",
@@ -175,24 +265,5 @@ def test_stop_purges_an_interrupted_fixed_owner(
 	)
 	result = local_stack_control.cli.run(["stop"], RecordingRunner(), tmp_path)
 	assert result == 0
-	assert events == ["engine", "purge"]
+	assert events == ["purge"]
 	assert "ple-live-demo-browser" in capsys.readouterr().out
-
-
-#============================================
-def test_stop_reports_owner_protocol_failures(
-	tmp_path: pathlib.Path,
-	monkeypatch: pytest.MonkeyPatch,
-	capsys: pytest.CaptureFixture[str],
-) -> None:
-	"""The CLI keeps stop failures at the concise controller error boundary."""
-	def failed_stop(root: pathlib.Path) -> local_stack_control.browser_suite_developer.DeveloperStartReceipt:
-		"""Return one protocol failure from the fixed supervisor."""
-		raise local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError(
-			"developer browser supervisor cleanup failed"
-		)
-
-	monkeypatch.setattr(local_stack_control.browser_suite_developer, "request_stop", failed_stop)
-	result = local_stack_control.cli.run(["stop"], RecordingRunner(), tmp_path)
-	assert result == 2
-	assert "developer browser supervisor cleanup failed" in capsys.readouterr().err

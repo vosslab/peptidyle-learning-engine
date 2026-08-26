@@ -16,8 +16,42 @@ system starts, the seeded data is normal live data rather than special demo cont
 
 ## Seeded baseline
 
-The initial data includes representative instructors, students, courses, assignments, problems, and student
-activity. People may explore and modify this data and create additional data through the normal PLE workflows.
+The initial data contains recognizable ordinary teaching courses with representative instructors, students,
+assignments, problems, active memberships, and learner work. People may explore and modify this data and create
+additional data through the normal PLE workflows.
+
+The seeded Student and Instructor personas share ordinary course relationships. Elena teaches `Biochemistry:
+Protein Structure and Function`; Mary and Jack are active students in that same course. Work completed as Mary or
+Jack persists under that course enrollment, and Elena sees the resulting best score, latest score, completed-run
+count, and authorized run history in the course gradebook after a fresh server read.
+
+The ordinary teaching-course baseline includes `Biochemistry: Protein Structure and Function`, `Genetics: Foundations
+of Inheritance`, and `Biochemistry: Molecular Foundations`. Installer diagnostics call the installed Biochemistry
+course's seeded installation recipe `Base Course`; product surfaces use the teaching-course title. Morgan and Avery
+retain their separate ordinary authorization course.
+
+Before first production deployment, the reviewed clean-cluster baseline reissues migration `2026081818` with the final
+visible Biochemistry teaching title. Regenerating disposable live-demo volumes applies that baseline, whose resulting
+checksum is the canonical immutable v1 baseline. The first shipped baseline therefore begins with this coherent
+teaching-course topology; the established forward-only migration ledger applies after v1 ships.
+
+Blueprint and Alpha vocabulary stays aggregate-specific. A Blueprint is a personal reusable assignment that cannot be
+enrolled in. An Alpha curriculum is a shared reusable curriculum that cannot be enrolled in. Their names identify
+those reusable aggregates and remain separate from teaching-course names, teaching assignments, memberships, and
+learner work.
+
+### Seeded discovery evidence
+
+Five deterministic live learner observations are distributed across meaningful ordinary Chapter 1 assignments titled
+`Molecular Foundations: Charged Functional Groups` in the Genetics and Biochemistry teaching courses. They use
+ordinary active memberships and learner work, so the existing item-analysis and discovery surfaces can show useful
+evidence in context. The observations are presented through those ordinary course and evidence surfaces.
+
+Course navigation presents the recognizable teaching courses through active server-owned relationships, including the
+ASVS 8.2.2 and 8.3.1 authorization boundary. An Instructor sees courses where an active teaching membership grants
+authority; a Student sees courses with an active learner membership; and a Sysadmin reaches academic course records
+through a direct teaching membership or the separately audited support relation. Seeded memberships provide
+representative ordinary teaching course context for the visual walkthrough.
 
 Data created or modified while using the demo persists normally in the database and storage. The data does not
 need to survive regeneration of the demo. Preserving the demo database and storage preserves the current live
@@ -148,6 +182,10 @@ not supply or grant a browser-controlled role claim.
 
 The browser selects only a known demo persona. Account identity, roles, tenant context, course membership, and
 authorization continue to be derived by the server from normal PLE state.
+
+Bound selector traffic by caller network and by the live-demo deployment as a whole. Seeded personas are public
+shared entries, so independent visitors remain able to choose the same role without sharing a persona-specific
+lockout budget.
 
 Conceptually:
 

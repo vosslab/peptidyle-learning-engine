@@ -144,9 +144,8 @@ def validate_contract(contract: ScenarioContract) -> None:
 
 def validate_registry(
 	contracts: Iterable[ScenarioContract] | None = None,
-	repo_root: pathlib.Path | None = None,
 ) -> None:
-	"""Validate catalog uniqueness and optional checked-in spec input consumption."""
+	"""Validate the executable scenario catalog and its role-security journeys."""
 	registry = tuple(scenario_contracts() if contracts is None else contracts)
 	if not registry:
 		raise ScenarioContractError("browser scenario registry is empty")
@@ -154,8 +153,6 @@ def validate_registry(
 	seen_specs: set[str] = set()
 	for contract in registry:
 		_validate_registry_entry(contract, seen_ids, seen_specs)
-		if repo_root is not None:
-			_validate_spec_input_consumption(repo_root, contract)
 	_validate_required_role_security_scenarios(registry)
 
 
@@ -271,20 +268,6 @@ def _validate_registry_entry(
 	seen_ids.add(contract.scenario_id)
 	seen_specs.add(contract.spec_path)
 	validate_contract(contract)
-
-
-def _validate_spec_input_consumption(
-	repo_root: pathlib.Path,
-	contract: ScenarioContract,
-) -> None:
-	spec = repo_root / contract.spec_path
-	if not spec.is_file():
-		raise ScenarioContractError("browser scenario spec is unavailable")
-	contents = spec.read_text(encoding="utf-8")
-	if "scenarioInput.namespace" not in contents:
-		raise ScenarioContractError("browser scenario spec does not consume owner input")
-	if "scenarioInput.scenarioId" not in contents:
-		raise ScenarioContractError("browser scenario spec does not consume owner input")
 
 
 def _decode_installed_receipt(

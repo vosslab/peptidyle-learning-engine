@@ -10,6 +10,7 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
+import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
   configureContextAndPage,
@@ -24,11 +25,11 @@ import { canvasQtiFixtureArchive } from "./qti_fixture_archive";
 const actionTimeoutMs = 30_000;
 const qtiReadyTimeoutMs = 180_000;
 
-async function createPrivateWorkspace(page: Page, namespace: string): Promise<void> {
+async function createPrivateWorkspace(page: Page): Promise<void> {
   await page.getByRole("link", { name: "Workspace", exact: true }).click();
   await page.getByRole("button", { name: "Create flat question", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Flat question", exact: true })).toBeVisible();
-  await page.getByLabel("Question title").fill(`QTI source draft ${namespace}`);
+  await page.getByLabel("Question title").fill("Imported Canvas QTI Source");
   await page.getByRole("button", { name: "Save private draft", exact: true }).click();
   await expect(page.getByRole("status", { name: "Private draft status" })).toHaveText(
     "Private draft saved. It is not published.",
@@ -114,8 +115,8 @@ test.describe("QTI profile import on the production PLE stack", () => {
       configureContextAndPage(elenaContext, elena, actionTimeoutMs);
 
       await chooseSeededIdentity(elena, /Elena Rivera/u);
-      await selectVisibleCourse(elena, "Biochemistry Base Course");
-      await createPrivateWorkspace(elena, scenarioInput.namespace);
+      await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
+      await createPrivateWorkspace(elena);
       await importCanvasFixture(elena, scenarioInput.namespace);
       await expectConvertedDraft(elena);
 
@@ -133,7 +134,7 @@ test.describe("QTI profile import on the production PLE stack", () => {
       const freshElena = await freshElenaContext.newPage();
       configureContextAndPage(freshElenaContext, freshElena, actionTimeoutMs);
       await chooseSeededIdentity(freshElena, /Elena Rivera/u);
-      await selectVisibleCourse(freshElena, "Biochemistry Base Course");
+      await selectVisibleCourse(freshElena, BIOCHEMISTRY_COURSE_TITLE);
       await freshElena.getByRole("link", { name: "Workspace", exact: true }).click();
       await expect(freshElena.getByText("Favorite color", { exact: true }).first()).toBeVisible();
       await freshElena.getByRole("button", { name: /^Favorite color\b/u }).click();

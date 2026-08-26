@@ -23,15 +23,24 @@ active implementation order, architecture, and acceptance gates remain in
 ## Set up and build
 
 Install the checked-in JavaScript dependencies once, then use the root scripts as the normal
-interface:
+build and validation interface. The TypeScript and Playwright installers are propagated developer
+helpers; the root build and validation scripts are repository-owned front doors:
 
 ```bash
-./setup.sh
+./devel/setup_typescript.sh
+./devel/setup_playwright.sh       # once, before browser tests
+./devel/setup_wasm_tests.sh       # only when running wasm-bindgen tests
 ./build.sh
 ./check_rust.sh
 ./check_codebase.sh
-source source_me.sh && python3 -m pytest tests/
+source source_me.sh && pytest tests/
 ```
+
+`devel/DEVEL_README.md` indexes maintainer-only helpers. Use `devel/clean_build.sh` for a light
+rebuildable-output cleanup (`npm run clean`), and `devel/dist_clean.sh` for a distribution-clean
+reset that also removes `node_modules`, generated outputs, and Cargo's `target/`. Use
+`devel/reset_podman.sh --dry-run` to preview the fixed disposable Podman resources; its unqualified
+form is destructive and follows the explicit fixed-project confirmation owned by `local_stack.py`.
 
 `./build.sh` builds the Rust workspace, WebAssembly bridge, Rust-owned TypeScript definitions,
 fixture projection, and Solid browser bundle in dependency order. Use `./build.sh --release` for
@@ -101,7 +110,7 @@ active work package.
 | ------------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | Rust code, features, lints, tests, or Wasm | `./check_rust.sh`                                           | The complete offline Cargo and Rust gate.                                                 |
 | TypeScript, browser lint, format, or tests | `./check_codebase.sh`                                       | The vendored TypeScript and Node gate.                                                    |
-| Repository documentation and hygiene       | `source source_me.sh && python3 -m pytest tests/`           | Fast Python hygiene and repository-rule checks.                                           |
+| Repository documentation and hygiene       | `source source_me.sh && pytest tests/`                      | Fast Python hygiene and repository-rule checks.                                           |
 | Built-browser behavior                     | `./run_playwright_tests.sh --build`                         | A focused production `dist/` scenario through a fresh disposable HTTPS PLE stack.         |
 | Complete Playwright validation             | `source source_me.sh && python3 local_stack.py acceptance`  | One canonical real-stack browser lane plus browser-free service receipts. |
 | One browser scenario                       | `./run_playwright_tests.sh tests/playwright/e2e/<file>.spec.ts` | The selected catalog-owned production-browser scenario on a fresh disposable stack.         |
@@ -111,7 +120,8 @@ active work package.
 `tests/playwright/` is browser-driven testing and `tests/e2e/` is non-browser whole-system
 orchestration. Both are intentionally excluded from `pytest tests/`; see
 [E2E_TESTS.md](E2E_TESTS.md) for the test-tier boundary. Install the browser binaries once with
-`./setup_playwright.sh` before running Playwright.
+`./devel/setup_playwright.sh` (or `npm run setup:playwright`) before running Playwright.
+`./run_playwright_tests.sh` is the sole browser-suite entry point.
 
 ### Playwright execution lanes
 
@@ -132,7 +142,7 @@ The command invokes the canonical browser lane once with its documented private
 inputs and retains only browser-free service receipts. A failed or skipped
 required lane is red, so the suite is not green until every lane passes. See
 [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the evidence boundary and
-[USAGE.md](USAGE.md#build-and-validation-commands) for operator preconditions.
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for live-stack operator preconditions.
 
 In-memory and other offline contract tests belong in the normal Rust and Node gates. PostgreSQL,
 MinIO, role/RLS, migration, restart, and private-renderer claims require their named E2E runner and
@@ -174,21 +184,25 @@ Use the fixed owner when a work package needs the supported PostgreSQL, MinIO,
 API, worker, gateway, and external stateless WeBWorK PG renderer:
 
 ```bash
-source source_me.sh && python3 local_stack.py start --no-open
+source source_me.sh && python3 local_stack.py start --headless
 source source_me.sh && python3 local_stack.py stop
 ```
 
-`start` always builds production `dist/`, regenerates the fixed
-`ple-live-demo-browser` disposable stack, and opens (or prints with
-`--no-open`) its HTTPS origin. `stop` authenticates to the active supervisor and
-verifies exact owner cleanup. Developer and browser tests serialize through the
-same owner lease; do not add project, environment, identity, SMTP, or build
-selectors.
+`start` first authenticates to and cleans the previous developer owner, then builds production
+`dist/`, regenerates the fixed `ple-live-demo-browser` disposable stack, and opens (or prints with
+`--headless`) its HTTPS origin. `stop` performs the same exact owner cleanup without launching a
+replacement. Developer and browser tests serialize through the same owner lease; do not add project,
+environment, identity, SMTP, or build selectors.
 
 The fixed owner uses the reviewed standalone `webwork-pg-renderer` image rather
 than building a second WeBWorK platform or database. See
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for the owner and cleanup
 contract.
+
+The convenience wrapper `./run_live_demo.sh` starts or stops that same owner and installs
+TypeScript dependencies on first launch when `node_modules` is absent. Use it for a human demo;
+use `local_stack.py` directly when selecting a controller command or collecting acceptance
+evidence.
 
 ### Validation classes
 

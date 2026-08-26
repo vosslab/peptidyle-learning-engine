@@ -289,8 +289,9 @@ export function ImportInspection(props: {
               <For each={inspection().assignments}>
                 {(item) => (
                   <li>
-                    <strong>{item.assignment}</strong>
+                    <strong>{item.title}</strong>
                     <span>
+                      Reference {item.assignment} -{" "}
                       {item.reusableMeaningMatchesBaseline
                         ? "Matches its imported baseline."
                         : "Has diverged from its imported baseline; preserve it and create a new source-derived assignment when the server offers that recovery."}
@@ -305,7 +306,7 @@ export function ImportInspection(props: {
               </For>
             </ul>
             <div class="curriculum-adoption-actions">
-              <button type="button" onClick={props.onBack}>
+              <button class="quiet-action" type="button" onClick={props.onBack}>
                 Return to course changes
               </button>
             </div>

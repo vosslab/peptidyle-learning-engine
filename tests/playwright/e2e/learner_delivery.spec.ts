@@ -12,6 +12,7 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
+import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
   observeContextOrigins,
@@ -146,7 +147,10 @@ async function createPublishedQuestion(
   await page.getByLabel("Question title").fill(title);
   await page.getByLabel("Learner-facing prompt").fill(`Choose the supported statement: ${title}`);
   await page.getByLabel("Choice text").nth(0).fill(correctChoice);
-  await page.getByLabel("Choice text").nth(1).fill(`Alternative choice for ${title}`);
+  await page
+    .getByLabel("Choice text")
+    .nth(1)
+    .fill("Peptide bonds rotate freely because they are ordinary single bonds");
   await page
     .getByRole("radio", { name: new RegExp(`Mark choice 1 as correct: ${correctChoice}`) })
     .check();
@@ -173,7 +177,6 @@ async function createPublishedCourseAssignment(
   courseTitle: string,
   assignmentTitle: string,
   questionId: string,
-  namespace: string,
 ): Promise<string> {
   await page.getByRole("link", { name: "Courses" }).click();
   await page.getByLabel("Course title").fill(courseTitle);
@@ -203,7 +206,7 @@ async function createPublishedCourseAssignment(
 
   await page.getByRole("link", { name: "Students" }).click();
   await page.getByLabel("Institutional email").fill(maryEmail);
-  await page.getByLabel("Institutional student ID").fill(`mary-${namespace}`);
+  await page.getByLabel("Institutional student ID").fill("BIO-MARY-002");
   await page.getByRole("button", { name: "Create invitation" }).click();
   const invitation = page.getByLabel("Invitation link");
   await expect(invitation).toBeVisible();
@@ -374,7 +377,16 @@ async function observeInstructorOutcomesAndAccess(
 
   await page.getByRole("link", { name: "Gradebook" }).click();
   await expect(page.locator("[data-route-surface=gradebook]")).toBeVisible();
-  await expect(page.getByRole("row", { name: new RegExp(assignmentTitle) })).toBeVisible();
+  // ASVS 8.2.2 and 8.3.1: verify the server-authorized Instructor projection for the exact
+  // learner work created through Mary's separate authenticated session.
+  const learnerScore = page
+    .locator("tr.gradebook-row")
+    .filter({ has: page.getByText(assignmentTitle, { exact: true }) })
+    .filter({ has: page.getByText("Mary Okafor", { exact: true }) });
+  await expect(learnerScore).toHaveCount(1);
+  await expect(learnerScore.locator('[data-label="Best"]')).toHaveText("100%");
+  await expect(learnerScore.locator('[data-label="Latest"]')).toHaveText("100%");
+  await expect(learnerScore.locator('[data-label="Completed"]')).toHaveText(/[1-9]\d*/u);
   await captureRealStackScreenshot(page, scenarioInput, "learner_delivery_instructor_gradebook");
 
   await page.getByRole("link", { name: "Appearance" }).click();
@@ -465,11 +477,10 @@ test("learner delivery: Mary completes and revisits an instructor-created assign
   test.setTimeout(journeyTimeoutMs);
   const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
   expect(scenarioInput.scenarioId).toBe("learner_delivery");
-  const tag = scenarioInput.namespace;
-  const questionTitle = `Learner delivery question ${tag}`;
-  const correctChoice = `Supported learner choice ${tag}`;
-  const courseTitle = `Learner delivery course ${tag}`;
-  const assignmentTitle = `Learner delivery assignment ${tag}`;
+  const questionTitle = "Peptide Bond Planarity";
+  const correctChoice = "Resonance restricts rotation around the peptide bond";
+  const courseTitle = "Biochemistry: Molecular Structure Practice";
+  const assignmentTitle = "Peptide Bonds: Guided Practice";
   const pageOrigins = new Set<string>();
   const requestOrigins = new Set<string>();
   const expectedOrigin = new URL(scenarioInput.baseUrl).origin;
@@ -489,14 +500,13 @@ test("learner delivery: Mary completes and revisits an instructor-created assign
     configurePage(mary);
 
     await chooseSeededIdentity(elena, /Elena Rivera/u);
-    await selectVisibleCourse(elena, "Biochemistry Base Course");
+    await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
     const questionId = await createPublishedQuestion(elena, questionTitle, correctChoice);
     const invitationUrl = await createPublishedCourseAssignment(
       elena,
       courseTitle,
       assignmentTitle,
       questionId,
-      tag,
     );
     await claimCourseAndCompleteAssignment(
       mary,

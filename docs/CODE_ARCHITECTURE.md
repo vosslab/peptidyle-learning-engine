@@ -123,9 +123,10 @@ evidence remain teaching-owned state.
 The deterministic in-memory adapter is compiled only for crate tests or the explicit
 `test-support` Cargo feature. The production and live-demo server composition has one concrete
 `PostgresStore`; it has no runtime storage selector or in-memory fallback. This makes the adapter a
-contract-test tool rather than an alternate application architecture. B2's PostgreSQL migration,
-broker/RLS boundary, routes, browser client, and connected workflow are implemented; final
-PostgreSQL, browser, screenshot, review, and full-Validation acceptance evidence remains open.
+contract-test tool rather than an alternate application architecture. The B2 PostgreSQL migration,
+broker/RLS boundary, routes, browser client, and connected workflow use that production composition.
+The mutable package handoff and acceptance evidence remain in
+[implementation_status.md](active_plans/implementation_status.md).
 
 For Base Course installation, `learning-data-access` remains the sole SQL, PostgreSQL
 lock, durable install-state, migration, and Store owner. `base_course_installation` orchestrates

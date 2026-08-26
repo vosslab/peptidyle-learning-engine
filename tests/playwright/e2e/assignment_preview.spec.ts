@@ -9,6 +9,7 @@ import { expect, test, type BrowserContext, type Locator, type Page } from "@pla
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import { CORPUS_VIEWPORT_SIZES } from "../ui_corpus_manifest";
+import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 import {
   chooseSeededIdentity,
@@ -23,7 +24,6 @@ import {
 
 const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 300_000;
-const baseCourseTitle = "Biochemistry Base Course";
 const seededQuestionTitle = "Peptide bond resonance and planarity";
 const previewMoment = "2080-01-01T09:00";
 const dueAt = "2090-06-01T17:00";
@@ -308,8 +308,8 @@ test.describe("assignment delivery preview on the production PLE stack", () => {
     test.setTimeout(scenarioTimeoutMs);
     const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
     expect(scenarioInput.scenarioId).toBe("preview_plane");
-    const assignmentTitle = `Peptide Bond Structure Practice ${scenarioInput.namespace}`;
-    const groupTitle = `Extended-time learners ${scenarioInput.namespace}`;
+    const assignmentTitle = "Peptide Bond Structure Practice";
+    const groupTitle = "Extended-time learners";
     const expectedOrigin = new URL(scenarioInput.baseUrl).origin;
     const origins = {
       local: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },
@@ -331,9 +331,9 @@ test.describe("assignment delivery preview on the production PLE stack", () => {
       const local = await localContext.newPage();
       configureContextAndPage(localContext, local, actionTimeoutMs);
 
-      await test.step("Elena creates scenario-owned teaching state through the visible Base Course UI", async () => {
+      await test.step("Elena creates scenario-owned teaching state through the visible installed Biochemistry course UI", async () => {
         await chooseSeededIdentity(local, /Elena Rivera/u);
-        await selectVisibleCourse(local, baseCourseTitle);
+        await selectVisibleCourse(local, BIOCHEMISTRY_COURSE_TITLE);
         await createAccommodationGroup(local, groupTitle);
         await createAssignment(local, assignmentTitle);
         await enterAssignmentEditorFromList(local, assignmentTitle);
@@ -379,7 +379,7 @@ test.describe("assignment delivery preview on the production PLE stack", () => {
         const remote = await remoteContext.newPage();
         configureContextAndPage(remoteContext, remote, actionTimeoutMs);
         await chooseSeededIdentity(remote, /Elena Rivera/u);
-        await selectVisibleCourse(remote, baseCourseTitle);
+        await selectVisibleCourse(remote, BIOCHEMISTRY_COURSE_TITLE);
         await enterAssignmentEditorFromList(remote, assignmentTitle);
         await changeDisclosureInSecondSession(remote);
 
@@ -441,7 +441,7 @@ test.describe("assignment delivery preview on the production PLE stack", () => {
         const mary = await maryContext.newPage();
         configureContextAndPage(maryContext, mary, actionTimeoutMs);
         await chooseSeededIdentity(mary, /Mary Okafor/u);
-        await selectVisibleCourse(mary, baseCourseTitle);
+        await selectVisibleCourse(mary, BIOCHEMISTRY_COURSE_TITLE);
         await assertProtectedPreviewDenied(mary, previewUrl, maryCalls);
         await captureResponsiveDenial(mary, scenarioInput);
 

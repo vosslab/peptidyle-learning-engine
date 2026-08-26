@@ -353,7 +353,7 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	monkeypatch.setattr(local_stack_control.lifecycle, "compose_run", compose_mark)
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_one_shot", lambda target, runner, options, service: mark("storage-ready" if service == "createbuckets" else "api-initialized"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_postgres", lambda target, runner, values, options: mark("database-ready"))
-	monkeypatch.setattr(local_stack_control.lifecycle, "synchronize_database", lambda target, runner, values: mark("database-login"))
+	monkeypatch.setattr(local_stack_control.lifecycle, "synchronize_database", lambda target, runner, values, options: mark("database-login"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "run_migrations", lambda runner, root, values, environment: mark("migrated"))
 	monkeypatch.setattr(
 		local_stack_control.base_course_logins,
@@ -724,7 +724,7 @@ def test_renderer_wait_accepts_a_healthy_selected_container_after_starting(
 	))
 
 	def poll_until_healthy(
-		read_report: local_stack_control.lifecycle.RendererStatusRead,
+		read_report: local_stack_control.lifecycle.StatusRead,
 		timeout_seconds: float,
 	) -> local_stack_control.models.StatusReport:
 		starting = read_report()

@@ -102,6 +102,15 @@ passwordless and roster slice still has production acceptance work, so the
 current status report is the source for what has been verified in a deployment.
 See [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
 
+## Is the live demo read-only?
+
+No. The live demo uses the ordinary PLE application, authorization, database,
+and storage paths. Visitors can create or change courses, assignments, roster
+membership, submissions, grades, and other permitted records. Those changes
+remain in the current disposable installation until it is regenerated;
+regeneration restores the seeded baseline and discards the demo's disposable
+state. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
+
 ## Why does a submission identify an attempt?
 
 A durable question attempt already binds the authenticated learner, course,

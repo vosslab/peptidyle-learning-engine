@@ -28,7 +28,11 @@ use uuid::Uuid;
 use crate::{BaseCourseInstallError, BaseCourseParticipants};
 
 pub(crate) const BASELINE_VERSION: &str = "base-course-v1";
-pub(crate) const BASE_COURSE_TITLE: &str = "Biochemistry Base Course";
+/// Learner-visible title for the installed Biochemistry teaching course.
+///
+/// `base_course` remains the installer-owned lifecycle boundary; it is not
+/// product copy.
+pub(crate) const BASE_COURSE_TITLE: &str = "Biochemistry: Protein Structure and Function";
 pub(crate) const PRACTICE_COURSE_TITLE: &str = "Genetics Practice Course";
 pub(crate) const COURSE_START: &str = "2026-01-01";
 pub(crate) const COURSE_END: &str = "2099-12-31";

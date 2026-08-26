@@ -103,7 +103,7 @@ pub enum BaseCourseInstallCourseDisposition {
 /// The only two deterministic course slots accepted by the installer broker.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BaseCourseInstallCourseSlot {
-    /// The visible Biochemistry Base Course.
+    /// The visible installed Biochemistry teaching course.
     BaseCourse,
     /// The visible Genetics Practice Course.
     GeneticsPractice,

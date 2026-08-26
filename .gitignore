@@ -1,4 +1,6 @@
-# === UNIVERSAL ===
+# === UNIVERSAL === [PROPAGATED - LOCAL EDITS OVERWRITTEN]
+/node_modules/
+/.env
 .DS_Store
 /report_*.txt
 /output*/
@@ -9,7 +11,8 @@ _temp*.?*
 /OTHER_REPOS/
 /LOCAL_ONLY/
 
-# === LOCAL ===
+# === LOCAL REPOSITORY RULES === [ADD CUSTOM IGNORES HERE]
+# Propagation preserves this section.
 # Local container credentials. containers/env.example is the committed
 # template; the .local file holds real values and must never be committed.
 /_temp/
@@ -21,8 +24,9 @@ containers/local-webwork-demo.json
 containers/local-chapter-one-pilot.json
 containers/.runtime/
 containers/.secrets/
+/local_runtime/
 .env
-# === PYTHON ===
+# === PYTHON === [PROPAGATED - LOCAL EDITS OVERWRITTEN]
 build/
 dist/
 sdist/
@@ -30,8 +34,7 @@ sdist/
 *.egg-info/
 site/
 
-# === TYPESCRIPT ===
-node_modules/
+# === TYPESCRIPT === [PROPAGATED - LOCAL EDITS OVERWRITTEN]
 dist_*/
 _site/
 *.tsbuildinfo
@@ -44,7 +47,7 @@ coverage/
 meta.json
 stats.html
 
-# === RUST ===
+# === RUST === [PROPAGATED - LOCAL EDITS OVERWRITTEN]
 /target/
 **/target/
 **/*.rs.bk
@@ -54,5 +57,3 @@ stats.html
 # Provider binaries and module caches are platform-local generated state.
 # Keep the reviewed provider checksum lockfile under deploy/opentofu tracked.
 **/.terraform/
-
-

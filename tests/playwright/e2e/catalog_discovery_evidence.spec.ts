@@ -13,6 +13,7 @@ import { expect, test, type BrowserContext, type Locator, type Page } from "@pla
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import { CORPUS_VIEWPORT_SIZES } from "../ui_corpus_manifest";
+import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 import {
   chooseSeededIdentity,
@@ -26,7 +27,6 @@ import {
 
 const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 420_000;
-const baseCourseTitle = "Biochemistry Base Course";
 const geneticsCourseTitle = "Genetics Practice Course";
 const baseAssignmentTitle = "Peptide Bonds: Structure and Resonance";
 const nativeQuestionTitle = "Peptide bond resonance and planarity";
@@ -80,7 +80,8 @@ async function expectUsageOnlyInCourse(page: Page, allowedCourse: string): Promi
   ).toHaveText("1 course");
   await expect(usage.getByRole("listitem")).toHaveCount(1);
   await expect(usage.getByRole("link", { name: allowedCourse, exact: true })).toHaveCount(1);
-  const otherCourse = allowedCourse === baseCourseTitle ? geneticsCourseTitle : baseCourseTitle;
+  const otherCourse =
+    allowedCourse === BIOCHEMISTRY_COURSE_TITLE ? geneticsCourseTitle : BIOCHEMISTRY_COURSE_TITLE;
   await expect(usage.getByRole("link", { name: otherCourse, exact: true })).toHaveCount(0);
 }
 
@@ -311,19 +312,19 @@ test.describe("catalog discovery evidence on the production PLE stack", () => {
         configureContextAndPage(context, page, actionTimeoutMs);
       }
 
-      await test.step("Elena finds the installed native question and sees initial evidence plus Base-only usage", async () => {
+      await test.step("Elena finds the installed native question and sees initial evidence plus installed-course-only usage", async () => {
         await chooseSeededIdentity(elena, /Elena Rivera/u);
-        await selectVisibleCourse(elena, baseCourseTitle);
+        await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
         await libraryQuestionId(elena);
         await openLibraryDetail(elena);
         await assertGeneratedCatalogPrompt(elena);
         await assertInitialInsufficientEvidence(elena);
-        await expectUsageOnlyInCourse(elena, baseCourseTitle);
+        await expectUsageOnlyInCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
       });
 
-      await test.step("Mary visibly confirms her seeded Base-course completion", async () => {
+      await test.step("Mary visibly confirms her seeded installed Biochemistry course completion", async () => {
         await chooseSeededIdentity(mary, /Mary Okafor/u);
-        await selectVisibleCourse(mary, baseCourseTitle);
+        await selectVisibleCourse(mary, BIOCHEMISTRY_COURSE_TITLE);
         const card = mary
           .getByRole("article")
           .filter({ has: mary.getByRole("heading", { name: baseAssignmentTitle, exact: true }) });
@@ -332,7 +333,7 @@ test.describe("catalog discovery evidence on the production PLE stack", () => {
         await expect(mary.getByText("Completed runs", { exact: true })).toBeVisible();
       });
 
-      const geneticsAssignmentTitle = `Evidence genetics assignment ${scenarioInput.namespace}`;
+      const geneticsAssignmentTitle = "Genetics: Peptide Consequences Practice";
       let elenaGeneticsInvitation = "";
       await test.step("Morgan publishes the installed question in Genetics and sees Genetics-only usage", async () => {
         await chooseSeededIdentity(morgan, /Morgan Reyes/u);
@@ -354,10 +355,10 @@ test.describe("catalog discovery evidence on the production PLE stack", () => {
       });
 
       let morganBaseInvitation = "";
-      await test.step("Elena invites Morgan into the Base Course through the roster", async () => {
+      await test.step("Elena invites Morgan into the installed Biochemistry course through the roster", async () => {
         await signOutVisible(elena);
         await chooseSeededIdentity(elena, /Elena Rivera/u);
-        await selectVisibleCourse(elena, baseCourseTitle);
+        await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
         morganBaseInvitation = await createInvitation(
           elena,
           emails.morgan,
@@ -365,14 +366,19 @@ test.describe("catalog discovery evidence on the production PLE stack", () => {
         );
       });
 
-      await test.step("Jack completes the installed open Base-course run", async () => {
+      await test.step("Jack completes the installed open Biochemistry course run", async () => {
         await chooseSeededIdentity(jack, /Jack Chen/u);
-        await selectVisibleCourse(jack, baseCourseTitle);
+        await selectVisibleCourse(jack, BIOCHEMISTRY_COURSE_TITLE);
         await completeAssignment(jack, baseAssignmentTitle);
       });
 
-      await test.step("Morgan claims Base and submits the installed question", async () => {
-        await claimInvitation(morgan, /Morgan Reyes/u, morganBaseInvitation, baseCourseTitle);
+      await test.step("Morgan claims the installed Biochemistry course and submits the installed question", async () => {
+        await claimInvitation(
+          morgan,
+          /Morgan Reyes/u,
+          morganBaseInvitation,
+          BIOCHEMISTRY_COURSE_TITLE,
+        );
         await completeAssignment(morgan, baseAssignmentTitle);
       });
 
@@ -390,11 +396,11 @@ test.describe("catalog discovery evidence on the production PLE stack", () => {
       await test.step("Library filters expose the five-learner, two-course evidence", async () => {
         await signOutVisible(elena);
         await chooseSeededIdentity(elena, /Elena Rivera/u);
-        await selectVisibleCourse(elena, baseCourseTitle);
+        await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
         await libraryQuestionId(elena);
         await openLibraryDetail(elena);
         await assertFiveLearnerEvidence(elena);
-        await expectUsageOnlyInCourse(elena, baseCourseTitle);
+        await expectUsageOnlyInCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
         await captureLaptopState(
           elena,
           scenarioInput,

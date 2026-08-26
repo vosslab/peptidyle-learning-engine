@@ -12,6 +12,7 @@ import { expect, test, type BrowserContext, type Locator, type Page } from "@pla
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import { installVirtualAuthenticator, removeVirtualAuthenticator } from "../helper_live_demo";
 import { CORPUS_VIEWPORT_SIZES } from "../ui_corpus_manifest";
+import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 import {
   chooseSeededIdentity,
@@ -28,7 +29,6 @@ import {
 
 const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 600_000;
-const baseCourseTitle = "Biochemistry Base Course";
 const sysadminCourseTitle = "Genetics Practice Course";
 const nativeQuestionTitle = "Peptide bond resonance and planarity";
 const favoritesQuestionTitle = "Biochemistry Chapter 1: Charged functional groups";
@@ -65,7 +65,7 @@ function collectionItem(panel: Locator, title: string): Locator {
   return panel
     .getByRole("region", { name: "Collections", exact: true })
     .getByRole("listitem")
-    .filter({ hasText: title });
+    .filter({ has: panel.page().getByText(title, { exact: true }) });
 }
 
 function savedSearchItem(panel: Locator, title: string): Locator {
@@ -242,11 +242,7 @@ async function appendStagedQuestion(panel: Locator, title: string): Promise<void
   );
 }
 
-async function createCourseAndInvitation(
-  page: Page,
-  title: string,
-  namespace: string,
-): Promise<string> {
+async function createCourseAndInvitation(page: Page, title: string): Promise<string> {
   await page.getByRole("link", { name: "Courses", exact: true }).click();
   const courses = page.locator('[data-route-surface="courses"]');
   await expect(courses).toBeVisible();
@@ -262,7 +258,7 @@ async function createCourseAndInvitation(
   await expect(page.getByRole("heading", { level: 1, name: title, exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Students", exact: true }).click();
   await page.getByLabel("Institutional email").fill("mary.okafor@live-demo.ple.example");
-  await page.getByLabel("Institutional student ID").fill(`d2-mary-${namespace}`);
+  await page.getByLabel("Institutional student ID").fill("BIO-MARY-004");
   await page.getByRole("button", { name: "Create invitation", exact: true }).click();
   const invitation = page.getByLabel("Invitation link");
   await expect(invitation).toBeVisible();
@@ -324,19 +320,19 @@ test.describe("problem curation on the production PLE stack", () => {
         configureContextAndPage(context, page, actionTimeoutMs);
       }
 
-      const privateTitle = `D2 private set ${scenarioInput.namespace}`;
-      const institutionTitle = `D2 institution set ${scenarioInput.namespace}`;
-      const remoteInstitutionTitle = `${institutionTitle} refreshed`;
-      const savedSearchTitle = `D2 peptide search ${scenarioInput.namespace}`;
-      const courseTitle = `D2 reusable course ${scenarioInput.namespace}`;
-      const assignmentTitle = `D2 reusable assignment ${scenarioInput.namespace}`;
+      const privateTitle = "Peptide Bond Favorites";
+      const institutionTitle = "Biochemistry Core Question Set";
+      const remoteInstitutionTitle = `${institutionTitle} Updated`;
+      const savedSearchTitle = "Peptide Bond Questions";
+      const courseTitle = "Biochemistry: Question Reuse Workshop";
+      const assignmentTitle = "Peptide Bond Reuse Practice";
 
       await test.step("Elena enters through the live Instructor and passkey path, then curates the current Library", async () => {
         const passkey = await signInWithPasskey(
           elena,
           /Elena Rivera/u,
-          baseCourseTitle,
-          `Elena D2 key ${scenarioInput.namespace}`,
+          BIOCHEMISTRY_COURSE_TITLE,
+          "Elena curation passkey",
         );
         elenaAuthenticator = passkey.authenticator;
         await expect(
@@ -410,7 +406,7 @@ test.describe("problem curation on the production PLE stack", () => {
         await expect(localEditor).toContainText("1 questions in this ordered collection.");
 
         await chooseSeededIdentity(concurrentElena, /Elena Rivera/u);
-        await selectVisibleCourse(concurrentElena, baseCourseTitle);
+        await selectVisibleCourse(concurrentElena, BIOCHEMISTRY_COURSE_TITLE);
         const concurrentPanel = await openLibrary(concurrentElena);
         await collectionItem(concurrentPanel, institutionTitle)
           .getByRole("button", { name: "Open", exact: true })
@@ -439,11 +435,7 @@ test.describe("problem curation on the production PLE stack", () => {
 
       let invitationUrl = "";
       await test.step("The shared assignment picker reuses Favorites, a named collection, and My published questions", async () => {
-        invitationUrl = await createCourseAndInvitation(
-          elena,
-          courseTitle,
-          scenarioInput.namespace,
-        );
+        invitationUrl = await createCourseAndInvitation(elena, courseTitle);
         await elena.getByRole("link", { name: "Assignments", exact: true }).click();
         await elena.getByRole("link", { name: "Create the first assignment", exact: true }).click();
         const editor = elena.locator('[data-route-surface="assignmentEditor"]');
@@ -524,7 +516,7 @@ test.describe("problem curation on the production PLE stack", () => {
           morgan,
           /Morgan Reyes/u,
           sysadminCourseTitle,
-          `Morgan D2 key ${scenarioInput.namespace}`,
+          "Morgan curation passkey",
         );
         morganAuthenticator = passkey.authenticator;
         const panel = await openLibrary(morgan, false);

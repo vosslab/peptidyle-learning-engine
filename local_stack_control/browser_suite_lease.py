@@ -10,7 +10,8 @@ import stat
 import local_stack_control.models
 
 
-PRIVATE_ROOT = pathlib.Path("target") / "live-demo-browser"
+PRIVATE_PARENT = pathlib.Path("local_runtime")
+PRIVATE_ROOT = PRIVATE_PARENT / "live_demo_browser"
 LOCK_NAME = "browser-suite.lock"
 WORKSPACE_NAME = "workspace"
 
@@ -140,7 +141,7 @@ class BrowserSuiteLease:
 			os.close(repository_descriptor)
 			raise BrowserSuiteError("the live-demo browser suite is already running in this checkout") from error
 		try:
-			os.mkdir("target", 0o755, dir_fd=repository_descriptor)
+			os.mkdir(PRIVATE_PARENT.name, 0o700, dir_fd=repository_descriptor)
 		except FileExistsError:
 			pass
 		except OSError as error:
@@ -150,15 +151,18 @@ class BrowserSuiteLease:
 		root_descriptor = -1
 		lock_descriptor = -1
 		try:
-			target_descriptor = os.open("target", os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0), dir_fd=repository_descriptor)
+			parent_descriptor, _parent_identity = _open_checked_directory(
+				repository_root / PRIVATE_PARENT,
+				0o700,
+			)
 			try:
 				try:
-					os.mkdir(PRIVATE_ROOT.name, 0o700, dir_fd=target_descriptor)
+					os.mkdir(PRIVATE_ROOT.name, 0o700, dir_fd=parent_descriptor)
 				except FileExistsError:
 					pass
 				root_descriptor, root_identity = _open_checked_directory(repository_root / PRIVATE_ROOT, 0o700)
 			finally:
-				os.close(target_descriptor)
+				os.close(parent_descriptor)
 			lock_descriptor = os.open(LOCK_NAME, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600, dir_fd=root_descriptor)
 			lock_metadata = os.fstat(lock_descriptor)
 			if not stat.S_ISREG(lock_metadata.st_mode) or lock_metadata.st_uid != os.getuid() or stat.S_IMODE(lock_metadata.st_mode) != 0o600:

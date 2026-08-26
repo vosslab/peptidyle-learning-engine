@@ -30,8 +30,18 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   rather than screenshot dimensions or pixel equivalence.
 - A project **demo** uses actual PostgreSQL with the real migrations, schema, RLS, and persistent
   seeded data through the ordinary browser and server stack. It shows that the site works.
-- Every fresh installation includes the demo data as a persistent base course with the students
-  already created. Returning to the demo is like checking in on a live course.
+- Every fresh installation includes recognizable ordinary teaching courses with ordinary active memberships and
+  learner work: `Biochemistry: Protein Structure and Function`, `Genetics: Foundations of Inheritance`, and
+  `Biochemistry: Molecular Foundations`. Installer diagnostics call the installed course's seed recipe `Base Course`,
+  while product surfaces use the teaching-course title. Morgan and Avery retain their separate ordinary authorization
+  course. Returning to the demo is like checking in on live teaching.
+- Keep reusable aggregate names distinct: a Blueprint is a non-enrollable personal reusable assignment, and an Alpha
+  curriculum is a non-enrollable shared curriculum. Use those names only for their respective aggregates.
+- Seed five deterministic learner observations across meaningful ordinary Chapter 1 `Molecular Foundations: Charged
+  Functional Groups` assignments in the Genetics and Biochemistry teaching courses. Use the existing item-analysis and
+  discovery surfaces to show that evidence in context.
+- Present recognizable teaching courses in navigation and derive that navigation from active server-owned membership
+  under ASVS 8.2.2 and 8.3.1. Seed memberships provide representative course context.
 - Keep public evidence separate from private evidence. Do not put answer keys, grading
   implementations, private source, email, UUIDs, or FERPA records in a public or learner corpus.
 
@@ -131,9 +141,12 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   Student workflow and creates ordinary learner runs, submissions, immutable receipts, grades, and
   audited Instructor views. Baseline seeding creates ordinary live records. PLE uses this single
   live product model for the demo, acceptance evidence, and production behavior.
-- Before the first production deployment, replace the unreleased
-  history with one reviewed clean-cluster baseline. After that baseline ships,
-  preserve each new forward migration as the durable upgrade ledger.
+- Before the first production deployment, the reviewed clean-cluster baseline reissues migration `2026081818` with
+  the final visible `Biochemistry: Protein Structure and Function` teaching title. Regenerate disposable live-demo
+  volumes from that reviewed baseline; its resulting checksum is the canonical immutable baseline. Because no baseline
+  has shipped, v1 itself carries the final title and topology; compatibility and versioned upgrades begin with the
+  forward migrations that follow v1. After that baseline ships, preserve each new forward migration as the durable
+  upgrade ledger.
 - Push harder on the visual design. Make the interface less bubbly, especially by reducing overly
   padded content.
 - Use human-readable identifiers for workflows where people need to read, recognize, communicate,

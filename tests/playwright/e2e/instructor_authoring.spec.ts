@@ -11,6 +11,7 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
+import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
   configureContextAndPage,
@@ -53,12 +54,12 @@ test.describe("instructor authoring on the production PLE stack", () => {
     test.setTimeout(scenarioTimeoutMs);
     const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
     expect(scenarioInput.scenarioId).toBe("instructor_authoring");
-    const tag = scenarioInput.namespace;
-    const questionTitle = `Instructor question ${tag}`;
-    const correctChoice = `Correct peptide bond ${tag}`;
-    const courseTitle = `Instructor course ${tag}`;
-    const assignmentTitle = `Instructor assignment ${tag}`;
-    const rosterId = `mary-${tag}`;
+    const questionTitle = "Peptide Bond Resonance";
+    const prompt = "Which statement about peptide bonds is correct?";
+    const correctChoice = "Peptide bonds have partial double-bond character";
+    const courseTitle = "Biochemistry: Protein Structure Workshop";
+    const assignmentTitle = "Peptide Bonds and Planarity";
+    const rosterId = "BIO-MARY-001";
     const pageOrigins = new Set<string>();
     const requestOrigins = new Set<string>();
     const contexts: BrowserContext[] = [];
@@ -74,12 +75,10 @@ test.describe("instructor authoring on the production PLE stack", () => {
       configureContextAndPage(initialContext, elena, actionTimeoutMs);
 
       await chooseSeededIdentity(elena, /Elena Rivera/u);
-      await selectVisibleCourse(elena, "Biochemistry Base Course");
-      const wasmRuntime = elena.getByRole("status", {
-        name: "Response tools runtime: WebAssembly",
-      });
+      await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
+      const wasmRuntime = elena.locator('[data-runtime-mode="wasm"]');
+      await expect(wasmRuntime).toBeAttached();
       await expect(wasmRuntime).toHaveAttribute("data-runtime-mode", "wasm");
-      await expect(wasmRuntime).toHaveText("Response tools are running locally in this browser.");
       await elena.getByRole("link", { name: "Workspace" }).click();
       await expect(
         elena.getByRole("heading", { name: "Draft, preview, and publish a learning question" }),
@@ -89,10 +88,13 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await expect(elena.getByLabel("Question title")).toBeVisible();
       await captureInstructorState(elena, scenarioInput, "instructor_authoring_question_editor");
       await elena.getByLabel("Question title").fill(questionTitle);
-      await elena.getByLabel("Learner-facing prompt").fill(`Which statement is correct? ${tag}`);
+      await elena.getByLabel("Learner-facing prompt").fill(prompt);
       await elena.getByLabel("Question format").selectOption("multipleAnswer");
       await elena.getByLabel("Choice text").nth(0).fill(correctChoice);
-      await elena.getByLabel("Choice text").nth(1).fill(`Incorrect choice ${tag}`);
+      await elena
+        .getByLabel("Choice text")
+        .nth(1)
+        .fill("Peptide bonds freely rotate around the carbon-nitrogen bond");
       await elena.getByRole("checkbox", { name: "Correct answer", exact: true }).first().check();
       await elena.getByRole("button", { name: "Save private draft" }).click();
       await expect(elena.getByRole("button", { name: "Review publication changes" })).toBeEnabled();
@@ -100,7 +102,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
         .getByRole("heading", { name: "Student preview", exact: true })
         .locator("..")
         .locator("article");
-      await expect(studentPreview).toContainText(`Which statement is correct? ${tag}`);
+      await expect(studentPreview).toContainText(prompt);
       await expect(
         studentPreview.getByRole("checkbox", { name: correctChoice, exact: true }),
       ).toBeVisible();
@@ -131,14 +133,14 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await elena.getByLabel("Search published questions").fill(questionTitle);
       const questionCard = elena
         .getByRole("region", { name: "Published questions" })
-        .getByText(questionTitle)
+        .getByText(questionTitle, { exact: true })
         .locator("..");
       await expect(questionCard).toBeVisible();
       const questionId = await questionCard.locator("code").innerText();
       expect(questionId).toMatch(/^[A-Z0-9]{3}-[A-Z0-9]{4}$/u);
       await questionCard.getByRole("link", { name: "Open question", exact: true }).click();
       await expect(elena.getByRole("heading", { name: questionTitle, exact: true })).toBeVisible();
-      await expect(elena.getByRole("region", { name: "Problem prompt" })).toContainText(tag);
+      await expect(elena.getByRole("region", { name: "Problem prompt" })).toContainText(prompt);
       await captureInstructorState(elena, scenarioInput, "instructor_authoring_question_detail");
 
       await elena.getByRole("link", { name: "Return to problem library", exact: true }).click();

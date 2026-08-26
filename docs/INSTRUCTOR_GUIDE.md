@@ -16,11 +16,11 @@ discards them and recreates the same fictional baseline.
 
 ![Instructor published problem catalog showing human-readable Question IDs and Copy ID controls](screenshots/instructor/content_authoring/05_library.png)
 
-![Instructor assignment editor showing four selected Genetics Chapter 1 immutable versions and Mastery run policies](screenshots/instructor/course_authoring/06_assignment_editor.png)
+![Instructor editor for Peptide Bonds and Planarity showing a selected published question and Mastery run policies](screenshots/instructor/course_authoring/06_assignment_editor.png)
 
-![Instructor Assignment created confirmation showing Genetics Chapter 1 Practice and its Open assignment link](screenshots/instructor/course_authoring/05_assignment_created.png)
+![Instructor confirmation that Peptide Bonds and Planarity is a live course assignment](screenshots/instructor/course_authoring/05_assignment_created.png)
 
-![Instructor Genetics Chapter 1 Practice gradebook showing Best and Latest at 100 percent, two completed runs, and keyboard focus on View run history](screenshots/instructor/grading/01_instructor_gradebook.png)
+![Instructor gradebook showing Mary Okafor at 100 percent on Peptide Bonds Guided Practice](screenshots/instructor/grading/01_instructor_gradebook.png)
 <!-- screenshots:end -->
 
 ## Before you begin
@@ -65,8 +65,8 @@ all four inputs, announces and focuses the field to correct, and supports an imm
    its entire question set or use the checklist for a subset.
 4. For an occasional direct lookup, copy the visible `AAA-BBBB` Question ID from the published
    problem catalog and paste it into **Add by question ID**. Never substitute a UUID.
-5. Confirm the selected list contains exactly the intended four selected questions: WeBWorK MC,
-   WeBWorK MATCH, PLE flat MC, and PLE flat MATCH.
+5. Confirm the selected list contains the intended questions in teaching order. Engine and response
+   labels identify the mix without imposing a fixed question count.
 6. Confirm **All questions correct**, **Highest run score**, and **Allow unlimited practice**.
 7. In **What students can see**, choose a timing for each independent field: **Score**,
    **Per-item correctness**, **Feedback text**, **Correct answer or solution**, and **Class

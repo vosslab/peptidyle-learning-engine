@@ -243,7 +243,7 @@ fn outer_seed_marker_decision_stops_interrupted_publication_before_a_fresh_retry
 }
 
 #[tokio::test]
-async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster() {
+async fn chapter_one_seed_upserts_the_selected_learner_through_the_canonical_roster() {
     let store = learning_data_access::in_memory::MemoryStore::default();
     let tenant = TenantId::from_uuid(Uuid::from_u128(301));
     let instructor = UserId::from_uuid(Uuid::from_u128(302));
@@ -318,14 +318,28 @@ async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster(
     .await
     .expect("the seed creates Draft then publishes before roster activation");
 
-    let first =
-        upsert_chapter_one_student(&store, context, instructor, student, course, assignment)
-            .await
-            .expect("the entitlement seam materializes the first enrollment");
-    let second =
-        upsert_chapter_one_student(&store, context, instructor, student, course, assignment)
-            .await
-            .expect("the entitlement seam is idempotent on rerun");
+    let first = upsert_chapter_one_student(
+        &store,
+        context,
+        instructor,
+        student,
+        course,
+        assignment,
+        CHAPTER_ONE_STUDENT_DISPLAY_NAME,
+    )
+    .await
+    .expect("the entitlement seam materializes the first enrollment");
+    let second = upsert_chapter_one_student(
+        &store,
+        context,
+        instructor,
+        student,
+        course,
+        assignment,
+        CHAPTER_ONE_STUDENT_DISPLAY_NAME,
+    )
+    .await
+    .expect("the entitlement seam is idempotent on rerun");
     ensure_webwork_pilot_course(&store, context, instructor, expected_course)
         .await
         .expect("the course seed accepts student membership owned by the canonical roster");
@@ -338,14 +352,14 @@ async fn chapter_one_seed_upserts_the_fake_learner_through_the_canonical_roster(
             UpsertCourseMember {
                 course,
                 user: student,
-                display_name: CHAPTER_ONE_FAKE_STUDENT_DISPLAY_NAME.to_string(),
+                display_name: CHAPTER_ONE_STUDENT_DISPLAY_NAME.to_string(),
                 roster_contact: None,
             },
         )
         .await
         .expect("the canonical roster returns the previously created learner");
     let member = &claimed.member;
-    assert_eq!(member.display_name, CHAPTER_ONE_FAKE_STUDENT_DISPLAY_NAME);
+    assert_eq!(member.display_name, CHAPTER_ONE_STUDENT_DISPLAY_NAME);
     assert_eq!(
         member.status,
         learning_data_access::CourseMemberStatus::Active

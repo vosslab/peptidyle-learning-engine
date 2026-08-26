@@ -50,10 +50,11 @@ student@example.edu,900123456
 The invitation, preview, atomic commit, retention, and privacy semantics are in
 [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md), not in the CSV grammar.
 
-## Manual grade CSV export
+## Manual assignment grade CSV export
 
-For one course and assignment, a direct course Instructor can download a synchronous `text/csv; charset=utf-8`
-file from the private grade-export route. The current output uses CRLF records and these headers:
+For one course and assignment, a direct course Instructor can download a synchronous
+`text/csv; charset=utf-8` file from the private assignment grade-export route. The current output
+uses CRLF records and these headers:
 
 ```csv
 roster_id,email,display_name,score
@@ -65,6 +66,32 @@ object. It contains only the course roster ID, course roster email, display labe
 assignment score. It excludes global account IDs, passkey state, invitation secrets, and unrelated
 course activity. [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) and
 [API_CONTRACTS.md](API_CONTRACTS.md) define its authorization, auditing, and retention boundary.
+
+## Course grade CSV export
+
+A direct course Instructor can also download the synchronous course-total export from
+`POST /api/courses/{course}/grade-export.csv`. The request body must be empty. The response is
+`text/csv; charset=utf-8`, uses CRLF records, is an attachment named `ple-course-grades.csv`, and
+returns `Cache-Control: no-store` plus an opaque `X-PLE-Course-Grade-Export-Id` response header.
+
+The first two records identify the export and its calculation rules:
+
+```csv
+record_type,aggregation_mode,rounding_rule,roster_id,email,display_name,course_total,letter,unavailable_status
+metadata,totalPoints,fourDecimalPlacesHalfAwayFromZero,,,,,,
+student,totalPoints,fourDecimalPlacesHalfAwayFromZero,900123456,student@example.edu,Student Name,93.0000,A,
+```
+
+- `aggregation_mode` is `totalPoints` or `weightedCategories`, and `rounding_rule` is the fixed
+  four-decimal half-away-from-zero rule.
+- Student rows carry either `course_total` and an optional `letter`, or an
+  `unavailable_status` such as `recalculating`; unavailable rows do not carry a score.
+- The export is limited to 500 active-student rows. Durable audit metadata retains no email,
+  display name, global account ID, or CSV object; the CSV bytes are not persisted.
+
+The route, authorization, response headers, and audit ownership are defined in
+[API_CONTRACTS.md](API_CONTRACTS.md), [crates/server/src/course/gradebook.rs](../crates/server/src/course/gradebook.rs),
+and [schemas/migrations/2026081806_course_grade_scheme.sql](../schemas/migrations/2026081806_course_grade_scheme.sql).
 
 ## Import handling
 

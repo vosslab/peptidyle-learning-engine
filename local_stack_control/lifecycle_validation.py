@@ -17,7 +17,7 @@ class LifecycleRequest:
 	target: local_stack_control.models.ComposeTarget
 	release: bool
 	skip_build: bool
-	no_open: bool
+	headless: bool
 	mutation: bool
 
 

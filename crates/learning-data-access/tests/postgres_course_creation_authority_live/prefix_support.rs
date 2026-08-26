@@ -124,7 +124,7 @@ pub(super) fn recipe(base: Uuid, genetics: Uuid) -> (BaseCoursePeople, Value) {
         "schemaVersion": 1,
         "participants": {"avery": people.avery, "elena": people.elena, "jack": people.jack, "mary": people.mary, "morgan": people.morgan},
         "courses": {
-            "baseCourse": {"id": base, "title": "Biochemistry Base Course", "termStart": "2026-01-01", "termEnd": "2099-12-31", "timeZone": "America/Chicago", "initialInstructor": people.elena},
+            "baseCourse": {"id": base, "title": "Biochemistry: Protein Structure and Function", "termStart": "2026-01-01", "termEnd": "2099-12-31", "timeZone": "America/Chicago", "initialInstructor": people.elena},
             "geneticsPractice": {"id": genetics, "title": "Genetics Practice Course", "termStart": "2026-01-01", "termEnd": "2099-12-31", "timeZone": "America/Chicago", "initialInstructor": people.morgan}
         },
         "graph": {

@@ -11,15 +11,15 @@ discards them and recreates the same fictional baseline.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Student course assignment list showing Genetics Chapter 1 Mastery with keyboard focus on Review assignment](screenshots/student/delivery/01_assignment_list.png)
+![Student course assignment list showing Peptide Bonds Guided Practice](screenshots/student/delivery/01_assignment_list.png)
 
-![Student assignment overview for Genetics Chapter 1 Mastery with keyboard focus on Start or resume practice](screenshots/student/delivery/03_problem_ready.png)
+![Student Peptide Bond Planarity problem showing a fresh unanswered response](screenshots/student/delivery/03_problem_ready.png)
 
-![Student Genetics Chapter 1 problem showing the server-authoritative countdown and keyboard-focused response](screenshots/student/delivery/04_response_selected.png)
+![Student Peptide Bond Planarity problem showing the selected resonance response](screenshots/student/delivery/04_response_selected.png)
 
 ![Student completed-run summary showing a correct score and keyboard focus on Start another practice run](screenshots/student/delivery/06_completion.png)
 
-![Student Mastery practice run 2 showing a reset 15-minute timer and an unanswered focused response](screenshots/student/delivery/07_repeat_run.png)
+![Student Peptide Bond Planarity practice run 2 showing a fresh unanswered response](screenshots/student/delivery/07_repeat_run.png)
 <!-- screenshots:end -->
 
 ## Before you begin
@@ -61,12 +61,13 @@ not expose instructor policy or provenance through the learner route.
 
 ## Practice again
 
-The completed summary keeps **Start another practice run** available. Activating it opens the captured
-**Mastery practice run 2** screen with a reset 15-minute timer and no response selected, proving that the
-student entered a new run rather than reopening the completed one. The completed assignment remains
-recorded. Leaving an unsubmitted response and resuming the active run clears that response, so the
-learner returns to an intentional fresh choice.
+The completed summary keeps **Start fresh practice** available. Activating it opens the captured
+**Practice run 2** screen with no response selected, proving that the student entered a new run rather
+than reopening the completed one. This demo assignment is untimed; timed assignments display a fresh
+server-authoritative deadline. The completed assignment remains recorded. Leaving an unsubmitted
+response and resuming the active run clears that response, so the learner returns to an intentional
+fresh choice.
 
-After two completed runs, the instructor can verify the score summary and history described in
+After a completed run, the instructor can verify the score summary and history described in
 [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md). Continued practice remains available after completion;
 completion and the opportunity to learn are not the same event.

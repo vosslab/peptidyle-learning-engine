@@ -5,8 +5,8 @@ environment with one coherent set of sample courses, questions, roster records, 
 complete Instructor and Sysadmin page map uses only the canonical 1280 by 800 CSS-pixel, 16:10
 desktop baseline. Student evidence has a separate maintained profile policy.
 
-All people and records are fictional. `Dr. Fake Professor`, `Mary Fake Student`, and
-`Jack Fake Student` are deterministic documentation identities, not real Roosevelt participants.
+All people and records are fictional. Elena Rivera, Mary Okafor, Morgan, and the other seeded
+personas are deterministic documentation identities, not real Roosevelt participants.
 Deterministic fixture addresses in the reserved `example.invalid` domain are permitted test data;
 real email addresses and real identifying records are prohibited in public evidence.
 The capture checks visible and announced page text plus browser paths for UUID exposure before it
@@ -53,13 +53,13 @@ course theme or teaching behavior.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Instructor Courses workspace with course creation and three fictional courses](screenshots/instructor/course_authoring/01_course_created.png)
-![Biochemistry course home with course navigation and three assignments](screenshots/instructor/course_authoring/02_course_assignments.png)
+![Instructor Courses workspace with recognizable teaching courses and a newly created protein-structure workshop](screenshots/instructor/course_authoring/01_course_created.png)
+![Protein Structure Workshop course home with course navigation and its first-assignment action](screenshots/instructor/course_authoring/02_course_assignments.png)
 ![Assignment overview summarizing questions, grade policy, feedback, and practice entry](screenshots/instructor/course_authoring/08_assignment_overview.png)
 ![New assignment workspace with empty content, run policies, and question catalog entry points](screenshots/instructor/course_authoring/03_assignment_create.png)
-![Assignment editor organizing four selected biochemistry questions beside run policies](screenshots/instructor/course_authoring/06_assignment_editor.png)
+![Assignment editor organizing a selected peptide-bond question beside Mastery run policies](screenshots/instructor/course_authoring/06_assignment_editor.png)
 ![Students page with invitation, enrollment policy, pending invitation, and course roster context](screenshots/instructor/roster/01_invitation_pending.png)
-![Gradebook with compact progress rows for two fictional students and two assignments](screenshots/instructor/grading/01_instructor_gradebook.png)
+![Gradebook with Mary Okafor's compact progress row for Peptide Bonds Guided Practice](screenshots/instructor/grading/01_instructor_gradebook.png)
 ![Course grade settings conflict recovery at the canonical 1280 by 800 desktop viewport](screenshots/instructor/grade_settings_conflict/02_retry_saved.png)
 ![Course appearance page previewing applied theme palettes and banner settings](screenshots/instructor/course_management/02_appearance_saved.png)
 ![Question library using the full workspace for filters and four published results](screenshots/instructor/content_authoring/05_library.png)
@@ -87,7 +87,6 @@ assets.
 Review the regenerated images together after shared layout, theme, typography, or navigation changes.
 Behavior-focused browser tests remain the authority for interaction, authorization, answer secrecy,
 and teaching semantics; these images are visual evidence for composition and current appearance.
-B2 is implemented in the live product. Review its source/destination distinction, preview-before-apply,
-DST correction, keyboard focus, recovery, privacy, and contrast at the canonical 1280 by 800 Instructor
-profile. Final screenshot publication and full Validation acceptance remain open until their required
-gates pass on one material tree.
+B2 is implemented in the live product. Its published desktop evidence covers the source/destination
+distinction, preview-before-apply, DST correction, keyboard focus, recovery, privacy, and contrast at
+the canonical 1280 by 800 Instructor profile. Full Validation remains the final B2 acceptance gate.

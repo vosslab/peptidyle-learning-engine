@@ -67,9 +67,12 @@ def test_reset_uses_podman_dependency_order_for_exact_verified_resources(
 ) -> None:
 	"""Podman resolves dependency-bearing containers before volume cleanup."""
 	runner = RecordingRunner()
-	values = iter((snapshot(), local_stack_control.models.ProjectSnapshot(
-		local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT, (), (), ()
-	)))
+	initial = snapshot()
+	without_containers = local_stack_control.models.ProjectSnapshot(
+		initial.project, (), initial.volumes, initial.networks,
+	)
+	empty = local_stack_control.models.ProjectSnapshot(initial.project, (), (), ())
+	values = iter((initial, without_containers, empty))
 	monkeypatch.setattr(local_stack_control.browser_suite_reset, "_browser_snapshot", lambda *args: next(values))
 	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path) as lease:
 		local_stack_control.browser_suite_reset.reset_live_demo_browser(lease, runner, tmp_path)
@@ -81,11 +84,11 @@ def test_reset_uses_podman_dependency_order_for_exact_verified_resources(
 
 
 #============================================
-def test_reset_passes_every_owned_container_to_dependency_cleanup(
+def test_reset_reinventories_after_dependency_cleanup(
 	monkeypatch: pytest.MonkeyPatch,
 	tmp_path: pathlib.Path,
 ) -> None:
-	"""A dependency-bearing project is removed through one engine-owned graph operation."""
+	"""A dependency removal refreshes IDs before the next exact engine operation."""
 	runner = RecordingRunner()
 	project = local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
 	first = snapshot()
@@ -97,14 +100,16 @@ def test_reset_passes_every_owned_container_to_dependency_cleanup(
 	with_containers = local_stack_control.models.ProjectSnapshot(
 		project, (first.containers[0], second), first.volumes, first.networks,
 	)
+	without_containers = local_stack_control.models.ProjectSnapshot(
+		project, (), first.volumes, first.networks,
+	)
 	empty = local_stack_control.models.ProjectSnapshot(project, (), (), ())
-	values = iter((with_containers, empty))
+	values = iter((with_containers, without_containers, empty))
 	monkeypatch.setattr(local_stack_control.browser_suite_reset, "_browser_snapshot", lambda *args: next(values))
 	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path) as lease:
 		local_stack_control.browser_suite_reset.reset_live_demo_browser(lease, runner, tmp_path)
-	assert runner.commands[0] == (
-		"podman", "rm", "-f", "--depend", "container-one", "container-two",
-	)
+	assert runner.commands[0] == ("podman", "rm", "-f", "--depend", "container-one")
+	assert all("container-two" not in command for command in runner.commands)
 
 
 #============================================
@@ -162,10 +167,13 @@ def test_interrupted_reset_retries_only_remaining_valid_resources(
 	"""A next holder inventories again and completes an interrupted exact reset."""
 	runner = RecordingRunner()
 	remaining = snapshot()
+	without_containers = local_stack_control.models.ProjectSnapshot(
+		remaining.project, (), remaining.volumes, remaining.networks,
+	)
 	empty = local_stack_control.models.ProjectSnapshot(
 		local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT, (), (), ()
 	)
-	values = iter((remaining, empty))
+	values = iter((remaining, without_containers, empty))
 	monkeypatch.setattr(local_stack_control.browser_suite_reset, "_browser_snapshot", lambda *args: next(values))
 	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path) as lease:
 		local_stack_control.browser_suite_reset.reset_live_demo_browser(lease, runner, tmp_path)

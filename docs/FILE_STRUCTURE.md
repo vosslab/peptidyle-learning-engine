@@ -24,8 +24,6 @@ status reports live under [active_plans/](active_plans/) and remain separate fro
 +- generated/            Ignored generated contract and fixture projections
 +- Cargo.toml            Rust workspace manifest
 +- package.json          Browser tooling manifest
-+- setup.sh              Canonical lockfile-defined repository dependency setup
-+- setup_playwright.sh   Optional local Playwright browser installation
 +- build.sh              Full local build entry point
 +- check_codebase.sh     Vendored TypeScript and browser gate
 +- check_rust.sh         Repository-owned Cargo and Rust gate
@@ -157,6 +155,7 @@ crates/server/src/
 |  `- gradebook.rs                     Course-grade scheme, compact totals, and CSV export routes
 +- run/                               Attempt issue, prefetch, submission, current disclosure redaction, and external-tool routes
 +- workspace/                         Authoring workspace behavior
++- curriculum_adoption/               Instructor-authorized preview/apply, inspection, and reconciliation routes for reusable-curriculum adoption
 +- flat_question_publication/         Native publication routes and tests
 +- public_asset_publication_worker/   Outbox handler and conditional registry activation
 +- qti_*/                             QTI import, conversion, publication, and runtime paths
@@ -184,10 +183,12 @@ src/
 +- auth/            Account and course-session browser state
 +- components/      Reusable prompt, response, feedback, and accessibility UI
 +- features/        Capability-owned browser logic
+|  `- curriculum_adoption/ Reusable-curriculum adoption preview, apply, receipt, and recovery UI
 +- pages/           Route-level views and page-specific state
 |  +- assignment_editor_policy_panel.tsx Instructor disclosure-policy controls
 |  +- assignment_teaching_operations_panel.tsx Lifecycle, instructions, schedule, limits, and late behavior
-|  `- assignment_overview_page.tsx Learner-safe instructions, resolved delivery, and score-state view
+|  +- assignment_overview_page.tsx Learner-safe instructions, resolved delivery, and score-state view
+|  `- curriculum_adoption_live_page.tsx Instructor course-route composition for curriculum adoption
 +- learner_progress.ts Server-derived score-state display copy; never derives policy or timing
 +- wasm/            Shared domain WebAssembly facade and Solid context
 +- app.tsx          Application shell
@@ -292,8 +293,10 @@ generated/
 ```
 
 `dist/`, `dist_wasm/`, `target/`, `test-results/`, and Playwright report directories are reproducible
-ignored output. `dist/` is the production browser artifact used by the fixed developer session,
-Playwright, screenshot capture, service oracles, and connected acceptance. Those consumers share the
+ignored output. `local_runtime/live_demo_browser/` is separate ignored mode-0700 lifecycle state; a
+build cleanup may remove `target/` while the authenticated demo owner retains its lease and control
+receipts. `dist/` is the production browser artifact used by the fixed developer session, Playwright,
+screenshot capture, service oracles, and connected acceptance. Those consumers share the
 `ple-live-demo-browser` lifecycle and seeded production authentication. Checked-in fixtures under
 `tests/fixtures/` are source evidence and should change deliberately.
 

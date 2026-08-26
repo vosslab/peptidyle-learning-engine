@@ -61,7 +61,7 @@ if ! command -v cargo >/dev/null 2>&1; then
 	exit 1
 fi
 if [ ! -d node_modules ]; then
-	echo "ERROR: node_modules missing. Run 'npm install' first." >&2
+	echo "ERROR: node_modules missing. Run ./devel/setup_typescript.sh first." >&2
 	exit 1
 fi
 

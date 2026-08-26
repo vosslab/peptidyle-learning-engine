@@ -13,6 +13,7 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import { installVirtualAuthenticator, removeVirtualAuthenticator } from "../helper_live_demo";
+import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
   observeContextOrigins,
@@ -62,7 +63,7 @@ test("authentication and authorization: sessions, approval, and course boundarie
       const authenticator = await installVirtualAuthenticator(elena);
       try {
         await chooseSeededIdentity(elena, /Elena Rivera/u);
-        await selectVisibleCourse(elena, "Biochemistry Base Course");
+        await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
         await elena.getByRole("link", { name: "Account", exact: true }).click();
         const accountSecurity = elena
           .getByRole("main")
@@ -80,15 +81,15 @@ test("authentication and authorization: sessions, approval, and course boundarie
         ).toBeVisible();
         await signOutVisible(elena);
         await elena.getByRole("button", { name: "Sign in with a passkey" }).click();
-        await selectVisibleCourse(elena, "Biochemistry Base Course");
+        await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
         await expect(elena.getByRole("link", { name: "Teaching operations" })).toBeVisible();
       } finally {
         await removeVirtualAuthenticator(authenticator);
       }
     });
-    await test.step("Mary enters and reenters her Base Course session", async () => {
-      await enterThenReenter(mary, /Mary Okafor/u, "Biochemistry Base Course");
-      await expect(mary.getByRole("heading", { name: "Biochemistry Base Course" })).toBeVisible();
+    await test.step("Mary enters and reenters her installed Biochemistry course session", async () => {
+      await enterThenReenter(mary, /Mary Okafor/u, BIOCHEMISTRY_COURSE_TITLE);
+      await expect(mary.getByRole("heading", { name: BIOCHEMISTRY_COURSE_TITLE })).toBeVisible();
       basePath = new URL(mary.url()).pathname;
     });
 
@@ -116,7 +117,7 @@ test("authentication and authorization: sessions, approval, and course boundarie
     await test.step("Elena creates a course group and invites approved Avery through the teaching UI", async () => {
       await elena.getByRole("link", { name: "Teaching operations" }).click();
       await expect(elena.getByRole("heading", { name: "Teaching team" })).toBeVisible();
-      const groupTitle = `Auth course group ${scenarioInput.namespace}`;
+      const groupTitle = "Section A learners";
       const groups = elena.getByRole("region", { name: "Groups and sections" });
       await expect(groups).toBeVisible();
       await expect(groups.getByLabel("Group name")).toBeVisible();
@@ -161,7 +162,7 @@ test("authentication and authorization: sessions, approval, and course boundarie
       await expect(avery.getByRole("main").getByRole("status")).toHaveText("Invitation accepted.");
       await signOutVisible(avery);
       await chooseSeededIdentity(avery, /Avery Singh/u);
-      await selectVisibleCourse(avery, "Biochemistry Base Course");
+      await selectVisibleCourse(avery, BIOCHEMISTRY_COURSE_TITLE);
       await avery.getByRole("link", { name: "Teaching operations" }).click();
       await expect(avery.getByRole("heading", { name: "Teaching team" })).toBeVisible();
     });
@@ -184,7 +185,7 @@ test("authentication and authorization: sessions, approval, and course boundarie
       expect(protectedFollowOns).toEqual([]);
 
       await mary.getByRole("link", { name: "Return to courses" }).click();
-      await expect(mary.getByRole("heading", { name: "Biochemistry Base Course" })).toBeVisible();
+      await expect(mary.getByRole("heading", { name: BIOCHEMISTRY_COURSE_TITLE })).toBeVisible();
       await mary.goto(`/instructor${basePath}/teaching-operations`);
       await expect(mary.getByRole("alert")).toContainText(
         "This page is available to instructors only",

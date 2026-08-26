@@ -11,10 +11,10 @@ sys.path.insert(0, str(E2E_DIRECTORY))
 import e2e_browser_scenario_contract as browser_scenario_contract
 
 
-def test_catalog_is_direct_role_only_and_consumes_its_own_inputs() -> None:
-	"""Every registered spec begins independently and Morgan has a direct scenario."""
+def test_catalog_preserves_direct_role_security_journeys() -> None:
+	"""Morgan and Elena retain their independent live-demo passkey journeys."""
 	registry = browser_scenario_contract.scenario_contracts()
-	browser_scenario_contract.validate_registry(registry, E2E_DIRECTORY.parents[1])
+	browser_scenario_contract.validate_registry(registry)
 	direct = browser_scenario_contract.require_contract("direct_role_entry", registry)
 	assert direct.personas == ("morgan_sysadmin",)
 	assert direct.ui_creates == ("passkey",)

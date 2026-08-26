@@ -69,8 +69,11 @@ def build_parser() -> argparse.ArgumentParser:
 	logs.add_argument("services", nargs="*")
 	logs.set_defaults(handler=local_stack_control.commands.logs)
 
-	start = subparsers.add_parser("start", help="start the fixed production-browser developer session")
-	start.add_argument("--no-open", action="store_true")
+	start = subparsers.add_parser(
+		"start",
+		help="replace and start the fixed production-browser developer session",
+	)
+	start.add_argument("--headless", action="store_true")
 	start.set_defaults(handler=local_stack_control.commands.start)
 
 	stop = subparsers.add_parser("stop", help="clean up the fixed production-browser developer session")

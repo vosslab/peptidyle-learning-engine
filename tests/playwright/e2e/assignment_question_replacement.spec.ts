@@ -12,6 +12,7 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
+import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
   configureContextAndPage,
@@ -225,7 +226,7 @@ test.describe("assignment question replacement on the production PLE stack", () 
       configureContextAndPage(replacingElenaContext, replacingElena, actionTimeoutMs);
 
       await chooseSeededIdentity(elena, /Elena Rivera/u);
-      await selectVisibleCourse(elena, "Biochemistry Base Course");
+      await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
       await createPublishedQuestion(elena, originalQuestionTitle, originalChoice);
       await createPublishedQuestion(elena, replacementQuestionTitle, replacementChoice);
       const invitationUrl = await createPublishedAssignmentAndInvitation(

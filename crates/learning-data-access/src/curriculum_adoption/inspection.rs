@@ -4,9 +4,9 @@ use question_model::curriculum_adoption::{
     CurriculumSemanticComparison, CurriculumSemanticPayload,
 };
 use question_model::{
-    AssignmentReference, CourseScheduleWitness, CourseTerm, CurriculumAssignmentImportSourceView,
-    CurriculumCourseImportOriginView, CurriculumCourseImportView, CurriculumImportRevision,
-    CurriculumImportView,
+    AssignmentReference, CourseScheduleWitness, CourseTerm, CurriculumAdoptionTitle,
+    CurriculumAssignmentImportSourceView, CurriculumCourseImportOriginView,
+    CurriculumCourseImportView, CurriculumImportRevision, CurriculumImportView,
 };
 
 use super::semantic_snapshot::{SemanticEvidenceMismatch, SemanticPlannerError};
@@ -57,9 +57,12 @@ pub(crate) struct CurrentTeachingImportInput<'a> {
 pub(crate) fn project_current_teaching_import(
     input: CurrentTeachingImportInput<'_>,
 ) -> Result<CurriculumImportView, SemanticPlannerError> {
-    if !matches!(input.baseline, CurriculumSemanticPayload::Assignment(_))
-        || !matches!(input.current, CurriculumSemanticPayload::Assignment(_))
-    {
+    let CurriculumSemanticPayload::Assignment(current_assignment) = input.current else {
+        return Err(SemanticPlannerError::InvalidInspection(
+            "assignment inspection requires assignment semantic payloads".into(),
+        ));
+    };
+    if !matches!(input.baseline, CurriculumSemanticPayload::Assignment(_)) {
         return Err(SemanticPlannerError::InvalidInspection(
             "assignment inspection requires assignment semantic payloads".into(),
         ));
@@ -67,6 +70,11 @@ pub(crate) fn project_current_teaching_import(
     validate_semantic_evidence(input.baseline, input.baseline_evidence)?;
     Ok(CurriculumImportView {
         assignment: input.assignment,
+        title: CurriculumAdoptionTitle::parse(current_assignment.title()).map_err(|_| {
+            SemanticPlannerError::InvalidInspection(
+                "current assignment title violates the shared curriculum title contract".into(),
+            )
+        })?,
         source: input.source,
         revision: input.revision,
         reusable_meaning_matches_baseline: matches!(

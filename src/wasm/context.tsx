@@ -31,7 +31,7 @@ export function WasmRuntimeProvider(props: WasmRuntimeProviderProps): JSX.Elemen
       fallback={
         <main class="startup" aria-busy="true">
           <p class="eyebrow">Preparing practice</p>
-          <h1>Loading response tools...</h1>
+          <h1>Preparing your workspace...</h1>
         </main>
       }
     >
@@ -46,19 +46,12 @@ export function WasmRuntimeProvider(props: WasmRuntimeProviderProps): JSX.Elemen
                 aria-label="Response tools runtime: server fallback"
                 data-runtime-mode="serverFallback"
               >
-                Local response tools are unavailable. Format, timer, and assignment checks will use
-                the server and may take a little longer.
+                Some instant checks will use the server and may take a little longer. You can keep
+                working normally.
               </div>
             }
           >
-            <div
-              class="degraded-banner"
-              role="status"
-              aria-label="Response tools runtime: WebAssembly"
-              data-runtime-mode="wasm"
-            >
-              Response tools are running locally in this browser.
-            </div>
+            <span hidden aria-hidden="true" data-runtime-mode="wasm" />
           </Show>
           {props.children}
         </WasmFacadeContext.Provider>

@@ -31,6 +31,7 @@ const importInspection = {
   assignments: [
     {
       assignment: "A-4",
+      title: "Protein Structure Practice",
       source: {
         kind: "reusable",
         definition: { kind: "blueprint", reference: "BP-3", revision: "2" },
@@ -78,6 +79,10 @@ test("B2 decoders refuse unknown fields and preserve closed recovery unions", ()
       { assignment: "A-5", revision: "6" },
     ],
   });
+  assert.equal(
+    decodeCurriculumCourseImportView(importInspection).assignments[0].title,
+    "Protein Structure Practice",
+  );
   assert.throws(
     () => decodeCurriculumCourseImportView({ ...importInspection, course: "C-7" }),
     DecodeError,

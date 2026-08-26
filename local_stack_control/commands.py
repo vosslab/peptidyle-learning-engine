@@ -282,13 +282,19 @@ def start(
 	runner: local_stack_control.process.CommandRunner,
 	repo_root: pathlib.Path,
 ) -> int:
-	"""Start the fixed production-browser developer session."""
+	"""Replace and start the fixed production-browser developer session."""
+	print("Preparing a fresh developer browser session...")
+	project = local_stack_control.browser_suite_developer.reconcile_developer_session(
+		repo_root,
+		runner,
+	)
+	print(f"Previous developer browser session cleared: {project}")
 	result = local_stack_control.browser_suite_developer.start_developer_session(repo_root)
-	if not args.no_open:
+	if not args.headless:
 		open_developer_origin(runner, repo_root, result.origin)
 	print(f"Developer browser ready: {result.origin}")
 	print(f"Project: {result.project}")
-	print("Stop with: python3 local_stack.py stop")
+	print("Stop with: ./run_live_demo.sh stop")
 	return 0
 
 
@@ -348,20 +354,10 @@ def stop(
 	repo_root: pathlib.Path,
 ) -> int:
 	"""Request authenticated cleanup from the fixed developer browser owner."""
-	try:
-		result = local_stack_control.browser_suite_developer.request_stop(repo_root)
-		project = result.project
-	except local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError as error:
-		if str(error) not in (
-			"developer browser session is not running",
-			"developer browser supervisor is unavailable",
-		):
-			raise
-		local_stack_control.process.require_rootless_local_engine(runner, repo_root)
-		project = local_stack_control.browser_suite_developer.purge_orphaned_session(
-			repo_root,
-			runner,
-		)
+	project = local_stack_control.browser_suite_developer.reconcile_developer_session(
+		repo_root,
+		runner,
+	)
 	print(f"Developer browser stopped: {project}")
 	return 0
 

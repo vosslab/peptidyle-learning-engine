@@ -1,29 +1,32 @@
 # Plan: Pre-production database baseline
 
-Status: planned. This document records a future release gate; it authorizes no implementation
-today and makes no production claim.
+Status: partially completed: the foundational baseline is accepted, while data-separation and
+release gates remain open. This document records pre-production planning and authorizes no
+implementation or production claim. Current release
+scope, package order, and acceptance remain in the [active implementation plan](active_plans/implementation_plan.md),
+[active status registry](active_plans/implementation_status.md), and their active release plans.
 
 ## Context
 
-This roadmap was drafted against a historical 28-file SQLx migration snapshot. The current chain
-and count are maintained by [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and the shared migration
-allocation ledger, which remain the source of truth during active feature acceptance. PLE has no
-users or durable production data, so
-before its first production deployment the unreleased history can become one reviewed, empty-cluster
-baseline. Once that baseline ships, each later schema change becomes an immutable forward migration.
+This roadmap was drafted against a historical 28-file SQLx migration snapshot. That proposal is no
+longer the current work item: the six-file pre-data baseline is accepted, and
+`2026080907_course_appearance.sql` is the first accepted forward migration. The current chain,
+count, and allocation state are maintained by [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and
+the shared migration allocation ledger. PLE remains pre-production with no durable user data;
+remaining release gates must use the active plans rather than this historical roadmap.
 
 Migrations establish schema, roles, policies, views, grants, and compatibility projections. They do
 not create teaching data. The canonical live-demo lifecycle applies migrations first, but the current
-baseline installer still requires `--apply-migrations` and invokes the same ledger a second time,
-normally as a no-op. The baseline work must make the installer require a compatible pre-migrated
-database so schema and fictional live-data ownership are structurally separate before production.
+baseline installer still accepts `--apply-migrations`; the planned data-separation change must make
+it consume a compatible pre-migrated database and own only fictional teaching data. Schema and
+live-data ownership are not yet fully separated in that command.
 
-## Objectives
+## Objectives and outcome
 
-- Replace the unreleased SQLx history with one reviewed clean-cluster baseline before production.
-- Preserve the exact current schema behavior, role boundaries, and security properties in that baseline.
-- Establish the shipped baseline as the first entry in the durable forward-only migration ledger.
-- Demonstrate that an empty cluster, the local stack, and browser workflows remain correct.
+- Replace the unreleased SQLx history with one reviewed clean-cluster baseline before production: **accepted**.
+- Preserve schema behavior, role boundaries, and security properties in that baseline: **accepted**.
+- Establish the shipped baseline as the first entry in the durable forward-only migration ledger: **accepted**.
+- Demonstrate empty-cluster, local-stack, and browser correctness: **remaining release-gate evidence**.
 
 ## Design philosophy
 
@@ -51,9 +54,9 @@ forward ledger forever.
 
 ## Current state summary
 
-- The historical baseline snapshot covered versions `2026080801` through `2026080932` with
-  intentional reserved-version gaps. The current `schemas/migrations/` inventory and count are
-  maintained in [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and the shared migration ledger.
+- The accepted baseline is `2026080801` through `2026080806`; the current inventory and forward
+  allocations are maintained in [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and the shared
+  migration ledger.
 - The migration command is explicit and privileged: `cargo tools database migrate` requires
   `PLE_MIGRATION_DATABASE_URL`; the application role cannot apply DDL.
 - `cargo tools database status` reports ledger state; `verify` checks the application-visible
@@ -61,10 +64,23 @@ forward ledger forever.
 - `tests/e2e/e2e_database_baseline.sh` already proves an empty database, a second no-op apply,
   status, verification, checksum detection, RLS/grant behavior, and selected live database contracts.
 - The canonical private typed live-demo lifecycle runs migrations and then the host-only deterministic
-  baseline installer. Today the installer requires `--apply-migrations` and invokes the migration
-  ledger again; this is normally a no-op, but it leaves schema authority in a command intended to
-  own fictional live data.
-- The active release plan remains the authority for package acceptance and deployment order.
+  baseline installer. The installer still requires `--apply-migrations`; removing that duplicate
+  schema authority remains an open data-separation gate.
+- The active plans remain the authority for package acceptance, deployment order, and any remaining
+  full-baseline rerun or release gate.
+
+## Current grading and live-demo boundary
+
+The current product path is already defined and must not be redesigned by this database roadmap.
+[Human Guidance](HUMAN_GUIDANCE.md) and the [live-demo specification](LIVE_DEMO_SPEC.md)
+require ordinary Student delivery and strictly automated grading through the real application.
+
+- Supported questions use deterministic, server-owned graders; browser contracts remain answer-free.
+- Instructor validation previews current policy, then uses the normal learner run, submission,
+  receipt, grade, and Instructor review paths.
+- Answers, keys, and correctness decisions remain outside browser-facing capabilities. The active
+  implementation plan owns the grading boundary and its secrecy, determinism, and connected-runtime
+  gates.
 
 ## Architecture boundaries and ownership
 
@@ -253,7 +269,7 @@ installer so it owns only fictional, disposable teaching data outside the baseli
   authorized access; cross-tenant and answer-key reads fail as before.
 - Data-separation gate: the baseline is valid before the live-demo baseline runs; its installer has no
   migration flag or DDL path, refuses an incompatible database, and changes teaching data only.
-- Real-stack gate: `source source_me.sh && python3 local_stack.py start --no-open` succeeds from a newly created local volume, then
+- Real-stack gate: `source source_me.sh && python3 local_stack.py start --headless` succeeds from a newly created local volume, then
   `./run_playwright_tests.sh` passes only after all required Podman services are healthy.
 - Independent review gate: an independent PostgreSQL/security reviewer and an operations reviewer
   approve the comparison, runtime evidence, and recovery procedure.

@@ -5,8 +5,9 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    AssignmentDefinitionSourceView, CourseScheduleWitness, CurriculumImportRevision,
-    ObservedAlphaSource, ObservedAssignmentRevision, bounded::deserialize_course_imports,
+    AssignmentDefinitionSourceView, CourseScheduleWitness, CurriculumAdoptionTitle,
+    CurriculumImportRevision, ObservedAlphaSource, ObservedAssignmentRevision,
+    bounded::deserialize_course_imports,
 };
 use crate::{AssignmentReference, CourseTerm, MAX_ASSIGNMENT_ORDERED_ENTRIES};
 
@@ -110,6 +111,8 @@ pub struct RolloverCourseImportOriginView {
 pub struct CurriculumImportView {
     /// Destination assignment that owns this import.
     pub assignment: AssignmentReference,
+    /// Current human-facing destination assignment title.
+    pub title: CurriculumAdoptionTitle,
     /// Closed exact source evidence appropriate to this import kind.
     pub source: CurriculumAssignmentImportSourceView,
     /// Revision advanced whenever the import baseline/envelope changes.

@@ -537,7 +537,7 @@ async fn completion_refuses_base_course_scheme_revision_one_without_a_receipt() 
     let fixture = CompletionFixture::installing_with_full_product_graph().await;
     assert_grade_scheme_refusal(
         &fixture,
-        "Biochemistry Base Course",
+        "Biochemistry: Protein Structure and Function",
         1,
         "Base Course scheme revision 1",
     )

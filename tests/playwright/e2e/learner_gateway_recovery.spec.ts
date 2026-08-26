@@ -13,6 +13,7 @@ import { expect, test, type BrowserContext, type Locator, type Page } from "@pla
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import { faultHandshakeFromEnvironment } from "./fault_handshake";
+import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
   configureContextAndPage,
@@ -65,7 +66,6 @@ async function createCourseAssignment(
   course: string,
   assignment: string,
   question: string,
-  namespace: string,
 ): Promise<string> {
   await page.getByRole("link", { name: "Courses" }).click();
   await page.getByLabel("Course title").fill(course);
@@ -91,7 +91,7 @@ async function createCourseAssignment(
   await expect(page.getByTestId("assignment-current-state")).toHaveText("Published, open now.");
   await page.getByRole("link", { name: "Students" }).click();
   await page.getByLabel("Institutional email").fill(maryEmail);
-  await page.getByLabel("Institutional student ID").fill(`mary-${namespace}`);
+  await page.getByLabel("Institutional student ID").fill("BIO-MARY-005");
   await page.getByRole("button", { name: "Create invitation" }).click();
   const link = page.getByLabel("Invitation link");
   await expect(link).toBeVisible();
@@ -145,9 +145,9 @@ test("learner gateway recovery: a saved response retries after the owner restore
     scenarioInput.scenarioId,
     scenarioInput.namespace,
   );
-  const course = `Gateway recovery course ${scenarioInput.namespace}`;
-  const assignment = `Gateway recovery assignment ${scenarioInput.namespace}`;
-  const answer = `Supported gateway recovery choice ${scenarioInput.namespace}`;
+  const course = "Biochemistry: Resilient Practice";
+  const assignment = "Peptide Bonds: Connection Recovery";
+  const answer = "Resonance restricts peptide-bond rotation";
   const origins = {
     instructor: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },
     learner: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },
@@ -176,19 +176,13 @@ test("learner gateway recovery: a saved response retries after the owner restore
     configureContextAndPage(instructorContext, instructor, actionTimeoutMs);
     configureContextAndPage(learnerContext, learner, actionTimeoutMs);
     await chooseSeededIdentity(instructor, /Elena Rivera/u);
-    await selectVisibleCourse(instructor, "Biochemistry Base Course");
+    await selectVisibleCourse(instructor, BIOCHEMISTRY_COURSE_TITLE);
     const question = await createQuestion(
       instructor,
-      `Gateway recovery question ${scenarioInput.namespace}`,
+      "Peptide Bond Resonance During Recovery",
       answer,
     );
-    const invitation = await createCourseAssignment(
-      instructor,
-      course,
-      assignment,
-      question,
-      scenarioInput.namespace,
-    );
+    const invitation = await createCourseAssignment(instructor, course, assignment, question);
     await startRun(learner, invitation, course, assignment, answer);
     handshake.notify("response_selected");
     await handshake.waitFor("gateway_stopped");

@@ -6,11 +6,11 @@ set -euo pipefail
 SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
 usage() {
-  echo "Usage: ./run_live_demo.sh [--no-open|start [--no-open]|stop]"
+  echo "Usage: ./run_live_demo.sh [--headless|start [--headless]|stop]"
 }
 
 COMMAND="start"
-NO_OPEN="false"
+HEADLESS="false"
 
 case "$#" in
   0)
@@ -21,8 +21,8 @@ case "$#" in
         usage
         exit 0
         ;;
-      --no-open)
-        NO_OPEN="true"
+      --headless)
+        HEADLESS="true"
         ;;
       start|stop)
         COMMAND="$1"
@@ -34,8 +34,8 @@ case "$#" in
     esac
     ;;
   2)
-    if [ "$1" = "start" ] && [ "$2" = "--no-open" ]; then
-      NO_OPEN="true"
+    if [ "$1" = "start" ] && [ "$2" = "--headless" ]; then
+      HEADLESS="true"
     else
       usage >&2
       exit 2
@@ -56,11 +56,11 @@ fi
 
 if [ ! -d "$SCRIPT_DIRECTORY/node_modules" ]; then
   echo "==> First launch: installing repository dependencies"
-  "$SCRIPT_DIRECTORY/setup.sh"
+  "$SCRIPT_DIRECTORY/devel/setup_typescript.sh"
 fi
 
-if [ "$NO_OPEN" = "true" ]; then
-  exec python3 "$SCRIPT_DIRECTORY/local_stack.py" start --no-open
+if [ "$HEADLESS" = "true" ]; then
+  exec python3 "$SCRIPT_DIRECTORY/local_stack.py" start --headless
 fi
 
 exec python3 "$SCRIPT_DIRECTORY/local_stack.py" start

@@ -208,7 +208,7 @@ and service readiness. Bare `compose up` against an empty database is not an
 equivalent bootstrap path.
 
 ```bash
-source source_me.sh && python3 local_stack.py start --no-open
+source source_me.sh && python3 local_stack.py start --headless
 ```
 
 The normal stack starts one API and one worker. The fixed `replica_restart`

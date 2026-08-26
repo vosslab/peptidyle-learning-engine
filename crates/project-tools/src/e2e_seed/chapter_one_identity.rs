@@ -6,7 +6,7 @@ use learning_data_access::PublishedProblemRecord;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-const CHAPTER_ONE_STATISTICS_FIXTURE_SLUG: &str = "genetics-disorders-flat-mc";
+const CHAPTER_ONE_STATISTICS_FIXTURE_SLUG: &str = "biochemistry-functional-groups-flat-mc";
 
 pub(super) struct QuestionIds {
     pub(super) workspace: WorkspaceId,

@@ -45,6 +45,7 @@ import type { ResolvedRelativeScheduleMoment } from "../../../../generated/api/R
 import {
   DecodeError,
   decodeBoolean,
+  decodeNonemptyString,
   decodeNullable,
   decodeSafeInteger,
   decodeString,
@@ -407,12 +408,14 @@ function origin(value: unknown, path: string): CurriculumCourseImportOriginView 
 function importView(value: unknown, path: string): CurriculumImportView {
   const record = closed(value, path, [
     "assignment",
+    "title",
     "source",
     "revision",
     "reusableMeaningMatchesBaseline",
   ]);
   return {
     assignment: decodeAssignmentReference(field(record, "assignment", path), `${path}.assignment`),
+    title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     source: importSource(field(record, "source", path), `${path}.source`),
     revision: revision(field(record, "revision", path), `${path}.revision`),
     reusableMeaningMatchesBaseline: decodeBoolean(
