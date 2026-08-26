@@ -139,11 +139,16 @@ BEGIN
         RAISE EXCEPTION 'curriculum adoption assignment source is invalid' USING ERRCODE = '22023';
     END IF;
     IF v_kind = 'blueprint' THEN
-        PERFORM public.ple_cam_require_exact_object_v1(v_source, ARRAY['reference','revision'], 4096);
+        PERFORM public.ple_cam_require_exact_object_v1(v_source,
+            CASE WHEN p_source->>'kind' = 'assignment'
+                THEN ARRAY['kind','reference','revision']
+                ELSE ARRAY['reference','revision'] END, 4096);
         PERFORM public.ple_curriculum_adoption_route_number_v1(v_source->'reference', 'BP');
     ELSE
         PERFORM public.ple_cam_require_exact_object_v1(
-            v_source, ARRAY['reference','revision','moduleIndex','assignmentIndex'], 4096
+            v_source, CASE WHEN p_source->>'kind' = 'assignment'
+                THEN ARRAY['kind','reference','revision','moduleIndex','assignmentIndex']
+                ELSE ARRAY['reference','revision','moduleIndex','assignmentIndex'] END, 4096
         );
         PERFORM public.ple_curriculum_adoption_route_number_v1(v_source->'reference', 'AC');
     END IF;

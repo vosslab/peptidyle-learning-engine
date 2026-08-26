@@ -10,3 +10,4 @@ node_modules/
 target/
 OTHER_REPOS/
 LOCAL_ONLY/
+Cargo.toml

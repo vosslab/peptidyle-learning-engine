@@ -35,25 +35,28 @@ recoverable failure. Continued practice remains available after completion.
 
 ## Route map
 
-| Route                                                          | Surface                                    | Data contract                                 |
-| -------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------- |
-| `/`                                                            | Course list for signed-in role             | Course summaries                              |
-| `/sign-in`                                                     | Passwordless account entry                 | Uniform email start or usernameless passkey   |
-| `/auth/email/complete`                                         | Canonical email sign-in completion         | One-time browser-bound fragment secret        |
-| `/auth/account/email/complete`                                 | Verified account-email replacement         | Current account session plus one-time secret  |
-| `/course-invitations/redeem`                                   | Learner invitation claim                   | Account session plus one-time invitation      |
-| `/account/security`                                            | Passkey and account-email management       | Account-owned credential projections only     |
-| `/courses/:courseId`                                           | Assignments with progress and run counts   | Cursor-paged assignments and summary rows     |
-| `/courses/:courseId/assignments/:assignmentId`                 | Assignment overview and run history        | Safe Question-ID item summaries and runs      |
-| `/runs/:runId`                                                 | One-question-at-a-time attempt loop        | Run screen query and response widget          |
-| `/runs/:runId/summary`                                         | Run outcomes and continued-practice entry  | Per-question disclosed feedback and run score |
-| `/library`                                                     | Shared problem browser                     | Cursor-paged facets and catalog results       |
-| `/workspace`                                                   | Instructor drafts                          | Tenant-owned workspace summaries              |
-| `/workspace/:workspaceId`                                      | Draft editor, validation, and WASM preview | Draft and capability violations               |
-| `/instructor/courses/:courseId/assignments/:assignmentId/edit` | Assignment policy editor                   | Assignment and capability validation          |
-| `/instructor/courses/:courseId/gradebook`                      | Summary-row gradebook                      | Student assignment summaries only             |
-| `/instructor/courses/:courseId/appearance`                     | Course theme and entry banner settings     | Revisioned safe appearance projection         |
-| `/instructor/courses/:courseId/students`                       | Roster, invitations, import, grade export  | Revisioned Instructor-only roster projection  |
+| Route                                                          | Surface                                    | Data contract                                                        |
+| -------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------- |
+| `/`                                                            | Course list for signed-in role             | Course summaries                                                     |
+| `/sign-in`                                                     | Passwordless account entry                 | Uniform email start or usernameless passkey                          |
+| `/auth/email/complete`                                         | Canonical email sign-in completion         | One-time browser-bound fragment secret                               |
+| `/auth/account/email/complete`                                 | Verified account-email replacement         | Current account session plus one-time secret                         |
+| `/course-invitations/redeem`                                   | Learner invitation claim                   | Account session plus one-time invitation                             |
+| `/account/security`                                            | Passkey and account-email management       | Account-owned credential projections only                            |
+| `/courses/:courseId`                                           | Assignments with progress and run counts   | Cursor-paged assignments and summary rows                            |
+| `/courses/:courseId/assignments/:assignmentId`                 | Assignment overview and run history        | Safe Question-ID item summaries and runs                             |
+| `/runs/:runId`                                                 | One-question-at-a-time attempt loop        | Run screen query and response widget                                 |
+| `/runs/:runId/summary`                                         | Run outcomes and continued-practice entry  | Per-question disclosed feedback and run score                        |
+| `/library`                                                     | Shared problem browser                     | Cursor-paged facets and catalog results                              |
+| `/curriculum`                                                  | Reusable curriculum workspace              | Revisioned private Blueprints and public Alpha summaries             |
+| `/curriculum/:curriculumRef`                                   | Reusable curriculum detail                 | Answer-free definition inspection, editing, reuse, and Alpha fork    |
+| `/workspace`                                                   | Instructor drafts                          | Tenant-owned workspace summaries                                     |
+| `/workspace/:workspaceId`                                      | Draft editor, validation, and WASM preview | Draft and capability violations                                      |
+| `/instructor/courses/:courseId/assignments/:assignmentId/edit` | Assignment policy editor                   | Assignment and capability validation                                 |
+| `/instructor/courses/:courseId/gradebook`                      | Summary-row gradebook                      | Student assignment summaries only                                    |
+| `/instructor/courses/:courseId/appearance`                     | Course theme and entry banner settings     | Revisioned safe appearance projection                                |
+| `/instructor/courses/:courseId/students`                       | Roster, invitations, import, grade export  | Revisioned Instructor-only roster projection                         |
+| `/instructor/courses/:courseRef/curriculum`                    | Curriculum adoption and import maintenance | Answer-free previews, typed apply receipts, and recovery projections |
 
 `src/routes.ts` is the executable copy of this table. It also provides a
 catch-all not-found route, which is infrastructure rather than a product
@@ -83,14 +86,14 @@ client.
 
 ## Client contract
 
-| Concern         | Contract                                                                         |
-| --------------- | -------------------------------------------------------------------------------- |
-| API access      | Every route calls the typed `ApiClient`; transport stays one file deep           |
-| Queries         | `query` owns cache identity; `createAsync` owns route pending and result state   |
-| Mutations       | Typed methods carry idempotency keys and return explicit success or failure data |
-| Pagination      | List methods accept or return cursors; no offset appears in the client           |
+| Concern         | Contract                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------- |
+| API access      | Every route calls the typed `ApiClient`; transport stays one file deep                                  |
+| Queries         | `query` owns cache identity; `createAsync` owns route pending and result state                          |
+| Mutations       | Typed methods carry idempotency keys and return explicit success or failure data                        |
+| Pagination      | List methods accept or return cursors; no offset appears in the client                                  |
 | Test seams      | Browser-free decoder and serialization tests use literal bounded inputs; they are not a browser runtime |
-| Generated types | Rust-owned browser-safe types live under ignored `generated/api/`                |
+| Generated types | Rust-owned browser-safe types live under ignored `generated/api/`                                       |
 
 `listProblems(cursor)` returns `CatalogProblemSummary` hot metadata rather
 than full question payloads. `listTaxonomy(cursor)` uses the same bounded page
@@ -132,6 +135,25 @@ ranges, discriminants, and nested records before application code sees them.
 course, and exact immutable question lookup. It verifies their ID and tenant
 relationships instead of assuming that independently valid responses belong
 together. List traversal remains cursor-only and rejects a repeated cursor.
+
+## Curriculum adoption flow
+
+`src/pages/curriculum_adoption_live_page.tsx` composes the authorized course route with
+`src/features/curriculum_adoption/`. `CurriculumAdoptionPage` presents one staged Instructor
+workflow for Blueprint/Alpha selection, Blueprint or Alpha instantiation, course rollover,
+whole-course term shift, and import inspection. `AlphaForkAction` composes the independent-copy
+proposal into the public Alpha detail route. `createCurriculumAdoptionClient` is the single
+same-origin client for these operations; each preview is `no-store`, answer-free, and bound to the
+server's source, destination, and revisions.
+
+Apply receives only the exact eligible preview and a retry-safe idempotency key. The server owns
+calendar-day and local-wall-clock schedule resolution in the target IANA zone, reports DST gaps or
+ambiguities for visible correction, and returns typed recovery when issued work or revision drift
+blocks an in-place change. Import maintenance can fast-forward an untouched assignment or create a
+new source-derived draft when the destination diverged; it never silently overwrites teaching state.
+Completed operations return immutable receipt evidence and the page can request receipt-led
+reconciliation. Browser state preserves the visible choices needed to correct a failed proposal,
+while authority remains in the API and `CurriculumAdoptionStore`.
 
 ## Learner attempt boundary
 
@@ -335,11 +357,9 @@ conditions on student routes:
   usable at the representative 800 by 1280 portrait target, and compatible with a narrow-phone CSS
   viewport without horizontal overflow or inaccessible controls.
 
-Instructor routes are laptop/desktop-first. Their canonical acceptance canvas is 1280 by 800 CSS
-pixels, where information density and the complete workflow take precedence over preserving the
-same composition on a phone. Narrow instructor views may reorganize locally when necessary, but do
-not compromise the canonical instructor layout to make every authoring or administration surface
-equally elegant at 320 pixels.
+Instructor and Sysadmin routes are desktop-only for visual evidence. Their canonical acceptance
+canvas is 1280 by 800 CSS pixels in a 16:10 profile, where information density and the complete
+workflow take precedence. Student evidence retains the separate maintained responsive profile policy.
 
 Responsive layout belongs to CSS Grid and Flexbox with complementary media and container queries.
 SolidJS owns state only when a responsive interaction, such as an actually-needed disclosure menu,
@@ -373,12 +393,12 @@ The evidence below names what each lane proves. The canonical browser
 product-behavior claim comes from production `dist/` on the disposable real
 stack. Screenshots use the same owner and carry production-origin provenance.
 
-| Evidence lane                          | Current evidence                                                                                                | What it proves                                                                                                                                                                                            | Boundary                                                                                                   | Status                                  |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| Canonical production browser           | `run_playwright_tests.sh` -> `tests/e2e/e2e_browser_suite_owner.py` -> `playwright.config.ts` -> `tests/playwright/e2e/*.spec.ts` | Real visible journeys use the production bundle, HTTPS gateway, authentication, API, database, object store, worker, and renderer. | One fixed owner runs scenarios serially; a focused selection receives a fresh stack. | Required browser evidence. |
-| Visible browser-Wasm proof              | `tests/playwright/e2e/instructor_authoring.spec.ts` through the canonical owner | The instructor scenario sees `data-runtime-mode="wasm"` and the visible "Response tools are running locally in this browser." status. | Source and unit checks cannot prove that the production bundle initialized Wasm in Chromium. | Required for browser-Wasm claim. |
-| Browser-free unit and contract evidence | `src/wasm/index.ts`, `src/wasm/context.tsx`, `src/main.tsx`, and `tests/test_frontend_contract.mjs` | The facade has one shared loader, typed server fallbacks, unavailable-only preview behavior, and no correctness field in local reports. | It does not replace the production-browser proof. | Complete as narrow implementation evidence. |
-| Service-only oracles                  | Browser-free WebWork and replica restart commands | Renderer/cache/outage, durable replay, database/RLS, and lifecycle claims that are not visible UI journeys. | These commands do not launch Chromium or import a browser configuration. | Retained with explicit boundaries. |
+| Evidence lane                           | Current evidence                                                                                                                  | What it proves                                                                                                                          | Boundary                                                                                     | Status                                      |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Canonical production browser            | `run_playwright_tests.sh` -> `tests/e2e/e2e_browser_suite_owner.py` -> `playwright.config.ts` -> `tests/playwright/e2e/*.spec.ts` | Real visible journeys use the production bundle, HTTPS gateway, authentication, API, database, object store, worker, and renderer.      | One fixed owner runs scenarios serially; a focused selection receives a fresh stack.         | Required browser evidence.                  |
+| Visible browser-Wasm proof              | `tests/playwright/e2e/instructor_authoring.spec.ts` through the canonical owner                                                   | The instructor scenario sees `data-runtime-mode="wasm"` and the visible "Response tools are running locally in this browser." status.   | Source and unit checks cannot prove that the production bundle initialized Wasm in Chromium. | Required for browser-Wasm claim.            |
+| Browser-free unit and contract evidence | `src/wasm/index.ts`, `src/wasm/context.tsx`, `src/main.tsx`, and `tests/test_frontend_contract.mjs`                               | The facade has one shared loader, typed server fallbacks, unavailable-only preview behavior, and no correctness field in local reports. | It does not replace the production-browser proof.                                            | Complete as narrow implementation evidence. |
+| Service-only oracles                    | Browser-free WebWork and replica restart commands                                                                                 | Renderer/cache/outage, durable replay, database/RLS, and lifecycle claims that are not visible UI journeys.                             | These commands do not launch Chromium or import a browser configuration.                     | Retained with explicit boundaries.          |
 
 - Node tests freeze the route map, client behavior, and absence of
   answer-bearing generated names.

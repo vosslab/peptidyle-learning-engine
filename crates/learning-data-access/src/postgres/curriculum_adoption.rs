@@ -881,14 +881,6 @@ fn require(condition: bool, message: &str) -> Result<(), StoreError> {
 
 fn map_curriculum_adoption_error(error: sqlx::Error) -> StoreError {
     if let sqlx::Error::Database(database) = &error {
-        if std::env::var_os("B2_SQL_DIAGNOSTIC").is_some()
-            && database.code().as_deref() == Some("22023")
-        {
-            eprintln!(
-                "B2 curriculum adoption database error: SQLSTATE 22023: {}",
-                database.message()
-            );
-        }
         match database.code().as_deref() {
             // ASVS 8.2.2, 8.4.1, 16.5.1: conceal absent and cross-tenant
             // locators without weakening direct-Instructor authorization.

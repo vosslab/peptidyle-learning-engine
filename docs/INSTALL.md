@@ -20,10 +20,12 @@ stateless `webwork-pg-renderer` engine; it does not install the WebWork2 assignm
 ```bash
 git clone https://github.com/vosslab/peptidyle-learning-engine.git
 cd peptidyle-learning-engine
-npm run setup
+./setup.sh
 ```
 
-`npm run setup` runs `npm install` for the JavaScript dependencies declared in `package.json`.
+`setup.sh` installs the lockfile-defined JavaScript dependencies with `npm ci`. The npm `setup`
+entry is an optional mirror of this root script, not the project interface. A fresh-clone
+`run_live_demo.sh` launch invokes `setup.sh` visibly when `node_modules` is absent.
 Install the Python developer tools separately when running the Python checks:
 
 ```bash
@@ -87,7 +89,7 @@ stack and lease/cleanup contract, see
 ## Production baseline is separate
 
 The OpenTofu configuration under `deploy/opentofu/` is not installed or applied
-by `npm run setup` or the typed local-stack lifecycle. It defines private no-NAT ECS
+by `setup.sh` or the typed local-stack lifecycle. It defines private no-NAT ECS
 tasks, RDS, four SSE-KMS S3 domains, CloudFront/ALB TLS-origin admission, and
 separate API, worker, and public-asset-publisher roles and secrets. A live AWS
 deployment still requires operator-owned DNS, certificates, Secrets Manager

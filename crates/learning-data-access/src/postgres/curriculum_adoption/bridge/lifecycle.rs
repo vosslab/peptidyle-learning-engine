@@ -341,7 +341,6 @@ fn validate_rollover_sources(
             .map_err(|_| unavailable("rollover assignment position exceeds the contract bound"))?;
         if source.module_position != module_position
             || source.assignment_position != assignment_position
-            || source.source_assignment_revision == 0
         {
             return Err(unavailable("rollover source assignment witness disagrees"));
         }
@@ -529,13 +528,13 @@ mod tests {
                 module_position: 0,
                 assignment_position: 0,
                 source_assignment_id: uuid::Uuid::from_u128(1),
-                source_assignment_revision: 1,
+                source_assignment_revision: question_model::AssignmentRevision::INITIAL,
             },
             OrderedRolloverSourceV1 {
                 module_position: 1,
                 assignment_position: 0,
                 source_assignment_id: uuid::Uuid::from_u128(2),
-                source_assignment_revision: 1,
+                source_assignment_revision: question_model::AssignmentRevision::INITIAL,
             },
         ];
 
@@ -556,13 +555,13 @@ mod tests {
                 module_position: 0,
                 assignment_position: 0,
                 source_assignment_id: uuid::Uuid::from_u128(1),
-                source_assignment_revision: 1,
+                source_assignment_revision: question_model::AssignmentRevision::INITIAL,
             },
             OrderedRolloverSourceV1 {
                 module_position: 1,
                 assignment_position: 0,
                 source_assignment_id: uuid::Uuid::from_u128(2),
-                source_assignment_revision: 1,
+                source_assignment_revision: question_model::AssignmentRevision::INITIAL,
             },
         ];
 

@@ -8,6 +8,45 @@
 
 BEGIN;
 
+-- B1 is accepted and checksum-immutable.  Correct its relative-time validator
+-- here so both upgraded and fresh databases receive the same forward repair.
+CREATE OR REPLACE FUNCTION public.ple_reusable_definition_v1_is_valid(p_definition jsonb)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE SET search_path TO 'pg_catalog', 'public' AS $$
+DECLARE entry_value jsonb; moment_value jsonb; candidate_count integer;
+BEGIN
+    IF jsonb_typeof(p_definition) <> 'object'
+       OR NOT p_definition ?& ARRAY['title', 'instructions', 'entries', 'defaults', 'schedule']
+       OR (SELECT count(*) FROM jsonb_object_keys(p_definition)) <> 5
+       OR jsonb_typeof(p_definition->'title') <> 'string'
+       OR char_length(p_definition->>'title') NOT BETWEEN 1 AND 200
+       OR p_definition->>'title' <> btrim(p_definition->>'title')
+       OR jsonb_typeof(p_definition->'instructions') <> 'string'
+       OR jsonb_typeof(p_definition->'entries') <> 'array'
+       OR jsonb_array_length(p_definition->'entries') NOT BETWEEN 1 AND 1024
+       OR jsonb_typeof(p_definition->'defaults') <> 'object'
+       OR NOT p_definition->'defaults' ?& ARRAY['timeLimitSeconds', 'attemptLimit', 'lateSubmission', 'deadlineBehavior', 'runPolicies', 'learnerDisclosure']
+       OR (SELECT count(*) FROM jsonb_object_keys(p_definition->'defaults')) <> 6
+       OR p_definition->'defaults'->>'lateSubmission' NOT IN ('accept', 'markLate', 'reject')
+       OR p_definition->'defaults'->>'deadlineBehavior' <> 'autoSubmit'
+       OR jsonb_typeof(p_definition->'defaults'->'runPolicies') <> 'object'
+       OR jsonb_typeof(p_definition->'defaults'->'learnerDisclosure') <> 'object'
+       OR jsonb_typeof(p_definition->'schedule') <> 'object'
+       OR NOT p_definition->'schedule' ?& ARRAY['availableAt', 'dueAt', 'closesAt']
+       OR (SELECT count(*) FROM jsonb_object_keys(p_definition->'schedule')) <> 3 THEN RETURN false; END IF;
+    FOR moment_value IN SELECT value FROM jsonb_each(p_definition->'schedule') LOOP
+        IF moment_value <> 'null'::jsonb AND (jsonb_typeof(moment_value) <> 'object' OR NOT moment_value ?& ARRAY['dayOffset', 'localTime'] OR (SELECT count(*) FROM jsonb_object_keys(moment_value)) <> 2 OR jsonb_typeof(moment_value->'dayOffset') <> 'number' OR (moment_value->>'dayOffset')::numeric <> trunc((moment_value->>'dayOffset')::numeric) OR (moment_value->>'dayOffset')::numeric NOT BETWEEN -2147483648 AND 2147483647 OR moment_value->>'localTime' !~ '^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\.[0-9]{3}$') THEN RETURN false; END IF;
+    END LOOP;
+    FOR entry_value IN SELECT value FROM jsonb_array_elements(p_definition->'entries') LOOP
+        IF jsonb_typeof(entry_value) <> 'object' OR entry_value->>'kind' NOT IN ('fixed', 'pool') THEN RETURN false; END IF;
+        IF entry_value->>'kind' = 'fixed' AND (NOT entry_value ?& ARRAY['kind','questionId','pointsPossible','scoringMode'] OR (SELECT count(*) FROM jsonb_object_keys(entry_value)) <> 4 OR entry_value->>'questionId' !~ '^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$' OR jsonb_typeof(entry_value->'pointsPossible') <> 'string' OR entry_value->>'pointsPossible' !~ '^[0-9]{1,10}(\.[0-9]{1,4})?$' OR (entry_value->>'pointsPossible')::numeric > 1000000000.9999 OR entry_value->>'scoringMode' NOT IN ('normal','fullCredit','extraCredit','excluded')) THEN RETURN false; END IF;
+        IF entry_value->>'kind' = 'pool' THEN
+            SELECT count(*) INTO candidate_count FROM jsonb_array_elements_text(entry_value->'candidates');
+            IF NOT entry_value ?& ARRAY['kind','candidates','drawCount','pointsPerItem','ordering','algorithm'] OR (SELECT count(*) FROM jsonb_object_keys(entry_value)) <> 6 OR jsonb_typeof(entry_value->'candidates') <> 'array' OR candidate_count NOT BETWEEN 1 AND 1024 OR (entry_value->>'drawCount')::integer NOT BETWEEN 1 AND candidate_count OR jsonb_typeof(entry_value->'pointsPerItem') <> 'string' OR entry_value->>'pointsPerItem' !~ '^[0-9]{1,10}(\.[0-9]{1,4})?$' OR (entry_value->>'pointsPerItem')::numeric > 1000000000.9999 OR entry_value->>'ordering' NOT IN ('candidateOrder','randomized') OR entry_value->>'algorithm' <> 'v1' OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(entry_value->'candidates') AS candidate(question_id) WHERE candidate.question_id !~ '^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$') OR (SELECT count(DISTINCT candidate.question_id) FROM jsonb_array_elements_text(entry_value->'candidates') AS candidate(question_id)) <> candidate_count THEN RETURN false; END IF;
+        END IF;
+    END LOOP;
+    RETURN true;
+END $$;
+
 -- The source compiler may read only published catalog pins visible to its tenant.
 CREATE POLICY curriculum_adoption_catalog_fact_read ON public.catalog_search_document
     FOR SELECT TO ple_curriculum_adoption_broker

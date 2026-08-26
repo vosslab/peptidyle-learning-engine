@@ -61,7 +61,7 @@ export function curriculumAdoptionNextInstruction(
     case "preview":
       return "Review the proposal and its target. Apply only when the destination and schedule are correct.";
     case "applying":
-      return "Applying the approved proposal. A retry keeps this operation’s idempotency key.";
+      return "Applying the approved proposal. A retry keeps this operation's idempotency key.";
     case "receipt":
       return "The live change is complete. Open the destination or inspect its import evidence next.";
     case "recovery":

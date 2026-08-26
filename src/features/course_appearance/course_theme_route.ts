@@ -2,6 +2,7 @@
 
 import type { CourseRouteReference, RunRouteReference } from "../../navigation/public_route";
 import { parseCourseReference, parseRunReference } from "../../navigation/public_route";
+import { routeContractForPathname } from "../../route_contract";
 
 export type CourseThemeRouteRequest =
   | { readonly kind: "global" }
@@ -11,68 +12,23 @@ export type CourseThemeRouteRequest =
 
 /** Classifies only executable course-owned routes; all other pages remain global. */
 export function courseThemeRouteRequest(pathname: string): CourseThemeRouteRequest {
+  const route = routeContractForPathname(pathname);
+  if (route === undefined) return { kind: "global" };
   const segments = pathname.split("/").filter((segment) => segment.length > 0);
-  if (segments[0] === "runs" && segments[1] !== undefined) {
+  if ((route.id === "runAttempt" || route.id === "runSummary") && segments[1] !== undefined) {
     const reference = parseRunReference(segments[1]);
     if (reference === null) return { kind: "global" };
-    if (segments.length === 2) return { kind: "runAttempt", runReference: reference };
-    if (segments.length === 3 && segments[2] === "summary") {
-      return { kind: "runSummary", runReference: reference };
-    }
+    return route.id === "runAttempt"
+      ? { kind: "runAttempt", runReference: reference }
+      : { kind: "runSummary", runReference: reference };
   }
-  if (segments[0] === "courses" && segments[1] !== undefined) {
+  if (route.path.startsWith("/courses/:courseRef") && segments[1] !== undefined) {
     const reference = parseCourseReference(segments[1]);
-    if (reference === null) return { kind: "global" };
-    if (segments.length === 2) return { kind: "course", courseReference: reference };
-    if (segments.length === 4 && segments[2] === "assignments" && segments[3] !== undefined) {
-      return { kind: "course", courseReference: reference };
-    }
+    return reference === null ? { kind: "global" } : { kind: "course", courseReference: reference };
   }
-  if (segments[0] === "instructor" && segments[1] === "courses" && segments[2] !== undefined) {
+  if (route.path.startsWith("/instructor/courses/:courseRef") && segments[2] !== undefined) {
     const reference = parseCourseReference(segments[2]);
-    if (reference === null) return { kind: "global" };
-    if (segments.length === 5 && segments[3] === "assignments" && segments[4] === "new") {
-      return { kind: "course", courseReference: reference };
-    }
-    if (segments.length === 4 && segments[3] === "gradebook") {
-      return { kind: "course", courseReference: reference };
-    }
-    if (segments.length === 4 && segments[3] === "grade-settings") {
-      return { kind: "course", courseReference: reference };
-    }
-    if (segments.length === 4 && segments[3] === "appearance") {
-      return { kind: "course", courseReference: reference };
-    }
-    if (segments.length === 4 && segments[3] === "students") {
-      return { kind: "course", courseReference: reference };
-    }
-    if (
-      segments.length === 6 &&
-      segments[3] === "assignments" &&
-      segments[4] !== undefined &&
-      segments[5] === "edit"
-    ) {
-      return { kind: "course", courseReference: reference };
-    }
-    if (
-      segments.length === 6 &&
-      segments[3] === "assignments" &&
-      segments[4] !== undefined &&
-      segments[5] === "delivery-check"
-    ) {
-      return { kind: "course", courseReference: reference };
-    }
-    if (
-      segments.length === 6 &&
-      segments[3] === "assignments" &&
-      segments[4] !== undefined &&
-      segments[5] === "access"
-    ) {
-      return { kind: "course", courseReference: reference };
-    }
-    if (segments.length === 4 && segments[3] === "teaching-operations") {
-      return { kind: "course", courseReference: reference };
-    }
+    return reference === null ? { kind: "global" } : { kind: "course", courseReference: reference };
   }
   return { kind: "global" };
 }

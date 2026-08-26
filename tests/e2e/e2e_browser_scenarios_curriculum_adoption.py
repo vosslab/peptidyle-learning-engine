@@ -11,7 +11,13 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			spec_path="tests/playwright/e2e/curriculum_adoption.spec.ts",
 			personas=("elena_instructor", "avery_student", "morgan_sysadmin"),
 			baseline_reads=("base_course", "genetics_practice_course"),
-			ui_creates=("question", "alpha_curriculum", "course", "assignment"),
+			ui_creates=(
+				"question",
+				"alpha_curriculum",
+				"course",
+				"assignment",
+				"teaching_invitation",
+			),
 			visible_observation=(
 				"approved_instructors_fork_alpha_then_elena_corrects_dst_adopts_shifts_"
 				"fast_forwards_preserves_divergence_and_rolls_over_a_fresh_course"

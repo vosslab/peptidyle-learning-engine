@@ -12,9 +12,9 @@ no stronger boundary convention applies, prefer readable lowercase `snake_case`.
 
 `UpperCamelCase` is reserved for type-like and component objects. Ordinary TypeScript and browser
 names use `lowerCamelCase`; the initial lowercase letter distinguishes that form from the reserved
-type-like form. This browser convention follows the DOM, SolidJS, TypeScript, and generated-client
-naming ecosystem. PLE uses `snake_case` everywhere that ecosystem convention does not provide a
-stronger reason.
+type-like form. This browser convention follows the naming used by DOM Web APIs, SolidJS, TypeScript,
+and generated clients. PLE uses `snake_case` everywhere that ecosystem convention does not provide
+a stronger reason.
 
 ## Naming matrix
 

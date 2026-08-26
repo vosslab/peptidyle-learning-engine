@@ -26,7 +26,7 @@ Install the checked-in JavaScript dependencies once, then use the root scripts a
 interface:
 
 ```bash
-npm run setup
+./setup.sh
 ./build.sh
 ./check_rust.sh
 ./check_codebase.sh
@@ -111,7 +111,7 @@ active work package.
 `tests/playwright/` is browser-driven testing and `tests/e2e/` is non-browser whole-system
 orchestration. Both are intentionally excluded from `pytest tests/`; see
 [E2E_TESTS.md](E2E_TESTS.md) for the test-tier boundary. Install the browser binaries once with
-`npm run setup:playwright` before running Playwright.
+`./setup_playwright.sh` before running Playwright.
 
 ### Playwright execution lanes
 

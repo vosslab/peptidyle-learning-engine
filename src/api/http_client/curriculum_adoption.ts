@@ -112,6 +112,11 @@ function importsPath(course: string): string {
   return `/api/courses/${encodeURIComponent(course)}/curriculum-imports`;
 }
 
+function courseTermShiftApplyPath(preview: CourseTermShiftPreviewOutcome): string {
+  const course = preview.kind === "eligible" ? preview.preview.witness.course : preview.course;
+  return `${coursePath(course)}/curriculum-term-shift/apply`;
+}
+
 function applyBody<T>(preview: T, idempotencyKey: CurriculumAdoptionIdempotencyKey): unknown {
   return {
     preview,
@@ -162,9 +167,8 @@ async function apply<TView, TResult>(
   eligibility?: (value: TView, path: string) => void,
 ): Promise<TResult> {
   const checkedPreview = previewDecoder(previewValue, "preview");
-  const eligibilityPath = typeof path === "string" ? path : "/api/curriculum-adoption/apply";
-  eligibility?.(checkedPreview, eligibilityPath);
   const resolvedPath = typeof path === "string" ? path : path(checkedPreview);
+  eligibility?.(checkedPreview, resolvedPath);
   return adoptionJson(
     fetchImplementation,
     basePath,
@@ -285,8 +289,7 @@ export function createCurriculumAdoptionClient(
       apply(
         fetchImplementation,
         basePath,
-        (preview) =>
-          `${coursePath(preview.kind === "eligible" ? preview.preview.witness.course : preview.course)}/curriculum-term-shift/apply`,
+        courseTermShiftApplyPath,
         previewValue,
         key,
         decodeCourseTermShiftPreviewOutcome,

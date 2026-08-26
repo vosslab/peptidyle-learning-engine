@@ -35,6 +35,16 @@ test("live-demo parser accepts direct role input without claim material", () => 
   assert.equal(parsed?.scenarioId, "direct_role_entry");
 });
 
+test("live-demo parser accepts descriptive ASCII observation evidence", () => {
+  const observation =
+    "approved instructors fork Alpha, correct its schedule, apply controlled updates, " +
+    "preserve local divergence, and roll over a fresh course";
+  assert.equal(parse(input({ visibleObservation: observation }))?.visibleObservation, observation);
+  assert.throws(() => parse(input({ visibleObservation: "" })));
+  assert.throws(() => parse(input({ visibleObservation: "   " })));
+  assert.throws(() => parse(input({ visibleObservation: "visible evidence \u2192 complete" })));
+});
+
 test("live-demo parser rejects retired role-claim fields", () => {
   assert.throws(() => parse(input({ sysadminRequirement: "claimed" })));
 });

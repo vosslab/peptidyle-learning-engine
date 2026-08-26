@@ -310,7 +310,7 @@ pub(super) struct OrderedRolloverSourceV1 {
     pub(super) module_position: u16,
     pub(super) assignment_position: u16,
     pub(super) source_assignment_id: Uuid,
-    pub(super) source_assignment_revision: u64,
+    pub(super) source_assignment_revision: question_model::AssignmentRevision,
 }
 
 /// One source-course module preserving its authored label and assignment

@@ -4,10 +4,10 @@
 	"type": "module",
 	"private": true,
 	"scripts": {
-		"setup": "./devel/setup_typescript.sh",
-		"setup:playwright": "./devel/setup_playwright.sh",
+		"setup": "./setup.sh",
+		"setup:playwright": "./setup_playwright.sh",
 		"build": "./build.sh",
-		"launch": "python3 local_stack.py start",
+		"launch": "./run_live_demo.sh",
 		"build:wasm": "./pipeline/build_wasm.sh",
 		"check": "./check_codebase.sh",
 		"clean": "./devel/clean_build.sh",

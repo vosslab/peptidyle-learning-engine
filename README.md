@@ -142,18 +142,18 @@ for the ownership map.
 
 ## Quick start
 
-For the first complete developer result, install the prerequisites in
-[docs/INSTALL.md](docs/INSTALL.md), then clone the repository, install browser dependencies, and
-start the fixed production-auth browser session:
+For the first complete developer result, install the system prerequisites in
+[docs/INSTALL.md](docs/INSTALL.md), then clone the repository and start the fixed production-auth
+browser session:
 
 ```bash
 git clone https://github.com/vosslab/peptidyle-learning-engine.git
 cd peptidyle-learning-engine
-npm run setup
 ./run_live_demo.sh
 ```
 
-`run_live_demo.sh` delegates to the canonical local-stack owner. It builds the
+On a fresh clone, `run_live_demo.sh` visibly invokes the root `setup.sh` dependency installer before
+delegating to the canonical local-stack owner. It builds the
 production `dist/` bundle, creates a fresh disposable
 `ple-live-demo-browser` HTTPS stack, waits for production-auth readiness, and opens
 the canonical browser origin. For a headless alternative, run
@@ -187,7 +187,7 @@ mastery and server-side contracts without requiring containers or local credenti
 repository gate also needs current Node.js and npm, plus Python 3.12 with pytest:
 
 ```bash
-npm run setup
+./setup.sh
 ./check_codebase.sh
 ./check_rust.sh
 ```
@@ -217,17 +217,19 @@ generation is discarded without delaying or rolling back the current grade.
 
 ## What exists today
 
-| Area                                 | State                                                                                                                                                                                                                                                                                                                                         |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rust domain and learning data access | Attempt, timing, scoring, manual-grading, item-analysis, retention, catalog, and worker contracts; in-memory and PostgreSQL implementations share conformance tests                                                                                                                                                                           |
-| API server                           | Auth, catalog, course, assignment, run, submission, manual grade, item analysis, asset, export, workspace, and retention route groups                                                                                                                                                                                                         |
-| WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                                                                                                |
-| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, library, authoring, flat-question editing, assignment editing, and gradebook                                                                                                                                                                                                    |
-| PostgreSQL                           | Forward-only SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification                                                                                                                                                                                                                      |
+| Area                                 | State                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rust domain and learning data access | Attempt, timing, scoring, manual-grading, item-analysis, retention, catalog, and worker contracts; in-memory and PostgreSQL implementations share conformance tests                                                                                                                                         |
+| Reusable curriculum                  | Revisioned private Blueprints, public Alpha curricula, immutable publication pins, answer-free inspection, and shared question selection                                                                                                                                                                    |
+| API server                           | Auth, catalog, course, assignment, run, submission, manual grade, item analysis, asset, export, workspace, retention, reusable curriculum, and curriculum-adoption route groups                                                                                                                             |
+| WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                                                              |
+| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, library, authoring, flat-question editing, assignment editing, gradebook, reusable curricula, and Instructor curriculum adoption                                                                                                              |
+| Curriculum adoption                  | Preview-before-save fork and instantiation, rollover, term shifting, provenance receipts, controlled fast-forward, divergence recovery, and teaching-operation API/browser capabilities; B2 acceptance remains open                                                                                         |
+| PostgreSQL                           | Forward-only SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification                                                                                                                                                                                    |
 | Question engines                     | PLE flat-question JSON v2 implements all eight required native families; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
-| DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                                                                                                                    |
-| Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                                                                                         |
-| Worker runtime                       | Production drains six complete families through a family-filtered registry; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                                                                                                   |
+| DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                                                                                  |
+| Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                                                       |
+| Worker runtime                       | Production drains six complete families through a family-filtered registry; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                                                                 |
 
 The current checkpoint, evidence, and remaining dependency order live in
 [docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md),
@@ -322,8 +324,10 @@ For status and contribution work:
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) - dated record of changes, decisions, and failures.
 - [AGENTS.md](AGENTS.md) - working method, validation loop, and constraints for contributors and
   coding agents.
-- [docs/RUST_STYLE.md](docs/RUST_STYLE.md), [docs/TYPESCRIPT_STYLE.md](docs/TYPESCRIPT_STYLE.md),
-  and [docs/MARKDOWN_STYLE.md](docs/MARKDOWN_STYLE.md) - language and documentation conventions.
+- [docs/NAMING_CONVENTIONS.md](docs/NAMING_CONVENTIONS.md),
+  [docs/RUST_STYLE.md](docs/RUST_STYLE.md), [docs/TYPESCRIPT_STYLE.md](docs/TYPESCRIPT_STYLE.md), and
+  [docs/MARKDOWN_STYLE.md](docs/MARKDOWN_STYLE.md) - repository, language, and documentation
+  conventions.
 
 ## License
 

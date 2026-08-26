@@ -45,6 +45,11 @@ export function writeContextOriginReceipt(
   contexts: Readonly<Record<string, ObservedOrigins>>,
   includeContexts = true,
 ): void {
+  for (const name of Object.keys(contexts)) {
+    if (!/^[a-z][a-z0-9_]{0,31}$/u.test(name)) {
+      throw new Error(`origin receipt context name is outside the canonical contract: ${name}`);
+    }
+  }
   const pageOrigins = new Set<string>();
   const requestOrigins = new Set<string>();
   for (const origins of Object.values(contexts)) {

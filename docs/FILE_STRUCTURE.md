@@ -24,9 +24,12 @@ status reports live under [active_plans/](active_plans/) and remain separate fro
 +- generated/            Ignored generated contract and fixture projections
 +- Cargo.toml            Rust workspace manifest
 +- package.json          Browser tooling manifest
++- setup.sh              Canonical lockfile-defined repository dependency setup
++- setup_playwright.sh   Optional local Playwright browser installation
 +- build.sh              Full local build entry point
 +- check_codebase.sh     Vendored TypeScript and browser gate
 +- check_rust.sh         Repository-owned Cargo and Rust gate
++- run_live_demo.sh      Fresh-clone setup plus canonical live-demo lifecycle
 +- local_stack.py        Public local Podman controller entry point
 +- local_stack_control/  Local Podman controller package and focused private lifecycle modules
    +- acceptance_lanes.py Ordered aggregate acceptance-lane owner

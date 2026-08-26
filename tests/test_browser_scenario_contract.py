@@ -56,6 +56,16 @@ def test_contract_rejects_unknown_closed_values_before_lifecycle_allocation() ->
 		browser_scenario_contract.validate_contract(contract)
 
 
+def test_contract_requires_visible_ascii_observation_evidence() -> None:
+	"""Descriptive evidence contains visible ASCII rather than blank padding."""
+	contract = browser_scenario_contract.dataclasses.replace(
+		browser_scenario_contract.scenario_contracts()[0],
+		visible_observation="   ",
+	)
+	with pytest.raises(browser_scenario_contract.ScenarioContractError, match="visible observation"):
+		browser_scenario_contract.validate_contract(contract)
+
+
 def test_registry_rejects_duplicate_scenarios_and_unsafe_selection() -> None:
 	"""Focused execution must resolve one distinct checked-in scenario."""
 	registry = browser_scenario_contract.scenario_contracts()

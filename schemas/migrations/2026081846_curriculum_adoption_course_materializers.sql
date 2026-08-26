@@ -179,16 +179,11 @@ BEGIN
            OR jsonb_array_length(p->'rolloverSources') <> jsonb_array_length(p->'assignments')
            OR EXISTS (
                 SELECT 1 FROM jsonb_array_elements(p->'rolloverSources') AS source(value)
-                 WHERE jsonb_typeof(source.value->'sourceAssignmentRevision') <> 'number'
-           )
-           OR EXISTS (
-                SELECT 1 FROM jsonb_array_elements(p->'rolloverSources') AS source(value)
                  LEFT JOIN public.assignment AS assignment_row
                    ON assignment_row.tenant_id=p_tenant
                   AND assignment_row.course_id=source_course
                   AND assignment_row.assignment_id=public.ple_cam_uuid_v1(source.value->'sourceAssignmentId')
-                  AND assignment_row.revision=public.ple_cam_positive_revision_v1(
-                        to_jsonb(source.value->>'sourceAssignmentRevision'))
+                  AND assignment_row.revision=public.ple_cam_positive_revision_v1(source.value->'sourceAssignmentRevision')
                  LEFT JOIN public.teaching_course_assignment_position AS topology
                    ON topology.tenant_id=assignment_row.tenant_id AND topology.course_id=assignment_row.course_id
                   AND topology.assignment_id=assignment_row.assignment_id
@@ -238,7 +233,7 @@ BEGIN
                 CASE WHEN p_operation='applyAlphaInstantiation' THEN 'alpha' ELSE 'rollover' END,
                 CASE WHEN p_operation='applyCourseRollover' THEN (p->'rolloverSources'->flat_count->>'sourceAssignmentId')::uuid END,
                 CASE WHEN p_operation='applyCourseRollover' THEN public.ple_cam_positive_revision_v1(
-                    to_jsonb(p->'rolloverSources'->flat_count->>'sourceAssignmentRevision')) END);
+                    p->'rolloverSources'->flat_count->'sourceAssignmentRevision') END);
             flat_count:=flat_count+1; assignment_pos:=assignment_pos+1;
         END LOOP;
         module_pos:=module_pos+1;

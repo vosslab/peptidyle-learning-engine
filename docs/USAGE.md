@@ -13,8 +13,9 @@ Build and open the local stack:
 ./run_live_demo.sh
 ```
 
-The root shortcut delegates to the fixed local-stack owner and opens the
-canonical HTTPS origin. For a headless alternative, run
+On a fresh clone, the root shortcut first runs `setup.sh` when `node_modules` is absent. It then
+delegates to the fixed local-stack owner and opens the canonical HTTPS origin. For a headless
+alternative, run
 `./run_live_demo.sh --no-open`; it keeps the browser closed and prints the
 origin. Follow the visible seeded production-auth flow; this entry point has no
 alternate credential form or auth switch.

@@ -2,8 +2,8 @@
 
 This gallery is the visual map of PLE's instructor interface. It is captured from a working demo
 environment with one coherent set of sample courses, questions, roster records, and grades. The
-complete page map retains a 1280 by 800 CSS-pixel desktop baseline; the course-grade editor
-additionally covers 800 by 1280, 393 by 852, and 800 by 800 responsive views.
+complete Instructor and Sysadmin page map uses only the canonical 1280 by 800 CSS-pixel, 16:10
+desktop baseline. Student evidence has a separate maintained profile policy.
 
 All people and records are fictional. `Dr. Fake Professor`, `Mary Fake Student`, and
 `Jack Fake Student` are deterministic documentation identities, not real Roosevelt participants.
@@ -14,22 +14,24 @@ writes an image.
 
 ## Page map
 
-| Page | Example route | What the view establishes |
-| --- | --- | --- |
-| Courses | `/` | Instructor home, course creation, and recognizable course list |
-| Course assignments | `/courses/C-1` | Course identity, local navigation, and assignment scanning |
-| Assignment overview | `/courses/C-1/assignments/A-1` | Question count, grade policy, feedback, and practice entry |
-| New assignment | `/instructor/courses/C-1/assignments/new` | Empty assignment authoring state and catalog entry points |
-| Assignment editor | `/instructor/courses/C-1/assignments/A-1/edit` | Four-question organization and run policies in one workspace |
-| Students | `/instructor/courses/C-1/students` | Invitation, enrollment policy, pending invitation, and roster context |
-| Gradebook | `/instructor/courses/C-1/gradebook` | Compact learner-assignment progress without expanded raw records |
-| Grade settings | `/instructor/courses/C-1/grade-settings` | Weighted categories, assignment membership, letter bands, totals, and audited export |
-| Course appearance | `/instructor/courses/C-1/appearance` | Applied course palettes, banner settings, and live theme context |
-| Question library | `/library` | Full-width search, filters, Question IDs, and published results |
-| Question detail | `/library/7K3-M9QP` | Human-facing identity, source context, and learner-facing prompt |
-| Workspace | `/workspace` | Private draft list and the currently selected draft workspace |
-| Question editor | `/workspace/W-1` | QTI import entry and native flat-question authoring |
-| Account | `/account/security` | Optional contrast preference, passkeys, and sign-in email settings |
+| Page                   | Example route                                  | What the view establishes                                                                                                                                                |
+| ---------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Courses                | `/`                                            | Instructor home, course creation, and recognizable course list                                                                                                           |
+| Course assignments     | `/courses/C-1`                                 | Course identity, local navigation, and assignment scanning                                                                                                               |
+| Assignment overview    | `/courses/C-1/assignments/A-1`                 | Question count, grade policy, feedback, and practice entry                                                                                                               |
+| New assignment         | `/instructor/courses/C-1/assignments/new`      | Empty assignment authoring state and catalog entry points                                                                                                                |
+| Assignment editor      | `/instructor/courses/C-1/assignments/A-1/edit` | Four-question organization and run policies in one workspace                                                                                                             |
+| Students               | `/instructor/courses/C-1/students`             | Invitation, enrollment policy, pending invitation, and roster context                                                                                                    |
+| Gradebook              | `/instructor/courses/C-1/gradebook`            | Compact learner-assignment progress without expanded raw records                                                                                                         |
+| Grade settings         | `/instructor/courses/C-1/grade-settings`       | Weighted categories, assignment membership, letter bands, totals, and audited export                                                                                     |
+| Course appearance      | `/instructor/courses/C-1/appearance`           | Applied course palettes, banner settings, and live theme context                                                                                                         |
+| Question library       | `/library`                                     | Full-width search, filters, Question IDs, and published results                                                                                                          |
+| Question detail        | `/library/7K3-M9QP`                            | Human-facing identity, source context, and learner-facing prompt                                                                                                         |
+| Workspace              | `/workspace`                                   | Private draft list and the currently selected draft workspace                                                                                                            |
+| Question editor        | `/workspace/W-1`                               | QTI import entry and native flat-question authoring                                                                                                                      |
+| Account                | `/account/security`                            | Optional contrast preference, passkeys, and sign-in email settings                                                                                                       |
+| Curriculum adoption    | `/instructor/courses/:courseRef/curriculum`    | Blueprint/Alpha source selection and instantiation, rollover, DST-aware term shift, import inspection, fast-forward, divergence recovery, and immutable receipt evidence |
+| Independent Alpha copy | `/curriculum/:curriculumRef`                   | Review and apply an independent Alpha proposal with retained source lineage                                                                                              |
 
 The authentication completion pages, invitation redemption, and student run pages are outside this
 instructor-workspace gallery. The approved end-to-end teaching loop remains in
@@ -50,6 +52,7 @@ composition. The Account view shows where increased contrast can be selected wit
 course theme or teaching behavior.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
+
 ![Instructor Courses workspace with course creation and three fictional courses](screenshots/instructor/course_authoring/01_course_created.png)
 ![Biochemistry course home with course navigation and three assignments](screenshots/instructor/course_authoring/02_course_assignments.png)
 ![Assignment overview summarizing questions, grade policy, feedback, and practice entry](screenshots/instructor/course_authoring/08_assignment_overview.png)
@@ -84,3 +87,7 @@ assets.
 Review the regenerated images together after shared layout, theme, typography, or navigation changes.
 Behavior-focused browser tests remain the authority for interaction, authorization, answer secrecy,
 and teaching semantics; these images are visual evidence for composition and current appearance.
+B2 is implemented in the live product. Review its source/destination distinction, preview-before-apply,
+DST correction, keyboard focus, recovery, privacy, and contrast at the canonical 1280 by 800 Instructor
+profile. Final screenshot publication and full Validation acceptance remain open until their required
+gates pass on one material tree.

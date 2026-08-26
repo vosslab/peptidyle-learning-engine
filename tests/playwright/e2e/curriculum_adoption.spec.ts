@@ -1,10 +1,14 @@
 // Production-stack WP-PROF-B2 curriculum-adoption journey.
 //
 // Selector contract:
-// - src/features/reusable_curriculum/reusable_curriculum_create_dialog.tsx owns source creation.
-// - src/features/curriculum_adoption/alpha_fork_action.tsx owns the independent Alpha-copy review.
-// - src/features/curriculum_adoption/curriculum_adoption_page.tsx owns proposals, recovery, and imports.
-// - src/features/curriculum_adoption/curriculum_adoption_panels.tsx owns completed-destination navigation.
+// - src/pages/editor_page.tsx:906 owns public question publication.
+// - src/features/reusable_curriculum/reusable_curriculum_create_dialog.tsx:154 owns source creation.
+// - src/features/curriculum_adoption/alpha_fork_action.tsx:180 owns independent-copy review.
+// - src/features/curriculum_adoption/curriculum_adoption_page.tsx:80 owns the adoption workflow.
+// - src/features/curriculum_adoption/curriculum_adoption_panels.tsx:319 owns receipt navigation.
+// - src/pages/teaching_operations/sysadmin_instructor_approval_panel.tsx:241 owns approval search.
+// - src/pages/teaching_team_panel.tsx:281 owns co-instructor invitation.
+// - src/pages/account_pending_invitations_page.tsx:253 owns invitation acceptance.
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
@@ -17,6 +21,7 @@ import {
   observeContextOrigins,
   requireScenarioInput,
   selectVisibleCourse,
+  signOutVisible,
   writeContextOriginReceipt,
   type ObservedOrigins,
 } from "./real_stack_ui";
@@ -60,6 +65,7 @@ async function createPublishedQuestion(page: Page, title: string): Promise<void>
     .check();
   await page.getByRole("button", { name: "Save private draft", exact: true }).click();
   await page.getByRole("button", { name: "Review publication changes", exact: true }).click();
+  await page.getByLabel("Publication scope").selectOption({ label: "Public" });
   await page.getByLabel("Reviewed public byline").fill("Dr. Elena Rivera");
   await page.getByRole("button", { name: "Confirm and publish", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Published", exact: true })).toBeVisible();
@@ -69,7 +75,7 @@ async function createScheduledAlpha(
   page: Page,
   alphaTitle: string,
   questionTitle: string,
-): Promise<void> {
+): Promise<string> {
   await page.getByRole("link", { name: "Curriculum", exact: true }).click();
   await page.getByRole("button", { name: "Create Alpha curriculum", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Create an Alpha curriculum", exact: true });
@@ -92,22 +98,30 @@ async function createScheduledAlpha(
   await expect(
     detail.getByRole("heading", { level: 1, name: alphaTitle, exact: true }),
   ).toBeVisible();
+  const referenceMatch = new URL(page.url()).pathname.match(/^\/curriculum\/(AC-[1-9][0-9]*)$/u);
+  if (referenceMatch?.[1] === undefined) {
+    throw new Error("The created Alpha curriculum did not expose its public reference.");
+  }
   await detail.getByLabel("Available relative moment").fill("0|02:30:00.000");
   await detail.getByLabel("Due relative moment").fill("1|03:00:00.000");
   await detail.getByLabel("Close relative moment").fill("2|03:00:00.000");
   await detail.getByRole("button", { name: "Save curriculum", exact: true }).click();
   await expect(detail.getByRole("status")).toContainText("Alpha curriculum saved");
+  return referenceMatch[1];
 }
 
 async function reviseAlphaAssignment(
   page: Page,
   alphaTitle: string,
+  alphaReference: string,
   assignmentTitle: string,
 ): Promise<void> {
   await page.getByRole("link", { name: "Curriculum", exact: true }).click();
   const workspace = page.locator('[data-route-surface="curriculum"]');
   await expect(workspace).toBeVisible();
-  await workspace.getByRole("link", { name: new RegExp(alphaTitle, "u") }).click();
+  const alphaLink = workspace.locator(`a[href="/curriculum/${alphaReference}"]`);
+  await expect(alphaLink).toContainText(alphaTitle);
+  await alphaLink.click();
   const detail = page.locator('[data-route-surface="curriculumDetail"]');
   await expect(
     detail.getByRole("heading", { level: 1, name: alphaTitle, exact: true }),
@@ -171,17 +185,75 @@ async function approveAvery(page: Page): Promise<void> {
   }
 }
 
+async function inviteAveryToBaseCourse(page: Page): Promise<void> {
+  await page.getByRole("link", { name: "Courses", exact: true }).click();
+  const baseCourse = page.getByRole("article").filter({ hasText: baseCourseTitle });
+  await expect(baseCourse).toBeVisible();
+  await baseCourse.getByRole("link", { name: "Open course", exact: true }).click();
+  await page.getByRole("link", { name: "Teaching operations", exact: true }).click();
+  const teachingTeam = page.getByRole("region", { name: "Teaching team" });
+  await expect(teachingTeam).toBeVisible();
+  const activeAvery = teachingTeam
+    .getByRole("region", { name: "Active instructors", exact: true })
+    .getByRole("article")
+    .filter({ hasText: "Avery Singh" });
+  if ((await activeAvery.count()) === 1) {
+    await expect(activeAvery).toContainText("Active direct instructor");
+    return;
+  }
+  await teachingTeam.getByLabel("Find an approved colleague").fill("Avery");
+  await teachingTeam.getByRole("button", { name: "Search eligible people" }).click();
+  const eligibleAvery = teachingTeam
+    .getByRole("list", { name: "Eligible co-instructor search results", exact: true })
+    .getByRole("listitem")
+    .filter({ hasText: "Avery Singh" });
+  const pendingAvery = teachingTeam
+    .getByRole("region", { name: "Pending invitations", exact: true })
+    .getByRole("article")
+    .filter({ hasText: "Avery Singh" });
+  await expect(eligibleAvery.or(pendingAvery)).toBeVisible();
+  if (await eligibleAvery.isVisible()) {
+    await eligibleAvery.getByRole("button", { name: "Select", exact: true }).click();
+    await teachingTeam.getByRole("button", { name: "Invite selected colleague" }).click();
+    await expect(teachingTeam.getByRole("status")).toHaveText(
+      "An invitation was created for Avery Singh.",
+    );
+  }
+}
+
+async function acceptBaseCourseInvitation(page: Page): Promise<void> {
+  await chooseSeededIdentity(page, /Avery Singh/u);
+  await selectVisibleCourse(page, averyCourseTitle);
+  await page.getByRole("link", { name: "Invitations", exact: true }).click();
+  const acceptInvitation = page
+    .getByRole("article")
+    .filter({ hasText: baseCourseTitle })
+    .getByRole("button", { name: "Accept", exact: true });
+  const noInvitations = page.getByRole("heading", { name: "No invitations waiting" });
+  await expect(acceptInvitation.or(noInvitations)).toBeVisible();
+  if (await acceptInvitation.isVisible()) {
+    await acceptInvitation.click();
+    await page.getByRole("dialog").getByRole("button", { name: "Accept invitation" }).click();
+    await expect(page.getByRole("main").getByRole("status")).toHaveText("Invitation accepted.");
+  }
+  await signOutVisible(page);
+  await chooseSeededIdentity(page, /Avery Singh/u);
+  await selectVisibleCourse(page, baseCourseTitle);
+}
+
 async function forkAlphaAsAvery(
   page: Page,
   scenarioInput: ReturnType<typeof requireScenarioInput>,
   alphaTitle: string,
+  alphaReference: string,
 ): Promise<void> {
-  await chooseSeededIdentity(page, /Avery Singh/u);
-  await selectVisibleCourse(page, averyCourseTitle);
+  await acceptBaseCourseInvitation(page);
   await page.getByRole("link", { name: "Curriculum", exact: true }).click();
   const workspace = page.locator('[data-route-surface="curriculum"]');
   await expect(workspace).toBeVisible();
-  await workspace.getByRole("link", { name: new RegExp(alphaTitle, "u") }).click();
+  const alphaLink = workspace.locator(`a[href="/curriculum/${alphaReference}"]`);
+  await expect(alphaLink).toContainText(alphaTitle);
+  await alphaLink.click();
   const fork = page.getByRole("region", { name: "Create an independent Alpha copy" });
   await expect(fork).toBeVisible();
   await fork.getByRole("button", { name: "Create independent copy", exact: true }).click();
@@ -225,7 +297,7 @@ test.describe("curriculum adoption on the production PLE stack", () => {
       elena: elenaOrigins,
       morgan: morganOrigins,
       avery: averyOrigins,
-      freshElena: freshElenaOrigins,
+      fresh_elena: freshElenaOrigins,
     } satisfies Record<string, ObservedOrigins>;
     const elenaContext = await browser.newContext({ ignoreHTTPSErrors: true });
     const morganContext = await browser.newContext({ ignoreHTTPSErrors: true });
@@ -259,18 +331,24 @@ test.describe("curriculum adoption on the production PLE stack", () => {
       const locallyDivergentTitle = `Local divergent assignment ${tag}`;
       const destinationCourseTitle = `Alpha adoption destination ${tag}`;
       const rolloverCourseTitle = `Alpha adoption rollover ${tag}`;
+      let alphaReference = "";
 
       await test.step("Elena visibly publishes an Alpha source with a relative schedule", async () => {
         await chooseSeededIdentity(elena, /Elena Rivera/u);
         await selectVisibleCourse(elena, baseCourseTitle);
         await createPublishedQuestion(elena, questionTitle);
-        await createScheduledAlpha(elena, alphaTitle, questionTitle);
+        alphaReference = await createScheduledAlpha(elena, alphaTitle, questionTitle);
       });
 
-      await test.step("Morgan approves Avery and Avery prepares and applies an independent Alpha copy", async () => {
-        await approveAvery(morgan);
-        await forkAlphaAsAvery(avery, scenarioInput, alphaTitle);
-      });
+      await test.step(
+        "Morgan approves Avery, Elena invites her, and Avery accepts " +
+          "before applying an independent Alpha copy",
+        async () => {
+          await approveAvery(morgan);
+          await inviteAveryToBaseCourse(elena);
+          await forkAlphaAsAvery(avery, scenarioInput, alphaTitle, alphaReference);
+        },
+      );
 
       await test.step("Elena corrects a DST proposal before instantiating the Alpha course", async () => {
         await elena.getByRole("link", { name: "Courses", exact: true }).click();
@@ -279,7 +357,11 @@ test.describe("curriculum adoption on the production PLE stack", () => {
         await baseCourse.getByRole("link", { name: "Open course", exact: true }).click();
         await openCurriculumChanges(elena);
         await elena.getByRole("radio", { name: /Create a course from Alpha/u }).check();
-        await elena.getByRole("radio", { name: new RegExp(alphaTitle, "u") }).check();
+        await elena
+          .getByRole("radio", {
+            name: new RegExp(`${alphaTitle} ${alphaReference} · revision`, "u"),
+          })
+          .check();
         await elena.getByLabel("New course title").fill(destinationCourseTitle);
         await setTargetTerm(elena, initialDstTerm);
         await elena.getByRole("button", { name: "Prepare proposal", exact: true }).click();
@@ -288,7 +370,7 @@ test.describe("curriculum adoption on the production PLE stack", () => {
         await expect(
           recovery.getByRole("heading", { name: "Resolve the proposal blocker" }),
         ).toBeVisible();
-        await expect(recovery).toContainText(/Available/u);
+        await expect(recovery).toContainText("nonexistent daylight-saving local time");
         await captureRealStackScreenshot(
           elena,
           scenarioInput,
@@ -303,24 +385,28 @@ test.describe("curriculum adoption on the production PLE stack", () => {
         await openCompletedDestination(elena, destinationCourseTitle);
       });
 
-      await test.step("Elena inspects imports and shifts the unissued course term through its server proposal", async () => {
-        await openCurriculumChanges(elena);
-        const evidence = await inspectImports(elena);
-        await expect(evidence).toContainText("Matches its imported baseline.");
-        await evidence
-          .getByRole("button", { name: "Return to course changes", exact: true })
-          .click();
-        await elena.getByRole("radio", { name: /Shift this course term/u }).check();
-        await setTargetTerm(elena, shiftedTerm);
-        await elena.getByRole("button", { name: "Prepare proposal", exact: true }).click();
-        const proposal = elena.getByRole("region", { name: "Server-owned curriculum proposal" });
-        await expect(proposal).toBeVisible();
-        await proposal.getByRole("button", { name: "Apply live change", exact: true }).click();
-        await openCompletedDestination(elena, destinationCourseTitle);
-      });
+      await test.step(
+        "Elena inspects imports and shifts the unissued course term " +
+          "through its server proposal",
+        async () => {
+          await openCurriculumChanges(elena);
+          const evidence = await inspectImports(elena);
+          await expect(evidence).toContainText("Matches its imported baseline.");
+          await evidence
+            .getByRole("button", { name: "Return to course changes", exact: true })
+            .click();
+          await elena.getByRole("radio", { name: /Shift this course term/u }).check();
+          await setTargetTerm(elena, shiftedTerm);
+          await elena.getByRole("button", { name: "Prepare proposal", exact: true }).click();
+          const proposal = elena.getByRole("region", { name: "Server-owned curriculum proposal" });
+          await expect(proposal).toBeVisible();
+          await proposal.getByRole("button", { name: "Apply live change", exact: true }).click();
+          await openCompletedDestination(elena, destinationCourseTitle);
+        },
+      );
 
       await test.step("Elena fast-forwards the untouched import from the next Alpha revision", async () => {
-        await reviseAlphaAssignment(elena, alphaTitle, sourceRevisionTwoTitle);
+        await reviseAlphaAssignment(elena, alphaTitle, alphaReference, sourceRevisionTwoTitle);
         await elena.getByRole("link", { name: "Courses", exact: true }).click();
         const destination = elena.getByRole("article").filter({ hasText: destinationCourseTitle });
         await expect(destination).toBeVisible();
@@ -346,104 +432,112 @@ test.describe("curriculum adoption on the production PLE stack", () => {
         await openCompletedDestination(elena, destinationCourseTitle);
       });
 
-      await test.step("Elena preserves a local divergence and creates a new source-derived draft from revision three", async () => {
-        await elena.getByRole("link", { name: "Assignments", exact: true }).click();
-        const imported = assignmentCard(elena, sourceRevisionTwoTitle);
-        await expect(imported).toHaveCount(1);
-        await imported.getByRole("link", { name: "Edit assignment", exact: true }).click();
-        await expect(elena.locator('[data-route-surface="assignmentEditor"]')).toBeVisible();
-        await elena.getByLabel("Assignment title").fill(locallyDivergentTitle);
-        await elena
-          .getByRole("button", { name: "Save title, order, and settings", exact: true })
-          .click();
-        await expect(
-          elena
-            .getByRole("status")
-            .filter({ hasText: "Assignment title, order, and settings saved." }),
-        ).toBeVisible();
-        await reviseAlphaAssignment(elena, alphaTitle, sourceRevisionThreeTitle);
-        await elena.getByRole("link", { name: "Courses", exact: true }).click();
-        const destination = elena.getByRole("article").filter({ hasText: destinationCourseTitle });
-        await expect(destination).toBeVisible();
-        await destination.getByRole("link", { name: "Open course", exact: true }).click();
-        await openCurriculumChanges(elena);
-        const evidence = await inspectImports(elena);
-        await expect(evidence).toContainText("Has diverged from its imported baseline");
-        await evidence
-          .getByRole("button", { name: "Preview controlled update", exact: true })
-          .click();
-        const decision = elena.getByRole("region", {
-          name: "Server-owned controlled-update decision",
-        });
-        await expect(decision).toBeVisible();
-        await expect(decision).toContainText("preserved the current assignment");
-        await expect(
-          decision.getByRole("button", {
-            name: "Create new assignment from this source definition",
-            exact: true,
-          }),
-        ).toBeVisible();
-        await captureRealStackScreenshot(
-          elena,
-          scenarioInput,
-          "curriculum_adoption_divergent_recovery_laptop",
-        );
-        await decision
-          .getByRole("button", {
-            name: "Create new assignment from this source definition",
-            exact: true,
-          })
-          .click();
-        const sourceDerived = elena.getByRole("region", {
-          name: "Server-owned curriculum proposal",
-        });
-        await expect(sourceDerived).toBeVisible();
-        await expect(sourceDerived).toContainText(sourceRevisionThreeTitle);
-        await sourceDerived.getByRole("button", { name: "Apply live change", exact: true }).click();
-        await openCompletedDestination(elena, destinationCourseTitle);
-      });
+      await test.step(
+        "Elena preserves a local divergence and creates a new source-derived draft " +
+          "from revision three",
+        async () => {
+          await elena.getByRole("link", { name: "Assignments", exact: true }).click();
+          const imported = assignmentCard(elena, sourceRevisionTwoTitle);
+          await expect(imported).toHaveCount(1);
+          await imported.getByRole("link", { name: "Edit assignment", exact: true }).click();
+          await expect(elena.locator('[data-route-surface="assignmentEditor"]')).toBeVisible();
+          await elena.getByLabel("Assignment title").fill(locallyDivergentTitle);
+          await elena
+            .getByRole("button", { name: "Save title, order, and settings", exact: true })
+            .click();
+          await expect(
+            elena
+              .getByRole("status")
+              .filter({ hasText: "Assignment title, order, and settings saved." }),
+          ).toBeVisible();
+          await reviseAlphaAssignment(elena, alphaTitle, alphaReference, sourceRevisionThreeTitle);
+          await elena.getByRole("link", { name: "Courses", exact: true }).click();
+          const destination = elena
+            .getByRole("article")
+            .filter({ hasText: destinationCourseTitle });
+          await expect(destination).toBeVisible();
+          await destination.getByRole("link", { name: "Open course", exact: true }).click();
+          await openCurriculumChanges(elena);
+          const evidence = await inspectImports(elena);
+          await expect(evidence).toContainText("Has diverged from its imported baseline");
+          await evidence
+            .getByRole("button", { name: "Preview controlled update", exact: true })
+            .click();
+          const decision = elena.getByRole("region", {
+            name: "Server-owned controlled-update decision",
+          });
+          await expect(decision).toBeVisible();
+          await expect(decision).toContainText("preserved the current assignment");
+          await expect(
+            decision.getByRole("button", {
+              name: "Create new assignment from this source definition",
+              exact: true,
+            }),
+          ).toBeVisible();
+          await captureRealStackScreenshot(
+            elena,
+            scenarioInput,
+            "curriculum_adoption_divergent_recovery_laptop",
+          );
+          await decision
+            .getByRole("button", {
+              name: "Create new assignment from this source definition",
+              exact: true,
+            })
+            .click();
+          const sourceDerived = elena.getByRole("region", {
+            name: "Server-owned curriculum proposal",
+          });
+          await expect(sourceDerived).toBeVisible();
+          await expect(sourceDerived).toContainText(sourceRevisionThreeTitle);
+          await sourceDerived
+            .getByRole("button", { name: "Apply live change", exact: true })
+            .click();
+          await openCompletedDestination(elena, destinationCourseTitle);
+        },
+      );
 
-      await test.step("Elena rolls over the unissued course and a fresh context observes durable empty learner state", async () => {
-        await openCurriculumChanges(elena);
-        const evidence = await inspectImports(elena);
-        await evidence
-          .getByRole("button", { name: "Return to course changes", exact: true })
-          .click();
-        await elena.getByRole("radio", { name: /Rollover this course/u }).check();
-        await elena.getByLabel("New course title").fill(rolloverCourseTitle);
-        await setTargetTerm(elena, rolloverTerm);
-        await elena.getByRole("button", { name: "Prepare proposal", exact: true }).click();
-        const proposal = elena.getByRole("region", { name: "Server-owned curriculum proposal" });
-        await expect(proposal).toBeVisible();
-        await expect(proposal).toContainText(rolloverCourseTitle);
-        await proposal.getByRole("button", { name: "Apply live change", exact: true }).click();
-        await openCompletedDestination(elena, rolloverCourseTitle);
+      await test.step(
+        "Elena rolls over the unissued course and a fresh context observes " +
+          "durable empty learner state",
+        async () => {
+          await openCurriculumChanges(elena);
+          const evidence = await inspectImports(elena);
+          await evidence
+            .getByRole("button", { name: "Return to course changes", exact: true })
+            .click();
+          await elena.getByRole("radio", { name: /Rollover this course/u }).check();
+          await elena.getByLabel("New course title").fill(rolloverCourseTitle);
+          await setTargetTerm(elena, rolloverTerm);
+          await elena.getByRole("button", { name: "Prepare proposal", exact: true }).click();
+          const proposal = elena.getByRole("region", { name: "Server-owned curriculum proposal" });
+          await expect(proposal).toBeVisible();
+          await expect(proposal).toContainText(rolloverCourseTitle);
+          await proposal.getByRole("button", { name: "Apply live change", exact: true }).click();
+          await openCompletedDestination(elena, rolloverCourseTitle);
 
-        await chooseSeededIdentity(freshElena, /Elena Rivera/u);
-        await selectVisibleCourse(freshElena, rolloverCourseTitle);
-        await openCurriculumChanges(freshElena);
-        const destinationEvidence = await inspectImports(freshElena);
-        await expect(
-          destinationEvidence.getByRole("button", {
-            name: "Preview controlled update",
-            exact: true,
-          }),
-        ).toBeVisible();
-        await freshElena.getByRole("link", { name: "Students", exact: true }).click();
-        const roster = freshElena.locator('[data-route-surface="courseRoster"]');
-        await expect(roster).toBeVisible();
-        await expect(roster).toContainText("No active students are enrolled yet.");
-        await openCurriculumChanges(freshElena);
-        const reopenedEvidence = await inspectImports(freshElena);
-        await expect(
-          reopenedEvidence.getByRole("heading", { name: "Imported curriculum evidence" }),
-        ).toBeVisible();
-        await captureRealStackScreenshot(
-          freshElena,
-          scenarioInput,
-          "curriculum_adoption_completed_destination_evidence_laptop",
-        );
-      });
+          await chooseSeededIdentity(freshElena, /Elena Rivera/u);
+          await selectVisibleCourse(freshElena, rolloverCourseTitle);
+          await openCurriculumChanges(freshElena);
+          const destinationEvidence = await inspectImports(freshElena);
+          await expect(destinationEvidence).toContainText("Origin: rollover");
+          await expect(destinationEvidence).toContainText("Matches its imported baseline.");
+          await freshElena.getByRole("link", { name: "Students", exact: true }).click();
+          const roster = freshElena.locator('[data-route-surface="courseRoster"]');
+          await expect(roster).toBeVisible();
+          await expect(roster).toContainText("No active students are enrolled yet.");
+          await openCurriculumChanges(freshElena);
+          const reopenedEvidence = await inspectImports(freshElena);
+          await expect(
+            reopenedEvidence.getByRole("heading", { name: "Imported curriculum evidence" }),
+          ).toBeVisible();
+          await captureRealStackScreenshot(
+            freshElena,
+            scenarioInput,
+            "curriculum_adoption_completed_destination_evidence_laptop",
+          );
+        },
+      );
 
       const expectedOrigin = new URL(scenarioInput.baseUrl).origin;
       expectObservedOrigin(elenaOrigins, expectedOrigin);

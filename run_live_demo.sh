@@ -54,6 +54,11 @@ if [ "$COMMAND" = "stop" ]; then
   exec python3 "$SCRIPT_DIRECTORY/local_stack.py" stop
 fi
 
+if [ ! -d "$SCRIPT_DIRECTORY/node_modules" ]; then
+  echo "==> First launch: installing repository dependencies"
+  "$SCRIPT_DIRECTORY/setup.sh"
+fi
+
 if [ "$NO_OPEN" = "true" ]; then
   exec python3 "$SCRIPT_DIRECTORY/local_stack.py" start --no-open
 fi

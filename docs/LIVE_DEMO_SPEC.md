@@ -57,16 +57,50 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
   and adapt its ordered questions for ordinary assignment authoring.
 - Create and revise a public Alpha curriculum, inspect its answer-free modules and reusable assignments, and reuse an
   Alpha assignment's ordered live questions through the shared assignment picker.
+- Create an independent Alpha from its visible public curriculum detail, with a reviewable proposal
+  and retained source-lineage evidence.
+- Adopt reusable curriculum from the visible course page: instantiate a Blueprint or Alpha, roll a
+  course into a target term, shift an unissued course term with server-owned DST correction, inspect
+  imports, fast-forward an eligible untouched import, or preserve a divergent import by creating a
+  new source-derived draft.
+- Review an answer-free server preview before every live change. Completed changes return an immutable receipt and a
+  reconciliation result; the visible destination and next action remain available after apply.
 - Add students to courses.
 - Preview current assignment policy, then exercise delivery and automated grading through the normal Student
   workflow.
 - Manage and review student activity and grades.
 
-Instructors do not add or approve other instructors. Instructor approval remains a Sysadmin function.
+Instructors invite already-approved colleagues into their own teaching course. Sysadmins own global
+Instructor approval; an invitation grants only the accepted course membership.
 
 Live acceptance uses the seeded Elena Instructor. After direct role entry, Elena visibly enrolls a passkey, signs
 out, and signs back in through the ordinary passkey path. Her Instructor authorization remains available throughout
 that acceptance flow.
+
+### Curriculum adoption workflow
+
+The Instructor route `/instructor/courses/:courseRef/curriculum` is a production-shaped,
+server-owned workflow. Elena chooses one course operation, selects a Blueprint or Alpha source when
+required, and enters the target term and title through labeled controls. The public Alpha detail at
+`/curriculum/:curriculumRef` owns the independent-copy action. Each action returns an
+operation-specific, answer-free preview. A preview may identify a missing exact source pin or an
+ambiguous/nonexistent local time; the page preserves the choices, exposes the named correction, and
+regenerates the proposal before apply.
+
+The supported live operations are:
+
+- Fork an Alpha from its public detail into an independently editable source with lineage evidence.
+- Instantiate a Blueprint as an ordinary draft assignment or an Alpha as a new ordinary teaching course.
+- Rollover a course into the selected target term without roster, learner records, attempts, grades, or issued work.
+- Shift an existing course term atomically when no assignment has issued learner work. Relative calendar-day and
+  local-wall-clock schedules resolve in the target IANA zone; DST gaps and ambiguities require visible correction.
+- Inspect imports, fast-forward an eligible untouched assignment, or create a new source-derived draft when the
+  destination diverged. The existing assignment is never silently overwritten.
+
+Apply accepts only the exact eligible preview. The server derives authority and destination identity from the session
+and route, commits atomically, and returns an immutable receipt. Receipt reconciliation repairs only B2-owned derived
+rows and refuses when immutable evidence is incomplete. This is ordinary Instructor functionality in the disposable
+live installation.
 
 ## Student perspective
 

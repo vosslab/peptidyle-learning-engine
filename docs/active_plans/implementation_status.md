@@ -41,70 +41,92 @@ order, validation, and acceptance. Durable product decisions remain in
 - Retain direct-entry evidence for the five fixed seeded personas. Elena Instructor and Morgan
   Sysadmin each retain an independent generic passkey journey.
 
+## B2 current evidence
+
+The B2 implementation and focused evidence are current as of 2026-08-26. The selected Graphify
+query identified the README architecture/documentation surface, `migrations.rs`,
+`CurriculumAdoptionLivePage`, `createCurriculumAdoptionClient`, and the curriculum-adoption
+persistence bridges as the relevant communities; source inspection confirmed those ownership
+boundaries and the allocated `2026081838` through `2026081847` migration set.
+
+- **Focused PostgreSQL/RLS oracle: passed.** The ignored
+  `postgres_curriculum_adoption_live::postgres_curriculum_adoption_is_brokered_atomic_and_recoverable`
+  test passed against the allocated B2 schema, including broker authority, forced RLS, atomic
+  adoption and recovery, provenance/receipt persistence, and reconciliation relationships.
+- **Connected browser journey: passed.** The production-shaped HTTPS curriculum-adoption journey
+  is green across four authenticated contexts and exercises visible UI creation, Alpha adoption,
+  DST correction, controlled update, divergence recovery, destination evidence, and rollover.
+- **Static and deterministic gates: passed.** The five-part codebase gate, 322 Node tests, 7,361
+  pytest checks, complete Rust feature/Clippy/test/doctest matrix, browser Wasm target, focused
+  scenario contracts, source limits, ASCII, Markdown links, and diff hygiene are green. Independent
+  post-fix review returned ACCEPT with no unresolved P0, P1, or P2 finding.
+- **Acceptance remains open.** Screenshot publication, the full database baseline, and
+  `source source_me.sh && ./all_test.sh` remain required gates. B2 is not accepted.
+
 ## Shared migration ledger and allocation
 
 The release integrator owns migration ordering and this ledger. Accepted files are immutable;
 future schema packages receive an allocation before implementation. Non-schema packages do not
 receive an implicit allocation.
 
-| Allocation                | Package               | Current disposition                                        |
-| ------------------------- | --------------------- | ---------------------------------------------------------- |
-| `2026080801`-`2026080806` | Foundational baseline | Accepted six-file baseline                                 |
-| `2026080907`              | `WP-RC1`              | Accepted course appearance                                 |
-| `2026080908`              | `WP-P2`               | Allocated secure question-grading payloads                 |
-| `2026080909`              | `WP-RC8`              | Allocated passwordless identity and enrollment             |
-| `2026080910`              | `WP-RC7`              | Reserved object reconciliation                             |
-| `2026080911`              | `WP-RC9`              | Reserved LTI Advantage                                     |
-| `2026080912`              | `WP-FU1`-`WP-FU6`     | Reserved secure learner uploads                            |
-| `2026080914`-`2026080935` | Release packages      | Existing forward allocations                               |
-| `2026081401`              | `WP-R0`               | Existing ranked-catalog allocation                         |
-| `2026081501`-`2026081504` | `WP-RC8` repairs      | Existing forward allocations                               |
-| `2026081801`              | `WP-PROF-S2`          | Accepted term and time zone                                |
-| `2026081802`              | `WP-PROF-S7`          | Accepted typed references and bylines                      |
-| `2026081803`              | `WP-PROF-S5`          | Accepted entitlement and materialization                   |
-| `2026081804`              | `WP-PROF-S3`          | Accepted effective-policy resolver                         |
-| `2026081805`              | `WP-PROF-S4`          | Accepted disclosure policy                                 |
-| `2026081806`              | `WP-PROF-S6`          | Accepted course grade scheme                               |
-| `2026081807`              | `WP-PROF-T2`          | Accepted teaching operations                               |
-| `2026081808`              | `WP-PROF-LD1`         | Accepted live-demo installation state                      |
-| `2026081809`              | `WP-PROF-LD2`         | Accepted Sysadmin candidate and completed-install brokers  |
-| `2026081810`              | `WP-PROF-LD2`         | Accepted Student pre-tenant context repair                 |
-| `2026081811`              | Reserved              | Reserved numeric identity                                  |
-| `2026081812`              | `WP-PROF-LD3`         | Accepted ordinary assignment mutation authority            |
-| `2026081813`              | Reserved              | Reserved numeric identity                                  |
-| `2026081814`              | `WP-PROF-LD3`         | Accepted assignment-definition capability                  |
-| `2026081815`              | Reserved              | Reserved numeric identity                                  |
-| `2026081816`              | `WP-PROF-LD3`         | Accepted course-group mutation brokers                     |
-| `2026081817`              | `WP-PROF-LD3`         | Accepted learner-work source and execution snapshots       |
-| `2026081818`              | `WP-PROF-LD3`         | Accepted course provisioning and Base Course attestation   |
-| `2026081819`              | `WP-PROF-LD3`         | Accepted grade control and export audit                    |
-| `2026081820`              | `WP-PROF-LD3`         | Accepted scoring preparation and finalization              |
-| `2026081821`-`2026081822` | Reserved              | Reserved numeric identities                                |
-| `2026081823`              | `WP-PROF-LD3`         | Accepted teaching-invitation mutation authority            |
-| `2026081824`              | `WP-PROF-LD3`         | Accepted roster procedure ambiguity repair                 |
-| `2026081825`              | `WP-PROF-LD3`         | Accepted inactive-Student materialization decision         |
-| `2026081826`              | `WP-PROF-T5`          | Accepted pre-issue assignment-definition replacement       |
-| `2026081827`              | `WP-PROF-D1`          | Accepted discovery evidence and response-family projection |
-| `2026081828`              | `WP-PROF-D1`          | Accepted actor usage snapshots and Library facets          |
-| `2026081829`              | `WP-PROF-LD3`         | Reserved learner-work broker capability                    |
-| `2026081830`              | `WP-PROF-G1`          | Reserved assignment recalculation enqueue capability       |
-| `2026081831`              | `WP-PROF-G1`          | Reserved scoring-generation publication                    |
-| `2026081832`              | `WP-PROF-G3`          | Reserved item-analysis publication and cleanup             |
-| `2026081833`              | `WP-PROF-T5`          | Reserved assignment-definition scratch isolation           |
-| `2026081834`              | `WP-PROF-LD3`         | Reserved course-group policy broker repair                 |
-| `2026081835`              | `WP-PROF-LD1`         | Reserved catalog-derived Base Course freshness authority   |
-| `2026081836`              | `WP-PROF-D2`          | Accepted problem curation capabilities                     |
-| `2026081837`              | `WP-PROF-B1`          | Accepted blueprint and public Alpha capabilities           |
+| Allocation                | Package               | Current disposition                                                                                                |
+| ------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `2026080801`-`2026080806` | Foundational baseline | Accepted six-file baseline                                                                                         |
+| `2026080907`              | `WP-RC1`              | Accepted course appearance                                                                                         |
+| `2026080908`              | `WP-P2`               | Allocated secure question-grading payloads                                                                         |
+| `2026080909`              | `WP-RC8`              | Allocated passwordless identity and enrollment                                                                     |
+| `2026080910`              | `WP-RC7`              | Reserved object reconciliation                                                                                     |
+| `2026080911`              | `WP-RC9`              | Reserved LTI Advantage                                                                                             |
+| `2026080912`              | `WP-FU1`-`WP-FU6`     | Reserved secure learner uploads                                                                                    |
+| `2026080914`-`2026080935` | Release packages      | Existing forward allocations                                                                                       |
+| `2026081401`              | `WP-R0`               | Existing ranked-catalog allocation                                                                                 |
+| `2026081501`-`2026081504` | `WP-RC8` repairs      | Existing forward allocations                                                                                       |
+| `2026081801`              | `WP-PROF-S2`          | Accepted term and time zone                                                                                        |
+| `2026081802`              | `WP-PROF-S7`          | Accepted typed references and bylines                                                                              |
+| `2026081803`              | `WP-PROF-S5`          | Accepted entitlement and materialization                                                                           |
+| `2026081804`              | `WP-PROF-S3`          | Accepted effective-policy resolver                                                                                 |
+| `2026081805`              | `WP-PROF-S4`          | Accepted disclosure policy                                                                                         |
+| `2026081806`              | `WP-PROF-S6`          | Accepted course grade scheme                                                                                       |
+| `2026081807`              | `WP-PROF-T2`          | Accepted teaching operations                                                                                       |
+| `2026081808`              | `WP-PROF-LD1`         | Accepted live-demo installation state                                                                              |
+| `2026081809`              | `WP-PROF-LD2`         | Accepted Sysadmin candidate and completed-install brokers                                                          |
+| `2026081810`              | `WP-PROF-LD2`         | Accepted Student pre-tenant context repair                                                                         |
+| `2026081811`              | Reserved              | Reserved numeric identity                                                                                          |
+| `2026081812`              | `WP-PROF-LD3`         | Accepted ordinary assignment mutation authority                                                                    |
+| `2026081813`              | Reserved              | Reserved numeric identity                                                                                          |
+| `2026081814`              | `WP-PROF-LD3`         | Accepted assignment-definition capability                                                                          |
+| `2026081815`              | Reserved              | Reserved numeric identity                                                                                          |
+| `2026081816`              | `WP-PROF-LD3`         | Accepted course-group mutation brokers                                                                             |
+| `2026081817`              | `WP-PROF-LD3`         | Accepted learner-work source and execution snapshots                                                               |
+| `2026081818`              | `WP-PROF-LD3`         | Accepted course provisioning and Base Course attestation                                                           |
+| `2026081819`              | `WP-PROF-LD3`         | Accepted grade control and export audit                                                                            |
+| `2026081820`              | `WP-PROF-LD3`         | Accepted scoring preparation and finalization                                                                      |
+| `2026081821`-`2026081822` | Reserved              | Reserved numeric identities                                                                                        |
+| `2026081823`              | `WP-PROF-LD3`         | Accepted teaching-invitation mutation authority                                                                    |
+| `2026081824`              | `WP-PROF-LD3`         | Accepted roster procedure ambiguity repair                                                                         |
+| `2026081825`              | `WP-PROF-LD3`         | Accepted inactive-Student materialization decision                                                                 |
+| `2026081826`              | `WP-PROF-T5`          | Accepted pre-issue assignment-definition replacement                                                               |
+| `2026081827`              | `WP-PROF-D1`          | Accepted discovery evidence and response-family projection                                                         |
+| `2026081828`              | `WP-PROF-D1`          | Accepted actor usage snapshots and Library facets                                                                  |
+| `2026081829`              | `WP-PROF-LD3`         | Reserved learner-work broker capability                                                                            |
+| `2026081830`              | `WP-PROF-G1`          | Reserved assignment recalculation enqueue capability                                                               |
+| `2026081831`              | `WP-PROF-G1`          | Reserved scoring-generation publication                                                                            |
+| `2026081832`              | `WP-PROF-G3`          | Reserved item-analysis publication and cleanup                                                                     |
+| `2026081833`              | `WP-PROF-T5`          | Reserved assignment-definition scratch isolation                                                                   |
+| `2026081834`              | `WP-PROF-LD3`         | Reserved course-group policy broker repair                                                                         |
+| `2026081835`              | `WP-PROF-LD1`         | Reserved catalog-derived Base Course freshness authority                                                           |
+| `2026081836`              | `WP-PROF-D2`          | Accepted problem curation capabilities                                                                             |
+| `2026081837`              | `WP-PROF-B1`          | Accepted blueprint and public Alpha capabilities                                                                   |
 | `2026081838`              | `WP-PROF-B2`          | Allocated curriculum-adoption schema, lineage, schedule, provenance, receipt, integrity, and forced RLS foundation |
-| `2026081839`              | `WP-PROF-B2`          | Allocated curriculum-adoption common broker authority, retention integration, and shared capability boundary |
-| `2026081840`              | `WP-PROF-B2`          | Allocated curriculum-adoption relational snapshots, locked preparation, inspection, and reconciliation helpers |
-| `2026081841`              | `WP-PROF-B2`          | Allocated canonical ordinary-course topology, issued-work fencing, and topology capability assertions |
-| `2026081842`              | `WP-PROF-B2`          | Allocated curriculum-adoption source authorization, closed request validation, and source snapshot facts |
-| `2026081843`              | `WP-PROF-B2`          | Allocated teaching-course, import, inspection, reconciliation, and controlled schedule snapshot facts |
-| `2026081844`              | `WP-PROF-B2`          | Allocated curriculum-adoption shared materializer validation, idempotency, receipt, and evidence helpers |
-| `2026081845`              | `WP-PROF-B2`          | Allocated fork, assignment adoption, fast-forward, and reconciliation materializers |
-| `2026081846`              | `WP-PROF-B2`          | Allocated whole-course instantiation, rollover, and term-shift materializers |
-| `2026081847`              | `WP-PROF-B2`          | Allocated canonical public bridge completion and final broker catalog assertions |
+| `2026081839`              | `WP-PROF-B2`          | Allocated curriculum-adoption common broker authority, retention integration, and shared capability boundary       |
+| `2026081840`              | `WP-PROF-B2`          | Allocated curriculum-adoption relational snapshots, locked preparation, inspection, and reconciliation helpers     |
+| `2026081841`              | `WP-PROF-B2`          | Allocated canonical ordinary-course topology, issued-work fencing, and topology capability assertions              |
+| `2026081842`              | `WP-PROF-B2`          | Allocated curriculum-adoption source authorization, closed request validation, and source snapshot facts           |
+| `2026081843`              | `WP-PROF-B2`          | Allocated teaching-course, import, inspection, reconciliation, and controlled schedule snapshot facts              |
+| `2026081844`              | `WP-PROF-B2`          | Allocated curriculum-adoption shared materializer validation, idempotency, receipt, and evidence helpers           |
+| `2026081845`              | `WP-PROF-B2`          | Allocated fork, assignment adoption, fast-forward, and reconciliation materializers                                |
+| `2026081846`              | `WP-PROF-B2`          | Allocated whole-course instantiation, rollover, and term-shift materializers                                       |
+| `2026081847`              | `WP-PROF-B2`          | Allocated canonical public bridge completion and final broker catalog assertions                                   |
 
 `2026081803` (`S5`), `2026081804` (`S3`), and `2026081805` (`S4`) reflect the accepted
 pre-file allocation reorder. Allocations `2026081811`, `1813`, `1815`, `1821`, and `1822` retain
@@ -120,7 +142,7 @@ their numeric identities. The professor plan owns dependencies among reserved ca
 | `WP-PROF-T5`                | Fixed-or-pool assignment editing and deterministic issued draws     | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
 | `WP-PROF-D1`                | Canonical Library discovery and evidence-backed question detail     | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
 | `WP-PROF-D2`                | Live curation and shared problem selection                          | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-PROF-B1`                | Revisioned Blueprints, public Alpha curricula, and shared reuse      | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-PROF-B1`                | Revisioned Blueprints, public Alpha curricula, and shared reuse     | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
 | `WP-R0`-`WP-R2`, `WP-PY-L1` | Accepted cross-roadmap capabilities                                 | [Release plan](active/release_completion_plan.md), [changelog](../CHANGELOG.md)                  |
 
 ## Dependency-ordered queue

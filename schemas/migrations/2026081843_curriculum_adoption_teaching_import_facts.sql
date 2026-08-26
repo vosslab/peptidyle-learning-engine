@@ -263,7 +263,7 @@ BEGIN
      WHERE module.tenant_id = p_tenant AND module.course_id = p_course;
     SELECT coalesce(jsonb_agg(jsonb_build_object('modulePosition', module.position,
         'assignmentPosition', positioned.position, 'sourceAssignmentId', assignment.assignment_id,
-        'sourceAssignmentRevision', assignment.revision) ORDER BY module.position, positioned.position),
+        'sourceAssignmentRevision', assignment.revision::text) ORDER BY module.position, positioned.position),
         '[]'::jsonb) INTO v_sources
       FROM public.teaching_course_module AS module JOIN public.teaching_course_assignment_position AS positioned
         ON (positioned.tenant_id, positioned.course_id, positioned.course_module_id) =
@@ -341,9 +341,11 @@ BEGIN
         jsonb_build_object('assignment', v_assignment, 'revision', p_evidence.source_assignment_revision::text)));
 END $$;
 
+-- The row locks make this projection VOLATILE: preview and apply must observe one locked import
+-- pointer, immutable evidence row, and destination witness instead of a planner-reused snapshot.
 CREATE FUNCTION public.ple_cac_import_destination_v1(
     p_tenant uuid, p_course uuid, p_assignment uuid
-) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
+) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path TO 'pg_catalog', 'public' AS $$
 DECLARE v_evidence public.curriculum_assignment_adoption_evidence; v_value jsonb;
 BEGIN

@@ -233,7 +233,7 @@ def _validate_required_role_security_scenarios(
 
 
 def _validate_visible_observation(value: str) -> None:
-	if not value or not value.isascii():
+	if not value.strip() or not value.isascii():
 		raise ScenarioContractError("browser scenario visible observation is invalid")
 
 

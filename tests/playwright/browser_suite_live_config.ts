@@ -50,6 +50,9 @@ function identifier(value: unknown): value is string {
 function ascii(value: string): boolean {
   return Array.from(value).every((character) => character.codePointAt(0)! <= 0x7f);
 }
+function visibleObservation(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== "" && ascii(value);
+}
 function identifiers(value: unknown): value is string[] {
   return (
     Array.isArray(value) &&
@@ -122,7 +125,7 @@ function parse(contents: string): BrowserScenarioInputV1 {
     !exactOrigin(input.baseUrl) ||
     !identifiers(input.personas) ||
     !identifiers(input.baselineReads) ||
-    !identifier(input.visibleObservation) ||
+    !visibleObservation(input.visibleObservation) ||
     (input.serviceReceipt !== undefined &&
       (typeof input.serviceReceipt !== "string" || !SERVICE_RECEIPTS.has(input.serviceReceipt))) ||
     (input.faultTransition !== undefined && input.faultTransition !== "gateway_submit_outage") ||

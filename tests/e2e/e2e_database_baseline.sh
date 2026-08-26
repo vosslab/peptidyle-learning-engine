@@ -31,6 +31,7 @@ readonly RUNTIME_MANIFEST WORKSPACE RUNTIME_MANIFEST_PATH
 readonly DATABASE_NAME="ple_e2e_baseline"
 readonly TENANT_A="00000000-0000-4000-8000-0000000000a1"
 readonly TENANT_B="00000000-0000-4000-8000-0000000000b2"
+readonly SENTINEL_COURSE_ID="00000000-0000-4000-8000-0000000000c1"
 readonly POSTGRES_USER="ple_e2e_migrator"
 readonly POSTGRES_DB="postgres"
 readonly D2_PROBLEM_CURATION_MIGRATION="2026081836_problem_curation_capabilities.sql"
@@ -159,9 +160,6 @@ run_project_tools() {
 run_live_cargo_test() {
 	local label="$1"
 	shift
-	if [ "${B2_ONLY:-0}" = "1" ] && [[ "$label" != *"B2 curriculum adoption"* ]]; then
-		return 0
-	fi
 	[ "${1:-}" = "cargo" ] && [ "${2:-}" = "test" ] ||
 		fail "$label must use the repository-owned Cargo test boundary"
 	shift 2
@@ -523,8 +521,35 @@ printf '%s\n' "$mutated_status" | grep -q ': modified' || \
 # connection. It makes every role's course denial a real data observation,
 # while the coverage inventory below keeps empty RLS relations visibly
 # unexercised instead of treating their zero-row query as a pass.
-psql_in_container -d "$DATABASE_NAME" -c \
-	"INSERT INTO public.course (tenant_id, course_id, title, term_start_date, term_end_date, time_zone) VALUES ('$TENANT_B'::uuid, '00000000-0000-4000-8000-0000000000c1'::uuid, 'Tenant B RLS probe', DATE '2026-08-24', DATE '2026-12-18', 'America/Chicago')"
+psql_in_container -d "$DATABASE_NAME" \
+	-v tenant_b="$TENANT_B" -v course_id="$SENTINEL_COURSE_ID" <<'SQL'
+BEGIN;
+SELECT set_config('ple.tenant_id', :'tenant_b', true);
+SELECT set_config('ple.e2e_course_id', :'course_id', true);
+INSERT INTO public.course
+    (tenant_id, course_id, title, term_start_date, term_end_date, time_zone)
+VALUES
+    (:'tenant_b'::uuid, :'course_id'::uuid, 'Tenant B RLS probe',
+     DATE '2026-08-24', DATE '2026-12-18', 'America/Chicago');
+DO $$
+DECLARE
+    default_module_count integer;
+    matching_module_count integer;
+BEGIN
+    SELECT count(*)::integer,
+           count(*) FILTER (WHERE title = 'Assignments' AND position = 0)::integer
+      INTO default_module_count, matching_module_count
+      FROM public.teaching_course_module
+     WHERE tenant_id = current_setting('ple.tenant_id')::uuid
+       AND course_id = current_setting('ple.e2e_course_id')::uuid
+       AND is_default;
+    IF default_module_count <> 1 OR matching_module_count <> 1 THEN
+        RAISE EXCEPTION
+            'tenant-B course sentinel did not materialize exactly one default Assignments module at position 0';
+    END IF;
+END $$;
+COMMIT;
+SQL
 
 # Catalog fixtures exercise the two non-tenant-column policies: a public key,
 # a tenant-A grant, and a tenant-B-only key. Values are written as the isolated

@@ -4,21 +4,12 @@ import { A } from "@solidjs/router";
 import { For, Match, Show, Switch, createMemo, createSignal, onMount, type JSX } from "solid-js";
 
 import type { AlphaCourseSummaryView } from "../../../generated/api/AlphaCourseSummaryView";
-import type { AlphaInstantiationPreviewView } from "../../../generated/api/AlphaInstantiationPreviewView";
-import type { AssignmentFastForwardPreviewView } from "../../../generated/api/AssignmentFastForwardPreviewView";
-import type { BlueprintInstantiationPreviewView } from "../../../generated/api/BlueprintInstantiationPreviewView";
+import type { AssignmentDefinitionSourceView } from "../../../generated/api/AssignmentDefinitionSourceView";
 import type { BlueprintSummaryView } from "../../../generated/api/BlueprintSummaryView";
-import type { CourseRolloverPreviewView } from "../../../generated/api/CourseRolloverPreviewView";
-import type { CourseTermShiftPreviewOutcome } from "../../../generated/api/CourseTermShiftPreviewOutcome";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { CourseTerm } from "../../../generated/api/CourseTerm";
 import type { CurriculumAdoptionReconciliationResult } from "../../../generated/api/CurriculumAdoptionReconciliationResult";
 import type { CurriculumPinReplacement } from "../../../generated/api/CurriculumPinReplacement";
-import type { CurriculumScheduleCorrection } from "../../../generated/api/CurriculumScheduleCorrection";
-import type { PreparedCurriculumAssignmentView } from "../../../generated/api/PreparedCurriculumAssignmentView";
-import type { PreparedCurriculumCourseView } from "../../../generated/api/PreparedCurriculumCourseView";
-import type { SourceDerivedAssignmentPreviewView } from "../../../generated/api/SourceDerivedAssignmentPreviewView";
-import type { UnavailablePinRecoveryAction } from "../../../generated/api/UnavailablePinRecoveryAction";
 import type {
   CurriculumAdoptionClient,
   CurriculumAdoptionCompleted,
@@ -35,23 +26,20 @@ import {
   type CurriculumAdoptionOperation,
   type CurriculumAdoptionStage,
 } from "./curriculum_adoption_model";
-import { ReceiptPanel } from "./curriculum_adoption_panels";
+import {
+  ImportInspection,
+  PreviewPanel,
+  RecoveryPanel,
+  previewNeedsRecovery,
+  replaceCurriculumPin,
+  ReceiptPanel,
+  type CurriculumAdoptionPreview,
+} from "./curriculum_adoption_panels";
 import "./curriculum_adoption_page.css";
 
 type SourceSelection =
   | { readonly kind: "blueprint"; readonly value: BlueprintSummaryView }
   | { readonly kind: "alpha"; readonly value: AlphaCourseSummaryView };
-
-type Preview =
-  | { readonly kind: "blueprint"; readonly value: BlueprintInstantiationPreviewView }
-  | { readonly kind: "alpha"; readonly value: AlphaInstantiationPreviewView }
-  | { readonly kind: "rollover"; readonly value: CourseRolloverPreviewView }
-  | {
-      readonly kind: "termShift";
-      readonly value: Extract<CourseTermShiftPreviewOutcome, { kind: "eligible" }>;
-    }
-  | { readonly kind: "fastForward"; readonly value: AssignmentFastForwardPreviewView }
-  | { readonly kind: "sourceDerived"; readonly value: SourceDerivedAssignmentPreviewView };
 
 type CourseLocalCompleted = Extract<CurriculumAdoptionCompleted, { readonly course: unknown }>;
 
@@ -61,6 +49,7 @@ export interface CurriculumAdoptionPageProps {
   readonly course: CourseSummary;
   readonly client: CurriculumAdoptionClient;
   readonly reusableClient: ReusableCurriculumClient;
+  readonly onCourseChanged: (course: CourseSummary["reference"]) => Promise<void>;
 }
 
 function newIdempotencyKey(): string {
@@ -74,72 +63,6 @@ function errorMessage(error: unknown, fallback: string): string {
 
 function sourceLabel(source: SourceSelection): string {
   return source.kind === "blueprint" ? source.value.title : source.value.title;
-}
-
-function preparedAssignments(preview: Preview): ReadonlyArray<PreparedCurriculumAssignmentView> {
-  switch (preview.kind) {
-    case "blueprint":
-      return [preview.value.assignment];
-    case "alpha":
-      return preview.value.course.assignments;
-    case "rollover":
-      return preview.value.course.assignments;
-    case "termShift":
-      return preview.value.preview.assignments;
-    case "sourceDerived":
-      return [preview.value.assignment];
-    case "fastForward":
-      return [];
-  }
-}
-
-function preparedCourse(preview: Preview): PreparedCurriculumCourseView | undefined {
-  return preview.kind === "alpha" || preview.kind === "rollover" ? preview.value.course : undefined;
-}
-
-function previewCorrections(preview: Preview): ReadonlyArray<CurriculumScheduleCorrection> {
-  switch (preview.kind) {
-    case "blueprint":
-    case "alpha":
-    case "rollover":
-    case "sourceDerived":
-      return preview.value.corrections;
-    case "termShift":
-      return preview.value.preview.corrections;
-    case "fastForward":
-      return [];
-  }
-}
-
-function previewPinCorrection(preview: Preview): UnavailablePinRecoveryAction | null {
-  switch (preview.kind) {
-    case "blueprint":
-    case "alpha":
-    case "rollover":
-    case "sourceDerived":
-      return preview.value.pinCorrection;
-    case "termShift":
-    case "fastForward":
-      return null;
-  }
-}
-
-function previewNeedsRecovery(preview: Preview): boolean {
-  return previewCorrections(preview).length > 0 || previewPinCorrection(preview) !== null;
-}
-
-function replacePin(
-  replacements: ReadonlyArray<CurriculumPinReplacement>,
-  action: UnavailablePinRecoveryAction,
-  question: string,
-): ReadonlyArray<CurriculumPinReplacement> {
-  const samePosition = (candidate: CurriculumPinReplacement): boolean =>
-    candidate.position.moduleIndex === action.position.moduleIndex &&
-    candidate.position.assignmentIndex === action.position.assignmentIndex &&
-    candidate.position.entryIndex === action.position.entryIndex &&
-    candidate.position.candidateIndex === action.position.candidateIndex;
-  const replacement: CurriculumPinReplacement = { position: action.position, question };
-  return [...replacements.filter((candidate) => !samePosition(candidate)), replacement];
 }
 
 function operationRequiresSelectedSource(
@@ -163,7 +86,7 @@ export function CurriculumAdoptionPage(props: CurriculumAdoptionPageProps): JSX.
   const [targetTerm, setTargetTerm] = createSignal<CourseTerm>(props.course.term);
   const [title, setTitle] = createSignal(`${props.course.title} next term`);
   const [replacements, setReplacements] = createSignal<ReadonlyArray<CurriculumPinReplacement>>([]);
-  const [preview, setPreview] = createSignal<Preview>();
+  const [preview, setPreview] = createSignal<CurriculumAdoptionPreview>();
   const [completed, setCompleted] = createSignal<CourseLocalCompleted>();
   const [reconciliation, setReconciliation] =
     createSignal<CurriculumAdoptionReconciliationResult>();
@@ -263,7 +186,7 @@ export function CurriculumAdoptionPage(props: CurriculumAdoptionPageProps): JSX.
     setStage("previewing");
     announce("previewing");
     try {
-      let nextPreview: Preview | undefined;
+      let nextPreview: CurriculumAdoptionPreview | undefined;
       if (operation() === "blueprint" && selected?.kind === "blueprint") {
         nextPreview = {
           kind: "blueprint",
@@ -365,9 +288,27 @@ export function CurriculumAdoptionPage(props: CurriculumAdoptionPageProps): JSX.
           key,
         );
       }
+      let refreshFailed = false;
+      let refreshFailure: unknown;
+      try {
+        await props.onCourseChanged(completedResult.course);
+      } catch (error: unknown) {
+        refreshFailed = true;
+        refreshFailure = error;
+      }
       setCompleted(completedResult);
       setStage("receipt");
-      announce("receipt");
+      if (refreshFailed) {
+        setNotice({
+          kind: "alert",
+          text: `The live change is complete, but course navigation could not refresh yet. ${errorMessage(
+            refreshFailure,
+            "Open the destination from this receipt or reload Courses.",
+          )}`,
+        });
+      } else {
+        announce("receipt");
+      }
     } catch (error: unknown) {
       setStage("recovery");
       setNotice({
@@ -399,6 +340,17 @@ export function CurriculumAdoptionPage(props: CurriculumAdoptionPageProps): JSX.
     }
   }
 
+  async function loadCurrentReusableSource(
+    baselineSource: AssignmentDefinitionSourceView,
+  ): Promise<AssignmentDefinitionSourceView> {
+    if (baselineSource.kind === "blueprint") {
+      const current = await props.reusableClient.getBlueprint(baselineSource.reference);
+      return { ...baselineSource, revision: current.blueprint.revision };
+    }
+    const current = await props.reusableClient.getAlphaCourse(baselineSource.reference);
+    return { ...baselineSource, revision: current.alpha.revision };
+  }
+
   async function prepareFastForward(assignmentReference: string): Promise<void> {
     const inspection = importInspection();
     const imported = inspection?.assignments.find(
@@ -423,13 +375,14 @@ export function CurriculumAdoptionPage(props: CurriculumAdoptionPageProps): JSX.
     setStage("previewing");
     setNotice({ kind: "status", text: "Preparing the server-owned controlled-update decision." });
     try {
+      const currentSource = await loadCurrentReusableSource(imported.source.definition);
       setPreview({
         kind: "fastForward",
         value: await props.client.previewAssignmentFastForward({
           course: inspection.witness.course,
           assignment: observed,
           importRevision: imported.revision,
-          source: imported.source.definition,
+          source: currentSource,
         }),
       });
       setStage("preview");
@@ -544,7 +497,7 @@ export function CurriculumAdoptionPage(props: CurriculumAdoptionPageProps): JSX.
       <section class="curriculum-adoption-summary" aria-label="Current destination">
         <strong>Live destination: {props.course.title}</strong>
         <span>
-          {props.course.term.startDate} to {props.course.term.endDate} ·{" "}
+          {props.course.term.startDate} to {props.course.term.endDate} *{" "}
           {props.course.term.timeZone}
         </span>
       </section>
@@ -623,7 +576,7 @@ export function CurriculumAdoptionPage(props: CurriculumAdoptionPageProps): JSX.
                                   />
                                   <strong>{candidate.title}</strong>
                                   <span>
-                                    {candidate.reference} · revision {candidate.revision}
+                                    {candidate.reference} * revision {candidate.revision}
                                   </span>
                                 </label>
                               );
@@ -633,7 +586,7 @@ export function CurriculumAdoptionPage(props: CurriculumAdoptionPageProps): JSX.
                       </Show>
                     }
                   >
-                    <p role="status">Loading live reusable sources…</p>
+                    <p role="status">Loading live reusable sources...</p>
                   </Show>
                   <p class="curriculum-adoption-help">
                     Manage reusable sources in the <A href="/curriculum">curriculum workspace</A>.
@@ -710,7 +663,7 @@ export function CurriculumAdoptionPage(props: CurriculumAdoptionPageProps): JSX.
                 preview={preview()}
                 replacements={replacements()}
                 onChooseReplacement={(action, question) => {
-                  setReplacements((current) => replacePin(current, action, question));
+                  setReplacements((current) => replaceCurriculumPin(current, action, question));
                   setNotice({
                     kind: "status",
                     text: "Replacement selected. Regenerate the proposal to ask the live server to validate it.",
@@ -723,7 +676,7 @@ export function CurriculumAdoptionPage(props: CurriculumAdoptionPageProps): JSX.
         </Match>
         <Match when={stage() === "previewing"}>
           <section class="curriculum-adoption-preview">
-            <p role="status">Preparing the live proposal…</p>
+            <p role="status">Preparing the live proposal...</p>
           </section>
         </Match>
         <Match when={stage() === "preview"}>
@@ -753,7 +706,7 @@ export function CurriculumAdoptionPage(props: CurriculumAdoptionPageProps): JSX.
         </Match>
         <Match when={stage() === "applying"}>
           <section class="curriculum-adoption-preview">
-            <p role="status">Applying the live proposal…</p>
+            <p role="status">Applying the live proposal...</p>
           </section>
         </Match>
         <Match when={stage() === "receipt"}>
@@ -770,221 +723,5 @@ export function CurriculumAdoptionPage(props: CurriculumAdoptionPageProps): JSX.
         </Match>
       </Switch>
     </main>
-  );
-}
-
-interface PreviewPanelProps {
-  readonly preview: Preview | undefined;
-  readonly onBack: () => void;
-  readonly onApply: () => void;
-  readonly onSourceDerived: () => void;
-}
-
-function PreviewPanel(props: PreviewPanelProps): JSX.Element {
-  if (props.preview?.kind === "fastForward") {
-    const decision = props.preview.value.decision;
-    return (
-      <section
-        class="curriculum-adoption-preview"
-        aria-label="Server-owned controlled-update decision"
-      >
-        <h2>Review the controlled update</h2>
-        <p>
-          {decision.kind === "eligible"
-            ? "The imported assignment can safely fast-forward to its observed source revision."
-            : "The server preserved the current assignment and selected a recovery path."}
-        </p>
-        <div class="curriculum-adoption-actions">
-          <button type="button" onClick={props.onBack}>
-            Return to course changes
-          </button>
-          <Show
-            when={decision.kind === "eligible"}
-            fallback={
-              <Show when={decision.kind === "divergent" || decision.kind === "issuedWork"}>
-                <button
-                  class="primary-action curriculum-adoption-primary"
-                  type="button"
-                  onClick={props.onSourceDerived}
-                >
-                  Create new assignment from this source definition
-                </button>
-              </Show>
-            }
-          >
-            <button
-              class="primary-action curriculum-adoption-primary"
-              type="button"
-              onClick={props.onApply}
-            >
-              Apply controlled update
-            </button>
-          </Show>
-        </div>
-      </section>
-    );
-  }
-  return (
-    <section class="curriculum-adoption-preview" aria-label="Server-owned curriculum proposal">
-      <h2>Review the proposal</h2>
-      <Show
-        when={props.preview}
-        fallback={
-          <p role="alert">
-            The prepared proposal is unavailable. Return to choices and prepare it again.
-          </p>
-        }
-      >
-        {(current) => (
-          <>
-            <Show when={preparedCourse(current())}>
-              {(course) => (
-                <p>
-                  New live course: <strong>{course().title}</strong>
-                </p>
-              )}
-            </Show>
-            <ul class="curriculum-adoption-manifest" aria-label="Prepared assignments">
-              <For each={preparedAssignments(current())}>
-                {(assignment) => (
-                  <li>
-                    <strong>{assignment.title}</strong>
-                    <span>{assignment.schedule.timeZone} schedule prepared by the server.</span>
-                  </li>
-                )}
-              </For>
-            </ul>
-            <div class="curriculum-adoption-actions">
-              <button type="button" onClick={props.onBack}>
-                Change choices
-              </button>
-              <button
-                class="primary-action curriculum-adoption-primary"
-                type="button"
-                onClick={props.onApply}
-              >
-                Apply live change
-              </button>
-            </div>
-          </>
-        )}
-      </Show>
-    </section>
-  );
-}
-
-interface RecoveryPanelProps {
-  readonly preview: Preview | undefined;
-  readonly replacements: ReadonlyArray<CurriculumPinReplacement>;
-  readonly onChooseReplacement: (action: UnavailablePinRecoveryAction, question: string) => void;
-  readonly onRegenerate: () => void;
-}
-
-function RecoveryPanel(props: RecoveryPanelProps): JSX.Element {
-  const correction = (): UnavailablePinRecoveryAction | null =>
-    props.preview === undefined ? null : previewPinCorrection(props.preview);
-  return (
-    <section class="curriculum-adoption-recovery" aria-label="Proposal recovery">
-      <h2>Resolve the proposal blocker</h2>
-      <Show
-        when={props.preview}
-        fallback={<p>Reload the source or course, then prepare a new proposal.</p>}
-      >
-        {(current) => (
-          <>
-            <For each={previewCorrections(current())}>
-              {(item) => <p>{item.correction.message}</p>}
-            </For>
-            <Show when={correction()}>
-              {(action) => (
-                <fieldset>
-                  <legend>Replacement question</legend>
-                  <p>Choose one valid replacement, then regenerate the proposal.</p>
-                  <div class="curriculum-adoption-inline-actions">
-                    <For each={action().candidates}>
-                      {(question) => (
-                        <button
-                          type="button"
-                          onClick={() => props.onChooseReplacement(action(), question)}
-                        >
-                          {question}
-                        </button>
-                      )}
-                    </For>
-                  </div>
-                </fieldset>
-              )}
-            </Show>
-          </>
-        )}
-      </Show>
-      <div class="curriculum-adoption-actions">
-        <span>
-          {props.replacements.length > 0
-            ? "A replacement is preserved for the next preview."
-            : "Keep the existing source selections, then refresh the proposal."}
-        </span>
-        <button
-          class="primary-action curriculum-adoption-primary"
-          type="button"
-          onClick={props.onRegenerate}
-        >
-          Regenerate proposal
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function ImportInspection(props: {
-  readonly inspection:
-    Awaited<ReturnType<CurriculumAdoptionClient["inspectCurriculumImports"]>> | undefined;
-  readonly onBack: () => void;
-  readonly onFastForward: (assignment: string) => void;
-}): JSX.Element {
-  return (
-    <section class="curriculum-adoption-imports" aria-label="Curriculum import evidence">
-      <h2>Imported curriculum evidence</h2>
-      <Show
-        when={props.inspection}
-        fallback={
-          <p role="alert">
-            Import evidence is unavailable. Return to the course choices and retry.
-          </p>
-        }
-      >
-        {(inspection) => (
-          <>
-            <p>
-              Origin: {inspection().origin.kind}. Schedule revision is current for this inspection.
-            </p>
-            <ul class="curriculum-adoption-import-list">
-              <For each={inspection().assignments}>
-                {(item) => (
-                  <li>
-                    <strong>{item.assignment}</strong>
-                    <span>
-                      {item.reusableMeaningMatchesBaseline
-                        ? "Matches its imported baseline."
-                        : "Has diverged from its imported baseline; preserve it and create a new source-derived assignment when the server offers that recovery."}
-                    </span>
-                    <Show when={item.source.kind === "reusable"}>
-                      <button type="button" onClick={() => props.onFastForward(item.assignment)}>
-                        Preview controlled update
-                      </button>
-                    </Show>
-                  </li>
-                )}
-              </For>
-            </ul>
-            <div class="curriculum-adoption-actions">
-              <button type="button" onClick={props.onBack}>
-                Return to course changes
-              </button>
-            </div>
-          </>
-        )}
-      </Show>
-    </section>
   );
 }

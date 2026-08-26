@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-08-26
+
+### Additions and New Features
+
+- Implemented the WP-PROF-B2 curriculum-adoption API and Instructor browser composition across
+  preview-before-save adoption, rollover, term shifting, provenance receipts, controlled
+  fast-forward, and divergence recovery.
+
+### Fixes and Maintenance
+
+- Made root shell scripts the canonical setup interface. A fresh-clone `run_live_demo.sh` now
+  invokes visible lockfile-defined dependency setup only when `node_modules` is absent;
+  `setup.sh` and `setup_playwright.sh` own the explicit setup commands, while npm entries remain
+  optional mirrors.
+- Split the visible curriculum-adoption page into focused workflow and proposal-panel modules so
+  each authored TypeScript source remains within the repository source-size boundary.
+- Covered B1/B2 migrations `2026081837` through `2026081847`: accepted `1837` remains immutable;
+  `1842` carries the forward relative-time-validator repair. The database guide now treats the
+  migration directory and shared status ledger as the physical and allocation authorities.
+- Bound term-shift client refusals to the real course-scoped apply path and removed the fabricated
+  generic apply-path diagnostic.
+
+### Developer Tests and Notes
+
+- Passed the focused disposable PostgreSQL/RLS curriculum-adoption oracle and the connected
+  production-shaped HTTPS four-context curriculum-adoption browser journey, including visible
+  creation, DST correction, controlled update, divergence recovery, destination evidence, and
+  rollover.
+- Passed focused TypeScript compilation, ESLint, Node browser-contract/workflow checks, Python
+  scenario-contract checks, 23 question-model tests, 62 learning-data-access tests, and the
+  repository ASCII, source-size, Markdown-link, and diff-hygiene gates.
+- Passed the complete repository codebase gate with all five checks and 322 Node tests, plus all
+  7,361 pytest checks. The complete Rust gate passed generated contracts and fixtures, formatting,
+  both compile graphs, all three strict Clippy graphs, both test/doctest graphs, and the browser Wasm
+  target. Independent post-fix review returned ACCEPT with no unresolved P0, P1, or P2 finding.
+- B2 acceptance remains open pending screenshot publication, the full database baseline, and
+  final `source source_me.sh && ./all_test.sh` on the final material tree.
+
 ## 2026-08-25
 
 ### Fixes and Maintenance
@@ -46,7 +84,7 @@
 - Rotated the 2026-08-18 through 2026-08-23 day blocks into
   `docs/CHANGELOG-2026-08d.md` under the repository's two-current-day changelog policy.
 - The full live-stack checkpoint before the B2 contract audit passed `source source_me.sh &&
-  ./all_test.sh`: the Rust workspace, all five codebase gates, 315 Node tests, 7,067 pytest cases,
+./all_test.sh`: the Rust workspace, all five codebase gates, 315 Node tests, 7,067 pytest cases,
   the complete production HTTPS browser suite, all 67 database migrations, the WebWork and
   replica-restart service oracles, and exact cleanup. B2 final Validation remains open until its
   Store, PostgreSQL, browser, and evidence slices are complete on one final material tree.

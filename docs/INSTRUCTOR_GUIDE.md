@@ -131,6 +131,39 @@ This is an accepted capability. Connected evidence runs under the fixed
 followed serially by the distinct WebWork renderer and two-API/one-PostgreSQL
 replica service oracles.
 
+## Adopt reusable curriculum
+
+Open **Curriculum adoption** from an Instructor course. This is the live teaching workflow for
+turning reusable meaning into ordinary course state. Choose a Blueprint assignment, an Alpha course,
+course rollover, term shift, or import inspection. Select the source and target term when the
+operation requires them, then choose **Prepare proposal**. To make an independently editable Alpha,
+open its public curriculum detail and choose **Create independent copy**.
+
+Review the server-owned, answer-free proposal before applying it. The proposal identifies its source
+revision, destination, schedule resolution, and any exact Question ID that needs replacement. If a
+source pin is no longer available or a local time falls in a DST gap or ambiguity, the page preserves
+the draft choices and names the correction; choose a replacement or corrected time and prepare a new
+proposal.
+
+- **Blueprint or Alpha instantiation:** create an ordinary draft assignment or a new ordinary
+  teaching course with its explicit target term, title, and source revision.
+- **Fork Alpha:** from the public Alpha detail, create an independently editable Alpha with
+  immutable source-lineage evidence.
+- **Rollover:** create the next teaching course while leaving rosters, learner records, attempts,
+  grades, retention, and issued work behind. The destination starts empty of learner activity.
+- **Term shift:** move all unissued assignment schedules together. Relative calendar-day and local
+  wall-clock values resolve in the target course IANA zone. Any issued run makes in-place shifting
+  ineligible; use rollover instead.
+- **Import maintenance:** inspect the current import, fast-forward only an eligible untouched
+  assignment, or create a new source-derived draft when the destination diverged. The divergent
+  assignment remains unchanged.
+
+Activate **Apply proposal** only after reviewing the destination and correction state. The server
+accepts the exact eligible preview, commits atomically, and returns an immutable receipt. Use
+**Check receipt evidence** to reconcile B2-owned derived rows; incomplete immutable evidence refuses
+reconciliation and requires operator recovery. The workflow exposes the destination and next action
+after success.
+
 ## Review learning
 
 After the student completes and repeats the assignment, open **Gradebook** and expand **View run
