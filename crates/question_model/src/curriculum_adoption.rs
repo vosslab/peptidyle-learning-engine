@@ -10,29 +10,40 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     ActivityTimestamp, AssignmentInstructions, AssignmentScoringMode,
-    AssignmentTeachingSettingsField, AssignmentTeachingSettingsLocalError, CourseLocalDateTime,
-    CourseTerm, IanaTimeZone, MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP,
-    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, PointValue,
-    PoolDrawAlgorithm, ProblemVersionRef, RelativeAssignmentSchedule, RelativeScheduleMoment,
-    ReusableAssignmentDefaults, ReusableCurriculumValidationError, SelectionOrdering,
-    validate_reusable_curriculum_title,
+    AssignmentTeachingSettingsField, AssignmentTeachingSettingsLocalError, BaseAssignmentPolicy,
+    CourseLocalDateTime, CourseTerm, IanaTimeZone, LocalTimeOfDay,
+    MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, PointValue, PoolDrawAlgorithm, ProblemVersionRef,
+    RelativeAssignmentSchedule, RelativeScheduleMoment, ReusableAssignmentDefaults,
+    ReusableCurriculumValidationError, SelectionOrdering, validate_reusable_curriculum_title,
 };
 
 mod contracts;
 
 pub use contracts::{
-    AlphaInstantiationCommand, AssignmentFastForwardCommand, AssignmentRevision,
-    AssignmentRevisionError, BlueprintInstantiationCommand, CourseRolloverCommand,
+    AlphaInstantiationCommand, AlphaInstantiationCompleted, AlphaInstantiationPreviewRequest,
+    AlphaInstantiationPreviewView, AssignmentDefinitionSourceView, AssignmentFastForwardCommand,
+    AssignmentFastForwardCompleted, AssignmentFastForwardDecision,
+    AssignmentFastForwardPreviewRequest, AssignmentFastForwardPreviewView,
+    BlueprintInstantiationCommand, BlueprintInstantiationCompleted,
+    BlueprintInstantiationPreviewRequest, BlueprintInstantiationPreviewView, CourseRolloverCommand,
+    CourseRolloverCompleted, CourseRolloverPreviewRequest, CourseRolloverPreviewView,
     CourseScheduleWitness, CourseScheduleWitnessError, CourseTermShiftCommand,
-    CreateSourceDerivedAssignmentCommand, CurriculumAdoptionCommand, CurriculumAdoptionCompleted,
+    CourseTermShiftCompleted, CourseTermShiftPreviewRequest, CourseTermShiftPreviewView,
+    CreateSourceDerivedAssignmentCommand, CurriculumAdoptionCommandError,
     CurriculumAdoptionIdempotencyKey, CurriculumAdoptionIdempotencyKeyError,
-    CurriculumAdoptionOperation, CurriculumAdoptionPreviewRequest, CurriculumAdoptionPreviewView,
-    CurriculumAdoptionReceiptBinding, CurriculumAdoptionResultView, CurriculumAdoptionTitle,
-    CurriculumAdoptionTitleError, CurriculumAssignmentView, CurriculumCourseImportView,
-    CurriculumImportRevision, CurriculumImportRevisionError, CurriculumImportSourceView,
-    CurriculumImportView, CurriculumReplayStatus, CurriculumScheduleCorrection,
-    CurriculumSourceView, ForkAlphaCommand, ObservedAlphaSource, ObservedAssignmentRevision,
-    ObservedBlueprintSource,
+    CurriculumAdoptionReceiptBinding, CurriculumAdoptionTitle, CurriculumAdoptionTitleError,
+    CurriculumAssignmentView, CurriculumCourseImportView, CurriculumImportRevision,
+    CurriculumImportRevisionError, CurriculumImportView, CurriculumPinPosition,
+    CurriculumPinPositionError, CurriculumPinReplacement, CurriculumPinReplacements,
+    CurriculumPinReplacementsError, CurriculumReplayStatus, CurriculumScheduleCorrection,
+    CurriculumSourceView, ForkAlphaCommand, ForkAlphaCompleted, ForkAlphaPreviewRequest,
+    ForkAlphaPreviewView, ObservedAlphaAssignmentSource, ObservedAlphaAssignmentSourceError,
+    ObservedAlphaSource, ObservedAssignmentRevision, ObservedBlueprintSource,
+    PreparedCurriculumAssignmentView, PreparedCurriculumCourseView,
+    PreservedAssignmentRecoveryAction, ReplacementQuestionChoices, ReplacementQuestionChoicesError,
+    SourceDerivedAssignmentCompleted, SourceDerivedAssignmentPreviewRequest,
+    SourceDerivedAssignmentPreviewView, UnavailablePinRecoveryAction,
 };
 
 const DOMAIN: &[u8] = b"ple:curriculum-semantic\0";
@@ -508,6 +519,40 @@ pub struct ResolvedRelativeAssignmentSchedule {
     pub closes_at: Option<ResolvedRelativeScheduleMoment>,
 }
 impl RelativeAssignmentSchedule {
+    /// Projects a stored course-owned policy into reusable calendar-relative meaning.
+    ///
+    /// The source term's IANA zone is the sole authority for this conversion.
+    /// Each absolute timestamp must project to an inclusive source-term local date,
+    /// and the resulting related moments must remain chronological. This gives
+    /// adoption callers a typed correction rather than discarding a stored date
+    /// when a course is shifted. (ASVS 2.2.1, 2.2.2, 2.2.3)
+    pub fn from_base_policy(
+        policy: &BaseAssignmentPolicy,
+        source_term: &CourseTerm,
+    ) -> Result<Self, AssignmentTeachingSettingsLocalError> {
+        let schedule = Self {
+            available_at: project_relative_moment(
+                policy.available_at,
+                source_term,
+                AssignmentTeachingSettingsField::AvailableAt,
+            )?,
+            due_at: project_relative_moment(
+                policy.due_at,
+                source_term,
+                AssignmentTeachingSettingsField::DueAt,
+            )?,
+            closes_at: project_relative_moment(
+                policy.closes_at,
+                source_term,
+                AssignmentTeachingSettingsField::ClosesAt,
+            )?,
+        };
+        schedule
+            .validate()
+            .map_err(|_| AssignmentTeachingSettingsLocalError::ScheduleOutOfOrder)?;
+        Ok(schedule)
+    }
+
     /// Resolves calendar offsets in the target term's IANA zone.
     ///
     /// Calendar-day arithmetic occurs before the existing course-local resolver
@@ -537,6 +582,30 @@ impl RelativeAssignmentSchedule {
             )?,
         })
     }
+}
+
+fn project_relative_moment(
+    value: Option<ActivityTimestamp>,
+    source_term: &CourseTerm,
+    field: AssignmentTeachingSettingsField,
+) -> Result<Option<RelativeScheduleMoment>, AssignmentTeachingSettingsLocalError> {
+    value
+        .map(|value| {
+            let local = CourseLocalDateTime::from_activity_timestamp(value, source_term, field)?;
+            let date = NaiveDate::parse_from_str(&local.as_str()[..10], "%Y-%m-%d")
+                .expect("validated course-local date");
+            let start = NaiveDate::parse_from_str(source_term.start_date().as_str(), "%Y-%m-%d")
+                .expect("validated course term");
+            let day_offset = i32::try_from(date.signed_duration_since(start).num_days())
+                .map_err(|_| AssignmentTeachingSettingsLocalError::TimestampOutOfRange(field))?;
+            let local_time =
+                LocalTimeOfDay::parse(&local.as_str()[11..]).expect("validated course-local time");
+            Ok(RelativeScheduleMoment {
+                day_offset,
+                local_time,
+            })
+        })
+        .transpose()
 }
 fn resolve(
     value: Option<&RelativeScheduleMoment>,

@@ -5,7 +5,7 @@
 //! the bounded command for the `SECURITY DEFINER` capability.
 
 use super::*;
-use crate::ReplaceUnissuedAssignmentDefinitionOutcome;
+use crate::{ReplaceUnissuedAssignmentDefinitionOutcome, assignment_revision_from_stored};
 use serde::{Deserialize, Serialize};
 
 const MAX_PAYLOAD_BYTES: usize = 512 * 1024;
@@ -252,7 +252,7 @@ async fn reload_and_compare(
     Ok(StoredAssignment {
         record,
         base_policy: returned_base,
-        revision: AssignmentRevision::from_stored(
+        revision: assignment_revision_from_stored(
             row.try_get("revision").map_err(map_sqlx_error)?,
         )?,
         scoring_generation: decode_scoring_generation(row)?,

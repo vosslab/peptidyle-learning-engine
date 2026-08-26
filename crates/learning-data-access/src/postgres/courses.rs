@@ -3,6 +3,7 @@ use question_model::{ActivityTimestamp, CourseMembershipId, StudentId};
 
 use super::*;
 use crate::CourseMembershipRecord;
+use crate::assignment_revision_from_stored;
 
 pub(super) fn encode_course_group_purpose(
     purpose: question_model::CourseGroupPurpose,
@@ -314,7 +315,7 @@ impl crate::CourseStore for PostgresStore {
                         command.actor,
                         command.record.course,
                         AssignmentId::from_uuid(assignment),
-                        AssignmentRevision::from_stored(revision)?,
+                        assignment_revision_from_stored(revision)?,
                     )
                     .await?;
                 }

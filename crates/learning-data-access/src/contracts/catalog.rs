@@ -459,45 +459,6 @@ impl WorkspaceDraftRevision {
     }
 }
 
-/// Server-issued optimistic-concurrency value for one editable assignment.
-///
-/// Assignment definitions are tenant-owned course artifacts.  Their selected
-/// published versions stay immutable, while the ordered selection and policies
-/// change only through this compare-and-swap token.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct AssignmentRevision(u64);
-
-impl AssignmentRevision {
-    pub(crate) const INITIAL: Self = Self(1);
-    const MAX: u64 = i64::MAX as u64;
-
-    pub fn value(self) -> u64 {
-        self.0
-    }
-
-    pub(crate) fn next(self) -> Result<Self, StoreError> {
-        self.0
-            .checked_add(1)
-            .filter(|value| *value <= Self::MAX)
-            .map(Self)
-            .ok_or_else(|| StoreError::Unavailable("assignment revision limit reached".to_string()))
-    }
-
-    #[cfg(feature = "postgres")]
-    pub(crate) fn from_stored(value: i64) -> Result<Self, StoreError> {
-        let value = u64::try_from(value).map_err(|_| {
-            StoreError::Unavailable("stored assignment revision is invalid".to_string())
-        })?;
-        if value == 0 {
-            return Err(StoreError::Unavailable(
-                "stored assignment revision is invalid".to_string(),
-            ));
-        }
-        Ok(Self(value))
-    }
-}
-
 /// Editable draft plus its server-managed revision token.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

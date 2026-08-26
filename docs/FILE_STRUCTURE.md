@@ -84,9 +84,16 @@ crates/learning-data-access/
 +- src/
 |  +- contracts/       Store and capability contracts
 |  |  `- catalog.rs    Catalog query contract and HMAC continuation codec
+|  |  `- curriculum_adoption.rs Revision-bound `CurriculumAdoptionStore` contract
 |  +- in_memory/       Database-free capability implementations
 |  |  +- catalog.rs    Catalog state projection, pagination, and snapshot assembly
 |  |  `- catalog_search.rs Portable ranked-search admission and fixed-point scoring helpers
+|  |  +- curriculum_adoption/ Dedicated B2 adoption state, destination materialization, atomic operations, and focused behavior tests
+|  |  |  +- state.rs   Private baselines, provenance envelopes, receipts, and adoption outcomes
+|  |  |  +- destination.rs Assignment/course materialization and reusable-meaning replacement
+|  |  |  +- operations/ Preview/apply flows shared by instantiation, rollover, term shift, and controlled updates
+|  |  |  `- tests/      Focused invalid-state and recovery behavior cases
+|  |  `- reusable_curriculum/source_snapshot.rs Trusted exact-pin and assignment-source snapshot resolution
 |  +- postgres/        PostgreSQL implementations and connection attestation
 |  |  `- catalog/search.rs Canonical ranked full-text and word-similarity search
 |  |  `- course_gradebook.rs Course-grade scheme, totals, and export implementation
@@ -96,6 +103,7 @@ crates/learning-data-access/
 |  +- in_memory/course_policy.rs Atomic teaching-settings mutation and current policy resolution
 |  +- postgres/course_policy.rs PostgreSQL teaching-settings CAS, lifecycle gate, and receipt update
 |  +- activity.rs      Actor-scoped learner reads and activity ownership
+|  +- assignment_revision.rs Checked conversion between the canonical domain revision and stored BIGINT
 |  +- external_tool.rs External broker leases, dispatch, and finalization contracts
 |  +- feedback.rs      Private current disclosure receipt and learner-projection inputs
 |  +- jobs.rs          Durable job and publication-outbox contracts
@@ -108,6 +116,14 @@ crates/learning-data-access/
    +- fixtures/        Small safe fixture evidence
    `- postgres_*_live.rs Disposable PostgreSQL acceptance gates, including ignored course-term, catalog Store, course-grade, disclosure, and plan suites
 ```
+
+Within `crates/question_model/src/`, `assignment/revision.rs` owns the sole assignment-revision
+value and canonical decimal wire shape. `curriculum_adoption.rs` owns normalized B2 reusable meaning,
+target-term relative-schedule resolution, typed DST corrections, and course schedule revisions;
+`curriculum_adoption/contracts.rs` and its `contracts/` children own bounded answer-free previews,
+preview-derived commands, exact assignment-definition source views, recovery decisions, and completed
+receipt projections. `curriculum_adoption/contracts/assignment_source.rs` is the exact source locator
+for one Blueprint or one positioned Alpha assignment.
 
 When a persistence capability changes, update its contract, both
 implementations, and matching conformance evidence. Actor-scoped learner

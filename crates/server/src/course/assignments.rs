@@ -643,16 +643,9 @@ pub(super) fn required_assignment_revision(
     else {
         return Err(AssignmentRevisionHeaderError::Malformed);
     };
-    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
-        return Err(AssignmentRevisionHeaderError::Malformed);
-    }
-    let numeric = value
-        .parse::<u64>()
-        .map_err(|_| AssignmentRevisionHeaderError::Malformed)?;
-    if numeric == 0 || numeric > i64::MAX as u64 {
-        return Err(AssignmentRevisionHeaderError::Malformed);
-    }
-    serde_json::from_str(value).map_err(|_| AssignmentRevisionHeaderError::Malformed)
+    value
+        .parse()
+        .map_err(|_| AssignmentRevisionHeaderError::Malformed)
 }
 
 async fn assignment_response<S>(

@@ -23,6 +23,7 @@ mod course_gradebook;
 mod course_policy;
 mod course_roster;
 mod courses;
+mod curriculum_adoption;
 mod entitlement;
 mod exports;
 mod external_tool;
@@ -512,6 +513,32 @@ struct State {
         BTreeMap<question_model::AlphaCourseReference, reusable_curriculum::AlphaCourseId>,
     alpha_courses:
         BTreeMap<reusable_curriculum::AlphaCourseId, reusable_curriculum::StoredAlphaCourse>,
+    course_schedule_revisions:
+        BTreeMap<(TenantId, CourseId), question_model::CourseScheduleRevision>,
+    curriculum_import_baselines:
+        BTreeMap<(TenantId, AssignmentId), curriculum_adoption::StoredCurriculumBaseline>,
+    curriculum_import_envelopes:
+        BTreeMap<(TenantId, AssignmentId), curriculum_adoption::StoredCurriculumEnvelope>,
+    curriculum_assignment_adoption_evidence: BTreeMap<
+        (
+            TenantId,
+            question_model::CurriculumAdoptionIdempotencyKey,
+            AssignmentId,
+        ),
+        curriculum_adoption::StoredAssignmentAdoptionEvidence,
+    >,
+    curriculum_course_adoptions:
+        BTreeMap<(TenantId, CourseId), curriculum_adoption::StoredCourseAdoptionRecord>,
+    curriculum_course_imports:
+        BTreeMap<(TenantId, CourseId), curriculum_adoption::StoredCourseImportEnvelope>,
+    curriculum_course_envelopes:
+        BTreeMap<(TenantId, CourseId), curriculum_adoption::StoredCurriculumEnvelope>,
+    curriculum_alpha_fork_lineage:
+        BTreeMap<question_model::AlphaCourseReference, curriculum_adoption::StoredAlphaForkLineage>,
+    curriculum_adoption_receipts: BTreeMap<
+        (TenantId, question_model::CurriculumAdoptionIdempotencyKey),
+        curriculum_adoption::MemoryCurriculumAdoptionReceipt,
+    >,
     drafts: BTreeMap<(TenantId, WorkspaceId), DraftRecord>,
     draft_revisions: BTreeMap<(TenantId, WorkspaceId), WorkspaceDraftRevision>,
     draft_access: BTreeMap<(TenantId, WorkspaceId, UserId), WorkspaceDraftRole>,

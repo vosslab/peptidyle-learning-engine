@@ -33,6 +33,7 @@ mod account_identity;
 mod account_presentation;
 mod activity_policy;
 mod asset_delivery;
+mod assignment_revision;
 mod catalog_prompt;
 mod course_appearance;
 mod course_gradebook;
@@ -74,7 +75,13 @@ mod statistics;
 mod teaching_authority_references;
 mod teaching_authority_store;
 
+pub(crate) use crate::assignment_revision::assignment_revision_checked_next;
+#[cfg(feature = "postgres")]
+pub(crate) use crate::assignment_revision::{
+    assignment_revision_from_stored, assignment_revision_to_stored,
+};
 pub use crate::question_id::QuestionIdCodec;
+pub use question_model::{AssignmentRevision, AssignmentRevisionError};
 
 pub use crate::account_identity::{
     AccountCourseContext, AccountIdentityError, AccountIdentityStore, AccountRecord,
@@ -101,10 +108,10 @@ pub use crate::asset_delivery::{
 };
 pub use crate::contracts::CourseGroupManagementStore;
 pub use crate::contracts::{
-    IssuedNativeAssetBindingV1, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1,
-    PreviewPlaneResult, PreviewPlaneStore, PreviewSubjectAudit, ProblemCollectionMembersPage,
-    ProblemCollectionReplacementTarget, ProblemCurationCapability, ProblemCurationStore,
-    ReplaceProblemCollectionCommand, ReplaceSavedProblemSearchCommand,
+    CurriculumAdoptionStore, IssuedNativeAssetBindingV1, IssuedQuestionFamilyWitnessV1,
+    IssuedQuestionSnapshotV1, PreviewPlaneResult, PreviewPlaneStore, PreviewSubjectAudit,
+    ProblemCollectionMembersPage, ProblemCollectionReplacementTarget, ProblemCurationCapability,
+    ProblemCurationStore, ReplaceProblemCollectionCommand, ReplaceSavedProblemSearchCommand,
 };
 pub use crate::contracts::{
     ReplaceAlphaCourseCommand, ReplaceBlueprintCommand, ReusableCurriculumCapability,

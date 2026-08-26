@@ -9,6 +9,7 @@ use domain::{
 };
 
 use super::*;
+use crate::assignment_revision_checked_next;
 
 #[async_trait]
 impl crate::EffectivePolicyStore for MemoryStore {
@@ -97,6 +98,14 @@ impl crate::EffectivePolicyStore for MemoryStore {
             tenant,
             command.course,
             command.assignment,
+        ) {
+            *state = snapshot;
+            return Err(error);
+        }
+        if let Err(error) = super::curriculum_adoption::advance_course_schedule_revision(
+            &mut state,
+            tenant,
+            command.course,
         ) {
             *state = snapshot;
             return Err(error);
@@ -926,7 +935,7 @@ fn require_expected_revision(
     if current != expected {
         return Err(StoreError::Conflict);
     }
-    current.next()
+    assignment_revision_checked_next(current)
 }
 
 #[cfg(test)]

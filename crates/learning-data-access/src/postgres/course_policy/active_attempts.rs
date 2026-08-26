@@ -1,5 +1,6 @@
 //! Active-attempt policy re-resolution after authoritative policy mutations.
 
+use crate::assignment_revision_from_stored;
 use crate::postgres::*;
 use crate::*;
 use domain::effective_assignment_policy::{AssignmentLifecycleGate, assignment_lifecycle_gate};
@@ -39,7 +40,7 @@ impl ActiveAttemptPrepareWitness {
                 &row.try_get::<String, _>("assignment_lifecycle")
                     .map_err(map_sqlx_error)?,
             )?,
-            revision: AssignmentRevision::from_stored(
+            revision: assignment_revision_from_stored(
                 row.try_get("assignment_revision").map_err(map_sqlx_error)?,
             )?,
             attempt_ids,

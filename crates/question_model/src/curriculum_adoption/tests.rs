@@ -3,19 +3,36 @@ use std::num::NonZeroU32;
 use uuid::Uuid;
 
 use super::*;
+use crate::AssignmentRevision;
 
 use crate::{
     AlphaCourseReference, AssignmentDeadlineBehavior, AssignmentReference,
     AssignmentTeachingSettingsFailureReason, BlueprintReference, CompletionRequirement,
     ContinuedPractice, CourseReference, GradePolicy, LateSubmissionPolicy, LearnerDisclosurePolicy,
     LearnerDisclosureTiming, LocalTimeOfDay, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, ProblemId, RunPolicies, VariationPolicy, VersionId,
+    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, ProblemId, QuestionId,
+    RunPolicies, VariationPolicy, VersionId,
 };
+
+mod commands;
+mod recovery;
+
 fn reference(value: u128) -> ProblemVersionRef {
     ProblemVersionRef {
         problem: ProblemId::from_uuid(Uuid::from_u128(value)),
         version: VersionId::from_uuid(Uuid::from_u128(value + 100)),
     }
+}
+
+fn alpha_assignment_source(
+    source: ObservedAlphaSource,
+    module_index: u16,
+    assignment_index: u16,
+) -> AssignmentDefinitionSourceView {
+    AssignmentDefinitionSourceView::Alpha(
+        ObservedAlphaAssignmentSource::new(source, module_index, assignment_index)
+            .expect("bounded Alpha assignment source"),
+    )
 }
 
 fn defaults() -> ReusableAssignmentDefaults {
@@ -342,6 +359,106 @@ fn relative_schedule_resolves_calendar_days_and_safe_preview_fields() {
     assert!(!wire.contains("00000000-0000-0000-0000-000000000001"));
 }
 
+fn source_timestamp(
+    term: &CourseTerm,
+    field: AssignmentTeachingSettingsField,
+    value: &str,
+) -> ActivityTimestamp {
+    CourseLocalDateTime::parse(value)
+        .expect("valid source local time")
+        .resolve_for_course(term, field)
+        .expect("resolvable source local time")
+}
+
+#[test]
+fn base_policy_projection_preserves_source_calendar_days_and_wall_clock_times() {
+    let term = CourseTerm::from_parts("2026-12-31", "2027-01-03", "America/Chicago")
+        .expect("valid source term");
+    let policy = BaseAssignmentPolicy {
+        available_at: Some(source_timestamp(
+            &term,
+            AssignmentTeachingSettingsField::AvailableAt,
+            "2026-12-31T08:00:00.000",
+        )),
+        due_at: Some(source_timestamp(
+            &term,
+            AssignmentTeachingSettingsField::DueAt,
+            "2027-01-01T17:30:00.000",
+        )),
+        closes_at: Some(source_timestamp(
+            &term,
+            AssignmentTeachingSettingsField::ClosesAt,
+            "2027-01-03T23:00:00.000",
+        )),
+        ..BaseAssignmentPolicy::default()
+    };
+
+    let schedule = RelativeAssignmentSchedule::from_base_policy(&policy, &term)
+        .expect("stored schedule projects");
+    assert_eq!(schedule.available_at, Some(relative(0, "08:00:00.000")));
+    assert_eq!(schedule.due_at, Some(relative(1, "17:30:00.000")));
+    assert_eq!(schedule.closes_at, Some(relative(3, "23:00:00.000")));
+}
+
+#[test]
+fn base_policy_projection_preserves_a_partial_schedule() {
+    let term = CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago")
+        .expect("valid source term");
+    let policy = BaseAssignmentPolicy {
+        due_at: Some(source_timestamp(
+            &term,
+            AssignmentTeachingSettingsField::DueAt,
+            "2026-09-01T17:30:00.000",
+        )),
+        ..BaseAssignmentPolicy::default()
+    };
+
+    let schedule = RelativeAssignmentSchedule::from_base_policy(&policy, &term)
+        .expect("partial stored schedule projects");
+    assert_eq!(schedule.available_at, None);
+    assert_eq!(schedule.due_at, Some(relative(8, "17:30:00.000")));
+    assert_eq!(schedule.closes_at, None);
+}
+
+#[test]
+fn base_policy_projection_refuses_outside_term_and_out_of_order_schedules() {
+    let term = CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago")
+        .expect("valid source term");
+    let outside = BaseAssignmentPolicy {
+        due_at: Some(source_timestamp(
+            &CourseTerm::from_parts("2026-08-24", "2027-01-02", "America/Chicago")
+                .expect("wider source term"),
+            AssignmentTeachingSettingsField::DueAt,
+            "2026-12-13T17:30:00.000",
+        )),
+        ..BaseAssignmentPolicy::default()
+    };
+    assert_eq!(
+        RelativeAssignmentSchedule::from_base_policy(&outside, &term),
+        Err(AssignmentTeachingSettingsLocalError::OutsideCourseTerm(
+            AssignmentTeachingSettingsField::DueAt
+        ))
+    );
+
+    let out_of_order = BaseAssignmentPolicy {
+        available_at: Some(source_timestamp(
+            &term,
+            AssignmentTeachingSettingsField::AvailableAt,
+            "2026-09-02T08:00:00.000",
+        )),
+        due_at: Some(source_timestamp(
+            &term,
+            AssignmentTeachingSettingsField::DueAt,
+            "2026-09-01T17:30:00.000",
+        )),
+        ..BaseAssignmentPolicy::default()
+    };
+    assert_eq!(
+        RelativeAssignmentSchedule::from_base_policy(&out_of_order, &term),
+        Err(AssignmentTeachingSettingsLocalError::ScheduleOutOfOrder)
+    );
+}
+
 #[test]
 fn target_term_and_dst_refusals_keep_the_exact_schedule_field() {
     let one_day = CourseTerm::from_parts("2026-08-24", "2026-08-24", "America/Chicago")
@@ -387,17 +504,10 @@ fn target_term_and_dst_refusals_keep_the_exact_schedule_field() {
 #[test]
 fn adoption_revisions_and_idempotency_keys_use_canonical_bounded_wire_values() {
     let import: CurriculumImportRevision = "42".parse().expect("canonical import revision");
-    let assignment_revision: AssignmentRevision = "43".parse().expect("canonical assignment");
     assert_eq!(import.value(), 42);
-    assert_eq!(assignment_revision.value(), 43);
     assert_eq!(serde_json::json!(import), serde_json::json!("42"));
-    assert_eq!(
-        serde_json::json!(assignment_revision),
-        serde_json::json!("43")
-    );
     for invalid in ["", "0", "01", "+2", "-2", "9223372036854775808"] {
         assert!(invalid.parse::<CurriculumImportRevision>().is_err());
-        assert!(invalid.parse::<AssignmentRevision>().is_err());
     }
 
     let key =
@@ -455,68 +565,292 @@ fn schedule_witness_normalizes_assignment_order_and_refuses_duplicates() {
         "assignmentRevisions": [first, first],
     });
     assert!(serde_json::from_value::<CourseScheduleWitness>(duplicate_wire).is_err());
+
+    let oversized = (1..=MAX_ASSIGNMENT_ORDERED_ENTRIES + 1)
+        .map(|number| ObservedAssignmentRevision {
+            assignment: AssignmentReference::new(
+                u64::try_from(number).expect("assignment bound fits route reference"),
+            )
+            .expect("assignment reference"),
+            revision: AssignmentRevision::INITIAL,
+        })
+        .collect();
+    assert_eq!(
+        CourseScheduleWitness::new(course, CourseScheduleRevision::INITIAL, oversized),
+        Err(CourseScheduleWitnessError::TooManyAssignments)
+    );
+    let oversized_wire = serde_json::json!({
+        "course": course,
+        "scheduleRevision": "1",
+        "assignmentRevisions": (1..=MAX_ASSIGNMENT_ORDERED_ENTRIES + 1)
+            .map(|number| serde_json::json!({
+                "assignment": format!("A-{number}"),
+                "revision": "1",
+            }))
+            .collect::<Vec<_>>(),
+    });
+    assert!(serde_json::from_value::<CourseScheduleWitness>(oversized_wire).is_err());
 }
 
 #[test]
-fn browser_adoption_contracts_are_strict_and_answer_free() {
-    let request = CurriculumAdoptionPreviewRequest::InstantiateBlueprint {
-        source: ObservedBlueprintSource {
-            reference: BlueprintReference::new(5).expect("blueprint reference"),
-            revision: "2".parse().expect("blueprint revision"),
-        },
-        course: CourseReference::new(3).expect("course reference"),
-        target_term: CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago")
-            .expect("term"),
-    };
-    let wire = serde_json::to_value(&request).expect("preview request serializes");
-    assert_eq!(wire["kind"], "instantiateBlueprint");
-    let rendered = wire.to_string();
-    for absent in ["tenant", "userId", "authority", "uuid", "answer", "grader"] {
-        assert!(!rendered.contains(absent));
+fn operation_specific_preview_requests_are_strict_and_truthful() {
+    macro_rules! assert_rejects_authority_field {
+        ($request:ty, $value:expr) => {{
+            let mut wire = serde_json::to_value(&$value).expect("preview request serializes");
+            wire.as_object_mut()
+                .expect("preview request is an object")
+                .insert("tenant".to_owned(), serde_json::json!("forged"));
+            assert!(serde_json::from_value::<$request>(wire).is_err());
+        }};
     }
-    let mut unknown = wire;
-    unknown
-        .as_object_mut()
-        .expect("request object")
-        .insert("tenant".to_owned(), serde_json::json!("forged"));
-    assert!(serde_json::from_value::<CurriculumAdoptionPreviewRequest>(unknown).is_err());
 
-    let correction = CurriculumScheduleCorrection::from(
-        AssignmentTeachingSettingsLocalError::NonexistentLocalTime(
-            AssignmentTeachingSettingsField::DueAt,
-        ),
+    let term = CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago").expect("term");
+    let course = CourseReference::new(3).expect("course reference");
+    let alpha = ObservedAlphaSource {
+        reference: AlphaCourseReference::new(4).expect("Alpha reference"),
+        revision: "2".parse().expect("Alpha revision"),
+    };
+    let blueprint = ObservedBlueprintSource {
+        reference: BlueprintReference::new(5).expect("blueprint reference"),
+        revision: "2".parse().expect("blueprint revision"),
+    };
+    let assignment = ObservedAssignmentRevision {
+        assignment: AssignmentReference::new(9).expect("assignment reference"),
+        revision: AssignmentRevision::new(3).expect("assignment revision"),
+    };
+    let witness = CourseScheduleWitness::new(
+        course,
+        CourseScheduleRevision::new(4).expect("schedule revision"),
+        vec![assignment],
+    )
+    .expect("witness");
+
+    let fork = ForkAlphaPreviewRequest {
+        source: alpha,
+        replacements: CurriculumPinReplacements::default(),
+    };
+    assert_rejects_authority_field!(ForkAlphaPreviewRequest, fork);
+    let fork_wire = serde_json::to_value(&fork).expect("fork preview serializes");
+    assert!(serde_json::from_value::<ForkAlphaPreviewRequest>(fork_wire.clone()).is_ok());
+    for absent in ["course", "term", "title", "tenant", "authority"] {
+        assert!(!fork_wire.to_string().contains(absent));
+    }
+    let mut forged_fork = fork_wire;
+    forged_fork
+        .as_object_mut()
+        .expect("object")
+        .insert("course".to_owned(), serde_json::json!("C-3"));
+    assert!(serde_json::from_value::<ForkAlphaPreviewRequest>(forged_fork).is_err());
+
+    let blueprint_request = BlueprintInstantiationPreviewRequest {
+        source: blueprint,
+        course,
+        target_term: term.clone(),
+        replacements: CurriculumPinReplacements::default(),
+    };
+    assert_rejects_authority_field!(BlueprintInstantiationPreviewRequest, blueprint_request);
+    assert!(
+        serde_json::from_value::<BlueprintInstantiationPreviewRequest>(
+            serde_json::to_value(blueprint_request).expect("Blueprint preview serializes"),
+        )
+        .is_ok()
     );
-    assert_eq!(
-        correction.correction.field,
-        AssignmentTeachingSettingsField::DueAt
+    let alpha_request = AlphaInstantiationPreviewRequest {
+        source: alpha,
+        title: CurriculumAdoptionTitle::parse("Fall Biochemistry").expect("course title"),
+        target_term: term.clone(),
+        replacements: CurriculumPinReplacements::default(),
+    };
+    assert_rejects_authority_field!(AlphaInstantiationPreviewRequest, alpha_request);
+    assert!(
+        serde_json::from_value::<AlphaInstantiationPreviewRequest>(
+            serde_json::to_value(alpha_request).expect("Alpha preview serializes"),
+        )
+        .is_ok()
     );
-    assert_eq!(
-        correction.correction.reason,
-        AssignmentTeachingSettingsFailureReason::NonexistentLocalTime
+    assert!(
+        serde_json::from_value::<CourseRolloverPreviewRequest>(
+            serde_json::to_value(CourseRolloverPreviewRequest {
+                witness: witness.clone(),
+                title: CurriculumAdoptionTitle::parse("Biochemistry next term")
+                    .expect("course title"),
+                target_term: term.clone(),
+                replacements: CurriculumPinReplacements::default(),
+            })
+            .expect("rollover preview serializes"),
+        )
+        .is_ok()
+    );
+    assert_rejects_authority_field!(
+        CourseRolloverPreviewRequest,
+        CourseRolloverPreviewRequest {
+            witness: witness.clone(),
+            title: CurriculumAdoptionTitle::parse("Biochemistry next term").expect("course title"),
+            target_term: term.clone(),
+            replacements: CurriculumPinReplacements::default(),
+        }
+    );
+    assert!(
+        serde_json::from_value::<CourseTermShiftPreviewRequest>(
+            serde_json::to_value(CourseTermShiftPreviewRequest {
+                witness: witness.clone(),
+                target_term: term.clone(),
+            })
+            .expect("term-shift preview serializes"),
+        )
+        .is_ok()
+    );
+    assert_rejects_authority_field!(
+        CourseTermShiftPreviewRequest,
+        CourseTermShiftPreviewRequest {
+            witness: witness.clone(),
+            target_term: term.clone(),
+        }
+    );
+    assert!(
+        serde_json::from_value::<AssignmentFastForwardPreviewRequest>(
+            serde_json::to_value(AssignmentFastForwardPreviewRequest {
+                course,
+                assignment,
+                import_revision: "1".parse().expect("import revision"),
+                source: alpha_assignment_source(alpha, 2, 3),
+            })
+            .expect("fast-forward preview serializes"),
+        )
+        .is_ok()
+    );
+    assert_rejects_authority_field!(
+        AssignmentFastForwardPreviewRequest,
+        AssignmentFastForwardPreviewRequest {
+            course,
+            assignment,
+            import_revision: "1".parse().expect("import revision"),
+            source: alpha_assignment_source(alpha, 2, 3),
+        }
+    );
+    assert!(
+        serde_json::from_value::<SourceDerivedAssignmentPreviewRequest>(
+            serde_json::to_value(SourceDerivedAssignmentPreviewRequest {
+                course,
+                source: AssignmentDefinitionSourceView::Blueprint(blueprint),
+                replacements: CurriculumPinReplacements::default(),
+            })
+            .expect("source-derived preview serializes"),
+        )
+        .is_ok()
+    );
+    assert_rejects_authority_field!(
+        SourceDerivedAssignmentPreviewRequest,
+        SourceDerivedAssignmentPreviewRequest {
+            course,
+            source: AssignmentDefinitionSourceView::Blueprint(blueprint),
+            replacements: CurriculumPinReplacements::default(),
+        }
     );
 }
 
 #[test]
-fn completed_adoption_result_binds_replay_to_a_safe_receipt_shape() {
-    let completed = CurriculumAdoptionCompleted {
-        result: CurriculumAdoptionResultView {
-            operation: CurriculumAdoptionOperation::InstantiateAlpha,
-            course: CourseReference::new(7).expect("course reference"),
-            assignment: None,
-            term: CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago")
-                .expect("term"),
-        },
-        replay: CurriculumReplayStatus::Replayed,
-        receipt: CurriculumAdoptionReceiptBinding {
-            operation: CurriculumAdoptionOperation::InstantiateAlpha,
-            idempotency_key: CurriculumAdoptionIdempotencyKey::parse("alpha-2026-08-25")
+fn operation_specific_completed_shapes_bind_their_own_receipts() {
+    fn receipt() -> CurriculumAdoptionReceiptBinding {
+        CurriculumAdoptionReceiptBinding {
+            idempotency_key: CurriculumAdoptionIdempotencyKey::parse("adopt-2026-08-25")
                 .expect("key"),
-        },
+        }
+    }
+
+    let term = CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago").expect("term");
+    let course = CourseReference::new(7).expect("course");
+    let assignment = AssignmentReference::new(9).expect("assignment");
+    let source_course = CourseReference::new(3).expect("source course");
+    let source = ObservedAlphaSource {
+        reference: AlphaCourseReference::new(4).expect("source"),
+        revision: "3".parse().expect("revision"),
     };
-    let wire = serde_json::to_value(&completed).expect("completed result serializes");
-    assert_eq!(wire["replay"], "replayed");
-    assert_eq!(wire["receipt"]["idempotencyKey"], "alpha-2026-08-25");
-    assert!(serde_json::from_value::<CurriculumAdoptionCompleted>(wire).is_ok());
+
+    let fork_wire = serde_json::to_value(ForkAlphaCompleted {
+        source,
+        alpha: AlphaCourseReference::new(8).expect("result Alpha"),
+        replay: CurriculumReplayStatus::Replayed,
+        receipt: receipt(),
+    })
+    .expect("fork completed serializes");
+    let blueprint_wire = serde_json::to_value(BlueprintInstantiationCompleted {
+        course,
+        assignment,
+        replay: CurriculumReplayStatus::Replayed,
+        receipt: receipt(),
+    })
+    .expect("Blueprint completed serializes");
+    let alpha_wire = serde_json::to_value(AlphaInstantiationCompleted {
+        source,
+        course,
+        replay: CurriculumReplayStatus::Replayed,
+        receipt: receipt(),
+    })
+    .expect("Alpha completed serializes");
+    let rollover_wire = serde_json::to_value(CourseRolloverCompleted {
+        source_course,
+        course,
+        replay: CurriculumReplayStatus::Replayed,
+        receipt: receipt(),
+    })
+    .expect("rollover completed serializes");
+    let term_shift_wire = serde_json::to_value(CourseTermShiftCompleted {
+        course,
+        term: term.clone(),
+        replay: CurriculumReplayStatus::Replayed,
+        receipt: receipt(),
+    })
+    .expect("term-shift completed serializes");
+    let fast_forward_wire = serde_json::to_value(AssignmentFastForwardCompleted {
+        course,
+        assignment,
+        import_revision: "2".parse().expect("import revision"),
+        replay: CurriculumReplayStatus::Replayed,
+        receipt: receipt(),
+    })
+    .expect("fast-forward completed serializes");
+    let source_derived_wire = serde_json::to_value(SourceDerivedAssignmentCompleted {
+        course,
+        assignment,
+        replay: CurriculumReplayStatus::Replayed,
+        receipt: receipt(),
+    })
+    .expect("source-derived completed serializes");
+
+    assert_eq!(fork_wire["alpha"], "AC-8");
+    assert_eq!(blueprint_wire["assignment"], "A-9");
+    assert_eq!(alpha_wire["source"]["reference"], "AC-4");
+    assert_eq!(rollover_wire["sourceCourse"], "C-3");
+    assert_eq!(term_shift_wire["term"], serde_json::json!(term));
+    assert_eq!(fast_forward_wire["importRevision"], "2");
+    assert_eq!(source_derived_wire["assignment"], "A-9");
+
+    for wire in [
+        &fork_wire,
+        &blueprint_wire,
+        &alpha_wire,
+        &rollover_wire,
+        &term_shift_wire,
+        &fast_forward_wire,
+        &source_derived_wire,
+    ] {
+        assert_eq!(wire["replay"], "replayed");
+        assert_eq!(wire["receipt"]["idempotencyKey"], "adopt-2026-08-25");
+        for absent in ["operation", "tenant", "authority", "answer", "grade"] {
+            assert!(!wire.to_string().contains(absent));
+        }
+    }
+
+    assert!(serde_json::from_value::<ForkAlphaCompleted>(fork_wire).is_ok());
+    assert!(serde_json::from_value::<BlueprintInstantiationCompleted>(blueprint_wire).is_ok());
+    assert!(serde_json::from_value::<AlphaInstantiationCompleted>(alpha_wire).is_ok());
+    assert!(serde_json::from_value::<CourseRolloverCompleted>(rollover_wire).is_ok());
+    assert!(serde_json::from_value::<CourseTermShiftCompleted>(term_shift_wire).is_ok());
+    assert!(serde_json::from_value::<AssignmentFastForwardCompleted>(fast_forward_wire).is_ok());
+    assert!(
+        serde_json::from_value::<SourceDerivedAssignmentCompleted>(source_derived_wire).is_ok()
+    );
 }
 
 #[test]
@@ -534,7 +868,7 @@ fn course_and_assignment_import_views_expose_only_route_safe_provenance() {
     let assignment_import = CurriculumImportView {
         course,
         assignment,
-        source: CurriculumImportSourceView::Alpha(source),
+        source: alpha_assignment_source(source, 2, 3),
         revision: "5".parse().expect("import revision"),
         reusable_meaning_matches_baseline: true,
     };
@@ -548,6 +882,71 @@ fn course_and_assignment_import_views_expose_only_route_safe_provenance() {
     let wire = serde_json::to_value(&view).expect("course import serializes");
     assert_eq!(wire["course"], "C-7");
     assert_eq!(wire["assignments"][0]["assignment"], "A-9");
+    assert_eq!(wire["assignments"][0]["source"]["moduleIndex"], 2);
+    assert_eq!(wire["assignments"][0]["source"]["assignmentIndex"], 3);
     assert!(serde_json::from_value::<CurriculumCourseImportView>(wire).is_ok());
     assert_eq!(schedule.time_zone.as_str(), "America/Chicago");
+}
+
+#[test]
+fn assignment_definition_source_requires_an_exact_bounded_alpha_location() {
+    let source = ObservedAlphaSource {
+        reference: AlphaCourseReference::new(4).expect("Alpha reference"),
+        revision: "3".parse().expect("Alpha revision"),
+    };
+    let observed =
+        ObservedAlphaAssignmentSource::new(source, 7, 11).expect("bounded Alpha assignment source");
+    let wire = serde_json::to_value(AssignmentDefinitionSourceView::Alpha(observed))
+        .expect("assignment source serializes");
+
+    assert_eq!(
+        wire,
+        serde_json::json!({
+            "kind": "alpha",
+            "reference": "AC-4",
+            "revision": "3",
+            "moduleIndex": 7,
+            "assignmentIndex": 11,
+        })
+    );
+    assert_eq!(
+        serde_json::from_value::<AssignmentDefinitionSourceView>(wire)
+            .expect("assignment source decodes"),
+        AssignmentDefinitionSourceView::Alpha(observed)
+    );
+
+    let bound = u16::try_from(MAX_ASSIGNMENT_ORDERED_ENTRIES).expect("position bound fits u16");
+    assert!(ObservedAlphaAssignmentSource::new(source, bound, 0).is_err());
+    assert!(ObservedAlphaAssignmentSource::new(source, 0, bound).is_err());
+    assert!(
+        serde_json::from_value::<AssignmentDefinitionSourceView>(serde_json::json!({
+            "kind": "alpha",
+            "reference": "AC-4",
+            "revision": "3",
+            "moduleIndex": bound,
+            "assignmentIndex": 0,
+        }))
+        .is_err()
+    );
+    assert!(
+        serde_json::from_value::<AssignmentDefinitionSourceView>(serde_json::json!({
+            "kind": "alpha",
+            "reference": "AC-4",
+            "revision": "3",
+            "moduleIndex": 0,
+            "assignmentIndex": bound,
+        }))
+        .is_err()
+    );
+    assert!(
+        serde_json::from_value::<AssignmentDefinitionSourceView>(serde_json::json!({
+            "kind": "alpha",
+            "reference": "AC-4",
+            "revision": "3",
+            "moduleIndex": 7,
+            "assignmentIndex": 11,
+            "tenant": "browser-supplied",
+        }))
+        .is_err()
+    );
 }

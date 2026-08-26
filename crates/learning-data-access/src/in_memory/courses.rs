@@ -59,50 +59,7 @@ impl crate::CourseStore for MemoryStore {
         // of map updates transactional.  Keep an exact pre-provisioning
         // snapshot and publish only a complete aggregate.
         let snapshot = state.clone();
-        let result = (|| {
-            super::navigation_references::ensure_course_reference(&mut state, tenant, course_id)?;
-            state.courses.insert((tenant, course_id), course);
-            #[cfg(test)]
-            if consume_create_course_late_failure(tenant, course_id) {
-                return Err(StoreError::Unavailable(
-                    "injected late course-creation failure".to_string(),
-                ));
-            }
-            super::entitlement::create_initial_instructor_membership(
-                &mut state,
-                tenant,
-                course_id,
-                initial_instructor,
-            )?;
-            state.roster_policies.insert(
-                (tenant, course_id),
-                super::course_roster::initial_roster_policy(course_id),
-            );
-            state.course_grade_schemes.insert(
-                (tenant, course_id),
-                super::course_gradebook::initial_course_grade_scheme(course_id),
-            );
-            for purpose in ALL_GROUP_PURPOSES {
-                state.course_group_purpose_policies.insert(
-                    (tenant, course_id, purpose),
-                    StoredCourseGroupPurposePolicy {
-                        policy: question_model::CourseGroupPurposePolicy::default_for_purpose(
-                            purpose,
-                        ),
-                        revision: CourseGroupPurposePolicyRevision::INITIAL,
-                    },
-                );
-            }
-            state.course_appearances.insert(
-                (tenant, course_id),
-                question_model::CourseAppearance {
-                    theme: question_model::CourseThemeId::default(),
-                    revision: question_model::CourseAppearanceRevision::INITIAL,
-                    banner: None,
-                },
-            );
-            Ok(())
-        })();
+        let result = provision_course_locked(&mut state, course, initial_instructor).map(|_| ());
         if let Err(error) = result {
             *state = snapshot;
             return Err(error);
@@ -256,6 +213,70 @@ impl crate::CourseStore for MemoryStore {
                 .ok_or(StoreError::NotFound)?,
         }))
     }
+}
+
+/// Materializes one complete ordinary course while the caller holds the sole
+/// Memory write lock. Callers retain a full `State` snapshot for rollback.
+///
+/// Keeping reference allocation, direct Instructor authority, defaults, and
+/// the schedule revision in this transition prevents partial provisioning and
+/// lock re-entry (ASVS 2.3.3, 15.4.2, 15.4.3).
+pub(super) fn provision_course_locked(
+    state: &mut State,
+    course: CourseRecord,
+    initial_instructor: UserId,
+) -> Result<question_model::CourseReference, StoreError> {
+    let tenant = course.tenant;
+    let course_id = course.id;
+    if state.courses.contains_key(&(tenant, course_id)) {
+        return Err(StoreError::AlreadyExists);
+    }
+    validate_course(&course)?;
+    let reference =
+        super::navigation_references::ensure_course_reference(state, tenant, course_id)?;
+    state.courses.insert((tenant, course_id), course);
+    #[cfg(test)]
+    if consume_create_course_late_failure(tenant, course_id) {
+        return Err(StoreError::Unavailable(
+            "injected late course-creation failure".to_string(),
+        ));
+    }
+    super::entitlement::create_initial_instructor_membership(
+        state,
+        tenant,
+        course_id,
+        initial_instructor,
+    )?;
+    state.roster_policies.insert(
+        (tenant, course_id),
+        super::course_roster::initial_roster_policy(course_id),
+    );
+    state.course_grade_schemes.insert(
+        (tenant, course_id),
+        super::course_gradebook::initial_course_grade_scheme(course_id),
+    );
+    for purpose in ALL_GROUP_PURPOSES {
+        state.course_group_purpose_policies.insert(
+            (tenant, course_id, purpose),
+            StoredCourseGroupPurposePolicy {
+                policy: question_model::CourseGroupPurposePolicy::default_for_purpose(purpose),
+                revision: CourseGroupPurposePolicyRevision::INITIAL,
+            },
+        );
+    }
+    state.course_appearances.insert(
+        (tenant, course_id),
+        question_model::CourseAppearance {
+            theme: question_model::CourseThemeId::default(),
+            revision: question_model::CourseAppearanceRevision::INITIAL,
+            banner: None,
+        },
+    );
+    state.course_schedule_revisions.insert(
+        (tenant, course_id),
+        question_model::CourseScheduleRevision::INITIAL,
+    );
+    Ok(reference)
 }
 
 fn authorize_course_creation(

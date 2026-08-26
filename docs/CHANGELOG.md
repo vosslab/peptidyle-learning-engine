@@ -4,14 +4,18 @@
 
 ### Fixes and Maintenance
 
-- Established the `WP-PROF-B2` domain foundation for explicit curriculum adoption. Validated
-  server-only assignment and course semantic baselines bind exact publication pins, authored order,
-  pools, defaults, and relative schedules; structural equality governs equivalence while a canonical
-  digest supplies immutable evidence. Target-term resolution uses calendar-day offsets and the
-  existing course time-zone authority, exposing only safe resolved schedule fields. A bounded exact
-  `CourseScheduleRevision` and shared assignment-default validation prepare the Memory Store contract.
-  Independent domain review approved the design, and all 138 `question_model` tests, two doctests,
-  formatting, all-target checks, strict Clippy, and diff hygiene passed.
+- Established the audited `WP-PROF-B2` domain and browser-contract foundation for explicit
+  curriculum adoption. Validated server-only assignment and course semantic baselines bind exact
+  publication pins, authored order, pools, defaults, and relative schedules; structural equality
+  governs equivalence while a canonical digest supplies immutable evidence. Target-term resolution
+  uses calendar-day offsets and existing course-zone authority. Operation-specific answer-free
+  previews and results bind truthful destinations; every write command derives from its exact
+  preview, fast-forward apply accepts only an eligible preview, and outcome-specific recovery types
+  make incompatible actions unrepresentable. Bounded streaming decoders protect assignment
+  witnesses and replacement choices. The six-pass audit and independent approval resolved every
+  contract, documentation, style, legacy, readability, and permanent-test finding. All 146
+  `question_model` tests, two doctests, TypeScript compilation, formatting, strict Clippy, source
+  limits, Markdown links, and diff hygiene pass.
 - Accepted WP-PROF-B1 reusable curricula and advanced the professor queue to WP-PROF-B2 curriculum
   adoption, rollover, term shifting, provenance, and controlled updates. Approved Instructors can
   create revisioned private assignment Blueprints, inspect non-enrollable public Alpha curricula,
@@ -38,9 +42,11 @@
   deterministic offline fixture policy.
 - Rotated the 2026-08-18 through 2026-08-23 day blocks into
   `docs/CHANGELOG-2026-08d.md` under the repository's two-current-day changelog policy.
-- Final `source source_me.sh && ./all_test.sh` passed the Rust workspace, all five codebase gates,
-  every current frontend and pytest check, the complete production HTTPS browser suite, all 67
-  database migrations, the WebWork and replica-restart service oracles, and exact cleanup.
+- The full live-stack checkpoint before the B2 contract audit passed `source source_me.sh &&
+  ./all_test.sh`: the Rust workspace, all five codebase gates, 315 Node tests, 7,067 pytest cases,
+  the complete production HTTPS browser suite, all 67 database migrations, the WebWork and
+  replica-restart service oracles, and exact cleanup. B2 final Validation remains open until its
+  Store, PostgreSQL, browser, and evidence slices are complete on one final material tree.
 - Accepted WP-PROF-D2 live problem curation and advanced the professor queue to WP-PROF-B1 reusable
   curricula. Favorites, private and institution collections, canonical saved searches,
   revision-checked bulk actions, and the shared `ProblemPicker` now compose the ordinary Library and

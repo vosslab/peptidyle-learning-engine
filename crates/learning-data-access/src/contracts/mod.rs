@@ -6,6 +6,7 @@ mod assignment_editing;
 mod catalog;
 mod catalog_store;
 mod courses;
+mod curriculum_adoption;
 mod entitlement;
 mod issued_question_snapshot;
 mod pool_preview;
@@ -26,6 +27,7 @@ pub(crate) use assignment_editing::{assignment_scoring_changed, delete_and_regra
 pub use catalog::*;
 pub use catalog_store::{CatalogSourceStore, CatalogStore};
 pub use courses::*;
+pub use curriculum_adoption::CurriculumAdoptionStore;
 pub use entitlement::*;
 pub use issued_question_snapshot::*;
 pub use pool_preview::*;

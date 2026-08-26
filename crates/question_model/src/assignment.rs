@@ -9,7 +9,9 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
+mod revision;
 mod teaching_settings_local;
+pub use revision::{AssignmentRevision, AssignmentRevisionError};
 pub use teaching_settings_local::{
     AssignmentTeachingSettingsFailureCode, AssignmentTeachingSettingsFailureReason,
     AssignmentTeachingSettingsField, AssignmentTeachingSettingsLocalError,
@@ -564,6 +566,25 @@ mod tests {
         assert_eq!(MAX_ASSIGNMENT_ORDERED_ENTRIES, 1_024);
         assert_eq!(MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP, 1_024);
         assert_eq!(MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, 8_192);
+    }
+
+    #[test]
+    fn assignment_revisions_use_canonical_postgres_bigint_strings() {
+        let revision: AssignmentRevision = "43".parse().expect("canonical revision");
+        assert_eq!(serde_json::json!(revision), serde_json::json!("43"));
+        assert_eq!(
+            revision.checked_next().map(|value| value.to_string()),
+            Some("44".into())
+        );
+        assert!(
+            AssignmentRevision::new(i64::MAX as u64)
+                .expect("maximum revision")
+                .checked_next()
+                .is_none()
+        );
+        for invalid in ["", "0", "01", "+2", "-2", "9223372036854775808"] {
+            assert!(invalid.parse::<AssignmentRevision>().is_err(), "{invalid}");
+        }
     }
 
     #[test]

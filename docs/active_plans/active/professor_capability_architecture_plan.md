@@ -1451,8 +1451,9 @@ divergence returns a typed recoverable outcome without a partial write. Divergen
 new source-derived draft action, never an automatic overwrite.
 
 **Persistence, authority, and API ownership.** The B2 migration is allocated by the release
-integrator before coding. The status ledger currently records only B1's allocation, so this plan
-requires the next allocated identity without naming or reserving one. The resulting migration owns
+integrator before coding. The globally mutable allocation is recorded in
+[implementation_status.md](../implementation_status.md); this plan links to that ledger instead of
+copying its current identity. The resulting migration owns
 B2 lineage/import/baseline/envelope/idempotency/receipt persistence, `CourseScheduleRevision`, forced
 RLS policies, and one `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` curriculum-adoption broker. The broker
 receives only required table/function privileges. Execute-only `SECURITY DEFINER` procedures use a

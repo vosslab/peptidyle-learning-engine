@@ -82,7 +82,7 @@ browser-visible assessment transition.
 
 | Component                | Location                                                                                  | Responsibility                                                                                                                                                                                    |
 | ------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Question model           | [crates/question_model/](../crates/question_model/)                                       | Question taxonomy, typed public references, immutable public bylines, mandatory course-term values, capabilities, browser-safe presentations, learner-progress projections, and response schemas. |
+| Question model           | [crates/question_model/](../crates/question_model/)                                       | Question taxonomy, typed public references, immutable public bylines, mandatory course-term values, canonical assignment revisions, reusable-curriculum meaning, bounded adoption previews, browser-safe presentations, learner-progress projections, and response schemas. |
 | Domain                   | [crates/domain/](../crates/domain/)                                                       | Run state, pure effective-policy and learner-disclosure evaluation after entitlement, the two shipped course-grade evaluators, seeded generation, timing inputs, and validation without a database or wall clock. |
 | Grading                  | [crates/grading/](../crates/grading/)                                                     | Answer-bearing checkers and correctness decisions; server-side only.                                                                                                                              |
 | Learning data access     | [crates/learning-data-access/](../crates/learning-data-access/)                           | Store contracts, isolated course-grade capability with Memory/PostgreSQL implementations, current receipt/projection boundaries, migrations, forced RLS context, capability roles, and conformance tests. |
@@ -100,6 +100,22 @@ on the question model, while `crates/wasm/` does not depend on `crates/grading/`
 The server composition root selects concrete stores, object backends, identity
 providers, and adapters.
 
+Reusable curriculum has two deliberate aggregate boundaries. `ReusableCurriculumStore` owns
+personal Blueprint and shared Alpha CRUD. `CurriculumAdoptionStore` owns revision-bound fork,
+instantiation, rollover, term-shift, import inspection, and controlled-update operations. The
+question model keeps semantic baselines separate from immutable source provenance, resolves relative
+schedules by target-term calendar days and IANA local time, bounds every browser witness, and derives
+course-creation commands from the exact previewed source, title, term, and revision evidence.
+
+An adoption preserves reusable meaning separately from teaching-owned state. Its normalized semantic
+payload contains the ordered pins, pool behavior, scoring, reusable defaults, and relative schedule;
+its immutable envelope records the exact source definition, observed revision, destination binding,
+actor, time, and receipt. The Store reauthorizes every exact pin for the destination, records the
+authorized pin, and keeps the original evidence inspectable. Rollover creates an empty ordinary
+course from reusable definition meaning, while term shift updates one unissued course atomically.
+Roster, learner activity, issued work, grades, accommodations, audience, retention, and delivered
+evidence remain teaching-owned state.
+
 For Base Course installation, `learning-data-access` remains the sole SQL, PostgreSQL
 lock, durable install-state, migration, and Store owner. `base_course_installation` orchestrates
 only through LDA's public contracts, and `project-tools` calls it directly as a CLI adapter. The
@@ -114,8 +130,12 @@ calendar dates, ordered inclusive bounds, and case-sensitive IANA membership; `C
 value, the existing course routes serialize it, generated TypeScript owns the response shape, and
 the Solid course form supplies it explicitly. PostgreSQL adds native date/date/text columns to the
 existing course row and treats an invalid stored value as unavailable rather than inventing a
-fallback. Assignment dates remain absolute instants associated with a term-bearing course; this
-slice does not resolve local wall times, daylight-saving transitions, or schedule shifts.
+fallback. B2 stores reusable availability, due, and close defaults as relative calendar-day and
+local-wall-time values. It resolves them in the selected target term's IANA zone, returns local and
+absolute preview outcomes, and supplies typed field-specific corrections for DST gaps and
+ambiguities. `CourseScheduleRevision` binds a whole-course preview and apply pair; course-term and
+assignment base-schedule writers advance it atomically, while assignment-local edits retain their
+own `AssignmentRevision` contract.
 
 ## Assessment and asset-publication flow
 

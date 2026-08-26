@@ -21,6 +21,12 @@ use crate::{
     TenantContext, UserId,
 };
 
+mod source_snapshot;
+pub(super) use source_snapshot::{
+    ReusableSourceSnapshot, create_alpha_from_semantic_locked, current_assignment_source,
+    curriculum_assignment_source_snapshot, curriculum_source_snapshot,
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct BlueprintId(Uuid);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -363,7 +369,7 @@ impl ReusableCurriculumStore for MemoryStore {
     }
 }
 
-fn require_approved_instructor(
+pub(super) fn require_approved_instructor(
     state: &State,
     context: TenantContext,
     session: SessionTokenHash,
@@ -483,6 +489,38 @@ fn resolve_question(
             version: record.version,
         })
         .ok_or(StoreError::NotFound)
+}
+
+pub(super) fn resolve_public_replacement(
+    state: &State,
+    store: &MemoryStore,
+    tenant: question_model::TenantId,
+    question: &question_model::QuestionId,
+) -> Result<ProblemVersionRef, StoreError> {
+    if !store.question_ids.validates(question) {
+        return Err(StoreError::NotFound);
+    }
+    let record = state
+        .published
+        .values()
+        .find(|record| &record.question_id == question)
+        .ok_or(StoreError::NotFound)?;
+    replacement_candidate_selectable(state, tenant, record)
+        .then_some(ProblemVersionRef {
+            problem: record.problem,
+            version: record.version,
+        })
+        .ok_or(StoreError::NotFound)
+}
+
+/// One policy for advertised and accepted recovery choices: public,
+/// tenant-visible, and discoverable for new destination use.
+pub(super) fn replacement_candidate_selectable(
+    state: &State,
+    tenant: question_model::TenantId,
+    record: &crate::PublishedProblemRecord,
+) -> bool {
+    record.scope == PublicationScope::Public && reusable_question_selectable(state, tenant, record)
 }
 fn definition_view(
     state: &State,

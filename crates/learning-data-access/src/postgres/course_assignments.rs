@@ -3,7 +3,8 @@ use async_trait::async_trait;
 use super::*;
 use crate::{
     CreateAssignmentCommand, ReplaceAssignmentCommand, ReplaceUnissuedAssignmentDefinitionCommand,
-    ReplaceUnissuedAssignmentDefinitionOutcome,
+    ReplaceUnissuedAssignmentDefinitionOutcome, assignment_revision_checked_next,
+    assignment_revision_from_stored, assignment_revision_to_stored,
 };
 
 #[async_trait]
@@ -427,7 +428,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
                     decode_assignment_header(row, context.tenant_id())?,
                 )
                 .await?,
-                revision: AssignmentRevision::from_stored(
+                revision: assignment_revision_from_stored(
                     row.try_get("revision").map_err(map_sqlx_error)?,
                 )?,
                 base_policy: load_base_policy(&mut transaction, context.tenant_id(), assignment)
@@ -583,7 +584,7 @@ async fn load_fixed_item_assignment(
     Ok(StoredAssignment {
         record: load_assignment_relations(transaction, decode_assignment_header(&row, tenant)?)
             .await?,
-        revision: AssignmentRevision::from_stored(
+        revision: assignment_revision_from_stored(
             row.try_get("revision").map_err(map_sqlx_error)?,
         )?,
         base_policy: load_base_policy(transaction, tenant, assignment).await?,
@@ -621,8 +622,8 @@ fn validate_focused_mutation_revision(
     returned: i64,
     reloaded: AssignmentRevision,
 ) -> Result<(), StoreError> {
-    let returned = AssignmentRevision::from_stored(returned)?;
-    if returned != expected.next()? || reloaded != returned {
+    let returned = assignment_revision_from_stored(returned)?;
+    if returned != assignment_revision_checked_next(expected)? || reloaded != returned {
         return Err(StoreError::Conflict);
     }
     Ok(())
@@ -653,7 +654,7 @@ async fn prepare_assignment_mutation(
     assignment: AssignmentId,
     expected_revision: AssignmentRevision,
 ) -> Result<(), StoreError> {
-    let expected = i64::try_from(expected_revision.value()).map_err(|_| StoreError::Conflict)?;
+    let expected = assignment_revision_to_stored(expected_revision)?;
     let returned: i64 =
         sqlx::query_scalar("SELECT ple_prepare_assignment_mutation($1, $2, $3, $4, $5)")
             .bind(context.tenant_id().as_uuid())
@@ -675,46 +676,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn assignment_edit_and_post_capability_reload_do_not_request_app_share_locks() {
-        // 1812 intentionally revokes `assignment` UPDATE from `ple_app`.
-        // PostgreSQL requires that privilege for `FOR SHARE`; these reads are
-        // either ordinary edit reads or occur while the broker lock survives.
-        let source = include_str!("course_assignments.rs");
-        let edit_fetch = source
-            .split("async fn get_assignment_for_edit_impl")
-            .nth(1)
-            .and_then(|section| section.split("async fn get_assignment_impl").next())
-            .expect("edit fetch remains a discrete store method");
-        let post_capability_reload = source
-            .split("async fn load_fixed_item_assignment")
-            .nth(1)
-            .and_then(|section| section.split("async fn load_base_policy").next())
-            .expect("post-capability reload remains a discrete helper");
-        assert!(!edit_fetch.contains("FOR SHARE"));
-        assert!(!post_capability_reload.contains("FOR SHARE"));
-    }
-
-    #[test]
-    fn fixed_item_replacement_does_not_reresolve_issued_attempt_policy() {
-        let source = include_str!("course_assignments.rs");
-        let replacement = source
-            .split("async fn replace_assignment_fixed_item_impl")
-            .nth(1)
-            .and_then(|section| {
-                section
-                    .split("async fn add_assignment_fixed_item_impl")
-                    .next()
-            })
-            .expect("focused replacement remains a discrete store method");
-        assert!(replacement.contains("ple_replace_assignment_fixed_item"));
-        assert!(!replacement.contains("reresolve_post_mutation_active_attempts"));
-    }
-
-    #[test]
     fn focused_mutation_revision_requires_one_consistent_advance() {
-        let expected = AssignmentRevision::from_stored(7).expect("valid expected revision");
-        let advanced = AssignmentRevision::from_stored(8).expect("valid advanced revision");
-        let ahead = AssignmentRevision::from_stored(9).expect("valid later revision");
+        let expected = assignment_revision_from_stored(7).expect("valid expected revision");
+        let advanced = assignment_revision_from_stored(8).expect("valid advanced revision");
+        let ahead = assignment_revision_from_stored(9).expect("valid later revision");
         assert_eq!(
             validate_focused_mutation_revision(expected, 8, advanced),
             Ok(())

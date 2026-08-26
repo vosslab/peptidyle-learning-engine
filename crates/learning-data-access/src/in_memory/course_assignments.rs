@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use super::*;
 use crate::{
     ReplaceUnissuedAssignmentDefinitionCommand, ReplaceUnissuedAssignmentDefinitionOutcome,
+    assignment_revision_checked_next,
 };
 
 #[async_trait]
@@ -26,61 +27,13 @@ impl crate::CourseAssignmentStore for MemoryStore {
         validate_assignment(&assignment)?;
         let mut state = self.write_state()?;
         require_assignment_editor(&state, context, assignment.course_id, actor)?;
-        let key = (assignment.tenant, assignment.id);
-        if state.assignments.contains_key(&key) {
-            return Err(StoreError::AlreadyExists);
-        }
-        validate_memory_assignment_references(&state, context, &assignment)?;
-        let course_term = state
-            .courses
-            .get(&(assignment.tenant, assignment.course_id))
-            .ok_or(StoreError::NotFound)?
-            .term
-            .clone();
-        domain::effective_assignment_policy::validate_base_assignment_policy_for_course_term(
-            base_policy,
-            &course_term,
-        )
-        .map_err(|error| {
-            StoreError::InvalidRecord(format!("invalid assignment base policy: {error:?}"))
-        })?;
         let snapshot = state.clone();
-        let stored = StoredAssignment {
-            record: assignment,
-            revision: AssignmentRevision::INITIAL,
-            base_policy,
-            scoring_generation: ScoringGeneration::INITIAL,
-            scoring_status: ScoringStatus::Current,
-        };
-        super::navigation_references::ensure_assignment_reference(
-            &mut state,
-            stored.record.tenant,
-            stored.record.id,
-        )?;
-        state.assignments.insert(key, stored.record.clone());
-        state.assignment_revisions.insert(key, stored.revision);
-        state.assignment_base_policy.insert(
-            key,
-            StoredBaseAssignmentPolicy {
-                tenant: stored.record.tenant,
-                course: stored.record.course_id,
-                assignment: stored.record.id,
-                policy: base_policy,
-                revision: stored.revision,
-            },
-        );
-        state
-            .assignment_scoring
-            .insert(key, (stored.scoring_generation, stored.scoring_status));
-        if let Err(error) = super::course_gradebook::advance_course_grade_scheme_revision(
-            &mut state,
-            stored.record.tenant,
-            stored.record.course_id,
-        ) {
+        let result = materialize_assignment_locked(&mut state, context, assignment, base_policy);
+        if let Err(error) = result {
             *state = snapshot;
             return Err(error);
         }
-        Ok(stored)
+        result
     }
     async fn replace_assignment_impl(
         &self,
@@ -114,7 +67,7 @@ impl crate::CourseAssignmentStore for MemoryStore {
         if current != expected_revision {
             return Err(StoreError::Conflict);
         }
-        let next_revision = current.next()?;
+        let next_revision = assignment_revision_checked_next(current)?;
         crate::ensure_assignment_update_preserves_references(&existing, &update)?;
         let assignment = AssignmentRecord {
             id: assignment,
@@ -278,7 +231,7 @@ impl crate::CourseAssignmentStore for MemoryStore {
             StoreError::InvalidRecord(format!("invalid assignment base policy: {error:?}"))
         })?;
 
-        let next_revision = current.next()?;
+        let next_revision = assignment_revision_checked_next(current)?;
         let (scoring_generation, scoring_status) = state
             .assignment_scoring
             .get(&key)
@@ -311,6 +264,14 @@ impl crate::CourseAssignmentStore for MemoryStore {
                 course,
             )
         {
+            *state = snapshot;
+            return Err(error);
+        }
+        if let Err(error) = super::curriculum_adoption::advance_course_schedule_revision(
+            &mut state,
+            context.tenant_id(),
+            course,
+        ) {
             *state = snapshot;
             return Err(error);
         }
@@ -354,7 +315,7 @@ impl crate::CourseAssignmentStore for MemoryStore {
         validate_memory_assignment_references(&state, context, &replacement)?;
         let stored = StoredAssignment {
             record: replacement,
-            revision: revision.next()?,
+            revision: assignment_revision_checked_next(revision)?,
             base_policy: state
                 .assignment_base_policy
                 .get(&key)
@@ -459,7 +420,7 @@ impl crate::CourseAssignmentStore for MemoryStore {
             .ok_or(StoreError::NotFound)?;
         let stored = StoredAssignment {
             record: replacement,
-            revision: revision.next()?,
+            revision: assignment_revision_checked_next(revision)?,
             base_policy,
             scoring_generation: generation,
             scoring_status: status,
@@ -526,7 +487,7 @@ impl crate::CourseAssignmentStore for MemoryStore {
             .ok_or(StoreError::NotFound)?;
         let stored = StoredAssignment {
             record: replacement,
-            revision: revision.next()?,
+            revision: assignment_revision_checked_next(revision)?,
             base_policy,
             scoring_generation: generation,
             scoring_status: status,
@@ -664,6 +625,80 @@ impl crate::CourseAssignmentStore for MemoryStore {
         }
         Ok(Some(record))
     }
+}
+
+/// Inserts one ordinary assignment aggregate while its caller holds the sole
+/// Memory write lock. Authority must already have been established against the
+/// destination course; all record validation is repeated here.
+pub(super) fn materialize_assignment_locked(
+    state: &mut State,
+    context: TenantContext,
+    assignment: AssignmentRecord,
+    base_policy: question_model::BaseAssignmentPolicy,
+) -> Result<StoredAssignment, StoreError> {
+    ensure_tenant(context, assignment.tenant)?;
+    if assignment.lifecycle != question_model::AssignmentLifecycle::Draft {
+        return Err(StoreError::InvalidRecord(
+            "new assignments must begin in the draft lifecycle".into(),
+        ));
+    }
+    validate_assignment(&assignment)?;
+    let key = (assignment.tenant, assignment.id);
+    if state.assignments.contains_key(&key) {
+        return Err(StoreError::AlreadyExists);
+    }
+    validate_memory_assignment_references(state, context, &assignment)?;
+    let course_term = state
+        .courses
+        .get(&(assignment.tenant, assignment.course_id))
+        .ok_or(StoreError::NotFound)?
+        .term
+        .clone();
+    domain::effective_assignment_policy::validate_base_assignment_policy_for_course_term(
+        base_policy,
+        &course_term,
+    )
+    .map_err(|error| {
+        StoreError::InvalidRecord(format!("invalid assignment base policy: {error:?}"))
+    })?;
+    let stored = StoredAssignment {
+        record: assignment,
+        revision: AssignmentRevision::INITIAL,
+        base_policy,
+        scoring_generation: ScoringGeneration::INITIAL,
+        scoring_status: ScoringStatus::Current,
+    };
+    super::navigation_references::ensure_assignment_reference(
+        state,
+        stored.record.tenant,
+        stored.record.id,
+    )?;
+    state.assignments.insert(key, stored.record.clone());
+    state.assignment_revisions.insert(key, stored.revision);
+    state.assignment_base_policy.insert(
+        key,
+        StoredBaseAssignmentPolicy {
+            tenant: stored.record.tenant,
+            course: stored.record.course_id,
+            assignment: stored.record.id,
+            policy: base_policy,
+            revision: stored.revision,
+        },
+    );
+    state
+        .assignment_scoring
+        .insert(key, (stored.scoring_generation, stored.scoring_status));
+    super::course_gradebook::advance_course_grade_scheme_revision(
+        state,
+        stored.record.tenant,
+        stored.record.course_id,
+    )?;
+    super::curriculum_adoption::advance_course_schedule_revision(
+        state,
+        stored.record.tenant,
+        stored.record.course_id,
+    )?;
+    Ok(stored)
 }
 
 /// Verifies the command-local actor against current direct Instructor

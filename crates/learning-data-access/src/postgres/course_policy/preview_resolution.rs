@@ -1,6 +1,7 @@
 //! Shared read-only policy resolution for learner and T3 projections.
 
 use super::*;
+use crate::assignment_revision_from_stored;
 
 pub(super) async fn load_course_term_for_preview(
     tx: &mut Transaction<'_, Postgres>,
@@ -87,6 +88,6 @@ pub(super) async fn resolve_granted_effective_policy_read_only(
     })?;
     Ok((
         decision,
-        AssignmentRevision::from_stored(row.try_get("revision").map_err(map_sqlx_error)?)?,
+        assignment_revision_from_stored(row.try_get("revision").map_err(map_sqlx_error)?)?,
     ))
 }

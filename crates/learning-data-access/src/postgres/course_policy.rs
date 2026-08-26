@@ -18,6 +18,10 @@ use sqlx::{Postgres, Row, Transaction};
 
 use super::*;
 use crate::*;
+use crate::{
+    assignment_revision_checked_next, assignment_revision_from_stored,
+    assignment_revision_to_stored,
+};
 
 mod active_attempts;
 mod preview_resolution;
@@ -75,7 +79,7 @@ impl crate::EffectivePolicyStore for PostgresStore {
                 .bind(command.actor.as_uuid())
                 .bind(command.course.as_uuid())
                 .bind(command.assignment.as_uuid())
-                .bind(stored_revision(command.expected_revision)?)
+                .bind(assignment_revision_to_stored(command.expected_revision)?)
                 .bind(settings)
                 .fetch_one(&mut *tx)
                 .await
@@ -215,7 +219,7 @@ impl crate::EffectivePolicyStore for PostgresStore {
         .map_err(|e| {
             StoreError::InvalidRecord(format!("invalid effective policy inputs: {e:?}"))
         })?;
-        let revision = AssignmentRevision::from_stored(
+        let revision = assignment_revision_from_stored(
             assignment.try_get("revision").map_err(map_sqlx_error)?,
         )?;
         tx.commit().await.map_err(map_sqlx_error)?;
@@ -261,7 +265,7 @@ async fn prepare_policy_mutation(
     actor: UserId,
     expected: AssignmentRevision,
 ) -> Result<(), StoreError> {
-    let expected = stored_revision(expected)?;
+    let expected = assignment_revision_to_stored(expected)?;
     let returned: i64 =
         sqlx::query_scalar("SELECT ple_prepare_assignment_mutation($1, $2, $3, $4, $5)")
             .bind(tenant.as_uuid())
@@ -287,8 +291,8 @@ async fn finish_policy_mutation(
     expected: AssignmentRevision,
     returned: i64,
 ) -> Result<AssignmentRevision, StoreError> {
-    let revision = AssignmentRevision::from_stored(returned)?;
-    if revision != expected.next()? {
+    let revision = assignment_revision_from_stored(returned)?;
+    if revision != assignment_revision_checked_next(expected)? {
         return Err(StoreError::Conflict);
     }
     reresolve_post_mutation_active_attempts(tx, context, actor, course, assignment, revision)
@@ -314,7 +318,7 @@ pub(super) async fn prepare_post_mutation_active_attempt_reresolution(
     .bind(actor.as_uuid())
     .bind(course.as_uuid())
     .bind(assignment.as_uuid())
-    .bind(stored_revision(revision)?)
+    .bind(assignment_revision_to_stored(revision)?)
     .fetch_one(&mut **tx)
     .await
     .map_err(map_assignment_mutator_error)?;
@@ -349,9 +353,6 @@ pub(super) async fn reresolve_post_mutation_active_attempts(
         witness,
     )
     .await
-}
-fn stored_revision(value: AssignmentRevision) -> Result<i64, StoreError> {
-    i64::try_from(value.value()).map_err(|_| StoreError::Conflict)
 }
 fn teaching_settings_payload(
     settings: question_model::AssignmentTeachingSettings,
@@ -468,7 +469,7 @@ fn decode_base(
             late_submission: late,
             deadline_behavior: deadline,
         },
-        revision: AssignmentRevision::from_stored(
+        revision: assignment_revision_from_stored(
             row.try_get("revision").map_err(map_sqlx_error)?,
         )?,
     })
@@ -690,7 +691,7 @@ async fn mutate_group_offset(
         .bind(command.actor.as_uuid())
         .bind(command.course.as_uuid())
         .bind(command.assignment.as_uuid())
-        .bind(stored_revision(command.expected_revision)?)
+        .bind(assignment_revision_to_stored(command.expected_revision)?)
         .bind(command.offset.group.as_uuid())
         .bind(command.offset.offset_seconds.get())
         .fetch_one(&mut *tx)
@@ -735,7 +736,7 @@ async fn delete_group_offset(
         .bind(command.actor.as_uuid())
         .bind(command.course.as_uuid())
         .bind(command.assignment.as_uuid())
-        .bind(stored_revision(command.expected_revision)?)
+        .bind(assignment_revision_to_stored(command.expected_revision)?)
         .bind(command.group.as_uuid())
         .fetch_one(&mut *tx)
         .await
@@ -779,7 +780,7 @@ async fn mutate_accommodation(
         .bind(command.actor.as_uuid())
         .bind(command.course.as_uuid())
         .bind(command.assignment.as_uuid())
-        .bind(stored_revision(command.expected_revision)?)
+        .bind(assignment_revision_to_stored(command.expected_revision)?)
         .bind(command.accommodation.group.as_uuid())
         .bind(patch_payload(
             command.accommodation.mode,
@@ -827,7 +828,7 @@ async fn delete_accommodation(
         .bind(command.actor.as_uuid())
         .bind(command.course.as_uuid())
         .bind(command.assignment.as_uuid())
-        .bind(stored_revision(command.expected_revision)?)
+        .bind(assignment_revision_to_stored(command.expected_revision)?)
         .bind(command.group.as_uuid())
         .fetch_one(&mut *tx)
         .await
@@ -872,7 +873,7 @@ async fn mutate_individual(
         .bind(command.actor.as_uuid())
         .bind(command.course.as_uuid())
         .bind(command.assignment.as_uuid())
-        .bind(stored_revision(command.expected_revision)?)
+        .bind(assignment_revision_to_stored(command.expected_revision)?)
         .bind(e.id.as_uuid())
         .bind(e.exception.student.as_uuid())
         .bind(patch_payload(e.exception.mode, e.exception.patch)?)
@@ -918,7 +919,7 @@ async fn delete_individual(
         .bind(command.actor.as_uuid())
         .bind(command.course.as_uuid())
         .bind(command.assignment.as_uuid())
-        .bind(stored_revision(command.expected_revision)?)
+        .bind(assignment_revision_to_stored(command.expected_revision)?)
         .bind(command.student.as_uuid())
         .fetch_one(&mut *tx)
         .await

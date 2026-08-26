@@ -1,16 +1,43 @@
 //! Typed browser-safe previews and server-owned commands for B2 adoption.
 
+use std::collections::BTreeSet;
 use std::num::NonZeroU64;
 use std::str::FromStr;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de};
 
 use super::{CourseScheduleRevision, ResolvedRelativeAssignmentSchedule};
 use crate::{
-    AlphaCourseReference, AlphaCourseRevision, AssignmentReference,
+    AlphaCourseReference, AlphaCourseRevision, AssignmentReference, AssignmentRevision,
     AssignmentTeachingSettingsFailureCode, AssignmentTeachingSettingsLocalError,
     AssignmentTeachingSettingsValidationFailure, BlueprintReference, BlueprintRevision,
-    CourseReference, CourseTerm, ReusableCurriculumTitleError, validate_reusable_curriculum_title,
+    CourseReference, CourseTerm, MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP,
+    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, QuestionId,
+    ReusableCurriculumTitleError, validate_reusable_curriculum_title,
+};
+
+mod assignment_source;
+mod bounded;
+mod commands;
+mod completed;
+
+pub use assignment_source::{
+    AssignmentDefinitionSourceView, ObservedAlphaAssignmentSource,
+    ObservedAlphaAssignmentSourceError,
+};
+use bounded::{
+    deserialize_assignment_witnesses, deserialize_pin_replacements,
+    deserialize_replacement_questions,
+};
+pub use commands::{
+    AlphaInstantiationCommand, AssignmentFastForwardCommand, BlueprintInstantiationCommand,
+    CourseRolloverCommand, CourseTermShiftCommand, CreateSourceDerivedAssignmentCommand,
+    CurriculumAdoptionCommandError, ForkAlphaCommand,
+};
+pub use completed::{
+    AlphaInstantiationCompleted, AssignmentFastForwardCompleted, BlueprintInstantiationCompleted,
+    CourseRolloverCompleted, CourseTermShiftCompleted, CurriculumAdoptionReceiptBinding,
+    CurriculumReplayStatus, ForkAlphaCompleted, SourceDerivedAssignmentCompleted,
 };
 
 /// Largest browser-supplied idempotency key accepted by one B2 write.
@@ -72,68 +99,60 @@ impl std::fmt::Display for CurriculumAdoptionIdempotencyKeyError {
 
 impl std::error::Error for CurriculumAdoptionIdempotencyKeyError {}
 
-macro_rules! positive_revision {
-    ($name:ident, $error:ident, $description:literal) => {
-        #[doc = $description]
-        #[derive(
-            Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-        )]
-        #[serde(try_from = "String", into = "String")]
-        pub struct $name(NonZeroU64);
+/// Strong revision evidence for one durable curriculum import.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct CurriculumImportRevision(NonZeroU64);
 
-        impl $name {
-            /// Builds a positive revision that fits PostgreSQL `BIGINT`.
-            pub fn new(value: u64) -> Option<Self> {
-                (value > 0 && value <= i64::MAX as u64).then_some(Self(NonZeroU64::new(value)?))
-            }
+impl CurriculumImportRevision {
+    /// Builds a positive revision that fits PostgreSQL `BIGINT`.
+    pub fn new(value: u64) -> Option<Self> {
+        (value > 0 && value <= i64::MAX as u64).then_some(Self(NonZeroU64::new(value)?))
+    }
 
-            /// Returns the exact persistence revision scalar.
-            pub fn value(self) -> u64 {
-                self.0.get()
-            }
-        }
-
-        impl std::fmt::Display for $name {
-            fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(formatter, "{}", self.value())
-            }
-        }
-
-        impl FromStr for $name {
-            type Err = $error;
-
-            fn from_str(value: &str) -> Result<Self, Self::Err> {
-                if value.is_empty()
-                    || value.starts_with('0')
-                    || !value.bytes().all(|byte| byte.is_ascii_digit())
-                {
-                    return Err($error);
-                }
-                value.parse().ok().and_then(Self::new).ok_or($error)
-            }
-        }
-
-        impl TryFrom<String> for $name {
-            type Error = $error;
-
-            fn try_from(value: String) -> Result<Self, Self::Error> {
-                value.parse()
-            }
-        }
-
-        impl From<$name> for String {
-            fn from(value: $name) -> Self {
-                value.to_string()
-            }
-        }
-    };
+    /// Returns the exact persistence revision scalar.
+    pub fn value(self) -> u64 {
+        self.0.get()
+    }
 }
 
-positive_revision!(
-    CurriculumImportRevision,
-    CurriculumImportRevisionError,
-    "Strong revision evidence for one durable curriculum import."
-);
+impl std::fmt::Display for CurriculumImportRevision {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{}", self.value())
+    }
+}
+
+impl FromStr for CurriculumImportRevision {
+    type Err = CurriculumImportRevisionError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if value.is_empty()
+            || value.starts_with('0')
+            || !value.bytes().all(|byte| byte.is_ascii_digit())
+        {
+            return Err(CurriculumImportRevisionError);
+        }
+        value
+            .parse()
+            .ok()
+            .and_then(Self::new)
+            .ok_or(CurriculumImportRevisionError)
+    }
+}
+
+impl TryFrom<String> for CurriculumImportRevision {
+    type Error = CurriculumImportRevisionError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<CurriculumImportRevision> for String {
+    fn from(value: CurriculumImportRevision) -> Self {
+        value.to_string()
+    }
+}
 
 /// An import revision was not one canonical positive PostgreSQL-bigint decimal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -146,24 +165,6 @@ impl std::fmt::Display for CurriculumImportRevisionError {
 }
 
 impl std::error::Error for CurriculumImportRevisionError {}
-
-positive_revision!(
-    AssignmentRevision,
-    AssignmentRevisionError,
-    "Strong revision evidence for one ordinary teaching assignment definition."
-);
-
-/// An assignment revision was not one canonical positive PostgreSQL-bigint decimal.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AssignmentRevisionError;
-
-impl std::fmt::Display for AssignmentRevisionError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("assignment revision must be a canonical positive decimal")
-    }
-}
-
-impl std::error::Error for AssignmentRevisionError {}
 
 /// A validated display title for a new ordinary course or independent Alpha fork.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -261,6 +262,7 @@ pub struct CourseScheduleWitness {
 struct CourseScheduleWitnessParts {
     course: CourseReference,
     schedule_revision: CourseScheduleRevision,
+    #[serde(deserialize_with = "deserialize_assignment_witnesses")]
     assignment_revisions: Vec<ObservedAssignmentRevision>,
 }
 
@@ -277,12 +279,15 @@ impl TryFrom<CourseScheduleWitnessParts> for CourseScheduleWitness {
 }
 
 impl CourseScheduleWitness {
-    /// Builds a deterministic witness, rejecting duplicate assignment bindings.
+    /// Builds a bounded deterministic witness, rejecting duplicate assignment bindings.
     pub fn new(
         course: CourseReference,
         schedule_revision: CourseScheduleRevision,
         mut assignment_revisions: Vec<ObservedAssignmentRevision>,
     ) -> Result<Self, CourseScheduleWitnessError> {
+        if assignment_revisions.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
+            return Err(CourseScheduleWitnessError::TooManyAssignments);
+        }
         assignment_revisions.sort_unstable();
         if assignment_revisions
             .windows(2)
@@ -306,13 +311,22 @@ impl CourseScheduleWitness {
 /// A course-schedule preview repeated one assignment witness.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CourseScheduleWitnessError {
+    /// The witness exceeded the shared bound for one course operation.
+    TooManyAssignments,
     /// One assignment had more than one revision in the same preview witness.
     DuplicateAssignment,
 }
 
 impl std::fmt::Display for CourseScheduleWitnessError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("course schedule witness repeats an assignment")
+        match self {
+            Self::TooManyAssignments => {
+                formatter.write_str("course schedule witness has too many assignments")
+            }
+            Self::DuplicateAssignment => {
+                formatter.write_str("course schedule witness repeats an assignment")
+            }
+        }
     }
 }
 
@@ -349,47 +363,95 @@ impl From<AssignmentTeachingSettingsLocalError> for CurriculumScheduleCorrection
     }
 }
 
-/// Typed route-safe preview requests. The server derives authority and source meaning separately.
+/// Preview request for an independent Alpha fork. It has no teaching-course fields.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
-pub enum CurriculumAdoptionPreviewRequest {
-    /// Preview a public Alpha fork against the selected observed source revision.
-    ForkAlpha { source: ObservedAlphaSource },
-    /// Preview one Blueprint definition becoming a normal assignment in a course.
-    InstantiateBlueprint {
-        source: ObservedBlueprintSource,
-        course: CourseReference,
-        target_term: CourseTerm,
-    },
-    /// Preview one Alpha becoming a new ordinary teaching course.
-    InstantiateAlpha {
-        source: ObservedAlphaSource,
-        target_term: CourseTerm,
-    },
-    /// Preview a new ordinary teaching course from an existing teaching course.
-    RolloverCourse {
-        witness: CourseScheduleWitness,
-        target_term: CourseTerm,
-    },
-    /// Preview an atomic target-term update for an unissued course.
-    ShiftCourseTerm {
-        witness: CourseScheduleWitness,
-        target_term: CourseTerm,
-    },
-    /// Preview whether one imported assignment can fast-forward from its source.
-    FastForwardAssignment {
-        course: CourseReference,
-        assignment: ObservedAssignmentRevision,
-        import_revision: CurriculumImportRevision,
-    },
-    /// Preview a separate draft from the selected source after divergence.
-    CreateSourceDerivedAssignment {
-        course: CourseReference,
-        source: CurriculumSourceView,
-    },
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ForkAlphaPreviewRequest {
+    /// Public source observed under approved-Instructor authority.
+    pub source: ObservedAlphaSource,
+    /// Explicit public-question substitutions accumulated through preview corrections.
+    pub replacements: CurriculumPinReplacements,
 }
 
-/// One answer-free assignment schedule row in a B2 preview or import view.
+/// Preview request for one Blueprint instantiation into an existing teaching course.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintInstantiationPreviewRequest {
+    /// Owner-scoped source and exact revision.
+    pub source: ObservedBlueprintSource,
+    /// Existing teaching-course destination.
+    pub course: CourseReference,
+    /// Target term used to resolve reusable schedule defaults.
+    pub target_term: CourseTerm,
+    /// Explicit public-question substitutions accumulated through preview corrections.
+    pub replacements: CurriculumPinReplacements,
+}
+
+/// Preview request for one Alpha instantiation into a new teaching course.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlphaInstantiationPreviewRequest {
+    /// Public source and exact revision.
+    pub source: ObservedAlphaSource,
+    /// Validated title proposed for the new ordinary teaching course.
+    pub title: CurriculumAdoptionTitle,
+    /// Explicit target term for every new course schedule.
+    pub target_term: CourseTerm,
+    /// Explicit public-question substitutions accumulated through preview corrections.
+    pub replacements: CurriculumPinReplacements,
+}
+
+/// Preview request for an ordinary teaching-course rollover.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CourseRolloverPreviewRequest {
+    /// Source-course schedule and assignment revision witness.
+    pub witness: CourseScheduleWitness,
+    /// Validated title proposed for the new ordinary teaching course.
+    pub title: CurriculumAdoptionTitle,
+    /// Explicit target term for the new course.
+    pub target_term: CourseTerm,
+    /// Explicit public-question substitutions accumulated through preview corrections.
+    pub replacements: CurriculumPinReplacements,
+}
+
+/// Preview request for an atomic whole-course term shift.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CourseTermShiftPreviewRequest {
+    /// Current course and assignment revisions that apply must repeat.
+    pub witness: CourseScheduleWitness,
+    /// Replacement term for the existing unissued course.
+    pub target_term: CourseTerm,
+}
+
+/// Preview request for an imported assignment fast-forward decision.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AssignmentFastForwardPreviewRequest {
+    /// Destination course that owns the import.
+    pub course: CourseReference,
+    /// Destination assignment revision observed by the Instructor.
+    pub assignment: ObservedAssignmentRevision,
+    /// Durable import baseline revision observed by the Instructor.
+    pub import_revision: CurriculumImportRevision,
+    /// Re-readable source revision selected for comparison.
+    pub source: AssignmentDefinitionSourceView,
+}
+
+/// Preview request for a separate source-derived assignment after divergence.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SourceDerivedAssignmentPreviewRequest {
+    /// Existing teaching-course destination.
+    pub course: CourseReference,
+    /// Source definition selected for the new independent draft.
+    pub source: AssignmentDefinitionSourceView,
+    /// Explicit public-question substitutions accumulated through preview corrections.
+    pub replacements: CurriculumPinReplacements,
+}
+
+/// One answer-free assignment schedule row for an already existing destination assignment.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CurriculumAssignmentView {
@@ -403,20 +465,423 @@ pub struct CurriculumAssignmentView {
     pub schedule: ResolvedRelativeAssignmentSchedule,
 }
 
-/// One safe preview result. A correction preserves the complete field-specific next action.
+/// One answer-free row prepared before a destination assignment has a route reference.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CurriculumAdoptionPreviewView {
-    /// Operation represented by the preview.
-    pub operation: CurriculumAdoptionOperation,
-    /// Course term selected for this preview.
+pub struct PreparedCurriculumAssignmentView {
+    /// Instructor-visible title that will be copied into the new assignment.
+    pub title: CurriculumAdoptionTitle,
+    /// Server-resolved target-term schedule projection.
+    pub schedule: ResolvedRelativeAssignmentSchedule,
+}
+
+/// One answer-free course preview prepared before a destination course has a route reference.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PreparedCurriculumCourseView {
+    /// Instructor-visible course title that will be copied into the new course.
+    pub title: CurriculumAdoptionTitle,
+    /// New ordinary assignment definitions in source order.
+    pub assignments: Vec<PreparedCurriculumAssignmentView>,
+}
+
+/// Fork preview naming the source and the resulting independent Alpha exactly.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ForkAlphaPreviewView {
+    /// Public Alpha source selected for the fork.
+    pub source: ObservedAlphaSource,
+    /// Resulting independent Alpha title copied exactly from the source.
+    pub resulting_alpha_title: CurriculumAdoptionTitle,
+    /// Validated substitutions already applied to the prepared semantic snapshot.
+    pub replacements: CurriculumPinReplacements,
+    /// First exact source pin requiring an explicit authorized replacement.
+    pub pin_correction: Option<UnavailablePinRecoveryAction>,
+}
+
+/// Blueprint-instantiation preview for one existing teaching course.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintInstantiationPreviewView {
+    /// Selected source and observed revision.
+    pub source: ObservedBlueprintSource,
+    /// Existing teaching-course destination.
+    pub course: CourseReference,
+    /// Target term that resolved the prepared schedule.
     pub target_term: CourseTerm,
-    /// Current course/assignment revisions that apply must repeat.
-    pub witness: Option<CourseScheduleWitness>,
-    /// Server-resolved schedule results in deterministic assignment order.
-    pub assignments: Vec<CurriculumAssignmentView>,
-    /// Correction details when a target term contains an invalid local schedule.
+    /// Current course/assignment revisions required by apply.
+    pub witness: CourseScheduleWitness,
+    /// Prepared assignment before it has a destination reference.
+    pub assignment: PreparedCurriculumAssignmentView,
+    /// Validated substitutions already applied to the prepared semantic snapshot.
+    pub replacements: CurriculumPinReplacements,
+    /// Field-specific schedule corrections, if any.
     pub corrections: Vec<CurriculumScheduleCorrection>,
+    /// First exact source pin requiring an explicit authorized replacement.
+    pub pin_correction: Option<UnavailablePinRecoveryAction>,
+}
+
+/// Alpha-instantiation preview for one new teaching course.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlphaInstantiationPreviewView {
+    /// Selected public source and observed revision.
+    pub source: ObservedAlphaSource,
+    /// Explicit target term.
+    pub target_term: CourseTerm,
+    /// Prepared course before it has a destination reference.
+    pub course: PreparedCurriculumCourseView,
+    /// Validated substitutions already applied to the prepared semantic snapshot.
+    pub replacements: CurriculumPinReplacements,
+    /// Field-specific schedule corrections, if any.
+    pub corrections: Vec<CurriculumScheduleCorrection>,
+    /// First exact source pin requiring an explicit authorized replacement.
+    pub pin_correction: Option<UnavailablePinRecoveryAction>,
+}
+
+/// Rollover preview for a new ordinary course.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CourseRolloverPreviewView {
+    /// Source course and all revisions that apply must repeat.
+    pub witness: CourseScheduleWitness,
+    /// Explicit target term.
+    pub target_term: CourseTerm,
+    /// Prepared new course before it has a destination reference.
+    pub course: PreparedCurriculumCourseView,
+    /// Validated substitutions already applied to the prepared semantic snapshot.
+    pub replacements: CurriculumPinReplacements,
+    /// Field-specific schedule corrections, if any.
+    pub corrections: Vec<CurriculumScheduleCorrection>,
+    /// First exact source pin requiring an explicit authorized replacement.
+    pub pin_correction: Option<UnavailablePinRecoveryAction>,
+}
+
+/// Whole-course term-shift preview for existing destination assignments.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CourseTermShiftPreviewView {
+    /// Course and assignment revisions required by apply.
+    pub witness: CourseScheduleWitness,
+    /// Target term selected for the existing course.
+    pub target_term: CourseTerm,
+    /// Existing assignments with resolved target-term schedules.
+    pub assignments: Vec<CurriculumAssignmentView>,
+    /// Field-specific schedule corrections, if any.
+    pub corrections: Vec<CurriculumScheduleCorrection>,
+}
+
+/// Exact bounded semantic position of one replaceable source pin.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", try_from = "CurriculumPinPositionParts")]
+pub struct CurriculumPinPosition {
+    module_index: Option<u16>,
+    assignment_index: u16,
+    entry_index: u16,
+    candidate_index: Option<u16>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CurriculumPinPositionParts {
+    module_index: Option<u16>,
+    assignment_index: u16,
+    entry_index: u16,
+    candidate_index: Option<u16>,
+}
+
+impl TryFrom<CurriculumPinPositionParts> for CurriculumPinPosition {
+    type Error = CurriculumPinPositionError;
+
+    fn try_from(value: CurriculumPinPositionParts) -> Result<Self, Self::Error> {
+        Self::new(
+            value.module_index,
+            value.assignment_index,
+            value.entry_index,
+            value.candidate_index,
+        )
+    }
+}
+
+impl CurriculumPinPosition {
+    /// Validates zero-based module, assignment, entry, and optional pool-candidate coordinates.
+    pub fn new(
+        module_index: Option<u16>,
+        assignment_index: u16,
+        entry_index: u16,
+        candidate_index: Option<u16>,
+    ) -> Result<Self, CurriculumPinPositionError> {
+        let bound = u16::try_from(MAX_ASSIGNMENT_ORDERED_ENTRIES)
+            .expect("assignment position bound fits u16");
+        let candidate_bound = u16::try_from(MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP)
+            .expect("candidate position bound fits u16");
+        if assignment_index >= bound
+            || entry_index >= bound
+            || module_index.is_some_and(|index| index >= bound)
+            || candidate_index.is_some_and(|index| index >= candidate_bound)
+        {
+            return Err(CurriculumPinPositionError);
+        }
+        Ok(Self {
+            module_index,
+            assignment_index,
+            entry_index,
+            candidate_index,
+        })
+    }
+
+    /// Returns the optional zero-based Alpha module position.
+    pub fn module_index(self) -> Option<u16> {
+        self.module_index
+    }
+
+    /// Returns the zero-based assignment position within its source scope.
+    pub fn assignment_index(self) -> u16 {
+        self.assignment_index
+    }
+
+    /// Returns the zero-based fixed-item or pool entry position.
+    pub fn entry_index(self) -> u16 {
+        self.entry_index
+    }
+
+    /// Returns the zero-based pool candidate position, or `None` for one fixed item.
+    pub fn candidate_index(self) -> Option<u16> {
+        self.candidate_index
+    }
+}
+
+/// A pin position exceeded a reusable ordering or pool-candidate bound.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CurriculumPinPositionError;
+
+impl std::fmt::Display for CurriculumPinPositionError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("curriculum pin position is outside the reusable ordering bound")
+    }
+}
+
+impl std::error::Error for CurriculumPinPositionError {}
+
+/// One explicit public-question substitution for an exact semantic pin position.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CurriculumPinReplacement {
+    /// Exact fixed-item or pool-candidate coordinate selected by the server preview.
+    pub position: CurriculumPinPosition,
+    /// Public Question ID selected through the shared ProblemPicker.
+    pub question: QuestionId,
+}
+
+/// Bounded unique substitutions accumulated while correcting one adoption preview.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(into = "Vec<CurriculumPinReplacement>")]
+pub struct CurriculumPinReplacements(Vec<CurriculumPinReplacement>);
+
+impl<'de> Deserialize<'de> for CurriculumPinReplacements {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let values = deserialize_pin_replacements(deserializer)?;
+        Self::new(values).map_err(de::Error::custom)
+    }
+}
+
+impl CurriculumPinReplacements {
+    /// Validates unique exact positions within the total source-selection bound.
+    pub fn new(
+        mut values: Vec<CurriculumPinReplacement>,
+    ) -> Result<Self, CurriculumPinReplacementsError> {
+        if values.len() > MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES {
+            return Err(CurriculumPinReplacementsError);
+        }
+        values.sort_unstable_by_key(|value| value.position);
+        if values
+            .windows(2)
+            .any(|pair| pair[0].position == pair[1].position)
+        {
+            return Err(CurriculumPinReplacementsError);
+        }
+        Ok(Self(values))
+    }
+
+    /// Returns substitutions in the Instructor-confirmed order echoed by preview.
+    pub fn as_slice(&self) -> &[CurriculumPinReplacement] {
+        &self.0
+    }
+}
+
+impl TryFrom<Vec<CurriculumPinReplacement>> for CurriculumPinReplacements {
+    type Error = CurriculumPinReplacementsError;
+
+    fn try_from(value: Vec<CurriculumPinReplacement>) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<CurriculumPinReplacements> for Vec<CurriculumPinReplacement> {
+    fn from(value: CurriculumPinReplacements) -> Self {
+        value.0
+    }
+}
+
+/// Pin substitutions exceeded the bound or repeated one exact semantic position.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CurriculumPinReplacementsError;
+
+impl std::fmt::Display for CurriculumPinReplacementsError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("curriculum pin replacements are invalid")
+    }
+}
+
+impl std::error::Error for CurriculumPinReplacementsError {}
+
+/// Validated answer-free candidate question IDs for one explicit replacement action.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(into = "Vec<QuestionId>")]
+pub struct ReplacementQuestionChoices(Vec<QuestionId>);
+
+impl<'de> Deserialize<'de> for ReplacementQuestionChoices {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let values = deserialize_replacement_questions(deserializer)?;
+        Self::new(values).map_err(de::Error::custom)
+    }
+}
+
+impl ReplacementQuestionChoices {
+    /// Validates nonempty unique public candidate IDs within the existing pool bound.
+    pub fn new(values: Vec<QuestionId>) -> Result<Self, ReplacementQuestionChoicesError> {
+        if values.is_empty() || values.len() > MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP {
+            return Err(ReplacementQuestionChoicesError);
+        }
+        if values.iter().collect::<BTreeSet<_>>().len() != values.len() {
+            return Err(ReplacementQuestionChoicesError);
+        }
+        Ok(Self(values))
+    }
+
+    /// Returns public candidate question IDs in server-selected recovery order.
+    pub fn as_slice(&self) -> &[QuestionId] {
+        &self.0
+    }
+}
+
+impl TryFrom<Vec<QuestionId>> for ReplacementQuestionChoices {
+    type Error = ReplacementQuestionChoicesError;
+
+    fn try_from(value: Vec<QuestionId>) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<ReplacementQuestionChoices> for Vec<QuestionId> {
+    fn from(value: ReplacementQuestionChoices) -> Self {
+        value.0
+    }
+}
+
+/// Replacement candidates were empty, duplicated, or above the pool bound.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReplacementQuestionChoicesError;
+
+impl std::fmt::Display for ReplacementQuestionChoicesError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("replacement question choices are invalid")
+    }
+}
+
+impl std::error::Error for ReplacementQuestionChoicesError {}
+
+/// Explicit recovery that preserves an assignment whose reusable meaning or evidence is fixed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+pub enum PreservedAssignmentRecoveryAction {
+    /// Preserve the divergent assignment and create a new source-derived draft.
+    CreateSourceDerivedAssignment,
+}
+
+/// Explicit replacement action for one source pin unavailable to the destination.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+pub enum UnavailablePinRecoveryAction {
+    /// Choose one public replacement question for a pin that cannot be reauthorized.
+    SelectReplacementQuestion {
+        /// Bounded reusable source position containing the unavailable pin.
+        position: CurriculumPinPosition,
+        /// Public catalog question IDs suitable for the explicit replacement flow.
+        candidates: ReplacementQuestionChoices,
+    },
+}
+
+/// Structured outcome of an assignment fast-forward preview.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+pub enum AssignmentFastForwardDecision {
+    /// All source, baseline, issued-work, and exact-pin checks permit a fast-forward.
+    Eligible,
+    /// Destination reusable meaning changed; preserve it and create a separate draft.
+    Divergent {
+        /// Preserve the current assignment and create an independent source-derived draft.
+        recovery: PreservedAssignmentRecoveryAction,
+    },
+    /// A required source pin cannot be reauthorized for new destination use.
+    UnavailablePin {
+        /// Choose an authorized public replacement for the exact unavailable position.
+        recovery: UnavailablePinRecoveryAction,
+    },
+    /// The source changed or the observed source revision no longer matches.
+    SourceRevisionDrift {
+        /// Current exact assignment-definition source returned for a corrected preview.
+        source: AssignmentDefinitionSourceView,
+    },
+    /// Learner work was issued, so the existing assignment retains its immutable evidence context.
+    IssuedWork {
+        /// Preserve the issued assignment and create an independent source-derived draft.
+        recovery: PreservedAssignmentRecoveryAction,
+    },
+}
+
+/// Fast-forward preview with one structured, recoverable decision.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AssignmentFastForwardPreviewView {
+    /// Destination course.
+    pub course: CourseReference,
+    /// Destination assignment and observed definition revision.
+    pub assignment: ObservedAssignmentRevision,
+    /// Import baseline revision.
+    pub import_revision: CurriculumImportRevision,
+    /// Source selected for re-read and comparison.
+    pub source: AssignmentDefinitionSourceView,
+    /// Schedule/assignment witness preserved through an eligible apply.
+    pub witness: CourseScheduleWitness,
+    /// Explicit result and available recovery action.
+    pub decision: AssignmentFastForwardDecision,
+}
+
+/// Preview for a new independent source-derived assignment before it has a reference.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SourceDerivedAssignmentPreviewView {
+    /// Existing teaching-course destination.
+    pub course: CourseReference,
+    /// Selected re-readable source.
+    pub source: AssignmentDefinitionSourceView,
+    /// Current course and assignment revisions required by apply.
+    pub witness: CourseScheduleWitness,
+    /// Prepared independent assignment before it has a destination reference.
+    pub assignment: PreparedCurriculumAssignmentView,
+    /// Validated substitutions already applied to the prepared semantic snapshot.
+    pub replacements: CurriculumPinReplacements,
+    /// Field-specific schedule corrections, if any.
+    pub corrections: Vec<CurriculumScheduleCorrection>,
+    /// First exact source pin requiring an explicit authorized replacement.
+    pub pin_correction: Option<UnavailablePinRecoveryAction>,
 }
 
 /// Answer-free durable view of one teaching-course import binding.
@@ -428,7 +893,7 @@ pub struct CurriculumImportView {
     /// Destination assignment that owns this import.
     pub assignment: AssignmentReference,
     /// Observed source binding and source revision.
-    pub source: CurriculumImportSourceView,
+    pub source: AssignmentDefinitionSourceView,
     /// Revision advanced whenever the import baseline/envelope changes.
     pub revision: CurriculumImportRevision,
     /// Whether current destination reusable meaning still equals its baseline.
@@ -449,192 +914,4 @@ pub struct CurriculumCourseImportView {
     pub schedule_revision: CourseScheduleRevision,
     /// Per-assignment imports in deterministic teaching-assignment order.
     pub assignments: Vec<CurriculumImportView>,
-}
-
-/// Safe public source provenance attached to one import.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
-pub enum CurriculumImportSourceView {
-    /// Imported from a selected Blueprint revision.
-    Blueprint(ObservedBlueprintSource),
-    /// Imported from a selected Alpha revision.
-    Alpha(ObservedAlphaSource),
-}
-
-/// One operation at the adoption boundary.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum CurriculumAdoptionOperation {
-    /// Fork a public Alpha into an independently editable Alpha.
-    ForkAlpha,
-    /// Create a draft assignment from a Blueprint.
-    InstantiateBlueprint,
-    /// Create a teaching course from a public Alpha.
-    InstantiateAlpha,
-    /// Create a new teaching course from copyable source-course definitions.
-    RolloverCourse,
-    /// Atomically change an unissued course to a new term.
-    ShiftCourseTerm,
-    /// Fast-forward an untouched imported assignment.
-    FastForwardAssignment,
-    /// Create a new assignment from a selected source after divergence.
-    CreateSourceDerivedAssignment,
-}
-
-/// Server-owned write command. It deliberately has no wire serialization.
-#[derive(Debug, Clone, PartialEq)]
-pub enum CurriculumAdoptionCommand {
-    /// Fork command with immutable source binding.
-    ForkAlpha(ForkAlphaCommand),
-    /// Blueprint-instantiation command with exact source revision.
-    InstantiateBlueprint(BlueprintInstantiationCommand),
-    /// Alpha-instantiation command with exact source revision.
-    InstantiateAlpha(AlphaInstantiationCommand),
-    /// Rollover command with source-course schedule witness.
-    RolloverCourse(CourseRolloverCommand),
-    /// Whole-course target-term shift command.
-    ShiftCourseTerm(CourseTermShiftCommand),
-    /// Eligible fast-forward command.
-    FastForwardAssignment(AssignmentFastForwardCommand),
-    /// New independent draft command after a divergent import.
-    CreateSourceDerivedAssignment(CreateSourceDerivedAssignmentCommand),
-}
-
-/// Server-owned Alpha fork command. Source resolution and authority are Store responsibilities.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ForkAlphaCommand {
-    /// Public source and exact observed revision.
-    pub source: ObservedAlphaSource,
-    /// Validated independently editable destination title.
-    pub title: CurriculumAdoptionTitle,
-    /// Client retry binding.
-    pub idempotency_key: CurriculumAdoptionIdempotencyKey,
-}
-
-/// Server-owned Blueprint-to-assignment command.
-#[derive(Debug, Clone, PartialEq)]
-pub struct BlueprintInstantiationCommand {
-    /// Owner-scoped source and observed revision.
-    pub source: ObservedBlueprintSource,
-    /// Existing ordinary teaching course destination.
-    pub course: CourseReference,
-    /// Target term resolved by the Store from the destination course.
-    pub target_term: CourseTerm,
-    /// Preview witness binding the write to its schedule observation.
-    pub preview_witness: CourseScheduleWitness,
-    /// Client retry binding.
-    pub idempotency_key: CurriculumAdoptionIdempotencyKey,
-}
-
-/// Server-owned Alpha-to-course command.
-#[derive(Debug, Clone, PartialEq)]
-pub struct AlphaInstantiationCommand {
-    /// Public source and exact observed revision.
-    pub source: ObservedAlphaSource,
-    /// Validated new teaching-course title.
-    pub title: CurriculumAdoptionTitle,
-    /// Explicit target term with authoritative IANA zone.
-    pub target_term: CourseTerm,
-    /// Client retry binding.
-    pub idempotency_key: CurriculumAdoptionIdempotencyKey,
-}
-
-/// Server-owned rollover command. The Store keeps learner state out of the destination.
-#[derive(Debug, Clone, PartialEq)]
-pub struct CourseRolloverCommand {
-    /// Source teaching-course schedule witness from the preview.
-    pub preview_witness: CourseScheduleWitness,
-    /// Validated new teaching-course title.
-    pub title: CurriculumAdoptionTitle,
-    /// Target term selected by the Instructor.
-    pub target_term: CourseTerm,
-    /// Client retry binding.
-    pub idempotency_key: CurriculumAdoptionIdempotencyKey,
-}
-
-/// Server-owned atomic term-shift command for one unissued teaching course.
-#[derive(Debug, Clone, PartialEq)]
-pub struct CourseTermShiftCommand {
-    /// Course and all assignment revisions returned by preview.
-    pub preview_witness: CourseScheduleWitness,
-    /// Target term selected by the Instructor.
-    pub target_term: CourseTerm,
-    /// Client retry binding.
-    pub idempotency_key: CurriculumAdoptionIdempotencyKey,
-}
-
-/// Server-owned fast-forward command with all required optimistic witnesses.
-#[derive(Debug, Clone, PartialEq)]
-pub struct AssignmentFastForwardCommand {
-    /// Destination course.
-    pub course: CourseReference,
-    /// Destination assignment and observed definition revision.
-    pub assignment: ObservedAssignmentRevision,
-    /// Import baseline revision observed by the preview.
-    pub import_revision: CurriculumImportRevision,
-    /// Source selected for re-read and exact-pin reauthorization.
-    pub source: CurriculumSourceView,
-    /// Course schedule witness preserves teaching-owned schedule state.
-    pub preview_witness: CourseScheduleWitness,
-    /// Client retry binding.
-    pub idempotency_key: CurriculumAdoptionIdempotencyKey,
-}
-
-/// Server-owned command that preserves a divergent assignment and creates a separate draft.
-#[derive(Debug, Clone, PartialEq)]
-pub struct CreateSourceDerivedAssignmentCommand {
-    /// Existing destination course.
-    pub course: CourseReference,
-    /// Selected source and exact observed revision.
-    pub source: CurriculumSourceView,
-    /// Course schedule witness returned by preview.
-    pub preview_witness: CourseScheduleWitness,
-    /// Client retry binding.
-    pub idempotency_key: CurriculumAdoptionIdempotencyKey,
-}
-
-/// Browser-safe result projection for a completed adoption write.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CurriculumAdoptionResultView {
-    /// Operation that completed.
-    pub operation: CurriculumAdoptionOperation,
-    /// Ordinary teaching course produced or updated.
-    pub course: CourseReference,
-    /// Assignment produced or updated when the operation has one direct assignment result.
-    pub assignment: Option<AssignmentReference>,
-    /// Resulting course term after the write.
-    pub term: CourseTerm,
-}
-
-/// Browser-safe immutable receipt binding for a completed adoption operation.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CurriculumAdoptionReceiptBinding {
-    /// Operation whose immutable receipt was persisted.
-    pub operation: CurriculumAdoptionOperation,
-    /// Client key bound to the stored request digest and completed receipt.
-    pub idempotency_key: CurriculumAdoptionIdempotencyKey,
-}
-
-/// Whether a completed write was newly performed or loaded from a matching receipt.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum CurriculumReplayStatus {
-    /// The Store performed and persisted the operation now.
-    Applied,
-    /// The Store returned the matching completed receipt without another mutation.
-    Replayed,
-}
-
-/// Completed adoption result with the matching immutable receipt binding.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CurriculumAdoptionCompleted {
-    /// Safe result projection for the visible Instructor workflow.
-    pub result: CurriculumAdoptionResultView,
-    /// Whether the result was applied now or replayed from durable evidence.
-    pub replay: CurriculumReplayStatus,
-    /// Immutable receipt binding for this completed request.
-    pub receipt: CurriculumAdoptionReceiptBinding,
 }
