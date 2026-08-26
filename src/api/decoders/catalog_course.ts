@@ -3,6 +3,9 @@
 import type { AssignmentDeliveryState } from "../../../generated/api/AssignmentDeliveryState";
 import type { AssignmentItemSummary as AssignmentItem } from "../../../generated/api/AssignmentItemSummary";
 import type { AssignmentScoringMode } from "../../../generated/api/AssignmentScoringMode";
+import type { AssignmentPublicationReadiness } from "../../../generated/api/AssignmentPublicationReadiness";
+import type { AssignmentAudienceRequest } from "../../../generated/api/AssignmentAudienceRequest";
+import type { CourseGroupReference } from "../../../generated/api/CourseGroupReference";
 import type { AssignmentSelectionCandidateSummary as AssignmentSelectionCandidate } from "../../../generated/api/AssignmentSelectionCandidateSummary";
 import type { AssignmentSelectionGroupSummary as AssignmentSelectionGroup } from "../../../generated/api/AssignmentSelectionGroupSummary";
 import type { AssignmentSummary } from "../../../generated/api/AssignmentSummary";
@@ -20,7 +23,11 @@ import type { ContinuedPractice } from "../../../generated/api/ContinuedPractice
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { AssignmentRouteReference, CourseRouteReference } from "../../navigation/public_route";
 import { decodePublicByline } from "../public_byline";
-import { parseAssignmentReference, parseCourseReference } from "../../navigation/public_route";
+import {
+  parseAssignmentReference,
+  parseCourseGroupReference,
+  parseCourseReference,
+} from "../../navigation/public_route";
 
 function decodeCourseReference(value: unknown, path: string): CourseRouteReference {
   if (typeof value !== "string") throw new DecodeError(path, "a C- reference");
@@ -40,10 +47,8 @@ import type { SelectionOrdering } from "../../../generated/api/SelectionOrdering
 import type {
   AssignmentCapabilityViolation,
   AddAssignmentItemInput,
-  AssignmentCreateInput,
   AssignmentEditorEntryInput,
   AssignmentEditorDetail,
-  AssignmentEditorInput,
   ReplaceAssignmentItemQuestionInput,
   CourseCreateInput,
   CourseRouteData,
@@ -847,41 +852,6 @@ export {
   decodeLearnerAssignmentDetail,
   decodeLearnerAssignmentSummary,
 } from "./assignment_teaching_delivery";
-export function decodeAssignmentEditorInput(
-  value: unknown,
-  path = "response",
-): AssignmentEditorInput {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title", "entries", "policies", "disclosurePolicy"]);
-  const decoded = {
-    title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
-    entries: decodeAssignmentEditorEntries(field(record, "entries", path), `${path}.entries`),
-    policies: decodeRunPolicies(field(record, "policies", path), `${path}.policies`, true),
-    disclosurePolicy: decodeLearnerDisclosurePolicy(
-      field(record, "disclosurePolicy", path),
-      `${path}.disclosurePolicy`,
-    ),
-  } satisfies AssignmentEditorInput;
-  return decoded;
-}
-
-export function decodeAssignmentCreateInput(
-  value: unknown,
-  path = "response",
-): AssignmentCreateInput {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title", "entries", "policies", "disclosurePolicy"]);
-  return {
-    title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
-    entries: decodeAssignmentEditorEntries(field(record, "entries", path), `${path}.entries`),
-    policies: decodeRunPolicies(field(record, "policies", path), `${path}.policies`, true),
-    disclosurePolicy: decodeLearnerDisclosurePolicy(
-      field(record, "disclosurePolicy", path),
-      `${path}.disclosurePolicy`,
-    ),
-  };
-}
-
 export function decodeAddAssignmentItemInput(
   value: unknown,
   path = "response",
@@ -926,6 +896,8 @@ export function decodeAssignmentEditorDetail(
     "policies",
     "teachingSettings",
     "currentState",
+    "publicationReadiness",
+    "audience",
   ]);
   const summary = decodeAssignmentSummary(record, path, false);
   const teachingSettings = decodeInstructorAssignmentTeachingSettingsLocal(
@@ -935,6 +907,14 @@ export function decodeAssignmentEditorDetail(
   const currentState = decodeInstructorAssignmentCurrentState(
     field(record, "currentState", path),
     `${path}.currentState`,
+  );
+  const publicationReadiness = decodeAssignmentPublicationReadiness(
+    field(record, "publicationReadiness", path),
+    `${path}.publicationReadiness`,
+  );
+  const audience = decodeAssignmentAudienceRequest(
+    field(record, "audience", path),
+    `${path}.audience`,
   );
   const currentMatchesIntent =
     (teachingSettings.lifecycle === "draft" && currentState.state === "draft") ||
@@ -963,8 +943,61 @@ export function decodeAssignmentEditorDetail(
     policies: summary.policies,
     teachingSettings,
     currentState,
+    publicationReadiness,
+    audience,
   } satisfies Omit<AssignmentEditorDetail, "revision">;
   return decoded;
+}
+
+function decodeAssignmentAudienceRequest(value: unknown, path: string): AssignmentAudienceRequest {
+  const record = decodeRecord(value, path);
+  const kind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
+    "courseWide",
+    "anyOfGroups",
+  ] as const);
+  if (kind === "courseWide") {
+    requireOnlyFields(record, path, ["kind"]);
+    return { kind };
+  }
+  requireOnlyFields(record, path, ["kind", "groups"]);
+  return {
+    kind,
+    groups: decodeArray(
+      field(record, "groups", path),
+      `${path}.groups`,
+      decodeCourseGroupReference,
+    ),
+  };
+}
+
+function decodeCourseGroupReference(value: unknown, path: string): CourseGroupReference {
+  const reference = decodeString(value, path);
+  const parsed = parseCourseGroupReference(reference);
+  if (parsed === null) throw new DecodeError(path, "a public course-group reference");
+  return parsed;
+}
+
+function decodeAssignmentPublicationReadiness(
+  value: unknown,
+  path: string,
+): AssignmentPublicationReadiness {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["blockingIssues"]);
+  return {
+    blockingIssues: decodeArray(
+      field(record, "blockingIssues", path),
+      `${path}.blockingIssues`,
+      (issue, issuePath) => {
+        const issueRecord = decodeRecord(issue, issuePath);
+        requireOnlyFields(issueRecord, issuePath, ["kind"]);
+        return {
+          kind: decodeStringEnum(field(issueRecord, "kind", issuePath), `${issuePath}.kind`, [
+            "questionsRequired",
+          ] as const),
+        };
+      },
+    ),
+  } satisfies AssignmentPublicationReadiness;
 }
 export function decodeAssignmentCapabilityViolations(
   value: unknown,

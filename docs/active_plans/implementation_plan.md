@@ -41,7 +41,9 @@ WP-PROF-T5 is accepted after extending that model with visible item-pool authori
 automatic variation, executable no-store preview, and ordinary Student delivery. WP-PROF-D1 and
 WP-PROF-D2, WP-PROF-B1, and WP-PROF-B2 are accepted. Reusable curricula now advance into ordinary
 teaching courses through explicit adoption, rollover, term shifting, provenance, and controlled
-updates. WP-PROF-G1 is the current automated-grading operations package. The shared status registry
+updates. WP-PROF-T6 is the current Instructor assignment-workspace package; it gives each assignment
+a linked home, separate Questions and Policies pages, and a live answer-free Student view before
+WP-PROF-G1 adds assignment-local grading operations. The shared status registry
 owns the current handoff and migration allocation; the professor capability plan retains the
 accepted capability contracts and evidence boundaries.
 
@@ -1010,19 +1012,22 @@ authenticated tenant and role boundary before loading the existing internal UUID
 references are locators, never authorization. Internal UUIDs may remain in background API and asset
 requests, but they do not appear in the address bar or user-copyable navigation links.
 
-| Route                                                            | Surface                                              | Notes                                               |
-| ---------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------- |
-| `/`                                                              | Course list for the signed-in role                   | Student and instructor views diverge below this     |
-| `/courses/:courseRef`                                            | Assignment list with progress and run counts         | `C-n`; reads summary rows                           |
-| `/courses/:courseRef/assignments/:assignmentRef`                 | Assignment overview, run history, start or resume    | `C-n` and `A-n`; entry point for a run              |
-| `/runs/:runRef`                                                  | The attempt loop, one question at a time             | `R-n`; the screen that must feel instant            |
-| `/runs/:runRef/summary`                                          | Run result, per-question outcomes, start another run | `R-n`; where practice re-entry lives                |
-| `/library`                                                       | Problem browser over the shared catalog              | Virtualized, faceted, cursor-paged                  |
-| `/library/:questionId`                                           | Exact published-question detail and statistics       | `AAA-BBBB`; hidden snapshot lineage is not UI state |
-| `/workspace`                                                     | Instructor drafts                                    | Private, pre-publication                            |
-| `/workspace/:workspaceRef`                                       | Draft editor with validation and preview             | `W-n`; preview renders through WASM generation      |
-| `/instructor/courses/:courseRef/assignments/:assignmentRef/edit` | Assignment editor with policy configuration          | `C-n` and `A-n`; capability gating surfaces inline  |
-| `/instructor/courses/:courseRef/gradebook`                       | Gradebook                                            | `C-n`; reads summary rows only                      |
+| Route                                                                    | Surface                                              | Notes                                                            |
+| ------------------------------------------------------------------------ | ---------------------------------------------------- | ---------------------------------------------------------------- |
+| `/`                                                                      | Course list for the signed-in role                   | Student and instructor views diverge below this                  |
+| `/courses/:courseRef`                                                    | Assignment list with progress and run counts         | `C-n`; reads summary rows                                        |
+| `/courses/:courseRef/assignments/:assignmentRef`                         | Assignment overview, run history, start or resume    | `C-n` and `A-n`; entry point for a run                           |
+| `/runs/:runRef`                                                          | The attempt loop, one question at a time             | `R-n`; the screen that must feel instant                         |
+| `/runs/:runRef/summary`                                                  | Run result, per-question outcomes, start another run | `R-n`; where practice re-entry lives                             |
+| `/library`                                                               | Problem browser over the shared catalog              | Virtualized, faceted, cursor-paged                               |
+| `/library/:questionId`                                                   | Exact published-question detail and statistics       | `AAA-BBBB`; hidden snapshot lineage is not UI state              |
+| `/workspace`                                                             | Instructor drafts                                    | Private, pre-publication                                         |
+| `/workspace/:workspaceRef`                                               | Draft editor with validation and preview             | `W-n`; preview renders through WASM generation                   |
+| `/instructor/courses/:courseRef/assignments/:assignmentRef`              | Instructor assignment home and local navigation      | `C-n` and `A-n`; summary and next actions                        |
+| `/instructor/courses/:courseRef/assignments/:assignmentRef/questions`    | Assignment questions, pools, and selection           | Focused revision-checked content mutation                        |
+| `/instructor/courses/:courseRef/assignments/:assignmentRef/policies`     | Assignment delivery and lifecycle policies           | Focused revision-checked policy mutation                         |
+| `/instructor/courses/:courseRef/assignments/:assignmentRef/student-view` | Current answer-free learner landing                  | Instructor identity stays active; graded work uses Student entry |
+| `/instructor/courses/:courseRef/gradebook`                               | Gradebook                                            | `C-n`; reads summary rows only                                   |
 
 ### Reactivity contract
 

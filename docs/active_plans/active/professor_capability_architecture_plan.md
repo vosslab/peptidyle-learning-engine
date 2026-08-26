@@ -11,6 +11,12 @@ pre-production migration ledger while release acceptance and production activati
 accepts or implies live email authentication, mailbox delivery, production onboarding, deployment,
 or release acceptance.
 
+The owner-directed WP-PROF-T6 assignment workspace plan at
+`docs/active_plans/active/instructor_assignment_workspace_plan.md` is the focused binding contract
+for assignment-title navigation, separate Questions and Policies pages, and the live answer-free
+Student view. It precedes G1 so the grading-operation packages build on one coherent
+assignment-local workspace.
+
 The four product decisions recorded by WP-PROF-S1 are preserved in
 [docs/HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md). Conditional architecture and component ownership
 remain authoritative in this plan.
@@ -995,7 +1001,7 @@ Three lanes after the serial core.
 
 ### Evidence planning rule for open professor packages
 
-WP-PROF-B2, WP-PROF-G1 through WP-PROF-G5, WP-PROF-E1, and WP-PROF-E2 start only after an
+WP-PROF-B2, WP-PROF-T6, WP-PROF-G1 through WP-PROF-G5, WP-PROF-E1, and WP-PROF-E2 start only after an
 approved B1-style binding contract records the capability boundary, dependency order, an
 evidence-class table, owned modules, routes, migrations when persistence changes, and independent
 architecture review. Package-local fast, opt-in connected, one-time implementation, and human-review
@@ -1009,7 +1015,9 @@ entitlement, accommodations, co-instructors, retention and archive pages; previe
 live learner delivery, and item pools. Exit: each teaching-policy category is reachable, editable,
 and keyboard-complete in the maintained desktop profile; an enrolled Student completes an ordinary
 run through deterministic grading and Instructor review; a pool delivers its draw and respects the
-issued-run lock; each preview names the layer that produced every value. Three lanes plus one reviewer.
+issued-run lock; each preview names the layer that produced every value. The assignment title opens
+one assignment home, Questions and Policies are separate task pages, and Student view renders the
+current answer-free learner landing while retaining Instructor identity. Three lanes plus one reviewer.
 
 ### M3 Discovery commons
 
@@ -1080,13 +1088,25 @@ P1 finding.
 | WP-PROF-D3  | Coder                | Assisted tagging: worker, proposals, confirmation, provenance. **Optional; nothing depends on it**                                                                                                                                                                                                                                            | WP-PROF-D1                                                                               |
 | WP-PROF-B1  | Expert coder         | Accepted 2026-08-25: revisioned personal assignment blueprints and public Alpha curriculum aggregates with typed references, creator-owned updates, answer-free projections, and shared `ProblemPicker` authoring and reuse; PostgreSQL, production HTTPS, canonical desktop visual, independent review, and final Validation evidence passed | WP-PROF-D2 accepted, WP-PROF-S7 accepted                                                 |
 | WP-PROF-B2  | Expert coder         | Accepted 2026-08-26: fork, instantiation, rollover, term shift, manifests, provenance, controlled fast-forward, divergence recovery, canonical PostgreSQL/browser/screenshot evidence, and final Validation passed                                                                                                                            | WP-PROF-B1 accepted, WP-PROF-T1 accepted                                                 |
-| WP-PROF-G1  | Expert coder         | Automated-grading operation queue grouped by question/learner; deterministic-grader exception routing, bounded retry, generation-fenced recalculation, and immutable operation receipts; no human scoring or manual-grade mutation                                                                                                            | WP-PROF-T2                                                                               |
+| WP-PROF-T6  | Expert coder         | Linked assignment home, separate Questions and Policies pages, focused revision-checked mutations, persisted incomplete drafts, and Instructor-authorized answer-free Student view; binding plan at `docs/active_plans/active/instructor_assignment_workspace_plan.md`                                                                        | WP-PROF-T3, WP-PROF-LD3, WP-PROF-T5 accepted                                             |
+| WP-PROF-G1  | Expert coder         | Automated-grading operation queue grouped by question/learner; deterministic-grader exception routing, bounded retry, generation-fenced recalculation, and immutable operation receipts; no human scoring or manual-grade mutation                                                                                                            | WP-PROF-T2, WP-PROF-T6                                                                   |
 | WP-PROF-G2  | Expert coder         | Audited learner-work inspection and grade-scheme-aware calculated gradebook, linked directly from G1 operations                                                                                                                                                                                                                               | WP-PROF-S6, WP-PROF-G1                                                                   |
 | WP-PROF-G3  | Coder                | Item and course analysis connected to catalog evidence, audited learner-work context, and explicitly linked replacement/source impact                                                                                                                                                                                                         | WP-PROF-G1, WP-PROF-G2, WP-PROF-D1                                                       |
 | WP-PROF-G4  | Coder                | Durable question-improvement threads that preserve evidence, decisions, replacement links, and next-term context                                                                                                                                                                                                                              | WP-PROF-G3, WP-PROF-B2                                                                   |
 | WP-PROF-G5  | Coder                | Actionable Instructor work queue for grader exceptions, recalculation failures, active replacement impact, and unresolved improvement threads under the actionability predicate                                                                                                                                                               | WP-PROF-G4, WP-PROF-T2                                                                   |
 | WP-PROF-E1  | Playwright           | Behavior-named professor journeys and live-stack evidence                                                                                                                                                                                                                                                                                     | all behavior WPs                                                                         |
 | WP-PROF-E2  | Integrator           | Final gates, visual review, docs, changelog, baseline procedure                                                                                                                                                                                                                                                                               | WP-PROF-E1                                                                               |
+
+**WP-PROF-T6 binding contract.** The focused plan at
+`docs/active_plans/active/instructor_assignment_workspace_plan.md` owns the route map, task analysis,
+assignment aggregate mutations, authorization boundary, ADAPT comparison, evidence classification,
+and acceptance. T6 consumes the existing assignment, preview, and learner models and owns forward
+capability migration `2026081848`: Draft and Archived assignments may have empty definitions, while
+Published requires an active deliverable position and the same readiness rule applies to every
+Published transition or retained state. T6 does not consume the reserved G1/G3 migrations and
+advances no grading operation. One assignment revision serializes the focused Questions and Policies
+mutations. Ordinary Student activity remains the source of run, submission, receipt, grade, and
+gradebook evidence.
 
 **WP-PROF-T5 binding contract.** One ordered assignment-definition union owns fixed items and
 selection groups in the shared position namespace. Browser writes contain public Question IDs and

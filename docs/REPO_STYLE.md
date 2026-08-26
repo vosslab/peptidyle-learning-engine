@@ -151,10 +151,10 @@ Preferred structure:
 - Reference: [PyPA version specifiers](https://packaging.python.org/en/latest/specifications/version-specifiers/).
 - When `devel/make_release.py` is present, use it to
   prepare GitHub source releases: it checks CalVer freshness, ensures the version tag is free,
-  verifies the committed LICENSE, builds and spot-checks zip and tgz archives, generates an
-  LLM-drafted release description, and optionally writes `docs/RELEASE_HISTORY.md` and
-  `docs/NEWS.md` before printing the tag and `gh release create` commands. Run with `--dry-run`
-  to preview all steps without mutating the repo, or `--write` to update the doc files.
+  verifies every committed `LICENSE.<SPDX>` in the built zip and tgz archives, prints an LLM
+  prompt for drafting the release description, and optionally writes `docs/RELEASE_HISTORY.md`
+  and `docs/NEWS.md` before printing the tag and `gh release create` commands. Run with
+  `--dry-run` to preview all steps without mutating the repo, or `--write` to update the doc files.
 
 ## Scripts and executables
 - Keep scripts self-contained and single-purpose.
@@ -166,7 +166,6 @@ Preferred structure:
 - Avoid hard-coded interpreter paths in routine command examples.
 - Document shared helpers and modules in `docs/USAGE.md` when used across scripts.
 - Use `tests/test_pyflakes_code_lint.py` and `tests/test_ascii_compliance.py` for repo-wide lint checks, with `tests/check_ascii_compliance.py` for single-file ASCII/ISO-8859-1 checks and `tests/fix_ascii_compliance.py` for single-file fixes. `tests/test_markdown_links.py` is the repo-wide check that every local Markdown link is GitHub-browsable and well formed.
-- For smoke tests, reuse stable output folder names (for example `output_smoke/`) instead of creating one-off output directory names; reusing/overwriting avoids repeated delete-approval prompts.
 - In test scripts that need the repository root, import and use the shared `tests/file_utils.py` module:
   ```python
   import file_utils
@@ -210,8 +209,20 @@ Preferred structure:
 - In general, we want to require all dependencies, rather than provide work-arounds if they are mssing, because without all the dependencies the program is too crippled to run properly
 
 ## Data and outputs
-- Keep generated outputs out of git unless they are small and intentional.
-- Put large inputs or outputs under a clear folder (for example `data/` or `output/`).
+
+- Keep generated outputs out of Git unless they are small, intentional project artifacts.
+- Put generated output directories at the repository root. Name the general directory `output/`
+  and use a stable `output_<purpose>/` name when separate lifecycles help, such as
+  `output_smoke/` or `output_release/`.
+- Reuse or overwrite stable output directories instead of creating one-off names. This keeps
+  cleanup predictable and avoids repeated delete-approval prompts.
+- Use the universal root-scoped `/output*/` `.gitignore` rule. Do not use unanchored `output*/`,
+  `output/`, or `output_smoke/` rules: they can hide legitimate tracked paths such as
+  `tests/output/` inside the repository.
+- Keep tool-mandated names distinct when renaming them would break the tool. Root-anchor a local
+  exception such as `/out/`; keep named tool output such as `/graphify-out/` in its owning rule.
+  Filename patterns such as `*.out` and logs are separate policies, not output-directory aliases.
+- Put large inputs under a clear root folder such as `data/`.
 - Note input and output locations in `docs/USAGE.md`.
 - Keep sample inputs small and safe.
 
@@ -230,7 +241,8 @@ Preferred structure:
 ### Recommended common docs
 - `AGENTS.md`: agent instructions, tool constraints, and repo-specific workflow guardrails.
 - `README.md`: project purpose, quick start, and links to deeper documentation.
-- `LICENSE`: legal terms for using and redistributing the project; keep exact license text.
+- `LICENSE.<SPDX>`: legal terms for using and redistributing the project; keep the complete
+  plain-text license body and make the license identifier visible in the filename.
 - `docs/CHANGELOG.md`: chronological, user facing record of changes, grouped by date. Timeline of what changed and when.
 - `docs/CHANGELOG.md` entries should also note important failures and key implementation choices so the log remains a useful learning record for later debugging and decision review.
 - `docs/CODE_ARCHITECTURE.md`: high-level system design, major components, and data flow.
@@ -282,6 +294,13 @@ Possible examples:
 
 ## Licensing
 Check the license file to match these criteria.
+
+- Store each license as a real root file named `LICENSE.<SPDX>`, such as `LICENSE.GPL-3.0` or
+  `LICENSE.CC-BY-SA-4.0`. Do not add a rendering extension, generic alias, wrapper, or symlink.
+- When code and non-code material use different licenses, keep one real file per license and map
+  each license to its covered material in `README.md`.
+- Keep complete legal text in each license file. Put project explanations in `README.md`, not in
+  the legal body.
 
 - Most source code is licensed under **GPLv3**, unless stated otherwise.
 - Libraries intended for use by proprietary or mixed-source software are licensed under **LGPLv3**.

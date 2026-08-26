@@ -1,0 +1,222 @@
+/* Shared desktop-first surface for the assignment workspace shell and its child pages. */
+
+.assignment-workspace {
+  display: grid;
+  gap: var(--ple-section-gap);
+}
+
+.assignment-workspace-nav {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  gap: 0.16rem;
+  margin: calc(var(--ple-section-gap) * -0.45) 0 0;
+  padding: 0.2rem;
+  overflow-x: auto;
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-group, 0.6rem);
+  background: color-mix(in srgb, var(--ple-card-surface) 78%, transparent);
+}
+
+.assignment-workspace-nav a {
+  flex: 0 0 auto;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.82rem;
+  border-radius: 0.44rem;
+  color: var(--ple-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.assignment-workspace-nav a:hover,
+.assignment-workspace-nav a[aria-current="page"] {
+  background: var(--ple-card-surface);
+  color: var(--ple-accent-strong);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 10%);
+}
+
+.assignment-workspace-overview,
+.assignment-workspace-placeholder,
+.assignment-workspace-policies {
+  display: grid;
+  gap: var(--ple-section-gap);
+}
+
+.assignment-workspace-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--ple-card-gap, 1rem);
+}
+
+.assignment-workspace-policies .assignment-editor-policy-panel {
+  min-width: 0;
+  padding: var(--ple-panel-padding, 0.85rem);
+  border-radius: var(--ple-radius-group, 0.7rem);
+  background: color-mix(in srgb, var(--ple-card-surface) 84%, transparent);
+  box-shadow: var(--ple-shadow);
+}
+
+.assignment-workspace-save-message {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-inline-start: 0.35rem solid var(--ple-success, #237447);
+  border-radius: var(--ple-radius-group, 0.7rem);
+  background: color-mix(in srgb, var(--ple-success, #237447) 12%, var(--ple-card-surface));
+}
+
+.assignment-workspace-save-message[role="alert"] {
+  border-inline-start-color: var(--ple-danger, #a33a26);
+  background: color-mix(in srgb, var(--ple-danger, #a33a26) 10%, var(--ple-card-surface));
+}
+
+.assignment-workspace-policy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem 1rem;
+}
+
+.assignment-workspace-choice {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.assignment-workspace-group-choices {
+  display: grid;
+  gap: 0.42rem;
+  margin: 0.2rem 0 0.4rem;
+  padding: 0.7rem;
+  border: 1px solid var(--ple-border);
+  border-radius: 0.45rem;
+}
+
+.assignment-workspace-header {
+  display: grid;
+  gap: 0.32rem;
+}
+
+.assignment-workspace-header h1 {
+  max-width: 42ch;
+}
+
+.assignment-workspace-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ple-card-gap, 1rem);
+}
+
+.assignment-workspace-card {
+  min-width: 0;
+  padding: 1rem;
+}
+
+.assignment-workspace-card:last-child {
+  grid-column: 1 / -1;
+}
+
+.assignment-workspace-card h2,
+.assignment-workspace-contextual-actions h2 {
+  margin-top: 0;
+}
+
+.assignment-workspace-card .assignment-facts {
+  margin-top: 0.85rem;
+}
+
+.assignment-workspace-next-actions {
+  margin: 0.7rem 0;
+  padding-left: 1.2rem;
+}
+
+.assignment-workspace-action-row,
+.assignment-workspace-contextual-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem 1rem;
+}
+
+.assignment-workspace-action-row {
+  margin: 1rem 0 0;
+}
+
+.assignment-workspace-contextual-actions {
+  padding-top: 0.3rem;
+}
+
+.assignment-workspace-contextual-actions h2 {
+  flex-basis: 100%;
+}
+
+.assignment-workspace-placeholder {
+  max-width: 62ch;
+}
+
+.assignment-workspace-student-view {
+  display: grid;
+  gap: var(--ple-section-gap);
+  max-width: 68ch;
+}
+
+.student-view-cue {
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--ple-focus);
+  border-radius: var(--ple-radius-group, 0.6rem);
+  background: color-mix(in srgb, var(--ple-focus) 8%, var(--ple-card-surface));
+  color: var(--ple-ink);
+  font-weight: 700;
+}
+
+.student-view-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem 1rem;
+}
+
+.student-view-entry {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: start;
+  max-width: 42ch;
+}
+
+.student-view-entry p {
+  margin: 0;
+  color: var(--ple-muted);
+}
+
+.assignment-workspace-placeholder .quiet-link {
+  width: fit-content;
+}
+
+.assignment-workspace-state {
+  width: min(100%, var(--ple-reading-max-inline));
+}
+
+@media (max-width: 52rem) {
+  .assignment-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .assignment-workspace-policy-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .assignment-workspace-card:last-child {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 40rem) {
+  .assignment-workspace-nav {
+    width: 100%;
+  }
+
+  .assignment-workspace-nav a {
+    flex: 1 0 auto;
+    text-align: center;
+  }
+}

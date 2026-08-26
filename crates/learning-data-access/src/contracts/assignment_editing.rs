@@ -153,3 +153,134 @@ pub(crate) fn assignment_scoring_changed(
         || fixed(previous) != fixed(replacement)
         || groups(previous) != groups(replacement)
 }
+
+/// Reports whether a Questions-slice save changes the future-run assignment
+/// shape protected once learner evidence exists.
+///
+/// Item and candidate identity, pinned publication, ordering, pool draw
+/// semantics, and candidate eligibility determine which question can appear
+/// in a future run. Fixed-item delivery and scoring changes are deliberately
+/// outside this boundary: they retain the ordinary revision-checked
+/// replacement and recalculation path.
+/// Keeping this classification in the shared Store contract prevents the
+/// in-memory and PostgreSQL implementations from making different issuance
+/// decisions for the same focused command.
+pub(crate) fn assignment_content_structurally_changed(
+    current: &AssignmentRecord,
+    replacement: &AssignmentRecord,
+) -> bool {
+    let fixed_shape = |items: &[question_model::AssignmentItem]| {
+        items
+            .iter()
+            .map(|item| (item.id, item.reference, item.position))
+            .collect::<Vec<_>>()
+    };
+    let group_shape = |groups: &[question_model::AssignmentSelectionGroup]| {
+        groups
+            .iter()
+            .map(|group| {
+                (
+                    group.id,
+                    group.position,
+                    group.draw_count,
+                    group.ordering,
+                    group.algorithm,
+                    group
+                        .candidates
+                        .iter()
+                        .map(|candidate| {
+                            (
+                                candidate.id,
+                                candidate.reference,
+                                candidate.position,
+                                candidate.delivery_state,
+                            )
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+
+    fixed_shape(&current.items) != fixed_shape(&replacement.items)
+        || group_shape(&current.selection_groups) != group_shape(&replacement.selection_groups)
+}
+
+#[cfg(test)]
+mod structural_content_tests {
+    use super::*;
+    use question_model::{
+        AssignmentAudience, AssignmentDeliveryState, AssignmentId, AssignmentInstructions,
+        AssignmentItem, AssignmentItemId, AssignmentLifecycle, AssignmentScoringMode,
+        AssignmentSelectionCandidate, AssignmentSelectionGroup, AssignmentSelectionGroupId,
+        GradePolicy, LearnerDisclosurePolicy, PointValue, PoolDrawAlgorithm, ProblemId,
+        ProblemVersionRef, RunPolicies, SelectionOrdering, TenantId, VersionId,
+    };
+
+    fn assignment() -> AssignmentRecord {
+        AssignmentRecord {
+            id: AssignmentId::generate(),
+            tenant: TenantId::generate(),
+            course_id: question_model::CourseId::generate(),
+            title: "Structural content fixture".to_string(),
+            lifecycle: AssignmentLifecycle::Draft,
+            instructions: AssignmentInstructions::default(),
+            audience: AssignmentAudience::CourseWide,
+            items: vec![AssignmentItem {
+                id: AssignmentItemId::generate(),
+                reference: ProblemVersionRef {
+                    problem: ProblemId::generate(),
+                    version: VersionId::generate(),
+                },
+                position: 0,
+                points_possible: PointValue::from_whole(1),
+                delivery_state: AssignmentDeliveryState::Active,
+                scoring_mode: AssignmentScoringMode::Normal,
+            }],
+            selection_groups: vec![AssignmentSelectionGroup {
+                id: AssignmentSelectionGroupId::generate(),
+                position: 1,
+                draw_count: 1,
+                points_per_item: PointValue::from_whole(1),
+                ordering: SelectionOrdering::CandidateOrder,
+                algorithm: PoolDrawAlgorithm::V1,
+                candidates: vec![AssignmentSelectionCandidate {
+                    id: AssignmentItemId::generate(),
+                    position: 0,
+                    reference: ProblemVersionRef {
+                        problem: ProblemId::generate(),
+                        version: VersionId::generate(),
+                    },
+                    delivery_state: AssignmentDeliveryState::Active,
+                }],
+            }],
+            disclosure_policy: LearnerDisclosurePolicy::default(),
+            policies: RunPolicies {
+                completion: question_model::CompletionRequirement::AnswerAll,
+                grade: GradePolicy::Highest,
+                continued_practice: question_model::ContinuedPractice::Unlimited,
+                variation: question_model::VariationPolicy::NewSeeds,
+            },
+        }
+    }
+
+    #[test]
+    fn candidate_retirement_changes_future_run_structure_but_fixed_retirement_does_not() {
+        let current = assignment();
+
+        let mut fixed_retirement = current.clone();
+        fixed_retirement.items[0].delivery_state = AssignmentDeliveryState::Retired;
+        assert!(!assignment_content_structurally_changed(
+            &current,
+            &fixed_retirement
+        ));
+
+        let mut candidate_retirement = current.clone();
+        candidate_retirement.selection_groups[0].candidates[0].delivery_state =
+            AssignmentDeliveryState::Retired;
+        assert!(assignment_content_structurally_changed(
+            &current,
+            &candidate_retirement
+        ));
+    }
+}

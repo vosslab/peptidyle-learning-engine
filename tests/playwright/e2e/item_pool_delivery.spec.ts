@@ -1,7 +1,7 @@
 // Production-stack item-pool journey: all teaching state and learner work use visible PLE UI.
 //
 // Selector contract:
-// - src/pages/assignment_editor_page.tsx:638 owns mixed fixed/pool creation and post-issue saves.
+// - src/pages/assignment_workspace/ owns mixed fixed/pool creation and post-issue Questions saves.
 // - src/pages/assignment_pool_editor.tsx:109 owns candidate, draw, ordering, and preview controls.
 // - src/pages/assignment_teaching_operations_panel.tsx:148 owns the ordinary publishing controls.
 // - src/pages/run_page.tsx:401 owns issued learner questions, feedback, and completion surfaces.
@@ -103,9 +103,11 @@ async function createCourseWithMixedPool(
   await page.getByRole("link", { name: "Assignments", exact: true }).click();
   await page.getByRole("link", { name: "Create the first assignment", exact: true }).click();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
+  await page.getByRole("button", { name: "Create assignment draft", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
   await selectQuestionsInPicker(
     page,
-    "Choose questions",
+    "Search question library",
     "Choose assignment questions",
     [fixed.title],
     "Add selected questions",
@@ -130,10 +132,8 @@ async function createCourseWithMixedPool(
   await pool.getByLabel("Points per drawn question").fill("2");
   await pool.getByLabel("Delivery order").selectOption("candidateOrder");
   await expect(pool).toContainText("Draw algorithm v1");
-  await page.getByRole("button", { name: "Create assignment", exact: true }).click();
-  await expect(page.getByText(`${assignmentTitle} now appears in this course.`)).toBeVisible();
-  await page.getByRole("link", { name: `Open ${assignmentTitle}`, exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Assignment editor", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Questions and order saved.");
 
   const savedPool = page.getByRole("listitem", { name: "Question pool at position 2" });
   await savedPool.getByRole("button", { name: "Preview draw", exact: true }).click();
@@ -164,9 +164,11 @@ async function createCourseWithMixedPool(
     savedPool.getByRole("heading", { name: "Server-sampled draw", exact: true }),
   ).toBeVisible();
 
+  await page.getByRole("link", { name: "Policies", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
   await page.getByLabel("Lifecycle").selectOption("published");
-  await page.getByRole("button", { name: "Save teaching operations", exact: true }).click();
-  await expect(page.getByTestId("assignment-current-state")).toHaveText("Published, open now.");
+  await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Assignment policies saved.");
   await page.getByRole("link", { name: "Students", exact: true }).click();
   await page.getByLabel("Institutional email").fill(maryEmail);
   await page.getByLabel("Institutional student ID").fill("BIO-MARY-003");
@@ -266,21 +268,22 @@ async function inspectPostIssueEdits(
   const assignmentCard = page
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
-  await assignmentCard.getByRole("link", { name: "Edit assignment", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Assignment editor", exact: true })).toBeVisible();
+  await assignmentCard.getByRole("link", { name: assignmentTitle, exact: true }).click();
+  await page.getByRole("link", { name: "Questions", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
   const pool = page.getByRole("listitem", { name: "Question pool at position 2" });
   const revisedTitle = `${assignmentTitle} points updated`;
   await page.getByLabel("Assignment title").fill(revisedTitle);
   await pool.getByLabel("Points per drawn question").fill("3");
-  await page.getByRole("button", { name: "Save title, order, and settings", exact: true }).click();
+  await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
   await expect(
-    page.getByRole("status").filter({ hasText: "Assignment title, order, and settings saved." }),
+    page.getByRole("status").filter({ hasText: "Questions and order saved." }),
   ).toBeVisible();
   await expect(page.getByLabel("Assignment title")).toHaveValue(revisedTitle);
   await expect(pool.getByLabel("Points per drawn question")).toHaveValue("3");
 
   await pool.getByLabel("Draw count").fill("1");
-  await page.getByRole("button", { name: "Save title, order, and settings", exact: true }).click();
+  await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
   const recovery = page.getByRole("alert");
   await expect(recovery).toContainText(
     "create a new assignment or use the supported future-run replacement workflow",

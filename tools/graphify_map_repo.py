@@ -2,6 +2,7 @@
 """Build or update a Graphify repository map and print concise agent guidance."""
 
 # Standard Library
+import os
 import re
 import sys
 import json
@@ -40,17 +41,21 @@ def build_parser() -> argparse.ArgumentParser:
 	help_epilog = (
 		"How it works:\n"
 		"  With no mode, update graphify-out/graph.json when it exists; otherwise extract a\n"
-		"  fresh graph. Updates perform only Graphify's incremental update before rewriting\n"
-		"  manager context. Fresh builds upgrade Graphify, extract, fully label, and benchmark.\n"
-		f"  Claude CLI uses {CLAUDE_LABEL_MODEL} for labels. --ollama selects the local model for\n"
-		"  fresh builds. Context prints orientation without running\n"
+		"  fresh graph. Updates use Graphify's code-only fast path by default. Adding\n"
+		"  --include-docs to --update incrementally extracts changed code and semantic inputs,\n"
+		"  then refreshes community labels. Fresh builds upgrade Graphify, force extraction,\n"
+		"  fully label, and benchmark. --include-docs includes nonignored document, paper, and\n"
+		f"  image inputs. Claude CLI uses {CLAUDE_LABEL_MODEL}; --ollama selects the model for\n"
+		"  extraction and labels. Context prints orientation without running\n"
 		"  Graphify. Before the first map exists, context prints this help instead.\n"
 		"\n"
 		"Examples:\n"
 		"  %(prog)s              # automatically choose fresh or update\n"
 		"  %(prog)s --fresh      # upgrade, extract, fully label, and benchmark\n"
+		"  %(prog)s --fresh --include-docs  # include nonignored semantic inputs\n"
 		"  %(prog)s --update     # update, or run the fresh path when no graph exists\n"
-		"  %(prog)s --fresh --ollama  # use Ollama instead of Claude CLI for labels\n"
+		"  %(prog)s --update --include-docs  # incrementally refresh semantic inputs\n"
+		"  %(prog)s --fresh --ollama  # use Ollama instead of Claude CLI\n"
 		"  %(prog)s --context    # print orientation without rebuilding\n"
 		"\n"
 		f"Fresh-build setup: pip upgrades {GRAPHIFY_PACKAGE}.\n"
@@ -94,9 +99,19 @@ def build_parser() -> argparse.ArgumentParser:
 		dest="label_backend",
 		action="store_const",
 		const=OLLAMA_BACKEND,
-		help=f"use local Ollama model {OLLAMA_MODEL} for fresh builds",
+		help=f"use local Ollama model {OLLAMA_MODEL} for extraction and labels",
 	)
-	parser.set_defaults(mode=MODE_AUTO, label_backend=LABEL_BACKEND)
+	parser.add_argument(
+		"-D", "--include-docs",
+		dest="include_docs",
+		action="store_true",
+		help="include nonignored document, paper, and image inputs in fresh or update builds",
+	)
+	parser.set_defaults(
+		mode=MODE_AUTO,
+		label_backend=LABEL_BACKEND,
+		include_docs=False,
+	)
 	return parser
 
 
@@ -107,6 +122,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 	"""Parse automatic or explicitly selected Graphify lifecycle modes."""
 	parser = build_parser()
 	args = parser.parse_args(argv)
+	# ASVS 2.1.1 and 2.2.1: semantic extraction requires an explicit lifecycle mode.
+	if args.include_docs and args.mode not in (MODE_FRESH, MODE_UPDATE):
+		parser.error("--include-docs requires --fresh or --update")
 	return args
 
 
@@ -162,10 +180,14 @@ def print_step(label: str) -> None:
 #============================================
 
 
-def run_command(command: list[str], repo_root: pathlib.Path) -> None:
+def run_command(
+	command: list[str],
+	repo_root: pathlib.Path,
+	environment: dict[str, str] | None = None,
+) -> None:
 	"""Run one trusted Graphify lifecycle command from the repository root."""
 	# ASVS 1.2.5: subprocesses use an argv list and never invoke a shell.
-	subprocess.run(command, cwd=repo_root, check=True)
+	subprocess.run(command, cwd=repo_root, check=True, env=environment)
 
 
 #============================================
@@ -226,21 +248,59 @@ def graph_build_command(
 	graphify_executable: str,
 	repo_root: pathlib.Path,
 	mode: str,
+	include_docs: bool,
+	label_backend: str,
 ) -> tuple[str, list[str], bool]:
 	"""Return the graph operation and whether it performs a fresh extraction."""
+	# ASVS 2.2.1: accept only the two fixed Graphify semantic backends.
+	if label_backend not in (LABEL_BACKEND, OLLAMA_BACKEND):
+		raise ValueError(f"Unsupported Graphify label backend: {label_backend}")
 	is_fresh = graph_build_is_fresh(repo_root, mode)
-	if is_fresh:
-		if mode == MODE_UPDATE:
-			operation = "NO EXISTING GRAPH; EXTRACTING FRESH GRAPHIFY CODE MAP"
+	if is_fresh or include_docs:
+		map_scope = "CODE AND SEMANTIC MAP" if include_docs else "CODE MAP"
+		if is_fresh and mode == MODE_UPDATE:
+			operation = f"NO EXISTING GRAPH; EXTRACTING FRESH GRAPHIFY {map_scope}"
+		elif is_fresh:
+			operation = f"EXTRACTING GRAPHIFY {map_scope}"
 		else:
-			operation = "EXTRACTING GRAPHIFY CODE MAP"
-		command = [graphify_executable, "extract", ".", "--code-only"]
+			operation = f"UPDATING GRAPHIFY {map_scope}"
+		command = [graphify_executable, "extract", "."]
+		if include_docs:
+			extraction_model = (
+				OLLAMA_MODEL if label_backend == OLLAMA_BACKEND else CLAUDE_LABEL_MODEL
+			)
+			command.extend(
+				[
+					f"--backend={label_backend}",
+					f"--model={extraction_model}",
+				]
+			)
+			if is_fresh:
+				command.append("--force")
+		else:
+			command.append("--code-only")
 		if (repo_root / "Cargo.toml").is_file():
 			command.append("--cargo")
 	else:
 		operation = "UPDATING GRAPHIFY CODE MAP"
 		command = [graphify_executable, "update", "."]
 	return operation, command, is_fresh
+
+
+#============================================
+
+
+def graph_build_environment(
+	include_docs: bool,
+	label_backend: str,
+) -> dict[str, str] | None:
+	"""Pin the Claude CLI extraction model while preserving the parent environment."""
+	if not include_docs or label_backend != LABEL_BACKEND:
+		return None
+	# ASVS 1.2.5 and 2.2.1: the environment key and model value are fixed constants.
+	environment = os.environ.copy()
+	environment["GRAPHIFY_CLAUDE_CLI_MODEL"] = CLAUDE_LABEL_MODEL
+	return environment
 
 
 #============================================
@@ -710,23 +770,33 @@ def main() -> None:
 		return
 
 	is_fresh = graph_build_is_fresh(repo_root, args.mode)
-	if not is_fresh and args.label_backend == OLLAMA_BACKEND:
-		raise ValueError("--ollama applies only to fresh builds")
+	needs_labeling = is_fresh or args.include_docs
+	if not needs_labeling and args.label_backend == OLLAMA_BACKEND:
+		raise ValueError("--ollama applies only to fresh or --include-docs builds")
 	if is_fresh:
 		upgrade_graphify(repo_root)
+	if needs_labeling:
 		prepare_label_backend(repo_root, args.label_backend)
 	graphify_executable = require_command("graphify")
 	operation, build_command, is_fresh = graph_build_command(
 		graphify_executable,
 		repo_root,
 		args.mode,
+		args.include_docs,
+		args.label_backend,
 	)
 	print_step(operation)
-	run_command(build_command, repo_root)
-	if is_fresh:
+	build_environment = graph_build_environment(
+		args.include_docs,
+		args.label_backend,
+	)
+	run_command(build_command, repo_root, build_environment)
+	if needs_labeling:
 		print_step("LABELING GRAPHIFY COMMUNITIES")
 		label_graph(graphify_executable, repo_root, args.label_backend)
-		print_step("BENCHMARKING GRAPHIFY CODE MAP")
+	if is_fresh:
+		map_scope = "CODE AND SEMANTIC MAP" if args.include_docs else "CODE MAP"
+		print_step(f"BENCHMARKING GRAPHIFY {map_scope}")
 		run_command([graphify_executable, "benchmark"], repo_root)
 
 	validate_core_artifacts(repo_root)

@@ -2,13 +2,56 @@ use async_trait::async_trait;
 
 use super::*;
 use crate::{
-    CreateAssignmentCommand, ReplaceAssignmentCommand, ReplaceUnissuedAssignmentDefinitionCommand,
-    ReplaceUnissuedAssignmentDefinitionOutcome, assignment_revision_checked_next,
-    assignment_revision_from_stored, assignment_revision_to_stored,
+    CreateAssignmentCommand, CreateAssignmentDraftCommand, ReplaceAssignmentCommand,
+    ReplaceAssignmentContentCommand, ReplaceAssignmentContentOutcome,
+    ReplaceAssignmentPoliciesCommand, ReplaceAssignmentPoliciesOutcome,
+    ReplaceUnissuedAssignmentDefinitionCommand, ReplaceUnissuedAssignmentDefinitionOutcome,
+    assignment_revision_checked_next, assignment_revision_from_stored,
+    assignment_revision_to_stored, new_assignment_draft,
 };
 
 #[async_trait]
 impl crate::CourseAssignmentStore for PostgresStore {
+    async fn create_assignment_draft_impl(
+        &self,
+        context: TenantContext,
+        command: CreateAssignmentDraftCommand,
+    ) -> Result<StoredAssignment, StoreError> {
+        let CreateAssignmentDraftCommand {
+            actor,
+            course,
+            assignment,
+            title,
+        } = command;
+        let draft = new_assignment_draft(context.tenant_id(), course, assignment, title);
+        validate_assignment(&draft.record)?;
+        let mut transaction = self.begin_tenant(context).await?;
+        let creation_witness = assignment_definition_capability::prepare_creation(
+            &mut transaction,
+            context,
+            actor,
+            &draft.record,
+        )
+        .await?;
+        domain::effective_assignment_policy::validate_base_assignment_policy_for_course_term(
+            draft.base_policy,
+            creation_witness.course_term(),
+        )
+        .map_err(|error| {
+            StoreError::InvalidRecord(format!("invalid assignment base policy: {error:?}"))
+        })?;
+        let stored = assignment_definition_capability::create(
+            &mut transaction,
+            context,
+            actor,
+            &draft.record,
+            draft.base_policy,
+        )
+        .await?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(stored)
+    }
+
     async fn create_assignment_impl(
         &self,
         context: TenantContext,
@@ -98,6 +141,8 @@ impl crate::CourseAssignmentStore for PostgresStore {
         validate_assignment(&assignment)?;
         validate_postgres_assignment_references(&mut transaction, context, &assignment).await?;
         crate::ensure_assignment_update_preserves_references(&previous, &update)?;
+        let base_policy =
+            load_base_policy(&mut transaction, context.tenant_id(), assignment.id).await?;
         let returned = assignment_definition_capability::replace(
             &mut transaction,
             context,
@@ -105,10 +150,139 @@ impl crate::CourseAssignmentStore for PostgresStore {
             &previous,
             &assignment,
             expected_revision,
+            base_policy,
         )
         .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(returned)
+    }
+
+    async fn replace_assignment_content_impl(
+        &self,
+        context: TenantContext,
+        command: ReplaceAssignmentContentCommand,
+    ) -> Result<ReplaceAssignmentContentOutcome, StoreError> {
+        let ReplaceAssignmentContentCommand {
+            actor,
+            course,
+            assignment,
+            expected_revision,
+            update,
+        } = command;
+        let mut transaction = self.begin_tenant(context).await?;
+        match prepare_assignment_mutation(
+            &mut transaction,
+            context,
+            actor,
+            course,
+            assignment,
+            expected_revision,
+        )
+        .await
+        {
+            Err(StoreError::Conflict) => {
+                return Ok(ReplaceAssignmentContentOutcome::RevisionConflict);
+            }
+            result => result?,
+        }
+        let previous = load_assignment_on_course_path(
+            &mut transaction,
+            context.tenant_id(),
+            course,
+            assignment,
+        )
+        .await?;
+        let replacement = previous.with_content_update(update);
+        validate_assignment(&replacement)?;
+        validate_postgres_assignment_references(&mut transaction, context, &replacement).await?;
+        let base_policy =
+            load_base_policy(&mut transaction, context.tenant_id(), assignment).await?;
+        let outcome = if assignment_content_structurally_changed(&previous, &replacement) {
+            match assignment_definition_capability::replace_unissued(
+                &mut transaction,
+                context,
+                actor,
+                &replacement,
+                base_policy,
+                expected_revision,
+            )
+            .await?
+            {
+                ReplaceUnissuedAssignmentDefinitionOutcome::Replaced(stored) => {
+                    ReplaceAssignmentContentOutcome::Replaced(stored)
+                }
+                ReplaceUnissuedAssignmentDefinitionOutcome::Issued => {
+                    ReplaceAssignmentContentOutcome::Issued
+                }
+            }
+        } else {
+            assignment_definition_capability::replace(
+                &mut transaction,
+                context,
+                actor,
+                &previous,
+                &replacement,
+                expected_revision,
+                base_policy,
+            )
+            .await
+            .map(Box::new)
+            .map(ReplaceAssignmentContentOutcome::Replaced)?
+        };
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(outcome)
+    }
+
+    async fn replace_assignment_policies_impl(
+        &self,
+        context: TenantContext,
+        command: ReplaceAssignmentPoliciesCommand,
+    ) -> Result<ReplaceAssignmentPoliciesOutcome, StoreError> {
+        let ReplaceAssignmentPoliciesCommand {
+            actor,
+            course,
+            assignment,
+            expected_revision,
+            update,
+        } = command;
+        let mut transaction = self.begin_tenant(context).await?;
+        match prepare_assignment_mutation(
+            &mut transaction,
+            context,
+            actor,
+            course,
+            assignment,
+            expected_revision,
+        )
+        .await
+        {
+            Err(StoreError::Conflict) => {
+                return Ok(ReplaceAssignmentPoliciesOutcome::RevisionConflict);
+            }
+            result => result?,
+        }
+        let previous = load_assignment_on_course_path(
+            &mut transaction,
+            context.tenant_id(),
+            course,
+            assignment,
+        )
+        .await?;
+        let replacement = previous.with_policies_update(update.clone());
+        validate_assignment(&replacement)?;
+        validate_postgres_assignment_references(&mut transaction, context, &replacement).await?;
+        let stored = assignment_definition_capability::replace(
+            &mut transaction,
+            context,
+            actor,
+            &previous,
+            &replacement,
+            expected_revision,
+            update.teaching_settings.base_policy,
+        )
+        .await?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(ReplaceAssignmentPoliciesOutcome::Replaced(Box::new(stored)))
     }
 
     async fn replace_unissued_assignment_definition_impl(

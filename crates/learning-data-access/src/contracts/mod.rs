@@ -23,7 +23,9 @@ pub use assignment_definition::{
     ReplaceUnissuedAssignmentDefinitionCommand, ReplaceUnissuedAssignmentDefinitionOutcome,
 };
 pub use assignment_editing::ensure_assignment_update_preserves_references;
-pub(crate) use assignment_editing::{assignment_scoring_changed, delete_and_regrade_update};
+pub(crate) use assignment_editing::{
+    assignment_content_structurally_changed, assignment_scoring_changed, delete_and_regrade_update,
+};
 pub use catalog::*;
 pub use catalog_store::{CatalogSourceStore, CatalogStore};
 pub use courses::*;

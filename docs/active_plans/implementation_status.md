@@ -12,10 +12,13 @@ order, validation, and acceptance. Durable product decisions remain in
 
 ## Current handoff
 
-- **Current package:** `WP-PROF-G1` - automated-grading operations grouped by question and learner,
-  deterministic-grader exception routing, bounded retry, generation-fenced recalculation, and
-  immutable operation receipts. The package begins from reserved migrations `2026081830` and
-  `2026081831` and the accepted automated-grading path.
+- **Current package:** `WP-PROF-T6` - the owner-directed Instructor assignment workspace. It makes
+  the assignment title open one assignment home, separates Questions from Policies, adds focused
+  revision-checked mutations and persisted incomplete drafts, and renders an Instructor-authorized
+  answer-free Student view over the current live assignment. Its binding contract is
+  `docs/active_plans/active/instructor_assignment_workspace_plan.md`. T6 owns forward capability
+  migration `2026081848` for empty Draft/Archived definitions and Published readiness, and precedes
+  `WP-PROF-G1`.
 - **Current acceptance predecessor:** `WP-PROF-B2` accepted 2026-08-26. Its focused adoption boundary
   now owns preview-before-save fork and instantiation, rollover, term shifting, immutable provenance,
   controlled fast-forward, divergence recovery, and answer-free import inspection over ordinary
@@ -158,10 +161,13 @@ an allocation before implementation. Non-schema packages do not receive an impli
 | `2026081845`              | `WP-PROF-B2`          | Accepted fork, assignment adoption, fast-forward, and reconciliation materializers                                |
 | `2026081846`              | `WP-PROF-B2`          | Accepted whole-course instantiation, rollover, and term-shift materializers                                       |
 | `2026081847`              | `WP-PROF-B2`          | Accepted canonical public bridge completion and final broker catalog assertions                                   |
+| `2026081848`              | `WP-PROF-T6`          | Allocated assignment-workspace capability migration: empty Draft/Archived definitions and Published readiness     |
 
 `2026081803` (`S5`), `2026081804` (`S3`), and `2026081805` (`S4`) reflect the accepted
 pre-file allocation reorder. Allocations `2026081811`, `1813`, `1815`, `1821`, and `1822` retain
-their numeric identities. The professor plan owns dependencies among reserved capabilities.
+their numeric identities. T6 owns `2026081848`; it does not consume the reserved G1/G3 migrations
+`2026081830`-`2026081832`, which remain assigned to those grading capabilities. The professor plan
+owns dependencies among reserved capabilities.
 
 ## Accepted package pointers
 
@@ -183,14 +189,16 @@ The authoritative package sequence is in the [release completion plan](active/re
 and [professor capability plan](active/professor_capability_architecture_plan.md). The current
 handoff is:
 
-1. Complete `WP-PROF-G1` against its automated-grading operation, exception-routing, retry,
+1. Complete `WP-PROF-T6` against its linked assignment-home, separate Questions/Policies,
+   focused-mutation, and live Student-view contract.
+2. Complete `WP-PROF-G1` against its automated-grading operation, exception-routing, retry,
    recalculation, and immutable-receipt contract.
-2. Continue the professor plan's remaining grading-operation and final
+3. Continue the professor plan's remaining grading-operation and final
    production-stack packages in its declared dependency order.
-3. Resume the release queue at `WP-RC8`, then follow the release plan through native-family,
+4. Resume the release queue at `WP-RC8`, then follow the release plan through native-family,
    learner-payload, reconciliation, LTI, upload, deployment, cost-control, and release closure
    packages.
-4. Run the complete final-material-tree Validation suite before declaring the goal complete.
+5. Run the complete final-material-tree Validation suite before declaring the goal complete.
 
 ## Operational references
 

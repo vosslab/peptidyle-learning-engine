@@ -80,12 +80,12 @@ use crate::{
     RunSummaryPageInput, SessionTokenHash, Store, StoreError, StoredAssignment, StoredCourseGroup,
     SubmissionIdempotencyKey, SubmissionNextAttempt, SubmissionRecord,
     SubmitQuestionAttemptCommand, TenantContext, WorkspaceDraft, WorkspaceDraftRevision,
-    assignment_scoring_changed, completed_run_score, current_run_questions,
-    decode_workspace_draft_cursor, delete_and_regrade_update, encode_workspace_draft_cursor,
-    ensure_tenant, grade_policy, private_feedback_record, project_enrollment_completion,
-    select_assignment_run_items, summary_transition, validate_asset_delivery, validate_assignment,
-    validate_course, validate_course_group, validate_draft, validate_published,
-    validate_qti_import,
+    assignment_content_structurally_changed, assignment_scoring_changed, completed_run_score,
+    current_run_questions, decode_workspace_draft_cursor, delete_and_regrade_update,
+    encode_workspace_draft_cursor, ensure_tenant, grade_policy, private_feedback_record,
+    project_enrollment_completion, select_assignment_run_items, summary_transition,
+    validate_asset_delivery, validate_assignment, validate_course, validate_course_group,
+    validate_draft, validate_published, validate_qti_import,
 };
 
 #[cfg(feature = "postgres")]

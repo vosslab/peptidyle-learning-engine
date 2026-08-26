@@ -70,6 +70,10 @@ impl crate::EffectivePolicyStore for MemoryStore {
                 "illegal assignment lifecycle transition".to_string(),
             ));
         }
+        let mut updated = assignment.clone();
+        updated.lifecycle = command.settings.lifecycle;
+        updated.instructions = command.settings.instructions.clone();
+        validate_assignment(&updated)?;
         // The settings, record revision, and each mutable active-attempt
         // projection form one transaction in Memory.  Keep a complete
         // snapshot so every validation or re-resolution failure is atomic.
@@ -84,9 +88,6 @@ impl crate::EffectivePolicyStore for MemoryStore {
         state
             .assignment_base_policy
             .insert((tenant, command.assignment), record);
-        let mut updated = assignment;
-        updated.lifecycle = command.settings.lifecycle;
-        updated.instructions = command.settings.instructions;
         state
             .assignments
             .insert((tenant, command.assignment), updated);

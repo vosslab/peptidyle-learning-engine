@@ -150,9 +150,8 @@ pub(super) async fn replace(
     previous: &AssignmentRecord,
     assignment: &AssignmentRecord,
     expected_revision: AssignmentRevision,
+    base_policy: question_model::BaseAssignmentPolicy,
 ) -> Result<StoredAssignment, StoreError> {
-    let base_policy =
-        super::course_policy::load_base_policy(tx, assignment.tenant, assignment.id).await?;
     let payload = encode(assignment, base_policy)?;
     let has_scores: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM attempt_score_current WHERE tenant_id=$1 AND assignment_id=$2)",
@@ -229,6 +228,11 @@ pub(super) async fn replace_unissued(
             .map(Box::new)
             .map(ReplaceUnissuedAssignmentDefinitionOutcome::Replaced),
         "issued" => Ok(ReplaceUnissuedAssignmentDefinitionOutcome::Issued),
+        // The broker checks the revision while it holds the assignment lock.
+        // This translates a save that went stale after the page read into the
+        // focused command's typed outcome rather than an undifferentiated SQL
+        // failure.
+        "revisionConflict" => Err(StoreError::Conflict),
         _ => Err(StoreError::Unavailable(
             "unissued definition capability returned an invalid outcome".to_string(),
         )),

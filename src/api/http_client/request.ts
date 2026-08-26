@@ -13,7 +13,11 @@ import type { ApiClient } from "../client";
 import { isPublicByline } from "../public_byline";
 import type {
   AssignmentEditorDetail,
+  AssignmentContentInput,
+  AssignmentDraftInput,
+  AssignmentPoliciesInput,
   FeedbackReleaseResponse,
+  InstructorStudentView,
   PublicationResult,
   PublicationRequest,
   PublicationValidationResponse,
@@ -23,9 +27,8 @@ import type {
 import {
   decodeAssignmentCapabilityViolations,
   decodeAddAssignmentItemInput,
-  decodeAssignmentCreateInput,
   decodeAssignmentEditorDetail,
-  decodeAssignmentEditorInput,
+  decodeInstructorStudentView,
   decodeAssignmentTeachingSettingsValidationFailure,
   decodeInstructorAssignmentTeachingSettingsLocal,
   decodeReplaceAssignmentItemQuestionInput,
@@ -206,6 +209,10 @@ function assignmentPath(courseId: CourseId, assignmentId?: AssignmentId): string
     : `/api/courses/${course}/assignments/${encodedId(assignmentId)}`;
 }
 
+function assignmentDraftPath(courseId: CourseId): string {
+  return `${assignmentPath(courseId)}/drafts`;
+}
+
 export function learnerAttemptPath(
   courseId: CourseId,
   assignmentId: AssignmentId,
@@ -322,9 +329,11 @@ export function createRequestClient(
   | "saveCourseGradeScheme"
   | "createCourseGradeExport"
   | "createCourse"
-  | "createAssignment"
-  | "saveAssignment"
-  | "saveAssignmentTeachingSettings"
+  | "createAssignmentDraft"
+  | "getAssignmentWorkspace"
+  | "saveAssignmentContent"
+  | "saveAssignmentPolicies"
+  | "getInstructorStudentView"
   | "addAssignmentItem"
   | "removeAssignmentItem"
   | "replaceAssignmentItemQuestion"
@@ -541,58 +550,61 @@ export function createRequestClient(
     },
     createCourse: (input): Promise<CourseSummary> =>
       requestCourseCreate(fetchImplementation, basePath, decodeCourseCreateInput(input, "request")),
-    createAssignment: (courseId, input) =>
+    getAssignmentWorkspace: (courseId, assignmentId) =>
       requestAssignmentEditor(
-        fetchImplementation,
-        basePath,
-        assignmentPath(courseId),
-        { courseId },
-        { method: "POST", body: decodeAssignmentCreateInput(input, "request") },
-      ),
-    saveAssignment: (
-      courseId,
-      assignmentId,
-      input,
-      revision,
-    ): ReturnType<ApiClient["saveAssignment"]> => {
-      if (!validRevision(revision))
-        return Promise.reject(
-          new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
-        );
-      return requestAssignmentEditor(
         fetchImplementation,
         basePath,
         assignmentPath(courseId, assignmentId),
         { courseId, assignmentId },
-        {
-          method: "PUT",
-          body: decodeAssignmentEditorInput(input, "request"),
-          headers: { "if-match": revision },
-        },
+      ),
+    createAssignmentDraft: (courseId, input: AssignmentDraftInput) => {
+      if (typeof input.title !== "string" || input.title.trim().length === 0)
+        return Promise.reject(new ApiProtocolError("assignment draft needs a nonempty title"));
+      return requestAssignmentEditor(
+        fetchImplementation,
+        basePath,
+        assignmentDraftPath(courseId),
+        { courseId },
+        { method: "POST", body: { title: input.title } },
       );
     },
-    saveAssignmentTeachingSettings: (
-      courseId,
-      assignmentId,
-      settings,
-      revision,
-    ): ReturnType<ApiClient["saveAssignmentTeachingSettings"]> => {
+    saveAssignmentContent: (courseId, assignmentId, input: AssignmentContentInput, revision) => {
       if (!validRevision(revision))
         return Promise.reject(
           new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
         );
-      const path = `${assignmentPath(courseId, assignmentId)}/teaching-settings`;
       return requestAssignmentEditor(
         fetchImplementation,
         basePath,
-        path,
+        `${assignmentPath(courseId, assignmentId)}/content`,
         { courseId, assignmentId },
-        {
-          method: "PUT",
-          body: decodeInstructorAssignmentTeachingSettingsLocal(settings, "request"),
-          headers: { "if-match": revision },
-        },
+        { method: "PUT", body: input, headers: { "if-match": revision } },
       );
+    },
+    saveAssignmentPolicies: (courseId, assignmentId, input: AssignmentPoliciesInput, revision) => {
+      if (!validRevision(revision))
+        return Promise.reject(
+          new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
+        );
+      return requestAssignmentEditor(
+        fetchImplementation,
+        basePath,
+        `${assignmentPath(courseId, assignmentId)}/policies`,
+        { courseId, assignmentId },
+        { method: "PUT", body: input, headers: { "if-match": revision } },
+      );
+    },
+    getInstructorStudentView: async (courseId, assignmentId): Promise<InstructorStudentView> => {
+      const path = `${assignmentPath(courseId, assignmentId)}/student-view`;
+      const response = await fetchImplementation(requestPath(basePath, path), {
+        method: "GET",
+        headers: { accept: "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      requireNoStore(response, path);
+      if (!response.ok) throw new ApiRequestError(response.status, path);
+      return decodeInstructorStudentView(await boundedResponseJson(response, path), "response");
     },
     addAssignmentItem: (
       courseId,

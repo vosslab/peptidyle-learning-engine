@@ -2,8 +2,6 @@
 
 import type { UserRole } from "../generated/api/UserRole";
 
-type InstructorRouteRole = Extract<UserRole, "instructor" | "sysadmin">;
-
 export interface RouteContract {
   readonly id:
     | "courses"
@@ -18,7 +16,10 @@ export interface RouteContract {
     | "workspaceList"
     | "workspaceEditor"
     | "assignmentCreate"
-    | "assignmentEditor"
+    | "assignmentWorkspaceOverview"
+    | "assignmentWorkspaceQuestions"
+    | "assignmentWorkspacePolicies"
+    | "assignmentWorkspaceStudentView"
     | "gradebook"
     | "courseGradeSettings"
     | "courseAppearance"
@@ -35,7 +36,8 @@ export interface RouteContract {
     | "pendingCoInstructorInvitations";
   readonly path: string;
   readonly surface: string;
-  readonly requiredRoles: ReadonlyArray<InstructorRouteRole>;
+  /** Role gate for the route; each route declares the real roles it serves. */
+  readonly requiredRoles: ReadonlyArray<UserRole>;
 }
 
 /** Product routes in the same order as the active implementation plan. */
@@ -92,7 +94,7 @@ export const ROUTE_CONTRACT = [
     id: "assignmentOverview",
     path: "/courses/:courseRef/assignments/:assignmentRef",
     surface: "Assignment overview, run history, and practice entry",
-    requiredRoles: [],
+    requiredRoles: ["student"],
   },
   {
     id: "runAttempt",
@@ -145,13 +147,31 @@ export const ROUTE_CONTRACT = [
   {
     id: "assignmentCreate",
     path: "/instructor/courses/:courseRef/assignments/new",
-    surface: "New assignment policy editor",
+    surface: "Create persisted assignment draft and enter Questions",
     requiredRoles: ["instructor", "sysadmin"],
   },
   {
-    id: "assignmentEditor",
-    path: "/instructor/courses/:courseRef/assignments/:assignmentRef/edit",
-    surface: "Assignment policy editor",
+    id: "assignmentWorkspaceOverview",
+    path: "/instructor/courses/:courseRef/assignments/:assignmentRef",
+    surface: "Instructor assignment workspace overview",
+    requiredRoles: ["instructor", "sysadmin"],
+  },
+  {
+    id: "assignmentWorkspaceQuestions",
+    path: "/instructor/courses/:courseRef/assignments/:assignmentRef/questions",
+    surface: "Instructor assignment questions workspace",
+    requiredRoles: ["instructor", "sysadmin"],
+  },
+  {
+    id: "assignmentWorkspacePolicies",
+    path: "/instructor/courses/:courseRef/assignments/:assignmentRef/policies",
+    surface: "Instructor assignment policies workspace",
+    requiredRoles: ["instructor", "sysadmin"],
+  },
+  {
+    id: "assignmentWorkspaceStudentView",
+    path: "/instructor/courses/:courseRef/assignments/:assignmentRef/student-view",
+    surface: "Instructor assignment Student view",
     requiredRoles: ["instructor", "sysadmin"],
   },
   {

@@ -37,9 +37,10 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   course. Returning to the demo is like checking in on live teaching.
 - Keep reusable aggregate names distinct: a Blueprint is a non-enrollable personal reusable assignment, and an Alpha
   curriculum is a non-enrollable shared curriculum. Use those names only for their respective aggregates.
-- Seed five deterministic learner observations across meaningful ordinary Chapter 1 `Molecular Foundations: Charged
-  Functional Groups` assignments in the Genetics and Biochemistry teaching courses. Use the existing item-analysis and
-  discovery surfaces to show that evidence in context.
+- Seed five deterministic learner observations across meaningful ordinary Chapter 1 assignments.
+  Name them `Molecular Foundations: Charged Functional Groups` in the Genetics and Biochemistry
+  teaching courses. Use the existing item-analysis and discovery surfaces to show that evidence in
+  context.
 - Present recognizable teaching courses in navigation and derive that navigation from active server-owned membership
   under ASVS 8.2.2 and 8.3.1. Seed memberships provide representative course context.
 - Keep public evidence separate from private evidence. Do not put answer keys, grading
@@ -53,7 +54,13 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
 - Optimize instructor and sysadmin workflows first for a 1280 by 800 CSS-pixel laptop viewport. Assignment
   authoring, problem selection and organization, gradebook, roster, course management, workspace,
   and library pages should use most of the useful width when it improves scanning or editing. Four
-  selected problems, their policies, and the save action should fit comfortably in that workspace.
+  selected problems and the Questions save action should fit comfortably on Questions; the complete
+  policy summary and its save action should fit comfortably on Policies.
+- Make an assignment title open that assignment's Instructor home. Keep question and pool authoring
+  on a Questions page and assignment delivery rules on a Policies page.
+- Give an Instructor a clearly labeled Student view of the current live, answer-free assignment
+  landing while retaining the Instructor identity and session. Ordinary enrolled Student activity
+  remains the source of learner runs, submissions, receipts, grades, and gradebook evidence.
 - Compose student workflows for the canonical 1280 by 800 laptop and the high-priority 800 by 1280
   tablet as design targets, and keep them responsive across the narrow-phone compatibility guard. A
   wide screen should not force the learner's attention across an arbitrary prompt/response split;

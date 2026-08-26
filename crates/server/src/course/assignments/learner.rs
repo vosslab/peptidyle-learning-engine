@@ -20,8 +20,24 @@ use super::super::projection::{error_response, store_error_response};
 use super::super::routing::CourseRouteState;
 use super::assignment_summary_items;
 
-/// Reads the deliberately narrow assignment projection used by learner browser
-/// surfaces even when an instructor opens a learner-facing route preview.
+/// Builds the common base-policy delivery facts for the stable-identity
+/// Student view. Learner-specific late status remains part of learner detail.
+pub(in crate::course) fn instructor_student_view_delivery(
+    policy: question_model::BaseAssignmentPolicy,
+) -> question_model::InstructorStudentViewDelivery {
+    question_model::InstructorStudentViewDelivery {
+        available_at: policy.available_at,
+        due_at: policy.due_at,
+        closes_at: policy.closes_at,
+        time_limit_seconds: policy.time_limit_seconds.map(std::num::NonZeroU32::get),
+        attempt_limit: policy.attempt_limit.map(std::num::NonZeroU32::get),
+        late_submission: policy.late_submission,
+        deadline_behavior: policy.deadline_behavior,
+    }
+}
+
+/// Reads the deliberately narrow assignment projection used by an authorized
+/// Student browser session.
 pub(in crate::course) async fn get_learner_assignment<S>(
     State(state): State<CourseRouteState<S>>,
     headers: HeaderMap,
@@ -192,33 +208,7 @@ where
         )
         .await;
     }
-    let course = match state
-        .store
-        .get_course(authenticated.tenant_context, assignment.record.course_id)
-        .await
-    {
-        Ok(Some(course)) => course,
-        Ok(None) => return error_response(StatusCode::NOT_FOUND, "assignment not found"),
-        Err(error) => return store_error_response(error),
-    };
-    let base_policy = assignment.base_policy;
-    learner_assignment_detail_response(
-        &state,
-        &authenticated,
-        assignment,
-        course.term.time_zone().clone(),
-        question_model::course::LearnerAssignmentDelivery {
-            available_at: base_policy.available_at,
-            due_at: base_policy.due_at,
-            closes_at: base_policy.closes_at,
-            time_limit_seconds: base_policy.time_limit_seconds,
-            attempt_limit: base_policy.attempt_limit,
-            late_submission: base_policy.late_submission,
-            deadline_behavior: base_policy.deadline_behavior,
-            late_status: question_model::course::LearnerLateStatus::OnTime,
-        },
-    )
-    .await
+    error_response(StatusCode::NOT_FOUND, "assignment not found")
 }
 
 async fn learner_assignment_detail_response<S>(

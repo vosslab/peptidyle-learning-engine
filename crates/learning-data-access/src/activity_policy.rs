@@ -72,10 +72,24 @@ pub(crate) fn validate_course_group(group: &CourseGroupRecord) -> Result<(), Sto
 /// Validates assignment fields independent of catalog visibility.
 pub(crate) fn validate_assignment(assignment: &AssignmentRecord) -> Result<(), StoreError> {
     validate_title("assignment", &assignment.title)?;
-    if assignment.items.is_empty() && assignment.selection_groups.is_empty() {
-        return Err(StoreError::InvalidRecord(
-            "assignment must reference at least one published problem version".to_string(),
-        ));
+    let has_definition = !assignment.items.is_empty() || !assignment.selection_groups.is_empty();
+    if !assignment
+        .publication_readiness()
+        .permits_lifecycle(assignment.lifecycle, has_definition)
+    {
+        let message = match assignment.lifecycle {
+            question_model::AssignmentLifecycle::Closed => {
+                "closed assignments retain at least one historical fixed item or selection group"
+            }
+            question_model::AssignmentLifecycle::Published => {
+                "published assignments require at least one active fixed item or selection group"
+            }
+            question_model::AssignmentLifecycle::Draft
+            | question_model::AssignmentLifecycle::Archived => {
+                unreachable!("these lifecycles permit an empty definition")
+            }
+        };
+        return Err(StoreError::InvalidRecord(message.to_string()));
     }
     if !assignment.selection_groups.is_empty()
         && assignment.policies.variation == question_model::VariationPolicy::SelectedProblemVariants
@@ -176,10 +190,11 @@ pub(crate) fn validate_assignment(assignment: &AssignmentRecord) -> Result<(), S
 
 #[cfg(test)]
 mod tests {
+    use crate::new_assignment_draft;
     use objects::Sha256Digest;
     use question_model::{
-        AssetId, CourseBannerId, CourseId, ObjectId, ProblemId, TenantId, VersionId, WorkspaceId,
-        WorkspaceImportId,
+        AssetId, AssignmentId, CourseBannerId, CourseId, ObjectId, ProblemId, TenantId, VersionId,
+        WorkspaceId, WorkspaceImportId,
     };
     use uuid::Uuid;
 
@@ -187,6 +202,27 @@ mod tests {
 
     fn id(value: u128) -> Uuid {
         Uuid::from_u128(value)
+    }
+
+    #[test]
+    fn empty_draft_is_structurally_valid_but_cannot_publish() {
+        let mut assignment = new_assignment_draft(
+            TenantId::from_uuid(id(1)),
+            CourseId::from_uuid(id(2)),
+            AssignmentId::from_uuid(id(3)),
+            "Protein structure practice".to_string(),
+        )
+        .record;
+
+        assert!(validate_assignment(&assignment).is_ok());
+        assignment.lifecycle = question_model::AssignmentLifecycle::Archived;
+        assert!(validate_assignment(&assignment).is_ok());
+
+        assignment.lifecycle = question_model::AssignmentLifecycle::Published;
+        assert!(matches!(
+            validate_assignment(&assignment),
+            Err(StoreError::InvalidRecord(message)) if message.contains("active fixed item")
+        ));
     }
 
     fn source_record(key: ObjectKey, category: ObjectCategory) -> ObjectRecord {

@@ -16,6 +16,27 @@ test("route contracts fail closed and reserve authoring routes for teaching role
   assert.equal(routeContractForPathname("/curriculum")?.id, "curriculum");
   assert.equal(routeContractForPathname("/curriculum/BP-7")?.id, "curriculumDetail");
   assert.equal(routeContractForPathname("/curriculum/BP-7/extra"), undefined);
+  assert.equal(
+    routeContractForPathname("/instructor/courses/C-1/assignments/A-1")?.id,
+    "assignmentWorkspaceOverview",
+  );
+  assert.equal(
+    routeContractForPathname("/instructor/courses/C-1/assignments/A-1/questions")?.id,
+    "assignmentWorkspaceQuestions",
+  );
+  assert.equal(
+    routeContractForPathname("/instructor/courses/C-1/assignments/A-1/policies")?.id,
+    "assignmentWorkspacePolicies",
+  );
+  assert.equal(
+    routeContractForPathname("/instructor/courses/C-1/assignments/A-1/student-view")?.id,
+    "assignmentWorkspaceStudentView",
+  );
+  assert.equal(routeContractForPathname("/instructor/courses/C-1/assignments/A-1/edit"), undefined);
+  assert.equal(rolesMayAccessRoute("assignmentOverview", ["student"]), true);
+  assert.equal(rolesMayAccessRoute("assignmentOverview", ["instructor"]), false);
+  assert.equal(rolesMayAccessRoute("assignmentWorkspaceOverview", ["student"]), false);
+  assert.equal(rolesMayAccessRoute("assignmentWorkspaceOverview", ["instructor"]), true);
   assert.equal(rolesMayAccessRoute("workspaceEditor", ["student"]), false);
   assert.equal(rolesMayAccessRoute("workspaceEditor", ["instructor"]), true);
   assert.equal(rolesMayAccessRoute("curriculum", ["student"]), false);

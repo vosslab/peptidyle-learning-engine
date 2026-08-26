@@ -1,12 +1,11 @@
 // routes.ts - executable copy of the frozen product route contract.
 
-import type { Component } from "solid-js";
+import { createComponent, type Component } from "solid-js";
 import type { RouteDefinition } from "@solidjs/router";
 
 import { CourseAppearancePage } from "./features/course_appearance/course_appearance_page";
 import { AssignmentOverviewPage } from "./pages/assignment_overview_page";
 import { NotFoundPage } from "./pages/contract_pages";
-import { AssignmentEditorLivePage } from "./pages/assignment_editor_live_page";
 import { RunSummaryPage } from "./pages/run_summary_page";
 import { LibraryRoutePage } from "./pages/library_route_page";
 import { ProblemDetailPage } from "./pages/problem_detail_page";
@@ -29,6 +28,8 @@ import { TeachingOperationsPage } from "./pages/teaching_operations_page";
 import { AssignmentPreviewPage } from "./pages/assignment_preview_page";
 import { CurriculumDetailLivePage, CurriculumLivePage } from "./pages/curriculum_live_pages";
 import { CurriculumAdoptionLivePage } from "./pages/curriculum_adoption_live_page";
+import { AssignmentWorkspaceLivePage } from "./pages/assignment_workspace/assignment_workspace_live_page";
+import { AssignmentWorkspaceCreatePage } from "./pages/assignment_workspace/assignment_workspace_create_page";
 
 export { ROUTE_CONTRACT } from "./route_contract";
 
@@ -50,8 +51,15 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   curriculumDetail: CurriculumDetailLivePage,
   workspaceList: WorkspaceListLivePage,
   workspaceEditor: WorkspaceEditorLivePage,
-  assignmentCreate: AssignmentEditorLivePage,
-  assignmentEditor: AssignmentEditorLivePage,
+  assignmentCreate: AssignmentWorkspaceCreatePage,
+  assignmentWorkspaceOverview: () =>
+    createComponent(AssignmentWorkspaceLivePage, { section: "overview" }),
+  assignmentWorkspaceQuestions: () =>
+    createComponent(AssignmentWorkspaceLivePage, { section: "questions" }),
+  assignmentWorkspacePolicies: () =>
+    createComponent(AssignmentWorkspaceLivePage, { section: "policies" }),
+  assignmentWorkspaceStudentView: () =>
+    createComponent(AssignmentWorkspaceLivePage, { section: "studentView" }),
   assignmentAccess: AssignmentAccessLivePage,
   assignmentPreview: AssignmentPreviewPage,
   gradebook: GradebookPage,

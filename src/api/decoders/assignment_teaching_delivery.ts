@@ -3,20 +3,24 @@
 import type { AssignmentTeachingSettingsValidationFailure } from "../../../generated/api/AssignmentTeachingSettingsValidationFailure";
 import type { InstructorAssignmentTeachingSettingsLocal } from "../../../generated/api/InstructorAssignmentTeachingSettingsLocal";
 import type { InstructorAssignmentCurrentState } from "../../../generated/api/InstructorAssignmentCurrentState";
-import type { LearnerAssignmentDelivery } from "../../../generated/api/LearnerAssignmentDelivery";
 import type { LearnerAssignmentDetail } from "../../../generated/api/LearnerAssignmentDetail";
 import type { LearnerAssignmentSummary } from "../../../generated/api/LearnerAssignmentSummary";
+import type { InstructorStudentView } from "../../../generated/api/InstructorStudentView";
+import type { InstructorStudentViewDelivery } from "../../../generated/api/InstructorStudentViewDelivery";
+import type { LearnerAssignmentDelivery } from "../../../generated/api/LearnerAssignmentDelivery";
 import {
   DecodeError,
   decodeArray,
   decodeNonemptyString,
   decodeNullable,
+  decodeNonnegativeInteger,
   decodePositiveInteger,
   decodeRecord,
   decodeString,
   decodeStringEnum,
 } from "../decoder";
 import { decodeIdentifier, decodeTimestamp, field, requireOnlyFields } from "./shared";
+import { decodeLearnerDisclosurePolicy } from "./assignment_policy";
 import {
   decodeAssignmentItem,
   decodeAssignmentReference,
@@ -274,4 +278,85 @@ export function decodeLearnerAssignmentDetail(
       decodeAssignmentSelectionGroup,
     ),
   };
+}
+
+/** Decodes the deliberately identity-free Instructor Student-view projection. */
+export function decodeInstructorStudentView(
+  value: unknown,
+  path = "response",
+): InstructorStudentView {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "title",
+    "instructions",
+    "timeZone",
+    "delivery",
+    "questionsPerRun",
+    "variation",
+    "disclosurePolicy",
+  ]);
+  const deliveryRecord = decodeRecord(field(record, "delivery", path), `${path}.delivery`);
+  requireOnlyFields(deliveryRecord, `${path}.delivery`, [
+    "availableAt",
+    "dueAt",
+    "closesAt",
+    "timeLimitSeconds",
+    "attemptLimit",
+    "lateSubmission",
+    "deadlineBehavior",
+  ]);
+  const delivery: InstructorStudentViewDelivery = {
+    availableAt: decodeNullable(
+      field(deliveryRecord, "availableAt", `${path}.delivery`),
+      `${path}.delivery.availableAt`,
+      decodeTimestamp,
+    ),
+    dueAt: decodeNullable(
+      field(deliveryRecord, "dueAt", `${path}.delivery`),
+      `${path}.delivery.dueAt`,
+      decodeTimestamp,
+    ),
+    closesAt: decodeNullable(
+      field(deliveryRecord, "closesAt", `${path}.delivery`),
+      `${path}.delivery.closesAt`,
+      decodeTimestamp,
+    ),
+    timeLimitSeconds: decodePolicyLimit(
+      field(deliveryRecord, "timeLimitSeconds", `${path}.delivery`),
+      `${path}.delivery.timeLimitSeconds`,
+    ),
+    attemptLimit: decodePolicyLimit(
+      field(deliveryRecord, "attemptLimit", `${path}.delivery`),
+      `${path}.delivery.attemptLimit`,
+    ),
+    lateSubmission: decodeStringEnum(
+      field(deliveryRecord, "lateSubmission", `${path}.delivery`),
+      `${path}.delivery.lateSubmission`,
+      LATE_POLICIES,
+    ),
+    deadlineBehavior: decodeStringEnum(
+      field(deliveryRecord, "deadlineBehavior", `${path}.delivery`),
+      `${path}.delivery.deadlineBehavior`,
+      DEADLINE_BEHAVIORS,
+    ),
+  };
+  return {
+    title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
+    instructions: decodeInstructions(field(record, "instructions", path), `${path}.instructions`),
+    timeZone: decodeNonemptyString(field(record, "timeZone", path), `${path}.timeZone`),
+    delivery,
+    questionsPerRun: decodeNonnegativeInteger(
+      field(record, "questionsPerRun", path),
+      `${path}.questionsPerRun`,
+    ),
+    variation: decodeStringEnum(field(record, "variation", path), `${path}.variation`, [
+      "newSeeds",
+      "selectedProblemVariants",
+      "fullRegeneration",
+    ] as const),
+    disclosurePolicy: decodeLearnerDisclosurePolicy(
+      field(record, "disclosurePolicy", path),
+      `${path}.disclosurePolicy`,
+    ),
+  } satisfies InstructorStudentView;
 }

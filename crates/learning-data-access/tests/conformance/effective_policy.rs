@@ -6,8 +6,9 @@ use domain::effective_assignment_policy::{
     PolicySource, ScheduleOffsetSeconds,
 };
 use learning_data_access::{
-    PutAssignmentTeachingSettingsCommand, PutGroupAccommodationCommand,
+    AssignmentPoliciesUpdate, PutAssignmentTeachingSettingsCommand, PutGroupAccommodationCommand,
     PutGroupScheduleOffsetCommand, PutIndividualPolicyExceptionCommand,
+    ReplaceAssignmentPoliciesCommand, ReplaceAssignmentPoliciesOutcome,
     ResolveEffectivePolicyCommand, StoredIndividualPolicyException,
 };
 use std::num::NonZeroU32;
@@ -613,6 +614,39 @@ async fn memory_effective_policy_gate_and_materialization_conformance() {
         current.policy.time_limit_seconds.source,
         fixture.receipt.policy.time_limit_seconds.source
     );
+    let persisted = store
+        .get_assignment_for_edit(fixture.context, fixture.assignment)
+        .await
+        .expect("read assignment after policy re-resolution")
+        .expect("assignment remains persisted");
+    let focused = store
+        .replace_assignment_policies(
+            fixture.context,
+            ReplaceAssignmentPoliciesCommand {
+                actor: fixture.instructor,
+                course: fixture.course,
+                assignment: fixture.assignment,
+                expected_revision: persisted.revision,
+                update: AssignmentPoliciesUpdate {
+                    audience: persisted.record.audience.clone(),
+                    disclosure_policy: persisted.record.disclosure_policy,
+                    policies: persisted.record.policies,
+                    teaching_settings: question_model::AssignmentTeachingSettings {
+                        lifecycle: persisted.record.lifecycle,
+                        instructions: persisted.record.instructions.clone(),
+                        base_policy: persisted.base_policy,
+                    },
+                },
+            },
+        )
+        .await
+        .expect("focused policy slice");
+    let focused = match focused {
+        ReplaceAssignmentPoliciesOutcome::Replaced(stored) => *stored,
+        other => panic!("unexpected focused policy outcome: {other:?}"),
+    };
+    assert_eq!(focused.revision.value(), persisted.revision.value() + 1);
+    assert_eq!(focused.record.items, persisted.record.items);
 }
 
 #[tokio::test]

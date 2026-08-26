@@ -192,17 +192,21 @@ async function createPublishedCourseAssignment(
 
   await openCourseAssignments(page);
   await page.getByRole("link", { name: "Create the first assignment" }).click();
-  await expect(page.getByRole("heading", { name: "Create assignment" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Create an assignment draft" })).toBeVisible();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
-  await page.getByText("Add several Question IDs", { exact: true }).click();
+  await page.getByRole("button", { name: "Create assignment draft", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
   await page.getByLabel("Question IDs").fill(questionId);
-  await page.getByRole("button", { name: "Add questions by ID" }).click();
-  await page.getByRole("button", { name: "Create assignment" }).click();
-  await expect(page.getByText(`${assignmentTitle} now appears in this course.`)).toBeVisible();
-  await page.getByRole("link", { name: `Open ${assignmentTitle}` }).click();
+  await page.getByRole("button", { name: "Check Question ID", exact: true }).click();
+  await expect(page.getByText(new RegExp(`${questionId} is ready to add`))).toBeVisible();
+  await page.getByRole("button", { name: "Add Question IDs", exact: true }).click();
+  await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Questions and order saved." })).toBeVisible();
+  await page.getByRole("link", { name: "Policies", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
   await page.getByLabel("Lifecycle").selectOption("published");
-  await page.getByRole("button", { name: "Save teaching operations" }).click();
-  await expect(page.getByTestId("assignment-current-state")).toHaveText("Published, open now.");
+  await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Assignment policies saved." })).toBeVisible();
 
   await page.getByRole("link", { name: "Students" }).click();
   await page.getByLabel("Institutional email").fill(maryEmail);
@@ -442,13 +446,12 @@ async function observeInstructorOutcomesAndAccess(
     allowedPreview,
   );
 
-  await page.getByRole("link", { name: "Edit assignment", exact: true }).click();
-  await expect(page.locator("[data-route-surface=assignmentEditor]")).toBeVisible();
+  await assignmentCard.getByRole("link", { name: assignmentTitle, exact: true }).click();
+  await expect(page.locator("[data-route-surface=assignmentWorkspace]")).toBeVisible();
+  await page.getByRole("link", { name: "Policies", exact: true }).click();
   await page.getByLabel("Lifecycle").selectOption("archived");
-  await page.getByRole("button", { name: "Save teaching operations" }).click();
-  await expect(page.getByTestId("assignment-current-state")).toHaveText(
-    "Archived. Students cannot access this assignment.",
-  );
+  await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Assignment policies saved." })).toBeVisible();
 
   await openCourseAssignments(page);
   const retiredCard = page

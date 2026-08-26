@@ -15,6 +15,7 @@ where
     S: Store
         + learning_data_access::AuthoritativeTimeStore
         + CatalogStore
+        + learning_data_access::CourseGroupManagementStore
         + CourseRecordsAccessStore
         + SessionStore
         + 'static,

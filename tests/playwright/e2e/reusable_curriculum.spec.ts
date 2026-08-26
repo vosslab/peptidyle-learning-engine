@@ -4,7 +4,7 @@
 // - src/features/reusable_curriculum/reusable_curriculum_workspace.tsx owns workspace and editor names.
 // - src/features/reusable_curriculum/reusable_curriculum_create_dialog.tsx owns create-dialog controls.
 // - src/features/problem_picker/problem_picker.tsx owns the shared picker dialog.
-// - src/pages/assignment_editor_page.tsx owns ordinary assignment authoring controls.
+// - src/pages/assignment_workspace/ owns the focused assignment Questions workflow.
 
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
@@ -533,10 +533,19 @@ test.describe("reusable curriculum on the production PLE stack", () => {
         await createCourse(page, courseTitle);
         await page.getByRole("link", { name: "Assignments", exact: true }).click();
         await page.getByRole("link", { name: "Create the first assignment", exact: true }).click();
-        const editor = page.locator('[data-route-surface="assignmentEditor"]');
-        await expect(editor).toBeVisible();
-        await editor.getByLabel("Assignment title").fill(assignmentTitle);
-        await editor.getByRole("button", { name: "Choose questions", exact: true }).click();
+        const createDraft = page.locator('[data-route-surface="assignmentCreate"]');
+        await expect(createDraft).toBeVisible();
+        await createDraft.getByLabel("Assignment title").fill(assignmentTitle);
+        await createDraft
+          .getByRole("button", { name: "Create assignment draft", exact: true })
+          .click();
+        const workspace = page.locator('[data-route-surface="assignmentWorkspace"]');
+        await expect(
+          workspace.getByRole("heading", { name: "Questions", exact: true }),
+        ).toBeVisible();
+        await workspace
+          .getByRole("button", { name: "Search question library", exact: true })
+          .click();
         const picker = page.getByRole("dialog", {
           name: "Choose assignment questions",
           exact: true,
@@ -558,11 +567,11 @@ test.describe("reusable curriculum on the production PLE stack", () => {
         );
         await picker.getByRole("button", { name: "Add selected questions", exact: true }).click();
         await expect(picker).toHaveCount(0);
-        await expect(editor).toContainText(questionTitle);
-        await editor.getByRole("button", { name: "Create assignment", exact: true }).click();
-        await expect(
-          editor.getByRole("heading", { name: "Assignment created", exact: true }),
-        ).toBeVisible();
+        await expect(workspace).toContainText(questionTitle);
+        await workspace
+          .getByRole("button", { name: "Save questions and order", exact: true })
+          .click();
+        await expect(workspace.getByRole("status")).toContainText("Questions and order saved.");
       });
 
       await Promise.all(pendingResponses);

@@ -13,9 +13,10 @@ use learning_data_access::{
 use serde::{Deserialize, Serialize};
 
 use super::assignments::{
-    add_assignment_item, create_assignment, get_assignment, get_assignment_summary,
-    get_learner_assignment, put_teaching_settings, remove_assignment_item,
-    replace_assignment_item_question, update_assignment,
+    add_assignment_item, create_assignment_draft, get_assignment,
+    get_assignment_summary, get_assignment_workspace, get_instructor_student_view,
+    get_learner_assignment, remove_assignment_item,
+    replace_assignment_content, replace_assignment_item_question, replace_assignment_policies,
 };
 use super::invitation_capability::CourseInvitationIssuer;
 use super::queries::{create_course, get_course, list_assignments, list_courses, list_gradebook};
@@ -76,7 +77,11 @@ where
         )
         .route(
             "/api/courses/{course}/assignments",
-            get(list_assignments::<S>).post(create_assignment::<S>),
+            get(list_assignments::<S>),
+        )
+        .route(
+            "/api/courses/{course}/assignments/drafts",
+            post(create_assignment_draft::<S>),
         )
         .route("/api/courses/{course}/gradebook", get(list_gradebook::<S>))
         .route(
@@ -103,11 +108,19 @@ where
         )
         .route(
             "/api/courses/{course}/assignments/{assignment}",
-            put(update_assignment::<S>),
+            get(get_assignment_workspace::<S>),
         )
         .route(
-            "/api/courses/{course}/assignments/{assignment}/teaching-settings",
-            put(put_teaching_settings::<S>),
+            "/api/courses/{course}/assignments/{assignment}/content",
+            put(replace_assignment_content::<S>),
+        )
+        .route(
+            "/api/courses/{course}/assignments/{assignment}/policies",
+            put(replace_assignment_policies::<S>),
+        )
+        .route(
+            "/api/courses/{course}/assignments/{assignment}/student-view",
+            get(get_instructor_student_view::<S>),
         )
         .route(
             "/api/courses/{course}/assignments/{assignment}/items",
@@ -323,29 +336,7 @@ pub(super) struct UpdateAssignmentRequest {
 pub(super) type AssignmentTeachingSettingsRequest =
     question_model::assignment::InstructorAssignmentTeachingSettingsLocal;
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase",
-    deny_unknown_fields,
-    tag = "kind"
-)]
-pub(super) enum AssignmentEntryRequest {
-    Fixed {
-        question_id: question_model::QuestionId,
-        position: u32,
-        points_possible: question_model::PointValue,
-        delivery_state: question_model::AssignmentDeliveryState,
-        scoring_mode: question_model::AssignmentScoringMode,
-    },
-    SelectionGroup {
-        candidate_question_ids: Vec<question_model::QuestionId>,
-        position: u32,
-        draw_count: u32,
-        points_per_item: question_model::PointValue,
-        ordering: question_model::SelectionOrdering,
-    },
-}
+pub(super) use question_model::AssignmentEntryRequest;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

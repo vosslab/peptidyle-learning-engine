@@ -7,8 +7,8 @@ use axum::http::Request;
 use axum::http::header::ETAG;
 use learning_data_access::in_memory::MemoryStore;
 use learning_data_access::{
-    CatalogStore, CourseRecord, CourseRosterStore, CreateCourseCommand, Store, TenantContext,
-    UpsertCourseMember,
+    CatalogStore, CourseRecord, CourseRosterStore, CreateCourseCommand, Store,
+    TeachingAuthorityReferenceStore, TenantContext, UpsertCourseMember,
 };
 use question_model::{CourseId, TenantId, UserId, UserRole};
 use std::sync::Arc;
@@ -184,6 +184,252 @@ async fn assignment_editor_uses_qids_and_focused_item_commands() {
         "deliveryState": created["items"][0]["deliveryState"],
         "scoringMode": created["items"][0]["scoringMode"],
     }]);
+
+    // The focused workspace routes own their own revision contract. These
+    // checks keep missing, malformed, and stale preconditions from drifting
+    // back to the legacy whole-editor semantics.
+    let content_path = format!("/api/courses/{course}/assignments/{assignment}/content");
+    let missing_revision = app
+        .clone()
+        .oneshot(
+            Request::put(&content_path)
+                .header("cookie", &cookie)
+                .header("content-type", "application/json")
+                .body(Body::from("not decoded without If-Match"))
+                .expect("focused content missing revision request"),
+        )
+        .await
+        .expect("focused content missing revision response");
+    assert_eq!(missing_revision.status(), StatusCode::PRECONDITION_REQUIRED);
+
+    let malformed_revision = app
+        .clone()
+        .oneshot(
+            Request::put(&content_path)
+                .header("cookie", &cookie)
+                .header(IF_MATCH, "1")
+                .header("content-type", "application/json")
+                .body(Body::from("not decoded with malformed If-Match"))
+                .expect("focused content malformed revision request"),
+        )
+        .await
+        .expect("focused content malformed revision response");
+    assert_eq!(
+        malformed_revision.status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+
+    let stale_before_decode = app
+        .clone()
+        .oneshot(
+            Request::put(&content_path)
+                .header("cookie", &cookie)
+                .header(IF_MATCH, "\"999999\"")
+                .body(Body::from("intentionally malformed body"))
+                .expect("focused content stale request"),
+        )
+        .await
+        .expect("focused content stale response");
+    assert_eq!(
+        stale_before_decode.status(),
+        StatusCode::PRECONDITION_FAILED
+    );
+
+    let content_saved = app
+        .clone()
+        .oneshot(
+            Request::put(&content_path)
+                .header("cookie", &cookie)
+                .header(IF_MATCH, &etag)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({ "title": "Peptide practice", "entries": update_entries.clone() })
+                        .to_string(),
+                ))
+                .expect("focused content save request"),
+        )
+        .await
+        .expect("focused content save response");
+    assert_eq!(content_saved.status(), StatusCode::OK);
+    assert_eq!(
+        content_saved
+            .headers()
+            .get("cache-control")
+            .expect("no-store"),
+        "no-store"
+    );
+    etag = content_saved
+        .headers()
+        .get(ETAG)
+        .expect("focused content ETag")
+        .to_str()
+        .expect("focused content ETag text")
+        .to_string();
+
+    let membership = store
+        .get_current_course_membership(context, course, student)
+        .await
+        .expect("student membership read")
+        .expect("student membership exists");
+    let member_reference = store
+        .course_membership_reference(context, instructor, course, membership.id)
+        .await
+        .expect("student public reference")
+        .expect("student public reference exists")
+        .to_string();
+    let mut group_references = Vec::new();
+    for title in ["Section A", "Section B"] {
+        let group = app
+            .clone()
+            .oneshot(
+                Request::post(format!("/api/courses/{course}/groups"))
+                    .header("cookie", &cookie)
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "title": title,
+                            "purpose": "section",
+                            "members": [member_reference],
+                        })
+                        .to_string(),
+                    ))
+                    .expect("course group request"),
+            )
+            .await
+            .expect("course group response");
+        assert_eq!(group.status(), StatusCode::CREATED);
+        let group = axum::body::to_bytes(group.into_body(), 128 * 1024)
+            .await
+            .expect("course group response body");
+        group_references.push(
+            serde_json::from_slice::<serde_json::Value>(&group)
+                .expect("course group response JSON")["reference"]
+                .as_str()
+                .expect("public group reference")
+                .to_string(),
+        );
+    }
+    let mut expected_audience_references = group_references.clone();
+    expected_audience_references.sort_unstable();
+
+    // Policies is a closed browser request: its response maps stored group
+    // identities back to public references in stable order, and carries a new
+    // revision plus the normal no-store response. A malformed precondition
+    // cannot change that saved aggregate.
+    let policies_saved = app
+        .clone()
+        .oneshot(
+            Request::put(format!(
+                "/api/courses/{course}/assignments/{assignment}/policies"
+            ))
+            .header("cookie", &cookie)
+            .header(IF_MATCH, &etag)
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "audience": {
+                        "kind": "anyOfGroups",
+                        "groups": group_references.into_iter().rev().collect::<Vec<_>>(),
+                    },
+                    "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
+                    "policies": policies(),
+                    "teachingSettings": {
+                        "timeZone": "America/Chicago",
+                        "lifecycle": "draft",
+                        "instructions": "",
+                        "availableAt": null,
+                        "dueAt": null,
+                        "closesAt": null,
+                        "timeLimitSeconds": null,
+                        "attemptLimit": null,
+                        "lateSubmission": "accept",
+                        "deadlineBehavior": "autoSubmit"
+                    }
+                })
+                .to_string(),
+            ))
+            .expect("focused policies save request"),
+        )
+        .await
+        .expect("focused policies save response");
+    assert_eq!(policies_saved.status(), StatusCode::OK);
+    assert_eq!(
+        policies_saved
+            .headers()
+            .get("cache-control")
+            .expect("focused policies no-store"),
+        "no-store"
+    );
+    etag = policies_saved
+        .headers()
+        .get(ETAG)
+        .expect("focused policies ETag")
+        .to_str()
+        .expect("focused policies ETag text")
+        .to_string();
+    let policies_saved = axum::body::to_bytes(policies_saved.into_body(), 128 * 1024)
+        .await
+        .expect("focused policies body");
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&policies_saved)
+            .expect("focused policies JSON")["audience"]["groups"],
+        serde_json::json!(expected_audience_references)
+    );
+
+    let policies_malformed_revision = app
+        .clone()
+        .oneshot(
+            Request::put(format!(
+                "/api/courses/{course}/assignments/{assignment}/policies"
+            ))
+            .header("cookie", &cookie)
+            .header(IF_MATCH, "not-a-strong-etag")
+            .body(Body::from("not decoded with malformed If-Match"))
+            .expect("focused policies malformed revision request"),
+        )
+        .await
+        .expect("focused policies malformed revision response");
+    assert_eq!(
+        policies_malformed_revision.status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    let policies_reread = app
+        .clone()
+        .oneshot(
+            Request::get(format!("/api/courses/{course}/assignments/{assignment}"))
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .expect("focused policies reread request"),
+        )
+        .await
+        .expect("focused policies reread response");
+    assert_eq!(
+        policies_reread.headers().get(ETAG).expect("preserved ETag"),
+        &etag
+    );
+    let policies_reread = axum::body::to_bytes(policies_reread.into_body(), 128 * 1024)
+        .await
+        .expect("focused policies reread body");
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&policies_reread)
+            .expect("focused policies reread JSON")["audience"]["groups"],
+        serde_json::json!(expected_audience_references)
+    );
+
+    let wrong_course = CourseId::from_uuid(id(8_299));
+    let wrong_course_read = app
+        .clone()
+        .oneshot(
+            Request::get(format!(
+                "/api/courses/{wrong_course}/assignments/{assignment}"
+            ))
+            .header("cookie", &cookie)
+            .body(Body::empty())
+            .expect("wrong-course workspace request"),
+        )
+        .await
+        .expect("wrong-course workspace response");
+    assert_eq!(wrong_course_read.status(), StatusCode::NOT_FOUND);
     let revised = app
         .clone()
         .oneshot(

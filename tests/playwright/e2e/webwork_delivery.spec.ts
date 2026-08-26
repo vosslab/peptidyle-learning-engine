@@ -2,8 +2,8 @@
 //
 // Selector contract:
 // - src/pages/library_page.tsx:117 owns published-question search, cards, and question IDs.
-// - src/pages/course_list_page.tsx:330, src/pages/course_assignments_page.tsx:324, and
-//   src/pages/assignment_editor_page.tsx:481 own course and assignment creation controls.
+// - src/pages/course_list_page.tsx, course_assignments_page.tsx, and assignment_workspace/ own
+//   course creation and the title-first assignment workflow.
 // - src/pages/course_roster_page.tsx:423 owns student invitation fields and the invitation link.
 // - src/pages/course_invitation_page.tsx:62 and src/pages/assignment_overview_page.tsx:114 own
 //   learner claiming and practice entry.
@@ -63,16 +63,17 @@ async function createCourseAssignmentAndInvitation(
   await page.getByRole("link", { name: "Assignments", exact: true }).click();
   await page.getByRole("link", { name: "Create the first assignment", exact: true }).click();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
-  await page.getByText("Add several Question IDs", { exact: true }).click();
+  await page.getByRole("button", { name: "Create assignment draft", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
   await page.getByLabel("Question IDs").fill(questionId);
-  await page.getByRole("button", { name: "Add questions by ID", exact: true }).click();
+  await page.getByRole("button", { name: "Add Question IDs", exact: true }).click();
+  await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
+  await page.getByRole("link", { name: "Policies", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
   await page.getByLabel("Completion requirement").selectOption("answerAll");
-  await page.getByRole("button", { name: "Create assignment", exact: true }).click();
-  await expect(page.getByText(`${assignmentTitle} now appears in this course.`)).toBeVisible();
-  await page.getByRole("link", { name: `Open ${assignmentTitle}`, exact: true }).click();
   await page.getByLabel("Lifecycle").selectOption("published");
-  await page.getByRole("button", { name: "Save teaching operations", exact: true }).click();
-  await expect(page.getByTestId("assignment-current-state")).toHaveText("Published, open now.");
+  await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Assignment policies saved.");
   await page.getByRole("link", { name: "Students", exact: true }).click();
   await page.getByLabel("Institutional email").fill(maryEmail);
   await page.getByLabel("Institutional student ID").fill(`mary-${scenarioNamespace}`);

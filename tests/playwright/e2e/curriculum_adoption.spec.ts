@@ -440,16 +440,19 @@ test.describe("curriculum adoption on the production PLE stack", () => {
           await elena.getByRole("link", { name: "Assignments", exact: true }).click();
           const imported = assignmentCard(elena, sourceRevisionTwoTitle);
           await expect(imported).toHaveCount(1);
-          await imported.getByRole("link", { name: "Edit assignment", exact: true }).click();
-          await expect(elena.locator('[data-route-surface="assignmentEditor"]')).toBeVisible();
+          await imported.getByRole("link", { name: sourceRevisionTwoTitle, exact: true }).click();
+          const workspace = elena.locator('[data-route-surface="assignmentWorkspace"]');
+          await expect(workspace).toBeVisible();
+          await workspace.getByRole("link", { name: "Questions", exact: true }).click();
+          await expect(
+            workspace.getByRole("heading", { name: "Questions", exact: true }),
+          ).toBeVisible();
           await elena.getByLabel("Assignment title").fill(locallyDivergentTitle);
           await elena
-            .getByRole("button", { name: "Save title, order, and settings", exact: true })
+            .getByRole("button", { name: "Save questions and order", exact: true })
             .click();
           await expect(
-            elena
-              .getByRole("status")
-              .filter({ hasText: "Assignment title, order, and settings saved." }),
+            elena.getByRole("status").filter({ hasText: "Questions and order saved." }),
           ).toBeVisible();
           await reviseAlphaAssignment(elena, alphaTitle, alphaReference, sourceRevisionThreeTitle);
           await elena.getByRole("link", { name: "Courses", exact: true }).click();

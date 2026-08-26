@@ -35,6 +35,27 @@ impl crate::CourseAssignmentStore for MemoryStore {
         }
         result
     }
+    async fn create_assignment_draft_impl(
+        &self,
+        context: TenantContext,
+        command: CreateAssignmentDraftCommand,
+    ) -> Result<StoredAssignment, StoreError> {
+        super::assignment_workspace::create_assignment_draft(self, context, command).await
+    }
+    async fn replace_assignment_content_impl(
+        &self,
+        context: TenantContext,
+        command: ReplaceAssignmentContentCommand,
+    ) -> Result<ReplaceAssignmentContentOutcome, StoreError> {
+        super::assignment_workspace::replace_assignment_content(self, context, command).await
+    }
+    async fn replace_assignment_policies_impl(
+        &self,
+        context: TenantContext,
+        command: ReplaceAssignmentPoliciesCommand,
+    ) -> Result<ReplaceAssignmentPoliciesOutcome, StoreError> {
+        super::assignment_workspace::replace_assignment_policies(self, context, command).await
+    }
     async fn replace_assignment_impl(
         &self,
         context: TenantContext,
@@ -703,7 +724,7 @@ pub(super) fn materialize_assignment_locked(
 
 /// Verifies the command-local actor against current direct Instructor
 /// authority before an assignment definition is read or mutated.
-fn require_assignment_editor(
+pub(super) fn require_assignment_editor(
     state: &State,
     context: TenantContext,
     course: CourseId,
@@ -724,7 +745,7 @@ fn require_assignment_editor(
 /// item snapshot, not to the mutable assignment definition or an effective
 /// policy receipt. That preserves the S3 receipt boundary while retaining the
 /// evidence needed to protect an active learner interaction.
-fn retirement_would_orphan_active_attempt(
+pub(super) fn retirement_would_orphan_active_attempt(
     state: &State,
     tenant: TenantId,
     previous: &AssignmentRecord,

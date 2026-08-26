@@ -11,6 +11,7 @@ import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type {
   AssignmentCapabilityViolation,
+  AssignmentContentInput,
   AssignmentCreateInput,
   AssignmentEditorEntryInput,
   AssignmentEditorDetail,
@@ -215,6 +216,14 @@ export function assignmentInput(draft: AssignmentEditorDraft): AssignmentEditorI
     entries: draft.entries.map(entryInput),
     policies: draft.policies,
     disclosurePolicy: draft.disclosurePolicy,
+  };
+}
+
+/** Questions owns only the visible title and ordered fixed-or-pool definition. */
+export function assignmentContentInput(draft: AssignmentEditorDraft): AssignmentContentInput {
+  return {
+    title: draft.title,
+    entries: draft.entries.map(entryInput),
   };
 }
 

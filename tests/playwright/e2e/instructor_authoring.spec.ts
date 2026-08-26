@@ -6,8 +6,8 @@
 //   publication buttons, and published status.
 // - src/pages/library_page.tsx:117 and src/pages/problem_detail_page.tsx:24 own library search,
 //   question cards, and prompt regions.
-// - src/pages/course_list_page.tsx:330, src/pages/course_assignments_page.tsx:324, and
-//   src/pages/assignment_editor_page.tsx:481 own course and assignment authoring controls.
+// - src/pages/course_list_page.tsx, src/pages/course_assignments_page.tsx, and
+//   src/pages/assignment_workspace/ own the visible course and assignment workflow.
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
@@ -165,14 +165,14 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await captureInstructorState(elena, scenarioInput, "instructor_authoring_course_assignments");
       await elena.getByRole("link", { name: "Create the first assignment" }).click();
       await expect(
-        elena.getByRole("heading", { name: "Create assignment", exact: true }),
+        elena.getByRole("heading", { name: "Create an assignment draft", exact: true }),
       ).toBeVisible();
-      await expect(
-        elena.getByRole("link", { name: "View learner-facing assignment overview" }),
-      ).toHaveCount(0);
       await captureInstructorState(elena, scenarioInput, "instructor_authoring_assignment_create");
       await elena.getByLabel("Assignment title").fill(assignmentTitle);
-      await elena.getByRole("button", { name: "Choose questions", exact: true }).click();
+      await elena.getByRole("button", { name: "Create assignment draft", exact: true }).click();
+      await expect(elena.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
+      await expect(elena.getByText("Add at least one question.", { exact: true })).toBeVisible();
+      await elena.getByRole("button", { name: "Search question library", exact: true }).click();
       const picker = elena.getByRole("dialog", {
         name: "Choose assignment questions",
         exact: true,
@@ -194,27 +194,24 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await picker.getByRole("button", { name: "Add selected questions", exact: true }).click();
       await expect(picker).toHaveCount(0);
       await expect(elena.locator(".assignment-editor-list")).toContainText(questionTitle);
-      await elena.getByRole("button", { name: "Create assignment" }).click();
-      await expect(elena.getByText(`${assignmentTitle} now appears in this course.`)).toBeVisible();
+      await elena.getByRole("button", { name: "Save questions and order", exact: true }).click();
       await expect(
-        elena.getByRole("link", { name: "View learner-facing assignment overview" }),
+        elena.getByRole("status").filter({ hasText: "Questions and order saved." }),
       ).toBeVisible();
       await captureInstructorState(elena, scenarioInput, "instructor_authoring_assignment_created");
-      await elena.getByRole("link", { name: `Open ${assignmentTitle}` }).click();
-      await expect(
-        elena.getByRole("heading", { name: "Assignment editor", exact: true }),
-      ).toBeVisible();
+      await elena.getByRole("link", { name: "Overview", exact: true }).click();
+      await expect(elena.getByRole("heading", { name: assignmentTitle, exact: true })).toBeVisible();
+      await elena.getByRole("link", { name: "Policies", exact: true }).click();
+      await expect(elena.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
       await expect(elena.getByLabel("Lifecycle")).toHaveValue("draft");
-      await captureInstructorState(elena, scenarioInput, "instructor_authoring_assignment_editor");
+      await captureInstructorState(elena, scenarioInput, "instructor_authoring_assignment_policies");
       await elena.getByLabel("Lifecycle").selectOption("published");
-      await elena.getByRole("button", { name: "Save teaching operations" }).click();
-      const publishedState = elena.getByTestId("assignment-current-state");
-      await expect(publishedState).toHaveText("Published, open now.");
+      await elena.getByRole("button", { name: "Save assignment policies", exact: true }).click();
       const publishedResult = elena
         .getByRole("status")
-        .filter({ hasText: `${assignmentTitle} is saved.` });
-      await expect(publishedResult).toContainText("Published, open now.");
-      await expect(elena.getByRole("heading", { name: "Assignment editor" })).toBeVisible();
+        .filter({ hasText: "Assignment policies saved." });
+      await expect(publishedResult).toBeVisible();
+      await expect(elena.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
       await expect(elena.getByLabel("Lifecycle")).toHaveValue("published");
       await captureInstructorState(
         elena,
@@ -223,24 +220,24 @@ test.describe("instructor authoring on the production PLE stack", () => {
         publishedResult,
       );
 
-      await elena.getByRole("link", { name: "View learner-facing assignment overview" }).click();
-      await expect(elena.locator('[data-route-surface="assignmentOverview"]')).toBeVisible();
+      await elena.getByRole("link", { name: "Student view", exact: true }).click();
       await expect(
         elena.getByRole("heading", { name: assignmentTitle, exact: true }),
       ).toBeVisible();
       await expect(
-        elena.getByRole("heading", { name: "Delivery details", exact: true }),
+        elena.getByText(
+          "Student view - current live assignment. Use Student entry to submit graded work.",
+          { exact: true },
+        ),
       ).toBeVisible();
       await captureInstructorState(
         elena,
         scenarioInput,
-        "instructor_authoring_assignment_overview",
+        "instructor_authoring_student_view",
       );
 
-      await elena.getByRole("link", { name: "Edit assignment", exact: true }).click();
-      await expect(
-        elena.getByRole("heading", { name: "Assignment editor", exact: true }),
-      ).toBeVisible();
+      await elena.getByRole("link", { name: "Return to assignment", exact: true }).click();
+      await expect(elena.getByRole("heading", { name: assignmentTitle, exact: true })).toBeVisible();
       await elena.getByRole("link", { name: "Assignments", exact: true }).click();
       await elena.getByRole("link", { name: "Students" }).click();
       await elena.getByLabel("Institutional email").fill(maryEmail);
@@ -277,16 +274,15 @@ test.describe("instructor authoring on the production PLE stack", () => {
         "instructor_authoring_fresh_session_assignment",
         assignmentCard,
       );
-      const editAssignment = assignmentCard.getByRole("link", {
-        name: "Edit assignment",
+      const assignmentTitleLink = assignmentCard.getByRole("link", {
+        name: assignmentTitle,
         exact: true,
       });
-      await editAssignment.focus();
+      await assignmentTitleLink.focus();
       await freshElena.keyboard.press("Enter");
+      await expect(freshElena.getByRole("heading", { name: assignmentTitle, exact: true })).toBeVisible();
+      await freshElena.getByRole("link", { name: "Policies", exact: true }).click();
       await expect(freshElena.getByLabel("Lifecycle")).toHaveValue("published");
-      await expect(freshElena.getByTestId("assignment-current-state")).toHaveText(
-        "Published, open now.",
-      );
       await freshElena.getByRole("link", { name: "Students" }).click();
       await expect(freshElena.getByRole("heading", { name: "Pending invitations" })).toBeVisible();
       const persistedInvitation = freshElena.getByRole("row").filter({ hasText: rosterId });

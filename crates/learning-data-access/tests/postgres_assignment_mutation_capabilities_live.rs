@@ -56,6 +56,13 @@ async fn pool() -> PgPool {
             .any(|entry| entry.version() == 2026081826),
         "the structural replacement authority migration is present"
     );
+    assert!(
+        status
+            .entries()
+            .iter()
+            .any(|entry| entry.version() == 2026081848),
+        "the persisted draft capability migration is present"
+    );
     pool
 }
 
@@ -181,6 +188,13 @@ fn valid_payload(
         .as_object_mut()
         .expect("object")
         .remove("assignmentIdForFixtureOnly");
+    value
+}
+
+fn empty_draft_payload(source: &Source, title: &str) -> Value {
+    let mut value = valid_payload(source, id(), id(), id(), title, "1.0");
+    value["lifecycle"] = json!("draft");
+    value["entries"] = json!([]);
     value
 }
 
@@ -443,6 +457,120 @@ async fn definition_create_replace_and_focused_capabilities_are_authorized_atomi
 
 #[tokio::test]
 #[ignore = "requires the private acceptance runtime workspace"]
+async fn empty_drafts_reload_and_hold_publication_at_the_readiness_boundary() {
+    let pool = pool().await;
+    let source = source(&pool).await;
+    let assignment = id();
+    let draft = empty_draft_payload(&source, "Untitled draft workspace");
+
+    let mut create = app(&pool, source.tenant).await;
+    let created: (Uuid, i64, i64, String) = sqlx::query_as(
+        "SELECT * FROM public.ple_create_assignment_definition_v1($1,$2,$3,$4,$5,$6,$7)",
+    )
+    .bind(source.tenant)
+    .bind(source.actor)
+    .bind(source.course)
+    .bind(assignment)
+    .bind(draft.clone())
+    .bind(Option::<Uuid>::None)
+    .bind(Option::<i32>::None)
+    .fetch_one(&mut *create)
+    .await
+    .expect("empty Draft is a valid persisted aggregate");
+    assert_eq!(created, (assignment, 1, 1, "current".to_owned()));
+    create.commit().await.expect("commit empty Draft");
+
+    let reloaded: (String, String, i64, i64) = sqlx::query_as(
+        "SELECT lifecycle,title,revision,(SELECT count(*) FROM assignment_item WHERE tenant_id=$1 AND assignment_id=$2) FROM assignment WHERE tenant_id=$1 AND assignment_id=$2",
+    )
+    .bind(source.tenant)
+    .bind(assignment)
+    .fetch_one(&pool)
+    .await
+    .expect("reload persisted empty Draft");
+    assert_eq!(
+        reloaded,
+        (
+            "draft".to_owned(),
+            "Untitled draft workspace".to_owned(),
+            1,
+            0
+        ),
+        "empty content is persisted as an ordinary Draft, with one aggregate revision"
+    );
+
+    let publishing = json!({
+        "lifecycle":"published",
+        "instructions":"Use the displayed model.",
+        "basePolicy": {
+            "availableAt":1787590800000_i64,
+            "dueAt":1787677200000_i64,
+            "closesAt":1787763600000_i64,
+            "lateSubmission":"markLate",
+            "deadlineBehavior":"autoSubmit",
+            "timeLimitSeconds":3600,
+            "attemptLimit":2
+        }
+    });
+    let mut publish = app(&pool, source.tenant).await;
+    let refused = sqlx::query_scalar::<_, i64>(
+        "SELECT public.ple_put_assignment_teaching_settings($1,$2,$3,$4,$5,$6)",
+    )
+    .bind(source.tenant)
+    .bind(source.actor)
+    .bind(source.course)
+    .bind(assignment)
+    .bind(1_i64)
+    .bind(publishing)
+    .fetch_one(&mut *publish)
+    .await;
+    assert!(
+        refused.is_err(),
+        "Published requires a deliverable position"
+    );
+    publish
+        .rollback()
+        .await
+        .expect("rollback refused publication");
+
+    let after_refusal: (String, i64) = sqlx::query_as(
+        "SELECT lifecycle,revision FROM assignment WHERE tenant_id=$1 AND assignment_id=$2",
+    )
+    .bind(source.tenant)
+    .bind(assignment)
+    .fetch_one(&pool)
+    .await
+    .expect("reload draft after refusal");
+    assert_eq!(
+        after_refusal,
+        ("draft".to_owned(), 1),
+        "a refused publication rolls back without changing the aggregate"
+    );
+
+    let mut closed = app(&pool, source.tenant).await;
+    let mut closed_payload = empty_draft_payload(&source, "Invalid empty Closed");
+    closed_payload["lifecycle"] = json!("closed");
+    let refused = sqlx::query(
+        "SELECT * FROM public.ple_create_assignment_definition_v1($1,$2,$3,$4,$5,$6,$7)",
+    )
+    .bind(source.tenant)
+    .bind(source.actor)
+    .bind(source.course)
+    .bind(id())
+    .bind(closed_payload)
+    .bind(Option::<Uuid>::None)
+    .bind(Option::<i32>::None)
+    .execute(&mut *closed)
+    .await;
+    assert!(refused.is_err(), "empty Closed definitions are rejected");
+    closed
+        .rollback()
+        .await
+        .expect("rollback empty Closed refusal");
+}
+
+#[tokio::test]
+#[ignore = "requires the private acceptance runtime workspace"]
 async fn assignment_capabilities_refuse_stale_foreign_malformed_and_direct_dml_without_partial_state()
  {
     let pool = pool().await;
@@ -672,6 +800,42 @@ async fn creation_prepare_catalog_and_membership_lock_preserve_least_authority()
         privileges,
         (true, false, false, false, true),
         "only the public witness exposes the broker-owned preparation seam"
+    );
+
+    let definition_broker: (String, bool, String) = sqlx::query_as(
+        "SELECT owner.rolname,p.prosecdef,array_to_string(p.proconfig,',') \
+           FROM pg_proc p \
+           JOIN pg_namespace n ON n.oid=p.pronamespace \
+           JOIN pg_roles owner ON owner.oid=p.proowner \
+          WHERE n.nspname='public' \
+            AND p.oid='public.ple_assignment_definition_apply_v1(uuid,uuid,uuid,jsonb,boolean,uuid,integer)'::regprocedure",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("definition broker catalog row");
+    assert_eq!(definition_broker.0, "ple_assignment_mutator_broker");
+    assert!(definition_broker.1, "definition broker is security definer");
+    assert_eq!(
+        definition_broker.2, "search_path=pg_catalog, public, pg_temp",
+        "definition broker has the fixed search path"
+    );
+
+    let definition_privileges: (bool, bool, bool, bool, bool, bool) = sqlx::query_as(
+        "SELECT \
+           has_function_privilege('ple_app','public.ple_assignment_definition_apply_v1(uuid,uuid,uuid,jsonb,boolean,uuid,integer)','EXECUTE'), \
+           has_function_privilege('public','public.ple_assignment_definition_apply_v1(uuid,uuid,uuid,jsonb,boolean,uuid,integer)','EXECUTE'), \
+           has_function_privilege('ple_app','public.ple_replace_assignment_definition_v1(uuid,uuid,uuid,uuid,bigint,jsonb,uuid,integer)','EXECUTE'), \
+           has_function_privilege('public','public.ple_replace_assignment_definition_v1(uuid,uuid,uuid,uuid,bigint,jsonb,uuid,integer)','EXECUTE'), \
+           has_function_privilege('ple_app','public.ple_replace_unissued_assignment_definition_v1(uuid,uuid,uuid,uuid,bigint,jsonb)','EXECUTE'), \
+           has_function_privilege('public','public.ple_replace_unissued_assignment_definition_v1(uuid,uuid,uuid,uuid,bigint,jsonb)','EXECUTE')",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("definition broker privilege matrix");
+    assert_eq!(
+        definition_privileges,
+        (false, false, true, false, true, false),
+        "the private broker remains execute-denied while app wrappers stay callable"
     );
 
     let store_assignment = AssignmentId::from_uuid(id());

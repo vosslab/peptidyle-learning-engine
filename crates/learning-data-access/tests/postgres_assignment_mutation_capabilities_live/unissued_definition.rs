@@ -119,8 +119,8 @@ async fn unissued_definition_replacement_is_complete_revision_checked_and_execut
         .expect("commit structural replacement");
 
     let mut stale = app(&pool, source.tenant).await;
-    let stale_result = sqlx::query(
-        "SELECT * FROM public.ple_replace_unissued_assignment_definition_v1($1,$2,$3,$4,$5,$6)",
+    let stale_result = sqlx::query_as::<_, (String, Option<i64>)>(
+        "SELECT outcome,revision FROM public.ple_replace_unissued_assignment_definition_v1($1,$2,$3,$4,$5,$6)",
     )
     .bind(source.tenant)
     .bind(source.actor)
@@ -135,9 +135,13 @@ async fn unissued_definition_replacement_is_complete_revision_checked_and_execut
         "Stale definition",
         "1.0",
     ))
-    .execute(&mut *stale)
+    .fetch_one(&mut *stale)
     .await;
-    assert!(stale_result.is_err(), "stale revision is refused");
+    assert_eq!(
+        stale_result.expect("broker returns stale outcome"),
+        ("revisionConflict".to_owned(), None),
+        "the atomic broker classifies a revision that changed after a page read"
+    );
     stale
         .rollback()
         .await

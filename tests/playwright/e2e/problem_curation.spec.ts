@@ -4,7 +4,7 @@
 // - src/features/problem_curation/problem_curation_panel.tsx owns the reuse workspace,
 //   its recovery text, and the owner/institution-reader collection presentations.
 // - src/features/problem_picker/problem_picker.tsx owns the accessible shared picker dialog.
-// - src/pages/assignment_editor_page.tsx and assignment_pool_editor.tsx own assignment reuse.
+// - src/pages/assignment_workspace/ owns focused assignment Questions and Policies reuse.
 // - src/pages/account_security_page.tsx owns ordinary passkey enrollment and reauthentication.
 
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
@@ -438,21 +438,30 @@ test.describe("problem curation on the production PLE stack", () => {
         invitationUrl = await createCourseAndInvitation(elena, courseTitle);
         await elena.getByRole("link", { name: "Assignments", exact: true }).click();
         await elena.getByRole("link", { name: "Create the first assignment", exact: true }).click();
-        const editor = elena.locator('[data-route-surface="assignmentEditor"]');
-        await expect(editor).toBeVisible();
-        await editor.getByLabel("Assignment title").fill(assignmentTitle);
+        const createDraft = elena.locator('[data-route-surface="assignmentCreate"]');
+        await expect(createDraft).toBeVisible();
+        await createDraft.getByLabel("Assignment title").fill(assignmentTitle);
+        await createDraft
+          .getByRole("button", { name: "Create assignment draft", exact: true })
+          .click();
+        const workspace = elena.locator('[data-route-surface="assignmentWorkspace"]');
+        await expect(
+          workspace.getByRole("heading", { name: "Questions", exact: true }),
+        ).toBeVisible();
 
-        await editor.getByRole("button", { name: "Choose questions", exact: true }).click();
+        await workspace
+          .getByRole("button", { name: "Search question library", exact: true })
+          .click();
         await selectQuestionInPicker(
           elena,
           "Favorites",
           favoritesQuestionTitle,
           "Add selected questions",
         );
-        await expect(editor).toContainText(favoritesQuestionTitle);
+        await expect(workspace).toContainText(favoritesQuestionTitle);
 
-        await editor.getByRole("button", { name: "Add question pool", exact: true }).click();
-        const firstPool = editor
+        await workspace.getByRole("button", { name: "Add question pool", exact: true }).click();
+        const firstPool = workspace
           .getByRole("listitem", { name: /Question pool at position/u })
           .first();
         await firstPool.getByRole("button", { name: "Choose candidates", exact: true }).click();
@@ -464,8 +473,8 @@ test.describe("problem curation on the production PLE stack", () => {
         );
         await expect(firstPool).toContainText(privateCollectionQuestionTitle);
 
-        await editor.getByRole("button", { name: "Add question pool", exact: true }).click();
-        const secondPool = editor
+        await workspace.getByRole("button", { name: "Add question pool", exact: true }).click();
+        const secondPool = workspace
           .getByRole("listitem", { name: /Question pool at position/u })
           .nth(1);
         await secondPool.getByRole("button", { name: "Choose candidates", exact: true }).click();
@@ -480,18 +489,19 @@ test.describe("problem curation on the production PLE stack", () => {
           "Add selected candidates",
         );
         await expect(secondPool).toContainText(nativeQuestionTitle);
-        await captureLaptop(elena, scenarioInput, editor, pickerArtifacts);
+        await captureLaptop(elena, scenarioInput, workspace, pickerArtifacts);
 
-        await editor.getByRole("button", { name: "Create assignment", exact: true }).click();
+        await workspace
+          .getByRole("button", { name: "Save questions and order", exact: true })
+          .click();
+        await expect(workspace.getByRole("status")).toContainText("Questions and order saved.");
+        await workspace.getByRole("link", { name: "Policies", exact: true }).click();
         await expect(
-          editor.getByRole("heading", { name: "Assignment created", exact: true }),
+          workspace.getByRole("heading", { name: "Policies", exact: true }),
         ).toBeVisible();
-        await editor.getByRole("link", { name: `Open ${assignmentTitle}`, exact: true }).click();
         await elena.getByLabel("Lifecycle").selectOption("published");
-        await elena.getByRole("button", { name: "Save teaching operations", exact: true }).click();
-        await expect(elena.getByTestId("assignment-current-state")).toHaveText(
-          "Published, open now.",
-        );
+        await elena.getByRole("button", { name: "Save assignment policies", exact: true }).click();
+        await expect(workspace.getByRole("status")).toContainText("Assignment policies saved.");
       });
 
       await test.step("Mary claims the ordinary invitation and sees the saved reusable assignment as learner work", async () => {

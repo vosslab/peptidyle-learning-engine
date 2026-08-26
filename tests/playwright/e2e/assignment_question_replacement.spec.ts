@@ -3,10 +3,9 @@
 // Selector contract:
 // - src/features/flat_question_authoring/flat_question_editor_page.tsx:535 owns question editing,
 //   publication, and the question field labels.
-// - src/pages/course_list_page.tsx:330 and src/pages/course_assignments_page.tsx:324 own course
-//   creation and assignment navigation.
-// - src/pages/assignment_editor_page.tsx:481 and src/pages/course_roster_page.tsx:423 own
-//   assignment teaching settings and invitation controls.
+// - src/pages/course_list_page.tsx, course_assignments_page.tsx, and assignment_workspace/ own
+//   course creation, title-first assignment setup, Questions, and Policies navigation.
+// - src/pages/course_roster_page.tsx owns invitation controls.
 // - src/pages/assignment_overview_page.tsx:114 and src/pages/run_page.tsx:387 own learner
 //   assignment and attempt surfaces.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
@@ -79,7 +78,9 @@ async function createPublishedAssignmentAndInvitation(
   await page.getByRole("link", { name: "Assignments", exact: true }).click();
   await page.getByRole("link", { name: "Create the first assignment", exact: true }).click();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
-  await page.getByRole("button", { name: "Choose questions", exact: true }).click();
+  await page.getByRole("button", { name: "Create assignment draft", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Search question library", exact: true }).click();
   const picker = page.getByRole("dialog", { name: "Choose assignment questions", exact: true });
   await expect(picker).toBeVisible();
   await picker.getByLabel("Search questions", { exact: true }).fill(originalQuestionTitle);
@@ -88,12 +89,12 @@ async function createPublishedAssignmentAndInvitation(
   await picker.getByRole("button", { name: "Add selected questions", exact: true }).click();
   await expect(picker).toHaveCount(0);
   await expect(page.locator(".assignment-editor-list")).toContainText(originalQuestionTitle);
-  await page.getByRole("button", { name: "Create assignment", exact: true }).click();
-  await expect(page.getByText(`${assignmentTitle} now appears in this course.`)).toBeVisible();
-  await page.getByRole("link", { name: `Open ${assignmentTitle}`, exact: true }).click();
+  await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
+  await page.getByRole("link", { name: "Policies", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
   await page.getByLabel("Lifecycle").selectOption("published");
-  await page.getByRole("button", { name: "Save teaching operations", exact: true }).click();
-  await expect(page.getByTestId("assignment-current-state")).toHaveText("Published, open now.");
+  await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Assignment policies saved.");
   await page.getByRole("link", { name: "Students", exact: true }).click();
   await page.getByLabel("Institutional email").fill(maryEmail);
   await page.getByLabel("Institutional student ID").fill(`mary-${namespace}`);
@@ -128,7 +129,7 @@ async function startIssuedRun(
   ).toBeVisible();
 }
 
-async function openAssignmentEditor(
+async function openAssignmentQuestions(
   page: Page,
   courseTitle: string,
   assignmentTitle: string,
@@ -139,8 +140,9 @@ async function openAssignmentEditor(
   const assignmentCard = page
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
-  await assignmentCard.getByRole("link", { name: "Edit assignment", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Assignment editor", exact: true })).toBeVisible();
+  await assignmentCard.getByRole("link", { name: assignmentTitle, exact: true }).click();
+  await page.getByRole("link", { name: "Questions", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
 }
 
 async function replaceAssignedQuestion(
@@ -154,9 +156,6 @@ async function replaceAssignedQuestion(
     .filter({ has: page.getByRole("heading", { name: originalQuestionTitle, exact: true }) });
   await expect(originalRow).toHaveCount(1);
   await originalRow.getByRole("button", { name: "Replace", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Replace assigned question", exact: true }),
-  ).toBeVisible();
   await page.getByRole("button", { name: "Choose replacement", exact: true }).click();
   const picker = page.getByRole("dialog", {
     name: "Choose a replacement question",
@@ -168,13 +167,8 @@ async function replaceAssignedQuestion(
   await picker.getByRole("radio", { name: new RegExp(replacementQuestionTitle) }).check();
   await picker.getByRole("button", { name: "Use selected replacement", exact: true }).click();
   await expect(picker).toHaveCount(0);
-  await page.getByRole("button", { name: "Replace with selected question", exact: true }).click();
-  await expect(
-    page.getByText(
-      "Replacement saved. Future runs use the replacement; issued work stays with its original question.",
-      { exact: true },
-    ),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Questions and order saved.");
   await expect(page.locator(".assignment-editor-list")).toContainText(replacementQuestionTitle);
 }
 
@@ -236,7 +230,7 @@ test.describe("assignment question replacement on the production PLE stack", () 
         originalQuestionTitle,
         tag,
       );
-      await openAssignmentEditor(elena, courseTitle, assignmentTitle);
+      await openAssignmentQuestions(elena, courseTitle, assignmentTitle);
       await startIssuedRun(
         mary,
         invitationUrl,
@@ -245,7 +239,7 @@ test.describe("assignment question replacement on the production PLE stack", () 
         originalQuestionTitle,
       );
 
-      await openAssignmentEditor(replacingElena, courseTitle, assignmentTitle);
+      await openAssignmentQuestions(replacingElena, courseTitle, assignmentTitle);
       await replaceAssignedQuestion(
         replacingElena,
         originalQuestionTitle,
@@ -254,7 +248,7 @@ test.describe("assignment question replacement on the production PLE stack", () 
 
       await elena.reload();
       await expect(
-        elena.getByRole("heading", { name: "Assignment editor", exact: true }),
+        elena.getByRole("heading", { name: "Questions", exact: true }),
       ).toBeVisible();
       await expect(elena.locator(".assignment-editor-list")).toContainText(
         replacementQuestionTitle,

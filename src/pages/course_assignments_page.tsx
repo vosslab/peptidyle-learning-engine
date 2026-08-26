@@ -56,7 +56,20 @@ function AssignmentCard(props: AssignmentCardProps): JSX.Element {
   return (
     <article class="course-card">
       <p class="card-kicker">Mastery practice</p>
-      <h2>{props.assignment.title}</h2>
+      <h2>
+        <A
+          class="assignment-title-link"
+          href={
+            props.canManageAssignment
+              ? `/instructor/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}`
+              : `/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}`
+          }
+          id={assignmentLinkId(props.assignment)}
+          ref={(element) => props.registerLink(props.assignment, element)}
+        >
+          {props.assignment.title}
+        </A>
+      </h2>
       <p class="course-card-description">
         Open this assignment to review its instructions and delivery details.
       </p>
@@ -77,13 +90,11 @@ function AssignmentCard(props: AssignmentCardProps): JSX.Element {
           class="quiet-link"
           href={
             props.canManageAssignment
-              ? `/instructor/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}/edit`
+              ? `/instructor/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}`
               : `/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}`
           }
-          id={assignmentLinkId(props.assignment)}
-          ref={(element) => props.registerLink(props.assignment, element)}
         >
-          {props.canManageAssignment ? "Edit assignment" : "Start assignment"}
+          {props.canManageAssignment ? "Open assignment" : "Start assignment"}
         </A>
         <Show when={props.canManageAssignment}>
           <A

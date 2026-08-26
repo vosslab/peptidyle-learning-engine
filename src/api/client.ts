@@ -32,7 +32,6 @@ import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
 import type { RunId } from "../../generated/api/RunId";
 import type { LearnerAssignmentProgress } from "../../generated/api/LearnerAssignmentProgress";
-import type { InstructorAssignmentTeachingSettingsLocal } from "../../generated/api/InstructorAssignmentTeachingSettingsLocal";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { TaxonomyTerm } from "../../generated/api/TaxonomyTerm";
 import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
@@ -72,8 +71,10 @@ import type { CapabilityValidator, FormatValidator, TimerEvaluator } from "../wa
 import type { CourseRosterClient } from "./enrollment";
 import type {
   AssignmentEditorDetail,
-  AssignmentCreateInput,
-  AssignmentEditorInput,
+  AssignmentDraftInput,
+  AssignmentContentInput,
+  AssignmentPoliciesInput,
+  InstructorStudentView,
   AddAssignmentItemInput,
   ReplaceAssignmentItemQuestionInput,
   LearnerAssignmentSummary,
@@ -378,25 +379,35 @@ export interface ApiClient
   readonly getAssignmentSummary: (assignmentId: AssignmentId) => Promise<LearnerAssignmentProgress>;
   /** Instructor-only revisioned assignment projection for the policy editor. */
   readonly getAssignmentEditor: (assignmentId: AssignmentId) => Promise<AssignmentEditorDetail>;
-  /** Creates a tenant-owned assignment in the course named only by the path. */
-  readonly createAssignment: (
-    courseId: CourseId,
-    input: AssignmentCreateInput,
-  ) => Promise<AssignmentEditorDetail>;
-  /** Replaces an assignment using its most recently observed strong ETag. */
-  readonly saveAssignment: (
+  /** Reads the course-bound Instructor assignment workspace. */
+  readonly getAssignmentWorkspace: (
     courseId: CourseId,
     assignmentId: AssignmentId,
-    input: AssignmentEditorInput,
-    revision: string,
   ) => Promise<AssignmentEditorDetail>;
-  /** Atomically saves lifecycle, instructions, and course-local delivery policy. */
-  readonly saveAssignmentTeachingSettings: (
+  /** Creates a persisted empty Draft with server-owned defaults. */
+  readonly createAssignmentDraft: (
+    courseId: CourseId,
+    input: AssignmentDraftInput,
+  ) => Promise<AssignmentEditorDetail>;
+  /** Replaces only Questions-owned title and ordered content. */
+  readonly saveAssignmentContent: (
     courseId: CourseId,
     assignmentId: AssignmentId,
-    settings: InstructorAssignmentTeachingSettingsLocal,
+    input: AssignmentContentInput,
     revision: string,
   ) => Promise<AssignmentEditorDetail>;
+  /** Replaces only Policies-owned audience, disclosure, run, and teaching settings. */
+  readonly saveAssignmentPolicies: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
+    input: AssignmentPoliciesInput,
+    revision: string,
+  ) => Promise<AssignmentEditorDetail>;
+  /** Reads the non-mutating, answer-free Instructor Student view. */
+  readonly getInstructorStudentView: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
+  ) => Promise<InstructorStudentView>;
   readonly addAssignmentItem: (
     courseId: CourseId,
     assignmentId: AssignmentId,

@@ -223,12 +223,35 @@ pub trait CourseGroupManagementStore: Send + Sync {
 /// Focused persistence capability composed by [`Store`].
 #[async_trait]
 pub trait CourseAssignmentStore: Send + Sync {
+    /// Creates one persisted Draft with explicit server-owned defaults.
+    async fn create_assignment_draft_impl(
+        &self,
+        context: TenantContext,
+        command: CreateAssignmentDraftCommand,
+    ) -> Result<StoredAssignment, StoreError>;
+
     /// Creates the definition and explicit base policy in one commit.
     async fn create_assignment_impl(
         &self,
         context: TenantContext,
         command: CreateAssignmentCommand,
     ) -> Result<StoredAssignment, StoreError>;
+
+    /// Replaces only the Questions-owned definition slice under the shared
+    /// aggregate revision and the existing pre-issuance structural fence.
+    async fn replace_assignment_content_impl(
+        &self,
+        context: TenantContext,
+        command: ReplaceAssignmentContentCommand,
+    ) -> Result<ReplaceAssignmentContentOutcome, StoreError>;
+
+    /// Replaces only the Policies-owned slice under the shared aggregate
+    /// revision. Implementations preserve Questions-owned content.
+    async fn replace_assignment_policies_impl(
+        &self,
+        context: TenantContext,
+        command: ReplaceAssignmentPoliciesCommand,
+    ) -> Result<ReplaceAssignmentPoliciesOutcome, StoreError>;
 
     /// Replaces content fields while preserving teaching settings.
     async fn replace_assignment_impl(

@@ -27,6 +27,8 @@ mod export_cases;
 #[path = "conformance/publication.rs"]
 mod publication;
 use publication::*;
+#[path = "conformance/assignment_workspace.rs"]
+mod assignment_workspace;
 #[path = "conformance/assignments.rs"]
 mod assignments;
 use assignments::*;
@@ -103,20 +105,23 @@ use learning_data_access::{
 };
 use learning_data_access::{
     ActivityTransition, AddAssignmentFixedItemCommand, AssetDeliveryId, AssetDeliveryRecord,
-    AssetDeliveryScope, AssetPublication, AssetStore, AssignmentRecord,
-    AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore,
-    AssignmentUpdate, AttemptSupportAction, AttemptSupportActionId, CatalogSourceStore,
-    CatalogStore, CatalogTransition, ClearAttemptCommand, CourseCreationAuthority,
-    CourseGroupRecord, CourseListScope, CourseRecord, CreateAssignmentCommand, CreateCourseCommand,
-    Cursor, DeleteAndRegradeAssignmentItemCommand, DraftRecord, EvaluationRevision,
-    FlatGradingCapability, ForceSubmitAttemptCommand, IssueQuestionAttemptCommand,
-    LearnerWorkRoutingBinding, ManualCredit, ManualGradeActionId, ManualGradingStore,
-    MaterializeAssignmentEntitlementCommand, NativeExecutionEnvelopeCapability,
+    AssetDeliveryScope, AssetPublication, AssetStore, AssignmentContentUpdate,
+    AssignmentPoliciesUpdate, AssignmentRecord, AssignmentScoringCommitOutcome,
+    AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore, AssignmentUpdate,
+    AttemptSupportAction, AttemptSupportActionId, CatalogSourceStore, CatalogStore,
+    CatalogTransition, ClearAttemptCommand, CourseCreationAuthority, CourseGroupRecord,
+    CourseListScope, CourseRecord, CreateAssignmentCommand, CreateAssignmentDraftCommand,
+    CreateCourseCommand, Cursor, DeleteAndRegradeAssignmentItemCommand, DraftRecord,
+    EvaluationRevision, FlatGradingCapability, ForceSubmitAttemptCommand,
+    IssueQuestionAttemptCommand, LearnerWorkRoutingBinding, ManualCredit, ManualGradeActionId,
+    ManualGradingStore, MaterializeAssignmentEntitlementCommand, NativeExecutionEnvelopeCapability,
     NavigationReferenceStore, PageRequest, PageSize, PrefetchedPrivateExecutionV1,
     PrefetchedQuestionDescriptorV1, PresentationCapability, PublishDraftCommand,
     PublishedSourceArtifact, PutCourseGroupCommand, QtiGradingCapability,
     ReleaseAttemptFeedbackCommand, RemoveAssignmentFixedItemCommand, ReplaceAssignmentCommand,
-    ReplaceAssignmentFixedItemCommand, ReservePrefetchedQuestionCommand, RunRouteIdentity,
+    ReplaceAssignmentContentCommand, ReplaceAssignmentContentOutcome,
+    ReplaceAssignmentFixedItemCommand, ReplaceAssignmentPoliciesCommand,
+    ReplaceAssignmentPoliciesOutcome, ReservePrefetchedQuestionCommand, RunRouteIdentity,
     SessionLifetime, SessionStore, SessionSubject, SessionTokenHash, SetManualGradeCommand, Store,
     StoreError, SubmissionIdempotencyKey, SubmitPendingManualQuestionAttemptCommand,
     SubmitQuestionAttemptCommand, TenantContext, WebworkGradingCapability, WebworkReplayControlV1,
@@ -373,6 +378,7 @@ where
 {
     exercise_publication_identity_boundary(store).await;
     exercise_assignment_cas(store).await;
+    assignments::exercise_assignment_workspace_slices(store).await;
 }
 
 fn implementation(id: &str) -> ImplementationVersion {

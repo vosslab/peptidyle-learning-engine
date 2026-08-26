@@ -1,5 +1,7 @@
 use super::*;
 
+pub(super) use super::assignment_workspace::exercise_assignment_workspace_slices;
+
 async fn issued_native_snapshot<S>(
     store: &S,
     context: TenantContext,

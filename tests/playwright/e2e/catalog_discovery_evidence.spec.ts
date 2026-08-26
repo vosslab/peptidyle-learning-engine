@@ -4,8 +4,8 @@
 // Selector contract:
 // - src/pages/library_page.tsx owns search, metadata filters, and the Library result region.
 // - src/pages/problem_detail_page.tsx and catalog_statistics_panel.tsx own evidence and usage.
-// - src/pages/course_assignments_page.tsx, assignment_editor_page.tsx, and course_roster_page.tsx
-//   own assignment creation, publishing, and visible invitation links.
+// - src/pages/course_assignments_page.tsx, assignment_workspace/, and course_roster_page.tsx own
+//   title-first draft creation, Questions, Policies, publishing, and visible invitation links.
 // - src/pages/course_invitation_page.tsx, assignment_overview_page.tsx, and run_page.tsx own
 //   learner claim, start, submission, feedback, and completion.
 
@@ -101,15 +101,16 @@ async function createPublishedGeneticsAssignment(
   await expect(page.locator("[data-route-surface=courseAssignments]")).toBeVisible();
   await page.getByRole("link", { name: "Create the first assignment", exact: true }).click();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
-  await page.getByText("Add several Question IDs", { exact: true }).click();
+  await page.getByRole("button", { name: "Create assignment draft", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
   await page.getByLabel("Question IDs").fill(questionId);
-  await page.getByRole("button", { name: "Add questions by ID", exact: true }).click();
-  await page.getByRole("button", { name: "Create assignment", exact: true }).click();
-  await expect(page.getByText(`${assignmentTitle} now appears in this course.`)).toBeVisible();
-  await page.getByRole("link", { name: `Open ${assignmentTitle}`, exact: true }).click();
+  await page.getByRole("button", { name: "Add Question IDs", exact: true }).click();
+  await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
+  await page.getByRole("link", { name: "Policies", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
   await page.getByLabel("Lifecycle").selectOption("published");
-  await page.getByRole("button", { name: "Save teaching operations", exact: true }).click();
-  await expect(page.getByTestId("assignment-current-state")).toHaveText("Published, open now.");
+  await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Assignment policies saved.");
 }
 
 async function createInvitation(page: Page, email: string, rosterId: string): Promise<string> {

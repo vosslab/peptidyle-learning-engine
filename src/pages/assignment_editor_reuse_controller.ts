@@ -3,6 +3,7 @@
 import { createSignal, type Accessor } from "solid-js";
 
 import type { CourseId } from "../../generated/api/CourseId";
+import type { AssignmentId } from "../../generated/api/AssignmentId";
 
 import type {
   AssignmentEditorRepository,
@@ -23,6 +24,7 @@ export interface AssignmentEditorReuseController {
 export function createAssignmentEditorReuseController(
   repository: AssignmentEditorRepository,
   courseId: CourseId,
+  exclude?: AssignmentId,
 ): AssignmentEditorReuseController {
   const [reuse, setReuse] = createSignal<ReadonlyArray<ReusableAssignment>>([]);
   const [message, setMessage] = createSignal("");
@@ -36,7 +38,7 @@ export function createAssignmentEditorReuseController(
 
   async function load(): Promise<void> {
     try {
-      const values = await repository.listReusableAssignments(courseId, undefined);
+      const values = await repository.listReusableAssignments(courseId, exclude);
       setReuse(values);
       setSourceIndex(values.length > 0 ? 0 : undefined);
       setQuestionIndexes(new Set(values[0]?.questions.map((_question, index) => index) ?? []));

@@ -84,6 +84,9 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
 - Create courses.
 - Create assignments.
 - Create problems.
+- Open an assignment from its linked title into one assignment-local Instructor home. Organize
+  fixed questions and pools on Questions, configure delivery rules on Policies, and inspect the
+  current answer-free learner landing through Student view while retaining the Instructor session.
 - Build one ordered assignment from fixed questions and reusable question pools by using public Question IDs. Configure
   each pool's draw count and delivery order, then request fresh server-generated preview draws without creating learner
   work or changing grades.

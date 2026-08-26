@@ -134,18 +134,40 @@ pub(super) async fn publish_and_assert(
         );
     }
 
-    let instructor_detail = app
+    let instructor_learner_detail = app
         .clone()
         .oneshot(
             Request::builder()
                 .uri(format!("/api/assignments/{assignment}/learner"))
                 .header("cookie", instructor_cookie)
                 .body(Body::empty())
-                .expect("instructor learner-facing detail request"),
+                .expect("instructor learner detail request"),
         )
         .await
-        .expect("instructor learner-facing detail response");
+        .expect("instructor learner detail response");
+    assert_eq!(instructor_learner_detail.status(), StatusCode::NOT_FOUND);
+
+    let instructor_detail = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/student-view"
+                ))
+                .header("cookie", instructor_cookie)
+                .body(Body::empty())
+                .expect("instructor Student-view request"),
+        )
+        .await
+        .expect("instructor Student-view response");
     assert_eq!(instructor_detail.status(), StatusCode::OK);
+    assert_eq!(
+        instructor_detail
+            .headers()
+            .get("cache-control")
+            .and_then(|value| value.to_str().ok()),
+        Some("no-store")
+    );
     let body = to_bytes(instructor_detail.into_body(), 128 * 1024)
         .await
         .expect("instructor learner-facing detail body");
@@ -157,7 +179,32 @@ pub(super) async fn publish_and_assert(
         student_detail["instructions"]
     );
     assert_eq!(instructor_detail["timeZone"], student_detail["timeZone"]);
-    assert_eq!(instructor_detail["delivery"], student_detail["delivery"]);
+    assert_eq!(
+        instructor_detail["delivery"]["availableAt"],
+        student_detail["delivery"]["availableAt"]
+    );
+    assert_eq!(
+        instructor_detail["delivery"]["dueAt"],
+        student_detail["delivery"]["dueAt"]
+    );
+    assert!(instructor_detail["delivery"].get("lateStatus").is_none());
+    assert_eq!(instructor_detail["questionsPerRun"], 1);
+    assert_eq!(instructor_detail["variation"], "newSeeds");
+    for forbidden in [
+        "id",
+        "reference",
+        "tenant",
+        "courseId",
+        "items",
+        "selectionGroups",
+        "runs",
+        "attempts",
+    ] {
+        assert!(
+            instructor_detail.get(forbidden).is_none(),
+            "Student view leaked {forbidden}"
+        );
+    }
 
     new_etag
 }

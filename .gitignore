@@ -1,7 +1,7 @@
 # === UNIVERSAL === [PROPAGATED - LOCAL EDITS OVERWRITTEN]
+.DS_Store
 /node_modules/
 /.env
-.DS_Store
 /report_*.txt
 /output*/
 /generated/

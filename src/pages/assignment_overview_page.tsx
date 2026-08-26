@@ -1,67 +1,15 @@
 // assignment_overview_page.tsx - assignment entry and run-resume transition.
 
-import { A, createAsync, useNavigate, useParams } from "@solidjs/router";
+import { createAsync, useNavigate, useParams } from "@solidjs/router";
 import { createSignal, Show, Suspense, type JSX } from "solid-js";
 
-import type { LearnerClassStatistics } from "../../generated/api/LearnerClassStatistics";
 import { useApiRuntime } from "../api/runtime";
 import { resolveAssignmentRoute } from "../navigation/resolved_route";
 import { runRouteReference } from "../navigation/public_route";
-import { courseRouteReference, assignmentRouteReference } from "../navigation/public_route";
-import { useSessionBootstrap } from "../auth/session_context";
-import { learnerProgressSummary, learnerScoreValue } from "../learner_progress";
-
-function formatActivity(timestamp: number | null): string {
-  if (timestamp === null) {
-    return "No activity yet";
-  }
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(timestamp));
-}
-
-function formatDeliveryTime(timestamp: number | null, timeZone: string): string {
-  if (timestamp === null) return "Not set";
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone,
-  }).format(new Date(timestamp));
-}
-
-function limit(value: number | null, singular: string, plural: string): string {
-  if (value === null) return `No ${plural} limit`;
-  return `${value} ${value === 1 ? singular : plural}`;
-}
-
-function runTimeLimit(seconds: number | null): string {
-  if (seconds === null) return "No whole-run time limit";
-  if (seconds % 3_600 === 0) {
-    const hours = seconds / 3_600;
-    return `${hours} ${hours === 1 ? "hour" : "hours"} per run`;
-  }
-  if (seconds % 60 === 0) {
-    const minutes = seconds / 60;
-    return `${minutes} ${minutes === 1 ? "minute" : "minutes"} per run`;
-  }
-  return `${seconds} ${seconds === 1 ? "second" : "seconds"} per run`;
-}
-
-function lateWorkCopy(value: "accept" | "markLate" | "reject"): string {
-  if (value === "accept") return "Accepted after the due time";
-  if (value === "markLate") return "Accepted and marked late after the due time";
-  return "Not accepted after the due time";
-}
-
-function classStatisticsSummary(statistics: LearnerClassStatistics): string {
-  if (statistics.state === "insufficientEvidence") {
-    return "Not enough evidence to show class statistics.";
-  }
-  return `Class average: ${learnerScoreValue(
-    statistics.assignmentAverageScore,
-  )}. Based on ${statistics.completedLearnerCohortSize} completed learners.`;
-}
+import {
+  LearnerAssignmentPresentation,
+  toLearnerAssignmentPresentationData,
+} from "../components/learner_assignment_presentation";
 
 export function AssignmentOverviewPage(): JSX.Element {
   const runtime = useApiRuntime();
@@ -69,7 +17,6 @@ export function AssignmentOverviewPage(): JSX.Element {
   const params = useParams();
   const [starting, setStarting] = createSignal(false);
   const [startError, setStartError] = createSignal<string>();
-  const session = useSessionBootstrap().state();
   const assignment = createAsync(() => {
     return resolveAssignmentRoute(runtime.client, params["assignmentRef"]).then((identity) =>
       runtime.queries.assignment(identity.assignmentId),
@@ -85,11 +32,6 @@ export function AssignmentOverviewPage(): JSX.Element {
       runtime.queries.courseScope(identity.courseId),
     );
   });
-  const mayEdit = (): boolean =>
-    session.kind === "authenticated" &&
-    session.session.user.roles.some((role) => role === "instructor" || role === "sysadmin") &&
-    course()?.summary.role === "instructor";
-
   async function startOrResume(): Promise<void> {
     const assignmentId = assignment()?.id;
     const courseId = course()?.summary.id;
@@ -116,159 +58,29 @@ export function AssignmentOverviewPage(): JSX.Element {
       <Suspense fallback={<p class="loading-state">Loading assignment...</p>}>
         <Show when={assignment()}>
           {(current) => (
-            <>
-              <p class="eyebrow">Assignment overview</p>
-              <h1>{current().title}</h1>
-              <p class="page-lede">
-                Work from the structures and concepts in front of you. Memorization is not the goal.
-              </p>
-              <Show when={current().instructions.length > 0}>
-                <section aria-labelledby="assignment-instructions-heading">
-                  <h2 id="assignment-instructions-heading">Instructions</h2>
-                  <p class="plain-text-instructions">{current().instructions}</p>
-                </section>
-              </Show>
-              <section aria-labelledby="delivery-details-heading">
-                <h2 id="delivery-details-heading">Delivery details</h2>
-                <p>Times are shown in the course time zone: {current().timeZone}.</p>
-                <dl class="assignment-facts">
-                  <div>
-                    <dt>Available</dt>
-                    <dd>
-                      {formatDeliveryTime(current().delivery.availableAt, current().timeZone)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Due</dt>
-                    <dd>{formatDeliveryTime(current().delivery.dueAt, current().timeZone)}</dd>
-                  </div>
-                  <div>
-                    <dt>Closes</dt>
-                    <dd>{formatDeliveryTime(current().delivery.closesAt, current().timeZone)}</dd>
-                  </div>
-                  <div>
-                    <dt>Whole-run limit</dt>
-                    <dd>{runTimeLimit(current().delivery.timeLimitSeconds)}</dd>
-                  </div>
-                  <div>
-                    <dt>Attempt limit</dt>
-                    <dd>{limit(current().delivery.attemptLimit, "attempt", "attempts")}</dd>
-                  </div>
-                  <div>
-                    <dt>Late work</dt>
-                    <dd>{lateWorkCopy(current().delivery.lateSubmission)}</dd>
-                  </div>
-                  <div>
-                    <dt>Deadline behavior</dt>
-                    <dd>The server automatically submits work at its effective deadline.</dd>
-                  </div>
-                  <div>
-                    <dt>Late status</dt>
-                    <dd>
-                      {current().delivery.lateStatus === "onTime"
-                        ? "On time"
-                        : current().delivery.lateStatus === "markedLate"
-                          ? "Accepted and marked late"
-                          : "Accepted late"}
-                    </dd>
-                  </div>
-                </dl>
-              </section>
-              <dl class="assignment-facts">
-                <div>
-                  <dt>Questions per run</dt>
-                  <dd>
-                    {current().items.filter((item) => item.deliveryState === "active").length +
-                      current().selectionGroups.reduce(
-                        (count, group) => count + group.drawCount,
-                        0,
-                      )}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Variation</dt>
-                  <dd>Each attempt is a fresh variation.</dd>
-                </div>
-                <div>
-                  <dt>Feedback</dt>
-                  <dd>Feedback and scores are available according to the assignment settings.</dd>
-                </div>
-                <Show when={summary()}>
-                  {(assignmentSummary) => (
-                    <>
-                      <div>
-                        <dt>Score status</dt>
-                        <dd role="status">{learnerProgressSummary(assignmentSummary())}</dd>
-                      </div>
-                      <Show
-                        when={
-                          assignmentSummary().scoreState === "available" &&
-                          assignmentSummary().scoringStatus === "current"
-                        }
-                      >
-                        <div>
-                          <dt>Current score</dt>
-                          <dd>{learnerScoreValue(assignmentSummary().currentScore)}</dd>
-                        </div>
-                        <div>
-                          <dt>Latest score</dt>
-                          <dd>{learnerScoreValue(assignmentSummary().latestScore)}</dd>
-                        </div>
-                        <div>
-                          <dt>Best score</dt>
-                          <dd>{learnerScoreValue(assignmentSummary().bestScore)}</dd>
-                        </div>
-                      </Show>
-                      <div>
-                        <dt>Completed runs</dt>
-                        <dd>{assignmentSummary().completedRunCount}</dd>
-                      </div>
-                      <div>
-                        <dt>Total attempts</dt>
-                        <dd>{assignmentSummary().totalQuestionAttempts}</dd>
-                      </div>
-                      <div>
-                        <dt>Last activity</dt>
-                        <dd>{formatActivity(assignmentSummary().lastActivityAt)}</dd>
-                      </div>
-                      <Show when={assignmentSummary().classStatistics}>
-                        {(statistics) => (
-                          <div>
-                            <dt>Class statistics</dt>
-                            <dd>{classStatisticsSummary(statistics())}</dd>
-                          </div>
-                        )}
-                      </Show>
-                    </>
-                  )}
-                </Show>
-              </dl>
-              <Show when={startError()}>
-                {(message) => (
-                  <p class="inline-error" role="alert">
-                    {message()}
-                  </p>
-                )}
-              </Show>
-              <Show when={mayEdit() && course()}>
-                {(currentCourse) => (
-                  <A
-                    class="quiet-action"
-                    href={`/instructor/courses/${courseRouteReference(currentCourse().summary.reference)}/assignments/${assignmentRouteReference(current().reference)}/edit`}
+            <LearnerAssignmentPresentation
+              assignment={toLearnerAssignmentPresentationData(current())}
+              progress={summary()}
+              primaryAction={
+                <>
+                  <Show when={startError()}>
+                    {(message) => (
+                      <p class="inline-error" role="alert">
+                        {message()}
+                      </p>
+                    )}
+                  </Show>
+                  <button
+                    class="primary-action wide-action"
+                    type="button"
+                    disabled={starting()}
+                    onClick={() => void startOrResume()}
                   >
-                    Edit assignment
-                  </A>
-                )}
-              </Show>
-              <button
-                class="primary-action wide-action"
-                type="button"
-                disabled={starting()}
-                onClick={() => void startOrResume()}
-              >
-                {starting() ? "Opening practice..." : "Start or continue practice"}
-              </button>
-            </>
+                    {starting() ? "Opening practice..." : "Start or continue practice"}
+                  </button>
+                </>
+              }
+            />
           )}
         </Show>
       </Suspense>

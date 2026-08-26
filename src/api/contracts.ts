@@ -39,9 +39,30 @@ import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { LearnerDisclosurePolicy } from "../../generated/api/LearnerDisclosurePolicy";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
+import type { AssignmentPublicationReadiness } from "../../generated/api/AssignmentPublicationReadiness";
+import type { InstructorStudentView } from "../../generated/api/InstructorStudentView";
+import type { CreateAssignmentDraftRequest } from "../../generated/api/CreateAssignmentDraftRequest";
+import type { ReplaceAssignmentPoliciesRequest } from "../../generated/api/ReplaceAssignmentPoliciesRequest";
+import type { AssignmentAudienceRequest } from "../../generated/api/AssignmentAudienceRequest";
 
-export type { AssignmentSummary, CourseSummary, LearnerAssignmentDetail, LearnerAssignmentSummary };
+export type {
+  AssignmentSummary,
+  CourseSummary,
+  InstructorStudentView,
+  LearnerAssignmentDetail,
+  LearnerAssignmentSummary,
+};
 export type { GradebookSummaryRow };
+export type {
+  CreateAssignmentDraftRequest as AssignmentDraftInput,
+  ReplaceAssignmentPoliciesRequest as AssignmentPoliciesInput,
+};
+
+/** Questions-owned browser input; readonly collections retain page draft ownership. */
+export interface AssignmentContentInput {
+  readonly title: string;
+  readonly entries: ReadonlyArray<AssignmentEditorEntryInput>;
+}
 
 /** One authorized course identity and its browser-safe appearance projection. */
 export interface CourseRouteData {
@@ -62,6 +83,10 @@ export interface AssignmentEditorDetail extends AssignmentSummary {
   readonly teachingSettings: InstructorAssignmentTeachingSettingsLocal;
   /** Server-derived current state at the response's authoritative instant. */
   readonly currentState: InstructorAssignmentCurrentState;
+  /** Closed, server-derived publication blockers for the current definition. */
+  readonly publicationReadiness: AssignmentPublicationReadiness;
+  /** Browser-safe course audience locator; it never contains group UUIDs. */
+  readonly audience: AssignmentAudienceRequest;
   /** Strong server-issued ETag; send it byte-for-byte when updating. */
   readonly revision: string;
 }
@@ -114,24 +139,6 @@ export type AssignmentEditorEntryInput =
       readonly pointsPerItem: string;
       readonly ordering: "candidateOrder" | "randomized";
     };
-
-/** The exact mutable body accepted for assignment creation and complete definition replacement. */
-export interface AssignmentCreateInput {
-  readonly title: string;
-  readonly entries: ReadonlyArray<AssignmentEditorEntryInput>;
-  readonly policies: RunPolicies;
-  /** Assignment-owned timing for each learner-facing disclosure field. */
-  readonly disclosurePolicy: LearnerDisclosurePolicy;
-}
-
-/** A revision-checked complete replacement in the shared entry-position namespace. */
-export interface AssignmentEditorInput {
-  readonly title: string;
-  readonly entries: ReadonlyArray<AssignmentEditorEntryInput>;
-  readonly policies: RunPolicies;
-  /** Assignment-owned timing for each learner-facing disclosure field. */
-  readonly disclosurePolicy: LearnerDisclosurePolicy;
-}
 
 export interface AddAssignmentItemInput {
   readonly questionId: string;

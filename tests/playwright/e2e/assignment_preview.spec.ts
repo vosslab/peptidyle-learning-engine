@@ -1,8 +1,8 @@
 // Assignment delivery checks on the one production PLE stack.
 //
 // Selector contract:
-// - src/pages/course_assignments_page.tsx:86 owns assignment cards and editor/preview links.
-// - src/pages/assignment_editor_page.tsx:522 owns the persisted delivery-check entry link.
+// - src/pages/course_assignments_page.tsx owns assignment cards and workspace entry links.
+// - src/pages/assignment_workspace/ owns the persisted delivery-check entry link.
 // - src/pages/assignment_preview_page.tsx:409 owns the preview cue, builder, and results.
 // - src/pages/teaching_operations/course_groups_panel.tsx:336 owns visible group creation.
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
@@ -73,9 +73,13 @@ async function createAccommodationGroup(page: Page, groupTitle: string): Promise
 
 async function createAssignment(page: Page, assignmentTitle: string): Promise<void> {
   await page.getByRole("link", { name: "New assignment", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Create assignment", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Create an assignment draft", exact: true }),
+  ).toBeVisible();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
-  await page.getByRole("button", { name: "Choose questions", exact: true }).click();
+  await page.getByRole("button", { name: "Create assignment draft", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Search question library", exact: true }).click();
   const picker = page.getByRole("dialog", { name: "Choose assignment questions", exact: true });
   await expect(picker).toBeVisible();
   await picker.getByLabel("Search questions", { exact: true }).fill(seededQuestionTitle);
@@ -84,32 +88,32 @@ async function createAssignment(page: Page, assignmentTitle: string): Promise<vo
   await picker.getByRole("button", { name: "Add selected questions", exact: true }).click();
   await expect(picker).toHaveCount(0);
   await expect(page.locator(".assignment-editor-list")).toContainText(seededQuestionTitle);
-  await page.getByRole("button", { name: "Create assignment" }).click();
-  await expect(page.getByText(`${assignmentTitle} now appears in this course.`)).toBeVisible();
+  await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Questions and order saved." })).toBeVisible();
 }
 
-async function enterAssignmentEditorFromList(page: Page, assignmentTitle: string): Promise<void> {
+async function enterAssignmentWorkspaceFromList(page: Page, assignmentTitle: string): Promise<void> {
   await page.getByRole("link", { name: "Assignments", exact: true }).click();
   const card = assignmentCard(page, assignmentTitle);
   await expect(card).toHaveCount(1);
-  const editorLink = card.getByRole("link", { name: "Edit assignment", exact: true });
-  await editorLink.focus();
-  await expect(editorLink).toBeFocused();
+  const titleLink = card.getByRole("link", { name: assignmentTitle, exact: true });
+  await titleLink.focus();
+  await expect(titleLink).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: "Assignment editor", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: assignmentTitle, exact: true })).toBeVisible();
 }
 
 async function publishScheduledAssignment(page: Page): Promise<void> {
-  const teaching = page.getByRole("region", { name: "Teaching operations" });
-  await teaching.getByLabel("Lifecycle").selectOption("published");
-  await teaching.getByLabel("Due").fill(dueAt);
-  await teaching.getByLabel("Closes").fill(closesAt);
-  await teaching.getByLabel("Whole-run seconds").fill("1800");
-  await teaching.getByLabel("Attempt limit").fill("2");
-  await teaching.getByLabel("Late work").selectOption("markLate");
-  await teaching.getByRole("button", { name: "Save teaching operations" }).click();
-  await expect(page.getByText("Teaching operations saved.", { exact: true })).toBeVisible();
-  await expect(page.getByTestId("assignment-current-state")).toHaveText("Published, open now.");
+  await page.getByRole("link", { name: "Policies", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
+  await page.getByLabel("Lifecycle").selectOption("published");
+  await page.getByLabel("Due").fill(dueAt);
+  await page.getByLabel("Closes").fill(closesAt);
+  await page.getByLabel("Whole-run seconds").fill("1800");
+  await page.getByLabel("Attempt limit").fill("2");
+  await page.getByLabel("Late work").selectOption("markLate");
+  await page.getByRole("button", { name: "Save assignment policies" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Assignment policies saved." })).toBeVisible();
 }
 
 async function openDeliveryCheckFromEditor(page: Page): Promise<string> {
@@ -179,9 +183,9 @@ async function changeDisclosureInSecondSession(page: Page): Promise<void> {
   await disclosure.getByLabel("Feedback text").selectOption("afterClose");
   await disclosure.getByLabel("Correct answer or solution").selectOption("never");
   await disclosure.getByLabel("Class statistics").selectOption("never");
-  await page.getByRole("button", { name: "Save title, order, and settings" }).click();
+  await page.getByRole("button", { name: "Save assignment policies" }).click();
   await expect(
-    page.getByRole("status").filter({ hasText: "Assignment title, order, and settings saved." }),
+    page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
   ).toBeVisible();
 }
 
@@ -336,7 +340,7 @@ test.describe("assignment delivery preview on the production PLE stack", () => {
         await selectVisibleCourse(local, BIOCHEMISTRY_COURSE_TITLE);
         await createAccommodationGroup(local, groupTitle);
         await createAssignment(local, assignmentTitle);
-        await enterAssignmentEditorFromList(local, assignmentTitle);
+        await enterAssignmentWorkspaceFromList(local, assignmentTitle);
         await publishScheduledAssignment(local);
         previewUrl = await openDeliveryCheckFromEditor(local);
       });
@@ -380,7 +384,8 @@ test.describe("assignment delivery preview on the production PLE stack", () => {
         configureContextAndPage(remoteContext, remote, actionTimeoutMs);
         await chooseSeededIdentity(remote, /Elena Rivera/u);
         await selectVisibleCourse(remote, BIOCHEMISTRY_COURSE_TITLE);
-        await enterAssignmentEditorFromList(remote, assignmentTitle);
+        await enterAssignmentWorkspaceFromList(remote, assignmentTitle);
+        await remote.getByRole("link", { name: "Policies", exact: true }).click();
         await changeDisclosureInSecondSession(remote);
 
         await activateDeliveryCheck(local, 412);

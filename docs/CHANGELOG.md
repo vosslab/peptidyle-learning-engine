@@ -4,6 +4,16 @@
 
 ### Additions and New Features
 
+- Added the WP-PROF-T6 W2 Instructor assignment workspace shell: canonical Overview, Questions,
+  Policies, and Student view routes share one course-authorized assignment load, assignment titles
+  open the Instructor Overview, and local navigation preserves the surrounding course management
+  context.
+- Extracted the answer-free learner assignment landing into a reusable presentation component;
+  ordinary learner overview retains query, progress, and start-or-resume control while Instructor
+  Student view can supply an informational action, context cue, and return link.
+- Implemented the Instructor Student-view landing: the current answer-free live assignment is
+  loaded through the exact course/assignment authority, rendered by the shared learner
+  presentation, and paired with stable-identity, no-mutation guidance to explicit Student entry.
 - Implemented the WP-PROF-B2 curriculum-adoption API and Instructor browser composition across
   preview-before-save adoption, rollover, term shifting, provenance receipts, controlled
   fast-forward, and divergence recovery.
@@ -86,6 +96,15 @@
 
 ### Decisions and Failures
 
+- Added the owner-directed `WP-PROF-T6` assignment-workspace binding plan and advanced the current
+  professor handoff to it before `WP-PROF-G1`. The assignment title becomes the canonical entry to
+  one Instructor assignment home; Questions and Policies become focused revision-checked pages; and
+  Student view renders the current answer-free learner landing while retaining the Instructor
+  session. ADAPT supplied comparison evidence for title navigation, child routes, and the familiar
+  view control; Peptidyle retains ordinary identity and enrolled-Student grading rather than
+  changing the Instructor into a generated student account. Permanent tests protect semantic
+  behavior and authority, while the ADAPT comparison, Graphify impact map, wire inspection, and
+  1280 by 800 walkthrough remain one-time package evidence.
 - A distribution clean exposed that Cargo's `target/` directory could not safely own a long-lived
   demo lease or control receipt. The interrupted legacy run also exposed that passing every
   dependency-related container ID to one `podman rm --depend` command can partially succeed and then

@@ -108,7 +108,7 @@ pub struct AssignmentRecord {
     pub title: String,
     /// Professor-controlled delivery state. Draft is never learner-visible.
     pub lifecycle: question_model::AssignmentLifecycle,
-    /// Learner-facing instructions owned with the assignment definition.
+    /// Learner-facing instructions owned by the assignment policy slice.
     pub instructions: question_model::AssignmentInstructions,
     /// Explicit current audience.  Course-wide and group-scoped delivery are
     /// different contracts; absence is not a compatible default.
@@ -137,6 +137,68 @@ pub struct StoredAssignment {
     pub scoring_status: ScoringStatus,
 }
 
+/// Complete server-owned defaults for a newly persisted assignment draft.
+///
+/// The browser supplies only a title. This value makes the remaining initial
+/// aggregate explicit and shared by every Store implementation.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NewAssignmentDraft {
+    pub record: AssignmentRecord,
+    pub base_policy: question_model::BaseAssignmentPolicy,
+    pub scoring_generation: ScoringGeneration,
+    pub scoring_status: ScoringStatus,
+}
+
+/// Creates the one authoritative incomplete Draft aggregate.
+pub fn new_assignment_draft(
+    tenant: TenantId,
+    course: CourseId,
+    assignment: AssignmentId,
+    title: String,
+) -> NewAssignmentDraft {
+    NewAssignmentDraft {
+        record: AssignmentRecord {
+            id: assignment,
+            tenant,
+            course_id: course,
+            title,
+            lifecycle: question_model::AssignmentLifecycle::Draft,
+            instructions: question_model::AssignmentInstructions::default(),
+            audience: question_model::AssignmentAudience::CourseWide,
+            items: Vec::new(),
+            selection_groups: Vec::new(),
+            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
+            policies: RunPolicies {
+                completion: question_model::CompletionRequirement::AnswerAll,
+                grade: question_model::GradePolicy::Highest,
+                continued_practice: question_model::ContinuedPractice::Unlimited,
+                variation: question_model::VariationPolicy::NewSeeds,
+            },
+        },
+        base_policy: question_model::BaseAssignmentPolicy::default(),
+        scoring_generation: ScoringGeneration::INITIAL,
+        scoring_status: ScoringStatus::Current,
+    }
+}
+
+/// Questions-owned fields for the current definition slice. Draft and
+/// Archived assignments may persist this slice without entries.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AssignmentContentUpdate {
+    pub title: String,
+    pub items: Vec<question_model::AssignmentItem>,
+    pub selection_groups: Vec<question_model::AssignmentSelectionGroup>,
+}
+
+/// Policies-owned fields, including the resolved absolute teaching settings.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AssignmentPoliciesUpdate {
+    pub audience: question_model::AssignmentAudience,
+    pub disclosure_policy: question_model::LearnerDisclosurePolicy,
+    pub policies: RunPolicies,
+    pub teaching_settings: question_model::AssignmentTeachingSettings,
+}
+
 /// Editable assignment fields supplied after the server has bound identity and
 /// course ownership from the authenticated route.
 #[derive(Debug, Clone, PartialEq)]
@@ -160,6 +222,55 @@ pub struct CreateAssignmentCommand {
     pub actor: UserId,
     pub assignment: AssignmentRecord,
     pub base_policy: question_model::BaseAssignmentPolicy,
+}
+
+/// Authenticated instructor command that creates a persisted incomplete Draft.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CreateAssignmentDraftCommand {
+    pub actor: UserId,
+    pub course: CourseId,
+    pub assignment: AssignmentId,
+    pub title: String,
+}
+
+/// Revision-checked update of exactly the Questions-owned assignment slice.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReplaceAssignmentContentCommand {
+    pub actor: UserId,
+    pub course: CourseId,
+    pub assignment: AssignmentId,
+    pub expected_revision: AssignmentRevision,
+    pub update: AssignmentContentUpdate,
+}
+
+/// Result of a complete Questions-page save.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ReplaceAssignmentContentOutcome {
+    /// The content slice replaced one aggregate revision.
+    Replaced(Box<StoredAssignment>),
+    /// The expected aggregate revision no longer matches current state.
+    RevisionConflict,
+    /// Learner evidence was issued before this structural replacement committed.
+    Issued,
+}
+
+/// Revision-checked update of exactly the Policies-owned assignment slice.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReplaceAssignmentPoliciesCommand {
+    pub actor: UserId,
+    pub course: CourseId,
+    pub assignment: AssignmentId,
+    pub expected_revision: AssignmentRevision,
+    pub update: AssignmentPoliciesUpdate,
+}
+
+/// Result of a complete Policies-page save.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ReplaceAssignmentPoliciesOutcome {
+    /// The policy slice replaced one aggregate revision.
+    Replaced(Box<StoredAssignment>),
+    /// The expected aggregate revision no longer matches current state.
+    RevisionConflict,
 }
 
 /// Authenticated instructor command that atomically replaces an assignment's
@@ -247,6 +358,36 @@ pub struct RemoveAssignmentFixedItemCommand {
     pub expected_revision: AssignmentRevision,
 }
 impl AssignmentRecord {
+    /// Derives the current publication readiness from the future-run definition.
+    pub fn publication_readiness(&self) -> question_model::AssignmentPublicationReadiness {
+        question_model::AssignmentPublicationReadiness::from_definition(
+            &self.items,
+            &self.selection_groups,
+        )
+    }
+
+    /// Replaces only the Questions-owned slice of this aggregate.
+    pub fn with_content_update(&self, update: AssignmentContentUpdate) -> Self {
+        Self {
+            title: update.title,
+            items: update.items,
+            selection_groups: update.selection_groups,
+            ..self.clone()
+        }
+    }
+
+    /// Replaces only the Policies-owned slice of this aggregate.
+    pub fn with_policies_update(&self, update: AssignmentPoliciesUpdate) -> Self {
+        Self {
+            lifecycle: update.teaching_settings.lifecycle,
+            instructions: update.teaching_settings.instructions,
+            audience: update.audience,
+            disclosure_policy: update.disclosure_policy,
+            policies: update.policies,
+            ..self.clone()
+        }
+    }
+
     /// Every pinned immutable reference in the current assignment definition.
     pub fn references(&self) -> impl Iterator<Item = ProblemVersionRef> + '_ {
         self.items.iter().map(|item| item.reference).chain(

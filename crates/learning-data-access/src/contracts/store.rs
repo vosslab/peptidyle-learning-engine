@@ -212,6 +212,33 @@ pub trait Store:
         CourseAssignmentStore::create_assignment_impl(self, context, command).await
     }
 
+    /// Creates one persisted assignment Draft with server-owned defaults.
+    async fn create_assignment_draft(
+        &self,
+        context: TenantContext,
+        command: CreateAssignmentDraftCommand,
+    ) -> Result<StoredAssignment, StoreError> {
+        CourseAssignmentStore::create_assignment_draft_impl(self, context, command).await
+    }
+
+    /// Replaces only the Questions-owned assignment content slice.
+    async fn replace_assignment_content(
+        &self,
+        context: TenantContext,
+        command: ReplaceAssignmentContentCommand,
+    ) -> Result<ReplaceAssignmentContentOutcome, StoreError> {
+        CourseAssignmentStore::replace_assignment_content_impl(self, context, command).await
+    }
+
+    /// Replaces only the Policies-owned assignment slice.
+    async fn replace_assignment_policies(
+        &self,
+        context: TenantContext,
+        command: ReplaceAssignmentPoliciesCommand,
+    ) -> Result<ReplaceAssignmentPoliciesOutcome, StoreError> {
+        CourseAssignmentStore::replace_assignment_policies_impl(self, context, command).await
+    }
+
     /// Atomically replaces content fields while preserving teaching settings.
     async fn replace_assignment(
         &self,

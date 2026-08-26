@@ -165,6 +165,7 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     read("/api/courses/{course}"),
     read("/api/courses/{course}/assignments"),
     mutation("/api/courses/{course}/assignments", "POST"),
+    mutation("/api/courses/{course}/assignments/drafts", "POST"),
     read("/api/courses/{course}/gradebook"),
     read("/api/courses/{course}/grade-scheme"),
     mutation("/api/courses/{course}/grade-scheme", "PUT"),
@@ -174,6 +175,16 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     read("/api/assignments/{assignment}/learner"),
     read("/api/assignments/{assignment}/summary"),
     mutation("/api/courses/{course}/assignments/{assignment}", "PUT"),
+    read("/api/courses/{course}/assignments/{assignment}"),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/content",
+        "PUT",
+    ),
+    mutation(
+        "/api/courses/{course}/assignments/{assignment}/policies",
+        "PUT",
+    ),
+    read("/api/courses/{course}/assignments/{assignment}/student-view"),
     mutation(
         "/api/courses/{course}/assignments/{assignment}/teaching-settings",
         "PUT",

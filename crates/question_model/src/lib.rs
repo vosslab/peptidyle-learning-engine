@@ -18,6 +18,8 @@ pub mod activity;
 pub mod answer;
 /// Stable assignment items, selection groups, and exact point values.
 pub mod assignment;
+/// Strict browser contracts and derived readiness for the Instructor assignment workspace.
+pub mod assignment_workspace;
 pub mod auth;
 /// Immutable public publication attribution, separate from private author authority.
 pub mod byline;
@@ -93,6 +95,12 @@ pub use crate::assignment::{
     MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS,
     MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES, PointValue, PoolDrawAlgorithm, ScoringGeneration,
     ScoringStatus, SelectionOrdering, derive_instructor_assignment_current_state,
+};
+pub use crate::assignment_workspace::{
+    AssignmentAudienceRequest, AssignmentEntryRequest, AssignmentPublicationBlockingIssue,
+    AssignmentPublicationReadiness, CreateAssignmentDraftRequest, InstructorStudentView,
+    InstructorStudentViewDelivery, ReplaceAssignmentContentRequest,
+    ReplaceAssignmentPoliciesRequest,
 };
 pub use crate::auth::{UserId, UserRole};
 pub use crate::byline::{PublicAuthorName, PublicByline, PublicBylineError};
