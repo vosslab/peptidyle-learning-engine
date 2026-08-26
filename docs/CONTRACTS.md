@@ -280,6 +280,9 @@ an apparently additive variant a consumer-breaking change.
 
 ## Boundary invariants
 
+- Apply the repository-specific boundary naming matrix in
+  [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md). In particular, browser JSON fields use
+  lower camel case while symbolic identifiers carried as values or map keys use snake case.
 - Rust modules, functions, and fields use snake case; Rust types and variants
   use upper camel case. Serde converts browser wire fields and discriminants to
   lower camel case. Raw wasm-bindgen snake-case exports stop at

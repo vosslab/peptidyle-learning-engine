@@ -2,9 +2,9 @@
 
 This map gives contributors the shortest route to the owner of a behavior.
 [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) explains how the pieces cooperate;
-[CONTRACTS.md](CONTRACTS.md) indexes durable rules. Release plans and dated
-status reports live under [active_plans/](active_plans/) and remain separate
-from this file map.
+[CONTRACTS.md](CONTRACTS.md) indexes durable rules, and
+[NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) owns cross-language naming. Release plans and dated
+status reports live under [active_plans/](active_plans/) and remain separate from this file map.
 
 ## Top-level layout
 

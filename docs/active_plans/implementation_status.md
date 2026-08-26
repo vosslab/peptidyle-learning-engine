@@ -14,8 +14,8 @@ order, validation, and acceptance. Durable product decisions remain in
 
 - **Current package:** `WP-PROF-B2` - explicit curriculum adoption, teaching-course instantiation,
   rollover, term shifting, normalized manifests, provenance, and controlled fast-forward or selected
-  copy over accepted B1 reusable meaning. The package owns allocated migrations `2026081838`,
-  `2026081839`, `2026081840`, and `2026081841`.
+  copy over accepted B1 reusable meaning. The package owns allocated migrations `2026081838` through
+  `2026081847`.
 - **Current acceptance predecessor:** `WP-PROF-B1` accepted 2026-08-25. Its focused Store now owns
   revisioned personal Blueprints and non-enrollable public Alpha curricula over exact publication
   pins, with creator-owned updates, approved-Instructor reading, answer-free inspection, and shared

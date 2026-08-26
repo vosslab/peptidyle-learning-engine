@@ -17,8 +17,8 @@ active implementation order, architecture, and acceptance gates remain in
   see [REPO_STYLE.md](REPO_STYLE.md#source-file-size).
 - Follow the language and test rules in [TYPESCRIPT_STYLE.md](TYPESCRIPT_STYLE.md),
   [RUST_STYLE.md](RUST_STYLE.md), [PYTEST_STYLE.md](PYTEST_STYLE.md),
-  [REPO_STYLE.md](REPO_STYLE.md), and [MARKDOWN_STYLE.md](MARKDOWN_STYLE.md). This guide does
-  not duplicate their detailed conventions.
+  [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md), [REPO_STYLE.md](REPO_STYLE.md), and
+  [MARKDOWN_STYLE.md](MARKDOWN_STYLE.md). This guide does not duplicate their detailed conventions.
 
 ## Set up and build
 
