@@ -84,11 +84,11 @@ export function AssignmentWorkspacePolicyPanel(
 
   return (
     <section
-      class="assignment-editor-policy-panel"
+      class="assignment-editor-policy-panel assignment-editor-policy-panel--run"
       aria-labelledby="assignment-run-policies-heading"
     >
       <h2 id="assignment-run-policies-heading">Run policies</h2>
-      <fieldset class="assignment-editor-policy-set">
+      <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--completion">
         <legend>Completion requirement</legend>
         <label class="assignment-editor-field">
           Completion
@@ -134,7 +134,7 @@ export function AssignmentWorkspacePolicyPanel(
           </label>
         </Show>
       </fieldset>
-      <fieldset class="assignment-editor-policy-set">
+      <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--grade">
         <legend>Grade policy</legend>
         <label class="assignment-editor-field">
           Record
@@ -155,7 +155,7 @@ export function AssignmentWorkspacePolicyPanel(
           </select>
         </label>
       </fieldset>
-      <fieldset class="assignment-editor-policy-set">
+      <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--practice">
         <legend>Continued practice</legend>
         <label class="assignment-editor-field">
           After completion
@@ -200,7 +200,7 @@ export function AssignmentWorkspacePolicyPanel(
           </label>
         </Show>
       </fieldset>
-      <fieldset class="assignment-editor-policy-set">
+      <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--variation">
         <legend>Variation policy</legend>
         <label class="assignment-editor-field">
           Next practice run
@@ -234,7 +234,7 @@ export function AssignmentWorkspacePolicyPanel(
           </Show>
         </label>
       </fieldset>
-      <fieldset class="assignment-editor-policy-set">
+      <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--disclosure">
         <legend>What students can see</legend>
         <p class="assignment-editor-note">
           Due and close choices stay withheld when that time is not set. The server applies the same

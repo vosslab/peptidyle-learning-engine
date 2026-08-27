@@ -331,6 +331,8 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
                 &store,
             )),
         ),
+        Arc::clone(&store) as Arc<dyn learning_data_access::LearnerSubmissionStatusStore>,
+        Arc::clone(&store) as Arc<dyn learning_data_access::AutomatedGradingStore>,
     );
     let run = app
         .clone()

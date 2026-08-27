@@ -85,12 +85,19 @@ async function createCourseAssignment(
   await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
   await page.getByLabel("Question IDs").fill(question);
   await page.getByRole("button", { name: "Add Question IDs", exact: true }).click();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Added 1 Question ID. Save questions and order when ready." }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
   await page.getByRole("link", { name: "Policies", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
   await page.getByLabel("Lifecycle").selectOption("published");
   await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Assignment policies saved.");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Students" }).click();
   await page.getByLabel("Institutional email").fill(maryEmail);
   await page.getByLabel("Institutional student ID").fill("BIO-MARY-005");

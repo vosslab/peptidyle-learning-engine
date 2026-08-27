@@ -32,11 +32,14 @@ mod feedback;
 mod flat_import_provenance;
 mod flat_question;
 mod flat_question_assets;
+mod grading_execution_worker;
+mod grading_operations;
 mod invitation_delivery;
 mod item_analysis;
 mod manual_grade_export;
 mod navigation_references;
 mod preview_plane;
+mod private_submission;
 mod problem_curation;
 #[cfg(test)]
 mod problem_curation_tests;
@@ -63,6 +66,10 @@ use course_assignments::{assignment_record, enrollment_record};
 use course_policy::{
     memory_assignment_has_results, memory_effective_policy_inputs_for_grant,
     store_issued_effective_policy_receipt, validate_memory_assignment_references,
+};
+use private_submission::{
+    StoredPrivateSubmissionResponse, stored_submission_matches_canonical,
+    stored_submission_matches_response,
 };
 use runs::submit_question_attempt_locked;
 use statistics::stage_statistics_contributions;
@@ -108,11 +115,11 @@ use crate::{
     AssignmentDefinitionDisposition, AssignmentRecord, AssignmentRevision, AttemptSupportAction,
     AttemptSupportActionId, AttemptSupportRecord, AuthenticationRateLimitKey,
     AuthenticationRateLimitScope, CatalogSearchCursorKey, CatalogSourceStore, CatalogStore,
-    CatalogTransition, ClearAttemptCommand, CourseEnrollmentPolicy, CourseGroupRecord,
-    CourseGroupRevision, CourseInvitationId, CourseInvitationSecretHash, CourseListScope,
-    CourseMemberStatus, CourseMembershipRecord, CourseRecord, CourseRecordsAccessStore,
-    CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState, CourseRetentionView,
-    CourseRosterId, CourseRosterSupportAudit, CreateAssignmentCommand,
+    CatalogTransition, ClearAttemptCommand, CompletedSubmissionReceipt, CourseEnrollmentPolicy,
+    CourseGroupRecord, CourseGroupRevision, CourseInvitationId, CourseInvitationSecretHash,
+    CourseListScope, CourseMemberStatus, CourseMembershipRecord, CourseRecord,
+    CourseRecordsAccessStore, CourseRetentionRecord, CourseRetentionSnapshot, CourseRetentionState,
+    CourseRetentionView, CourseRosterId, CourseRosterSupportAudit, CreateAssignmentCommand,
     CreateAssignmentDraftCommand, CredentialIdHash, Cursor, DeleteAndRegradeAssignmentItemCommand,
     DeleteGroupAccommodationCommand, DeleteGroupScheduleOffsetCommand,
     DeleteIndividualPolicyExceptionCommand, DraftRecord, EffectivePolicyResolution,
@@ -134,7 +141,7 @@ use crate::{
     SubmissionIdempotencyKey, SubmissionNextAttempt, SubmissionRecord,
     SubmitQuestionAttemptCommand, TenantContext, WebauthnCeremony, WebauthnCeremonyId,
     WebworkGradeReplayStateV1, WorkspaceDraft, WorkspaceDraftRevision, WorkspaceDraftRole,
-    WorkspaceFlatQuestionSource, assignment_content_structurally_changed,
+    WorkspaceFlatQuestionSource, assignment_content_changes_issued_work,
     assignment_item_is_retired, assignment_scoring_changed, completed_run_score,
     current_run_questions, decode_catalog_search_cursor, delete_and_regrade_update,
     encode_catalog_search_cursor, ensure_tenant, grade_policy, private_feedback_record,
@@ -142,6 +149,20 @@ use crate::{
     validate_assignment, validate_course, validate_course_group, validate_draft,
     validate_published, validate_qti_publication_promotion,
 };
+
+pub(super) fn completed_submission_receipt_from_record(
+    record: SubmissionRecord,
+) -> CompletedSubmissionReceipt {
+    let mut attempt = record.attempt;
+    attempt.response = None;
+    CompletedSubmissionReceipt {
+        attempt,
+        feedback: record.feedback,
+        run: record.run,
+        summary: record.summary,
+        presentation: record.presentation,
+    }
+}
 
 mod manual_grading;
 
@@ -687,6 +708,30 @@ struct State {
     prefetched_private_execution:
         BTreeMap<(TenantId, RunId, QuestionAttemptId, u32), PrefetchedPrivateExecutionV1>,
     submissions: BTreeMap<(TenantId, QuestionAttemptId), StoredSubmission>,
+    /// Server-private learner responses, keyed by the immutable submission
+    /// identity. Ordinary receipt and attempt readers return answer-free
+    /// metadata; the lease-bound execution capability is the sole operation
+    /// that materializes accepted input for grading.
+    private_submission_responses:
+        BTreeMap<(TenantId, QuestionAttemptId), StoredPrivateSubmissionResponse>,
+    automated_grading_executions: BTreeMap<(TenantId, QuestionAttemptId), crate::GradingExecution>,
+    /// Current learner-safe automated evaluation projection. The immutable
+    /// accepted input is owned by `submissions`; W4 advances this projection
+    /// only through an execution receipt.
+    automated_grading_evaluations:
+        BTreeMap<(TenantId, QuestionAttemptId), question_model::SubmissionEvaluationStatus>,
+    automated_grading_operations:
+        BTreeMap<(TenantId, question_model::GradingOperationReference), crate::GradingOperation>,
+    automated_grading_execution_receipts:
+        BTreeMap<(TenantId, QuestionAttemptId), Vec<crate::GradingExecutionReceipt>>,
+    /// Active worker fence for one leased accepted-submission execution. This
+    /// remains separate from learner/instructor identities and is cleared by
+    /// every durable terminal or retry transition.
+    automated_grading_execution_workers: BTreeMap<(TenantId, QuestionAttemptId), crate::WorkerId>,
+    /// Successful automated evaluation evidence remains private and keeps the
+    /// exact Rust canonical bytes attested by the worker boundary.
+    automated_grading_result_evidence:
+        BTreeMap<(TenantId, QuestionAttemptId), crate::CanonicalAttemptResult>,
     submission_next_attempts:
         BTreeMap<(TenantId, QuestionAttemptId), Option<crate::ReceiptNextAttempt>>,
     feedback_releases: BTreeMap<(TenantId, QuestionAttemptId), FeedbackReleaseRecord>,
@@ -847,12 +892,51 @@ struct StoredExport {
     artifacts: Option<Vec<ExportArtifactRecord>>,
 }
 
-/// Immutable first result retained for exact submission replay.
-#[derive(Debug, Clone)]
+/// Canonical immutable accepted input and its later receipt projection.
+///
+/// A pending input deliberately has no completed receipt. Receipt readers
+/// expose that durable state explicitly instead of inventing feedback, score,
+/// or a terminal attempt state.
+#[derive(Clone)]
 struct StoredSubmission {
     key: SubmissionIdempotencyKey,
-    response: StudentResponse,
-    record: SubmissionRecord,
+    state: StoredSubmissionState,
+}
+
+#[derive(Clone)]
+enum StoredSubmissionState {
+    AcceptedPending(crate::AcceptedSubmission),
+    Completed(Box<CompletedSubmissionReceipt>),
+}
+
+impl StoredSubmission {
+    fn completed_record_opt(&self) -> Option<&CompletedSubmissionReceipt> {
+        match &self.state {
+            StoredSubmissionState::AcceptedPending(_) => None,
+            StoredSubmissionState::Completed(record) => Some(record),
+        }
+    }
+
+    fn accepted_pending(&self) -> Option<&crate::AcceptedSubmission> {
+        match &self.state {
+            StoredSubmissionState::AcceptedPending(accepted) => Some(accepted),
+            StoredSubmissionState::Completed(_) => None,
+        }
+    }
+}
+
+impl std::fmt::Debug for StoredSubmission {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let state = match self.state {
+            StoredSubmissionState::AcceptedPending(_) => "acceptedPending",
+            StoredSubmissionState::Completed(_) => "completed",
+        };
+        formatter
+            .debug_struct("StoredSubmission")
+            .field("key", &"[REDACTED]")
+            .field("state", &state)
+            .finish()
+    }
 }
 
 /// Tenant-owned idempotency marker for a first-completed-run contribution.

@@ -13,8 +13,8 @@ use learning_data_access::{
     WebworkGradingCapability,
 };
 use question_model::{
-    AttemptProvenance, AttemptResult, FeedbackContent, ProblemVersionRef, QuestionAttempt,
-    QuestionDefinition, QuestionEnvelope, StudentResponse,
+    AttemptProvenance, AttemptResult, FeedbackContent, GradingOperationReason, ProblemVersionRef,
+    QuestionAttempt, QuestionDefinition, QuestionEnvelope, StudentResponse,
 };
 
 /// Server-only metadata produced while a trusted adapter issues one instance.
@@ -259,6 +259,27 @@ pub trait RunBackend: Send + Sync {
     }
 }
 
+/// Closed deterministic failure category from a trusted grader.
+///
+/// This contains no backend detail because callers may safely convert it to an
+/// Instructor-facing operation reason after durable accepted input exists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeterministicGraderFailure {
+    Contract,
+    Execution,
+    IssuedEvidenceIntegrity,
+}
+
+impl DeterministicGraderFailure {
+    pub const fn operation_reason(self) -> GradingOperationReason {
+        match self {
+            Self::Contract => GradingOperationReason::GraderContractFailure,
+            Self::Execution => GradingOperationReason::GraderExecutionFailure,
+            Self::IssuedEvidenceIntegrity => GradingOperationReason::IssuedEvidenceIntegrity,
+        }
+    }
+}
+
 /// Failure from the selected trusted adapter or grading implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RunBackendError {
@@ -268,6 +289,8 @@ pub enum RunBackendError {
     Invalid(String),
     /// A renderer or backend dependency is temporarily unavailable.
     Unavailable(String),
+    /// A post-validation deterministic grader failure with a safe closed category.
+    Deterministic(DeterministicGraderFailure),
 }
 
 impl std::fmt::Display for RunBackendError {
@@ -276,8 +299,32 @@ impl std::fmt::Display for RunBackendError {
             Self::Unsupported(message) => write!(formatter, "unsupported run behavior: {message}"),
             Self::Invalid(message) => write!(formatter, "invalid run backend data: {message}"),
             Self::Unavailable(message) => write!(formatter, "run backend unavailable: {message}"),
+            Self::Deterministic(failure) => {
+                write!(formatter, "deterministic grader failure: {failure:?}")
+            }
         }
     }
 }
 
 impl std::error::Error for RunBackendError {}
+
+#[cfg(test)]
+mod tests {
+    use super::{DeterministicGraderFailure, GradingOperationReason};
+
+    #[test]
+    fn deterministic_grader_failures_have_only_safe_operation_reasons() {
+        assert_eq!(
+            DeterministicGraderFailure::Contract.operation_reason(),
+            GradingOperationReason::GraderContractFailure
+        );
+        assert_eq!(
+            DeterministicGraderFailure::Execution.operation_reason(),
+            GradingOperationReason::GraderExecutionFailure
+        );
+        assert_eq!(
+            DeterministicGraderFailure::IssuedEvidenceIntegrity.operation_reason(),
+            GradingOperationReason::IssuedEvidenceIntegrity
+        );
+    }
+}

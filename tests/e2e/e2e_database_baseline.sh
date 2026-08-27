@@ -290,7 +290,7 @@ run_project_tools verify
 
 echo "database baseline E2E: bounded SQLx serialization retry"
 run_live_cargo_test "bounded SQLx serialization retry" cargo test -p learning-data-access --features postgres \
-	postgres::connection::tests::concurrent_serialization_failure_is_retried_and_commits \
+	postgres::connection::transaction_retry_live::concurrent_serialization_failure_is_retried_and_commits \
 	--lib -- --ignored --exact --test-threads=1
 
 echo "database baseline E2E: passwordless account, roster, and role separation"

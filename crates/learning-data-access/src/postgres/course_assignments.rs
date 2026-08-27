@@ -197,7 +197,7 @@ impl crate::CourseAssignmentStore for PostgresStore {
         validate_postgres_assignment_references(&mut transaction, context, &replacement).await?;
         let base_policy =
             load_base_policy(&mut transaction, context.tenant_id(), assignment).await?;
-        let outcome = if assignment_content_structurally_changed(&previous, &replacement) {
+        let outcome = if assignment_content_changes_issued_work(&previous, &replacement) {
             match assignment_definition_capability::replace_unissued(
                 &mut transaction,
                 context,

@@ -1,0 +1,657 @@
+//! Immutable submission-receipt reads and exact replay binding.
+
+use super::*;
+use crate::{LearnerWorkRoutingBinding, ReceiptPresentationSnapshot};
+
+#[async_trait::async_trait]
+impl crate::LearnerSubmissionStatusStore for PostgresStore {
+    async fn learner_submission_status(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        binding: LearnerWorkRoutingBinding,
+        attempt: QuestionAttemptId,
+    ) -> Result<crate::LearnerSubmissionStatusRead, StoreError> {
+        let mut transaction = self.begin_tenant(context).await?;
+        // ASVS V8.2.2/V8.3.1: the complete nested route assertion is part of
+        // this authoritative status boundary.
+        if require_attempt_owner_for_read(&mut transaction, context.tenant_id(), attempt, actor)
+            .await?
+            != binding
+        {
+            return Err(StoreError::NotFound);
+        }
+        let status =
+            learner_submission_status(&mut transaction, context.tenant_id(), attempt).await?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(status)
+    }
+}
+
+/// Closed durable state used only by the route-bound learner status reader.
+///
+/// This contains no job, execution, evaluation reason, or score identity;
+/// callers combine it with the validated immutable receipt aggregate before
+/// producing the public answer-free status projection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum AcceptedSubmissionStatusState {
+    Pending,
+    InstructorAttention,
+    Completed,
+    Contradictory,
+}
+
+/// Reads the coupled accepted-submission execution and evaluation state.
+///
+/// The caller has already established the exact learner route witness in the
+/// same tenant transaction.  The fixed query is deliberately bounded to the
+/// opaque attempt and tenant; it returns no response, job, worker, reason,
+/// feedback, or result data (ASVS V1.2.4 and V8.2.2).
+#[cfg(feature = "postgres")]
+pub(super) async fn load_accepted_submission_status_state(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+) -> Result<Option<AcceptedSubmissionStatusState>, StoreError> {
+    let row = sqlx::query(
+        "SELECT execution.state AS execution_state, evaluation.grading_status AS evaluation_status \
+         FROM grading_execution AS execution \
+         JOIN submission_evaluation AS evaluation \
+           ON evaluation.tenant_id = execution.tenant_id \
+          AND evaluation.attempt_id = execution.attempt_id \
+         WHERE execution.tenant_id = $1 AND execution.attempt_id = $2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(attempt.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    row.map(|row| {
+        let execution: String = row.try_get("execution_state").map_err(map_sqlx_error)?;
+        let evaluation: String = row.try_get("evaluation_status").map_err(map_sqlx_error)?;
+        Ok(match (execution.as_str(), evaluation.as_str()) {
+            ("ready" | "running" | "retry_wait", "automated_pending") => {
+                AcceptedSubmissionStatusState::Pending
+            }
+            (_, "needs_manual_grading") | ("exception", "automated_exception") => {
+                AcceptedSubmissionStatusState::InstructorAttention
+            }
+            ("completed", "graded" | "exempt") => AcceptedSubmissionStatusState::Completed,
+            _ => AcceptedSubmissionStatusState::Contradictory,
+        })
+    })
+    .transpose()
+}
+
+/// Combines the canonical immutable receipt reader with the coupled accepted
+/// execution/evaluation state.  The caller establishes authorization before
+/// invoking this function in its tenant transaction.
+#[cfg(feature = "postgres")]
+pub(super) async fn learner_submission_status(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+) -> Result<crate::LearnerSubmissionStatusRead, StoreError> {
+    let receipt = load_submission_record(transaction, tenant, attempt)
+        .await
+        .map_err(|error| match error {
+            StoreError::Conflict | StoreError::NotFound => StoreError::Unavailable(
+                "learner submission status has an invalid durable aggregate".to_string(),
+            ),
+            other => other,
+        })?;
+    let durable = load_accepted_submission_status_state(transaction, tenant, attempt).await?;
+    match (receipt, durable) {
+        (crate::SubmissionReceiptRead::Missing, _) => Err(StoreError::NotFound),
+        (
+            crate::SubmissionReceiptRead::AcceptedPending(pending),
+            Some(AcceptedSubmissionStatusState::Pending),
+        ) => Ok(crate::LearnerSubmissionStatusRead::AcceptedPending(pending)),
+        (
+            crate::SubmissionReceiptRead::AcceptedPending(pending),
+            Some(AcceptedSubmissionStatusState::InstructorAttention),
+        ) => Ok(crate::LearnerSubmissionStatusRead::InstructorAttention(
+            pending,
+        )),
+        (
+            crate::SubmissionReceiptRead::Completed(record),
+            Some(AcceptedSubmissionStatusState::Completed),
+        ) => Ok(crate::LearnerSubmissionStatusRead::Completed(record)),
+        _ => Err(StoreError::Unavailable(
+            "learner submission status has no coherent durable aggregate".to_string(),
+        )),
+    }
+}
+
+/// Returns the durable receipt state for one exact retry before any grader runs.
+#[cfg(feature = "postgres")]
+pub(super) async fn load_submission_replay(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+    response: &StudentResponse,
+    idempotency_key: &SubmissionIdempotencyKey,
+) -> Result<crate::SubmissionReceiptRead, StoreError> {
+    let Some(metadata) = load_submission_replay_metadata(transaction, tenant, attempt).await?
+    else {
+        return Ok(crate::SubmissionReceiptRead::Missing);
+    };
+    if metadata.idempotency_key != idempotency_key.as_str() {
+        return Err(StoreError::Conflict);
+    }
+    match metadata.request_contract_version {
+        0 => {
+            let (_, response_checksum) = encode_payload(response)?;
+            if metadata.request_sha256 != response_checksum {
+                return Err(StoreError::Conflict);
+            }
+        }
+        2 => {
+            validate_accepted_replay_metadata(&metadata, response, idempotency_key)?;
+        }
+        _ => return Err(StoreError::Conflict),
+    }
+    load_submission_record(transaction, tenant, attempt).await
+}
+
+pub(super) struct SubmissionReplayMetadata {
+    pub(super) idempotency_key: String,
+    pub(super) request_contract_version: i16,
+    pub(super) request_sha256: String,
+}
+
+/// Reads only the stable replay identity shared by legacy and accepted-input
+/// flows. Callers request a payload separately only after selecting legacy
+/// contract 0 (ASVS 8.1-8.4 and 14.2).
+pub(super) async fn load_submission_replay_metadata(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+) -> Result<Option<SubmissionReplayMetadata>, StoreError> {
+    sqlx::query(
+        "SELECT idempotency_key, request_contract_version, request_sha256 \
+         FROM submission_idempotency WHERE tenant_id = $1 AND attempt_id = $2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(attempt.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)
+    .and_then(|row| {
+        row.map(|row| {
+            Ok(SubmissionReplayMetadata {
+                idempotency_key: row.try_get("idempotency_key").map_err(map_sqlx_error)?,
+                request_contract_version: row
+                    .try_get("request_contract_version")
+                    .map_err(map_sqlx_error)?,
+                request_sha256: row.try_get("request_sha256").map_err(map_sqlx_error)?,
+            })
+        })
+        .transpose()
+    })
+}
+
+/// Produces the one canonical digest accepted by the G1 broker.
+///
+/// `StudentResponse` is already a closed type. Its shared canonical serializer
+/// is therefore the only digest source; JSONB is parsed solely for structural
+/// equality with the immutable stored input.
+#[cfg(feature = "postgres")]
+pub(super) fn automated_response_digest(response: &StudentResponse) -> Result<String, StoreError> {
+    let canonical = crate::canonical_student_response_json(response)?;
+    Ok(Sha256Digest::compute(canonical.as_bytes()).to_string())
+}
+
+/// Produces the accepted-input replay state from answer-free metadata only.
+///
+/// ASVS 1.5.2-1.5.3, 2.3, and 14.2: an exact v2 retry binds its typed response
+/// to the stored canonical digest without loading any generic response field.
+pub(super) fn accepted_pending_replay_from_metadata(
+    metadata: &SubmissionReplayMetadata,
+    response: &StudentResponse,
+    idempotency_key: &SubmissionIdempotencyKey,
+    attempt: QuestionAttemptId,
+) -> Result<crate::SubmissionReceiptRead, StoreError> {
+    validate_accepted_replay_metadata(metadata, response, idempotency_key)?;
+    Ok(crate::SubmissionReceiptRead::AcceptedPending(
+        crate::AcceptedSubmissionPending::new(attempt),
+    ))
+}
+
+/// Validates accepted replay identity without selecting a current receipt
+/// state. The receipt loader is the durable pending-versus-completed source.
+#[cfg(feature = "postgres")]
+fn validate_accepted_replay_metadata(
+    metadata: &SubmissionReplayMetadata,
+    response: &StudentResponse,
+    idempotency_key: &SubmissionIdempotencyKey,
+) -> Result<(), StoreError> {
+    if metadata.idempotency_key != idempotency_key.as_str()
+        || metadata.request_contract_version != 2
+        || metadata.request_sha256 != automated_response_digest(response)?
+    {
+        return Err(StoreError::Conflict);
+    }
+    Ok(())
+}
+
+/// Reads the immutable receipt state for one owned submission.
+///
+/// The idempotency row establishes accepted input; the normalized immutable
+/// receipt establishes completion. Receipt reads never rebuild learner work
+/// from mutable attempt or catalog records.
+#[cfg(feature = "postgres")]
+pub(super) async fn load_submission_record(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+) -> Result<crate::SubmissionReceiptRead, StoreError> {
+    let Some(metadata) = load_submission_replay_metadata(transaction, tenant, attempt).await?
+    else {
+        return Ok(crate::SubmissionReceiptRead::Missing);
+    };
+    if !matches!(metadata.request_contract_version, 0 | 2) {
+        return Err(StoreError::Conflict);
+    }
+    let Some(receipt) = load_submission_receipt_snapshot(transaction, tenant, attempt).await?
+    else {
+        return if metadata.request_contract_version == 2 {
+            Ok(crate::SubmissionReceiptRead::AcceptedPending(
+                crate::AcceptedSubmissionPending::new(attempt),
+            ))
+        } else {
+            Err(StoreError::Unavailable(
+                "completed submission receipt snapshot is missing".to_string(),
+            ))
+        };
+    };
+    if metadata.request_contract_version == 2 {
+        validate_accepted_completed_evaluation(transaction, tenant, attempt, &receipt.attempt)
+            .await?;
+    }
+    let enrollment = load_postgres_enrollment(transaction, tenant, receipt.run.enrollment).await?;
+    let assignment = load_assignment(transaction, tenant, enrollment.assignment).await?;
+    // Current disclosure is applied only after every immutable receipt field
+    // has been decoded and cross-checked.
+    let disclosure = super::submission::current_disclosure_input(
+        transaction,
+        tenant,
+        &assignment,
+        attempt,
+        receipt.attempt.timer.submitted_at,
+    )
+    .await?;
+    Ok(crate::SubmissionReceiptRead::Completed(Box::new(
+        receipt.into_submission_record(disclosure),
+    )))
+}
+
+/// Verifies accepted-worker evaluation evidence against its frozen receipt.
+/// The canonical pair is byte-attested; the JSONB projection is independently
+/// checksummed before it becomes a typed result.
+#[cfg(feature = "postgres")]
+async fn validate_accepted_completed_evaluation(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+    receipt_attempt: &QuestionAttempt,
+) -> Result<(), StoreError> {
+    if receipt_attempt.status != AttemptStatus::Submitted || receipt_attempt.result.is_none() {
+        return Err(StoreError::Unavailable(
+            "accepted completed receipt has an invalid terminal attempt".to_string(),
+        ));
+    }
+    let row = sqlx::query(
+        "SELECT grading_status, payload AS evaluation_payload, \
+                automated_result_canonical_json, automated_result_sha256, \
+                automated_result_canonical_json_version \
+         FROM submission_evaluation \
+         WHERE tenant_id = $1 AND attempt_id = $2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(attempt.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?
+    .ok_or_else(|| {
+        StoreError::Unavailable("completed receipt evaluation is missing".to_string())
+    })?;
+    let status: String = row.try_get("grading_status").map_err(map_sqlx_error)?;
+    if !matches!(status.as_str(), "graded" | "exempt") {
+        return Err(StoreError::Unavailable(
+            "completed receipt evaluation is not terminal".to_string(),
+        ));
+    }
+    let version: Option<i16> = row
+        .try_get("automated_result_canonical_json_version")
+        .map_err(map_sqlx_error)?;
+    let source: Option<String> = row
+        .try_get("automated_result_canonical_json")
+        .map_err(map_sqlx_error)?;
+    let checksum: Option<String> = row
+        .try_get("automated_result_sha256")
+        .map_err(map_sqlx_error)?;
+    let (Some(version), Some(source), Some(checksum)) = (version, source, checksum) else {
+        return Err(StoreError::Unavailable(
+            "completed receipt canonical evaluation evidence is missing".to_string(),
+        ));
+    };
+    let projection: Value = row.try_get("evaluation_payload").map_err(map_sqlx_error)?;
+    let projection: AttemptResult = decode_canonical_json_parts(
+        "submission evaluation result",
+        version,
+        source,
+        projection,
+        checksum,
+    )?;
+    crate::validate_attempt_result(projection).map_err(|_| {
+        StoreError::Unavailable("completed receipt result evidence is invalid".to_string())
+    })?;
+    if receipt_attempt.result != Some(projection) {
+        return Err(StoreError::Unavailable(
+            "completed receipt result disagrees with evaluation projection".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Reads one complete immutable, answer-free receipt aggregate.
+#[cfg(feature = "postgres")]
+pub(super) async fn load_submission_receipt_snapshot(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+) -> Result<Option<crate::CompletedSubmissionReceipt>, StoreError> {
+    let row = sqlx::query(
+        "SELECT canonical_json_version, receipt_attempt_canonical_json, receipt_attempt_payload, \
+                receipt_attempt_payload_sha256, run_canonical_json, run_payload, \
+                run_payload_sha256, summary_canonical_json, summary_payload, \
+                summary_payload_sha256, presentation_canonical_json, presentation_payload, \
+                presentation_payload_sha256, presentation_required \
+         FROM submission_receipt_snapshot WHERE tenant_id = $1 AND attempt_id = $2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(attempt.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    let Some(row) = row else {
+        return Ok(None);
+    };
+    let version: i16 = row
+        .try_get("canonical_json_version")
+        .map_err(map_sqlx_error)?;
+    let receipt_attempt: QuestionAttempt = decode_canonical_json_row_named(
+        &row,
+        "submission receipt attempt",
+        "canonical_json_version",
+        "receipt_attempt_canonical_json",
+        "receipt_attempt_payload",
+        "receipt_attempt_payload_sha256",
+    )?;
+    validate_receipt_attempt_snapshot(tenant, attempt, &receipt_attempt)?;
+    let run: AssignmentRun = decode_canonical_json_row_named(
+        &row,
+        "submission receipt run",
+        "canonical_json_version",
+        "run_canonical_json",
+        "run_payload",
+        "run_payload_sha256",
+    )?;
+    let summary: StudentAssignmentSummary = decode_canonical_json_row_named(
+        &row,
+        "submission receipt summary",
+        "canonical_json_version",
+        "summary_canonical_json",
+        "summary_payload",
+        "summary_payload_sha256",
+    )?;
+    if run.tenant != tenant
+        || receipt_attempt.run != run.id
+        || summary.tenant != tenant
+        || summary.enrollment != run.enrollment
+    {
+        return Err(StoreError::Unavailable(
+            "receipt aggregate identities disagree".to_string(),
+        ));
+    }
+    let presentation_required: bool = row
+        .try_get("presentation_required")
+        .map_err(map_sqlx_error)?;
+    let presentation = decode_receipt_presentation(&row, version, presentation_required)?;
+    let feedback = load_attempt_feedback(transaction, tenant, attempt).await?;
+    // Receipt presentation must agree with the immutable issuance snapshot.
+    // A mismatch is unavailable authority, never a current-catalog fallback.
+    let issued = load_issued_presentation(transaction, tenant, &receipt_attempt).await?;
+    if presentation != issued {
+        return Err(StoreError::Unavailable(
+            "submission receipt presentation does not match its issued snapshot".to_string(),
+        ));
+    }
+    Ok(Some(crate::CompletedSubmissionReceipt {
+        attempt: receipt_attempt,
+        feedback,
+        run,
+        summary,
+        presentation,
+    }))
+}
+
+#[cfg(feature = "postgres")]
+fn validate_receipt_attempt_snapshot(
+    tenant: TenantId,
+    attempt: QuestionAttemptId,
+    receipt_attempt: &QuestionAttempt,
+) -> Result<(), StoreError> {
+    if receipt_attempt.tenant != tenant || receipt_attempt.id != attempt {
+        return Err(StoreError::Unavailable(
+            "receipt attempt snapshot identity disagrees with receipt row".to_string(),
+        ));
+    }
+    if receipt_attempt.response.is_some()
+        || !matches!(
+            receipt_attempt.status,
+            AttemptStatus::Submitted
+                | AttemptStatus::AutoSubmitted
+                | AttemptStatus::NeedsManualGrading
+                | AttemptStatus::Exempt
+        )
+    {
+        return Err(StoreError::Unavailable(
+            "receipt attempt snapshot is not answer-free terminal evidence".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Reads and validates the exact presentation frozen at issue time without
+/// acquiring mutation authority. Receipt replay is a projection over the same
+/// immutable issued evidence.
+pub(super) async fn load_issued_presentation(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    attempt: &QuestionAttempt,
+) -> Result<Option<ReceiptPresentationSnapshot>, StoreError> {
+    let row = sqlx::query(
+        "SELECT presentation_descriptor_version, presentation_nonce, presentation_digest, \
+                presentation_capability, presentation_payload, presentation_payload_sha256, \
+                grading_envelope_payload, grading_envelope_payload_sha256 \
+         FROM question_attempt WHERE tenant_id = $1 AND attempt_id = $2 \
+         ORDER BY occurred_at LIMIT 1",
+    )
+    .bind(tenant.as_uuid())
+    .bind(attempt.id.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?
+    .ok_or(StoreError::NotFound)?;
+    let capability = super::runs::attempt_issuance::presentation_capability_from_row(&row)?;
+    let binding = decode_presentation_binding_row(&row)?;
+    let snapshot =
+        super::runs::attempt_issuance::decode_attempt_presentation_snapshot(&row, capability)?;
+    let grading_envelope =
+        super::runs::attempt_issuance::decode_attempt_grading_envelope(&row, capability)?;
+    let snapshot = crate::validate_issued_presentation(
+        capability,
+        attempt,
+        binding,
+        snapshot.as_ref(),
+        grading_envelope.as_ref(),
+    )?;
+    Ok(snapshot)
+}
+
+#[cfg(feature = "postgres")]
+fn decode_receipt_presentation(
+    row: &PgRow,
+    version: i16,
+    required: bool,
+) -> Result<Option<ReceiptPresentationSnapshot>, StoreError> {
+    let source: Option<String> = row
+        .try_get("presentation_canonical_json")
+        .map_err(map_sqlx_error)?;
+    let payload: Option<Value> = row
+        .try_get("presentation_payload")
+        .map_err(map_sqlx_error)?;
+    let checksum: Option<String> = row
+        .try_get("presentation_payload_sha256")
+        .map_err(map_sqlx_error)?;
+    match (source, payload, checksum) {
+        (None, None, None) if !required => Ok(None),
+        (None, None, None) => Err(StoreError::Unavailable(
+            "receipt requires a presentation snapshot but it is missing".to_string(),
+        )),
+        (Some(_), Some(_), Some(_)) if !required => Err(StoreError::Unavailable(
+            "receipt includes a presentation snapshot for a non-presentation family".to_string(),
+        )),
+        (Some(source), Some(payload), Some(checksum)) => decode_canonical_json_parts(
+            "submission receipt presentation",
+            version,
+            source,
+            payload,
+            checksum,
+        )
+        .map(Some),
+        _ => Err(StoreError::Unavailable(
+            "receipt presentation source, payload, and checksum disagree".to_string(),
+        )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        SubmissionReplayMetadata, accepted_pending_replay_from_metadata, automated_response_digest,
+        validate_receipt_attempt_snapshot,
+    };
+    use crate::{SubmissionIdempotencyKey, SubmissionReceiptRead};
+    use question_model::{
+        ActivityTimestamp, AttemptProvenance, AttemptResult, AttemptStatus, AttemptTimerRecord,
+        ImplementationVersion, IssuedAttemptCapabilityV1, ProblemId, QuestionAttempt,
+        QuestionAttemptId, RunId, StudentResponse, TenantId, VersionId,
+    };
+    use uuid::Uuid;
+
+    #[test]
+    fn accepted_v2_replay_uses_answer_free_metadata_and_canonical_digest() {
+        let response = StudentResponse::Numeric { value: 4.0 };
+        let key = SubmissionIdempotencyKey::parse("accepted-replay").expect("key");
+        let attempt = QuestionAttemptId::from_uuid(Uuid::from_u128(41));
+        let metadata = SubmissionReplayMetadata {
+            idempotency_key: key.as_str().to_string(),
+            request_contract_version: 2,
+            request_sha256: automated_response_digest(&response).expect("digest"),
+        };
+
+        assert!(matches!(
+            accepted_pending_replay_from_metadata(&metadata, &response, &key, attempt),
+            Ok(SubmissionReceiptRead::AcceptedPending(_))
+        ));
+        assert!(matches!(
+            accepted_pending_replay_from_metadata(
+                &metadata,
+                &StudentResponse::Numeric { value: 5.0 },
+                &key,
+                attempt,
+            ),
+            Err(crate::StoreError::Conflict)
+        ));
+    }
+
+    fn receipt_attempt(
+        status: AttemptStatus,
+        response: Option<StudentResponse>,
+    ) -> QuestionAttempt {
+        QuestionAttempt {
+            id: QuestionAttemptId::from_uuid(Uuid::from_u128(41)),
+            tenant: TenantId::from_uuid(Uuid::from_u128(42)),
+            run: RunId::from_uuid(Uuid::from_u128(43)),
+            problem: ProblemId::from_uuid(Uuid::from_u128(44)),
+            question_version: VersionId::from_uuid(Uuid::from_u128(45)),
+            assignment_position: 0,
+            seed: 46,
+            parameter_hash: "parameters".to_string(),
+            response,
+            status,
+            result: Some(AttemptResult {
+                correct: true,
+                points_earned: 1.0,
+                points_possible: 1.0,
+            }),
+            timer: AttemptTimerRecord {
+                issued_at: ActivityTimestamp::from_unix_millis(10),
+                deadline: None,
+                submitted_at: Some(ActivityTimestamp::from_unix_millis(11)),
+            },
+            provenance: AttemptProvenance {
+                adapter: ImplementationVersion {
+                    id: "native".to_string(),
+                    version: "1".to_string(),
+                },
+                renderer: None,
+                generator: None,
+                source_artifact: None,
+                asset_objects: Vec::new(),
+                grading: ImplementationVersion {
+                    id: "native".to_string(),
+                    version: "1".to_string(),
+                },
+                rendered_question_sha256: "rendered".to_string(),
+            },
+            issued_capability: IssuedAttemptCapabilityV1::NotApplicable,
+        }
+    }
+
+    #[test]
+    fn receipt_attempt_snapshot_requires_exact_answer_free_terminal_identity() {
+        let tenant = TenantId::from_uuid(Uuid::from_u128(42));
+        let attempt = QuestionAttemptId::from_uuid(Uuid::from_u128(41));
+        assert!(
+            validate_receipt_attempt_snapshot(
+                tenant,
+                attempt,
+                &receipt_attempt(AttemptStatus::Submitted, None),
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_receipt_attempt_snapshot(
+                tenant,
+                attempt,
+                &receipt_attempt(AttemptStatus::InProgress, None),
+            )
+            .is_err()
+        );
+        assert!(
+            validate_receipt_attempt_snapshot(
+                tenant,
+                attempt,
+                &receipt_attempt(
+                    AttemptStatus::Submitted,
+                    Some(StudentResponse::Numeric { value: 4.0 })
+                ),
+            )
+            .is_err()
+        );
+    }
+}

@@ -341,17 +341,46 @@ fn login_authority_matches(authority: &LoginAuthority, contract: LoginContract) 
         && !authority.replication
         && !authority.bypass_rls
         && authority.can_login
-        && authority.direct_memberships.len() == contract.expected_memberships().len()
-        && authority
-            .direct_memberships
-            .iter()
-            .zip(contract.expected_memberships())
-            .all(|(actual, expected)| {
-                actual.role_name == expected.role_name
-                    && !actual.admin_option
-                    && !actual.inherit_option
-                    && actual.set_option == expected.set_option
-            })
+        && direct_memberships_match(
+            &authority.direct_memberships,
+            contract.expected_memberships(),
+        )
+}
+
+/// Compare PostgreSQL catalog memberships as one exact, metadata-bearing set.
+///
+/// PostgreSQL emits the member roles in catalog order. The contract owns no
+/// ordering requirement, so sorting prevents a legitimate replacement
+/// connection from failing while duplicate names still fail closed.
+fn direct_memberships_match(actual: &[DirectMembership], expected: &[ExpectedMembership]) -> bool {
+    if actual.len() != expected.len() {
+        return false;
+    }
+    let mut actual_by_name = actual.iter().collect::<Vec<_>>();
+    actual_by_name.sort_unstable_by(|left, right| left.role_name.cmp(&right.role_name));
+    if actual_by_name
+        .windows(2)
+        .any(|pair| pair[0].role_name == pair[1].role_name)
+    {
+        return false;
+    }
+    let mut expected_by_name = expected.iter().collect::<Vec<_>>();
+    expected_by_name.sort_unstable_by(|left, right| left.role_name.cmp(right.role_name));
+    if expected_by_name
+        .windows(2)
+        .any(|pair| pair[0].role_name == pair[1].role_name)
+    {
+        return false;
+    }
+    actual_by_name
+        .iter()
+        .zip(expected_by_name)
+        .all(|(actual, expected)| {
+            actual.role_name == expected.role_name
+                && !actual.admin_option
+                && !actual.inherit_option
+                && actual.set_option == expected.set_option
+        })
 }
 
 fn capability_authority_matches(
@@ -451,15 +480,7 @@ fn constraint_message(constraint: Option<&str>, kind: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    fn acceptance_runtime() -> acceptance_runtime::AcceptanceRuntime {
-        acceptance_runtime::AcceptanceRuntime::load()
-            .unwrap_or_else(|error| panic!("acceptance runtime is required and invalid: {error}"))
-    }
-
-    use std::sync::Arc;
-    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-
-    use tokio::sync::{Barrier, Notify};
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     use super::*;
 
@@ -765,6 +786,30 @@ mod tests {
     }
 
     #[test]
+    fn worker_authority_accepts_postgresql_catalog_membership_order() {
+        let contract = LoginContract::Production(ProductionLoginProfile::Worker);
+        let mut catalog_authority = authority(contract);
+        // The attestation query orders by granted role name, putting the
+        // accepted-submission capability before ple_app.
+        catalog_authority
+            .direct_memberships
+            .sort_unstable_by(|left, right| left.role_name.cmp(&right.role_name));
+
+        assert!(login_authority_matches(&catalog_authority, contract));
+    }
+
+    #[test]
+    fn process_authority_rejects_duplicate_membership_rows() {
+        let contract = LoginContract::Production(ProductionLoginProfile::Worker);
+        let mut duplicated = authority(contract);
+        duplicated
+            .direct_memberships
+            .push(duplicated.direct_memberships[0].clone());
+
+        assert!(!login_authority_matches(&duplicated, contract));
+    }
+
+    #[test]
     fn effective_capability_roles_have_closed_exact_authority() {
         for contract in [
             LoginContract::Production(ProductionLoginProfile::Api),
@@ -866,133 +911,8 @@ mod tests {
         assert_eq!(result, Ok(()));
         assert!(committed.load(Ordering::Relaxed));
     }
-
-    #[tokio::test]
-    #[ignore = "requires the disposable PostgreSQL acceptance database"]
-    async fn concurrent_serialization_failure_is_retried_and_commits() {
-        let runtime = acceptance_runtime();
-        let database_url = runtime.admin_url().expose();
-        let pool = pool_options(4)
-            .connect(database_url)
-            .await
-            .expect("connect retry acceptance pool");
-        sqlx::query("DROP TABLE IF EXISTS public.ple_transaction_retry_test")
-            .execute(&pool)
-            .await
-            .expect("remove stale retry fixture");
-        sqlx::query(
-            "CREATE TABLE public.ple_transaction_retry_test (\
-                 id integer PRIMARY KEY, value integer NOT NULL\
-             )",
-        )
-        .execute(&pool)
-        .await
-        .expect("create retry fixture");
-        sqlx::query(
-            "INSERT INTO public.ple_transaction_retry_test (id, value) VALUES (1, 0), (2, 0)",
-        )
-        .execute(&pool)
-        .await
-        .expect("seed retry fixture");
-
-        let barrier = Arc::new(Barrier::new(2));
-        let initial_commit_complete = Arc::new(AtomicBool::new(false));
-        let initial_commit_notifier = Arc::new(Notify::new());
-        let first_attempts = Arc::new(AtomicUsize::new(0));
-        let second_attempts = Arc::new(AtomicUsize::new(0));
-        let run = |own: i32,
-                   observed: i32,
-                   attempts: Arc<AtomicUsize>,
-                   barrier: Arc<Barrier>,
-                   initial_commit_complete: Arc<AtomicBool>,
-                   initial_commit_notifier: Arc<Notify>,
-                   pool: PgPool| async move {
-            retry_transaction(|| {
-                let pool = pool.clone();
-                let barrier = barrier.clone();
-                let initial_commit_complete = initial_commit_complete.clone();
-                let initial_commit_notifier = initial_commit_notifier.clone();
-                let first_attempt = attempts.fetch_add(1, Ordering::Relaxed) == 0;
-                async move {
-                    if !first_attempt {
-                        while !initial_commit_complete.load(Ordering::Acquire) {
-                            let notified = initial_commit_notifier.notified();
-                            if initial_commit_complete.load(Ordering::Acquire) {
-                                break;
-                            }
-                            notified.await;
-                        }
-                    }
-                    let mut transaction = pool.begin().await.map_err(map_sqlx_error)?;
-                    sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-                        .execute(&mut *transaction)
-                        .await
-                        .map_err(map_sqlx_error)?;
-                    let _: i32 = sqlx::query_scalar(
-                        "SELECT value FROM public.ple_transaction_retry_test WHERE id = $1",
-                    )
-                    .bind(observed)
-                    .fetch_one(&mut *transaction)
-                    .await
-                    .map_err(map_sqlx_error)?;
-                    if first_attempt {
-                        barrier.wait().await;
-                    }
-                    sqlx::query(
-                        "UPDATE public.ple_transaction_retry_test SET value = value + 1 \
-                         WHERE id = $1",
-                    )
-                    .bind(own)
-                    .execute(&mut *transaction)
-                    .await
-                    .map_err(map_sqlx_error)?;
-                    transaction.commit().await.map_err(map_sqlx_error)?;
-                    if first_attempt {
-                        initial_commit_complete.store(true, Ordering::Release);
-                        initial_commit_notifier.notify_waiters();
-                    }
-                    Ok(())
-                }
-            })
-            .await
-        };
-        let (first, second) = tokio::join!(
-            run(
-                1,
-                2,
-                first_attempts.clone(),
-                barrier.clone(),
-                initial_commit_complete.clone(),
-                initial_commit_notifier.clone(),
-                pool.clone(),
-            ),
-            run(
-                2,
-                1,
-                second_attempts.clone(),
-                barrier,
-                initial_commit_complete,
-                initial_commit_notifier,
-                pool.clone(),
-            )
-        );
-        first.expect("first serializable operation commits");
-        second.expect("second serializable operation commits after retry");
-        assert_eq!(
-            first_attempts.load(Ordering::Relaxed) + second_attempts.load(Ordering::Relaxed),
-            3,
-            "exactly one transaction must be retried"
-        );
-        let total: i64 =
-            sqlx::query_scalar("SELECT sum(value)::bigint FROM public.ple_transaction_retry_test")
-                .fetch_one(&pool)
-                .await
-                .expect("read retry fixture result");
-        assert_eq!(total, 2);
-        sqlx::query("DROP TABLE public.ple_transaction_retry_test")
-            .execute(&pool)
-            .await
-            .expect("remove retry fixture");
-        pool.close().await;
-    }
 }
+
+#[cfg(test)]
+#[path = "connection/transaction_retry_live.rs"]
+mod transaction_retry_live;

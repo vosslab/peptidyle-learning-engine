@@ -10,7 +10,7 @@ import type { Seed } from "../../../generated/api/Seed";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { TenantId } from "../../../generated/api/TenantId";
 import type { VersionId } from "../../../generated/api/VersionId";
-import type { SubmissionReceipt } from "../../api/contracts";
+import type { LearnerSubmissionStatus, SubmissionReceipt } from "../../api/contracts";
 import type { FormatValidator } from "../../wasm/index";
 
 export type IdempotencyKey = string;
@@ -71,6 +71,14 @@ export interface SubmissionAcknowledgement {
   readonly nextPending: SubmissionReceipt["nextPending"];
 }
 
+/** Answer-free acknowledgement that permits a status read but never another answer POST. */
+export interface PendingSubmissionAcknowledgement {
+  readonly accepted: true;
+  readonly attemptId: QuestionAttemptId;
+  readonly automatedGradingStatus: "pending" | "instructor_attention";
+  readonly nextAction: "check_status";
+}
+
 /**
  * The explicit delivery result shared with a response controller.
  *
@@ -113,6 +121,12 @@ export type AttemptState =
       readonly phase: "feedback";
       readonly acknowledgement: SubmissionAcknowledgement;
     })
+  | (StateBase & {
+      readonly phase: "acceptedPending";
+      readonly acknowledgement: PendingSubmissionAcknowledgement;
+      readonly checkingStatus: boolean;
+      readonly statusMessage: string | null;
+    })
   | (StateBase & { readonly phase: "advancing" })
   | (StateBase & {
       readonly phase: "recovering";
@@ -134,6 +148,8 @@ export interface AttemptStateMachine {
   readonly retry: () => Promise<SubmissionOutcome>;
   /** Call when connectivity returns to perform the documented automatic retry. */
   readonly retryWhenOnline: () => Promise<void>;
+  /** Reads the acknowledgement status only; it never repeats the learner's answer POST. */
+  readonly checkGradingStatus: () => Promise<void>;
   /** Retries only loading a prefetched next envelope after a committed submission. */
   readonly retryAdvance: () => Promise<void>;
   readonly resumeAfterReauthentication: () => void;
@@ -160,7 +176,9 @@ export interface AttemptStateMachineOptions {
     attemptId: QuestionAttemptId,
     response: StudentResponse,
     idempotencyKey: IdempotencyKey,
-  ) => Promise<SubmissionReceipt>;
+  ) => Promise<LearnerSubmissionStatus>;
+  /** Route-bound status reader injected by the owning learner page/client composition. */
+  readonly getSubmissionStatus: (attemptId: QuestionAttemptId) => Promise<LearnerSubmissionStatus>;
   /** Recognizes an authentication failure without coupling this state to an HTTP implementation. */
   readonly isSessionExpired: (error: unknown) => boolean;
   /**
@@ -329,6 +347,17 @@ function feedbackFor(receipt: SubmissionReceipt): Feedback {
   return receipt.feedback === null
     ? { kind: "awaiting", feedback: null }
     : { kind: "released", feedback: receipt.feedback };
+}
+
+function pendingAcknowledgement(
+  status: Exclude<LearnerSubmissionStatus, { readonly kind: "completed" }>,
+): PendingSubmissionAcknowledgement {
+  return {
+    accepted: status.accepted,
+    attemptId: status.attemptId,
+    automatedGradingStatus: status.automatedGradingStatus,
+    nextAction: status.nextAction,
+  };
 }
 
 function messageFor(error: unknown): string {
@@ -528,6 +557,7 @@ export function createAttemptStateMachine(
       current.phase === "submitting" ||
       current.phase === "terminal" ||
       current.phase === "feedback" ||
+      current.phase === "acceptedPending" ||
       current.phase === "advancing" ||
       (current.phase === "recovering" && current.reason === "advanceFailed")
     ) {
@@ -565,7 +595,7 @@ export function createAttemptStateMachine(
     } satisfies AttemptState;
     publish(submitting);
     try {
-      const receipt = await options.submitResponse(
+      const status = await options.submitResponse(
         context.attemptId,
         response,
         buffer.idempotencyKey,
@@ -574,13 +604,24 @@ export function createAttemptStateMachine(
         return rejected("This response is no longer current.");
       }
       clearBuffer();
-      const feedback = feedbackFor(receipt);
+      if (status.kind !== "completed") {
+        const state = {
+          ...base({ response: null, feedback: { kind: "none" } }),
+          phase: "acceptedPending" as const,
+          acknowledgement: pendingAcknowledgement(status),
+          checkingStatus: false,
+          statusMessage: null,
+        } satisfies AttemptState;
+        publish(state);
+        return { kind: "accepted" };
+      }
+      const feedback = feedbackFor(status);
       const acknowledgement = {
         accepted: true as const,
-        attemptId: receipt.attempt.id,
-        runCompletionStatus: receipt.runCompletionStatus,
-        nextIssued: receipt.nextIssued,
-        nextPending: receipt.nextPending,
+        attemptId: status.attempt.id,
+        runCompletionStatus: status.runCompletionStatus,
+        nextIssued: status.nextIssued,
+        nextPending: status.nextPending,
       };
       const state = {
         ...base({ response, feedback }),
@@ -644,6 +685,44 @@ export function createAttemptStateMachine(
     await retry();
   }
 
+  async function checkGradingStatus(): Promise<void> {
+    if (current.phase !== "acceptedPending" || current.checkingStatus) return;
+    const pending = current;
+    requestNumber += 1;
+    const request = requestNumber;
+    publish({ ...pending, checkingStatus: true, statusMessage: null });
+    try {
+      const status = await options.getSubmissionStatus(context.attemptId);
+      if (disposed || request !== requestNumber || current.phase !== "acceptedPending") return;
+      if (status.kind !== "completed") {
+        publish({
+          ...base({ response: null, feedback: { kind: "none" } }),
+          phase: "acceptedPending",
+          acknowledgement: pendingAcknowledgement(status),
+          checkingStatus: false,
+          statusMessage: null,
+        });
+        return;
+      }
+      const feedback = feedbackFor(status);
+      const acknowledgement = {
+        accepted: true as const,
+        attemptId: status.attempt.id,
+        runCompletionStatus: status.runCompletionStatus,
+        nextIssued: status.nextIssued,
+        nextPending: status.nextPending,
+      };
+      publish({
+        ...base({ response: null, feedback }),
+        phase: "feedback",
+        acknowledgement,
+      });
+    } catch (error: unknown) {
+      if (disposed || request !== requestNumber || current.phase !== "acceptedPending") return;
+      publish({ ...pending, checkingStatus: false, statusMessage: messageFor(error) });
+    }
+  }
+
   async function retryAdvance(): Promise<void> {
     if (
       current.phase !== "recovering" ||
@@ -685,6 +764,7 @@ export function createAttemptStateMachine(
     if (
       current.phase === "terminal" ||
       current.phase === "feedback" ||
+      current.phase === "acceptedPending" ||
       current.phase === "advancing"
     )
       return;
@@ -758,6 +838,7 @@ export function createAttemptStateMachine(
     submit,
     retry,
     retryWhenOnline,
+    checkGradingStatus,
     retryAdvance,
     resumeAfterReauthentication,
     reportRendererFailure,

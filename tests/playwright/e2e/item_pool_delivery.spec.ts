@@ -133,7 +133,9 @@ async function createCourseWithMixedPool(
   await pool.getByLabel("Delivery order").selectOption("candidateOrder");
   await expect(pool).toContainText("Draw algorithm v1");
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Questions and order saved.");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Questions and order saved." }),
+  ).toBeVisible();
 
   const savedPool = page.getByRole("listitem", { name: "Question pool at position 2" });
   await savedPool.getByRole("button", { name: "Preview draw", exact: true }).click();
@@ -163,12 +165,17 @@ async function createCourseWithMixedPool(
   await expect(
     savedPool.getByRole("heading", { name: "Server-sampled draw", exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "server sample is ready" }),
+  ).toBeVisible();
 
   await page.getByRole("link", { name: "Policies", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
   await page.getByLabel("Lifecycle").selectOption("published");
   await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Assignment policies saved.");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Students", exact: true }).click();
   await page.getByLabel("Institutional email").fill(maryEmail);
   await page.getByLabel("Institutional student ID").fill("BIO-MARY-003");
@@ -272,22 +279,25 @@ async function inspectPostIssueEdits(
   await page.getByRole("link", { name: "Questions", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
   const pool = page.getByRole("listitem", { name: "Question pool at position 2" });
-  const revisedTitle = `${assignmentTitle} points updated`;
+  const revisedTitle = `${assignmentTitle} renamed`;
   await page.getByLabel("Assignment title").fill(revisedTitle);
-  await pool.getByLabel("Points per drawn question").fill("3");
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Questions and order saved." }),
   ).toBeVisible();
   await expect(page.getByLabel("Assignment title")).toHaveValue(revisedTitle);
-  await expect(pool.getByLabel("Points per drawn question")).toHaveValue("3");
+  await expect(pool.getByLabel("Points per drawn question")).toHaveValue("2");
 
+  await pool.getByLabel("Points per drawn question").fill("3");
   await pool.getByLabel("Draw count").fill("1");
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
   const recovery = page.getByRole("alert");
-  await expect(recovery).toContainText(
-    "create a new assignment or use the supported future-run replacement workflow",
-  );
+  await expect(recovery).toContainText("Learner work has already been issued");
+  await expect(recovery).toContainText("Your local question changes remain here");
+  await expect(recovery).toContainText("issued learner work remains unchanged");
+  await expect(recovery.getByRole("link", { name: "Create a new assignment" })).toBeVisible();
+  await expect(pool.getByLabel("Points per drawn question")).toHaveValue("3");
+  await expect(pool.getByLabel("Draw count")).toHaveValue("1");
 }
 
 test.describe("item-pool delivery on the production PLE stack", () => {

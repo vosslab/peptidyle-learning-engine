@@ -425,7 +425,7 @@ where
         store
             .replay_submission(context, student_user, attempt.id, &response, &key)
             .await,
-        Ok(None)
+        Ok(learning_data_access::SubmissionReceiptRead::Missing)
     );
     let invalid_result = store
         .submit_question_attempt(
@@ -450,7 +450,7 @@ where
         store
             .replay_submission(context, student_user, attempt.id, &response, &key)
             .await,
-        Ok(None),
+        Ok(learning_data_access::SubmissionReceiptRead::Missing),
         "a rejected backend result must leave the attempt unsubmitted"
     );
     let hostile_feedback = store
@@ -487,7 +487,7 @@ where
         store
             .replay_submission(context, student_user, attempt.id, &response, &key)
             .await,
-        Ok(None),
+        Ok(learning_data_access::SubmissionReceiptRead::Missing),
         "rejected feedback must not leave a submission, feedback, or summary partial write"
     );
     let submitted = store
@@ -521,8 +521,10 @@ where
     let replay = store
         .replay_submission(context, student_user, attempt.id, &response, &key)
         .await
-        .expect("replay lookup")
-        .expect("first receipt should replay");
+        .expect("replay lookup");
+    let learning_data_access::SubmissionReceiptRead::Completed(replay) = replay else {
+        panic!("first receipt should replay");
+    };
     assert_eq!(replay.attempt, submitted.attempt);
     assert!(replay.feedback == submitted.feedback);
     let receipt_read = store
@@ -531,7 +533,7 @@ where
         .expect("owned receipt read");
     assert_eq!(
         receipt_read,
-        Some(submitted.clone()),
+        learning_data_access::SubmissionReceiptRead::Completed(Box::new(submitted.clone())),
         "receipt reads return the immutable committed record without retry credentials"
     );
     assert_eq!(

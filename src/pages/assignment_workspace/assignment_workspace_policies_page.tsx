@@ -1,7 +1,7 @@
 // assignment_workspace_policies_page.tsx - focused delivery-policy editor for one assignment.
 
 import { A } from "@solidjs/router";
-import { For, Show, createEffect, createSignal, onMount, type JSX } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onMount, type JSX } from "solid-js";
 
 import type { CourseGroupSummaryView } from "../../../generated/api/CourseGroupSummaryView";
 import type { InstructorAssignmentTeachingSettingsLocal } from "../../../generated/api/InstructorAssignmentTeachingSettingsLocal";
@@ -15,7 +15,10 @@ import {
 import { assignmentWorkspacePath } from "./assignment_workspace_nav";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
 import { AssignmentWorkspacePolicyPanel } from "./assignment_workspace_policy_panel";
-import { assignmentCurrentStateCopy } from "./assignment_workspace_presentation_model";
+import {
+  assignmentCurrentStateCopy,
+  assignmentPolicyDraftSummary,
+} from "./assignment_workspace_presentation_model";
 import {
   assignmentPoliciesInput,
   assignmentPolicyCanReload,
@@ -121,6 +124,22 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     numberDraft(teachingSettings().attemptLimit),
   );
   const controls = new Map<PolicyFocusTarget, HTMLElement>();
+  let saveButton!: HTMLButtonElement;
+  let reloadButton: HTMLButtonElement | undefined;
+  const policySummary = createMemo(() =>
+    assignmentPolicyDraftSummary({
+      savedLifecycle: workspace.assignment().teachingSettings.lifecycle,
+      savedCurrentState: workspace.assignment().currentState,
+      policies: policies(),
+      runPolicyDraft: runPolicyDraft(),
+      disclosurePolicy: disclosurePolicy(),
+      teachingSettings: teachingSettings(),
+      timeLimitSecondsDraft: timeLimitSecondsDraft(),
+      attemptLimitDraft: attemptLimitDraft(),
+      audience: audienceDraft(),
+      courseGroups: groups(),
+    }),
+  );
 
   const workspaceBase = (): string =>
     assignmentWorkspacePath(workspace.courseReference, workspace.assignmentReference);
@@ -131,14 +150,32 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   const questionRepairRequired = (): boolean =>
     questionsRequired() || assignmentPolicyFeedbackNeedsQuestionRepair(feedback());
 
+  function registerSaveButton(element: HTMLButtonElement): void {
+    saveButton = element;
+  }
+
+  function registerReloadButton(element: HTMLButtonElement): void {
+    reloadButton = element;
+  }
+
   onMount(() => void loadGroups());
 
   createEffect(() => {
     const field = failureField();
-    if (field === undefined) return;
-    const target =
-      field === "schedule" ? "availableAt" : field === "questions" ? "lifecycle" : field;
+    if (field === undefined || assignmentPolicyFeedbackNeedsQuestionRepair(feedback())) return;
+    const target = field === "schedule" ? "availableAt" : field;
     queueMicrotask(() => controls.get(target)?.focus());
+  });
+
+  createEffect(() => {
+    if (!assignmentPolicyFeedbackNeedsQuestionRepair(feedback()) || busy()) return;
+    queueMicrotask(() => controls.get("questions")?.focus());
+  });
+
+  createEffect(() => {
+    const reloadIsShown = needsReload() || assignmentPolicyCanReload(feedback());
+    if (!reloadIsShown || busy()) return;
+    queueMicrotask(() => reloadButton?.focus());
   });
 
   function loadGroups(): Promise<void> {
@@ -412,6 +449,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
 
   async function reloadLatest(): Promise<void> {
     setBusy(true);
+    let reloaded = false;
     try {
       const latest = await workspace.reloadAssignment();
       setPolicies(latest.policies);
@@ -428,6 +466,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
         message:
           "Latest assignment loaded; your local policy edits were replaced. Review the current policies before saving.",
       });
+      reloaded = true;
     } catch {
       setNeedsReload(true);
       setFeedback({
@@ -437,6 +476,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       });
     } finally {
       setBusy(false);
+      if (reloaded) queueMicrotask(() => saveButton.focus());
     }
   }
 
@@ -469,390 +509,400 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                 </For>
               </ul>
             </Show>
-            <Show when={assignmentPolicyFeedbackNeedsQuestionRepair(currentFeedback())}>
-              <A
-                class="quiet-link"
-                href={assignmentWorkspacePath(
-                  workspace.courseReference,
-                  workspace.assignmentReference,
-                  "questions",
-                )}
-              >
-                Add at least one question
-              </A>
-            </Show>
           </div>
         )}
       </Show>
 
-      <div class="assignment-workspace-policy-grid">
-        <AssignmentWorkspacePolicyPanel
-          policies={policies}
-          disclosurePolicy={disclosurePolicy}
-          runPolicyDraft={runPolicyDraft}
-          runPolicyFieldError={runPolicyFieldError}
-          variationPolicyError={variationPolicyError}
-          onPoliciesChange={setPolicies}
-          onVariationChange={updateVariationPolicy}
-          onDisclosurePolicyChange={setDisclosurePolicy}
-          onRunPolicyDraftChange={updateRunPolicyDraft}
-          onCompletionKindChange={changeCompletionKind}
-          onContinuedPracticeKindChange={changeContinuedPracticeKind}
-          onRegisterRunPolicyControl={(field, element) => controls.set(field, element)}
-          onRegisterPolicyControl={(field, element) => controls.set(field, element)}
-        />
-
-        <section
-          class="assignment-editor-policy-panel"
-          aria-labelledby="assignment-delivery-policies-heading"
-        >
-          <h2 id="assignment-delivery-policies-heading">Release and delivery</h2>
-          <p class="assignment-editor-note" role="status">
-            {assignmentCurrentStateCopy(
-              teachingSettings().lifecycle,
-              workspace.assignment().currentState,
-              teachingSettings().timeZone,
+      <section
+        class="assignment-workspace-policy-summary"
+        aria-labelledby="assignment-policy-summary-heading"
+      >
+        <h2 id="assignment-policy-summary-heading">Saved state and current draft</h2>
+        <dl>
+          <For each={policySummary()}>
+            {(item) => (
+              <div data-policy-summary={item.key}>
+                <dt>{item.label}</dt>
+                <dd>{item.value}</dd>
+              </div>
             )}
-          </p>
-          <p class="assignment-editor-note">Course time zone: {teachingSettings().timeZone}.</p>
+          </For>
+        </dl>
+      </section>
 
-          <fieldset class="assignment-editor-policy-set">
-            <legend>Lifecycle and learner instructions</legend>
-            <label class="assignment-editor-field">
-              Lifecycle
-              <select
-                ref={(element) => controls.set("lifecycle", element)}
-                value={teachingSettings().lifecycle}
-                aria-invalid={relevantField(failureField(), "lifecycle")}
-                aria-describedby={fieldErrorDescription(failureField(), "lifecycle")}
-                disabled={workspace.assignment().teachingSettings.lifecycle === "archived"}
-                onChange={(event) => {
-                  const next = lifecycle(event.currentTarget.value);
-                  if (next !== undefined) updateTeaching({ lifecycle: next }, "lifecycle");
-                }}
-              >
-                <For each={lifecycleChoices(workspace.assignment().teachingSettings.lifecycle)}>
-                  {(choice) => <option value={choice}>{lifecycleLabel(choice)}</option>}
-                </For>
-              </select>
-            </label>
-            <label class="assignment-editor-field">
-              Learner instructions
-              <textarea
-                ref={(element) => controls.set("instructions", element)}
-                rows="5"
-                value={teachingSettings().instructions}
-                aria-invalid={relevantField(failureField(), "instructions")}
-                aria-describedby={fieldErrorDescription(failureField(), "instructions")}
-                onInput={(event) =>
-                  updateTeaching({ instructions: event.currentTarget.value }, "instructions")
-                }
-              />
-            </label>
-          </fieldset>
-
-          <fieldset class="assignment-editor-policy-set">
-            <legend>Schedule and limits</legend>
-            <label class="assignment-editor-field">
-              Available
-              <input
-                type="datetime-local"
-                ref={(element) => controls.set("availableAt", element)}
-                step="0.001"
-                value={controlValue(teachingSettings().availableAt)}
-                aria-invalid={relevantField(failureField(), "availableAt")}
-                aria-describedby={fieldErrorDescription(failureField(), "availableAt")}
-                onChange={(event) =>
-                  updateTeaching(
-                    {
-                      availableAt: canonicalCourseLocalTime(event.currentTarget.value),
-                    },
-                    "availableAt",
-                  )
-                }
-              />
-            </label>
-            <label class="assignment-editor-field">
-              Due
-              <input
-                type="datetime-local"
-                ref={(element) => controls.set("dueAt", element)}
-                step="0.001"
-                value={controlValue(teachingSettings().dueAt)}
-                aria-invalid={relevantField(failureField(), "dueAt")}
-                aria-describedby={fieldErrorDescription(failureField(), "dueAt")}
-                onChange={(event) =>
-                  updateTeaching(
-                    { dueAt: canonicalCourseLocalTime(event.currentTarget.value) },
-                    "dueAt",
-                  )
-                }
-              />
-            </label>
-            <label class="assignment-editor-field">
-              Closes
-              <input
-                type="datetime-local"
-                ref={(element) => controls.set("closesAt", element)}
-                step="0.001"
-                value={controlValue(teachingSettings().closesAt)}
-                aria-invalid={relevantField(failureField(), "closesAt")}
-                aria-describedby={fieldErrorDescription(failureField(), "closesAt")}
-                onChange={(event) =>
-                  updateTeaching(
-                    { closesAt: canonicalCourseLocalTime(event.currentTarget.value) },
-                    "closesAt",
-                  )
-                }
-              />
-            </label>
-            <label class="assignment-editor-field">
-              Whole-run seconds
-              <input
-                type="number"
-                ref={(element) => controls.set("timeLimitSeconds", element)}
-                min="1"
-                aria-invalid={deliveryNumberFieldError("timeLimitSeconds") !== undefined}
-                aria-describedby={
-                  deliveryNumberFieldError("timeLimitSeconds") === undefined
-                    ? undefined
-                    : "assignment-policies-timeLimitSeconds-error"
-                }
-                value={timeLimitSecondsDraft()}
-                onInput={(event) =>
-                  updateNumberDraft("timeLimitSeconds", event.currentTarget.value)
-                }
-              />
-              <Show when={deliveryNumberFieldError("timeLimitSeconds")}>
-                {(message) => (
-                  <p
-                    id="assignment-policies-timeLimitSeconds-error"
-                    class="assignment-editor-note"
-                    role="status"
-                  >
-                    {message()}
-                  </p>
-                )}
-              </Show>
-            </label>
-            <label class="assignment-editor-field">
-              Attempt limit
-              <input
-                type="number"
-                ref={(element) => controls.set("attemptLimit", element)}
-                min="1"
-                aria-invalid={deliveryNumberFieldError("attemptLimit") !== undefined}
-                aria-describedby={
-                  deliveryNumberFieldError("attemptLimit") === undefined
-                    ? undefined
-                    : "assignment-policies-attemptLimit-error"
-                }
-                value={attemptLimitDraft()}
-                onInput={(event) => updateNumberDraft("attemptLimit", event.currentTarget.value)}
-              />
-              <Show when={deliveryNumberFieldError("attemptLimit")}>
-                {(message) => (
-                  <p
-                    id="assignment-policies-attemptLimit-error"
-                    class="assignment-editor-note"
-                    role="status"
-                  >
-                    {message()}
-                  </p>
-                )}
-              </Show>
-            </label>
-            <label class="assignment-editor-field">
-              Late work
-              <select
-                value={teachingSettings().lateSubmission}
-                onChange={(event) => {
-                  const next = lateSubmission(event.currentTarget.value);
-                  if (next !== undefined) updateTeaching({ lateSubmission: next }, "schedule");
-                }}
-              >
-                <option value="accept">Accept</option>
-                <option value="markLate">Accept and mark late</option>
-                <option value="reject">Reject after the due time</option>
-              </select>
-            </label>
-            <p class="assignment-editor-note">
-              At the effective deadline, the server automatically submits active work.
+      <fieldset class="assignment-workspace-policy-controls" disabled={busy()} aria-busy={busy()}>
+        <legend class="visually-hidden">Assignment policy controls</legend>
+        <section class="assignment-workspace-policy-actions" aria-label="Policy actions">
+          <button
+            ref={registerSaveButton}
+            class="primary-action"
+            type="button"
+            disabled={
+              needsReload() ||
+              hasEmptyGroupAudience(audienceDraft()) ||
+              firstInvalidNumericField() !== undefined
+            }
+            aria-describedby={
+              hasEmptyGroupAudience(audienceDraft()) ? "assignment-audience-guidance" : undefined
+            }
+            onClick={() => void save()}
+          >
+            {busy() ? "Saving assignment policies..." : "Save assignment policies"}
+          </button>
+          <Show when={hasEmptyGroupAudience(audienceDraft())}>
+            <p class="assignment-editor-note" role="status">
+              Choose one or more course groups before saving this audience.
             </p>
-          </fieldset>
-
-          <fieldset class="assignment-editor-policy-set">
-            <legend>Learner audience</legend>
-            <div
-              role="radiogroup"
-              aria-label="Learner audience"
-              aria-required={audienceDraft().kind === "anyOfGroups"}
-              aria-describedby={audienceDescription()}
+          </Show>
+          <Show when={needsReload() || assignmentPolicyCanReload(feedback())}>
+            <button
+              ref={registerReloadButton}
+              type="button"
+              aria-label="Reload latest assignment and replace local policy edits"
+              onClick={() => void reloadLatest()}
             >
-              <label class="assignment-editor-field assignment-workspace-choice">
-                <input
-                  type="radio"
-                  name="assignment-audience"
-                  checked={audienceDraft().kind === "courseWide"}
-                  onChange={() => {
-                    setAudienceDraft({ kind: "courseWide" });
-                    clearRecoveredField("audience");
+              Reload latest assignment
+            </button>
+          </Show>
+          <A class="quiet-link" href={`${workspaceBase()}/access`}>
+            Access and accommodations
+          </A>
+          <A class="quiet-link" href={`${workspaceBase()}/delivery-check`}>
+            Check assignment delivery
+          </A>
+          <Show when={questionRepairRequired()}>
+            <A
+              ref={(element: HTMLAnchorElement) => controls.set("questions", element)}
+              class="quiet-link"
+              href={assignmentWorkspacePath(
+                workspace.courseReference,
+                workspace.assignmentReference,
+                "questions",
+              )}
+            >
+              Add at least one question
+            </A>
+          </Show>
+        </section>
+
+        <div class="assignment-workspace-policy-grid">
+          <AssignmentWorkspacePolicyPanel
+            policies={policies}
+            disclosurePolicy={disclosurePolicy}
+            runPolicyDraft={runPolicyDraft}
+            runPolicyFieldError={runPolicyFieldError}
+            variationPolicyError={variationPolicyError}
+            onPoliciesChange={setPolicies}
+            onVariationChange={updateVariationPolicy}
+            onDisclosurePolicyChange={setDisclosurePolicy}
+            onRunPolicyDraftChange={updateRunPolicyDraft}
+            onCompletionKindChange={changeCompletionKind}
+            onContinuedPracticeKindChange={changeContinuedPracticeKind}
+            onRegisterRunPolicyControl={(field, element) => controls.set(field, element)}
+            onRegisterPolicyControl={(field, element) => controls.set(field, element)}
+          />
+
+          <section
+            class="assignment-editor-policy-panel assignment-editor-policy-panel--delivery"
+            aria-labelledby="assignment-delivery-policies-heading"
+          >
+            <h2 id="assignment-delivery-policies-heading">Release and delivery</h2>
+            <p class="assignment-editor-note" role="status">
+              {assignmentCurrentStateCopy(
+                workspace.assignment().teachingSettings.lifecycle,
+                workspace.assignment().currentState,
+                workspace.assignment().teachingSettings.timeZone,
+              )}
+            </p>
+            <p class="assignment-editor-note">Course time zone: {teachingSettings().timeZone}.</p>
+
+            <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--lifecycle">
+              <legend>Lifecycle and learner instructions</legend>
+              <label class="assignment-editor-field">
+                Lifecycle
+                <select
+                  ref={(element) => controls.set("lifecycle", element)}
+                  value={teachingSettings().lifecycle}
+                  aria-invalid={relevantField(failureField(), "lifecycle")}
+                  aria-describedby={fieldErrorDescription(failureField(), "lifecycle")}
+                  disabled={workspace.assignment().teachingSettings.lifecycle === "archived"}
+                  onChange={(event) => {
+                    const next = lifecycle(event.currentTarget.value);
+                    if (next !== undefined) updateTeaching({ lifecycle: next }, "lifecycle");
                   }}
-                />
-                Every enrolled learner in this course
+                >
+                  <For each={lifecycleChoices(workspace.assignment().teachingSettings.lifecycle)}>
+                    {(choice) => <option value={choice}>{lifecycleLabel(choice)}</option>}
+                  </For>
+                </select>
               </label>
-              <label class="assignment-editor-field assignment-workspace-choice">
-                <input
-                  type="radio"
-                  ref={(element) => controls.set("audience", element)}
-                  name="assignment-audience"
-                  checked={audienceDraft().kind === "anyOfGroups"}
-                  aria-invalid={
-                    hasEmptyGroupAudience(audienceDraft()) ||
-                    relevantField(failureField(), "audience")
+              <label class="assignment-editor-field">
+                Learner instructions
+                <textarea
+                  ref={(element) => controls.set("instructions", element)}
+                  rows="4"
+                  value={teachingSettings().instructions}
+                  aria-invalid={relevantField(failureField(), "instructions")}
+                  aria-describedby={fieldErrorDescription(failureField(), "instructions")}
+                  onInput={(event) =>
+                    updateTeaching({ instructions: event.currentTarget.value }, "instructions")
                   }
-                  aria-describedby={audienceDescription()}
-                  onChange={() => {
-                    if (audienceDraft().kind === "courseWide") {
-                      setAudienceDraft({ kind: "anyOfGroups", groups: [] });
-                    }
-                  }}
                 />
-                Members of one or more course groups
               </label>
-            </div>
-            <Show when={audienceDraft().kind === "anyOfGroups"}>
+            </fieldset>
+
+            <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--schedule">
+              <legend>Schedule and limits</legend>
+              <label class="assignment-editor-field">
+                Available
+                <input
+                  type="datetime-local"
+                  ref={(element) => controls.set("availableAt", element)}
+                  step="0.001"
+                  value={controlValue(teachingSettings().availableAt)}
+                  aria-invalid={relevantField(failureField(), "availableAt")}
+                  aria-describedby={fieldErrorDescription(failureField(), "availableAt")}
+                  onChange={(event) =>
+                    updateTeaching(
+                      {
+                        availableAt: canonicalCourseLocalTime(event.currentTarget.value),
+                      },
+                      "availableAt",
+                    )
+                  }
+                />
+              </label>
+              <label class="assignment-editor-field">
+                Due
+                <input
+                  type="datetime-local"
+                  ref={(element) => controls.set("dueAt", element)}
+                  step="0.001"
+                  value={controlValue(teachingSettings().dueAt)}
+                  aria-invalid={relevantField(failureField(), "dueAt")}
+                  aria-describedby={fieldErrorDescription(failureField(), "dueAt")}
+                  onChange={(event) =>
+                    updateTeaching(
+                      { dueAt: canonicalCourseLocalTime(event.currentTarget.value) },
+                      "dueAt",
+                    )
+                  }
+                />
+              </label>
+              <label class="assignment-editor-field">
+                Closes
+                <input
+                  type="datetime-local"
+                  ref={(element) => controls.set("closesAt", element)}
+                  step="0.001"
+                  value={controlValue(teachingSettings().closesAt)}
+                  aria-invalid={relevantField(failureField(), "closesAt")}
+                  aria-describedby={fieldErrorDescription(failureField(), "closesAt")}
+                  onChange={(event) =>
+                    updateTeaching(
+                      { closesAt: canonicalCourseLocalTime(event.currentTarget.value) },
+                      "closesAt",
+                    )
+                  }
+                />
+              </label>
+              <label class="assignment-editor-field">
+                Whole-run seconds
+                <input
+                  type="number"
+                  ref={(element) => controls.set("timeLimitSeconds", element)}
+                  min="1"
+                  aria-invalid={deliveryNumberFieldError("timeLimitSeconds") !== undefined}
+                  aria-describedby={
+                    deliveryNumberFieldError("timeLimitSeconds") === undefined
+                      ? undefined
+                      : "assignment-policies-timeLimitSeconds-error"
+                  }
+                  value={timeLimitSecondsDraft()}
+                  onInput={(event) =>
+                    updateNumberDraft("timeLimitSeconds", event.currentTarget.value)
+                  }
+                />
+                <Show when={deliveryNumberFieldError("timeLimitSeconds")}>
+                  {(message) => (
+                    <p
+                      id="assignment-policies-timeLimitSeconds-error"
+                      class="assignment-editor-note"
+                      role="status"
+                    >
+                      {message()}
+                    </p>
+                  )}
+                </Show>
+              </label>
+              <label class="assignment-editor-field">
+                Attempt limit
+                <input
+                  type="number"
+                  ref={(element) => controls.set("attemptLimit", element)}
+                  min="1"
+                  aria-invalid={deliveryNumberFieldError("attemptLimit") !== undefined}
+                  aria-describedby={
+                    deliveryNumberFieldError("attemptLimit") === undefined
+                      ? undefined
+                      : "assignment-policies-attemptLimit-error"
+                  }
+                  value={attemptLimitDraft()}
+                  onInput={(event) => updateNumberDraft("attemptLimit", event.currentTarget.value)}
+                />
+                <Show when={deliveryNumberFieldError("attemptLimit")}>
+                  {(message) => (
+                    <p
+                      id="assignment-policies-attemptLimit-error"
+                      class="assignment-editor-note"
+                      role="status"
+                    >
+                      {message()}
+                    </p>
+                  )}
+                </Show>
+              </label>
+              <label class="assignment-editor-field">
+                Late work
+                <select
+                  value={teachingSettings().lateSubmission}
+                  onChange={(event) => {
+                    const next = lateSubmission(event.currentTarget.value);
+                    if (next !== undefined) updateTeaching({ lateSubmission: next }, "schedule");
+                  }}
+                >
+                  <option value="accept">Accept</option>
+                  <option value="markLate">Accept and mark late</option>
+                  <option value="reject">Reject after the due time</option>
+                </select>
+              </label>
+              <p class="assignment-editor-note">
+                At the effective deadline, the server automatically submits active work.
+              </p>
+            </fieldset>
+
+            <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--audience">
+              <legend>Learner audience</legend>
               <div
-                class="assignment-workspace-group-choices"
-                aria-label="Assignment groups"
+                class="assignment-workspace-audience-choices"
+                role="radiogroup"
+                aria-label="Learner audience"
+                aria-required={audienceDraft().kind === "anyOfGroups"}
                 aria-describedby={audienceDescription()}
               >
-                <Show when={hasEmptyGroupAudience(audienceDraft())}>
-                  <p
-                    id="assignment-audience-guidance"
-                    class="assignment-editor-note"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    Choose one or more course groups for this audience.
-                  </p>
-                </Show>
-                <Show when={groupLoadState() === "failed"}>
-                  <p
-                    id={
-                      hasEmptyGroupAudience(audienceDraft())
-                        ? undefined
-                        : "assignment-audience-guidance"
+                <label class="assignment-editor-field assignment-workspace-choice">
+                  <input
+                    type="radio"
+                    name="assignment-audience"
+                    checked={audienceDraft().kind === "courseWide"}
+                    onChange={() => {
+                      setAudienceDraft({ kind: "courseWide" });
+                      clearRecoveredField("audience");
+                    }}
+                  />
+                  Every enrolled learner in this course
+                </label>
+                <label class="assignment-editor-field assignment-workspace-choice">
+                  <input
+                    type="radio"
+                    ref={(element) => controls.set("audience", element)}
+                    name="assignment-audience"
+                    checked={audienceDraft().kind === "anyOfGroups"}
+                    aria-invalid={
+                      hasEmptyGroupAudience(audienceDraft()) ||
+                      relevantField(failureField(), "audience")
                     }
-                    class="assignment-editor-note"
-                    role="alert"
-                  >
-                    Course groups could not load. Retry course groups to choose this audience.
-                  </p>
-                  <button type="button" onClick={() => void loadGroups()}>
-                    Retry course groups
-                  </button>
-                  <A
-                    class="quiet-link"
-                    href={`/instructor/courses/${workspace.courseReference}/teaching-operations`}
-                  >
-                    Open Students and groups
-                  </A>
-                </Show>
-                <Show when={groupLoadState() === "loading"}>
-                  <p class="assignment-editor-note" role="status">
-                    Loading course groups...
-                  </p>
-                </Show>
-                <Show
-                  when={groupLoadState() === "ready" && groups().length > 0}
-                  fallback={
-                    <Show when={groupLoadState() === "ready"}>
-                      <p class="assignment-editor-note">
-                        No course groups are available yet. Create a group in Students and groups,
-                        or choose the course-wide audience.
-                      </p>
-                      <A
-                        class="quiet-link"
-                        href={`/instructor/courses/${workspace.courseReference}/teaching-operations`}
-                      >
-                        Open Students and groups
-                      </A>
-                    </Show>
-                  }
-                >
-                  <For each={groups()}>
-                    {(group) => (
-                      <label class="assignment-workspace-choice">
-                        <input
-                          type="checkbox"
-                          checked={selectedAudienceGroup(group.reference)}
-                          onChange={(event) =>
-                            toggleAudienceGroup(group.reference, event.currentTarget.checked)
-                          }
-                        />
-                        {group.title}
-                      </label>
-                    )}
-                  </For>
-                </Show>
+                    aria-describedby={audienceDescription()}
+                    onChange={() => {
+                      if (audienceDraft().kind === "courseWide") {
+                        setAudienceDraft({ kind: "anyOfGroups", groups: [] });
+                      }
+                    }}
+                  />
+                  Members of one or more course groups
+                </label>
               </div>
-            </Show>
-          </fieldset>
-        </section>
-      </div>
-
-      <section class="assignment-workspace-policy-actions" aria-label="Policy actions">
-        <button
-          class="primary-action"
-          type="button"
-          disabled={
-            busy() ||
-            needsReload() ||
-            hasEmptyGroupAudience(audienceDraft()) ||
-            firstInvalidNumericField() !== undefined
-          }
-          aria-describedby={
-            hasEmptyGroupAudience(audienceDraft()) ? "assignment-audience-guidance" : undefined
-          }
-          onClick={() => void save()}
-        >
-          {busy() ? "Saving assignment policies..." : "Save assignment policies"}
-        </button>
-        <Show when={hasEmptyGroupAudience(audienceDraft())}>
-          <p class="assignment-editor-note" role="status">
-            Choose one or more course groups before saving this audience.
-          </p>
-        </Show>
-        <Show when={needsReload() || assignmentPolicyCanReload(feedback())}>
-          <button
-            type="button"
-            disabled={busy()}
-            aria-label="Reload latest assignment and replace local policy edits"
-            onClick={() => void reloadLatest()}
-          >
-            Reload latest assignment
-          </button>
-        </Show>
-        <A class="quiet-link" href={`${workspaceBase()}/access`}>
-          Access and accommodations
-        </A>
-        <A class="quiet-link" href={`${workspaceBase()}/delivery-check`}>
-          Check assignment delivery
-        </A>
-        <Show when={questionRepairRequired()}>
-          <A
-            class="quiet-link"
-            href={assignmentWorkspacePath(
-              workspace.courseReference,
-              workspace.assignmentReference,
-              "questions",
-            )}
-          >
-            Add at least one question
-          </A>
-        </Show>
-      </section>
+              <Show when={audienceDraft().kind === "anyOfGroups"}>
+                <div
+                  class="assignment-workspace-group-choices"
+                  aria-label="Assignment groups"
+                  aria-describedby={audienceDescription()}
+                >
+                  <Show when={hasEmptyGroupAudience(audienceDraft())}>
+                    <p
+                      id="assignment-audience-guidance"
+                      class="assignment-editor-note"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      Choose one or more course groups for this audience.
+                    </p>
+                  </Show>
+                  <Show when={groupLoadState() === "failed"}>
+                    <p
+                      id={
+                        hasEmptyGroupAudience(audienceDraft())
+                          ? undefined
+                          : "assignment-audience-guidance"
+                      }
+                      class="assignment-editor-note"
+                      role="alert"
+                    >
+                      Course groups could not load. Retry course groups to choose this audience.
+                    </p>
+                    <button type="button" onClick={() => void loadGroups()}>
+                      Retry course groups
+                    </button>
+                    <A
+                      class="quiet-link"
+                      href={`/instructor/courses/${workspace.courseReference}/teaching-operations`}
+                    >
+                      Open Students and groups
+                    </A>
+                  </Show>
+                  <Show when={groupLoadState() === "loading"}>
+                    <p class="assignment-editor-note" role="status">
+                      Loading course groups...
+                    </p>
+                  </Show>
+                  <Show
+                    when={groupLoadState() === "ready" && groups().length > 0}
+                    fallback={
+                      <Show when={groupLoadState() === "ready"}>
+                        <p class="assignment-editor-note">
+                          No course groups are available yet. Create a group in Students and groups,
+                          or choose the course-wide audience.
+                        </p>
+                        <A
+                          class="quiet-link"
+                          href={`/instructor/courses/${workspace.courseReference}/teaching-operations`}
+                        >
+                          Open Students and groups
+                        </A>
+                      </Show>
+                    }
+                  >
+                    <For each={groups()}>
+                      {(group) => (
+                        <label class="assignment-workspace-choice">
+                          <input
+                            type="checkbox"
+                            checked={selectedAudienceGroup(group.reference)}
+                            onChange={(event) =>
+                              toggleAudienceGroup(group.reference, event.currentTarget.checked)
+                            }
+                          />
+                          {group.title}
+                        </label>
+                      )}
+                    </For>
+                  </Show>
+                </div>
+              </Show>
+            </fieldset>
+          </section>
+        </div>
+      </fieldset>
     </section>
   );
 }

@@ -13,6 +13,7 @@ function createStorage() {
     getItem: (key) => values.get(key) ?? null,
     setItem: (key, value) => values.set(key, value),
     removeItem: (key) => values.delete(key),
+    value: (key) => values.get(key) ?? null,
   };
 }
 
@@ -30,6 +31,7 @@ function createContext(overrides = {}) {
 
 function receipt() {
   return {
+    kind: "completed",
     accepted: true,
     attempt: {
       id: "attempt-a",
@@ -77,6 +79,7 @@ function createMachine(overrides = {}) {
       submissionCalls.push({ attemptId, response, key });
       return receipt();
     },
+    getSubmissionStatus: async () => receipt(),
     isSessionExpired: (error) => error instanceof Error && error.message === "session expired",
     isTransientTransportFailure: (error) => error instanceof TypeError,
     ...overrides,
@@ -161,6 +164,52 @@ test("a receipt with a pending successor preserves feedback without resubmitting
   assert.equal(state.acknowledgement.nextPending, true);
   assert.equal(fixture.submissionCalls.length, 1);
   assert.equal(state.response.kind, "numeric");
+});
+
+test("an acknowledged pending submission clears its replay and checks status without another post", async () => {
+  let statusReads = 0;
+  const fixture = createMachine({
+    submitResponse: async (attemptId, response, key) => {
+      fixture.submissionCalls.push({ attemptId, response, key });
+      return {
+        kind: "accepted_pending",
+        accepted: true,
+        attemptId,
+        automatedGradingStatus: "pending",
+        nextAction: "check_status",
+      };
+    },
+    getSubmissionStatus: async () => {
+      statusReads += 1;
+      return statusReads === 1
+        ? {
+            kind: "instructor_attention",
+            accepted: true,
+            attemptId: "attempt-a",
+            automatedGradingStatus: "instructor_attention",
+            nextAction: "check_status",
+          }
+        : receipt();
+    },
+  });
+  ready(fixture.machine, numericResponse(11));
+
+  await fixture.machine.submit();
+  assert.equal(fixture.machine.state().phase, "acceptedPending");
+  assert.equal(fixture.storage.value("ple:attempt:tenant-a:run-a:attempt-a"), null);
+
+  await fixture.machine.submit();
+  await fixture.machine.checkGradingStatus();
+  assert.equal(fixture.submissionCalls.length, 1);
+  assert.equal(fixture.machine.state().phase, "acceptedPending");
+  assert.equal(
+    fixture.machine.state().acknowledgement.automatedGradingStatus,
+    "instructor_attention",
+  );
+
+  await fixture.machine.checkGradingStatus();
+  assert.equal(statusReads, 2);
+  assert.equal(fixture.machine.state().phase, "feedback");
 });
 
 test("offline submission keeps the controlled response locally and retries after reconnect", async () => {

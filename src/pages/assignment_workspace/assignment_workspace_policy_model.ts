@@ -273,9 +273,6 @@ export function optionalPositiveIntegerDraft(raw: string): PositiveIntegerDraft 
     : { raw, value: null, valid: false };
 }
 
-/** Backward-compatible local alias for callers that still use the older name. */
-export const positiveIntegerDraft = optionalPositiveIntegerDraft;
-
 /** Accepts the decimal threshold syntax supported by the native number control. */
 export function scoreFractionDraft(raw: string): FractionDraft {
   if (!/^(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/u.test(raw)) {

@@ -91,6 +91,12 @@ async function openCourseAssignments(page: Page): Promise<void> {
   await expect(page.locator("[data-route-surface=courseAssignments]")).toBeVisible();
 }
 
+function assignmentArticle(page: Page, assignmentTitle: string): Locator {
+  return page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
+}
+
 async function captureVisibleState(
   page: Page,
   scenarioInput: ReturnType<typeof requireScenarioInput>,
@@ -200,6 +206,11 @@ async function createPublishedCourseAssignment(
   await page.getByRole("button", { name: "Check Question ID", exact: true }).click();
   await expect(page.getByText(new RegExp(`${questionId} is ready to add`))).toBeVisible();
   await page.getByRole("button", { name: "Add Question IDs", exact: true }).click();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Added 1 Question ID. Save questions and order when ready." }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Questions and order saved." }),
@@ -236,9 +247,7 @@ async function claimCourseAndCompleteAssignment(
   await expect(page.getByRole("heading", { name: "Join your PLE course" })).toBeVisible();
   await page.getByRole("button", { name: "Claim this course" }).click();
   await expect(page.getByRole("heading", { name: courseTitle, exact: true })).toBeVisible();
-  const assignmentCard = page
-    .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
+  const assignmentCard = assignmentArticle(page, assignmentTitle);
   await expect(assignmentCard).toHaveCount(1);
   await expect(assignmentCard.locator(".course-card-description")).toHaveText(
     "Open this assignment to review its instructions and delivery details.",
@@ -450,7 +459,12 @@ async function observeInstructorOutcomesAndAccess(
     allowedPreview,
   );
 
-  await assignmentCard.getByRole("link", { name: assignmentTitle, exact: true }).click();
+  // Access has its own course-management navigation. Return through the visible
+  // Assignments link and reacquire the article before following its semantic title link.
+  await openCourseAssignments(page);
+  const workspaceCard = assignmentArticle(page, assignmentTitle);
+  await expect(workspaceCard).toHaveCount(1);
+  await workspaceCard.getByRole("link", { name: assignmentTitle, exact: true }).click();
   await expect(page.locator("[data-route-surface=assignmentWorkspace]")).toBeVisible();
   await page.getByRole("link", { name: "Policies", exact: true }).click();
   await page.getByLabel("Lifecycle").selectOption("archived");
@@ -460,9 +474,8 @@ async function observeInstructorOutcomesAndAccess(
   ).toBeVisible();
 
   await openCourseAssignments(page);
-  const retiredCard = page
-    .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
+  const retiredCard = assignmentArticle(page, assignmentTitle);
+  await expect(retiredCard).toHaveCount(1);
   await retiredCard.getByRole("link", { name: "Access and modifiers" }).click();
   await expect(page.locator("[data-route-surface=assignmentAccess]")).toBeVisible();
   await page

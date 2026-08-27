@@ -13,6 +13,7 @@ export {
   type Feedback,
   type IdempotencyKey,
   type NextAttempt,
+  type PendingSubmissionAcknowledgement,
   type ResponseValidation,
 } from "./attempt_state";
 export { projectLearnerResponse } from "./learner_response";

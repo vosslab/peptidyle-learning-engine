@@ -40,14 +40,14 @@ use axum::{
 pub(super) use base64::Engine;
 pub(super) use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 pub(super) use learning_data_access::postgres::{
-    Pool, PostgresGraderStore, PostgresStore, ProductionLoginProfile, SchemaCompatibilityError,
-    lazy_pool, production_pool,
+    Pool, PostgresAcceptedSubmissionExecutionStore, PostgresGraderStore, PostgresStore,
+    ProductionLoginProfile, SchemaCompatibilityError, production_pool,
 };
 pub(super) use learning_data_access::{
     AssetStore, AuthoritativeTimeStore, CatalogStore, CourseAppearanceStore,
     CourseItemAnalysisStore, CourseRecordsAccessStore, ExportJobStore, FlatImportProvenanceStore,
     FlatQuestionGradingStore, FlatQuestionStore, ManualGradingStore, QtiImportApiStore,
-    QtiImportStore, RetentionApiStore, RetentionStore, SessionStore, Store,
+    QtiImportStore, RetentionApiStore, RetentionStore, SessionStore, Store, WorkerId,
 };
 pub(super) use serde_json::json;
 

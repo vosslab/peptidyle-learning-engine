@@ -57,8 +57,12 @@ where
     let replay_after_completion = store
         .replay_submission(context, student_user, first_attempt.id, response, key)
         .await
-        .expect("first submission replay after later completion")
-        .expect("first submission receipt remains available");
+        .expect("first submission replay after later completion");
+    let learning_data_access::SubmissionReceiptRead::Completed(replay_after_completion) =
+        replay_after_completion
+    else {
+        panic!("first submission receipt remains available");
+    };
     assert_eq!(replay_after_completion.attempt, submitted.attempt);
     assert_eq!(replay_after_completion.run, submitted.run);
     assert_eq!(replay_after_completion.summary, submitted.summary);

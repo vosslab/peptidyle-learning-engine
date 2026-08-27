@@ -260,6 +260,9 @@ async fn prepare_grade(
     {
         SubmissionPreparation::FirstEffect(intent) => *intent,
         SubmissionPreparation::Replay(_) => panic!("fresh fixture cannot replay"),
+        SubmissionPreparation::AcceptedPending(_) => {
+            panic!("fresh fixture cannot already be accepted")
+        }
     };
     match backend
         .sources
@@ -436,7 +439,9 @@ async fn persisted_attempt_refuses_renderer_identity_drift_before_grade_rpc() {
                 &response,
             )
             .await,
-        Err(RunBackendError::Unavailable(_))
+        Err(RunBackendError::Deterministic(
+            DeterministicGraderFailure::IssuedEvidenceIntegrity
+        ))
     ));
     assert_eq!(drift_renders.load(Ordering::SeqCst), 0);
     assert_eq!(drift_grades.load(Ordering::SeqCst), 0);
@@ -447,6 +452,77 @@ async fn persisted_attempt_refuses_renderer_identity_drift_before_grade_rpc() {
         .expect("attempt reread")
         .expect("attempt remains");
     assert_eq!(after, before, "identity drift leaves the attempt unchanged");
+}
+
+#[tokio::test]
+async fn persisted_attempt_refuses_duplicate_replay_mapping_before_grade_rpc() {
+    let (backend, context, question, renders, grades, _unavailable) = fixture().await;
+    let issued = backend
+        .issue(context, reference(), &question, 99)
+        .await
+        .expect("renderer issues the attempt");
+    let (actor, binding, attempt) = persist_attempt(&backend, context, &question, &issued).await;
+    let response = StudentResponse::MultipleChoice {
+        selected: vec![ChoiceId::new("water")],
+    };
+    let mut prepared = prepare_grade(
+        &backend,
+        context,
+        actor,
+        binding,
+        attempt.id,
+        &response,
+        "duplicate-replay-map",
+    )
+    .await;
+    let Some(learning_data_access::WebworkGradeReplayStateV1 {
+        mapping: learning_data_access::WebworkReplayMappingV1::SingleChoice { items },
+        ..
+    }) = prepared.webwork_replay.as_mut()
+    else {
+        panic!("fixture has a single-choice replay mapping")
+    };
+    items.push(items.first().expect("fixture has one control").clone());
+
+    assert!(matches!(
+        backend
+            .grade(
+                context,
+                actor,
+                reference(),
+                &prepared.attempt,
+                prepared
+                    .webwork_grading
+                    .as_ref()
+                    .expect("prepared WebWork grading contract"),
+                prepared
+                    .presentation_binding
+                    .expect("prepared presentation binding"),
+                prepared
+                    .webwork_replay
+                    .as_ref()
+                    .expect("prepared WebWork replay"),
+                prepared
+                    .presentation
+                    .as_ref()
+                    .expect("prepared presentation snapshot"),
+                prepared
+                    .grading_envelope
+                    .as_ref()
+                    .expect("prepared grading envelope"),
+                &response,
+            )
+            .await,
+        Err(RunBackendError::Deterministic(
+            DeterministicGraderFailure::IssuedEvidenceIntegrity
+        ))
+    ));
+    assert_eq!(renders.load(Ordering::SeqCst), 1, "grade does not rerender");
+    assert_eq!(
+        grades.load(Ordering::SeqCst),
+        0,
+        "corrupt replay never grades"
+    );
 }
 
 #[tokio::test]
@@ -495,6 +571,8 @@ async fn http_submit_translates_rendered_webwork_choice_without_rerendering() {
                 &store,
             )),
         ),
+        Arc::clone(&store) as Arc<dyn learning_data_access::LearnerSubmissionStatusStore>,
+        Arc::clone(&store) as Arc<dyn learning_data_access::AutomatedGradingStore>,
     );
 
     let issued_response = app

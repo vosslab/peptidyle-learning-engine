@@ -557,7 +557,8 @@ pub trait RunStore: Send + Sync {
         page: PageRequest,
     ) -> Result<Option<Page<QuestionAttempt>>, StoreError>;
 
-    /// Returns a prior exact submission before invoking a grading backend again.
+    /// Returns the durable state of a prior exact submission before invoking
+    /// a grading backend again.
     ///
     /// A changed response or key for an already submitted attempt is a conflict.
     async fn replay_submission_impl(
@@ -567,20 +568,21 @@ pub trait RunStore: Send + Sync {
         attempt: QuestionAttemptId,
         response: &StudentResponse,
         idempotency_key: &SubmissionIdempotencyKey,
-    ) -> Result<Option<SubmissionRecord>, StoreError>;
+    ) -> Result<SubmissionReceiptRead, StoreError>;
 
-    /// Reads the immutable receipt for one owned submitted attempt.
+    /// Reads the immutable receipt state for one owned submitted attempt.
     ///
     /// This does not accept an idempotency key because it is a receipt read,
     /// not a retry authorization. Implementations must return the persisted
     /// receipt only and fail closed when a required receipt payload is absent
     /// or corrupt; they must not reconstruct it from current catalog state.
+    /// An accepted automated submission is returned as typed pending state.
     async fn submission_record_impl(
         &self,
         context: TenantContext,
         actor: UserId,
         attempt: QuestionAttemptId,
-    ) -> Result<Option<SubmissionRecord>, StoreError>;
+    ) -> Result<SubmissionReceiptRead, StoreError>;
 
     /// Atomically records the first response, grade event, run completion, and summary.
     ///
@@ -631,6 +633,24 @@ pub trait SealedPrivateExecutionStore: Send + Sync {
         response: &StudentResponse,
         idempotency_key: &SubmissionIdempotencyKey,
     ) -> Result<SealedPrivateExecutionPreparation, StoreError>;
+}
+
+/// Focused server-only learner recovery read.
+///
+/// Route composition injects this answer-free capability beside sealed
+/// execution rather than obtaining it from the broad [`Store`] facade. Each
+/// implementation verifies the current learner's exact course, assignment,
+/// enrollment, run, and attempt witness before projecting a closed durable
+/// state (ASVS V8.2.2/V8.3.1).
+#[async_trait]
+pub trait LearnerSubmissionStatusStore: Send + Sync {
+    async fn learner_submission_status(
+        &self,
+        context: TenantContext,
+        actor: UserId,
+        binding: LearnerWorkRoutingBinding,
+        attempt: QuestionAttemptId,
+    ) -> Result<LearnerSubmissionStatusRead, StoreError>;
 }
 
 /// Focused persistence capability composed by [`Store`].

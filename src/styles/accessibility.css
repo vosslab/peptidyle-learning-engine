@@ -5,6 +5,16 @@
   .quiet-link {
     border: 1px solid ButtonText;
   }
+
+  .assignment-workspace-nav a[aria-current="page"] {
+    border: 1px solid Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+    color: HighlightText;
+    background: Highlight;
+    text-decoration: underline;
+    text-decoration-thickness: 0.14em;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

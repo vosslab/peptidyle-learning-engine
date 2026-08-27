@@ -29,14 +29,17 @@ fn mark_assignment_scoring_failed(state: &mut State, job: JobId) {
     }
 }
 
-fn retry_delay_seconds(attempt_count: u16) -> i32 {
+pub(super) fn retry_delay_seconds(attempt_count: u16) -> i32 {
     // 1, 2, 4, ... capped at five minutes. This is intentionally deterministic
     // so a later worker cannot turn retry timing into a second policy engine.
     let shift = u32::from(attempt_count.saturating_sub(1)).min(8);
     i32::try_from(1_u32 << shift).expect("bounded retry delay fits i32")
 }
 
-fn add_job_seconds(now: ActivityTimestamp, seconds: i32) -> Result<ActivityTimestamp, StoreError> {
+pub(super) fn add_job_seconds(
+    now: ActivityTimestamp,
+    seconds: i32,
+) -> Result<ActivityTimestamp, StoreError> {
     now.as_unix_millis()
         .checked_add(i64::from(seconds) * 1_000)
         .map(ActivityTimestamp::from_unix_millis)
@@ -125,6 +128,51 @@ impl JobStore for MemoryStore {
             .jobs
             .get_mut(&id)
             .expect("selected job remains present");
+        job.state = JobState::Leased;
+        job.attempt_count = job
+            .attempt_count
+            .checked_add(1)
+            .ok_or_else(|| StoreError::InvalidRecord("job attempts overflow".to_string()))?;
+        job.lease_token = Some(token);
+        job.lease_expires_at = Some(add_job_seconds(now, lease.seconds())?);
+        job.failure = None;
+        Ok(Some(ClaimedJob {
+            id,
+            tenant: job.tenant,
+            payload: job.payload.clone(),
+            lease_token: token,
+            attempt_count: job.attempt_count,
+        }))
+    }
+
+    async fn claim_exact_job(
+        &self,
+        id: JobId,
+        lease: JobLeaseDuration,
+    ) -> Result<Option<ClaimedJob>, StoreError> {
+        let token = JobLeaseToken::generate()?;
+        let mut state = self.write_state()?;
+        let now = state.authoritative_time;
+        let Some(job) = state.jobs.get_mut(&id) else {
+            return Ok(None);
+        };
+        if matches!(job.payload, JobPayload::GradeAcceptedSubmission { .. }) {
+            return Ok(None);
+        }
+        let ready = job.state == JobState::Ready && job.available_at <= now;
+        let expired = job.state == JobState::Leased
+            && job.lease_expires_at.is_some_and(|expiry| expiry <= now)
+            && job.attempt_count < job.max_attempts;
+        if !ready && !expired {
+            return Ok(None);
+        }
+        if job.attempt_count >= job.max_attempts {
+            job.state = JobState::Dead;
+            job.lease_token = None;
+            job.lease_expires_at = None;
+            job.failure = Some(JobFailureKind::TimedOut);
+            return Ok(None);
+        }
         job.state = JobState::Leased;
         job.attempt_count = job
             .attempt_count
@@ -396,8 +444,10 @@ impl crate::AssignmentScoringWorkerStore for MemoryStore {
                 .submissions
                 .values()
                 .filter(|submission| {
-                    let attempt =
-                        projected_attempt(&state, context.tenant_id(), &submission.record.attempt);
+                    let Some(record) = submission.completed_record_opt() else {
+                        return false;
+                    };
+                    let attempt = projected_attempt(&state, context.tenant_id(), &record.attempt);
                     attempt.tenant == context.tenant_id()
                         && attempt.result.is_some()
                         && !matches!(
@@ -504,7 +554,10 @@ fn build_memory_assignment_scoring(
         if key.0 != tenant {
             continue;
         }
-        let attempted = projected_attempt(state, tenant, &submission.record.attempt);
+        let Some(record) = submission.completed_record_opt() else {
+            continue;
+        };
+        let attempted = projected_attempt(state, tenant, &record.attempt);
         if matches!(
             attempted.status,
             AttemptStatus::Cleared | AttemptStatus::Exempt
@@ -629,4 +682,46 @@ fn build_memory_assignment_scoring(
         enrollments,
         summaries,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use question_model::{AssignmentId, TenantId};
+    use uuid::Uuid;
+
+    #[tokio::test]
+    async fn exact_claim_grants_one_lease_for_one_ready_job() {
+        let store = MemoryStore::default();
+        let tenant = TenantId::from_uuid(Uuid::from_u128(91));
+        let context = TenantContext::from_authenticated_session(tenant);
+        let job = store
+            .enqueue_job(
+                context,
+                EnqueueJob {
+                    tenant,
+                    payload: JobPayload::RecalculateAssignment {
+                        assignment: AssignmentId::from_uuid(Uuid::from_u128(92)),
+                        generation: question_model::ScoringGeneration::INITIAL,
+                    },
+                    max_attempts: 3,
+                },
+            )
+            .await
+            .expect("ready job");
+        let lease = JobLeaseDuration::from_seconds(30).expect("bounded lease");
+
+        let first = store
+            .claim_exact_job(job, lease)
+            .await
+            .expect("first claim")
+            .expect("one lease");
+        let second = store
+            .claim_exact_job(job, lease)
+            .await
+            .expect("second claim");
+
+        assert_eq!(first.id, job);
+        assert!(second.is_none());
+    }
 }

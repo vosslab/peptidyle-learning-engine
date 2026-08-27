@@ -9,16 +9,16 @@ use learning_data_access::{
     AssignmentContentUpdate, AssignmentPoliciesUpdate, AuthoritativeTimeStore, CatalogStore,
     CourseGroupManagementStore, CourseRecordsAccessStore, CreateAssignmentDraftCommand,
     ReplaceAssignmentContentCommand, ReplaceAssignmentContentOutcome,
-    ReplaceAssignmentPoliciesCommand, ReplaceAssignmentPoliciesOutcome, SessionStore, Store,
-    StoreError,
+    ReplaceAssignmentFixedItemCommand, ReplaceAssignmentPoliciesCommand,
+    ReplaceAssignmentPoliciesOutcome, SessionStore, Store, StoreError,
 };
 use question_model::{
     AssignmentAudience, AssignmentAudienceRequest, AssignmentAudienceValidationReason,
     AssignmentContentIssuedWorkConflict, AssignmentContentIssuedWorkConflictKind, AssignmentId,
-    AssignmentPoliciesValidationFailure, AssignmentPoliciesValidationFailureCode,
+    AssignmentItemId, AssignmentPoliciesValidationFailure, AssignmentPoliciesValidationFailureCode,
     AssignmentPoliciesValidationIssue, AssignmentPolicyConfigurationReason, CourseId,
     CreateAssignmentDraftRequest, InstructorStudentView, ReplaceAssignmentContentRequest,
-    ReplaceAssignmentPoliciesRequest,
+    ReplaceAssignmentFixedItemRequest, ReplaceAssignmentPoliciesRequest,
 };
 
 use super::super::policy::require_course_access;
@@ -238,6 +238,142 @@ where
             StatusCode::CONFLICT,
             "assignment content could not be changed in its current state",
         ),
+        Err(error) => store_error_response(error),
+    }
+}
+
+/// Replaces one assignment-owned fixed slot's immutable publication for
+/// future runs while preserving any issued learner evidence.
+pub(in crate::course) async fn replace_assignment_fixed_item<S>(
+    State(state): State<CourseRouteState<S>>,
+    Path((course, assignment, item)): Path<(CourseId, AssignmentId, AssignmentItemId)>,
+    request: Request,
+) -> Response
+where
+    S: Store
+        + AuthoritativeTimeStore
+        + CatalogStore
+        + CourseGroupManagementStore
+        + CourseRecordsAccessStore
+        + SessionStore
+        + 'static,
+{
+    let authenticated = match resolve_request_session(state.store.as_ref(), request.headers()).await
+    {
+        Ok(authenticated) => authenticated,
+        Err(error) => return auth_error_response(error),
+    };
+    // ASVS 8.2.1, 8.2.2, 8.3.1, and 8.4.1: the trusted service derives the
+    // instructor and tenant, authorizes the exact course, and binds the
+    // nested assignment/item rather than accepting browser authority claims.
+    if let Err(response) =
+        require_course_access(state.store.as_ref(), &authenticated, course, true).await
+    {
+        return response.into_response();
+    }
+    let current =
+        match exact_assignment(&state, authenticated.tenant_context, course, assignment).await {
+            Ok(stored) => stored,
+            Err(response) => return response.into_response(),
+        };
+    if !current.record.items.iter().any(|fixed| fixed.id == item) {
+        return error_response(StatusCode::NOT_FOUND, "assignment not found");
+    }
+    let expected_revision = match revision_or_response(request.headers()) {
+        Ok(revision) => revision,
+        Err(response) => return response.into_response(),
+    };
+    if current.revision != expected_revision {
+        return error_response(
+            StatusCode::PRECONDITION_FAILED,
+            "assignment changed; reload it",
+        );
+    }
+    let value = match definition_request::assignment_json_body(request).await {
+        Ok(value) => value,
+        Err(response) => return response.into_response(),
+    };
+    let request = match strict_assignment_request::<ReplaceAssignmentFixedItemRequest>(value) {
+        Ok(request) => request,
+        Err(()) => {
+            return error_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Use the Questions workspace to send one valid Question ID.",
+            );
+        }
+    };
+    let replacement = match definition_request::resolve_assignable_question_id(
+        &state,
+        authenticated.tenant_context,
+        request.question_id,
+    )
+    .await
+    {
+        Ok(replacement) => replacement,
+        Err(response) => return response.into_response(),
+    };
+    let candidate = learning_data_access::AssignmentRecord {
+        items: current
+            .record
+            .items
+            .iter()
+            .map(|fixed| {
+                let mut fixed = fixed.clone();
+                if fixed.id == item {
+                    fixed.reference = replacement;
+                }
+                fixed
+            })
+            .collect(),
+        ..current.record.clone()
+    };
+    // ASVS 2.2.3: replacement retains the complete aggregate's documented
+    // structural invariants, including unique immutable publications, before
+    // the focused Store command changes the future-run definition.
+    let mut unique_references = std::collections::BTreeSet::new();
+    if !candidate
+        .references()
+        .all(|reference| unique_references.insert(reference))
+    {
+        return error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "assignment Question ID is already used in this definition",
+        );
+    }
+    if let Err(response) = definition_request::validate_assignment_request(
+        &state,
+        authenticated.tenant_context,
+        &candidate,
+    )
+    .await
+    {
+        return response.into_response();
+    }
+    // ASVS 2.3.3 and 15.4.2: the Store performs the assignment-locked
+    // compare-and-swap with the mutation, so a race cannot overwrite a newer
+    // aggregate revision after this handler's preflight comparison.
+    match state
+        .store
+        .replace_assignment_fixed_item(
+            authenticated.tenant_context,
+            ReplaceAssignmentFixedItemCommand {
+                actor: authenticated.record.subject.user(),
+                course,
+                assignment,
+                current_item: item,
+                expected_revision,
+                replacement,
+            },
+        )
+        .await
+    {
+        Ok(stored) => assignment_response(&state, &authenticated, StatusCode::OK, stored).await,
+        Err(StoreError::Conflict) => error_response(
+            StatusCode::PRECONDITION_FAILED,
+            "assignment changed; reload it",
+        ),
+        // ASVS 16.5.1: store_error_response keeps internal Store diagnostics
+        // out of the browser-safe no-store error envelope.
         Err(error) => store_error_response(error),
     }
 }

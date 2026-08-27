@@ -53,6 +53,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             crate::SubmissionPreparation::Replay(record) => {
                 return Ok(ExternalToolBegin::Committed(record));
             }
+            crate::SubmissionPreparation::AcceptedPending(_) => return Err(StoreError::Conflict),
             crate::SubmissionPreparation::FirstEffect(prepared) => prepared,
         };
         if state
@@ -180,6 +181,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             &command.idempotency_key,
         )? {
             crate::SubmissionPreparation::Replay(record) => return Ok(*record),
+            crate::SubmissionPreparation::AcceptedPending(_) => return Err(StoreError::Conflict),
             crate::SubmissionPreparation::FirstEffect(prepared) => prepared,
         };
         validate_external_response(&command.response, &command.binding)?;
@@ -258,6 +260,7 @@ impl ExternalToolBrokerStore for MemoryStore {
             &command.idempotency_key,
         )? {
             crate::SubmissionPreparation::Replay(record) => return Ok(*record),
+            crate::SubmissionPreparation::AcceptedPending(_) => return Err(StoreError::Conflict),
             crate::SubmissionPreparation::FirstEffect(prepared) => prepared,
         };
         validate_external_snapshot_binding(

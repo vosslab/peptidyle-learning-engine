@@ -19,6 +19,7 @@ import local_stack_control.lifecycle_profiles
 import local_stack_control.models
 import local_stack_control.private_files
 import local_stack_control.process
+import local_stack_control.process_logins
 import local_stack_control.renderer
 import local_stack_control.status
 import local_stack_control.chapter_one
@@ -342,6 +343,8 @@ def start_lifecycle(
 	wait_for_postgres(selected, runner, values, options)
 	synchronize_database(target, runner, values, options)
 	run_migrations(runner, repo_root, values, environment)
+	if local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
+		local_stack_control.process_logins.provision(selected, runner, values, child_environment(selected))
 	base_course_database_urls = None
 	if local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
 		base_course_database_urls = local_stack_control.base_course_logins.provision(selected, runner, values, child_environment(selected))

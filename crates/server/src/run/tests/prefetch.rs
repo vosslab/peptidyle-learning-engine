@@ -1,4 +1,5 @@
 use super::*;
+use learning_data_access::SubmitQuestionAttemptCommand;
 
 #[tokio::test]
 async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
@@ -230,6 +231,8 @@ async fn prefetch_preserves_a_backend_owned_render_hash() {
         Arc::clone(&store),
         Arc::new(OpaqueRenderedHashBackend { inner: backend }),
         sealed_memory(&store),
+        learner_submission_status(&store),
+        automated_grading(&store),
     );
     let first = active_attempt_for(
         &app,
@@ -422,6 +425,8 @@ async fn successor_delivery_failure_returns_the_durable_receipt_without_regradin
             fail_next_issue: AtomicBool::new(true),
         }),
         sealed_memory(&store),
+        learner_submission_status(&store),
+        automated_grading(&store),
     );
     let submit = || {
         Request::builder()

@@ -1,14 +1,20 @@
 use super::*;
 
 #[tokio::test]
-async fn replay_returns_before_the_sealed_private_execution_facade() {
+async fn valid_first_submission_is_durable_pending_without_private_grading() {
     let (store, backend, _app, student_cookie, _, assignment, _) = fixture().await;
     let sealed = Arc::new(CountingSealedExecution {
         inner: sealed_memory(&store),
         calls: AtomicUsize::new(0),
         refuse: AtomicBool::new(false),
     });
-    let app = router(Arc::clone(&store), Arc::clone(&backend), sealed.clone());
+    let app = router(
+        Arc::clone(&store),
+        Arc::clone(&backend),
+        sealed.clone(),
+        learner_submission_status(&store),
+        automated_grading(&store),
+    );
     let attempt = active_attempt_for(
         &app,
         CourseId::from_uuid(id(5)),
@@ -33,68 +39,42 @@ async fn replay_returns_before_the_sealed_private_execution_facade() {
             .expect("submission request")
     };
 
-    let first = app
+    let accepted = app
         .clone()
         .oneshot(request())
         .await
         .expect("first submission");
-    assert_eq!(first.status(), StatusCode::OK);
-    let first_receipt = json(first).await;
-    assert_eq!(first_receipt["runCompletionStatus"], "completed");
-    assert!(first_receipt["nextIssued"].is_null());
-    assert_eq!(first_receipt["nextPending"], false);
-    assert_eq!(sealed.calls.load(Ordering::SeqCst), 1);
-    assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(accepted.status(), StatusCode::ACCEPTED);
+    assert_eq!(accepted.headers()["cache-control"], "no-store");
+    assert_eq!(
+        json(accepted).await,
+        serde_json::json!({
+            "kind": "accepted_pending",
+            "accepted": true,
+            "attemptId": attempt.id,
+            "automatedGradingStatus": "pending",
+            "nextAction": "check_status",
+        })
+    );
+    assert_eq!(sealed.calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 0);
 
-    let replay = app.oneshot(request()).await.expect("replay submission");
-    assert_eq!(replay.status(), StatusCode::OK);
-    let replay_receipt = json(replay).await;
-    assert_eq!(replay_receipt["runCompletionStatus"], "completed");
-    assert!(replay_receipt["nextIssued"].is_null());
-    assert_eq!(replay_receipt["nextPending"], false);
-    assert_eq!(sealed.calls.load(Ordering::SeqCst), 1);
-    assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 1);
-}
-
-#[tokio::test]
-async fn sealed_execution_denial_blocks_backend_grading() {
-    let (store, backend, _app, student_cookie, _, assignment, _) = fixture().await;
-    let sealed = Arc::new(CountingSealedExecution {
-        inner: sealed_memory(&store),
-        calls: AtomicUsize::new(0),
-        refuse: AtomicBool::new(true),
-    });
-    let app = router(Arc::clone(&store), Arc::clone(&backend), sealed.clone());
-    let attempt = active_attempt_for(
-        &app,
-        CourseId::from_uuid(id(5)),
-        assignment,
-        &student_cookie,
-    )
-    .await;
-    let response = app
+    let status = app
         .oneshot(
             Request::builder()
-                .method("POST")
-                .uri(submission_path(
+                .uri(submission_status_path(
                     CourseId::from_uuid(id(5)),
                     assignment,
                     attempt.id,
                 ))
                 .header("cookie", student_cookie)
-                .header("content-type", "application/json")
-                .header("idempotency-key", "sealed-denied")
-                .body(Body::from(
-                    serde_json::json!({ "response": { "kind": "numeric", "value": 18.0 } })
-                        .to_string(),
-                ))
-                .expect("submission request"),
+                .body(Body::empty())
+                .expect("durable status request"),
         )
         .await
-        .expect("denied response");
-    assert_eq!(response.status(), StatusCode::FORBIDDEN);
-    assert_eq!(sealed.calls.load(Ordering::SeqCst), 1);
-    assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 0);
+        .expect("durable status response");
+    assert_eq!(status.status(), StatusCode::ACCEPTED);
+    assert_eq!(json(status).await["kind"], "accepted_pending");
 }
 
 #[tokio::test]

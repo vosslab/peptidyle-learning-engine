@@ -139,6 +139,7 @@ fn submit_pending_manual_question_attempt_locked(
         &command.idempotency_key,
     )? {
         crate::SubmissionPreparation::Replay(record) => return Ok(*record),
+        crate::SubmissionPreparation::AcceptedPending(_) => return Err(StoreError::Conflict),
         crate::SubmissionPreparation::FirstEffect(_) => {}
     }
     let base = state
@@ -147,15 +148,22 @@ fn submit_pending_manual_question_attempt_locked(
         .cloned()
         .ok_or(StoreError::NotFound)?;
     require_attempt_owner(state, tenant, &base, command.actor)?;
-    if let Some(matches_request) = state
-        .submissions
-        .get(&(tenant, command.attempt))
-        .map(|stored| stored.key == command.idempotency_key && stored.response == command.response)
-    {
+    if let Some(stored) = state.submissions.get(&(tenant, command.attempt)) {
+        let matches_request = stored.key == command.idempotency_key
+            && super::stored_submission_matches_response(
+                state,
+                tenant,
+                command.attempt,
+                &command.response,
+            )?;
         return if matches_request {
-            super::runs::load_submission_record(state, tenant, &base)?.ok_or_else(|| {
-                StoreError::Unavailable("submission receipt disappeared during replay".to_string())
-            })
+            match super::runs::load_submission_record(state, tenant, &base)? {
+                crate::SubmissionReceiptRead::Completed(record) => Ok(*record),
+                crate::SubmissionReceiptRead::AcceptedPending(_) => Err(StoreError::Conflict),
+                crate::SubmissionReceiptRead::Missing => Err(StoreError::Unavailable(
+                    "submission receipt disappeared during replay".to_string(),
+                )),
+            }
         } else {
             Err(StoreError::Conflict)
         };
@@ -228,14 +236,19 @@ fn submit_pending_manual_question_attempt_locked(
         presentation,
         disclosure,
     };
+    let private_response = StoredPrivateSubmissionResponse::from_response(command.response)?;
     state.submissions.insert(
         (tenant, command.attempt),
         StoredSubmission {
             key: command.idempotency_key,
-            response: command.response,
-            record: record.clone(),
+            state: StoredSubmissionState::Completed(Box::new(
+                completed_submission_receipt_from_record(record.clone()),
+            )),
         },
     );
+    state
+        .private_submission_responses
+        .insert((tenant, command.attempt), private_response);
     state
         .attempt_current
         .insert((tenant, command.attempt), submitted);

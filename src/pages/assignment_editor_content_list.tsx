@@ -78,6 +78,7 @@ export function AssignmentEditorContentList(props: AssignmentEditorContentListPr
           <button
             class="quiet-action"
             disabled={props.createMode}
+            aria-label={`Replace ${entry.title}`}
             onClick={() => props.onReplace(entry.id)}
           >
             Replace

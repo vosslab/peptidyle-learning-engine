@@ -27,6 +27,8 @@ use question_model::{
     WorkspaceImportId,
 };
 
+use crate::accepted_submission_worker::AcceptedSubmissionExecutionWorkerReport;
+
 /// The only server-owned types allowed to implement the durable commit sink.
 ///
 /// A production implementation belongs beside the storage transaction that
@@ -331,6 +333,16 @@ impl WorkerSettings {
             batch_size,
         })
     }
+
+    /// Returns the validated lease shared by capability-scoped worker families.
+    pub(crate) fn lease(&self) -> JobLeaseDuration {
+        self.lease
+    }
+
+    /// Returns the validated direct-handler deadline within that lease.
+    pub(crate) fn execution_deadline(&self) -> Duration {
+        self.preparation_timeout
+    }
 }
 
 /// Outcome counters for one bounded polling pass.
@@ -342,6 +354,155 @@ pub(crate) struct DrainReport {
     pub(crate) dead: u32,
     /// Ambiguous or stale finalization was intentionally not retried locally.
     pub(crate) finalization_failed: u32,
+}
+
+impl DrainReport {
+    fn claimed(&self) -> bool {
+        self.completed + self.rescheduled + self.retrying + self.dead + self.finalization_failed > 0
+    }
+
+    fn include(&mut self, other: Self) {
+        self.completed += other.completed;
+        self.rescheduled += other.rescheduled;
+        self.retrying += other.retrying;
+        self.dead += other.dead;
+        self.finalization_failed += other.finalization_failed;
+    }
+}
+
+/// One bounded generic claim attempt used by the fair seven-family dispatcher.
+#[cfg_attr(not(test), allow(dead_code))]
+#[async_trait]
+pub(crate) trait GenericOneClaimDrain: Send + Sync {
+    async fn drain_one(&self) -> Result<DrainReport, StoreError>;
+}
+
+/// One bounded sealed claim attempt used by the fair seven-family dispatcher.
+#[cfg_attr(not(test), allow(dead_code))]
+#[async_trait]
+pub(crate) trait AcceptedOneClaimDrain: Send + Sync {
+    async fn drain_one(&self) -> Result<AcceptedSubmissionExecutionWorkerReport, StoreError>;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+enum DispatchFamily {
+    Generic,
+    Accepted,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+impl DispatchFamily {
+    fn other(self) -> Self {
+        match self {
+            Self::Generic => Self::Accepted,
+            Self::Accepted => Self::Generic,
+        }
+    }
+}
+
+/// Answer-free reports for one fair seven-family dispatch pass.
+///
+/// Each family retains its native report shape. `None` means that family was
+/// not attempted during this pass; an attempted idle side reports its normal
+/// empty result. At most one report can describe an actual claim.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FairWorkerDispatchReport {
+    pub(crate) generic: Option<DrainReport>,
+    pub(crate) accepted: Option<AcceptedSubmissionExecutionWorkerReport>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+impl FairWorkerDispatchReport {
+    fn claimed_count(&self) -> u32 {
+        let generic_claimed = self.generic.as_ref().is_some_and(DrainReport::claimed);
+        let accepted_claimed = self
+            .accepted
+            .as_ref()
+            .is_some_and(|report| report.no_claim == 0);
+        u32::from(generic_claimed) + u32::from(accepted_claimed)
+    }
+}
+
+/// Private dispatcher that shares fair claim opportunity between six generic
+/// families and the sealed accepted-submission family.
+///
+/// The next preferred family is process-local state. It flips before the
+/// asynchronous claim attempt so a settled pass always advances preference,
+/// including an idle or failed pass. A store error ends the pass immediately:
+/// it is never interpreted as an idle side and cannot cause a fallback claim.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FairWorkerDispatcher<G, A> {
+    generic: G,
+    accepted: A,
+    next_preference: std::sync::Mutex<DispatchFamily>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+impl<G, A> FairWorkerDispatcher<G, A> {
+    pub(crate) fn new(generic: G, accepted: A) -> Self {
+        Self {
+            generic,
+            accepted,
+            next_preference: std::sync::Mutex::new(DispatchFamily::Generic),
+        }
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+impl<G, A> FairWorkerDispatcher<G, A>
+where
+    G: GenericOneClaimDrain,
+    A: AcceptedOneClaimDrain,
+{
+    /// Attempts the preferred family once, then the other family once only
+    /// when the preferred attempt was idle.
+    pub(crate) async fn drain_once(&self) -> Result<FairWorkerDispatchReport, StoreError> {
+        let preferred = {
+            let mut next_preference = self
+                .next_preference
+                .lock()
+                .expect("fair dispatcher preference lock must not be poisoned");
+            let preferred = *next_preference;
+            *next_preference = preferred.other();
+            preferred
+        };
+        let first = self.drain_family(preferred).await?;
+        if first.claimed_count() == 1 {
+            return Ok(first);
+        }
+
+        let second = self.drain_family(preferred.other()).await?;
+        let report = FairWorkerDispatchReport {
+            generic: first.generic.or(second.generic),
+            accepted: first.accepted.or(second.accepted),
+        };
+        debug_assert!(report.claimed_count() <= 1);
+        Ok(report)
+    }
+
+    async fn drain_family(
+        &self,
+        family: DispatchFamily,
+    ) -> Result<FairWorkerDispatchReport, StoreError> {
+        match family {
+            DispatchFamily::Generic => {
+                let report = self.generic.drain_one().await?;
+                Ok(FairWorkerDispatchReport {
+                    generic: Some(report),
+                    accepted: None,
+                })
+            }
+            DispatchFamily::Accepted => {
+                let report = self.accepted.drain_one().await?;
+                Ok(FairWorkerDispatchReport {
+                    generic: None,
+                    accepted: Some(report),
+                })
+            }
+        }
+    }
 }
 
 /// Stateless worker; competing instances rely on the broker's atomic claim.
@@ -368,32 +529,46 @@ where
     pub(crate) async fn drain_once(&self) -> Result<DrainReport, StoreError> {
         let mut report = DrainReport::default();
         for _ in 0..self.settings.batch_size {
-            let Some(claimed) = self
-                .store
-                .claim_next_job(self.registry.claim_filter(), self.settings.lease)
-                .await?
-            else {
+            let one = self.drain_one().await?;
+            let claimed = one.claimed();
+            report.include(one);
+            if !claimed {
                 break;
-            };
-            let family = self.registry.for_payload(&claimed.payload).ok_or_else(|| {
-                StoreError::Unavailable(
-                    "queue broker returned a family outside the worker registry".to_string(),
-                )
-            })?;
-            let claim = JobCommitClaim::new(claimed.id, claimed.lease_token);
-            let execution = JobExecution::new().with_claim(claim);
-            let handler = family.handler;
-            let context = TenantContext::from_authenticated_session(claimed.tenant);
-            let payload = claimed.payload.clone();
-            let handler_execution = execution.clone();
-            let mut task =
-                tokio::spawn(
-                    async move { handler.prepare(context, payload, handler_execution).await },
-                );
+            }
+        }
+        Ok(report)
+    }
 
-            let prepared = match tokio::time::timeout(self.settings.preparation_timeout, &mut task)
-                .await
-            {
+    /// Claims and processes exactly one generic queue item at most.
+    ///
+    /// This operation deliberately ignores the configured batch size. The
+    /// fair dispatcher uses it so one sealed accepted claim cannot be delayed
+    /// behind a generic batch.
+    pub(crate) async fn drain_one(&self) -> Result<DrainReport, StoreError> {
+        let Some(claimed) = self
+            .store
+            .claim_next_job(self.registry.claim_filter(), self.settings.lease)
+            .await?
+        else {
+            return Ok(DrainReport::default());
+        };
+        let mut report = DrainReport::default();
+        let family = self.registry.for_payload(&claimed.payload).ok_or_else(|| {
+            StoreError::Unavailable(
+                "queue broker returned a family outside the worker registry".to_string(),
+            )
+        })?;
+        let claim = JobCommitClaim::new(claimed.id, claimed.lease_token);
+        let execution = JobExecution::new().with_claim(claim);
+        let handler = family.handler;
+        let context = TenantContext::from_authenticated_session(claimed.tenant);
+        let payload = claimed.payload.clone();
+        let handler_execution = execution.clone();
+        let mut task =
+            tokio::spawn(async move { handler.prepare(context, payload, handler_execution).await });
+
+        let prepared =
+            match tokio::time::timeout(self.settings.preparation_timeout, &mut task).await {
                 Ok(Ok(Ok(effect))) => Some(effect),
                 Ok(Ok(Err(failure))) => {
                     self.finalize_failure(&mut report, claimed.id, claimed.lease_token, failure)
@@ -440,20 +615,19 @@ where
                     None
                 }
             };
-            let Some(effect) = prepared else {
-                continue;
-            };
+        let Some(effect) = prepared else {
+            return Ok(report);
+        };
 
-            // This is the only visibility path. The committer owns one atomic
-            // conditional transaction: active claim token + effect + completion.
-            match family.committer.commit(claim, effect).await {
-                Ok(EffectCommitOutcome::Committed) => report.completed += 1,
-                Ok(EffectCommitOutcome::Rescheduled) => report.rescheduled += 1,
-                Ok(EffectCommitOutcome::ClaimNoLongerActive) | Err(_) => {
-                    // An uncertain commit is not failed/retried here: recovery uses
-                    // the durable idempotency key after the lease resolves.
-                    report.finalization_failed += 1;
-                }
+        // This is the only visibility path. The committer owns one atomic
+        // conditional transaction: active claim token + effect + completion.
+        match family.committer.commit(claim, effect).await {
+            Ok(EffectCommitOutcome::Committed) => report.completed += 1,
+            Ok(EffectCommitOutcome::Rescheduled) => report.rescheduled += 1,
+            Ok(EffectCommitOutcome::ClaimNoLongerActive) | Err(_) => {
+                // An uncertain commit is not failed/retried here: recovery uses
+                // the durable idempotency key after the lease resolves.
+                report.finalization_failed += 1;
             }
         }
         Ok(report)
@@ -477,6 +651,28 @@ where
         self.store
             .ready_queue_depth(self.registry.claim_filter())
             .await
+    }
+}
+
+#[async_trait]
+impl<S> GenericOneClaimDrain for Worker<S>
+where
+    S: JobStore + 'static,
+{
+    async fn drain_one(&self) -> Result<DrainReport, StoreError> {
+        Worker::drain_one(self).await
+    }
+}
+
+#[async_trait]
+impl<G, A> runtime::BoundedWorkerDispatch for FairWorkerDispatcher<G, A>
+where
+    G: GenericOneClaimDrain,
+    A: AcceptedOneClaimDrain,
+{
+    async fn drain_once(&self) -> Result<u32, StoreError> {
+        let report = FairWorkerDispatcher::drain_once(self).await?;
+        Ok(report.claimed_count())
     }
 }
 

@@ -659,22 +659,22 @@ pub trait Store:
         attempt: QuestionAttemptId,
         response: &StudentResponse,
         idempotency_key: &SubmissionIdempotencyKey,
-    ) -> Result<Option<SubmissionRecord>, StoreError> {
+    ) -> Result<SubmissionReceiptRead, StoreError> {
         RunStore::replay_submission_impl(self, context, actor, attempt, response, idempotency_key)
             .await
     }
 
     /// Reads an owned immutable submission receipt without retry credentials.
     ///
-    /// A missing receipt means the attempt has not submitted. A corrupt or
-    /// incomplete receipt is unavailable authority, never a request to rebuild
-    /// from current catalog state.
+    /// A missing receipt and accepted pending input are distinct from a
+    /// completed receipt. A corrupt or incomplete receipt is unavailable
+    /// authority, never a request to rebuild from current catalog state.
     async fn submission_record(
         &self,
         context: TenantContext,
         actor: UserId,
         attempt: QuestionAttemptId,
-    ) -> Result<Option<SubmissionRecord>, StoreError> {
+    ) -> Result<SubmissionReceiptRead, StoreError> {
         RunStore::submission_record_impl(self, context, actor, attempt).await
     }
 

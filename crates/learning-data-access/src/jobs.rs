@@ -17,7 +17,7 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{StoreError, TenantContext};
+use crate::{AcceptedSubmissionId, GradingExecutionGeneration, StoreError, TenantContext};
 
 /// Opaque tenant-owned identifier for one assignment-export request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -258,6 +258,14 @@ impl std::fmt::Debug for JobLeaseToken {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum JobPayload {
+    /// Grade one previously accepted, server-private learner response.
+    /// The handler reloads the response under its tenant lease; it never comes
+    /// from HTTP or the durable queue payload.
+    GradeAcceptedSubmission {
+        attempt: QuestionAttemptId,
+        submission: AcceptedSubmissionId,
+        execution_generation: GradingExecutionGeneration,
+    },
     /// Rebuild all current computed scores for one assignment generation.
     /// Student, attempt, response, and grade data remain out of the queue.
     RecalculateAssignment {
@@ -327,6 +335,7 @@ pub enum JobPayload {
 /// Closed queue family used to bind a worker process to only the work it can finish.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum JobKind {
+    GradeAcceptedSubmission,
     RecalculateAssignment,
     RecalculateCourseItemAnalysis,
     AutoSubmitAttempt,
@@ -339,7 +348,23 @@ pub enum JobKind {
 }
 
 impl JobKind {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
+        Self::GradeAcceptedSubmission,
+        Self::RecalculateAssignment,
+        Self::RecalculateCourseItemAnalysis,
+        Self::AutoSubmitAttempt,
+        Self::Retention,
+        Self::Render,
+        Self::Export,
+        Self::Import,
+        Self::QtiImport,
+        Self::PublishPublicAssets,
+    ];
+
+    /// Queue families served by the general worker broker. Accepted automated
+    /// submissions use their sealed worker capability and never pass through
+    /// [`JobStore`]'s generic claim methods.
+    pub const GENERIC: [Self; 9] = [
         Self::RecalculateAssignment,
         Self::RecalculateCourseItemAnalysis,
         Self::AutoSubmitAttempt,
@@ -354,6 +379,7 @@ impl JobKind {
     /// Exact tagged-enum discriminant persisted in `worker_job.payload`.
     pub const fn database_name(self) -> &'static str {
         match self {
+            Self::GradeAcceptedSubmission => "gradeAcceptedSubmission",
             Self::RecalculateAssignment => "recalculateAssignment",
             Self::RecalculateCourseItemAnalysis => "recalculateCourseItemAnalysis",
             Self::AutoSubmitAttempt => "autoSubmitAttempt",
@@ -370,6 +396,7 @@ impl JobKind {
 impl JobPayload {
     pub const fn kind(&self) -> JobKind {
         match self {
+            Self::GradeAcceptedSubmission { .. } => JobKind::GradeAcceptedSubmission,
             Self::RecalculateAssignment { .. } => JobKind::RecalculateAssignment,
             Self::RecalculateCourseItemAnalysis { .. } => JobKind::RecalculateCourseItemAnalysis,
             Self::AutoSubmitAttempt { .. } => JobKind::AutoSubmitAttempt,
@@ -397,12 +424,17 @@ impl JobClaimFilter {
                 "worker claim filter must contain at least one job family".to_string(),
             ));
         }
+        if kinds.contains(&JobKind::GradeAcceptedSubmission) {
+            return Err(StoreError::InvalidRecord(
+                "accepted-submission work requires its sealed worker capability".to_string(),
+            ));
+        }
         Ok(Self { kinds })
     }
 
     pub fn all() -> Self {
         Self {
-            kinds: JobKind::ALL.into_iter().collect(),
+            kinds: JobKind::GENERIC.into_iter().collect(),
         }
     }
 
@@ -561,6 +593,20 @@ pub trait JobStore: Send + Sync {
         lease: JobLeaseDuration,
     ) -> Result<Option<ClaimedJob>, StoreError>;
 
+    /// Claims one exact ready or expired lease job. The synchronous fast path
+    /// and background worker use this same broker boundary, so only one can
+    /// obtain a lease for an accepted-submission execution.
+    async fn claim_exact_job(
+        &self,
+        id: JobId,
+        lease: JobLeaseDuration,
+    ) -> Result<Option<ClaimedJob>, StoreError> {
+        let _ = (id, lease);
+        Err(StoreError::Unavailable(
+            "exact job claim is unavailable for this queue capability".to_string(),
+        ))
+    }
+
     /// Completes the current claim only; stale tokens are rejected.
     async fn complete_job(&self, id: JobId, token: JobLeaseToken) -> Result<(), StoreError>;
 
@@ -652,6 +698,8 @@ mod tests {
         );
         assert!(filter.contains(JobKind::Export));
         assert!(!filter.contains(JobKind::Render));
+        assert!(JobClaimFilter::new([JobKind::GradeAcceptedSubmission]).is_err());
+        assert!(!JobClaimFilter::all().contains(JobKind::GradeAcceptedSubmission));
         #[cfg(feature = "postgres")]
         assert_eq!(filter.database_names(), ["export", "qtiImport"]);
     }

@@ -155,6 +155,17 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await elena.getByRole("button", { name: "Create assignment draft", exact: true }).click();
       await expect(elena.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
       await expect(elena.getByText("Add at least one question.", { exact: true })).toBeVisible();
+      await elena.getByRole("link", { name: "Policies", exact: true }).click();
+      await expect(elena.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
+      await elena.getByLabel("Lifecycle").selectOption("published");
+      await elena.getByRole("button", { name: "Save assignment policies", exact: true }).click();
+      const addQuestionRecovery = elena.getByRole("link", {
+        name: "Add at least one question",
+        exact: true,
+      });
+      await expect(addQuestionRecovery).toBeFocused();
+      await elena.keyboard.press("Enter");
+      await expect(elena.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
       await elena.getByRole("button", { name: "Search question library", exact: true }).click();
       const picker = elena.getByRole("dialog", {
         name: "Choose assignment questions",
@@ -206,6 +217,17 @@ test.describe("instructor authoring on the production PLE stack", () => {
           { exact: true },
         ),
       ).toBeVisible();
+      const courseNavigation = elena.getByRole("navigation", { name: "Course management" });
+      await expect(courseNavigation).toBeInViewport();
+      await expect(
+        courseNavigation.getByRole("link", { name: "Assignments", exact: true }),
+      ).toBeInViewport();
+      const workspaceNavigation = elena.getByRole("navigation", {
+        name: "Assignment workspace",
+      });
+      for (const name of ["Overview", "Questions", "Policies", "Student view"] as const) {
+        await expect(workspaceNavigation.getByRole("link", { name, exact: true })).toBeInViewport();
+      }
       await captureInstructorState(elena, scenarioInput, "instructor_authoring_student_view");
 
       await elena.getByRole("link", { name: "Return to assignment", exact: true }).click();
@@ -217,9 +239,54 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await elena.getByLabel("Institutional email").fill(maryEmail);
       await elena.getByLabel("Institutional student ID").fill(rosterId);
       await elena.getByRole("button", { name: "Create invitation" }).click();
-      await expect(elena.getByLabel("Invitation link")).toBeVisible();
+      const invitation = elena.getByLabel("Invitation link");
+      await expect(invitation).toBeVisible();
+      const invitationUrl = await invitation.inputValue();
+      expect(new URL(invitationUrl).origin).toBe(new URL(elena.url()).origin);
       await expect(elena.getByRole("heading", { name: "Pending invitations" })).toBeVisible();
       await expect(elena.getByRole("row").filter({ hasText: rosterId })).toHaveCount(1);
+
+      const maryContext = await browser.newContext({
+        viewport: { width: 1280, height: 800 },
+        ignoreHTTPSErrors: true,
+      });
+      contexts.push(maryContext);
+      observeContextOrigins(maryContext, pageOrigins, requestOrigins);
+      const mary = await maryContext.newPage();
+      configureContextAndPage(maryContext, mary, actionTimeoutMs);
+      await chooseSeededIdentity(mary, /Mary Okafor/u);
+      await mary.goto(invitationUrl);
+      await expect(mary.getByRole("heading", { name: "Join your PLE course" })).toBeVisible();
+      await mary.getByRole("button", { name: "Claim this course" }).click();
+      await expect(mary.getByRole("heading", { name: courseTitle, exact: true })).toBeVisible();
+      const learnerAssignment = mary
+        .getByRole("article")
+        .filter({ has: mary.getByRole("heading", { name: assignmentTitle, exact: true }) });
+      await learnerAssignment.getByRole("link", { name: "Start assignment", exact: true }).click();
+      await expect(mary.locator("[data-route-surface=assignmentOverview]")).toBeVisible();
+      await mary.getByRole("button", { name: "Start or continue practice" }).click();
+      await expect(mary.locator("[data-route-surface=runAttempt]")).toBeVisible();
+      await mary.getByRole("checkbox", { name: correctChoice, exact: true }).check();
+      await mary.getByRole("button", { name: "Submit answer", exact: true }).click();
+      const feedback = mary.getByRole("heading", { name: "Feedback", exact: true }).locator("..");
+      await expect(feedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
+      await mary.getByRole("button", { name: "View completed run", exact: true }).click();
+      const completedRun = mary.locator(".attempt-summary");
+      await expect(completedRun.getByText("Your completed run is recorded.")).toBeVisible();
+      await expect(completedRun.getByRole("region", { name: "Assignment score" })).toContainText(
+        "Best 100%",
+      );
+
+      await elena.getByRole("link", { name: "Gradebook", exact: true }).click();
+      await expect(elena.locator("[data-route-surface=gradebook]")).toBeVisible();
+      const learnerScore = elena
+        .locator("tr.gradebook-row")
+        .filter({ has: elena.getByText(assignmentTitle, { exact: true }) })
+        .filter({ has: elena.getByText("Mary Okafor", { exact: true }) });
+      await expect(learnerScore).toHaveCount(1);
+      await expect(learnerScore.locator('[data-label="Best"]')).toHaveText("100%");
+      await expect(learnerScore.locator('[data-label="Latest"]')).toHaveText("100%");
+      await elena.getByRole("link", { name: "Students", exact: true }).click();
 
       await elena.reload();
       await expect(elena.getByRole("heading", { name: "Students" })).toBeVisible();

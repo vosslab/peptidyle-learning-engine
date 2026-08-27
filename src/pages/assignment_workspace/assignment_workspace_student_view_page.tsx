@@ -135,20 +135,22 @@ export function AssignmentWorkspaceStudentViewPage(): JSX.Element {
             assignment={ready.assignment}
             contextCue={<span>{STUDENT_VIEW_CUE}</span>}
             returnAction={
-              <A class="primary-link" href={returnPath}>
-                Return to assignment
-              </A>
-            }
-            primaryAction={
-              <div class="student-view-entry">
+              <div class="student-view-command-bar">
+                <div class="student-view-actions">
+                  <A class="primary-link" href={returnPath}>
+                    Return to assignment
+                  </A>
+                  <A class="primary-link" href={STUDENT_VIEW_ENTRY_PATH}>
+                    Open Student entry for graded work
+                  </A>
+                </div>
                 <p>
-                  Graded work belongs to the ordinary Student account and its live assignment run.
+                  This answer-free inspection creates no learner work. Use ordinary Student entry to
+                  submit graded work in a live assignment run.
                 </p>
-                <A class="primary-link wide-action" href={STUDENT_VIEW_ENTRY_PATH}>
-                  Open live-demo Student entry
-                </A>
               </div>
             }
+            primaryAction={null}
           />
         </section>
       )}

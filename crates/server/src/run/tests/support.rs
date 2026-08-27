@@ -39,6 +39,62 @@ pub(super) async fn json(response: Response) -> serde_json::Value {
     serde_json::from_slice(&bytes).expect("JSON response")
 }
 
+#[tokio::test]
+async fn accepted_pending_replay_returns_answer_free_202_without_backend_call() {
+    let (store, backend, app, student_cookie, _, assignment, _) = fixture().await;
+    let course = CourseId::from_uuid(id(5));
+    let attempt = active_attempt_for(&app, course, assignment, &student_cookie).await;
+    let response = StudentResponse::Numeric { value: 18.0 };
+    let key = learning_data_access::SubmissionIdempotencyKey::parse("pending-replay")
+        .expect("bounded idempotency key");
+    learning_data_access::AutomatedGradingStore::accept_automated_submission(
+        store.as_ref(),
+        TenantContext::from_authenticated_session(TenantId::from_uuid(id(1))),
+        learning_data_access::AcceptedSubmissionCommand {
+            actor: UserId::from_uuid(id(3)),
+            course,
+            assignment,
+            attempt: attempt.id,
+            idempotency_key: key,
+            response,
+            execution_job: learning_data_access::JobId::from_uuid(id(700)),
+        },
+    )
+    .await
+    .expect("accepts pending submission");
+
+    let replay = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(submission_path(course, assignment, attempt.id))
+                .header("cookie", student_cookie)
+                .header("content-type", "application/json")
+                .header("idempotency-key", "pending-replay")
+                .body(Body::from(
+                    serde_json::json!({ "response": { "kind": "numeric", "value": 18.0 } })
+                        .to_string(),
+                ))
+                .expect("replay request"),
+        )
+        .await
+        .expect("pending replay response");
+
+    assert_eq!(replay.status(), StatusCode::ACCEPTED);
+    assert_eq!(replay.headers()["cache-control"], "no-store");
+    assert_eq!(
+        json(replay).await,
+        serde_json::json!({
+            "kind": "accepted_pending",
+            "accepted": true,
+            "attemptId": attempt.id,
+            "automatedGradingStatus": "pending",
+            "nextAction": "check_status",
+        })
+    );
+    assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 0);
+}
+
 /// Starts an assignment run through its complete, server-owned route binding.
 /// The start command has no browser body contract.
 pub(super) fn start_run_request(
@@ -70,6 +126,14 @@ pub(super) fn submission_path(
     attempt: QuestionAttemptId,
 ) -> String {
     format!("/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submissions")
+}
+
+pub(super) fn submission_status_path(
+    course: CourseId,
+    assignment: AssignmentId,
+    attempt: QuestionAttemptId,
+) -> String {
+    format!("/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submission-status")
 }
 
 /// Builds the explicit learner-work route binding for an issued presentation.

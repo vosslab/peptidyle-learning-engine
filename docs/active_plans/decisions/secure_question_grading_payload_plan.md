@@ -597,6 +597,18 @@ still a WP-RC5 dependency; this receipt contract does not claim that its issuanc
   cascades cleanly, and Memory/PostgreSQL conformance agrees.
 - Validation: fresh/no-op migration, forced-RLS, Store parity, replay bounds, backup/restore, and
   independent PostgreSQL review.
+- Legacy-consumer transition: after G1-W2 exposes its protected version-2 accepted-input boundary,
+  this existing package owns the consumer-by-consumer replacement of broad reads from `submission`,
+  `submission_idempotency`, `question_attempt`, and `worker_job`, followed by the matching grant
+  reductions. Its discovery input is
+  `/private/tmp/ple_g1_plan/g1_p0_ple_app_read_inventory.md`; the PostgreSQL expert records a
+  migration-allocation review before editing schema or privileges. Focused behavior tests protect
+  each migrated consumer and its narrow capability. A connected database proof shows the migrated
+  workflow succeeds while the retired broad grant is unavailable. G1-W7b separately owns the
+  PostgreSQL catalog and executable API-denial/worker-success proof for G1's 1850 loader boundary.
+- Handoff: publish the migrated-consumer map, allocation decision, behavior-level evidence, connected
+  grant-reduction proof, and remaining consumer order to the release integrator before RC7 schema
+  work begins.
 
 ### Work package WP-P3: Native issuance and submission
 
@@ -692,7 +704,7 @@ explicitly recreated; production data is never recreated as a shortcut.
 | Codec divergence         | Vector mismatch                             | WP-P1    | Rust owns codec; Wasm is the only browser implementation.                 |
 | CRC duplicate            | Issuance detects duplicate                  | WP-P1    | Global uniqueness, OS nonce retry, bounded fail-closed issue.             |
 | Render disagreement      | Digest mismatch                             | WP-P3/P5 | Same-attempt recovery, preserved draft, no grade/mutation.                |
-| Replay private-data leak | State scan finds prohibited data            | WP-P2/P4 | Narrow record, bounds, RLS, grants, and security review.                  |
+| Replay/legacy data leak | Private state or broad read exposes protected input | WP-P2 | Narrow record, RLS, consumer migration, grant reduction, and review. |
 | Timed-content exposure   | Envelope arrives early                      | WP-P5    | Server-only pre-render for timed policies; Untimed-only browser prefetch. |
 | False latency claim      | Metrics attribute speed to JSON bytes alone | WP-P6    | Stage measurements and no numeric SLO before pilot evidence.              |
 

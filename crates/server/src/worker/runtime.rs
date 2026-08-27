@@ -176,7 +176,10 @@ pub(crate) async fn shutdown_signal() {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
 
     use async_trait::async_trait;
     use learning_data_access::{
@@ -223,6 +226,21 @@ mod tests {
                 .complete_job(claim.job_id(), claim.lease_token())
                 .await?;
             Ok(EffectCommitOutcome::Committed)
+        }
+    }
+
+    struct SettlingDispatch {
+        started: Arc<tokio::sync::Notify>,
+        settled: Arc<AtomicBool>,
+    }
+
+    #[async_trait]
+    impl BoundedWorkerDispatch for SettlingDispatch {
+        async fn drain_once(&self) -> Result<u32, StoreError> {
+            self.started.notify_one();
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            self.settled.store(true, Ordering::Release);
+            Ok(1)
         }
     }
 
@@ -274,5 +292,32 @@ mod tests {
                 .state,
             learning_data_access::JobState::Completed
         );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn bounded_dispatch_shutdown_waits_for_a_settled_fair_pass() {
+        let started = Arc::new(tokio::sync::Notify::new());
+        let settled = Arc::new(AtomicBool::new(false));
+        let dispatch: Arc<dyn BoundedWorkerDispatch> = Arc::new(SettlingDispatch {
+            started: Arc::clone(&started),
+            settled: Arc::clone(&settled),
+        });
+        let shutdown = Arc::new(tokio::sync::Notify::new());
+        let shutdown_wait = Arc::clone(&shutdown);
+        let runtime = tokio::spawn(run_bounded_dispatch_until_shutdown(
+            dispatch,
+            Duration::from_secs(60),
+            async move { shutdown_wait.notified().await },
+        ));
+
+        started.notified().await;
+        shutdown.notify_one();
+        tokio::time::advance(Duration::from_millis(20)).await;
+
+        runtime
+            .await
+            .expect("runtime task")
+            .expect("bounded dispatch shutdown");
+        assert!(settled.load(Ordering::Acquire));
     }
 }

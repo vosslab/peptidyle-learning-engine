@@ -42,6 +42,7 @@ import type { InstructorStudentView } from "../../generated/api/InstructorStuden
 import type { CreateAssignmentDraftRequest } from "../../generated/api/CreateAssignmentDraftRequest";
 import type { ReplaceAssignmentPoliciesRequest } from "../../generated/api/ReplaceAssignmentPoliciesRequest";
 import type { AssignmentAudienceRequest } from "../../generated/api/AssignmentAudienceRequest";
+import type { ReplaceAssignmentFixedItemRequest } from "../../generated/api/ReplaceAssignmentFixedItemRequest";
 
 export type {
   AssignmentSummary,
@@ -54,6 +55,7 @@ export type { GradebookSummaryRow };
 export type {
   CreateAssignmentDraftRequest as AssignmentDraftInput,
   ReplaceAssignmentPoliciesRequest as AssignmentPoliciesInput,
+  ReplaceAssignmentFixedItemRequest as ReplaceAssignmentFixedItemInput,
 };
 
 /** Questions-owned browser input; readonly collections retain page draft ownership. */
@@ -205,6 +207,27 @@ export interface SubmissionReceipt {
   /** The grade receipt is durable, but a successor has not been issued yet. */
   readonly nextPending: boolean;
 }
+
+/**
+ * The closed learner acknowledgement returned by submission and status routes.
+ * Pending alternatives deliberately omit answers, feedback, results, successors, and scores.
+ */
+export type LearnerSubmissionStatus =
+  | ({ readonly kind: "completed" } & SubmissionReceipt)
+  | {
+      readonly kind: "accepted_pending";
+      readonly accepted: true;
+      readonly attemptId: QuestionAttemptId;
+      readonly automatedGradingStatus: "pending";
+      readonly nextAction: "check_status";
+    }
+  | {
+      readonly kind: "instructor_attention";
+      readonly accepted: true;
+      readonly attemptId: QuestionAttemptId;
+      readonly automatedGradingStatus: "instructor_attention";
+      readonly nextAction: "check_status";
+    };
 
 /** Safe binding for a newly active next attempt; no provenance or source leaks. */
 export interface NextIssuedAttempt {

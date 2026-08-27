@@ -154,15 +154,27 @@ pub fn private_feedback_record(
     })
 }
 
+/// Encodes the private fixed feedback tuple through `ple-canonical-json-v1`.
+///
+/// The tuple is intentionally local so `FeedbackContent` never needs serde
+/// derives merely for persistence. Receipt and automated-grading writers use
+/// this exact source/projection/digest value instead of rebuilding the tuple.
+pub(crate) fn canonical_feedback_json_v1(
+    content: &FeedbackContent,
+) -> Result<crate::canonical_json::CanonicalJsonV1, StoreError> {
+    crate::canonical_json::canonical_json_bytes_v1(
+        "feedback",
+        &(
+            content.hint.as_deref(),
+            content.correct_response.as_deref(),
+            content.rationale.as_deref(),
+        ),
+    )
+}
+
+/// Compatibility source-byte view for established private feedback callers.
 pub(crate) fn canonical_feedback_bytes(content: &FeedbackContent) -> Result<Vec<u8>, StoreError> {
-    // This local shape is intentionally private: FeedbackContent itself never
-    // gains serde derives just to make database storage convenient.
-    serde_json::to_vec(&(
-        content.hint.as_deref(),
-        content.correct_response.as_deref(),
-        content.rationale.as_deref(),
-    ))
-    .map_err(|error| StoreError::InvalidRecord(format!("feedback encoding failed: {error}")))
+    Ok(canonical_feedback_json_v1(content)?.source.into_bytes())
 }
 
 #[derive(Default)]

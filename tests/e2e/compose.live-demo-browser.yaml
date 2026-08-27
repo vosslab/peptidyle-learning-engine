@@ -23,6 +23,7 @@ services:
   worker:
     command: ["--worker"]
     environment:
+      PLE_QTI_RUNTIME_ENABLED: "1"
       PLE_STORAGE_TOPOLOGY: disposable-local
 
   gateway:

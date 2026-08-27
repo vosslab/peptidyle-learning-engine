@@ -12,7 +12,6 @@ import {
   createHttpApiClient,
   resolveAssignmentContentSaveFailure,
 } from "../src/api/http_client.ts";
-import { jsonResponse } from "./http_client_test_support.mjs";
 
 const course = "0198e000-0000-7000-8000-000000000001";
 const assignment = "0198e000-0000-7000-8000-000000000002";
@@ -39,20 +38,30 @@ function contentSave(response) {
   );
 }
 
+function editorJsonResponse(value, status) {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: { "cache-control": "no-store", "content-type": "application/json" },
+  });
+}
+
 test("Questions content save gives issued learner work its own typed recovery", async () => {
   assert.deepEqual(decodeAssignmentContentIssuedWorkConflict({ kind: "issuedLearnerWork" }), {
     kind: "issuedLearnerWork",
   });
-  await assert.rejects(contentSave(jsonResponse({ kind: "issuedLearnerWork" }, 409)), (error) => {
-    assert.ok(error instanceof AssignmentIssuedWorkError);
-    assert.equal(error.status, 409);
-    assert.deepEqual(resolveAssignmentContentSaveFailure(error), {
-      kind: "issuedLearnerWork",
-      message:
-        "Learner work has already been issued, so this assignment's question structure remains unchanged.",
-    });
-    return true;
-  });
+  await assert.rejects(
+    contentSave(editorJsonResponse({ kind: "issuedLearnerWork" }, 409)),
+    (error) => {
+      assert.ok(error instanceof AssignmentIssuedWorkError);
+      assert.equal(error.status, 409);
+      assert.deepEqual(resolveAssignmentContentSaveFailure(error), {
+        kind: "issuedLearnerWork",
+        message:
+          "Learner work has already been issued, so this assignment's question structure remains unchanged.",
+      });
+      return true;
+    },
+  );
 });
 
 test("Questions content conflict decoder rejects malformed and extra fields", () => {
@@ -65,7 +74,7 @@ test("Questions content conflict decoder rejects malformed and extra fields", ()
 
 test("Questions content save treats malformed issued-work bodies as ordinary 409 errors", async () => {
   for (const body of [{ kind: "other" }, { kind: "issuedLearnerWork", extra: true }]) {
-    await assert.rejects(contentSave(jsonResponse(body, 409)), (error) => {
+    await assert.rejects(contentSave(editorJsonResponse(body, 409)), (error) => {
       assert.ok(error instanceof ApiRequestError);
       assert.ok(!(error instanceof AssignmentIssuedWorkError));
       assert.equal(error.status, 409);
@@ -75,15 +84,21 @@ test("Questions content save treats malformed issued-work bodies as ordinary 409
 });
 
 test("Questions content save keeps stale revisions and ordinary conflicts distinct", async () => {
-  await assert.rejects(contentSave(jsonResponse({ error: "record changed" }, 409)), (error) => {
-    assert.ok(error instanceof ApiRequestError);
-    assert.ok(!(error instanceof AssignmentIssuedWorkError));
-    assert.equal(resolveAssignmentContentSaveFailure(error).kind, "retryable");
-    return true;
-  });
-  await assert.rejects(contentSave(jsonResponse({ error: "assignment changed" }, 412)), (error) => {
-    assert.ok(error instanceof AssignmentConflictError);
-    assert.equal(resolveAssignmentContentSaveFailure(error).kind, "staleRevision");
-    return true;
-  });
+  await assert.rejects(
+    contentSave(editorJsonResponse({ error: "record changed" }, 409)),
+    (error) => {
+      assert.ok(error instanceof ApiRequestError);
+      assert.ok(!(error instanceof AssignmentIssuedWorkError));
+      assert.equal(resolveAssignmentContentSaveFailure(error).kind, "retryable");
+      return true;
+    },
+  );
+  await assert.rejects(
+    contentSave(editorJsonResponse({ error: "assignment changed" }, 412)),
+    (error) => {
+      assert.ok(error instanceof AssignmentConflictError);
+      assert.equal(resolveAssignmentContentSaveFailure(error).kind, "staleRevision");
+      return true;
+    },
+  );
 });

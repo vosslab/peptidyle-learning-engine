@@ -571,7 +571,9 @@ test.describe("reusable curriculum on the production PLE stack", () => {
         await workspace
           .getByRole("button", { name: "Save questions and order", exact: true })
           .click();
-        await expect(workspace.getByRole("status")).toContainText("Questions and order saved.");
+        await expect(
+          workspace.getByRole("status").filter({ hasText: "Questions and order saved." }),
+        ).toBeVisible();
       });
 
       await Promise.all(pendingResponses);

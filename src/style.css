@@ -640,6 +640,7 @@ textarea:hover {
 }
 
 .attempt-feedback,
+.attempt-pending,
 .attempt-recovery,
 .attempt-summary,
 .saved-notice,
@@ -652,6 +653,11 @@ textarea:hover {
 
 .attempt-recovery {
   margin-bottom: var(--ple-space-3);
+  border-color: var(--ple-focus);
+  background: color-mix(in srgb, var(--ple-focus) 8%, white);
+}
+
+.attempt-pending {
   border-color: var(--ple-focus);
   background: color-mix(in srgb, var(--ple-focus) 8%, white);
 }

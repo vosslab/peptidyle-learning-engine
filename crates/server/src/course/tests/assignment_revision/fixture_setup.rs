@@ -1,4 +1,6 @@
-use super::super::fixtures::{id, issued_cookie_for_tenant, publish_fixture};
+use super::super::fixtures::{
+    id, issued_cookie_for_tenant, publish_fixture, publish_fixture_with_identity,
+};
 use super::super::*;
 use axum::body::{Body, to_bytes};
 use axum::http::Request;
@@ -20,6 +22,7 @@ pub(crate) struct AssignmentFixture {
     pub(crate) course: CourseId,
     pub(crate) student: UserId,
     pub(crate) question_id: QuestionId,
+    pub(crate) replacement_question_id: QuestionId,
     pub(crate) instructor_cookie: String,
     pub(crate) student_cookie: String,
     pub(crate) outsider_cookie: String,
@@ -86,6 +89,14 @@ pub(crate) async fn build() -> AssignmentFixture {
         .expect("catalog lookup")
         .expect("published fixture")
         .question_id;
+    let replacement_reference =
+        publish_fixture_with_identity(&store, context, tenant, instructor, 8_220).await;
+    let replacement_question_id = store
+        .get_catalog_problem(context, replacement_reference)
+        .await
+        .expect("replacement catalog lookup")
+        .expect("published replacement fixture")
+        .question_id;
     let instructor_cookie =
         issued_cookie_for_tenant(&store, tenant, vec![UserRole::Instructor], instructor).await;
     let student_cookie =
@@ -105,6 +116,7 @@ pub(crate) async fn build() -> AssignmentFixture {
         course,
         student,
         question_id,
+        replacement_question_id,
         instructor_cookie,
         student_cookie,
         outsider_cookie,

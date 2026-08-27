@@ -13,7 +13,7 @@ pub const MAX_PUBLIC_ROUTE_NUMBER: u32 = i32::MAX as u32;
 
 /// Prefixes reserved by the route grammar.
 pub const RESERVED_REFERENCE_PREFIXES: &[&str] = &[
-    "C", "A", "R", "W", "G", "U", "M", "CI", "PC", "PS", "BP", "AC",
+    "C", "A", "R", "W", "G", "U", "M", "CI", "PC", "PS", "BP", "AC", "GO",
 ];
 
 macro_rules! impl_reference {
@@ -118,6 +118,10 @@ pub struct BlueprintReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct AlphaCourseReference(NonZeroU32);
+/// An authorized locator for one Instructor-facing automated-grading recovery thread.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct GradingOperationReference(NonZeroU32);
 
 impl_reference!(CourseReference, "C", "course reference");
 impl_reference!(AssignmentReference, "A", "assignment reference");
@@ -147,6 +151,11 @@ impl_reference!(
 );
 impl_reference!(BlueprintReference, "BP", "blueprint reference");
 impl_reference!(AlphaCourseReference, "AC", "Alpha course reference");
+impl_reference!(
+    GradingOperationReference,
+    "GO",
+    "grading-operation reference"
+);
 
 /// One authorized navigation target. IDs remain transport details after Store authorization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -296,6 +305,15 @@ mod tests {
             "AC-01",
             "AC-2147483648"
         );
+        assert_reference_wire!(
+            GradingOperationReference,
+            "GO-135",
+            "A-135",
+            "GO-0",
+            "GO-01",
+            "GO-2147483648"
+        );
         assert!(RESERVED_REFERENCE_PREFIXES.contains(&"AC"));
+        assert!(RESERVED_REFERENCE_PREFIXES.contains(&"GO"));
     }
 }

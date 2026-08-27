@@ -134,6 +134,18 @@ The lifecycle returns success only after `postgres`, `minio`,
 health check is healthy, and the required one-shot services have exited with
 status zero. Developer and browser tests serialize through the same owner lease.
 
+## Process database authority
+
+After migrations, the lifecycle generates fresh in-memory passwords and reconciles two closed
+PostgreSQL logins in the selected mode-0600 runtime environment. The API receives only
+`PLE_API_DATABASE_URL` as its `DATABASE_URL`; the worker receives only
+`PLE_WORKER_DATABASE_URL`. The migration, Base Course, and grading setup children receive the
+administrator URL only for their bounded startup calls. The API login can assume `ple_app` and
+`ple_auth`; the worker login can assume `ple_app` and the worker-only
+`ple_accepted_submission_execution` capability. Each service reattests its exact login and direct
+membership set when a pool connection is opened or replaced. A missing login, changed membership,
+or mismatched URL stops that service instead of widening its authority.
+
 For startup failures, preserve the private owner receipt and follow
 [TROUBLESHOOTING.md](TROUBLESHOOTING.md). The owner does not authorize a
 caller-selected developer project.

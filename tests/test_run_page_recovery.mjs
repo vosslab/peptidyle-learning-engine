@@ -40,6 +40,7 @@ test("session expiry, reauthentication, and page retry submit one saved response
       callCount += 1;
       if (callCount === 1) throw new Error("session expired");
       return {
+        kind: "completed",
         accepted: true,
         attempt: {
           id: "attempt-a",
@@ -129,6 +130,7 @@ test("the response controller exposes 422 and receipt failures for correction be
         submissions += 1;
         if (submissions === 1) throw failure;
         return {
+          kind: "completed",
           accepted: true,
           attempt: {
             id: attemptId,

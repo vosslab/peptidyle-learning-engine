@@ -21,8 +21,8 @@ use question_model::{
 
 use crate::catalog::{BackendRegistry, BackendRegistryError};
 use crate::run::{
-    GradeReceipt, IssuedAttemptMetadata, RunBackend, RunBackendError, RunSubmission,
-    SubmissionDisposition,
+    DeterministicGraderFailure, GradeReceipt, IssuedAttemptMetadata, RunBackend, RunBackendError,
+    RunSubmission, SubmissionDisposition,
 };
 
 /// Composition bridge from server-owned persistence to native question logic.
@@ -203,11 +203,11 @@ where
             submission.attempt,
         )?;
         if is_flat_question(submission.question()) {
-            let contract = submission.issued_flat_grading.ok_or_else(|| {
-                RunBackendError::Unavailable(
-                    "flat-question issued grading contract is unavailable".to_string(),
-                )
-            })?;
+            let contract = submission
+                .issued_flat_grading
+                .ok_or(RunBackendError::Deterministic(
+                    DeterministicGraderFailure::IssuedEvidenceIntegrity,
+                ))?;
             validate_flat_grading_contract(submission.attempt, contract)?;
             let evaluation = self.flat_evaluate_issued(contract, submission.response)?;
             return match evaluation.outcome {
@@ -236,7 +236,7 @@ where
                 &bindings,
                 submission.response,
             )
-            .map_err(map_native_error)?;
+            .map_err(map_submission_native_error)?;
         match outcome {
             grading::GradeOutcome::Graded(result) => {
                 Ok(SubmissionDisposition::Grade(GradeReceipt {
@@ -286,8 +286,8 @@ where
             physical_asset_bindings,
         } = snapshot.family_witness()
         else {
-            return Err(RunBackendError::Unavailable(
-                "native issued snapshot family is unavailable".to_string(),
+            return Err(RunBackendError::Deterministic(
+                DeterministicGraderFailure::IssuedEvidenceIntegrity,
             ));
         };
         Ok(physical_asset_bindings
@@ -332,12 +332,12 @@ where
         response: &StudentResponse,
     ) -> Result<adapter_native::flat_question::FlatQuestionEvaluation, RunBackendError> {
         let private = contract.grading().decode_private().map_err(|_| {
-            RunBackendError::Unavailable("flat-question issued grading is invalid".to_string())
+            RunBackendError::Deterministic(DeterministicGraderFailure::IssuedEvidenceIntegrity)
         })?;
         private
             .evaluate(contract.question(), response)
             .map_err(|_| {
-                RunBackendError::Unavailable("flat-question issued grading is invalid".to_string())
+                RunBackendError::Deterministic(DeterministicGraderFailure::IssuedEvidenceIntegrity)
             })
     }
 }
@@ -353,8 +353,8 @@ fn validate_flat_grading_contract(
     if contract.question().version != attempt.question_version
         || contract.question().problem != attempt.problem
     {
-        return Err(RunBackendError::Unavailable(
-            "flat-question issued grading contract is invalid".to_string(),
+        return Err(RunBackendError::Deterministic(
+            DeterministicGraderFailure::IssuedEvidenceIntegrity,
         ));
     }
     Ok(())
@@ -410,6 +410,25 @@ fn map_native_error(error: adapter_native::NativeAdapterError) -> RunBackendErro
             RunBackendError::Unsupported(error.to_string())
         }
         other => RunBackendError::Invalid(other.to_string()),
+    }
+}
+
+/// Classifies a native refusal after the route has validated the public
+/// response and selected its immutable issued evidence.
+fn map_submission_native_error(error: adapter_native::NativeAdapterError) -> RunBackendError {
+    match error {
+        adapter_native::NativeAdapterError::UnsupportedSource
+        | adapter_native::NativeAdapterError::UnknownFamily(_)
+        | adapter_native::NativeAdapterError::UnknownGenerator { .. } => {
+            RunBackendError::Unsupported(error.to_string())
+        }
+        adapter_native::NativeAdapterError::ReproductionMismatch { .. }
+        | adapter_native::NativeAdapterError::MissingAssetBinding(_)
+        | adapter_native::NativeAdapterError::UnrelatedAssetBinding(_)
+        | adapter_native::NativeAdapterError::ConflictingAssetBinding(_) => {
+            RunBackendError::Deterministic(DeterministicGraderFailure::IssuedEvidenceIntegrity)
+        }
+        _ => RunBackendError::Deterministic(DeterministicGraderFailure::Contract),
     }
 }
 

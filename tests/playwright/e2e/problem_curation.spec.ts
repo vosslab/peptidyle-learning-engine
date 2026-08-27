@@ -494,14 +494,18 @@ test.describe("problem curation on the production PLE stack", () => {
         await workspace
           .getByRole("button", { name: "Save questions and order", exact: true })
           .click();
-        await expect(workspace.getByRole("status")).toContainText("Questions and order saved.");
+        await expect(
+          workspace.getByRole("status").filter({ hasText: "Questions and order saved." }),
+        ).toBeVisible();
         await workspace.getByRole("link", { name: "Policies", exact: true }).click();
         await expect(
           workspace.getByRole("heading", { name: "Policies", exact: true }),
         ).toBeVisible();
         await elena.getByLabel("Lifecycle").selectOption("published");
         await elena.getByRole("button", { name: "Save assignment policies", exact: true }).click();
-        await expect(workspace.getByRole("status")).toContainText("Assignment policies saved.");
+        await expect(
+          workspace.getByRole("status").filter({ hasText: "Assignment policies saved." }),
+        ).toBeVisible();
       });
 
       await test.step("Mary claims the ordinary invitation and sees the saved reusable assignment as learner work", async () => {

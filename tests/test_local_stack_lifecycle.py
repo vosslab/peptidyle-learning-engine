@@ -356,6 +356,11 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	monkeypatch.setattr(local_stack_control.lifecycle, "synchronize_database", lambda target, runner, values, options: mark("database-login"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "run_migrations", lambda runner, root, values, environment: mark("migrated"))
 	monkeypatch.setattr(
+		local_stack_control.process_logins,
+		"provision",
+		lambda target, runner, values, environment: mark("process-logins"),
+	)
+	monkeypatch.setattr(
 		local_stack_control.base_course_logins,
 		"provision",
 		lambda target, runner, values, environment: mark("base-course-logins")
@@ -398,6 +403,7 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	local_stack_control.lifecycle.start_lifecycle(target, UnexpectedRunner(), tmp_path, options)
 	assert (
 		events.index("migrated")
+		< events.index("process-logins")
 		< events.index("base-course-logins")
 		< events.index("prepared")
 		< events.index("storage")

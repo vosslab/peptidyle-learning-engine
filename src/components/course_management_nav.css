@@ -2,6 +2,7 @@
 
 .course-management-nav {
   display: flex;
+  flex-wrap: wrap;
   width: fit-content;
   max-width: 100%;
   margin: 0 0 var(--ple-section-gap);
@@ -9,7 +10,7 @@
   border-radius: 0.6rem;
   background: color-mix(in srgb, var(--ple-card-surface) 70%, transparent);
   gap: 0.08rem;
-  overflow-x: auto;
+  overflow-x: visible;
 }
 
 .course-management-nav a {

@@ -259,7 +259,8 @@ pub(super) async fn issue_or_resume_question_attempt(
         }
     }
     let latest_submission = sqlx::query(
-        "SELECT si.payload, si.payload_sha256 FROM question_attempt AS qa \
+        "SELECT CASE WHEN si.request_contract_version = 2 THEN qa.payload ELSE si.payload END AS payload, \
+                CASE WHEN si.request_contract_version = 2 THEN qa.payload_sha256 ELSE si.payload_sha256 END AS payload_sha256 FROM question_attempt AS qa \
          JOIN submission_idempotency AS si \
            ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id \
          WHERE qa.tenant_id = $1 AND qa.run_id = $2 AND qa.assignment_position = $3 \

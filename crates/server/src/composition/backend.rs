@@ -2,7 +2,8 @@
 
 use super::router::{HealthState, compose_passwordless_router, verify_application_schema_bounded};
 use super::settings::{
-    LazyStorageDependencies, ProductionSettings, StorageRuntime, StorageTopology,
+    GradingBackendSettings, LazyStorageDependencies, ProductionSettings, StorageRuntime,
+    StorageTopology,
 };
 use super::*;
 
@@ -15,9 +16,8 @@ pub(super) struct PersistentDependencies {
     grader: Arc<PostgresGraderStore>,
     objects: Arc<objects::s3::S3ObjectStore>,
     public_assets: Arc<PublicAssetBaseUrl>,
-    webwork_renderer: Option<HttpWebworkRenderer>,
+    grading: GradingBackendSettings,
     imathas: Option<ConfiguredImathas>,
-    qti: Option<Arc<ProductionQtiBackend>>,
     invitation_issuer: crate::course::CourseInvitationIssuer,
     passwordless_email_delivery: Arc<dyn crate::auth::PasswordlessEmailDelivery>,
     passwordless_rate_limit_issuer: crate::auth::PasswordlessRateLimitIssuer,
@@ -33,8 +33,104 @@ type ProductionImathasBackend = ImathasBackend<
     objects::s3::S3ObjectStore,
     ContractedScoredEmbedProvider<HttpContractedScoredEmbedTransport>,
 >;
-type ProductionQtiBackend =
-    QtiBackend<PostgresStore, PostgresGraderStore, objects::s3::S3ObjectStore>;
+pub(super) type ProductionGradingBackend =
+    CompositeBackend<PostgresStore, objects::s3::S3ObjectStore, HttpWebworkRenderer>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct ProductionBackendCapabilities {
+    pub(super) native: bool,
+    pub(super) webwork: bool,
+    pub(super) qti: bool,
+    pub(super) imathas: bool,
+}
+
+/// The shared grading builder always starts with native grading. API composition
+/// may attach the external-tool capability only after this common boundary.
+pub(super) fn production_grading_backend_capabilities(
+    settings: &GradingBackendSettings,
+) -> ProductionBackendCapabilities {
+    ProductionBackendCapabilities {
+        native: true,
+        webwork: settings.webwork.is_some(),
+        qti: settings.qti_runtime_enabled,
+        imathas: false,
+    }
+}
+
+/// Reports the API's superset only after the shared builder remains free of
+/// authenticated external-tool state.
+pub(super) fn api_backend_capabilities(
+    settings: &GradingBackendSettings,
+    imathas_attached: bool,
+) -> ProductionBackendCapabilities {
+    let mut capabilities = production_grading_backend_capabilities(settings);
+    capabilities.imathas = imathas_attached;
+    capabilities
+}
+
+/// Adds the authenticated external-tool capability only in API composition.
+/// Worker composition receives the shared builder result directly.
+pub(super) fn attach_api_imathas(
+    backend: ProductionGradingBackend,
+    imathas: Option<&ConfiguredImathas>,
+) -> ProductionGradingBackend {
+    match imathas {
+        Some(imathas) => backend.with_imathas(imathas.backend.clone()),
+        None => backend,
+    }
+}
+
+/// Builds the deterministic grading families from already constructed
+/// capabilities. This boundary deliberately reads neither environment settings
+/// nor API-only external-tool configuration, so Worker composition can reuse it.
+pub(super) fn build_production_grading_backend(
+    store: Arc<PostgresStore>,
+    objects: Arc<objects::s3::S3ObjectStore>,
+    grader: Arc<PostgresGraderStore>,
+    settings: &GradingBackendSettings,
+) -> ProductionGradingBackend {
+    let native_adapter = Arc::new(adapter_native::NativeAdapter::new());
+    let flat_grader: Arc<dyn FlatQuestionGradingStore> = grader.clone();
+    let native = NativeBackend::with_flat_grader(native_adapter, Arc::clone(&store), flat_grader);
+    let capabilities = production_grading_backend_capabilities(settings);
+    let mut backends = if capabilities.webwork {
+        let renderer = settings
+            .webwork
+            .as_ref()
+            .expect("WebWork capability requires validated renderer settings")
+            .renderer()
+            .expect("validated WebWork renderer settings must construct a renderer");
+        let webwork_adapter = Arc::new(WebworkAdapter::new(objects.as_ref().clone(), renderer));
+        let webwork =
+            WebworkBackend::new(Arc::clone(&store), Arc::clone(&objects), webwork_adapter);
+        CompositeBackend::new(native, webwork)
+    } else {
+        CompositeBackend::native_only(native)
+    };
+    if capabilities.qti {
+        backends = backends.with_qti(Arc::new(QtiBackend::new(store, grader, objects)));
+    }
+    backends
+}
+
+/// Opens the dedicated grader connection selected by parsed shared settings.
+/// The caller chooses topology, while the builder above receives only the
+/// finished least-authority capability.
+pub(super) async fn connect_production_grader(
+    settings: &GradingBackendSettings,
+    topology: StorageTopology,
+) -> Result<Arc<PostgresGraderStore>> {
+    let grader = match topology {
+        StorageTopology::DisposableLocal => {
+            PostgresGraderStore::connect_local_development(&settings.grader_database_url).await
+        }
+        StorageTopology::AwsWorkload => {
+            PostgresGraderStore::connect(&settings.grader_database_url).await
+        }
+    }
+    .map_err(|_| anyhow::anyhow!("PLE grader connection could not be established"))?;
+    Ok(Arc::new(grader))
+}
 pub(super) struct ConfiguredImathas {
     pub(super) backend: Arc<ProductionImathasBackend>,
     pub(super) aead: Arc<LaunchStateAead>,
@@ -98,12 +194,7 @@ impl PersistentDependencies {
             object_client,
         } = LazyStorageDependencies::from_settings(&settings.storage).await?;
         let public_assets = Arc::new(settings.public_asset_base_url.clone());
-        // This only validates and constructs a private HTTP client.  It makes
-        // no renderer request: renderer availability must not gate API startup,
-        // native questions, or the API health endpoint.
-        let webwork_renderer = settings.webwork_renderer()?;
         let imathas = settings.imathas(&store, &objects)?;
-        let qti_runtime_enabled = settings.qti_runtime_enabled()?;
         let (invitation_issuer, passwordless_rate_limit_issuer): (
             crate::course::CourseInvitationIssuer,
             crate::auth::PasswordlessRateLimitIssuer,
@@ -127,35 +218,15 @@ impl PersistentDependencies {
                 None => Arc::new(crate::auth::UnavailablePasswordlessEmailDelivery)
                     as Arc<dyn crate::auth::PasswordlessEmailDelivery>,
             };
-        let grader_database_url = settings.grader_database_url()?;
-        let grader = Arc::new(
-            match settings.storage.runtime.topology {
-                StorageTopology::DisposableLocal => {
-                    PostgresGraderStore::connect_local_development(grader_database_url).await
-                }
-                StorageTopology::AwsWorkload => {
-                    PostgresGraderStore::connect(grader_database_url).await
-                }
-            }
-            .map_err(|_| anyhow::anyhow!("PLE grader connection could not be established"))?,
-        );
-        let qti = if qti_runtime_enabled {
-            Some(Arc::new(QtiBackend::new(
-                Arc::clone(&store),
-                Arc::clone(&grader),
-                Arc::clone(&objects),
-            )))
-        } else {
-            None
-        };
+        let grader =
+            connect_production_grader(&settings.grading, settings.storage.runtime.topology).await?;
         Ok(Self {
             store,
             grader,
             objects,
             public_assets,
-            webwork_renderer,
+            grading: settings.grading.clone(),
             imathas,
-            qti,
             invitation_issuer,
             passwordless_email_delivery,
             passwordless_rate_limit_issuer,
@@ -194,34 +265,17 @@ impl PersistentDependencies {
         R: PublicReviewGate + 'static,
     {
         let native_adapter = Arc::new(adapter_native::NativeAdapter::new());
-        let flat_grader: Arc<dyn FlatQuestionGradingStore> = self.grader.clone();
-        let native = NativeBackend::with_flat_grader(
-            Arc::clone(&native_adapter),
+        let mut backends = build_production_grading_backend(
             Arc::clone(&self.store),
-            flat_grader,
+            Arc::clone(&self.objects),
+            Arc::clone(&self.grader),
+            &self.grading,
         );
-        let mut backends = if let Some(renderer) = &self.webwork_renderer {
-            let webwork_adapter = Arc::new(WebworkAdapter::new(
-                self.objects.as_ref().clone(),
-                renderer.clone(),
-            ));
-            let webwork = WebworkBackend::new(
-                Arc::clone(&self.store),
-                Arc::clone(&self.objects),
-                webwork_adapter,
-            );
-            CompositeBackend::new(native, webwork)
-        } else {
-            CompositeBackend::<PostgresStore, objects::s3::S3ObjectStore, HttpWebworkRenderer>::native_only(
-                native,
-            )
-        };
-        if let Some(imathas) = &self.imathas {
-            backends = backends.with_imathas(imathas.backend.clone());
-        }
-        if let Some(qti) = &self.qti {
-            backends = backends.with_qti(qti.clone());
-        }
+        backends = attach_api_imathas(backends, self.imathas.as_ref());
+        debug_assert_eq!(
+            backends.has_imathas(),
+            api_backend_capabilities(&self.grading, self.imathas.is_some()).imathas,
+        );
         let backends = Arc::new(backends);
         let sealed_execution: Arc<dyn learning_data_access::SealedPrivateExecutionStore> =
             self.grader.clone();

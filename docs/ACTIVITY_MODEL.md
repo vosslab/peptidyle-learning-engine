@@ -240,6 +240,37 @@ manual grading, recent rescoring, or a missing or invalid average. The browser
 renders that result and never derives it from policy, timing, a clock, or
 aggregate evidence.
 
+## Workspace surface ownership
+
+The assignment workspace is the local navigation owner. It loads one exact
+course/assignment aggregate and connects Overview, Questions, Policies, and
+Student view; it does not introduce another activity record or a second policy
+vocabulary. The assignment revision is shared across the focused writes so
+each page can update its own slice without replacing a sibling page's changes.
+
+- Questions edits assignment content: title, ordered fixed questions, pools,
+  reuse, and selection order. Its content save changes no delivery or
+  lifecycle policy.
+- Policies edits delivery and lifecycle policy: audience, disclosure, run
+  policies, learner instructions, schedule, limits, late behavior, and
+  lifecycle. Its policy save changes no question content.
+- Teaching operations owns live operational actions around the assignment,
+  including group and access operations, policy previews, delivery checks,
+  and teaching-authority workflows. Those actions may resolve effective
+  delivery or entitlement, but they do not make the workspace's Questions or
+  Policies pages interchangeable.
+- Student view is an Instructor-authorized, answer-free inspection of the
+  current assignment. It is a no-store read and creates no enrollment, run,
+  attempt, submission, receipt, score, gradebook row, or preview record.
+- Ordinary Student delivery is the real graded path. An enrolled Student's
+  start or resume and submission actions create the durable enrollment, run,
+  attempt, receipt, score, and gradebook evidence described below.
+
+These are presentation and command ownership boundaries over the same
+assignment aggregate. They do not alter the historical activity invariants:
+completion remains a milestone, post-completion runs remain possible when
+policy allows, and only server-owned Student delivery creates learner activity.
+
 ## Instructor activity types
 
 The implemented stored model is the independent policy vocabulary above. It
@@ -248,19 +279,24 @@ does not contain a persisted combined `Mastery`, `Exam`, `Practice`, or
 policy. That is intentional: a label must not conceal a different durable
 record contract.
 
-The current assignment editor works with the explicit run policies and the
-immutable question versions selected for the assignment. A teaching-oriented
+The current assignment workspace composes explicit Policies with immutable question
+versions selected on Questions. A teaching-oriented
 activity-type chooser is planned as a UI layer that writes those same explicit
 values. It is not evidence that the four labels below are current API values:
 
-The editor separately saves one revisioned teaching-operations aggregate:
-Draft/Published/Closed/Archived lifecycle, plain-text learner instructions,
-availability/due/close schedule, whole-run and attempt limits, late behavior,
-and deadline behavior. Only Published opens lifecycle gate G1. Course-local
-wall-clock input is converted by the server through the course IANA zone; the
-browser never derives an authoritative instant. An active run does not consume
-its own attempt-limit slot: completed runs determine whether another run may
-start, while the current active run remains resumable.
+The Policies surface saves one revisioned assignment teaching-settings
+aggregate: Draft/Published/Closed/Archived lifecycle, plain-text learner
+instructions, availability/due/close schedule, whole-run and attempt limits,
+late behavior, and deadline behavior. Only Published opens lifecycle gate G1.
+Course-local wall-clock input is converted by the server through the course
+IANA zone; the browser never derives an authoritative instant. An active run
+does not consume its own attempt-limit slot: completed runs determine whether
+another run may start, while the current active run remains resumable.
+
+The separate Teaching operations surface performs live operational work such
+as access-modifier changes, group management, effective-policy previews, and
+teaching-authority actions. It is not a replacement for the Policies editor
+and does not change the ownership of the durable activity records below.
 
 | Teaching activity          | Current durable representation                                                                                    | Instructor experience status                                                                                          |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |

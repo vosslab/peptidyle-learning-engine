@@ -12,7 +12,6 @@ import {
   nonnegativeIntegerDraft,
   numberDraft,
   optionalPositiveIntegerDraft,
-  positiveIntegerDraft,
   runPolicyDraftFromPolicies,
   scoreFractionDraft,
 } from "../src/pages/assignment_workspace/assignment_workspace_policy_model.ts";
@@ -81,10 +80,9 @@ test("policy feedback makes save failures and conflicts actionable while success
 
 test("numeric policy drafts preserve invalid text and provide no stale payload value", () => {
   assert.deepEqual(optionalPositiveIntegerDraft(""), { raw: "", value: null, valid: true });
-  assert.deepEqual(positiveIntegerDraft("12"), { raw: "12", value: 12, valid: true });
-  assert.deepEqual(positiveIntegerDraft(""), { raw: "", value: null, valid: true });
-  assert.deepEqual(positiveIntegerDraft("0"), { raw: "0", value: null, valid: false });
-  assert.deepEqual(positiveIntegerDraft("2147483648"), {
+  assert.deepEqual(optionalPositiveIntegerDraft("12"), { raw: "12", value: 12, valid: true });
+  assert.deepEqual(optionalPositiveIntegerDraft("0"), { raw: "0", value: null, valid: false });
+  assert.deepEqual(optionalPositiveIntegerDraft("2147483648"), {
     raw: "2147483648",
     value: null,
     valid: false,

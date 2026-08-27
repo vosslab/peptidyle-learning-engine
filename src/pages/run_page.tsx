@@ -164,6 +164,12 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
         response,
         idempotencyKey,
       ),
+    getSubmissionStatus: (attemptId) =>
+      runtime.client.getSubmissionStatus(
+        screen().course.summary.id,
+        screen().assignment.id,
+        attemptId,
+      ),
     isSessionExpired,
     isTransientTransportFailure,
     validateSavedResponse: validator.validateResponseFormat,
@@ -380,6 +386,11 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
     const candidate = state();
     return candidate?.phase === "feedback" ? candidate : undefined;
   };
+  const acceptedPendingState = ():
+    Extract<AttemptState, { readonly phase: "acceptedPending" }> | undefined => {
+    const candidate = state();
+    return candidate?.phase === "acceptedPending" ? candidate : undefined;
+  };
   const feedbackPanelState = (
     feedback: Extract<AttemptState, { readonly phase: "feedback" }>,
   ): FeedbackPresentation =>
@@ -587,33 +598,63 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
                   when={feedbackState()}
                   fallback={
                     <Show
-                      // A new server-issued attempt must not inherit a locally selected response.
-                      // Key only on attempt identity so same-attempt recovery keeps local entry.
-                      when={currentState()?.context.attemptId}
-                      keyed
-                      fallback={<p class="loading-state">Restoring your saved response...</p>}
+                      when={acceptedPendingState()}
+                      fallback={
+                        <Show
+                          // A new server-issued attempt must not inherit a locally selected response.
+                          // Key only on attempt identity so same-attempt recovery keeps local entry.
+                          when={currentState()?.context.attemptId}
+                          keyed
+                          fallback={<p class="loading-state">Restoring your saved response...</p>}
+                        >
+                          {(attemptId) => (
+                            <ResponseWidget
+                              attemptId={attemptId}
+                              definition={currentEnvelope().response}
+                              initialResponse={currentState()?.response ?? undefined}
+                              validator={validator}
+                              onResponseChange={responseChanged}
+                              onSubmit={submit}
+                              onEscape={escapeToAssignment}
+                              learnerWorkRoute={{
+                                courseId: screen().course.summary.id,
+                                assignmentId: screen().assignment.id,
+                              }}
+                              beginExternalToolLaunch={() =>
+                                runtime.client.beginExternalToolLaunch(
+                                  screen().course.summary.id,
+                                  screen().assignment.id,
+                                  attemptId,
+                                )
+                              }
+                            />
+                          )}
+                        </Show>
+                      }
                     >
-                      {(attemptId) => (
-                        <ResponseWidget
-                          attemptId={attemptId}
-                          definition={currentEnvelope().response}
-                          initialResponse={currentState()?.response ?? undefined}
-                          validator={validator}
-                          onResponseChange={responseChanged}
-                          onSubmit={submit}
-                          onEscape={escapeToAssignment}
-                          learnerWorkRoute={{
-                            courseId: screen().course.summary.id,
-                            assignmentId: screen().assignment.id,
-                          }}
-                          beginExternalToolLaunch={() =>
-                            runtime.client.beginExternalToolLaunch(
-                              screen().course.summary.id,
-                              screen().assignment.id,
-                              attemptId,
-                            )
-                          }
-                        />
+                      {(pending) => (
+                        <section class="attempt-pending" aria-labelledby="grading-status-heading">
+                          <h2 id="grading-status-heading">Response received</h2>
+                          <p>
+                            {pending().acknowledgement.automatedGradingStatus === "pending"
+                              ? "Grading is underway. You do not need to submit your response again."
+                              : "Your response needs instructor attention. You do not need to submit it again."}
+                          </p>
+                          <p id="grading-status-message" role="status" aria-live="polite">
+                            {pending().checkingStatus
+                              ? "Checking grading status..."
+                              : (pending().statusMessage ?? "")}
+                          </p>
+                          <button
+                            class="primary-action"
+                            type="button"
+                            disabled={pending().checkingStatus}
+                            aria-describedby="grading-status-message"
+                            onClick={() => void machine.checkGradingStatus()}
+                          >
+                            Check grading status
+                          </button>
+                        </section>
                       )}
                     </Show>
                   }

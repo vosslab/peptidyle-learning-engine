@@ -180,6 +180,15 @@ pub(super) fn stage_statistics_contributions(
         );
         learner_updates.insert(learner_key);
     }
+    // `append_catalog_discovery_evidence_revision` is the only later fallible
+    // operation. Reserve enough sequence space before any map becomes
+    // visible, so the following application phase is infallible.
+    state
+        .next_catalog_publication_sequence
+        .checked_add(
+            u64::try_from(observed_course_updates.len()).map_err(|_| StoreError::Conflict)?,
+        )
+        .ok_or_else(|| StoreError::Unavailable("catalog event sequence exhausted".to_string()))?;
     state.question_statistics.extend(aggregate_updates);
     state.question_statistics_receipts.extend(receipt_updates);
     state.catalog_evidence_learners.extend(learner_updates);

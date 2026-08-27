@@ -6,6 +6,7 @@ mod imathas_launch;
 mod imathas_submission;
 mod imathas_support;
 mod manual_grading_http;
+mod pending_receipts;
 mod prefetch;
 mod start_binding;
 mod submission;
@@ -59,6 +60,18 @@ fn sealed_memory(
     Arc::new(
         learning_data_access::in_memory::MemorySealedPrivateExecutionStore::new(Arc::clone(store)),
     )
+}
+
+fn learner_submission_status(
+    store: &Arc<MemoryStore>,
+) -> Arc<dyn learning_data_access::LearnerSubmissionStatusStore> {
+    store.clone()
+}
+
+fn automated_grading(
+    store: &Arc<MemoryStore>,
+) -> Arc<dyn learning_data_access::AutomatedGradingStore> {
+    store.clone()
 }
 
 #[derive(Debug, Default)]
@@ -685,6 +698,8 @@ async fn fixture_with_attempt_policy(
         Arc::clone(&store),
         Arc::clone(&backend),
         sealed_memory(&store),
+        learner_submission_status(&store),
+        automated_grading(&store),
     );
     (
         store,
@@ -954,6 +969,8 @@ async fn native_feedback_fixture() -> (
         Arc::clone(&store),
         Arc::clone(&backend),
         sealed_memory(&store),
+        learner_submission_status(&store),
+        automated_grading(&store),
     );
     (
         store,

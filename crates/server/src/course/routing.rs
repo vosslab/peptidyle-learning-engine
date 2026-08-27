@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use super::assignments::{
     create_assignment_draft, get_assignment_summary, get_assignment_workspace,
     get_instructor_student_view, get_learner_assignment, replace_assignment_content,
-    replace_assignment_policies,
+    replace_assignment_fixed_item, replace_assignment_policies,
 };
 use super::invitation_capability::CourseInvitationIssuer;
 use super::queries::{create_course, get_course, list_assignments, list_courses, list_gradebook};
@@ -111,6 +111,10 @@ where
         .route(
             "/api/courses/{course}/assignments/{assignment}/content",
             put(replace_assignment_content::<S>),
+        )
+        .route(
+            "/api/courses/{course}/assignments/{assignment}/fixed-items/{itemId}",
+            put(replace_assignment_fixed_item::<S>),
         )
         .route(
             "/api/courses/{course}/assignments/{assignment}/policies",

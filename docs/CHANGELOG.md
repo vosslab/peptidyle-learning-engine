@@ -1,5 +1,63 @@
 # Changelog
 
+## 2026-08-27
+
+### Decisions and Failures
+
+- Approved the WP-PROF-G1 automated-grading operations binding plan. Source and dependency review
+  found that learner grading could begin before the accepted response had a durable retry owner, so
+  G1 now makes one immutable server-private `submission` authoritative before grading and separates
+  mutable execution, evaluation, and Instructor-operation projections from append-only receipts.
+- Allocated forward migration `2026081849` for accepted-submission execution, automated-grading
+  operations, receipts, RLS, broker privilege, retention fences, and purge order. G1 reuses the
+  existing assignment recalculation and current-score publication authorities in migrations
+  `2026081830` and `2026081831` rather than creating a competing score path.
+- Bound one existing-worker execution path with an exact-job lease for both the synchronous fast
+  path and background recovery. Deterministic grader exceptions become assignment-local,
+  metadata-only Instructor work; retry reuses accepted private input, recalculation remains
+  generation-fenced, and automated capabilities stay structurally separate from human grading.
+- Accepted `WP-PROF-G1 / G1-W2` for the typed pending contracts, answer-free metadata parents and
+  private-response child, canonical UTF-8 response identity, Memory/PostgreSQL parity, dedicated
+  worker-only execution store, separate API/worker process logins, and migrations 1849/1850. G1
+  remains incomplete; G1-W3 then became the next dependency-ordered stage.
+- W4 owns forward migration `2026081851` and its exact worker claim/load/commit/fail capability;
+  W5 owns forward migration `2026081852` and its dedicated Instructor operation capability. W7b
+  owns executable API-denial/worker-lease/RLS proof, and final `all_test.sh` remains required.
+- Accepted `WP-PROF-G1 / G1-W3` for exhaustive typed pending reads, the answer-free no-store
+  `accepted_pending` replay projection, closed deterministic grader categories, Native/WebWork/QTI/
+  composite classification, the preserved opaque iMathAS broker boundary, and Memory learner-read
+  projection parity. `G1-W4` is now current; it owns allocated migration `2026081851` and consumes
+  W3's sealed contract-paired dispatch dependency before its first learner effect.
+
+### Developer Tests and Notes
+
+- Completed independent architecture and repository-rules/test-policy reviews of the G1 plan. Both
+  approved the final state ownership, package dependencies, one-owner artifact map, public
+  `GO-<positive>` references, answer-free browser contract, UI-first recovery journey, and split
+  permanent-versus-connected evidence without unresolved findings.
+- Defined atomic connected-evidence packages: W7a owns the visible production-stack Instructor
+  journey and screenshot provenance, W7b owns the disposable PostgreSQL/RLS/worker oracle, and W7
+  owns only independent review, documentation reconciliation, and final material-tree Validation.
+- `./check_codebase.sh` passed on the G1-W1 plan tree: TypeScript typecheck, lint-typecheck, ESLint,
+  Prettier verification, and all 356 deterministic Node tests were green. G1 final acceptance still
+  requires the full evidence model and `source source_me.sh && ./all_test.sh` after implementation.
+- G1-W3 evidence passed 384 `server_core` tests with 3 intentional connected ignores, all server
+  integration and doctest targets, and the learning-data-access main target (308 passed, 1 ignored)
+  with its auxiliary targets. Strict Clippy passed for both affected crates, 3,643 documentation and
+  source-policy checks passed, and independent architecture and security/privacy reviews approved.
+  The final aggregate `all_test.sh` remains manager-owned: a scoped subagent invocation did not
+  retain a terminal result and is therefore unverified.
+- W2 evidence passed the learning-data-access full suite main target (308 passed, 1 ignored) with
+  auxiliary targets green; strict format, check, and Clippy gates; 2,008 focused policy, process,
+  documentation, and source tests; and `./check_codebase.sh` 5/5 with 356 Node tests. Fresh
+  PostgreSQL 17 applied all 80 migrations, the second migration pass was a no-op, and database
+  verification returned `database verify: compatible`; the repaired database-baseline Rust
+  selector now resolves to exactly one intended test.
+- Independent `sql_correctness_post_repair_review.report.md` and
+  `w2_security_post_repair_review.report.md` approvals close the W2 SQL and source blockers. Their
+  remaining evidence boundary is explicit: W4 worker outcomes, W7b executable authority, WP-P2
+  grant reduction, browser behavior, and final G1 Validation remain open.
+
 ## 2026-08-26
 
 ### Additions and New Features
@@ -14,15 +72,19 @@
 - Implemented the Instructor Student-view landing: the current answer-free live assignment is
   loaded through the exact course/assignment authority, rendered by the shared learner
   presentation, and paired with stable-identity, no-mutation guidance to explicit Student entry.
+- Completed the WP-PROF-T6 assignment workspace: Questions owns ordered fixed and pooled content,
+  Policies owns delivery and lifecycle decisions, Overview is the assignment home, and Student view
+  uses the same answer-free learner presentation while retaining Instructor identity. Empty Drafts
+  persist before content exists, and publication readiness remains server-owned.
 - Implemented the WP-PROF-B2 curriculum-adoption API and Instructor browser composition across
   preview-before-save adoption, rollover, term shifting, provenance receipts, controlled
   fast-forward, and divergence recovery.
 
 ### Fixes and Maintenance
 
-- Reconciled the real-stack browser plan with the complete live-demo baseline, including the two
+- Reconciled the real-stack browser plan with the complete B2 live-demo baseline, including the two
   ordinary Chapter 1 teaching courses, five persisted learner observations, and the current
-  75-artifact screenshot corpus. Updated operator examples to the canonical root launcher and
+  75-artifact corpus at B2 acceptance. Updated operator examples to the canonical root launcher and
   repaired small documentation, ASCII, and Python-readability issues found by the six-pass audit.
 - Rebuilt `docs/RELATED_PROJECTS.md` as an evidence-first visitor guide using the current
   relationship taxonomy and confidence tiers. Every retained or added destination now states its
@@ -31,7 +93,7 @@
 - Removed the healthy browser-Wasm implementation banner from the live product shell. The
   production UI now stays focused on teaching work while an inert diagnostic preserves connected
   browser evidence; visible fallback copy accurately explains that slower checks use the server.
-  Republished all 75 declared real-stack screenshots against the corrected shell.
+  At B2 acceptance, republished its 75 declared real-stack screenshots against the corrected shell.
 - Made the live-demo Student-to-Instructor relationship explicit: seeded students and their
   Instructor share ordinary course relationships, and the connected learner journey now verifies
   Mary's persisted best score, latest score, and completed-run count in Elena's authorized
@@ -62,7 +124,8 @@
   item-analysis and discovery surfaces. Role-visible courses derive from active relationship
   authority. Focused relationship tests are permanent evidence, while the fresh live-stack
   database and visual walkthrough are one-time package evidence.
-- Published all 75 declared live-demo screenshots from the production-shaped HTTPS stack. PNG,
+- At B2 acceptance, published all 75 declared live-demo screenshots from the production-shaped
+  HTTPS stack. PNG,
   privacy, provenance, atomic-publication, and cleanup checks passed; human review covered the
   Instructor, Student, Sysadmin, discovery, curation, reusable-curriculum, and rollover surfaces.
   Instructor and Sysadmin artifacts remain 1280 by 800 desktop-only, while Student artifacts retain
@@ -93,8 +156,42 @@
   protecting generated live-stack credentials.
 - Made the idempotent PostgreSQL login update part of bounded semantic readiness, so a fresh stack
   tolerates the official image's temporary-to-final server handoff before migrations begin.
+- Unified the issued-learner-work boundary for Memory and PostgreSQL assignment editing. Fixed-item
+  identity, order, points, delivery, and scoring plus pool draw, points, order, algorithm, and
+  candidate structure remain immutable after issuance; presentation-only assignment-title changes
+  remain available. The visible Questions recovery preserves local structural edits and directs the
+  Instructor to create a new assignment.
+- Made Policies save and reload one accessible transaction: the complete editor locks while a
+  request is in flight, stale and publication-repair paths recover keyboard focus, and the compact
+  summary distinguishes current saved delivery from unsaved lifecycle, schedule, disclosure,
+  audience, variation, grade, and continued-practice decisions.
+- Replaced horizontally scrollable Instructor task navigation with visible wrapping navigation.
+  The connected Student-view capture now proves the Course management row and all Overview,
+  Questions, Policies, and Student view links remain in the canonical 1280 by 800 viewport.
+- Made the Questions-page Check and Add Question ID operations one visible busy transaction: the
+  existing fieldset publishes progress and `aria-busy`, then restores its idle state after every
+  outcome. Connected journeys now wait for the semantic Add completion before saving, which keeps
+  client ordering aligned with the revision-checked assignment contract.
 
 ### Decisions and Failures
+
+- Corrected the WP-PROF-T6 fixed-slot replacement boundary after the live journey showed that
+  selection alone did not commit a future-run replacement. The focused route-policy command now
+  resolves the public Question server-side, preserves the assignment item identity, advances the
+  shared revision, returns authoritative no-store editor detail, and leaves issued snapshots
+  unchanged. The route-policy exposure also fixes the underlying 404 rather than adding a caller
+  workaround. Title-bound accessible controls and the replacement summary make the two-step action
+  clear, while the shared browser client enforces no-store on every editor response.
+- Completed the corrected T6 evidence pass: the focused suite has 19 Node tests and 375 runnable
+  server tests; fixed-slot replacement and learner delivery pass on the production-shaped live
+  stack; complete local-stack acceptance passes all 15 browser scenarios, the 78-migration/DB
+  oracle, WebWork oracle, replica restart, and exact cleanup; and independent security and HCI
+  re-reviews are clean. The six durable T6 closure paths are now tracked; final package acceptance
+  remains tied to `source source_me.sh && ./all_test.sh` passing on that exact final tracked tree.
+- Accepted WP-PROF-T6 on 2026-08-27. The exact tracked-tree `source source_me.sh && ./all_test.sh`
+  gate passed Rust checks/tests/doctests/Wasm, frontend/codebase/Node, 7,428 pytest cases, all 15
+  production browser scenarios, all 78 migrations and database oracles, isolated WebWork, and
+  replica restart/durable replay. The professor handoff advances to WP-PROF-G1.
 
 - Added the owner-directed `WP-PROF-T6` assignment-workspace binding plan and advanced the current
   professor handoff to it before `WP-PROF-G1`. The assignment title becomes the canonical entry to
@@ -110,6 +207,9 @@
   dependency-related container ID to one `podman rm --depend` command can partially succeed and then
   fail on an ID removed by that same command. The durable repair separates runtime state from build
   output and re-inventories after each dependency-aware removal.
+- A first screenshot capture preview failure did not reproduce in the focused preview path. A
+  second complete capture identified the durable cause as client Add/Save ordering, rather than an
+  API failure; the visible busy transaction and semantic completion wait repair that boundary.
 
 ### Developer Tests and Notes
 
@@ -120,6 +220,12 @@
 - Passed focused TypeScript compilation, ESLint, Node browser-contract/workflow checks, Python
   scenario-contract checks, 23 question-model tests, 62 learning-data-access tests, and the
   repository ASCII, source-size, Markdown-link, and diff-hygiene gates.
+- Passed the integrated WP-PROF-T6 production-shaped HTTPS capture with all live scenarios, one
+  origin, independent Elena Instructor and Morgan Sysadmin passkey paths, same-assignment Mary
+  Student submission and Elena gradebook observation, all 61 current screenshot artifacts, privacy
+  validation, atomic publication, and exact cleanup. Independent architecture/security and
+  HCI/accessibility reviews returned ACCEPT with no unresolved P0, P1, or P2 finding. Final T6
+  Validation remains open until the new files are tracked and the exact complete gate passes.
 - Passed the complete repository codebase gate with all five checks and 322 Node tests, plus all
   7,361 pytest checks. The complete Rust gate passed generated contracts and fixtures, formatting,
   both compile graphs, all three strict Clippy graphs, both test/doctest graphs, and the browser Wasm
@@ -135,6 +241,15 @@
   `./run_live_demo.sh --headless` launches proved active-owner replacement; the replacement exposed
   only its loopback HTTPS gateway, returned HTTP 200, reached six running long-lived services, and
   printed the matching root stop command for operator handoff.
+- Regenerated the 61-artifact production HTTPS screenshot corpus. One origin, PNG, privacy,
+  provenance, atomic-publication, exact-cleanup, offline verification, the 87-case publisher suite,
+  and seven capture/manifest Node checks passed. Prettier, ESLint, both TypeScript configurations,
+  14 focused Node tests, and the production learner-delivery journey also passed.
+- An independent human-interaction review inspected all 61 artifacts at original detail. It found no
+  P0 issue and recorded grounded P1--P3 follow-up opportunities: persistent context on dense or
+  scrolled Instructor pages, consequence copy beside high-impact actions, visible state proof for
+  artifacts 47, 58, and 61, and an above-fold Student start action on iPhone and square viewports.
+  The detailed review is one-time visual evidence, not a permanent test.
 
 ## 2026-08-25
 

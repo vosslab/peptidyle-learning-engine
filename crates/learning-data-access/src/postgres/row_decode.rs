@@ -543,6 +543,64 @@ pub(super) fn decode_payload_row_named<T: DeserializeOwned>(
     serde_json::from_value(value).map_err(|error| StoreError::Unavailable(error.to_string()))
 }
 
+/// Decodes immutable W4 evidence from its byte-authoritative source text.
+///
+/// The JSONB column remains a query projection only.  This boundary verifies
+/// the explicit protocol version, exact UTF-8 source digest, and structural
+/// source/projection equality before deserializing the closed typed value.
+/// ASVS 1.5.3 and 2.2.1-2.2.3: storage corruption is unavailable authority,
+/// rather than caller input invalidity.
+#[cfg(feature = "postgres")]
+pub(super) fn decode_canonical_json_parts<T: DeserializeOwned>(
+    artifact: &'static str,
+    version: i16,
+    source: String,
+    projection: Value,
+    expected_sha256: String,
+) -> Result<T, StoreError> {
+    if version != crate::canonical_json::CANONICAL_JSON_V1_VERSION as i16 {
+        return Err(StoreError::Unavailable(format!(
+            "stored {artifact} canonical JSON version is unsupported"
+        )));
+    }
+    let expected_sha256 = serde_json::from_value(Value::String(expected_sha256)).map_err(|_| {
+        StoreError::Unavailable(format!(
+            "stored {artifact} canonical JSON digest is invalid"
+        ))
+    })?;
+    let canonical = crate::canonical_json::verify_canonical_json_v1(
+        artifact,
+        &source,
+        &projection,
+        expected_sha256,
+    )
+    .map_err(|_| {
+        StoreError::Unavailable(format!(
+            "stored {artifact} canonical JSON evidence is invalid"
+        ))
+    })?;
+    serde_json::from_str(&canonical.source).map_err(|_| {
+        StoreError::Unavailable(format!("stored {artifact} canonical JSON decode failed"))
+    })
+}
+
+/// Reads one immutable W4 source-text-plus-projection evidence value.
+#[cfg(feature = "postgres")]
+pub(super) fn decode_canonical_json_row_named<T: DeserializeOwned>(
+    row: &PgRow,
+    artifact: &'static str,
+    version_name: &str,
+    source_name: &str,
+    projection_name: &str,
+    checksum_name: &str,
+) -> Result<T, StoreError> {
+    let version: i16 = row.try_get(version_name).map_err(map_sqlx_error)?;
+    let source: String = row.try_get(source_name).map_err(map_sqlx_error)?;
+    let projection: Value = row.try_get(projection_name).map_err(map_sqlx_error)?;
+    let checksum: String = row.try_get(checksum_name).map_err(map_sqlx_error)?;
+    decode_canonical_json_parts(artifact, version, source, projection, checksum)
+}
+
 #[cfg(feature = "postgres")]
 pub(super) fn attempt_status_name(status: AttemptStatus) -> &'static str {
     match status {
@@ -666,7 +724,7 @@ pub(super) fn decode_current_attempt_with_evaluation_row_named(
         ));
     }
     match status.as_str() {
-        "needs_manual_grading" => {
+        "automated_pending" | "automated_exception" | "needs_manual_grading" => {
             attempt.result = None;
             Ok(attempt)
         }
@@ -698,27 +756,16 @@ pub(super) fn feedback_from_summary_row(
     let Some(digest) = digest else {
         return Ok(None);
     };
-    fn field(row: &PgRow, name: &str) -> Result<Option<Vec<ContentBlock>>, StoreError> {
-        let value: Option<Value> = row.try_get(name).map_err(map_sqlx_error)?;
-        value
-            .map(|value| {
-                serde_json::from_value(value).map_err(|error| {
-                    StoreError::InvalidRecord(format!("stored feedback decode failed: {error}"))
-                })
-            })
-            .transpose()
-    }
-    let feedback = private_feedback_record(FeedbackContent {
-        hint: field(row, "hint")?,
-        correct_response: field(row, "correct_response")?,
-        rationale: field(row, "rationale")?,
-    })?;
-    if feedback.content_sha256().to_string() != digest {
-        return Err(StoreError::InvalidRecord(
-            "stored feedback digest mismatch".to_string(),
-        ));
-    }
-    Ok(Some(feedback))
+    Ok(Some(super::feedback_data::decode_feedback_content(
+        row.try_get("content_canonical_json_version")
+            .map_err(map_sqlx_error)?,
+        row.try_get("content_canonical_json")
+            .map_err(map_sqlx_error)?,
+        row.try_get("hint").map_err(map_sqlx_error)?,
+        row.try_get("correct_response").map_err(map_sqlx_error)?,
+        row.try_get("rationale").map_err(map_sqlx_error)?,
+        digest,
+    )?))
 }
 
 #[cfg(feature = "postgres")]
@@ -765,6 +812,72 @@ pub(super) fn page_from_rows_with<T>(
 #[cfg(all(test, feature = "postgres"))]
 mod tests {
     use super::*;
+
+    fn canonical_evidence() -> (String, Value, String) {
+        let source =
+            r#"{"attemptId":"attempt-7","response":null,"result":{"correct":true}}"#.to_string();
+        let projection = serde_json::json!({
+            "result": {"correct": true},
+            "response": null,
+            "attemptId": "attempt-7",
+        });
+        let digest = Sha256Digest::compute(source.as_bytes()).to_string();
+        (source, projection, digest)
+    }
+
+    #[test]
+    fn canonical_receipt_reader_accepts_semantically_equal_projection() {
+        let (source, projection, digest) = canonical_evidence();
+        let decoded: Value =
+            decode_canonical_json_parts("test receipt", 1, source, projection, digest)
+                .expect("same JSON meaning is accepted regardless of projection key order");
+
+        assert_eq!(decoded["response"], Value::Null);
+        assert_eq!(decoded["result"]["correct"], Value::Bool(true));
+    }
+
+    #[test]
+    fn canonical_receipt_reader_rejects_altered_source_or_digest() {
+        let (source, projection, digest) = canonical_evidence();
+        let altered_source = source.replace("attempt-7", "attempt-8");
+        assert!(matches!(
+            decode_canonical_json_parts::<Value>(
+                "test receipt",
+                1,
+                altered_source,
+                projection.clone(),
+                digest,
+            ),
+            Err(StoreError::Unavailable(_))
+        ));
+
+        let (source, projection, _) = canonical_evidence();
+        assert!(matches!(
+            decode_canonical_json_parts::<Value>(
+                "test receipt",
+                1,
+                source,
+                projection,
+                "0".repeat(64),
+            ),
+            Err(StoreError::Unavailable(_))
+        ));
+    }
+
+    #[test]
+    fn canonical_receipt_reader_rejects_source_projection_disagreement() {
+        let (source, _, digest) = canonical_evidence();
+        assert!(matches!(
+            decode_canonical_json_parts::<Value>(
+                "test receipt",
+                1,
+                source,
+                serde_json::json!({"attemptId": "attempt-7", "response": null}),
+                digest,
+            ),
+            Err(StoreError::Unavailable(_))
+        ));
+    }
 
     #[test]
     fn catalog_cursor_fingerprint_includes_publication_scope_filter() {

@@ -205,8 +205,9 @@ src/
 |  |  +- assignment_workspace_overview_page.tsx  Assignment home and readiness actions
 |  |  +- assignment_workspace_questions_page.tsx Questions and pool authoring
 |  |  +- assignment_workspace_policies_page.tsx  Delivery, lifecycle, and disclosure policy
+|  |  +- assignment_workspace_authoring.css      Shared Create, Questions, pool, and Policies controls
 |  |  `- assignment_workspace_student_view_page.tsx Shared learner landing in Instructor context
-|  +- assignment_editor_*   Questions authoring helpers reused by the workspace
+|  +- assignment_editor_*   Picker, reuse, content-list, model, and repository helpers
 |  +- assignment_overview_page.tsx Ordinary learner assignment landing and run entry
 |  `- curriculum_adoption_live_page.tsx Instructor course-route composition for curriculum adoption
 +- learner_progress.ts Server-derived score-state display copy; never derives policy or timing

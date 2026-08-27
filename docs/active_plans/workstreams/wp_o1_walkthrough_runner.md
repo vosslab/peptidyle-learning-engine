@@ -5,7 +5,7 @@
 The 2026-08-11 runner acceptance is retained as historical evidence for the
 earlier gateway/browser smoke. It predates the strengthened human-reference
 workflow and the explicit-input refactor, so it does not accept the current
-walkthrough. [WP-HG1 in the active release plan](../active/release_completion_plan.md#wp-hg1-close-the-human-guidance-operational-workflow-gaps)
+walkthrough. [WP-HG1 human-guidance workflow](../peptidyle-walkthrough-plan.md#wp-hg1-contract)
 owns the rebuilt live acceptance.
 
 The canonical entrypoint is now:

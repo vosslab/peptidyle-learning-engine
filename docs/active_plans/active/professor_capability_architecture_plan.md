@@ -1108,6 +1108,29 @@ advances no grading operation. One assignment revision serializes the focused Qu
 mutations. Ordinary Student activity remains the source of run, submission, receipt, grade, and
 gradebook evidence.
 
+**WP-PROF-G1 binding contract.** The focused plan at
+`docs/active_plans/active/automated_grading_operations_plan.md` owns accepted-input durability,
+current execution/evaluation/operation state, append-only receipts, deterministic exception
+classification, exact-job retry, assignment recalculation, Instructor routes, and the
+assignment-local browser workflow. It consumes `2026081830` and `2026081831` and owns forward
+migrations `2026081849` and `2026081850`. Migration 1849 owns operation/evaluation/execution schema
+prerequisites and receipts. Migration 1850 owns one complete private accepted-input and lease-fenced
+execution capability: its composite-FK `accepted_submission_private_response` child is the only
+canonical UTF-8 `StudentResponse`; generic accepted `submission` and `submission_idempotency`
+parents contain a fixed answer-free marker plus existing digest metadata. It owns atomic acceptance,
+exact replay, append-only/retention rules, forced RLS, the sealed loader, and worker-only caller
+authority. API may call acceptance but cannot read the child, assume the NOLOGIN/NOINHERIT execution
+role, or call the loader; `ple_worker_login` alone has SET-only membership, and the dedicated
+`PostgresAcceptedSubmissionExecutionStore` alone implements the execution trait. This applies ASVS
+1.2.4, 1.5.2-1.5.3, 2.2, 2.3, 8.1-8.4, 11.4, 14.1-14.2, 15.3-15.4, and 16.2-16.5. An immutable accepted
+input exists before every ordinary automated grader invocation; the existing worker remains the sole
+scheduler and the scoring committer remains the sole derived-score publisher. The automated
+capability is structurally separate from human score mutation. G2 consumes its audited inspection
+link, G3 consumes the current analysis handoff, and G5 consumes actionability-qualified operation
+threads. W2 protects G1 version-2 input now. Existing `WP-P2` Persistent bindings owns the later
+consumer-by-consumer migration from legacy broad reads and the corresponding grant reductions after
+its migration-allocation review.
+
 **WP-PROF-T5 binding contract.** One ordered assignment-definition union owns fixed items and
 selection groups in the shared position namespace. Browser writes contain public Question IDs and
 teaching choices only. The server authorizes every Question ID, resolves its immutable publication,

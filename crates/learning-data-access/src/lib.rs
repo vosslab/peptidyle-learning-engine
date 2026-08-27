@@ -34,6 +34,7 @@ mod account_presentation;
 mod activity_policy;
 mod asset_delivery;
 mod assignment_revision;
+mod canonical_json;
 mod catalog_prompt;
 mod course_appearance;
 mod course_gradebook;
@@ -46,6 +47,7 @@ mod flat_import_provenance;
 mod flat_question;
 mod flat_question_assets;
 mod gradebook_cursor;
+mod grading_operations;
 /// In-memory backend for deterministic unit and conformance tests.
 #[cfg(any(test, feature = "test-support"))]
 pub mod in_memory;
@@ -76,6 +78,7 @@ mod score_precision;
 /// Provider-neutral, replica-safe authentication session contract.
 pub mod session;
 mod statistics;
+mod submission_completion;
 mod teaching_authority_references;
 mod teaching_authority_store;
 
@@ -110,7 +113,7 @@ pub use crate::asset_delivery::{
     AssetAccessEvent, AssetDeliveryId, AssetDeliveryRecord, AssetDeliveryScope, AssetPublication,
     AssetStore, AuthorizedAssetDelivery, CatalogAssetBinding, PublicAssetPublicationStore,
 };
-pub use crate::contracts::CourseGroupManagementStore;
+pub use crate::contracts::{CourseGroupManagementStore, LearnerSubmissionStatusStore};
 pub use crate::contracts::{
     CurriculumAdoptionStore, IssuedNativeAssetBindingV1, IssuedQuestionFamilyWitnessV1,
     IssuedQuestionSnapshotV1, PreviewPlaneResult, PreviewPlaneStore, PreviewSubjectAudit,
@@ -179,6 +182,17 @@ pub use crate::flat_question_assets::{
     MAX_WORKSPACE_FLAT_QUESTION_ASSET_PROVENANCE_CHARS, WORKSPACE_FLAT_QUESTION_IMAGE_MEDIA_TYPES,
     WorkspaceFlatQuestionAsset, validate_workspace_flat_question_asset_record,
 };
+pub use crate::grading_operations::{
+    AcceptedSubmission, AcceptedSubmissionCommand, AcceptedSubmissionCommitError,
+    AcceptedSubmissionExecution, AcceptedSubmissionExecutionClaim,
+    AcceptedSubmissionExecutionDisposition, AcceptedSubmissionExecutionOutcome,
+    AcceptedSubmissionExecutionStore, AcceptedSubmissionExecutionWorkerStore,
+    AcceptedSubmissionGrade, AcceptedSubmissionId, AutomatedGradingStore, CanonicalAttemptResult,
+    GradingExecution, GradingExecutionGeneration, GradingExecutionReceipt, GradingExecutionState,
+    GradingOperation, GradingOperationActionId, GradingOperationReceipt, GradingOperationRevision,
+    GradingOperationTarget, WorkerId, canonical_attempt_result_json,
+    canonical_student_response_json,
+};
 pub use crate::invitation_delivery::MAX_COURSE_INVITATION_DELIVERY_ATTEMPTS;
 pub use crate::invitation_delivery::{
     ClaimedCourseInvitationDelivery, CompleteCourseInvitationDelivery, CourseInvitationDelivery,
@@ -224,6 +238,8 @@ pub use crate::policy::{
     StoredCourseGroupPurposePolicy, StoredIndividualPolicyException,
     UpdateCourseGroupPurposePolicyCommand,
 };
+#[cfg(feature = "postgres")]
+pub use crate::postgres::PostgresAcceptedSubmissionExecutionStore;
 pub use crate::qti::{
     CommitPreparedQtiImport, CommitPreparedQtiImportOutcome, CreateQtiImportCommand,
     QtiGradingStore, QtiImportGradingPayload, QtiImportItem, QtiImportItemRegistration,
@@ -288,4 +304,8 @@ pub(crate) use contracts::{
     delete_and_regrade_update, encode_catalog_search_cursor, encode_workspace_draft_cursor,
     recalculated_enrollment_projection, select_assignment_group_candidates,
     select_assignment_run_items,
+};
+pub(crate) use statistics::{StatisticsContribution, derive_statistics_contributions};
+pub(crate) use submission_completion::{
+    AcceptedSubmissionCompletionInput, plan_accepted_submission_completion,
 };

@@ -44,6 +44,8 @@ async fn pending_manual_fixture() -> (
         Arc::clone(&store),
         Arc::clone(&backend),
         sealed_memory(&store),
+        learner_submission_status(&store),
+        automated_grading(&store),
     );
     let attempt = active_attempt_for(
         &app,

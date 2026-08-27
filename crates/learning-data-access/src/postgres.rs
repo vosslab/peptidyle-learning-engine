@@ -80,7 +80,7 @@ use crate::{
     RunSummaryPageInput, SessionTokenHash, Store, StoreError, StoredAssignment, StoredCourseGroup,
     SubmissionIdempotencyKey, SubmissionNextAttempt, SubmissionRecord,
     SubmitQuestionAttemptCommand, TenantContext, WorkspaceDraft, WorkspaceDraftRevision,
-    assignment_content_structurally_changed, assignment_scoring_changed, completed_run_score,
+    assignment_content_changes_issued_work, assignment_scoring_changed, completed_run_score,
     current_run_questions, decode_workspace_draft_cursor, delete_and_regrade_update,
     encode_workspace_draft_cursor, ensure_tenant, grade_policy, private_feedback_record,
     project_enrollment_completion, select_assignment_run_items, summary_transition,
@@ -144,6 +144,8 @@ use transaction_context::*;
 #[cfg(feature = "postgres")]
 mod feedback_data;
 #[cfg(feature = "postgres")]
+mod grading_operations;
+#[cfg(feature = "postgres")]
 use feedback_data::*;
 #[cfg(feature = "postgres")]
 mod entitlement;
@@ -155,6 +157,10 @@ mod student_run_preparation;
 mod submission;
 #[cfg(feature = "postgres")]
 use submission::*;
+#[cfg(feature = "postgres")]
+mod submission_receipts;
+#[cfg(feature = "postgres")]
+use submission_receipts::*;
 #[cfg(feature = "postgres")]
 mod run_lifecycle;
 #[cfg(feature = "postgres")]
@@ -341,6 +347,18 @@ pub struct PostgresGraderStore {
     pool: PgPool,
 }
 
+/// Worker-only sealed accepted-submission execution handle.
+///
+/// Construction consumes a pool that has already been attested with the
+/// `ProductionLoginProfile::Worker` authority contract.  The handle has no
+/// general application-store methods, so API composition cannot accidentally
+/// gain the response-bearing loader capability (ASVS 8.1-8.4, 14.2).
+#[cfg(feature = "postgres")]
+#[derive(Clone)]
+pub struct PostgresAcceptedSubmissionExecutionStore {
+    pool: PgPool,
+}
+
 /// Dedicated worker handle whose pool login is attested to assume only the
 /// invitation-delivery broker capability for a transaction.
 #[cfg(feature = "postgres")]
@@ -359,6 +377,48 @@ impl PostgresInvitationDeliveryWorkerStore {
     async fn begin_delivery_worker(&self) -> Result<Transaction<'_, Postgres>, StoreError> {
         let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
         sqlx::query("SET LOCAL ROLE ple_invitation_delivery_worker")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        Ok(transaction)
+    }
+}
+
+#[cfg(feature = "postgres")]
+impl PostgresAcceptedSubmissionExecutionStore {
+    /// Wraps an already worker-attested pool for the sole lease-bound private
+    /// accepted-submission execution read.
+    pub fn from_worker_pool(pool: PgPool) -> Self {
+        Self { pool }
+    }
+
+    /// Establishes the worker-only execution capability before a claim has a
+    /// tenant.  The claim broker supplies the tenant as an opaque result; all
+    /// later private operations install that returned tenant transaction-locally.
+    async fn begin_execution_worker(&self) -> Result<Transaction<'_, Postgres>, StoreError> {
+        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
+        sqlx::query("SET LOCAL ROLE ple_accepted_submission_execution")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        Ok(transaction)
+    }
+
+    /// Establishes the worker-only capability and tenant fence in one short
+    /// transaction before a private descriptor can be loaded.  Both settings
+    /// are transaction-local, so a pooled connection cannot retain authority
+    /// or tenant state after commit or rollback (ASVS 2.3, 8.1-8.4, 15.4).
+    async fn begin_execution_tenant(
+        &self,
+        context: TenantContext,
+    ) -> Result<Transaction<'_, Postgres>, StoreError> {
+        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
+        sqlx::query("SET LOCAL ROLE ple_accepted_submission_execution")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
+            .bind(context.tenant_id().to_string())
             .execute(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;

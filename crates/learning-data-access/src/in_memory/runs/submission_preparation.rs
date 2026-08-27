@@ -12,7 +12,7 @@ use super::issued_contracts::{
 };
 use crate::{
     AuthorizedSubmissionIntent, LearnerWorkRoutingBinding, StoreError, SubmissionIdempotencyKey,
-    SubmissionPreparation, TenantContext,
+    SubmissionPreparation, SubmissionReceiptRead, TenantContext,
 };
 
 pub(in crate::in_memory) fn prepare_question_submission(
@@ -92,14 +92,22 @@ pub(in crate::in_memory) fn prepare_question_submission(
         ));
     }
     if let Some(stored) = state.submissions.get(&(tenant, attempt_id)) {
-        if stored.key != *idempotency_key || stored.response != *response {
+        if stored.key != *idempotency_key
+            || !super::super::stored_submission_matches_response(
+                state, tenant, attempt_id, response,
+            )?
+        {
             return Err(StoreError::Conflict);
         }
-        return load_submission_record(state, tenant, &attempt)?
-            .map(|record| SubmissionPreparation::Replay(Box::new(record)))
-            .ok_or_else(|| {
-                StoreError::Unavailable("submission receipt disappeared during replay".to_string())
-            });
+        return match load_submission_record(state, tenant, &attempt)? {
+            SubmissionReceiptRead::Missing => Err(StoreError::Unavailable(
+                "submission receipt disappeared during replay".to_string(),
+            )),
+            SubmissionReceiptRead::AcceptedPending(pending) => {
+                Ok(SubmissionPreparation::AcceptedPending(pending))
+            }
+            SubmissionReceiptRead::Completed(record) => Ok(SubmissionPreparation::Replay(record)),
+        };
     }
     if attempt.status != AttemptStatus::InProgress
         || run.completed_at.is_some()

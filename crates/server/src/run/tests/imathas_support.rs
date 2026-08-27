@@ -466,6 +466,8 @@ pub(super) async fn contracted_route_fixture(
         Arc::clone(&store),
         Arc::clone(&route_backend),
         sealed_memory(&store),
+        learner_submission_status(&store),
+        automated_grading(&store),
     )
     .merge(external_tool_router(
         Arc::clone(&store),

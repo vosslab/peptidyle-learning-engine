@@ -245,7 +245,7 @@ services:
         condition: service_healthy
     environment:
       PLE_BIND_ADDR: 0.0.0.0:3000
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-peptidyle}
+      DATABASE_URL: ${PLE_API_DATABASE_URL:-postgres://ple_api_login:unprovisioned@postgres:5432/${POSTGRES_DB:-peptidyle}}
       PLE_GRADER_DATABASE_URL: postgres://ple_grading_reader:${PLE_LOCAL_GRADER_PASSWORD:?set PLE_LOCAL_GRADER_PASSWORD in the env file}@postgres:5432/${POSTGRES_DB:-peptidyle}
       PLE_S3_ENDPOINT: http://minio:9000
       PLE_S3_REGION: us-east-1
@@ -314,14 +314,22 @@ services:
         condition: service_healthy
       createbuckets:
         condition: service_completed_successfully
+      webwork-renderer:
+        condition: service_healthy
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-peptidyle}
+      PLE_WORKER_DATABASE_URL: ${PLE_WORKER_DATABASE_URL:-postgres://ple_worker_login:unprovisioned@postgres:5432/${POSTGRES_DB:-peptidyle}}
+      PLE_GRADER_DATABASE_URL: postgres://ple_grading_reader:${PLE_LOCAL_GRADER_PASSWORD:?set PLE_LOCAL_GRADER_PASSWORD in the env file}@postgres:5432/${POSTGRES_DB:-peptidyle}
       PLE_S3_ENDPOINT: http://minio:9000
       PLE_S3_REGION: us-east-1
       PLE_PUBLIC_ASSETS_BUCKET: public-assets
       PLE_PRIVATE_CONTENT_BUCKET: private-content
       PLE_STUDENT_RECORDS_BUCKET: student-records
       PLE_TEMP_PROCESSING_BUCKET: temp-processing
+      PLE_WEBWORK_RENDERER_BASE_URL: http://webwork-renderer:3000/
+      PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:-15}
+      PLE_WEBWORK_MAX_RESPONSE_BYTES: ${PLE_WEBWORK_MAX_RESPONSE_BYTES:-1048576}
+      PLE_WEBWORK_RENDERER_ID: ${PLE_WEBWORK_RENDERER_ID:-vosslab-webwork-pg-renderer}
+      PLE_WEBWORK_RENDERER_VERSION: ${PLE_WEBWORK_RENDERER_VERSION:-unconfigured}
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
       PLE_WORKER_LEASE_SECONDS: ${PLE_WORKER_LEASE_SECONDS:-120}
@@ -344,6 +352,7 @@ services:
     pids_limit: 128
     networks:
       - default
+      - renderer_private
 
   gateway:
     labels: *ple-disposable-capability-label

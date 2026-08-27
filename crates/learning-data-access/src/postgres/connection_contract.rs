@@ -82,12 +82,20 @@ impl LoginContract {
                     set_option: true,
                 },
             ],
-            Self::Production(ProductionLoginProfile::Worker) | Self::BaseCourseApplication => {
-                &[ExpectedMembership {
+            Self::Production(ProductionLoginProfile::Worker) => &[
+                ExpectedMembership {
                     role_name: "ple_app",
                     set_option: true,
-                }]
-            }
+                },
+                ExpectedMembership {
+                    role_name: "ple_accepted_submission_execution",
+                    set_option: true,
+                },
+            ],
+            Self::BaseCourseApplication => &[ExpectedMembership {
+                role_name: "ple_app",
+                set_option: true,
+            }],
             Self::Production(ProductionLoginProfile::InvitationDeliveryWorker) => {
                 &[ExpectedMembership {
                     role_name: "ple_invitation_delivery_worker",
@@ -111,5 +119,44 @@ impl LoginContract {
 
     pub(super) fn expected_capabilities(self) -> &'static [ExpectedMembership] {
         self.expected_memberships()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ExpectedMembership, LoginContract};
+    use crate::postgres::ProductionLoginProfile;
+
+    #[test]
+    fn api_and_worker_roles_have_closed_distinct_capabilities() {
+        let api = LoginContract::Production(ProductionLoginProfile::Api);
+        let worker = LoginContract::Production(ProductionLoginProfile::Worker);
+
+        assert_eq!(
+            api.expected_memberships(),
+            [
+                ExpectedMembership {
+                    role_name: "ple_app",
+                    set_option: true,
+                },
+                ExpectedMembership {
+                    role_name: "ple_auth",
+                    set_option: true,
+                },
+            ]
+        );
+        assert_eq!(
+            worker.expected_memberships(),
+            [
+                ExpectedMembership {
+                    role_name: "ple_app",
+                    set_option: true,
+                },
+                ExpectedMembership {
+                    role_name: "ple_accepted_submission_execution",
+                    set_option: true,
+                },
+            ]
+        );
     }
 }

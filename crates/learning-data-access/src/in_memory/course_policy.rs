@@ -615,7 +615,10 @@ pub(super) fn memory_assignment_has_run(state: &State, assignment: &AssignmentRe
 
 pub(super) fn memory_assignment_has_results(state: &State, assignment: &AssignmentRecord) -> bool {
     state.submissions.values().any(|submission| {
-        let attempt = &submission.record.attempt;
+        let Some(record) = submission.completed_record_opt() else {
+            return false;
+        };
+        let attempt = &record.attempt;
         attempt.result.is_some()
             && state
                 .runs

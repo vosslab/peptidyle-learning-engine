@@ -31,6 +31,7 @@ import {
   type CourseRouteReference,
 } from "../../navigation/public_route";
 import { createAssignmentEditorRepository } from "../assignment_editor_repository";
+import "./assignment_workspace_authoring.css";
 import {
   AssignmentWorkspaceNav,
   type AssignmentWorkspaceSection,

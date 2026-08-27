@@ -10,15 +10,11 @@ discards them and recreates the same fictional baseline.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Instructor course overview showing the Assignments page and course-management navigation](screenshots/instructor/course_authoring/02_course_assignments.png)
+![Instructor assignment workspace Policies page showing delivery, lifecycle, and disclosure controls](screenshots/instructor/assignment_workspace/01_assignment_policies.png)
 
 ![Instructor roster showing active course members](screenshots/instructor/course_management/01_instructor_active_roster.png)
 
-![Instructor published problem catalog showing human-readable Question IDs and Copy ID controls](screenshots/instructor/content_authoring/05_library.png)
-
-![Instructor editor for Peptide Bonds and Planarity showing a selected published question and Mastery run policies](screenshots/instructor/course_authoring/06_assignment_editor.png)
-
-![Instructor confirmation that Peptide Bonds and Planarity is a live course assignment](screenshots/instructor/course_authoring/05_assignment_created.png)
+![Instructor assignment workspace Student view showing the answer-free learner landing](screenshots/instructor/assignment_workspace/02_student_view.png)
 
 ![Instructor gradebook showing Mary Okafor at 100 percent on Peptide Bonds Guided Practice](screenshots/instructor/grading/01_instructor_gradebook.png)
 <!-- screenshots:end -->
@@ -61,24 +57,44 @@ all four inputs, announces and focuses the field to correct, and supports an imm
 
 1. Return to the course and open **New assignment**.
 2. Enter the assignment title.
-3. Prefer **Reuse questions from an existing assignment**. Choose the source assignment, then add
+3. Activate **Create assignment draft**. The system creates a real Draft and opens its **Questions**
+   page; the assignment title link in the course list opens the assignment's **Overview** page.
+4. On **Questions**, prefer **Reuse questions from an existing assignment**. Choose the source
+   assignment, then add
    its entire question set or use the checklist for a subset.
-4. For an occasional direct lookup, copy the visible `AAA-BBBB` Question ID from the published
+5. For an occasional direct lookup, copy the visible `AAA-BBBB` Question ID from the published
    problem catalog and paste it into **Add by question ID**. Never substitute a UUID.
-5. Confirm the selected list contains the intended questions in teaching order. Engine and response
+6. Confirm the selected list contains the intended questions in teaching order. Engine and response
    labels identify the mix without imposing a fixed question count.
-6. Confirm **All questions correct**, **Highest run score**, and **Allow unlimited practice**.
-7. In **What students can see**, choose a timing for each independent field: **Score**,
+7. Use **Replace question** on Questions when an assigned item needs a revision. Review the
+   existing and replacement titles and IDs, then save **Questions and order**. The replacement
+   applies to future runs; issued learner work retains its original question.
+8. Open **Policies** from the assignment-local navigation. Enter the plain-text student
+    instructions, choose **Published**, and
+   set availability, due, and close times in the displayed course time zone. Set **15** minutes per
+   run, the intended attempt limit, late-submission behavior, and deadline behavior, then activate
+   its separate save control.
+9. In **What students can see**, choose a timing for each independent field: **Score**,
    **Per-item correctness**, **Feedback text**, **Correct answer or solution**, and **Class
    statistics**. Each offers During attempt, After submit, After due, After close, and Never.
    After due and After close remain withheld when the matching boundary is not set. For this guide,
    use After submit for the first four fields and Never for class statistics.
-8. Activate **Create assignment** and open the resulting course assignment. A new assignment is a
-   Draft and is not yet available to students.
-9. In **Teaching operations**, enter the plain-text student instructions, choose **Published**, and
-   set availability, due, and close times in the displayed course time zone. Set **15** minutes per
-   run, the intended attempt limit, late-submission behavior, and deadline behavior, then activate
-   its separate save control.
+
+The assignment-local navigation keeps the four tasks together:
+
+- **Overview** is the assignment home. It reports the current state, readiness, instructions, and
+  delivery summary.
+- **Questions** owns the title, fixed questions, reusable pools, ordering, reuse, and replacement.
+  Its **Save questions and order** action commits the complete ordered definition.
+- **Policies** owns delivery and publishing: lifecycle, learner instructions, schedule, limits,
+  run policies, and feedback visibility. Its save action is separate from Questions.
+- **Student view** is a stable-identity, answer-free inspection of the current live assignment.
+  It keeps the Instructor session and creates no learner run, submission, grade, or other work.
+
+Use the assignment title link to return to **Overview** at any time. The supported paths are
+`/instructor/courses/:courseRef/assignments/:assignmentRef`, with `/questions`, `/policies`, or
+`/student-view` appended for the focused pages. Public route references locate the assignment;
+they do not grant authority.
 
 Above those controls, verify the current server status. It states the stored
 intent and the current clock result separately, for example **Published, open
@@ -86,23 +102,27 @@ now** or **Published, closed since 2026-09-01 23:59 America/Chicago**. This
 status comes from the server's authoritative time; changing the computer clock
 does not change it.
 
-The teaching-operations save is independent of ordinary content editing but shares the assignment
-revision. A conflict offers the current server values without discarding the local content or
-teaching draft. Invalid or ambiguous local times, a timestamp outside the course term, invalid
-ordering, or an illegal lifecycle transition preserve the draft, announce the exact field, and move
-focus there. Closing removes learner start access; archiving is terminal and cannot be reopened.
+The Policies save is independent of the Questions save but shares the assignment revision. A
+conflict offers the current server values without discarding the local Questions or Policies draft.
+Invalid or ambiguous local times, a timestamp outside the course term, invalid ordering, or an
+illegal lifecycle transition preserve the draft, announce the exact field, and move focus there.
+Closing removes learner start access; archiving is terminal and cannot be reopened.
 
 Only corpus publication is arranged outside the browser. Course creation, roster activation,
 assignment reuse, Question ID lookup, timing, and assignment construction use visible instructor
-controls. If an ID is malformed, unavailable, unauthorized, or already selected, the editor keeps
+controls. If an ID is malformed, unavailable, unauthorized, or already selected, Questions keeps
 the pasted text and selected questions unchanged so it can be corrected and tried again.
 
-## Replace an assigned question
+## Inspect and run as a student
 
-Open the assignment and choose **Replace question** for the item that should change. Enter or select
-the replacement `AAA-BBBB` Question ID, then review the existing and replacement titles and IDs before
-confirming the revision-checked change. The assignment uses the replacement for future runs. Issued
-runs retain the exact question that each learner received.
+From the assignment workspace, open **Student view** to inspect the current live learner landing.
+The view has a stable assignment identity, contains no answer material, and leaves the Instructor
+session in place. It is an inspection surface only: it does not start a run or create graded work.
+
+For graded work, sign out, choose a seeded Student and authorized course, open the assignment through
+the ordinary Student course page, and choose **Start assignment**. Submit through the visible response
+controls. This ordinary Student entry creates the real learner run, submission, receipt, grade, and
+instructor-visible gradebook history. Do not use Instructor **Student view** as a substitute.
 
 ## Configure course grades
 

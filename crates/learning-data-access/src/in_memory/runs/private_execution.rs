@@ -36,6 +36,7 @@ impl crate::SealedPrivateExecutionStore for MemorySealedPrivateExecutionStore {
             crate::SubmissionPreparation::Replay(record) => {
                 Ok(crate::SealedPrivateExecutionPreparation::Replay(record))
             }
+            crate::SubmissionPreparation::AcceptedPending(_) => Err(StoreError::Conflict),
             crate::SubmissionPreparation::FirstEffect(prepared_intent) => {
                 if *prepared_intent != intent {
                     return Err(StoreError::Unavailable(

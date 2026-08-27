@@ -533,6 +533,9 @@ where
             )
             .await;
         }
+        Ok(learning_data_access::SubmissionPreparation::AcceptedPending(pending)) => {
+            return accepted_pending_response(pending.attempt());
+        }
         Ok(learning_data_access::SubmissionPreparation::FirstEffect(prepared)) => *prepared,
         Err(error) => return store_error_response(error),
     };

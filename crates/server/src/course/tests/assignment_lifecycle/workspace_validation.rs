@@ -118,7 +118,7 @@ async fn issued_learner_work_returns_a_typed_structural_content_recovery() {
         .await
         .expect("issued learner run");
 
-    let structural = fixture
+    let issued_work_change = fixture
         .app
         .clone()
         .oneshot(
@@ -133,24 +133,26 @@ async fn issued_learner_work_returns_a_typed_structural_content_recovery() {
                 serde_json::json!({
                     "title": "Peptide bond mastery",
                     "entries": [{
-                        "kind": "selectionGroup",
-                        "candidateQuestionIds": [fixture.question_id],
+                        "kind": "fixed",
+                        "questionId": fixture.question_id,
                         "position": 0,
-                        "drawCount": 1,
-                        "pointsPerItem": "1",
-                        "ordering": "candidateOrder"
+                        "pointsPossible": "2",
+                        "deliveryState": "active",
+                        "scoringMode": "normal"
                     }]
                 })
                 .to_string(),
             ))
-            .expect("structural content request"),
+            .expect("issued-work content request"),
         )
         .await
-        .expect("structural content response");
-    assert_eq!(structural.status(), StatusCode::CONFLICT);
-    assert_eq!(structural.headers()["cache-control"], "no-store");
+        .expect("issued-work content response");
+    // ASVS 2.2.2, 2.3.1-2.3.3, 8.2.3, 8.3.1, and 15.3.3: a browser cannot
+    // rewrite an issued fixed item's score semantics through this route.
+    assert_eq!(issued_work_change.status(), StatusCode::CONFLICT);
+    assert_eq!(issued_work_change.headers()["cache-control"], "no-store");
     assert_eq!(
-        response_json(structural).await,
+        response_json(issued_work_change).await,
         serde_json::json!({ "kind": "issuedLearnerWork" })
     );
 

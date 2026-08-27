@@ -20,6 +20,7 @@ activity PLE presents to instructors and students, alongside the more expressive
 that implement it.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
+![Instructor assignment workspace Policies page showing delivery, lifecycle, and disclosure controls](docs/screenshots/instructor/assignment_workspace/01_assignment_policies.png)
 <!-- screenshots:end -->
 
 The managed visual walkthrough is reserved for the production-shaped live-demo capture pass;

@@ -206,8 +206,8 @@ impl crate::FeedbackStore for PostgresStore {
         // assignment disclosure policy and authoritative time; feedback-release
         // audit records never unlock learner content and are not read here.
         let rows = sqlx::query(
-            "SELECT COALESCE(si.payload, qa.payload) AS attempt_payload, \
-                    COALESCE(si.payload_sha256, qa.payload_sha256) AS attempt_sha256, \
+            "SELECT CASE WHEN si.request_contract_version = 2 THEN qa.payload ELSE COALESCE(si.payload, qa.payload) END AS attempt_payload, \
+                    CASE WHEN si.request_contract_version = 2 THEN qa.payload_sha256 ELSE COALESCE(si.payload_sha256, qa.payload_sha256) END AS attempt_sha256, \
                     evaluation.payload AS evaluation_payload, \
                     evaluation.payload_sha256 AS evaluation_payload_sha256, \
                     evaluation.grading_status AS evaluation_grading_status, \
@@ -216,7 +216,8 @@ impl crate::FeedbackStore for PostgresStore {
                         AS current_submitted_at, \
                     floor(extract(epoch FROM timing.effective_deadline) * 1000)::bigint \
                         AS current_deadline_at, \
-                    af.hint, af.correct_response, af.rationale, af.content_sha256 \
+                    af.hint, af.correct_response, af.rationale, af.content_canonical_json, \
+                    af.content_canonical_json_version, af.content_sha256 \
              FROM question_attempt AS qa \
              LEFT JOIN submission_idempotency AS si \
                ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id \

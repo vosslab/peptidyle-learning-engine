@@ -180,7 +180,8 @@ and credentials with mode 0600; never commit or reuse them outside local work.
 
 | Inputs                                                                           | Owner                                      | All replicas require same value?          | Purpose                                                              |
 | -------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------- | -------------------------------------------------------------------- |
-| `DATABASE_URL`                                                                   | Compose from PostgreSQL settings           | Yes for API and worker                    | Shared application database                                          |
+| `DATABASE_URL`                                                                   | Private process-login runtime               | API only                                  | API login with `ple_app` and `ple_auth`                              |
+| `PLE_WORKER_DATABASE_URL`                                                        | Private process-login runtime               | Worker only                               | Worker login with `ple_app` and sealed execution capability          |
 | `PLE_GRADER_DATABASE_URL`                                                        | Compose/API only                           | Yes for API                               | Restricted answer-bearing reader                                     |
 | `PLE_S3_ENDPOINT`, `PLE_S3_REGION`                                               | Compose                                    | Yes for API and worker                    | Shared S3-compatible endpoint                                        |
 | `PLE_{PUBLIC_ASSETS,PRIVATE_CONTENT,STUDENT_RECORDS,TEMP_PROCESSING}_BUCKET` | Compose | Yes for API and worker | Fixed policy-separated buckets |

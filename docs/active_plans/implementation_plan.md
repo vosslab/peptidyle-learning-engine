@@ -41,9 +41,11 @@ WP-PROF-T5 is accepted after extending that model with visible item-pool authori
 automatic variation, executable no-store preview, and ordinary Student delivery. WP-PROF-D1 and
 WP-PROF-D2, WP-PROF-B1, and WP-PROF-B2 are accepted. Reusable curricula now advance into ordinary
 teaching courses through explicit adoption, rollover, term shifting, provenance, and controlled
-updates. WP-PROF-T6 is the current Instructor assignment-workspace package; it gives each assignment
-a linked home, separate Questions and Policies pages, and a live answer-free Student view before
-WP-PROF-G1 adds assignment-local grading operations. The shared status registry
+updates. WP-PROF-T6 is accepted: each assignment has a linked home, separate Questions and Policies
+pages, and a live answer-free Student view. WP-PROF-G1 is active under the
+[automated-grading operations plan](active/automated_grading_operations_plan.md). It persists one
+immutable accepted learner input before grading and adds assignment-local exception recovery,
+bounded retry, generation-fenced recalculation, and immutable receipts. The shared status registry
 owns the current handoff and migration allocation; the professor capability plan retains the
 accepted capability contracts and evidence boundaries.
 

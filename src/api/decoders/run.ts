@@ -26,7 +26,6 @@ import type { LearnerAssignmentProgress } from "../../../generated/api/LearnerAs
 import type { LearnerClassStatistics } from "../../../generated/api/LearnerClassStatistics";
 import type { LearnerScoreState } from "../../../generated/api/LearnerScoreState";
 import type { ScoringStatus } from "../../../generated/api/ScoringStatus";
-import type { RunCompletionStatus } from "../../../generated/api/RunCompletionStatus";
 import type { TaxonomyTerm } from "../../../generated/api/TaxonomyTerm";
 import type {
   AuthSession,
@@ -34,13 +33,11 @@ import type {
   EnrollmentView,
   FeedbackReleaseResponse,
   LearnerQuestionAttempt,
-  NextIssuedAttempt,
   PrefetchedNextQuestion,
   PoolSelection,
   RunSummaryOutcome,
   RunSummaryResponse,
   SignedOutResponse,
-  SubmissionReceipt,
 } from "../contracts";
 import type {
   CapabilityViolation,
@@ -104,10 +101,6 @@ const SCORING_STATUSES = [
   "recalculating",
   "failed",
 ] as const satisfies ReadonlyArray<ScoringStatus>;
-const RUN_COMPLETION_STATUSES = [
-  "inProgress",
-  "completed",
-] as const satisfies ReadonlyArray<RunCompletionStatus>;
 
 const QUESTION_ATTEMPT_FIELDS = [
   "id",
@@ -687,105 +680,6 @@ export function decodeEnrollmentView(value: unknown, path = "response"): Enrollm
     summary: decodeLearnerAssignmentProgress(field(record, "summary", path), `${path}.summary`),
   } satisfies EnrollmentView;
   return decoded;
-}
-
-export function decodeSubmissionReceipt(value: unknown, path = "response"): SubmissionReceipt {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "accepted",
-    "attempt",
-    "feedback",
-    "scoringStatus",
-    "runCompletionStatus",
-    "nextIssued",
-    "nextPending",
-  ]);
-  const decoded = {
-    accepted: decodeTrue(field(record, "accepted", path), `${path}.accepted`),
-    attempt: decodeQuestionAttempt(field(record, "attempt", path), `${path}.attempt`),
-    feedback: decodeNullable(
-      field(record, "feedback", path),
-      `${path}.feedback`,
-      decodeDisclosedFeedback,
-    ),
-    scoringStatus: decodeStringEnum(
-      field(record, "scoringStatus", path),
-      `${path}.scoringStatus`,
-      SCORING_STATUSES,
-    ),
-    runCompletionStatus: decodeStringEnum(
-      field(record, "runCompletionStatus", path),
-      `${path}.runCompletionStatus`,
-      RUN_COMPLETION_STATUSES,
-    ),
-    nextIssued: decodeNullable(
-      field(record, "nextIssued", path),
-      `${path}.nextIssued`,
-      decodeNextIssuedAttempt,
-    ),
-    nextPending: decodeBoolean(field(record, "nextPending", path), `${path}.nextPending`),
-  } satisfies SubmissionReceipt;
-  if (decoded.nextPending && decoded.nextIssued !== null) {
-    throw new DecodeError(
-      path,
-      "a submission receipt with either an issued successor or a pending successor",
-    );
-  }
-  // ASVS 1.5.2 and 2.3.1: accept only coherent closed workflow states from the network.
-  if (
-    decoded.runCompletionStatus === "completed" &&
-    (decoded.nextIssued !== null || decoded.nextPending)
-  ) {
-    throw new DecodeError(path, "a completed run without successor delivery state");
-  }
-  if (decoded.scoringStatus !== "current" && decoded.attempt.result !== null) {
-    throw new DecodeError(
-      `${path}.attempt.result`,
-      "no numeric result while scoring is not current",
-    );
-  }
-  if (
-    decoded.scoringStatus !== "current" &&
-    (decoded.feedback?.pointsEarned !== undefined || decoded.feedback?.pointsPossible !== undefined)
-  ) {
-    throw new DecodeError(`${path}.feedback`, "no numeric points while scoring is not current");
-  }
-  return decoded;
-}
-
-export function decodeNextIssuedAttempt(value: unknown, path = "response"): NextIssuedAttempt {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "id",
-    "run",
-    "questionVersion",
-    "seed",
-    "deadline",
-    "assignmentPosition",
-    "renderedQuestionSha256",
-  ]);
-  return {
-    id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    run: decodeIdentifier(field(record, "run", path), `${path}.run`),
-    questionVersion: decodeIdentifier(
-      field(record, "questionVersion", path),
-      `${path}.questionVersion`,
-    ),
-    seed: decodeNonnegativeInteger(field(record, "seed", path), `${path}.seed`),
-    deadline: decodeNullable(
-      field(record, "deadline", path),
-      `${path}.deadline`,
-      decodeFiniteNumber,
-    ),
-    assignmentPosition: decodeNonnegativeInteger(
-      field(record, "assignmentPosition", path),
-      `${path}.assignmentPosition`,
-    ),
-    renderedQuestionSha256: decodeSha256(
-      field(record, "renderedQuestionSha256", path),
-      `${path}.renderedQuestionSha256`,
-    ),
-  } satisfies NextIssuedAttempt;
 }
 
 export function decodePrefetchedNextQuestion(

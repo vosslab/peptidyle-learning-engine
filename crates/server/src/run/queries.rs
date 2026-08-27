@@ -1,7 +1,7 @@
 //! Run-query and learner-projection capability; this module owns its route behavior.
 
 use super::contracts::RunBackend;
-use super::submission::{apply_learner_disclosure, project_run_feedback};
+use super::submission::{apply_learner_disclosure, project_run_feedback, submission_response};
 use super::support::*;
 
 pub(super) async fn get_run<S, B>(
@@ -285,8 +285,9 @@ where
                 )
                 .await
             {
-                Ok(Some(record)) => record,
-                Ok(None) => {
+                Ok(learning_data_access::SubmissionReceiptRead::Completed(record)) => *record,
+                Ok(learning_data_access::SubmissionReceiptRead::AcceptedPending(_)) => continue,
+                Ok(learning_data_access::SubmissionReceiptRead::Missing) => {
                     return error_response(
                         StatusCode::SERVICE_UNAVAILABLE,
                         "submitted attempt receipt is unavailable",
@@ -359,8 +360,9 @@ where
             )
             .await
         {
-            Ok(Some(record)) => record,
-            Ok(None) => {
+            Ok(learning_data_access::SubmissionReceiptRead::Completed(record)) => Some(*record),
+            Ok(learning_data_access::SubmissionReceiptRead::AcceptedPending(_)) => None,
+            Ok(learning_data_access::SubmissionReceiptRead::Missing) => {
                 return error_response(
                     StatusCode::SERVICE_UNAVAILABLE,
                     "submitted attempt receipt is unavailable",
@@ -368,10 +370,12 @@ where
             }
             Err(error) => return store_error_response(error),
         };
-        attempt = record.attempt;
-        let scoring_status =
-            learner_scoring_status(state.store.as_ref(), &authenticated, run.enrollment).await;
-        apply_learner_disclosure(record.disclosure.decision(), scoring_status, &mut attempt);
+        if let Some(record) = record {
+            attempt = record.attempt;
+            let scoring_status =
+                learner_scoring_status(state.store.as_ref(), &authenticated, run.enrollment).await;
+            apply_learner_disclosure(record.disclosure.decision(), scoring_status, &mut attempt);
+        }
     }
     let pool_selection = match state
         .store
@@ -399,6 +403,61 @@ where
         })
         .into_response(),
     )
+}
+
+/// Returns the current answer-free automated-grading projection for one
+/// learner-owned attempt.
+///
+/// The store receives the full route binding with the authenticated subject,
+/// so an opaque attempt ID cannot select a record in another course or
+/// assignment. The status response is deliberately a read-only projection:
+/// it never retries a response or invokes a grader. ASVS 2.2.1, 2.3.1,
+/// 8.2.1-8.2.2, and 8.3.1.
+pub(super) async fn get_submission_status<S, B>(
+    State(state): State<RunRouteState<S, B>>,
+    headers: HeaderMap,
+    Path((course, assignment, attempt_id)): Path<(CourseId, AssignmentId, QuestionAttemptId)>,
+) -> Response
+where
+    S: Store + SessionStore + 'static,
+    B: RunBackend + 'static,
+{
+    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
+        Ok(authenticated) => authenticated,
+        Err(error) => return auth_error_response(error),
+    };
+    let binding = LearnerWorkRoutingBinding::new(course, assignment);
+    match state
+        .learner_submission_status
+        .learner_submission_status(
+            authenticated.tenant_context,
+            authenticated.record.subject.user(),
+            binding,
+            attempt_id,
+        )
+        .await
+    {
+        Ok(learning_data_access::LearnerSubmissionStatusRead::Completed(record)) => {
+            let scoring_status =
+                learner_scoring_status(state.store.as_ref(), &authenticated, record.run.enrollment)
+                    .await;
+            // A status read does not create successor work. A nonterminal run
+            // accurately reports that its next issued item remains pending;
+            // `start_or_resume_run` owns that later delivery transition.
+            submission_response(*record, None, true, scoring_status)
+        }
+        Ok(learning_data_access::LearnerSubmissionStatusRead::AcceptedPending(pending)) => {
+            accepted_pending_response(pending.attempt())
+        }
+        Ok(learning_data_access::LearnerSubmissionStatusRead::InstructorAttention(pending)) => {
+            automated_submission_status_response(
+                pending.attempt(),
+                "instructor_attention",
+                question_model::AutomatedGradingStatus::InstructorAttention,
+            )
+        }
+        Err(error) => store_error_response(error),
+    }
 }
 
 /// Returns the exact, answer-free delivery envelope for a route-bound attempt.

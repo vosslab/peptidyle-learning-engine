@@ -532,8 +532,10 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
     let replayed = replay_store
         .replay_submission(context, student, attempt.id, &response, &key)
         .await
-        .expect("replay is valid after a disclosure-only revision")
-        .expect("an intact receipt replays");
+        .expect("replay is valid after a disclosure-only revision");
+    let learning_data_access::SubmissionReceiptRead::Completed(replayed) = replayed else {
+        panic!("an intact receipt replays");
+    };
     assert_eq!(
         replayed.attempt, submitted.attempt,
         "a replay retains the immutable submitted attempt"

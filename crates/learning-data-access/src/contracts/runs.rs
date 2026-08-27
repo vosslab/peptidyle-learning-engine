@@ -8,6 +8,9 @@ pub use issue_contracts::*;
 #[path = "runs/qti_contracts.rs"]
 mod qti_contracts;
 pub use qti_contracts::*;
+#[path = "runs/receipt_contracts.rs"]
+mod receipt_contracts;
+pub use receipt_contracts::*;
 
 /// Server-only course and assignment routing context for learner work.
 ///

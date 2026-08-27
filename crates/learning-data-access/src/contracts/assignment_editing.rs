@@ -154,25 +154,36 @@ pub(crate) fn assignment_scoring_changed(
         || groups(previous) != groups(replacement)
 }
 
-/// Reports whether a Questions-slice save changes the future-run assignment
-/// shape protected once learner evidence exists.
+/// Reports whether a Questions-slice save changes work that is immutable once
+/// learner evidence exists.
 ///
-/// Item and candidate identity, pinned publication, ordering, pool draw
-/// semantics, and candidate eligibility determine which question can appear
-/// in a future run. Fixed-item delivery and scoring changes are deliberately
-/// outside this boundary: they retain the ordinary revision-checked
-/// replacement and recalculation path.
-/// Keeping this classification in the shared Store contract prevents the
-/// in-memory and PostgreSQL implementations from making different issuance
-/// decisions for the same focused command.
-pub(crate) fn assignment_content_structurally_changed(
+/// The Questions command owns fixed-item points, delivery, scoring, identity,
+/// publication, and order, plus every pool's draw and per-item-point semantics.
+/// A title remains presentation-only. Keeping this issued-work fence in the
+/// shared Store contract prevents the in-memory and PostgreSQL implementations
+/// from making different decisions for the same authenticated command.
+///
+/// ASVS 2.2.2, 2.3.1-2.3.3, 8.1.2, 8.2.3, 8.3.1, and 15.3.3: the trusted
+/// service layer allowlists the Questions-owned fields and rejects their
+/// mutation after issuance rather than trusting browser state or recalculating
+/// already-issued evidence from a rewritten definition.
+pub(crate) fn assignment_content_changes_issued_work(
     current: &AssignmentRecord,
     replacement: &AssignmentRecord,
 ) -> bool {
     let fixed_shape = |items: &[question_model::AssignmentItem]| {
         items
             .iter()
-            .map(|item| (item.id, item.reference, item.position))
+            .map(|item| {
+                (
+                    item.id,
+                    item.reference,
+                    item.position,
+                    item.points_possible,
+                    item.delivery_state,
+                    item.scoring_mode,
+                )
+            })
             .collect::<Vec<_>>()
     };
     let group_shape = |groups: &[question_model::AssignmentSelectionGroup]| {
@@ -183,6 +194,7 @@ pub(crate) fn assignment_content_structurally_changed(
                     group.id,
                     group.position,
                     group.draw_count,
+                    group.points_per_item,
                     group.ordering,
                     group.algorithm,
                     group
@@ -265,20 +277,48 @@ mod structural_content_tests {
     }
 
     #[test]
-    fn candidate_retirement_changes_future_run_structure_but_fixed_retirement_does_not() {
+    fn issued_work_fence_allows_title_only_but_rejects_questions_owned_semantics() {
         let current = assignment();
+
+        let mut title_only = current.clone();
+        title_only.title = "Presentation-only revision".to_string();
+        assert!(!assignment_content_changes_issued_work(
+            &current,
+            &title_only
+        ));
+
+        let mut fixed_points = current.clone();
+        fixed_points.items[0].points_possible = PointValue::from_whole(2);
+        assert!(assignment_content_changes_issued_work(
+            &current,
+            &fixed_points
+        ));
 
         let mut fixed_retirement = current.clone();
         fixed_retirement.items[0].delivery_state = AssignmentDeliveryState::Retired;
-        assert!(!assignment_content_structurally_changed(
+        assert!(assignment_content_changes_issued_work(
             &current,
             &fixed_retirement
+        ));
+
+        let mut fixed_scoring = current.clone();
+        fixed_scoring.items[0].scoring_mode = AssignmentScoringMode::Excluded;
+        assert!(assignment_content_changes_issued_work(
+            &current,
+            &fixed_scoring
+        ));
+
+        let mut pool_points = current.clone();
+        pool_points.selection_groups[0].points_per_item = PointValue::from_whole(2);
+        assert!(assignment_content_changes_issued_work(
+            &current,
+            &pool_points
         ));
 
         let mut candidate_retirement = current.clone();
         candidate_retirement.selection_groups[0].candidates[0].delivery_state =
             AssignmentDeliveryState::Retired;
-        assert!(assignment_content_structurally_changed(
+        assert!(assignment_content_changes_issued_work(
             &current,
             &candidate_retirement
         ));

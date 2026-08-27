@@ -109,6 +109,35 @@ fn qti_submission<'a>(
 }
 
 #[tokio::test]
+async fn missing_issued_qti_contract_is_deterministic_evidence_integrity() {
+    let fixture = fixture().await;
+    let issued = fixture
+        .backend
+        .issue(fixture.context, fixture.reference, &fixture.question, 43)
+        .await
+        .expect("immutable QTI issues");
+    let stored = attempt(&fixture, issued);
+    let snapshot = qti_snapshot(&fixture.question);
+    assert!(matches!(
+        fixture
+            .backend
+            .submit(qti_submission(
+                &fixture,
+                &snapshot,
+                &stored,
+                None,
+                StudentResponse::MultipleChoice {
+                    selected: vec![fixture.incorrect.clone()],
+                },
+            ))
+            .await,
+        Err(RunBackendError::Deterministic(
+            DeterministicGraderFailure::IssuedEvidenceIntegrity
+        ))
+    ));
+}
+
+#[tokio::test]
 async fn foreign_or_tampered_qti_attempt_refuses_before_grading() {
     let fixture = fixture().await;
     let issued = fixture

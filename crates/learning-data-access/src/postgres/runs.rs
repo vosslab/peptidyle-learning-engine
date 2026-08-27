@@ -77,7 +77,7 @@ async fn hydrate_issued_attempt_evidence(
     // transition cannot turn a corrupted receipt into invisible history.
     // The decoder verifies every retained receipt checksum before this state
     // machine chooses a browser-safe projection (ASVS 2.3.1, 2.3.3, 11.4.3).
-    let submission_receipt = super::submission::load_submission_receipt_snapshot(
+    let submission_receipt = super::submission_receipts::load_submission_receipt_snapshot(
         transaction,
         witness.source.tenant,
         witness.attempt,
@@ -138,11 +138,7 @@ impl SubmissionReceiptRequirement {
 /// verified all receipt payload digests; this binds its immutable run and
 /// presentation evidence to the broker-authorized attempt evidence.
 fn validate_submission_receipt_for_issued_attempt(
-    submission_receipt: Option<(
-        AssignmentRun,
-        StudentAssignmentSummary,
-        Option<crate::ReceiptPresentationSnapshot>,
-    )>,
+    submission_receipt: Option<crate::CompletedSubmissionReceipt>,
     requirement: SubmissionReceiptRequirement,
     witness: &super::learner_work_preparation::StudentAttemptPreparationWitness,
     issued_receipt: &crate::IssuedAttemptReceiptEvidence,
@@ -160,16 +156,18 @@ fn validate_submission_receipt_for_issued_attempt(
                     .to_string(),
             ))
         }
-        Some((receipt_run, _receipt_summary, receipt_presentation)) => {
-            if receipt_run.id != witness.run
-                || receipt_run.tenant != witness.source.tenant
-                || receipt_presentation != issued_receipt.presentation_snapshot().cloned()
+        Some(receipt) => {
+            if receipt.attempt.id != witness.attempt
+                || receipt.attempt.tenant != witness.source.tenant
+                || receipt.run.id != witness.run
+                || receipt.run.tenant != witness.source.tenant
+                || receipt.presentation != issued_receipt.presentation_snapshot().cloned()
             {
                 return Err(StoreError::Unavailable(
                     "immutable submission receipt disagrees with issued evidence".to_string(),
                 ));
             }
-            Ok(receipt_presentation)
+            Ok(receipt.presentation)
         }
     }
 }
@@ -789,8 +787,8 @@ impl crate::RunStore for PostgresStore {
             "SELECT lpad(qa.assignment_position::text, 10, '0') || '/' || \
                     lpad((extract(epoch FROM qa.occurred_at) * 1000)::bigint::text, 20, '0') \
                     || '/' || qa.attempt_id::text AS stable_key, \
-                    COALESCE(si.payload, qa.payload) AS payload, \
-                    COALESCE(si.payload_sha256, qa.payload_sha256) AS payload_sha256, \
+                    CASE WHEN si.request_contract_version = 2 THEN qa.payload ELSE COALESCE(si.payload, qa.payload) END AS payload, \
+                    CASE WHEN si.request_contract_version = 2 THEN qa.payload_sha256 ELSE COALESCE(si.payload_sha256, qa.payload_sha256) END AS payload_sha256, \
                     evaluation.payload AS evaluation_payload, \
                     evaluation.payload_sha256 AS evaluation_payload_sha256, \
                     evaluation.grading_status AS evaluation_grading_status, \
@@ -850,7 +848,7 @@ impl crate::RunStore for PostgresStore {
             transaction.commit().await.map_err(map_sqlx_error)?;
             return Ok(None);
         }
-        let rows = sqlx::query("SELECT lpad(qa.assignment_position::text, 10, '0') || '/' || lpad((extract(epoch FROM qa.occurred_at) * 1000)::bigint::text, 20, '0') || '/' || qa.attempt_id::text AS stable_key, COALESCE(si.payload, qa.payload) AS payload, COALESCE(si.payload_sha256, qa.payload_sha256) AS payload_sha256, evaluation.payload AS evaluation_payload, evaluation.payload_sha256 AS evaluation_payload_sha256, evaluation.grading_status AS evaluation_grading_status, qa.attempt_status AS current_attempt_status, floor(extract(epoch FROM qa.submitted_at) * 1000)::bigint AS current_submitted_at, floor(extract(epoch FROM timing.effective_deadline) * 1000)::bigint AS current_deadline_at FROM question_attempt AS qa LEFT JOIN submission_idempotency AS si ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id LEFT JOIN submission_evaluation AS evaluation ON evaluation.tenant_id = qa.tenant_id AND evaluation.attempt_id = qa.attempt_id LEFT JOIN attempt_effective_policy_current AS current_effect ON current_effect.tenant_id=qa.tenant_id AND current_effect.attempt_id=qa.attempt_id LEFT JOIN attempt_effective_policy_receipt AS timing ON timing.tenant_id=current_effect.tenant_id AND timing.attempt_id=current_effect.attempt_id AND timing.receipt_generation=current_effect.receipt_generation WHERE qa.tenant_id = $1 AND qa.run_id = $2 AND ($3::text IS NULL OR lpad(qa.assignment_position::text, 10, '0') || '/' || lpad((extract(epoch FROM qa.occurred_at) * 1000)::bigint::text, 20, '0') || '/' || qa.attempt_id::text > $3) ORDER BY qa.assignment_position, qa.occurred_at, qa.attempt_id::text LIMIT $4").bind(context.tenant_id().as_uuid()).bind(run.as_uuid()).bind(cursor).bind(limit).fetch_all(&mut *transaction).await.map_err(map_sqlx_error)?;
+        let rows = sqlx::query("SELECT lpad(qa.assignment_position::text, 10, '0') || '/' || lpad((extract(epoch FROM qa.occurred_at) * 1000)::bigint::text, 20, '0') || '/' || qa.attempt_id::text AS stable_key, CASE WHEN si.request_contract_version = 2 THEN qa.payload ELSE COALESCE(si.payload, qa.payload) END AS payload, CASE WHEN si.request_contract_version = 2 THEN qa.payload_sha256 ELSE COALESCE(si.payload_sha256, qa.payload_sha256) END AS payload_sha256, evaluation.payload AS evaluation_payload, evaluation.payload_sha256 AS evaluation_payload_sha256, evaluation.grading_status AS evaluation_grading_status, qa.attempt_status AS current_attempt_status, floor(extract(epoch FROM qa.submitted_at) * 1000)::bigint AS current_submitted_at, floor(extract(epoch FROM timing.effective_deadline) * 1000)::bigint AS current_deadline_at FROM question_attempt AS qa LEFT JOIN submission_idempotency AS si ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id LEFT JOIN submission_evaluation AS evaluation ON evaluation.tenant_id = qa.tenant_id AND evaluation.attempt_id = qa.attempt_id LEFT JOIN attempt_effective_policy_current AS current_effect ON current_effect.tenant_id=qa.tenant_id AND current_effect.attempt_id=qa.attempt_id LEFT JOIN attempt_effective_policy_receipt AS timing ON timing.tenant_id=current_effect.tenant_id AND timing.attempt_id=current_effect.attempt_id AND timing.receipt_generation=current_effect.receipt_generation WHERE qa.tenant_id = $1 AND qa.run_id = $2 AND ($3::text IS NULL OR lpad(qa.assignment_position::text, 10, '0') || '/' || lpad((extract(epoch FROM qa.occurred_at) * 1000)::bigint::text, 20, '0') || '/' || qa.attempt_id::text > $3) ORDER BY qa.assignment_position, qa.occurred_at, qa.attempt_id::text LIMIT $4").bind(context.tenant_id().as_uuid()).bind(run.as_uuid()).bind(cursor).bind(limit).fetch_all(&mut *transaction).await.map_err(map_sqlx_error)?;
         let result = page_from_rows_with(
             rows,
             page.size.get(),
@@ -866,7 +864,7 @@ impl crate::RunStore for PostgresStore {
         attempt: QuestionAttemptId,
         response: &StudentResponse,
         idempotency_key: &SubmissionIdempotencyKey,
-    ) -> Result<Option<SubmissionRecord>, StoreError> {
+    ) -> Result<crate::SubmissionReceiptRead, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         require_attempt_owner_for_read(&mut transaction, context.tenant_id(), attempt, actor)
             .await?;
@@ -886,11 +884,11 @@ impl crate::RunStore for PostgresStore {
         context: TenantContext,
         actor: UserId,
         attempt: QuestionAttemptId,
-    ) -> Result<Option<SubmissionRecord>, StoreError> {
+    ) -> Result<crate::SubmissionReceiptRead, StoreError> {
         let mut transaction = self.begin_tenant(context).await?;
         require_attempt_owner_for_read(&mut transaction, context.tenant_id(), attempt, actor)
             .await?;
-        let record = super::submission::load_submission_record(
+        let record = super::submission_receipts::load_submission_record(
             &mut transaction,
             context.tenant_id(),
             attempt,

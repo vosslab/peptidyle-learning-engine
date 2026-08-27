@@ -6,7 +6,7 @@ The 2026-08-11 WP-O2 smoke acceptance is historical. It validates the prior
 real-gateway `/health` check. The strengthened instructor copy/paste workflow,
 refactored explicit child-input path, and current live teaching acceptance
 passed on 2026-08-12 under
-[WP-HG1](../active/release_completion_plan.md#wp-hg1-close-the-human-guidance-operational-workflow-gaps).
+[WP-HG1 human-guidance workflow](../peptidyle-walkthrough-plan.md#wp-hg1-contract).
 
 ## Current contract
 

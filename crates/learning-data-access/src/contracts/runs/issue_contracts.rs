@@ -353,5 +353,57 @@ pub enum SealedPrivateExecutionPreparation {
 #[derive(Debug, Clone, PartialEq)]
 pub enum SubmissionPreparation {
     Replay(Box<SubmissionRecord>),
+    /// The exact request is already durable and awaits its server-owned
+    /// grading execution. This public-safe state deliberately contains no
+    /// response, idempotency credential, feedback, or grade.
+    AcceptedPending(AcceptedSubmissionPending),
     FirstEffect(Box<AuthorizedSubmissionIntent>),
+}
+
+/// Metadata-only proof that a learner submission has been accepted but has no
+/// completed receipt yet.
+///
+/// The opaque attempt identity lets the owning route bind its current
+/// projection to the request it already authorized. It is not a grading
+/// capability and intentionally carries no response or replay credential.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AcceptedSubmissionPending {
+    attempt: QuestionAttemptId,
+}
+
+impl AcceptedSubmissionPending {
+    pub(crate) const fn new(attempt: QuestionAttemptId) -> Self {
+        Self { attempt }
+    }
+
+    /// Returns the attempt whose immutable accepted input is pending.
+    pub const fn attempt(self) -> QuestionAttemptId {
+        self.attempt
+    }
+}
+
+/// Exact receipt-read state for an owned attempt.
+///
+/// A missing submission, an accepted pending input, and a completed receipt
+/// are distinct durable states. Callers must not decode the accepted v2
+/// response payload as a completed [`QuestionAttempt`].
+#[derive(Debug, Clone, PartialEq)]
+pub enum SubmissionReceiptRead {
+    Missing,
+    AcceptedPending(AcceptedSubmissionPending),
+    Completed(Box<SubmissionRecord>),
+}
+
+/// Answer-free learner status for an owned automated submission.
+///
+/// The route-bound store capability establishes current learner authority and
+/// validates the durable execution/evaluation/receipt aggregate before it
+/// returns this closed projection.  Pending and attention states deliberately
+/// carry only the opaque route attempt, so no response, job, execution,
+/// feedback, result, reason, or score can cross this persistence boundary.
+#[derive(Debug, Clone, PartialEq)]
+pub enum LearnerSubmissionStatusRead {
+    Completed(Box<SubmissionRecord>),
+    AcceptedPending(AcceptedSubmissionPending),
+    InstructorAttention(AcceptedSubmissionPending),
 }

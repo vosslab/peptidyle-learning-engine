@@ -11,8 +11,8 @@ use crate::native_backend::NativeBackend;
 use crate::qti_dispatch::QtiBackendSlot;
 use crate::run::ExternalToolLaunchBackend;
 use crate::run::{
-    GradeReceipt, IssuedAttemptMetadata, RunBackend, RunBackendError, RunSubmission,
-    SubmissionDisposition,
+    DeterministicGraderFailure, GradeReceipt, IssuedAttemptMetadata, RunBackend, RunBackendError,
+    RunSubmission, SubmissionDisposition,
 };
 use crate::webwork_backend::WebworkBackend;
 mod dispatch;
@@ -244,31 +244,31 @@ where
                     submission.actor,
                     submission.reference,
                     submission.attempt,
-                    submission.issued_webwork_grading.ok_or_else(|| {
-                        RunBackendError::Unavailable(
-                            "WeBWorK issued grading contract is unavailable".to_string(),
-                        )
-                    })?,
-                    submission.issued_presentation_binding.ok_or_else(|| {
-                        RunBackendError::Unavailable(
-                            "WeBWorK issued presentation binding is unavailable".to_string(),
-                        )
-                    })?,
-                    submission.issued_webwork_replay.ok_or_else(|| {
-                        RunBackendError::Unavailable(
-                            "WeBWorK issued replay state is unavailable".to_string(),
-                        )
-                    })?,
-                    submission.issued_presentation.ok_or_else(|| {
-                        RunBackendError::Unavailable(
-                            "WeBWorK issued presentation snapshot is unavailable".to_string(),
-                        )
-                    })?,
-                    submission.issued_grading_envelope.ok_or_else(|| {
-                        RunBackendError::Unavailable(
-                            "WeBWorK issued grading envelope is unavailable".to_string(),
-                        )
-                    })?,
+                    submission
+                        .issued_webwork_grading
+                        .ok_or(RunBackendError::Deterministic(
+                            DeterministicGraderFailure::IssuedEvidenceIntegrity,
+                        ))?,
+                    submission.issued_presentation_binding.ok_or(
+                        RunBackendError::Deterministic(
+                            DeterministicGraderFailure::IssuedEvidenceIntegrity,
+                        ),
+                    )?,
+                    submission
+                        .issued_webwork_replay
+                        .ok_or(RunBackendError::Deterministic(
+                            DeterministicGraderFailure::IssuedEvidenceIntegrity,
+                        ))?,
+                    submission
+                        .issued_presentation
+                        .ok_or(RunBackendError::Deterministic(
+                            DeterministicGraderFailure::IssuedEvidenceIntegrity,
+                        ))?,
+                    submission
+                        .issued_grading_envelope
+                        .ok_or(RunBackendError::Deterministic(
+                            DeterministicGraderFailure::IssuedEvidenceIntegrity,
+                        ))?,
                     submission.response,
                 )
                 .await

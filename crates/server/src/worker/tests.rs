@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeSet, VecDeque},
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -117,6 +117,9 @@ fn tenant(value: u128) -> TenantId {
 }
 fn effect_for(payload: JobPayload) -> PreparedJobEffect {
     match payload {
+        JobPayload::GradeAcceptedSubmission { .. } => {
+            panic!("recording handler must not receive accepted-submission grading work")
+        }
         JobPayload::RecalculateAssignment {
             assignment,
             generation,
@@ -251,6 +254,199 @@ async fn enqueue(
         )
         .await
         .expect("enqueue")
+}
+
+#[derive(Clone, Copy)]
+enum GenericDispatchOutcome {
+    Idle,
+    Claimed,
+    Error,
+}
+
+struct RecordingGenericDispatch {
+    outcomes: Mutex<VecDeque<GenericDispatchOutcome>>,
+    calls: Arc<Mutex<Vec<&'static str>>>,
+}
+
+#[async_trait]
+impl GenericOneClaimDrain for RecordingGenericDispatch {
+    async fn drain_one(&self) -> Result<DrainReport, StoreError> {
+        self.calls.lock().expect("call log").push("generic");
+        match self
+            .outcomes
+            .lock()
+            .expect("generic outcomes")
+            .pop_front()
+            .expect("generic outcome")
+        {
+            GenericDispatchOutcome::Idle => Ok(DrainReport::default()),
+            GenericDispatchOutcome::Claimed => Ok(DrainReport {
+                completed: 1,
+                ..DrainReport::default()
+            }),
+            GenericDispatchOutcome::Error => {
+                Err(StoreError::Unavailable("generic claim failed".to_string()))
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum AcceptedDispatchOutcome {
+    Claimed,
+    OutcomeUnknown,
+}
+
+struct RecordingAcceptedDispatch {
+    outcomes: Mutex<VecDeque<AcceptedDispatchOutcome>>,
+    calls: Arc<Mutex<Vec<&'static str>>>,
+}
+
+#[async_trait]
+impl AcceptedOneClaimDrain for RecordingAcceptedDispatch {
+    async fn drain_one(&self) -> Result<AcceptedSubmissionExecutionWorkerReport, StoreError> {
+        self.calls.lock().expect("call log").push("accepted");
+        let report = match self
+            .outcomes
+            .lock()
+            .expect("accepted outcomes")
+            .pop_front()
+            .expect("accepted outcome")
+        {
+            AcceptedDispatchOutcome::Claimed => AcceptedSubmissionExecutionWorkerReport {
+                committed: 1,
+                ..AcceptedSubmissionExecutionWorkerReport::default()
+            },
+            AcceptedDispatchOutcome::OutcomeUnknown => AcceptedSubmissionExecutionWorkerReport {
+                outcome_unknown: 1,
+                ..AcceptedSubmissionExecutionWorkerReport::default()
+            },
+        };
+        Ok(report)
+    }
+}
+
+fn fair_dispatcher(
+    generic: impl IntoIterator<Item = GenericDispatchOutcome>,
+    accepted: impl IntoIterator<Item = AcceptedDispatchOutcome>,
+) -> (
+    FairWorkerDispatcher<RecordingGenericDispatch, RecordingAcceptedDispatch>,
+    Arc<Mutex<Vec<&'static str>>>,
+) {
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let generic = RecordingGenericDispatch {
+        outcomes: Mutex::new(generic.into_iter().collect()),
+        calls: Arc::clone(&calls),
+    };
+    let accepted = RecordingAcceptedDispatch {
+        outcomes: Mutex::new(accepted.into_iter().collect()),
+        calls: Arc::clone(&calls),
+    };
+    (FairWorkerDispatcher::new(generic, accepted), calls)
+}
+
+#[tokio::test]
+async fn fair_dispatcher_alternates_its_preferred_family_across_passes() {
+    let (dispatcher, calls) = fair_dispatcher(
+        [
+            GenericDispatchOutcome::Claimed,
+            GenericDispatchOutcome::Claimed,
+        ],
+        [AcceptedDispatchOutcome::Claimed],
+    );
+
+    let first = dispatcher.drain_once().await.expect("first pass");
+    let second = dispatcher.drain_once().await.expect("second pass");
+    let third = dispatcher.drain_once().await.expect("third pass");
+
+    assert_eq!(first.generic.expect("generic claim").completed, 1);
+    assert_eq!(second.accepted.expect("accepted claim").committed, 1);
+    assert_eq!(third.generic.expect("generic claim").completed, 1);
+    assert_eq!(
+        calls.lock().expect("call log").as_slice(),
+        ["generic", "accepted", "generic"]
+    );
+}
+
+#[tokio::test]
+async fn fair_dispatcher_falls_back_once_when_the_preferred_family_is_idle() {
+    let (dispatcher, calls) = fair_dispatcher(
+        [GenericDispatchOutcome::Idle],
+        [AcceptedDispatchOutcome::Claimed],
+    );
+
+    let report = dispatcher.drain_once().await.expect("fallback pass");
+
+    assert_eq!(report.generic.expect("idle generic").completed, 0);
+    assert_eq!(report.accepted.expect("accepted claim").committed, 1);
+    assert_eq!(
+        calls.lock().expect("call log").as_slice(),
+        ["generic", "accepted"]
+    );
+}
+
+#[tokio::test]
+async fn fair_dispatcher_stops_on_a_store_error_without_fallback() {
+    let (dispatcher, calls) = fair_dispatcher(
+        [GenericDispatchOutcome::Error],
+        [AcceptedDispatchOutcome::Claimed],
+    );
+
+    assert!(matches!(
+        dispatcher.drain_once().await,
+        Err(StoreError::Unavailable(message)) if message == "generic claim failed"
+    ));
+    assert_eq!(calls.lock().expect("call log").as_slice(), ["generic"]);
+}
+
+#[tokio::test]
+async fn fair_dispatcher_treats_an_ambiguous_accepted_outcome_as_its_one_claim() {
+    let (dispatcher, calls) = fair_dispatcher(
+        [GenericDispatchOutcome::Claimed],
+        [AcceptedDispatchOutcome::OutcomeUnknown],
+    );
+    let _first = dispatcher.drain_once().await.expect("generic pass");
+    let second = dispatcher.drain_once().await.expect("accepted pass");
+
+    assert_eq!(second.accepted.expect("accepted result").outcome_unknown, 1);
+    assert_eq!(
+        calls.lock().expect("call log").as_slice(),
+        ["generic", "accepted"]
+    );
+}
+
+#[tokio::test]
+async fn generic_drain_one_ignores_the_configured_batch_size() {
+    let store = Arc::new(learning_data_access::in_memory::MemoryStore::default());
+    let first = enqueue(&store, tenant(41), 2).await;
+    let second = enqueue(&store, tenant(42), 2).await;
+    let worker = worker(
+        Arc::clone(&store),
+        Behavior::Success,
+        Arc::new(Mutex::new(Vec::new())),
+        100,
+    );
+
+    assert_eq!(worker.drain_one().await.expect("one claim").completed, 1);
+    let first_state = store
+        .get_job(TenantContext::from_authenticated_session(tenant(41)), first)
+        .await
+        .expect("first view")
+        .expect("first job")
+        .state;
+    let second_state = store
+        .get_job(
+            TenantContext::from_authenticated_session(tenant(42)),
+            second,
+        )
+        .await
+        .expect("second view")
+        .expect("second job")
+        .state;
+    assert!(matches!(
+        (first_state, second_state),
+        (JobState::Completed, JobState::Ready) | (JobState::Ready, JobState::Completed)
+    ));
 }
 
 #[tokio::test]

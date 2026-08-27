@@ -29,6 +29,8 @@ export interface ProblemPickerProps {
   readonly trigger: HTMLButtonElement | undefined;
   readonly curationActions?: ProblemPickerCurationActions;
   readonly confirmLabel?: string;
+  /** Optional destination-specific explanation of how picker selection proceeds. */
+  readonly instructions?: string;
   readonly title?: string;
 }
 
@@ -189,8 +191,8 @@ export function ProblemPicker(props: ProblemPickerProps): JSX.Element {
           <p class="eyebrow">Question selection</p>
           <h2 id="problem-picker-heading">{props.title ?? "Choose published questions"}</h2>
           <p id="problem-picker-instructions">
-            Choose a source, refine the current library result, then add questions in the order you
-            want to use them.
+            {props.instructions ??
+              "Choose a source, refine the current library result, then add questions in the order you want to use them."}
           </p>
         </div>
         <button class="quiet-action" type="button" onClick={cancel}>

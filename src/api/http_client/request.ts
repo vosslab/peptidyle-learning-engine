@@ -1,10 +1,12 @@
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
+import type { AssignmentItemId } from "../../../generated/api/AssignmentItemId";
 import type { AssignmentRun } from "../../../generated/api/AssignmentRun";
 import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type { CourseAppearanceUpdate } from "../../../generated/api/CourseAppearanceUpdate";
 import type { CourseGradeSchemeUpdateView } from "../../../generated/api/CourseGradeSchemeUpdateView";
 import type { CourseBannerCandidateReceipt } from "../../../generated/api/CourseBannerCandidateReceipt";
 import type { CourseId } from "../../../generated/api/CourseId";
+import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
@@ -16,12 +18,14 @@ import type {
   AssignmentContentInput,
   AssignmentDraftInput,
   AssignmentPoliciesInput,
+  ReplaceAssignmentFixedItemInput,
   FeedbackReleaseResponse,
   InstructorStudentView,
   PublicationResult,
   PublicationRequest,
   PublicationValidationResponse,
   PrefetchedNextQuestion,
+  LearnerSubmissionStatus,
   WorkspaceDraftDetail,
 } from "../contracts";
 import {
@@ -46,9 +50,10 @@ import {
   decodePublicationValidationReport,
   decodeResponseFormatReport,
   decodeStudentResponse,
-  decodeSubmissionReceipt,
+  decodeLearnerSubmissionStatus,
   decodeTimerVerdict,
 } from "../decoders";
+import { decodeQuestionId } from "../decoders/shared";
 import {
   decodeAssignmentContentIssuedWorkConflict,
   decodeAssignmentEditorDetail,
@@ -221,6 +226,24 @@ export function learnerAttemptPath(
   return `${assignmentPath(courseId, assignmentId)}/attempts/${encodedId(attemptId)}`;
 }
 
+function verifyLearnerSubmissionStatus(
+  status: LearnerSubmissionStatus,
+  attemptId: QuestionAttemptId,
+): LearnerSubmissionStatus {
+  const returnedAttemptId = status.kind === "completed" ? status.attempt.id : status.attemptId;
+  if (returnedAttemptId !== attemptId)
+    throw new ApiProtocolError("Submission status attempt does not match its request");
+  if (status.kind !== "completed") return status;
+  if (
+    status.nextIssued !== null &&
+    (status.nextIssued.run !== status.attempt.run || status.nextIssued.id === status.attempt.id)
+  )
+    throw new ApiProtocolError("Submission receipt next attempt is not bound to its response");
+  if (status.nextPending && status.nextIssued !== null)
+    throw new ApiProtocolError("Submission receipt cannot issue and defer the same successor");
+  return status;
+}
+
 async function workspaceDraft(
   fetchImplementation: ApiFetch,
   basePath: string,
@@ -270,6 +293,7 @@ export async function requestAssignmentEditor(
     credentials: "same-origin",
     cache: "no-store",
   });
+  requireNoStore(response, path);
   if (response.status === 409 && conflict === "contentSave") {
     // Only the generated issued-work body gets semantic recovery; other 409s stay generic.
     const value = await boundedResponseJson(response, path);
@@ -368,11 +392,13 @@ export function createRequestClient(
   | "createAssignmentDraft"
   | "getAssignmentWorkspace"
   | "saveAssignmentContent"
+  | "replaceAssignmentFixedItem"
   | "saveAssignmentPolicies"
   | "getInstructorStudentView"
   | "startRun"
   | "prefetchNextQuestion"
   | "submitResponse"
+  | "getSubmissionStatus"
   | "releaseAttemptFeedback"
   | "validateResponseFormatOnServer"
   | "timerVerdictOnServer"
@@ -627,6 +653,32 @@ export function createRequestClient(
         "contentSave",
       );
     },
+    replaceAssignmentFixedItem: (
+      courseId,
+      assignmentId,
+      itemId: AssignmentItemId,
+      questionId: QuestionId,
+      revision,
+    ): ReturnType<ApiClient["replaceAssignmentFixedItem"]> => {
+      if (!validRevision(revision))
+        return Promise.reject(
+          new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
+        );
+      if (itemId.length === 0)
+        return Promise.reject(
+          new ApiProtocolError("assignment fixed-item identity must be present"),
+        );
+      const input: ReplaceAssignmentFixedItemInput = {
+        questionId: decodeQuestionId(questionId, "request.questionId"),
+      };
+      return requestAssignmentEditor(
+        fetchImplementation,
+        basePath,
+        `${assignmentPath(courseId, assignmentId)}/fixed-items/${encodedId(itemId)}`,
+        { courseId, assignmentId },
+        { method: "PUT", body: input, headers: { "if-match": revision } },
+      );
+    },
     saveAssignmentPolicies: (
       courseId,
       assignmentId,
@@ -704,28 +756,32 @@ export function createRequestClient(
         decoded.kind === "externalTool"
           ? `${learnerAttemptPath(courseId, assignmentId, attemptId)}/external-tool/launch/submission`
           : `${learnerAttemptPath(courseId, assignmentId, attemptId)}/submissions`;
-      const receipt = await requestJson(
+      const status = await requestJson(
         fetchImplementation,
         basePath,
         path,
-        decodeSubmissionReceipt,
+        decodeLearnerSubmissionStatus,
         {
           method: "POST",
           headers: { "idempotency-key": idempotencyKey },
           body: { response: decoded },
         },
       );
-      if (receipt.attempt.id !== attemptId)
-        throw new ApiProtocolError("Submission receipt attempt does not match its request");
-      if (
-        receipt.nextIssued !== null &&
-        (receipt.nextIssued.run !== receipt.attempt.run ||
-          receipt.nextIssued.id === receipt.attempt.id)
-      )
-        throw new ApiProtocolError("Submission receipt next attempt is not bound to its response");
-      if (receipt.nextPending && receipt.nextIssued !== null)
-        throw new ApiProtocolError("Submission receipt cannot issue and defer the same successor");
-      return receipt;
+      return verifyLearnerSubmissionStatus(status, attemptId);
+    },
+    getSubmissionStatus: async (
+      courseId,
+      assignmentId,
+      attemptId,
+    ): ReturnType<ApiClient["getSubmissionStatus"]> => {
+      const path = `${learnerAttemptPath(courseId, assignmentId, attemptId)}/submission-status`;
+      const status = await requestJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeLearnerSubmissionStatus,
+      );
+      return verifyLearnerSubmissionStatus(status, attemptId);
     },
     releaseAttemptFeedback: (attemptId): Promise<FeedbackReleaseResponse> =>
       requestJson(

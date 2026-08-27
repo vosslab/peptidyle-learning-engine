@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use question_model::presentation::{PresentationV1, RenderedItemIdV1, RenderedItemRoleV1};
 use question_model::response::ChoiceId;
 
-use crate::run::RunBackendError;
+use crate::run::{DeterministicGraderFailure, RunBackendError};
 
 /// Converts issuance-only durable item identities into the exact rendered IDs
 /// minted for one presentation before the private mapping is persisted.
@@ -107,8 +107,8 @@ pub(crate) fn restore_replay_mapping(
                     )
                     .is_some()
                 {
-                    return Err(RunBackendError::Unavailable(
-                        "WeBWorK replay repeats a durable choice".into(),
+                    return Err(RunBackendError::Deterministic(
+                        DeterministicGraderFailure::IssuedEvidenceIntegrity,
                     ));
                 }
             }
@@ -127,8 +127,8 @@ pub(crate) fn restore_replay_mapping(
                         RenderedItemRoleV1::MatchChoice,
                     )?;
                     if choices.insert(durable, choice.value).is_some() {
-                        return Err(RunBackendError::Unavailable(
-                            "WeBWorK replay repeats a durable matching choice".into(),
+                        return Err(RunBackendError::Deterministic(
+                            DeterministicGraderFailure::IssuedEvidenceIntegrity,
                         ));
                     }
                 }
@@ -142,8 +142,8 @@ pub(crate) fn restore_replay_mapping(
                     )
                     .is_some()
                 {
-                    return Err(RunBackendError::Unavailable(
-                        "WeBWorK replay repeats a durable matching prompt".into(),
+                    return Err(RunBackendError::Deterministic(
+                        DeterministicGraderFailure::IssuedEvidenceIntegrity,
                     ));
                 }
             }
@@ -162,13 +162,13 @@ fn durable_id_for(
         .iter()
         .filter(|binding| binding.role == role && binding.rendered == *rendered);
     let Some(binding) = matches.next() else {
-        return Err(RunBackendError::Unavailable(
-            "stored WeBWorK rendered item is absent from its presentation".into(),
+        return Err(RunBackendError::Deterministic(
+            DeterministicGraderFailure::IssuedEvidenceIntegrity,
         ));
     };
     if matches.next().is_some() {
-        return Err(RunBackendError::Unavailable(
-            "stored WeBWorK rendered item is ambiguous in its presentation".into(),
+        return Err(RunBackendError::Deterministic(
+            DeterministicGraderFailure::IssuedEvidenceIntegrity,
         ));
     }
     Ok(ChoiceId::new(binding.durable_id.clone()))

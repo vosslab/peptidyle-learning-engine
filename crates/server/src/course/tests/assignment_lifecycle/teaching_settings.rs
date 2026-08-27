@@ -211,5 +211,22 @@ pub(super) async fn publish_and_assert(
         );
     }
 
+    let student_view_as_student = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/student-view"
+                ))
+                .header("cookie", student_cookie)
+                .body(Body::empty())
+                .expect("Student-view request as Student"),
+        )
+        .await
+        .expect("Student-view refusal response");
+    // ASVS 8.2.2 and 8.3.1: direct Instructor authority for this exact
+    // course/assignment is enforced at the trusted route, not by the UI.
+    assert_eq!(student_view_as_student.status(), StatusCode::FORBIDDEN);
+
     new_etag
 }

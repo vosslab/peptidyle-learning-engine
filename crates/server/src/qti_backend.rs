@@ -21,8 +21,8 @@ use question_model::{
 };
 
 use crate::run::{
-    GradeReceipt, IssuedAttemptMetadata, RunBackend, RunBackendError, RunSubmission,
-    SubmissionDisposition,
+    DeterministicGraderFailure, GradeReceipt, IssuedAttemptMetadata, RunBackend, RunBackendError,
+    RunSubmission, SubmissionDisposition,
 };
 
 const QTI_ADAPTER_ID: &str = adapter_qti::QtiProfileId::GENERIC.as_str();
@@ -300,9 +300,11 @@ where
             submission.question(),
             submission.attempt,
         )?;
-        let contract = submission.issued_qti_grading.ok_or_else(|| {
-            RunBackendError::Unavailable("issued QTI grading contract is unavailable".to_string())
-        })?;
+        let contract = submission
+            .issued_qti_grading
+            .ok_or(RunBackendError::Deterministic(
+                DeterministicGraderFailure::IssuedEvidenceIntegrity,
+            ))?;
         if contract.item_id()
             != match &submission.question().source {
                 QuestionSource::Qti { item_id, .. } => item_id,
@@ -313,15 +315,15 @@ where
                 }
             }
         {
-            return Err(RunBackendError::Unavailable(
-                "issued QTI grading contract item disagrees with issued snapshot".to_string(),
+            return Err(RunBackendError::Deterministic(
+                DeterministicGraderFailure::IssuedEvidenceIntegrity,
             ));
         }
         let correct = contract
             .payload()
-            .map_err(map_store_error)?
+            .map_err(map_issued_qti_contract_error)?
             .server_correct_choice()
-            .map_err(map_store_error)?;
+            .map_err(map_issued_qti_contract_error)?;
         let outcome = grading::grade(
             submission.question(),
             submission.response,
@@ -329,16 +331,14 @@ where
                 correct: BTreeSet::from([correct]),
             }),
         )
-        .map_err(|error| RunBackendError::Invalid(error.to_string()))?;
+        .map_err(|_| RunBackendError::Deterministic(DeterministicGraderFailure::Contract))?;
         match outcome {
             grading::GradeOutcome::Graded(result) => {
                 Ok(SubmissionDisposition::Grade(GradeReceipt::empty(result)))
             }
-            grading::GradeOutcome::NeedsManualGrading | grading::GradeOutcome::Ungraded => {
-                Err(RunBackendError::Invalid(
-                    "issued QTI contract did not produce a deterministic grade".to_string(),
-                ))
-            }
+            grading::GradeOutcome::NeedsManualGrading | grading::GradeOutcome::Ungraded => Err(
+                RunBackendError::Deterministic(DeterministicGraderFailure::Contract),
+            ),
         }
     }
 }
@@ -422,6 +422,12 @@ fn map_store_error(error: StoreError) -> RunBackendError {
         }
         other => RunBackendError::Invalid(other.to_string()),
     }
+}
+
+/// The issue-time store mapper remains truthful about source availability;
+/// this mapper is only for a sealed QTI contract consumed after validation.
+fn map_issued_qti_contract_error(_error: StoreError) -> RunBackendError {
+    RunBackendError::Deterministic(DeterministicGraderFailure::IssuedEvidenceIntegrity)
 }
 
 fn map_object_error(error: ObjectStoreError) -> RunBackendError {

@@ -178,6 +178,10 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
         "PUT",
     ),
     mutation(
+        "/api/courses/{course}/assignments/{assignment}/fixed-items/{itemId}",
+        "PUT",
+    ),
+    mutation(
         "/api/courses/{course}/assignments/{assignment}/policies",
         "PUT",
     ),
@@ -457,6 +461,16 @@ mod tests {
             route_policy("/api/navigation/{reference}", "GET"),
             Some(RouteIntent::Representation),
         );
+    }
+
+    #[test]
+    fn fixed_item_replacement_is_an_instructor_mutation() {
+        let path = "/api/courses/{course}/assignments/{assignment}/fixed-items/{itemId}";
+        assert_eq!(
+            route_policy(path, "PUT"),
+            Some(RouteIntent::StateTransition)
+        );
+        assert_eq!(route_policy(path, "GET"), None);
     }
 
     #[test]
@@ -913,6 +927,10 @@ mod tests {
                     put(|| async { StatusCode::NO_CONTENT }),
                 )
                 .route(
+                    "/api/courses/{course}/assignments/{assignment}/fixed-items/{itemId}",
+                    put(|| async { StatusCode::NO_CONTENT }),
+                )
+                .route(
                     "/api/courses/{course}/assignments/{assignment}/policies",
                     put(|| async { StatusCode::NO_CONTENT }),
                 )
@@ -929,6 +947,7 @@ mod tests {
             Request::post("/api/courses/course/assignments/drafts"),
             Request::get("/api/courses/course/assignments/assignment"),
             Request::put("/api/courses/course/assignments/assignment/content"),
+            Request::put("/api/courses/course/assignments/assignment/fixed-items/item"),
             Request::put("/api/courses/course/assignments/assignment/policies"),
             Request::get("/api/courses/course/assignments/assignment/student-view"),
         ] {

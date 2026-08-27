@@ -477,3 +477,20 @@ where
         version: record.version,
     })
 }
+
+/// Resolves the one browser-supplied public Question ID accepted by a focused
+/// fixed-slot replacement. The Store command receives only this server-owned
+/// immutable publication reference.
+pub(super) async fn resolve_assignable_question_id<S>(
+    state: &CourseRouteState<S>,
+    context: TenantContext,
+    question_id: QuestionId,
+) -> HttpResult<ProblemVersionRef>
+where
+    S: Store + CatalogStore + SessionStore + 'static,
+{
+    // ASVS 2.2.1 and 2.2.2: validate the closed browser request at the
+    // trusted boundary, then resolve the public locator server-side.
+    let mut seen = std::collections::BTreeSet::new();
+    resolve_one_assignable_question_id(state, context, question_id, &mut seen).await
+}

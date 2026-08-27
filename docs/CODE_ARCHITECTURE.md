@@ -224,13 +224,14 @@ delivery and keeps the Instructor identity. Both render through
 Student view is a `no-store` read and creates no enrollment, run, attempt,
 submission, receipt, grade, or preview record.
 
-The former combined assignment editor and its teaching-settings route are
-retired. Assignment authoring now belongs to `src/pages/assignment_workspace/`;
-the existing `assignment_editor_*` modules that remain are focused Questions
-helpers (picker, content list, pool, model, repository, and styles), not a
-combined assignment route. The independent `/workspace/:workspaceRef` editor
-remains the private question-draft editor and is unrelated to course assignment
-workspace routing.
+Assignment authoring belongs to `src/pages/assignment_workspace/`.
+`assignment_workspace_authoring.css` owns controls shared by Create, Questions,
+pools, and Policies, while `assignment_workspace.css` owns the assignment-local
+shell, navigation, and page composition. The remaining `assignment_editor_*`
+modules are focused Questions helpers for picker, content-list, reuse, model, and
+repository behavior. The independent `/workspace/:workspaceRef` editor remains
+the private question-draft editor and is unrelated to course assignment workspace
+routing.
 
 ## Identity and authorization
 
@@ -353,9 +354,10 @@ The browser receives neither the policy, the authoritative clock, nor tenant
 or enrollment identifiers needed to infer or bypass that decision.
 `assignment_policy.ts` and `assignment_policy_validation.ts` under
 [src/api/decoders/](../src/api/decoders/) strictly decode assignment policy
-and focused Policies corrections. The assignment workspace owns native
-controls in
-`src/pages/assignment_workspace/assignment_workspace_policy_panel.tsx`; the
+and focused Policies corrections. The assignment workspace owns native controls
+in `src/pages/assignment_workspace/assignment_workspace_policy_panel.tsx` and
+shared authoring styles in
+`src/pages/assignment_workspace/assignment_workspace_authoring.css`; the
 Questions page uses the focused picker and content/pool helpers that remain in
 `src/pages/assignment_editor_*`.
 

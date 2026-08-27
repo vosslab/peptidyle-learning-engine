@@ -38,6 +38,22 @@ fn uuid(value: u128) -> Uuid {
     Uuid::from_u128(value)
 }
 
+#[test]
+fn submission_native_errors_preserve_configuration_and_sealed_evidence_boundaries() {
+    assert!(matches!(
+        map_submission_native_error(adapter_native::NativeAdapterError::UnknownFamily(
+            "missing-family".to_string(),
+        )),
+        RunBackendError::Unsupported(_)
+    ));
+    assert!(matches!(
+        map_submission_native_error(adapter_native::NativeAdapterError::MissingAssetBinding(
+            AssetId::from_uuid(uuid(1)),
+        )),
+        RunBackendError::Deterministic(DeterministicGraderFailure::IssuedEvidenceIntegrity)
+    ));
+}
+
 fn choice(id: &str) -> ChoiceOption {
     ChoiceOption {
         id: ChoiceId::new(id),
@@ -451,6 +467,8 @@ async fn flat_run_fixture() -> (Router, String, CourseId, AssignmentId) {
                     Arc::clone(&store),
                 ),
             ),
+            Arc::clone(&store) as Arc<dyn learning_data_access::LearnerSubmissionStatusStore>,
+            Arc::clone(&store) as Arc<dyn learning_data_access::AutomatedGradingStore>,
         ),
         cookie,
         course,

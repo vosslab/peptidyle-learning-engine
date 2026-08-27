@@ -68,6 +68,8 @@ where
         + learning_data_access::NavigationReferenceStore
         + learning_data_access::PoolPreviewStore
         + learning_data_access::PreviewPlaneStore
+        + learning_data_access::LearnerSubmissionStatusStore
+        + learning_data_access::AutomatedGradingStore
         + AssetStore
         + CourseAppearanceStore
         + AuthoritativeTimeStore
@@ -155,6 +157,8 @@ where
             Arc::clone(&store),
             backends,
             sealed_execution,
+            store.clone(),
+            store.clone(),
         ))
         .merge(crate::asset::router(store.clone(), objects, public_assets))
         .merge(crate::validation::router(Arc::clone(&store)))

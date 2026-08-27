@@ -9,12 +9,13 @@ pub(super) use axum::extract::{Path, Query, State};
 pub(super) use axum::http::{HeaderMap, StatusCode};
 pub(super) use axum::response::{IntoResponse, Response};
 pub(super) use learning_data_access::{
-    AuthoritativeTimeStore, CatalogStore, CourseAppearanceStore, CourseItemAnalysisStore, Cursor,
-    IssueQuestionAttemptCommand, IssuedAttemptRead, LearnerAssignmentSummarySnapshot,
-    LearnerWorkRoutingBinding, ManualGradingStore, PageRequest, PageSize, PaginationError,
-    PresentationCapability, ReceiptNextAttempt, ReceiptPresentationSnapshot,
-    ResolveEffectivePolicyCommand, SealedPrivateExecutionStore, SessionStore, Store, StoreError,
-    SubmissionIdempotencyKey, SubmissionRecord, SubmitQuestionAttemptCommand, TenantContext,
+    AuthoritativeTimeStore, AutomatedGradingStore, CatalogStore, CourseAppearanceStore,
+    CourseItemAnalysisStore, Cursor, IssueQuestionAttemptCommand, IssuedAttemptRead,
+    LearnerAssignmentSummarySnapshot, LearnerSubmissionStatusStore, LearnerWorkRoutingBinding,
+    ManualGradingStore, PageRequest, PageSize, PaginationError, PresentationCapability,
+    ReceiptNextAttempt, ReceiptPresentationSnapshot, ResolveEffectivePolicyCommand,
+    SealedPrivateExecutionStore, SessionStore, Store, StoreError, SubmissionIdempotencyKey,
+    SubmissionRecord, TenantContext,
 };
 #[cfg(test)]
 pub(super) use question_model::UserRole;
@@ -73,6 +74,13 @@ pub(super) struct RunRouteState<S, B> {
     /// preparation is answer-free, while this facade alone can release the
     /// attempt-bound private grading contracts after the replay fence.
     pub(super) sealed_execution: Arc<dyn SealedPrivateExecutionStore>,
+    /// Route-bound, answer-free learner recovery projection. Composition
+    /// injects this narrower capability so the status read cannot grow into a
+    /// second broad persistence dependency on browser-adjacent routes.
+    pub(super) learner_submission_status: Arc<dyn LearnerSubmissionStatusStore>,
+    /// First-effect acceptance capability. Submission owns its use; sibling
+    /// route code receives no broad grading-operation authority.
+    pub(super) automated_grading: Arc<dyn AutomatedGradingStore>,
 }
 
 impl<S, B> Clone for RunRouteState<S, B> {
@@ -81,6 +89,8 @@ impl<S, B> Clone for RunRouteState<S, B> {
             store: Arc::clone(&self.store),
             backend: Arc::clone(&self.backend),
             sealed_execution: Arc::clone(&self.sealed_execution),
+            learner_submission_status: Arc::clone(&self.learner_submission_status),
+            automated_grading: Arc::clone(&self.automated_grading),
         }
     }
 }
@@ -101,6 +111,8 @@ pub(super) struct SubmitResponseRequest {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct SubmissionReceipt {
+    /// Closed browser union discriminant for an immutable completed receipt.
+    pub(super) kind: &'static str,
     pub(super) accepted: bool,
     pub(super) attempt: QuestionAttempt,
     pub(super) feedback: Option<DisclosedFeedback>,
@@ -111,6 +123,17 @@ pub(super) struct SubmissionReceipt {
     /// The durable receipt exists, but a successor has not yet been issued or
     /// delivered. The learner keeps feedback rather than retrying the answer.
     pub(super) next_pending: bool,
+}
+
+/// Answer-free replay projection while a server-owned grading execution is pending.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AcceptedPendingResponse {
+    kind: &'static str,
+    accepted: bool,
+    attempt_id: QuestionAttemptId,
+    automated_grading_status: question_model::AutomatedGradingStatus,
+    next_action: &'static str,
 }
 
 /// Learner attempt routes carry freshness separately from the attempt itself;
@@ -371,11 +394,45 @@ pub(super) fn backend_error_response(error: RunBackendError) -> Response {
         RunBackendError::Unsupported(message) | RunBackendError::Invalid(message) => {
             error_response(StatusCode::UNPROCESSABLE_ENTITY, &message)
         }
-        RunBackendError::Unavailable(_) => error_response(
+        RunBackendError::Unavailable(_) | RunBackendError::Deterministic(_) => error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "question backend unavailable",
         ),
     }
+}
+
+pub(super) fn accepted_pending_response(attempt_id: QuestionAttemptId) -> Response {
+    automated_submission_status_response(
+        attempt_id,
+        "accepted_pending",
+        question_model::AutomatedGradingStatus::Pending,
+    )
+}
+
+/// Projects a durable non-completed automated-grading state without exposing
+/// the accepted response, receipt, execution, feedback, or score.
+///
+/// The exact learner route witness has already been validated by the caller.
+/// Keeping this closed projection in one helper prevents POST replay and the
+/// status GET from drifting into separate browser contracts.
+pub(super) fn automated_submission_status_response(
+    attempt_id: QuestionAttemptId,
+    kind: &'static str,
+    automated_grading_status: question_model::AutomatedGradingStatus,
+) -> Response {
+    no_store(
+        (
+            StatusCode::ACCEPTED,
+            Json(AcceptedPendingResponse {
+                kind,
+                accepted: true,
+                attempt_id,
+                automated_grading_status,
+                next_action: "check_status",
+            }),
+        )
+            .into_response(),
+    )
 }
 
 pub(super) fn store_error_response(error: StoreError) -> Response {
@@ -411,6 +468,7 @@ pub(super) async fn no_store_response(response: Response) -> Response {
 #[cfg(test)]
 mod pool_selection_tests {
     use super::*;
+    use crate::run::contracts::DeterministicGraderFailure;
     use question_model::{AssignmentItemId, AssignmentSelectionGroupId, ProblemId, VersionId};
     use uuid::Uuid;
 
@@ -465,6 +523,23 @@ mod pool_selection_tests {
             !json.to_string().contains("selectionGroup")
                 && !json.to_string().contains("selectionSeed")
                 && !json.to_string().contains("candidate")
+        );
+    }
+
+    #[tokio::test]
+    async fn deterministic_grader_error_is_generic_and_no_store() {
+        let response = backend_error_response(RunBackendError::Deterministic(
+            DeterministicGraderFailure::IssuedEvidenceIntegrity,
+        ));
+
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(response.headers()["cache-control"], "no-store");
+        let body = to_bytes(response.into_body(), 1_024)
+            .await
+            .expect("error response body");
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&body).expect("error response JSON"),
+            serde_json::json!({ "error": "question backend unavailable" })
         );
     }
 }

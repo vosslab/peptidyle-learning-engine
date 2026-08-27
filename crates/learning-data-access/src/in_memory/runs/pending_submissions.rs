@@ -33,7 +33,10 @@ pub(super) async fn pending_submission_for_run(
         .filter(|attempt| {
             attempt.tenant == tenant
                 && attempt.run == run
-                && state.submissions.contains_key(&(tenant, attempt.id))
+                && state
+                    .submissions
+                    .get(&(tenant, attempt.id))
+                    .is_some_and(|submission| submission.completed_record_opt().is_some())
                 && !state
                     .submission_next_attempts
                     .contains_key(&(tenant, attempt.id))

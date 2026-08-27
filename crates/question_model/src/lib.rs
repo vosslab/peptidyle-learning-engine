@@ -47,6 +47,8 @@ pub mod envelope;
 /// Private teaching material and policy-redacted browser feedback.
 pub mod feedback;
 pub mod generation;
+/// Browser-safe automated-grading operation status and safe explanation contracts.
+pub mod grading_operations;
 pub mod identity;
 pub mod lifecycle;
 /// Browser-safe, no-store Instructor samples of saved assignment item pools.
@@ -104,7 +106,7 @@ pub use crate::assignment_workspace::{
     AssignmentPolicyConfigurationReason, AssignmentPublicationBlockingIssue,
     AssignmentPublicationReadiness, CreateAssignmentDraftRequest, InstructorStudentView,
     InstructorStudentViewDelivery, ReplaceAssignmentContentRequest,
-    ReplaceAssignmentPoliciesRequest,
+    ReplaceAssignmentFixedItemRequest, ReplaceAssignmentPoliciesRequest,
 };
 pub use crate::auth::{UserId, UserRole};
 pub use crate::byline::{PublicAuthorName, PublicByline, PublicBylineError};
@@ -206,6 +208,10 @@ pub use crate::entitlement::{
 pub use crate::envelope::QuestionEnvelope;
 pub use crate::feedback::{DisclosedFeedback, FeedbackContent};
 pub use crate::generation::GeneratorReference;
+pub use crate::grading_operations::{
+    AutomatedGradingStatus, GradingOperationAction, GradingOperationReason, GradingOperationState,
+    GradingOperationVisibleState, SubmissionEvaluationStatus,
+};
 pub use crate::identity::{
     AssetId, ObjectId, ProblemId, VersionId, WorkspaceId, WorkspaceImportId,
 };
@@ -232,8 +238,9 @@ pub use crate::preview_plane::{
 pub use crate::public_route::{
     AccountReference, AlphaCourseReference, AssignmentReference, BlueprintReference,
     CoInstructorInvitationReference, CourseGroupReference, CourseMembershipReference,
-    CourseReference, MAX_PUBLIC_ROUTE_NUMBER, NavigationResolution, ProblemCollectionReference,
-    RESERVED_REFERENCE_PREFIXES, RunReference, SavedProblemSearchReference, WorkspaceReference,
+    CourseReference, GradingOperationReference, MAX_PUBLIC_ROUTE_NUMBER, NavigationResolution,
+    ProblemCollectionReference, RESERVED_REFERENCE_PREFIXES, RunReference,
+    SavedProblemSearchReference, WorkspaceReference,
 };
 pub use crate::response::{ResponseDefinition, StudentResponse};
 pub use crate::reusable_curriculum::{

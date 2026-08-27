@@ -49,10 +49,10 @@ pub(super) async fn replace_assignment_content(
         return Ok(ReplaceAssignmentContentOutcome::RevisionConflict);
     }
     let replacement = existing.with_content_update(update);
-    let structural_change = assignment_content_structurally_changed(&existing, &replacement);
+    let issued_work_change = assignment_content_changes_issued_work(&existing, &replacement);
     validate_assignment(&replacement)?;
     validate_memory_assignment_references(&state, context, &replacement)?;
-    if structural_change && super::course_policy::memory_assignment_has_run(&state, &existing) {
+    if issued_work_change && super::course_policy::memory_assignment_has_run(&state, &existing) {
         return Ok(ReplaceAssignmentContentOutcome::Issued);
     }
     let snapshot = state.clone();

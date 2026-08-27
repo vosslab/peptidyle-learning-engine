@@ -10,10 +10,13 @@ pub(super) mod submission_preparation;
 
 pub(super) use attempt_issuance::effective_attempt_deadline;
 mod learner_reads;
+mod learner_submission_status;
 mod pending_submissions;
 
 pub(super) use issued_contracts::{
-    load_issued_presentation, load_issued_receipt_evidence, load_submission_record,
+    load_issued_flat_grading, load_issued_presentation, load_issued_qti_grading,
+    load_issued_receipt_evidence, load_issued_webwork_grading, load_submission_record,
+    validate_issued_question_snapshot,
 };
 
 #[async_trait]
@@ -335,9 +338,14 @@ impl crate::RunStore for MemoryStore {
                         "submitted attempt lacks its immutable receipt".to_string(),
                     )
                 })?;
-                if stored.record.attempt.id != attempt
-                    || stored.record.attempt.run != current_attempt.run
-                    || stored.record.presentation != receipt.presentation_snapshot().cloned()
+                let submitted = stored.completed_record_opt().ok_or_else(|| {
+                    StoreError::Unavailable(
+                        "submitted attempt has accepted input but no completed receipt".to_string(),
+                    )
+                })?;
+                if submitted.attempt.id != attempt
+                    || submitted.attempt.run != current_attempt.run
+                    || submitted.presentation != receipt.presentation_snapshot().cloned()
                 {
                     return Err(StoreError::Unavailable(
                         "submitted receipt disagrees with issued evidence".to_string(),
@@ -346,7 +354,7 @@ impl crate::RunStore for MemoryStore {
                 Ok(crate::IssuedAttemptRead::Submitted(Box::new(
                     crate::SubmittedIssuedAttemptRead::new(
                         receipt,
-                        crate::SubmittedQuestionReceipt::new(stored.record.presentation.clone()),
+                        crate::SubmittedQuestionReceipt::new(submitted.presentation.clone()),
                     ),
                 )))
             }
@@ -671,7 +679,7 @@ impl crate::RunStore for MemoryStore {
         attempt_id: QuestionAttemptId,
         response: &StudentResponse,
         idempotency_key: &SubmissionIdempotencyKey,
-    ) -> Result<Option<SubmissionRecord>, StoreError> {
+    ) -> Result<crate::SubmissionReceiptRead, StoreError> {
         let state = self.read_state()?;
         let tenant = context.tenant_id();
         let attempt = state
@@ -687,9 +695,11 @@ impl crate::RunStore for MemoryStore {
         require_course_records_accessible(&state, tenant, assignment.course_id)?;
         require_attempt_owner(&state, tenant, attempt, actor)?;
         let Some(stored) = state.submissions.get(&(tenant, attempt_id)) else {
-            return Ok(None);
+            return Ok(crate::SubmissionReceiptRead::Missing);
         };
-        if &stored.key != idempotency_key || &stored.response != response {
+        if &stored.key != idempotency_key
+            || !super::stored_submission_matches_response(&state, tenant, attempt_id, response)?
+        {
             return Err(StoreError::Conflict);
         }
         load_submission_record(&state, tenant, attempt)
@@ -699,22 +709,8 @@ impl crate::RunStore for MemoryStore {
         context: TenantContext,
         actor: UserId,
         attempt_id: QuestionAttemptId,
-    ) -> Result<Option<SubmissionRecord>, StoreError> {
-        let state = self.read_state()?;
-        let tenant = context.tenant_id();
-        let attempt = state
-            .attempts
-            .get(&(tenant, attempt_id))
-            .ok_or(StoreError::NotFound)?;
-        let run = state
-            .runs
-            .get(&(tenant, attempt.run))
-            .ok_or(StoreError::NotFound)?;
-        let enrollment = enrollment_record(&state, tenant, run.enrollment)?;
-        let assignment = assignment_record(&state, tenant, enrollment.assignment)?;
-        require_course_records_accessible(&state, tenant, assignment.course_id)?;
-        require_attempt_owner(&state, tenant, attempt, actor)?;
-        load_submission_record(&state, tenant, attempt)
+    ) -> Result<crate::SubmissionReceiptRead, StoreError> {
+        learner_submission_status::submission_record(self, context, actor, attempt_id)
     }
     async fn submit_question_attempt_impl(
         &self,
@@ -784,6 +780,7 @@ pub(super) fn submit_question_attempt_locked(
         &command.idempotency_key,
     )? {
         crate::SubmissionPreparation::Replay(record) => return Ok(*record),
+        crate::SubmissionPreparation::AcceptedPending(_) => return Err(StoreError::Conflict),
         crate::SubmissionPreparation::FirstEffect(_) => {}
     }
     let base = state
@@ -792,15 +789,22 @@ pub(super) fn submit_question_attempt_locked(
         .cloned()
         .ok_or(StoreError::NotFound)?;
     require_attempt_owner(state, tenant, &base, command.actor)?;
-    if let Some(matches_request) = state
-        .submissions
-        .get(&(tenant, command.attempt))
-        .map(|stored| stored.key == command.idempotency_key && stored.response == command.response)
-    {
+    if let Some(stored) = state.submissions.get(&(tenant, command.attempt)) {
+        let matches_request = stored.key == command.idempotency_key
+            && super::stored_submission_matches_response(
+                state,
+                tenant,
+                command.attempt,
+                &command.response,
+            )?;
         return if matches_request {
-            load_submission_record(state, tenant, &base)?.ok_or_else(|| {
-                StoreError::Unavailable("submission receipt disappeared during replay".to_string())
-            })
+            match load_submission_record(state, tenant, &base)? {
+                crate::SubmissionReceiptRead::Completed(record) => Ok(*record),
+                crate::SubmissionReceiptRead::AcceptedPending(_) => Err(StoreError::Conflict),
+                crate::SubmissionReceiptRead::Missing => Err(StoreError::Unavailable(
+                    "submission receipt disappeared during replay".to_string(),
+                )),
+            }
         } else {
             Err(StoreError::Conflict)
         };
@@ -942,16 +946,20 @@ pub(super) fn submit_question_attempt_locked(
         summary: next.clone(),
         feedback,
         presentation,
-        disclosure,
+        disclosure: disclosure.clone(),
     };
+    let private_response = StoredPrivateSubmissionResponse::from_response(command.response)?;
+    let completed = completed_submission_receipt_from_record(record);
     state.submissions.insert(
         (tenant, command.attempt),
         StoredSubmission {
             key: command.idempotency_key,
-            response: command.response,
-            record: record.clone(),
+            state: StoredSubmissionState::Completed(Box::new(completed.clone())),
         },
     );
+    state
+        .private_submission_responses
+        .insert((tenant, command.attempt), private_response);
     state.attempt_scores.insert(
         (tenant, command.attempt),
         MemoryAttemptScore {
@@ -971,5 +979,5 @@ pub(super) fn submit_question_attempt_locked(
         .webwork_grade_replay
         .remove(&(tenant, command.attempt));
     complete_memory_attempt_timing_job(state, tenant, command.attempt);
-    Ok(record)
+    Ok(completed.into_submission_record(disclosure))
 }

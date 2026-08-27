@@ -1,13 +1,20 @@
 // Real-stack issued-work contract: visible replacement changes future runs, not issued work.
 //
 // Selector contract:
-// - src/features/flat_question_authoring/flat_question_editor_page.tsx:535 owns question editing,
-//   publication, and the question field labels.
-// - src/pages/course_list_page.tsx, course_assignments_page.tsx, and assignment_workspace/ own
-//   course creation, title-first assignment setup, Questions, and Policies navigation.
-// - src/pages/course_roster_page.tsx owns invitation controls.
-// - src/pages/assignment_overview_page.tsx:114 and src/pages/run_page.tsx:387 own learner
-//   assignment and attempt surfaces.
+// - src/features/flat_question_authoring/flat_question_editor_page.tsx:580-785 owns the
+//   question authoring, publication, and field labels used to create source questions.
+// - src/pages/course_list_page.tsx:347-408 and src/pages/assignment_workspace/
+//   assignment_workspace_create_page.tsx:139 own course and assignment creation controls.
+// - src/pages/assignment_workspace/assignment_workspace_questions_page.tsx:517-675 owns
+//   Questions navigation content, picker launch, replacement guidance, and commit controls.
+// - src/pages/assignment_editor_problem_picker.tsx:15-60 owns the replacement dialog title,
+//   instruction, and Select replacement action; src/features/problem_picker/problem_picker.tsx:
+//   173-200 exposes them through the native dialog.
+// - src/pages/assignment_editor_content_list.tsx:54-84 owns each fixed-question row and its
+//   Replace action, including the post-success focus target.
+// - src/pages/course_roster_page.tsx:497-552 owns invitation creation and the invitation link.
+// - src/pages/assignment_overview_page.tsx and src/pages/run_page.tsx own learner assignment
+//   and attempt surfaces; src/pages/run_summary_page.tsx:103 owns Start fresh practice.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
@@ -94,7 +101,9 @@ async function createPublishedAssignmentAndInvitation(
   await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
   await page.getByLabel("Lifecycle").selectOption("published");
   await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Assignment policies saved.");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Students", exact: true }).click();
   await page.getByLabel("Institutional email").fill(maryEmail);
   await page.getByLabel("Institutional student ID").fill(`mary-${namespace}`);
@@ -155,7 +164,9 @@ async function replaceAssignedQuestion(
     .getByRole("listitem")
     .filter({ has: page.getByRole("heading", { name: originalQuestionTitle, exact: true }) });
   await expect(originalRow).toHaveCount(1);
-  await originalRow.getByRole("button", { name: "Replace", exact: true }).click();
+  await originalRow
+    .getByRole("button", { name: `Replace ${originalQuestionTitle}`, exact: true })
+    .click();
   await page.getByRole("button", { name: "Choose replacement", exact: true }).click();
   const picker = page.getByRole("dialog", {
     name: "Choose a replacement question",
@@ -164,12 +175,41 @@ async function replaceAssignedQuestion(
   await expect(picker).toBeVisible();
   await picker.getByLabel("Search questions", { exact: true }).fill(replacementQuestionTitle);
   await picker.getByRole("button", { name: "Search questions", exact: true }).click();
+  await expect(
+    picker.getByText(
+      "Select one replacement question. You will return to Questions to use Replace selected question in a separate action.",
+      { exact: true },
+    ),
+  ).toBeVisible();
   await picker.getByRole("radio", { name: new RegExp(replacementQuestionTitle) }).check();
-  await picker.getByRole("button", { name: "Use selected replacement", exact: true }).click();
+  await picker.getByRole("button", { name: "Select replacement", exact: true }).click();
   await expect(picker).toHaveCount(0);
-  await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Questions and order saved.");
-  await expect(page.locator(".assignment-editor-list")).toContainText(replacementQuestionTitle);
+  await expect(
+    page.getByText(`Replacing ${originalQuestionTitle} with ${replacementQuestionTitle}`, {
+      exact: false,
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: `Replace ${originalQuestionTitle} with ${replacementQuestionTitle}`,
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("status").filter({ hasText: `${replacementQuestionTitle} now replaces` }),
+  ).toBeVisible();
+  const replacementRow = page
+    .locator(".assignment-editor-list")
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("heading", { name: replacementQuestionTitle, exact: true }) });
+  await expect(replacementRow).toHaveCount(1);
+  await expect(replacementRow).toContainText(replacementQuestionTitle);
+  await expect(
+    replacementRow.getByRole("button", {
+      name: `Replace ${replacementQuestionTitle}`,
+      exact: true,
+    }),
+  ).toBeFocused();
 }
 
 test.describe("assignment question replacement on the production PLE stack", () => {

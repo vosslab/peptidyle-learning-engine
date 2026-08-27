@@ -131,7 +131,7 @@ async fn submit_pending_manual_question_attempt(
         command.attempt,
     )
     .await?;
-    if let Some(replay) = super::submission_preparation::prepared_submission_replay(
+    match super::submission_preparation::prepared_submission_replay(
         transaction,
         tenant,
         &command.response,
@@ -140,7 +140,9 @@ async fn submit_pending_manual_question_attempt(
     )
     .await?
     {
-        return Ok(replay);
+        crate::SubmissionReceiptRead::Completed(replay) => return Ok(*replay),
+        crate::SubmissionReceiptRead::AcceptedPending(_) => return Err(StoreError::Conflict),
+        crate::SubmissionReceiptRead::Missing => {}
     }
     let base = prepared.attempt;
     if base.status != AttemptStatus::InProgress {
@@ -213,16 +215,27 @@ async fn submit_pending_manual_question_attempt(
     let (response_payload, response_payload_checksum) = encode_payload(&command.response)?;
     let (marker_payload, marker_checksum) = encode_payload(&serde_json::json!({}))?;
     let feedback_columns = encode_feedback_columns(feedback.content())?;
+    let feedback_snapshot = super::submission::encode_feedback_snapshot(&feedback)?;
+    let feedback_version = i16::try_from(feedback_snapshot.version).map_err(|_| {
+        StoreError::InvalidRecord(
+            "feedback canonical JSON version exceeds PostgreSQL smallint".to_string(),
+        )
+    })?;
     sqlx::query(
-        "INSERT INTO attempt_feedback (tenant_id, attempt_id, hint, correct_response, rationale, content_sha256) \
-         VALUES ($1, $2, $3, $4, $5, $6)",
+        "INSERT INTO attempt_feedback \
+         (tenant_id, attempt_id, hint, correct_response, rationale, \
+          content_canonical_json, content_canonical_json_version, content_sha256, course_id) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
     )
     .bind(tenant.as_uuid())
     .bind(submitted.id.as_uuid())
     .bind(feedback_columns.hint)
     .bind(feedback_columns.correct_response)
     .bind(feedback_columns.rationale)
-    .bind(feedback.content_sha256().to_string())
+    .bind(feedback_snapshot.source)
+    .bind(feedback_version)
+    .bind(feedback_snapshot.sha256.to_string())
+    .bind(assignment.course_id.as_uuid())
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
@@ -285,35 +298,65 @@ async fn submit_pending_manual_question_attempt(
     )
     .await?;
     store_summary(transaction, &next).await?;
-    let (run_payload, run_checksum) = encode_payload(&run)?;
-    let (summary_payload, summary_checksum) = encode_payload(&next)?;
-    let (presentation_payload, presentation_checksum) = presentation
+    let receipt_attempt = super::submission::encode_receipt_attempt_snapshot(&submitted)?;
+    let receipt_run = super::submission::encode_receipt_snapshot("submission receipt run", &run)?;
+    let receipt_summary =
+        super::submission::encode_receipt_snapshot("submission receipt summary", &next)?;
+    let receipt_presentation = presentation
         .as_ref()
-        .map(encode_payload)
-        .transpose()?
-        .map_or((None, None), |(payload, checksum)| {
-            (Some(payload), Some(checksum))
-        });
+        .map(|value| {
+            super::submission::encode_receipt_snapshot("submission receipt presentation", value)
+        })
+        .transpose()?;
+    let receipt_version = i16::try_from(receipt_attempt.version).map_err(|_| {
+        StoreError::InvalidRecord(
+            "receipt canonical JSON version exceeds PostgreSQL smallint".to_string(),
+        )
+    })?;
     sqlx::query(
         "INSERT INTO submission_receipt_snapshot \
-         (tenant_id, attempt_id, run_payload, run_payload_sha256, summary_payload, summary_payload_sha256, \
-          presentation_payload, presentation_payload_sha256, presentation_required) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+         (tenant_id, attempt_id, canonical_json_version, receipt_attempt_canonical_json, \
+          receipt_attempt_payload, receipt_attempt_payload_sha256, run_canonical_json, \
+          run_payload, run_payload_sha256, summary_canonical_json, summary_payload, \
+          summary_payload_sha256, presentation_canonical_json, presentation_payload, \
+          presentation_payload_sha256, presentation_required) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)",
     )
     .bind(tenant.as_uuid())
     .bind(submitted.id.as_uuid())
-    .bind(run_payload)
-    .bind(run_checksum)
-    .bind(summary_payload)
-    .bind(summary_checksum)
-    .bind(presentation_payload)
-    .bind(presentation_checksum)
+    .bind(receipt_version)
+    .bind(receipt_attempt.source)
+    .bind(Json(receipt_attempt.projection))
+    .bind(receipt_attempt.sha256.to_string())
+    .bind(receipt_run.source)
+    .bind(Json(receipt_run.projection))
+    .bind(receipt_run.sha256.to_string())
+    .bind(receipt_summary.source)
+    .bind(Json(receipt_summary.projection))
+    .bind(receipt_summary.sha256.to_string())
+    .bind(
+        receipt_presentation
+            .as_ref()
+            .map(|value| value.source.clone()),
+    )
+    .bind(
+        receipt_presentation
+            .as_ref()
+            .map(|value| Json(value.projection.clone())),
+    )
+    .bind(
+        receipt_presentation
+            .as_ref()
+            .map(|value| value.sha256.to_string()),
+    )
     .bind(presentation.is_some())
     .execute(&mut **transaction)
     .await
     .map_err(map_sqlx_error)?;
+    let mut receipt_attempt_record = submitted.clone();
+    receipt_attempt_record.response = None;
     Ok(SubmissionRecord {
-        attempt: submitted,
+        attempt: receipt_attempt_record,
         run,
         summary: next,
         feedback,
@@ -457,7 +500,7 @@ async fn set_postgres_manual_grade(
         return Err(StoreError::Conflict);
     }
     let rows = sqlx::query(
-        "SELECT COALESCE(si.payload, qa.payload) AS payload, COALESCE(si.payload_sha256, qa.payload_sha256) AS payload_sha256, \
+        "SELECT CASE WHEN si.request_contract_version = 2 THEN qa.payload ELSE COALESCE(si.payload, qa.payload) END AS payload, CASE WHEN si.request_contract_version = 2 THEN qa.payload_sha256 ELSE COALESCE(si.payload_sha256, qa.payload_sha256) END AS payload_sha256, \
                 evaluation.payload AS evaluation_payload, evaluation.payload_sha256 AS evaluation_payload_sha256, \
                 evaluation.grading_status AS evaluation_grading_status, qa.attempt_status AS current_attempt_status, \
                 floor(extract(epoch FROM qa.submitted_at) * 1000)::bigint AS current_submitted_at \
@@ -641,8 +684,8 @@ async fn load_manual_attempt_for_update(
     attempt: QuestionAttemptId,
 ) -> Result<QuestionAttempt, StoreError> {
     let row = sqlx::query(
-        "SELECT COALESCE(si.payload, qa.payload) AS payload, \
-                COALESCE(si.payload_sha256, qa.payload_sha256) AS payload_sha256, \
+        "SELECT CASE WHEN si.request_contract_version = 2 THEN qa.payload ELSE COALESCE(si.payload, qa.payload) END AS payload, \
+                CASE WHEN si.request_contract_version = 2 THEN qa.payload_sha256 ELSE COALESCE(si.payload_sha256, qa.payload_sha256) END AS payload_sha256, \
                 evaluation.payload AS evaluation_payload, \
                 evaluation.payload_sha256 AS evaluation_payload_sha256, \
                 evaluation.grading_status AS evaluation_grading_status, \

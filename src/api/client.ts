@@ -2,6 +2,7 @@
 
 import type { AssetId } from "../../generated/api/AssetId";
 import type { AssignmentId } from "../../generated/api/AssignmentId";
+import type { AssignmentItemId } from "../../generated/api/AssignmentItemId";
 import type { AssignmentRun } from "../../generated/api/AssignmentRun";
 import type { CatalogProblemSummary } from "../../generated/api/CatalogProblemSummary";
 import type { CatalogProblemDetail } from "../../generated/api/CatalogProblemDetail";
@@ -78,6 +79,7 @@ import type {
   LearnerAssignmentSummary,
   LearnerAssignmentDetail,
   LearnerQuestionAttempt,
+  LearnerSubmissionStatus,
   AuthSession,
   CourseCreateInput,
   CourseSummary,
@@ -87,7 +89,6 @@ import type {
   FeedbackReleaseResponse,
   RunScreenData,
   RunSummaryResponse,
-  SubmissionReceipt,
   WorkspaceDraftDetail,
   WorkspaceDraftPage,
   PublicationDiff,
@@ -392,6 +393,14 @@ export interface ApiClient
     input: AssignmentContentInput,
     revision: string,
   ) => Promise<AssignmentEditorDetail>;
+  /** Replaces one existing fixed slot for future runs without changing issued learner work. */
+  readonly replaceAssignmentFixedItem: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
+    itemId: AssignmentItemId,
+    questionId: QuestionId,
+    revision: string,
+  ) => Promise<AssignmentEditorDetail>;
   /** Replaces only Policies-owned audience, disclosure, run, and teaching settings. */
   readonly saveAssignmentPolicies: (
     courseId: CourseId,
@@ -450,7 +459,13 @@ export interface ApiClient
     attemptId: QuestionAttemptId,
     response: StudentResponse,
     idempotencyKey: string,
-  ) => Promise<SubmissionReceipt>;
+  ) => Promise<LearnerSubmissionStatus>;
+  /** Reads a previously acknowledged learner submission without resending answer material. */
+  readonly getSubmissionStatus: (
+    courseId: CourseId,
+    assignmentId: AssignmentId,
+    attemptId: QuestionAttemptId,
+  ) => Promise<LearnerSubmissionStatus>;
   /** Instructor command only; current feedback is read through a later summary GET. */
   readonly releaseAttemptFeedback: (
     attemptId: QuestionAttemptId,

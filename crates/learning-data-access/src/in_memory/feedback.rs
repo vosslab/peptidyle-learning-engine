@@ -246,7 +246,7 @@ impl crate::FeedbackStore for MemoryStore {
             let submitted = state
                 .submissions
                 .get(&(tenant, attempt.id))
-                .map(|stored| &stored.record);
+                .and_then(|stored| stored.completed_record_opt());
             rows.push((
                 key,
                 RunSummaryOutcomeInput {

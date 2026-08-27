@@ -8,6 +8,7 @@ import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeCatalogPage,
   decodeDraftQuestionDefinition,
+  decodeLearnerSubmissionStatus,
   decodeQuestionEnvelope,
 } from "../src/api/decoders.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
@@ -43,6 +44,39 @@ test("issued external-tool envelopes accept only their public marker", () => {
     () =>
       decodeQuestionEnvelope({ ...envelope, response: { kind: "externalTool", token: "secret" } }),
     DecodeError,
+  );
+});
+
+test("learner submission status decoder accepts only closed answer-free pending alternatives", () => {
+  const attempt = publishedProblemFixture.attempts[0];
+  assert.ok(attempt);
+  const pending = {
+    kind: "accepted_pending",
+    accepted: true,
+    attemptId: attempt.id,
+    automatedGradingStatus: "pending",
+    nextAction: "check_status",
+  };
+  assert.deepEqual(decodeLearnerSubmissionStatus(pending), pending);
+  assert.throws(() => decodeLearnerSubmissionStatus({ ...pending, kind: "unknown" }), DecodeError);
+  for (const forbidden of [
+    "response",
+    "feedback",
+    "result",
+    "score",
+    "nextIssued",
+    "nextPending",
+  ]) {
+    assert.throws(
+      () => decodeLearnerSubmissionStatus({ ...pending, [forbidden]: "private" }),
+      DecodeError,
+      forbidden,
+    );
+  }
+  assert.throws(
+    () => decodeLearnerSubmissionStatus({ ...pending, attempt: {} }),
+    DecodeError,
+    "completed receipt fields cannot mix with pending acknowledgement",
   );
 });
 
@@ -212,6 +246,7 @@ test("ordinary submission uses the explicit nested binding and answer-only body"
   const { poolSelection: _poolSelection, ...receiptAttempt } = attempt;
   const response = { kind: "numeric", value: 18 };
   const receipt = {
+    kind: "completed",
     accepted: true,
     attempt: { ...receiptAttempt, response, result: null },
     feedback: null,
@@ -235,6 +270,34 @@ test("ordinary submission uses the explicit nested binding and answer-only body"
   assert.deepEqual(await request.json(), { response });
 });
 
+test("submission status uses its route-bound same-origin no-store GET", async () => {
+  const course = publishedProblemFixture.course;
+  const assignment = publishedProblemFixture.assignment;
+  const attempt = publishedProblemFixture.attempts[0];
+  assert.ok(attempt);
+  const pending = {
+    kind: "accepted_pending",
+    accepted: true,
+    attemptId: attempt.id,
+    automatedGradingStatus: "pending",
+    nextAction: "check_status",
+  };
+  const { recordingFetch, requests } = createRecordingFetch(async () => jsonResponse(pending, 202));
+  const client = createHttpApiClient({ fetch: recordingFetch });
+
+  assert.deepEqual(await client.getSubmissionStatus(course.id, assignment.id, attempt.id), pending);
+  const request = requests[0];
+  assert.ok(request);
+  assert.equal(
+    request.url,
+    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/submission-status`,
+  );
+  assert.equal(request.method, "GET");
+  assert.equal(request.credentials, "same-origin");
+  assert.equal(request.cache, "no-store");
+  assert.equal(await request.text(), "");
+});
+
 test("external-tool submission sends only the marker with its caller idempotency key", async () => {
   const course = publishedProblemFixture.course;
   const assignment = publishedProblemFixture.assignment;
@@ -242,6 +305,7 @@ test("external-tool submission sends only the marker with its caller idempotency
   assert.ok(attempt);
   const { poolSelection: _poolSelection, ...receiptAttempt } = attempt;
   const receipt = {
+    kind: "completed",
     accepted: true,
     attempt: { ...receiptAttempt, response: { kind: "externalTool" }, result: null },
     feedback: null,

@@ -4,7 +4,7 @@ use question_model::{QuestionAttempt, TenantId};
 
 use crate::{
     FlatGradingCapability, IssuedQuestionSnapshotV1, QtiGradingCapability,
-    ReceiptPresentationSnapshot, StoreError, SubmissionRecord, WebworkGradingCapability,
+    ReceiptPresentationSnapshot, StoreError, SubmissionReceiptRead, WebworkGradingCapability,
 };
 
 use super::super::State;
@@ -220,12 +220,20 @@ pub(crate) fn load_submission_record(
     state: &State,
     tenant: TenantId,
     attempt: &QuestionAttempt,
-) -> Result<Option<SubmissionRecord>, StoreError> {
+) -> Result<SubmissionReceiptRead, StoreError> {
     let Some(stored) = state.submissions.get(&(tenant, attempt.id)) else {
-        return Ok(None);
+        return Ok(SubmissionReceiptRead::Missing);
     };
+    if stored.accepted_pending().is_some() {
+        return Ok(SubmissionReceiptRead::AcceptedPending(
+            crate::AcceptedSubmissionPending::new(attempt.id),
+        ));
+    }
     let issued_presentation = load_issued_presentation(state, tenant, attempt)?;
-    if stored.record.presentation != issued_presentation {
+    let completed = stored.completed_record_opt().ok_or_else(|| {
+        StoreError::Unavailable("completed submission receipt is missing".to_string())
+    })?;
+    if completed.presentation != issued_presentation {
         return Err(StoreError::Unavailable(
             "submission receipt presentation does not match its issued snapshot".to_string(),
         ));
@@ -236,22 +244,24 @@ pub(crate) fn load_submission_record(
         .ok_or(StoreError::NotFound)?;
     let enrollment = super::super::enrollment_record(state, tenant, run.enrollment)?;
     let assignment = super::super::assignment_record(state, tenant, enrollment.assignment)?;
-    let mut record = stored.record.clone();
-    record.disclosure = super::super::feedback::current_disclosure_input(
+    let disclosure = super::super::feedback::current_disclosure_input(
         state,
         tenant,
         &assignment,
         attempt.id,
-        record.attempt.timer.submitted_at,
+        completed.attempt.timer.submitted_at,
     )?;
-    Ok(Some(record))
+    Ok(SubmissionReceiptRead::Completed(Box::new(
+        completed.clone().into_submission_record(disclosure),
+    )))
 }
 
 #[cfg(test)]
 mod tests {
     use question_model::{
-        ActivityTimestamp, AttemptProvenance, AttemptStatus, AttemptTimerRecord,
-        ImplementationVersion, ProblemId, QuestionAttemptId, RunId, TenantId, VersionId,
+        ActivityTimestamp, AssignmentId, AttemptProvenance, AttemptStatus, AttemptTimerRecord,
+        CourseId, ImplementationVersion, ProblemId, QuestionAttemptId, RunId, StudentResponse,
+        TenantId, UserId, VersionId,
     };
     use uuid::Uuid;
 
@@ -320,5 +330,47 @@ mod tests {
             load_issued_presentation(&state, tenant, &attempt),
             Err(StoreError::Unavailable(_))
         ));
+    }
+
+    #[test]
+    fn accepted_pending_receipt_read_is_typed_and_redacted() {
+        let tenant = TenantId::from_uuid(id(20));
+        let attempt = attempt(tenant);
+        let key = crate::SubmissionIdempotencyKey::parse("pending-replay-key")
+            .expect("bounded idempotency key");
+        let response = StudentResponse::Numeric { value: 88.0 };
+        let mut state = State::default();
+        state.submissions.insert(
+            (tenant, attempt.id),
+            super::super::StoredSubmission {
+                key: key.clone(),
+                state: super::super::StoredSubmissionState::AcceptedPending(
+                    crate::AcceptedSubmission {
+                        tenant,
+                        course: CourseId::from_uuid(id(21)),
+                        assignment: AssignmentId::from_uuid(id(22)),
+                        attempt: attempt.id,
+                        submission: crate::AcceptedSubmissionId::from_uuid(attempt.id.as_uuid()),
+                        actor: UserId::from_uuid(id(23)),
+                        idempotency_key: key,
+                        request_sha256: objects::Sha256Digest::compute(
+                            &serde_json::to_vec(&response).expect("serializable response"),
+                        ),
+                        accepted_at: ActivityTimestamp::from_unix_millis(24),
+                    },
+                ),
+            },
+        );
+
+        let receipt = load_submission_record(&state, tenant, &attempt)
+            .expect("accepted input has a typed receipt state");
+        assert_eq!(
+            receipt,
+            SubmissionReceiptRead::AcceptedPending(crate::AcceptedSubmissionPending::new(
+                attempt.id,
+            ))
+        );
+        let debug = format!("{receipt:?}");
+        assert!(!debug.contains("pending-replay-key") && !debug.contains("88"));
     }
 }

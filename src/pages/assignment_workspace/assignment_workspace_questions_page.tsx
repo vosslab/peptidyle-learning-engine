@@ -1,13 +1,12 @@
 // assignment_workspace_questions_page.tsx - Questions-owned assignment title and ordered definition.
 
 import { A } from "@solidjs/router";
-import { For, Show, createSignal, onMount, type JSX } from "solid-js";
+import { For, Show, createEffect, createSignal, onMount, type JSX } from "solid-js";
 
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
 import type { TeachingOperationRevision } from "../../../generated/api/TeachingOperationRevision";
 import { AssignmentEditorContentList } from "../assignment_editor_content_list";
 import { createAssignmentEditorCatalogController } from "../assignment_editor_catalog_controller";
-import { ASSIGNMENT_EDITOR_STYLES } from "../assignment_editor_styles";
 import {
   appendFixedEntries,
   appendSelectionGroup,
@@ -25,7 +24,10 @@ import {
 import { AssignmentEditorProblemPicker } from "../assignment_editor_problem_picker";
 import { createAssignmentEditorPickerController } from "../assignment_editor_picker_controller";
 import { createAssignmentEditorReuseController } from "../assignment_editor_reuse_controller";
-import { resolveAssignmentContentSaveFailure } from "../../api/http_client";
+import {
+  resolveAssignmentContentSaveFailure,
+  resolveAssignmentFixedItemReplacementFailure,
+} from "../../api/http_client";
 import type { PoolDrawPreview } from "../../api/contracts";
 
 import { assignmentWorkspaceCreatePath, assignmentWorkspacePath } from "./assignment_workspace_nav";
@@ -52,9 +54,13 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   const [directMessage, setDirectMessage] = createSignal("");
   const [targetItemId, setTargetItemId] = createSignal<string>();
   const [poolPreview, setPoolPreview] = createSignal<PoolDrawPreview>();
+  const [hasUnsavedContent, setHasUnsavedContent] = createSignal(false);
   const [needsReload, setNeedsReload] = createSignal(false);
   const [issuedWorkRecovery, setIssuedWorkRecovery] = createSignal(false);
   let questionIdInput: HTMLInputElement | undefined;
+  let saveQuestionsButton: HTMLButtonElement | undefined;
+  let reloadLatestButton: HTMLButtonElement | undefined;
+  let replaceSelectedQuestionButton: HTMLButtonElement | undefined;
 
   const catalogController = createAssignmentEditorCatalogController(workspace.repository);
   const reuseController = createAssignmentEditorReuseController(
@@ -71,6 +77,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   function update(next: AssignmentEditorDraft, nextMessage: string): void {
     setDraft(next);
     setPoolPreview(undefined);
+    setHasUnsavedContent(true);
     const failure = validateAssignmentEditorDraft(next);
     setValidationMessage(failure === null ? "" : `${failure} Correct the questions, then save.`);
     setMessage(nextMessage);
@@ -108,14 +115,73 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     );
   }
 
+  function focusReplacementRecovery(): void {
+    if (needsReload() || issuedWorkRecovery()) {
+      queueMicrotask(() => reloadLatestButton?.focus());
+      return;
+    }
+    queueMicrotask(() => saveQuestionsButton?.focus());
+  }
+
+  function replacementBlocked(): boolean {
+    if (!hasUnsavedContent() && !needsReload() && !issuedWorkRecovery()) return false;
+    if (issuedWorkRecovery()) {
+      setMessage(
+        "Reload the latest assignment before replacing a question. The saved structural changes cannot be applied after learner work has been issued.",
+      );
+    } else if (needsReload()) {
+      setMessage(
+        "Reload the latest assignment before replacing a question. Your selected replacement remains available after reload.",
+      );
+    } else if (catalogController.selected() === undefined) {
+      setMessage(
+        "Save questions and order before choosing a replacement. Replacement happens in a separate action after you select a question.",
+      );
+    } else {
+      setMessage(
+        "Save questions and order before replacing a question. The selected replacement is not committed with the full definition.",
+      );
+    }
+    focusReplacementRecovery();
+    return true;
+  }
+
+  function replacementTargetTitle(): string | undefined {
+    const itemId = targetItemId();
+    if (itemId === undefined) return undefined;
+    return fixedEntries(draft()).find((entry) => entry.id === itemId)?.title;
+  }
+
+  function replacementActionLabel(): string {
+    const currentTitle = replacementTargetTitle();
+    const selectedTitle = catalogController.selected()?.title;
+    return currentTitle !== undefined && selectedTitle !== undefined
+      ? `Replace ${currentTitle} with ${selectedTitle}`
+      : "Replace the selected question";
+  }
+
   function startReplacement(itemId: string): void {
+    if (replacementBlocked()) return;
     setTargetItemId(itemId);
     setDirectQuestionId("");
     catalogController.setSelected(undefined);
     queueMicrotask(() => questionIdInput?.focus());
   }
 
-  function replaceFixedQuestion(row: AssignmentCatalogRow, itemId: string): void {
+  function focusReplacedRow(questionId: string): void {
+    queueMicrotask(() => {
+      const row = [...document.querySelectorAll<HTMLElement>(".assignment-editor-row")].find(
+        (candidate) => candidate.textContent?.includes(questionId) === true,
+      );
+      const button = [...(row?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find(
+        (candidate) => candidate.textContent?.trim() === "Replace",
+      );
+      button?.focus();
+    });
+  }
+
+  async function replaceFixedQuestion(row: AssignmentCatalogRow, itemId: string): Promise<void> {
+    if (busy() || replacementBlocked()) return;
     const current = fixedEntries(draft()).find((entry) => entry.id === itemId);
     if (current === undefined) {
       setMessage(
@@ -131,18 +197,37 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       setDirectMessage(`${row.questionId} is already in this assignment.`);
       return;
     }
-    const entries = draft().entries.map((entry) =>
-      entry.kind === "fixed" && entry.id === itemId
-        ? { ...entry, questionId: row.questionId, title: row.title, backend: row.backend }
-        : entry,
-    );
-    update(
-      { ...draft(), entries },
-      `${row.questionId} will replace ${current.questionId} when you save questions and order.`,
-    );
-    setTargetItemId(undefined);
-    catalogController.setSelected(undefined);
-    setDirectQuestionId("");
+    setBusy(true);
+    try {
+      const saved = await workspace.client.replaceAssignmentFixedItem(
+        workspace.courseId,
+        workspace.assignmentId,
+        itemId,
+        row.questionId,
+        workspace.assignment().revision,
+      );
+      workspace.replaceAssignment(saved);
+      setDraft(assignmentEditorDraftFrom(saved));
+      setPoolPreview(undefined);
+      setHasUnsavedContent(false);
+      setNeedsReload(false);
+      setIssuedWorkRecovery(false);
+      setValidationMessage("");
+      setTargetItemId(undefined);
+      catalogController.setSelected(undefined);
+      setDirectQuestionId("");
+      setDirectMessage("");
+      setMessage(
+        `${row.title} now replaces ${current.title} for future runs. Issued learner work remains unchanged.`,
+      );
+      focusReplacedRow(row.questionId);
+    } catch (error: unknown) {
+      const failure = resolveAssignmentFixedItemReplacementFailure(error);
+      if (failure.kind === "staleRevision") setNeedsReload(true);
+      setMessage(failure.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   function addRows(rows: ReadonlyArray<AssignmentCatalogRow>, success: string): void {
@@ -155,6 +240,8 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   }
 
   async function chooseQuestionId(): Promise<void> {
+    setBusy(true);
+    setMessage("Checking the supplied Question ID.");
     try {
       const row = await catalogController.lookup(directQuestionId());
       catalogController.setSelected(row);
@@ -165,7 +252,11 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       );
       setDirectMessage("");
     } catch (_error: unknown) {
-      setDirectMessage("That Question ID could not be found. Check it and try again.");
+      const failure = "That Question ID could not be found. Check it and try again.";
+      setDirectMessage(failure);
+      setMessage(failure);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -187,6 +278,8 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       );
       return;
     }
+    setBusy(true);
+    setMessage("Checking the supplied Question IDs and adding valid questions.");
     try {
       const rows = await Promise.all(
         questionIds.map(
@@ -200,13 +293,21 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       setDirectQuestionId("");
       setDirectMessage("");
     } catch (_error: unknown) {
-      setDirectMessage("A Question ID could not be found. Your Question IDs are still here.");
+      const failure = "A Question ID could not be found. Your Question IDs are still here.";
+      setDirectMessage(failure);
+      setMessage(failure);
+    } finally {
+      setBusy(false);
     }
   }
 
   async function saveQuestions(): Promise<boolean> {
     const current = draft();
     if (busy()) return false;
+    if (!hasUnsavedContent()) {
+      setMessage("Questions and order are already saved in the current assignment revision.");
+      return true;
+    }
     if (issuedWorkRecovery()) {
       setMessage(
         "Create a new assignment to use these structural question changes. This assignment's issued learner work remains unchanged.",
@@ -239,6 +340,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       workspace.replaceAssignment(saved);
       setDraft(assignmentEditorDraftFrom(saved));
       setPoolPreview(undefined);
+      setHasUnsavedContent(false);
       setNeedsReload(false);
       setValidationMessage("");
       setMessage("Questions and order saved. Review assignment policies when you are ready.");
@@ -262,22 +364,32 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
 
   async function reloadLatest(): Promise<void> {
     setBusy(true);
+    let reloaded = false;
     try {
       const latest = await workspace.reloadAssignment();
       setDraft(assignmentEditorDraftFrom(latest));
       setPoolPreview(undefined);
+      setHasUnsavedContent(false);
       setNeedsReload(false);
       setIssuedWorkRecovery(false);
       setValidationMessage("");
       setMessage(
         "Latest assignment loaded; your local title and question changes were replaced. Review the current questions and order before saving.",
       );
+      reloaded = true;
     } catch (_error: unknown) {
       setMessage(
         "The latest assignment could not be loaded. Your local question changes remain here.",
       );
     } finally {
       setBusy(false);
+      if (reloaded) {
+        if (targetItemId() !== undefined && catalogController.selected() !== undefined) {
+          queueMicrotask(() => replaceSelectedQuestionButton?.focus());
+        } else {
+          queueMicrotask(() => saveQuestionsButton?.focus());
+        }
+      }
     }
   }
 
@@ -287,8 +399,14 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       setValidationMessage(`${failure} Correct the questions, then preview a pool draw.`);
       return;
     }
-    setMessage("Saving questions, then generating a server sample for this pool.");
-    if (!(await saveQuestions())) return;
+    if (hasUnsavedContent()) {
+      setMessage(
+        "Save questions and order before previewing a pool draw. Your local question changes remain here.",
+      );
+      queueMicrotask(() => saveQuestionsButton?.focus());
+      return;
+    }
+    setMessage("Generating a server sample from the saved questions.");
     const saved = workspace.assignment();
     setBusy(true);
     try {
@@ -320,6 +438,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       catalogController.setSelected(row);
       setTargetItemId(itemId);
       setMessage(`${row.questionId} is ready to replace the selected question.`);
+      queueMicrotask(() => replaceSelectedQuestionButton?.focus());
     },
     onMessage: setMessage,
     onError: (_error, fallback) => setMessage(fallback),
@@ -330,9 +449,13 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     void reuseController.load();
   });
 
+  createEffect(() => {
+    if (!needsReload() || busy()) return;
+    queueMicrotask(() => reloadLatestButton?.focus());
+  });
+
   return (
     <section class="assignment-workspace-questions" aria-labelledby="assignment-questions-heading">
-      <style>{ASSIGNMENT_EDITOR_STYLES}</style>
       <header class="assignment-workspace-header">
         <p class="eyebrow">Assignment workspace</p>
         <h1 id="assignment-questions-heading">Questions</h1>
@@ -340,7 +463,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
           Set the assignment title, ordered fixed questions, and question pools.
         </p>
       </header>
-      <p role="status" aria-live="polite">
+      <p role="status" aria-live="polite" aria-busy={busy()}>
         {message()}
       </p>
       <Show when={needsReload()}>
@@ -352,6 +475,9 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
           <button
             class="quiet-action"
             type="button"
+            ref={(element) => {
+              reloadLatestButton = element;
+            }}
             disabled={busy()}
             aria-label="Reload latest assignment and replace local changes"
             onClick={() => void reloadLatest()}
@@ -371,6 +497,17 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
               Create a new assignment
             </A>
           </p>
+          <button
+            class="quiet-action"
+            type="button"
+            ref={(element) => {
+              reloadLatestButton = element;
+            }}
+            disabled={busy()}
+            onClick={() => void reloadLatest()}
+          >
+            Reload latest assignment
+          </button>
         </section>
       </Show>
       <Show when={validationMessage()}>
@@ -380,11 +517,14 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
           </section>
         )}
       </Show>
-      <fieldset class="assignment-editor-operation-boundary" disabled={busy()}>
+      <fieldset class="assignment-editor-operation-boundary" disabled={busy()} aria-busy={busy()}>
         <div class="assignment-editor-actions">
           <button
             class="primary-action"
             type="button"
+            ref={(element) => {
+              saveQuestionsButton = element;
+            }}
             disabled={busy() || needsReload() || issuedWorkRecovery()}
             onClick={() => void saveQuestions()}
           >
@@ -474,8 +614,8 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
             <h2>{targetItemId() === undefined ? "Add questions" : "Replace question"}</h2>
             <Show when={targetItemId() !== undefined}>
               <p class="assignment-editor-note">
-                The replacement applies to future runs when you save questions and order. Issued
-                work remains with its original question.
+                Replace this fixed question immediately for future runs. Issued work remains with
+                its original question.
               </p>
             </Show>
             <label class="assignment-editor-field" for="assignment-question-id">
@@ -489,6 +629,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                 placeholder="7K3-M9QP"
                 aria-describedby="assignment-question-id-help"
                 aria-invalid={directMessage() !== ""}
+                disabled={targetItemId() !== undefined && (needsReload() || issuedWorkRecovery())}
                 onInput={(event) => {
                   setDirectQuestionId(event.currentTarget.value);
                   setDirectMessage("");
@@ -501,29 +642,42 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
               choose a replacement.
             </p>
             <div class="assignment-editor-actions">
-              <button class="quiet-action" type="button" onClick={() => void chooseQuestionId()}>
+              <button
+                class="quiet-action"
+                type="button"
+                disabled={targetItemId() !== undefined && (needsReload() || issuedWorkRecovery())}
+                onClick={() => void chooseQuestionId()}
+              >
                 Check Question ID
               </button>
               <button
                 class="primary-action"
                 type="button"
+                ref={(element) => {
+                  replaceSelectedQuestionButton = element;
+                }}
                 disabled={
-                  targetItemId() !== undefined && catalogController.selected() === undefined
+                  (targetItemId() !== undefined && catalogController.selected() === undefined) ||
+                  needsReload() ||
+                  issuedWorkRecovery()
                 }
+                aria-label={targetItemId() === undefined ? undefined : replacementActionLabel()}
                 onClick={() => {
                   const itemId = targetItemId();
                   const selected = catalogController.selected();
                   if (itemId !== undefined && selected !== undefined)
-                    replaceFixedQuestion(selected, itemId);
+                    void replaceFixedQuestion(selected, itemId);
                   else void addQuestionIds();
                 }}
               >
-                {targetItemId() === undefined ? "Add Question IDs" : "Use selected replacement"}
+                {targetItemId() === undefined ? "Add Question IDs" : "Replace selected question"}
               </button>
               <button
                 class="quiet-action"
                 type="button"
-                disabled={pickerController.sources().length === 0}
+                disabled={
+                  pickerController.sources().length === 0 || needsReload() || issuedWorkRecovery()
+                }
                 onClick={(event) =>
                   pickerController.open(
                     targetItemId() === undefined
@@ -539,7 +693,17 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
             <Show when={catalogController.selected()}>
               {(row) => (
                 <p class="success-state">
-                  Selected: {row().questionId} {row().title} ({questionBackendLabel(row().backend)})
+                  {targetItemId() === undefined ? (
+                    <>
+                      Selected: {row().questionId} {row().title}
+                    </>
+                  ) : (
+                    <>
+                      Replacing {replacementTargetTitle() ?? "the current question"} with{" "}
+                      {row().title}
+                    </>
+                  )}{" "}
+                  ({questionBackendLabel(row().backend)})
                 </p>
               )}
             </Show>

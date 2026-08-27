@@ -5,6 +5,7 @@ use axum::body::Body;
 use axum::http::{HeaderValue, Request, StatusCode};
 use learning_data_access::SessionLifetime;
 use learning_data_access::in_memory::MemoryStore;
+use learning_data_access::postgres::lazy_pool;
 use objects::memory::MemoryObjectStore;
 use question_model::UserId;
 use tower::ServiceExt;
@@ -14,9 +15,9 @@ use super::router::{
     e2e_replica_attribution_from_values, postgres_schema_probe,
 };
 use super::settings::{
-    ObjectStorageConnection, ProcessRole, ProductionSettings, StorageRuntime, StorageSettings,
-    StorageTopology, WebworkRendererSettings, parse_positive_u64, parse_positive_usize,
-    parse_secret32, required_env,
+    GradingBackendSettingValues, GradingBackendSettings, ObjectStorageConnection, ProcessRole,
+    ProductionSettings, StorageRuntime, StorageSettings, StorageTopology, parse_positive_u64,
+    parse_positive_usize, parse_secret32, required_env,
 };
 use super::*;
 use crate::auth::CookieTransport;
@@ -369,16 +370,8 @@ fn production_settings() -> ProductionSettings {
         },
         public_asset_base_url: PublicAssetBaseUrl::new("https://cdn.example.test/content")
             .expect("valid public asset base"),
-        webwork: Some(WebworkRendererSettings {
-            webwork_renderer_base_url: "http://webwork-renderer:3000/".to_string(),
-            webwork_request_timeout_seconds: 15,
-            webwork_max_response_bytes: 1_048_576,
-            webwork_renderer_id: "vosslab-webwork-pg-renderer".to_string(),
-            webwork_renderer_version: "1".to_string(),
-        }),
+        grading: grading_settings(),
         imathas_provider_key: None,
-        qti_runtime_enabled: None,
-        grader_database_url: None,
         enrollment_secret: None,
         enrollment_email: None,
         webauthn: crate::auth::PasswordlessWebauthn::new(
@@ -396,11 +389,27 @@ fn production_settings() -> ProductionSettings {
     }
 }
 
+fn grading_values() -> GradingBackendSettingValues<'static> {
+    GradingBackendSettingValues {
+        grader_database_url: Some("postgres://ple_grader:secret@db.internal/ple"),
+        webwork_renderer_base_url: Some("http://webwork-renderer:3000/"),
+        webwork_request_timeout_seconds: Some("15"),
+        webwork_max_response_bytes: Some("1048576"),
+        webwork_renderer_id: Some("vosslab-webwork-pg-renderer"),
+        webwork_renderer_version: Some("1"),
+        qti_runtime_enabled: None,
+    }
+}
+
+fn grading_settings() -> GradingBackendSettings {
+    GradingBackendSettings::from_values(grading_values()).expect("valid grading settings")
+}
+
 #[test]
-fn grader_runtime_is_required_redacted_and_qti_is_explicit() {
-    let settings = production_settings();
-    let error = settings
-        .grader_database_url()
+fn grading_settings_require_a_redacted_grader_url_and_explicit_qti() {
+    let mut missing = grading_values();
+    missing.grader_database_url = None;
+    let error = GradingBackendSettings::from_values(missing)
         .expect_err("flat native grading requires a dedicated grader URL")
         .to_string();
     assert!(error.contains("PLE_GRADER_DATABASE_URL"));
@@ -410,10 +419,9 @@ fn grader_runtime_is_required_redacted_and_qti_is_explicit() {
         "https://ple_grading_reader:secret@db/ple",
         "not-a-url-with-secret",
     ] {
-        let mut settings = production_settings();
-        settings.grader_database_url = Some(url.to_string());
-        let error = settings
-            .grader_database_url()
+        let mut values = grading_values();
+        values.grader_database_url = Some(url);
+        let error = GradingBackendSettings::from_values(values)
             .expect_err("malformed grader URL must reject")
             .to_string();
         assert!(
@@ -422,83 +430,48 @@ fn grader_runtime_is_required_redacted_and_qti_is_explicit() {
         );
     }
 
-    let mut settings = production_settings();
-    settings.grader_database_url =
-        Some("postgres://ple_grading_reader:secret@db.internal/ple".to_string());
-    assert!(
-        settings
-            .grader_database_url()
-            .unwrap()
-            .starts_with("postgres://")
-    );
-    assert!(!settings.qti_runtime_enabled().unwrap());
-
-    settings.qti_runtime_enabled = Some("1".to_string());
-    assert!(settings.qti_runtime_enabled().unwrap());
-    settings.qti_runtime_enabled = Some("true".to_string());
-    assert!(settings.qti_runtime_enabled().is_err());
+    let mut enabled = grading_values();
+    enabled.qti_runtime_enabled = Some("1");
+    let settings = GradingBackendSettings::from_values(enabled).expect("QTI is explicitly enabled");
+    assert!(settings.grader_database_url.starts_with("postgres://"));
+    assert!(settings.qti_runtime_enabled);
+    let mut invalid = grading_values();
+    invalid.qti_runtime_enabled = Some("true");
+    assert!(GradingBackendSettings::from_values(invalid).is_err());
 }
 
 #[test]
-fn webwork_renderer_settings_fail_closed_before_router_construction() {
-    let valid = production_settings();
-    assert!(valid.webwork_renderer().unwrap().is_some());
+fn grading_settings_require_all_webwork_values_and_drive_capabilities() {
+    let mut native_only = grading_values();
+    native_only.webwork_renderer_base_url = None;
+    native_only.webwork_request_timeout_seconds = None;
+    native_only.webwork_max_response_bytes = None;
+    native_only.webwork_renderer_id = None;
+    native_only.webwork_renderer_version = None;
+    let native_only =
+        GradingBackendSettings::from_values(native_only).expect("native-only grading");
+    assert!(native_only.webwork.is_none());
 
-    let mut native_only = production_settings();
-    native_only.webwork = None;
-    assert!(native_only.webwork_renderer().unwrap().is_none());
+    let mut incomplete = grading_values();
+    incomplete.webwork_renderer_id = None;
+    assert!(GradingBackendSettings::from_values(incomplete).is_err());
 
-    let mut invalid_base = production_settings();
-    invalid_base
-        .webwork
-        .as_mut()
-        .expect("configured WebWork")
-        .webwork_renderer_base_url = "ftp://renderer.example.test".to_string();
-    assert!(invalid_base.webwork_renderer().is_err());
-
-    let mut query_base = production_settings();
-    query_base
-        .webwork
-        .as_mut()
-        .expect("configured WebWork")
-        .webwork_renderer_base_url = "http://webwork-renderer:8080?secret=not-allowed".to_string();
-    assert!(query_base.webwork_renderer().is_err());
-
-    let mut zero_timeout = production_settings();
-    zero_timeout
-        .webwork
-        .as_mut()
-        .expect("configured WebWork")
-        .webwork_request_timeout_seconds = 0;
-    assert!(zero_timeout.webwork_renderer().is_err());
-
-    let mut zero_bytes = production_settings();
-    zero_bytes
-        .webwork
-        .as_mut()
-        .expect("configured WebWork")
-        .webwork_max_response_bytes = 0;
-    assert!(zero_bytes.webwork_renderer().is_err());
-
-    let mut missing_id = production_settings();
-    missing_id
-        .webwork
-        .as_mut()
-        .expect("configured WebWork")
-        .webwork_renderer_id = " ".to_string();
-    assert!(missing_id.webwork_renderer().is_err());
-
-    let mut missing_version = production_settings();
-    missing_version
-        .webwork
-        .as_mut()
-        .expect("configured WebWork")
-        .webwork_renderer_version
-        .clear();
-    assert!(missing_version.webwork_renderer().is_err());
+    let mut query_base = grading_values();
+    query_base.webwork_renderer_base_url = Some("http://webwork-renderer:8080?secret=not-allowed");
+    assert!(GradingBackendSettings::from_values(query_base).is_err());
 
     assert!(parse_positive_u64("PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS", "nan").is_err());
     assert!(parse_positive_usize("PLE_WEBWORK_MAX_RESPONSE_BYTES", "0").is_err());
+
+    let shared = grading_settings();
+    let worker = super::backend::production_grading_backend_capabilities(&shared);
+    assert!(worker.native);
+    assert!(worker.webwork);
+    assert!(!worker.qti);
+    assert!(!worker.imathas);
+
+    let api = super::backend::api_backend_capabilities(&shared, true);
+    assert!(api.imathas);
 }
 
 #[test]
@@ -668,7 +641,10 @@ async fn imathas_production_configuration_fails_closed_without_provider_ping() {
 
 #[test]
 fn renderer_configuration_debug_exposes_no_credentials() {
-    let configured = production_settings().webwork.expect("configured WebWork");
+    let configured = production_settings()
+        .grading
+        .webwork
+        .expect("configured WebWork");
     let config = HttpWebworkRendererConfig::new(
         &configured.webwork_renderer_base_url,
         std::time::Duration::from_secs(configured.webwork_request_timeout_seconds),

@@ -798,3 +798,145 @@ or child output.
   WP-I2 owns the local alias adapter and its canonical upsert contract above.
 - Non-blocking follow-up: retain the accepted closed-exam contrast as focused
   supplemental coverage, but do not include it in the corrected core report.
+
+## WP-HG1 human-guidance workflow
+
+### Context
+
+WP-HG1 is the accepted 2026-08-12 cross-cutting workflow package. This final section is the detailed
+authority for its Question ID, instructor construction, whole-run timing, runner-input, and evidence
+contracts. The [release completion plan](active/release_completion_plan.md) retains the package summary,
+dependency order, and release boundary.
+
+### Objectives
+
+- Give instructors a selectable, copyable human reference for one immutable published question.
+- Make pasted Question IDs resolve atomically under the current tenant and preserve recoverable work.
+- Connect the instructor's whole-run timing choice to the server-backed learner countdown.
+- Make the canonical J13 and J1--J8 workflow use explicit, private, schema-versioned runner inputs.
+
+### Design philosophy
+
+Use one human-facing Question ID as the instructor's durable reference while keeping immutable
+snapshots, version identity, grading, and authorization server-owned. Keep visible UI actions,
+recoverable drafts, and explicit runner inputs as the evidence boundary for teaching workflows.
+
+### Scope
+
+The package owns the cross-boundary reference contract, editor recovery and atomicity, the explicit
+runner-input boundary, and the whole-run timing workflow. Catalog/domain, browser/HCI, PostgreSQL,
+architecture, security, and HCI owners review their respective boundaries. The package's visible
+instructor result is a deliberately constructed four-question Genetics Chapter 1 assignment. The
+separate two-chapter eight-question Genetics-plus-Biochemistry publication and learner sweep remains
+the RC5 release-content oracle.
+
+The package files are `crates/question_model/src/catalog.rs`, the catalog migration and PostgreSQL
+resolver, generated public contracts and strict decoders, `src/api/`, `src/pages/assignment_editor_*`,
+mock catalog handlers, focused Rust/TypeScript/Playwright tests, canonical `tests/playwright/e2e/`
+scenarios, status, and post-acceptance documentation.
+
+### Non-goals
+
+The release completion plan continues to own RC4--RC12 sequencing, external production activation,
+institutional sign-off, and credentials. The RC5 eight-question release oracle remains separate from
+the four-question instructor construction. Current WP-PROF-S3 and WP-PROF-T1 authorities remain the
+policy and transport sources for current timing; this package records their accepted predecessor
+contract and evidence.
+
+### WP-HG1 contract
+
+- The editor displays and copies a human reference, accepts exact pasted Question IDs in one obvious
+  add-by-ID control, resolves the one immutable published question named by that ID under the current
+  tenant, and changes the assignment only after a whole pasted batch resolves.
+- Malformed, unavailable, unauthorized, duplicate, race, and network cases preserve pasted text and the
+  existing draft with labelled recovery. Displayed Question IDs remain selectable and copyable in
+  canonical `AAA-BBBB` form. The browser uses no UUID as a question identifier and exposes no
+  UUID-valued DOM helper solely for test extraction.
+- One seven-character Crockford Base32 Question ID is displayed as `AAA-BBBB`. The server validates its
+  HMAC-derived checksum before resolving that exact published question through tenant and actor
+  authorization.
+- Live and mock resolver semantics agree: malformed or checksum-invalid is 400, unavailable is 404,
+  unauthorized is 403, and an accessible exact published question succeeds. PostgreSQL conformance
+  proves that a valid Question ID cannot resolve a foreign-tenant-only question.
+- Hidden immutable snapshots and version identity remain internal for authorized replay, grading, audit,
+  provenance, and transport. Instructor-facing selectors and latest-resolution paths use the human
+  Question ID contract.
+
+### Canonical walkthrough
+
+J13 searches the published catalog to find displayed human references, copies and pastes the four
+Genetics Chapter 1 `AAA-BBBB` Question IDs, visibly observes four selected questions, creates the
+assignment, and hands only public course/assignment identifiers to later student stages. The setup
+uses visible UI actions to arrange the assignment; an API-created assignment is not walkthrough
+evidence. Later stages receive no answer material or UUID-derived selector. The eight-question
+Genetics-plus-Biochemistry sweep remains a separate release-content oracle.
+
+The Python runner exposes operator choices through documented arguments or the selected Compose file,
+clears inherited `PLE_*` walkthrough overrides from owned children, and hands fixed Node/Playwright
+stages one schema-versioned mode-0600 private input file by explicit argument. This narrow process
+contract keeps child configuration bounded and reviewable.
+
+### WP-HG1.T timing record
+
+WP-HG1.T was accepted on 2026-08-12 and closes the timed-problem gap in the human-guidance walkthrough.
+Its historical dependency order was the then-course-owned `AssignmentTimingPolicy`, the visible
+assignment editor, and the shared assignment revision. The `AssignmentTimingPolicy` and its API have
+since been removed. The accepted implementation order was the Rust/store/editor contract, followed by
+the Solid form, focused behavior gates, and the current-stack walkthrough.
+
+At acceptance, whole-run timing was course-owned through `AssignmentTimingPolicy`. The editor exposed
+`assignmentTiming: { timeLimitSeconds: positive u32 | null }`; `null` represented an intentional
+untimed assignment; and a new mastery draft received the Rust-generated `900`-second default. Create,
+update, and editor GET composed assignment definition and timing atomically under one revision.
+Published question versions and immutable question-level `TimingPolicy` stayed unchanged.
+
+Current policy authority is accepted WP-PROF-S3's current S3-resolved effective-policy verdict/decision
+after S5 entitlement; sealed receipts preserve the historical acceptance evidence. WP-PROF-T1 owns the
+current transport and whole-run timing in the single `AssignmentTeachingSettings` aggregate with
+lifecycle, instructions, schedule, limits, late, and deadline behavior. The accepted WP-HG1.T record is
+historical evidence and does not define a compatibility reader or writer.
+
+The instructor sees and saves an accessible `Time limit for each practice run` fieldset with
+Timed/Untimed choices and a minutes input; a new mastery assignment visibly starts at 15 minutes. The
+student sees a server-backed countdown for a timed run, or `Untimed` when the saved value is null.
+Invalid input and conflicts preserve the instructor's draft.
+
+### Permanent tests
+
+- Parser/domain bounds; Rust/PostgreSQL resolver and RLS conformance; strict browser
+  decoder/client/repository recovery; mock/live error-class parity; editor batch atomicity, duplicate
+  recovery, and keyboard submit; and a focused visible Playwright copy/paste setup test.
+- Rust Memory/PostgreSQL editor conformance for timing default, atomic create/replace, stale revision,
+  and active-run deadline handling; strict HTTP/decoder/client tests for the nullable field; and
+  keyboard-focused editor/student Playwright tests for timing default, toggle, validation, recovery,
+  and saved display.
+
+These tests assert behavior and contracts rather than exact fixture counts, CSS strings, source strings,
+or implementation names.
+
+### One-time acceptance evidence
+
+- A rebuilt current-stack J13/J1--J8 run with clipboard permission, redacted report, and refreshed public
+  instructor screenshots.
+- The isolated PostgreSQL/MinIO eight-question publication oracle.
+- Independent architecture, security, and HCI review.
+- The real Podman PostgreSQL plus `webwork-pg-renderer` walkthrough: the instructor creates the Genetics
+  assignment from copied `AAA-BBBB` Question IDs with the 15-minute default visible; the student sees
+  the server-backed countdown, completes/retries, and starts a fresh timed practice run; public
+  screenshots are refreshed and visually reviewed at the guide boundary.
+
+The clean-stack walkthrough and screenshot capture supplied this one-time evidence. The evidence is
+recorded separately from permanent behavior tests and remains distinct from the RC5 release-content
+oracle.
+
+### Evidence boundary and success
+
+Permanent evidence covers Question ID parsing/resolution, editor recovery and atomicity, explicit runner
+configuration, assignment timing, keyboard use, and responsive task completion. These checks protect
+teaching behavior, authorization boundaries, and recoverable work.
+
+The accepted success condition is a truthful instructor-to-student walkthrough: the instructor copies
+and pastes human-readable Question IDs, adds the exact published questions, constructs the four-question
+Chapter 1 assignment, and saves a course-owned 15-minute whole-run limit. The student receives a
+server-backed countdown, can complete/retry, and can start a fresh timed practice run. Whole-run timing
+is not duplicated into flat or WeBWorK question sources.

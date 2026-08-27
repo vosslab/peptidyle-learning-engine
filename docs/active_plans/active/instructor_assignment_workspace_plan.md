@@ -2,7 +2,8 @@
 
 ## Status
 
-Planning state: owner-directed and ready for implementation on 2026-08-26.
+Implementation state: accepted on 2026-08-27 after connected acceptance, review, and the complete
+final tracked-tree Validation gate passed.
 
 This plan is the binding execution plan for `WP-PROF-T6`. It follows accepted
 `WP-PROF-T3`, `WP-PROF-LD3`, and `WP-PROF-T5` and becomes the immediate prerequisite for
@@ -449,6 +450,48 @@ generated contracts, shared CSS, existing test edits, and final deletion of the 
    and each lower finding resolved or recorded with owner disposition.
 5. Run `source source_me.sh && ./all_test.sh` on the final material tree. A required skip or unrun
    Validation lane keeps `WP-PROF-T6` open.
+
+## Integrated evidence
+
+The 2026-08-26 implementation uses migration `2026081848`, focused Questions and Policies commands,
+one shared assignment revision, and the answer-free Instructor Student-view projection. Graphify
+narrowed the assignment-editing, course-projection, workspace-route, and connected-journey impact
+areas before source inspection and implementation.
+
+- Focused Rust, TypeScript, ESLint, Prettier, Node, source-size, ASCII, and diff-hygiene gates pass.
+  Store and server coverage proves incomplete Draft persistence, publication readiness, focused
+  revision conflicts, Student refusal, generic unexpected errors, and the issued-work fence for
+  fixed and pooled question structure.
+- The connected production-shaped HTTPS capture passes all live scenarios and atomically publishes
+  61 privacy-validated artifacts from one origin. It includes independent Elena Instructor and
+  Morgan Sysadmin passkey entry, exact cleanup, and the canonical 1280 by 800 Instructor workspace
+  visuals.
+- The connected Instructor journey creates the assignment through visible UI, uses Questions and
+  Policies, inspects Student view without learner mutation, enrolls Mary through the ordinary
+  invitation path, submits Mary's work through ordinary Student entry, and observes the resulting
+  100 percent score in Elena's gradebook for the same assignment.
+- Independent architecture/security and HCI/accessibility reviews return ACCEPT with no unresolved
+  P0, P1, or P2 finding. The final HCI review includes the republished Student-view image with both
+  complete navigation rows and a connected in-viewport assertion for every assignment task.
+- The six durable closure paths are tracked:
+  `crates/server/src/course/tests/assignment_revision/replacement.rs`,
+  `docs/screenshots/instructor/assignment_workspace/01_assignment_policies.png`,
+  `docs/screenshots/instructor/assignment_workspace/02_student_view.png`,
+  `src/pages/assignment_workspace/assignment_workspace_authoring.css`,
+  `tests/test_assignment_workspace_policy_summary.mjs`, and
+  `tests/test_assignment_workspace_replacement_client.mjs`. The exact final tracked-tree command
+  `source source_me.sh && ./all_test.sh` passed, closing T6.
+
+### Fixed-slot replacement correction
+
+The first connected attempt exposed a boundary between selecting a replacement and committing the
+assignment definition. The durable correction adds a focused route-policy command for fixed-slot
+replacement, with server-owned public Question resolution, shared revision checking, stable item
+identity, and an authoritative no-store editor response. Future runs receive the replacement while
+issued snapshots retain the original question. Focused 19 Node/375 runnable server tests, the
+replacement and learner-delivery live journeys, complete 15-scenario local-stack acceptance, and
+clean security/HCI re-reviews now support the corrected design. The six tracked paths and complete
+Validation gate remains the final package success criterion.
 
 ## Risks and mitigations
 

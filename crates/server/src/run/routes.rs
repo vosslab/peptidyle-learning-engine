@@ -9,9 +9,9 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use learning_data_access::{
-    AuthoritativeTimeStore, CatalogStore, CourseAppearanceStore, CourseItemAnalysisStore,
-    LearnerWorkRoutingBinding, ManualGradingStore, SealedPrivateExecutionStore, SessionStore,
-    Store,
+    AuthoritativeTimeStore, AutomatedGradingStore, CatalogStore, CourseAppearanceStore,
+    CourseItemAnalysisStore, LearnerSubmissionStatusStore, LearnerWorkRoutingBinding,
+    ManualGradingStore, SealedPrivateExecutionStore, SessionStore, Store,
 };
 use question_model::{AssignmentId, CourseId, RunId};
 
@@ -22,7 +22,7 @@ use super::manual_grading;
 use super::prefetch::{ensure_active_questions, prefetch_next_question};
 use super::queries::{
     all_attempts, get_attempt, get_attempt_question, get_enrollment, get_run, get_run_summary,
-    get_summary, list_attempts, list_runs, release_attempt_feedback,
+    get_submission_status, get_summary, list_attempts, list_runs, release_attempt_feedback,
 };
 use super::submission::submit_response;
 use super::support::{
@@ -38,6 +38,8 @@ pub fn router<S, B>(
     store: Arc<S>,
     backend: Arc<B>,
     sealed_execution: Arc<dyn SealedPrivateExecutionStore>,
+    learner_submission_status: Arc<dyn LearnerSubmissionStatusStore>,
+    automated_grading: Arc<dyn AutomatedGradingStore>,
 ) -> Router
 where
     S: Store
@@ -72,6 +74,10 @@ where
             post(submit_response::<S, B>),
         )
         .route(
+            "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submission-status",
+            get(get_submission_status::<S, B>),
+        )
+        .route(
             "/api/attempts/{attempt}/manual-grade",
             get(manual_grading::get_manual_grade::<S, B>)
                 .put(manual_grading::put_manual_grade::<S, B>),
@@ -94,6 +100,8 @@ where
             store,
             backend,
             sealed_execution,
+            learner_submission_status,
+            automated_grading,
         })
 }
 

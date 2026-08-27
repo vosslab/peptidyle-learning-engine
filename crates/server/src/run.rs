@@ -17,8 +17,8 @@ use grading::GradeOutcome;
 use question_model::{AssignmentId, AttemptProvenance};
 mod contracts;
 pub use contracts::{
-    GradeReceipt, IssuedAttemptMetadata, RunBackend, RunBackendError, RunSubmission,
-    SubmissionDisposition,
+    DeterministicGraderFailure, GradeReceipt, IssuedAttemptMetadata, RunBackend, RunBackendError,
+    RunSubmission, SubmissionDisposition,
 };
 mod prefetch;
 #[cfg(test)]

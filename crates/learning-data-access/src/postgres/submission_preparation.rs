@@ -1,17 +1,17 @@
 //! Broker-first bounded preparation for ordinary learner submission.
 
-use question_model::{AttemptStatus, StudentResponse};
+use question_model::{AttemptStatus, IssuedAttemptCapabilityV1, StudentResponse};
 use sqlx::{Postgres, Row, Transaction};
 
-use super::entitlement::{
-    PreparedStudentAttemptWork, hydrate_assignment_from_witness,
-    hydrate_prepared_student_attempt_work,
-};
+use super::entitlement::{PreparedStudentAttemptWork, hydrate_prepared_student_attempt_work};
 use super::learner_work_preparation::{
     StudentAttemptPreparationWitness, prepare_student_attempt_work,
 };
 use super::*;
-use crate::{AuthorizedSubmissionIntent, LearnerWorkRoutingBinding, SubmissionPreparation};
+use crate::{
+    AuthorizedSubmissionIntent, LearnerWorkRoutingBinding, SubmissionPreparation,
+    SubmissionReceiptRead,
+};
 
 #[async_trait::async_trait]
 impl crate::SealedPrivateExecutionStore for crate::postgres::PostgresGraderStore {
@@ -185,6 +185,177 @@ fn decode_sealed_qti_contract(
     }
 }
 
+/// Rebuilds one exact grading descriptor from the worker-only execution-load
+/// broker projection. The broker has already fenced tenant, lease, job,
+/// accepted input, and issued rows; this decoder repeats all identity and
+/// checksum checks before a grader can receive the resulting private input.
+///
+/// The function intentionally consumes only issued evidence projected by the
+/// broker. It never consults the mutable catalog or learner authorization
+/// state, so a retry remains bound to the originally issued question.
+pub(super) fn decode_prepared_accepted_submission_execution(
+    row: &sqlx::postgres::PgRow,
+) -> Result<crate::PreparedQuestionSubmission, StoreError> {
+    let attempt_payload: serde_json::Value =
+        row.try_get("attempt_payload").map_err(map_sqlx_error)?;
+    let attempt_checksum: String = row
+        .try_get("attempt_payload_sha256")
+        .map_err(map_sqlx_error)?;
+    let attempt: question_model::QuestionAttempt =
+        super::row_decode::decode_payload_parts(attempt_payload, attempt_checksum)?;
+    let accepted_tenant: uuid::Uuid = row.try_get("accepted_tenant_id").map_err(map_sqlx_error)?;
+    let accepted_attempt: uuid::Uuid =
+        row.try_get("accepted_attempt_id").map_err(map_sqlx_error)?;
+    if attempt.tenant.as_uuid() != accepted_tenant
+        || attempt.id.as_uuid() != accepted_attempt
+        || attempt.status != AttemptStatus::InProgress
+        || attempt.response.is_some()
+        || attempt.result.is_some()
+    {
+        return Err(StoreError::Unavailable(
+            "accepted execution attempt disagrees with issued evidence".to_string(),
+        ));
+    }
+
+    let issued_question_snapshot =
+        super::runs::attempt_issuance::decode_issued_question_snapshot(row)?;
+    issued_question_snapshot.validate_for_attempt(attempt.problem, attempt.question_version)?;
+    issued_question_snapshot.validate_native_provenance(&attempt.provenance.asset_objects)?;
+
+    let presentation_capability =
+        super::runs::attempt_issuance::presentation_capability_from_row(row)?;
+    let presentation_binding = super::row_decode::decode_presentation_binding_row(row)?;
+    let presentation = super::runs::attempt_issuance::decode_attempt_presentation_snapshot(
+        row,
+        presentation_capability,
+    )?;
+    let grading_envelope = super::runs::attempt_issuance::decode_attempt_grading_envelope(
+        row,
+        presentation_capability,
+    )?;
+    let flat_grading = decode_private_json_contract::<crate::IssuedFlatGradingContract>(
+        row,
+        "flat_required",
+        "flat_payload",
+        "flat_payload_sha256",
+    )?;
+    let webwork_grading = decode_private_json_contract::<crate::IssuedWebworkGradingContract>(
+        row,
+        "webwork_required",
+        "webwork_payload",
+        "webwork_payload_sha256",
+    )?;
+    let webwork_replay_mapping = decode_private_json_contract::<crate::WebworkReplayMappingV1>(
+        row,
+        "webwork_required",
+        "webwork_replay_payload",
+        "webwork_replay_payload_sha256",
+    )?;
+    let qti_required: bool = row.try_get("qti_required").map_err(map_sqlx_error)?;
+    let qti_payload: Option<Vec<u8>> = row.try_get("qti_payload").map_err(map_sqlx_error)?;
+    let qti_checksum: Option<String> = row.try_get("qti_payload_sha256").map_err(map_sqlx_error)?;
+    let issued_qti_grading = decode_sealed_qti_contract(
+        &issued_question_snapshot,
+        qti_required,
+        qti_payload,
+        qti_checksum,
+    )?;
+
+    let (flat_capability, webwork_capability, qti_capability) = match attempt.issued_capability {
+        IssuedAttemptCapabilityV1::FlatPresentation => (
+            crate::FlatGradingCapability::Required,
+            crate::WebworkGradingCapability::NotApplicable,
+            crate::QtiGradingCapability::NotApplicable,
+        ),
+        IssuedAttemptCapabilityV1::WebworkPresentation => (
+            crate::FlatGradingCapability::NotApplicable,
+            crate::WebworkGradingCapability::Required,
+            crate::QtiGradingCapability::NotApplicable,
+        ),
+        IssuedAttemptCapabilityV1::QtiPresentation => (
+            crate::FlatGradingCapability::NotApplicable,
+            crate::WebworkGradingCapability::NotApplicable,
+            crate::QtiGradingCapability::Required,
+        ),
+        IssuedAttemptCapabilityV1::PresentationEnvelope
+        | IssuedAttemptCapabilityV1::NotApplicable => (
+            crate::FlatGradingCapability::NotApplicable,
+            crate::WebworkGradingCapability::NotApplicable,
+            crate::QtiGradingCapability::NotApplicable,
+        ),
+    };
+    let expected_capability = crate::issued_attempt_capability_from_issue(
+        presentation_capability,
+        flat_capability,
+        webwork_capability,
+        qti_capability,
+    )?;
+    if attempt.issued_capability != expected_capability {
+        return Err(StoreError::Unavailable(
+            "accepted execution capability disagrees with issued attempt".to_string(),
+        ));
+    }
+    let presentation = crate::validate_issued_presentation(
+        presentation_capability,
+        &attempt,
+        presentation_binding,
+        presentation.as_ref(),
+        grading_envelope.as_ref(),
+    )?;
+    issued_question_snapshot.validate_for_issuance_context(
+        flat_capability,
+        webwork_capability,
+        qti_capability,
+        presentation.as_ref(),
+    )?;
+    crate::validate_issued_flat_grading(
+        issued_question_snapshot.question(),
+        presentation_capability,
+        flat_capability,
+        flat_grading.as_ref(),
+    )?;
+    crate::validate_issued_webwork_grading(
+        issued_question_snapshot.question(),
+        webwork_capability,
+        webwork_grading.as_ref(),
+    )?;
+    crate::validate_issued_qti_grading(
+        issued_question_snapshot.question(),
+        qti_capability,
+        issued_qti_grading.as_ref(),
+    )?;
+    crate::validate_issued_webwork_replay(webwork_capability, webwork_replay_mapping.as_ref())?;
+    let webwork_replay = webwork_replay_mapping
+        .map(|mapping| {
+            let binding = presentation_binding.ok_or_else(|| {
+                StoreError::Unavailable(
+                    "accepted WebWork execution lacks an issued presentation binding".to_string(),
+                )
+            })?;
+            crate::webwork_replay_state_from_issue(
+                attempt.problem,
+                attempt.question_version,
+                attempt.seed,
+                &attempt.provenance,
+                binding,
+                mapping,
+            )
+        })
+        .transpose()?;
+
+    Ok(crate::PreparedQuestionSubmission {
+        attempt,
+        issued_question_snapshot,
+        presentation_binding,
+        presentation,
+        grading_envelope,
+        flat_grading,
+        webwork_grading,
+        issued_qti_grading,
+        webwork_replay,
+    })
+}
+
 /// Runs one short broker-first snapshot and releases its locks before grading.
 pub(super) async fn prepare_question_submission(
     store: &PostgresStore,
@@ -210,8 +381,11 @@ pub(super) async fn prepare_question_submission(
     )
     .await?
     {
-        Some(record) => SubmissionPreparation::Replay(Box::new(record)),
-        None => {
+        SubmissionReceiptRead::Completed(record) => SubmissionPreparation::Replay(record),
+        SubmissionReceiptRead::AcceptedPending(pending) => {
+            SubmissionPreparation::AcceptedPending(pending)
+        }
+        SubmissionReceiptRead::Missing => {
             let prepared =
                 hydrate_prepared_student_attempt_work(&mut transaction, &witness).await?;
             if prepared.attempt.status != AttemptStatus::InProgress
@@ -243,79 +417,58 @@ async fn prepared_submission_replay_for_witness(
     response: &StudentResponse,
     idempotency_key: &SubmissionIdempotencyKey,
     witness: &StudentAttemptPreparationWitness,
-) -> Result<Option<SubmissionRecord>, StoreError> {
-    let row = sqlx::query(
-        "SELECT idempotency_key, request_contract_version, request_sha256, \
-                payload, payload_sha256 \
-           FROM submission_idempotency WHERE tenant_id=$1 AND attempt_id=$2",
+) -> Result<SubmissionReceiptRead, StoreError> {
+    let Some(metadata) = super::submission_receipts::load_submission_replay_metadata(
+        transaction,
+        tenant,
+        witness.attempt,
     )
-    .bind(tenant.as_uuid())
-    .bind(witness.attempt.as_uuid())
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    let Some(row) = row else {
-        return Ok(None);
+    .await?
+    else {
+        return Ok(SubmissionReceiptRead::Missing);
     };
-    let (_, response_checksum) = encode_payload(response)?;
-    if row
-        .try_get::<String, _>("idempotency_key")
-        .map_err(map_sqlx_error)?
-        != idempotency_key.as_str()
-        || row
-            .try_get::<i16, _>("request_contract_version")
-            .map_err(map_sqlx_error)?
-            != 0
-        || row
-            .try_get::<String, _>("request_sha256")
-            .map_err(map_sqlx_error)?
-            != response_checksum
-    {
+    if metadata.idempotency_key != idempotency_key.as_str() {
         return Err(StoreError::Conflict);
     }
-    let submitted: QuestionAttempt = decode_payload_row(&row)?;
-    if submitted.id != witness.attempt || submitted.tenant != tenant || submitted.run != witness.run
-    {
-        return Err(StoreError::Unavailable(
-            "submission replay disagrees with learner-work witness".to_string(),
-        ));
+    match metadata.request_contract_version {
+        0 => {
+            let (_, response_checksum) = encode_payload(response)?;
+            if metadata.request_sha256 != response_checksum {
+                return Err(StoreError::Conflict);
+            }
+        }
+        2 => {
+            return super::submission_receipts::accepted_pending_replay_from_metadata(
+                &metadata,
+                response,
+                idempotency_key,
+                witness.attempt,
+            );
+        }
+        _ => return Err(StoreError::Conflict),
     }
-    let feedback = load_attempt_feedback(transaction, tenant, submitted.id).await?;
-    let (run, summary, presentation) =
-        load_submission_receipt_snapshot(transaction, tenant, submitted.id)
-            .await?
-            .ok_or_else(|| {
-                StoreError::Unavailable(
-                    "submission receipt snapshot is missing; it cannot be reconstructed"
-                        .to_string(),
-                )
-            })?;
+    let receipt =
+        super::submission_receipts::load_submission_record(transaction, tenant, witness.attempt)
+            .await?;
+    let SubmissionReceiptRead::Completed(record) = receipt else {
+        return Ok(receipt);
+    };
     let enrollment = witness
         .source
         .existing_enrollment
         .ok_or_else(|| StoreError::Unavailable("replay enrollment is missing".to_string()))?;
-    if run.id != witness.run || run.enrollment != enrollment || summary.enrollment != enrollment {
+    if record.attempt.id != witness.attempt
+        || record.attempt.tenant != tenant
+        || record.attempt.run != witness.run
+        || record.run.id != witness.run
+        || record.run.enrollment != enrollment
+        || record.summary.enrollment != enrollment
+    {
         return Err(StoreError::Unavailable(
             "submission receipt disagrees with learner-work witness".to_string(),
         ));
     }
-    let assignment = hydrate_assignment_from_witness(transaction, &witness.source).await?;
-    let disclosure = current_disclosure_input(
-        transaction,
-        tenant,
-        &assignment,
-        submitted.id,
-        submitted.timer.submitted_at,
-    )
-    .await?;
-    Ok(Some(SubmissionRecord {
-        attempt: submitted,
-        run,
-        summary,
-        feedback,
-        presentation,
-        disclosure,
-    }))
+    Ok(SubmissionReceiptRead::Completed(record))
 }
 
 pub(super) async fn prepare_bound_student_attempt(
@@ -336,77 +489,55 @@ pub(super) async fn prepared_submission_replay(
     response: &StudentResponse,
     idempotency_key: &SubmissionIdempotencyKey,
     prepared: &PreparedStudentAttemptWork,
-) -> Result<Option<SubmissionRecord>, StoreError> {
-    let row = sqlx::query(
-        "SELECT idempotency_key, request_contract_version, request_sha256, \
-                payload, payload_sha256 \
-           FROM submission_idempotency WHERE tenant_id=$1 AND attempt_id=$2",
+) -> Result<SubmissionReceiptRead, StoreError> {
+    let Some(metadata) = super::submission_receipts::load_submission_replay_metadata(
+        transaction,
+        tenant,
+        prepared.attempt.id,
     )
-    .bind(tenant.as_uuid())
-    .bind(prepared.attempt.id.as_uuid())
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(map_sqlx_error)?;
-    let Some(row) = row else {
-        return Ok(None);
+    .await?
+    else {
+        return Ok(SubmissionReceiptRead::Missing);
     };
-    let (_, response_checksum) = encode_payload(response)?;
-    if row
-        .try_get::<String, _>("idempotency_key")
-        .map_err(map_sqlx_error)?
-        != idempotency_key.as_str()
-        || row
-            .try_get::<i16, _>("request_contract_version")
-            .map_err(map_sqlx_error)?
-            != 0
-        || row
-            .try_get::<String, _>("request_sha256")
-            .map_err(map_sqlx_error)?
-            != response_checksum
-    {
+    if metadata.idempotency_key != idempotency_key.as_str() {
         return Err(StoreError::Conflict);
     }
-    let submitted: QuestionAttempt = decode_payload_row(&row)?;
-    if submitted.id != prepared.attempt.id
-        || submitted.tenant != tenant
-        || submitted.run != prepared.run.id
-    {
-        return Err(StoreError::Unavailable(
-            "submission replay disagrees with prepared attempt".to_string(),
-        ));
+    match metadata.request_contract_version {
+        0 => {
+            let (_, response_checksum) = encode_payload(response)?;
+            if metadata.request_sha256 != response_checksum {
+                return Err(StoreError::Conflict);
+            }
+        }
+        2 => {
+            return super::submission_receipts::accepted_pending_replay_from_metadata(
+                &metadata,
+                response,
+                idempotency_key,
+                prepared.attempt.id,
+            );
+        }
+        _ => return Err(StoreError::Conflict),
     }
-    let feedback = load_attempt_feedback(transaction, tenant, submitted.id).await?;
-    let (run, summary, presentation) =
-        load_submission_receipt_snapshot(transaction, tenant, submitted.id)
-            .await?
-            .ok_or_else(|| {
-                StoreError::Unavailable(
-                    "submission receipt snapshot is missing; it cannot be reconstructed"
-                        .to_string(),
-                )
-            })?;
-    if run.enrollment != prepared.enrollment.id
-        || summary.enrollment != prepared.enrollment.id
-        || presentation != prepared.presentation
+    let receipt = super::submission_receipts::load_submission_record(
+        transaction,
+        tenant,
+        prepared.attempt.id,
+    )
+    .await?;
+    let SubmissionReceiptRead::Completed(record) = receipt else {
+        return Ok(receipt);
+    };
+    if record.attempt.id != prepared.attempt.id
+        || record.attempt.tenant != tenant
+        || record.attempt.run != prepared.run.id
+        || record.run.enrollment != prepared.enrollment.id
+        || record.summary.enrollment != prepared.enrollment.id
+        || record.presentation != prepared.presentation
     {
         return Err(StoreError::Unavailable(
             "submission receipt disagrees with prepared aggregate".to_string(),
         ));
     }
-    let disclosure = current_disclosure_input(
-        transaction,
-        tenant,
-        &prepared.assignment,
-        submitted.id,
-        submitted.timer.submitted_at,
-    )
-    .await?;
-    Ok(Some(SubmissionRecord {
-        attempt: submitted,
-        run,
-        summary,
-        feedback,
-        presentation,
-        disclosure,
-    }))
+    Ok(SubmissionReceiptRead::Completed(record))
 }

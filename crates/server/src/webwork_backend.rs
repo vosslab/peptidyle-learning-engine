@@ -20,7 +20,7 @@ use question_model::{
     StudentResponse,
 };
 
-use crate::run::RunBackendError;
+use crate::run::{DeterministicGraderFailure, RunBackendError};
 
 mod replay_mapping;
 
@@ -109,7 +109,7 @@ where
     ) -> Result<grading::GradeOutcome, RunBackendError> {
         let question = grading_contract.question();
         validate_attempt_reference(reference, question, attempt).map_err(|_| {
-            RunBackendError::Unavailable("WeBWorK issued grading contract is unavailable".into())
+            RunBackendError::Deterministic(DeterministicGraderFailure::IssuedEvidenceIntegrity)
         })?;
         validate_active_renderer(attempt, self.adapter.renderer_identity())?;
         validate_replay_state(attempt, binding, state)?;
@@ -119,13 +119,11 @@ where
             binding,
         )
         .map_err(|_| {
-            RunBackendError::Unavailable(
-                "WeBWorK issued presentation contract is unavailable".into(),
-            )
+            RunBackendError::Deterministic(DeterministicGraderFailure::IssuedEvidenceIntegrity)
         })?;
         if presentation.envelope != snapshot.envelope {
-            return Err(RunBackendError::Unavailable(
-                "WeBWorK issued presentation contract is unavailable".into(),
+            return Err(RunBackendError::Deterministic(
+                DeterministicGraderFailure::IssuedEvidenceIntegrity,
             ));
         }
         let replay = restore_replay_mapping(state.mapping.clone(), &presentation)?;
@@ -138,9 +136,7 @@ where
             state.source_artifact.clone(),
         )
         .await
-        .map_err(|_| {
-            RunBackendError::Unavailable("WeBWorK issued source artifact is unavailable".into())
-        })?;
+        .map_err(map_grading_adapter_error)?;
         self.adapter
             .grade(
                 question,
@@ -150,7 +146,7 @@ where
                 &replay,
             )
             .await
-            .map_err(map_adapter_error)
+            .map_err(map_grading_adapter_error)
     }
 
     async fn resolve_source(
@@ -186,13 +182,13 @@ fn validate_active_renderer(
     active: &adapter_webwork::renderer_contract::RendererIdentity,
 ) -> Result<(), RunBackendError> {
     let Some(issued) = attempt.provenance.renderer.as_ref() else {
-        return Err(RunBackendError::Unavailable(
-            "WeBWorK attempt omitted its renderer identity".into(),
+        return Err(RunBackendError::Deterministic(
+            DeterministicGraderFailure::IssuedEvidenceIntegrity,
         ));
     };
     if issued.id != active.id || issued.version != active.version {
-        return Err(RunBackendError::Unavailable(
-            "configured WeBWorK renderer does not match the issued attempt".into(),
+        return Err(RunBackendError::Deterministic(
+            DeterministicGraderFailure::IssuedEvidenceIntegrity,
         ));
     }
     Ok(())
@@ -210,8 +206,8 @@ fn validate_replay_state(
         || attempt.provenance.renderer.as_ref() != Some(&state.renderer)
         || state.presentation_digest != binding.digest()
     {
-        return Err(RunBackendError::Unavailable(
-            "WeBWorK replay does not match the issued attempt".into(),
+        return Err(RunBackendError::Deterministic(
+            DeterministicGraderFailure::IssuedEvidenceIntegrity,
         ));
     }
     Ok(())
@@ -316,6 +312,34 @@ fn map_adapter_error(error: WebworkAdapterError) -> RunBackendError {
         }
         WebworkAdapterError::UnsupportedSource => RunBackendError::Unsupported(error.to_string()),
         other => RunBackendError::Invalid(other.to_string()),
+    }
+}
+
+/// Classifies an adapter result after the route has validated the response and
+/// the backend has selected its exact immutable issued grading evidence.
+fn map_grading_adapter_error(error: WebworkAdapterError) -> RunBackendError {
+    match error {
+        WebworkAdapterError::Renderer(
+            adapter_webwork::renderer_contract::RendererFailure::Unavailable
+            | adapter_webwork::renderer_contract::RendererFailure::TimedOut
+            | adapter_webwork::renderer_contract::RendererFailure::ResourceExhausted,
+        )
+        | WebworkAdapterError::ObjectStore(ObjectStoreError::Unavailable(_)) => {
+            RunBackendError::Unavailable("question backend is temporarily unavailable".to_string())
+        }
+        WebworkAdapterError::UnsupportedSource => RunBackendError::Unsupported(error.to_string()),
+        WebworkAdapterError::Renderer(
+            adapter_webwork::renderer_contract::RendererFailure::InvalidOutput(_),
+        )
+        | WebworkAdapterError::SourceChecksumMismatch
+        | WebworkAdapterError::UntrustedSource
+        | WebworkAdapterError::SourceDoesNotMatchQuestion
+        | WebworkAdapterError::InvalidCache(_)
+        | WebworkAdapterError::InvalidRendererEnvelope(_)
+        | WebworkAdapterError::InvalidTitle(_)
+        | WebworkAdapterError::ObjectStore(_) => {
+            RunBackendError::Deterministic(DeterministicGraderFailure::IssuedEvidenceIntegrity)
+        }
     }
 }
 
@@ -447,6 +471,32 @@ mod tests {
 
     fn id(value: u128) -> Uuid {
         Uuid::from_u128(value)
+    }
+
+    #[test]
+    fn grading_mapper_preserves_outage_and_sealed_evidence_categories() {
+        assert!(matches!(
+            map_grading_adapter_error(WebworkAdapterError::Renderer(
+                adapter_webwork::renderer_contract::RendererFailure::Unavailable,
+            )),
+            RunBackendError::Unavailable(_)
+        ));
+        assert!(matches!(
+            map_grading_adapter_error(WebworkAdapterError::ObjectStore(
+                ObjectStoreError::Unavailable("object store down".to_string()),
+            )),
+            RunBackendError::Unavailable(_)
+        ));
+        assert!(matches!(
+            map_grading_adapter_error(WebworkAdapterError::InvalidRendererEnvelope(
+                "bad-issued-envelope".to_string(),
+            )),
+            RunBackendError::Deterministic(DeterministicGraderFailure::IssuedEvidenceIntegrity)
+        ));
+        assert!(matches!(
+            map_grading_adapter_error(WebworkAdapterError::UnsupportedSource),
+            RunBackendError::Unsupported(_)
+        ));
     }
 
     fn reference() -> ProblemVersionRef {

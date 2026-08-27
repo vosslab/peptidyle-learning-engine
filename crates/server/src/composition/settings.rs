@@ -113,9 +113,8 @@ impl StorageRuntime {
             (ProcessRole::PublicAssetPublisher, StorageTopology::AwsWorkload) => {
                 "PLE_PUBLISHER_DATABASE_URL"
             }
-            (ProcessRole::Api, _) | (ProcessRole::Worker, StorageTopology::DisposableLocal) => {
-                "DATABASE_URL"
-            }
+            (ProcessRole::Api, _) => "DATABASE_URL",
+            (ProcessRole::Worker, _) => "PLE_WORKER_DATABASE_URL",
             (ProcessRole::PublicAssetPublisher, StorageTopology::DisposableLocal) => {
                 unreachable!("publisher rejects disposable local storage")
             }
@@ -232,7 +231,18 @@ pub(super) struct LazyStorageDependencies {
 impl LazyStorageDependencies {
     pub(super) async fn from_settings(settings: &StorageSettings) -> Result<Self> {
         let pool = match (settings.runtime.role, settings.runtime.topology) {
-            (_, StorageTopology::DisposableLocal) => lazy_pool(&settings.database_url),
+            (ProcessRole::Api, StorageTopology::DisposableLocal) => {
+                learning_data_access::postgres::local_development_pool(
+                    &settings.database_url,
+                    ProductionLoginProfile::Api,
+                )
+            }
+            (ProcessRole::Worker, StorageTopology::DisposableLocal) => {
+                learning_data_access::postgres::local_development_pool(
+                    &settings.database_url,
+                    ProductionLoginProfile::Worker,
+                )
+            }
             (ProcessRole::Api, StorageTopology::AwsWorkload) => {
                 production_pool(&settings.database_url, ProductionLoginProfile::Api)
             }
@@ -241,6 +251,9 @@ impl LazyStorageDependencies {
             }
             (ProcessRole::PublicAssetPublisher, StorageTopology::AwsWorkload) => {
                 production_pool(&settings.database_url, ProductionLoginProfile::Publisher)
+            }
+            (ProcessRole::PublicAssetPublisher, StorageTopology::DisposableLocal) => {
+                unreachable!("publisher rejects disposable local storage before pool construction")
             }
         }
         .map_err(|_| anyhow::anyhow!("database connection configuration was rejected"))?;
@@ -325,10 +338,8 @@ impl PublisherStorageDependencies {
 pub(super) struct ProductionSettings {
     pub(super) storage: StorageSettings,
     pub(super) public_asset_base_url: PublicAssetBaseUrl,
-    pub(super) webwork: Option<WebworkRendererSettings>,
+    pub(super) grading: GradingBackendSettings,
     pub(super) imathas_provider_key: Option<String>,
-    pub(super) qti_runtime_enabled: Option<String>,
-    pub(super) grader_database_url: Option<String>,
     pub(super) enrollment_secret: Option<EnrollmentSecretSettings>,
     pub(super) enrollment_email: Option<EnrollmentEmailSettings>,
     pub(super) webauthn: crate::auth::PasswordlessWebauthn,
@@ -351,12 +362,84 @@ pub(super) struct EnrollmentSecretSettings {
     pub(super) invitation_token_secret_file: String,
 }
 
+#[derive(Debug, Clone)]
 pub(super) struct WebworkRendererSettings {
     pub(super) webwork_renderer_base_url: String,
     pub(super) webwork_request_timeout_seconds: u64,
     pub(super) webwork_max_response_bytes: usize,
     pub(super) webwork_renderer_id: String,
     pub(super) webwork_renderer_version: String,
+}
+
+/// Settings shared by the API and the sealed grading worker. They deliberately
+/// exclude browser, enrollment, public-asset, and external-tool configuration.
+#[derive(Debug, Clone)]
+pub(super) struct GradingBackendSettings {
+    pub(super) grader_database_url: String,
+    pub(super) webwork: Option<WebworkRendererSettings>,
+    pub(super) qti_runtime_enabled: bool,
+}
+
+/// Injected grading-only values keep parser tests independent of process-wide
+/// environment mutation.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct GradingBackendSettingValues<'a> {
+    pub(super) grader_database_url: Option<&'a str>,
+    pub(super) webwork_renderer_base_url: Option<&'a str>,
+    pub(super) webwork_request_timeout_seconds: Option<&'a str>,
+    pub(super) webwork_max_response_bytes: Option<&'a str>,
+    pub(super) webwork_renderer_id: Option<&'a str>,
+    pub(super) webwork_renderer_version: Option<&'a str>,
+    pub(super) qti_runtime_enabled: Option<&'a str>,
+}
+
+impl GradingBackendSettings {
+    pub(super) fn from_env() -> Result<Self> {
+        let grader_database_url = optional_env("PLE_GRADER_DATABASE_URL")?;
+        let webwork_renderer_base_url = optional_env("PLE_WEBWORK_RENDERER_BASE_URL")?;
+        let webwork_request_timeout_seconds = optional_env("PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS")?;
+        let webwork_max_response_bytes = optional_env("PLE_WEBWORK_MAX_RESPONSE_BYTES")?;
+        let webwork_renderer_id = optional_env("PLE_WEBWORK_RENDERER_ID")?;
+        let webwork_renderer_version = optional_env("PLE_WEBWORK_RENDERER_VERSION")?;
+        let qti_runtime_enabled = optional_env("PLE_QTI_RUNTIME_ENABLED")?;
+        Self::from_values(GradingBackendSettingValues {
+            grader_database_url: grader_database_url.as_deref(),
+            webwork_renderer_base_url: webwork_renderer_base_url.as_deref(),
+            webwork_request_timeout_seconds: webwork_request_timeout_seconds.as_deref(),
+            webwork_max_response_bytes: webwork_max_response_bytes.as_deref(),
+            webwork_renderer_id: webwork_renderer_id.as_deref(),
+            webwork_renderer_version: webwork_renderer_version.as_deref(),
+            qti_runtime_enabled: qti_runtime_enabled.as_deref(),
+        })
+    }
+
+    pub(super) fn from_values(values: GradingBackendSettingValues<'_>) -> Result<Self> {
+        let grader_database_url = values
+            .grader_database_url
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| anyhow::anyhow!("PLE_GRADER_DATABASE_URL must be set"))?;
+        if !grader_database_url.starts_with("postgres://")
+            && !grader_database_url.starts_with("postgresql://")
+        {
+            bail!("PLE_GRADER_DATABASE_URL must be a PostgreSQL connection URL");
+        }
+        let webwork = WebworkRendererSettings::from_values(values)?;
+        if let Some(webwork) = &webwork {
+            // Validate the complete renderer contract while parsing settings so
+            // production backend construction remains configuration-free.
+            webwork.renderer()?;
+        }
+        let qti_runtime_enabled = match values.qti_runtime_enabled {
+            None => false,
+            Some("1") => true,
+            Some(_) => bail!("PLE_QTI_RUNTIME_ENABLED must be exactly 1 when set"),
+        };
+        Ok(Self {
+            grader_database_url: grader_database_url.to_string(),
+            webwork,
+            qti_runtime_enabled,
+        })
+    }
 }
 
 impl ProductionSettings {
@@ -377,10 +460,8 @@ impl ProductionSettings {
         Ok(Self {
             storage: StorageSettings::from_env(runtime)?,
             public_asset_base_url,
-            webwork: WebworkRendererSettings::from_env()?,
+            grading: GradingBackendSettings::from_env()?,
             imathas_provider_key: std::env::var("PLE_IMATHAS_PROVIDER_KEY").ok(),
-            qti_runtime_enabled: std::env::var("PLE_QTI_RUNTIME_ENABLED").ok(),
-            grader_database_url: std::env::var("PLE_GRADER_DATABASE_URL").ok(),
             enrollment_secret: EnrollmentSecretSettings::from_env()?,
             enrollment_email: EnrollmentEmailSettings::from_env()?,
             webauthn: crate::auth::PasswordlessWebauthn::new(
@@ -393,13 +474,6 @@ impl ProductionSettings {
             client_address_policy,
             live_demo_selector,
         })
-    }
-
-    pub(super) fn webwork_renderer(&self) -> Result<Option<HttpWebworkRenderer>> {
-        self.webwork
-            .as_ref()
-            .map(WebworkRendererSettings::renderer)
-            .transpose()
     }
 
     pub(super) fn imathas(
@@ -483,31 +557,6 @@ impl ProductionSettings {
                     .map_err(|_| anyhow::anyhow!("PLE_IMATHAS launch state secret is invalid"))?,
             ),
         }))
-    }
-
-    /// Flat native questions are registered in every production adapter, so
-    /// their separately authenticated grader connection is mandatory even
-    /// when the optional QTI runtime is disabled.
-    pub(super) fn grader_database_url(&self) -> Result<&str> {
-        let database_url = self
-            .grader_database_url
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| anyhow::anyhow!("PLE_GRADER_DATABASE_URL must be set"))?;
-        if !database_url.starts_with("postgres://") && !database_url.starts_with("postgresql://") {
-            bail!("PLE_GRADER_DATABASE_URL must be a PostgreSQL connection URL");
-        }
-        Ok(database_url)
-    }
-
-    /// QTI remains explicitly opt-in; it shares the already-required native
-    /// flat-question grader connection rather than creating another pool.
-    pub(super) fn qti_runtime_enabled(&self) -> Result<bool> {
-        match self.qti_runtime_enabled.as_deref() {
-            None => Ok(false),
-            Some("1") => Ok(true),
-            Some(_) => bail!("PLE_QTI_RUNTIME_ENABLED must be exactly 1 when set"),
-        }
     }
 }
 
@@ -664,29 +713,46 @@ impl EnrollmentSecretSettings {
 }
 
 impl WebworkRendererSettings {
-    pub(super) const ENV_NAMES: [&'static str; 5] = [
-        "PLE_WEBWORK_RENDERER_BASE_URL",
-        "PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS",
-        "PLE_WEBWORK_MAX_RESPONSE_BYTES",
-        "PLE_WEBWORK_RENDERER_ID",
-        "PLE_WEBWORK_RENDERER_VERSION",
-    ];
-
-    pub(super) fn from_env() -> Result<Option<Self>> {
-        if !Self::ENV_NAMES
-            .iter()
-            .any(|name| std::env::var_os(name).is_some())
-        {
+    fn from_values(values: GradingBackendSettingValues<'_>) -> Result<Option<Self>> {
+        let webwork_values = [
+            values.webwork_renderer_base_url,
+            values.webwork_request_timeout_seconds,
+            values.webwork_max_response_bytes,
+            values.webwork_renderer_id,
+            values.webwork_renderer_version,
+        ];
+        if webwork_values.iter().all(Option::is_none) {
             return Ok(None);
         }
         Ok(Some(Self {
-            webwork_renderer_base_url: required_env("PLE_WEBWORK_RENDERER_BASE_URL")?,
-            webwork_request_timeout_seconds: positive_u64_env(
-                "PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS",
+            webwork_renderer_base_url: required_value(
+                "PLE_WEBWORK_RENDERER_BASE_URL",
+                values.webwork_renderer_base_url,
             )?,
-            webwork_max_response_bytes: positive_usize_env("PLE_WEBWORK_MAX_RESPONSE_BYTES")?,
-            webwork_renderer_id: required_env("PLE_WEBWORK_RENDERER_ID")?,
-            webwork_renderer_version: required_env("PLE_WEBWORK_RENDERER_VERSION")?,
+            webwork_request_timeout_seconds: parse_positive_u64(
+                "PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS",
+                required_value(
+                    "PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS",
+                    values.webwork_request_timeout_seconds,
+                )?
+                .as_str(),
+            )?,
+            webwork_max_response_bytes: parse_positive_usize(
+                "PLE_WEBWORK_MAX_RESPONSE_BYTES",
+                required_value(
+                    "PLE_WEBWORK_MAX_RESPONSE_BYTES",
+                    values.webwork_max_response_bytes,
+                )?
+                .as_str(),
+            )?,
+            webwork_renderer_id: required_value(
+                "PLE_WEBWORK_RENDERER_ID",
+                values.webwork_renderer_id,
+            )?,
+            webwork_renderer_version: required_value(
+                "PLE_WEBWORK_RENDERER_VERSION",
+                values.webwork_renderer_version,
+            )?,
         }))
     }
 
@@ -732,6 +798,21 @@ pub(super) fn required_env(name: &str) -> Result<String> {
         bail!("{name} must not be empty");
     }
     Ok(value)
+}
+
+fn optional_env(name: &str) -> Result<Option<String>> {
+    match std::env::var(name) {
+        Ok(value) => Ok(Some(value)),
+        Err(std::env::VarError::NotPresent) => Ok(None),
+        Err(std::env::VarError::NotUnicode(_)) => bail!("{name} must be valid UTF-8"),
+    }
+}
+
+fn required_value(name: &str, value: Option<&str>) -> Result<String> {
+    value
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| anyhow::anyhow!("{name} must be set"))
 }
 
 fn reject_present_env(name: &str) -> Result<()> {

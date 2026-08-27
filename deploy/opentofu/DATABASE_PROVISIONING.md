@@ -10,12 +10,14 @@ VPC; do not run it from an ECS API or worker task.
    `PLE_MIGRATION_DATABASE_URL`.
 2. Apply the repository migration role/grant baseline. Create exactly
    `ple_api_login`, `ple_worker_login`, `ple_publisher_login`, and `ple_grading_reader` with the
-   memberships and attributes the production pool verifier attests. In particular,
-   `ple_publisher_login` has only `SET` (not `INHERIT` or `ADMIN`) membership in
-   `ple_public_asset_publisher`; it must not inherit `ple_app` or any broker role. Do not
-   grant login, membership, `BYPASSRLS`, schema creation, or table ownership to
-   the ECS task roles; ECS uses IAM only for AWS APIs and PostgreSQL logins are
-   separate credentials.
+   memberships and attributes the production pool verifier attests. `ple_api_login` has direct
+   `SET`-only membership in `ple_app` and `ple_auth`. `ple_worker_login` has direct `SET`-only
+   membership in `ple_app` and `ple_accepted_submission_execution`; the execution capability is
+   worker-only and grants the sealed accepted-submission loader without direct private-table
+   access. `ple_publisher_login` has only `SET` membership in `ple_public_asset_publisher`.
+   Every process login is `LOGIN`, `NOINHERIT`, non-administrative, and lacks `BYPASSRLS`, schema
+   creation, table ownership, and unrelated memberships. ECS uses IAM only for AWS APIs and
+   PostgreSQL logins are separate credentials.
 3. Create three Secrets Manager JSON values: the API value holds only the names
    selected by `local.api_required_secret_keys` and enabled feature groups;
    the worker value holds only `PLE_WORKER_DATABASE_URL` and the separate

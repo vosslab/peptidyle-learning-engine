@@ -24,8 +24,15 @@ function pickerConfirmLabel(
   intent: NonNullable<ReturnType<AssignmentEditorPickerController["intent"]>>,
 ): string {
   if (intent.kind === "pool") return "Add selected candidates";
-  if (intent.kind === "replacement") return "Use selected replacement";
+  if (intent.kind === "replacement") return "Select replacement";
   return "Add selected questions";
+}
+
+function pickerInstructions(
+  intent: NonNullable<ReturnType<AssignmentEditorPickerController["intent"]>>,
+): string | undefined {
+  if (intent.kind !== "replacement") return undefined;
+  return "Select one replacement question. You will return to Questions to use Replace selected question in a separate action.";
 }
 
 /** Keeps the native dialog mounted only while one assignment destination is active. */
@@ -49,6 +56,7 @@ export function AssignmentEditorProblemPicker(
             trigger={props.controller.trigger()}
             title={pickerTitle(intent)}
             confirmLabel={pickerConfirmLabel(intent)}
+            instructions={pickerInstructions(intent)}
             onConfirm={(selection) => void props.controller.useSelection(selection)}
             onCancel={props.controller.cancel}
           />

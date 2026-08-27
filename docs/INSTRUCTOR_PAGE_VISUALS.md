@@ -70,6 +70,8 @@ course theme or teaching behavior.
 ![Instructor grade settings conflict recovery](screenshots/instructor/grade_settings_conflict/02_retry_saved.png)
 ![Instructor assignment delivery preview](screenshots/instructor/assignment_preview/01_schedule_entitlement.png)
 ![Instructor item pool preview](screenshots/instructor/item_pool_delivery/01_pool_preview.png)
+![Instructor assignment Policies workspace](screenshots/instructor/assignment_workspace/01_assignment_policies.png)
+![Instructor answer-free assignment Student view](screenshots/instructor/assignment_workspace/02_student_view.png)
 ![Instructor catalog discovery evidence](screenshots/instructor/catalog_discovery/01_disclosed_evidence_laptop.png)
 ![Instructor problem curation workspace](screenshots/instructor/problem_curation/01_curation_workspace_laptop.png)
 ![Instructor reusable curriculum workspace](screenshots/instructor/reusable_curriculum/01_reusable_curriculum_workspace_laptop.png)
@@ -95,6 +97,7 @@ assets.
 Review the regenerated images together after shared layout, theme, typography, or navigation changes.
 Behavior-focused browser tests remain the authority for interaction, authorization, answer secrecy,
 and teaching semantics; these images are visual evidence for composition and current appearance.
-B2 is implemented in the live product. Its published desktop evidence covers the source/destination
-distinction, preview-before-apply, DST correction, keyboard focus, recovery, privacy, and contrast at
-the canonical 1280 by 800 Instructor profile. Full Validation remains the final B2 acceptance gate.
+The accepted B2 evidence covers the source/destination distinction, preview-before-apply, DST
+correction, keyboard focus, recovery, privacy, and contrast at the canonical 1280 by 800 Instructor
+profile. The current T6 evidence adds the focused Policies and answer-free Student-view surfaces;
+T6 acceptance remains open until the complete final-material-tree Validation gate passes.

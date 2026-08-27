@@ -1,6 +1,6 @@
 # Implementation status and handoff
 
-Last updated: 2026-08-26
+Last updated: 2026-08-27
 
 This is the sole mutable registry for the global current-package handoff and shared migration
 allocations. The [implementation plan](implementation_plan.md), active
@@ -12,25 +12,118 @@ order, validation, and acceptance. Durable product decisions remain in
 
 ## Current handoff
 
-- **Current package:** `WP-PROF-T6` - the owner-directed Instructor assignment workspace. It makes
-  the assignment title open one assignment home, separates Questions from Policies, adds focused
-  revision-checked mutations and persisted incomplete drafts, and renders an Instructor-authorized
-  answer-free Student view over the current live assignment. Its binding contract is
-  `docs/active_plans/active/instructor_assignment_workspace_plan.md`. T6 owns forward capability
-  migration `2026081848` for empty Draft/Archived definitions and Published readiness, and precedes
-  `WP-PROF-G1`.
+- **Current package:** `WP-PROF-G1` - the automated-grading operation boundary. W1, W2, and W3
+  are accepted below. `G1-W4` is the current dependency-ordered stage: it owns the first
+  accepted-submission effect, exact worker claim/load/commit/fail authority, learner status read,
+  and migration 1851. The accepted W3 handoff and W4's sealed contract-paired
+  dispatch are its prerequisites. The
+  [G1 binding plan](active/automated_grading_operations_plan.md) makes immutable accepted
+  `submission`/`submission_idempotency` metadata parents authoritative before grading, keeps their
+  payload marker answer-free, and stores the canonical response only in a composite-FK private
+  child. G1 remains incomplete until W4-W7 and final Validation pass. Existing `WP-P2` owns the
+  later consumer-by-consumer replacement of legacy broad reads and corresponding grant reductions.
 - **Current acceptance predecessor:** `WP-PROF-B2` accepted 2026-08-26. Its focused adoption boundary
   now owns preview-before-save fork and instantiation, rollover, term shifting, immutable provenance,
   controlled fast-forward, divergence recovery, and answer-free import inspection over ordinary
   teaching courses. Its final receipt is in the professor plan and changelog: all 77 migrations and
   Store/RLS oracles; all 15 production HTTPS journeys with independent Elena Instructor and Morgan
-  Sysadmin passkeys; 75 privacy-validated screenshots; exact cleanup; and final Validation passed.
+  Sysadmin passkeys; its then-current 75-artifact privacy-validated corpus; exact cleanup; and final
+  Validation passed.
 - **Accepted prerequisites:** `WP-PROF-S1` through `S7`, `T1` through `T3`, `BS1`, `LD1` through
   `LD3`, `T5`, `D1`, `D2`, `B1`, and `B2` are accepted. Their scopes and evidence are retained in
   the owning plans and changelog.
 - **Release handoff:** `WP-RC8` remains parked and acceptance-open. It owns provider/mailbox,
   unrelated passkey, multi-replica, security, HCI, and release gates. Professor live-demo work does
   not imply production onboarding, deployment, or release acceptance.
+
+## G1-W2 accepted evidence
+
+`WP-PROF-G1 / G1-W2` is accepted on 2026-08-27 for its static/offline implementation and fresh
+schema evidence. This acceptance kept `WP-PROF-G1` incomplete while W3 stabilized the typed
+pending/read boundary. W4 owns 1851, W5 owns 1852, W7b owns executable PostgreSQL authority proof,
+and final `all_test.sh` remains required.
+
+- **Accepted artifacts:** typed `SubmissionPreparation::AcceptedPending` and
+  `SubmissionReceiptRead` contracts; answer-free `submission` and `submission_idempotency` parents;
+  the composite-FK `accepted_submission_private_response` child; canonical UTF-8 response identity;
+  equivalent Memory/PostgreSQL behavior; the dedicated worker-only execution store; separate API and
+  worker process logins; and migrations 1849/1850.
+- **Rust and focused evidence:** the learning-data-access full suite main target passed 308 tests
+  with 1 intentionally ignored test, and auxiliary targets were green. Strict format, check, and
+  Clippy gates passed. The focused policy/process/documentation/source set passed 2,008 tests.
+- **Repository evidence:** `./check_codebase.sh` passed all 5 gates, including 356 Node tests.
+- **Database evidence:** fresh PostgreSQL 17 applied all 80 migrations; the second migration pass was
+  a no-op; database verification returned `database verify: compatible`. The repaired database-baseline
+  Rust selector now resolves to exactly one intended test.
+- **Independent approvals:** `sql_correctness_post_repair_review.report.md` approved the repaired
+  SQL and `w2_security_post_repair_review.report.md` approved the repaired W2 source boundary. Their
+  scope explicitly leaves W4 outcome behavior, W7b executable API-denial/worker-lease/RLS proof,
+  browser behavior, WP-P2 grant reduction, and final G1 Validation open.
+
+## G1-W3 accepted evidence
+
+`WP-PROF-G1 / G1-W3` is accepted on 2026-08-27 for the typed pending/read stabilization and
+post-validation outcome classification. This acceptance advances the current stage to G1-W4; it
+does not accept `WP-PROF-G1`, whose W4-W7 work and final Validation remain required.
+
+- **Accepted artifacts:** exhaustive `SubmissionReceiptRead` pending/read handling; the minimal
+  answer-free, no-store `accepted_pending` 202 replay projection; closed deterministic grader
+  failure categories and operation-reason mapping; Native, WebWork, QTI, and composite
+  post-validation classification; the preserved opaque iMathAS broker boundary; and aligned Memory
+  learner-attempt projection for accepted-pending detail reads.
+- **Rust evidence:** `server_core` passed 384 tests with 3 intentional connected ignores, and all
+  server integration and doctest targets were green. `learning-data-access` passed 308 tests with
+  1 intentional ignore in its main target, with auxiliary targets green. Strict Clippy passed for
+  both affected crates.
+- **Repository evidence:** 3,643 documentation and source-policy checks passed. The permanent
+  local route tests cover answer-free submitted projections and the no-store provider-free pending
+  replay without services, timing, or fixture data.
+- **Independent approvals:** the architecture and security/privacy reviews both approved the final
+  W3 boundary. They confirm that W3 preserves answer-free learner data, generic deterministic
+  failure handling, and the separate iMathAS broker while creating no acceptance, claim, outcome,
+  job, or learner-client effect.
+- **Handoff:** W4 consumes the sealed W3 pending/read and deterministic-category contracts before
+  dispatching its paired first-effect, worker, and learner-status work. It owns allocated migration
+  1851 and the exact claim/load/commit/fail capability. The aggregate `all_test.sh` remains the
+  manager-owned final gate; a subagent aggregate invocation has no retained terminal result and is
+  intentionally unverified.
+
+## T6 accepted evidence
+
+`WP-PROF-T6` was accepted on 2026-08-27. Its binding plan remains the acceptance authority, and
+the ledger advances to `WP-PROF-G1` after the exact final tracked-tree Validation gate passed.
+
+- **Focused architecture and contracts: passed.** Migration `2026081848`, persisted incomplete
+  Drafts, focused Questions and Policies commands, strict shared revisions, publication readiness,
+  answer-free Student view, generic unexpected-error mapping, and the fixed-slot replacement route
+  pass focused Rust, TypeScript, Node, lint, format, source-size, and static policy gates. The
+  focused suite includes 19 Node tests and 375 runnable server tests; future-run replacement
+  preserves issued snapshots while changing the authoritative question.
+- **Connected live-demo journey: passed.** The production-shaped HTTPS owner passed the complete
+  visible scenario selection, including independent Instructor and Sysadmin passkeys, assignment
+  workspace authoring, same-assignment Student submission and Instructor gradebook observation,
+  fixed-slot replacement, recovery, item pools, discovery, curation, reusable curricula, and
+  curriculum adoption. Complete local-stack acceptance passed all 15 browser scenarios, the
+  78-migration/DB oracle, WebWork oracle, replica restart, and exact cleanup.
+- **Screenshot publication: passed.** The current 61-artifact corpus passed PNG, privacy, provenance,
+  single-origin, atomic-publication, exact-cleanup, and human visual review. Instructor and Sysadmin
+  evidence remains 1280 by 800 desktop-only; Student evidence retains its declared variable
+  profiles.
+- **Independent review: passed.** Final architecture/security and HCI/accessibility reviews return
+  ACCEPT with no unresolved P0, P1, or P2 finding. The shared browser client enforces `no-store`
+  for editor responses, and Questions provides title-bound controls and an accessible replacement
+  summary.
+- **Final Validation: passed.** `source source_me.sh && ./all_test.sh` passed on the exact final
+  tracked tree, including Rust checks/tests/doctests/Wasm, frontend/codebase/Node, 7,428 pytest
+  cases, all 15 production browser scenarios, all 78 migrations and database oracles, isolated
+  WebWork, and replica restart/durable replay. The six durable closure paths were tracked as part
+  of that material tree:
+  `crates/server/src/course/tests/assignment_revision/replacement.rs`,
+  `docs/screenshots/instructor/assignment_workspace/01_assignment_policies.png`,
+  `docs/screenshots/instructor/assignment_workspace/02_student_view.png`,
+  `src/pages/assignment_workspace/assignment_workspace_authoring.css`,
+  `tests/test_assignment_workspace_policy_summary.mjs`, and
+  `tests/test_assignment_workspace_replacement_client.mjs`.
 
 ### Active-system invariants
 
@@ -64,9 +157,10 @@ boundaries and the allocated `2026081838` through `2026081847` migration set.
   post-fix review returned ACCEPT with no unresolved P0, P1, or P2 finding.
 - **Real-service gates: passed.** The 77-migration PostgreSQL/RLS/persistence baseline, isolated
   WebWork scoring and outage oracle, and API replica restart/replay oracle passed with exact cleanup.
-- **Screenshot publication: passed.** All 75 declared real-stack artifacts passed PNG integrity,
-  privacy, provenance, atomic publication, and human visual review. Instructor and Sysadmin evidence
-  uses only the 1280 by 800 desktop profile; Student evidence retains the declared variable profiles.
+- **Screenshot publication: passed.** At B2 acceptance, all 75 declared real-stack artifacts passed
+  PNG integrity, privacy, provenance, atomic publication, and human visual review. Instructor and
+  Sysadmin evidence used only the 1280 by 800 desktop profile; Student evidence retained the
+  declared variable profiles.
 - **Final Validation: passed.** `source source_me.sh && ./all_test.sh` completed on the published
   material tree, including the complete Rust, Node, pytest, production-browser, PostgreSQL,
   WebWork, replica-restart, and cleanup gates.
@@ -107,7 +201,7 @@ an allocation before implementation. Non-schema packages do not receive an impli
 | ------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `2026080801`-`2026080806` | Foundational baseline | Accepted six-file baseline                                                                                        |
 | `2026080907`              | `WP-RC1`              | Accepted course appearance                                                                                        |
-| `2026080908`              | `WP-P2`               | Allocated secure question-grading payloads                                                                        |
+| `2026080908`              | `WP-P2`               | Allocated secure question-grading payloads and the post-G1-W2 legacy-consumer/grant-reduction transition          |
 | `2026080909`              | `WP-RC8`              | Allocated passwordless identity and enrollment                                                                    |
 | `2026080910`              | `WP-RC7`              | Reserved object reconciliation                                                                                    |
 | `2026080911`              | `WP-RC9`              | Reserved LTI Advantage                                                                                            |
@@ -162,26 +256,33 @@ an allocation before implementation. Non-schema packages do not receive an impli
 | `2026081846`              | `WP-PROF-B2`          | Accepted whole-course instantiation, rollover, and term-shift materializers                                       |
 | `2026081847`              | `WP-PROF-B2`          | Accepted canonical public bridge completion and final broker catalog assertions                                   |
 | `2026081848`              | `WP-PROF-T6`          | Allocated assignment-workspace capability migration: empty Draft/Archived definitions and Published readiness     |
+| `2026081849`              | `WP-PROF-G1`          | Accepted W2 operation/evaluation/execution schema prerequisite and receipts                                     |
+| `2026081850`              | `WP-PROF-G1`          | Accepted W2 private accepted-response, acceptance/replay, retention/RLS, and lease-fenced execution boundary    |
+| `2026081851`              | `WP-PROF-G1`          | Sole G1-W4 forward allocation: accepted-submission worker exact claim/load/commit/fail and outcome authority     |
+| `2026081852`              | `WP-PROF-G1`          | Sole G1-W5 forward allocation: dedicated Instructor grading-operation capability and broker surface             |
 
 `2026081803` (`S5`), `2026081804` (`S3`), and `2026081805` (`S4`) reflect the accepted
 pre-file allocation reorder. Allocations `2026081811`, `1813`, `1815`, `1821`, and `1822` retain
-their numeric identities. T6 owns `2026081848`; it does not consume the reserved G1/G3 migrations
-`2026081830`-`2026081832`, which remain assigned to those grading capabilities. The professor plan
-owns dependencies among reserved capabilities.
+their numeric identities. T6 owns `2026081848`; G1 accepted `2026081849` and `2026081850` in
+addition to reserved enqueue/publication capabilities `2026081830` and `2026081831`. G3 retains
+`2026081832`. G1-W4 owns the sole forward allocation `2026081851`, and G1-W5 owns the sole forward
+allocation `2026081852`; neither allocation changes W2's accepted status or rewrites an accepted
+migration. The professor plan owns dependencies among reserved capabilities.
 
 ## Accepted package pointers
 
-| Package                     | Current durable result                                              | Owning evidence                                                                                  |
-| --------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `WP-PROF-LD1`               | Base Course installation lifecycle and retained-state rules         | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-PROF-LD2`               | Seeded entry and connected live authoring boundary                  | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-PROF-LD3`               | Ordinary live assignment, learner-work, and immutable evidence path | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-PROF-T5`                | Fixed-or-pool assignment editing and deterministic issued draws     | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-PROF-D1`                | Canonical Library discovery and evidence-backed question detail     | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-PROF-D2`                | Live curation and shared problem selection                          | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-PROF-B1`                | Revisioned Blueprints, public Alpha curricula, and shared reuse     | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-PROF-B2`                | Curriculum adoption, rollover, term shifting, and controlled update | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-R0`-`WP-R2`, `WP-PY-L1` | Accepted cross-roadmap capabilities                                 | [Release plan](active/release_completion_plan.md), [changelog](../CHANGELOG.md)                  |
+| Package                     | Current durable result                                                    | Owning evidence                                                                                  |
+| --------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `WP-PROF-LD1`               | Base Course installation lifecycle and retained-state rules               | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-PROF-LD2`               | Seeded entry and connected live authoring boundary                        | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-PROF-LD3`               | Ordinary live assignment, learner-work, and immutable evidence path       | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-PROF-T5`                | Fixed-or-pool assignment editing and deterministic issued draws           | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-PROF-T6`                | Accepted assignment workspace, focused replacement, and live Student view | [T6 plan](active/instructor_assignment_workspace_plan.md), [changelog](../CHANGELOG.md)          |
+| `WP-PROF-D1`                | Canonical Library discovery and evidence-backed question detail           | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-PROF-D2`                | Live curation and shared problem selection                                | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-PROF-B1`                | Revisioned Blueprints, public Alpha curricula, and shared reuse           | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-PROF-B2`                | Curriculum adoption, rollover, term shifting, and controlled update       | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-R0`-`WP-R2`, `WP-PY-L1` | Accepted cross-roadmap capabilities                                       | [Release plan](active/release_completion_plan.md), [changelog](../CHANGELOG.md)                  |
 
 ## Dependency-ordered queue
 
@@ -189,16 +290,16 @@ The authoritative package sequence is in the [release completion plan](active/re
 and [professor capability plan](active/professor_capability_architecture_plan.md). The current
 handoff is:
 
-1. Complete `WP-PROF-T6` against its linked assignment-home, separate Questions/Policies,
-   focused-mutation, and live Student-view contract.
-2. Complete `WP-PROF-G1` against its automated-grading operation, exception-routing, retry,
-   recalculation, and immutable-receipt contract.
-3. Continue the professor plan's remaining grading-operation and final
+1. Implement `WP-PROF-G1` from its approved binding plan. W2 and W3 are accepted; begin with
+   current stage G1-W4's sealed contract-paired acceptance, worker, and learner-status dispatch,
+   then follow W5 through W7 in dependency order. Prove deterministic replay, current-total
+   recalculation, and visible exception recovery.
+2. Continue the professor plan's remaining grading-operation and final
    production-stack packages in its declared dependency order.
-4. Resume the release queue at `WP-RC8`, then follow the release plan through native-family,
+3. Resume the release queue at `WP-RC8`, then follow the release plan through native-family,
    learner-payload, reconciliation, LTI, upload, deployment, cost-control, and release closure
    packages.
-5. Run the complete final-material-tree Validation suite before declaring the goal complete.
+4. Run the complete final-material-tree Validation suite before declaring the goal complete.
 
 ## Operational references
 

@@ -527,6 +527,11 @@ impl RetentionWorkerStore for MemoryStore {
                 state.submissions.retain(|(tenant_id, attempt_id), _| {
                     !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
                 });
+                state
+                    .private_submission_responses
+                    .retain(|(tenant_id, attempt_id), _| {
+                        !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
+                    });
                 state.attempt_scores.retain(|(tenant_id, attempt_id), _| {
                     !(*tenant_id == tenant && attempt_ids.contains(attempt_id))
                 });

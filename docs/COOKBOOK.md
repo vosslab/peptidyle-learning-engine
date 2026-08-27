@@ -40,19 +40,39 @@ See [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md) and [TROUBLESHOOTING.md](TROUBLES
 
 ## Build and publish an assignment
 
-1. Open **New assignment** and enter a title.
-2. Prefer **Reuse questions from an existing assignment**; use a visible `AAA-BBBB` Question ID
-   only for an occasional direct lookup.
-3. Confirm the selected questions and configure the Mastery run and disclosure policies.
-4. Create the assignment, then open **Teaching operations**.
-5. Enter learner instructions, publish it, and save availability, due/close times, run limits,
-   late behavior, and deadline behavior in the course time zone.
-6. Open the learner-facing assignment link and complete a run before reviewing the gradebook.
+1. In an Instructor course, open **Assignments**, choose **New assignment**, enter a title, and
+   select **Create assignment draft**. This creates the persisted Draft that anchors the rest of the
+   workspace.
+2. In the Draft's **Questions** page, use the saved-assignment picker or the question library to
+   add published questions. Arrange the fixed questions in order, add pools when a position should
+   draw from candidates, and set each pool's candidate IDs, draw count, and order. Select a fixed
+   question's replacement control to review a new Question ID before replacing it. Choose **Save
+   questions and order** when the definition is ready. Pool samples are server previews and create no
+   learner work.
+3. Open **Policies**. Enter learner instructions, audience, availability and due/close times in the
+   course time zone, run limits, completion and continued-practice rules, late behavior, and
+   disclosure settings. Choose **Save assignment policies** after reviewing the delivery summary.
+   The page reports the current lifecycle and any question or settings issue that blocks publication.
+4. Return to **Overview** and read **Publication readiness**. Resolve every blocking action through
+   Questions or Policies. When the definition is ready, use Policies' lifecycle control to choose
+   **Published - eligible for learner access**, then save the policies. This is the publication step;
+   the assignment remains **Draft - students cannot access it** until that save succeeds.
+5. Open **Student view** from the workspace navigation to inspect the current live, answer-free
+   learner landing. Student view retains the Instructor session and creates no learner run or grade.
+   Use it to check title, instructions, timing, and the learner entry affordance before asking a
+   learner to work.
+6. Validate delivery through the ordinary live workflow: sign out, select the seeded **Student**
+   persona, open the authorized course and published assignment, choose **Start assignment**, answer
+   the visible questions, and submit. Sign back in as the Instructor, open **Gradebook**, and expand
+   the assignment's **View run history**. Confirm the Student's score, latest run, completed-run
+   count, and authorized submission evidence after a fresh read.
 
-Assignments are Draft until the teaching-operations save publishes them. Existing assignments pin
-exact immutable questions; replace a question only after reviewing the old and new IDs. See
+Assignments pin exact immutable questions for issued learner work. A later Questions replacement is
+for future runs; existing runs keep their original question. Use a visible `AAA-BBBB` Question ID
+for an occasional direct lookup, and prefer saved-assignment reuse for a group of questions. See
 [PROBLEM_IDENTITY.md](PROBLEM_IDENTITY.md) for identity rules and [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md)
-for the complete recipe.
+for the complete recipe. This walkthrough uses the disposable live stack and ordinary UI records;
+it does not use fixtures or a parallel mock assignment.
 
 ## Review learning and export grades
 

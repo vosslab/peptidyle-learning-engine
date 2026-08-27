@@ -112,8 +112,8 @@ async function publishScheduledAssignment(page: Page): Promise<void> {
   await page.getByRole("link", { name: "Policies", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
   await page.getByLabel("Lifecycle").selectOption("published");
-  await page.getByLabel("Due").fill(dueAt);
-  await page.getByLabel("Closes").fill(closesAt);
+  await page.getByLabel("Due", { exact: true }).fill(dueAt);
+  await page.getByLabel("Closes", { exact: true }).fill(closesAt);
   await page.getByLabel("Whole-run seconds").fill("1800");
   await page.getByLabel("Attempt limit").fill("2");
   await page.getByLabel("Late work").selectOption("markLate");
@@ -153,13 +153,28 @@ function resultRegion(page: Page): Locator {
 
 async function activateDeliveryCheck(page: Page, expectedStatus = 200): Promise<void> {
   const check = page.getByRole("button", { name: "Check assignment delivery", exact: true });
-  const responsePromise = page.waitForResponse((response) =>
-    new URL(response.url()).pathname.includes("/preview-subjects/"),
-  );
+  const outcomePromise = Promise.race([
+    page
+      .waitForResponse((response) =>
+        new URL(response.url()).pathname.includes("/preview-subjects/"),
+      )
+      .then((response) => ({ kind: "response" as const, response })),
+    page
+      .getByRole("status")
+      .filter({ hasText: "The preview could not be resolved." })
+      .waitFor({ state: "visible" })
+      .then(() => ({ kind: "requestFailure" as const })),
+  ]);
   await check.focus();
   await expect(check).toBeFocused();
   await page.keyboard.press("Enter");
-  const response = await responsePromise;
+  const outcome = await outcomePromise;
+  if (outcome.kind === "requestFailure") {
+    throw new Error(
+      "Preview request ended without an HTTP response; the visible workflow reported that the selected subject could not be resolved.",
+    );
+  }
+  const { response } = outcome;
   if (response.status() !== expectedStatus) {
     throw new Error(
       `Preview request returned HTTP ${response.status()} instead of ${expectedStatus}: ${await response.text()}`,

@@ -4,12 +4,17 @@ use std::{sync::Arc, time::Duration};
 
 use anyhow::{Context, Result, bail};
 use learning_data_access::{JobKind, postgres::SchemaCompatibilityError};
+use uuid::Uuid;
 
+use super::backend::{build_production_grading_backend, connect_production_grader};
 use super::settings::{
-    LazyStorageDependencies, PublisherStorageDependencies, StorageRuntime, StorageSettings,
-    invitation_delivery_worker_database_url_from_env, invitation_delivery_worker_from_env,
+    GradingBackendSettings, LazyStorageDependencies, ProcessRole, PublisherStorageDependencies,
+    StorageRuntime, StorageSettings, invitation_delivery_worker_database_url_from_env,
+    invitation_delivery_worker_from_env,
 };
+use super::{PostgresAcceptedSubmissionExecutionStore, WorkerId};
 use crate::{
+    accepted_submission_worker::AcceptedSubmissionExecutionWorker,
     course::invitation_delivery_worker::InvitationDeliveryWorker,
     export_worker::{ExportJobCommitter, ExportJobHandler},
     item_analysis_worker::{CourseItemAnalysisCommitter, CourseItemAnalysisHandler},
@@ -21,7 +26,8 @@ use crate::{
     scoring_worker::{AssignmentScoringCommitter, AssignmentScoringHandler},
     timing_worker::{AttemptAutoSubmitCommitter, AttemptAutoSubmitHandler},
     worker::{
-        EffectCommitter, JobHandler, JobRegistry, JobRegistryEntry, Worker, WorkerSettings, runtime,
+        EffectCommitter, FairWorkerDispatcher, JobHandler, JobRegistry, JobRegistryEntry, Worker,
+        WorkerSettings, runtime,
     },
 };
 
@@ -29,6 +35,51 @@ const DEFAULT_LEASE_SECONDS: u32 = 120;
 const DEFAULT_PREPARATION_TIMEOUT_SECONDS: u64 = 90;
 const PRODUCTION_BATCH_SIZE: usize = 1;
 const DEFAULT_POLL_MILLIS: u64 = 500;
+
+/// These are the complete generic queue families. Accepted submissions are
+/// intentionally absent: their private material is reachable only through the
+/// sealed execution capability below.
+const GENERIC_WORKER_FAMILIES: [JobKind; 6] = [
+    JobKind::RecalculateAssignment,
+    JobKind::RecalculateCourseItemAnalysis,
+    JobKind::AutoSubmitAttempt,
+    JobKind::Retention,
+    JobKind::Export,
+    JobKind::QtiImport,
+];
+
+#[cfg(test)]
+const SEALED_ACCEPTED_SUBMISSION_FAMILY: JobKind = JobKind::GradeAcceptedSubmission;
+const SUPPORTED_WORKER_FAMILY_COUNT: usize = GENERIC_WORKER_FAMILIES.len() + 1;
+
+/// The generic and sealed paths must receive the same validated bounds, while
+/// the sealed path retains one process-stable identity across every pass.
+#[derive(Clone, Copy)]
+struct WorkerExecutionPlan {
+    settings: WorkerSettings,
+    worker_id: WorkerId,
+}
+
+impl WorkerExecutionPlan {
+    fn new(settings: WorkerSettings, worker_id: WorkerId) -> Self {
+        Self {
+            settings,
+            worker_id,
+        }
+    }
+
+    fn generic_settings(self) -> WorkerSettings {
+        self.settings
+    }
+
+    fn sealed_settings(self) -> WorkerSettings {
+        self.settings
+    }
+
+    fn worker_id(self) -> WorkerId {
+        self.worker_id
+    }
+}
 
 struct ProductionWorkerSettings {
     worker: WorkerSettings,
@@ -122,13 +173,28 @@ pub async fn run_public_asset_publisher_from_env() -> Result<()> {
 }
 
 async fn run_worker_from_env(runtime: StorageRuntime) -> Result<()> {
+    if runtime.role != ProcessRole::Worker {
+        bail!("production worker composition requires the Worker storage profile");
+    }
     let storage = StorageSettings::from_env(runtime)?;
     let settings = ProductionWorkerSettings::from_env()?;
+    let grading = GradingBackendSettings::from_env()?;
     let dependencies = LazyStorageDependencies::from_settings(&storage).await?;
     verify_worker_schema(&dependencies.pool).await?;
 
     let store = dependencies.store;
     let objects = dependencies.objects;
+    // ASVS 13.2.2: the worker profile attests the execution-store pool, while
+    // the grader uses its separate least-authority connection capability.
+    let sealed_store =
+        PostgresAcceptedSubmissionExecutionStore::from_worker_pool(dependencies.pool.clone());
+    let grader = connect_production_grader(&grading, storage.runtime.topology).await?;
+    let backend = build_production_grading_backend(
+        Arc::clone(&store),
+        Arc::clone(&objects),
+        grader,
+        &grading,
+    );
     let registry = JobRegistry::new([
         entry(
             JobKind::RecalculateAssignment,
@@ -162,11 +228,26 @@ async fn run_worker_from_env(runtime: StorageRuntime) -> Result<()> {
         ),
     ])
     .context("production worker registry is invalid")?;
-    let worker = Worker::new(store, registry, settings.worker);
-    eprintln!("peptidyle worker ready with 6 supported job families");
-    runtime::run_until_shutdown(worker, settings.poll_interval, runtime::shutdown_signal())
-        .await
-        .context("production worker runtime failed")
+    let execution = WorkerExecutionPlan::new(settings.worker, WorkerId::from_uuid(Uuid::new_v4()));
+    let generic_worker = Worker::new(store, registry, execution.generic_settings());
+    let accepted_worker = AcceptedSubmissionExecutionWorker::new(
+        sealed_store,
+        backend,
+        execution.worker_id(),
+        execution.sealed_settings(),
+    )
+    .context("accepted-submission worker settings are incompatible")?;
+    let dispatcher = Arc::new(FairWorkerDispatcher::new(generic_worker, accepted_worker));
+    eprintln!(
+        "peptidyle worker ready with {SUPPORTED_WORKER_FAMILY_COUNT} supported job families: RecalculateAssignment, RecalculateCourseItemAnalysis, AutoSubmitAttempt, Retention, Export, QtiImport, GradeAcceptedSubmission"
+    );
+    runtime::run_bounded_dispatch_until_shutdown(
+        dispatcher,
+        settings.poll_interval,
+        runtime::shutdown_signal(),
+    )
+    .await
+    .context("production worker runtime failed")
 }
 
 async fn run_invitation_delivery_worker_from_env() -> Result<()> {
@@ -268,6 +349,7 @@ async fn verify_publisher_schema(pool: &learning_data_access::postgres::Pool) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+    use learning_data_access::JobClaimFilter;
 
     #[test]
     fn worker_settings_refuse_invalid_lease_and_preparation_deadline() {
@@ -283,5 +365,41 @@ mod tests {
         assert!(!filter.contains(JobKind::Export));
         assert!(!filter.contains(JobKind::QtiImport));
         assert!(!filter.contains(JobKind::Retention));
+    }
+
+    #[test]
+    fn production_worker_keeps_six_generic_families_and_seals_accepted_execution() {
+        assert_eq!(
+            GENERIC_WORKER_FAMILIES,
+            [
+                JobKind::RecalculateAssignment,
+                JobKind::RecalculateCourseItemAnalysis,
+                JobKind::AutoSubmitAttempt,
+                JobKind::Retention,
+                JobKind::Export,
+                JobKind::QtiImport,
+            ]
+        );
+        let filter = JobClaimFilter::new(GENERIC_WORKER_FAMILIES)
+            .expect("the production generic worker families are closed");
+        assert!(!filter.contains(SEALED_ACCEPTED_SUBMISSION_FAMILY));
+    }
+
+    #[test]
+    fn worker_execution_plan_preserves_shared_settings_and_stable_identity() {
+        let settings = WorkerSettings::new(120, Duration::from_secs(90), 1)
+            .expect("valid shared worker settings");
+        let worker_id = WorkerId::from_uuid(Uuid::from_u128(0xC3));
+        let execution = WorkerExecutionPlan::new(settings, worker_id);
+
+        assert_eq!(
+            execution.generic_settings().lease(),
+            execution.sealed_settings().lease()
+        );
+        assert_eq!(
+            execution.generic_settings().execution_deadline(),
+            execution.sealed_settings().execution_deadline()
+        );
+        assert_eq!(execution.worker_id(), worker_id);
     }
 }

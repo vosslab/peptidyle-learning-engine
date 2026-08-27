@@ -20,7 +20,7 @@ mod workspace;
 
 pub(super) use workspace::{
     create_assignment_draft, get_assignment_workspace, get_instructor_student_view,
-    replace_assignment_content, replace_assignment_policies,
+    replace_assignment_content, replace_assignment_fixed_item, replace_assignment_policies,
 };
 
 pub(super) use learner::{

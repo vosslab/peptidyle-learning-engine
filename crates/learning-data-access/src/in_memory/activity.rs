@@ -466,7 +466,11 @@ impl crate::ActivityStore for MemoryStore {
         {
             return Ok(None);
         }
-        Ok(Some(record))
+        Ok(Some(projected_attempt(
+            &state,
+            context.tenant_id(),
+            &record,
+        )))
     }
     async fn get_summary_impl(
         &self,
@@ -759,7 +763,8 @@ pub(super) fn projected_attempt(
             state
                 .submissions
                 .get(&(tenant, attempt.id))
-                .map(|stored| stored.record.attempt.clone())
+                .and_then(|stored| stored.completed_record_opt())
+                .map(|record| record.attempt.clone())
         })
         .unwrap_or_else(|| attempt.clone());
     if let Some(timing) = state.attempt_timing.get(&(tenant, attempt.id)) {

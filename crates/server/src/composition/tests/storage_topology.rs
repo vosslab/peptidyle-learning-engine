@@ -57,7 +57,7 @@ fn disposable_local_storage_accepts_api_and_worker_without_changing_aws_defaults
     };
 
     assert_eq!(local_api.database_variable(), "DATABASE_URL");
-    assert_eq!(local_worker.database_variable(), "DATABASE_URL");
+    assert_eq!(local_worker.database_variable(), "PLE_WORKER_DATABASE_URL");
     assert!(local_api.uses_disposable_local_storage());
     assert!(local_worker.uses_disposable_local_storage());
     assert_eq!(aws_api.database_variable(), "DATABASE_URL");

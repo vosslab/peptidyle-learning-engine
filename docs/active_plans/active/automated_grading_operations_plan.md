@@ -1,0 +1,956 @@
+# Plan: automated grading operations
+
+## Status
+
+Implementation state: binding architecture approved on 2026-08-27 after independent architecture
+and repository-rules review. The shared [allocation ledger](../implementation_status.md) assigns
+`2026081849_automated_grading_operations.sql` and
+`2026081850_accepted_submission_execution_load.sql` to this package. The ledger
+also records the approved forward allocations for W4 and W5:
+`2026081851_accepted_submission_execution_worker_outcome.sql` and
+`2026081852_instructor_grading_operation_capabilities.sql`.
+
+W2 and W3 are accepted, and W4 is the current implementation stage. The W4
+execution contract at
+`docs/active_plans/active/automated_grading_execution_contract.md` freezes the
+sealed worker capability, versioned canonical immutable evidence protocol, state transitions, lane
+ownership, and focused evidence boundary for contract-paired dispatch.
+
+This plan extends the accepted T6 assignment workspace with assignment-local automated-grading
+operations. It consumes the existing learner delivery, deterministic grading, immutable evidence,
+and generation-fenced scoring foundations. It provides the contract G2, G3, and G5 will consume.
+
+Parallel-plan ready: yes. The accepted-submission and operation contract is the serial foundation.
+After that contract freezes, the persistence owner may implement Memory contracts and PostgreSQL
+authority as two coordinated lanes. Exception routing, worker execution, HTTP, browser, and
+connected proof then follow in dependency order.
+
+## Context
+
+PLE already has a dependable scoring-recalculation pipeline. Migration `2026081830` advances an
+assignment generation, marks the assignment recalculating, and creates bounded work. Migration
+`2026081831` lets the sole scoring committer publish only privately staged work for an exact lease
+and current generation. A newer generation supersedes old work without stale score publication.
+
+The pipeline lacks an Instructor operation model. It has no typed, immutable record for a
+deterministic grader exception; no answer-free assignment-local queue; and no replay-safe recovery
+command. `worker_job` is mutable execution state. `audit_event` is generic history.
+`manual_grade_receipt` belongs to the separately authorized human-grading capability.
+
+Source inspection adds an important foundation requirement. `submit_response` currently calls the
+grader before `submit_question_attempt`, while preparation hydrates and authorizes without
+persisting the browser response or idempotency key. A deterministic grader exception therefore
+loses its retry input when the request ends. G1 fixes the state machine: an accepted, shape-valid
+learner input is first persisted as the existing canonical immutable `submission`, then a
+synchronous grader or a worker grades that exact server-private record. `submission_evaluation`
+remains the grade outcome. The successful synchronous fast path remains valuable as an optimization
+over this durable state machine, not its source of truth.
+
+ADAPT confirms the value of question-first grading and learner alternates. PLE carries that
+information scent forward with deterministic server-owned grading, immutable evidence, no-store
+browser contracts, and an operation queue rather than mutable score editing or diagnostic exports.
+
+## Objectives
+
+1. Persist accepted learner input before grading so deterministic recovery has exact immutable
+   server-private evidence.
+2. Give a current Instructor one assignment-local automated-grading operation surface.
+3. Route validated deterministic exceptions into typed state and immutable action receipts.
+4. Provide bounded, idempotent, generation-fenced retry and recalculation actions.
+5. Keep existing lease/private-stage/generation-fenced worker publication as the sole score path.
+6. Keep browser contracts answer-free, metadata-only, strict, and no-store.
+7. Make total trust, next action, and recovery explicit at the 1280 by 800 Instructor desktop.
+8. Leave durable G2 inspection, G3 analysis, and G5 attention-queue handoff seams.
+
+## Design philosophy
+
+- **Accept before grade.** The canonical `submission` records exactly one immutable
+  server-accepted learner input before any grader effect. Mutable execution, evaluation, and
+  Instructor-operation projections each have one separate owner. Existing learner-record retention
+  owns deletion of the immutable input at the approved horizon.
+- **Operate on server-owned evidence.** Browsers select typed operations with concurrency and
+  idempotency proof. Servers derive learner, assignment, tenant, grader, generation, and job facts.
+- **Separate state from history.** Mutable operation state informs a next safe action; append-only
+  receipts establish what was requested and accepted.
+- **Keep one score publisher.** Existing private staging, lease checks, generation fences, and
+  atomic publication remain authoritative.
+- **Make the next action obvious.** Question-first rows, named controls, safe status language, and
+  focus recovery let an Instructor resolve work without opening learner responses.
+- **Prove the actual boundary.** Offline tests protect stable behavior. The disposable production
+  HTTPS stack proves real UI, PostgreSQL/RLS, worker recovery, and current-total visibility.
+
+## Scope
+
+- The accepted G1 `submission` and `submission_idempotency` parents become immutable,
+  answer-free accepted-input metadata before grading. One composite-FK
+  `accepted_submission_private_response` child owns canonical UTF-8 `StudentResponse`, exact
+  replay, forced RLS, and retention/purge ownership.
+- Forward migration `2026081849_automated_grading_operations.sql` owns the operation/evaluation/
+  execution schema prerequisite, receipts, and closed worker payload. Forward migration
+  `2026081850_accepted_submission_execution_load.sql` owns the complete private accepted-input and
+  active-lease execution boundary: child storage, atomic acceptance/exact replay, retention and
+  append-only guards, forced RLS, caller role, and sealed execution loader. W4 owns the sole
+  forward allocation `2026081851_accepted_submission_execution_worker_outcome.sql` for exact
+  worker claim/load/outcome functions and worker-only authority. W5 owns the sole forward
+  allocation `2026081852_instructor_grading_operation_capabilities.sql` for the dedicated
+  Instructor operation capability and its broker surface. Accepted migrations remain immutable.
+- Assignment-local route `/courses/:courseRef/assignments/:assignmentRef/grading-operations`,
+  question-first grouping, learner alternate, cursor pagination, and explicit recovery controls.
+- Deterministic exception routing, bounded retry, and generation-fenced recalculation.
+- Reuse of existing `2026081830` enqueue and `2026081831` scoring publication as the only
+  recalculation and visible-score path.
+- Strict course/assignment authorization, transaction-time Instructor recheck, tenant RLS,
+  non-enumerating failures, bounded inputs, redacted diagnostics, and no-store responses.
+- Focused permanent behavior tests, PostgreSQL/RLS and worker connected proof, canonical real-stack
+  browser journey, and semantic 1280 by 800 Instructor review.
+
+## Non-goals
+
+- G2 audited learner-work inspection or browser delivery of raw responses.
+- G3 item/course analysis and replacement-impact evidence.
+- G5 cross-course attention projection.
+- A second scheduler, direct score-row mutation, browser-to-worker commands, or browser fields for
+  grade values, correctness, partial credit, answer keys, rubrics, or raw learner responses.
+- Expanding the existing separately authorized human-grading capability into automated operations.
+- Evidence uses behavior, authorization, semantic accessibility, and durable state transitions.
+  Graph inventories, exact pixels, incidental counts, and wall-clock performance observations
+  remain implementation evidence when they inform a decision.
+
+## Current-state evidence
+
+Focused Graphify mapping identifies `ScoringGeneration`, `Worker`,
+`enqueue_assignment_recalculation`, the assignment workspace, and strict decoder/route composition
+as the relevant connected communities. Direct source remains authoritative.
+
+- **Accepted input and evaluation:** `submission` and `submission_evaluation` already represent input
+  and outcome, but both currently follow a successful grade. G1 makes `submission` immutable input
+  and `submission_evaluation` the current outcome projection.
+- **Assignment score trust:** positive `ScoringGeneration` and current/recalculating/failed status
+  already exist. G1 links operations and receipts to that exact trust state.
+- **Recalculation enqueue:** migration 1830 already advances generation, marks recalculating, and
+  creates bounded work atomically. G1 reuses it as the only assignment-scoring enqueue capability.
+- **Worker execution:** `scoring_worker.rs`, `worker.rs`, and queue contracts already provide exact
+  leases, private preparation, and bounded durable failure handling. G1 extends this worker rather
+  than creating another scheduler.
+- **Score publication:** migration 1831 publishes only an exact current scoring generation and
+  hands current data to G3 analysis. G1 retains it as the sole derived-score committer.
+- **Instructor shell:** the T6 workspace, navigation, and strict client already provide exact
+  assignment authority. G1 adds one local page and focused client seam.
+- **Human grading:** the existing manual-grade route and receipt retain their separate authority.
+  G1 proves automated commands cannot reach that mutation.
+
+## Approved architecture and contracts
+
+The approved binding architecture freezes this section. W1 records the plan and allocation; W2
+owns the production types and schema named here.
+
+### Accepted learner input and grading lifecycle
+
+The first server step validates bounded browser shape, session, assignment entitlement, active
+attempt, and idempotency. Invalid shape remains a pre-persistence 422. For accepted input, the
+server writes one immutable `submission` tied to tenant, learner/attempt, assignment item,
+idempotency key, issued question/grader identity, and retention policy. Its private response child
+is never a browser read DTO.
+
+The accepted parent rows never change after insertion, apart from deletion by the existing retention
+capability. For G1 contract-version-2 input, their generic `payload` fields contain only the fixed
+answer-free marker `{"kind":"acceptedPrivateResponseV1"}`; their existing digest metadata remains
+metadata. The composite-FK `accepted_submission_private_response` child is the sole response
+authority. It contains canonical UTF-8 response text and its SHA-256 and is append-only except for
+retention-owned deletion. `grading_execution` is the attempt-unique mutable execution owner: it carries
+execution generation, state, retry bound, and current job/lease association.
+`submission_evaluation` is the mutable current evaluation projection. Its canonical
+`SubmissionEvaluationStatus` owns `automated_pending`, `automated_exception`,
+`needs_manual_grading`, `graded`, and `exempt`; `ManualEvaluationRecord` may remain a focused view
+for the separately authorized human-grading capability. `grading_operation` is the mutable,
+Instructor-facing recovery-thread projection. Execution and operation receipts are append-only.
+
+One acceptance transaction inserts the immutable `submission`, binds `submission_idempotency` to
+that record and request digest, writes `submission_evaluation=automated_pending`, creates
+`grading_execution` generation 1, appends its acceptance receipt, and enqueues one closed
+accepted-submission execution job. Exact learner replay resolves the same immutable submission and
+returns its current policy-projected grading status; it creates no second execution. A changed key,
+response digest, attempt, or actor conflicts.
+
+The request digest has one cross-store representation. A named Rust helper serializes the already
+typed, closed `StudentResponse` exactly once with `serde_json::to_string`. Its UTF-8 bytes are the
+canonical response bytes. Memory mirrors the public-metadata/private-response split, hashes those
+bytes, and separately checks typed response equality. PostgreSQL bounds and parses the server-owned
+text only to validate its object form, hashes the exact received UTF-8 bytes, and persists that text
+only in the private child. The broker never hashes `jsonb::text`, reconstructs through
+`serde_json::Value`, or accepts browser-owned raw JSON text.
+
+State ownership and transitions are explicit:
+
+- `grading_execution`: `ready -> running -> completed | exception | retry_wait | superseded`, with
+  `retry_wait -> ready` under bounded broker backoff. An Instructor retry of `exception` advances
+  execution generation and creates a new `ready` job; it does not resurrect the old job.
+- `submission_evaluation`: `automated_pending -> graded | automated_exception`.
+  An accepted Instructor retry may project `automated_exception -> automated_pending` for the new
+  execution generation. Manual and exempt transitions remain owned by their existing capabilities.
+- `grading_operation`: `actionable -> action_in_progress -> completed | repair_required | failed |
+superseded`. Each accepted command advances its revision and appends a receipt.
+
+Only the acceptance transaction creates the immutable input and initial projections. The exact-job
+execution committer owns execution/evaluation changes and W4's typed scalar per-enrollment
+completion projection. Instructor commands own operation revision and new execution/recalculation
+requests. The assignment scoring committer owns derived attempt scores and the assignment/course
+current-score and total trust state.
+
+The successful execution transaction changes the current execution/evaluation projections, updates
+the typed scalar `student_assignment_summary` per-enrollment completion projection, preserves the
+immutable receipt summary source/projection/digest in `submission_receipt_snapshot`, appends an
+execution receipt, and invokes `2026081830` to create the new assignment scoring generation.
+Migrations 1830/1831 remain the generation-fenced assignment/course current-score publication path;
+the assignment scoring committer publishes assignment and course scores and totals.
+A deterministic failure changes execution/evaluation state, appends its receipt, and creates or
+updates the recovery thread. A worker retry grades the exact persisted input, never ephemeral HTTP
+data. Migration 1849 owns the operation/evaluation/execution schema prerequisite. Migration 1850
+owns the coherent private accepted-response boundary: child, atomic acceptance/exact replay,
+append-only/retention rules, forced RLS, broker/execution roles, and one read-only `SECURITY DEFINER`
+loader. Given an exact active worker lease, accepted-submission identity, and execution generation,
+the loader rechecks tenant, course, assignment, attempt, submission, job, and immutable
+issued-evidence witnesses before returning one sealed server-private descriptor. It changes no
+state, receipt, score, or assignment total.
+
+`ple_app` may execute the acceptance broker but cannot read the child, `SET ROLE`
+`ple_accepted_submission_execution`, or call the loader. Only `ple_worker_login` has SET-only
+membership in the NOLOGIN/NOINHERIT `ple_accepted_submission_execution` capability; it has loader
+execution and no child table privileges. The separate NOLOGIN reader owns only the loader's required
+private reads. `PostgresAcceptedSubmissionExecutionStore` is the sole Rust implementation of
+`AcceptedSubmissionExecutionStore`; general `PostgresStore` never implements that trait. This applies
+ASVS 1.2.4, 1.5.2-1.5.3, 2.2, 2.3, 8.1-8.4, 11.4, 14.1-14.2, 15.3-15.4, and 16.2-16.5.
+
+### Automated operation and receipt model
+
+The domain owns closed values for operation target, deterministic exception class, state, action,
+and outcome. Operation targets include assignment, public question reference, learner/attempt
+reference, source submission, and source grading generation. The taxonomy distinguishes a safe
+deterministic grader exception from invalid learner input, dependency outage, integrity failure, and
+stale/superseded work. `RunBackendError` gains the approved closed deterministic-execution subtype,
+separate from invalid issued authority and unavailable dependency failure.
+
+Attempt-unique mutable `grading_execution` owns current execution generation, retry bound, and
+state. Mutable `grading_operation` owns the public `GO-<positive>` reference, revision, current
+state, and one explicitly derived safe next action.
+Append-only `grading_execution_receipt` records execution transitions; append-only
+`grading_operation_receipt` records Instructor actions. Both carry identity, scope,
+actor-or-worker identity, request digest where applicable, expected/resulting generation or
+revision, safe category, and time. They exclude the response, answer, key, private source, secret
+diagnostic, feedback internals, and score values.
+
+One submission recovery thread is unique for `(tenant, assignment, attempt, submission)` and its
+first deterministic exception. Retries append receipts to that thread. A recalculation operation is
+unique for `(tenant, assignment, requested_scoring_generation)` after the broker assigns the
+generation. Question and learner grouping present these threads; grouping never creates them.
+Every action has its own idempotency identity and expected operation revision. An exact action
+replay returns the original receipt. The same key with a changed target, revision, actor, or command
+conflicts without mutation. `worker_job`, `audit_event`, and `manual_grade_receipt` remain distinct
+concepts.
+
+The public learner field `automatedGradingStatus` has the closed symbolic values `pending`,
+`graded`, and `instructor_attention`. The Instructor field `operationReason` has the closed safe
+values `grader_contract_failure`, `grader_execution_failure`, `issued_evidence_integrity`,
+`retry_exhausted`, and `scoring_recalculation_failed`. A server-owned mapping provides visible
+messages. Backend text, tracing/provider data, answer material, private source, and feedback
+internals never enter a public DTO or receipt.
+
+### Recovery and score publication
+
+An accepted action transaction rechecks current Instructor authority and the exact tenant/course/
+assignment chain, appends its receipt, advances current operation state, and uses the established
+enqueue capability where needed. It serializes assignment transition decisions so generations remain
+monotonic.
+
+Retry regrades the accepted immutable submission through one added closed accepted-submission
+execution job payload in the existing worker family. The acceptance transaction creates that ready
+job. The queue broker gains an exact-job lease command with the same tenant, worker, lease,
+cancellation, completion, and failure rules as `claim_next_job`. The synchronous request may acquire
+that exact lease and run the same private handler as a latency optimization. A concurrent request
+and worker receive at most one lease; a request that does not acquire it returns the durable
+`202 Accepted` projection. Transient dependency failure returns the job to ready with bounded
+backoff, while deterministic and integrity failures commit their typed states and receipts.
+
+Accepted-submission execution generation and assignment scoring generation remain distinct.
+Instructor retry advances execution generation and creates a fresh accepted-submission job. Its
+execution committer rechecks exact job, lease, submission identity, execution generation, and
+issued-contract witnesses before changing the evaluation and calling `2026081830`.
+
+Successful grade finalization invokes `2026081830`, which alone advances assignment scoring
+generation and creates its recalculation job. The assignment scoring committer separately rechecks
+its exact job, lease, assignment generation, and scoring status before `2026081831` publication.
+Stale work at either generation is superseded and cannot publish. Original learner submission and
+grade receipts remain immutable; operation receipts record recovery.
+
+### HTTP and browser contract
+
+The learner submission route remains the exact existing plural path:
+
+```text
+POST /api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submissions
+```
+
+It returns an answer-free no-store flattened tagged learner union. The browser JSON field/
+discriminant is lowerCamelCase `kind`; its cross-runtime symbolic values are snake_case
+`completed`, `accepted_pending`, and `instructor_attention`. `200 OK` returns `completed` after
+the exact leased fast path commits. `202 Accepted` returns `accepted_pending` for durable pending
+work or `instructor_attention` for a typed execution exception. Pending and attention bodies contain
+only acceptance, the route-bound `attemptId`, closed automated-grading status, and closed
+snake_case `nextAction` value `check_status`; they exclude response, feedback, result, successor,
+execution identity, and score. The browser owns the visible copy for `check_status`.
+`422 Unprocessable Entity` remains only for shape/timing validation before accepted-input
+persistence. A dependency outage after acceptance remains durable pending work and uses worker
+backoff. Exact replay returns the current union projection for the same immutable submission.
+
+```text
+GET /api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submission-status
+```
+
+The no-store status GET rechecks learner entitlement and the complete route witness, then returns
+the same union. It allows an acknowledged learner to use visible **Check grading status** without a
+second answer POST. A `202 Accepted` clears the response buffer and idempotency key, enters the
+explicit `acceptedPending` client state, and provides that action; it does not restore or replay an
+accepted answer. Transport recovery retains the buffered exact replay only before acknowledgement.
+
+```text
+GET  /api/courses/{course}/assignments/{assignment}/grading-operations
+     ?groupBy=question|learner&cursor=<opaque>&pageSize=<bounded>
+POST /api/courses/{course}/assignments/{assignment}/grading-operations/{operation}/retry
+POST /api/courses/{course}/assignments/{assignment}/grading-operations/recalculate
+```
+
+`{operation}` is `GradingOperationReference` in its registered `GO-<positive>` public form. The
+reference belongs in `crates/question_model/src/public_route.rs` and its reserved-prefix registry.
+The server resolves it only within trusted tenant/course/assignment Instructor authority. Internal
+UUID, job, attempt, and submission identities remain Store/server details.
+
+The server establishes session, tenant, current Instructor authority, and exact course/assignment
+relationship before interpreting optional values or returning facts. Learners, other tenants, and
+stale memberships receive the common concealed no-store result.
+
+Question grouping is the default because the first teaching question is "which item needs attention
+across learners?" Learner grouping answers impact questions. A group contains public Question ID and
+title or learner display identity, safe exception/status summary, affected-learner count, trust
+generation/state, action eligibility, and stable cursor key. G2 owns protected learner-work detail.
+
+Retry and recalculation POSTs are body-free. Required `Idempotency-Key` and `If-Match` headers carry
+the bounded action identity and current operation or assignment revision. Strict no-store
+receipts/list DTOs contain metadata only. Browser decoders reject unknown, answer-bearing, and
+score-bearing fields and accept only the closed public status/reason values.
+
+### Visible workflow
+
+T6 assignment navigation gains **Grading operations** between **Policies** and **Student view**.
+The header identifies assignment and scoring generation/status. A status band names the safe next
+action; recalculating and failed totals are never presented as current or zero.
+
+Rows lead with question title and `AAA-BBBB` ID or learner identity, then safe status, impact,
+generation, and a named action such as **Retry automated grading for [question]**. Switching group
+mode resets opaque cursor/action context and announces the new scope. Pending action controls expose
+busy state without disabling unrelated work. Receipt, conflict, transport, and load recovery retain
+context and direct focus to the next control.
+
+The product-wide Instructor and Sysadmin visual profile is 1280 by 800 desktop 16:10. G1's visible
+operation evidence is Instructor-only at that profile. A G1 Sysadmin surface uses the same profile
+when that surface exists; student responsive evidence continues through ordinary learner journeys.
+
+## Milestones
+
+| M   | Title                | Summary                                           | Goal                                              |
+| --- | -------------------- | ------------------------------------------------- | ------------------------------------------------- |
+| M1  | Bind durability      | Freeze state ownership and migrations 1849/1850.  | Give every lane one contract.                     |
+| M2  | Persist evidence     | Store immutable input, projections, and receipts. | Make recovery replayable and tenant-safe.         |
+| M3  | Execute recovery     | Route exceptions through one leased worker path.  | Recover without browser answers or human scoring. |
+| M4  | Expose teaching work | Add the strict client and assignment-local UI.    | Make the next safe Instructor action obvious.     |
+| M5  | Prove the live loop  | Move one real exception to a current total.       | Establish end-to-end trust in recovery.           |
+
+Milestone exit evidence is concrete: M1 requires this approved plan and the ledger allocation; M2
+requires Memory conformance and the PostgreSQL/RLS oracle; M3 requires server, worker, and connected
+race evidence; M4 requires offline client/model tests and semantic review; M5 requires the HTTPS
+journey, connected oracles, and final Validation.
+
+## Work packages
+
+### G1-W1: bind accepted-input and operation contracts
+
+- **Owner:** architect.
+- **Outcome:** approved accepted-input, execution, evaluation, and operation ownership;
+  canonical `SubmissionEvaluationStatus`,
+  `GradingOperationReference`, operation taxonomy, private execution contract, retention/RLS
+  ownership, receipt fields, and forward migration allocation.
+- **Owned files/modules:** this plan and
+  [implementation_status.md](../implementation_status.md). This plan is the durable decision record.
+- **Dependencies:** accepted T6; existing 1830/1831 capabilities.
+- **Implementation steps:** bind canonical reuse of immutable `submission`; distinct execution,
+  evaluation, and operation state; idempotency/replay; `GO-<positive>` resolution; exact-job lease;
+  private retry execution; retention/purge; safe public enums; receipts; and migrations 1849/1850.
+  Confirm
+  automated traits are structurally independent of `ManualGradingStore` and score mutation.
+- **Permanent tests:** none; this package establishes contracts later behavior tests protect.
+- **One-time/connected evidence:** Graphify/source lifecycle audit, migration/privilege review, and
+  architect decision record.
+- **Success criteria:** every dependent owner has one stable contract and allocated forward schema
+  work; `submission` is accepted before every grader call; no retry depends on transient HTTP data.
+- **Handoff:** publish approved types, fields, migration IDs, and source-boundary decision to W2-W7.
+
+### G1-W2: persist accepted submissions and operation evidence
+
+- **Owner:** expert coder, learning-data-access boundary.
+- **Outcome:** one coherent private accepted-response and worker-only execution capability: answer-free
+  accepted `submission`/`submission_idempotency` metadata parents plus one composite-FK
+  `accepted_submission_private_response` child; `SubmissionEvaluationStatus`,
+  `grading_execution`, `grading_operation`, execution receipts, and operation receipts remain
+  brokered, tenant-scoped, retention-aware, and immutable where required.
+- **Owned files/modules:** `crates/question_model/src/public_route.rs`; proposed
+  `crates/question_model/src/grading_operations.rs`; proposed
+  `crates/learning-data-access/src/contracts/grading_operations.rs`; proposed
+  `crates/learning-data-access/src/grading_operations.rs`; relevant submission contracts and
+  Memory/PostgreSQL submission owners; proposed Memory/PostgreSQL grading-operation modules; parent
+  exports; `schemas/migrations/2026081849_automated_grading_operations.sql`;
+  `schemas/migrations/2026081850_accepted_submission_execution_load.sql`; crate-local tests.
+- **Dependencies:** W1.
+- **Implementation steps:** 1849 creates only operation/evaluation/execution prerequisites. In 1850,
+  serialize each typed `StudentResponse` once with the shared Rust helper; make Memory and PostgreSQL
+  mirror the public-metadata/private-response split and hash the exact UTF-8 bytes; write fixed
+  answer-free parent markers plus the composite-FK canonical-text private child atomically; enforce
+  exact replay, append-only/retention deletion, and forced RLS. Create broker, reader, and
+  NOLOGIN/NOINHERIT execution caller roles so API may call acceptance only, while worker login alone
+  can SET the execution caller and call the lease-bound loader. Make
+  `PostgresAcceptedSubmissionExecutionStore` the only `AcceptedSubmissionExecutionStore`
+  implementation; keep API/general `PostgresStore` unable to load the child. Create current
+  execution/evaluation/operation projections and append-only receipts; extend the closed worker
+  payload/exact-job lease; implement conflict/replay; and call 1830 rather than duplicating
+  assignment-scoring enqueue SQL. W2 protects the G1 version-2 input now. WP-P2 Persistent bindings
+  follows with the legacy-consumer transition: it uses
+  `/private/tmp/ple_g1_plan/g1_p0_ple_app_read_inventory.md` to replace each consumer of
+  `submission`, `submission_idempotency`, `question_attempt`, and `worker_job` with a narrow
+  capability, then reduces the corresponding broad grants. WP-P2 begins that phase after W2 exposes
+  the protected input boundary and records its migration-allocation review before changing schema or
+  privileges.
+- **Permanent tests:** deterministic offline Rust contracts with inline values and controlled clocks
+  cover Memory's public-metadata/private-response split, canonical variants and digest, exact replay,
+  state transitions, receipt immutability, changed replay, tenant/course scoping, retention metadata,
+  typed login-profile/role/store composition, and the fact that only the dedicated store has the
+  execution trait. They use no services, sleeps, fixture files, PostgreSQL catalogs, or executable
+  privilege checks.
+- **One-time evidence:** apply the amended active migrations twice to a fresh disposable database and
+  run the migration verifier. This clean-schema proof is not a permanent fixture.
+- **Connected evidence:** W7b alone owns the PostgreSQL catalog and executable authority oracle for
+  this boundary: API cannot assume execution, execute the loader, or read child/sensitive fields; a
+  worker exact claim alone receives matching response and issued evidence; invalid tenant/lease/
+  submission/generation/retention facts return no descriptor. Migration `DO` catalog assertions are
+  schema self-verification, not a mock or migration-text snapshot test.
+- **Success criteria:** an accepted input survives grading failure safely; one accepted action yields
+  one receipt and at most one matching enqueue; public operation projections contain no answer or
+  score material.
+- **Handoff:** W3-W5 receive typed submission, operation, receipt, action, and the worker-only
+  execution-store capability; W4 composes that narrow handle only into the accepted-submission
+  handler and does not alter grants, roles, or loader authority.
+
+### G1-W3: stabilize typed pending reads and classify outcomes
+
+- **Owner/package:** expert coder, `WP-PROF-G1 / G1-W3`, learner
+  submission/grader boundary.
+- **Depends on:** G1-W2. W4 and W5 wait for the stabilization gate below.
+- **Owned artifacts:** the two `submission_record` matches in
+  `crates/server/src/run/queries.rs`; the established accepted-pending
+  replay/read helper in `crates/server/src/run/submission.rs`; the matching
+  typed read arm in `crates/server/src/run/external_tool.rs`; a minimal
+  server-side answer-free `accepted_pending` 202 projection/helper with
+  lowerCamelCase `kind`, `attemptId`, `automatedGradingStatus`, and `nextAction`
+  fields for those established replay states; the closed `RunBackendError`/
+  `SubmissionDisposition` mappings in native, WebWork, QTI, and composite
+  backends; and an explicit preservation decision for the iMathAS broker's
+  separate opaque `Invalid`/`Unavailable`/`Unsupported` mapping.
+- **Required behavior:** preserve pre-acceptance 422 validation; map
+  `Missing`, `AcceptedPending`, and `Completed` deliberately; return the final
+  minimal no-store 202 projection for an already accepted pending replay; and
+  classify validated deterministic grader failures through the closed operation
+  taxonomy. Manual grading retains its path and dependency outages remain
+  unavailable. The generic W4 accepted-submission worker does not replace the
+  authenticated one-use iMathAS broker: its launch/session/binding refusals
+  remain opaque, its provider and object-store outages remain unavailable, and
+  its committed replay stays atomic on the external-tool path. W3 makes no
+  first-effect acceptance call, exact claim, outcome commit, job mutation, or
+  learner-client mutation.
+- **Accepted stabilization evidence:** the named read/replay call sites, minimal
+  accepted-pending helper, backend mappings, and canonical Memory learner read
+  are green under the focused W3 gates and independent architecture and
+  security/privacy approval. W4 consumes these contracts while retaining
+  ownership of first-effect acceptance, claims, outcomes, and learner state.
+- **Permanent offline gate:** `cargo fmt --check`, `cargo check -p server_core`,
+  and focused deterministic pending/read, 202-helper, outcome-matrix, and
+  external-tool provider-bypass tests. The pending read proof covers list and
+  single-attempt projections without fabricating a completed receipt. Use
+  controlled backend results and issued evidence without services, sleeps,
+  current time, randomness, or answer-bearing responses.
+- **Connected one-time gate:** exercise typed pending/read mapping,
+  deterministic exception, and dependency-unavailable outcomes on the
+  disposable stack after the compile gate.
+- **Handoff:** send W4 the final minimal pending projection, pending/completed
+  read shape, exception category, operation target/revision, and private-loader
+  invariant. Send W5 only answer-free Instructor action semantics and bounds.
+
+### G1-W4: accept, execute, and recover learner grading
+
+- **Owner/package:** expert coder, `WP-PROF-G1 / G1-W4`, learner acceptance,
+  worker/scoring, and persistence-capability boundary.
+- **Depends on:** G1-W3 green stabilization gate and W2 accepted SQL/security
+  review. Migration `2026081851_accepted_submission_execution_worker_outcome.sql`
+  is allocated before source edits.
+- **Binding contract:**
+  `docs/active_plans/active/automated_grading_execution_contract.md` freezes
+  W4's sealed claim/load/completion capability, immutable answer-free receipt,
+  `ple-canonical-json-v1` evidence protocol, state transitions, lane ownership, and focused
+  evidence boundary.
+- **Owned artifacts:** the first-effect branch and helpers in
+  `crates/server/src/run/submission.rs`; learner delivery serialization in
+  `crates/server/src/run/support.rs`; the route-bound status GET in the run
+  router/query owner; `CompletedSubmissionReceipt`, the crate-private
+  `submission_completion.rs` lifecycle planner, and
+  `AcceptedSubmissionExecutionWorkerStore`; the crate-private
+  `crates/learning-data-access/src/canonical_json.rs` owner for versioned
+  evidence source text; Memory/PostgreSQL
+  claim/load/lock/commit-v2/fail parity; `jobs.rs`,
+  `in_memory/queue.rs`, and `postgres/jobs.rs`; worker, scoring-worker, and
+  worker-composition modules; `src/api/contracts.ts`, `src/api/decoders/run.ts`,
+  `src/api/http_client/request.ts`, `src/features/attempt/attempt_state.ts`, and
+  `src/api/client.ts`, `src/api/http_client/response.ts`, and focused learner
+  page/presentation modules; focused tests; and migration 1851.
+- **Required behavior:** validate public response shape and learner route
+  witnesses without invoking a grader, then call `accept_automated_submission`
+  once. W2 persists immutable input, replay evidence, pending projection,
+  execution receipt, and the exact ready job. W4 obtains the exact lease: the
+  winner runs one common private fast/background handler and a non-winner
+  returns pending. The handler uses W2's worker-only loader, grades, and calls
+  W4's atomic completion capability. Automated execution produces only graded
+  results with trusted result evidence and feedback; an exemption remains an
+  authorized Instructor/policy lifecycle transition and a general read state.
+  Under one state lock or PostgreSQL
+  transaction-scoped completion lock, the backend builds the immutable,
+  answer-free `CompletedSubmissionReceipt` and persists the exact completed
+  attempt, feedback, normalized receipt snapshot, run/enrollment transition,
+  typed scalar per-enrollment summary update, and one-time statistics inputs.
+  Every immutable result, receipt
+  attempt, run, summary, optional presentation, and feedback value uses one
+  `ple-canonical-json-v1` source text plus a structurally equal queryable JSONB
+  projection; SHA-256 always attests to the source text,
+  `canonical_json_version = 1` records the protocol, and
+  `MAX_CANONICAL_JSON_V1_BYTES = 512 * 1024` applies the existing broker JSON
+  ceiling while feedback retains its stricter semantic budget. The immutable
+  receipt summary source/projection/digest belongs to
+  `submission_receipt_snapshot`; `student_assignment_summary` remains the typed
+  scalar current projection. Migration 1851 lock/load returns named scalar
+  summary fields, and commit-v2 validates exactly `tenant`, `enrollment`,
+  `currentScore`, `bestScore`, `latestScore`, `completedRunCount`,
+  `totalQuestionAttempts`, and `lastActivityAt` before writing those scalars.
+  The capability has exactly 38 positional values. The pure planner composes the
+  existing lifecycle helpers after coherent validated inputs; backend callers
+  retain private-response, feedback, checksum, authorization, and persistence
+  authority. It produces no `attempt_score_current` write. Exact claim, load,
+  lock, commit-v2, and fail recheck tenant, job, token, unexpired lease,
+  submission, worker, and execution generation. A lost, expired, duplicate, or
+  superseded claim returns the typed lease-loss/conflict disposition and leaves
+  durable state unchanged. Success invokes 1830 exactly once; migrations 1830/1831
+  remain the generation-fenced assignment/course current-score publication path.
+  The pre-production migration
+  applies this protocol on a clean live-demo baseline, so no historical JSONB
+  row needs a reconstructed source text. Presentation-bearing response
+  translation and envelope validation run inside the common leased handler, so
+  a post-acceptance integrity failure becomes typed `instructor_attention`.
+
+  W4 extends W3's minimal helper into a flattened learner tagged union. Its
+  browser JSON field/discriminant is lowerCamelCase `kind`; its cross-runtime
+  symbolic values are snake_case `completed`, `accepted_pending`, and
+  `instructor_attention`. `completed` contains the established receipt
+  projection sourced from the immutable completed receipt. The two pending
+  alternatives contain only `accepted: true`, the
+  route-bound `attemptId`, `automatedGradingStatus`, and closed snake_case
+  `nextAction: "check_status"`; the browser maps that action to visible copy.
+  They contain no response, feedback, result, successor, execution identifier,
+  or score. W4 adds the no-store route-bound
+  `GET /api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submission-status`;
+  it rechecks learner entitlement and the full route witness and returns the
+  same union. Receipt replay, status GET, and accepted POST replay converge on
+  the completed aggregate after evaluation; partial or contradictory durable
+  state resolves as an unavailable closed failure rather than a reconstructed
+  receipt.
+
+  A `202 Accepted` clears the response buffer and idempotency key, enters
+  `acceptedPending`, and presents visible keyboard-accessible **Check grading
+  status**. That action invokes the status GET, retains pending with its visible
+  acknowledged state, or consumes `completed`; it never replays an answer POST. Before
+  acknowledgement, transport recovery retains the buffered exact replay because
+  acceptance is unknown.
+- **C1/C2 execution rule:** C1's common handler is the sole owner of one
+  validated execution deadline. It times out only its owned `RunBackend::submit`
+  future; elapsed timeout cancels that future before one `TimedOut` outcome and
+  one commit-or-fail request. Its capability-specific
+  `AcceptedSubmissionCommitError` maps `Known(StoreError)` to the original
+  error and only `OutcomeUnknown` to the local unknown result. PostgreSQL may
+  return the latter only for final transaction-commit acknowledgement after a
+  decoded function result; begin, function/statement, decode, validation, and
+  pre-commit failures are known. Production Memory is known-only outside a
+  deterministic test seam. C2 reads the existing positive, lease-shorter
+  `WorkerSettings` value once through a semantic validated accessor and passes
+  it to both fast and recovery C1 callers. C2 adds no timeout or outcome writer.
+- **Permanent offline gate:** deterministic Memory/planner/handler/client tests
+  cover first acceptance before any grader call, accepted replay, competing
+  claims, bad token, controlled expiry/reclaim, tuple mismatch, success,
+  deterministic exception, retry/exhaustion, known commit propagation, injected
+  acknowledgement ambiguity, immutable
+  completed receipt preservation, and no aggregate or score effect after a
+  rejected commit. The planner test uses structured lifecycle outputs to prove
+  existing completion and first-statistics rules, rather than implementation
+  shape or byte/pixel equivalence. Status tests cover exact route binding,
+  pending/attention/completed convergence, and unavailable contradictory state.
+  Client tests cover closed union decoding, rejection of mixed/
+  answer-bearing/feedback-bearing/score-bearing pending bodies, and 202 buffer
+  clearing into `acceptedPending` with status-read recovery and no answer POST
+  replay. Canonical-evidence tests exercise source-text hashing, typed decoding,
+  and structural JSONB-projection equality, including altered source/digest and
+  mismatched projection failures. A paused-time handler test uses a pending fake
+  backend with drop signalling to prove cancellation before one `TimedOut`
+  commit, one submit, one commit request, and the durable disposition. C2 tests
+  prove the same validated worker setting reaches both handler callers. Use
+  explicit lease/generation values and no sleeps, wall-clock expiry, network,
+  or live database.
+- **Connected one-time gate:** W7b runs the fresh-database claim/load/
+  transaction-lock/commit-v2/fail oracle with explicit IDs, lease tokens,
+  workers, and generations. It demonstrates canonical source-text/digest
+  verification and source-to-JSONB structural equality for normal, manual, and
+  automated writers, immutable receipt normalization, private-response denial,
+  replay/status convergence, and ordinary synchronous completion versus
+  accepted-worker completion parity for equal run, enrollment, and scalar
+  summary results. It also proves 1830 enqueue and the 1831-only
+  assignment/course current-score publication path. W7a runs the visible learner
+  pending-to-completed status journey on the built HTTPS stack.
+- **Handoff:** send W5 closed retry/recalculate results and metadata-only
+  operation projections. W6 receives no learner contract work and remains the
+  Instructor operations page. Send W7a/W7b the status route, tagged union,
+  claim/load/lock/commit-v2/fail names, fault hook, visible learner states,
+  role assumptions, canonical evidence protocol, immutable-completion invariant, and 1830/1831 score
+  receipt, including known function failure and the reviewed final-
+  acknowledgement fault proof that only final commit acknowledgement becomes
+  `OutcomeUnknown`.
+
+### G1-W5: compose strict course-scoped operations HTTP
+
+- **Owner/package:** expert coder, `WP-PROF-G1 / G1-W5`, operation capability
+  and server route boundary.
+- **Depends on:** G1-W4 stable worker handoff. Record the migration allocation
+  before source edits.
+- **Owned artifacts:** dedicated `GradingOperationStore` contracts and safe
+  values in `crates/learning-data-access/src/contracts/grading_operations.rs`
+  and `grading_operations.rs`; Memory/Postgres implementations; focused
+  `crates/server/src/course/grading_operations.rs`,
+  `crates/server/src/course/routing.rs`, `crates/server/src/composition/router.rs`,
+  narrow `crates/server/src/route_policy.rs` entries, and route tests; migration
+  `2026081852_instructor_grading_operation_capabilities.sql`.
+- **Required behavior:** the course router adds the explicit bound
+  `S: Store + CourseRecordsAccessStore + SessionStore + GradingOperationStore + 'static`;
+  it does not extend global `Store` or `AutomatedGradingStore`. Memory and
+  PostgreSQL expose equivalent safe Instructor projections. List/detail return
+  question-first or learner-first metadata only. Retry and recalculation are
+  body-free, `If-Match`/idempotency-key guarded actions. Each store operation
+  rechecks session-derived Instructor authority, tenant, course, and assignment
+  inside its transaction. Retry uses W4; recalculation uses 1830, and 1831
+  remains the sole current-score publication path.
+- **Permanent offline gate:** Memory/Postgres contract parity and route tests
+  cover Instructor success, Student/outsider/foreign-tenant/revoked concealment,
+  in-transaction session recheck, stable ordering, cursor/revision bounds,
+  body-free header actions, exact replay/conflict, no-store, and strict
+  answer-free serialization. Tests use controlled IDs/revisions and no services,
+  sleeps, current time, or score-bearing fixtures.
+- **Connected one-time gate:** exercise list, retry, and recalculation as Elena
+  against the disposable stack; deny the same calls as a Student and unrelated
+  user; verify metadata-only responses and a gradebook change through the
+  worker's 1830/1831 path.
+- **Handoff:** send W6 exact paths, DTO/decoder shapes, empty/loading/action-
+  in-progress/error states, accessible action names, and revision recovery.
+  Send W7a the Instructor setup and expected safe network receipts.
+
+### G1-W6: build the assignment-local Instructor surface
+
+- **Owner/package:** SolidJS/TypeScript engineer, `WP-PROF-G1 / G1-W6`.
+- **Depends on:** G1-W5 DTOs and accepted T6 workspace seam.
+- **Owned artifacts:** `src/api/decoders/grading_operations.ts`,
+  `src/api/http_client/grading_operations.ts`,
+  `src/pages/assignment_workspace/assignment_workspace_operations_model.ts`,
+  `src/pages/assignment_workspace/assignment_workspace_operations_page.tsx`,
+  its focused stylesheet, `src/routes.ts`, `src/route_contract.ts`, workspace
+  navigation, and focused Node tests.
+- **Required behavior:** use the W5 production route and strict decoder; show
+  question-first groups with a learner alternate, safe states, named retry and
+  recalculate controls, receipts, focus recovery, and no protected learner
+  material. The page is production-shaped and usable at the Instructor-only
+  1280x800 desktop profile.
+- **Permanent offline gate:** TypeScript typecheck/lint and pure decoder/model
+  tests cover unknown or answer/response/evaluation/feedback/score fields,
+  path/navigation, cursor reset, action transitions, keyboard names, and error
+  recovery. Keep these tests deterministic and network-free.
+- **Connected one-time gate:** use the built `dist/` app on the real HTTPS stack,
+  visible route navigation, and visible controls; capture the Instructor-only
+  1280x800 screenshot and provenance record. A mock-backed browser result does
+  not satisfy this gate.
+- **Handoff:** send W7a stable selectors, accessible names, route entry, state
+  transitions, and screenshot provenance contract.
+
+### G1-W7a: prove the visible recovery journey
+
+- **Owner/package:** Playwright/integration engineer, `WP-PROF-G1 / G1-W7a`.
+- **Depends on:** G1-W6 and W4's deterministic fault seam.
+- **Owned artifacts:** `tests/playwright/e2e/automated_grading_recovery.spec.ts`,
+  `tests/e2e/e2e_browser_scenarios_failure.py`,
+  `tests/e2e/e2e_browser_scenario_contract.py`,
+  `tests/e2e/e2e_browser_scenario_execution.py`,
+  `tests/e2e/e2e_browser_fault_orchestrator.py`,
+  `tests/e2e/e2e_browser_suite_owner.py`, scenario registration, and
+  `tests/e2e/e2e_browser_screenshot_corpus.json` plus its provenance source.
+- **Required behavior:** extend the closed fault orchestrator with the
+  `deterministic_grader_exception` transition. Elena visibly creates or selects
+  ordinary live course/assignment/question state; the designated Student
+  visibly submits; accepted work visibly enters `acceptedPending`, clears its
+  answer buffer, and uses **Check grading status** without another answer POST.
+  The status result reaches `completed` after the worker commits. Elena then
+  opens operations, retries/recalculates, and observes the worker-completed
+  current Gradebook total. Browser traffic and operation views remain
+  answer-free.
+- **Permanent offline gate:** validate scenario/fault schema, selector and
+  accessible-name invariants, and screenshot provenance schema with deterministic
+  checks. Keep browser execution and screenshots out of the offline pytest lane;
+  use no sleeps, pixel equivalence, or incidental collection counts.
+- **Connected one-time gate:** run
+  `source source_me.sh && python3 local_stack.py acceptance` against the real
+  built HTTPS stack, with the visible Student submission and Instructor recovery
+  flow. Publish only Instructor-only 1280x800 evidence and exact provenance.
+  The gate is incomplete when it uses `dist_browser_test`, skips the fault, or
+  observes a fabricated score.
+- **Handoff:** send W7b submission, job, operation, lease, execution, and score
+  identifiers plus browser/network receipts; send closeout the exact command,
+  screenshot provenance, and semantic review.
+
+### G1-W7b: prove PostgreSQL and worker recovery
+
+- **Owner/package:** expert coder, `WP-PROF-G1 / G1-W7b`, PostgreSQL and
+  persistence-evidence boundary.
+- **Depends on:** G1-W4 exact claim/outcome contract, G1-W5 route policy, W2
+  migrations, and W7a correlated identifiers when browser evidence is used.
+- **Owned artifacts:**
+  `crates/learning-data-access/tests/postgres_automated_grading_operations_live.rs`,
+  `tests/e2e/e2e_database_baseline.sh`, and the migration catalog assertions
+  for 1849/1850/1851/1852. W7b registers the oracle and owns its receipt.
+- **Required behavior:** on a fresh database migrated twice, prove worker-only
+  claim/load/commit/fail, role and forced-RLS closure, exact lease and tenant
+  fences, retention and issued-evidence checks, duplicate/stale/superseded
+  rejection with no lost-claim mutation, append-only receipts, and API denial
+  of private reads and execution-role assumption. For every W4 evidence source
+  text/projection pair, verify SHA-256 over the stored UTF-8 source text and
+  structural equality with its JSONB projection; cover normal, manual, and
+  automated receipt writers. Compare ordinary synchronous completion and
+  accepted-worker completion for equal run, enrollment, and scalar summary
+  results. Drive the normal scoring worker to show 1830 enqueues and 1831 alone
+  publishes assignment/course current scores.
+  Use explicit IDs, tokens, workers, generations, and controlled lease state.
+  Its final-acknowledgement proof separates a decoded successful function result
+  from a forced final `transaction.commit()` acknowledgement failure; known
+  function/statement failures retain their exact `Known(StoreError)` result.
+- **Permanent offline gate:** no new connected behavior is promoted into the
+  fast lane. W2-W5 Memory, contract, route, and readiness tests remain the
+  permanent deterministic boundary; migration checks are deterministic
+  schema-self-verification and do not mock production privileges.
+- **Connected one-time gate:** register and run the exact live oracle through
+  the canonical fresh-database baseline, including role/catalog denial,
+  worker success, claim competition, retention, retry/exhaustion, and score
+  publication. A zero-test or skipped test is failure.
+- **Handoff:** send W7 SQL/test receipt, role matrix, correlated operation/
+  execution/score IDs, and residual risks. W7 runs complete Validation on the
+  final material tree.
+
+### G1-W7: close G1
+
+- **Owner:** integrator.
+- **Outcome:** independent review and final material-tree evidence establish the entire G1 loop.
+- **Owned files/modules:** [implementation_status.md](../implementation_status.md), this plan,
+  [CHANGELOG.md](../../CHANGELOG.md), final evidence records, and warranted operational docs.
+- **Dependencies:** W7a and W7b.
+- **Implementation steps:** consume the browser and PostgreSQL handoffs; run independent
+  architecture/security and HCI reviews; reconcile documentation; run final Validation on the exact
+  material tree; and record commands, results, and remaining evidence honestly.
+- **Permanent tests:** none; this package closes evidence already owned by W2-W7b.
+- **One-time/connected evidence:** independent reviews and final `all_test.sh`.
+- **Success criteria:** Instructor-visible action routes safe recovery to a current total without
+  human scoring, every required final gate is green, and the ledger points to reproducible evidence.
+- **Handoff:** G2 consumes operation/receipt links; G3 consumes independent analysis publication;
+  G5 consumes only actionability-qualified operations.
+
+## Dependency graph
+
+```text
+T6 assignment workspace
+       |
+       v
+G1-W1 contract + migration allocation
+       |
+       v
+G1-W2 accepted submission + operation persistence
+       |
+       v
+G1-W3 typed pending reads and classification
+       |
+       v
+G1-W4 learner acceptance, execution, and status
+       |
+       v
+G1-W5 strict HTTP boundary
+                   |
+                   v
+        G1-W6 Instructor operations page
+                   |
+                   v
+        G1-W7a visible recovery journey
+
+G1-W4 worker execution + G1-W5 HTTP boundary
+                   |
+                   v
+        G1-W7b PostgreSQL/worker oracle
+
+        G1-W7a + G1-W7b
+                   |
+                   v
+        G1-W7 closeout and handoff
+```
+
+## Ownership and file matrix
+
+- **Architecture/allocation - architect:** W1 plan and ledger. Freeze the decision before source
+  edits.
+- **Accepted input/execution/receipts - expert coder:** W2 domain/LDA contracts, stores, and
+  migration. Own schema, RLS, retention, and transactions.
+- **Typed pending/classification - expert coder:** W3 submission read/replay and backend modules.
+  Own the minimal accepted-pending helper and closed classification.
+- **Learner acceptance/execution - expert coder:** W4 first-effect submission, worker/scoring/queue,
+  route-bound status, learner delivery contracts, and learner client state. Retain sole
+  derived-score authority.
+- **HTTP authorization - expert coder:** W5 focused course route and policy. Own public
+  representations and authorization.
+- **Instructor browser workflow - TypeScript/Solid engineer:** W6 Instructor operations decoder,
+  client, workspace page, and nav. Consume W5 DTOs and preserve no-store.
+- **Visible connected proof - Playwright/integration engineer:** W7a scenario, fault orchestration,
+  screenshots, and provenance. Reuse the existing fixture seam and production runner.
+- **Persistence connected proof - expert coder:** W7b PostgreSQL oracle and baseline registration.
+  Reuse the disposable database baseline.
+- **Evidence/closeout - integrator:** W7 status, changelog, reviews, and final Validation record.
+  Advance after both connected evidence handoffs.
+
+## Validation and evidence matrix
+
+- **Accepted input survives grade failure.** Permanent: Memory lifecycle, replay, and retention
+  contract tests. Connected: `postgres_automated_grading_operations_live` private-payload/RLS
+  oracle.
+- **Response identity is cross-store exact.** Permanent: canonical helper variants and Memory digest
+  regression. Connected: the PostgreSQL broker returns the same digest for the same typed response.
+- **Private response and worker authority are separated.** Permanent: inline Memory, typed
+  login-profile/role/store composition, canonical serialization/digest, and dedicated-store
+  capability tests. One-time: fresh migrate-twice/verifier; migration `DO` catalog assertions are
+  schema self-verification. Connected: W7b PostgreSQL catalog plus executable API-denial and
+  worker-success oracle.
+- **Immutable evidence remains verifiable.** Permanent: the versioned Rust
+  encoder and reader tests prove source-text digest and typed/projection
+  coherence. Connected: W7b verifies the stored source-text/hash and JSONB
+  projection on the freshly migrated real database for normal, manual, and
+  automated writers.
+- **Operations are typed and answer-free.** Permanent: domain and decoder rejection tests.
+  One-time: independent architecture review.
+- **Actions are immutable and replay-safe.** Permanent: Memory receipt immutability, exact replay,
+  and changed conflict. Connected: concurrent duplicate-action PostgreSQL oracle.
+- **Tenant/course/role isolation holds.** Permanent: Store and route foreign, learner, outsider, and
+  revoked-member cases. Connected: canonical unauthorized probe.
+- **Exception routing is exact.** Permanent: submission classification matrix. Connected: the
+  controlled deterministic failure.
+- **Acknowledged learner work is recoverable.** Permanent: W4 tagged-union decoder and client-state
+  tests cover 202 buffer clearing, `acceptedPending`, and status-read recovery without answer POST
+  replay. Connected: W7a visibly completes pending-to-completed recovery on the HTTPS stack.
+- **Commit outcomes are diagnosable.** Permanent: W4 proves known error
+  propagation, injected acknowledgement ambiguity, and cancellation-safe
+  timeout-to-one-`TimedOut`. Connected: W7b proves known function failure and
+  the final PostgreSQL acknowledgement fault separately.
+- **One derived-score path remains.** Permanent: pure handler classification, generation-fence, and
+  lease-loss disposition tests. Connected: PostgreSQL lease/replay and competing-generation oracle,
+  including controlled expired/superseded claims whose committer cannot mutate execution,
+  evaluation, or score state.
+- **Automated and human grading stay separate.** Permanent: route and Store capability tests.
+  One-time: independent security call-path review.
+- **The Instructor task is learnable.** Permanent: client/page model, action, and focus tests.
+  Connected: `automated_grading_recovery` HTTPS journey and 1280 by 800 semantic review.
+- **The current total is trustworthy.** Permanent: scoring conformance plus G1 receipt/generation
+  assertions. Connected: Instructor action through worker to Gradebook observation.
+
+Permanent tests follow the repository admission rule: stable regression-prone behavior,
+deterministic offline execution, no service calls/sleeps/current-time dependence, and test-owned
+state. [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md) owns the complete evidence classes.
+Graphify reports, migration snapshots, source inventories, query plans, screenshots, and
+provenance are one-time evidence rather than permanent tests.
+
+## Risks
+
+- **Ephemeral retry input:** W1/W2 make persisted `submission` the private authority before grading.
+- **Unclear accepted-response retention:** W1 assigns the relationship; W2 enforces it in schema and
+  Store policy.
+- **Receipt/state becomes a competing grader:** W2/W4 keep it metadata/evidence only and retain the
+  1830/1831 derived-score path.
+- **Concurrent actions double-advance generation:** W2 serializes action/enqueue with idempotency and
+  revision; W4 preserves both execution and scoring generation fences.
+- **Human scoring leaks into recovery:** W5 supplies only typed automated commands and proves
+  structural separation.
+- **Dense UI obscures action:** W6 uses question-first hierarchy, named action, status band, and
+  focus recovery.
+- **Scope grows into G2/G3/G5:** W7 records typed downstream handoffs instead of copying those
+  capabilities.
+
+## Success criteria
+
+G1 is accepted on the final material tree when:
+
+1. Shape-valid accepted learner input becomes an immutable server-private `submission` before
+   grading; invalid input remains pre-persistence and successful fast grading retains ordinary
+   learner behavior.
+2. A `202 Accepted` learner outcome clears the response buffer, enters `acceptedPending`, and gives
+   the learner visible **Check grading status** recovery without another answer POST; the bound
+   status GET reaches the same `completed` receipt projection after execution commits.
+3. A deterministic grader exception creates one answer-free operation visible to the current
+   Instructor by question and learner, while invalid input and outages retain their own behavior.
+4. Exact action replay returns the original receipt; changed replay conflicts; duplicates create
+   neither a second receipt nor an extra generation.
+5. Retry uses accepted immutable input, recalculation uses 1830, and visible totals publish only
+   through the existing private-stage, lease-checked, generation-fenced 1831 path.
+6. Original learner receipts remain unchanged; stale generations cannot publish; foreign, learner,
+   and revoked callers receive no operation fact or mutation.
+7. The canonical HTTPS stack shows the learner pending recovery, Instructor recovery loop, and
+   current Gradebook total through
+   visible UI actions at the required 1280 by 800 desktop acceptance viewport.
+8. Independent architecture/security and HCI review accept the implementation, and
+   `source source_me.sh && ./all_test.sh` is green on the exact final material tree.
+
+## Documentation closeout
+
+G1-W7 records migration identities, implemented routes, permanent-test ownership, connected
+commands/results, screenshot provenance, review outcomes, and final Validation in implementation
+status, this plan, and the changelog. Operational docs change only for a shipped Instructor-visible
+live-demo step. G2/G3/G5 link to accepted contracts rather than duplicate them.
+
+## Dispatch-ready sequence
+
+1. Assign W1 to the architect and release-integrator collaboration; approve the accepted-input
+   lifecycle and record migrations 1849/1850 in the status ledger.
+2. Assign W2 to the persistence owner after W1 freezes types and allocations.
+3. Assign W3 after W2 exposes the accepted-input/operation contract, then W4 after W3 publishes its
+   closed exception/retry classification.
+4. Assign W5 after W2-W4 stabilize action outcomes and authorization data.
+5. Assign W6 after W5 publishes Instructor DTOs and paths; keep Instructor browser ownership
+   confined to its modules while W4 retains learner delivery recovery.
+6. Assign W7a after the visible action path exists and W7b after the worker/HTTP boundaries exist.
+   Use the production-shaped stack and visible UI actions for product state, with the deterministic
+   fault as the bounded harness setup.
+7. Assign W7 after both connected-evidence owners deliver their artifacts and results; have the
+   integrator run independent reviews and final Validation on that exact material tree.
