@@ -7,14 +7,20 @@ and repository-rules review. The shared [allocation ledger](../implementation_st
 `2026081849_automated_grading_operations.sql` and
 `2026081850_accepted_submission_execution_load.sql` to this package. The ledger
 also records the approved forward allocations for W4 and W5:
-`2026081851_accepted_submission_execution_foundation.sql`,
-`2026081852_accepted_submission_execution_capabilities.sql`, and
-`2026081853_instructor_grading_operation_capabilities.sql`.
+`2026081851_accepted_submission_execution_schema.sql`,
+`2026081852_accepted_submission_execution_integrity.sql`,
+`2026081853_public_function_authority.sql`,
+`2026081854_accepted_submission_execution_authority.sql`,
+`2026081855_accepted_submission_execution_claim.sql`,
+`2026081856_accepted_submission_execution_read.sql`,
+`2026081857_accepted_submission_execution_load.sql`,
+`2026081858_accepted_submission_execution_completion_lock.sql`,
+`2026081859_accepted_submission_execution_commit.sql`,
+  `2026081860_accepted_submission_execution_fail.sql`, and `2026081861_instructor_grading_operation_capabilities.sql`.
 
-W2 and W3 are accepted, and W4 is the current implementation stage. A fresh
-disposable database currently stops on a known migration-1851 syntax error, so
-W4 first completes the binding contract's narrow migration stabilization gate:
-readable 1851/1852 apply, second-pass no-op, compatibility, and executable
+W2 and W3 are accepted, and W4 is the current implementation stage. W4 first
+completes the binding contract's narrow migration stabilization gate: readable
+1851 through 1860 apply, second-pass no-op, compatibility, and executable
 role/RLS proof. The W4
 execution contract at
 `docs/active_plans/active/automated_grading_execution_contract.md` freezes the
@@ -95,12 +101,10 @@ browser contracts, and an operation queue rather than mutable score editing or d
   `2026081850_accepted_submission_execution_load.sql` owns the complete private accepted-input and
   active-lease execution boundary: child storage, atomic acceptance/exact replay, retention and
   append-only guards, forced RLS, caller role, and sealed execution loader. W4 owns ordered
-  forward allocations `2026081851_accepted_submission_execution_foundation.sql` and
-  `2026081852_accepted_submission_execution_capabilities.sql`: the first owns roles, table
-  changes, guards, witness, table RLS/grants, and their attestation; the second owns shared
-  generic/exact claim and verified-read capabilities, load/lock/commit/fail, function grants,
-  and function attestation. W5 owns
-  `2026081853_instructor_grading_operation_capabilities.sql` for the dedicated Instructor
+  forward allocations `2026081851_accepted_submission_execution_schema.sql` through
+  `2026081860_accepted_submission_execution_fail.sql`. They each own one independently verifiable
+  capability: schema/roles, integrity, public-function authority, table authority, claim, verified
+  read, load, completion lock, commit-v2, then fail. W5 owns `2026081861_instructor_grading_operation_capabilities.sql` for the dedicated Instructor
   operation capability and broker surface. Accepted migrations remain immutable.
 - Assignment-local route `/courses/:courseRef/assignments/:assignmentRef/grading-operations`,
   question-first grouping, learner alternate, cursor pagination, and explicit recovery controls.
@@ -146,6 +150,24 @@ as the relevant connected communities. Direct source remains authoritative.
   assignment authority. G1 adds one local page and focused client seam.
 - **Human grading:** the existing manual-grade route and receipt retain their separate authority.
   G1 proves automated commands cannot reach that mutation.
+
+## W4 migration stabilization gate
+
+This is a narrow pre-production stabilization gate, not a redesign of the
+approved exact-claim algorithm. W4 source work resumes only after the sequence
+below records `Keep` for every experiment. A failure stops at its first
+actionable result, retains its disposable receipt, and returns only the named
+migration layer to its owner.
+
+| Experiment | Hypothesis | Single change | Success metric | Keep/Revert |
+| --- | --- | --- | --- | --- |
+| S1: schema through authority | The first four layers establish caller roles, one definer owner, closed public function authority, and exact data authority. | Apply 1851 schema/roles, 1852 integrity, 1853 public-function authority, then 1854 table authority. | 1851 proves the fast-path role has zero memberships; 1853 proves effective catalog closure after PUBLIC/default EXECUTE revocation and legacy v1 denial; 1854 proves receipt-version read while callers/app lack private canonical columns. | Keep each layer on its focused proof; repair its owning layer when the proof fails. |
+| S2: claim through load | Separate callers compete through one transition while the read remains structurally route-bound. | Apply 1855 claim, 1856 four-key read, then 1857 load. | Generic/exact races have one winner; each caller is denied its sibling wrapper/internal transition; ready/expired maximum jobs converge; the reader follows same-transaction Rust entitlement. | Keep each layer on its focused proof; repair its owning layer when the proof fails. |
+| S3: lock through fail and integration | Completion preserves one reusable handler and rejects invalid durable operations before mutation. | Apply 1858 lock, 1859 commit-v2, then 1860 fail; reapply the full migration command unchanged and run compatibility plus W7b. | Ordered apply reaches a compatible tail; second pass is a no-op; effective function ACLs are exhaustive; commit binds canonical version at position 7; NULL failure kind/reason returns `22023` without changes. | Keep the ordered stack on integration pass; repair the named failing layer when a focused or integration proof fails. |
+
+If the focused experiments show the shared state machine cannot preserve
+one-winner, tuple-fenced behavior, obtain an architect-approved replacement
+before implementation continues.
 
 ## Approved architecture and contracts
 
@@ -505,14 +527,16 @@ journey, connected oracles, and final Validation.
   worker/scoring, and persistence-capability boundary.
 - **Depends on:** G1-W3 green stabilization gate, W2 accepted SQL/security
   review, and the W4 migration stabilization gate. Migrations
-  `2026081851_accepted_submission_execution_foundation.sql` and
-  `2026081852_accepted_submission_execution_capabilities.sql` are allocated
+  `2026081851_accepted_submission_execution_schema.sql` through
+  `2026081860_accepted_submission_execution_fail.sql` are allocated
   before source edits.
 - **Binding contract:**
   `docs/active_plans/active/automated_grading_execution_contract.md` freezes
   W4's sealed claim/load/completion capability, immutable answer-free receipt,
   `ple-canonical-json-v1` evidence protocol, state transitions, lane ownership, and focused
-  evidence boundary.
+  evidence boundary. Its explicit identity, capability, transition, and
+  immutable-evidence boundaries prepare the later database-normalization
+  roadmap package without expanding W4's focused operation boundary.
 - **Owned artifacts:** the first-effect branch and helpers in
   `crates/server/src/run/submission.rs`; learner delivery serialization in
   `crates/server/src/run/support.rs`; the route-bound status GET in the run
@@ -526,14 +550,14 @@ journey, connected oracles, and final Validation.
   worker-composition modules; `src/api/contracts.ts`, `src/api/decoders/run.ts`,
   `src/api/http_client/request.ts`, `src/features/attempt/attempt_state.ts`, and
   `src/api/client.ts`, `src/api/http_client/response.ts`, and focused learner
-  page/presentation modules; focused tests; and migrations 1851/1852.
+  page/presentation modules; focused tests; and migrations 1851 through 1860.
 - **Required behavior:** validate public response shape and learner route
   witnesses without invoking a grader, then call `accept_automated_submission`
   once. W2 persists immutable input, replay evidence, pending projection,
-  execution receipt, and the exact ready job. W4 obtains the exact lease: the
-  winner runs one common private fast/background handler and a non-winner
-  returns pending. The handler uses W2's worker-only loader, grades, and calls
-  W4's atomic completion capability. Automated execution produces only graded
+  execution receipt, and the exact ready job. W4 implements the binding
+  contract's split caller roles/private pools and one shared handler; a
+  non-winner returns pending. The handler uses W2's worker-only loader, grades, and calls W4's atomic
+  completion capability. Automated execution produces only graded
   results with trusted result evidence and feedback; an exemption remains an
   authorized Instructor/policy lifecycle transition and a general read state.
   Under one state lock or PostgreSQL
@@ -550,11 +574,12 @@ journey, connected oracles, and final Validation.
   ceiling while feedback retains its stricter semantic budget. The immutable
   receipt summary source/projection/digest belongs to
   `submission_receipt_snapshot`; `student_assignment_summary` remains the typed
-  scalar current projection. Migration 1851 lock/load returns named scalar
+  scalar current projection. Migrations 1856/1857 load and lock return named scalar
   summary fields, and commit-v2 validates exactly `tenant`, `enrollment`,
   `currentScore`, `bestScore`, `latestScore`, `completedRunCount`,
   `totalQuestionAttempts`, and `lastActivityAt` before writing those scalars.
-  The capability has exactly 36 positional values. The attempt's immutable
+  The capability has exactly 36 positional values, with canonical JSON version
+  at position 7 before evaluation status. The attempt's immutable
   issuance payload remains unchanged while relational lifecycle fields advance;
   the pure planner composes the
   existing lifecycle helpers after coherent validated inputs; backend callers
@@ -563,10 +588,10 @@ journey, connected oracles, and final Validation.
   lock, commit-v2, and fail recheck tenant, job, token, unexpired lease,
   submission, worker, and execution generation. A lost, expired, duplicate, or
   superseded claim returns the typed lease-loss/conflict disposition and leaves
-  durable state unchanged. Success invokes 1830 exactly once; migrations 1830/1831
-  remain the generation-fenced assignment/course current-score publication path.
-  The pre-production migration
-  applies this protocol on a clean live-demo baseline, so no historical JSONB
+  durable state unchanged. Success invokes 1830 exactly once; migrations
+  1830/1831 remain the generation-fenced assignment/course current-score
+  publication path. The pre-production migration applies this protocol on a
+  clean live-demo baseline, so no historical JSONB
   row needs a reconstructed source text. Presentation-bearing response
   translation and envelope validation run inside the common leased handler, so
   a post-acceptance integrity failure becomes typed `instructor_attention`.
@@ -582,7 +607,10 @@ journey, connected oracles, and final Validation.
   They contain no response, feedback, result, successor, execution identifier,
   or score. W4 adds the no-store route-bound
   `GET /api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submission-status`;
-  it rechecks learner entitlement and the full route witness and returns the
+  it rechecks learner entitlement and the full route witness in the same Rust
+  transaction before calling the four-key verified integrity reader, which
+  returns only the existing app-readable projection and does not authorize an
+  actor independently. It returns the
   same union. Receipt replay, status GET, and accepted POST replay converge on
   the completed aggregate after evaluation; partial or contradictory durable
   state resolves as an unavailable closed failure rather than a reconstructed
@@ -650,7 +678,9 @@ journey, connected oracles, and final Validation.
 
 - **Owner/package:** expert coder, `WP-PROF-G1 / G1-W5`, operation capability
   and server route boundary.
-- **Depends on:** G1-W4 stable worker handoff. Record the migration allocation
+- **Depends on:** G1-W4 stable worker handoff and its passed migration
+  stabilization gate. Migration
+  `2026081861_instructor_grading_operation_capabilities.sql` is allocated
   before source edits.
 - **Owned artifacts:** dedicated `GradingOperationStore` contracts and safe
   values in `crates/learning-data-access/src/contracts/grading_operations.rs`
@@ -658,7 +688,7 @@ journey, connected oracles, and final Validation.
   `crates/server/src/course/grading_operations.rs`,
   `crates/server/src/course/routing.rs`, `crates/server/src/composition/router.rs`,
   narrow `crates/server/src/route_policy.rs` entries, and route tests; migration
-  `2026081853_instructor_grading_operation_capabilities.sql`.
+  `2026081861_instructor_grading_operation_capabilities.sql`.
 - **Required behavior:** the course router adds the explicit bound
   `S: Store + CourseRecordsAccessStore + SessionStore + GradingOperationStore + 'static`;
   it does not extend global `Store` or `AutomatedGradingStore`. Memory and
@@ -751,7 +781,7 @@ journey, connected oracles, and final Validation.
 - **Owned artifacts:**
   `crates/learning-data-access/tests/postgres_automated_grading_operations_live.rs`,
   `tests/e2e/e2e_database_baseline.sh`, and the migration catalog assertions
-  for 1849/1850/1851/1852. W7b registers the oracle and owns its receipt.
+  for 1849/1850 and the ordered W4 migrations 1851 through 1860. W7b registers the oracle and owns its receipt.
 - **Required behavior:** on a fresh database migrated twice, prove worker-only
   claim/load/commit/fail, role and forced-RLS closure, exact lease and tenant
   fences, retention and issued-evidence checks, duplicate/stale/superseded
@@ -764,6 +794,7 @@ journey, connected oracles, and final Validation.
   results. Drive the normal scoring worker to show 1830 enqueues and 1831 alone
   publishes assignment/course current scores.
   Use explicit IDs, tokens, workers, generations, and controlled lease state.
+  Execute the binding contract's focused connected proof.
   Its final-acknowledgement proof separates a decoded successful function result
   from a forced final `transaction.commit()` acknowledgement failure; known
   function/statement failures retain their exact `Known(StoreError)` result.

@@ -683,15 +683,33 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
         Ok(learning_data_access::SubmissionReceiptRead::Completed(_))
     ));
 
+    let mut receipt_retention = pool
+        .begin()
+        .await
+        .expect("begin disposable receipt retention transaction");
+    sqlx::query("SELECT set_config('ple.tenant_id', $1, true)")
+        .bind(tenant.as_uuid().to_string())
+        .execute(&mut *receipt_retention)
+        .await
+        .expect("scope disposable receipt retention to its tenant");
+    sqlx::query("SET LOCAL ROLE ple_retention_broker")
+        .execute(&mut *receipt_retention)
+        .await
+        .expect("assume the disposable receipt retention role");
+    // ASVS V8.2.1 and V8.4.1: the broker deletes only this tenant-scoped fixture row.
     let deleted = sqlx::query(
         "DELETE FROM submission_receipt_snapshot WHERE tenant_id = $1 AND attempt_id = $2",
     )
     .bind(tenant.as_uuid())
     .bind(attempt.id.as_uuid())
-    .execute(&pool)
+    .execute(&mut *receipt_retention)
     .await
-    .expect("corrupt the disposable receipt fixture");
+    .expect("delete the disposable receipt fixture through retention authority");
     assert_eq!(deleted.rows_affected(), 1);
+    receipt_retention
+        .commit()
+        .await
+        .expect("commit disposable receipt retention");
     assert!(matches!(
         PostgresStore::new(lazy_pool(database_url).expect("fresh missing-receipt PostgreSQL pool"))
             .replay_submission(context, student, attempt.id, &response, &key)
