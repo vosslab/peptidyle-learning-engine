@@ -563,10 +563,10 @@ BEGIN
     SELECT execution.tenant_id, job.job_id, job.lease_token, execution.submission_id,
         execution.execution_generation, p_worker_id, attempt.attempt_id, assignment.assignment_id,
         jsonb_build_object('assignmentId',assignment.assignment_id,'courseId',assignment.course_id,'title',assignment.title,'lifecycle',assignment.lifecycle,'instructions',assignment.instructions,'completionPolicy',assignment.completion_policy,'completionThreshold',assignment.completion_threshold::text,'attemptSelectionPolicy',assignment.attempt_selection_policy,'continuedPracticePolicy',assignment.continued_practice_policy,'practiceMaxAdditionalRuns',assignment.practice_max_additional_runs,'variationPolicy',assignment.variation_policy,'audienceKind',assignment.audience_kind,'scoreDisclosure',assignment.score_disclosure,'perItemCorrectnessDisclosure',assignment.per_item_correctness_disclosure,'feedbackTextDisclosure',assignment.feedback_text_disclosure,'solutionDisclosure',assignment.solution_disclosure,'classStatisticsDisclosure',assignment.class_statistics_disclosure),
-        (SELECT coalesce(jsonb_agg(course_group_id ORDER BY course_group_id),'[]'::jsonb) FROM public.assignment_audience_group WHERE tenant_id=execution.tenant_id AND assignment_id=assignment.assignment_id),
-        (SELECT coalesce(jsonb_agg(jsonb_build_object('assignmentItemId',assignment_item_id,'position',position,'problemId',problem_id,'versionId',version_id,'pointsPossible',points_possible::text,'deliveryState',delivery_state,'scoringMode',scoring_mode) ORDER BY position),'[]'::jsonb) FROM public.assignment_item WHERE tenant_id=execution.tenant_id AND assignment_id=assignment.assignment_id),
-        (SELECT coalesce(jsonb_agg(jsonb_build_object('selectionGroupId',selection_group_id,'position',position,'drawCount',draw_count,'pointsPerItem',points_per_item::text,'orderingPolicy',ordering_policy,'algorithmVersion',algorithm_version) ORDER BY position),'[]'::jsonb) FROM public.assignment_selection_group WHERE tenant_id=execution.tenant_id AND assignment_id=assignment.assignment_id),
-        (SELECT coalesce(jsonb_agg(jsonb_build_object('selectionGroupId',selection_group_id,'candidateId',candidate_id,'position',position,'problemId',problem_id,'versionId',version_id,'deliveryState',delivery_state) ORDER BY selection_group_id,position),'[]'::jsonb) FROM public.assignment_selection_candidate WHERE tenant_id=execution.tenant_id AND assignment_id=assignment.assignment_id),
+        (SELECT coalesce(jsonb_agg(audience.course_group_id ORDER BY audience.course_group_id),'[]'::jsonb) FROM public.assignment_audience_group AS audience WHERE audience.tenant_id=execution.tenant_id AND audience.assignment_id=assignment.assignment_id),
+        (SELECT coalesce(jsonb_agg(jsonb_build_object('assignmentItemId',item.assignment_item_id,'position',item.position,'problemId',item.problem_id,'versionId',item.version_id,'pointsPossible',item.points_possible::text,'deliveryState',item.delivery_state,'scoringMode',item.scoring_mode) ORDER BY item.position),'[]'::jsonb) FROM public.assignment_item AS item WHERE item.tenant_id=execution.tenant_id AND item.assignment_id=assignment.assignment_id),
+        (SELECT coalesce(jsonb_agg(jsonb_build_object('selectionGroupId',selection_group.selection_group_id,'position',selection_group.position,'drawCount',selection_group.draw_count,'pointsPerItem',selection_group.points_per_item::text,'orderingPolicy',selection_group.ordering_policy,'algorithmVersion',selection_group.algorithm_version) ORDER BY selection_group.position),'[]'::jsonb) FROM public.assignment_selection_group AS selection_group WHERE selection_group.tenant_id=execution.tenant_id AND selection_group.assignment_id=assignment.assignment_id),
+        (SELECT coalesce(jsonb_agg(jsonb_build_object('selectionGroupId',candidate.selection_group_id,'candidateId',candidate.candidate_id,'position',candidate.position,'problemId',candidate.problem_id,'versionId',candidate.version_id,'deliveryState',candidate.delivery_state) ORDER BY candidate.selection_group_id,candidate.position),'[]'::jsonb) FROM public.assignment_selection_candidate AS candidate WHERE candidate.tenant_id=execution.tenant_id AND candidate.assignment_id=assignment.assignment_id),
         enrollment.enrollment_id, enrollment.user_id, enrollment.student_id, run.run_id, assignment.scoring_generation,
         floor(extract(epoch FROM accepted.submitted_at) * 1000)::bigint,
         attempt.payload, attempt.payload_sha256,
@@ -642,7 +642,7 @@ DECLARE
     v public.ple_accepted_submission_execution_witness_v1%ROWTYPE;
     r jsonb; feedback jsonb; attempt_source jsonb; run_source jsonb; summary_source jsonb; presentation_source jsonb;
     attempt_current_source jsonb; run_current_source jsonb;
-    correct boolean; earned numeric; possible numeric; statistic jsonb;
+    v_correct boolean; v_earned numeric; v_possible numeric; statistic jsonb;
     summary_current_score double precision; summary_best_score double precision; summary_latest_score double precision;
     summary_completed_run_count bigint; summary_total_question_attempts bigint; summary_last_activity_at_millis bigint;
 BEGIN
@@ -668,13 +668,13 @@ BEGIN
     END IF;
     IF p_evaluation_sha256 IS DISTINCT FROM encode(pg_catalog.sha256(convert_to(p_evaluation_canonical_json, 'UTF8')), 'hex') THEN
         RAISE EXCEPTION 'accepted-submission result digest is invalid' USING ERRCODE = '22023'; END IF;
-    BEGIN r := p_evaluation_canonical_json::jsonb; correct := (r->>'correct')::boolean;
-        earned := (r->>'pointsEarned')::numeric; possible := (r->>'pointsPossible')::numeric;
+    BEGIN r := p_evaluation_canonical_json::jsonb; v_correct := (r->>'correct')::boolean;
+        v_earned := (r->>'pointsEarned')::numeric; v_possible := (r->>'pointsPossible')::numeric;
     EXCEPTION WHEN invalid_text_representation THEN RAISE EXCEPTION 'accepted-submission result is invalid' USING ERRCODE = '22023'; END;
     IF jsonb_typeof(r) <> 'object' OR NOT (r ?& ARRAY['correct','pointsEarned','pointsPossible'])
        OR r - ARRAY['correct','pointsEarned','pointsPossible'] <> '{}'::jsonb
        OR jsonb_typeof(r->'correct') <> 'boolean' OR jsonb_typeof(r->'pointsEarned') <> 'number'
-       OR jsonb_typeof(r->'pointsPossible') <> 'number' OR earned < 0 OR possible <= 0 OR earned > possible THEN
+       OR jsonb_typeof(r->'pointsPossible') <> 'number' OR v_earned < 0 OR v_possible <= 0 OR v_earned > v_possible THEN
         RAISE EXCEPTION 'accepted-submission result shape is invalid' USING ERRCODE = '22023'; END IF;
     BEGIN attempt_source:=p_attempt_canonical_json::jsonb; attempt_current_source:=p_attempt_current_canonical_json::jsonb; run_source:=p_run_canonical_json::jsonb; run_current_source:=p_run_current_canonical_json::jsonb; summary_source:=p_summary_canonical_json::jsonb; presentation_source:=CASE WHEN p_presentation_required THEN p_presentation_canonical_json::jsonb END; feedback:=p_feedback_canonical_json::jsonb;
     EXCEPTION WHEN invalid_text_representation THEN RAISE EXCEPTION 'accepted-submission canonical evidence is invalid' USING ERRCODE='22023'; END;
@@ -716,7 +716,7 @@ BEGIN
           IS DISTINCT FROM (v.run_payload - ARRAY['completedAt','score'])
        OR (p_run_payload #>> '{completedAt}') IS DISTINCT FROM p_run_completed_at_millis::text
        OR (p_run_payload #>> '{score}')::numeric IS DISTINCT FROM (CASE
-              WHEN p_run_completed_at_millis IS NULL THEN NULL ELSE earned / possible END)
+              WHEN p_run_completed_at_millis IS NULL THEN NULL ELSE v_earned / v_possible END)
        OR p_summary_payload->>'tenant' IS DISTINCT FROM p_tenant_id::text
        OR p_summary_payload->>'enrollment' IS DISTINCT FROM v.enrollment_id::text
        OR NOT EXISTS (SELECT 1 FROM public.assignment_run_item item WHERE item.tenant_id=p_tenant_id AND item.run_id=v.run_id
@@ -739,7 +739,7 @@ BEGIN
     WHERE tenant_id=p_tenant_id AND attempt_id=v.attempt_id;
     INSERT INTO public.attempt_feedback(tenant_id,attempt_id,hint,correct_response,rationale,content_canonical_json,content_canonical_json_version,content_sha256,course_id)
     VALUES(p_tenant_id,v.attempt_id,NULLIF(feedback->0,'null'::jsonb),NULLIF(feedback->1,'null'::jsonb),NULLIF(feedback->2,'null'::jsonb),p_feedback_canonical_json,p_canonical_json_version,p_feedback_content_sha256,v.course_id);
-    UPDATE public.submission_evaluation SET grading_status=p_evaluation_status,correct=correct,credit_fraction=earned/possible,payload=r,
+    UPDATE public.submission_evaluation SET grading_status=p_evaluation_status,correct=v_correct,credit_fraction=v_earned/v_possible,payload=r,
       payload_sha256=p_evaluation_sha256,automated_result_canonical_json=p_evaluation_canonical_json,
       automated_result_sha256=p_evaluation_sha256,automated_result_canonical_json_version=p_canonical_json_version,evaluated_at=transaction_timestamp(),evaluation_revision=evaluation_revision+1
     WHERE tenant_id=p_tenant_id AND attempt_id=v.attempt_id AND submission_id=p_submission_id;

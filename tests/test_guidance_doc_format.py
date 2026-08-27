@@ -261,8 +261,10 @@ def check_guidance_is_bulleted(rel: str, lines: list[str]) -> list[str]:
 		if stripped.startswith('#'):
 			in_bullet = False
 			continue
+		# A blank line alone does not close a bullet: Markdown allows a bullet to
+		# carry a blank-line-separated continuation, and the indent on the next
+		# line is what actually says whether the bullet continued.
 		if not stripped:
-			in_bullet = False
 			continue
 		if stripped.startswith('- ') or stripped.startswith('* '):
 			in_bullet = True
@@ -271,7 +273,7 @@ def check_guidance_is_bulleted(rel: str, lines: list[str]) -> list[str]:
 		if ORDERED_ITEM_PATTERN.match(stripped):
 			in_bullet = True
 			continue
-		# An indented line continues the bullet above it.
+		# An indented line continues the bullet above it, blank line or not.
 		if in_bullet and line.startswith((' ', '\t')):
 			continue
 		# Table rows are structure, not narration.
