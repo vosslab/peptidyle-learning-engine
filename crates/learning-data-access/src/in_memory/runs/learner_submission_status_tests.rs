@@ -112,6 +112,17 @@ async fn learner_submission_status_projects_completed_attention_and_closed_contr
 
     let completed_store = MemoryStore::default();
     let (tenant, actor, attempt, _) = seed_complete_issued_execution(&completed_store);
+    {
+        let mut state = completed_store
+            .write_state()
+            .expect("completed fixture policy state");
+        state
+            .assignments
+            .get_mut(&(tenant, binding().assignment))
+            .expect("fixture assignment")
+            .policies
+            .completion = question_model::CompletionRequirement::AllCorrect;
+    }
     let claim = completed_store
         .claim_next_accepted_submission_execution(
             WorkerId::from_uuid(Uuid::from_u128(76004)),
@@ -128,8 +139,8 @@ async fn learner_submission_status_projects_completed_attention_and_closed_contr
                 AcceptedSubmissionExecutionOutcome::Evaluated {
                     grade: AcceptedSubmissionGrade {
                         evidence: canonical_attempt_result_json(AttemptResult {
-                            correct: true,
-                            points_earned: 2.0,
+                            correct: false,
+                            points_earned: 0.0,
                             points_possible: 2.0,
                         })
                         .expect("canonical result"),
@@ -141,15 +152,22 @@ async fn learner_submission_status_projects_completed_attention_and_closed_contr
             .expect("completed execution"),
         AcceptedSubmissionExecutionDisposition::Committed,
     );
-    assert!(matches!(
-        completed_store
-            .learner_submission_status(
-                TenantContext::from_authenticated_session(tenant),
-                actor,
-                binding(),
-                attempt,
-            )
-            .await,
-        Ok(LearnerSubmissionStatusRead::Completed(_))
-    ));
+    let completed_status = completed_store
+        .learner_submission_status(
+            TenantContext::from_authenticated_session(tenant),
+            actor,
+            binding(),
+            attempt,
+        )
+        .await;
+    assert!(
+        matches!(
+            completed_status,
+            Ok(LearnerSubmissionStatusRead::Completed {
+                next_pending: true,
+                ..
+            })
+        ),
+        "completed status: {completed_status:?}"
+    );
 }

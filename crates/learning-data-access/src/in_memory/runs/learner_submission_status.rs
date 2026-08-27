@@ -84,7 +84,7 @@ pub(super) async fn read(
     let evaluation = state
         .automated_grading_evaluations
         .get(&(tenant, attempt_id));
-    status_from_durable_state(receipt, execution, evaluation)
+    status_from_durable_state(&state, tenant, receipt, execution, evaluation)
 }
 
 /// Retains the legacy flat receipt read while its route-bound successor owns
@@ -114,6 +114,8 @@ pub(super) fn submission_record(
 }
 
 fn status_from_durable_state(
+    state: &State,
+    tenant: TenantId,
     receipt: SubmissionReceiptRead,
     execution: Option<&crate::GradingExecution>,
     evaluation: Option<&SubmissionEvaluationStatus>,
@@ -150,7 +152,11 @@ fn status_from_durable_state(
             Some(execution),
             Some(SubmissionEvaluationStatus::Graded | SubmissionEvaluationStatus::Exempt),
         ) if execution.state == GradingExecutionState::Completed => {
-            Ok(LearnerSubmissionStatusRead::Completed(record))
+            let next_pending = completed_successor_is_eligible(state, tenant, &record)?;
+            Ok(LearnerSubmissionStatusRead::Completed {
+                record,
+                next_pending,
+            })
         }
         // Every partial, legacy, superseded, or contradictory combination is
         // unavailable.  A learner must never receive a reconstructed receipt
@@ -159,6 +165,57 @@ fn status_from_durable_state(
             "learner submission status has no coherent durable aggregate".to_string(),
         )),
     }
+}
+
+/// Mirrors the read-only eligibility half of learner successor delivery.  A
+/// status read reports a pending successor only when the immutable run plan
+/// still permits `start_or_resume_run` to issue one; it never writes a link.
+fn completed_successor_is_eligible(
+    state: &State,
+    tenant: TenantId,
+    record: &crate::SubmissionRecord,
+) -> Result<bool, StoreError> {
+    let run_items =
+        state
+            .run_items
+            .get(&(tenant, record.run.id))
+            .ok_or(StoreError::Unavailable(
+                "completed submission has no immutable run items".to_string(),
+            ))?;
+    let attempts = state
+        .attempts
+        .values()
+        .filter(|attempt| attempt.tenant == tenant && attempt.run == record.run.id)
+        .map(|attempt| super::super::projected_attempt(state, tenant, attempt))
+        .collect::<Vec<_>>();
+    let questions = run_items
+        .iter()
+        .map(|item| {
+            let question = state
+                .published
+                .get(&(item.reference.problem, item.reference.version))
+                .ok_or(StoreError::Unavailable(
+                    "run item has no immutable published question".to_string(),
+                ))?;
+            if question.problem != item.reference.problem
+                || question.version != item.reference.version
+            {
+                return Err(StoreError::Unavailable(
+                    "run item question identity is incoherent".to_string(),
+                ));
+            }
+            Ok((item.reference, question.question.clone()))
+        })
+        .collect::<Result<Vec<_>, StoreError>>()?;
+    crate::successor_is_eligible(
+        &record.run,
+        state
+            .submission_next_attempts
+            .contains_key(&(tenant, record.attempt.id)),
+        run_items,
+        &attempts,
+        &questions,
+    )
 }
 
 #[cfg(test)]
@@ -182,6 +239,20 @@ mod tests {
         }
     }
 
+    fn test_status(
+        receipt: SubmissionReceiptRead,
+        execution: Option<&crate::GradingExecution>,
+        evaluation: Option<&SubmissionEvaluationStatus>,
+    ) -> Result<LearnerSubmissionStatusRead, StoreError> {
+        status_from_durable_state(
+            &State::default(),
+            TenantId::from_uuid(Uuid::from_u128(94)),
+            receipt,
+            execution,
+            evaluation,
+        )
+    }
+
     #[test]
     fn pending_and_attention_states_use_only_the_closed_answer_free_projection() {
         for state in [
@@ -190,7 +261,7 @@ mod tests {
             GradingExecutionState::RetryWait,
         ] {
             assert_eq!(
-                status_from_durable_state(
+                test_status(
                     SubmissionReceiptRead::AcceptedPending(pending()),
                     Some(&execution(state)),
                     Some(&SubmissionEvaluationStatus::AutomatedPending),
@@ -199,7 +270,7 @@ mod tests {
             );
         }
         assert_eq!(
-            status_from_durable_state(
+            test_status(
                 SubmissionReceiptRead::AcceptedPending(pending()),
                 Some(&execution(GradingExecutionState::Exception)),
                 Some(&SubmissionEvaluationStatus::AutomatedException),
@@ -207,7 +278,7 @@ mod tests {
             Ok(LearnerSubmissionStatusRead::InstructorAttention(pending())),
         );
         assert_eq!(
-            status_from_durable_state(
+            test_status(
                 SubmissionReceiptRead::AcceptedPending(pending()),
                 Some(&execution(GradingExecutionState::Ready)),
                 Some(&SubmissionEvaluationStatus::NeedsManualGrading),
@@ -219,11 +290,11 @@ mod tests {
     #[test]
     fn missing_or_contradictory_status_never_fabricates_a_learner_projection() {
         assert_eq!(
-            status_from_durable_state(SubmissionReceiptRead::Missing, None, None),
+            test_status(SubmissionReceiptRead::Missing, None, None),
             Err(StoreError::NotFound),
         );
         assert!(matches!(
-            status_from_durable_state(
+            test_status(
                 SubmissionReceiptRead::AcceptedPending(pending()),
                 Some(&execution(GradingExecutionState::Ready)),
                 Some(&SubmissionEvaluationStatus::AutomatedException),

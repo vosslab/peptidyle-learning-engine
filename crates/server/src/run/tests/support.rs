@@ -1,6 +1,12 @@
 //! Shared HTTP and authenticated-session helpers for run-route behavior tests.
 
 use super::*;
+use std::sync::Arc;
+use std::time::Duration;
+
+use crate::accepted_submission_worker::AcceptedSubmissionExecutionWorker;
+use crate::worker::WorkerSettings;
+use learning_data_access::WorkerId;
 
 pub(super) async fn issued_cookie(store: &MemoryStore, user: UserId, name: &str) -> String {
     issued_cookie_for(store, TenantId::from_uuid(id(1)), user, name).await
@@ -37,6 +43,103 @@ pub(super) async fn json(response: Response) -> serde_json::Value {
         .await
         .expect("response bytes");
     serde_json::from_slice(&bytes).expect("JSON response")
+}
+
+/// Drains one accepted submission through the same sealed worker used by the
+/// production composition and requires its durable commit to be acknowledged.
+///
+/// The worker receives a clone of the in-memory store because `MemoryStore`
+/// clones share their state while retaining the worker's capability boundary.
+/// A fixed worker identity and bounded settings keep this lifecycle helper
+/// deterministic and free of polling or sleeps.
+pub(super) async fn drain_one_accepted_submission<B>(store: &Arc<MemoryStore>, backend: Arc<B>)
+where
+    B: RunBackend + 'static,
+{
+    let settings = WorkerSettings::new(60, Duration::from_secs(5), 1)
+        .expect("bounded accepted-submission worker settings");
+    let worker = AcceptedSubmissionExecutionWorker::new(
+        (**store).clone(),
+        backend,
+        WorkerId::from_uuid(id(70_001)),
+        settings,
+    )
+    .expect("accepted-submission worker");
+    let report = worker.drain_one().await.expect("accepted-submission drain");
+    assert_eq!(
+        report.committed, 1,
+        "worker must commit one accepted execution"
+    );
+    assert_eq!(report.no_claim, 0);
+    assert_eq!(report.rescheduled, 0);
+    assert_eq!(report.terminal, 0);
+    assert_eq!(report.stale_claim, 0);
+    assert_eq!(report.outcome_unknown, 0);
+}
+
+/// Exercises the canonical asynchronous learner lifecycle through HTTP:
+/// accepted pending response, one server-owned worker execution, and the
+/// answer-free completed status projection.
+pub(super) struct AcceptedSubmissionRoute<'a> {
+    pub(super) course: CourseId,
+    pub(super) assignment: AssignmentId,
+    pub(super) attempt: QuestionAttemptId,
+    pub(super) cookie: &'a str,
+    pub(super) idempotency_key: &'a str,
+    pub(super) response: serde_json::Value,
+}
+
+pub(super) async fn submit_and_complete_accepted_submission<B>(
+    app: &Router,
+    store: &Arc<MemoryStore>,
+    backend: Arc<B>,
+    route: AcceptedSubmissionRoute<'_>,
+) -> serde_json::Value
+where
+    B: RunBackend + 'static,
+{
+    let accepted = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(submission_path(
+                    route.course,
+                    route.assignment,
+                    route.attempt,
+                ))
+                .header("cookie", route.cookie)
+                .header("content-type", "application/json")
+                .header("idempotency-key", route.idempotency_key)
+                .body(Body::from(
+                    serde_json::json!({ "response": route.response }).to_string(),
+                ))
+                .expect("submission request"),
+        )
+        .await
+        .expect("accepted submission response");
+    assert_eq!(accepted.status(), StatusCode::ACCEPTED);
+    assert_eq!(json(accepted).await["kind"], "accepted_pending");
+
+    drain_one_accepted_submission(store, backend).await;
+
+    let completed = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(submission_status_path(
+                    route.course,
+                    route.assignment,
+                    route.attempt,
+                ))
+                .header("cookie", route.cookie)
+                .body(Body::empty())
+                .expect("submission status request"),
+        )
+        .await
+        .expect("submission status response");
+    assert_eq!(completed.status(), StatusCode::OK);
+    json(completed).await
 }
 
 #[tokio::test]
@@ -184,27 +287,6 @@ pub(super) async fn active_attempt_for(
     let attempts: Page<QuestionAttempt> =
         serde_json::from_value(json(attempts_response).await).expect("attempt page");
     attempts.items.into_iter().next().expect("active attempt")
-}
-
-pub(super) async fn next_active_attempt(app: &Router, run: RunId, cookie: &str) -> QuestionAttempt {
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri(format!("/api/runs/{run}/attempts"))
-                .header("cookie", cookie)
-                .body(Body::empty())
-                .expect("attempt list request"),
-        )
-        .await
-        .expect("attempt list response");
-    let attempts: Page<QuestionAttempt> =
-        serde_json::from_value(json(response).await).expect("attempt page");
-    attempts
-        .items
-        .into_iter()
-        .find(|attempt| attempt.response.is_none())
-        .expect("next active attempt")
 }
 
 /// Returns an ID from the answer-free schema actually issued to the browser.

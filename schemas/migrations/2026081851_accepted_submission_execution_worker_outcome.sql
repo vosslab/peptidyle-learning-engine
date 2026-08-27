@@ -200,7 +200,7 @@ CREATE POLICY accepted_execution_worker_feedback ON public.attempt_feedback FOR 
 CREATE POLICY accepted_execution_worker_receipt_snapshot ON public.submission_receipt_snapshot FOR INSERT TO ple_accepted_submission_execution_worker WITH CHECK (true);
 CREATE POLICY accepted_execution_worker_run_completion ON public.assignment_run FOR UPDATE TO ple_accepted_submission_execution_worker USING (true) WITH CHECK (true);
 CREATE POLICY accepted_execution_worker_enrollment_completion ON public.enrollment FOR UPDATE TO ple_accepted_submission_execution_worker USING (true) WITH CHECK (true);
-CREATE POLICY accepted_execution_worker_summary_completion ON public.student_assignment_summary FOR UPDATE TO ple_accepted_submission_execution_worker USING (true) WITH CHECK (true);
+CREATE POLICY accepted_execution_worker_summary_completion ON public.student_assignment_summary FOR UPDATE TO ple_accepted_submission_execution_worker USING (true) WITH CHECK (true); CREATE POLICY accepted_execution_worker_summary_select ON public.student_assignment_summary FOR SELECT TO ple_accepted_submission_execution_worker USING (true);
 -- ASVS V8.2.1/V8.2.3/V8.3.1: reset and attest the sealed definer's exact server-side authority.
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ple_accepted_submission_execution_worker;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM ple_accepted_submission_execution_worker;
@@ -209,13 +209,13 @@ GRANT SELECT, UPDATE (state, lease_token, lease_expires_at, attempt_count, last_
 GRANT SELECT, UPDATE (state, active_worker_id, retry_count, updated_at) ON public.grading_execution TO ple_accepted_submission_execution_worker;
 GRANT SELECT, UPDATE (grading_status, credit_fraction, correct, payload, payload_sha256, automated_result_canonical_json, automated_result_sha256, automated_result_canonical_json_version, evaluated_at, evaluation_revision) ON public.submission_evaluation TO ple_accepted_submission_execution_worker;
 GRANT INSERT ON public.grading_execution_receipt, public.grading_operation TO ple_accepted_submission_execution_worker;
-GRANT SELECT ON public.submission, public.submission_idempotency, public.question_attempt, public.assignment_run, public.enrollment, public.assignment, public.assignment_audience_group, public.assignment_item, public.assignment_run_item, public.assignment_selection_group, public.assignment_selection_candidate, public.course_retention, public.accepted_submission_private_response, public.issued_attempt_private_execution TO ple_accepted_submission_execution_worker;
+GRANT SELECT ON public.submission, public.submission_idempotency, public.question_attempt, public.assignment_run, public.enrollment, public.assignment, public.assignment_audience_group, public.assignment_item, public.assignment_run_item, public.assignment_selection_group, public.assignment_selection_candidate, public.course_retention, public.accepted_submission_private_response, public.issued_attempt_private_execution, public.student_assignment_summary TO ple_accepted_submission_execution_worker;
 GRANT UPDATE (attempt_status, submitted_at, payload, payload_sha256) ON public.question_attempt TO ple_accepted_submission_execution_worker;
 GRANT INSERT ON public.attempt_feedback, public.submission_receipt_snapshot TO ple_accepted_submission_execution_worker;
 GRANT UPDATE (completed_at, payload, payload_sha256) ON public.assignment_run TO ple_accepted_submission_execution_worker;
 GRANT UPDATE (first_completed_at, current_grade_run_id, best_grade_run_id) ON public.enrollment TO ple_accepted_submission_execution_worker;
 GRANT UPDATE (current_score, best_score, latest_score, completed_run_count, total_question_attempts, last_activity_at, updated_at) ON public.student_assignment_summary TO ple_accepted_submission_execution_worker;
-GRANT EXECUTE ON FUNCTION public.ple_current_tenant(), public.ple_enqueue_assignment_recalculation(uuid, uuid, uuid, integer), public.ple_record_question_statistics(uuid, uuid, uuid, uuid, uuid, uuid, double precision, bigint, bigint, double precision, bytea) TO ple_accepted_submission_execution_worker;
+GRANT EXECUTE ON FUNCTION public.ple_current_tenant(), public.ple_course_records_accessible(uuid, uuid), public.ple_enqueue_assignment_recalculation(uuid, uuid, uuid, integer), public.ple_record_question_statistics(uuid, uuid, uuid, uuid, uuid, uuid, double precision, bigint, bigint, double precision, bytea) TO ple_accepted_submission_execution_worker;
 REVOKE ALL ON public.submission_evaluation FROM ple_app;
 GRANT SELECT (tenant_id, attempt_id, submission_id, grading_status, credit_fraction, correct, payload, payload_sha256, evaluated_at, course_id, evaluation_revision) ON public.submission_evaluation TO ple_app;
 GRANT INSERT (tenant_id, attempt_id, submission_id, grading_status, credit_fraction,
@@ -237,7 +237,7 @@ SELECT execution.tenant_id, execution.attempt_id, execution.submission_id,
     evaluation.automated_result_sha256, attempt.run_id, attempt.assignment_position,
     attempt.occurred_at AS attempt_occurred_at,
     assignment.assignment_id, assignment.revision AS assignment_revision,
-    enrollment.enrollment_id, retention.lifecycle AS retention_lifecycle,
+    enrollment.enrollment_id, COALESCE(retention.lifecycle, 'active') AS retention_lifecycle,
     accepted.course_id AS accepted_course_id, accepted.accepted_actor_id,
     accepted.idempotency_key AS accepted_idempotency_key, accepted.request_sha256,
     floor(extract(epoch FROM accepted.submitted_at) * 1000)::bigint AS accepted_millis,
@@ -293,7 +293,7 @@ SELECT execution.tenant_id, execution.attempt_id, execution.submission_id,
     ON (assignment.tenant_id, assignment.assignment_id) = (enrollment.tenant_id, enrollment.assignment_id)
   JOIN public.student_assignment_summary AS summary
     ON (summary.tenant_id, summary.enrollment_id) = (enrollment.tenant_id, enrollment.enrollment_id)
-  JOIN public.course_retention AS retention
+  LEFT JOIN public.course_retention AS retention
     ON (retention.tenant_id, retention.course_id) = (assignment.tenant_id, assignment.course_id)
  WHERE execution.course_id = assignment.course_id
    AND attempt.course_id = assignment.course_id
@@ -343,17 +343,17 @@ BEGIN
        AND witness.automated_result_canonical_json IS NULL
        AND witness.automated_result_sha256 IS NULL
      FOR UPDATE OF execution, job, evaluation SKIP LOCKED LIMIT 1;
-    IF FOUND THEN
-        UPDATE public.worker_job SET state = 'dead', lease_token = NULL, lease_expires_at = NULL,
+    IF FOUND THEN PERFORM set_config('ple.tenant_id', v_execution.tenant_id::text, true);
+        UPDATE public.worker_job AS job_row SET state = 'dead', lease_token = NULL, lease_expires_at = NULL,
             last_error = 'timed_out', completed_at = transaction_timestamp()
-         WHERE tenant_id = v_execution.tenant_id AND job_id = v_execution.current_job_id;
-        UPDATE public.grading_execution SET state = 'exception', active_worker_id = NULL,
+         WHERE job_row.tenant_id = v_execution.tenant_id AND job_row.job_id = v_execution.current_job_id;
+        UPDATE public.grading_execution AS execution_row SET state = 'exception', active_worker_id = NULL,
             updated_at = transaction_timestamp()
-         WHERE tenant_id = v_execution.tenant_id AND attempt_id = v_execution.attempt_id;
-        UPDATE public.submission_evaluation SET grading_status = 'automated_exception',
+         WHERE execution_row.tenant_id = v_execution.tenant_id AND execution_row.attempt_id = v_execution.attempt_id;
+        UPDATE public.submission_evaluation AS evaluation_row SET grading_status = 'automated_exception',
             evaluated_at = transaction_timestamp(), evaluation_revision = evaluation_revision + 1
-         WHERE tenant_id = v_execution.tenant_id AND attempt_id = v_execution.attempt_id
-           AND submission_id = v_execution.submission_id AND grading_status = 'automated_pending';
+         WHERE evaluation_row.tenant_id = v_execution.tenant_id AND evaluation_row.attempt_id = v_execution.attempt_id
+           AND evaluation_row.submission_id = v_execution.submission_id AND evaluation_row.grading_status = 'automated_pending';
         INSERT INTO public.grading_execution_receipt
             (tenant_id, receipt_id, attempt_id, submission_id, submission_occurred_at, course_id,
              execution_generation, resulting_state, worker_id)
@@ -390,14 +390,14 @@ BEGIN
                 AND witness.attempt_count < witness.max_attempts AND witness.execution_state = 'running'))
      ORDER BY witness.available_at, witness.current_job_id
      FOR UPDATE OF execution, job, evaluation SKIP LOCKED LIMIT 1;
-    IF NOT FOUND THEN RETURN; END IF;
-    UPDATE public.worker_job SET state = 'leased', lease_token = p_lease_token,
+    IF NOT FOUND THEN RETURN; END IF; PERFORM set_config('ple.tenant_id', v_execution.tenant_id::text, true);
+    UPDATE public.worker_job AS job_row SET state = 'leased', lease_token = p_lease_token,
         lease_expires_at = transaction_timestamp() + make_interval(secs => p_lease_seconds),
         attempt_count = attempt_count + 1, last_error = NULL, completed_at = NULL
-     WHERE tenant_id = v_execution.tenant_id AND job_id = v_execution.current_job_id;
-    UPDATE public.grading_execution SET state = 'running', active_worker_id = p_worker_id,
+     WHERE job_row.tenant_id = v_execution.tenant_id AND job_row.job_id = v_execution.current_job_id;
+    UPDATE public.grading_execution AS execution_row SET state = 'running', active_worker_id = p_worker_id,
         updated_at = transaction_timestamp()
-     WHERE tenant_id = v_execution.tenant_id AND attempt_id = v_execution.attempt_id;
+     WHERE execution_row.tenant_id = v_execution.tenant_id AND execution_row.attempt_id = v_execution.attempt_id;
     INSERT INTO public.grading_execution_receipt
         (tenant_id, receipt_id, attempt_id, submission_id, submission_occurred_at, course_id,
          execution_generation, resulting_state, worker_id)
@@ -529,7 +529,7 @@ BEGIN
         ON (assignment.tenant_id, assignment.assignment_id) = (enrollment.tenant_id, enrollment.assignment_id)
       JOIN public.student_assignment_summary AS summary
         ON (summary.tenant_id, summary.enrollment_id) = (enrollment.tenant_id, enrollment.enrollment_id)
-      JOIN public.course_retention AS retention
+      LEFT JOIN public.course_retention AS retention
         ON (retention.tenant_id, retention.course_id) = (execution.tenant_id, execution.course_id)
      WHERE execution.tenant_id = p_tenant_id
        AND execution.current_job_id = p_worker_job_id
@@ -544,7 +544,7 @@ BEGIN
        AND evaluation.grading_status = 'automated_pending'
        AND evaluation.automated_result_canonical_json IS NULL
        AND evaluation.automated_result_sha256 IS NULL
-       AND retention.lifecycle = 'active'
+       AND COALESCE(retention.lifecycle, 'active') = 'active'
        AND execution.course_id = assignment.course_id AND attempt.course_id = assignment.course_id
        AND accepted.request_contract_version = 2 AND accepted.accepted_actor_id IS NOT NULL
        AND accepted.course_id = assignment.course_id AND accepted_submission.course_id = assignment.course_id
@@ -692,7 +692,7 @@ BEGIN
     JOIN public.assignment_run run ON (run.tenant_id,run.run_id)=(witness.tenant_id,witness.run_id)
     JOIN public.enrollment enrollment ON (enrollment.tenant_id,enrollment.enrollment_id)=(witness.tenant_id,witness.enrollment_id)
     JOIN public.student_assignment_summary summary ON (summary.tenant_id,summary.enrollment_id)=(witness.tenant_id,witness.enrollment_id)
-    JOIN public.course_retention retention ON (retention.tenant_id,retention.course_id)=(witness.tenant_id,witness.course_id)
+    LEFT JOIN public.course_retention retention ON (retention.tenant_id,retention.course_id)=(witness.tenant_id,witness.course_id)
     WHERE witness.tenant_id=p_tenant_id AND witness.current_job_id=p_worker_job_id AND witness.submission_id=p_submission_id
       AND witness.execution_generation=p_execution_generation AND witness.active_worker_id=p_worker_id
       AND witness.execution_state='running' AND witness.job_state='leased' AND witness.lease_token=p_lease_token
@@ -702,9 +702,7 @@ BEGIN
       AND EXISTS (SELECT 1 FROM public.assignment AS assignment
                   WHERE assignment.tenant_id=witness.tenant_id AND assignment.assignment_id=witness.assignment_id
                     AND assignment.revision=witness.assignment_revision)
-      AND EXISTS (SELECT 1 FROM public.course_retention AS current_retention
-                  WHERE current_retention.tenant_id=witness.tenant_id AND current_retention.course_id=witness.course_id
-                    AND current_retention.lifecycle='active')
+      AND COALESCE(retention.lifecycle, 'active')='active'
     FOR UPDATE OF execution,job,evaluation,attempt,run,enrollment,summary;
     IF NOT FOUND THEN RETURN QUERY SELECT 'claim_no_longer_active',NULL::text,NULL::text; RETURN; END IF;
     IF p_attempt_payload->>'id' IS DISTINCT FROM v.attempt_id::text OR p_attempt_payload->>'tenant' IS DISTINCT FROM p_tenant_id::text
@@ -785,7 +783,7 @@ BEGIN
     JOIN public.worker_job AS job ON (job.tenant_id,job.job_id)=(execution.tenant_id,execution.current_job_id)
     JOIN public.submission_evaluation AS evaluation ON (evaluation.tenant_id,evaluation.attempt_id,evaluation.submission_id)
       = (execution.tenant_id,execution.attempt_id,execution.submission_id)
-    JOIN public.course_retention AS retention ON (retention.tenant_id,retention.course_id)=(execution.tenant_id,execution.course_id)
+    LEFT JOIN public.course_retention AS retention ON (retention.tenant_id,retention.course_id)=(execution.tenant_id,execution.course_id)
     JOIN public.question_attempt AS attempt ON (attempt.tenant_id,attempt.attempt_id)=(execution.tenant_id,execution.attempt_id)
     JOIN public.submission AS accepted_submission ON accepted_submission.tenant_id=execution.tenant_id
       AND accepted_submission.attempt_id=execution.attempt_id AND accepted_submission.submission_id=execution.submission_id
@@ -807,7 +805,7 @@ BEGIN
       AND job.state='leased' AND job.lease_token=p_lease_token AND job.lease_expires_at>transaction_timestamp()
       AND job.payload=jsonb_build_object('kind','gradeAcceptedSubmission','attempt',execution.attempt_id::text,
           'submission',execution.submission_id::text,'execution_generation',execution.execution_generation)
-      AND retention.lifecycle='active'
+      AND COALESCE(retention.lifecycle, 'active')='active'
       AND evaluation.grading_status='automated_pending' AND evaluation.automated_result_canonical_json IS NULL
       AND evaluation.automated_result_sha256 IS NULL AND execution.course_id=assignment.course_id
       AND attempt.course_id=assignment.course_id AND accepted.request_contract_version=2
@@ -954,7 +952,7 @@ BEGIN
                         OR (has_column_privilege('ple_app','public.submission_evaluation',attribute_row.attname,'INSERT')
                             AND attribute_row.attname <> ALL(ARRAY['tenant_id','attempt_id','submission_id','grading_status','credit_fraction','correct','payload','payload_sha256','evaluated_at','course_id','evaluation_revision']))
                         OR (has_column_privilege('ple_app','public.submission_evaluation',attribute_row.attname,'UPDATE')
-                            AND attribute_row.attname <> ALL(ARRAY['grading_status','credit_fraction','correct','payload','payload_sha256','evaluated_at','evaluation_revision']))))
+                            AND attribute_row.attname <> ALL(ARRAY['submission_id','grading_status','credit_fraction','correct','payload','payload_sha256','evaluated_at','evaluation_revision']))))
        OR EXISTS (SELECT 1 FROM unnest(ARRAY['tenant_id','attempt_id','submission_id','grading_status','credit_fraction','correct','payload','payload_sha256','evaluated_at','course_id','evaluation_revision']) AS allowed(column_name)
                     WHERE NOT has_column_privilege('ple_app','public.submission_evaluation',allowed.column_name,'SELECT')
                        OR NOT has_column_privilege('ple_app','public.submission_evaluation',allowed.column_name,'INSERT'))
@@ -977,7 +975,7 @@ BEGIN
        OR has_schema_privilege('ple_accepted_submission_execution_worker', 'public', 'CREATE')
        OR NOT has_schema_privilege('ple_accepted_submission_execution_worker', 'public', 'USAGE')
        OR (SELECT relowner FROM pg_catalog.pg_class WHERE oid='public.ple_accepted_submission_execution_witness_v1'::regclass) <> 'ple_accepted_submission_execution_worker'::regrole
-       OR EXISTS (WITH expected AS (SELECT 'table'::text AS authority_kind, split_part(entry, ':', 1)::regclass::oid AS object_id, NULL::name AS column_name, split_part(entry, ':', 2) AS privilege_type, false AS is_grantable FROM unnest(ARRAY['public.worker_job:SELECT','public.grading_execution:SELECT','public.submission_evaluation:SELECT','public.grading_execution_receipt:INSERT','public.grading_operation:INSERT','public.submission:SELECT','public.submission_idempotency:SELECT','public.question_attempt:SELECT','public.assignment_run:SELECT','public.enrollment:SELECT','public.assignment:SELECT','public.assignment_audience_group:SELECT','public.assignment_item:SELECT','public.assignment_run_item:SELECT','public.assignment_selection_group:SELECT','public.assignment_selection_candidate:SELECT','public.course_retention:SELECT','public.accepted_submission_private_response:SELECT','public.issued_attempt_private_execution:SELECT','public.attempt_feedback:INSERT','public.submission_receipt_snapshot:INSERT']) AS expected(entry) UNION ALL SELECT 'column', split_part(entry, ':', 1)::regclass::oid, split_part(entry, ':', 2)::name, split_part(entry, ':', 3), false FROM unnest(ARRAY['public.worker_job:state:UPDATE','public.worker_job:lease_token:UPDATE','public.worker_job:lease_expires_at:UPDATE','public.worker_job:attempt_count:UPDATE','public.worker_job:last_error:UPDATE','public.worker_job:completed_at:UPDATE','public.worker_job:available_at:UPDATE','public.grading_execution:state:UPDATE','public.grading_execution:active_worker_id:UPDATE','public.grading_execution:retry_count:UPDATE','public.grading_execution:updated_at:UPDATE','public.submission_evaluation:grading_status:UPDATE','public.submission_evaluation:credit_fraction:UPDATE','public.submission_evaluation:correct:UPDATE','public.submission_evaluation:payload:UPDATE','public.submission_evaluation:payload_sha256:UPDATE','public.submission_evaluation:automated_result_canonical_json:UPDATE','public.submission_evaluation:automated_result_sha256:UPDATE','public.submission_evaluation:automated_result_canonical_json_version:UPDATE','public.submission_evaluation:evaluated_at:UPDATE','public.submission_evaluation:evaluation_revision:UPDATE','public.question_attempt:attempt_status:UPDATE','public.question_attempt:submitted_at:UPDATE','public.question_attempt:payload:UPDATE','public.question_attempt:payload_sha256:UPDATE','public.assignment_run:completed_at:UPDATE','public.assignment_run:payload:UPDATE','public.assignment_run:payload_sha256:UPDATE','public.enrollment:first_completed_at:UPDATE','public.enrollment:current_grade_run_id:UPDATE','public.enrollment:best_grade_run_id:UPDATE','public.student_assignment_summary:current_score:UPDATE','public.student_assignment_summary:best_score:UPDATE','public.student_assignment_summary:latest_score:UPDATE','public.student_assignment_summary:completed_run_count:UPDATE','public.student_assignment_summary:total_question_attempts:UPDATE','public.student_assignment_summary:last_activity_at:UPDATE','public.student_assignment_summary:updated_at:UPDATE']) AS expected(entry) UNION ALL SELECT 'function', split_part(entry, ':', 1)::regprocedure::oid, NULL::name, 'EXECUTE', false FROM unnest(ARRAY['public.ple_current_tenant()','public.ple_enqueue_assignment_recalculation(uuid,uuid,uuid,integer)','public.ple_record_question_statistics(uuid,uuid,uuid,uuid,uuid,uuid,double precision,bigint,bigint,double precision,bytea)']) AS expected(entry)), actual AS (SELECT 'table'::text, relation_row.oid, NULL::name, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_class AS relation_row JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid=relation_row.relnamespace CROSS JOIN LATERAL pg_catalog.aclexplode(relation_row.relacl) AS acl WHERE namespace_row.nspname='public' AND relation_row.relkind IN ('r','p','v','m','f') AND relation_row.relowner<>'ple_accepted_submission_execution_worker'::regrole AND acl.grantee='ple_accepted_submission_execution_worker'::regrole UNION ALL SELECT 'column', attribute_row.attrelid, attribute_row.attname, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_attribute AS attribute_row CROSS JOIN LATERAL pg_catalog.aclexplode(attribute_row.attacl) AS acl WHERE attribute_row.attnum>0 AND NOT attribute_row.attisdropped AND acl.grantee='ple_accepted_submission_execution_worker'::regrole UNION ALL SELECT 'sequence', relation_row.oid, NULL::name, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_class AS relation_row JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid=relation_row.relnamespace CROSS JOIN LATERAL pg_catalog.aclexplode(relation_row.relacl) AS acl WHERE namespace_row.nspname='public' AND relation_row.relkind='S' AND acl.grantee='ple_accepted_submission_execution_worker'::regrole UNION ALL SELECT 'function', procedure_row.oid, NULL::name, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_proc AS procedure_row JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid=procedure_row.pronamespace CROSS JOIN LATERAL pg_catalog.aclexplode(procedure_row.proacl) AS acl WHERE namespace_row.nspname='public' AND procedure_row.proowner<>'ple_accepted_submission_execution_worker'::regrole AND acl.grantee='ple_accepted_submission_execution_worker'::regrole) SELECT 1 FROM ((SELECT * FROM actual EXCEPT SELECT * FROM expected) UNION ALL (SELECT * FROM expected EXCEPT SELECT * FROM actual)) AS privilege_difference)
+       OR EXISTS (WITH expected AS (SELECT 'table'::text AS authority_kind, split_part(entry, ':', 1)::regclass::oid AS object_id, NULL::name AS column_name, split_part(entry, ':', 2) AS privilege_type, false AS is_grantable FROM unnest(ARRAY['public.worker_job:SELECT','public.grading_execution:SELECT','public.submission_evaluation:SELECT','public.grading_execution_receipt:INSERT','public.grading_operation:INSERT','public.submission:SELECT','public.submission_idempotency:SELECT','public.question_attempt:SELECT','public.assignment_run:SELECT','public.enrollment:SELECT','public.assignment:SELECT','public.assignment_audience_group:SELECT','public.assignment_item:SELECT','public.assignment_run_item:SELECT','public.assignment_selection_group:SELECT','public.assignment_selection_candidate:SELECT','public.course_retention:SELECT','public.accepted_submission_private_response:SELECT','public.issued_attempt_private_execution:SELECT','public.student_assignment_summary:SELECT','public.attempt_feedback:INSERT','public.submission_receipt_snapshot:INSERT']) AS expected(entry) UNION ALL SELECT 'column', split_part(entry, ':', 1)::regclass::oid, split_part(entry, ':', 2)::name, split_part(entry, ':', 3), false FROM unnest(ARRAY['public.worker_job:state:UPDATE','public.worker_job:lease_token:UPDATE','public.worker_job:lease_expires_at:UPDATE','public.worker_job:attempt_count:UPDATE','public.worker_job:last_error:UPDATE','public.worker_job:completed_at:UPDATE','public.worker_job:available_at:UPDATE','public.grading_execution:state:UPDATE','public.grading_execution:active_worker_id:UPDATE','public.grading_execution:retry_count:UPDATE','public.grading_execution:updated_at:UPDATE','public.submission_evaluation:grading_status:UPDATE','public.submission_evaluation:credit_fraction:UPDATE','public.submission_evaluation:correct:UPDATE','public.submission_evaluation:payload:UPDATE','public.submission_evaluation:payload_sha256:UPDATE','public.submission_evaluation:automated_result_canonical_json:UPDATE','public.submission_evaluation:automated_result_sha256:UPDATE','public.submission_evaluation:automated_result_canonical_json_version:UPDATE','public.submission_evaluation:evaluated_at:UPDATE','public.submission_evaluation:evaluation_revision:UPDATE','public.question_attempt:attempt_status:UPDATE','public.question_attempt:submitted_at:UPDATE','public.question_attempt:payload:UPDATE','public.question_attempt:payload_sha256:UPDATE','public.assignment_run:completed_at:UPDATE','public.assignment_run:payload:UPDATE','public.assignment_run:payload_sha256:UPDATE','public.enrollment:first_completed_at:UPDATE','public.enrollment:current_grade_run_id:UPDATE','public.enrollment:best_grade_run_id:UPDATE','public.student_assignment_summary:current_score:UPDATE','public.student_assignment_summary:best_score:UPDATE','public.student_assignment_summary:latest_score:UPDATE','public.student_assignment_summary:completed_run_count:UPDATE','public.student_assignment_summary:total_question_attempts:UPDATE','public.student_assignment_summary:last_activity_at:UPDATE','public.student_assignment_summary:updated_at:UPDATE']) AS expected(entry) UNION ALL SELECT 'function', split_part(entry, ':', 1)::regprocedure::oid, NULL::name, 'EXECUTE', false FROM unnest(ARRAY['public.ple_current_tenant()','public.ple_course_records_accessible(uuid,uuid)','public.ple_enqueue_assignment_recalculation(uuid,uuid,uuid,integer)','public.ple_record_question_statistics(uuid,uuid,uuid,uuid,uuid,uuid,double precision,bigint,bigint,double precision,bytea)']) AS expected(entry)), actual AS (SELECT 'table'::text, relation_row.oid, NULL::name, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_class AS relation_row JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid=relation_row.relnamespace CROSS JOIN LATERAL pg_catalog.aclexplode(relation_row.relacl) AS acl WHERE namespace_row.nspname='public' AND relation_row.relkind IN ('r','p','v','m','f') AND relation_row.relowner<>'ple_accepted_submission_execution_worker'::regrole AND acl.grantee='ple_accepted_submission_execution_worker'::regrole UNION ALL SELECT 'column', attribute_row.attrelid, attribute_row.attname, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_attribute AS attribute_row CROSS JOIN LATERAL pg_catalog.aclexplode(attribute_row.attacl) AS acl WHERE attribute_row.attnum>0 AND NOT attribute_row.attisdropped AND acl.grantee='ple_accepted_submission_execution_worker'::regrole UNION ALL SELECT 'sequence', relation_row.oid, NULL::name, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_class AS relation_row JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid=relation_row.relnamespace CROSS JOIN LATERAL pg_catalog.aclexplode(relation_row.relacl) AS acl WHERE namespace_row.nspname='public' AND relation_row.relkind='S' AND acl.grantee='ple_accepted_submission_execution_worker'::regrole UNION ALL SELECT 'function', procedure_row.oid, NULL::name, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_proc AS procedure_row JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid=procedure_row.pronamespace CROSS JOIN LATERAL pg_catalog.aclexplode(procedure_row.proacl) AS acl WHERE namespace_row.nspname='public' AND procedure_row.proowner<>'ple_accepted_submission_execution_worker'::regrole AND acl.grantee='ple_accepted_submission_execution_worker'::regrole) SELECT 1 FROM ((SELECT * FROM actual EXCEPT SELECT * FROM expected) UNION ALL (SELECT * FROM expected EXCEPT SELECT * FROM actual)) AS privilege_difference)
        OR EXISTS (SELECT 1 FROM (VALUES
             ('worker_job','accepted_execution_worker_job','*','true','true'),('grading_execution','accepted_execution_worker_execution','*','true','true'),('submission_evaluation','accepted_execution_worker_evaluation','*','true','true'),
             ('grading_execution_receipt','accepted_execution_worker_receipt','a','','true'),('grading_operation','accepted_execution_worker_operation','a','','true'),('submission','accepted_execution_worker_submission','r','true',''),
@@ -986,7 +984,7 @@ BEGIN
             ('enrollment','accepted_execution_worker_enrollment_completion','w','true','true'),('assignment','accepted_execution_worker_assignment','r','true',''),('assignment_audience_group','accepted_execution_worker_audience','r','true',''),
             ('assignment_item','accepted_execution_worker_items','r','true',''),('assignment_run_item','accepted_execution_worker_run_items','r','true',''),('assignment_selection_group','accepted_execution_worker_selection_groups','r','true',''),('assignment_selection_candidate','accepted_execution_worker_selection_candidates','r','true',''),
             ('course_retention','accepted_execution_worker_retention','r','true',''),('accepted_submission_private_response','accepted_execution_worker_private_response','r','true',''),('issued_attempt_private_execution','accepted_execution_worker_private_execution','r','true',''),
-            ('attempt_feedback','accepted_execution_worker_feedback','a','','true'),('submission_receipt_snapshot','accepted_execution_worker_receipt_snapshot','a','','true'),('student_assignment_summary','accepted_execution_worker_summary_completion','w','true','true')
+            ('attempt_feedback','accepted_execution_worker_feedback','a','','true'),('submission_receipt_snapshot','accepted_execution_worker_receipt_snapshot','a','','true'),('student_assignment_summary','accepted_execution_worker_summary_completion','w','true','true'),('student_assignment_summary','accepted_execution_worker_summary_select','r','true','')
           ) AS expected(relation_name,policy_name,policy_command,policy_using,policy_check)
           WHERE NOT EXISTS (SELECT 1 FROM pg_catalog.pg_policy AS policy_row JOIN pg_catalog.pg_class AS relation_row ON relation_row.oid=policy_row.polrelid JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid=relation_row.relnamespace
                             WHERE namespace_row.nspname='public' AND relation_row.relname=expected.relation_name AND policy_row.polname=expected.policy_name
@@ -995,5 +993,5 @@ BEGIN
                               AND COALESCE(pg_catalog.pg_get_expr(policy_row.polwithcheck,policy_row.polrelid),'')=expected.policy_check))
        OR EXISTS (SELECT 1 FROM unnest(ARRAY['worker_job','grading_execution','submission_evaluation','grading_execution_receipt','grading_operation','submission','submission_idempotency','question_attempt','assignment_run','enrollment','assignment','assignment_audience_group','assignment_item','assignment_run_item','assignment_selection_group','assignment_selection_candidate','course_retention','accepted_submission_private_response','issued_attempt_private_execution','attempt_feedback','submission_receipt_snapshot','student_assignment_summary']) AS expected(relation_name)
                     WHERE NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class AS relation_row JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid=relation_row.relnamespace WHERE namespace_row.nspname='public' AND relation_row.relname=expected.relation_name AND relation_row.relrowsecurity AND relation_row.relforcerowsecurity))
-    THEN RAISE NOTICE 'diagnostic: accepted-submission worker authority is unsafe'; END IF;
+    THEN RAISE EXCEPTION 'accepted-submission worker authority is unsafe'; END IF;
 END $$; COMMIT;

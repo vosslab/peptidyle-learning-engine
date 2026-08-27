@@ -1,5 +1,12 @@
 # Design decisions
 
+<!-- VENDORED HEADER: START -->
+Record each durable decision about how this code and repository are shaped, once it is settled, with
+the reasoning a later reader needs. Guidance Neil Voss states belongs in
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), dated history in `docs/CHANGELOG.md`, open discussion in
+`docs/active_plans/decisions/`. [PROPAGATED HEADER - ENTRIES BELOW ARE YOURS]
+<!-- VENDORED HEADER: END -->
+
 This is PLE's conceptual entrypoint for settled product and architecture decisions. It answers
 "why is this boundary here?" and points to the contract that answers "how does it work?" It does
 not replace the dependency order, implementation steps, acceptance gates, or named code owner in the
@@ -481,3 +488,172 @@ and [E2E_TESTS.md](E2E_TESTS.md).
 
 **Planned closure.** Each release package records its exact permanent and one-time evidence before
 status can claim the behavior is accepted.
+
+## Product presentation and operations
+
+### Viewport and visual evidence profiles
+
+**Decision.** Instructor and Sysadmin design and permanent visual evidence use the canonical 1280
+by 800 CSS-pixel desktop profile. Student design covers 1280 by 800 laptop, 800 by 1280 portrait
+tablet, 393 by 852 narrow phone, and 800 by 800 square profiles; profile weights guide planning and
+do not create screenshot quotas or pixel-equivalence acceptance.
+
+**Why.** The owner prioritizes desktop teaching and administration while Student devices vary.
+Semantic usability, accessibility, privacy, and task completion are stronger evidence than exact
+rendered dimensions.
+
+### The demo is ordinary product state
+
+**Decision.** The demo uses PostgreSQL, real migrations, RLS, persistent seeded teaching courses,
+ordinary memberships, and ordinary learner work through the production-shaped browser and server
+stack. Preview, acceptance, and production behavior share this one live product model.
+
+**Why.** A parallel mock product creates false assurance and cannot prove the real teaching path.
+Recognizable courses and deterministic observations make returning to the demo resemble checking
+on active teaching.
+
+### Teaching workspaces use task-owned composition
+
+**Decision.** Instructor assignment work is composed as focused Overview, Questions, Policies, and
+Student-view tasks over one authoritative assignment. Useful desktop width goes to scanning and
+editing; the complete current task and primary save action should fit comfortably at 1280 by 800.
+
+**Why.** Task-level hierarchy is easier to teach and operate than a grid of equally padded cards.
+Separating content from policy prevents unrelated fields from competing on one page.
+
+### Course appearance derives usable roles from three anchors
+
+**Decision.** A course selects one three-color biome or habitat theme and may add a centered banner
+normalized to 1200 by 328 without stretching. The default `grass` anchors are `#73C167`, `#008852`,
+and `#BDDEB1`; readable interface roles are derived without changing the stored anchors.
+
+**Why.** The owner wants Blackboard Original-like course identity, not three decorative swatches on
+otherwise identical white pages. Derived roles preserve recognizable color while meeting contrast
+and accessibility needs.
+
+## Demonstration and release evidence
+
+### Seed data represents ordinary teaching
+
+**Decision.** Fresh installations seed the named Genetics and Biochemistry teaching courses,
+ordinary active memberships, and five deterministic observations on meaningful Chapter 1 work.
+Internal installer recipe names stay diagnostic; product navigation displays teaching names.
+
+**Why.** Seed data should demonstrate actual course, assignment, analysis, and discovery workflows
+rather than synthetic infrastructure records.
+
+### Direct demo entry replaces verification only
+
+**Decision.** Public demo entry may select a seeded Student, Instructor, or Sysadmin identity, but
+the server still resolves the ordinary account, session, role, membership, and authorization.
+Elena Instructor and Morgan Sysadmin exercise ordinary passkey enrollment, sign-out, and sign-in.
+
+**Why.** SMTP is not configured for current acceptance. Bypassing only email verification keeps the
+demo accessible without replacing authorization or claiming unverified email delivery.
+
+### The canonical walkthrough is a focused teaching loop
+
+**Decision.** The pilot walkthrough has an Instructor create a course, add an active Student, build
+a representative four-question Chapter 1 assignment from published problems, and observe the
+Student's submitted and scored work. The complete eight-question sweep is a separate release gate.
+
+**Why.** A focused realistic loop demonstrates first success without substituting a one-question
+toy or forcing the full release corpus into every walkthrough.
+
+## Content and grading formats
+
+### Flat JSON is the static-question authority
+
+**Decision.** Versioned PLE flat-question JSON is canonical for MC, MA, FIB, MULTI-FIB, NUM, MATCH,
+ORDER, and HOTSPOT. YAML may compile once into that contract; QTI is an import, export, and archival
+adapter rather than internal authority.
+
+**Why.** One deterministic cross-language contract avoids competing source models. Adapter formats
+can preserve interchange without dictating the engine's internal representation.
+
+### Native interactions adapt the QTI self-test model
+
+**Decision.** Native families borrow the QTI Package Maker self-test's compact task, obvious submit,
+visible response state, per-part completion, plain-language feedback, reset, and completed state.
+PLE retains server-only grading, labeled controls, keyboard operation, and recoverable errors.
+
+**Why.** Students should learn one clear interaction vocabulary without importing client-side
+answers, drag-only controls, result-string protocols, or inaccessible presentation choices.
+
+### Binary question assets use object storage
+
+**Decision.** Images and other binary references keep bytes, checksums, media types, lifecycle, and
+authorization in typed PLE object storage rather than JSON or database rows. Optional correct and
+incorrect feedback remain shared sidecars and do not determine validity.
+
+**Why.** Typed storage preserves authorization and lifecycle boundaries while keeping the canonical
+question contract compact even when author feedback is incomplete.
+
+## Identity, authentication, and compliance
+
+### Visible identifiers are human-readable locators
+
+**Decision.** Visible content, navigation URLs, documentation, and copyable links never expose
+UUIDs. Published questions use one non-sequential Crockford Base32 ID displayed as `AAA-BBBB`;
+internal UUIDs may remain in hidden server and transport boundaries.
+
+**Why.** People need identifiers they can recognize and communicate. A public reference is a
+locator, not authorization, and persistence identity should not leak into the interface.
+
+### Invitations and recovery use verified email
+
+**Decision.** PLE accounts are institution-independent and use passwordless verified email as the
+canonical registration, invitation, sign-in, and passkey-recovery path. SMTP delivery is optional;
+an Instructor may share a one-time invitation link through a trusted LMS.
+
+**Why.** Email provides one comprehensible account authority without making an institution or
+configured mail provider a prerequisite for independent use.
+
+### Authentication storage is strictly necessary
+
+**Decision.** Production authentication uses one host-only `__Host-` HttpOnly, Secure,
+`SameSite=Lax`, `Path=/` browser-session cookie with bounded server expiration and immediate
+revocation. Persistent login, tracking, or embedded LTI requires separate review and consent.
+
+**Why.** The bearer credential must remain unreadable to JavaScript and limited to providing the
+requested signed-in service. Necessary-storage classification still requires clear disclosure and
+deployment-specific legal review.
+
+### Security controls preserve privacy and recovery guidance
+
+**Decision.** PostgreSQL, object storage, backups, and deployment volumes use scoped managed
+encryption at rest; application AEAD is reserved for stored secrets. Unauthorized users receive
+generic unavailable outcomes with accessible guidance that does not disclose protected details.
+
+**Why.** Concealment and humane teaching guidance are complementary. The regulatory basis includes
+the EU ePrivacy Directive Article 5(3), Article 29 Working Party Opinion 04/2012, and current ICO
+strictly-necessary storage guidance.
+
+## Repository and runtime policy
+
+### Dependency manifests permit current secure releases
+
+**Decision.** Direct registry dependencies use `version = "*"` or an audited open minimum. Caret,
+exact, tilde, and upper-bound requirements require a documented repository-specific exception;
+lockfiles remain the reviewed exact resolution between deliberate refreshes.
+
+**Why.** The owner prioritizes current security fixes while an open reviewed minimum records the
+known-safe floor without blocking later corrective releases.
+
+### Generated output has tracked authority
+
+**Decision.** Reproducible generated output lives under ignored `generated/` and is rebuilt from a
+tracked generator or authoritative source before validation. Small reviewed golden baselines may
+remain tracked when they define compatibility or durable cross-layer evidence.
+
+**Why.** Ignored output must not become an unverifiable input, while deliberate goldens serve a
+different purpose from disposable build products.
+
+### Local-stack replacement is scoped and inspectable
+
+**Decision.** The Python local-stack controller owns project-labelled lifecycle, readiness, and
+cleanup. Replacement removes exact-project containers and orphans, retains named data volumes until
+their acceptance target permits removal, and prunes only images unused by current containers.
+
+**Why.** The owner's Podman machine is dedicated to disposable project infrastructure, but typed
+target, label, and explicit-resource safeguards keep destructive cleanup bounded.

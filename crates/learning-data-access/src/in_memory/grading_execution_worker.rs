@@ -467,10 +467,6 @@ fn apply_successful_evaluation(
         (accepted.tenant, accepted.attempt),
         plan.completion.receipt.attempt.clone(),
     );
-    state.attempts.insert(
-        (accepted.tenant, accepted.attempt),
-        plan.completion.receipt.attempt.clone(),
-    );
     state.runs.insert(
         (accepted.tenant, plan.completion.receipt.run.id),
         plan.completion.receipt.run.clone(),

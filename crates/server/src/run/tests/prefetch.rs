@@ -3,7 +3,7 @@ use learning_data_access::SubmitQuestionAttemptCommand;
 
 #[tokio::test]
 async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
-    let (_store, _backend, app, student_cookie, outsider_cookie, assignment) =
+    let (store, backend, app, student_cookie, outsider_cookie, assignment) =
         native_feedback_fixture().await;
     let first = active_attempt_for(
         &app,
@@ -160,19 +160,54 @@ async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
         .oneshot(submit(first.id, "prefetch-first", &ester))
         .await
         .expect("first submit");
-    assert_eq!(first_response.status(), StatusCode::OK);
-    let first_receipt = json(first_response).await;
+    assert_eq!(first_response.status(), StatusCode::ACCEPTED);
+    assert_eq!(json(first_response).await["kind"], "accepted_pending");
+    drain_one_accepted_submission(&store, Arc::clone(&backend)).await;
+    let completed_status = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(submission_status_path(
+                    CourseId::from_uuid(id(205)),
+                    assignment,
+                    first.id,
+                ))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("completed status request"),
+        )
+        .await
+        .expect("completed status response");
+    assert_eq!(completed_status.status(), StatusCode::OK);
+    assert_eq!(json(completed_status).await["kind"], "completed");
+    let resumed = app
+        .clone()
+        .oneshot(start_run_request(
+            CourseId::from_uuid(id(205)),
+            assignment,
+            &student_cookie,
+        ))
+        .await
+        .expect("successor issuance response");
+    assert_eq!(resumed.status(), StatusCode::CREATED);
+    let first_receipt_response = app
+        .clone()
+        .oneshot(submit(first.id, "prefetch-first", &ester))
+        .await
+        .expect("first completed replay");
+    assert_eq!(first_receipt_response.status(), StatusCode::OK);
+    let first_receipt = json(first_receipt_response).await;
     assert_eq!(first_receipt["nextIssued"]["run"], cached["run"]);
-    let next = next_active_attempt(&app, first.run, &student_cookie).await;
-    assert_eq!(
-        first_receipt["nextIssued"]["id"],
-        serde_json::json!(next.id)
-    );
+    let next: QuestionAttemptId = serde_json::from_value(first_receipt["nextIssued"]["id"].clone())
+        .expect("successor attempt id");
     assert_eq!(
         cached["envelope"]["version"],
-        serde_json::json!(next.question_version)
+        first_receipt["nextIssued"]["questionVersion"]
     );
-    assert_eq!(cached["envelope"]["seed"], serde_json::json!(next.seed));
+    assert_eq!(
+        cached["envelope"]["seed"],
+        first_receipt["nextIssued"]["seed"]
+    );
     let final_position_prefetch = app
         .clone()
         .oneshot(
@@ -181,7 +216,7 @@ async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
                 .uri(prefetch_path(
                     CourseId::from_uuid(id(205)),
                     assignment,
-                    next.id,
+                    next,
                 ))
                 .header("cookie", &student_cookie)
                 .body(Body::empty())
@@ -199,16 +234,23 @@ async fn prefetch_is_body_free_idempotent_and_binds_the_submission_replay() {
         &app,
         CourseId::from_uuid(id(205)),
         assignment,
-        next.id,
+        next,
         &student_cookie,
         1,
     )
     .await;
-    let completed = app
+    let accepted = app
         .clone()
-        .oneshot(submit(next.id, "prefetch-second", &amide))
+        .oneshot(submit(next, "prefetch-second", &amide))
         .await
         .expect("next submit");
+    assert_eq!(accepted.status(), StatusCode::ACCEPTED);
+    drain_one_accepted_submission(&store, Arc::clone(&backend)).await;
+    let completed = app
+        .clone()
+        .oneshot(submit(next, "prefetch-second", &amide))
+        .await
+        .expect("next completed replay");
     assert_eq!(completed.status(), StatusCode::OK);
     let replay = app
         .clone()
@@ -268,7 +310,7 @@ async fn prefetch_preserves_a_backend_owned_render_hash() {
 }
 
 #[tokio::test]
-async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay_heals() {
+async fn resumed_run_issues_successor_linked_to_durable_grade() {
     let (store, _backend, app, student_cookie, _outsider_cookie, assignment) =
         native_feedback_fixture().await;
     let first = active_attempt_for(
@@ -310,6 +352,16 @@ async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay
         )
         .await
         .expect("arrange durable grade commit before process crash");
+    let resumed = app
+        .clone()
+        .oneshot(start_run_request(
+            CourseId::from_uuid(id(205)),
+            assignment,
+            &student_cookie,
+        ))
+        .await
+        .expect("resume response");
+    assert_eq!(resumed.status(), StatusCode::CREATED);
     let pending_replay = app
         .clone()
         .oneshot(
@@ -336,18 +388,8 @@ async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay
     assert_eq!(pending_receipt["nextPending"], false);
     assert!(
         pending_receipt["nextIssued"].is_object(),
-        "the exact nested replay heals its bound successor"
+        "the exact nested replay returns its bound successor"
     );
-    let resumed = app
-        .clone()
-        .oneshot(start_run_request(
-            CourseId::from_uuid(id(205)),
-            assignment,
-            &student_cookie,
-        ))
-        .await
-        .expect("resume response");
-    assert_eq!(resumed.status(), StatusCode::CREATED);
     let after_resume = app
         .clone()
         .oneshot(
@@ -394,8 +436,10 @@ async fn resumed_run_never_issues_an_unlinked_successor_before_submission_replay
         "later replay returns the exact healed successor link"
     );
     assert_eq!(receipt["nextIssued"], pending_receipt["nextIssued"]);
-    let next = next_active_attempt(&app, first.run, &student_cookie).await;
-    assert_eq!(receipt["nextIssued"]["id"], serde_json::json!(next.id));
+    assert_eq!(
+        receipt["nextIssued"]["id"],
+        pending_receipt["nextIssued"]["id"]
+    );
 }
 
 #[tokio::test]
@@ -453,8 +497,23 @@ async fn successor_delivery_failure_returns_the_durable_receipt_without_regradin
         .oneshot(submit())
         .await
         .expect("first response after successor outage");
-    assert_eq!(first_response.status(), StatusCode::OK);
-    let first_receipt = json(first_response).await;
+    assert_eq!(first_response.status(), StatusCode::ACCEPTED);
+    assert_eq!(json(first_response).await["kind"], "accepted_pending");
+    drain_one_accepted_submission(
+        &store,
+        Arc::new(UnavailableSuccessorBackend {
+            inner: Arc::clone(&backend),
+            fail_next_issue: AtomicBool::new(false),
+        }),
+    )
+    .await;
+    let first_replay = unavailable_app
+        .clone()
+        .oneshot(submit())
+        .await
+        .expect("first completed replay after successor outage");
+    assert_eq!(first_replay.status(), StatusCode::OK);
+    let first_receipt = json(first_replay).await;
     assert_eq!(first_receipt["accepted"], true);
     assert_eq!(first_receipt["nextPending"], true);
     assert!(first_receipt["nextIssued"].is_null());

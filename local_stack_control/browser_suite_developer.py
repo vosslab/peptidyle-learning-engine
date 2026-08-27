@@ -22,6 +22,7 @@ import local_stack_control.live_demo_target
 import local_stack_control.env_file
 import local_stack_control.models
 import local_stack_control.process
+import local_stack_control.worker_readiness
 
 
 CONTROL_NAME = "developer-control.json"
@@ -467,8 +468,9 @@ def _require_worker_ready(
 		),
 		cwd=repository_root,
 	)
-	marker = "peptidyle worker ready with 6 supported job families"
-	if not result.ok() or marker not in result.stdout + result.stderr:
+	if not result.ok() or not local_stack_control.worker_readiness.attests_job_family(
+		result.stdout + result.stderr, "GradeAcceptedSubmission"
+	):
 		raise DeveloperBrowserSuiteError("live-demo worker did not reach ready state")
 
 

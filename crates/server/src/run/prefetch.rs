@@ -362,10 +362,9 @@ where
         Ok(value) => value,
         Err(response) => return response.into_response(),
     };
-    if attempts
-        .iter()
-        .any(|attempt| attempt.response.is_none() && attempt.id != predecessor)
-    {
+    if attempts.iter().any(|attempt| {
+        attempt.status == question_model::AttemptStatus::InProgress && attempt.id != predecessor
+    }) {
         return error_response(StatusCode::CONFLICT, "another question attempt is active");
     }
     let Some((assignment_position, reference)) = run_items.iter().find_map(|item| {
@@ -605,11 +604,13 @@ where
         .map_err(store_error_response)?
         .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "run not found"))?;
     let attempts = all_attempts(store, authenticated, run.id).await?;
-
-    if attempts.iter().any(|attempt| attempt.response.is_none()) {
+    // ASVS 2.3.1: lifecycle state governs successor issuance.
+    if attempts
+        .iter()
+        .any(|attempt| attempt.status == question_model::AttemptStatus::InProgress)
+    {
         return Ok(());
     }
-
     for item in &run_items {
         let position = item.issued_position;
         let reference = item.reference;

@@ -31,6 +31,10 @@
 
 ### Developer Tests and Notes
 
+- Aggressively restored `docs/HUMAN_GUIDANCE.md` to terse owner-level statements. Moved uncertain
+  technical interpretation, rationale, compliance mechanics, demo evidence, content-format detail,
+  authentication policy, and local-stack behavior into structured `docs/DESIGN_DECISIONS.md`
+  entries rather than treating polished agent prose as the human's words.
 - Completed independent architecture and repository-rules/test-policy reviews of the G1 plan. Both
   approved the final state ownership, package dependencies, one-owner artifact map, public
   `GO-<positive>` references, answer-free browser contract, UI-first recovery journey, and split

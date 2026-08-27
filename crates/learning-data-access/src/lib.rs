@@ -79,6 +79,7 @@ mod score_precision;
 pub mod session;
 mod statistics;
 mod submission_completion;
+mod successor_eligibility;
 mod teaching_authority_references;
 mod teaching_authority_store;
 
@@ -309,3 +310,4 @@ pub(crate) use statistics::{StatisticsContribution, derive_statistics_contributi
 pub(crate) use submission_completion::{
     AcceptedSubmissionCompletionInput, plan_accepted_submission_completion,
 };
+pub(crate) use successor_eligibility::successor_is_eligible;

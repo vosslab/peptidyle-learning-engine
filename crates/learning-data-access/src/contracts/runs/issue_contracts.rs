@@ -403,7 +403,14 @@ pub enum SubmissionReceiptRead {
 /// feedback, result, reason, or score can cross this persistence boundary.
 #[derive(Debug, Clone, PartialEq)]
 pub enum LearnerSubmissionStatusRead {
-    Completed(Box<SubmissionRecord>),
+    /// The immutable receipt together with whether the current completed run
+    /// still has an unissued, policy-eligible successor.  This is computed by
+    /// the exact route-bound read; the browser status endpoint never creates
+    /// that successor.
+    Completed {
+        record: Box<SubmissionRecord>,
+        next_pending: bool,
+    },
     AcceptedPending(AcceptedSubmissionPending),
     InstructorAttention(AcceptedSubmissionPending),
 }

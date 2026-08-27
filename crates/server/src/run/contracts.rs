@@ -16,6 +16,7 @@ use question_model::{
     AttemptProvenance, AttemptResult, FeedbackContent, GradingOperationReason, ProblemVersionRef,
     QuestionAttempt, QuestionDefinition, QuestionEnvelope, StudentResponse,
 };
+use std::sync::Arc;
 
 /// Server-only metadata produced while a trusted adapter issues one instance.
 ///
@@ -256,6 +257,75 @@ pub trait RunBackend: Send + Sync {
                 "this run backend does not produce a server grade".to_string(),
             )),
         })
+    }
+}
+
+/// Shares one configured backend between request routing and a server-owned
+/// execution worker without introducing a second backend configuration.
+///
+/// The worker and router both need the same immutable adapter capabilities and
+/// therefore should observe one handle. Keeping this forwarding implementation
+/// on the trusted backend contract makes that composition explicit while
+/// preserving the trait's `Send + Sync` boundary.
+#[async_trait]
+impl<B> RunBackend for Arc<B>
+where
+    B: RunBackend + ?Sized,
+{
+    async fn issue(
+        &self,
+        context: TenantContext,
+        reference: ProblemVersionRef,
+        question: &QuestionDefinition,
+        seed: u64,
+    ) -> Result<IssuedAttemptMetadata, RunBackendError> {
+        self.as_ref()
+            .issue(context, reference, question, seed)
+            .await
+    }
+
+    async fn reproduce(
+        &self,
+        context: TenantContext,
+        reference: ProblemVersionRef,
+        question: &QuestionDefinition,
+        attempt: &QuestionAttempt,
+    ) -> Result<QuestionEnvelope, RunBackendError> {
+        self.as_ref()
+            .reproduce(context, reference, question, attempt)
+            .await
+    }
+
+    async fn prepare_external_tool_launch(
+        &self,
+        context: TenantContext,
+        reference: ProblemVersionRef,
+        question: &QuestionDefinition,
+        attempt: &QuestionAttempt,
+    ) -> Result<(), RunBackendError> {
+        self.as_ref()
+            .prepare_external_tool_launch(context, reference, question, attempt)
+            .await
+    }
+
+    async fn grade(
+        &self,
+        context: TenantContext,
+        reference: ProblemVersionRef,
+        question: &QuestionDefinition,
+        attempt: &QuestionAttempt,
+        response: &StudentResponse,
+    ) -> Result<GradeOutcome, RunBackendError> {
+        self.as_ref()
+            .grade(context, reference, question, attempt, response)
+            .await
+    }
+
+    async fn submit(
+        &self,
+        submission: RunSubmission<'_>,
+    ) -> Result<SubmissionDisposition, RunBackendError> {
+        self.as_ref().submit(submission).await
     }
 }
 

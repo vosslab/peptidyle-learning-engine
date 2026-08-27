@@ -137,6 +137,9 @@ pub(super) fn seed_complete_issued_execution(
         StudentAssignmentSummary::empty(tenant, enrollment_id),
     );
     state.attempts.insert((tenant, attempt_id), attempt.clone());
+    state
+        .published
+        .insert((published.problem, published.version), published);
     super::super::catalog_search_tests::insert_statistics_issued_authority(&mut state, &attempt);
     state.submissions.insert(
         (tenant, attempt_id),
@@ -188,6 +191,8 @@ pub(super) fn seed_complete_issued_execution(
 async fn evaluated_worker_commit_seals_answer_free_receipt_and_queues_recalculation() {
     let store = MemoryStore::default();
     let (tenant, actor, attempt, submission) = seed_complete_issued_execution(&store);
+    let issued_attempt =
+        store.read_state().expect("issued state").attempts[&(tenant, attempt)].clone();
     let worker = WorkerId::from_uuid(Uuid::from_u128(75_014));
     let claim = store
         .claim_next_accepted_submission_execution(
@@ -248,6 +253,11 @@ async fn evaluated_worker_commit_seals_answer_free_receipt_and_queues_recalculat
     assert_eq!(first_replay, second_replay);
 
     let state = store.read_state().expect("completed state");
+    assert_eq!(
+        state.attempts[&(tenant, attempt)],
+        issued_attempt,
+        "worker completion preserves the immutable issuance snapshot"
+    );
     let receipt = state.submissions[&(tenant, attempt)]
         .completed_record_opt()
         .expect("worker wrote immutable receipt");

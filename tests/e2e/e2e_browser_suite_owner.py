@@ -19,6 +19,7 @@ import local_stack_control.lifecycle
 import local_stack_control.models
 import local_stack_control.private_state
 import local_stack_control.process
+import local_stack_control.worker_readiness
 
 import e2e_browser_scenario_contract
 import e2e_browser_scenario_execution
@@ -325,8 +326,9 @@ def require_worker_ready(
 		cwd=root,
 	)
 	readiness_output = result.stdout + result.stderr
-	readiness_marker = "peptidyle worker ready with 6 supported job families"
-	if not result.ok() or readiness_marker not in readiness_output:
+	if not result.ok() or not local_stack_control.worker_readiness.attests_job_family(
+		readiness_output, "GradeAcceptedSubmission"
+	):
 		raise BrowserSuiteError("live-demo worker did not reach its production-ready state")
 
 

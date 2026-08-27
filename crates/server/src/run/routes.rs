@@ -136,7 +136,7 @@ where
         Ok(value) => value,
         Err(response) => return response.into_response(),
     };
-    let predecessor = if attempts.is_empty() {
+    let pending_predecessor = if attempts.is_empty() {
         None
     } else {
         match state
@@ -147,6 +147,29 @@ where
             Ok(value) => value,
             Err(error) => return store_error_response(error),
         }
+    };
+    // An accepted response and a completed receipt both wait for a successor
+    // link.  Only the immutable completed receipt may recover delivery.  In
+    // particular, a worker-owned accepted response deliberately has no public
+    // answer projection, so response presence cannot safely drive this state
+    // transition.
+    //
+    // ASVS 2.3.1: recovery advances only a completed, learner-owned receipt;
+    // pending grading remains worker-owned until its durable completion.
+    let predecessor = match pending_predecessor {
+        Some(attempt) => match state
+            .store
+            .submission_record(authenticated.tenant_context, actor, attempt)
+            .await
+        {
+            Ok(learning_data_access::SubmissionReceiptRead::Completed(_)) => Some(attempt),
+            Ok(
+                learning_data_access::SubmissionReceiptRead::AcceptedPending(_)
+                | learning_data_access::SubmissionReceiptRead::Missing,
+            ) => None,
+            Err(error) => return store_error_response(error),
+        },
+        None => None,
     };
     if (attempts.is_empty() || predecessor.is_some())
         && let Err(response) = ensure_active_questions(

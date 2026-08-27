@@ -1,5 +1,46 @@
 use super::*;
 
+use learning_data_access::{
+    AssignmentScoringCommitOutcome, AssignmentScoringWorkerCommand, AssignmentScoringWorkerStore,
+    JobClaimFilter, JobPayload,
+};
+
+async fn publish_assignment_scoring(store: &MemoryStore) {
+    let context = TenantContext::from_authenticated_session(TenantId::from_uuid(id(1)));
+    let claim = store
+        .claim_next_job(
+            &JobClaimFilter::all(),
+            JobLeaseDuration::from_seconds(30).expect("scoring worker lease"),
+        )
+        .await
+        .expect("claim scoring job")
+        .expect("accepted grading enqueues scoring work");
+    let JobPayload::RecalculateAssignment {
+        assignment,
+        generation,
+    } = claim.payload
+    else {
+        panic!("accepted grading must enqueue assignment scoring");
+    };
+    let command = AssignmentScoringWorkerCommand {
+        job: claim.id,
+        lease: claim.lease_token,
+        assignment,
+        generation,
+    };
+    store
+        .prepare_assignment_scoring(context, command)
+        .await
+        .expect("prepare assignment scoring");
+    assert!(matches!(
+        store
+            .commit_assignment_scoring(context, command)
+            .await
+            .expect("commit assignment scoring"),
+        AssignmentScoringCommitOutcome::Committed | AssignmentScoringCommitOutcome::Superseded
+    ));
+}
+
 #[tokio::test]
 async fn valid_first_submission_is_durable_pending_without_private_grading() {
     let (store, backend, _app, student_cookie, _, assignment, _) = fixture().await;
@@ -79,7 +120,7 @@ async fn valid_first_submission_is_durable_pending_without_private_grading() {
 
 #[tokio::test]
 async fn exhausted_incorrect_all_correct_run_reports_in_progress_without_a_successor() {
-    let (_store, _backend, app, student_cookie, _, assignment, enrollment) =
+    let (store, backend, app, student_cookie, _, assignment, enrollment) =
         fixture_with_attempt_policy(
             ResponseDefinition::Numeric {
                 tolerance: NumericTolerance::Absolute { epsilon: 0.1 },
@@ -119,8 +160,26 @@ async fn exhausted_incorrect_all_correct_run_reports_in_progress_without_a_succe
         )
         .await
         .expect("submission response");
-    assert_eq!(response.status(), StatusCode::OK);
-    let receipt = json(response).await;
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+    assert_eq!(json(response).await["kind"], "accepted_pending");
+    drain_one_accepted_submission(&store, backend.clone()).await;
+    let completed = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(submission_status_path(
+                    CourseId::from_uuid(id(5)),
+                    assignment,
+                    attempt.id,
+                ))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("completed status request"),
+        )
+        .await
+        .expect("completed status response");
+    assert_eq!(completed.status(), StatusCode::OK);
+    let receipt = json(completed).await;
     assert_eq!(receipt["runCompletionStatus"], "inProgress");
     assert!(receipt["nextIssued"].is_null());
     assert_eq!(receipt["nextPending"], false);
@@ -230,7 +289,7 @@ async fn submission_validates_attempt_specific_rendered_choice_ids() {
         ],
         selection: SelectionCardinality::ExactlyOne,
     };
-    let (_store, backend, app, student_cookie, _, assignment, _) =
+    let (store, backend, app, student_cookie, _, assignment, _) =
         fixture_with_response(published_response, false).await;
     *backend
         .issued_response
@@ -287,7 +346,9 @@ async fn submission_validates_attempt_specific_rendered_choice_ids() {
         .await
         .expect("rendered choice response");
 
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+    assert_eq!(json(response).await["kind"], "accepted_pending");
+    drain_one_accepted_submission(&store, backend.clone()).await;
     assert_eq!(backend.reproduce_calls.load(Ordering::SeqCst), 0);
     assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 1);
     assert_eq!(
@@ -474,8 +535,27 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         .oneshot(submit("same-request", submission_body.clone()))
         .await
         .expect("submission response");
-    assert_eq!(first_submission.status(), StatusCode::OK);
-    let first_receipt = json(first_submission).await;
+    assert_eq!(first_submission.status(), StatusCode::ACCEPTED);
+    assert_eq!(json(first_submission).await["kind"], "accepted_pending");
+    drain_one_accepted_submission(&store, backend.clone()).await;
+    publish_assignment_scoring(store.as_ref()).await;
+    let completed_status = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(submission_status_path(
+                    CourseId::from_uuid(id(5)),
+                    assignment,
+                    issued.id,
+                ))
+                .header("cookie", &student_cookie)
+                .body(Body::empty())
+                .expect("completed status request"),
+        )
+        .await
+        .expect("completed status response");
+    assert_eq!(completed_status.status(), StatusCode::OK);
+    let first_receipt = json(completed_status).await;
     assert_eq!(first_receipt["accepted"], true);
     assert_eq!(first_receipt["attempt"]["result"]["correct"], true);
     // The generic NumericBackend takes the default server grade path: it
@@ -515,10 +595,11 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         )
         .await
         .expect("submitted question response");
-    assert_eq!(submitted_question.status(), StatusCode::OK);
+    let submitted_question_status = submitted_question.status();
+    let submitted_question_body = json(submitted_question).await;
+    assert_eq!(submitted_question_status, StatusCode::OK);
     assert_eq!(
-        json(submitted_question).await,
-        envelope,
+        submitted_question_body, envelope,
         "submitted GET returns the immutable receipt snapshot"
     );
     assert_eq!(
@@ -816,131 +897,4 @@ async fn runs_resume_submit_idempotently_and_keep_keys_server_only() {
         .await
         .expect("withheld run response");
     assert!(json(withheld_run_response).await["score"].is_null());
-}
-
-#[tokio::test]
-async fn a_run_issues_only_one_active_question_then_advances() {
-    let (store, backend, app, student_cookie, _, assignment_id, _) = fixture().await;
-    let context = TenantContext::from_authenticated_session(TenantId::from_uuid(id(1)));
-    let stored_assignment = store
-        .get_assignment_for_edit(context, assignment_id)
-        .await
-        .expect("assignment read")
-        .expect("fixture assignment");
-    let first = stored_assignment
-        .record
-        .items
-        .first()
-        .expect("fixture assignment has one item");
-    store
-        .add_assignment_fixed_item(
-            context,
-            learning_data_access::AddAssignmentFixedItemCommand {
-                actor: UserId::from_uuid(id(2)),
-                course: stored_assignment.record.course_id,
-                assignment: assignment_id,
-                expected_revision: stored_assignment.revision,
-                item: question_model::AssignmentItem {
-                    id: question_model::AssignmentItemId::from_uuid(id(1_100_000)),
-                    reference: first.reference,
-                    position: 1,
-                    points_possible: first.points_possible,
-                    delivery_state: first.delivery_state,
-                    scoring_mode: first.scoring_mode,
-                },
-            },
-        )
-        .await
-        .expect("two-position assignment");
-
-    let started = app
-        .clone()
-        .oneshot(start_run_request(
-            CourseId::from_uuid(id(5)),
-            assignment_id,
-            &student_cookie,
-        ))
-        .await
-        .expect("start response");
-    let run: AssignmentRun = serde_json::from_value(json(started).await).expect("run response");
-    let first_page_response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri(format!("/api/runs/{}/attempts?pageSize=1", run.id))
-                .header("cookie", &student_cookie)
-                .body(Body::empty())
-                .expect("attempt request"),
-        )
-        .await
-        .expect("first attempt page");
-    let first_page: Page<QuestionAttempt> =
-        serde_json::from_value(json(first_page_response).await).expect("attempt page");
-    assert_eq!(first_page.items.len(), 1);
-    assert_eq!(first_page.items[0].assignment_position, 0);
-
-    let submission = Request::builder()
-        .method("POST")
-        .uri(submission_path(
-            CourseId::from_uuid(id(5)),
-            assignment_id,
-            first_page.items[0].id,
-        ))
-        .header("cookie", &student_cookie)
-        .header("content-type", "application/json")
-        .header("idempotency-key", "advance-to-second")
-        .body(Body::from(
-            serde_json::json!({
-                "response": { "kind": "numeric", "value": 18.0 }
-            })
-            .to_string(),
-        ))
-        .expect("submission request");
-    let submission_response = app
-        .clone()
-        .oneshot(submission)
-        .await
-        .expect("submission response");
-    assert_eq!(submission_response.status(), StatusCode::OK);
-
-    let second_page_response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri(format!("/api/runs/{}/attempts?pageSize=1", run.id))
-                .header("cookie", &student_cookie)
-                .body(Body::empty())
-                .expect("second attempt request"),
-        )
-        .await
-        .expect("second attempt page");
-    let second_page: Page<QuestionAttempt> =
-        serde_json::from_value(json(second_page_response).await).expect("attempt page");
-    assert_eq!(second_page.items.len(), 1);
-    assert!(second_page.items[0].response.is_some());
-    let cursor = second_page
-        .next_cursor
-        .expect("bounded first attempt page must continue");
-    let continued_page_response = app
-        .oneshot(
-            Request::builder()
-                .uri(format!(
-                    "/api/runs/{}/attempts?pageSize=1&cursor={}",
-                    run.id,
-                    cursor.as_str()
-                ))
-                .header("cookie", student_cookie)
-                .body(Body::empty())
-                .expect("continued attempt request"),
-        )
-        .await
-        .expect("continued attempt page");
-    let continued_page: Page<QuestionAttempt> =
-        serde_json::from_value(json(continued_page_response).await).expect("attempt page");
-    assert_eq!(continued_page.items.len(), 1);
-    assert_ne!(second_page.items[0].id, continued_page.items[0].id);
-    assert_eq!(continued_page.items[0].assignment_position, 1);
-    assert!(continued_page.items[0].response.is_none());
-    assert_eq!(continued_page.next_cursor, None);
-    assert_eq!(backend.issued_seeds.lock().expect("seed record").len(), 2);
 }

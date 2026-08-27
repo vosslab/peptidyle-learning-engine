@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::{LearnerWorkRoutingBinding, ReceiptPresentationSnapshot};
+use std::collections::BTreeMap;
 
 #[async_trait::async_trait]
 impl crate::LearnerSubmissionStatusStore for PostgresStore {
@@ -116,11 +117,108 @@ pub(super) async fn learner_submission_status(
         (
             crate::SubmissionReceiptRead::Completed(record),
             Some(AcceptedSubmissionStatusState::Completed),
-        ) => Ok(crate::LearnerSubmissionStatusRead::Completed(record)),
+        ) => {
+            let next_pending =
+                completed_successor_is_eligible(transaction, tenant, &record).await?;
+            Ok(crate::LearnerSubmissionStatusRead::Completed {
+                record,
+                next_pending,
+            })
+        }
         _ => Err(StoreError::Unavailable(
             "learner submission status has no coherent durable aggregate".to_string(),
         )),
     }
+}
+
+/// Derives the read-only half of successor delivery from the exact immutable
+/// run plan, current attempt results, and pinned question policies.  The
+/// status capability never writes `submission_next_attempt`; start/resume is
+/// the sole delivery mutation owner (ASVS 2.3.1).
+#[cfg(feature = "postgres")]
+async fn completed_successor_is_eligible(
+    transaction: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    record: &crate::SubmissionRecord,
+) -> Result<bool, StoreError> {
+    let predecessor_resolved: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM submission_next_attempt \
+         WHERE tenant_id = $1 AND predecessor_attempt_id = $2)",
+    )
+    .bind(tenant.as_uuid())
+    .bind(record.attempt.id.as_uuid())
+    .fetch_one(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    let run_items =
+        super::run_lifecycle::load_assignment_run_items(transaction, tenant, record.run.id).await?;
+    let rows = sqlx::query(
+        "SELECT CASE WHEN si.request_contract_version = 2 THEN qa.payload ELSE COALESCE(si.payload, qa.payload) END AS payload, \
+                CASE WHEN si.request_contract_version = 2 THEN qa.payload_sha256 ELSE COALESCE(si.payload_sha256, qa.payload_sha256) END AS payload_sha256, \
+                evaluation.payload AS evaluation_payload, evaluation.payload_sha256 AS evaluation_payload_sha256, \
+                evaluation.grading_status AS evaluation_grading_status, qa.attempt_status AS current_attempt_status, \
+                floor(extract(epoch FROM qa.submitted_at) * 1000)::bigint AS current_submitted_at, \
+                floor(extract(epoch FROM timing.effective_deadline) * 1000)::bigint AS current_deadline_at \
+         FROM question_attempt AS qa \
+         LEFT JOIN submission_idempotency AS si ON si.tenant_id = qa.tenant_id AND si.attempt_id = qa.attempt_id \
+         LEFT JOIN submission_evaluation AS evaluation ON evaluation.tenant_id = qa.tenant_id AND evaluation.attempt_id = qa.attempt_id \
+         LEFT JOIN attempt_effective_policy_current AS current_effect ON current_effect.tenant_id = qa.tenant_id AND current_effect.attempt_id = qa.attempt_id \
+         LEFT JOIN attempt_effective_policy_receipt AS timing ON timing.tenant_id = current_effect.tenant_id AND timing.attempt_id = current_effect.attempt_id AND timing.receipt_generation = current_effect.receipt_generation \
+         WHERE qa.tenant_id = $1 AND qa.run_id = $2 ORDER BY qa.assignment_position, qa.occurred_at, qa.attempt_id::text",
+    )
+    .bind(tenant.as_uuid())
+    .bind(record.run.id.as_uuid())
+    .fetch_all(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    let attempts = rows
+        .iter()
+        .map(decode_current_attempt_with_evaluation_row)
+        .collect::<Result<Vec<_>, _>>()?;
+    // This is one bounded run-plan query rather than a catalog lookup per
+    // item: learner status may be polled repeatedly while a successor waits.
+    let question_rows = sqlx::query(
+        "SELECT pv.problem_id, p.question_id, pv.version_id, pvp.payload, pvp.payload_sha256, \
+                pv.lifecycle, pv.lifecycle_reason, pv.author_ids, pv.public_byline \
+         FROM assignment_run_item AS item \
+         JOIN problem_version AS pv ON pv.problem_id = item.problem_id AND pv.version_id = item.version_id \
+         JOIN problem AS p USING (problem_id) \
+         JOIN problem_version_payload AS pvp USING (problem_id, version_id) \
+         WHERE item.tenant_id = $1 AND item.run_id = $2 \
+         ORDER BY item.issued_position",
+    )
+    .bind(tenant.as_uuid())
+    .bind(record.run.id.as_uuid())
+    .fetch_all(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    let mut questions = BTreeMap::new();
+    for row in &question_rows {
+        let published = decode_catalog_payload_row(row)?;
+        questions.insert(
+            question_model::ProblemVersionRef {
+                problem: published.problem,
+                version: published.version,
+            },
+            published.question,
+        );
+    }
+    if run_items
+        .iter()
+        .any(|item| !questions.contains_key(&item.reference))
+    {
+        return Err(StoreError::Unavailable(
+            "run item has no immutable published question".to_string(),
+        ));
+    }
+    let questions = questions.into_iter().collect::<Vec<_>>();
+    crate::successor_is_eligible(
+        &record.run,
+        predecessor_resolved,
+        &run_items,
+        &attempts,
+        &questions,
+    )
 }
 
 /// Returns the durable receipt state for one exact retry before any grader runs.

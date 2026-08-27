@@ -36,10 +36,7 @@ async fn pending_manual_fixture() -> (
     QuestionAttempt,
 ) {
     let (store, _, _, student_cookie, outsider_cookie, assignment, _) = fixture().await;
-    let backend = Arc::new(NumericBackend {
-        manual_grading_required: true,
-        ..NumericBackend::default()
-    });
+    let backend = Arc::new(NumericBackend::default());
     let app = router(
         Arc::clone(&store),
         Arc::clone(&backend),
@@ -54,46 +51,28 @@ async fn pending_manual_fixture() -> (
         &student_cookie,
     )
     .await;
-    let submit = || {
-        Request::builder()
-            .method("POST")
-            .uri(submission_path(
+    // Manual evaluation owns this disposition. Seed it through the focused
+    // response-bearing domain command so the route tests exercise the same
+    // durable state that a manual-capable ingestion path establishes.
+    learning_data_access::ManualGradingStore::submit_pending_manual_question_attempt(
+        store.as_ref(),
+        TenantContext::from_authenticated_session(TenantId::from_uuid(id(1))),
+        learning_data_access::SubmitPendingManualQuestionAttemptCommand {
+            actor: UserId::from_uuid(id(3)),
+            binding: learning_data_access::LearnerWorkRoutingBinding::new(
                 CourseId::from_uuid(id(5)),
                 assignment,
-                attempt.id,
-            ))
-            .header("cookie", &student_cookie)
-            .header("content-type", "application/json")
-            .header("idempotency-key", "manual-http-pending")
-            .body(Body::from(
-                serde_json::json!({
-                    "response": { "kind": "numeric", "value": 18.0 }
-                })
-                .to_string(),
-            ))
-            .expect("pending manual submission request")
-    };
-    let submitted = app
-        .clone()
-        .oneshot(submit())
-        .await
-        .expect("pending manual submission response");
-    assert_eq!(submitted.status(), StatusCode::OK);
-    let submitted = json(submitted).await;
-    assert_eq!(submitted["attempt"]["status"], "needs_manual_grading");
-    assert_eq!(submitted["attempt"]["result"], serde_json::Value::Null);
-    assert_eq!(
-        submitted["attempt"]["response"],
-        serde_json::json!({ "kind": "numeric", "value": 18.0 })
-    );
-    let replayed = app
-        .clone()
-        .oneshot(submit())
-        .await
-        .expect("pending manual submission replay response");
-    assert_eq!(replayed.status(), StatusCode::OK);
-    assert_eq!(json(replayed).await, submitted);
-    assert_eq!(backend.grade_calls.load(Ordering::SeqCst), 1);
+            ),
+            attempt: attempt.id,
+            response: question_model::StudentResponse::Numeric { value: 18.0 },
+            idempotency_key: learning_data_access::SubmissionIdempotencyKey::parse(
+                "manual-http-pending",
+            )
+            .expect("manual submission idempotency key"),
+        },
+    )
+    .await
+    .expect("pending manual domain submission");
     let instructor_cookie = issued_cookie(
         store.as_ref(),
         UserId::from_uuid(id(INSTRUCTOR)),

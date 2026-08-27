@@ -275,7 +275,10 @@ where
     let scoring_status =
         learner_scoring_status(state.store.as_ref(), &authenticated, run.enrollment).await;
     for attempt in &mut page.items {
-        if attempt.response.is_some() {
+        // Browser-safe completed attempts intentionally omit the submitted
+        // response. Lifecycle, rather than response presence, decides whether
+        // the immutable receipt must supply the learner projection.
+        if attempt.status != question_model::AttemptStatus::InProgress {
             let record = match state
                 .store
                 .submission_record(
@@ -350,7 +353,9 @@ where
         Ok(run) => run,
         Err(response) => return response.into_response(),
     };
-    if attempt.response.is_some() {
+    // Completed learner projections remain answer-free, so this branch must
+    // follow lifecycle rather than the omitted response payload.
+    if attempt.status != question_model::AttemptStatus::InProgress {
         let record = match state
             .store
             .submission_record(
@@ -437,14 +442,17 @@ where
         )
         .await
     {
-        Ok(learning_data_access::LearnerSubmissionStatusRead::Completed(record)) => {
+        Ok(learning_data_access::LearnerSubmissionStatusRead::Completed {
+            record,
+            next_pending,
+        }) => {
             let scoring_status =
                 learner_scoring_status(state.store.as_ref(), &authenticated, record.run.enrollment)
                     .await;
-            // A status read does not create successor work. A nonterminal run
-            // accurately reports that its next issued item remains pending;
-            // `start_or_resume_run` owns that later delivery transition.
-            submission_response(*record, None, true, scoring_status)
+            // A status read does not create successor work. The route-bound
+            // store supplies only the immutable eligibility truth;
+            // `start_or_resume_run` owns the later delivery transition.
+            submission_response(*record, None, next_pending, scoring_status)
         }
         Ok(learning_data_access::LearnerSubmissionStatusRead::AcceptedPending(pending)) => {
             accepted_pending_response(pending.attempt())

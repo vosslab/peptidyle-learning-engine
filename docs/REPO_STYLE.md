@@ -41,15 +41,28 @@ link to that file from `AGENTS.md`.
 Concise `AGENTS.md` files help coding agents perform better because the
 instructions are easier to scan, prioritize, and follow.
 
-### Human guidance
+### Human guidance and design decisions
 
-- `docs/HUMAN_GUIDANCE.md`: durable human preferences, project-specific guidance, review expectations, and stable decisions that agents should preserve across planning and implementation work.
-- Use this file for long-term guidance that prevents drift across manager and subagent runs.
-- Keep entries focused on stable preferences and recurring project decisions, not transient task notes.
-- Link to `docs/HUMAN_GUIDANCE.md` from `AGENTS.md` when agents need the guidance during routine work.
-- Update this file when the human gives a stable correction, workflow preference, review rule, or project priority that should apply to future tasks.
+Agents write both files. The entry's authority decides which one. This section is authoritative; the
+vendored header in each file restates it, and `AGENTS.md` points here.
+
+- `docs/HUMAN_GUIDANCE.md`: guidance the human states, or approves for preservation there. First
+  person or close paraphrase, one to three lines per bullet. Corrections, workflow preferences,
+  review rules, project priorities.
+- `docs/DESIGN_DECISIONS.md`: settled decisions about how the code and repository are shaped. One
+  level-three heading each, with `Decision`, `Why`, `Consequence`, and `Owner` fields; `Owner` names
+  the authoritative code or contract document.
+- Material the human supplies as a source keeps its own authorship: forwarded reviewer output,
+  consultant notes, issue reports, and quoted documentation may inform `docs/DESIGN_DECISIONS.md`
+  once settled. The sentences he writes himself belong in `docs/HUMAN_GUIDANCE.md`.
+- Rearrange aggressively, and let `docs/DESIGN_DECISIONS.md` win the tie: when an entry's origin is
+  uncertain, move it there. A design decision filed as human guidance misrepresents who decided it;
+  the reverse only files it one document away.
+- Three states, three homes: open discussion in `docs/active_plans/decisions/`, settled direction in
+  `docs/DESIGN_DECISIONS.md`, set-aside or failed approaches in `docs/CHANGELOG.md` under
+  `### Decisions and Failures`.
 - Prefer positive phrasing. State the behavior agents should follow.
-- Keep detailed history in `docs/CHANGELOG.md`; keep current human guidance in `docs/HUMAN_GUIDANCE.md`.
+- Propagation seeds both files and refreshes their vendored header, so entries below it persist.
 
 ## README.md and GitHub About descriptions
 
@@ -246,7 +259,9 @@ Preferred structure:
 - `docs/CHANGELOG.md`: chronological, user facing record of changes, grouped by date. Timeline of what changed and when.
 - `docs/CHANGELOG.md` entries should also note important failures and key implementation choices so the log remains a useful learning record for later debugging and decision review.
 - `docs/CODE_ARCHITECTURE.md`: high-level system design, major components, and data flow.
+- `docs/DESIGN_DECISIONS.md`: settled decisions about how the code and repository are shaped, with the reasoning behind each one.
 - `docs/FILE_STRUCTURE.md`: directory map with what belongs where, including generated assets.
+- `docs/HUMAN_GUIDANCE.md`: guidance the human states or approves, kept in his own words.
 - `docs/INSTALL.md`: setup steps, dependencies, and environment requirements.
 - `docs/NEWS.md`: curated release highlights and announcements, not a full changelog.
 - `docs/RELATED_PROJECTS.md`: sibling repos, shared libraries, and integration touchpoints.
