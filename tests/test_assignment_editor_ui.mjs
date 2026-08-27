@@ -2,10 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { publishedProblemFixture } from "./fixtures/published_problem.ts";
+import { createMasteryAssignmentDraft } from "./support/assignment_editor_test_support.ts";
 import {
-  assignmentCreateInput,
-  assignmentInput,
-  createMasteryAssignmentDraft,
+  assignmentContentInput,
   moveAssignmentEntry,
   parseExactProblemDisplayReferences,
   validateAssignmentEditorDraft,
@@ -13,15 +12,14 @@ import {
 } from "../src/pages/assignment_editor_model.ts";
 import { assignmentPickerMaximum } from "../src/pages/assignment_editor_picker_model.ts";
 
-test("assignment editor uses Question IDs as its only question identity", () => {
+test("assignment Questions payload uses Question IDs as its only question identity", () => {
   const draft = createMasteryAssignmentDraft("course-1");
   const item = publishedProblemFixture.assignment.items[0];
   assert.ok(item);
   const configured = { ...draft, title: "Practice", entries: [{ ...item, kind: "fixed" }] };
-  assert.deepEqual(assignmentCreateInput(configured).entries[0]?.questionId, item.questionId);
-  assert.deepEqual(assignmentInput(configured).entries[0]?.questionId, item.questionId);
-  assert.equal(JSON.stringify(assignmentInput(configured)).includes("problem"), false);
-  assert.equal(JSON.stringify(assignmentInput(configured)).includes("version"), false);
+  assert.deepEqual(assignmentContentInput(configured).entries[0]?.questionId, item.questionId);
+  assert.equal(JSON.stringify(assignmentContentInput(configured)).includes("problem"), false);
+  assert.equal(JSON.stringify(assignmentContentInput(configured)).includes("version"), false);
 });
 
 test("Question ID paste supports instructor punctuation and rejects duplicate choices", () => {
@@ -52,7 +50,7 @@ test("ordinary editing preserves a fixed question while changing shared entry or
     ],
   );
   assert.deepEqual(
-    assignmentInput(moved).entries.map((entry) => entry.questionId),
+    assignmentContentInput(moved).entries.map((entry) => entry.questionId),
     [second.questionId, first.questionId],
   );
 });
@@ -76,7 +74,7 @@ test("pool editor encodes public candidate Question IDs in the shared position n
       },
     ],
   };
-  const body = assignmentCreateInput(draft);
+  const body = assignmentContentInput(draft);
   assert.deepEqual(
     body.entries.map((entry) => entry.kind),
     ["fixed", "selectionGroup"],

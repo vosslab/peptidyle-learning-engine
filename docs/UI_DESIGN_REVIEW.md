@@ -2,9 +2,11 @@
 
 ## Outcome
 
-The reviewed interface now reads as one teaching product rather than a sequence of bordered
-components. Instructor work uses the 1280 by 800 workspace deliberately, student work stays in one
-adaptable reading-and-response flow, and standard course themes retain their palette identity.
+The reviewed interface reads as one teaching product rather than a sequence of bordered
+components. Instructor and Sysadmin work uses the desktop 16:10 workspace at 1280 by 800 CSS pixels
+or larger, student work stays in one adaptable reading-and-response flow, and standard course themes
+retain their palette identity. Student profiles remain variable across the maintained laptop, tablet,
+iPhone Pro aspect, and square profiles.
 Increased contrast is an optional account presentation preference rather than the visual default.
 
 This review implements [UI_DESIGN_GUIDE.md](UI_DESIGN_GUIDE.md). It changes presentation and human
@@ -15,10 +17,10 @@ or learning semantics.
 
 | Area                                 | Implemented resolution                                                                                                                                                                                                                                               | Evidence                                                                                                                                                     |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Global shell and hierarchy           | Uses Courses as the instructor home workspace rather than a duplicative Dashboard dropdown; keeps Library, Workspace, and Account visible; reduces page-title scale and permanent explanatory noise; removes the slogan footer; and separates global, course, and page navigation by composition and active state. | [course created](screenshots/instructor/course_authoring/01_course_created.png), [course assignments](screenshots/instructor/course_authoring/02_course_assignments.png) |
-| Assignment creation and organization | Uses a full-width two-column instructor workspace, compact selected-question rows, low-emphasis move/remove utilities, direct position controls, bounded catalogs, and a visible save action. Four questions and policy controls fit at the canonical laptop target. | [assignment editor](screenshots/instructor/course_authoring/06_assignment_editor.png) and the 1280 by 800 geometry contract                                  |
-| Question reuse                       | Favors whole-assignment copy and an existing-assignment checklist; direct `AAA-BBBB` Question ID entry remains a recovery and communication path. No public version or UUID is required.                                                                             | Assignment-editor keyboard and reuse tests                                                                                                                   |
-| Question library                     | Allocates the useful screen width to search, facets, and results. The result viewport grows with loaded rows up to a shared cap instead of leaving a large empty bordered box.                                                                                       | [question library](screenshots/instructor/content_authoring/05_library.png) and the full-width/few-row geometry contract                                          |
+| Global shell and hierarchy           | Uses Courses as the instructor home workspace rather than a duplicative Dashboard dropdown; keeps Library, Workspace, and Account visible; reduces page-title scale and permanent explanatory noise; removes the slogan footer; and separates global, course, and page navigation by composition and active state. | [active roster](screenshots/instructor/course_management/01_instructor_active_roster.png), [teaching operations](screenshots/instructor/teaching_operations/01_teaching_operations_groups.png) |
+| Assignment workspace                 | Selecting an assignment title opens its Overview. Questions and Policies are separate pages with focused controls, compact rows, bounded catalogs, and a visible save action; Student view provides a stable-identity, answer-free inspection. | T6 workspace behavior tests and the 1280 by 800 geometry contract |
+| Question reuse                       | Favors whole-assignment copy and an existing-assignment checklist; direct `AAA-BBBB` Question ID entry remains a recovery and communication path. No public version or UUID is required.                                                                             | Questions-page keyboard and reuse tests                                                                                                                     |
+| Question library                     | Allocates the useful screen width to search, facets, and results. The result viewport grows with loaded rows up to a shared cap instead of leaving a large empty bordered box.                                                                                       | [filtered library](screenshots/instructor/catalog_discovery/03_filtered_library_laptop.png) and the full-width/few-row geometry contract                                          |
 | Gradebook and roster                 | Presents learner names, keeps the compact summary table primary, and loads one composed run-history panel only on request. UUIDs remain internal.                                                                                                                    | [instructor gradebook](screenshots/instructor/grading/01_instructor_gradebook.png); one-request and lazy-history tests                                               |
 | Course identity                      | Preserves all 15 stored palettes, uses the full canvas anchor for the course environment, gives tinted work/group/card surfaces distinct roles, and uses the raw secondary plus accent anchors for active course navigation and identity rails. The chooser previews the applied system instead of reducing each theme to tiny swatches or an unrelated banner. | [saved course appearance](screenshots/instructor/course_management/02_appearance_saved.png) and the generated theme contact sheet                              |
 | Student question                     | Keeps timer, prompt, figures, response, status, and actions in one visual sequence. Choices are compact grouped rows rather than independent heavy cards.                                                                                                            | [problem ready](screenshots/student/delivery/03_problem_ready.png), plus tablet and narrow-phone overflow checks                                             |
@@ -28,6 +30,11 @@ The durable instructor corpus is collected in
 [INSTRUCTOR_PAGE_VISUALS.md](INSTRUCTOR_PAGE_VISUALS.md). Regenerable implementation evidence stays
 under `generated/ui/ui_design/` and `generated/ui/course_appearance/`, including the theme contact
 sheet and measured `palette_metrics.json` report.
+
+Student view keeps the Instructor account and course authority in place while presenting the current
+assignment through the answer-free learner landing. It is an inspection surface, not a run. Ordinary
+demo Student entry creates real graded work through the visible learner path, and the Instructor can
+see the resulting score and authorized evidence in the gradebook.
 
 ## Measured visual contract
 
@@ -42,14 +49,7 @@ sheet and measured `palette_metrics.json` report.
 - Focus remains attached to the focused control. Standard mode uses the modest shared indicator;
   increased contrast strengthens it, and forced-colors yields to the browser palette.
 - The 1280 by 800 library controls and result surface each exceed 1,100 CSS pixels of useful width.
-  Student targets at 800 by 1280 and 390 by 844 have no horizontal overflow.
-
-## Dated visual acceptance
-
-On 2026-08-13, `generated/ui/ui_design/student_question_800x1280.png` and
-`generated/ui/ui_design/student_question_390x844.png` were inspected once as generated acceptance
-evidence. Both had no horizontal overflow and retained a compact prompt-response order. The phone
-composition naturally continues vertically.
+  Student targets at 800 by 1280 and 393 by 852 have no horizontal overflow.
 
 ## Adaptability contract
 

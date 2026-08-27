@@ -2,7 +2,8 @@
 
 For a developer checkout, installation means starting the real, disposable PLE live demo. The
 primary command prepares missing JavaScript dependencies, builds the production browser artifact,
-and starts the production-shaped HTTPS stack.
+and starts the production-shaped HTTPS stack with real PostgreSQL, MinIO, API, worker, gateway,
+and private WebWork renderer services.
 
 ## Requirements
 
@@ -34,7 +35,8 @@ course membership, and authorization come from ordinary seeded PLE state.
 
 Each launch first completes owner-scoped cleanup of the previous `ple-live-demo-browser` session,
 then creates a fresh seeded installation. Relaunching therefore discards records created in the
-previous disposable demo while leaving unrelated Podman projects untouched.
+previous disposable demo while leaving unrelated Podman projects untouched. The stack is
+production-shaped; this is not a browser mock or a separate WebWork2 application.
 
 Use the non-opening form when a browser is unavailable:
 
@@ -59,6 +61,22 @@ python3 -m pip install -r pip_requirements-dev.txt
 
 The repository toolchain and Cargo lockfile provide the Rust dependencies. Keep the developer live
 demo on its fixed Compose project and runtime identity so its owner-scoped lifecycle remains valid.
+
+## Seeded accounts and passkeys
+
+After the browser opens, use the visible **Explore this live demo** panel on the PLE sign-in page:
+
+- Choose the seeded Instructor, Student, or Sysadmin account, then choose one of that account's
+  authorized courses. Current acceptance personas include Elena (Instructor), Mary, Jack, and
+  Avery (Students), and Morgan (Sysadmin).
+- Role selection only replaces the identity-verification ceremony. The server still resolves the
+  ordinary account, session, course membership, role, and authorization state.
+- To demonstrate ordinary passkey behavior, open **Account** -> **Your passkeys**, enter a passkey
+  name, choose **Add passkey**, and complete the browser's biometric, PIN, or security-key prompt.
+  Choose **Sign out**, return to **Sign in**, choose **Sign in with a passkey**, and then choose a
+  course again.
+- The seeded data and passkeys belong to this disposable installation. Relaunching the demo
+  restores the baseline and discards changes from the prior session.
 
 ## Verify install
 
@@ -90,5 +108,5 @@ has read-only diagnostics; [USAGE.md](USAGE.md) lists the supported commands.
 
 ## Known gaps
 
-- Verify PG/PGML compatibility beyond the reviewed Chapter 1 MC/MATCH sources with separate source
-  and live evidence.
+- TODO: Verify PG/PGML compatibility beyond the reviewed Chapter 1 MC/MATCH sources with separate
+  source and live evidence.

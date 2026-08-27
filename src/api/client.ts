@@ -75,8 +75,6 @@ import type {
   AssignmentContentInput,
   AssignmentPoliciesInput,
   InstructorStudentView,
-  AddAssignmentItemInput,
-  ReplaceAssignmentItemQuestionInput,
   LearnerAssignmentSummary,
   LearnerAssignmentDetail,
   LearnerQuestionAttempt,
@@ -373,12 +371,10 @@ export interface ApiClient
     courseId: CourseId,
     cursor?: string,
   ) => Promise<CursorPage<LearnerAssignmentSummary>>;
-  /** Learner-safe detail; the editor uses getAssignmentEditor instead. */
+  /** Learner-safe detail; Instructor workspace reads require an exact course identity. */
   readonly getAssignment: (assignmentId: AssignmentId) => Promise<LearnerAssignmentDetail>;
   /** Current key-free learner progress; the server omits withheld score totals. */
   readonly getAssignmentSummary: (assignmentId: AssignmentId) => Promise<LearnerAssignmentProgress>;
-  /** Instructor-only revisioned assignment projection for the policy editor. */
-  readonly getAssignmentEditor: (assignmentId: AssignmentId) => Promise<AssignmentEditorDetail>;
   /** Reads the course-bound Instructor assignment workspace. */
   readonly getAssignmentWorkspace: (
     courseId: CourseId,
@@ -408,25 +404,6 @@ export interface ApiClient
     courseId: CourseId,
     assignmentId: AssignmentId,
   ) => Promise<InstructorStudentView>;
-  readonly addAssignmentItem: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    input: AddAssignmentItemInput,
-    revision: string,
-  ) => Promise<AssignmentEditorDetail>;
-  readonly removeAssignmentItem: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    itemId: string,
-    revision: string,
-  ) => Promise<AssignmentEditorDetail>;
-  readonly replaceAssignmentItemQuestion: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    itemId: string,
-    input: ReplaceAssignmentItemQuestionInput,
-    revision: string,
-  ) => Promise<AssignmentEditorDetail>;
   readonly getEnrollment: (enrollmentId: EnrollmentId) => Promise<EnrollmentView>;
   readonly listRuns: (
     enrollmentId: EnrollmentId,

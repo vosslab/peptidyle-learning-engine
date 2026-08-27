@@ -83,10 +83,8 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await expect(
         elena.getByRole("heading", { name: "Draft, preview, and publish a learning question" }),
       ).toBeVisible();
-      await captureInstructorState(elena, scenarioInput, "instructor_authoring_workspace");
       await elena.getByRole("button", { name: "Create flat question" }).click();
       await expect(elena.getByLabel("Question title")).toBeVisible();
-      await captureInstructorState(elena, scenarioInput, "instructor_authoring_question_editor");
       await elena.getByLabel("Question title").fill(questionTitle);
       await elena.getByLabel("Learner-facing prompt").fill(prompt);
       await elena.getByLabel("Question format").selectOption("multipleAnswer");
@@ -107,11 +105,6 @@ test.describe("instructor authoring on the production PLE stack", () => {
         studentPreview.getByRole("checkbox", { name: correctChoice, exact: true }),
       ).toBeVisible();
       await expect(studentPreview).not.toContainText("Correct answer");
-      await captureInstructorState(
-        elena,
-        scenarioInput,
-        "instructor_authoring_workspace_draft_saved",
-      );
       await elena.getByRole("button", { name: "Review publication changes" }).click();
       await elena.getByLabel("Reviewed public byline").fill("Dr. Elena Rivera");
       await elena.getByRole("button", { name: "Confirm and publish" }).click();
@@ -119,17 +112,11 @@ test.describe("instructor authoring on the production PLE stack", () => {
       const publicationResult = elena.getByRole("status").filter({ hasText: questionTitle });
       await expect(publicationResult).toContainText("Question ID:");
       await expect(publicationResult).toContainText("By: Dr. Elena Rivera");
-      await captureInstructorState(
-        elena,
-        scenarioInput,
-        "instructor_authoring_publication_success",
-      );
 
       await elena.getByRole("link", { name: "Library", exact: true }).click();
       await expect(
         elena.getByRole("heading", { name: "Question library", exact: true }),
       ).toBeVisible();
-      await captureInstructorState(elena, scenarioInput, "instructor_authoring_library");
       await elena.getByLabel("Search published questions").fill(questionTitle);
       const questionCard = elena
         .getByRole("region", { name: "Published questions" })
@@ -141,7 +128,6 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await questionCard.getByRole("link", { name: "Open question", exact: true }).click();
       await expect(elena.getByRole("heading", { name: questionTitle, exact: true })).toBeVisible();
       await expect(elena.getByRole("region", { name: "Problem prompt" })).toContainText(prompt);
-      await captureInstructorState(elena, scenarioInput, "instructor_authoring_question_detail");
 
       await elena.getByRole("link", { name: "Return to problem library", exact: true }).click();
       await expect(
@@ -157,17 +143,14 @@ test.describe("instructor authoring on the production PLE stack", () => {
         .getByRole("article")
         .filter({ has: elena.getByRole("heading", { name: courseTitle, exact: true }) });
       await expect(courseCard).toHaveCount(1);
-      await captureInstructorState(elena, scenarioInput, "instructor_authoring_course_created");
       await courseCard.getByRole("link", { name: "Open course", exact: true }).click();
       await elena.getByRole("link", { name: "Assignments" }).click();
       await expect(elena.getByRole("heading", { name: "Assignments", exact: true })).toBeVisible();
       await expect(elena.getByRole("link", { name: "Create the first assignment" })).toBeVisible();
-      await captureInstructorState(elena, scenarioInput, "instructor_authoring_course_assignments");
       await elena.getByRole("link", { name: "Create the first assignment" }).click();
       await expect(
         elena.getByRole("heading", { name: "Create an assignment draft", exact: true }),
       ).toBeVisible();
-      await captureInstructorState(elena, scenarioInput, "instructor_authoring_assignment_create");
       await elena.getByLabel("Assignment title").fill(assignmentTitle);
       await elena.getByRole("button", { name: "Create assignment draft", exact: true }).click();
       await expect(elena.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
@@ -184,12 +167,6 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await picker.getByRole("button", { name: "Search questions", exact: true }).click();
       const catalogQuestion = picker.getByRole("checkbox", { name: new RegExp(questionTitle) });
       await expect(catalogQuestion).toBeVisible();
-      await captureInstructorState(
-        elena,
-        scenarioInput,
-        "instructor_authoring_problem_catalog",
-        picker,
-      );
       await catalogQuestion.check();
       await picker.getByRole("button", { name: "Add selected questions", exact: true }).click();
       await expect(picker).toHaveCount(0);
@@ -198,13 +175,18 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await expect(
         elena.getByRole("status").filter({ hasText: "Questions and order saved." }),
       ).toBeVisible();
-      await captureInstructorState(elena, scenarioInput, "instructor_authoring_assignment_created");
       await elena.getByRole("link", { name: "Overview", exact: true }).click();
-      await expect(elena.getByRole("heading", { name: assignmentTitle, exact: true })).toBeVisible();
+      await expect(
+        elena.getByRole("heading", { name: assignmentTitle, exact: true }),
+      ).toBeVisible();
       await elena.getByRole("link", { name: "Policies", exact: true }).click();
       await expect(elena.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
       await expect(elena.getByLabel("Lifecycle")).toHaveValue("draft");
-      await captureInstructorState(elena, scenarioInput, "instructor_authoring_assignment_policies");
+      await captureInstructorState(
+        elena,
+        scenarioInput,
+        "instructor_authoring_assignment_policies",
+      );
       await elena.getByLabel("Lifecycle").selectOption("published");
       await elena.getByRole("button", { name: "Save assignment policies", exact: true }).click();
       const publishedResult = elena
@@ -213,12 +195,6 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await expect(publishedResult).toBeVisible();
       await expect(elena.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
       await expect(elena.getByLabel("Lifecycle")).toHaveValue("published");
-      await captureInstructorState(
-        elena,
-        scenarioInput,
-        "instructor_authoring_assignment_published",
-        publishedResult,
-      );
 
       await elena.getByRole("link", { name: "Student view", exact: true }).click();
       await expect(
@@ -230,14 +206,12 @@ test.describe("instructor authoring on the production PLE stack", () => {
           { exact: true },
         ),
       ).toBeVisible();
-      await captureInstructorState(
-        elena,
-        scenarioInput,
-        "instructor_authoring_student_view",
-      );
+      await captureInstructorState(elena, scenarioInput, "instructor_authoring_student_view");
 
       await elena.getByRole("link", { name: "Return to assignment", exact: true }).click();
-      await expect(elena.getByRole("heading", { name: assignmentTitle, exact: true })).toBeVisible();
+      await expect(
+        elena.getByRole("heading", { name: assignmentTitle, exact: true }),
+      ).toBeVisible();
       await elena.getByRole("link", { name: "Assignments", exact: true }).click();
       await elena.getByRole("link", { name: "Students" }).click();
       await elena.getByLabel("Institutional email").fill(maryEmail);
@@ -251,7 +225,6 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await expect(elena.getByRole("heading", { name: "Students" })).toBeVisible();
       await expect(elena.getByRole("row").filter({ hasText: rosterId })).toHaveCount(1);
       await expect(elena.getByLabel("Invitation link")).toHaveCount(0);
-      await captureInstructorState(elena, scenarioInput, "instructor_authoring_invitation_pending");
 
       const freshElenaContext = await browser.newContext({
         viewport: { width: 1280, height: 800 },
@@ -268,19 +241,15 @@ test.describe("instructor authoring on the production PLE stack", () => {
         .getByRole("article")
         .filter({ has: freshElena.getByRole("heading", { name: assignmentTitle, exact: true }) });
       await expect(assignmentCard).toHaveCount(1);
-      await captureInstructorState(
-        freshElena,
-        scenarioInput,
-        "instructor_authoring_fresh_session_assignment",
-        assignmentCard,
-      );
       const assignmentTitleLink = assignmentCard.getByRole("link", {
         name: assignmentTitle,
         exact: true,
       });
       await assignmentTitleLink.focus();
       await freshElena.keyboard.press("Enter");
-      await expect(freshElena.getByRole("heading", { name: assignmentTitle, exact: true })).toBeVisible();
+      await expect(
+        freshElena.getByRole("heading", { name: assignmentTitle, exact: true }),
+      ).toBeVisible();
       await freshElena.getByRole("link", { name: "Policies", exact: true }).click();
       await expect(freshElena.getByLabel("Lifecycle")).toHaveValue("published");
       await freshElena.getByRole("link", { name: "Students" }).click();

@@ -7,6 +7,7 @@ import type { CatalogLifecycle } from "../../../generated/api/CatalogLifecycle";
 import type { License } from "../../../generated/api/License";
 import type { ProblemVersionRef } from "../../../generated/api/ProblemVersionRef";
 import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
+import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionMetadata } from "../../../generated/api/QuestionMetadata";
 import type { TaxonomyTerm } from "../../../generated/api/TaxonomyTerm";
 import type { CursorPage } from "../contracts";
@@ -166,6 +167,15 @@ export function decodeTimestamp(value: unknown, path: string): number {
 
 export function decodeIdentifier(value: unknown, path: string): string {
   return decodeUuid(value, path);
+}
+
+/** Decodes the canonical, browser-visible identity of an immutable question. */
+export function decodeQuestionId(value: unknown, path: string): QuestionId {
+  const questionId = decodeString(value, path);
+  if (!/^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u.test(questionId)) {
+    throw new DecodeError(path, "a canonical Question ID");
+  }
+  return questionId;
 }
 
 /** Decodes a compact positive database identity that is safe to show to people. */

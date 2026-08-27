@@ -247,9 +247,7 @@ test.describe("assignment question replacement on the production PLE stack", () 
       );
 
       await elena.reload();
-      await expect(
-        elena.getByRole("heading", { name: "Questions", exact: true }),
-      ).toBeVisible();
+      await expect(elena.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
       await expect(elena.locator(".assignment-editor-list")).toContainText(
         replacementQuestionTitle,
       );

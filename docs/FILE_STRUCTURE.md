@@ -85,6 +85,7 @@ crates/learning-data-access/
 +- src/
 |  +- contracts/       Store and capability contracts
 |  |  `- catalog.rs    Catalog query contract and HMAC continuation codec
+|  |  `- assignment_editing.rs Focused assignment draft, content, and policy commands
 |  |  `- curriculum_adoption.rs Revision-bound `CurriculumAdoptionStore` contract
 |  +- in_memory/       `test-support`-gated deterministic contract adapters
 |  |  +- catalog.rs    Catalog state projection, pagination, and snapshot assembly
@@ -103,7 +104,9 @@ crates/learning-data-access/
 |  |  `- effective_policy_receipts.rs Sealed effective-policy receipt persistence and reconstruction
 |  |  `- assignment_records/learner_disclosure.rs Closed five-field disclosure-column decoder
 |  |  `- item_analysis/learner_class_statistics.rs Learner-safe current course analysis projection
+|  +- in_memory/assignment_workspace.rs Focused draft/content/policy mutations and revision checks
 |  +- in_memory/course_policy.rs Atomic teaching-settings mutation and current policy resolution
+|  +- postgres/course_assignments.rs PostgreSQL assignment draft/content/policy mutations
 |  +- postgres/course_policy.rs PostgreSQL teaching-settings CAS, lifecycle gate, and receipt update
 |  +- activity.rs      Actor-scoped learner reads and activity ownership
 |  +- assignment_revision.rs Checked conversion between the canonical domain revision and stored BIGINT
@@ -128,6 +131,12 @@ preview-derived commands, exact assignment-definition source views, recovery dec
 receipt projections. `curriculum_adoption/contracts/assignment_source.rs` is the exact source locator
 for one Blueprint or one positioned Alpha assignment.
 
+`crates/question_model/src/assignment_workspace.rs` owns the focused assignment
+draft, Questions, Policies, publication-readiness, and issued-work-conflict
+wire contracts. The assignment workspace reuses the canonical assignment
+summary and local teaching-settings values; it does not create a second
+assignment or policy model.
+
 When a persistence capability changes, update its contract, both
 implementations, and matching conformance evidence. Actor-scoped learner
 methods belong here rather than only in HTTP route checks. PostgreSQL connection
@@ -150,8 +159,11 @@ crates/server/src/
 +- auth/                             Passwordless email, passkey, session, and request-boundary behavior
 +- catalog/                           Catalog query and immutable publication behavior
 +- course/                            Course, roster, invitation, assignment, and grade routes
-|  +- assignments/learner.rs           Learner-safe assignment detail projection
-|  +- assignments/teaching_settings.rs Instructor local-time teaching-settings CAS route
+|  +- assignments.rs                   Assignment route facade and shared response assembly
+|  +- assignments/
+|  |  +- definition_request.rs          Strict assignment content resolution and validation
+|  |  +- learner.rs                     Learner detail and shared answer-free landing projection
+|  |  `- workspace.rs                   Draft, Questions, Policies, and Instructor Student-view routes
 |  `- gradebook.rs                     Course-grade scheme, compact totals, and CSV export routes
 +- run/                               Attempt issue, prefetch, submission, current disclosure redaction, and external-tool routes
 +- workspace/                         Authoring workspace behavior
@@ -179,15 +191,23 @@ authority.
 ```text
 src/
 +- api/             Strict decoders, HTTP client, and generated contracts
-|  `- decoders/assignment_policy.ts Exact five-field assignment-policy decoder
+|  +- decoders/assignment_policy.ts            Exact five-field assignment-policy decoder
+|  +- decoders/assignment_policy_validation.ts Focused Policies correction decoder
+|  `- decoders/assignment_workspace.ts         Assignment workspace and issued-work decoder
 +- auth/            Account and course-session browser state
 +- components/      Reusable prompt, response, feedback, and accessibility UI
+|  `- learner_assignment_presentation.tsx Shared answer-free learner/Student-view landing
 +- features/        Capability-owned browser logic
 |  `- curriculum_adoption/ Reusable-curriculum adoption preview, apply, receipt, and recovery UI
 +- pages/           Route-level views and page-specific state
-|  +- assignment_editor_policy_panel.tsx Instructor disclosure-policy controls
-|  +- assignment_teaching_operations_panel.tsx Lifecycle, instructions, schedule, limits, and late behavior
-|  +- assignment_overview_page.tsx Learner-safe instructions, resolved delivery, and score-state view
+|  +- assignment_workspace/
+|  |  +- assignment_workspace_live_page.tsx      Shared exact-authority loader and child-page shell
+|  |  +- assignment_workspace_overview_page.tsx  Assignment home and readiness actions
+|  |  +- assignment_workspace_questions_page.tsx Questions and pool authoring
+|  |  +- assignment_workspace_policies_page.tsx  Delivery, lifecycle, and disclosure policy
+|  |  `- assignment_workspace_student_view_page.tsx Shared learner landing in Instructor context
+|  +- assignment_editor_*   Questions authoring helpers reused by the workspace
+|  +- assignment_overview_page.tsx Ordinary learner assignment landing and run entry
 |  `- curriculum_adoption_live_page.tsx Instructor course-route composition for curriculum adoption
 +- learner_progress.ts Server-derived score-state display copy; never derives policy or timing
 +- wasm/            Shared domain WebAssembly facade and Solid context
@@ -224,7 +244,7 @@ source and replay selection is in
 
 ```text
 schemas/
-`- migrations/        Ordered forward SQL migrations, including auth, RLS, external fences, publication outbox, 2026081401 ranked catalog discovery, and 2026081805 assignment learner-disclosure policy
+`- migrations/        Ordered forward SQL migrations, including auth, RLS, external fences, publication outbox, 2026081401 ranked catalog discovery, 2026081805 assignment learner-disclosure policy, and 2026081848 assignment workspace drafts
 
 containers/
 +- compose.yaml       Common local and disposable topology, private networks, hardening, and one-shot setup
@@ -291,6 +311,14 @@ generated/
 +- api/               Generated TypeScript contracts
 `- fixtures/          Generated fixture projections
 ```
+
+The generated API tree is ignored output, recreated by `cargo tools tsgen` or
+`./build.sh` from the Rust question model. T6 adds the answer-free
+`generated/api/AssignmentLandingPresentation.ts`,
+`generated/api/InstructorStudentView.ts`, and closed
+`generated/api/AssignmentContentIssuedWorkConflict.ts` contracts. The checked-in
+TypeScript decoders under `src/api/decoders/` are the
+strict browser boundary for those projections.
 
 `dist/`, `dist_wasm/`, `target/`, `test-results/`, and Playwright report directories are reproducible
 ignored output. `local_runtime/live_demo_browser/` is separate ignored mode-0700 lifecycle state; a

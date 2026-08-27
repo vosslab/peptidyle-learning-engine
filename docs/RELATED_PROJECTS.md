@@ -17,11 +17,29 @@ current acceptance status remains in
   grading, and gradebook workflow designed around reusable open assessment content.
 - Evidence: LibreTexts' [official instructor guide](https://chem.libretexts.org/Courses/Remixer_University/Mastering_ADAPT%3A_A_User%27s_Guide/04%3A_Using_ADAPT_as_an_Instructor)
   documents course creation, assignment types, question finding, question editing, submissions, and
-  gradebooks; PLE records ADAPT as explicit product prior art in
+  gradebooks. Its [assignment guide](https://chem.libretexts.org/Courses/Remixer_University/Mastering_ADAPT:_A_User's_Guide/04:_Using_ADAPT_as_an_Instructor/4.05:_Creating_Assignments)
+  records assignment import choices for "Properties and Questions" or "Just the Properties," and
+  its [question-view guide](https://chem.libretexts.org/Courses/Remixer_University/Mastering_ADAPT:_A_User's_Guide/04:_Using_ADAPT_as_an_Instructor/4.07:_Assignments-_Adding,_Removing,_Reordering,_and_Viewing_Questions)
+  documents the Instructor/Student view toggle. The [student course guide](https://chem.libretexts.org/Courses/Remixer_University/Mastering_ADAPT:_A_User's_Guide/06:_Using_ADAPT_as_a_Student/6.02:_New_Page)
+  documents opening an assignment by its title. PLE records ADAPT as explicit product prior art in
   [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) and
   [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
-- Notes: PLE preserves its own deterministic server-grading, answer-free browser, identity, and
-  authorization boundaries instead of treating ADAPT behavior as automatic parity.
+- Implementation evidence: the ignored, read-only ADAPT snapshot separates assignment `questions`
+  and `properties` routes in `OTHER_REPOS/adapt/resources/js/router/routes.js`; the official guide
+  supplies the corresponding user-facing assignment and question workflows.
+- Comparison evidence: PLE adopts the useful navigation shape in its
+  [Instructor page map](INSTRUCTOR_PAGE_VISUALS.md): an assignment title opens an assignment-local
+  Instructor home, Questions owns question and pool authoring, Policies (the PLE name for delivery
+  properties) owns delivery rules, and Student view exposes the current learner landing.
+- Boundary and advantage: PLE's [live-demo specification](LIVE_DEMO_SPEC.md) exercises the ordinary
+  live Student workflow, including real submissions, deterministic server grading, receipts, and
+  gradebook evidence. PLE's [adapter contract](ADAPTER_DEVELOPMENT.md) keeps answer keys and grading
+  decisions server-only and delivers an answer-free browser contract; its
+  [test-evidence model](TEST_EVIDENCE_MODEL.md) makes the production-shaped stack the browser
+  acceptance boundary. These are PLE guarantees, not claims about ADAPT parity.
+- Provenance: Confirmed by the explicit PLE prior-art records and the authoritative ADAPT guides
+  checked on 2026-08-26. The ignored `OTHER_REPOS/adapt` checkout is read-only corroboration for
+  route-level structure, not a PLE dependency or current-upstream compatibility claim.
 
 ### WeBWorK2
 

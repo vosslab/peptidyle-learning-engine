@@ -90,8 +90,8 @@ browser-visible assessment transition.
 | Object storage           | [crates/objects/](../crates/objects/)                                                     | Typed object keys, checksums, strict image ingress validation, and MinIO/S3-compatible implementations.                                                                                                                                                                     |
 | Native adapter           | [crates/adapters/native/](../crates/adapters/native/)                                     | First-party generated questions and static flat-question compilation.                                                                                                                                                                                                       |
 | External adapters        | [crates/adapters/](../crates/adapters/)                                                   | Bounded QTI, H5P, iMathAS, and WeBWorK integration behind declared capabilities.                                                                                                                                                                                            |
-| Server                   | [crates/server/](../crates/server/)                                                       | Axum routes, passwordless auth, authorization, instructor course-grade routes, learner aggregate and per-item redaction, adapter selection, API composition, ordinary worker, and public-asset publisher process.                                                           |
-| Browser and WebAssembly  | [src/](../src/) and [crates/wasm/](../crates/wasm/)                                       | SolidJS interaction layer, strict browser decoder/editor boundary, and answer-free browser bridge to shared domain logic.                                                                                                                                                   |
+| Server                   | [crates/server/](../crates/server/)                                                       | Axum routes, passwordless auth, authorization, instructor assignment workspace and course-grade routes, learner aggregate and per-item redaction, adapter selection, API composition, ordinary worker, and public-asset publisher process.                              |
+| Browser and WebAssembly  | [src/](../src/) and [crates/wasm/](../crates/wasm/)                                       | SolidJS interaction layer, strict browser decoder/editor boundary, shared answer-free assignment landing presentation, focused assignment workspace pages, and answer-free browser bridge to shared domain logic. |
 | Export and project tools | [crates/export/](../crates/export/) and [crates/project-tools/](../crates/project-tools/) | Print/export generation plus repository-only code generation, migration, fixture, pilot-content validation, E2E seed commands, and the direct `base-course` CLI adapter.                                                                                                    |
 | Deployment configuration | `deploy/opentofu/`                                                                        | AWS network, edge, compute, database, storage, IAM, observability, and WAF definitions.                                                                                                                                                                                     |
 
@@ -174,6 +174,64 @@ Published content is immutable and shared. Courses, memberships, enrollments,
 runs, attempts, grades, and student artifacts are tenant-owned. This keeps
 course-record deletion separate from reusable published content.
 
+## Assignment workspace flow
+
+The Instructor assignment workspace is a course-bound, revisioned aggregate
+with four focused pages. A linked assignment title opens the assignment home;
+the home provides status, publication readiness, and local navigation to
+Questions, Policies, and Student view. New assignment creation persists an
+empty Draft before the Questions page opens. Draft and Archived definitions may
+remain empty; a transition to Published requires publication readiness, including
+an active deliverable position and supported question capabilities.
+
+```text
+Instructor course assignments
+  -> linked title
+  -> assignment home
+  -> Questions | Policies | Student view
+  -> focused revision-checked save or no-store read
+```
+
+`crates/question_model/src/assignment_workspace.rs` owns the closed create,
+content, policy, audience, publication-readiness, and issued-work-conflict
+contracts. `crates/learning-data-access/src/contracts/assignment_editing.rs`
+defines the Store boundary; the in-memory adapter is in
+`crates/learning-data-access/src/in_memory/assignment_workspace.rs`, and the
+PostgreSQL implementation is in
+`crates/learning-data-access/src/postgres/course_assignments.rs`. The forward
+capability boundary is
+[`2026081848_assignment_workspace_drafts.sql`](../schemas/migrations/2026081848_assignment_workspace_drafts.sql).
+
+The server's nested routes live in
+`crates/server/src/course/assignments/workspace.rs`. `POST .../drafts` creates
+the empty draft. `PUT .../content` replaces only the Questions-owned title and
+ordered definition, while `PUT .../policies` atomically replaces the
+Policies-owned audience, disclosure, run policy, instructions, schedule,
+limits, and lifecycle. Both updates require the current `If-Match` assignment
+revision and return a complete authoritative workspace detail with a new
+`ETag`; stale writes preserve the browser's local draft. Structural content
+changes after learner work is issued return the closed generated
+`generated/api/AssignmentContentIssuedWorkConflict.ts` contract, which the
+Questions page maps to durable create-a-new-assignment guidance.
+
+`assignment_landing_presentation` in
+`crates/server/src/course/assignments/learner.rs` builds one answer-free
+landing projection from the current assignment definition and course time
+zone. The ordinary learner detail adds learner-authorized delivery and
+progress, while the Instructor Student-view route adds course-wide base
+delivery and keeps the Instructor identity. Both render through
+[`src/components/learner_assignment_presentation.tsx`](../src/components/learner_assignment_presentation.tsx).
+Student view is a `no-store` read and creates no enrollment, run, attempt,
+submission, receipt, grade, or preview record.
+
+The former combined assignment editor and its teaching-settings route are
+retired. Assignment authoring now belongs to `src/pages/assignment_workspace/`;
+the existing `assignment_editor_*` modules that remain are focused Questions
+helpers (picker, content list, pool, model, repository, and styles), not a
+combined assignment route. The independent `/workspace/:workspaceRef` editor
+remains the private question-draft editor and is unrelated to course assignment
+workspace routing.
+
 ## Identity and authorization
 
 `crates/server/src/auth/` implements passwordless email and passkey flows,
@@ -199,23 +257,18 @@ projections instead use the current S3-resolved effective-policy verdict with
 the current assignment-owned disclosure policy; no attempt-level receipt is a
 learner-disclosure authority.
 
-WP-PROF-T1 makes the assignment's teaching intent one revisioned aggregate:
+Assignment teaching intent remains one revisioned aggregate:
 `AssignmentTeachingSettings` contains the closed lifecycle, validated plain-text
-instructions, and the S3 base policy. The browser edit transport uses
+instructions, and the S3 base policy. The Policies workspace transports
 `InstructorAssignmentTeachingSettingsLocal`; the server alone converts its
 millisecond-precise wall-clock fields through the course's stored IANA zone and
 inclusive term. Memory and PostgreSQL validate the same aggregate, apply it
 atomically with the assignment revision, and re-resolve active attempts. Only
 stored `Published` lifecycle opens G1; Draft is not implicitly published,
 Closed and Archived are unavailable for learner starts, and Archived cannot
-reopen.
-
-Instructor editor reads keep durable intent and derived state distinct. The
-server returns `teachingSettings` alongside a closed `currentState` union
-computed from backend-authoritative time and the same schedule boundaries. A
-Published assignment can therefore read as scheduled, open, or closed since a
-course-local boundary without storing a second lifecycle or consulting a
-browser clock.
+reopen. Workspace reads return `teachingSettings` alongside a closed
+`currentState` union computed from backend-authoritative time and the same
+schedule boundaries.
 
 The learner does not receive that intent record. The dedicated learner-detail
 route runs current S5 entitlement and the current S3 resolver first, then emits
@@ -298,11 +351,13 @@ no submitted response from a learner whose current policy withholds score totals
 still supply the safe last-activity timestamp while its score state remains `noActivity`.
 The browser receives neither the policy, the authoritative clock, nor tenant
 or enrollment identifiers needed to infer or bypass that decision.
-`assignment_policy.ts` under
-[src/api/decoders/](../src/api/decoders/) strictly decodes the five-field
-policy for authoring, while
-[src/pages/assignment_editor_policy_panel.tsx](../src/pages/assignment_editor_policy_panel.tsx)
-owns the instructor's native five-select editor controls.
+`assignment_policy.ts` and `assignment_policy_validation.ts` under
+[src/api/decoders/](../src/api/decoders/) strictly decode assignment policy
+and focused Policies corrections. The assignment workspace owns native
+controls in
+`src/pages/assignment_workspace/assignment_workspace_policy_panel.tsx`; the
+Questions page uses the focused picker and content/pool helpers that remain in
+`src/pages/assignment_editor_*`.
 
 ## Catalog discovery and statistics disclosure
 

@@ -116,7 +116,7 @@ sequential numbers, and hidden snapshot versions remain internal.
 recognizing, communicating, copying, and entering an exact question. A UUID is valuable at internal
 boundaries, but it is oversized and hostile for this instructor task.
 
-**Consequence.** The assignment editor accepts one or more Question IDs, normalizes documented
+**Consequence.** The Questions workspace accepts one or more Question IDs, normalizes documented
 Crockford transcription aliases, and requires server validation before changing the draft. Invalid,
 unavailable, unauthorized, or duplicate input preserves the pasted text and assignment. Every
 content change, including a correction, has a new Question ID; an explicit provenance link may name
@@ -125,6 +125,43 @@ the source, and an Instructor deliberately replaces any assignment item that sho
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#teaching-and-product-priorities),
 [`QUESTION_ID_SPEC.md`](QUESTION_ID_SPEC.md), `crates/question_model/src/catalog.rs`, and MOD-API-CAT in
 [CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
+
+### Assignment work is one aggregate
+
+**Decision.** WP-PROF-T6 gives each assignment one exact course-scoped Instructor workspace. Its
+Overview, Questions, Policies, and Student view are separate tasks over the same assignment record.
+Questions owns title and ordered fixed-or-pool content. Policies owns audience, disclosure, run
+policies, instructions, schedule, limits, late behavior, and lifecycle. Student view is a read-only
+answer-free presentation of the current assignment, not an alternate learner or preview record.
+
+**Why.** Instructors choose a named teaching object before choosing a task. A single aggregate
+revision keeps separate pages from silently overwriting each other while focused ownership prevents
+a policy save from changing content or a content save from changing delivery rules.
+
+**Consequence.** The server exposes exact nested reads at
+`/api/courses/{course}/assignments/{assignment}` and
+`.../student-view`, plus title-only Draft creation and focused `.../content` and `.../policies`
+mutations. Both mutations use the current `If-Match` revision, update their owned slice atomically,
+and return the complete authoritative assignment projection with one new revision. Structural
+content changes return a typed issued-learner-work conflict after immutable work exists; a stale
+revision remains a retryable conflict. The browser preserves entered values and offers reload
+guidance for either case.
+
+An empty persisted Draft or Archived definition is valid and remains reloadable. Publication
+readiness is derived from the definition and blocks Published until it has an active deliverable
+position and valid policies. This makes an honest multi-page drafting workflow possible without
+browser-only state or a combined write.
+
+The Student-view route retains the Instructor identity and exact course authority, returns
+`Cache-Control: no-store`, and creates no enrollment, run, attempt, submission, receipt, grade, or
+preview record. It reuses the shared answer-free learner landing presentation and course-wide base
+delivery facts. Only an ordinary enrolled Student entry creates learner work; that server-owned
+grading path remains the source of scores and Instructor gradebook evidence.
+
+**Owner.** [instructor_assignment_workspace_plan.md](active_plans/active/instructor_assignment_workspace_plan.md),
+[`crates/question_model/src/assignment_workspace.rs`](../crates/question_model/src/assignment_workspace.rs),
+[`crates/server/src/course/assignments/workspace.rs`](../crates/server/src/course/assignments/workspace.rs),
+and [API_CONTRACTS.md](API_CONTRACTS.md#instructor-assignment-workspace).
 
 ### Python owns complex orchestration
 

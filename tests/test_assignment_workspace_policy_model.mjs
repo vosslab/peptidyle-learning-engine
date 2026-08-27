@@ -4,11 +4,17 @@ import test from "node:test";
 import {
   assignmentPoliciesInput,
   assignmentPolicyCanReload,
+  assignmentPoliciesValidationFeedback,
   assignmentPolicyFeedbackRole,
   canonicalCourseLocalTime,
   hasEmptyGroupAudience,
+  mergeSavedRunPolicyDraft,
+  nonnegativeIntegerDraft,
   numberDraft,
+  optionalPositiveIntegerDraft,
   positiveIntegerDraft,
+  runPolicyDraftFromPolicies,
+  scoreFractionDraft,
 } from "../src/pages/assignment_workspace/assignment_workspace_policy_model.ts";
 
 const disclosurePolicy = {
@@ -74,6 +80,7 @@ test("policy feedback makes save failures and conflicts actionable while success
 });
 
 test("numeric policy drafts preserve invalid text and provide no stale payload value", () => {
+  assert.deepEqual(optionalPositiveIntegerDraft(""), { raw: "", value: null, valid: true });
   assert.deepEqual(positiveIntegerDraft("12"), { raw: "12", value: 12, valid: true });
   assert.deepEqual(positiveIntegerDraft(""), { raw: "", value: null, valid: true });
   assert.deepEqual(positiveIntegerDraft("0"), { raw: "0", value: null, valid: false });
@@ -84,4 +91,57 @@ test("numeric policy drafts preserve invalid text and provide no stale payload v
   });
   assert.equal(numberDraft(90), "90");
   assert.equal(numberDraft(null), "");
+});
+
+test("run-policy number drafts accept bounded values and retain invalid raw text", () => {
+  assert.deepEqual(scoreFractionDraft("0.75"), { raw: "0.75", value: 0.75, valid: true });
+  assert.deepEqual(scoreFractionDraft("1.1"), { raw: "1.1", value: null, valid: false });
+  assert.deepEqual(scoreFractionDraft(""), { raw: "", value: null, valid: false });
+  assert.deepEqual(nonnegativeIntegerDraft("0"), { raw: "0", value: 0, valid: true });
+  assert.deepEqual(nonnegativeIntegerDraft("3.5"), { raw: "3.5", value: null, valid: false });
+});
+
+test("inactive conditional run-policy drafts survive a successful unrelated policy save", () => {
+  const original = { completionFraction: "0.65", additionalRuns: "7" };
+  const saved = {
+    ...policies,
+    completion: { kind: "answerAll" },
+    continuedPractice: { kind: "unlimited" },
+  };
+
+  assert.deepEqual(runPolicyDraftFromPolicies(saved), {
+    completionFraction: "0.8",
+    additionalRuns: "3",
+  });
+  assert.deepEqual(mergeSavedRunPolicyDraft(original, saved), original);
+});
+
+test("server policy issues select the first repair while keeping concise safe details", () => {
+  const feedback = assignmentPoliciesValidationFeedback([
+    {
+      kind: "capability",
+      title: "Peptide geometry",
+      questionId: "7K3-M9QP",
+      capability: "serverGrading",
+    },
+    { kind: "audience", reason: "groupRequired" },
+  ]);
+
+  assert.equal(feedback.target, "questions");
+  assert.equal(feedback.questionRepairRequired, true);
+  assert.deepEqual(feedback.details, [
+    "Peptide geometry needs server grading.",
+    "Choose one or more course groups for this audience.",
+  ]);
+  assert.equal(JSON.stringify(feedback).includes("7K3-M9QP"), false);
+});
+
+test("publication readiness gives lifecycle focus and a Questions repair route", () => {
+  const feedback = assignmentPoliciesValidationFeedback([
+    { kind: "publicationReadiness", blockingIssues: [{ kind: "questionsRequired" }] },
+  ]);
+
+  assert.equal(feedback.target, "lifecycle");
+  assert.equal(feedback.questionRepairRequired, true);
+  assert.equal(feedback.message, "Add at least one question before publishing this assignment.");
 });

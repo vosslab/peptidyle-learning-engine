@@ -22,6 +22,16 @@ use crate::http_refusal::{HttpRefusal, HttpResult};
 
 const MAX_ASSIGNMENT_JSON_BYTES: usize = 64 * 1_024;
 
+#[derive(Debug, Clone)]
+pub(super) enum AssignmentPolicyValidationFact {
+    SelectedProblemVariantsWithSelectionGroups,
+    Capability {
+        title: String,
+        question_id: QuestionId,
+        capability: Capability,
+    },
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AssignmentCapabilityViolation {
@@ -53,6 +63,56 @@ where
             "selection groups are unavailable with the selected-problem variation policy",
         )
         .into());
+    }
+    let facts = collect_assignment_policy_validation_facts(state, context, assignment).await?;
+    let violations = facts
+        .into_iter()
+        .filter_map(|fact| match fact {
+            AssignmentPolicyValidationFact::SelectedProblemVariantsWithSelectionGroups => None,
+            AssignmentPolicyValidationFact::Capability {
+                title,
+                question_id,
+                capability,
+            } => Some(AssignmentCapabilityViolation {
+                title,
+                question_id,
+                capability,
+            }),
+        })
+        .collect::<Vec<_>>();
+    if violations.is_empty() {
+        Ok(())
+    } else {
+        Err(no_store(
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(AssignmentValidationFailure {
+                    error: "assignment configuration is not supported",
+                    violations,
+                }),
+            )
+                .into_response(),
+        )
+        .into())
+    }
+}
+
+/// Collects the browser-safe facts that arise from a fully resolved
+/// assignment policy. The caller owns the route-specific response envelope;
+/// content saves retain their existing capability-only refusal contract.
+pub(super) async fn collect_assignment_policy_validation_facts<S>(
+    state: &CourseRouteState<S>,
+    context: TenantContext,
+    assignment: &AssignmentRecord,
+) -> HttpResult<Vec<AssignmentPolicyValidationFact>>
+where
+    S: Store + CatalogStore + SessionStore + 'static,
+{
+    let mut facts = Vec::new();
+    if !assignment.selection_groups.is_empty()
+        && assignment.policies.variation == question_model::VariationPolicy::SelectedProblemVariants
+    {
+        facts.push(AssignmentPolicyValidationFact::SelectedProblemVariantsWithSelectionGroups);
     }
     let references = assignment.references().collect::<Vec<_>>();
     let mut selected = Vec::with_capacity(references.len());
@@ -89,7 +149,7 @@ where
             backend_capabilities: published.capabilities,
         });
     }
-    let violations =
+    facts.extend(
         domain::policy::validate_assignment_config(&domain::policy::AssignmentConfig {
             questions: selected,
             required_capabilities: Vec::new(),
@@ -104,78 +164,14 @@ where
                 .get(&reference)
                 .expect("every selected question has its immutable title")
                 .clone();
-            AssignmentCapabilityViolation {
+            AssignmentPolicyValidationFact::Capability {
                 title,
                 question_id,
                 capability: violation.capability,
             }
-        })
-        .collect::<Vec<_>>();
-    if violations.is_empty() {
-        Ok(())
-    } else {
-        Err(no_store(
-            (
-                StatusCode::UNPROCESSABLE_ENTITY,
-                Json(AssignmentValidationFailure {
-                    error: "assignment configuration is not supported",
-                    violations,
-                }),
-            )
-                .into_response(),
-        )
-        .into())
-    }
-}
-
-pub(super) async fn resolve_assignable_question_ids<S>(
-    state: &CourseRouteState<S>,
-    context: TenantContext,
-    question_ids: &[QuestionId],
-) -> HttpResult<Vec<ProblemVersionRef>>
-where
-    S: Store + CatalogStore + SessionStore + 'static,
-{
-    let mut seen = std::collections::BTreeSet::new();
-    let mut references = Vec::with_capacity(question_ids.len());
-    for question_id in question_ids {
-        if !seen.insert(question_id.clone()) {
-            return Err(error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "assignment question IDs must be unique",
-            )
-            .into());
-        }
-        let Some(record) = state
-            .store
-            .resolve_catalog_problem(
-                context,
-                question_model::ProblemDisplayRef {
-                    question_id: question_id.clone(),
-                },
-            )
-            .await
-            .map_err(|error| HttpRefusal::from(store_error_response(error)))?
-        else {
-            return Err(error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "assignment question ID is unavailable",
-            )
-            .into());
-        };
-        if !record.lifecycle.is_assignable() {
-            return Err(error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "assignment question is not assignable",
-            )
-            .into());
-        }
-        references.push(ProblemVersionRef {
-            problem: record.problem,
-            version: record.version,
-        });
-    }
-    Ok(references)
+        }),
+    );
+    Ok(facts)
 }
 
 /// Resolves the one ordered browser definition into a complete internal

@@ -32,23 +32,28 @@ pub(super) async fn publish_and_assert(
             Request::builder()
                 .method("PUT")
                 .uri(format!(
-                    "/api/courses/{course}/assignments/{assignment}/teaching-settings"
+                    "/api/courses/{course}/assignments/{assignment}/policies"
                 ))
                 .header("cookie", instructor_cookie)
                 .header(IF_MATCH, etag)
                 .header("content-type", "application/json")
                 .body(Body::from(
                     serde_json::json!({
-                        "timeZone": "America/Chicago",
-                        "lifecycle": "published",
-                        "instructions": "Show your structural reasoning in complete sentences.",
-                        "availableAt": null,
-                        "dueAt": null,
-                        "closesAt": null,
-                        "timeLimitSeconds": null,
-                        "attemptLimit": 1,
-                        "lateSubmission": "accept",
-                        "deadlineBehavior": "autoSubmit"
+                        "audience": {"kind": "courseWide"},
+                        "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
+                        "policies": crate::course::tests::fixtures::policies(),
+                        "teachingSettings": {
+                            "timeZone": "America/Chicago",
+                            "lifecycle": "published",
+                            "instructions": "Show your structural reasoning in complete sentences.",
+                            "availableAt": null,
+                            "dueAt": null,
+                            "closesAt": null,
+                            "timeLimitSeconds": null,
+                            "attemptLimit": 1,
+                            "lateSubmission": "accept",
+                            "deadlineBehavior": "autoSubmit"
+                        }
                     })
                     .to_string(),
                 ))

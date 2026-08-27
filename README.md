@@ -20,25 +20,44 @@ activity PLE presents to instructors and students, alongside the more expressive
 that implement it.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
-
-![Instructor editor for Peptide Bonds and Planarity showing a selected published question and Mastery run policies](docs/screenshots/instructor/course_authoring/06_assignment_editor.png)
-
-![Instructor confirmation that Peptide Bonds and Planarity is a live course assignment](docs/screenshots/instructor/course_authoring/05_assignment_created.png)
-
-![Student Peptide Bond Planarity problem showing an unanswered keyboard-accessible response](docs/screenshots/student/delivery/03_problem_ready.png)
-
-![Student completed-run summary showing a server-graded correct response and fresh-practice action](docs/screenshots/student/delivery/06_completion.png)
-
-![Student Peptide Bond Planarity practice run 2 showing a fresh unanswered response](docs/screenshots/student/delivery/07_repeat_run.png)
 <!-- screenshots:end -->
 
-These five views are highlights from the freshly published 75-artifact real-stack corpus. The
-publication gate verified image integrity, privacy, provenance, and declared coverage; human review
-checked the visible course, learner, curation, and curriculum-adoption states. The demo records
-behave as ordinary live PLE data inside a disposable installation.
+The managed visual walkthrough is reserved for the production-shaped live-demo capture pass;
+screenshot-docs owns its images and captions. The demo records behave as ordinary live PLE data inside
+a disposable installation.
 [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md) defines that boundary, and
 [docs/INSTRUCTOR_GUIDE.md](docs/INSTRUCTOR_GUIDE.md) and
 [docs/STUDENT_GUIDE.md](docs/STUDENT_GUIDE.md) explain the visible workflows.
+
+## Try the teaching loop
+
+The canonical first result is a production-shaped local installation, not a browser mock. From a
+checkout with the prerequisites in [docs/INSTALL.md](docs/INSTALL.md), run `./run_live_demo.sh`. The
+launcher builds the production browser bundle and starts the real PostgreSQL, MinIO, API, worker,
+gateway, and private WebWork services behind one disposable HTTPS origin. Use
+`./run_live_demo.sh --headless` when you need the same stack without opening a browser.
+
+Use the visible seeded-role entry to exercise ordinary PLE authorization and teaching work:
+
+- As Elena (Instructor), select an assignment title to open its **Overview**. Use **Questions** to
+  discover published questions by human-readable Question ID, reuse an existing assignment's
+  ordered questions, select from reusable pools, and replace future-run questions. Use **Policies**
+  for learner instructions, delivery, lifecycle, and disclosure rules. **Student view** shows the
+  current answer-free learner landing while retaining the Instructor session. To test ordinary
+  Instructor passkeys, use **Account** -> **Your passkeys**, sign out, and choose **Sign in with a
+  passkey**.
+- From the Instructor course, open reusable curricula to create revisioned private Blueprints,
+  inspect public Alpha curricula, reuse their ordered questions, and adopt a source into ordinary
+  course work through an answer-free proposal and immutable receipt.
+- As Mary (Student), enter the course through ordinary Student entry, start the assignment, and
+  submit a response. Return to Elena's Instructor session and open **Gradebook**: the server-owned
+  grade and authorized run history are visible there as ordinary course records.
+- As Morgan (Sysadmin), open **Account** -> **Your passkeys**, add a passkey, sign out, and use
+  **Sign in with a passkey**. This direct Sysadmin test retains the ordinary Sysadmin account and
+  authorization; it is not a role claim supplied by the demo selector.
+
+When finished, run `./run_live_demo.sh stop` to clean only the active demo owner. Relaunching creates
+a fresh seeded installation, so changes made during exploration are disposable.
 
 ## Why this project
 
@@ -54,6 +73,13 @@ The design answers both:
   an instructor-defined stopping condition is reached.
 - Unlimited practice after completion, with completion, grading, variation, continued practice, and
   feedback disclosure as five independent policies an instructor combines freely.
+- Question discovery and reuse through a published Library, human-readable Question IDs, ordered
+  assignment reuse, and reusable pools, with the same selection boundary used by authoring and
+  reusable curricula.
+- Reusable curricula through revisioned private Blueprints and public Alpha curricula, preserving
+  immutable publication pins and answer-free inspection while allowing ordinary course adoption.
+- A focused assignment workspace: the title opens **Overview**, while **Questions**, **Policies**, and
+  **Student view** each expose one teaching task without changing the Instructor identity.
 - One backend-neutral question model behind every engine, so native algorithmic questions,
   WeBWorK, QTI, H5P, and a reviewed iMathAS provider use one adapter boundary even though their
   current runtime support differs.
@@ -224,7 +250,7 @@ generation is discarded without delaying or rolling back the current grade.
 | Reusable curriculum                  | Revisioned private Blueprints, public Alpha curricula, immutable publication pins, answer-free inspection, and shared question selection                                                                                                                                                                    |
 | API server                           | Auth, catalog, course, assignment, run, submission, deterministic grading, item analysis, asset, export, workspace, retention, reusable curriculum, and curriculum-adoption route groups                                                                                                                    |
 | WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                                                              |
-| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, library, authoring, flat-question editing, assignment editing, gradebook, reusable curricula, and Instructor curriculum adoption                                                                                                              |
+| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, Library discovery, question authoring, the Overview/Questions/Policies/Student view assignment workspace, gradebook, reusable curricula, and Instructor curriculum adoption                         |
 | Curriculum adoption                  | Accepted preview-before-save fork and instantiation, rollover, term shifting, provenance receipts, controlled fast-forward, divergence recovery, and teaching-operation API/browser capabilities                                                                                                            |
 | PostgreSQL                           | Forward-only SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification                                                                                                                                                                                    |
 | Question engines                     | PLE flat-question JSON v2 implements all eight required native families; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
@@ -300,12 +326,12 @@ For contributor rules and design sources, begin with [AGENTS.md](AGENTS.md),
 ## License
 
 Code is licensed under the GNU Affero General Public License v3, in
-[LICENSE.AGPL-3.0.md](LICENSE.AGPL-3.0.md), which the root `LICENSE` symlink points to. Because this
-is a hosted platform, AGPL matters in practice: running a modified version as a network service
-carries an obligation to offer that modified source to its users.
+[LICENSE.AGPL-3.0](LICENSE.AGPL-3.0). Because this is a hosted platform, AGPL matters in practice:
+running a modified version as a network service carries an obligation to offer that modified source
+to its users.
 
 Non-code material such as documentation text and figures is licensed under Creative Commons
-Attribution 4.0, in [LICENSE.CC-BY-4.0.md](LICENSE.CC-BY-4.0.md).
+Attribution 4.0, in [LICENSE.CC-BY-4.0](LICENSE.CC-BY-4.0).
 
 ## Author
 

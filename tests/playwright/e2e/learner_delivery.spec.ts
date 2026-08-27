@@ -4,8 +4,8 @@
 // - src/pages/course_assignments_page.tsx:324 owns the assignments surface and assignment links.
 // - src/features/flat_question_authoring/flat_question_editor_page.tsx:535 owns question creation
 //   fields and publication controls used to seed the journey.
-// - src/pages/course_list_page.tsx:330, src/pages/assignment_editor_page.tsx:481, and
-//   src/pages/course_roster_page.tsx:423 own course, assignment, and invitation controls.
+// - src/pages/course_list_page.tsx, src/pages/assignment_workspace/, and
+//   src/pages/course_roster_page.tsx own course, assignment, and invitation controls.
 // - src/pages/course_invitation_page.tsx:62 and src/pages/assignment_overview_page.tsx:114 own
 //   learner claiming and assignment entry; data-route-surface is defined at
 //   course_assignments_page.tsx:324.
@@ -201,12 +201,16 @@ async function createPublishedCourseAssignment(
   await expect(page.getByText(new RegExp(`${questionId} is ready to add`))).toBeVisible();
   await page.getByRole("button", { name: "Add Question IDs", exact: true }).click();
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Questions and order saved." })).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Questions and order saved." }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Policies", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
   await page.getByLabel("Lifecycle").selectOption("published");
   await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Assignment policies saved." })).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
+  ).toBeVisible();
 
   await page.getByRole("link", { name: "Students" }).click();
   await page.getByLabel("Institutional email").fill(maryEmail);
@@ -451,7 +455,9 @@ async function observeInstructorOutcomesAndAccess(
   await page.getByRole("link", { name: "Policies", exact: true }).click();
   await page.getByLabel("Lifecycle").selectOption("archived");
   await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Assignment policies saved." })).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
+  ).toBeVisible();
 
   await openCourseAssignments(page);
   const retiredCard = page

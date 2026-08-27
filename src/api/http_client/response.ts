@@ -62,7 +62,6 @@ import {
   encodedId,
   cursorPath,
   learnerAttemptPath,
-  requestAssignmentEditor,
   requestJson,
   requestPath,
   type ApiFetch,
@@ -312,7 +311,6 @@ export function createResponseClient(
   | "listGradebook"
   | "listAssignments"
   | "getAssignment"
-  | "getAssignmentEditor"
   | "getAssignmentSummary"
   | "getEnrollment"
   | "listRuns"
@@ -438,13 +436,6 @@ export function createResponseClient(
         basePath,
         `/api/assignments/${encodedId(assignmentId)}/learner`,
         decodeLearnerAssignmentDetail,
-      ),
-    getAssignmentEditor: (assignmentId) =>
-      requestAssignmentEditor(
-        fetchImplementation,
-        basePath,
-        `/api/assignments/${encodedId(assignmentId)}`,
-        { assignmentId },
       ),
     getAssignmentSummary: (assignmentId: AssignmentId) =>
       requestJson(

@@ -1,29 +1,18 @@
 use axum::Json;
-use axum::body::{Bytes, to_bytes};
-use axum::extract::{Path, Request, State};
-use axum::http::header::{CONTENT_TYPE, ETAG, IF_MATCH};
+use axum::http::header::{ETAG, IF_MATCH};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use learning_data_access::{
-    AddAssignmentFixedItemCommand, AssignmentRecord, AssignmentRevision, AuthoritativeTimeStore,
-    CatalogStore, CourseGroupManagementStore, CourseRecordsAccessStore,
-    RemoveAssignmentFixedItemCommand, ReplaceAssignmentFixedItemCommand, SessionStore, Store,
-    StoreError, StoredAssignment,
+    AssignmentRecord, AssignmentRevision, AuthoritativeTimeStore, CatalogStore,
+    CourseGroupManagementStore, SessionStore, Store, StoredAssignment,
 };
-use question_model::{
-    AssignmentDeliveryState, AssignmentId, AssignmentItem, AssignmentItemId,
-    AssignmentScoringMode, AssignmentTeachingSettings, CourseId, PointValue,
-};
+use question_model::AssignmentTeachingSettings;
 use serde::Serialize;
 
-use super::policy::require_course_access;
 use super::projection::{error_response, store_error_response};
-use super::routing::{
-    AddAssignmentItemRequest, CourseRouteState, ReplaceAssignmentItemQuestionRequest,
-    strict_assignment_request,
-};
-use crate::auth::{auth_error_response, no_store, resolve_request_session};
-use crate::http_refusal::HttpResult;
+use super::routing::CourseRouteState;
+use crate::auth::no_store;
+use crate::http_refusal::{HttpRefusal, HttpResult};
 
 mod definition_request;
 mod learner;
@@ -35,290 +24,9 @@ pub(super) use workspace::{
 };
 
 pub(super) use learner::{
-    get_assignment_summary, get_learner_assignment, instructor_student_view_delivery,
+    assignment_landing_presentation, get_assignment_summary, get_learner_assignment,
+    instructor_student_view_delivery,
 };
-
-pub(super) async fn get_assignment<S>(
-    State(state): State<CourseRouteState<S>>,
-    headers: HeaderMap,
-    Path(assignment): Path<AssignmentId>,
-) -> Response
-where
-    S: Store
-        + AuthoritativeTimeStore
-        + CatalogStore
-        + CourseGroupManagementStore
-        + CourseRecordsAccessStore
-        + SessionStore
-        + 'static,
-{
-    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
-        Ok(authenticated) => authenticated,
-        Err(error) => return auth_error_response(error),
-    };
-    let assignment = match state
-        .store
-        .get_assignment_for_edit(authenticated.tenant_context, assignment)
-        .await
-    {
-        Ok(Some(assignment)) => assignment,
-        Ok(None) => return error_response(StatusCode::NOT_FOUND, "assignment not found"),
-        Err(error) => return store_error_response(error),
-    };
-    if let Err(response) = require_course_access(
-        state.store.as_ref(),
-        &authenticated,
-        assignment.record.course_id,
-        true,
-    )
-    .await
-    {
-        return response.into_response();
-    }
-    assignment_response(&state, &authenticated, StatusCode::OK, assignment).await
-}
-
-pub(super) async fn add_assignment_item<S>(
-    State(state): State<CourseRouteState<S>>,
-    headers: HeaderMap,
-    Path((course, assignment)): Path<(CourseId, AssignmentId)>,
-    Json(value): Json<serde_json::Value>,
-) -> Response
-where
-    S: Store
-        + AuthoritativeTimeStore
-        + CatalogStore
-        + CourseGroupManagementStore
-        + CourseRecordsAccessStore
-        + SessionStore
-        + 'static,
-{
-    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
-        Ok(authenticated) => authenticated,
-        Err(error) => return auth_error_response(error),
-    };
-    if let Err(response) =
-        require_course_access(state.store.as_ref(), &authenticated, course, true).await
-    {
-        return response.into_response();
-    }
-    let expected_revision = match required_assignment_revision(&headers) {
-        Ok(value) => value,
-        Err(AssignmentRevisionHeaderError::Missing) => {
-            return error_response(
-                StatusCode::PRECONDITION_REQUIRED,
-                "If-Match assignment revision is required",
-            );
-        }
-        Err(AssignmentRevisionHeaderError::Malformed) => {
-            return error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "If-Match assignment revision is invalid",
-            );
-        }
-    };
-    let request = match strict_assignment_request::<AddAssignmentItemRequest>(value) {
-        Ok(value) => value,
-        Err(()) => {
-            return error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "assignment item request is invalid",
-            );
-        }
-    };
-    let references = match definition_request::resolve_assignable_question_ids(
-        &state,
-        authenticated.tenant_context,
-        &[request.question_id],
-    )
-    .await
-    {
-        Ok(value) => value,
-        Err(response) => return response.into_response(),
-    };
-    let item = AssignmentItem {
-        id: AssignmentItemId::generate(),
-        reference: references[0],
-        position: request.position,
-        points_possible: PointValue::from_whole(1),
-        delivery_state: AssignmentDeliveryState::Active,
-        scoring_mode: AssignmentScoringMode::Normal,
-    };
-    match state
-        .store
-        .add_assignment_fixed_item(
-            authenticated.tenant_context,
-            AddAssignmentFixedItemCommand {
-                actor: authenticated.record.subject.user(),
-                course,
-                assignment,
-                expected_revision,
-                item,
-            },
-        )
-        .await
-    {
-        Ok(assignment) => {
-            assignment_response(&state, &authenticated, StatusCode::OK, assignment).await
-        }
-        Err(StoreError::Conflict) => {
-            error_response(StatusCode::CONFLICT, "assignment changed; reload it")
-        }
-        Err(error) => store_error_response(error),
-    }
-}
-
-pub(super) async fn remove_assignment_item<S>(
-    State(state): State<CourseRouteState<S>>,
-    headers: HeaderMap,
-    Path((course, assignment, item)): Path<(CourseId, AssignmentId, AssignmentItemId)>,
-    body: Bytes,
-) -> Response
-where
-    S: Store
-        + AuthoritativeTimeStore
-        + CatalogStore
-        + CourseGroupManagementStore
-        + CourseRecordsAccessStore
-        + SessionStore
-        + 'static,
-{
-    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
-        Ok(authenticated) => authenticated,
-        Err(error) => return auth_error_response(error),
-    };
-    if let Err(response) =
-        require_course_access(state.store.as_ref(), &authenticated, course, true).await
-    {
-        return response.into_response();
-    }
-    if !body.is_empty() {
-        return error_response(
-            StatusCode::BAD_REQUEST,
-            "assignment item removal does not accept a request body",
-        );
-    }
-    let expected_revision = match required_assignment_revision(&headers) {
-        Ok(value) => value,
-        Err(AssignmentRevisionHeaderError::Missing) => {
-            return error_response(
-                StatusCode::PRECONDITION_REQUIRED,
-                "If-Match assignment revision is required",
-            );
-        }
-        Err(AssignmentRevisionHeaderError::Malformed) => {
-            return error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "If-Match assignment revision is invalid",
-            );
-        }
-    };
-    match state
-        .store
-        .remove_assignment_fixed_item(
-            authenticated.tenant_context,
-            RemoveAssignmentFixedItemCommand {
-                actor: authenticated.record.subject.user(),
-                course,
-                assignment,
-                item,
-                expected_revision,
-            },
-        )
-        .await
-    {
-        Ok(assignment) => {
-            assignment_response(&state, &authenticated, StatusCode::OK, assignment).await
-        }
-        Err(StoreError::Conflict) => {
-            error_response(StatusCode::CONFLICT, "assignment changed; reload it")
-        }
-        Err(error) => store_error_response(error),
-    }
-}
-
-pub(super) async fn replace_assignment_item_question<S>(
-    State(state): State<CourseRouteState<S>>,
-    headers: HeaderMap,
-    Path((course, assignment, item)): Path<(CourseId, AssignmentId, AssignmentItemId)>,
-    Json(value): Json<serde_json::Value>,
-) -> Response
-where
-    S: Store
-        + AuthoritativeTimeStore
-        + CatalogStore
-        + CourseGroupManagementStore
-        + CourseRecordsAccessStore
-        + SessionStore
-        + 'static,
-{
-    let authenticated = match resolve_request_session(state.store.as_ref(), &headers).await {
-        Ok(authenticated) => authenticated,
-        Err(error) => return auth_error_response(error),
-    };
-    if let Err(response) =
-        require_course_access(state.store.as_ref(), &authenticated, course, true).await
-    {
-        return response.into_response();
-    }
-    let expected_revision = match required_assignment_revision(&headers) {
-        Ok(value) => value,
-        Err(AssignmentRevisionHeaderError::Missing) => {
-            return error_response(
-                StatusCode::PRECONDITION_REQUIRED,
-                "If-Match assignment revision is required",
-            );
-        }
-        Err(AssignmentRevisionHeaderError::Malformed) => {
-            return error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "If-Match assignment revision is invalid",
-            );
-        }
-    };
-    let request = match strict_assignment_request::<ReplaceAssignmentItemQuestionRequest>(value) {
-        Ok(value) => value,
-        Err(()) => {
-            return error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "assignment item request is invalid",
-            );
-        }
-    };
-    let references = match definition_request::resolve_assignable_question_ids(
-        &state,
-        authenticated.tenant_context,
-        &[request.question_id],
-    )
-    .await
-    {
-        Ok(value) => value,
-        Err(response) => return response.into_response(),
-    };
-    match state
-        .store
-        .replace_assignment_fixed_item(
-            authenticated.tenant_context,
-            ReplaceAssignmentFixedItemCommand {
-                actor: authenticated.record.subject.user(),
-                course,
-                assignment,
-                current_item: item,
-                expected_revision,
-                replacement: references[0],
-            },
-        )
-        .await
-    {
-        Ok(assignment) => {
-            assignment_response(&state, &authenticated, StatusCode::OK, assignment).await
-        }
-        Err(StoreError::Conflict) => {
-            error_response(StatusCode::CONFLICT, "assignment changed; reload it")
-        }
-        Err(error) => store_error_response(error),
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum AssignmentRevisionHeaderError {
@@ -419,7 +127,7 @@ where
     let audience =
         match assignment_audience_response(state, authenticated, &assignment.record).await {
             Ok(audience) => audience,
-            Err(response) => return response,
+            Err(response) => return response.into_response(),
         };
     let mut response = (
         status,
@@ -450,7 +158,7 @@ async fn assignment_audience_response<S>(
     state: &CourseRouteState<S>,
     authenticated: &crate::auth::AuthenticatedSession,
     assignment: &AssignmentRecord,
-) -> Result<question_model::AssignmentAudienceRequest, Response>
+) -> HttpResult<question_model::AssignmentAudienceRequest>
 where
     S: CourseGroupManagementStore + 'static,
 {
@@ -473,12 +181,12 @@ where
                 {
                     Ok(Some(group)) => references.push(group.reference),
                     Ok(None) => {
-                        return Err(error_response(
+                        return Err(HttpRefusal::from(error_response(
                             StatusCode::SERVICE_UNAVAILABLE,
                             "assignment audience group is unavailable",
-                        ));
+                        )));
                     }
-                    Err(error) => return Err(store_error_response(error)),
+                    Err(error) => return Err(HttpRefusal::from(store_error_response(error))),
                 }
             }
             // Stored audience identities are canonicalized by opaque internal

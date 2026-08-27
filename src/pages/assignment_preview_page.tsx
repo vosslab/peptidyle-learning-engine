@@ -267,7 +267,10 @@ export function AssignmentPreviewPage(): JSX.Element {
           setState("unavailable");
           return;
         }
-        const editor = await runtime.client.getAssignmentEditor(resolved.assignmentId);
+        const editor = await runtime.client.getAssignmentWorkspace(
+          selectedCourse.id,
+          resolved.assignmentId,
+        );
         if (editor.courseId !== selectedCourse.id || editor.id !== resolved.assignmentId) {
           setState("unavailable");
           return;
@@ -415,9 +418,9 @@ export function AssignmentPreviewPage(): JSX.Element {
       <Show when={course() && assignment()}>
         <A
           class="quiet-link"
-          href={`/instructor/courses/${course()!.reference}/assignments/${assignment()!}/edit`}
+          href={`/instructor/courses/${course()!.reference}/assignments/${assignment()!}/policies`}
         >
-          Return to assignment settings
+          Return to assignment policies
         </A>
       </Show>
       <p role="status" class="preview-status">

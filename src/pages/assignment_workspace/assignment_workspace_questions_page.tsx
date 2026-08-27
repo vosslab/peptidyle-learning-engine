@@ -25,10 +25,10 @@ import {
 import { AssignmentEditorProblemPicker } from "../assignment_editor_problem_picker";
 import { createAssignmentEditorPickerController } from "../assignment_editor_picker_controller";
 import { createAssignmentEditorReuseController } from "../assignment_editor_reuse_controller";
-import { AssignmentConflictError, ApiRequestError } from "../../api/http_client";
+import { resolveAssignmentContentSaveFailure } from "../../api/http_client";
 import type { PoolDrawPreview } from "../../api/contracts";
 
-import { assignmentWorkspacePath } from "./assignment_workspace_nav";
+import { assignmentWorkspaceCreatePath, assignmentWorkspacePath } from "./assignment_workspace_nav";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
 
 function previewRevision(revision: string): TeachingOperationRevision {
@@ -37,13 +37,6 @@ function previewRevision(revision: string): TeachingOperationRevision {
   if (value === undefined || BigInt(value) > 9_223_372_036_854_775_807n)
     throw new Error("Save the assignment before requesting a pool sample.");
   return value;
-}
-
-function revisionConflict(error: unknown): boolean {
-  return (
-    (error instanceof AssignmentConflictError && error.status === 412) ||
-    (error instanceof ApiRequestError && error.status === 412)
-  );
 }
 
 /** Keeps Questions edits local until the Instructor explicitly saves the complete ordered definition. */
@@ -60,6 +53,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   const [targetItemId, setTargetItemId] = createSignal<string>();
   const [poolPreview, setPoolPreview] = createSignal<PoolDrawPreview>();
   const [needsReload, setNeedsReload] = createSignal(false);
+  const [issuedWorkRecovery, setIssuedWorkRecovery] = createSignal(false);
   let questionIdInput: HTMLInputElement | undefined;
 
   const catalogController = createAssignmentEditorCatalogController(workspace.repository);
@@ -170,10 +164,8 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
           : `${row.questionId} is ready to replace the selected question.`,
       );
       setDirectMessage("");
-    } catch (error: unknown) {
-      setDirectMessage(
-        error instanceof Error ? error.message : "That Question ID could not be found.",
-      );
+    } catch (_error: unknown) {
+      setDirectMessage("That Question ID could not be found. Check it and try again.");
     }
   }
 
@@ -207,18 +199,20 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       );
       setDirectQuestionId("");
       setDirectMessage("");
-    } catch (error: unknown) {
-      setDirectMessage(
-        error instanceof Error
-          ? `${error.message} Your Question IDs are still here.`
-          : "A Question ID could not be found. Your Question IDs are still here.",
-      );
+    } catch (_error: unknown) {
+      setDirectMessage("A Question ID could not be found. Your Question IDs are still here.");
     }
   }
 
   async function saveQuestions(): Promise<boolean> {
     const current = draft();
     if (busy()) return false;
+    if (issuedWorkRecovery()) {
+      setMessage(
+        "Create a new assignment to use these structural question changes. This assignment's issued learner work remains unchanged.",
+      );
+      return false;
+    }
     if (needsReload()) {
       setMessage(
         "Reload the latest assignment before saving. Your entered title and question changes remain here until you choose Reload latest assignment.",
@@ -250,17 +244,15 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       setMessage("Questions and order saved. Review assignment policies when you are ready.");
       return true;
     } catch (error: unknown) {
-      if (revisionConflict(error)) {
+      const failure = resolveAssignmentContentSaveFailure(error);
+      if (failure.kind === "staleRevision") {
         setNeedsReload(true);
-        setMessage(
-          "This assignment changed before your questions could be saved. Your entered title and question changes are still here.",
-        );
+        setMessage(failure.message);
+      } else if (failure.kind === "issuedLearnerWork") {
+        setIssuedWorkRecovery(true);
+        setMessage(failure.message);
       } else {
-        setMessage(
-          error instanceof Error
-            ? `${error.message} Your entered title and question changes are still here.`
-            : "Questions could not be saved. Your entered title and question changes are still here.",
-        );
+        setMessage(failure.message);
       }
       return false;
     } finally {
@@ -275,13 +267,14 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       setDraft(assignmentEditorDraftFrom(latest));
       setPoolPreview(undefined);
       setNeedsReload(false);
+      setIssuedWorkRecovery(false);
       setValidationMessage("");
       setMessage(
         "Latest assignment loaded; your local title and question changes were replaced. Review the current questions and order before saving.",
       );
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       setMessage(
-        error instanceof Error ? error.message : "The latest assignment could not be loaded.",
+        "The latest assignment could not be loaded. Your local question changes remain here.",
       );
     } finally {
       setBusy(false);
@@ -307,12 +300,8 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       );
       setPoolPreview(preview);
       setMessage(`${preview.groupLabel} server sample is ready. It does not create learner work.`);
-    } catch (error: unknown) {
-      setMessage(
-        error instanceof Error
-          ? `${error.message} The saved questions remain available.`
-          : "The pool sample could not be generated. The saved questions remain available.",
-      );
+    } catch (_error: unknown) {
+      setMessage("The pool sample could not be generated. The saved questions remain available.");
     } finally {
       setBusy(false);
     }
@@ -327,19 +316,13 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     setBusy,
     onDraftChange: (next) =>
       update(next, "Selected questions added. Save questions and order when ready."),
-    onSaved: (saved) => {
-      workspace.replaceAssignment(saved);
-      setDraft(assignmentEditorDraftFrom(saved));
-    },
     onReplacementPrepared: (row, itemId) => {
       catalogController.setSelected(row);
       setTargetItemId(itemId);
       setMessage(`${row.questionId} is ready to replace the selected question.`);
     },
     onMessage: setMessage,
-    onError: (error, fallback) => {
-      setMessage(error instanceof Error ? `${error.message} ${fallback}` : fallback);
-    },
+    onError: (_error, fallback) => setMessage(fallback),
   });
 
   onMount(() => {
@@ -377,6 +360,19 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
           </button>
         </section>
       </Show>
+      <Show when={issuedWorkRecovery()}>
+        <section class="inline-error" role="alert">
+          <p>
+            Learner work has already been issued for this assignment. Your local question changes
+            remain here, and the issued learner work remains unchanged.
+          </p>
+          <p>
+            <A class="primary-link" href={assignmentWorkspaceCreatePath(workspace.courseReference)}>
+              Create a new assignment
+            </A>
+          </p>
+        </section>
+      </Show>
       <Show when={validationMessage()}>
         {(value) => (
           <section class="inline-error" role="alert">
@@ -389,7 +385,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
           <button
             class="primary-action"
             type="button"
-            disabled={busy() || needsReload()}
+            disabled={busy() || needsReload() || issuedWorkRecovery()}
             onClick={() => void saveQuestions()}
           >
             Save questions and order

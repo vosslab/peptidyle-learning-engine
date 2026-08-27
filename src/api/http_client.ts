@@ -21,9 +21,9 @@ export {
   ApiProtocolError,
   ApiRequestError,
   AssignmentConflictError,
+  AssignmentIssuedWorkError,
+  AssignmentPoliciesValidationError,
   PreviewPlaneConflictError,
-  AssignmentValidationError,
-  AssignmentTeachingSettingsValidationError,
   CourseAppearanceConflictError,
   CourseAppearanceFileError,
   CourseGradeSchemeConflictError,
@@ -32,8 +32,10 @@ export {
   CourseTermValidationError,
   PublicationValidationError,
   WorkspaceConflictError,
+  resolveAssignmentContentSaveFailure,
 } from "./http_client/error";
 export type { ApiFetch, HttpApiClientConfig } from "./http_client/request";
+export type { AssignmentContentSaveFailure } from "./http_client/error";
 export { browserFetch };
 
 /** Creates the strict same-origin transport from independently owned capabilities. */

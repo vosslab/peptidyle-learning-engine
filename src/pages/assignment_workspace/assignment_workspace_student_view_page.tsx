@@ -18,6 +18,7 @@ function StudentViewFailure(props: {
   readonly kind: "unavailable" | "error";
   readonly returnPath: string;
   readonly retry: () => void;
+  readonly registerRetryButton: (element: HTMLButtonElement) => void;
 }): JSX.Element {
   const unavailable = props.kind === "unavailable";
   return (
@@ -41,7 +42,12 @@ function StudentViewFailure(props: {
           ? "The answer-free learner landing is not available for this assignment."
           : "The answer-free learner landing could not load. Try again without leaving this workspace."}
       </p>
-      <button class="quiet-action" type="button" onClick={props.retry}>
+      <button
+        class="quiet-action"
+        type="button"
+        onClick={props.retry}
+        ref={props.registerRetryButton}
+      >
         Retry Student view
       </button>
     </section>
@@ -55,6 +61,11 @@ export function AssignmentWorkspaceStudentViewPage(): JSX.Element {
     workspace.courseReference,
     workspace.assignmentReference,
   );
+  let retryButton: HTMLButtonElement | undefined;
+
+  function registerRetryButton(element: HTMLButtonElement): void {
+    retryButton = element;
+  }
 
   async function load(): Promise<void> {
     setState({ kind: "loading" });
@@ -69,6 +80,7 @@ export function AssignmentWorkspaceStudentViewPage(): JSX.Element {
       });
     } catch (error: unknown) {
       setState({ kind: studentViewFailureState(error) });
+      requestAnimationFrame(() => retryButton?.focus());
     }
   }
 
@@ -112,6 +124,7 @@ export function AssignmentWorkspaceStudentViewPage(): JSX.Element {
             kind={state().kind === "unavailable" ? "unavailable" : "error"}
             returnPath={returnPath}
             retry={() => void load()}
+            registerRetryButton={registerRetryButton}
           />
         </Show>
       }

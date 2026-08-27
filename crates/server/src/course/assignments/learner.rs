@@ -36,6 +36,37 @@ pub(in crate::course) fn instructor_student_view_delivery(
     }
 }
 
+/// Builds the one answer-free assignment landing presentation shared by an
+/// ordinary learner detail and the Instructor's stable-identity Student view.
+/// It receives only persisted assignment definition and course-display data;
+/// it never resolves enrollment, entitlement, runs, attempts, or answers.
+pub(in crate::course) fn assignment_landing_presentation(
+    record: &learning_data_access::AssignmentRecord,
+    time_zone: question_model::IanaTimeZone,
+) -> question_model::AssignmentLandingPresentation {
+    let fixed = record
+        .items
+        .iter()
+        .filter(|item| item.delivery_state == question_model::AssignmentDeliveryState::Active)
+        .count();
+    let selected = record
+        .selection_groups
+        .iter()
+        .map(|group| usize::try_from(group.draw_count).expect("draw count fits usize"))
+        .sum::<usize>();
+    let questions_per_run = u32::try_from(fixed + selected)
+        .expect("validated assignment count fits the browser-safe u32 projection");
+
+    question_model::AssignmentLandingPresentation {
+        title: record.title.clone(),
+        instructions: record.instructions.clone(),
+        time_zone,
+        questions_per_run,
+        variation: record.policies.variation,
+        disclosure_policy: record.disclosure_policy,
+    }
+}
+
 /// Reads the deliberately narrow assignment projection used by an authorized
 /// Student browser session.
 pub(in crate::course) async fn get_learner_assignment<S>(
@@ -243,12 +274,11 @@ where
         };
     no_store(
         Json(
-            question_model::course::LearnerAssignmentDetail::from_summary(
+            question_model::course::LearnerAssignmentDetail::from_landing(
                 assignment
                     .record
                     .summary(public_id, items, selection_groups),
-                assignment.record.instructions,
-                time_zone,
+                assignment_landing_presentation(&assignment.record, time_zone),
                 delivery,
             ),
         )

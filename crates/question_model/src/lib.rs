@@ -97,7 +97,11 @@ pub use crate::assignment::{
     ScoringStatus, SelectionOrdering, derive_instructor_assignment_current_state,
 };
 pub use crate::assignment_workspace::{
-    AssignmentAudienceRequest, AssignmentEntryRequest, AssignmentPublicationBlockingIssue,
+    AssignmentAudienceRequest, AssignmentAudienceValidationReason,
+    AssignmentContentIssuedWorkConflict, AssignmentContentIssuedWorkConflictKind,
+    AssignmentEntryRequest, AssignmentPoliciesValidationFailure,
+    AssignmentPoliciesValidationFailureCode, AssignmentPoliciesValidationIssue,
+    AssignmentPolicyConfigurationReason, AssignmentPublicationBlockingIssue,
     AssignmentPublicationReadiness, CreateAssignmentDraftRequest, InstructorStudentView,
     InstructorStudentViewDelivery, ReplaceAssignmentContentRequest,
     ReplaceAssignmentPoliciesRequest,
@@ -122,10 +126,10 @@ pub use crate::catalog::{
 };
 pub use crate::catalog_facets::CatalogSearchFilter;
 pub use crate::course::{
-    AssignmentItemSummary, AssignmentSelectionCandidateSummary, AssignmentSelectionGroupSummary,
-    AssignmentSummary, CourseMembershipRole, CourseSummary, GradebookSummaryRow,
-    LearnerAssignmentDelivery, LearnerAssignmentDetail, LearnerAssignmentSummary,
-    LearnerLateStatus,
+    AssignmentItemSummary, AssignmentLandingPresentation, AssignmentSelectionCandidateSummary,
+    AssignmentSelectionGroupSummary, AssignmentSummary, CourseMembershipRole, CourseSummary,
+    GradebookSummaryRow, LearnerAssignmentDelivery, LearnerAssignmentDetail,
+    LearnerAssignmentSummary, LearnerLateStatus,
 };
 pub use crate::course_appearance::{
     CourseAppearance, CourseAppearanceRevision, CourseAppearanceUpdate, CourseBannerAltText,

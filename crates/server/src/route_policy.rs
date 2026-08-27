@@ -164,17 +164,14 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
     mutation("/api/courses", "POST"),
     read("/api/courses/{course}"),
     read("/api/courses/{course}/assignments"),
-    mutation("/api/courses/{course}/assignments", "POST"),
     mutation("/api/courses/{course}/assignments/drafts", "POST"),
     read("/api/courses/{course}/gradebook"),
     read("/api/courses/{course}/grade-scheme"),
     mutation("/api/courses/{course}/grade-scheme", "PUT"),
     read("/api/courses/{course}/gradebook-totals"),
     mutation("/api/courses/{course}/grade-export.csv", "POST"),
-    read("/api/assignments/{assignment}"),
     read("/api/assignments/{assignment}/learner"),
     read("/api/assignments/{assignment}/summary"),
-    mutation("/api/courses/{course}/assignments/{assignment}", "PUT"),
     read("/api/courses/{course}/assignments/{assignment}"),
     mutation(
         "/api/courses/{course}/assignments/{assignment}/content",
@@ -185,22 +182,6 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
         "PUT",
     ),
     read("/api/courses/{course}/assignments/{assignment}/student-view"),
-    mutation(
-        "/api/courses/{course}/assignments/{assignment}/teaching-settings",
-        "PUT",
-    ),
-    mutation(
-        "/api/courses/{course}/assignments/{assignment}/items",
-        "POST",
-    ),
-    mutation(
-        "/api/courses/{course}/assignments/{assignment}/items/{item}",
-        "DELETE",
-    ),
-    mutation(
-        "/api/courses/{course}/assignments/{assignment}/items/{item}/question",
-        "PUT",
-    ),
     read("/api/courses/{course}/roster"),
     mutation("/api/courses/{course}/members/{member}", "DELETE"),
     mutation(
@@ -900,7 +881,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn qid_catalog_and_assignment_item_operations_reach_the_composed_policy_router() {
+    async fn assignment_workspace_and_qid_operations_reach_the_composed_policy_router() {
         let app = apply_route_method_policy(
             Router::new()
                 .route(
@@ -916,30 +897,40 @@ mod tests {
                     post(|| async { StatusCode::NO_CONTENT }),
                 )
                 .route(
-                    "/api/courses/{course}/assignments/{assignment}/items",
+                    "/api/courses/{course}/assignments",
+                    get(|| async { StatusCode::NO_CONTENT }),
+                )
+                .route(
+                    "/api/courses/{course}/assignments/drafts",
                     post(|| async { StatusCode::NO_CONTENT }),
                 )
                 .route(
-                    "/api/courses/{course}/assignments/{assignment}/items/{item}",
-                    delete(|| async { StatusCode::NO_CONTENT }),
+                    "/api/courses/{course}/assignments/{assignment}",
+                    get(|| async { StatusCode::NO_CONTENT }),
                 )
                 .route(
-                    "/api/courses/{course}/assignments/{assignment}/items/{item}/question",
+                    "/api/courses/{course}/assignments/{assignment}/content",
                     put(|| async { StatusCode::NO_CONTENT }),
                 )
                 .route(
-                    "/api/courses/{course}/assignments/{assignment}/teaching-settings",
+                    "/api/courses/{course}/assignments/{assignment}/policies",
                     put(|| async { StatusCode::NO_CONTENT }),
+                )
+                .route(
+                    "/api/courses/{course}/assignments/{assignment}/student-view",
+                    get(|| async { StatusCode::NO_CONTENT }),
                 ),
         );
         for request in [
             Request::get("/api/problems/by-id/ABC-1234/detail"),
             Request::post("/api/problems/by-id/ABC-1234/deprecate"),
             Request::post("/api/problems/by-id/ABC-1234/archive"),
-            Request::post("/api/courses/course/assignments/assignment/items"),
-            Request::delete("/api/courses/course/assignments/assignment/items/item"),
-            Request::put("/api/courses/course/assignments/assignment/items/item/question"),
-            Request::put("/api/courses/course/assignments/assignment/teaching-settings"),
+            Request::get("/api/courses/course/assignments"),
+            Request::post("/api/courses/course/assignments/drafts"),
+            Request::get("/api/courses/course/assignments/assignment"),
+            Request::put("/api/courses/course/assignments/assignment/content"),
+            Request::put("/api/courses/course/assignments/assignment/policies"),
+            Request::get("/api/courses/course/assignments/assignment/student-view"),
         ] {
             let response = app
                 .clone()

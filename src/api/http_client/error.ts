@@ -49,6 +49,52 @@ export class AssignmentConflictError extends ApiRequestError {
   }
 }
 
+/** A 409 content-save refusal because immutable learner work has been issued. */
+export class AssignmentIssuedWorkError extends ApiRequestError {
+  declare public readonly status: 409;
+
+  public constructor(path: string) {
+    super(409, path);
+    this.name = "AssignmentIssuedWorkError";
+  }
+}
+
+export type AssignmentContentSaveFailure =
+  | { readonly kind: "staleRevision"; readonly message: string }
+  | { readonly kind: "issuedLearnerWork"; readonly message: string }
+  | { readonly kind: "retryable"; readonly message: string };
+
+/**
+ * Maps the closed content-save transport boundary to semantic instructor copy.
+ *
+ * The returned text intentionally contains no endpoint, status, or internal
+ * identity diagnostics.  Callers retain their local draft for every outcome.
+ */
+export function resolveAssignmentContentSaveFailure(error: unknown): AssignmentContentSaveFailure {
+  if (error instanceof AssignmentIssuedWorkError) {
+    return {
+      kind: "issuedLearnerWork",
+      message:
+        "Learner work has already been issued, so this assignment's question structure remains unchanged.",
+    };
+  }
+  if (
+    (error instanceof AssignmentConflictError && error.status === 412) ||
+    (error instanceof ApiRequestError && error.status === 412)
+  ) {
+    return {
+      kind: "staleRevision",
+      message:
+        "This assignment changed before your questions could be saved. Your entered title and question changes are still here.",
+    };
+  }
+  return {
+    kind: "retryable",
+    message:
+      "Questions could not be saved. Your entered title and question changes are still here.",
+  };
+}
+
 /** A preview revision became stale; callers retain the hypothetical draft and reload it. */
 export class PreviewPlaneConflictError extends ApiRequestError {
   declare public readonly status: 412;
@@ -106,28 +152,16 @@ export class CourseAppearanceFileError extends Error {
   }
 }
 
-/** A complete, authoritative assignment capability report from a 422 response. */
-export class AssignmentValidationError extends ApiRequestError {
-  public readonly violations: ReadonlyArray<import("../contracts").AssignmentCapabilityViolation>;
-
+/** A complete browser-safe Policies correction list from the aggregate save boundary. */
+export class AssignmentPoliciesValidationError extends ApiRequestError {
   public constructor(
     path: string,
-    violations: ReadonlyArray<import("../contracts").AssignmentCapabilityViolation>,
+    public readonly issues: ReadonlyArray<
+      import("../../../generated/api/AssignmentPoliciesValidationIssue").AssignmentPoliciesValidationIssue
+    >,
   ) {
     super(422, path);
-    this.name = "AssignmentValidationError";
-    this.violations = violations;
-  }
-}
-
-/** A bounded server correction tied to exactly one teaching-settings control. */
-export class AssignmentTeachingSettingsValidationError extends ApiRequestError {
-  public constructor(
-    path: string,
-    public readonly failure: import("../../../generated/api/AssignmentTeachingSettingsValidationFailure").AssignmentTeachingSettingsValidationFailure,
-  ) {
-    super(422, path);
-    this.name = "AssignmentTeachingSettingsValidationError";
+    this.name = "AssignmentPoliciesValidationError";
   }
 }
 

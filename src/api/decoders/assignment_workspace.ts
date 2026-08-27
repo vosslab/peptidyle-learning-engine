@@ -1,0 +1,199 @@
+// Strict browser decoder for the Instructor assignment workspace projection.
+
+import type { AssignmentAudienceRequest } from "../../../generated/api/AssignmentAudienceRequest";
+import type { AssignmentContentIssuedWorkConflict } from "../../../generated/api/AssignmentContentIssuedWorkConflict";
+import type { AssignmentPublicationReadiness } from "../../../generated/api/AssignmentPublicationReadiness";
+import type { CourseGroupReference } from "../../../generated/api/CourseGroupReference";
+import { parseCourseGroupReference } from "../../navigation/public_route";
+import type { AssignmentCapabilityViolation, AssignmentEditorDetail } from "../contracts";
+import { DecodeError, decodeArray, decodeRecord, decodeString, decodeStringEnum } from "../decoder";
+import {
+  decodeInstructorAssignmentCurrentState,
+  decodeInstructorAssignmentTeachingSettingsLocal,
+} from "./assignment_teaching_delivery";
+import { decodeAssignmentSummary } from "./catalog_course";
+import {
+  decodeCapability,
+  decodeEnvelopeTitle,
+  decodeQuestionId,
+  field,
+  requireOnlyFields,
+} from "./shared";
+
+/**
+ * Decodes the assignment editor's deliberately narrow, revisioned projection.
+ * It never carries question source material or other server-only policy.
+ */
+export function decodeAssignmentEditorDetail(
+  value: unknown,
+  path = "response",
+): Omit<AssignmentEditorDetail, "revision"> {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "id",
+    "reference",
+    "tenant",
+    "courseId",
+    "title",
+    "items",
+    "selectionGroups",
+    "disclosurePolicy",
+    "policies",
+    "teachingSettings",
+    "currentState",
+    "publicationReadiness",
+    "audience",
+  ]);
+  const summary = decodeAssignmentSummary(record, path, false);
+  const teachingSettings = decodeInstructorAssignmentTeachingSettingsLocal(
+    field(record, "teachingSettings", path),
+    `${path}.teachingSettings`,
+  );
+  const currentState = decodeInstructorAssignmentCurrentState(
+    field(record, "currentState", path),
+    `${path}.currentState`,
+  );
+  const publicationReadiness = decodeAssignmentPublicationReadiness(
+    field(record, "publicationReadiness", path),
+    `${path}.publicationReadiness`,
+  );
+  const audience = decodeAssignmentAudienceRequest(
+    field(record, "audience", path),
+    `${path}.audience`,
+  );
+  assertCurrentStateMatchesLifecycle(teachingSettings.lifecycle, currentState, path);
+  const decoded = {
+    id: summary.id,
+    reference: summary.reference,
+    tenant: summary.tenant,
+    courseId: summary.courseId,
+    title: summary.title,
+    items: summary.items,
+    selectionGroups: summary.selectionGroups,
+    disclosurePolicy: summary.disclosurePolicy,
+    policies: summary.policies,
+    teachingSettings,
+    currentState,
+    publicationReadiness,
+    audience,
+  } satisfies Omit<AssignmentEditorDetail, "revision">;
+  return decoded;
+}
+
+/** Decodes the exact 409 body that says issued learner work blocks content save. */
+export function decodeAssignmentContentIssuedWorkConflict(
+  value: unknown,
+  path = "response",
+): AssignmentContentIssuedWorkConflict {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["kind"]);
+  const decoded = {
+    kind: decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
+      "issuedLearnerWork",
+    ] as const),
+  } satisfies AssignmentContentIssuedWorkConflict;
+  return decoded;
+}
+
+function assertCurrentStateMatchesLifecycle(
+  lifecycle: AssignmentEditorDetail["teachingSettings"]["lifecycle"],
+  currentState: AssignmentEditorDetail["currentState"],
+  path: string,
+): void {
+  const currentMatchesIntent =
+    (lifecycle === "draft" && currentState.state === "draft") ||
+    (lifecycle === "archived" && currentState.state === "archived") ||
+    (lifecycle === "closed" && currentState.state === "closed" && currentState.closedAt === null) ||
+    (lifecycle === "published" &&
+      (currentState.state === "scheduled" ||
+        currentState.state === "open" ||
+        (currentState.state === "closed" && currentState.closedAt !== null)));
+  if (!currentMatchesIntent) {
+    throw new DecodeError(
+      `${path}.currentState`,
+      "a server-derived state consistent with the stored lifecycle intent",
+    );
+  }
+}
+
+function decodeAssignmentAudienceRequest(value: unknown, path: string): AssignmentAudienceRequest {
+  const record = decodeRecord(value, path);
+  const kind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
+    "courseWide",
+    "anyOfGroups",
+  ] as const);
+  if (kind === "courseWide") {
+    requireOnlyFields(record, path, ["kind"]);
+    return { kind };
+  }
+  requireOnlyFields(record, path, ["kind", "groups"]);
+  return {
+    kind,
+    groups: decodeArray(
+      field(record, "groups", path),
+      `${path}.groups`,
+      decodeCourseGroupReference,
+    ),
+  };
+}
+
+function decodeCourseGroupReference(value: unknown, path: string): CourseGroupReference {
+  const reference = decodeString(value, path);
+  const parsed = parseCourseGroupReference(reference);
+  if (parsed === null) throw new DecodeError(path, "a public course-group reference");
+  return parsed;
+}
+
+function decodeAssignmentPublicationReadiness(
+  value: unknown,
+  path: string,
+): AssignmentPublicationReadiness {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["blockingIssues"]);
+  return {
+    blockingIssues: decodeArray(
+      field(record, "blockingIssues", path),
+      `${path}.blockingIssues`,
+      (issue, issuePath) => {
+        const issueRecord = decodeRecord(issue, issuePath);
+        requireOnlyFields(issueRecord, issuePath, ["kind"]);
+        return {
+          kind: decodeStringEnum(field(issueRecord, "kind", issuePath), `${issuePath}.kind`, [
+            "questionsRequired",
+          ] as const),
+        };
+      },
+    ),
+  } satisfies AssignmentPublicationReadiness;
+}
+
+export function decodeAssignmentCapabilityViolations(
+  value: unknown,
+  path = "response",
+): ReadonlyArray<AssignmentCapabilityViolation> {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["error", "violations"]);
+  if (field(record, "error", path) !== "assignment configuration is not supported") {
+    throw new DecodeError(`${path}.error`, "the assignment capability validation failure marker");
+  }
+  return decodeArray(
+    field(record, "violations", path),
+    `${path}.violations`,
+    (entry, entryPath) => {
+      const violation = decodeRecord(entry, entryPath);
+      requireOnlyFields(violation, entryPath, ["title", "questionId", "capability"]);
+      const decoded = {
+        title: decodeEnvelopeTitle(field(violation, "title", entryPath), `${entryPath}.title`),
+        questionId: decodeQuestionId(
+          field(violation, "questionId", entryPath),
+          `${entryPath}.questionId`,
+        ),
+        capability: decodeCapability(
+          field(violation, "capability", entryPath),
+          `${entryPath}.capability`,
+        ),
+      } satisfies AssignmentCapabilityViolation;
+      return decoded;
+    },
+  );
+}

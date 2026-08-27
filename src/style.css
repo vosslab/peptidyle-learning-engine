@@ -277,7 +277,6 @@ nav a.active::after {
 }
 
 .page:is(
-  [data-route-surface="assignmentEditor"],
   [data-route-surface="assignmentWorkspace"],
   [data-route-surface="workspaceEditor"],
   [data-route-surface="flatQuestionEditor"],

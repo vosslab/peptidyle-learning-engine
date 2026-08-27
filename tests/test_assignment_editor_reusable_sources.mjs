@@ -41,7 +41,7 @@ test("assignment picker composes cursor-complete personal Blueprint and Alpha de
         ? cursorPage([{ id: "AS-1", title: "Earlier assignment" }], "assignment-next")
         : cursorPage([{ id: "AS-2", title: "Later assignment" }], null);
     },
-    getAssignmentEditor: async (id) => ({
+    getAssignmentWorkspace: async (_course, id) => ({
       id,
       title: `Assignment ${id}`,
       items: [],

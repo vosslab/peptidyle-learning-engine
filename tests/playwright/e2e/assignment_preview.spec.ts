@@ -89,10 +89,15 @@ async function createAssignment(page: Page, assignmentTitle: string): Promise<vo
   await expect(picker).toHaveCount(0);
   await expect(page.locator(".assignment-editor-list")).toContainText(seededQuestionTitle);
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Questions and order saved." })).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Questions and order saved." }),
+  ).toBeVisible();
 }
 
-async function enterAssignmentWorkspaceFromList(page: Page, assignmentTitle: string): Promise<void> {
+async function enterAssignmentWorkspaceFromList(
+  page: Page,
+  assignmentTitle: string,
+): Promise<void> {
   await page.getByRole("link", { name: "Assignments", exact: true }).click();
   const card = assignmentCard(page, assignmentTitle);
   await expect(card).toHaveCount(1);
@@ -113,7 +118,9 @@ async function publishScheduledAssignment(page: Page): Promise<void> {
   await page.getByLabel("Attempt limit").fill("2");
   await page.getByLabel("Late work").selectOption("markLate");
   await page.getByRole("button", { name: "Save assignment policies" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Assignment policies saved." })).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
+  ).toBeVisible();
 }
 
 async function openDeliveryCheckFromEditor(page: Page): Promise<string> {
@@ -340,7 +347,6 @@ test.describe("assignment delivery preview on the production PLE stack", () => {
         await selectVisibleCourse(local, BIOCHEMISTRY_COURSE_TITLE);
         await createAccommodationGroup(local, groupTitle);
         await createAssignment(local, assignmentTitle);
-        await enterAssignmentWorkspaceFromList(local, assignmentTitle);
         await publishScheduledAssignment(local);
         previewUrl = await openDeliveryCheckFromEditor(local);
       });

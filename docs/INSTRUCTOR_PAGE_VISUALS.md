@@ -2,8 +2,9 @@
 
 This gallery is the visual map of PLE's instructor interface. It is captured from a working demo
 environment with one coherent set of sample courses, questions, roster records, and grades. The
-complete Instructor and Sysadmin page map uses only the canonical 1280 by 800 CSS-pixel, 16:10
-desktop baseline. Student evidence has a separate maintained profile policy.
+complete Instructor and Sysadmin page map uses desktop evidence at 1280 by 800 CSS pixels or
+larger in the 16:10 profile. Student profiles remain variable and use the maintained profiles
+declared by the current screenshot corpus.
 
 All people and records are fictional. Elena Rivera, Mary Okafor, Morgan, and the other seeded
 personas are deterministic documentation identities, not real Roosevelt participants.
@@ -14,28 +15,37 @@ writes an image.
 
 ## Page map
 
-| Page                   | Example route                                  | What the view establishes                                                                                                                                                |
-| ---------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Courses                | `/`                                            | Instructor home, course creation, and recognizable course list                                                                                                           |
-| Course assignments     | `/courses/C-1`                                 | Course identity, local navigation, and assignment scanning                                                                                                               |
-| Assignment overview    | `/courses/C-1/assignments/A-1`                 | Question count, grade policy, feedback, and practice entry                                                                                                               |
-| New assignment         | `/instructor/courses/C-1/assignments/new`      | Empty assignment authoring state and catalog entry points                                                                                                                |
-| Assignment editor      | `/instructor/courses/C-1/assignments/A-1/edit` | Four-question organization and run policies in one workspace                                                                                                             |
-| Students               | `/instructor/courses/C-1/students`             | Invitation, enrollment policy, pending invitation, and roster context                                                                                                    |
-| Gradebook              | `/instructor/courses/C-1/gradebook`            | Compact learner-assignment progress without expanded raw records                                                                                                         |
-| Grade settings         | `/instructor/courses/C-1/grade-settings`       | Weighted categories, assignment membership, letter bands, totals, and audited export                                                                                     |
-| Course appearance      | `/instructor/courses/C-1/appearance`           | Applied course palettes, banner settings, and live theme context                                                                                                         |
-| Question library       | `/library`                                     | Full-width search, filters, Question IDs, and published results                                                                                                          |
-| Question detail        | `/library/7K3-M9QP`                            | Human-facing identity, source context, and learner-facing prompt                                                                                                         |
-| Workspace              | `/workspace`                                   | Private draft list and the currently selected draft workspace                                                                                                            |
-| Question editor        | `/workspace/W-1`                               | QTI import entry and native flat-question authoring                                                                                                                      |
-| Account                | `/account/security`                            | Optional contrast preference, passkeys, and sign-in email settings                                                                                                       |
-| Curriculum adoption    | `/instructor/courses/:courseRef/curriculum`    | Blueprint/Alpha source selection and instantiation, rollover, DST-aware term shift, import inspection, fast-forward, divergence recovery, and immutable receipt evidence |
-| Independent Alpha copy | `/curriculum/:curriculumRef`                   | Review and apply an independent Alpha proposal with retained source lineage                                                                                              |
+| Page                    | Example route                                          | What the view establishes                                                                                                                                                |
+| ----------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Courses                 | `/`                                                    | Instructor home, course creation, and recognizable course list                                                                                                           |
+| Course assignments      | `/courses/C-1`                                         | Course identity, local navigation, and assignment scanning                                                                                                               |
+| Assignment overview     | `/instructor/courses/C-1/assignments/A-1`              | Assignment-local Overview opened from the linked assignment title                                                                                                         |
+| Learner assignment page | `/courses/C-1/assignments/A-1`                         | Question count, grade policy, feedback, and practice entry                                                                                                               |
+| New assignment          | `/instructor/courses/C-1/assignments/new`              | Empty assignment authoring state and catalog entry points                                                                                                                |
+| Assignment home         | `/instructor/courses/C-1/assignments/A-1`              | Assignment status, readiness, and the next focused teaching action                                                                                                       |
+| Assignment Questions    | `/instructor/courses/C-1/assignments/A-1/questions`    | Title, ordered questions, pools, discovery, reuse, and server samples                                                                                                    |
+| Assignment Policies     | `/instructor/courses/C-1/assignments/A-1/policies`     | Learner instructions, release, delivery, lifecycle, access, and delivery-check actions                                                                                   |
+| Assignment Student view | `/instructor/courses/C-1/assignments/A-1/student-view` | Stable-identity, answer-free learner landing while the Instructor identity remains active                                                                            |
+| Students                | `/instructor/courses/C-1/students`                     | Invitation, enrollment policy, pending invitation, and roster context                                                                                                    |
+| Gradebook               | `/instructor/courses/C-1/gradebook`                    | Compact learner-assignment progress without expanded raw records                                                                                                         |
+| Grade settings          | `/instructor/courses/C-1/grade-settings`               | Weighted categories, assignment membership, letter bands, totals, and audited export                                                                                     |
+| Course appearance       | `/instructor/courses/C-1/appearance`                   | Applied course palettes, banner settings, and live theme context                                                                                                         |
+| Question library        | `/library`                                             | Full-width search, filters, Question IDs, and published results                                                                                                          |
+| Question detail         | `/library/7K3-M9QP`                                    | Human-facing identity, source context, and learner-facing prompt                                                                                                         |
+| Workspace               | `/workspace`                                           | Private draft list and the currently selected draft workspace                                                                                                            |
+| Question editor         | `/workspace/W-1`                                       | QTI import entry and native flat-question authoring                                                                                                                      |
+| Account                 | `/account/security`                                    | Optional contrast preference, passkeys, and sign-in email settings                                                                                                       |
+| Curriculum adoption     | `/instructor/courses/:courseRef/curriculum`            | Blueprint/Alpha source selection and instantiation, rollover, DST-aware term shift, import inspection, fast-forward, divergence recovery, and immutable receipt evidence |
+| Independent Alpha copy  | `/curriculum/:curriculumRef`                           | Review and apply an independent Alpha proposal with retained source lineage                                                                                              |
 
 The authentication completion pages, invitation redemption, and student run pages are outside this
 instructor-workspace gallery. The approved end-to-end teaching loop remains in
 [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md) and [STUDENT_GUIDE.md](STUDENT_GUIDE.md).
+
+Student view is an inspection of the current live assignment in the Instructor session. Ordinary demo
+Student entry creates real graded work through the visible learner path, and the Instructor sees the
+resulting score and authorized evidence in the gradebook. This gallery documents the Instructor and
+Sysadmin desktop composition; the variable Student profiles are documented by the current corpus.
 
 `tests/e2e/browser_screenshot_corpus.json` owns the committed artifact corpus.
 `tests/playwright/ui_corpus_manifest.ts` and
@@ -53,20 +63,18 @@ course theme or teaching behavior.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Instructor Courses workspace with recognizable teaching courses and a newly created protein-structure workshop](screenshots/instructor/course_authoring/01_course_created.png)
-![Protein Structure Workshop course home with course navigation and its first-assignment action](screenshots/instructor/course_authoring/02_course_assignments.png)
-![Assignment overview summarizing questions, grade policy, feedback, and practice entry](screenshots/instructor/course_authoring/08_assignment_overview.png)
-![New assignment workspace with empty content, run policies, and question catalog entry points](screenshots/instructor/course_authoring/03_assignment_create.png)
-![Assignment editor organizing a selected peptide-bond question beside Mastery run policies](screenshots/instructor/course_authoring/06_assignment_editor.png)
-![Students page with invitation, enrollment policy, pending invitation, and course roster context](screenshots/instructor/roster/01_invitation_pending.png)
-![Gradebook with Mary Okafor's compact progress row for Peptide Bonds Guided Practice](screenshots/instructor/grading/01_instructor_gradebook.png)
-![Course grade settings conflict recovery at the canonical 1280 by 800 desktop viewport](screenshots/instructor/grade_settings_conflict/02_retry_saved.png)
-![Course appearance page previewing applied theme palettes and banner settings](screenshots/instructor/course_management/02_appearance_saved.png)
-![Question library using the full workspace for filters and four published results](screenshots/instructor/content_authoring/05_library.png)
-![Published question detail with a human-facing Question ID and prompt](screenshots/instructor/content_authoring/06_question_detail.png)
-![Private workspace with three drafts and the selected learner-facing draft editor](screenshots/instructor/content_authoring/01_workspace.png)
-![Question editor with QTI import entry, question identity, prompt, and format controls](screenshots/instructor/content_authoring/02_question_editor.png)
-![Account security page with visual contrast preference and fictional passkeys](screenshots/shared/account/01_account_security_passkey.png)
+![Instructor teaching operations groups](screenshots/instructor/teaching_operations/01_teaching_operations_groups.png)
+![Instructor active roster](screenshots/instructor/course_management/01_instructor_active_roster.png)
+![Instructor gradebook with learner progress](screenshots/instructor/grading/01_instructor_gradebook.png)
+![Instructor assignment access preview](screenshots/instructor/assignment_access/01_access_preview_allowed.png)
+![Instructor grade settings conflict recovery](screenshots/instructor/grade_settings_conflict/02_retry_saved.png)
+![Instructor assignment delivery preview](screenshots/instructor/assignment_preview/01_schedule_entitlement.png)
+![Instructor item pool preview](screenshots/instructor/item_pool_delivery/01_pool_preview.png)
+![Instructor catalog discovery evidence](screenshots/instructor/catalog_discovery/01_disclosed_evidence_laptop.png)
+![Instructor problem curation workspace](screenshots/instructor/problem_curation/01_curation_workspace_laptop.png)
+![Instructor reusable curriculum workspace](screenshots/instructor/reusable_curriculum/01_reusable_curriculum_workspace_laptop.png)
+![Instructor curriculum adoption review](screenshots/instructor/curriculum_adoption/01_alpha_fork_review_laptop.png)
+![Account security with passkey and presentation preference](screenshots/shared/account/01_account_security_passkey.png)
 <!-- screenshots:end -->
 
 ## Refreshing the corpus

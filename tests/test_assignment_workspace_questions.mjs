@@ -3,11 +3,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { createMasteryAssignmentDraft } from "./support/assignment_editor_test_support.ts";
+import { assignmentContentInput } from "../src/pages/assignment_editor_model.ts";
 import {
-  assignmentContentInput,
-  createMasteryAssignmentDraft,
-} from "../src/pages/assignment_editor_model.ts";
-import { createdAssignmentQuestionsPath } from "../src/pages/assignment_workspace/assignment_workspace_create_model.ts";
+  assignmentWorkspaceCreateErrorMessage,
+  createdAssignmentQuestionsPath,
+} from "../src/pages/assignment_workspace/assignment_workspace_create_model.ts";
+import { assignmentWorkspaceCreatePath } from "../src/pages/assignment_workspace/assignment_workspace_paths.ts";
 import { parseAssignmentReference, parseCourseReference } from "../src/navigation/public_route.ts";
 
 test("Questions save owns only the title and ordered public definition", () => {
@@ -54,4 +56,14 @@ test("persisted draft creation enters the canonical Questions route", () => {
     createdAssignmentQuestionsPath(course, assignment),
     "/instructor/courses/C-8/assignments/A-15/questions",
   );
+  assert.equal(assignmentWorkspaceCreatePath(course), "/instructor/courses/C-8/assignments/new");
+});
+
+test("draft creation recovery gives one safe actionable message", () => {
+  const message = assignmentWorkspaceCreateErrorMessage();
+  assert.equal(
+    message,
+    "The assignment draft could not be created. Your title is still here. Try again.",
+  );
+  assert.equal(message.includes("/api/"), false);
 });

@@ -61,6 +61,13 @@ Preview resolves the current state of these ordinary live courses, assignments, 
 Instructors validate delivery and automated grading through the visible production workflow. Student runs,
 submissions, grades, and instructor review are ordinary PLE records created by those workflows.
 
+### Visual evidence profiles
+
+Instructor and Sysadmin evidence uses a desktop 16:10 profile at 1280 by 800 CSS pixels or larger. Student profiles
+remain variable; the maintained corpus declares laptop, portrait tablet, iPhone Pro aspect, and square profiles for
+the workflows that need them. Visual evidence supports semantic usability, accessibility, privacy, and task
+completion rather than pixel equivalence.
+
 ### WebWork catalog baseline
 
 The frozen baseline contains one reviewed WebWork catalog item, **Biochemistry: Identify hydrophobic compounds
@@ -84,9 +91,10 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
 - Create courses.
 - Create assignments.
 - Create problems.
-- Open an assignment from its linked title into one assignment-local Instructor home. Organize
-  fixed questions and pools on Questions, configure delivery rules on Policies, and inspect the
-  current answer-free learner landing through Student view while retaining the Instructor session.
+- Select an assignment title to open that assignment's Instructor Overview. Use the separate Questions page for
+  fixed questions, pools, ordering, and reuse; use the separate Policies page for delivery and lifecycle rules.
+- Open Student view for a stable-identity, answer-free inspection of the current live assignment while retaining
+  the Instructor session. Use ordinary Student entry when graded work is needed.
 - Build one ordered assignment from fixed questions and reusable question pools by using public Question IDs. Configure
   each pool's draw count and delivery order, then request fresh server-generated preview draws without creating learner
   work or changing grades.
@@ -106,6 +114,11 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
 - Preview current assignment policy, then exercise delivery and automated grading through the normal Student
   workflow.
 - Manage and review student activity and grades.
+
+The assignment workspace keeps one clear path for teaching work: the linked title opens Overview, local navigation
+connects Overview, Questions, Policies, and Student view, and each page reports its current state. Student view
+creates no learner work. Entering as the ordinary demo Student does create a real run, submission, and grade through
+the normal workflow; the Instructor can see that graded work in the gradebook after a fresh read.
 
 Instructors invite already-approved colleagues into their own teaching course. Sysadmins own global
 Instructor approval; an invitation grants only the accepted course membership.
@@ -151,7 +164,8 @@ The demo should allow a Student to use the normal student workflows, including:
 - View permitted feedback and grades.
 - Repeat assignments where allowed.
 
-Student activity in the demo is normal live PLE data.
+Student activity in the demo is normal live PLE data. Ordinary demo Student entry creates real graded work through
+the visible assignment flow, and the Instructor sees the resulting score and authorized evidence in the gradebook.
 
 ## Sysadmin perspective
 

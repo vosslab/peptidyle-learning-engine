@@ -19,12 +19,12 @@ function localTime(value: string | null): string {
 export function AssignmentWorkspaceOverviewPage(): JSX.Element {
   const workspace = useAssignmentWorkspace();
   const assignment = workspace.assignment;
-  const fixedCount = () =>
+  const fixedCount = (): number =>
     assignment().items.filter((item) => item.deliveryState === "active").length;
-  const poolCount = () => assignment().selectionGroups.length;
-  const candidateCount = () =>
+  const poolCount = (): number => assignment().selectionGroups.length;
+  const candidateCount = (): number =>
     assignment().selectionGroups.reduce((total, group) => total + group.candidates.length, 0);
-  const base = () =>
+  const base = (): string =>
     assignmentWorkspacePath(workspace.courseReference, workspace.assignmentReference);
 
   return (

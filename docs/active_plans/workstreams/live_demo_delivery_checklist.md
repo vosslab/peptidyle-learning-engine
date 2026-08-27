@@ -1,10 +1,8 @@
 # Live demo delivery checklist
 
-> **Historical and superseded browser record (2026-08-22).** This checklist preserves its dated
-> delivery evidence and acceptance claims. The checked browser-test artifact, test-double transport,
-> `tests/playwright/e2e/live_demo.spec.ts` journey, and eight-lane result are historical evidence;
-> they are not the supported browser architecture or current catalog and command contract. For
-> current browser owner, catalog, commands, and lane truth, follow the
+> **Historical lifecycle record plus current T6 evidence ledger.** This checklist preserves its dated
+> delivery evidence and records the current WP-PROF-T6 assignment-workspace evidence state. The
+> supported browser owner, catalog, commands, and lane truth are defined by the
 > [real-stack browser suite plan](../active/real_stack_browser_suite_plan.md),
 > [implementation status](../implementation_status.md), and
 > [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md).
@@ -33,6 +31,33 @@ approval belongs to the Sysadmin.
 Seeded instructors, students, courses, assignments, problems, and student activity are normal live
 data. Fresh database and object-storage regeneration restores the baseline. Retained stores
 preserve edits and new data across ordinary restarts.
+
+## WP-PROF-T6 assignment workspace
+
+The current Instructor workflow follows the assignment as a teaching object. Selecting an assignment
+title opens that assignment's Overview. Assignment-local navigation then provides separate Overview,
+Questions, Policies, and Student view pages, each with a focused task and current state.
+
+- [ ] Questions owns fixed questions, pools, ordering, reuse, and focused content saves.
+- [ ] Policies owns learner instructions, delivery, lifecycle, and focused policy saves.
+- [ ] Instructor Student view keeps the Instructor identity and course authority while rendering the
+      current assignment through the answer-free learner projection. It is a stable-identity inspection
+      surface and creates no run, attempt, submission, receipt, or grade.
+- [ ] Ordinary demo Student entry remains the graded path. It creates real learner work through the
+      visible Student workflow, and the Instructor sees the resulting score and authorized evidence in
+      the gradebook after a fresh read.
+- [ ] Instructor and Sysadmin evidence uses the desktop 16:10 profile at 1280 by 800 CSS pixels or
+      larger. Student profiles remain variable across the declared laptop, portrait-tablet, iPhone Pro,
+      and square profiles.
+- [ ] Publish and inspect the two current T6 PNG artifacts declared by
+      `tests/e2e/browser_screenshot_corpus.json`: `instructor_authoring_assignment_policies` at
+      `docs/screenshots/instructor/assignment_workspace/01_assignment_policies.png` and
+      `instructor_authoring_student_view` at
+      `docs/screenshots/instructor/assignment_workspace/02_student_view.png`.
+
+The T6 PNGs are pending publication; this checklist records the evidence gap without treating a
+declared path as a captured screenshot. Existing gallery references use only artifacts currently
+declared by the corpus and already published.
 
 The current direct-role evidence is independently runnable: `direct_role_entry` selects Morgan,
 selects Genetics, proves Sysadmin authorization, and performs generic visible passkey enrollment and
@@ -197,8 +222,10 @@ This preserves the fresh problem -> Question ID -> course -> assignment -> Stude
 account creation and email enrollment are separate scope. See the
 [course routes](../../../crates/server/src/course/routing.rs),
 [course list page](../../../src/pages/course_list_page.tsx),
-[workspace editor pages](../../../src/pages/editor_live_pages.tsx),
-[assignment editor](../../../src/pages/assignment_editor_live_page.tsx), and
+[assignment workspace](../../../src/pages/assignment_workspace/assignment_workspace_live_page.tsx),
+[Questions page](../../../src/pages/assignment_workspace/assignment_workspace_questions_page.tsx),
+[Policies page](../../../src/pages/assignment_workspace/assignment_workspace_policies_page.tsx),
+[Student-view page](../../../src/pages/assignment_workspace/assignment_workspace_student_view_page.tsx), and
 [teaching team panel](../../../src/pages/teaching_team_panel.tsx).
 
 ## Persistence and regeneration proof

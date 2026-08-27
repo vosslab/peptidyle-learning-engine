@@ -38,11 +38,6 @@ export const WorkspaceEditorPage = contractPage(
   "Draft editor",
   "the editor lane",
 );
-export const AssignmentEditorPage = contractPage(
-  "assignmentEditor",
-  "Assignment editor",
-  "the editor lane",
-);
 export function NotFoundPage(): JSX.Element {
   const params = useParams();
   return (

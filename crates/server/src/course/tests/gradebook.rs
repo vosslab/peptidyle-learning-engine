@@ -1,7 +1,7 @@
 use super::fixtures::{id, issued_cookie_for_tenant, publish_fixture};
 use super::*;
 use axum::body::{Body, to_bytes};
-use axum::http::header::{CACHE_CONTROL, CONTENT_DISPOSITION, ETAG};
+use axum::http::header::{CACHE_CONTROL, CONTENT_DISPOSITION, ETAG, IF_MATCH};
 use axum::http::{Request, StatusCode};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -50,6 +50,71 @@ async fn fixture() -> (Arc<MemoryStore>, String, TenantId, UserId, CourseId) {
     (store, cookie, tenant, instructor, course)
 }
 
+async fn create_assignment(
+    app: &axum::Router,
+    cookie: &str,
+    course: CourseId,
+    question_id: &question_model::QuestionId,
+    title: &str,
+) -> axum::response::Response {
+    let draft = app
+        .clone()
+        .oneshot(
+            Request::post(format!("/api/courses/{course}/assignments/drafts"))
+                .header("cookie", cookie)
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::json!({"title": title}).to_string()))
+                .expect("assignment draft request"),
+        )
+        .await
+        .expect("assignment draft response");
+    assert_eq!(draft.status(), StatusCode::CREATED);
+    let draft_etag = draft
+        .headers()
+        .get(ETAG)
+        .expect("assignment draft ETag")
+        .to_str()
+        .expect("ASCII assignment draft ETag")
+        .to_owned();
+    assert!(draft_etag.starts_with('"') && draft_etag.ends_with('"'));
+    assert!(!draft_etag.starts_with("W/"));
+    let draft_body = to_bytes(draft.into_body(), 64 * 1024)
+        .await
+        .expect("assignment draft body");
+    let draft_json =
+        serde_json::from_slice::<serde_json::Value>(&draft_body).expect("assignment draft JSON");
+    let assignment = draft_json["id"].as_str().expect("assignment ID").to_owned();
+    let saved = app
+        .clone()
+        .oneshot(
+            Request::put(format!(
+                "/api/courses/{course}/assignments/{assignment}/content"
+            ))
+            .header("cookie", cookie)
+            .header(IF_MATCH, &draft_etag)
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "title": title,
+                    "entries": [{
+                        "kind": "fixed",
+                        "questionId": question_id,
+                        "position": 0,
+                        "pointsPossible": "1",
+                        "deliveryState": "active",
+                        "scoringMode": "normal"
+                    }]
+                })
+                .to_string(),
+            ))
+            .expect("assignment content request"),
+        )
+        .await
+        .expect("assignment content response");
+    assert_eq!(saved.status(), StatusCode::OK);
+    saved
+}
+
 #[tokio::test]
 async fn course_grade_scheme_uses_no_store_strong_etag_and_strict_put_body() {
     let (store, cookie, tenant, instructor, course) = fixture().await;
@@ -79,26 +144,7 @@ async fn course_grade_scheme_uses_no_store_strong_etag_and_strict_put_body() {
         .expect("catalog lookup")
         .expect("fixture publication")
         .question_id;
-    let created = app
-        .clone()
-        .oneshot(
-            Request::post(format!("/api/courses/{course}/assignments"))
-                .header("cookie", &cookie)
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    serde_json::json!({
-                        "title": "Read-only title",
-                        "entries": [{"kind": "fixed", "questionId": question_id, "position": 0, "pointsPossible": "1", "deliveryState": "active", "scoringMode": "normal"}],
-                        "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
-                        "policies": super::fixtures::policies()
-                    })
-                    .to_string(),
-                ))
-                .expect("assignment create"),
-        )
-        .await
-        .expect("assignment create response");
-    assert_eq!(created.status(), StatusCode::CREATED);
+    let _created = create_assignment(&app, &cookie, course, &question_id, "Read-only title").await;
     let get = app
         .clone()
         .oneshot(
@@ -370,26 +416,14 @@ async fn course_grade_export_emits_rectangular_inert_csv_rows_from_the_real_http
         .expect("catalog lookup")
         .expect("fixture publication")
         .question_id;
-    let created = app
-        .clone()
-        .oneshot(
-            Request::post(format!("/api/courses/{course}/assignments"))
-                .header("cookie", &instructor_cookie)
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    serde_json::json!({
-                        "title": "CSV proof assignment",
-                        "entries": [{"kind": "fixed", "questionId": question_id, "position": 0, "pointsPossible": "1", "deliveryState": "active", "scoringMode": "normal"}],
-                        "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
-                        "policies": super::fixtures::policies()
-                    })
-                    .to_string(),
-                ))
-                .expect("assignment create"),
-        )
-        .await
-        .expect("assignment create response");
-    assert_eq!(created.status(), StatusCode::CREATED);
+    let created = create_assignment(
+        &app,
+        &instructor_cookie,
+        course,
+        &question_id,
+        "CSV proof assignment",
+    )
+    .await;
 
     let student = UserId::from_uuid(id(9_105));
     let display_name = "=SUM(1,1), \"quoted\"\nStudent";

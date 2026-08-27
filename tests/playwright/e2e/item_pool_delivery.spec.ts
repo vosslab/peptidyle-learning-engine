@@ -3,7 +3,7 @@
 // Selector contract:
 // - src/pages/assignment_workspace/ owns mixed fixed/pool creation and post-issue Questions saves.
 // - src/pages/assignment_pool_editor.tsx:109 owns candidate, draw, ordering, and preview controls.
-// - src/pages/assignment_teaching_operations_panel.tsx:148 owns the ordinary publishing controls.
+// - src/pages/assignment_workspace/assignment_workspace_policies_page.tsx owns publishing controls.
 // - src/pages/run_page.tsx:401 owns issued learner questions, feedback, and completion surfaces.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 

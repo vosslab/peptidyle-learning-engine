@@ -1,9 +1,8 @@
-use super::fixtures::{id, policies};
+use super::fixtures::id;
 use super::*;
 use axum::body::Body;
 use axum::http::Request;
 use axum::http::header::ETAG;
-use axum::response::Response;
 use learning_data_access::{
     CourseRecord, CourseRosterStore, CreateCourseCommand, JobLeaseDuration, JobPayload, JobStore,
     RetentionWorkerCommand, RetentionWorkerStore, UpsertCourseMember,
@@ -11,18 +10,12 @@ use learning_data_access::{
 use question_model::{AssignmentId, CourseId, ObjectId};
 use tower::ServiceExt;
 
-use crate::course::routing::CreateAssignmentRequest;
-
 mod authoring_boundary;
 mod fixture_setup;
 mod teaching_settings;
+mod workspace_validation;
 
-async fn response_json(response: Response) -> serde_json::Value {
-    let bytes = axum::body::to_bytes(response.into_body(), 128 * 1024)
-        .await
-        .expect("response body");
-    serde_json::from_slice(&bytes).expect("JSON response")
-}
+use workspace_validation::response_json;
 
 #[tokio::test]
 async fn membership_scopes_courses_and_exact_assignment_references_survive() {
@@ -42,67 +35,66 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         question_id,
     } = fixture_setup::build().await;
 
-    let retired_timing = app
+    let created_draft = app
         .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/courses/{course}/assignments"))
+                .uri(format!("/api/courses/{course}/assignments/drafts"))
                 .header("cookie", &instructor_cookie)
                 .header("content-type", "application/json")
-                .body(Body::from(
-                    serde_json::json!({
-                        "title": "Retired timing field", "questionIds": [question_id],
-                        "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
-                        "policies": policies(), "assignmentTiming": {"timeLimitSeconds": null},
-                    })
-                    .to_string(),
-                ))
-                .expect("retired timing request"),
+                .body(Body::from(r#"{"title":"Peptide bond mastery"}"#))
+                .expect("draft request"),
         )
         .await
-        .expect("retired timing response");
-    assert_eq!(retired_timing.status(), StatusCode::UNPROCESSABLE_ENTITY);
-
-    let assignment_request = CreateAssignmentRequest {
-        title: "Peptide bond mastery".to_string(),
-        entries: vec![crate::course::routing::AssignmentEntryRequest::Fixed {
-            question_id: question_id.clone(),
-            position: 0,
-            points_possible: question_model::PointValue::from_whole(1),
-            delivery_state: question_model::AssignmentDeliveryState::Active,
-            scoring_mode: question_model::AssignmentScoringMode::Normal,
-        }],
-        disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-        policies: policies(),
-    };
+        .expect("draft response");
+    assert_eq!(created_draft.status(), StatusCode::CREATED);
+    let draft_etag = created_draft
+        .headers()
+        .get(ETAG)
+        .expect("created draft ETag")
+        .to_str()
+        .expect("ASCII ETag")
+        .to_string();
+    let draft = response_json(created_draft).await;
+    let assignment: AssignmentId =
+        serde_json::from_value(draft["id"].clone()).expect("assignment ID response");
+    let entries = serde_json::json!([{
+        "kind": "fixed",
+        "questionId": question_id,
+        "position": 0,
+        "pointsPossible": "1",
+        "deliveryState": "active",
+        "scoringMode": "normal"
+    }]);
     let created_assignment = app
         .clone()
         .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri(format!("/api/courses/{course}/assignments"))
-                .header("cookie", &instructor_cookie)
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    serde_json::to_vec(&assignment_request)
-                        .expect("assignment request serialization"),
-                ))
-                .expect("assignment request"),
+            Request::put(format!(
+                "/api/courses/{course}/assignments/{assignment}/content"
+            ))
+            .header("cookie", &instructor_cookie)
+            .header(IF_MATCH, &draft_etag)
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "title": "Peptide bond mastery", "entries": entries,
+                })
+                .to_string(),
+            ))
+            .expect("assignment content request"),
         )
         .await
-        .expect("assignment response");
-    assert_eq!(created_assignment.status(), StatusCode::CREATED);
+        .expect("assignment content response");
+    assert_eq!(created_assignment.status(), StatusCode::OK);
     let assignment_etag = created_assignment
         .headers()
         .get(ETAG)
-        .expect("created assignment ETag")
+        .expect("assignment content ETag")
         .to_str()
         .expect("ASCII ETag")
         .to_string();
     let created_assignment = response_json(created_assignment).await;
-    let assignment: AssignmentId =
-        serde_json::from_value(created_assignment["id"].clone()).expect("assignment ID response");
     assert_eq!(created_assignment["courseId"], serde_json::json!(course));
     assert_eq!(
         created_assignment["items"][0]["questionId"],
@@ -126,41 +118,20 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         "scoringMode": created_assignment["items"][0]["scoringMode"],
     }]);
 
-    let invalid_timing = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("PUT")
-                .uri(format!("/api/courses/{course}/assignments/{assignment}"))
-                .header("cookie", &instructor_cookie)
-                .header(IF_MATCH, &assignment_etag)
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    serde_json::json!({
-                        "title": "invalid timing", "entries": update_entries.clone(),
-                        "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(), "policies": policies(),
-                        "assignmentTiming": null,
-                    })
-                    .to_string(),
-                ))
-                .expect("invalid timing request"),
-        )
-        .await
-        .expect("invalid timing response");
-    assert_eq!(invalid_timing.status(), StatusCode::UNPROCESSABLE_ENTITY);
-
     let incomplete_content_update = app
         .clone()
         .oneshot(
             Request::builder()
                 .method("PUT")
-                .uri(format!("/api/courses/{course}/assignments/{assignment}"))
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/content"
+                ))
                 .header("cookie", &instructor_cookie)
                 .header(IF_MATCH, &assignment_etag)
                 .header("content-type", "application/json")
                 .body(Body::from(
                     serde_json::json!({
-                        "title": "missing required content", "policies": policies(),
+                        "title": "missing required content",
                     })
                     .to_string(),
                 ))
@@ -176,34 +147,36 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
 
     for request in [
         Request::builder()
-            .uri(format!("/api/assignments/{assignment}"))
+            .uri(format!("/api/courses/{course}/assignments/{assignment}"))
             .header("cookie", &foreign_cookie)
             .body(Body::empty())
             .expect("foreign exact request"),
         Request::builder()
             .method("PUT")
-            .uri(format!("/api/courses/{course}/assignments/{assignment}"))
+            .uri(format!(
+                "/api/courses/{course}/assignments/{assignment}/content"
+            ))
             .header("cookie", &foreign_cookie)
             .header(IF_MATCH, &assignment_etag)
             .header("content-type", "application/json")
             .body(Body::from(
                 serde_json::json!({
                     "title": "foreign", "entries": update_entries.clone(),
-                    "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(), "policies": policies(),
                 })
                 .to_string(),
             ))
             .expect("foreign update request"),
         Request::builder()
             .method("PUT")
-            .uri(format!("/api/courses/{course}/assignments/{assignment}"))
+            .uri(format!(
+                "/api/courses/{course}/assignments/{assignment}/content"
+            ))
             .header("cookie", &foreign_cookie)
             .header(IF_MATCH, "W/\"1\"")
             .header("content-type", "application/json")
             .body(Body::from(
                 serde_json::json!({
                     "title": "foreign malformed", "entries": update_entries.clone(),
-                    "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(), "policies": policies(),
                 })
                 .to_string(),
             ))
@@ -225,7 +198,9 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         .oneshot(
             Request::builder()
                 .method("PUT")
-                .uri(format!("/api/courses/{course}/assignments/{assignment}"))
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/content"
+                ))
                 .header("cookie", &instructor_cookie)
                 .header(IF_MATCH, &assignment_etag)
                 .header("content-type", "application/json")
@@ -233,8 +208,6 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                     serde_json::json!({
                         "title": "Peptide bond mastery",
                         "entries": update_entries.clone(),
-                        "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
-                        "policies": policies(),
                         "unexpected": true,
                     })
                     .to_string(),
@@ -250,7 +223,9 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         .oneshot(
             Request::builder()
                 .method("PUT")
-                .uri(format!("/api/courses/{course}/assignments/{assignment}"))
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/content"
+                ))
                 .header("cookie", &instructor_cookie)
                 .header(IF_MATCH, &assignment_etag)
                 .header("content-type", "application/json")
@@ -258,8 +233,6 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
                     serde_json::json!({
                         "title": "Peptide bond mastery revised",
                         "entries": update_entries.clone(),
-                        "policies": policies(),
-                        "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
                     })
                     .to_string(),
                 ))
@@ -283,7 +256,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/assignments/{assignment}"))
+                .uri(format!("/api/courses/{course}/assignments/{assignment}"))
                 .header("cookie", &instructor_cookie)
                 .body(Body::empty())
                 .expect("editor GET request"),
@@ -291,6 +264,11 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         .await
         .expect("editor GET response");
     assert_eq!(editor_get.status(), StatusCode::OK);
+    assert_eq!(
+        editor_get.headers().get("cache-control"),
+        Some(&HeaderValue::from_static("no-store")),
+        "workspace reads are sensitive instructor state"
+    );
     assert_eq!(
         editor_get
             .headers()
@@ -329,14 +307,15 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         .oneshot(
             Request::builder()
                 .method("PUT")
-                .uri(format!("/api/courses/{course}/assignments/{assignment}"))
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/content"
+                ))
                 .header("cookie", &instructor_cookie)
                 .header(IF_MATCH, &assignment_etag)
                 .header("content-type", "application/json")
                 .body(Body::from(
                     serde_json::json!({
-                        "title": "stale overwrite", "entries": update_entries.clone(),
-                        "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(), "policies": policies(),
+                    "title": "stale overwrite", "entries": update_entries.clone(),
                     })
                     .to_string(),
                 ))
@@ -344,7 +323,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         )
         .await
         .expect("stale update response");
-    assert_eq!(stale.status(), StatusCode::CONFLICT);
+    assert_eq!(stale.status(), StatusCode::PRECONDITION_FAILED);
     assert_eq!(
         store
             .get_assignment(context, assignment)
@@ -359,7 +338,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/assignments/{assignment}"))
+                .uri(format!("/api/courses/{course}/assignments/{assignment}"))
                 .header("cookie", &sysadmin_cookie)
                 .body(Body::empty())
                 .expect("sysadmin assignment request"),
@@ -400,22 +379,26 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         .await
         .expect("wrong-course fixture");
     let wrong_course_update = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method("PUT")
-                    .uri(format!("/api/courses/{wrong_course}/assignments/{assignment}"))
-                    .header("cookie", &instructor_cookie)
-                    .header(IF_MATCH, updated_etag)
-                    .header("content-type", "application/json")
-                    .body(Body::from(serde_json::json!({
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri(format!(
+                    "/api/courses/{wrong_course}/assignments/{assignment}/content"
+                ))
+                .header("cookie", &instructor_cookie)
+                .header(IF_MATCH, updated_etag)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
                         "title": "must not move course", "entries": update_entries.clone(),
-                        "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(), "policies": policies(),
-                    }).to_string()))
-                    .expect("wrong-course update request"),
-            )
-            .await
-            .expect("wrong-course update response");
+                    })
+                    .to_string(),
+                ))
+                .expect("wrong-course update request"),
+        )
+        .await
+        .expect("wrong-course update response");
     assert_eq!(wrong_course_update.status(), StatusCode::NOT_FOUND);
     assert_eq!(
         store
@@ -515,12 +498,11 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/courses/{course}/assignments"))
+                .uri(format!("/api/courses/{course}/assignments/drafts"))
                 .header("cookie", &instructor_cookie)
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    serde_json::to_vec(&assignment_request)
-                        .expect("second assignment request serialization"),
+                    serde_json::json!({"title": "Second assignment"}).to_string(),
                 ))
                 .expect("second assignment request"),
         )
@@ -660,7 +642,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/assignments/{assignment}"))
+                .uri(format!("/api/courses/{course}/assignments/{assignment}"))
                 .header("cookie", &student_cookie)
                 .body(Body::empty())
                 .expect("exact assignment request"),
@@ -718,43 +700,48 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
     assert_eq!(hidden.status(), StatusCode::NOT_FOUND);
 
     let student_update = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method("PUT")
-                    .uri(format!("/api/courses/{course}/assignments/{assignment}"))
-                    .header("cookie", &student_cookie)
-                    .header(IF_MATCH, &assignment_etag)
-                    .header("content-type", "application/json")
-                    .body(Body::from(serde_json::json!({
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/content"
+                ))
+                .header("cookie", &student_cookie)
+                .header(IF_MATCH, &assignment_etag)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
                         "title": "student overwrite", "entries": update_entries.clone(),
-                        "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(), "policies": policies(),
-                    }).to_string()))
-                    .expect("student update request"),
-            )
-            .await
-            .expect("student update response");
+                    })
+                    .to_string(),
+                ))
+                .expect("student update request"),
+        )
+        .await
+        .expect("student update response");
     assert_eq!(student_update.status(), StatusCode::FORBIDDEN);
 
     let student_missing_revision = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method("PUT")
-                    .uri(format!("/api/courses/{course}/assignments/{assignment}"))
-                    .header("cookie", &student_cookie)
-                    .header("content-type", "application/json")
-                    .body(Body::from(
-                        serde_json::json!({
-                            "title": "student missing revision", "entries": update_entries.clone(),
-                            "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(), "policies": policies(),
-                        })
-                        .to_string(),
-                    ))
-                    .expect("student missing revision request"),
-            )
-            .await
-            .expect("student missing revision response");
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/content"
+                ))
+                .header("cookie", &student_cookie)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "title": "student missing revision", "entries": update_entries.clone(),
+                    })
+                    .to_string(),
+                ))
+                .expect("student missing revision request"),
+        )
+        .await
+        .expect("student missing revision response");
     assert_eq!(student_missing_revision.status(), StatusCode::FORBIDDEN);
 
     let student_write = app
@@ -762,12 +749,11 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!("/api/courses/{course}/assignments"))
+                .uri(format!("/api/courses/{course}/assignments/drafts"))
                 .header("cookie", &student_cookie)
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    serde_json::to_vec(&assignment_request)
-                        .expect("assignment request serialization"),
+                    serde_json::json!({"title": "Second assignment"}).to_string(),
                 ))
                 .expect("student write request"),
         )
@@ -818,7 +804,7 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
     for uri in [
         format!("/api/courses/{course}"),
         format!("/api/courses/{course}/assignments"),
-        format!("/api/assignments/{assignment}"),
+        format!("/api/courses/{course}/assignments/{assignment}"),
     ] {
         let response = app
             .clone()
@@ -886,7 +872,10 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
             &instructor_cookie,
             format!("/api/courses/{course}/assignments"),
         ),
-        (&instructor_cookie, format!("/api/assignments/{assignment}")),
+        (
+            &instructor_cookie,
+            format!("/api/courses/{course}/assignments/{assignment}"),
+        ),
     ] {
         let response = app
             .clone()
@@ -931,7 +920,9 @@ async fn membership_scopes_courses_and_exact_assignment_references_survive() {
         .oneshot(
             Request::builder()
                 .method("PUT")
-                .uri(format!("/api/courses/{course}/assignments/{assignment}"))
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/content"
+                ))
                 .header("cookie", &student_cookie)
                 .header("content-type", "application/json")
                 .body(Body::from("{}"))

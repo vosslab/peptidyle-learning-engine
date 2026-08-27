@@ -1,9 +1,10 @@
-// assignment_editor_model.ts - browser state for QID-only assignment editing.
+// assignment_editor_model.ts - Questions-page browser state for QID-only assignment content.
 
 import type { AssignmentItemSummary } from "../../generated/api/AssignmentItemSummary";
 import type { AssignmentSelectionGroupSummary } from "../../generated/api/AssignmentSelectionGroupSummary";
 import type { Capability } from "../../generated/api/Capability";
 import type { LearnerDisclosurePolicy } from "../../generated/api/LearnerDisclosurePolicy";
+import type { RunPolicies } from "../../generated/api/RunPolicies";
 import { MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP } from "../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
 import { MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES } from "../../generated/api/MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES";
@@ -12,10 +13,8 @@ import type { QuestionId } from "../../generated/api/QuestionId";
 import type {
   AssignmentCapabilityViolation,
   AssignmentContentInput,
-  AssignmentCreateInput,
   AssignmentEditorEntryInput,
   AssignmentEditorDetail,
-  AssignmentEditorInput,
 } from "../api/contracts";
 import { normalizeQuestionIdSyntax } from "../question_id";
 
@@ -52,7 +51,7 @@ export interface AssignmentEditorDraft {
   readonly title: string;
   /** One ordered definition, shared by fixed questions and selection groups. */
   readonly entries: ReadonlyArray<AssignmentEditorEntry>;
-  readonly policies: AssignmentEditorInput["policies"];
+  readonly policies: RunPolicies;
   readonly disclosurePolicy: LearnerDisclosurePolicy;
   readonly revision: string;
 }
@@ -166,29 +165,6 @@ export function appendSelectionGroup(draft: AssignmentEditorDraft): AssignmentEd
   return { ...draft, entries: [...draft.entries, group] };
 }
 
-export function createMasteryAssignmentDraft(courseId: string): AssignmentEditorDraft {
-  return {
-    id: "",
-    courseId,
-    title: "",
-    entries: [],
-    policies: {
-      completion: { kind: "allCorrect" },
-      grade: "highest",
-      continuedPractice: { kind: "unlimited" },
-      variation: "newSeeds",
-    },
-    disclosurePolicy: {
-      score: "afterSubmit",
-      perItemCorrectness: "afterSubmit",
-      feedbackText: "afterSubmit",
-      solution: "afterSubmit",
-      classStatistics: "never",
-    },
-    revision: "",
-  };
-}
-
 function entryInput(entry: AssignmentEditorEntry, position: number): AssignmentEditorEntryInput {
   if (entry.kind === "fixed") {
     return {
@@ -210,29 +186,11 @@ function entryInput(entry: AssignmentEditorEntry, position: number): AssignmentE
   };
 }
 
-export function assignmentInput(draft: AssignmentEditorDraft): AssignmentEditorInput {
-  return {
-    title: draft.title,
-    entries: draft.entries.map(entryInput),
-    policies: draft.policies,
-    disclosurePolicy: draft.disclosurePolicy,
-  };
-}
-
 /** Questions owns only the visible title and ordered fixed-or-pool definition. */
 export function assignmentContentInput(draft: AssignmentEditorDraft): AssignmentContentInput {
   return {
     title: draft.title,
     entries: draft.entries.map(entryInput),
-  };
-}
-
-export function assignmentCreateInput(draft: AssignmentEditorDraft): AssignmentCreateInput {
-  return {
-    title: draft.title,
-    entries: draft.entries.map(entryInput),
-    policies: draft.policies,
-    disclosurePolicy: draft.disclosurePolicy,
   };
 }
 

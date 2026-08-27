@@ -35,28 +35,32 @@ recoverable failure. Continued practice remains available after completion.
 
 ## Route map
 
-| Route                                                          | Surface                                    | Data contract                                                        |
-| -------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------- |
-| `/`                                                            | Course list for signed-in role             | Course summaries                                                     |
-| `/sign-in`                                                     | Passwordless account entry                 | Uniform email start or usernameless passkey                          |
-| `/auth/email/complete`                                         | Canonical email sign-in completion         | One-time browser-bound fragment secret                               |
-| `/auth/account/email/complete`                                 | Verified account-email replacement         | Current account session plus one-time secret                         |
-| `/course-invitations/redeem`                                   | Learner invitation claim                   | Account session plus one-time invitation                             |
-| `/account/security`                                            | Passkey and account-email management       | Account-owned credential projections only                            |
-| `/courses/:courseId`                                           | Assignments with progress and run counts   | Cursor-paged assignments and summary rows                            |
-| `/courses/:courseId/assignments/:assignmentId`                 | Assignment overview and run history        | Safe Question-ID item summaries and runs                             |
-| `/runs/:runId`                                                 | One-question-at-a-time attempt loop        | Run screen query and response widget                                 |
-| `/runs/:runId/summary`                                         | Run outcomes and continued-practice entry  | Per-question disclosed feedback and run score                        |
-| `/library`                                                     | Shared problem browser                     | Cursor-paged facets and catalog results                              |
-| `/curriculum`                                                  | Reusable curriculum workspace              | Revisioned private Blueprints and public Alpha summaries             |
-| `/curriculum/:curriculumRef`                                   | Reusable curriculum detail                 | Answer-free definition inspection, editing, reuse, and Alpha fork    |
-| `/workspace`                                                   | Instructor drafts                          | Tenant-owned workspace summaries                                     |
-| `/workspace/:workspaceId`                                      | Draft editor, validation, and WASM preview | Draft and capability violations                                      |
-| `/instructor/courses/:courseId/assignments/:assignmentId/edit` | Assignment policy editor                   | Assignment and capability validation                                 |
-| `/instructor/courses/:courseId/gradebook`                      | Summary-row gradebook                      | Student assignment summaries only                                    |
-| `/instructor/courses/:courseId/appearance`                     | Course theme and entry banner settings     | Revisioned safe appearance projection                                |
-| `/instructor/courses/:courseId/students`                       | Roster, invitations, import, grade export  | Revisioned Instructor-only roster projection                         |
-| `/instructor/courses/:courseRef/curriculum`                    | Curriculum adoption and import maintenance | Answer-free previews, typed apply receipts, and recovery projections |
+| Route                                                                    | Surface                                    | Data contract                                                        |
+| ------------------------------------------------------------------------ | ------------------------------------------ | -------------------------------------------------------------------- |
+| `/`                                                                      | Course list for signed-in role             | Course summaries                                                     |
+| `/sign-in`                                                               | Passwordless account entry                 | Uniform email start or usernameless passkey                          |
+| `/auth/email/complete`                                                   | Canonical email sign-in completion         | One-time browser-bound fragment secret                               |
+| `/auth/account/email/complete`                                           | Verified account-email replacement         | Current account session plus one-time secret                         |
+| `/course-invitations/redeem`                                             | Learner invitation claim                   | Account session plus one-time invitation                             |
+| `/account/security`                                                      | Passkey and account-email management       | Account-owned credential projections only                            |
+| `/courses/:courseId`                                                     | Assignments with progress and run counts   | Cursor-paged assignments and summary rows                            |
+| `/courses/:courseId/assignments/:assignmentId`                           | Assignment overview and run history        | Safe Question-ID item summaries and runs                             |
+| `/runs/:runId`                                                           | One-question-at-a-time attempt loop        | Run screen query and response widget                                 |
+| `/runs/:runId/summary`                                                   | Run outcomes and continued-practice entry  | Per-question disclosed feedback and run score                        |
+| `/library`                                                               | Shared problem browser                     | Cursor-paged facets and catalog results                              |
+| `/curriculum`                                                            | Reusable curriculum workspace              | Revisioned private Blueprints and public Alpha summaries             |
+| `/curriculum/:curriculumRef`                                             | Reusable curriculum detail                 | Answer-free definition inspection, editing, reuse, and Alpha fork    |
+| `/workspace`                                                             | Instructor drafts                          | Tenant-owned workspace summaries                                     |
+| `/workspace/:workspaceId`                                                | Draft editor, validation, and WASM preview | Draft and capability violations                                      |
+| `/instructor/courses/:courseRef/assignments/new`                         | Create persisted assignment draft          | Title-only Draft creation with server-owned defaults                 |
+| `/instructor/courses/:courseRef/assignments/:assignmentRef`              | Instructor assignment home                 | Revisioned assignment status and readiness projection                |
+| `/instructor/courses/:courseRef/assignments/:assignmentRef/questions`    | Assignment Questions                       | Focused title and ordered fixed-or-pool definition                   |
+| `/instructor/courses/:courseRef/assignments/:assignmentRef/policies`     | Assignment Policies                        | Focused audience, disclosure, run, schedule, and lifecycle update    |
+| `/instructor/courses/:courseRef/assignments/:assignmentRef/student-view` | Instructor Student view                    | Current answer-free learner landing projection                       |
+| `/instructor/courses/:courseId/gradebook`                                | Summary-row gradebook                      | Student assignment summaries only                                    |
+| `/instructor/courses/:courseId/appearance`                               | Course theme and entry banner settings     | Revisioned safe appearance projection                                |
+| `/instructor/courses/:courseId/students`                                 | Roster, invitations, import, grade export  | Revisioned Instructor-only roster projection                         |
+| `/instructor/courses/:courseRef/curriculum`                              | Curriculum adoption and import maintenance | Answer-free previews, typed apply receipts, and recovery projections |
 
 `src/routes.ts` is the executable copy of this table. It also provides a
 catch-all not-found route, which is infrastructure rather than a product
@@ -106,10 +110,33 @@ does not load those private fields for every row.
 signed-in user's effective course role. `listAssignments(courseId, cursor)` is
 typed with `CourseId` and returns Rust-owned `AssignmentSummary` values whose
 ordered item summaries contain Question IDs and safe display metadata. The
-client uses focused add, remove, and revision-checked replacement methods for
-item identity changes; it never sends an internal publication pair. The course
-API verifies direct course membership before either list is returned. `Sysadmin`
-is a platform role, not ambient authority over a course or its FERPA records.
+Instructor assignment workspace then loads one exact course/assignment pair
+through `getAssignmentWorkspace(courseId, assignmentId)`. The server verifies
+the direct course relationship before the assignment lookup, so a mismatched
+pair is a concealed unavailable result rather than a second assignment read.
+`Sysadmin` is a platform role, not ambient authority over a course or its FERPA
+records.
+
+The workspace client exposes title-only `createAssignmentDraft`, focused
+`saveAssignmentContent`, focused `saveAssignmentPolicies`, and non-mutating
+`getInstructorStudentView`. Content and policy saves carry the same assignment
+revision and return the complete authoritative projection with one new
+revision. Questions and Policies therefore keep independent page drafts while
+the server serializes the aggregate. Issued learner work produces a typed
+structural-content conflict; stale revisions remain retryable, and the page
+keeps entered values for visible reload/recovery.
+
+Student view uses the exact course-scoped read and a shared answer-free learner
+landing presentation. It retains the Instructor session, uses course-wide base
+delivery facts, and creates no learner work or preview state. The ordinary
+Student route owns start/resume and grading; the Instructor view supplies only
+an informational entry action, so ordinary Student records remain the source
+of gradebook evidence.
+
+New assignment creation persists an empty Draft before routing to Questions. The
+draft survives reload and deep links; publication readiness reports the missing
+active deliverable and points back to Questions rather than treating an empty
+draft as a transport error.
 
 `startRun(assignmentId)` sends `{ assignmentId }` to the run route rather than
 encoding the assignment in a tenant-selecting path. `listRuns(enrollmentId,

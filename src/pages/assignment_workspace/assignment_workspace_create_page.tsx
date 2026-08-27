@@ -16,7 +16,10 @@ import {
   type CourseRouteReference,
 } from "../../navigation/public_route";
 
-import { createdAssignmentQuestionsPath } from "./assignment_workspace_create_model";
+import {
+  assignmentWorkspaceCreateErrorMessage,
+  createdAssignmentQuestionsPath,
+} from "./assignment_workspace_create_model";
 
 type CreateState = "ready" | "saving" | "unavailable";
 
@@ -30,6 +33,7 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
   const [title, setTitle] = createSignal("");
   const [message, setMessage] = createSignal("");
   const [state, setState] = createSignal<CreateState>("ready");
+  let titleInput: HTMLInputElement | undefined;
   const course = (): ReturnType<typeof courseRouteData>["summary"] | undefined =>
     route?.kind === "course" ? courseRouteData(route).summary : undefined;
   const courseReference = (): CourseRouteReference | null =>
@@ -76,13 +80,10 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
           replace: true,
         },
       );
-    } catch (error: unknown) {
-      setMessage(
-        error instanceof Error
-          ? `${error.message} Your assignment title is still here.`
-          : "The assignment draft could not be created. Your title is still here.",
-      );
+    } catch {
+      setMessage(assignmentWorkspaceCreateErrorMessage());
       setState("ready");
+      queueMicrotask(() => titleInput?.focus());
     }
   }
 
@@ -121,6 +122,7 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
             Assignment title
             <input
               id="assignment-draft-title"
+              ref={(element) => (titleInput = element)}
               autofocus
               value={title()}
               onInput={(event) => {

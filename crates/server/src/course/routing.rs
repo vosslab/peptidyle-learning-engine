@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
-use axum::routing::{delete, get, post, put};
+use axum::routing::{get, post, put};
 use learning_data_access::{
     AuthoritativeTimeStore, CatalogStore, CourseGradebookStore, CourseGroupManagementStore,
     CourseInvitationDeliveryStore, CourseItemAnalysisStore, CourseRecordsAccessStore,
@@ -13,10 +13,9 @@ use learning_data_access::{
 use serde::{Deserialize, Serialize};
 
 use super::assignments::{
-    add_assignment_item, create_assignment_draft, get_assignment,
-    get_assignment_summary, get_assignment_workspace, get_instructor_student_view,
-    get_learner_assignment, remove_assignment_item,
-    replace_assignment_content, replace_assignment_item_question, replace_assignment_policies,
+    create_assignment_draft, get_assignment_summary, get_assignment_workspace,
+    get_instructor_student_view, get_learner_assignment, replace_assignment_content,
+    replace_assignment_policies,
 };
 use super::invitation_capability::CourseInvitationIssuer;
 use super::queries::{create_course, get_course, list_assignments, list_courses, list_gradebook};
@@ -97,7 +96,6 @@ where
             post(super::gradebook::create_export::<S>),
         )
         .route("/api/courses/{course}", get(get_course::<S>))
-        .route("/api/assignments/{assignment}", get(get_assignment::<S>))
         .route(
             "/api/assignments/{assignment}/learner",
             get(get_learner_assignment::<S>),
@@ -122,18 +120,6 @@ where
             "/api/courses/{course}/assignments/{assignment}/student-view",
             get(get_instructor_student_view::<S>),
         )
-        .route(
-            "/api/courses/{course}/assignments/{assignment}/items",
-            post(add_assignment_item::<S>),
-        )
-        .route(
-            "/api/courses/{course}/assignments/{assignment}/items/{item}",
-            delete(remove_assignment_item::<S>),
-        )
-        .route(
-            "/api/courses/{course}/assignments/{assignment}/items/{item}/question",
-            put(replace_assignment_item_question::<S>),
-        )
         .layer(DefaultBodyLimit::max(MAX_COURSE_BODY_BYTES))
         .with_state(CourseRouteState {
             store: Arc::clone(&store),
@@ -154,6 +140,8 @@ impl<S> Clone for CourseRouteState<S> {
         }
     }
 }
+
+pub(super) use question_model::AssignmentEntryRequest;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -312,45 +300,6 @@ fn course_term_failure(
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
-pub(super) struct CreateAssignmentRequest {
-    pub(super) title: String,
-    pub(super) entries: Vec<AssignmentEntryRequest>,
-    pub(super) disclosure_policy: question_model::LearnerDisclosurePolicy,
-    pub(super) policies: question_model::RunPolicies,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(super) struct UpdateAssignmentRequest {
-    pub(super) title: String,
-    pub(super) entries: Vec<AssignmentEntryRequest>,
-    pub(super) disclosure_policy: question_model::LearnerDisclosurePolicy,
-    pub(super) policies: question_model::RunPolicies,
-}
-
-/// Strict course-local instructor schedule input. It carries the authoritative
-/// course IANA zone so the server, never the browser, resolves wall-clock time.
-pub(super) type AssignmentTeachingSettingsRequest =
-    question_model::assignment::InstructorAssignmentTeachingSettingsLocal;
-
-pub(super) use question_model::AssignmentEntryRequest;
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(super) struct AddAssignmentItemRequest {
-    pub(super) question_id: question_model::QuestionId,
-    pub(super) position: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(super) struct ReplaceAssignmentItemQuestionRequest {
-    pub(super) question_id: question_model::QuestionId,
-}
-
 /// Rejects unknown fields at every level by comparing the request to the
 /// canonical wire form of the typed model, mirroring the workspace boundary.
 pub(super) fn strict_assignment_request<T>(value: serde_json::Value) -> Result<T, ()>
@@ -369,104 +318,22 @@ where
 mod tests {
     use super::*;
 
-    fn explicit_request() -> serde_json::Value {
-        serde_json::to_value(CreateAssignmentRequest {
-            title: "Mastery".to_string(),
-            entries: Vec::new(),
-            disclosure_policy: question_model::LearnerDisclosurePolicy::default(),
-            policies: question_model::RunPolicies {
-                completion: question_model::CompletionRequirement::AllCorrect,
-                grade: question_model::GradePolicy::Highest,
-                continued_practice: question_model::ContinuedPractice::Unlimited,
-                variation: question_model::VariationPolicy::NewSeeds,
-            },
-        })
-        .expect("request fixture serializes")
-    }
-
     #[test]
-    fn direct_cutover_rejects_retired_assignment_timing() {
-        let mut retired = explicit_request();
-        retired["assignmentTiming"] = serde_json::json!({"timeLimitSeconds": null});
-        assert!(strict_assignment_request::<CreateAssignmentRequest>(retired).is_err());
-    }
-
-    #[test]
-    fn teaching_settings_are_strict_course_local_input() {
-        let valid = serde_json::json!({
-            "timeZone": "America/Chicago",
-            "lifecycle": "draft",
-            "instructions": "Review the structure legend before starting.",
-            "availableAt": null,
-            "dueAt": "2026-03-08T02:30:00.000",
-            "closesAt": null,
-            "timeLimitSeconds": null,
-            "attemptLimit": null,
-            "lateSubmission": "accept",
-            "deadlineBehavior": "autoSubmit"
-        });
-        let decoded = strict_assignment_request::<AssignmentTeachingSettingsRequest>(valid)
-            .expect("strict local teaching settings decode");
-        let term =
-            question_model::CourseTerm::from_parts("2026-01-01", "2026-06-01", "America/Chicago")
-                .expect("course term");
+    fn workspace_requests_are_closed_and_canonical() {
+        let valid = serde_json::json!({"title": "Mastery"});
         assert!(
-            decoded.into_absolute(&term).is_err(),
-            "the server must refuse a nonexistent daylight-saving local time"
+            strict_assignment_request::<question_model::CreateAssignmentDraftRequest>(valid)
+                .is_ok()
         );
 
-        let mut unknown = serde_json::json!({
-            "timeZone": "America/Chicago",
-            "lifecycle": "draft",
-            "instructions": "",
-            "availableAt": null,
-            "dueAt": null,
-            "closesAt": null,
-            "timeLimitSeconds": null,
-            "attemptLimit": null,
-            "lateSubmission": "accept",
-            "deadlineBehavior": "autoSubmit"
-        });
+        let mut unknown = serde_json::json!({"title": "Mastery"});
         unknown["unexpected"] = serde_json::json!(true);
-        assert!(strict_assignment_request::<AssignmentTeachingSettingsRequest>(unknown).is_err());
-    }
+        assert!(
+            strict_assignment_request::<question_model::CreateAssignmentDraftRequest>(unknown)
+                .is_err()
+        );
 
-    #[test]
-    fn assignment_disclosure_policy_is_required_and_rejects_unknown_members() {
-        let mut omitted = explicit_request();
-        omitted
-            .as_object_mut()
-            .expect("request object")
-            .remove("disclosurePolicy");
-        assert!(strict_assignment_request::<CreateAssignmentRequest>(omitted).is_err());
-
-        let mut unknown = explicit_request();
-        unknown["disclosurePolicy"]["surprise"] = serde_json::json!("never");
-        assert!(strict_assignment_request::<CreateAssignmentRequest>(unknown).is_err());
-
-        let update = serde_json::json!({
-            "title": "Mastery",
-            "entries": [],
-            "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
-            "policies": question_model::RunPolicies {
-                completion: question_model::CompletionRequirement::AllCorrect,
-                grade: question_model::GradePolicy::Highest,
-                continued_practice: question_model::ContinuedPractice::Unlimited,
-                variation: question_model::VariationPolicy::NewSeeds,
-            },
-        });
-        assert!(strict_assignment_request::<UpdateAssignmentRequest>(update.clone()).is_ok());
-        let mut omitted_update = update;
-        omitted_update
-            .as_object_mut()
-            .expect("update request object")
-            .remove("disclosurePolicy");
-        assert!(strict_assignment_request::<UpdateAssignmentRequest>(omitted_update).is_err());
-    }
-
-    #[test]
-    fn assignment_entries_are_a_closed_tagged_union() {
-        let request = serde_json::json!({
+        let content = serde_json::json!({
             "title": "Mastery",
             "entries": [{
                 "kind": "selectionGroup",
@@ -475,25 +342,21 @@ mod tests {
                 "drawCount": 1,
                 "pointsPerItem": "1",
                 "ordering": "candidateOrder"
-            }],
-            "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
-            "policies": question_model::RunPolicies {
-                completion: question_model::CompletionRequirement::AllCorrect,
-                grade: question_model::GradePolicy::Highest,
-                continued_practice: question_model::ContinuedPractice::Unlimited,
-                variation: question_model::VariationPolicy::NewSeeds,
-            },
+            }]
         });
-        let decoded = serde_json::from_value::<CreateAssignmentRequest>(request.clone());
-        assert!(decoded.is_ok(), "entry request decode: {decoded:?}");
-        assert!(strict_assignment_request::<CreateAssignmentRequest>(request.clone()).is_ok());
-
-        let mut internal_identity = request.clone();
+        assert!(
+            strict_assignment_request::<question_model::ReplaceAssignmentContentRequest>(
+                content.clone()
+            )
+            .is_ok()
+        );
+        let mut internal_identity = content;
         internal_identity["entries"][0]["algorithmVersion"] = serde_json::json!(1);
-        assert!(strict_assignment_request::<CreateAssignmentRequest>(internal_identity).is_err());
-
-        let mut unknown_kind = request;
-        unknown_kind["entries"][0]["kind"] = serde_json::json!("pool");
-        assert!(strict_assignment_request::<CreateAssignmentRequest>(unknown_kind).is_err());
+        assert!(
+            strict_assignment_request::<question_model::ReplaceAssignmentContentRequest>(
+                internal_identity
+            )
+            .is_err()
+        );
     }
 }

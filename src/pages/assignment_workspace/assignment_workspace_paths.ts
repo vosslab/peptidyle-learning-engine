@@ -4,6 +4,11 @@ import type { AssignmentRouteReference, CourseRouteReference } from "../../navig
 
 export type AssignmentWorkspaceSection = "overview" | "questions" | "policies" | "studentView";
 
+/** The one route owner for starting a persisted Instructor assignment draft. */
+export function assignmentWorkspaceCreatePath(courseReference: CourseRouteReference): string {
+  return `/instructor/courses/${courseReference}/assignments/new`;
+}
+
 export function assignmentWorkspacePath(
   courseReference: CourseRouteReference,
   assignmentReference: AssignmentRouteReference,

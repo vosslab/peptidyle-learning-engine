@@ -16,41 +16,66 @@ fn assignment_request(question_id: &QuestionId) -> serde_json::Value {
             "deliveryState": "active",
             "scoringMode": "normal"
         }],
-        "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
-        "policies": crate::course::tests::fixtures::policies(),
     })
 }
 
 async fn create_assignment(fixture: &AssignmentFixture) -> (String, String) {
+    let draft = fixture
+        .app
+        .clone()
+        .oneshot(
+            Request::post(format!(
+                "/api/courses/{}/assignments/drafts",
+                fixture.course
+            ))
+            .header("cookie", &fixture.instructor_cookie)
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"title":"Peptide practice"}"#))
+            .expect("create draft request"),
+        )
+        .await
+        .expect("create draft response");
+    assert_eq!(draft.status(), StatusCode::CREATED);
+    let draft_revision = draft
+        .headers()
+        .get(ETAG)
+        .expect("draft revision")
+        .to_str()
+        .expect("ASCII draft revision")
+        .to_owned();
+    let bytes = axum::body::to_bytes(draft.into_body(), 128 * 1_024)
+        .await
+        .expect("draft response body");
+    let assignment = serde_json::from_slice::<serde_json::Value>(&bytes)
+        .expect("draft response JSON")["id"]
+        .as_str()
+        .expect("assignment ID")
+        .to_owned();
     let response = fixture
         .app
         .clone()
         .oneshot(
-            Request::post(format!("/api/courses/{}/assignments", fixture.course))
-                .header("cookie", &fixture.instructor_cookie)
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    assignment_request(&fixture.question_id).to_string(),
-                ))
-                .expect("create assignment request"),
+            Request::put(format!(
+                "/api/courses/{}/assignments/{assignment}/content",
+                fixture.course
+            ))
+            .header("cookie", &fixture.instructor_cookie)
+            .header(IF_MATCH, draft_revision)
+            .header("content-type", "application/json")
+            .body(Body::from(
+                assignment_request(&fixture.question_id).to_string(),
+            ))
+            .expect("save assignment content request"),
         )
         .await
-        .expect("create assignment response");
-    assert_eq!(response.status(), StatusCode::CREATED);
+        .expect("save assignment content response");
+    assert_eq!(response.status(), StatusCode::OK);
     let revision = response
         .headers()
         .get(ETAG)
         .expect("assignment revision")
         .to_str()
         .expect("ASCII assignment revision")
-        .to_owned();
-    let bytes = axum::body::to_bytes(response.into_body(), 128 * 1_024)
-        .await
-        .expect("assignment response body");
-    let assignment = serde_json::from_slice::<serde_json::Value>(&bytes)
-        .expect("assignment response JSON")["id"]
-        .as_str()
-        .expect("assignment ID")
         .to_owned();
     (assignment, revision)
 }
@@ -120,8 +145,11 @@ async fn authoring_routes_authorize_before_decoding_malformed_bodies() {
         ),
     ];
     for (cookie, expected) in create_cases {
-        let mut request = Request::post(format!("/api/courses/{}/assignments", fixture.course))
-            .header("content-type", "application/json");
+        let mut request = Request::post(format!(
+            "/api/courses/{}/assignments/drafts",
+            fixture.course
+        ))
+        .header("content-type", "application/json");
         if let Some(cookie) = cookie {
             request = request.header("cookie", cookie);
         }
@@ -145,11 +173,14 @@ async fn authoring_routes_authorize_before_decoding_malformed_bodies() {
         .app
         .clone()
         .oneshot(
-            Request::post(format!("/api/courses/{}/assignments", fixture.course))
-                .header("cookie", &fixture.instructor_cookie)
-                .header("content-type", "application/json")
-                .body(Body::from(malformed))
-                .expect("authorized malformed create request"),
+            Request::post(format!(
+                "/api/courses/{}/assignments/drafts",
+                fixture.course
+            ))
+            .header("cookie", &fixture.instructor_cookie)
+            .header("content-type", "application/json")
+            .body(Body::from(malformed))
+            .expect("authorized malformed create request"),
         )
         .await
         .expect("authorized malformed create response");
@@ -166,7 +197,7 @@ async fn authoring_routes_authorize_before_decoding_malformed_bodies() {
     ];
     for (cookie, expected) in update_cases {
         let mut request = Request::put(format!(
-            "/api/courses/{}/assignments/{assignment}",
+            "/api/courses/{}/assignments/{assignment}/content",
             fixture.course
         ))
         .header(IF_MATCH, &revision)
@@ -196,7 +227,7 @@ async fn authoring_routes_authorize_before_decoding_malformed_bodies() {
             .clone()
             .oneshot(
                 Request::put(format!(
-                    "/api/courses/{second_course}/assignments/{assignment}"
+                    "/api/courses/{second_course}/assignments/{assignment}/content"
                 ))
                 .header("cookie", &fixture.instructor_cookie)
                 .header(IF_MATCH, &revision)
@@ -215,7 +246,7 @@ async fn authoring_routes_authorize_before_decoding_malformed_bodies() {
         .clone()
         .oneshot(
             Request::put(format!(
-                "/api/courses/{}/assignments/{assignment}",
+                "/api/courses/{}/assignments/{assignment}/content",
                 fixture.course
             ))
             .header("cookie", &fixture.instructor_cookie)
@@ -237,33 +268,65 @@ async fn over_limit_pool_definition_performs_no_catalog_resolution() {
     let candidates = (0..=1_024)
         .map(|index| format!("{index:03X}-0000"))
         .collect::<Vec<_>>();
+    let draft = fixture
+        .app
+        .clone()
+        .oneshot(
+            Request::post(format!(
+                "/api/courses/{}/assignments/drafts",
+                fixture.course
+            ))
+            .header("cookie", &fixture.instructor_cookie)
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"title":"Too many pool candidates"}"#))
+            .expect("over-limit draft request"),
+        )
+        .await
+        .expect("over-limit draft response");
+    assert_eq!(draft.status(), StatusCode::CREATED);
+    let revision = draft
+        .headers()
+        .get(ETAG)
+        .expect("draft ETag")
+        .to_str()
+        .expect("ASCII draft ETag")
+        .to_owned();
+    let body = axum::body::to_bytes(draft.into_body(), 128 * 1_024)
+        .await
+        .expect("draft response body");
+    let assignment = serde_json::from_slice::<serde_json::Value>(&body).expect("draft JSON")["id"]
+        .as_str()
+        .expect("draft ID")
+        .to_owned();
     let response = fixture
         .app
         .clone()
         .oneshot(
-            Request::post(format!("/api/courses/{}/assignments", fixture.course))
-                .header("cookie", &fixture.instructor_cookie)
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    serde_json::json!({
-                        "title": "Too many pool candidates",
-                        "entries": [{
-                            "kind": "selectionGroup",
-                            "candidateQuestionIds": candidates,
-                            "position": 0,
-                            "drawCount": 1,
-                            "pointsPerItem": "1",
-                            "ordering": "candidateOrder"
-                        }],
-                        "disclosurePolicy": question_model::LearnerDisclosurePolicy::default(),
-                        "policies": crate::course::tests::fixtures::policies(),
-                    })
-                    .to_string(),
-                ))
-                .expect("over-limit authoring request"),
+            Request::put(format!(
+                "/api/courses/{}/assignments/{assignment}/content",
+                fixture.course
+            ))
+            .header("cookie", &fixture.instructor_cookie)
+            .header(IF_MATCH, revision)
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "title": "Too many pool candidates",
+                    "entries": [{
+                        "kind": "selectionGroup",
+                        "candidateQuestionIds": candidates,
+                        "position": 0,
+                        "drawCount": 1,
+                        "pointsPerItem": "1",
+                        "ordering": "candidateOrder"
+                    }]
+                })
+                .to_string(),
+            ))
+            .expect("over-limit content request"),
         )
         .await
-        .expect("over-limit authoring response");
+        .expect("over-limit content response");
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(response.headers()["cache-control"], "no-store");
     assert_eq!(fixture.store.catalog_resolution_calls(), 0);

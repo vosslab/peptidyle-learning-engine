@@ -1,5 +1,6 @@
 //! Focused Instructor assignment-workspace HTTP operations.
 
+use axum::Json;
 use axum::extract::{Path, Request, State};
 use axum::http::header::LOCATION;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
@@ -12,7 +13,10 @@ use learning_data_access::{
     StoreError,
 };
 use question_model::{
-    AssignmentAudience, AssignmentAudienceRequest, AssignmentId, CourseId,
+    AssignmentAudience, AssignmentAudienceRequest, AssignmentAudienceValidationReason,
+    AssignmentContentIssuedWorkConflict, AssignmentContentIssuedWorkConflictKind, AssignmentId,
+    AssignmentPoliciesValidationFailure, AssignmentPoliciesValidationFailureCode,
+    AssignmentPoliciesValidationIssue, AssignmentPolicyConfigurationReason, CourseId,
     CreateAssignmentDraftRequest, InstructorStudentView, ReplaceAssignmentContentRequest,
     ReplaceAssignmentPoliciesRequest,
 };
@@ -21,11 +25,11 @@ use super::super::policy::require_course_access;
 use super::super::projection::{error_response, store_error_response};
 use super::super::routing::{CourseRouteState, strict_assignment_request};
 use super::{
-    AssignmentRevisionHeaderError, assignment_response, definition_request,
-    instructor_student_view_delivery, required_assignment_revision,
+    AssignmentRevisionHeaderError, assignment_landing_presentation, assignment_response,
+    definition_request, instructor_student_view_delivery, required_assignment_revision,
 };
 use crate::auth::{auth_error_response, no_store, resolve_request_session};
-use crate::http_refusal::HttpResult;
+use crate::http_refusal::{HttpRefusal, HttpResult};
 
 /// Persists a deliberately incomplete draft after the authenticated course
 /// authority has been established.  The browser names only the title.
@@ -153,7 +157,7 @@ where
     }
     let expected_revision = match revision_or_response(request.headers()) {
         Ok(revision) => revision,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let current =
         match exact_assignment(&state, authenticated.tenant_context, course, assignment).await {
@@ -229,16 +233,32 @@ where
             StatusCode::PRECONDITION_FAILED,
             "assignment changed; reload it",
         ),
-        Ok(ReplaceAssignmentContentOutcome::Issued) => error_response(
-            StatusCode::CONFLICT,
-            "This assignment already has learner work. Create a new assignment for this structural change.",
-        ),
+        Ok(ReplaceAssignmentContentOutcome::Issued) => issued_assignment_content_response(),
         Err(StoreError::Conflict) => error_response(
             StatusCode::CONFLICT,
             "assignment content could not be changed in its current state",
         ),
         Err(error) => store_error_response(error),
     }
+}
+
+/// Gives the Questions client one closed, semantic recovery discriminant.
+///
+/// This response identifies the durable case where immutable learner evidence
+/// makes a structural definition change unavailable on this assignment. Other
+/// `409` responses retain their own route-specific conflict semantics. The
+/// browser maps this discriminator to visible guidance without presenting route
+/// details or internal identifiers from an error body.
+fn issued_assignment_content_response() -> Response {
+    no_store(
+        (
+            StatusCode::CONFLICT,
+            Json(AssignmentContentIssuedWorkConflict {
+                kind: AssignmentContentIssuedWorkConflictKind::IssuedLearnerWork,
+            }),
+        )
+            .into_response(),
+    )
 }
 
 /// Replaces exactly the Policies-owned slice, resolving group locators and
@@ -269,7 +289,7 @@ where
     }
     let expected_revision = match revision_or_response(request.headers()) {
         Ok(revision) => revision,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let current =
         match exact_assignment(&state, authenticated.tenant_context, course, assignment).await {
@@ -307,25 +327,38 @@ where
     let teaching_settings = match request.teaching_settings.into_absolute(&course_record.term) {
         Ok(settings) => settings,
         Err(error) => {
-            return super::teaching_settings::teaching_settings_validation_response(
-                error.field(),
-                error.reason(),
-            );
+            return policy_validation_response(vec![
+                AssignmentPoliciesValidationIssue::TeachingSettings {
+                    correction: teaching_settings_validation_failure(error.field(), error.reason()),
+                },
+            ]);
         }
     };
     if !domain::effective_assignment_policy::is_legal_assignment_lifecycle_transition(
         current.record.lifecycle,
         teaching_settings.lifecycle,
     ) {
-        return super::teaching_settings::teaching_settings_validation_response(
-            question_model::AssignmentTeachingSettingsField::Lifecycle,
-            question_model::AssignmentTeachingSettingsFailureReason::IllegalLifecycleTransition,
-        );
+        return policy_validation_response(vec![
+            AssignmentPoliciesValidationIssue::TeachingSettings {
+                correction: teaching_settings_validation_failure(
+                    question_model::AssignmentTeachingSettingsField::Lifecycle,
+                    question_model::AssignmentTeachingSettingsFailureReason::IllegalLifecycleTransition,
+                ),
+            },
+        ]);
     }
-    let audience = match resolve_audience(&state, &authenticated, course, request.audience).await {
-        Ok(audience) => audience,
-        Err(response) => return response.into_response(),
-    };
+    // Audience resolution is one independently correctable part of a valid
+    // teaching-state candidate.  A rejected browser audience falls back only
+    // while deriving the other candidate facts; the write is still refused
+    // with its closed audience correction.
+    let (audience, audience_issue) =
+        match resolve_audience(&state, &authenticated, course, request.audience).await {
+            Ok(AudienceResolution::Resolved(audience)) => (audience, None),
+            Ok(AudienceResolution::Issue(reason)) => {
+                (current.record.audience.clone(), Some(reason))
+            }
+            Err(response) => return response.into_response(),
+        };
     let candidate = current
         .record
         .with_policies_update(AssignmentPoliciesUpdate {
@@ -334,14 +367,49 @@ where
             policies: request.policies,
             teaching_settings: teaching_settings.clone(),
         });
-    if let Err(response) = definition_request::validate_assignment_request(
+    let facts = match definition_request::collect_assignment_policy_validation_facts(
         &state,
         authenticated.tenant_context,
         &candidate,
     )
     .await
     {
-        return response.into_response();
+        Ok(facts) => facts,
+        Err(response) => return response.into_response(),
+    };
+    let mut issues = audience_issue
+        .into_iter()
+        .map(|reason| AssignmentPoliciesValidationIssue::Audience { reason })
+        .collect::<Vec<_>>();
+    issues.extend(facts
+        .into_iter()
+        .map(|fact| match fact {
+            definition_request::AssignmentPolicyValidationFact::SelectedProblemVariantsWithSelectionGroups => {
+                AssignmentPoliciesValidationIssue::Configuration {
+                    reason:
+                        AssignmentPolicyConfigurationReason::SelectedProblemVariantsWithSelectionGroups,
+                }
+            }
+            definition_request::AssignmentPolicyValidationFact::Capability {
+                title,
+                question_id,
+                capability,
+            } => AssignmentPoliciesValidationIssue::Capability {
+                title,
+                question_id,
+                capability,
+            },
+        }));
+    let readiness = candidate.publication_readiness();
+    if teaching_settings.lifecycle == question_model::AssignmentLifecycle::Published
+        && !readiness.is_ready()
+    {
+        issues.push(AssignmentPoliciesValidationIssue::PublicationReadiness {
+            blocking_issues: readiness.blocking_issues,
+        });
+    }
+    if !issues.is_empty() {
+        return policy_validation_response(issues);
     }
     match state
         .store
@@ -416,50 +484,72 @@ where
         Err(error) => return store_error_response(error),
     };
     let delivery = instructor_student_view_delivery(stored.base_policy);
-    let questions_per_run = questions_per_run(&stored.record);
-    let variation = stored.record.policies.variation;
-    let disclosure_policy = stored.record.disclosure_policy;
+    let landing =
+        assignment_landing_presentation(&stored.record, course_record.term.time_zone().clone());
+    no_store(Json(InstructorStudentView::from_landing(landing, delivery)).into_response())
+}
+
+fn revision_or_response(headers: &HeaderMap) -> HttpResult<question_model::AssignmentRevision> {
+    required_assignment_revision(headers).map_err(|error| match error {
+        AssignmentRevisionHeaderError::Missing => HttpRefusal::from(error_response(
+            StatusCode::PRECONDITION_REQUIRED,
+            "If-Match assignment revision is required",
+        )),
+        AssignmentRevisionHeaderError::Malformed => HttpRefusal::from(error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "If-Match assignment revision is invalid",
+        )),
+    })
+}
+
+fn policy_validation_response(issues: Vec<AssignmentPoliciesValidationIssue>) -> Response {
+    // ASVS 2.2.1, 2.2.2, and 2.3.3: the authenticated service returns a
+    // closed correction envelope before the aggregate write can advance its
+    // revision. The envelope contains only browser-safe teaching facts.
     no_store(
-        axum::Json(InstructorStudentView {
-            title: stored.record.title,
-            instructions: stored.record.instructions,
-            time_zone: course_record.term.time_zone().clone(),
-            delivery,
-            questions_per_run,
-            variation,
-            disclosure_policy,
-        })
-        .into_response(),
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(AssignmentPoliciesValidationFailure {
+                error: AssignmentPoliciesValidationFailureCode::AssignmentPoliciesInvalid,
+                issues,
+            }),
+        )
+            .into_response(),
     )
 }
 
-fn questions_per_run(record: &learning_data_access::AssignmentRecord) -> u32 {
-    let fixed = record
-        .items
-        .iter()
-        .filter(|item| item.delivery_state == question_model::AssignmentDeliveryState::Active)
-        .count();
-    let selected = record
-        .selection_groups
-        .iter()
-        .map(|group| usize::try_from(group.draw_count).expect("draw count fits usize"))
-        .sum::<usize>();
-    u32::try_from(fixed + selected).expect("validated assignment count fits u32")
-}
+fn teaching_settings_validation_failure(
+    field: question_model::AssignmentTeachingSettingsField,
+    reason: question_model::AssignmentTeachingSettingsFailureReason,
+) -> question_model::AssignmentTeachingSettingsValidationFailure {
+    use question_model::AssignmentTeachingSettingsFailureReason as Reason;
 
-fn revision_or_response(
-    headers: &HeaderMap,
-) -> Result<question_model::AssignmentRevision, Response> {
-    required_assignment_revision(headers).map_err(|error| match error {
-        AssignmentRevisionHeaderError::Missing => error_response(
-            StatusCode::PRECONDITION_REQUIRED,
-            "If-Match assignment revision is required",
-        ),
-        AssignmentRevisionHeaderError::Malformed => error_response(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "If-Match assignment revision is invalid",
-        ),
-    })
+    let message = match reason {
+        Reason::InvalidInput => "Enter complete teaching settings using the form fields.",
+        Reason::CourseTimeZoneMismatch => "Use the course time zone shown with this form.",
+        Reason::OutsideCourseTerm => "Choose a time inside the course term.",
+        Reason::NonexistentLocalTime => {
+            "Choose a local time that exists on this daylight-saving date."
+        }
+        Reason::AmbiguousLocalTime => {
+            "Choose a local time outside the daylight-saving repeat hour."
+        }
+        Reason::TimestampOutOfRange => "Choose a supported calendar time.",
+        Reason::ScheduleOutOfOrder => {
+            "Keep available, due, and close times in chronological order."
+        }
+        Reason::TimeLimitOutOfRange => "Choose a supported whole-run time limit.",
+        Reason::AttemptLimitOutOfRange => "Choose a supported attempt limit.",
+        Reason::IllegalLifecycleTransition => "Choose a permitted assignment lifecycle change.",
+        Reason::InvalidInstructions => "Enter plain-text instructions within the supported length.",
+    };
+    question_model::AssignmentTeachingSettingsValidationFailure {
+        error:
+            question_model::AssignmentTeachingSettingsFailureCode::AssignmentTeachingSettingsInvalid,
+        field,
+        reason,
+        message: message.to_string(),
+    }
 }
 
 async fn exact_assignment<S>(
@@ -484,27 +574,38 @@ where
     }
 }
 
+enum AudienceResolution {
+    Resolved(AssignmentAudience),
+    Issue(AssignmentAudienceValidationReason),
+}
+
 async fn resolve_audience<S>(
     state: &CourseRouteState<S>,
     authenticated: &crate::auth::AuthenticatedSession,
     course: CourseId,
     request: AssignmentAudienceRequest,
-) -> HttpResult<AssignmentAudience>
+) -> HttpResult<AudienceResolution>
 where
     S: CourseGroupManagementStore + 'static,
 {
     match request {
-        AssignmentAudienceRequest::CourseWide => Ok(AssignmentAudience::CourseWide),
+        AssignmentAudienceRequest::CourseWide => {
+            Ok(AudienceResolution::Resolved(AssignmentAudience::CourseWide))
+        }
         AssignmentAudienceRequest::AnyOfGroups { groups } => {
             if groups.is_empty() {
-                return Err(error_response(
-                    StatusCode::UNPROCESSABLE_ENTITY,
-                    "Choose at least one course group.",
-                )
-                .into());
+                return Ok(AudienceResolution::Issue(
+                    AssignmentAudienceValidationReason::GroupRequired,
+                ));
             }
             let mut ids = Vec::with_capacity(groups.len());
+            let mut references = std::collections::BTreeSet::new();
             for reference in groups {
+                if !references.insert(reference) {
+                    return Ok(AudienceResolution::Issue(
+                        AssignmentAudienceValidationReason::GroupsMustBeDistinct,
+                    ));
+                }
                 let group = match state
                     .store
                     .get_course_group_by_reference(
@@ -517,19 +618,20 @@ where
                 {
                     Ok(Some(group)) => group,
                     Ok(None) => {
-                        return Err(error_response(StatusCode::NOT_FOUND, "group not found").into());
+                        return Ok(AudienceResolution::Issue(
+                            AssignmentAudienceValidationReason::GroupUnavailable,
+                        ));
                     }
                     Err(error) => return Err(store_error_response(error).into()),
                 };
                 ids.push(group.group.record.id);
             }
-            AssignmentAudience::any_of_groups(ids).map_err(|_| {
-                error_response(
-                    StatusCode::UNPROCESSABLE_ENTITY,
-                    "Choose distinct course groups.",
-                )
-                .into()
-            })
+            match AssignmentAudience::any_of_groups(ids) {
+                Ok(audience) => Ok(AudienceResolution::Resolved(audience)),
+                Err(_) => Ok(AudienceResolution::Issue(
+                    AssignmentAudienceValidationReason::GroupsMustBeDistinct,
+                )),
+            }
         }
     }
 }

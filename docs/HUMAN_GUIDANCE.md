@@ -19,7 +19,7 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   desktop profile for permanent Instructor and Sysadmin visual evidence. A supported browser may
   occupy only part of a larger physical display; design for the viewport rather than assuming
   full-screen use.
-- Student environments remain more variable. Use this student planning mix: 1280 by 800 laptop
+- Student profiles remain variable. Use this student planning mix: 1280 by 800 laptop
   40%, 800 by 1280 portrait tablet 30%, iPhone Pro aspect 20%, and square aspect 10%. These are
   planning weights, not test quotas or telemetry targets.
 - Permanent visual evidence is organized under `docs/screenshots/` by role and by student/access
@@ -56,11 +56,12 @@ alongside [AGENTS.md](../AGENTS.md) and the active implementation plan.
   and library pages should use most of the useful width when it improves scanning or editing. Four
   selected problems and the Questions save action should fit comfortably on Questions; the complete
   policy summary and its save action should fit comfortably on Policies.
-- Make an assignment title open that assignment's Instructor home. Keep question and pool authoring
-  on a Questions page and assignment delivery rules on a Policies page.
-- Give an Instructor a clearly labeled Student view of the current live, answer-free assignment
-  landing while retaining the Instructor identity and session. Ordinary enrolled Student activity
-  remains the source of learner runs, submissions, receipts, grades, and gradebook evidence.
+- Make selecting an assignment title open that assignment's Instructor Overview. Keep question and
+  pool authoring on a separate Questions page and assignment delivery rules on a separate Policies
+  page, with each page naming its own task.
+- Give an Instructor a clearly labeled Student view of the current live assignment as an answer-free,
+  stable-identity inspection. Retain the Instructor identity and session; ordinary demo Student entry is
+  the path that creates real graded work, which the Instructor can then see in the gradebook.
 - Compose student workflows for the canonical 1280 by 800 laptop and the high-priority 800 by 1280
   tablet as design targets, and keep them responsive across the narrow-phone compatibility guard. A
   wide screen should not force the learner's attention across an arbitrary prompt/response split;

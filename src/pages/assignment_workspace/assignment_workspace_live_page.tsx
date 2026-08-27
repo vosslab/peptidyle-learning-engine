@@ -39,6 +39,10 @@ import { AssignmentWorkspaceOverviewPage } from "./assignment_workspace_overview
 import { AssignmentWorkspacePoliciesPage } from "./assignment_workspace_policies_page";
 import { AssignmentWorkspaceQuestionsPage } from "./assignment_workspace_questions_page";
 import { AssignmentWorkspaceStudentViewPage } from "./assignment_workspace_student_view_page";
+import {
+  assignmentWorkspaceLoadFailureState,
+  type AssignmentWorkspaceLoadState,
+} from "./assignment_workspace_load_model";
 import "./assignment_workspace.css";
 
 export interface AssignmentWorkspaceContextValue {
@@ -63,9 +67,13 @@ export function useAssignmentWorkspace(): AssignmentWorkspaceContextValue {
   return value;
 }
 
-type LoadState = "loading" | "denied" | "unavailable";
+type LoadState = "loading" | AssignmentWorkspaceLoadState;
 
-function WorkspaceState(props: { readonly state: LoadState }): JSX.Element {
+function WorkspaceState(props: {
+  readonly state: LoadState;
+  readonly retry: () => void;
+  readonly registerRetryButton: (element: HTMLButtonElement) => void;
+}): JSX.Element {
   if (props.state === "loading") {
     return (
       <section class="page assignment-workspace-state" data-route-surface="assignmentWorkspaceGate">
@@ -89,6 +97,28 @@ function WorkspaceState(props: { readonly state: LoadState }): JSX.Element {
         <A class="primary-link" href="/">
           Return to courses
         </A>
+      </section>
+    );
+  }
+  if (props.state === "error") {
+    return (
+      <section
+        class="page assignment-workspace-state route-error"
+        data-route-surface="assignmentWorkspaceGate"
+        role="alert"
+        aria-labelledby="assignment-workspace-load-error"
+      >
+        <p class="eyebrow">Instructor assignment workspace</p>
+        <h1 id="assignment-workspace-load-error">Assignment workspace could not load</h1>
+        <p>Try loading the current assignment again.</p>
+        <button
+          class="primary-action"
+          type="button"
+          onClick={props.retry}
+          ref={props.registerRetryButton}
+        >
+          Retry loading assignment
+        </button>
       </section>
     );
   }
@@ -133,6 +163,11 @@ export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePagePr
   const session = useSessionBootstrap();
   const [state, setState] = createSignal<LoadState>("loading");
   const [workspace, setWorkspace] = createSignal<AssignmentWorkspaceContextValue>();
+  let retryButton: HTMLButtonElement | undefined;
+
+  function registerRetryButton(element: HTMLButtonElement): void {
+    retryButton = element;
+  }
 
   async function load(): Promise<void> {
     setState("loading");
@@ -202,15 +237,29 @@ export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePagePr
         replaceAssignment,
         reloadAssignment,
       });
-    } catch {
-      setState("unavailable");
+    } catch (error: unknown) {
+      const failureState = assignmentWorkspaceLoadFailureState(error);
+      setState(failureState);
+      if (failureState === "error") {
+        requestAnimationFrame(() => retryButton?.focus());
+      }
     }
   }
 
   onMount(() => void load());
 
   return (
-    <Show when={workspace()} keyed fallback={<WorkspaceState state={state()} />}>
+    <Show
+      when={workspace()}
+      keyed
+      fallback={
+        <WorkspaceState
+          state={state()}
+          retry={() => void load()}
+          registerRetryButton={registerRetryButton}
+        />
+      }
+    >
       {(loaded) => (
         <AssignmentWorkspaceContext.Provider value={loaded}>
           <section class="page assignment-workspace" data-route-surface="assignmentWorkspace">

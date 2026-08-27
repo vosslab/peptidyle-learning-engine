@@ -1,4 +1,4 @@
-// Strict learner delivery and instructor teaching-settings transport decoders.
+// Strict learner delivery and focused assignment-policy transport decoders.
 
 import type { AssignmentTeachingSettingsValidationFailure } from "../../../generated/api/AssignmentTeachingSettingsValidationFailure";
 import type { InstructorAssignmentTeachingSettingsLocal } from "../../../generated/api/InstructorAssignmentTeachingSettingsLocal";

@@ -273,9 +273,9 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
       <CourseManagementNav courseReference={props.courseReference} active="assignments" />
       <A
         class="quiet-link"
-        href={`/instructor/courses/${props.courseReference}/assignments/${props.assignmentReference}/edit`}
+        href={`/instructor/courses/${props.courseReference}/assignments/${props.assignmentReference}/policies`}
       >
-        Edit assignment
+        Return to assignment policies
       </A>
       <Switch>
         <Match when={state() === "loading"}>

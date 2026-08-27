@@ -24,7 +24,6 @@ import type { License } from "../../generated/api/License";
 import type { TaxonomyTerm } from "../../generated/api/TaxonomyTerm";
 import type { AttemptPolicy } from "../../generated/api/AttemptPolicy";
 import type { TimingPolicy } from "../../generated/api/TimingPolicy";
-import type { RunPolicies } from "../../generated/api/RunPolicies";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { TenantId } from "../../generated/api/TenantId";
 import type { UserId } from "../../generated/api/UserId";
@@ -37,7 +36,6 @@ import type { InstructorAssignmentCurrentState } from "../../generated/api/Instr
 import type { CatalogProblemSummary } from "../../generated/api/CatalogProblemSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
-import type { LearnerDisclosurePolicy } from "../../generated/api/LearnerDisclosurePolicy";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { AssignmentPublicationReadiness } from "../../generated/api/AssignmentPublicationReadiness";
 import type { InstructorStudentView } from "../../generated/api/InstructorStudentView";
@@ -139,15 +137,6 @@ export type AssignmentEditorEntryInput =
       readonly pointsPerItem: string;
       readonly ordering: "candidateOrder" | "randomized";
     };
-
-export interface AddAssignmentItemInput {
-  readonly questionId: string;
-  readonly position: number;
-}
-
-export interface ReplaceAssignmentItemQuestionInput {
-  readonly questionId: string;
-}
 
 /** The deliberately small public request accepted when an instructor creates a course. */
 export interface CourseCreateInput {

@@ -10,6 +10,7 @@ import {
 } from "./assignment_workspace_paths";
 
 export {
+  assignmentWorkspaceCreatePath,
   assignmentWorkspacePath,
   type AssignmentWorkspaceSection,
 } from "./assignment_workspace_paths";

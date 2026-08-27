@@ -7,10 +7,11 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentLifecycle,
-    AssignmentScoringMode, AssignmentSelectionGroup, CourseGroupReference, IanaTimeZone,
-    InstructorAssignmentTeachingSettingsLocal, LateSubmissionPolicy, LearnerDisclosurePolicy,
-    PointValue, QuestionId, RunPolicies, SelectionOrdering, VariationPolicy,
+    AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentLandingPresentation,
+    AssignmentLifecycle, AssignmentScoringMode, AssignmentSelectionGroup, Capability,
+    CourseGroupReference, IanaTimeZone, InstructorAssignmentTeachingSettingsLocal,
+    LateSubmissionPolicy, LearnerDisclosurePolicy, PointValue, QuestionId, RunPolicies,
+    SelectionOrdering, VariationPolicy,
 };
 
 /// Browser request to create a persisted, incomplete assignment draft.
@@ -55,6 +56,91 @@ pub enum AssignmentAudienceRequest {
     CourseWide,
     /// Any member of one of the supplied course-local groups may receive it.
     AnyOfGroups { groups: Vec<CourseGroupReference> },
+}
+
+/// Browser-safe refusal returned when the Policies workspace cannot save its
+/// complete aggregate update. Once the server can build a valid teaching-state
+/// candidate, it returns every independently determinable correction in stable
+/// order before persistence changes the assignment revision. A malformed
+/// teaching state or illegal lifecycle transition is returned alone because it
+/// prevents constructing that candidate.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AssignmentPoliciesValidationFailure {
+    pub error: AssignmentPoliciesValidationFailureCode,
+    pub issues: Vec<AssignmentPoliciesValidationIssue>,
+}
+
+/// Closed discriminator for a Policies workspace validation refusal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AssignmentPoliciesValidationFailureCode {
+    AssignmentPoliciesInvalid,
+}
+
+/// One browser-safe Policies correction.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+pub enum AssignmentPoliciesValidationIssue {
+    /// A course-local teaching setting needs the supplied correction.
+    TeachingSettings {
+        correction: crate::AssignmentTeachingSettingsValidationFailure,
+    },
+    /// The selected learner audience cannot be resolved for this course.
+    Audience {
+        reason: AssignmentAudienceValidationReason,
+    },
+    /// The combined policy configuration is not available.
+    Configuration {
+        reason: AssignmentPolicyConfigurationReason,
+    },
+    /// A selected question backend cannot satisfy one required capability.
+    Capability {
+        title: String,
+        question_id: QuestionId,
+        capability: Capability,
+    },
+    /// The selected lifecycle needs a publishable definition.
+    PublicationReadiness {
+        blocking_issues: Vec<AssignmentPublicationBlockingIssue>,
+    },
+}
+
+/// Closed reason an explicitly group-scoped audience cannot be saved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AssignmentAudienceValidationReason {
+    GroupRequired,
+    GroupUnavailable,
+    GroupsMustBeDistinct,
+}
+
+/// Closed reason a combined assignment policy cannot be saved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AssignmentPolicyConfigurationReason {
+    SelectedProblemVariantsWithSelectionGroups,
+}
+
+/// Closed structural-content refusal for a question definition with issued
+/// learner work. Ordinary `409` responses still cover retryable aggregate
+/// conflicts; this body identifies the durable recovery path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AssignmentContentIssuedWorkConflict {
+    pub kind: AssignmentContentIssuedWorkConflictKind,
+}
+
+/// Closed semantic reason for a structural Questions save refusal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AssignmentContentIssuedWorkConflictKind {
+    IssuedLearnerWork,
 }
 
 /// One ordered browser content entry. The server resolves every `question_id`
@@ -142,6 +228,25 @@ pub struct InstructorStudentViewDelivery {
     pub deadline_behavior: AssignmentDeadlineBehavior,
 }
 
+impl InstructorStudentView {
+    /// Adds the Instructor Student-view delivery envelope to the shared
+    /// answer-free assignment landing presentation.
+    pub fn from_landing(
+        landing: AssignmentLandingPresentation,
+        delivery: InstructorStudentViewDelivery,
+    ) -> Self {
+        Self {
+            title: landing.title,
+            instructions: landing.instructions,
+            time_zone: landing.time_zone,
+            delivery,
+            questions_per_run: landing.questions_per_run,
+            variation: landing.variation,
+            disclosure_policy: landing.disclosure_policy,
+        }
+    }
+}
+
 impl AssignmentPublicationReadiness {
     /// Derives readiness from the current definition without mutating it.
     pub fn from_definition(
@@ -220,6 +325,64 @@ mod tests {
                 .expect("strict draft request");
 
         assert_eq!(request.title, "Protein folding");
+    }
+
+    #[test]
+    fn policies_validation_failure_is_a_closed_browser_contract() {
+        let failure = AssignmentPoliciesValidationFailure {
+            error: AssignmentPoliciesValidationFailureCode::AssignmentPoliciesInvalid,
+            issues: vec![
+                AssignmentPoliciesValidationIssue::Audience {
+                    reason: AssignmentAudienceValidationReason::GroupRequired,
+                },
+                AssignmentPoliciesValidationIssue::Configuration {
+                    reason:
+                        AssignmentPolicyConfigurationReason::SelectedProblemVariantsWithSelectionGroups,
+                },
+                AssignmentPoliciesValidationIssue::PublicationReadiness {
+                    blocking_issues: vec![AssignmentPublicationBlockingIssue::QuestionsRequired],
+                },
+            ],
+        };
+
+        let value = serde_json::to_value(&failure).expect("policy validation serializes");
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "error": "assignmentPoliciesInvalid",
+                "issues": [
+                    {"kind": "audience", "reason": "groupRequired"},
+                    {
+                        "kind": "configuration",
+                        "reason": "selectedProblemVariantsWithSelectionGroups"
+                    },
+                    {
+                        "kind": "publicationReadiness",
+                        "blockingIssues": [{"kind": "questionsRequired"}]
+                    }
+                ]
+            })
+        );
+        let mut unknown = value;
+        unknown["unexpected"] = serde_json::Value::Bool(true);
+        assert!(serde_json::from_value::<AssignmentPoliciesValidationFailure>(unknown).is_err());
+    }
+
+    #[test]
+    fn issued_work_content_conflict_is_a_closed_browser_contract() {
+        let conflict = AssignmentContentIssuedWorkConflict {
+            kind: AssignmentContentIssuedWorkConflictKind::IssuedLearnerWork,
+        };
+
+        let value = serde_json::to_value(conflict).expect("issued-work conflict serializes");
+        assert_eq!(value, serde_json::json!({ "kind": "issuedLearnerWork" }));
+        assert!(serde_json::from_value::<AssignmentContentIssuedWorkConflict>(value).is_ok());
+        assert!(
+            serde_json::from_value::<AssignmentContentIssuedWorkConflict>(
+                serde_json::json!({ "kind": "issuedLearnerWork", "extra": true })
+            )
+            .is_err()
+        );
     }
 
     #[test]

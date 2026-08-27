@@ -8,7 +8,7 @@ use crate::{
     AssignmentSelectionGroupId, BackendCapabilities, CourseId, CourseReference, EnrollmentId,
     IanaTimeZone, LateSubmissionPolicy, LearnerDisclosurePolicy, PointValue, QuestionBackend,
     QuestionId, RunPolicies, ScoringStatus, SelectionOrdering, StudentAssignmentSummary, StudentId,
-    TenantId,
+    TenantId, VariationPolicy,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -130,6 +130,29 @@ pub struct AssignmentSummary {
     pub policies: RunPolicies,
 }
 
+/// Canonical answer-free facts shown at the start of an assignment.
+///
+/// The ordinary learner detail and an Instructor's stable-identity Student
+/// view use distinct envelopes, but they describe the same landing material.
+/// Routes build this projection once from the authoritative definition and
+/// then use their role-appropriate envelope constructors.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AssignmentLandingPresentation {
+    /// Learner-facing assignment title.
+    pub title: String,
+    /// Learner-facing instructions.
+    pub instructions: AssignmentInstructions,
+    /// Course scheduling zone used to present delivery facts.
+    pub time_zone: IanaTimeZone,
+    /// Number of active questions a learner receives in one run.
+    pub questions_per_run: u32,
+    /// Learner-visible variation policy.
+    pub variation: VariationPolicy,
+    /// Learner-visible disclosure schedule.
+    pub disclosure_policy: LearnerDisclosurePolicy,
+}
+
 /// Learner-safe assignment definition.
 ///
 /// This projection deliberately omits tenant and course identities, run and
@@ -220,20 +243,19 @@ impl From<AssignmentSummary> for LearnerAssignmentSummary {
 }
 
 impl LearnerAssignmentDetail {
-    /// Combines the editable assignment definition with its separately owned
-    /// teaching instructions for an authorized learner detail response.
-    pub fn from_summary(
+    /// Adds learner identity, resolved delivery, and the question-definition
+    /// envelope to the shared answer-free landing presentation.
+    pub fn from_landing(
         assignment: AssignmentSummary,
-        instructions: AssignmentInstructions,
-        time_zone: IanaTimeZone,
+        landing: AssignmentLandingPresentation,
         delivery: LearnerAssignmentDelivery,
     ) -> Self {
         Self {
             id: assignment.id,
             reference: assignment.reference,
-            title: assignment.title,
-            instructions,
-            time_zone,
+            title: landing.title,
+            instructions: landing.instructions,
+            time_zone: landing.time_zone,
             delivery,
             items: assignment.items,
             selection_groups: assignment.selection_groups,
@@ -352,11 +374,17 @@ mod tests {
                 variation: VariationPolicy::NewSeeds,
             },
         };
-        let detail = LearnerAssignmentDetail::from_summary(
+        let detail = LearnerAssignmentDetail::from_landing(
             assignment,
-            AssignmentInstructions::try_new("Read the legend.".to_string())
-                .expect("valid instructions"),
-            IanaTimeZone::parse("America/Chicago").expect("known zone"),
+            AssignmentLandingPresentation {
+                title: "Peptide bonds".to_string(),
+                instructions: AssignmentInstructions::try_new("Read the legend.".to_string())
+                    .expect("valid instructions"),
+                time_zone: IanaTimeZone::parse("America/Chicago").expect("known zone"),
+                questions_per_run: 0,
+                variation: VariationPolicy::NewSeeds,
+                disclosure_policy: LearnerDisclosurePolicy::default(),
+            },
             LearnerAssignmentDelivery {
                 available_at: Some(ActivityTimestamp::from_unix_millis(1_000)),
                 due_at: Some(ActivityTimestamp::from_unix_millis(2_000)),

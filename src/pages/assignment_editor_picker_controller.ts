@@ -6,8 +6,6 @@ import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
 import {
   appendFixedEntries,
-  assignmentEditorDraftFrom,
-  fixedEntries,
   type AssignmentCatalogRow,
   type AssignmentEditorDraft,
 } from "./assignment_editor_model";
@@ -16,14 +14,11 @@ import {
   type AssignmentPickerIntent,
 } from "./assignment_editor_picker_model";
 import type { AssignmentEditorRepository } from "./assignment_editor_repository";
-import type { AssignmentEditorDetail } from "../api/contracts";
 import type { ProblemPickerSelection, ProblemPickerSource } from "../features/problem_picker";
 
 export type AssignmentPickerMode =
-  | { readonly kind: "edit"; readonly assignmentId: AssignmentId }
-  | { readonly kind: "create" }
   /** A persisted workspace assignment whose Questions draft saves as one focused replacement. */
-  | { readonly kind: "workspace"; readonly assignmentId: AssignmentId };
+  { readonly kind: "workspace"; readonly assignmentId: AssignmentId };
 
 export interface PendingPickerSelection {
   readonly intent: AssignmentPickerIntent;
@@ -38,7 +33,6 @@ export interface AssignmentEditorPickerControllerProps {
   readonly editorBusy: () => boolean;
   readonly setBusy: (value: boolean) => void;
   readonly onDraftChange: (draft: AssignmentEditorDraft) => void;
-  readonly onSaved: (saved: AssignmentEditorDetail) => void;
   readonly onReplacementPrepared: (row: AssignmentCatalogRow, itemId: string) => void;
   readonly onMessage: (message: string) => void;
   readonly onError: (error: unknown, fallback: string) => void;
@@ -107,43 +101,6 @@ export function createAssignmentEditorPickerController(
     );
   }
 
-  async function addSavedRows(rows: ReadonlyArray<AssignmentCatalogRow>): Promise<void> {
-    if (props.mode.kind !== "edit") return;
-    const initialDraft = props.currentDraft();
-    if (initialDraft === undefined) return;
-    let draft = initialDraft;
-    let added = 0;
-    for (let index = 0; index < rows.length; index += 1) {
-      const row = rows[index];
-      if (
-        row === undefined ||
-        fixedEntries(draft).some((entry) => entry.questionId === row.questionId)
-      ) {
-        continue;
-      }
-      try {
-        const saved = await props.repository.add(
-          props.courseId,
-          props.mode.assignmentId,
-          { questionId: row.questionId, position: draft.entries.length },
-          draft.revision,
-        );
-        draft = assignmentEditorDraftFrom(saved);
-        added += 1;
-        props.onSaved(saved);
-      } catch (error: unknown) {
-        const questionIds = rows.slice(index).map((candidate) => candidate.questionId);
-        setPendingSelection({ intent: { kind: "fixed" }, questionIds });
-        throw error;
-      }
-    }
-    props.onMessage(
-      added === 0
-        ? "Every selected Question ID is already in this assignment."
-        : `${added} selected question${added === 1 ? " was" : "s were"} added. The server confirmed each assignment item.`,
-    );
-  }
-
   function addPoolRows(entryIndex: number, rows: ReadonlyArray<AssignmentCatalogRow>): void {
     const draft = props.currentDraft();
     const entry = draft?.entries[entryIndex];
@@ -176,9 +133,7 @@ export function createAssignmentEditorPickerController(
       } else {
         const rows = await resolveRows(props.repository, selection.questionIds);
         if (currentIntent.kind === "pool") addPoolRows(currentIntent.entryIndex, rows);
-        else if (props.mode.kind === "create" || props.mode.kind === "workspace")
-          addCreateRows(rows);
-        else await addSavedRows(rows);
+        else addCreateRows(rows);
       }
       setIntent(undefined);
     } catch (error: unknown) {
@@ -204,8 +159,9 @@ export function createAssignmentEditorPickerController(
 
   async function loadSources(): Promise<void> {
     try {
-      const exclude = props.mode.kind === "create" ? undefined : props.mode.assignmentId;
-      setSources(await props.repository.listProblemPickerSources(props.courseId, exclude));
+      setSources(
+        await props.repository.listProblemPickerSources(props.courseId, props.mode.assignmentId),
+      );
     } catch {
       setSources([{ kind: "catalog", label: "Library" }]);
       props.onMessage(

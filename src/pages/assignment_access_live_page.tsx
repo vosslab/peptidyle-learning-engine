@@ -92,7 +92,10 @@ export function AssignmentAccessLivePage(): JSX.Element {
         setGate({ kind: "unavailable" });
         return;
       }
-      const editor = await runtime.client.getAssignmentEditor(assignment.assignmentId);
+      const editor = await runtime.client.getAssignmentWorkspace(
+        course.id,
+        assignment.assignmentId,
+      );
       if (editor.id !== assignment.assignmentId || editor.courseId !== course.id) {
         setGate({ kind: "unavailable" });
         return;
@@ -136,7 +139,10 @@ export function AssignmentAccessLivePage(): JSX.Element {
           courseReference={allowed.courseReference}
           assignmentReference={allowed.assignmentReference}
           reloadAssignmentRevision={async () => {
-            const editor = await runtime.client.getAssignmentEditor(allowed.assignmentId);
+            const editor = await runtime.client.getAssignmentWorkspace(
+              allowed.courseId,
+              allowed.assignmentId,
+            );
             if (editor.id !== allowed.assignmentId || editor.courseId !== allowed.courseId) {
               throw new Error("Assignment revision is no longer available");
             }

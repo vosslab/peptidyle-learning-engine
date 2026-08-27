@@ -216,26 +216,17 @@ test("ordinary focused journeys remain inert without a screenshot request", asyn
 
 test("email-masked capture requires a visible email element and records its privacy treatment", async () => {
   const { root, staging } = stagingDirectory();
-  const instructorInput = {
-    ...input,
-    scenarioId: "instructor_authoring",
-    namespace: "bs1-0123456789ab-instructor_authoring",
-    personas: ["elena_instructor"],
-    screenshotCapture: {
-      version: 1,
-      artifacts: captureArtifactsFor("instructor_authoring"),
-    },
-  };
+  const rosterArtifactId = "learner_delivery_instructor_active_roster";
   try {
     await withStaging(staging, async () => {
       await captureRealStackScreenshot(
         page("mary.okafor@live-demo.ple.example"),
-        instructorInput,
-        "instructor_authoring_invitation_pending",
+        input,
+        rosterArtifactId,
       );
     });
     const receipt = JSON.parse(
-      readFileSync(path.join(staging, "instructor_authoring_invitation_pending.json"), "ascii"),
+      readFileSync(path.join(staging, `${rosterArtifactId}.json`), "ascii"),
     );
     assert.deepEqual(receipt.privacyChecks, ["no_private_material", "email_masked"]);
   } finally {

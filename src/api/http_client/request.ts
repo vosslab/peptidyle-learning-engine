@@ -25,13 +25,9 @@ import type {
   WorkspaceDraftDetail,
 } from "../contracts";
 import {
-  decodeAssignmentCapabilityViolations,
-  decodeAddAssignmentItemInput,
-  decodeAssignmentEditorDetail,
+  decodeAssignmentContentInput,
   decodeInstructorStudentView,
-  decodeAssignmentTeachingSettingsValidationFailure,
-  decodeInstructorAssignmentTeachingSettingsLocal,
-  decodeReplaceAssignmentItemQuestionInput,
+  decodeAssignmentPoliciesValidationFailure,
   decodeAssignmentRun,
   decodeCapabilityViolations,
   decodeCourseAppearance,
@@ -54,11 +50,15 @@ import {
   decodeTimerVerdict,
 } from "../decoders";
 import {
+  decodeAssignmentContentIssuedWorkConflict,
+  decodeAssignmentEditorDetail,
+} from "../decoders/assignment_workspace";
+import {
   ApiProtocolError,
   ApiRequestError,
   AssignmentConflictError,
-  AssignmentValidationError,
-  AssignmentTeachingSettingsValidationError,
+  AssignmentIssuedWorkError,
+  AssignmentPoliciesValidationError,
   CourseAppearanceConflictError,
   CourseAppearanceFileError,
   CourseGradeSchemeConflictError,
@@ -258,6 +258,7 @@ export async function requestAssignmentEditor(
   path: string,
   expected: { readonly assignmentId?: AssignmentId; readonly courseId?: CourseId },
   options: RequestOptions = {},
+  conflict: "standard" | "contentSave" = "standard",
 ): Promise<AssignmentEditorDetail> {
   const headers: Record<string, string> = { accept: "application/json", ...options.headers };
   const body = options.body === undefined ? undefined : JSON.stringify(options.body);
@@ -269,6 +270,17 @@ export async function requestAssignmentEditor(
     credentials: "same-origin",
     cache: "no-store",
   });
+  if (response.status === 409 && conflict === "contentSave") {
+    // Only the generated issued-work body gets semantic recovery; other 409s stay generic.
+    const value = await boundedResponseJson(response, path);
+    try {
+      decodeAssignmentContentIssuedWorkConflict(value, "response");
+      throw new AssignmentIssuedWorkError(path);
+    } catch (error: unknown) {
+      if (error instanceof AssignmentIssuedWorkError) throw error;
+      throw new ApiRequestError(response.status, path);
+    }
+  }
   if (response.status === 409 || response.status === 412 || response.status === 428)
     throw new AssignmentConflictError(response.status, path);
   responseContentType(response, path);
@@ -276,29 +288,6 @@ export async function requestAssignmentEditor(
   if (text.length === 0 || text.length > MAX_RESPONSE_CHARACTERS)
     throw new ApiProtocolError(`API response ${path} must contain a bounded JSON body`);
   const value = decodeJson(text, path);
-  if (
-    response.status === 422 &&
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    "error" in value &&
-    Reflect.get(value, "error") === "assignment configuration is not supported"
-  )
-    throw new AssignmentValidationError(
-      path,
-      decodeAssignmentCapabilityViolations(value, "response"),
-    );
-  if (response.status === 422) {
-    try {
-      throw new AssignmentTeachingSettingsValidationError(
-        path,
-        decodeAssignmentTeachingSettingsValidationFailure(value, "response"),
-      );
-    } catch (error: unknown) {
-      if (error instanceof AssignmentTeachingSettingsValidationError) throw error;
-      throw new ApiRequestError(response.status, path);
-    }
-  }
   if (!response.ok) throw new ApiRequestError(response.status, path);
   const detail = decodeAssignmentEditorDetail(value, "response");
   if (expected.assignmentId !== undefined && detail.id !== expected.assignmentId)
@@ -313,6 +302,53 @@ export async function requestAssignmentEditor(
       `API response ${path} must include one positive strong numeric ETag`,
     );
   return { ...detail, revision };
+}
+
+/** Policies owns the aggregate 422 envelope; Questions retain their separate save contract. */
+async function requestAssignmentPolicies(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  courseId: CourseId,
+  assignmentId: AssignmentId,
+  input: AssignmentPoliciesInput,
+  revision: string,
+): Promise<AssignmentEditorDetail> {
+  const path = `${assignmentPath(courseId, assignmentId)}/policies`;
+  const response = await requestSameOrigin(fetchImplementation, basePath, path, {
+    method: "PUT",
+    body: input,
+    headers: { "if-match": revision },
+  });
+  if (response.status === 409 || response.status === 412 || response.status === 428)
+    throw new AssignmentConflictError(response.status, path);
+  if (response.status === 422) {
+    const value = await boundedResponseJson(response, path);
+    try {
+      const failure = decodeAssignmentPoliciesValidationFailure(value, "response");
+      throw new AssignmentPoliciesValidationError(path, failure.issues);
+    } catch (error: unknown) {
+      if (error instanceof AssignmentPoliciesValidationError) throw error;
+      throw new ApiRequestError(response.status, path);
+    }
+  }
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  const value = await boundedResponseJson(response, path);
+  const detail = decodeAssignmentEditorDetail(value, "response");
+  if (detail.id !== assignmentId) {
+    throw new ApiProtocolError(
+      "assignment policies response does not match the requested assignment",
+    );
+  }
+  if (detail.courseId !== courseId) {
+    throw new ApiProtocolError("assignment policies response does not match the requested course");
+  }
+  const revisionHeader = response.headers.get("etag");
+  if (revisionHeader === null || !validRevision(revisionHeader)) {
+    throw new ApiProtocolError(
+      `API response ${path} must include one positive strong numeric ETag`,
+    );
+  }
+  return { ...detail, revision: revisionHeader };
 }
 
 export function createRequestClient(
@@ -334,9 +370,6 @@ export function createRequestClient(
   | "saveAssignmentContent"
   | "saveAssignmentPolicies"
   | "getInstructorStudentView"
-  | "addAssignmentItem"
-  | "removeAssignmentItem"
-  | "replaceAssignmentItemQuestion"
   | "startRun"
   | "prefetchNextQuestion"
   | "submitResponse"
@@ -557,7 +590,10 @@ export function createRequestClient(
         assignmentPath(courseId, assignmentId),
         { courseId, assignmentId },
       ),
-    createAssignmentDraft: (courseId, input: AssignmentDraftInput) => {
+    createAssignmentDraft: (
+      courseId,
+      input: AssignmentDraftInput,
+    ): ReturnType<ApiClient["createAssignmentDraft"]> => {
       if (typeof input.title !== "string" || input.title.trim().length === 0)
         return Promise.reject(new ApiProtocolError("assignment draft needs a nonempty title"));
       return requestAssignmentEditor(
@@ -568,7 +604,12 @@ export function createRequestClient(
         { method: "POST", body: { title: input.title } },
       );
     },
-    saveAssignmentContent: (courseId, assignmentId, input: AssignmentContentInput, revision) => {
+    saveAssignmentContent: (
+      courseId,
+      assignmentId,
+      input: AssignmentContentInput,
+      revision,
+    ): ReturnType<ApiClient["saveAssignmentContent"]> => {
       if (!validRevision(revision))
         return Promise.reject(
           new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
@@ -578,20 +619,31 @@ export function createRequestClient(
         basePath,
         `${assignmentPath(courseId, assignmentId)}/content`,
         { courseId, assignmentId },
-        { method: "PUT", body: input, headers: { "if-match": revision } },
+        {
+          method: "PUT",
+          body: decodeAssignmentContentInput(input, "request"),
+          headers: { "if-match": revision },
+        },
+        "contentSave",
       );
     },
-    saveAssignmentPolicies: (courseId, assignmentId, input: AssignmentPoliciesInput, revision) => {
+    saveAssignmentPolicies: (
+      courseId,
+      assignmentId,
+      input: AssignmentPoliciesInput,
+      revision,
+    ): ReturnType<ApiClient["saveAssignmentPolicies"]> => {
       if (!validRevision(revision))
         return Promise.reject(
           new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
         );
-      return requestAssignmentEditor(
+      return requestAssignmentPolicies(
         fetchImplementation,
         basePath,
-        `${assignmentPath(courseId, assignmentId)}/policies`,
-        { courseId, assignmentId },
-        { method: "PUT", body: input, headers: { "if-match": revision } },
+        courseId,
+        assignmentId,
+        input,
+        revision,
       );
     },
     getInstructorStudentView: async (courseId, assignmentId): Promise<InstructorStudentView> => {
@@ -605,69 +657,6 @@ export function createRequestClient(
       requireNoStore(response, path);
       if (!response.ok) throw new ApiRequestError(response.status, path);
       return decodeInstructorStudentView(await boundedResponseJson(response, path), "response");
-    },
-    addAssignmentItem: (
-      courseId,
-      assignmentId,
-      input,
-      revision,
-    ): ReturnType<ApiClient["addAssignmentItem"]> => {
-      if (!validRevision(revision))
-        return Promise.reject(
-          new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
-        );
-      return requestAssignmentEditor(
-        fetchImplementation,
-        basePath,
-        `${assignmentPath(courseId, assignmentId)}/items`,
-        { courseId, assignmentId },
-        {
-          method: "POST",
-          body: decodeAddAssignmentItemInput(input, "request"),
-          headers: { "if-match": revision },
-        },
-      );
-    },
-    removeAssignmentItem: (
-      courseId,
-      assignmentId,
-      itemId,
-      revision,
-    ): ReturnType<ApiClient["removeAssignmentItem"]> => {
-      if (!validRevision(revision))
-        return Promise.reject(
-          new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
-        );
-      return requestAssignmentEditor(
-        fetchImplementation,
-        basePath,
-        `${assignmentPath(courseId, assignmentId)}/items/${encodedId(itemId)}`,
-        { courseId, assignmentId },
-        { method: "DELETE", headers: { "if-match": revision } },
-      );
-    },
-    replaceAssignmentItemQuestion: (
-      courseId,
-      assignmentId,
-      itemId,
-      input,
-      revision,
-    ): ReturnType<ApiClient["replaceAssignmentItemQuestion"]> => {
-      if (!validRevision(revision))
-        return Promise.reject(
-          new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
-        );
-      return requestAssignmentEditor(
-        fetchImplementation,
-        basePath,
-        `${assignmentPath(courseId, assignmentId)}/items/${encodedId(itemId)}/question`,
-        { courseId, assignmentId },
-        {
-          method: "PUT",
-          body: decodeReplaceAssignmentItemQuestionInput(input, "request"),
-          headers: { "if-match": revision },
-        },
-      );
     },
     startRun: (courseId, assignmentId): Promise<AssignmentRun> =>
       requestJson(
