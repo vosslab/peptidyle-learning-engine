@@ -263,10 +263,13 @@ pub(super) fn store_error(error: StoreError) -> Response {
             StatusCode::CONFLICT,
             "curriculum adoption operation timed out",
         ),
-        StoreError::RetryableTransaction | StoreError::Unavailable(_) => error_response(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "curriculum adoption is unavailable",
-        ),
+        error @ (StoreError::RetryableTransaction | StoreError::Unavailable(_)) => {
+            tracing::warn!(event = "curriculum_adoption_store_unavailable", error = ?error);
+            error_response(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "curriculum adoption is unavailable",
+            )
+        }
     }
 }
 

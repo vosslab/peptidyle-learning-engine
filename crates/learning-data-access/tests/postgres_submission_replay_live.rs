@@ -645,7 +645,7 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
     ));
 
     let mut receipt_corruption = begin_disposable_corruption(&pool, tenant).await;
-    let corrupted = sqlx::query(
+    let corruption_error = sqlx::query(
         "UPDATE submission_receipt_snapshot \
          SET presentation_payload_sha256 = repeat('0', 64) \
          WHERE tenant_id = $1 AND attempt_id = $2",
@@ -654,25 +654,33 @@ async fn postgres_submission_replay_preserves_its_immutable_receipt_during_concu
     .bind(attempt.id.as_uuid())
     .execute(&mut *receipt_corruption)
     .await
-    .expect("corrupt only the disposable receipt checksum");
-    assert_eq!(corrupted.rows_affected(), 1);
+    .expect_err("immutable receipt guard rejects checksum corruption");
+    // ASVS V2.3.3: the failed mutation leaves the receipt transaction unchanged.
+    assert_eq!(
+        corruption_error
+            .as_database_error()
+            .and_then(|error| error.code())
+            .as_deref(),
+        Some("42501")
+    );
     receipt_corruption
-        .commit()
+        .rollback()
         .await
-        .expect("commit disposable receipt corruption");
-    let checksum_replay_store =
-        PostgresStore::new(lazy_pool(database_url).expect("fresh checksum replay PostgreSQL pool"));
+        .expect("roll back the rejected receipt corruption probe");
+    let immutable_replay_store = PostgresStore::new(
+        lazy_pool(database_url).expect("fresh immutable replay PostgreSQL pool"),
+    );
     assert!(matches!(
-        checksum_replay_store
+        immutable_replay_store
             .replay_submission(context, student, attempt.id, &response, &key)
             .await,
-        Err(StoreError::Unavailable(message)) if message.contains("receipt presentation checksum mismatch")
+        Ok(learning_data_access::SubmissionReceiptRead::Completed(_))
     ));
     assert!(matches!(
-        checksum_replay_store
+        immutable_replay_store
             .submission_record(context, student, attempt.id)
             .await,
-        Err(StoreError::Unavailable(message)) if message.contains("receipt presentation checksum mismatch")
+        Ok(learning_data_access::SubmissionReceiptRead::Completed(_))
     ));
 
     let deleted = sqlx::query(

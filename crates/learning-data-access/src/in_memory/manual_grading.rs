@@ -234,16 +234,15 @@ fn submit_pending_manual_question_attempt_locked(
         summary: summary.clone(),
         feedback: private_feedback_record(FeedbackContent::default())?,
         presentation,
-        disclosure,
+        disclosure: disclosure.clone(),
     };
     let private_response = StoredPrivateSubmissionResponse::from_response(command.response)?;
+    let completed_receipt = completed_submission_receipt_from_record(record);
     state.submissions.insert(
         (tenant, command.attempt),
         StoredSubmission {
             key: command.idempotency_key,
-            state: StoredSubmissionState::Completed(Box::new(
-                completed_submission_receipt_from_record(record.clone()),
-            )),
+            state: StoredSubmissionState::Completed(Box::new(completed_receipt.clone())),
         },
     );
     state
@@ -268,7 +267,7 @@ fn submit_pending_manual_question_attempt_locked(
         .summaries
         .insert((tenant, summary.enrollment), summary);
     complete_memory_attempt_timing_job(state, tenant, command.attempt);
-    Ok(record)
+    Ok(completed_receipt.into_submission_record(disclosure))
 }
 
 fn set_memory_manual_grade(

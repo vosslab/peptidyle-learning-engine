@@ -20,6 +20,7 @@ activity PLE presents to instructors and students, alongside the more expressive
 that implement it.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
+
 ![Instructor assignment workspace Policies page showing delivery, lifecycle, and disclosure controls](docs/screenshots/instructor/assignment_workspace/01_assignment_policies.png)
 <!-- screenshots:end -->
 
@@ -51,8 +52,10 @@ Use the visible seeded-role entry to exercise ordinary PLE authorization and tea
   inspect public Alpha curricula, reuse their ordered questions, and adopt a source into ordinary
   course work through an answer-free proposal and immutable receipt.
 - As Mary (Student), enter the course through ordinary Student entry, start the assignment, and
-  submit a response. Return to Elena's Instructor session and open **Gradebook**: the server-owned
-  grade and authorized run history are visible there as ordinary course records.
+  submit a response. If **Response received** appears, use **Check grading status** until feedback
+  or an instructor-attention message appears. Return to Elena's Instructor session and open
+  **Gradebook**: the server-owned grade and authorized run history are visible there as ordinary
+  course records.
 - As Morgan (Sysadmin), open **Account** -> **Your passkeys**, add a passkey, sign out, and use
   **Sign in with a passkey**. This direct Sysadmin test retains the ordinary Sysadmin account and
   authorization; it is not a role claim supplied by the demo selector.
@@ -251,7 +254,7 @@ generation is discarded without delaying or rolling back the current grade.
 | Reusable curriculum                  | Revisioned private Blueprints, public Alpha curricula, immutable publication pins, answer-free inspection, and shared question selection                                                                                                                                                                    |
 | API server                           | Auth, catalog, course, assignment, run, submission, deterministic grading, item analysis, asset, export, workspace, retention, reusable curriculum, and curriculum-adoption route groups                                                                                                                    |
 | WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                                                              |
-| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, Library discovery, question authoring, the Overview/Questions/Policies/Student view assignment workspace, gradebook, reusable curricula, and Instructor curriculum adoption                         |
+| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, Library discovery, question authoring, the Overview/Questions/Policies/Student view assignment workspace, gradebook, reusable curricula, and Instructor curriculum adoption                                                                   |
 | Curriculum adoption                  | Accepted preview-before-save fork and instantiation, rollover, term shifting, provenance receipts, controlled fast-forward, divergence recovery, and teaching-operation API/browser capabilities                                                                                                            |
 | PostgreSQL                           | Forward-only SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification                                                                                                                                                                                    |
 | Question engines                     | PLE flat-question JSON v2 implements all eight required native families; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |

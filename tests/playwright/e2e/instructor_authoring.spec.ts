@@ -11,6 +11,7 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
+import { waitForAutomatedFeedback } from "./automated_grading_ui";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
@@ -268,7 +269,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await expect(mary.locator("[data-route-surface=runAttempt]")).toBeVisible();
       await mary.getByRole("checkbox", { name: correctChoice, exact: true }).check();
       await mary.getByRole("button", { name: "Submit answer", exact: true }).click();
-      const feedback = mary.getByRole("heading", { name: "Feedback", exact: true }).locator("..");
+      const feedback = await waitForAutomatedFeedback(mary);
       await expect(feedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
       await mary.getByRole("button", { name: "View completed run", exact: true }).click();
       const completedRun = mary.locator(".attempt-summary");

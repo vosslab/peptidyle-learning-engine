@@ -177,7 +177,7 @@ async function activateDeliveryCheck(page: Page, expectedStatus = 200): Promise<
   const { response } = outcome;
   if (response.status() !== expectedStatus) {
     throw new Error(
-      `Preview request returned HTTP ${response.status()} instead of ${expectedStatus}: ${await response.text()}`,
+      `Preview request returned HTTP ${response.status()} instead of ${expectedStatus}.`,
     );
   }
 }

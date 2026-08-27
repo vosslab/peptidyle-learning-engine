@@ -1,9 +1,17 @@
 //! Shared server-only fixtures for authenticated persistence boundaries.
 
+use std::sync::Arc;
+use std::time::Duration;
+
 use learning_data_access::{
     CourseCreationAuthority, SessionLifetime, SessionStore, SessionSubject, SessionTokenHash,
+    WorkerId,
 };
 use question_model::{CourseId, TenantId, UserId, UserRole};
+
+use crate::accepted_submission_worker::AcceptedSubmissionExecutionWorker;
+use crate::run::RunBackend;
+use crate::worker::WorkerSettings;
 
 /// Creates or reuses the deterministic Sysadmin session for one course fixture.
 ///
@@ -54,4 +62,37 @@ where
     assert_eq!(record.subject, subject);
 
     CourseCreationAuthority::Sysadmin { actor, session }
+}
+
+/// Drains one accepted submission through the same sealed worker used by the
+/// production composition and requires its durable commit to be acknowledged.
+///
+/// `MemoryStore` clones share state while retaining the worker's capability
+/// boundary. Fixed bounded settings keep lifecycle tests deterministic and
+/// free of polling or sleeps.
+pub(crate) async fn drain_one_accepted_submission<B>(
+    store: &Arc<learning_data_access::in_memory::MemoryStore>,
+    backend: Arc<B>,
+) where
+    B: RunBackend + 'static,
+{
+    let settings = WorkerSettings::new(60, Duration::from_secs(5), 1)
+        .expect("bounded accepted-submission worker settings");
+    let worker = AcceptedSubmissionExecutionWorker::new(
+        (**store).clone(),
+        backend,
+        WorkerId::from_uuid(uuid::Uuid::from_u128(70_001)),
+        settings,
+    )
+    .expect("accepted-submission worker");
+    let report = worker.drain_one().await.expect("accepted-submission drain");
+    assert_eq!(
+        report.committed, 1,
+        "worker must commit one accepted execution"
+    );
+    assert_eq!(report.no_claim, 0);
+    assert_eq!(report.rescheduled, 0);
+    assert_eq!(report.terminal, 0);
+    assert_eq!(report.stale_claim, 0);
+    assert_eq!(report.outcome_unknown, 0);
 }

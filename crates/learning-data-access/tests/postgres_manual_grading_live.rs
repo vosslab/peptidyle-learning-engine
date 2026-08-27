@@ -419,7 +419,7 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
                 actor: student,
                 binding: LearnerWorkRoutingBinding::new(course, assignment),
                 attempt: manual.id,
-                response: manual_response.clone(),
+                response: manual_response,
                 idempotency_key: SubmissionIdempotencyKey::parse("live-manual-pending")
                     .expect("valid pending key"),
             },
@@ -427,7 +427,7 @@ async fn postgres_mixed_automatic_and_manual_grading_is_generation_fenced() {
         .await
         .expect("submit live pending manual item");
     assert_eq!(pending.attempt.status, AttemptStatus::NeedsManualGrading);
-    assert_eq!(pending.attempt.response, Some(manual_response));
+    assert_eq!(pending.attempt.response, None);
     assert_eq!(pending.attempt.result, None);
     assert_eq!(pending.run.completed_at, None);
     assert_eq!(pending.run.score, None);

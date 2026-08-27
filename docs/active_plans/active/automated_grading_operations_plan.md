@@ -7,10 +7,15 @@ and repository-rules review. The shared [allocation ledger](../implementation_st
 `2026081849_automated_grading_operations.sql` and
 `2026081850_accepted_submission_execution_load.sql` to this package. The ledger
 also records the approved forward allocations for W4 and W5:
-`2026081851_accepted_submission_execution_worker_outcome.sql` and
-`2026081852_instructor_grading_operation_capabilities.sql`.
+`2026081851_accepted_submission_execution_foundation.sql`,
+`2026081852_accepted_submission_execution_capabilities.sql`, and
+`2026081853_instructor_grading_operation_capabilities.sql`.
 
-W2 and W3 are accepted, and W4 is the current implementation stage. The W4
+W2 and W3 are accepted, and W4 is the current implementation stage. A fresh
+disposable database currently stops on a known migration-1851 syntax error, so
+W4 first completes the binding contract's narrow migration stabilization gate:
+readable 1851/1852 apply, second-pass no-op, compatibility, and executable
+role/RLS proof. The W4
 execution contract at
 `docs/active_plans/active/automated_grading_execution_contract.md` freezes the
 sealed worker capability, versioned canonical immutable evidence protocol, state transitions, lane
@@ -89,11 +94,14 @@ browser contracts, and an operation queue rather than mutable score editing or d
   execution schema prerequisite, receipts, and closed worker payload. Forward migration
   `2026081850_accepted_submission_execution_load.sql` owns the complete private accepted-input and
   active-lease execution boundary: child storage, atomic acceptance/exact replay, retention and
-  append-only guards, forced RLS, caller role, and sealed execution loader. W4 owns the sole
-  forward allocation `2026081851_accepted_submission_execution_worker_outcome.sql` for exact
-  worker claim/load/outcome functions and worker-only authority. W5 owns the sole forward
-  allocation `2026081852_instructor_grading_operation_capabilities.sql` for the dedicated
-  Instructor operation capability and its broker surface. Accepted migrations remain immutable.
+  append-only guards, forced RLS, caller role, and sealed execution loader. W4 owns ordered
+  forward allocations `2026081851_accepted_submission_execution_foundation.sql` and
+  `2026081852_accepted_submission_execution_capabilities.sql`: the first owns roles, table
+  changes, guards, witness, table RLS/grants, and their attestation; the second owns shared
+  generic/exact claim and verified-read capabilities, load/lock/commit/fail, function grants,
+  and function attestation. W5 owns
+  `2026081853_instructor_grading_operation_capabilities.sql` for the dedicated Instructor
+  operation capability and broker surface. Accepted migrations remain immutable.
 - Assignment-local route `/courses/:courseRef/assignments/:assignmentRef/grading-operations`,
   question-first grouping, learner alternate, cursor pagination, and explicit recovery controls.
 - Deterministic exception routing, bounded retry, and generation-fenced recalculation.
@@ -495,9 +503,11 @@ journey, connected oracles, and final Validation.
 
 - **Owner/package:** expert coder, `WP-PROF-G1 / G1-W4`, learner acceptance,
   worker/scoring, and persistence-capability boundary.
-- **Depends on:** G1-W3 green stabilization gate and W2 accepted SQL/security
-  review. Migration `2026081851_accepted_submission_execution_worker_outcome.sql`
-  is allocated before source edits.
+- **Depends on:** G1-W3 green stabilization gate, W2 accepted SQL/security
+  review, and the W4 migration stabilization gate. Migrations
+  `2026081851_accepted_submission_execution_foundation.sql` and
+  `2026081852_accepted_submission_execution_capabilities.sql` are allocated
+  before source edits.
 - **Binding contract:**
   `docs/active_plans/active/automated_grading_execution_contract.md` freezes
   W4's sealed claim/load/completion capability, immutable answer-free receipt,
@@ -516,7 +526,7 @@ journey, connected oracles, and final Validation.
   worker-composition modules; `src/api/contracts.ts`, `src/api/decoders/run.ts`,
   `src/api/http_client/request.ts`, `src/features/attempt/attempt_state.ts`, and
   `src/api/client.ts`, `src/api/http_client/response.ts`, and focused learner
-  page/presentation modules; focused tests; and migration 1851.
+  page/presentation modules; focused tests; and migrations 1851/1852.
 - **Required behavior:** validate public response shape and learner route
   witnesses without invoking a grader, then call `accept_automated_submission`
   once. W2 persists immutable input, replay evidence, pending projection,
@@ -544,7 +554,9 @@ journey, connected oracles, and final Validation.
   summary fields, and commit-v2 validates exactly `tenant`, `enrollment`,
   `currentScore`, `bestScore`, `latestScore`, `completedRunCount`,
   `totalQuestionAttempts`, and `lastActivityAt` before writing those scalars.
-  The capability has exactly 38 positional values. The pure planner composes the
+  The capability has exactly 36 positional values. The attempt's immutable
+  issuance payload remains unchanged while relational lifecycle fields advance;
+  the pure planner composes the
   existing lifecycle helpers after coherent validated inputs; backend callers
   retain private-response, feedback, checksum, authorization, and persistence
   authority. It produces no `attempt_score_current` write. Exact claim, load,
@@ -646,7 +658,7 @@ journey, connected oracles, and final Validation.
   `crates/server/src/course/grading_operations.rs`,
   `crates/server/src/course/routing.rs`, `crates/server/src/composition/router.rs`,
   narrow `crates/server/src/route_policy.rs` entries, and route tests; migration
-  `2026081852_instructor_grading_operation_capabilities.sql`.
+  `2026081853_instructor_grading_operation_capabilities.sql`.
 - **Required behavior:** the course router adds the explicit bound
   `S: Store + CourseRecordsAccessStore + SessionStore + GradingOperationStore + 'static`;
   it does not extend global `Store` or `AutomatedGradingStore`. Memory and

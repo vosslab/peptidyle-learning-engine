@@ -2,7 +2,7 @@ use super::external_tool::external_tool_fixture;
 use super::*;
 
 #[tokio::test]
-async fn memory_manual_grading_is_response_bearing_revisioned_and_generation_fenced() {
+async fn memory_manual_grading_keeps_response_private_revisioned_and_generation_fenced() {
     let store = MemoryStore::default();
     store
         .set_authoritative_time(ActivityTimestamp::from_unix_millis(500))
@@ -22,6 +22,7 @@ async fn memory_manual_grading_is_response_bearing_revisioned_and_generation_fen
         .await
         .expect("response-bearing manual submission commits");
     assert_eq!(pending.attempt.status, AttemptStatus::NeedsManualGrading);
+    assert_eq!(pending.attempt.response, None);
     assert_eq!(pending.attempt.result, None);
     assert_eq!(pending.run.score, None);
     assert_eq!(pending.summary.current_score, None);

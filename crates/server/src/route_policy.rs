@@ -296,6 +296,7 @@ pub const APPLICATION_ROUTE_POLICY: &[RoutePolicy] = &[
         "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submissions",
         "POST",
     ),
+    read("/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submission-status"),
     read("/api/attempts/{attempt}/manual-grade"),
     mutation("/api/attempts/{attempt}/manual-grade", "PUT"),
     mutation("/api/attempts/{attempt}/feedback-release", "POST"),
@@ -502,7 +503,7 @@ mod tests {
     }
 
     #[test]
-    fn learner_work_mutations_require_nested_course_and_assignment_routes() {
+    fn learner_work_routes_preserve_nested_route_and_method_contracts() {
         for path in [
             "/api/courses/{course}/assignments/{assignment}/runs",
             "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/prefetch-next",
@@ -526,6 +527,13 @@ mod tests {
         ] {
             assert_eq!(route_policy(retired, "POST"), None);
         }
+        assert_eq!(
+            route_policy(
+                "/api/courses/{course}/assignments/{assignment}/attempts/{attempt}/submission-status",
+                "GET",
+            ),
+            Some(RouteIntent::Representation),
+        );
     }
 
     #[test]

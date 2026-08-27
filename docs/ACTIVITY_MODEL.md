@@ -128,10 +128,12 @@ submission timestamps, deadlines, and completion timestamps. The browser does
 not submit any of those values.
 
 Every submission carries a bounded idempotency key. Repeating the exact key and
-response returns the first committed receipt without grading twice. Reusing
+response returns the same accepted or completed projection without grading twice. Reusing
 either the attempt with a different key or the key with a different response
-is a conflict. Response, grade event, run completion, enrollment pointers, and
-summary projection commit in one transaction.
+is a conflict. The first transaction atomically records the accepted response,
+issued-work witness, pending evaluation, execution, and ready job. The sealed
+worker's successful transaction atomically records the grade event, attempt and
+run transitions, enrollment pointers, summary projection, and completed receipt.
 
 The server repeats key-free response-format validation before invoking a
 trusted grading backend. Storage independently rejects malformed point values.

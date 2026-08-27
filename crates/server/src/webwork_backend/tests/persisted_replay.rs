@@ -565,7 +565,7 @@ async fn http_submit_translates_rendered_webwork_choice_without_rerendering() {
     ));
     let app = crate::run::router(
         Arc::clone(&store),
-        backend,
+        Arc::clone(&backend),
         Arc::new(
             learning_data_access::in_memory::MemorySealedPrivateExecutionStore::new(Arc::clone(
                 &store,
@@ -626,21 +626,50 @@ async fn http_submit_translates_rendered_webwork_choice_without_rerendering() {
         )
         .await
         .expect("first submission response");
-    assert_eq!(first_response.status(), StatusCode::OK);
-    let first_body = to_bytes(first_response.into_body(), 256 * 1024)
+    assert_eq!(first_response.status(), StatusCode::ACCEPTED);
+    let pending_body = to_bytes(first_response.into_body(), 256 * 1024)
         .await
-        .expect("first receipt body");
+        .expect("accepted response body");
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&pending_body).expect("accepted response"),
+        serde_json::json!({
+            "kind": "accepted_pending",
+            "accepted": true,
+            "attemptId": attempt.id,
+            "automatedGradingStatus": "pending",
+            "nextAction": "check_status",
+        })
+    );
+    assert_eq!(grades.load(Ordering::SeqCst), 0);
+    crate::test_fixtures::drain_one_accepted_submission(&store, Arc::clone(&backend)).await;
+    let completed_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/courses/{}/assignments/{}/attempts/{}/submission-status",
+                    CourseId::from_uuid(id(21)),
+                    AssignmentId::from_uuid(id(22)),
+                    attempt.id
+                ))
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .expect("completed status request"),
+        )
+        .await
+        .expect("completed status response");
+    assert_eq!(completed_response.status(), StatusCode::OK);
+    let first_body = to_bytes(completed_response.into_body(), 256 * 1024)
+        .await
+        .expect("completed receipt body");
     let first_json: serde_json::Value = serde_json::from_slice(&first_body).expect("first receipt");
     assert_eq!(first_json["feedback"]["correctness"], true);
     assert_eq!(
         first_json["attempt"]["result"],
-        serde_json::json!({
-            "correct": true,
-            "pointsEarned": 1.0,
-            "pointsPossible": 1.0,
-        }),
-        "the assignment's default after-submit policy releases both score and correctness"
+        serde_json::Value::Null,
+        "the score-bearing aggregate remains hidden until recalculation is current"
     );
+    assert_eq!(first_json["scoringStatus"], "recalculating");
     assert_eq!(renders.load(Ordering::SeqCst), 1, "grade does not rerender");
     assert_eq!(grades.load(Ordering::SeqCst), 1, "one private grade RPC");
 

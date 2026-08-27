@@ -433,7 +433,7 @@ async fn sealed_worker_claims_once_with_the_exact_process_and_execution_identity
 
     assert_eq!(worker.worker_id(), expected_claim.worker);
     assert_eq!(
-        worker.drain_once().await.expect("sealed worker pass"),
+        worker.drain_one().await.expect("sealed worker pass"),
         AcceptedSubmissionExecutionWorkerReport {
             committed: 1,
             ..AcceptedSubmissionExecutionWorkerReport::default()
@@ -461,7 +461,7 @@ async fn sealed_worker_reports_an_empty_pass_without_loading_or_grading() {
     );
 
     assert_eq!(
-        worker.drain_once().await.expect("empty sealed pass"),
+        worker.drain_one().await.expect("empty sealed pass"),
         AcceptedSubmissionExecutionWorkerReport {
             no_claim: 1,
             ..AcceptedSubmissionExecutionWorkerReport::default()
@@ -507,7 +507,7 @@ async fn sealed_worker_counts_each_durable_handler_disposition() {
         let (worker, claim_requests, load_claims, submit_calls) =
             sealed_worker(Ok(Some(claim())), Ok(disposition));
         assert_eq!(
-            worker.drain_once().await.expect("sealed worker pass"),
+            worker.drain_one().await.expect("sealed worker pass"),
             expected
         );
         assert_eq!(claim_requests.lock().expect("claim requests").len(), 1);
@@ -524,7 +524,7 @@ async fn sealed_worker_counts_an_ambiguous_outcome_without_regrading() {
     );
 
     assert_eq!(
-        worker.drain_once().await.expect("sealed worker pass"),
+        worker.drain_one().await.expect("sealed worker pass"),
         AcceptedSubmissionExecutionWorkerReport {
             outcome_unknown: 1,
             ..AcceptedSubmissionExecutionWorkerReport::default()
@@ -542,7 +542,7 @@ async fn sealed_worker_propagates_claim_and_known_handler_errors() {
         Ok(AcceptedSubmissionExecutionDisposition::Committed),
     );
     assert!(matches!(
-        claim_error_worker.drain_once().await,
+        claim_error_worker.drain_one().await,
         Err(StoreError::Unavailable(message)) if message == "claim unavailable"
     ));
     assert_eq!(claim_requests.lock().expect("claim requests").len(), 1);
@@ -556,7 +556,7 @@ async fn sealed_worker_propagates_claim_and_known_handler_errors() {
         )),
     );
     assert!(matches!(
-        handler_error_worker.drain_once().await,
+        handler_error_worker.drain_one().await,
         Err(StoreError::Unavailable(message)) if message == "outcome unavailable"
     ));
     assert_eq!(claim_requests.lock().expect("claim requests").len(), 1);

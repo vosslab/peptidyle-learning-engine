@@ -7,11 +7,12 @@
 //   course_roster_page.tsx own course, title-first assignment setup, and invitation controls.
 // - src/pages/course_invitation_page.tsx:62 and src/pages/assignment_overview_page.tsx:114 own
 //   learner claiming and the Start assignment control.
-// - src/pages/run_page.tsx:387 and src/components/responses/common.tsx:301 own the attempt surface
+// - src/pages/run_page.tsx:442 and src/components/responses/common.tsx:294 own the attempt surface
 //   and visible response controls.
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
+import { waitForAutomatedFeedback } from "./automated_grading_ui";
 import { faultHandshakeFromEnvironment } from "./fault_handshake";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
@@ -207,9 +208,9 @@ test("learner gateway recovery: a saved response retries after the owner restore
     await retry.focus();
     await expect(retry).toBeFocused();
     await learner.keyboard.press("Enter");
-    await expect(learner.getByRole("heading", { name: "Feedback", exact: true })).toBeVisible();
-    await expect(learner.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
-    await learner.getByRole("heading", { name: "Feedback", exact: true }).scrollIntoViewIfNeeded();
+    const feedback = await waitForAutomatedFeedback(learner);
+    await expect(feedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
+    await feedback.scrollIntoViewIfNeeded();
     await captureRealStackScreenshot(learner, scenarioInput, "learner_gateway_recovered_feedback");
     await learner.getByRole("button", { name: "View completed run", exact: true }).click();
     const completion = learner.locator(".attempt-summary");

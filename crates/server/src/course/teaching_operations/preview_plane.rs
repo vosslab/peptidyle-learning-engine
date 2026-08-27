@@ -445,7 +445,10 @@ fn preview_result(result: Result<PreviewPlaneResult, StoreError>) -> Response {
             })
             .into_response(),
         ),
-        Err(error) => preview_store_error(error),
+        Err(error) => {
+            tracing::warn!(event = "preview_subject_refused", error = ?error);
+            preview_store_error(error)
+        }
     }
 }
 

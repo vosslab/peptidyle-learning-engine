@@ -262,7 +262,7 @@ async function activeAttempt(client: ApiClient, runId: RunId): Promise<LearnerQu
   const seen = new Set<string>();
   while (true) {
     const page = await client.listAttempts(runId, cursor);
-    const active = page.items.find((attempt) => attempt.response === null);
+    const active = page.items.find((attempt) => attempt.status === "in_progress");
     if (active !== undefined) return active;
     if (page.nextCursor === null)
       throw new ApiProtocolError(`Run ${runId} has no active question attempt`);

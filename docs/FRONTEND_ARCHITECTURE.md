@@ -142,8 +142,11 @@ draft as a transport error.
 encoding the assignment in a tenant-selecting path. `listRuns(enrollmentId,
 cursor)` and `listAttempts(runId, cursor)` preserve the cursor-only history
 contract. `submitResponse(attemptId, response, idempotencyKey)` sends the key in
-the dedicated header; a retry must reuse both the same response and key so the
-server can return the first committed result without grading twice.
+the dedicated header. If acceptance is unknown, a transport retry reuses the
+same response and key so the server can return the same durable acceptance.
+After `202 Accepted`, the browser clears that submitted draft and polls only the
+route-bound submission-status read until it receives completed feedback or an
+instructor-attention state; it does not resubmit known-accepted work.
 
 `assetUrl(assetId)` returns only the stable same-origin
 `/api/assets/{assetId}` route. The browser does not receive a bucket key and

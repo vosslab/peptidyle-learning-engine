@@ -96,7 +96,10 @@ where
     assert_eq!(first_summary_page.summary.total_question_attempts, 4);
     assert!(first_summary_page.practice_allowed);
     assert_eq!(first_summary_page.outcomes.items.len(), 1);
-    assert!(first_summary_page.outcomes.items[0].response.is_some());
+    assert!(
+        first_summary_page.outcomes.items[0].response.is_none(),
+        "learner summary outcomes retain answer-free receipt projections"
+    );
     assert!(first_summary_page.outcomes.items[0].feedback.is_some());
     let continuation = first_summary_page
         .outcomes

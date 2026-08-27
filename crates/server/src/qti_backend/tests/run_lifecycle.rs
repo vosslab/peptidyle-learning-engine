@@ -319,13 +319,14 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
     .next()
     .expect("cookie")
     .to_string();
+    let backend = Arc::new(QtiBackend::new(
+        Arc::clone(&store),
+        Arc::clone(&grader),
+        Arc::clone(&objects),
+    ));
     let app = run_router(
         Arc::clone(&store),
-        Arc::new(QtiBackend::new(
-            Arc::clone(&store),
-            Arc::clone(&grader),
-            Arc::clone(&objects),
-        )),
+        Arc::clone(&backend),
         Arc::new(
             learning_data_access::in_memory::MemorySealedPrivateExecutionStore::new(Arc::clone(
                 &store,
@@ -434,16 +435,65 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
             "envelope leaked {forbidden}"
         );
     }
-    let submit = |choice: &ChoiceId, key: &str| {
-        axum::http::Request::builder().method("POST").uri(format!("/api/courses/{course}/assignments/{assignment}/attempts/{}/submissions", attempt.id)).header("cookie", &cookie).header("content-type", "application/json").header("idempotency-key", key).body(axum::body::Body::from(serde_json::json!({ "response": { "kind": "multipleChoice", "selected": [choice] } }).to_string())).expect("submit request")
+    let submit = |attempt_id: &QuestionAttemptId, choice: &ChoiceId, key: &str| {
+        axum::http::Request::builder()
+            .method("POST")
+            .uri(format!(
+                "/api/courses/{course}/assignments/{assignment}/attempts/{attempt_id}/submissions"
+            ))
+            .header("cookie", &cookie)
+            .header("content-type", "application/json")
+            .header("idempotency-key", key)
+            .body(axum::body::Body::from(
+                serde_json::json!({
+                    "response": {
+                        "kind": "multipleChoice",
+                        "selected": [choice],
+                    }
+                })
+                .to_string(),
+            ))
+            .expect("submit request")
     };
-    let wrong_response = app
+    let wrong_submission = app
         .clone()
-        .oneshot(submit(&rendered_wrong, "qti-wrong"))
+        .oneshot(submit(&attempt.id, &rendered_wrong, "qti-wrong"))
         .await
         .expect("wrong response");
-    assert_eq!(wrong_response.status(), axum::http::StatusCode::OK);
-    let wrong_json = axum::body::to_bytes(wrong_response.into_body(), 64 * 1024)
+    assert_eq!(wrong_submission.status(), axum::http::StatusCode::ACCEPTED);
+    let wrong_pending = serde_json::from_slice::<serde_json::Value>(
+        &axum::body::to_bytes(wrong_submission.into_body(), 64 * 1024)
+            .await
+            .expect("pending JSON"),
+    )
+    .expect("pending response");
+    assert_eq!(
+        wrong_pending,
+        serde_json::json!({
+            "kind": "accepted_pending",
+            "accepted": true,
+            "attemptId": attempt.id,
+            "automatedGradingStatus": "pending",
+            "nextAction": "check_status",
+        })
+    );
+    crate::test_fixtures::drain_one_accepted_submission(&store, Arc::clone(&backend)).await;
+    let wrong_status = app
+        .clone()
+        .oneshot(
+            axum::http::Request::builder()
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/attempts/{}/submission-status",
+                    attempt.id
+                ))
+                .header("cookie", &cookie)
+                .body(axum::body::Body::empty())
+                .expect("wrong status request"),
+        )
+        .await
+        .expect("wrong status response");
+    assert_eq!(wrong_status.status(), axum::http::StatusCode::OK);
+    let wrong_json = axum::body::to_bytes(wrong_status.into_body(), 64 * 1024)
         .await
         .expect("wrong JSON");
     let wrong_text = String::from_utf8_lossy(&wrong_json);
@@ -460,21 +510,46 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
     );
     assert_eq!(
         grader_calls.load(Ordering::SeqCst),
+        1,
+        "accepted grading reuses the active attempt's sealed QTI evidence"
+    );
+    let resumed = app
+        .clone()
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/runs"
+                ))
+                .header("cookie", &cookie)
+                .body(axum::body::Body::empty())
+                .expect("resume QTI run request"),
+        )
+        .await
+        .expect("resume QTI run response");
+    assert_eq!(resumed.status(), axum::http::StatusCode::CREATED);
+    assert_eq!(
+        grader_calls.load(Ordering::SeqCst),
         2,
-        "the active attempt and its durable successor each copy grading once at issue"
+        "server-owned resume issues the retry and seals its QTI grading evidence"
     );
     let replay = app
         .clone()
-        .oneshot(submit(&rendered_wrong, "qti-wrong"))
+        .oneshot(submit(&attempt.id, &rendered_wrong, "qti-wrong"))
         .await
         .expect("replay response");
     assert_eq!(replay.status(), axum::http::StatusCode::OK);
-    assert_eq!(
-        wrong_json,
-        axum::body::to_bytes(replay.into_body(), 64 * 1024)
+    let replay_json: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(replay.into_body(), 64 * 1024)
             .await
-            .expect("replay body")
-    );
+            .expect("replay body"),
+    )
+    .expect("replay receipt");
+    let wrong_receipt: serde_json::Value =
+        serde_json::from_slice(&wrong_json).expect("wrong receipt");
+    assert_eq!(replay_json["attempt"], wrong_receipt["attempt"]);
+    assert_eq!(replay_json["feedback"], wrong_receipt["feedback"]);
+    assert!(replay_json["nextIssued"].is_object());
     assert_eq!(
         grader_calls.load(Ordering::SeqCst),
         2,
@@ -493,7 +568,7 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
     let retry = next
         .items
         .into_iter()
-        .find(|value| value.response.is_none())
+        .find(|value| value.status == question_model::AttemptStatus::InProgress)
         .expect("retry after wrong response");
     let retry_question = app
         .clone()
@@ -540,11 +615,49 @@ async fn published_qti_runs_grade_server_side_and_replay_without_a_second_privat
         rendered_correct, correct,
         "the retry also receives a presentation-specific rendered choice ID"
     );
-    let correct_response = app.oneshot(axum::http::Request::builder().method("POST").uri(format!("/api/courses/{course}/assignments/{assignment}/attempts/{}/submissions", retry.id)).header("cookie", &cookie).header("content-type", "application/json").header("idempotency-key", "qti-correct").body(axum::body::Body::from(serde_json::json!({ "response": { "kind": "multipleChoice", "selected": [rendered_correct] } }).to_string())).expect("correct request")).await.expect("correct response");
-    assert_eq!(correct_response.status(), axum::http::StatusCode::OK);
+    let correct_submission = app
+        .clone()
+        .oneshot(submit(&retry.id, &rendered_correct, "qti-correct"))
+        .await
+        .expect("correct response");
+    assert_eq!(
+        correct_submission.status(),
+        axum::http::StatusCode::ACCEPTED
+    );
+    let correct_pending = serde_json::from_slice::<serde_json::Value>(
+        &axum::body::to_bytes(correct_submission.into_body(), 64 * 1024)
+            .await
+            .expect("correct pending body"),
+    )
+    .expect("correct pending response");
+    assert_eq!(
+        correct_pending,
+        serde_json::json!({
+            "kind": "accepted_pending",
+            "accepted": true,
+            "attemptId": retry.id,
+            "automatedGradingStatus": "pending",
+            "nextAction": "check_status",
+        })
+    );
+    crate::test_fixtures::drain_one_accepted_submission(&store, Arc::clone(&backend)).await;
+    let correct_status = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri(format!(
+                    "/api/courses/{course}/assignments/{assignment}/attempts/{}/submission-status",
+                    retry.id
+                ))
+                .header("cookie", &cookie)
+                .body(axum::body::Body::empty())
+                .expect("correct status request"),
+        )
+        .await
+        .expect("correct status response");
+    assert_eq!(correct_status.status(), axum::http::StatusCode::OK);
     assert_eq!(
         serde_json::from_slice::<serde_json::Value>(
-            &axum::body::to_bytes(correct_response.into_body(), 64 * 1024)
+            &axum::body::to_bytes(correct_status.into_body(), 64 * 1024)
                 .await
                 .expect("correct body")
         )

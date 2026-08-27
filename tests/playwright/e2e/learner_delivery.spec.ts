@@ -12,6 +12,7 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
+import { waitForAutomatedFeedback } from "./automated_grading_ui";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
@@ -27,11 +28,6 @@ import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 const maryEmail = "mary.okafor@live-demo.ple.example";
 const journeyTimeoutMs = 600_000;
 const actionTimeoutMs = 30_000;
-// The live Compose worker defaults to a 120-second lease and a 500ms poll. A
-// single browser action timeout gives the status request room to complete at
-// the edge of that lease while keeping this journey bounded.
-const gradingStatusPollMs = 500;
-const gradingStatusDeadlineMs = 120_000 + actionTimeoutMs;
 const contextOptions = { viewport: { width: 1280, height: 800 }, ignoreHTTPSErrors: true };
 
 async function createDeterministicBannerPng(page: Page): Promise<Buffer> {
@@ -314,32 +310,7 @@ async function claimCourseAndCompleteAssignment(
   const submitAnswer = page.getByRole("button", { name: "Submit answer" });
   await submitAnswer.focus();
   await page.keyboard.press("Enter");
-  const feedback = page.getByRole("heading", { name: "Feedback", exact: true }).locator("..");
-  const pending = page
-    .getByRole("heading", { name: "Response received", exact: true })
-    .locator("..");
-  await expect(pending).toBeVisible();
-  await expect(pending).toContainText(
-    "Grading is underway. You do not need to submit your response again.",
-  );
-  await expect(
-    pending.getByRole("button", { name: "Check grading status", exact: true }),
-  ).toBeVisible();
-  await expect
-    .poll(
-      async () => {
-        if (await feedback.isVisible()) return "completed";
-        const checkStatus = page.getByRole("button", {
-          name: "Check grading status",
-          exact: true,
-        });
-        if (!(await checkStatus.isVisible())) return "transitioning";
-        await checkStatus.click();
-        return (await feedback.isVisible()) ? "completed" : "pending";
-      },
-      { timeout: gradingStatusDeadlineMs, intervals: [gradingStatusPollMs] },
-    )
-    .toBe("completed");
+  const feedback = await waitForAutomatedFeedback(page);
   await expect(feedback).toBeVisible();
   await expect(feedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
   await expect(feedback.getByRole("heading", { name: "Your response", exact: true })).toBeVisible();

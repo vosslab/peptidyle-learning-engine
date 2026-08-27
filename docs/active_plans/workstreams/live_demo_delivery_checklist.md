@@ -38,26 +38,26 @@ The current Instructor workflow follows the assignment as a teaching object. Sel
 title opens that assignment's Overview. Assignment-local navigation then provides separate Overview,
 Questions, Policies, and Student view pages, each with a focused task and current state.
 
-- [ ] Questions owns fixed questions, pools, ordering, reuse, and focused content saves.
-- [ ] Policies owns learner instructions, delivery, lifecycle, and focused policy saves.
-- [ ] Instructor Student view keeps the Instructor identity and course authority while rendering the
+- [x] Questions owns fixed questions, pools, ordering, reuse, and focused content saves.
+- [x] Policies owns learner instructions, delivery, lifecycle, and focused policy saves.
+- [x] Instructor Student view keeps the Instructor identity and course authority while rendering the
       current assignment through the answer-free learner projection. It is a stable-identity inspection
       surface and creates no run, attempt, submission, receipt, or grade.
-- [ ] Ordinary demo Student entry remains the graded path. It creates real learner work through the
+- [x] Ordinary demo Student entry remains the graded path. It creates real learner work through the
       visible Student workflow, and the Instructor sees the resulting score and authorized evidence in
       the gradebook after a fresh read.
-- [ ] Instructor and Sysadmin evidence uses the desktop 16:10 profile at 1280 by 800 CSS pixels or
+- [x] Instructor and Sysadmin evidence uses the desktop 16:10 profile at 1280 by 800 CSS pixels or
       larger. Student profiles remain variable across the declared laptop, portrait-tablet, iPhone Pro,
       and square profiles.
-- [ ] Publish and inspect the two current T6 PNG artifacts declared by
+- [x] Publish and inspect the two current T6 PNG artifacts declared by
       `tests/e2e/browser_screenshot_corpus.json`: `instructor_authoring_assignment_policies` at
       `docs/screenshots/instructor/assignment_workspace/01_assignment_policies.png` and
       `instructor_authoring_student_view` at
       `docs/screenshots/instructor/assignment_workspace/02_student_view.png`.
 
-The T6 PNGs are pending publication; this checklist records the evidence gap without treating a
-declared path as a captured screenshot. Existing gallery references use only artifacts currently
-declared by the corpus and already published.
+The two T6 PNGs are published under their corpus-declared paths and included in the Instructor
+gallery. The corpus manifest and provenance record remain authoritative for the current screenshot
+set.
 
 The current direct-role evidence is independently runnable: `direct_role_entry` selects Morgan,
 selects Genetics, proves Sysadmin authorization, and performs generic visible passkey enrollment and

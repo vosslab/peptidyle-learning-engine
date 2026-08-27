@@ -182,8 +182,9 @@ async fn completed_successor_is_eligible(
                 pv.lifecycle, pv.lifecycle_reason, pv.author_ids, pv.public_byline \
          FROM assignment_run_item AS item \
          JOIN problem_version AS pv ON pv.problem_id = item.problem_id AND pv.version_id = item.version_id \
-         JOIN problem AS p USING (problem_id) \
-         JOIN problem_version_payload AS pvp USING (problem_id, version_id) \
+         JOIN problem AS p ON p.problem_id = pv.problem_id \
+         JOIN problem_version_payload AS pvp \
+           ON pvp.problem_id = pv.problem_id AND pvp.version_id = pv.version_id \
          WHERE item.tenant_id = $1 AND item.run_id = $2 \
          ORDER BY item.issued_position",
     )
@@ -384,9 +385,9 @@ pub(super) async fn load_submission_record(
     )))
 }
 
-/// Verifies accepted-worker evaluation evidence against its frozen receipt.
-/// The canonical pair is byte-attested; the JSONB projection is independently
-/// checksummed before it becomes a typed result.
+/// Verifies the app-readable evaluation projection against its frozen receipt.
+/// The worker-owned canonical evidence remains outside `ple_app`; the immutable
+/// receipt is the disclosure anchor and the evaluation checksum detects drift.
 #[cfg(feature = "postgres")]
 async fn validate_accepted_completed_evaluation(
     transaction: &mut Transaction<'_, Postgres>,
@@ -401,8 +402,7 @@ async fn validate_accepted_completed_evaluation(
     }
     let row = sqlx::query(
         "SELECT grading_status, payload AS evaluation_payload, \
-                automated_result_canonical_json, automated_result_sha256, \
-                automated_result_canonical_json_version \
+                payload_sha256 AS evaluation_payload_sha256 \
          FROM submission_evaluation \
          WHERE tenant_id = $1 AND attempt_id = $2",
     )
@@ -420,28 +420,11 @@ async fn validate_accepted_completed_evaluation(
             "completed receipt evaluation is not terminal".to_string(),
         ));
     }
-    let version: Option<i16> = row
-        .try_get("automated_result_canonical_json_version")
-        .map_err(map_sqlx_error)?;
-    let source: Option<String> = row
-        .try_get("automated_result_canonical_json")
-        .map_err(map_sqlx_error)?;
-    let checksum: Option<String> = row
-        .try_get("automated_result_sha256")
-        .map_err(map_sqlx_error)?;
-    let (Some(version), Some(source), Some(checksum)) = (version, source, checksum) else {
-        return Err(StoreError::Unavailable(
-            "completed receipt canonical evaluation evidence is missing".to_string(),
-        ));
-    };
     let projection: Value = row.try_get("evaluation_payload").map_err(map_sqlx_error)?;
-    let projection: AttemptResult = decode_canonical_json_parts(
-        "submission evaluation result",
-        version,
-        source,
-        projection,
-        checksum,
-    )?;
+    let checksum: String = row
+        .try_get("evaluation_payload_sha256")
+        .map_err(map_sqlx_error)?;
+    let projection: AttemptResult = decode_payload_parts(projection, checksum)?;
     crate::validate_attempt_result(projection).map_err(|_| {
         StoreError::Unavailable("completed receipt result evidence is invalid".to_string())
     })?;

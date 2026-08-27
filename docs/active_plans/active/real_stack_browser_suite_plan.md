@@ -495,7 +495,7 @@ subordinate gates prove that outcome:
   credentials, cookies, and private state.
 - Service-specific receipts: read-only PostgreSQL, MinIO, worker, renderer, and network evidence
   appears only for a requirement about that service boundary.
-- Screenshot provenance: the JSON-authoritative 75-artifact nested corpus comes from selected
+- Screenshot provenance: the JSON-authoritative manifest-declared nested corpus comes from selected
   production-browser scenarios. Every artifact records the same HTTPS production origin and `dist/`
   provenance, its real UI-created scenario state, role, journey, ordered step, viewport profile, and
   privacy checks; the atomic publisher, verifier, and automated image evaluator confirm the complete

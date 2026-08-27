@@ -210,7 +210,7 @@ GRANT SELECT, UPDATE (state, active_worker_id, retry_count, updated_at) ON publi
 GRANT SELECT, UPDATE (grading_status, credit_fraction, correct, payload, payload_sha256, automated_result_canonical_json, automated_result_sha256, automated_result_canonical_json_version, evaluated_at, evaluation_revision) ON public.submission_evaluation TO ple_accepted_submission_execution_worker;
 GRANT INSERT ON public.grading_execution_receipt, public.grading_operation TO ple_accepted_submission_execution_worker;
 GRANT SELECT ON public.submission, public.submission_idempotency, public.question_attempt, public.assignment_run, public.enrollment, public.assignment, public.assignment_audience_group, public.assignment_item, public.assignment_run_item, public.assignment_selection_group, public.assignment_selection_candidate, public.course_retention, public.accepted_submission_private_response, public.issued_attempt_private_execution, public.student_assignment_summary TO ple_accepted_submission_execution_worker;
-GRANT UPDATE (attempt_status, submitted_at, payload, payload_sha256) ON public.question_attempt TO ple_accepted_submission_execution_worker;
+GRANT UPDATE (attempt_status, submitted_at) ON public.question_attempt TO ple_accepted_submission_execution_worker;
 GRANT INSERT ON public.attempt_feedback, public.submission_receipt_snapshot TO ple_accepted_submission_execution_worker;
 GRANT UPDATE (completed_at, payload, payload_sha256) ON public.assignment_run TO ple_accepted_submission_execution_worker;
 GRANT UPDATE (first_completed_at, current_grade_run_id, best_grade_run_id) ON public.enrollment TO ple_accepted_submission_execution_worker;
@@ -312,102 +312,42 @@ ALTER VIEW public.ple_accepted_submission_execution_witness_v1
     OWNER TO ple_accepted_submission_execution_worker;
 REVOKE ALL ON public.ple_accepted_submission_execution_witness_v1 FROM PUBLIC,
     ple_app, ple_accepted_submission_execution;
-CREATE FUNCTION public.ple_claim_accepted_submission_execution_v1(
-    p_lease_token uuid, p_worker_id uuid, p_lease_seconds integer
-) RETURNS TABLE(
-    tenant_id uuid, worker_job_id uuid, worker_lease_token uuid,
-    submission_id uuid, execution_generation bigint, worker_id uuid
-) LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
-DECLARE
-    v_execution public.grading_execution%ROWTYPE;
+CREATE FUNCTION public.ple_claim_accepted_submission_execution_transition_v1(p_target_tenant_id uuid,p_target_attempt_id uuid,p_target_submission_id uuid,p_target_worker_job_id uuid,p_lease_token uuid,p_worker_id uuid,p_lease_seconds integer) RETURNS TABLE(tenant_id uuid,worker_job_id uuid,worker_lease_token uuid,submission_id uuid,execution_generation bigint,worker_id uuid) LANGUAGE plpgsql SECURITY INVOKER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
+DECLARE v_execution public.grading_execution%ROWTYPE;
 BEGIN
-    IF p_lease_token IS NULL OR p_worker_id IS NULL
-       OR p_lease_seconds NOT BETWEEN 1 AND 900 THEN
-        RAISE EXCEPTION 'accepted-submission claim arguments are invalid' USING ERRCODE = '22023';
-    END IF;
-    -- Exhausted work becomes terminal evidence before another worker observes it.
-    SELECT execution.* INTO v_execution
-      FROM public.ple_accepted_submission_execution_witness_v1 AS witness
-      JOIN public.grading_execution AS execution
-        ON (execution.tenant_id, execution.attempt_id) = (witness.tenant_id, witness.attempt_id)
-      JOIN public.worker_job AS job
-        ON (job.tenant_id, job.job_id) = (witness.tenant_id, witness.current_job_id)
-      JOIN public.submission_evaluation AS evaluation
-        ON (evaluation.tenant_id, evaluation.attempt_id) = (witness.tenant_id, witness.attempt_id)
-     WHERE witness.execution_state = 'running' AND witness.job_state = 'leased'
-       AND witness.lease_expires_at <= transaction_timestamp()
-       AND witness.attempt_count >= witness.max_attempts
-       AND witness.retention_lifecycle = 'active'
-       AND witness.grading_status = 'automated_pending'
-       AND witness.automated_result_canonical_json IS NULL
-       AND witness.automated_result_sha256 IS NULL
-     FOR UPDATE OF execution, job, evaluation SKIP LOCKED LIMIT 1;
+    IF p_lease_token IS NULL OR p_worker_id IS NULL OR p_lease_seconds NOT BETWEEN 1 AND 900 THEN RAISE EXCEPTION 'accepted-submission claim arguments are invalid' USING ERRCODE='22023'; END IF;
+    IF (p_target_tenant_id IS NULL OR p_target_attempt_id IS NULL OR p_target_submission_id IS NULL OR p_target_worker_job_id IS NULL) AND (p_target_tenant_id IS NOT NULL OR p_target_attempt_id IS NOT NULL OR p_target_submission_id IS NOT NULL OR p_target_worker_job_id IS NOT NULL) THEN RAISE EXCEPTION 'accepted-submission exact claim target is incomplete' USING ERRCODE='22023'; END IF;
+    -- ASVS V2.3/V15.4: converge expired exhaustion before the shared locked lease transition.
+    SELECT execution.* INTO v_execution FROM public.ple_accepted_submission_execution_witness_v1 AS witness JOIN public.grading_execution AS execution ON (execution.tenant_id,execution.attempt_id)=(witness.tenant_id,witness.attempt_id) JOIN public.worker_job AS job ON (job.tenant_id,job.job_id)=(witness.tenant_id,witness.current_job_id) JOIN public.submission_evaluation AS evaluation ON (evaluation.tenant_id,evaluation.attempt_id)=(witness.tenant_id,witness.attempt_id)
+     WHERE witness.execution_state='running' AND witness.job_state='leased' AND witness.lease_expires_at<=transaction_timestamp() AND witness.attempt_count>=witness.max_attempts AND witness.retention_lifecycle='active' AND witness.grading_status='automated_pending' AND witness.automated_result_canonical_json IS NULL AND witness.automated_result_sha256 IS NULL AND job.payload=jsonb_build_object('kind','gradeAcceptedSubmission','attempt',witness.attempt_id::text,'submission',witness.submission_id::text,'execution_generation',witness.execution_generation) AND (p_target_tenant_id IS NULL OR (witness.tenant_id=p_target_tenant_id AND witness.attempt_id=p_target_attempt_id AND witness.submission_id=p_target_submission_id AND witness.current_job_id=p_target_worker_job_id)) FOR UPDATE OF execution,job,evaluation SKIP LOCKED LIMIT 1;
     IF FOUND THEN PERFORM set_config('ple.tenant_id', v_execution.tenant_id::text, true);
-        UPDATE public.worker_job AS job_row SET state = 'dead', lease_token = NULL, lease_expires_at = NULL,
-            last_error = 'timed_out', completed_at = transaction_timestamp()
-         WHERE job_row.tenant_id = v_execution.tenant_id AND job_row.job_id = v_execution.current_job_id;
-        UPDATE public.grading_execution AS execution_row SET state = 'exception', active_worker_id = NULL,
-            updated_at = transaction_timestamp()
-         WHERE execution_row.tenant_id = v_execution.tenant_id AND execution_row.attempt_id = v_execution.attempt_id;
-        UPDATE public.submission_evaluation AS evaluation_row SET grading_status = 'automated_exception',
-            evaluated_at = transaction_timestamp(), evaluation_revision = evaluation_revision + 1
-         WHERE evaluation_row.tenant_id = v_execution.tenant_id AND evaluation_row.attempt_id = v_execution.attempt_id
-           AND evaluation_row.submission_id = v_execution.submission_id AND evaluation_row.grading_status = 'automated_pending';
-        INSERT INTO public.grading_execution_receipt
-            (tenant_id, receipt_id, attempt_id, submission_id, submission_occurred_at, course_id,
-             execution_generation, resulting_state, worker_id)
-        VALUES (v_execution.tenant_id, gen_random_uuid(), v_execution.attempt_id,
-            v_execution.submission_id, v_execution.submission_occurred_at, v_execution.course_id,
-            v_execution.execution_generation, 'exception', NULL);
-        INSERT INTO public.grading_operation
-            (tenant_id, attempt_id, submission_id, submission_occurred_at, assignment_id, course_id,
-             target_kind, reason, state, next_action)
-        SELECT v_execution.tenant_id, v_execution.attempt_id, v_execution.submission_id,
-            v_execution.submission_occurred_at, enrollment.assignment_id, v_execution.course_id,
-            'submission', 'retry_exhausted', 'actionable', 'retry'
-          FROM public.question_attempt AS attempt
-          JOIN public.assignment_run AS run ON (run.tenant_id, run.run_id) = (attempt.tenant_id, attempt.run_id)
-          JOIN public.enrollment AS enrollment ON (enrollment.tenant_id, enrollment.enrollment_id) = (run.tenant_id, run.enrollment_id)
-         WHERE attempt.tenant_id = v_execution.tenant_id AND attempt.attempt_id = v_execution.attempt_id
-        ON CONFLICT DO NOTHING;
+        UPDATE public.worker_job AS job_row SET state='dead',lease_token=NULL,lease_expires_at=NULL,last_error='timed_out',completed_at=transaction_timestamp() WHERE job_row.tenant_id=v_execution.tenant_id AND job_row.job_id=v_execution.current_job_id;
+        UPDATE public.grading_execution AS execution_row SET state='exception',active_worker_id=NULL,updated_at=transaction_timestamp() WHERE execution_row.tenant_id=v_execution.tenant_id AND execution_row.attempt_id=v_execution.attempt_id;
+        UPDATE public.submission_evaluation AS evaluation_row SET grading_status='automated_exception',evaluated_at=transaction_timestamp(),evaluation_revision=evaluation_revision+1 WHERE evaluation_row.tenant_id=v_execution.tenant_id AND evaluation_row.attempt_id=v_execution.attempt_id AND evaluation_row.submission_id=v_execution.submission_id AND evaluation_row.grading_status='automated_pending';
+        INSERT INTO public.grading_execution_receipt(tenant_id,receipt_id,attempt_id,submission_id,submission_occurred_at,course_id,execution_generation,resulting_state,worker_id) VALUES(v_execution.tenant_id,gen_random_uuid(),v_execution.attempt_id,v_execution.submission_id,v_execution.submission_occurred_at,v_execution.course_id,v_execution.execution_generation,'exception',NULL);
+        INSERT INTO public.grading_operation(tenant_id,attempt_id,submission_id,submission_occurred_at,assignment_id,course_id,target_kind,reason,state,next_action) SELECT v_execution.tenant_id,v_execution.attempt_id,v_execution.submission_id,v_execution.submission_occurred_at,enrollment.assignment_id,v_execution.course_id,'submission','retry_exhausted','actionable','retry' FROM public.question_attempt AS attempt JOIN public.assignment_run AS run ON (run.tenant_id,run.run_id)=(attempt.tenant_id,attempt.run_id) JOIN public.enrollment AS enrollment ON (enrollment.tenant_id,enrollment.enrollment_id)=(run.tenant_id,run.enrollment_id) WHERE attempt.tenant_id=v_execution.tenant_id AND attempt.attempt_id=v_execution.attempt_id ON CONFLICT DO NOTHING;
     END IF;
-    SELECT execution.* INTO v_execution
-      FROM public.ple_accepted_submission_execution_witness_v1 AS witness
-      JOIN public.grading_execution AS execution
-        ON (execution.tenant_id, execution.attempt_id) = (witness.tenant_id, witness.attempt_id)
-      JOIN public.worker_job AS job
-        ON (job.tenant_id, job.job_id) = (witness.tenant_id, witness.current_job_id)
-      JOIN public.submission_evaluation AS evaluation
-        ON (evaluation.tenant_id, evaluation.attempt_id) = (witness.tenant_id, witness.attempt_id)
-     WHERE witness.retention_lifecycle = 'active'
-       AND witness.grading_status = 'automated_pending'
-       AND witness.automated_result_canonical_json IS NULL
-       AND witness.automated_result_sha256 IS NULL
-       AND ((witness.job_state = 'ready' AND witness.available_at <= transaction_timestamp()
-             AND witness.execution_state IN ('ready', 'retry_wait'))
-            OR (witness.job_state = 'leased' AND witness.lease_expires_at <= transaction_timestamp()
-                AND witness.attempt_count < witness.max_attempts AND witness.execution_state = 'running'))
-     ORDER BY witness.available_at, witness.current_job_id
-     FOR UPDATE OF execution, job, evaluation SKIP LOCKED LIMIT 1;
+    SELECT execution.* INTO v_execution FROM public.ple_accepted_submission_execution_witness_v1 AS witness JOIN public.grading_execution AS execution ON (execution.tenant_id,execution.attempt_id)=(witness.tenant_id,witness.attempt_id) JOIN public.worker_job AS job ON (job.tenant_id,job.job_id)=(witness.tenant_id,witness.current_job_id) JOIN public.submission_evaluation AS evaluation ON (evaluation.tenant_id,evaluation.attempt_id)=(witness.tenant_id,witness.attempt_id)
+     WHERE witness.retention_lifecycle='active' AND witness.grading_status='automated_pending' AND witness.automated_result_canonical_json IS NULL AND witness.automated_result_sha256 IS NULL AND job.payload=jsonb_build_object('kind','gradeAcceptedSubmission','attempt',witness.attempt_id::text,'submission',witness.submission_id::text,'execution_generation',witness.execution_generation) AND (p_target_tenant_id IS NULL OR (witness.tenant_id=p_target_tenant_id AND witness.attempt_id=p_target_attempt_id AND witness.submission_id=p_target_submission_id AND witness.current_job_id=p_target_worker_job_id)) AND ((witness.job_state='ready' AND witness.available_at<=transaction_timestamp() AND witness.execution_state IN ('ready','retry_wait')) OR (witness.job_state='leased' AND witness.lease_expires_at<=transaction_timestamp() AND witness.attempt_count<witness.max_attempts AND witness.execution_state='running')) ORDER BY witness.available_at,witness.current_job_id FOR UPDATE OF execution,job,evaluation SKIP LOCKED LIMIT 1;
     IF NOT FOUND THEN RETURN; END IF; PERFORM set_config('ple.tenant_id', v_execution.tenant_id::text, true);
-    UPDATE public.worker_job AS job_row SET state = 'leased', lease_token = p_lease_token,
-        lease_expires_at = transaction_timestamp() + make_interval(secs => p_lease_seconds),
-        attempt_count = attempt_count + 1, last_error = NULL, completed_at = NULL
-     WHERE job_row.tenant_id = v_execution.tenant_id AND job_row.job_id = v_execution.current_job_id;
-    UPDATE public.grading_execution AS execution_row SET state = 'running', active_worker_id = p_worker_id,
-        updated_at = transaction_timestamp()
-     WHERE execution_row.tenant_id = v_execution.tenant_id AND execution_row.attempt_id = v_execution.attempt_id;
-    INSERT INTO public.grading_execution_receipt
-        (tenant_id, receipt_id, attempt_id, submission_id, submission_occurred_at, course_id,
-         execution_generation, resulting_state, worker_id)
-    VALUES (v_execution.tenant_id, gen_random_uuid(), v_execution.attempt_id,
-        v_execution.submission_id, v_execution.submission_occurred_at, v_execution.course_id,
-        v_execution.execution_generation, 'running', p_worker_id);
-    tenant_id := v_execution.tenant_id; worker_job_id := v_execution.current_job_id;
-    worker_lease_token := p_lease_token; submission_id := v_execution.submission_id;
-    execution_generation := v_execution.execution_generation; worker_id := p_worker_id;
+    UPDATE public.worker_job AS job_row SET state='leased',lease_token=p_lease_token,lease_expires_at=transaction_timestamp()+make_interval(secs=>p_lease_seconds),attempt_count=attempt_count+1,last_error=NULL,completed_at=NULL WHERE job_row.tenant_id=v_execution.tenant_id AND job_row.job_id=v_execution.current_job_id;
+    UPDATE public.grading_execution AS execution_row SET state='running',active_worker_id=p_worker_id,updated_at=transaction_timestamp() WHERE execution_row.tenant_id=v_execution.tenant_id AND execution_row.attempt_id=v_execution.attempt_id;
+    INSERT INTO public.grading_execution_receipt(tenant_id,receipt_id,attempt_id,submission_id,submission_occurred_at,course_id,execution_generation,resulting_state,worker_id) VALUES(v_execution.tenant_id,gen_random_uuid(),v_execution.attempt_id,v_execution.submission_id,v_execution.submission_occurred_at,v_execution.course_id,v_execution.execution_generation,'running',p_worker_id);
+    tenant_id:=v_execution.tenant_id; worker_job_id:=v_execution.current_job_id; worker_lease_token:=p_lease_token; submission_id:=v_execution.submission_id; execution_generation:=v_execution.execution_generation; worker_id:=p_worker_id;
     RETURN NEXT;
+END $$;
+CREATE FUNCTION public.ple_claim_accepted_submission_execution_v1(p_lease_token uuid,p_worker_id uuid,p_lease_seconds integer) RETURNS TABLE(tenant_id uuid,worker_job_id uuid,worker_lease_token uuid,submission_id uuid,execution_generation bigint,worker_id uuid) LANGUAGE sql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$ SELECT * FROM public.ple_claim_accepted_submission_execution_transition_v1(NULL,NULL,NULL,NULL,$1,$2,$3) $$;
+CREATE FUNCTION public.ple_claim_exact_accepted_submission_execution_v1(p_tenant_id uuid,p_attempt_id uuid,p_submission_id uuid,p_worker_job_id uuid,p_lease_token uuid,p_worker_id uuid,p_lease_seconds integer) RETURNS TABLE(tenant_id uuid,worker_job_id uuid,worker_lease_token uuid,submission_id uuid,execution_generation bigint,worker_id uuid) LANGUAGE sql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$ SELECT * FROM public.ple_claim_accepted_submission_execution_transition_v1($1,$2,$3,$4,$5,$6,$7) $$;
+CREATE FUNCTION public.ple_read_accepted_submission_evaluation_v1(p_tenant_id uuid,p_attempt_id uuid) RETURNS TABLE(evaluation_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
+DECLARE v_evaluation public.submission_evaluation%ROWTYPE; v_projection jsonb;
+BEGIN
+    -- ASVS V2.2/V8.2: accept only the route-bound, completed immutable graded aggregate.
+    IF p_tenant_id IS NULL OR p_attempt_id IS NULL OR p_tenant_id IS DISTINCT FROM public.ple_current_tenant() THEN RETURN; END IF;
+    SELECT evaluation.* INTO v_evaluation FROM public.submission_evaluation AS evaluation JOIN public.grading_execution AS execution ON (execution.tenant_id,execution.attempt_id,execution.submission_id)=(evaluation.tenant_id,evaluation.attempt_id,evaluation.submission_id) JOIN public.question_attempt AS attempt ON (attempt.tenant_id,attempt.attempt_id)=(evaluation.tenant_id,evaluation.attempt_id) JOIN public.submission_receipt_snapshot AS receipt ON (receipt.tenant_id,receipt.attempt_id)=(evaluation.tenant_id,evaluation.attempt_id) WHERE evaluation.tenant_id=p_tenant_id AND evaluation.attempt_id=p_attempt_id AND evaluation.course_id=execution.course_id AND evaluation.course_id=attempt.course_id AND execution.state='completed' AND attempt.attempt_status='submitted' AND evaluation.grading_status='graded' AND evaluation.automated_result_canonical_json_version=1 AND evaluation.automated_result_canonical_json IS NOT NULL AND evaluation.automated_result_sha256 IS NOT NULL;
+    IF NOT FOUND OR octet_length(v_evaluation.automated_result_canonical_json)>524288 OR v_evaluation.automated_result_sha256 IS DISTINCT FROM encode(pg_catalog.sha256(convert_to(v_evaluation.automated_result_canonical_json,'UTF8')),'hex') OR v_evaluation.payload_sha256 IS DISTINCT FROM v_evaluation.automated_result_sha256 THEN RETURN; END IF;
+    BEGIN v_projection:=v_evaluation.automated_result_canonical_json::jsonb; EXCEPTION WHEN invalid_text_representation THEN RETURN; END;
+    IF v_projection IS DISTINCT FROM v_evaluation.payload THEN RETURN; END IF;
+    RETURN QUERY SELECT v_evaluation.payload;
 END $$;
 CREATE FUNCTION public.ple_load_accepted_submission_execution_v2(
     p_tenant_id uuid, p_worker_job_id uuid, p_lease_token uuid, p_submission_id uuid,
@@ -624,7 +564,6 @@ CREATE FUNCTION public.ple_commit_accepted_submission_completion_v2(
     p_execution_generation bigint, p_worker_id uuid, p_canonical_json_version smallint, p_evaluation_status text,
     p_evaluation_canonical_json text, p_evaluation_sha256 character(64),
     p_attempt_canonical_json text, p_attempt_payload jsonb, p_attempt_payload_sha256 character(64),
-    p_attempt_current_canonical_json text, p_attempt_current_payload_sha256 character(64),
     p_feedback_canonical_json text, p_feedback_content_sha256 character(64),
     p_run_canonical_json text, p_run_payload jsonb, p_run_payload_sha256 character(64),
     p_run_current_canonical_json text, p_run_current_payload_sha256 character(64),
@@ -641,7 +580,7 @@ SET search_path TO 'pg_catalog', 'public', pg_temp AS $$
 DECLARE
     v public.ple_accepted_submission_execution_witness_v1%ROWTYPE;
     r jsonb; feedback jsonb; attempt_source jsonb; run_source jsonb; summary_source jsonb; presentation_source jsonb;
-    attempt_current_source jsonb; run_current_source jsonb;
+    run_current_source jsonb;
     v_correct boolean; v_earned numeric; v_possible numeric; statistic jsonb;
     summary_current_score double precision; summary_best_score double precision; summary_latest_score double precision;
     summary_completed_run_count bigint; summary_total_question_attempts bigint; summary_last_activity_at_millis bigint;
@@ -652,7 +591,6 @@ BEGIN
        OR octet_length(p_evaluation_canonical_json) NOT BETWEEN 1 AND 4096
        OR p_evaluation_sha256 !~ '^[0-9a-f]{64}$' OR p_attempt_canonical_json IS NULL OR p_attempt_payload IS NULL
        OR octet_length(p_attempt_canonical_json) NOT BETWEEN 1 AND 524288 OR p_attempt_payload_sha256 !~ '^[0-9a-f]{64}$'
-       OR p_attempt_current_canonical_json IS NULL OR octet_length(p_attempt_current_canonical_json) NOT BETWEEN 1 AND 524288 OR p_attempt_current_payload_sha256 !~ '^[0-9a-f]{64}$'
        OR p_feedback_canonical_json IS NULL OR octet_length(p_feedback_canonical_json) NOT BETWEEN 1 AND 65536 OR p_feedback_content_sha256 !~ '^[0-9a-f]{64}$'
        OR p_run_canonical_json IS NULL OR p_run_payload IS NULL OR octet_length(p_run_canonical_json) NOT BETWEEN 1 AND 524288 OR p_run_payload_sha256 !~ '^[0-9a-f]{64}$'
        OR p_run_current_canonical_json IS NULL OR octet_length(p_run_current_canonical_json) NOT BETWEEN 1 AND 524288 OR p_run_current_payload_sha256 !~ '^[0-9a-f]{64}$'
@@ -676,10 +614,10 @@ BEGIN
        OR jsonb_typeof(r->'correct') <> 'boolean' OR jsonb_typeof(r->'pointsEarned') <> 'number'
        OR jsonb_typeof(r->'pointsPossible') <> 'number' OR v_earned < 0 OR v_possible <= 0 OR v_earned > v_possible THEN
         RAISE EXCEPTION 'accepted-submission result shape is invalid' USING ERRCODE = '22023'; END IF;
-    BEGIN attempt_source:=p_attempt_canonical_json::jsonb; attempt_current_source:=p_attempt_current_canonical_json::jsonb; run_source:=p_run_canonical_json::jsonb; run_current_source:=p_run_current_canonical_json::jsonb; summary_source:=p_summary_canonical_json::jsonb; presentation_source:=CASE WHEN p_presentation_required THEN p_presentation_canonical_json::jsonb END; feedback:=p_feedback_canonical_json::jsonb;
+    BEGIN attempt_source:=p_attempt_canonical_json::jsonb; run_source:=p_run_canonical_json::jsonb; run_current_source:=p_run_current_canonical_json::jsonb; summary_source:=p_summary_canonical_json::jsonb; presentation_source:=CASE WHEN p_presentation_required THEN p_presentation_canonical_json::jsonb END; feedback:=p_feedback_canonical_json::jsonb;
     EXCEPTION WHEN invalid_text_representation THEN RAISE EXCEPTION 'accepted-submission canonical evidence is invalid' USING ERRCODE='22023'; END;
     IF jsonb_typeof(feedback)<>'array' OR jsonb_array_length(feedback)<>3 OR p_feedback_content_sha256 IS DISTINCT FROM encode(pg_catalog.sha256(convert_to(p_feedback_canonical_json,'UTF8')),'hex') THEN RAISE EXCEPTION 'feedback evidence is invalid' USING ERRCODE='22023'; END IF;
-    IF attempt_source IS DISTINCT FROM p_attempt_payload OR attempt_current_source IS DISTINCT FROM p_attempt_payload OR run_source IS DISTINCT FROM p_run_payload OR run_current_source IS DISTINCT FROM p_run_payload OR summary_source IS DISTINCT FROM p_summary_payload OR presentation_source IS DISTINCT FROM p_presentation_payload THEN RAISE EXCEPTION 'accepted-submission canonical source does not match projection' USING ERRCODE='22023'; END IF;
+    IF attempt_source IS DISTINCT FROM p_attempt_payload OR run_source IS DISTINCT FROM p_run_payload OR run_current_source IS DISTINCT FROM p_run_payload OR summary_source IS DISTINCT FROM p_summary_payload OR presentation_source IS DISTINCT FROM p_presentation_payload THEN RAISE EXCEPTION 'accepted-submission canonical source does not match projection' USING ERRCODE='22023'; END IF;
     IF jsonb_typeof(summary_source)<>'object' OR NOT summary_source ?& ARRAY['tenant','enrollment','currentScore','bestScore','latestScore','completedRunCount','totalQuestionAttempts','lastActivityAt'] OR summary_source-ARRAY['tenant','enrollment','currentScore','bestScore','latestScore','completedRunCount','totalQuestionAttempts','lastActivityAt']<>'{}'::jsonb OR jsonb_typeof(summary_source->'tenant')<>'string' OR jsonb_typeof(summary_source->'enrollment')<>'string' OR jsonb_typeof(summary_source->'currentScore') NOT IN ('null','number') OR jsonb_typeof(summary_source->'bestScore') NOT IN ('null','number') OR jsonb_typeof(summary_source->'latestScore') NOT IN ('null','number') OR jsonb_typeof(summary_source->'completedRunCount')<>'number' OR jsonb_typeof(summary_source->'totalQuestionAttempts')<>'number' OR jsonb_typeof(summary_source->'lastActivityAt') NOT IN ('null','number') THEN RAISE EXCEPTION 'accepted-submission summary shape is invalid' USING ERRCODE='22023'; END IF;
     BEGIN summary_current_score:=CASE WHEN summary_source->'currentScore'='null'::jsonb THEN NULL ELSE (summary_source->>'currentScore')::double precision END; summary_best_score:=CASE WHEN summary_source->'bestScore'='null'::jsonb THEN NULL ELSE (summary_source->>'bestScore')::double precision END; summary_latest_score:=CASE WHEN summary_source->'latestScore'='null'::jsonb THEN NULL ELSE (summary_source->>'latestScore')::double precision END; summary_completed_run_count:=(summary_source->>'completedRunCount')::bigint; summary_total_question_attempts:=(summary_source->>'totalQuestionAttempts')::bigint; summary_last_activity_at_millis:=CASE WHEN summary_source->'lastActivityAt'='null'::jsonb THEN NULL ELSE (summary_source->>'lastActivityAt')::bigint END;
     EXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range THEN RAISE EXCEPTION 'accepted-submission summary scalars are invalid' USING ERRCODE='22023'; END;
@@ -728,14 +666,12 @@ BEGIN
     IF p_attempt_payload_sha256 IS DISTINCT FROM encode(pg_catalog.sha256(convert_to(p_attempt_canonical_json,'UTF8')),'hex')
        OR p_run_payload_sha256 IS DISTINCT FROM encode(pg_catalog.sha256(convert_to(p_run_canonical_json,'UTF8')),'hex')
        OR p_summary_payload_sha256 IS DISTINCT FROM encode(pg_catalog.sha256(convert_to(p_summary_canonical_json,'UTF8')),'hex')
-       OR p_attempt_current_payload_sha256 IS DISTINCT FROM encode(pg_catalog.sha256(convert_to(p_attempt_current_canonical_json,'UTF8')),'hex')
        OR p_run_current_payload_sha256 IS DISTINCT FROM encode(pg_catalog.sha256(convert_to(p_run_current_canonical_json,'UTF8')),'hex')
        OR (p_presentation_required AND p_presentation_payload_sha256 IS DISTINCT FROM encode(pg_catalog.sha256(convert_to(p_presentation_canonical_json,'UTF8')),'hex'))
        THEN
         RAISE EXCEPTION 'accepted-submission completion checksum is invalid' USING ERRCODE='22023'; END IF;
     UPDATE public.question_attempt SET attempt_status='submitted',
-      submitted_at=to_timestamp(v.accepted_millis::double precision/1000),
-      payload=p_attempt_payload,payload_sha256=p_attempt_current_payload_sha256
+      submitted_at=to_timestamp(v.accepted_millis::double precision/1000)
     WHERE tenant_id=p_tenant_id AND attempt_id=v.attempt_id;
     INSERT INTO public.attempt_feedback(tenant_id,attempt_id,hint,correct_response,rationale,content_canonical_json,content_canonical_json_version,content_sha256,course_id)
     VALUES(p_tenant_id,v.attempt_id,NULLIF(feedback->0,'null'::jsonb),NULLIF(feedback->1,'null'::jsonb),NULLIF(feedback->2,'null'::jsonb),p_feedback_canonical_json,p_canonical_json_version,p_feedback_content_sha256,v.course_id);
@@ -858,27 +794,34 @@ BEGIN
 END $$;
 ALTER FUNCTION public.ple_claim_accepted_submission_execution_v1(uuid,uuid,integer)
     OWNER TO ple_accepted_submission_execution_worker;
+ALTER FUNCTION public.ple_claim_accepted_submission_execution_transition_v1(uuid,uuid,uuid,uuid,uuid,uuid,integer), public.ple_claim_exact_accepted_submission_execution_v1(uuid,uuid,uuid,uuid,uuid,uuid,integer), public.ple_read_accepted_submission_evaluation_v1(uuid,uuid)
+    OWNER TO ple_accepted_submission_execution_worker;
 ALTER FUNCTION public.ple_load_accepted_submission_execution_v2(uuid,uuid,uuid,uuid,bigint,uuid)
     OWNER TO ple_accepted_submission_execution_worker;
 ALTER FUNCTION public.ple_lock_accepted_submission_completion_v1(uuid,uuid,uuid,uuid,bigint,uuid)
     OWNER TO ple_accepted_submission_execution_worker;
-ALTER FUNCTION public.ple_commit_accepted_submission_completion_v2(uuid,uuid,uuid,uuid,bigint,uuid,smallint,text,text,character,text,jsonb,character,text,character,text,character,text,jsonb,character,text,character,bigint,bigint,uuid,uuid,text,jsonb,character,text,jsonb,character,boolean,uuid,jsonb,bigint,uuid,integer)
+ALTER FUNCTION public.ple_commit_accepted_submission_completion_v2(uuid,uuid,uuid,uuid,bigint,uuid,smallint,text,text,character,text,jsonb,character,text,character,text,jsonb,character,text,character,bigint,bigint,uuid,uuid,text,jsonb,character,text,jsonb,character,boolean,uuid,jsonb,bigint,uuid,integer)
     OWNER TO ple_accepted_submission_execution_worker;
 ALTER FUNCTION public.ple_fail_accepted_submission_execution_v1(uuid,uuid,uuid,uuid,bigint,uuid,text,text)
     OWNER TO ple_accepted_submission_execution_worker;
 ALTER FUNCTION public.ple_guard_receipt_attempt_snapshot() OWNER TO ple_accepted_submission_execution_worker; ALTER FUNCTION public.ple_forbid_automated_result_mutation() OWNER TO ple_accepted_submission_execution_worker; ALTER FUNCTION public.ple_guard_accepted_execution_evidence_writer() OWNER TO ple_accepted_submission_execution_worker;
 REVOKE ALL ON FUNCTION public.ple_claim_accepted_submission_execution_v1(uuid,uuid,integer),
+    public.ple_claim_accepted_submission_execution_transition_v1(uuid,uuid,uuid,uuid,uuid,uuid,integer),
+    public.ple_claim_exact_accepted_submission_execution_v1(uuid,uuid,uuid,uuid,uuid,uuid,integer),
     public.ple_load_accepted_submission_execution_v2(uuid,uuid,uuid,uuid,bigint,uuid),
     public.ple_lock_accepted_submission_completion_v1(uuid,uuid,uuid,uuid,bigint,uuid),
-    public.ple_commit_accepted_submission_completion_v2(uuid,uuid,uuid,uuid,bigint,uuid,smallint,text,text,character,text,jsonb,character,text,character,text,character,text,jsonb,character,text,character,bigint,bigint,uuid,uuid,text,jsonb,character,text,jsonb,character,boolean,uuid,jsonb,bigint,uuid,integer),
+    public.ple_commit_accepted_submission_completion_v2(uuid,uuid,uuid,uuid,bigint,uuid,smallint,text,text,character,text,jsonb,character,text,character,text,jsonb,character,text,character,bigint,bigint,uuid,uuid,text,jsonb,character,text,jsonb,character,boolean,uuid,jsonb,bigint,uuid,integer),
     public.ple_fail_accepted_submission_execution_v1(uuid,uuid,uuid,uuid,bigint,uuid,text,text)
     FROM PUBLIC, ple_app, ple_queue_broker, ple_automated_grading_broker, ple_retention_broker;
+REVOKE ALL ON FUNCTION public.ple_read_accepted_submission_evaluation_v1(uuid,uuid) FROM PUBLIC, ple_accepted_submission_execution;
 GRANT EXECUTE ON FUNCTION public.ple_claim_accepted_submission_execution_v1(uuid,uuid,integer),
+    public.ple_claim_exact_accepted_submission_execution_v1(uuid,uuid,uuid,uuid,uuid,uuid,integer),
     public.ple_load_accepted_submission_execution_v2(uuid,uuid,uuid,uuid,bigint,uuid),
     public.ple_lock_accepted_submission_completion_v1(uuid,uuid,uuid,uuid,bigint,uuid),
-    public.ple_commit_accepted_submission_completion_v2(uuid,uuid,uuid,uuid,bigint,uuid,smallint,text,text,character,text,jsonb,character,text,character,text,character,text,jsonb,character,text,character,bigint,bigint,uuid,uuid,text,jsonb,character,text,jsonb,character,boolean,uuid,jsonb,bigint,uuid,integer),
+    public.ple_commit_accepted_submission_completion_v2(uuid,uuid,uuid,uuid,bigint,uuid,smallint,text,text,character,text,jsonb,character,text,character,text,jsonb,character,text,character,bigint,bigint,uuid,uuid,text,jsonb,character,text,jsonb,character,boolean,uuid,jsonb,bigint,uuid,integer),
     public.ple_fail_accepted_submission_execution_v1(uuid,uuid,uuid,uuid,bigint,uuid,text,text)
     TO ple_accepted_submission_execution;
+GRANT EXECUTE ON FUNCTION public.ple_read_accepted_submission_evaluation_v1(uuid,uuid) TO ple_app;
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ple_accepted_submission_execution; REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM ple_accepted_submission_execution;
 DO $$
 BEGIN
@@ -898,14 +841,21 @@ BEGIN
           OR member='ple_accepted_submission_execution_worker'::regrole)
        OR EXISTS (SELECT 1 FROM unnest(ARRAY[
             'public.ple_claim_accepted_submission_execution_v1(uuid,uuid,integer)',
+            'public.ple_claim_exact_accepted_submission_execution_v1(uuid,uuid,uuid,uuid,uuid,uuid,integer)',
             'public.ple_load_accepted_submission_execution_v2(uuid,uuid,uuid,uuid,bigint,uuid)',
             'public.ple_lock_accepted_submission_completion_v1(uuid,uuid,uuid,uuid,bigint,uuid)',
-            'public.ple_commit_accepted_submission_completion_v2(uuid,uuid,uuid,uuid,bigint,uuid,smallint,text,text,character,text,jsonb,character,text,character,text,character,text,jsonb,character,text,character,bigint,bigint,uuid,uuid,text,jsonb,character,text,jsonb,character,boolean,uuid,jsonb,bigint,uuid,integer)',
+            'public.ple_commit_accepted_submission_completion_v2(uuid,uuid,uuid,uuid,bigint,uuid,smallint,text,text,character,text,jsonb,character,text,character,text,jsonb,character,text,character,bigint,bigint,uuid,uuid,text,jsonb,character,text,jsonb,character,boolean,uuid,jsonb,bigint,uuid,integer)',
             'public.ple_fail_accepted_submission_execution_v1(uuid,uuid,uuid,uuid,bigint,uuid,text,text)'
           ]) AS function_name
           WHERE NOT has_function_privilege('ple_accepted_submission_execution', function_name, 'EXECUTE')
              OR has_function_privilege('ple_app', function_name, 'EXECUTE')
              OR has_function_privilege('public', function_name, 'EXECUTE'))
+       OR NOT has_function_privilege('ple_app','public.ple_read_accepted_submission_evaluation_v1(uuid,uuid)','EXECUTE')
+       OR has_function_privilege('public','public.ple_read_accepted_submission_evaluation_v1(uuid,uuid)','EXECUTE')
+       OR has_function_privilege('ple_accepted_submission_execution','public.ple_read_accepted_submission_evaluation_v1(uuid,uuid)','EXECUTE')
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc WHERE oid='public.ple_claim_accepted_submission_execution_transition_v1(uuid,uuid,uuid,uuid,uuid,uuid,integer)'::regprocedure
+          AND (proowner <> 'ple_accepted_submission_execution_worker'::regrole OR prosecdef
+               OR proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, public, pg_temp']))
        OR EXISTS (SELECT 1 FROM unnest(ARRAY[
             'public.ple_guard_receipt_attempt_snapshot()'::regprocedure,
             'public.ple_forbid_automated_result_mutation()'::regprocedure,
@@ -962,9 +912,11 @@ BEGIN
             SELECT 1
               FROM unnest(ARRAY[
                     'public.ple_claim_accepted_submission_execution_v1(uuid,uuid,integer)'::regprocedure,
+                    'public.ple_claim_exact_accepted_submission_execution_v1(uuid,uuid,uuid,uuid,uuid,uuid,integer)'::regprocedure,
+                    'public.ple_read_accepted_submission_evaluation_v1(uuid,uuid)'::regprocedure,
                     'public.ple_load_accepted_submission_execution_v2(uuid,uuid,uuid,uuid,bigint,uuid)'::regprocedure,
                     'public.ple_lock_accepted_submission_completion_v1(uuid,uuid,uuid,uuid,bigint,uuid)'::regprocedure,
-                    'public.ple_commit_accepted_submission_completion_v2(uuid,uuid,uuid,uuid,bigint,uuid,smallint,text,text,character,text,jsonb,character,text,character,text,character,text,jsonb,character,text,character,bigint,bigint,uuid,uuid,text,jsonb,character,text,jsonb,character,boolean,uuid,jsonb,bigint,uuid,integer)'::regprocedure,
+                    'public.ple_commit_accepted_submission_completion_v2(uuid,uuid,uuid,uuid,bigint,uuid,smallint,text,text,character,text,jsonb,character,text,character,text,jsonb,character,text,character,bigint,bigint,uuid,uuid,text,jsonb,character,text,jsonb,character,boolean,uuid,jsonb,bigint,uuid,integer)'::regprocedure,
                     'public.ple_fail_accepted_submission_execution_v1(uuid,uuid,uuid,uuid,bigint,uuid,text,text)'::regprocedure
               ]) AS expected(procedure_id)
               JOIN pg_catalog.pg_proc AS procedure_row ON procedure_row.oid = expected.procedure_id
@@ -975,7 +927,7 @@ BEGIN
        OR has_schema_privilege('ple_accepted_submission_execution_worker', 'public', 'CREATE')
        OR NOT has_schema_privilege('ple_accepted_submission_execution_worker', 'public', 'USAGE')
        OR (SELECT relowner FROM pg_catalog.pg_class WHERE oid='public.ple_accepted_submission_execution_witness_v1'::regclass) <> 'ple_accepted_submission_execution_worker'::regrole
-       OR EXISTS (WITH expected AS (SELECT 'table'::text AS authority_kind, split_part(entry, ':', 1)::regclass::oid AS object_id, NULL::name AS column_name, split_part(entry, ':', 2) AS privilege_type, false AS is_grantable FROM unnest(ARRAY['public.worker_job:SELECT','public.grading_execution:SELECT','public.submission_evaluation:SELECT','public.grading_execution_receipt:INSERT','public.grading_operation:INSERT','public.submission:SELECT','public.submission_idempotency:SELECT','public.question_attempt:SELECT','public.assignment_run:SELECT','public.enrollment:SELECT','public.assignment:SELECT','public.assignment_audience_group:SELECT','public.assignment_item:SELECT','public.assignment_run_item:SELECT','public.assignment_selection_group:SELECT','public.assignment_selection_candidate:SELECT','public.course_retention:SELECT','public.accepted_submission_private_response:SELECT','public.issued_attempt_private_execution:SELECT','public.student_assignment_summary:SELECT','public.attempt_feedback:INSERT','public.submission_receipt_snapshot:INSERT']) AS expected(entry) UNION ALL SELECT 'column', split_part(entry, ':', 1)::regclass::oid, split_part(entry, ':', 2)::name, split_part(entry, ':', 3), false FROM unnest(ARRAY['public.worker_job:state:UPDATE','public.worker_job:lease_token:UPDATE','public.worker_job:lease_expires_at:UPDATE','public.worker_job:attempt_count:UPDATE','public.worker_job:last_error:UPDATE','public.worker_job:completed_at:UPDATE','public.worker_job:available_at:UPDATE','public.grading_execution:state:UPDATE','public.grading_execution:active_worker_id:UPDATE','public.grading_execution:retry_count:UPDATE','public.grading_execution:updated_at:UPDATE','public.submission_evaluation:grading_status:UPDATE','public.submission_evaluation:credit_fraction:UPDATE','public.submission_evaluation:correct:UPDATE','public.submission_evaluation:payload:UPDATE','public.submission_evaluation:payload_sha256:UPDATE','public.submission_evaluation:automated_result_canonical_json:UPDATE','public.submission_evaluation:automated_result_sha256:UPDATE','public.submission_evaluation:automated_result_canonical_json_version:UPDATE','public.submission_evaluation:evaluated_at:UPDATE','public.submission_evaluation:evaluation_revision:UPDATE','public.question_attempt:attempt_status:UPDATE','public.question_attempt:submitted_at:UPDATE','public.question_attempt:payload:UPDATE','public.question_attempt:payload_sha256:UPDATE','public.assignment_run:completed_at:UPDATE','public.assignment_run:payload:UPDATE','public.assignment_run:payload_sha256:UPDATE','public.enrollment:first_completed_at:UPDATE','public.enrollment:current_grade_run_id:UPDATE','public.enrollment:best_grade_run_id:UPDATE','public.student_assignment_summary:current_score:UPDATE','public.student_assignment_summary:best_score:UPDATE','public.student_assignment_summary:latest_score:UPDATE','public.student_assignment_summary:completed_run_count:UPDATE','public.student_assignment_summary:total_question_attempts:UPDATE','public.student_assignment_summary:last_activity_at:UPDATE','public.student_assignment_summary:updated_at:UPDATE']) AS expected(entry) UNION ALL SELECT 'function', split_part(entry, ':', 1)::regprocedure::oid, NULL::name, 'EXECUTE', false FROM unnest(ARRAY['public.ple_current_tenant()','public.ple_course_records_accessible(uuid,uuid)','public.ple_enqueue_assignment_recalculation(uuid,uuid,uuid,integer)','public.ple_record_question_statistics(uuid,uuid,uuid,uuid,uuid,uuid,double precision,bigint,bigint,double precision,bytea)']) AS expected(entry)), actual AS (SELECT 'table'::text, relation_row.oid, NULL::name, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_class AS relation_row JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid=relation_row.relnamespace CROSS JOIN LATERAL pg_catalog.aclexplode(relation_row.relacl) AS acl WHERE namespace_row.nspname='public' AND relation_row.relkind IN ('r','p','v','m','f') AND relation_row.relowner<>'ple_accepted_submission_execution_worker'::regrole AND acl.grantee='ple_accepted_submission_execution_worker'::regrole UNION ALL SELECT 'column', attribute_row.attrelid, attribute_row.attname, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_attribute AS attribute_row CROSS JOIN LATERAL pg_catalog.aclexplode(attribute_row.attacl) AS acl WHERE attribute_row.attnum>0 AND NOT attribute_row.attisdropped AND acl.grantee='ple_accepted_submission_execution_worker'::regrole UNION ALL SELECT 'sequence', relation_row.oid, NULL::name, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_class AS relation_row JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid=relation_row.relnamespace CROSS JOIN LATERAL pg_catalog.aclexplode(relation_row.relacl) AS acl WHERE namespace_row.nspname='public' AND relation_row.relkind='S' AND acl.grantee='ple_accepted_submission_execution_worker'::regrole UNION ALL SELECT 'function', procedure_row.oid, NULL::name, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_proc AS procedure_row JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid=procedure_row.pronamespace CROSS JOIN LATERAL pg_catalog.aclexplode(procedure_row.proacl) AS acl WHERE namespace_row.nspname='public' AND procedure_row.proowner<>'ple_accepted_submission_execution_worker'::regrole AND acl.grantee='ple_accepted_submission_execution_worker'::regrole) SELECT 1 FROM ((SELECT * FROM actual EXCEPT SELECT * FROM expected) UNION ALL (SELECT * FROM expected EXCEPT SELECT * FROM actual)) AS privilege_difference)
+       OR EXISTS (WITH expected AS (SELECT 'table'::text AS authority_kind, split_part(entry, ':', 1)::regclass::oid AS object_id, NULL::name AS column_name, split_part(entry, ':', 2) AS privilege_type, false AS is_grantable FROM unnest(ARRAY['public.worker_job:SELECT','public.grading_execution:SELECT','public.submission_evaluation:SELECT','public.grading_execution_receipt:INSERT','public.grading_operation:INSERT','public.submission:SELECT','public.submission_idempotency:SELECT','public.question_attempt:SELECT','public.assignment_run:SELECT','public.enrollment:SELECT','public.assignment:SELECT','public.assignment_audience_group:SELECT','public.assignment_item:SELECT','public.assignment_run_item:SELECT','public.assignment_selection_group:SELECT','public.assignment_selection_candidate:SELECT','public.course_retention:SELECT','public.accepted_submission_private_response:SELECT','public.issued_attempt_private_execution:SELECT','public.student_assignment_summary:SELECT','public.attempt_feedback:INSERT','public.submission_receipt_snapshot:INSERT']) AS expected(entry) UNION ALL SELECT 'column', split_part(entry, ':', 1)::regclass::oid, split_part(entry, ':', 2)::name, split_part(entry, ':', 3), false FROM unnest(ARRAY['public.worker_job:state:UPDATE','public.worker_job:lease_token:UPDATE','public.worker_job:lease_expires_at:UPDATE','public.worker_job:attempt_count:UPDATE','public.worker_job:last_error:UPDATE','public.worker_job:completed_at:UPDATE','public.worker_job:available_at:UPDATE','public.grading_execution:state:UPDATE','public.grading_execution:active_worker_id:UPDATE','public.grading_execution:retry_count:UPDATE','public.grading_execution:updated_at:UPDATE','public.submission_evaluation:grading_status:UPDATE','public.submission_evaluation:credit_fraction:UPDATE','public.submission_evaluation:correct:UPDATE','public.submission_evaluation:payload:UPDATE','public.submission_evaluation:payload_sha256:UPDATE','public.submission_evaluation:automated_result_canonical_json:UPDATE','public.submission_evaluation:automated_result_sha256:UPDATE','public.submission_evaluation:automated_result_canonical_json_version:UPDATE','public.submission_evaluation:evaluated_at:UPDATE','public.submission_evaluation:evaluation_revision:UPDATE','public.question_attempt:attempt_status:UPDATE','public.question_attempt:submitted_at:UPDATE','public.assignment_run:completed_at:UPDATE','public.assignment_run:payload:UPDATE','public.assignment_run:payload_sha256:UPDATE','public.enrollment:first_completed_at:UPDATE','public.enrollment:current_grade_run_id:UPDATE','public.enrollment:best_grade_run_id:UPDATE','public.student_assignment_summary:current_score:UPDATE','public.student_assignment_summary:best_score:UPDATE','public.student_assignment_summary:latest_score:UPDATE','public.student_assignment_summary:completed_run_count:UPDATE','public.student_assignment_summary:total_question_attempts:UPDATE','public.student_assignment_summary:last_activity_at:UPDATE','public.student_assignment_summary:updated_at:UPDATE']) AS expected(entry) UNION ALL SELECT 'function', split_part(entry, ':', 1)::regprocedure::oid, NULL::name, 'EXECUTE', false FROM unnest(ARRAY['public.ple_current_tenant()','public.ple_course_records_accessible(uuid,uuid)','public.ple_enqueue_assignment_recalculation(uuid,uuid,uuid,integer)','public.ple_record_question_statistics(uuid,uuid,uuid,uuid,uuid,uuid,double precision,bigint,bigint,double precision,bytea)']) AS expected(entry)), actual AS (SELECT 'table'::text, relation_row.oid, NULL::name, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_class AS relation_row JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid=relation_row.relnamespace CROSS JOIN LATERAL pg_catalog.aclexplode(relation_row.relacl) AS acl WHERE namespace_row.nspname='public' AND relation_row.relkind IN ('r','p','v','m','f') AND relation_row.relowner<>'ple_accepted_submission_execution_worker'::regrole AND acl.grantee='ple_accepted_submission_execution_worker'::regrole UNION ALL SELECT 'column', attribute_row.attrelid, attribute_row.attname, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_attribute AS attribute_row CROSS JOIN LATERAL pg_catalog.aclexplode(attribute_row.attacl) AS acl WHERE attribute_row.attnum>0 AND NOT attribute_row.attisdropped AND acl.grantee='ple_accepted_submission_execution_worker'::regrole UNION ALL SELECT 'sequence', relation_row.oid, NULL::name, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_class AS relation_row JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid=relation_row.relnamespace CROSS JOIN LATERAL pg_catalog.aclexplode(relation_row.relacl) AS acl WHERE namespace_row.nspname='public' AND relation_row.relkind='S' AND acl.grantee='ple_accepted_submission_execution_worker'::regrole UNION ALL SELECT 'function', procedure_row.oid, NULL::name, acl.privilege_type, acl.is_grantable FROM pg_catalog.pg_proc AS procedure_row JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid=procedure_row.pronamespace CROSS JOIN LATERAL pg_catalog.aclexplode(procedure_row.proacl) AS acl WHERE namespace_row.nspname='public' AND procedure_row.proowner<>'ple_accepted_submission_execution_worker'::regrole AND acl.grantee='ple_accepted_submission_execution_worker'::regrole) SELECT 1 FROM ((SELECT * FROM actual EXCEPT SELECT * FROM expected) UNION ALL (SELECT * FROM expected EXCEPT SELECT * FROM actual)) AS privilege_difference)
        OR EXISTS (SELECT 1 FROM (VALUES
             ('worker_job','accepted_execution_worker_job','*','true','true'),('grading_execution','accepted_execution_worker_execution','*','true','true'),('submission_evaluation','accepted_execution_worker_evaluation','*','true','true'),
             ('grading_execution_receipt','accepted_execution_worker_receipt','a','','true'),('grading_operation','accepted_execution_worker_operation','a','','true'),('submission','accepted_execution_worker_submission','r','true',''),

@@ -63,9 +63,10 @@ See [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md) and [TROUBLESHOOTING.md](TROUBLES
    learner to work.
 6. Validate delivery through the ordinary live workflow: sign out, select the seeded **Student**
    persona, open the authorized course and published assignment, choose **Start assignment**, answer
-   the visible questions, and submit. Sign back in as the Instructor, open **Gradebook**, and expand
-   the assignment's **View run history**. Confirm the Student's score, latest run, completed-run
-   count, and authorized submission evidence after a fresh read.
+   the visible questions, and submit. If **Response received** appears, use **Check grading status**
+   until feedback or an instructor-attention message appears. Sign back in as the Instructor, open
+   **Gradebook**, and expand the assignment's **View run history**. Confirm the Student's score,
+   latest run, completed-run count, and authorized submission evidence after a fresh read.
 
 Assignments pin exact immutable questions for issued learner work. A later Questions replacement is
 for future runs; existing runs keep their original question. Use a visible `AAA-BBBB` Question ID

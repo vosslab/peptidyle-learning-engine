@@ -89,9 +89,12 @@ recover an uncertain submission by issuing a different attempt.
 - A learner supplies one `Idempotency-Key` header for a submission. The validated key is bounded,
   visible ASCII and is stored with tenant-scoped submission evidence in
   [contracts/runs.rs](../crates/learning-data-access/src/contracts/runs.rs).
-- The Store atomically persists the accepted response, grade result, attempt/run/enrollment
-  transitions, and the first receipt. An exact retry returns that first receipt rather than grading
-  or counting twice. A changed response or incompatible replay conflicts.
+- The Store first atomically persists the accepted response, immutable issued-work witness, pending
+  evaluation, execution, and ready job. An exact retry returns the same durable acceptance rather
+  than creating another grading operation. A changed response or incompatible replay conflicts.
+- After `202 Accepted`, the browser uses the route-bound submission-status read. The sealed worker
+  commits the result, attempt/run/enrollment transitions, projections, and completed receipt in one
+  transaction; status reads converge on that receipt without re-grading.
 - If the browser loses the response, it preserves the same request body and idempotency key, then
   retries that exact logical submission after connectivity returns. It must not create a new key
   merely because the outcome was unknown.

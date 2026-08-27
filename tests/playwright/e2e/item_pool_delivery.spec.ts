@@ -4,10 +4,11 @@
 // - src/pages/assignment_workspace/ owns mixed fixed/pool creation and post-issue Questions saves.
 // - src/pages/assignment_pool_editor.tsx:109 owns candidate, draw, ordering, and preview controls.
 // - src/pages/assignment_workspace/assignment_workspace_policies_page.tsx owns publishing controls.
-// - src/pages/run_page.tsx:401 owns issued learner questions, feedback, and completion surfaces.
+// - src/pages/run_page.tsx:442 owns issued learner questions, feedback, and completion surfaces.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
+import { advanceToNextIssuedQuestion, waitForAutomatedFeedback } from "./automated_grading_ui";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
@@ -213,13 +214,12 @@ async function completeDeliveredPoolRun(
   await expect(page.locator(".run-pool-provenance")).toHaveCount(0);
   await page.getByRole("radio", { name: fixed.correctChoice, exact: true }).check();
   await page.getByRole("button", { name: "Submit answer", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Feedback", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  const fixedFeedback = await waitForAutomatedFeedback(page);
+  await expect(fixedFeedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
+  await advanceToNextIssuedQuestion(page);
 
   const deliveredCandidateIndexes: number[] = [];
   const questionHeading = page.locator(".run-header h1");
-  await expect(questionHeading).not.toHaveText(fixed.title);
   for (let position = 0; position < 2; position += 1) {
     await expect(page.locator(".run-pool-provenance")).toHaveText(
       `Server-selected pool item ${position + 1} of 2 for this run.`,
@@ -239,15 +239,15 @@ async function completeDeliveredPoolRun(
     }
     await page.getByRole("radio", { name: candidate!.correctChoice, exact: true }).check();
     await page.getByRole("button", { name: "Submit answer", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Feedback", exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
-    await page
-      .getByRole("button", {
-        name: position === 0 ? "Continue" : "View completed run",
-        exact: true,
-      })
-      .click();
-    if (position === 0) await expect(questionHeading).not.toHaveText(title);
+    const candidateFeedback = await waitForAutomatedFeedback(page);
+    await expect(
+      candidateFeedback.getByRole("heading", { name: "Correct", exact: true }),
+    ).toBeVisible();
+    if (position === 0) {
+      await advanceToNextIssuedQuestion(page);
+    } else {
+      await page.getByRole("button", { name: "View completed run", exact: true }).click();
+    }
   }
   expect(deliveredCandidateIndexes).toEqual([...deliveredCandidateIndexes].sort((a, b) => a - b));
   const summary = page.locator(".attempt-summary");

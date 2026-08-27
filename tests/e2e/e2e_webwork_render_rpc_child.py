@@ -11,6 +11,7 @@ import ssl
 import stat
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -35,6 +36,8 @@ RENDERER_SERVICE = "webwork-renderer"
 MAXIMUM_RESPONSE_BYTES = 4 * 1024 * 1024
 MAXIMUM_SEED_MANIFEST_BYTES = 16_384
 REQUEST_TIMEOUT_SECONDS = 30
+GRADING_COMPLETION_TIMEOUT_SECONDS = 30
+GRADING_STATUS_POLL_INTERVAL_SECONDS = 0.1
 ADAPTER_TIMEOUT_SECONDS = 300
 QUESTION_ID_PATTERN = re.compile(r"^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$")
 PRIVATE_MARKERS = (
@@ -627,8 +630,118 @@ def submit_answer(
 		{"response": {"kind": "multipleChoice", "selected": [choice_id]}},
 		{"idempotency-key": idempotency_key},
 	)
-	require_status(response, 200, "PLE WebWork submission")
 	return response
+
+
+#============================================
+def assert_accepted_pending(
+	response: GatewayResponse,
+	attempt_id: str,
+	label: str,
+) -> None:
+	"""Require the exact answer-free acknowledgement for queued server grading."""
+	require_status(response, 202, label)
+	value = require_closed_record(
+		decode_json(response, label),
+		{"kind", "accepted", "attemptId", "automatedGradingStatus", "nextAction"},
+		label,
+	)
+	if value != {
+		"kind": "accepted_pending",
+		"accepted": True,
+		"attemptId": attempt_id,
+		"automatedGradingStatus": "pending",
+		"nextAction": "check_status",
+	}:
+		raise WebWorkOracleError(f"{label} has an invalid pending state")
+	assert_no_private_material([response.body])
+
+
+#============================================
+def completed_receipt_status(value: object, label: str) -> str:
+	"""Require the completed receipt envelope and return its score freshness."""
+	receipt = require_closed_record(
+		value,
+		{
+			"kind",
+			"accepted",
+			"attempt",
+			"feedback",
+			"scoringStatus",
+			"runCompletionStatus",
+			"nextIssued",
+			"nextPending",
+		},
+		label,
+	)
+	if receipt["kind"] != "completed" or receipt["accepted"] is not True:
+		raise WebWorkOracleError(f"{label} is not a completed receipt")
+	status = receipt["scoringStatus"]
+	if status not in ("current", "recalculating", "failed"):
+		raise WebWorkOracleError(f"{label} has an invalid scoring status")
+	if receipt["runCompletionStatus"] not in ("inProgress", "completed"):
+		raise WebWorkOracleError(f"{label} has an invalid run completion status")
+	if not isinstance(receipt["nextPending"], bool):
+		raise WebWorkOracleError(f"{label} has an invalid successor state")
+	if receipt["nextIssued"] is not None and not isinstance(receipt["nextIssued"], dict):
+		raise WebWorkOracleError(f"{label} has an invalid successor receipt")
+	attempt = receipt["attempt"]
+	if not isinstance(attempt, dict) or "result" not in attempt:
+		raise WebWorkOracleError(f"{label} omitted its attempt result boundary")
+	feedback = receipt["feedback"]
+	if feedback is not None and not isinstance(feedback, dict):
+		raise WebWorkOracleError(f"{label} has an invalid feedback projection")
+	if status == "failed":
+		raise WebWorkOracleError(f"{label} reported failed score publication")
+	if status == "recalculating":
+		if attempt["result"] is not None:
+			raise WebWorkOracleError(f"{label} exposed a stale result while recalculating")
+		if isinstance(feedback, dict) and {
+			"pointsEarned",
+			"pointsPossible",
+		}.intersection(feedback):
+			raise WebWorkOracleError(f"{label} exposed points while recalculating")
+	return status
+
+
+#============================================
+def await_completed_submission(
+	client: GatewayClient,
+	course_id: str,
+	assignment_id: str,
+	attempt_id: str,
+	accepted: GatewayResponse,
+	label: str,
+) -> GatewayResponse:
+	"""Follow one accepted submission through the bounded server-owned worker flow."""
+	# ASVS V2.3.1/V2.3.3: observe the canonical accepted -> completed sequence;
+	# each status read is route-bound and the worker commits completion atomically.
+	assert_accepted_pending(accepted, attempt_id, label)
+	status_path = (
+		f"/api/courses/{course_id}/assignments/{assignment_id}"
+		f"/attempts/{attempt_id}/submission-status"
+	)
+	deadline = time.monotonic() + GRADING_COMPLETION_TIMEOUT_SECONDS
+	while True:
+		if time.monotonic() >= deadline:
+			raise WebWorkOracleError(
+				f"{label} did not complete within its bounded worker wait"
+			)
+		response = client.request("GET", status_path)
+		if response.status == 200:
+			value = decode_json(response, f"{label} status")
+			status = completed_receipt_status(value, f"{label} status")
+			assert_no_private_material([response.body])
+			if status == "current":
+				return response
+		else:
+			assert_accepted_pending(response, attempt_id, f"{label} status")
+		remaining = deadline - time.monotonic()
+		if remaining <= 0:
+			raise WebWorkOracleError(
+				f"{label} did not complete within its bounded worker wait"
+			)
+		time.sleep(min(GRADING_STATUS_POLL_INTERVAL_SECONDS, remaining))
 
 
 #============================================
@@ -672,7 +785,7 @@ def run_oracle(value: e2e_live_demo_service_input.LiveDemoServiceOracleInputV1) 
 
 	question_one_value = decode_json(question_one, "first PLE WebWork question")
 	correct_choice = question_answer(question_one_value, "hydrophobic")
-	receipt_one = submit_answer(
+	accepted_one = submit_answer(
 		client,
 		manifest.course_id,
 		manifest.assignment_id,
@@ -680,15 +793,38 @@ def run_oracle(value: e2e_live_demo_service_input.LiveDemoServiceOracleInputV1) 
 		correct_choice,
 		"ple-webwork-correct-1",
 	)
+	receipt_one = await_completed_submission(
+		client,
+		manifest.course_id,
+		manifest.assignment_id,
+		attempt_one,
+		accepted_one,
+		"correct PLE WebWork submission",
+	)
 	receipt_one_value = decode_json(receipt_one, "correct PLE WebWork submission")
 	assert_completed_receipt(receipt_one_value, 1.0)
-	receipt_one_replay = submit_answer(
+	accepted_one_replay = submit_answer(
 		client,
 		manifest.course_id,
 		manifest.assignment_id,
 		attempt_one,
 		correct_choice,
 		"ple-webwork-correct-1",
+	)
+	assert_accepted_pending(
+		accepted_one_replay,
+		attempt_one,
+		"correct PLE WebWork submission replay",
+	)
+	if accepted_one.body != accepted_one_replay.body:
+		raise WebWorkOracleError("idempotent WebWork submission replay changed its acknowledgement")
+	receipt_one_replay = await_completed_submission(
+		client,
+		manifest.course_id,
+		manifest.assignment_id,
+		attempt_one,
+		accepted_one_replay,
+		"correct PLE WebWork submission replay",
 	)
 	if receipt_one.body != receipt_one_replay.body:
 		raise WebWorkOracleError("idempotent WebWork submission replay changed its receipt")
@@ -716,13 +852,21 @@ def run_oracle(value: e2e_live_demo_service_input.LiveDemoServiceOracleInputV1) 
 	incorrect_choice = question_answer(
 		decode_json(question_three, "continued-practice WebWork question"), "hydrophilic"
 	)
-	receipt_two = submit_answer(
+	accepted_two = submit_answer(
 		client,
 		manifest.course_id,
 		manifest.assignment_id,
 		attempt_two,
 		incorrect_choice,
 		"ple-webwork-incorrect-1",
+	)
+	receipt_two = await_completed_submission(
+		client,
+		manifest.course_id,
+		manifest.assignment_id,
+		attempt_two,
+		accepted_two,
+		"incorrect PLE WebWork submission",
 	)
 	assert_completed_receipt(
 		decode_json(receipt_two, "incorrect PLE WebWork submission"), 0.0
@@ -747,10 +891,13 @@ def run_oracle(value: e2e_live_demo_service_input.LiveDemoServiceOracleInputV1) 
 		[
 			question_one.body,
 			question_two.body,
+			accepted_one.body,
+			accepted_one_replay.body,
 			receipt_one.body,
 			receipt_one_replay.body,
 			summary_one.body,
 			question_three.body,
+			accepted_two.body,
 			receipt_two.body,
 			summary_two.body,
 			health.body,

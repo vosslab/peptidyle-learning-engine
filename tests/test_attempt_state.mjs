@@ -196,12 +196,14 @@ test("an acknowledged pending submission clears its replay and checks status wit
 
   await fixture.machine.submit();
   assert.equal(fixture.machine.state().phase, "acceptedPending");
+  assert.deepEqual(fixture.machine.state().response, numericResponse(11));
   assert.equal(fixture.storage.value("ple:attempt:tenant-a:run-a:attempt-a"), null);
 
   await fixture.machine.submit();
   await fixture.machine.checkGradingStatus();
   assert.equal(fixture.submissionCalls.length, 1);
   assert.equal(fixture.machine.state().phase, "acceptedPending");
+  assert.deepEqual(fixture.machine.state().response, numericResponse(11));
   assert.equal(
     fixture.machine.state().acknowledgement.automatedGradingStatus,
     "instructor_attention",
@@ -210,6 +212,7 @@ test("an acknowledged pending submission clears its replay and checks status wit
   await fixture.machine.checkGradingStatus();
   assert.equal(statusReads, 2);
   assert.equal(fixture.machine.state().phase, "feedback");
+  assert.deepEqual(fixture.machine.state().response, numericResponse(11));
 });
 
 test("offline submission keeps the controlled response locally and retries after reconnect", async () => {

@@ -2,11 +2,8 @@
 
 use super::*;
 use std::sync::Arc;
-use std::time::Duration;
 
-use crate::accepted_submission_worker::AcceptedSubmissionExecutionWorker;
-use crate::worker::WorkerSettings;
-use learning_data_access::WorkerId;
+pub(super) use crate::test_fixtures::drain_one_accepted_submission;
 
 pub(super) async fn issued_cookie(store: &MemoryStore, user: UserId, name: &str) -> String {
     issued_cookie_for(store, TenantId::from_uuid(id(1)), user, name).await
@@ -43,38 +40,6 @@ pub(super) async fn json(response: Response) -> serde_json::Value {
         .await
         .expect("response bytes");
     serde_json::from_slice(&bytes).expect("JSON response")
-}
-
-/// Drains one accepted submission through the same sealed worker used by the
-/// production composition and requires its durable commit to be acknowledged.
-///
-/// The worker receives a clone of the in-memory store because `MemoryStore`
-/// clones share their state while retaining the worker's capability boundary.
-/// A fixed worker identity and bounded settings keep this lifecycle helper
-/// deterministic and free of polling or sleeps.
-pub(super) async fn drain_one_accepted_submission<B>(store: &Arc<MemoryStore>, backend: Arc<B>)
-where
-    B: RunBackend + 'static,
-{
-    let settings = WorkerSettings::new(60, Duration::from_secs(5), 1)
-        .expect("bounded accepted-submission worker settings");
-    let worker = AcceptedSubmissionExecutionWorker::new(
-        (**store).clone(),
-        backend,
-        WorkerId::from_uuid(id(70_001)),
-        settings,
-    )
-    .expect("accepted-submission worker");
-    let report = worker.drain_one().await.expect("accepted-submission drain");
-    assert_eq!(
-        report.committed, 1,
-        "worker must commit one accepted execution"
-    );
-    assert_eq!(report.no_claim, 0);
-    assert_eq!(report.rescheduled, 0);
-    assert_eq!(report.terminal, 0);
-    assert_eq!(report.stale_claim, 0);
-    assert_eq!(report.outcome_unknown, 0);
 }
 
 /// Exercises the canonical asynchronous learner lifecycle through HTTP:

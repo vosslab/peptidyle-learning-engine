@@ -502,17 +502,35 @@ where
         // immutable evidence from one authorization-bound transaction.
         Ok(IssuedAttemptRead::Active(evidence)) => match evidence.presentation_snapshot() {
             Some(snapshot) => no_store(Json(snapshot.envelope.clone()).into_response()),
-            None => error_response(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "issued presentation is unavailable",
-            ),
+            None => {
+                tracing::warn!(
+                    event = "issued_question_projection_unavailable",
+                    lifecycle = "active",
+                    course = %course,
+                    assignment = %assignment,
+                    attempt = %attempt_id,
+                );
+                error_response(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "issued presentation is unavailable",
+                )
+            }
         },
         Ok(IssuedAttemptRead::Submitted(read)) => match read.presentation() {
             Some(snapshot) => no_store(Json(snapshot.envelope.clone()).into_response()),
-            None => error_response(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "submitted attempt receipt is unavailable",
-            ),
+            None => {
+                tracing::warn!(
+                    event = "issued_question_projection_unavailable",
+                    lifecycle = "submitted",
+                    course = %course,
+                    assignment = %assignment,
+                    attempt = %attempt_id,
+                );
+                error_response(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "submitted attempt receipt is unavailable",
+                )
+            }
         },
         Ok(IssuedAttemptRead::TerminalWithoutReceipt(_)) => error_response(
             StatusCode::CONFLICT,
@@ -521,7 +539,16 @@ where
         Err(StoreError::NotFound | StoreError::Forbidden | StoreError::TenantMismatch) => {
             error_response(StatusCode::NOT_FOUND, "attempt not found")
         }
-        Err(error) => store_error_response(error),
+        Err(error) => {
+            tracing::warn!(
+                event = "issued_question_read_refused",
+                error = ?error,
+                course = %course,
+                assignment = %assignment,
+                attempt = %attempt_id,
+            );
+            store_error_response(error)
+        }
     }
 }
 

@@ -149,6 +149,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
   );
   let requestedPrefetchFor: string | null = null;
   let prefetchController: AbortController | null = null;
+  let recoveredSuccessorScreen: RunScreenData | null = null;
 
   const machine = createAttemptStateMachine({
     context: attemptContext(props.initialScreen.attempt),
@@ -203,9 +204,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
     const acknowledgement = feedbackState()?.acknowledgement;
     if (acknowledgement === undefined) return;
     if (acknowledgement.nextPending) {
-      // The response is already durable. A refresh can recover only successor
-      // delivery; it never resubmits or recreates the learner response.
-      window.location.reload();
+      await advanceFromCurrentRun(null);
       return;
     }
     const receiptNext = acknowledgement.nextIssued;
@@ -244,32 +243,48 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
       void loadSummary();
       return;
     }
-    let advancedScreen: RunScreenData | null = null;
-    let advancedAttemptId: string | null = null;
-    let advancedPoolSelection: PoolSelection | null | undefined;
+    await advanceFromCurrentRun(receiptNext);
+  }
+
+  function applyRecoveredSuccessorScreen(): void {
+    const recovered = recoveredSuccessorScreen;
+    if (
+      recovered === null ||
+      machine.state().phase !== "answering" ||
+      machine.state().context.attemptId !== recovered.attempt.id
+    ) {
+      return;
+    }
+    recoveredSuccessorScreen = null;
+    setScreen(recovered);
+    setPoolSelection(recovered.attempt.poolSelection);
+    setPrefetched(null);
+    requestPrefetch(recovered.attempt.id);
+  }
+
+  async function advanceFromCurrentRun(expected: NextIssuedAttempt | null): Promise<void> {
+    const predecessor = machine.state().context.attemptId;
+    recoveredSuccessorScreen = null;
     await machine.advance(async () => {
-      // Router query results can still describe the submitted attempt. A receipt
-      // with a successor must read a current server-issued screen before advancing.
+      // Router data may still describe the submitted predecessor while the
+      // server-owned successor becomes visible. Bind recovery to the predecessor
+      // and, when supplied, the issued successor receipt.
       const next = await runtime.client.getRunScreen(screen().run.id);
-      if (!matchesIssuedSuccessor(next.attempt, receiptNext)) {
+      if (next.attempt.id === predecessor) {
+        throw new ApiProtocolError("Run screen still describes the submitted attempt");
+      }
+      if (expected !== null && !matchesIssuedSuccessor(next.attempt, expected)) {
         throw new ApiProtocolError("Run screen does not match the issued successor receipt");
       }
-      advancedScreen = next;
-      advancedAttemptId = next.attempt.id;
-      advancedPoolSelection = next.attempt.poolSelection;
-      const nextContext = attemptContext(next.attempt);
-      return { context: nextContext, envelope: next.issuedQuestion };
+      recoveredSuccessorScreen = next;
+      return { context: attemptContext(next.attempt), envelope: next.issuedQuestion };
     });
-    if (
-      advancedScreen === null ||
-      advancedAttemptId === null ||
-      advancedPoolSelection === undefined
-    )
-      return;
-    setScreen(advancedScreen);
-    setPoolSelection(advancedPoolSelection);
-    setPrefetched(null);
-    requestPrefetch(advancedAttemptId);
+    applyRecoveredSuccessorScreen();
+  }
+
+  async function retryNextQuestion(): Promise<void> {
+    await machine.retryAdvance();
+    applyRecoveredSuccessorScreen();
   }
 
   function requestPrefetch(attemptId: string): void {
@@ -425,6 +440,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
     <section
       class="page run-page"
       data-route-surface="runAttempt"
+      data-attempt-id={currentAttemptId()}
       aria-busy={currentState()?.phase === "loading" || currentState()?.phase === "advancing"}
     >
       <header class="run-header">
@@ -573,7 +589,7 @@ function AttemptExperience(props: { readonly initialScreen: RunScreenData }): JS
                     <button
                       class="quiet-action"
                       type="button"
-                      onClick={() => void machine.retryAdvance()}
+                      onClick={() => void retryNextQuestion()}
                     >
                       Retry next question
                     </button>

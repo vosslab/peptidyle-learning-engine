@@ -7,11 +7,12 @@
 // - src/pages/course_roster_page.tsx:423 owns student invitation fields and the invitation link.
 // - src/pages/course_invitation_page.tsx:62 and src/pages/assignment_overview_page.tsx:114 own
 //   learner claiming and practice entry.
-// - src/pages/run_page.tsx:387 and src/components/responses/common.tsx:301 own run visibility,
+// - src/pages/run_page.tsx:442 and src/components/responses/common.tsx:294 own run visibility,
 //   answer controls, feedback, and completion navigation.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
+import { waitForAutomatedFeedback } from "./automated_grading_ui";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
@@ -124,8 +125,7 @@ async function completeVisibleWebworkRun(
   await choices.first().check();
   await expect(choices.first()).toBeChecked();
   await page.getByRole("button", { name: "Submit answer", exact: true }).click();
-  const feedback = page.getByRole("heading", { name: "Feedback", exact: true }).locator("..");
-  await expect(feedback).toBeVisible();
+  const feedback = await waitForAutomatedFeedback(page);
   await expect(feedback.getByRole("heading", { name: /^(Correct|Not quite)$/u })).toBeVisible();
   await page.getByRole("button", { name: "View completed run", exact: true }).click();
   await expect(page.getByText("Your completed run is recorded.")).toBeVisible();

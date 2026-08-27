@@ -28,6 +28,19 @@ def _compose_extension(loader: ComposeLoader, node: yaml.Node) -> object:
 ComposeLoader.add_constructor("!override", _compose_extension)
 
 
+#============================================
+def _load_compose_mapping(path: pathlib.Path) -> dict[str, object]:
+	"""Decode one Compose document with the bounded SafeLoader extension."""
+	loader = ComposeLoader(path.read_text(encoding="utf-8"))
+	try:
+		decoded = loader.get_single_data()
+	finally:
+		loader.dispose()
+	if not isinstance(decoded, dict) or not all(isinstance(key, str) for key in decoded):
+		raise AssertionError("Compose fixture must decode to a string-keyed mapping")
+	return decoded
+
+
 class RecordingRunner(local_stack_control.process.CommandRunner):
 	"""Record provisioning input without starting a database or Compose."""
 
@@ -147,7 +160,7 @@ def test_provisioning_failure_redacts_ephemeral_process_passwords() -> None:
 def test_compose_assigns_distinct_database_variables_to_api_and_worker() -> None:
 	"""The shipped service topology preserves the two process authority paths."""
 	compose_path = pathlib.Path(file_utils.get_repo_root()) / "containers" / "compose.yaml"
-	services = yaml.load(compose_path.read_text(encoding="utf-8"), Loader=ComposeLoader)["services"]
+	services = _load_compose_mapping(compose_path)["services"]
 	api_environment = services["api"]["environment"]
 	worker_environment = services["worker"]["environment"]
 	assert "PLE_API_DATABASE_URL" in api_environment["DATABASE_URL"]
@@ -178,6 +191,6 @@ def test_compose_assigns_distinct_database_variables_to_api_and_worker() -> None
 	assert services["worker"]["networks"] == ["default", "renderer_private"]
 
 	overlay_path = pathlib.Path(file_utils.get_repo_root()) / "tests/e2e/compose.live-demo-browser.yaml"
-	overlay = yaml.load(overlay_path.read_text(encoding="utf-8"), Loader=ComposeLoader)["services"]
+	overlay = _load_compose_mapping(overlay_path)["services"]
 	assert overlay["api"]["environment"]["PLE_QTI_RUNTIME_ENABLED"] == "1"
 	assert overlay["worker"]["environment"]["PLE_QTI_RUNTIME_ENABLED"] == "1"

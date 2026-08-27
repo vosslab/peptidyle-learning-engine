@@ -12,7 +12,7 @@
       ],
       "role": "shared",
       "scenarioId": "direct_role_entry",
-      "sha256": "382f3741b1201de72f10928416c63f7938ddbcaebe4f46e14fe76b77a89067bc",
+      "sha256": "715169ca4b38d1fcbb6a71c03fa5ad7593200e95e9d4786feee2f23974148c8c",
       "stateId": "account_security_passkey",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -56,7 +56,7 @@
       ],
       "role": "instructor",
       "scenarioId": "auth_authorization",
-      "sha256": "dadf65e5d6c637058ddc5b8dbb7eba5da3cf93079602d9e718fb0226f646a65c",
+      "sha256": "d78d6829f5a66573145efdb6db717b122f9ae4e491f9e5f3300fc59dbc7dcb81",
       "stateId": "teaching_team_invited",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -78,7 +78,7 @@
       ],
       "role": "instructor",
       "scenarioId": "auth_authorization",
-      "sha256": "be084d6cad96ec7c889d25a9914ecb5c474e1fe1ab62425983bc7b295473ac4e",
+      "sha256": "02a43fbcac9baea5f1db86094801c7a9bd118e7e1f4c02248e49b2f1d132cbdf",
       "stateId": "teaching_operations_retention",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -100,7 +100,7 @@
       ],
       "role": "shared",
       "scenarioId": "auth_authorization",
-      "sha256": "fe39f245559d6a0b9b5ba3bff03a1b7eda561cd14dc95cf5a95c27d96feb8125",
+      "sha256": "5767b6129ade78fac4e5731d2b27f4bc5581835493714c4dc99aafe4a662d925",
       "stateId": "pending_teaching_invitation",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -415,7 +415,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_delivery",
-      "sha256": "c622dc34806643c7507a4f540dce6025941e567f6040609fd4cee1364376c7c5",
+      "sha256": "bcbe15d282357dd3518f641c103736290376eab2d07915803315ccdfe2dd04e6",
       "stateId": "feedback_correct",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -527,7 +527,7 @@
       ],
       "role": "instructor",
       "scenarioId": "learner_delivery",
-      "sha256": "b673ff8f61214242d479090cf89f0142d4eec5b8e62b9254ff5df6ecbde88099",
+      "sha256": "926819eb464ea1e720461950c8d181b3425217dc0b76b56d249de1a91bd7dc34",
       "stateId": "instructor_gradebook",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -704,7 +704,7 @@
       ],
       "role": "student",
       "scenarioId": "learner_gateway_recovery",
-      "sha256": "322a268a4d2872e72d62a87a4a08d63d5582e4316a986174faa0d7b3f6a78c5b",
+      "sha256": "f5c6c6ba69ee4eb37c3592a48e2375626da37dd41287d6068ef8129ceb312025",
       "stateId": "recovered_feedback",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -972,7 +972,7 @@
       ],
       "role": "instructor",
       "scenarioId": "item_pool_delivery",
-      "sha256": "dcf759f6ddb4f2b7ed06fc94aeeb1992571c1c69e9f5c8c12b13878083c2c9f6",
+      "sha256": "785e036db28effb6964ca6a8f9e992be40608e0523cb59b6bb16f42cf7cd4fc7",
       "stateId": "pool_preview",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1017,7 +1017,7 @@
       ],
       "role": "instructor",
       "scenarioId": "catalog_discovery_evidence",
-      "sha256": "573add9b93ce31ef89ea9544a66408b754c8b395eb4209329315afa42ccd6f7f",
+      "sha256": "ba98792e413f9a2917578040fe7624d13e5e64ecd9f46f2ddf025861a688419a",
       "stateId": "disclosed_evidence",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1039,7 +1039,7 @@
       ],
       "role": "instructor",
       "scenarioId": "catalog_discovery_evidence",
-      "sha256": "573add9b93ce31ef89ea9544a66408b754c8b395eb4209329315afa42ccd6f7f",
+      "sha256": "ba98792e413f9a2917578040fe7624d13e5e64ecd9f46f2ddf025861a688419a",
       "stateId": "authorized_usage",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1105,7 +1105,7 @@
       ],
       "role": "instructor",
       "scenarioId": "problem_curation",
-      "sha256": "df201ac333b61e6f13634c00cc07d0e8e87ac4d87f7e0564100b87b2af43eca3",
+      "sha256": "3bc3579d9b80c9289a7373f11e3a0013542f97b691aab0efcfbaf9cff35114e4",
       "stateId": "revision_recovery",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1127,7 +1127,7 @@
       ],
       "role": "instructor",
       "scenarioId": "problem_curation",
-      "sha256": "3bcb949a320b682038e8ee849603932e0a486a62b2517541122709bf93854b4f",
+      "sha256": "512ed48ebd88eba614af58eb11b54317ae7fbd1894875f0e6891daa44e12a02c",
       "stateId": "assignment_picker",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1149,7 +1149,7 @@
       ],
       "role": "sysadmin",
       "scenarioId": "problem_curation",
-      "sha256": "37d1af6a4b8b50bd191967a81974abed4c548ecca29f25115c7f6289408da015",
+      "sha256": "cc865ae62142c7f4be8c68839790ddfeb879ebf715133916da7b8cd69a397ac7",
       "stateId": "institution_projection",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1193,7 +1193,7 @@
       ],
       "role": "instructor",
       "scenarioId": "reusable_curriculum",
-      "sha256": "d668718a3bc37ccf3ea8c5fcf159573f8135c263af5791f0fc6f0655dee7c127",
+      "sha256": "16fb02aec9018c7172b233af51e263641e844ab362f1960a1af76ccc9dee2dbe",
       "stateId": "reusable_curriculum_alpha_editor",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1215,7 +1215,7 @@
       ],
       "role": "instructor",
       "scenarioId": "reusable_curriculum",
-      "sha256": "3d0279ef413f06ac50b7fe22ffdc11e5988acecc84ce4ac0eceb64899b458f7f",
+      "sha256": "b60bcb49997ac224af36653c013354cf93635a9d29f139d3dbae754f2d68a649",
       "stateId": "reusable_curriculum_alpha_reuse",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1237,7 +1237,7 @@
       ],
       "role": "instructor",
       "scenarioId": "reusable_curriculum",
-      "sha256": "72c32d7de248b977ffb84a72a41d6a9688d8c8cb33c680bfd2e09d4bca598fd4",
+      "sha256": "c0b6b795bcc75026cc015387df7ca61a709809a3f99f81150f8db047f223fc86",
       "stateId": "alpha_reader_inspection",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1259,7 +1259,7 @@
       ],
       "role": "instructor",
       "scenarioId": "curriculum_adoption",
-      "sha256": "a26d2c3b6484e0231cb5b99d6c15f793200c55940c9e81babe2c169cb38f5243",
+      "sha256": "b22421834fa9440f6bb5a424b5c868ca406fe618295c6b5d8dd36a5e15d6aa43",
       "stateId": "alpha_fork_review",
       "viewport": {
         "deviceScaleFactor": 1,
@@ -1359,9 +1359,9 @@
     }
   ],
   "browserSuite": "ple-live-demo-browser",
-  "generationIdentity": "423b184d121d9f9e17f3d5776f0c4ccf83218dd7f33e6cf7a5bbb0a0d45e3286",
-  "origin": "https://localhost:55096",
+  "generationIdentity": "bc2b0ecfe861964b0a107f0f98dce9c379fd3a5586137d4cd828baa831e85b1e",
+  "origin": "https://localhost:55281",
   "pipeline": "realStack",
-  "productionDistDigest": "ca3cb7838f59bc73c649fa19872c94a42800e19be4a8ce71280a6247edf42edb",
+  "productionDistDigest": "6a268bce76a45f2e9699d6a288e0fe2ca1a754d7e780a6c286886dc39ff153b6",
   "schemaVersion": 2
 }

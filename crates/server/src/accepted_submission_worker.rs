@@ -242,13 +242,6 @@ where
         }
         Ok(report)
     }
-
-    /// Compatibility name for callers that run only the sealed family.
-    pub(crate) async fn drain_once(
-        &self,
-    ) -> Result<AcceptedSubmissionExecutionWorkerReport, StoreError> {
-        self.drain_one().await
-    }
 }
 
 #[async_trait::async_trait]

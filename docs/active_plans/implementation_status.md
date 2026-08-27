@@ -15,7 +15,10 @@ order, validation, and acceptance. Durable product decisions remain in
 - **Current package:** `WP-PROF-G1` - the automated-grading operation boundary. W1, W2, and W3
   are accepted below. `G1-W4` is the current dependency-ordered stage: it owns the first
   accepted-submission effect, exact worker claim/load/commit/fail authority, learner status read,
-  and migration 1851. The accepted W3 handoff and W4's sealed contract-paired
+  and ordered migrations 1851/1852. A fresh disposable baseline currently fails on a known W4
+  migration syntax error, so the next defined task is the contract-paired stabilization gate:
+  readable ordered apply, second-pass no-op, compatibility, and executable role/RLS proof. The
+  accepted W3 handoff and W4's sealed contract-paired
   dispatch are its prerequisites. The
   [G1 binding plan](active/automated_grading_operations_plan.md) makes immutable accepted
   `submission`/`submission_idempotency` metadata parents authoritative before grading, keeps their
@@ -40,7 +43,7 @@ order, validation, and acceptance. Durable product decisions remain in
 
 `WP-PROF-G1 / G1-W2` is accepted on 2026-08-27 for its static/offline implementation and fresh
 schema evidence. This acceptance kept `WP-PROF-G1` incomplete while W3 stabilized the typed
-pending/read boundary. W4 owns 1851, W5 owns 1852, W7b owns executable PostgreSQL authority proof,
+pending/read boundary. W4 owns 1851/1852, W5 owns 1853, W7b owns executable PostgreSQL authority proof,
 and final `all_test.sh` remains required.
 
 - **Accepted artifacts:** typed `SubmissionPreparation::AcceptedPending` and
@@ -258,15 +261,17 @@ an allocation before implementation. Non-schema packages do not receive an impli
 | `2026081848`              | `WP-PROF-T6`          | Allocated assignment-workspace capability migration: empty Draft/Archived definitions and Published readiness     |
 | `2026081849`              | `WP-PROF-G1`          | Accepted W2 operation/evaluation/execution schema prerequisite and receipts                                     |
 | `2026081850`              | `WP-PROF-G1`          | Accepted W2 private accepted-response, acceptance/replay, retention/RLS, and lease-fenced execution boundary    |
-| `2026081851`              | `WP-PROF-G1`          | Sole G1-W4 forward allocation: accepted-submission worker exact claim/load/commit/fail and outcome authority     |
-| `2026081852`              | `WP-PROF-G1`          | Sole G1-W5 forward allocation: dedicated Instructor grading-operation capability and broker surface             |
+| `2026081851`              | `WP-PROF-G1 / G1-W4` | W4 foundation: roles, tables, evidence/receipt guards, witness, table RLS/grants, and catalog attestation       |
+| `2026081852`              | `WP-PROF-G1 / G1-W4` | W4 capabilities: shared generic/exact claim, verified read, load/commit/fail, function grants, and attestation  |
+| `2026081853`              | `WP-PROF-G1 / G1-W5` | W5 forward allocation: dedicated Instructor grading-operation capability and broker surface                      |
 
 `2026081803` (`S5`), `2026081804` (`S3`), and `2026081805` (`S4`) reflect the accepted
 pre-file allocation reorder. Allocations `2026081811`, `1813`, `1815`, `1821`, and `1822` retain
 their numeric identities. T6 owns `2026081848`; G1 accepted `2026081849` and `2026081850` in
 addition to reserved enqueue/publication capabilities `2026081830` and `2026081831`. G3 retains
-`2026081832`. G1-W4 owns the sole forward allocation `2026081851`, and G1-W5 owns the sole forward
-allocation `2026081852`; neither allocation changes W2's accepted status or rewrites an accepted
+`2026081832`. G1-W4 owns ordered forward allocations `2026081851` and `2026081852`; the unused
+former W5 allocation was reassigned before application to keep W4's foundation and capability
+layers readable. G1-W5 owns `2026081853`. None changes W2's accepted status or rewrites an accepted
 migration. The professor plan owns dependencies among reserved capabilities.
 
 ## Accepted package pointers

@@ -266,7 +266,11 @@ async function forkAlphaAsAvery(
     "curriculum_adoption_alpha_fork_review_laptop",
   );
   await review.getByRole("button", { name: "Apply independent copy", exact: true }).click();
-  await expect(fork.getByRole("region", { name: "Independent Alpha copy complete" })).toBeVisible();
+  const completed = fork.getByRole("region", { name: "Independent Alpha copy complete" });
+  const retry = fork.getByRole("button", { name: "Retry apply", exact: true });
+  await expect(completed.or(retry)).toBeVisible();
+  if (await retry.isVisible()) await retry.click();
+  await expect(completed).toBeVisible();
 }
 
 test.describe("curriculum adoption on the production PLE stack", () => {

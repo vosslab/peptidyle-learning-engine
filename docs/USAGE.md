@@ -68,8 +68,10 @@ assignment's Instructor home and its assignment-local navigation:
 The visible title link is the supported entry into this workspace; `courseRef` and `assignmentRef`
 are public route references, not authority. For graded work, sign out, choose a seeded Student and
 authorized course, open the assignment title on the Student course page, and choose **Start
-assignment**. Submit through visible response controls. The resulting learner run, submission,
-receipt, grade, and instructor gradebook history are ordinary live records.
+assignment**. Submit through visible response controls. When **Response received** appears, use
+**Check grading status** until the live worker returns feedback or instructor attention. The
+resulting learner run, submission, receipt, grade, and instructor gradebook history are ordinary live
+records.
 
 ## Build and validation
 

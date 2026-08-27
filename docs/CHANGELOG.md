@@ -31,6 +31,50 @@
 
 ### Developer Tests and Notes
 
+- Regenerated the complete live-demo screenshot corpus through the canonical
+  `./capture_screenshots.sh` entry point. The disposable production-shaped HTTPS stack completed
+  every registered browser scenario, validated all 61 declared PNG artifacts and their privacy
+  boundary, published the corpus atomically, and left the stack cleanup inventory empty.
+- Repaired the accepted-submission execution boundary exposed by the connected screenshot journey:
+  a question-attempt payload remains immutable issuance evidence while relational lifecycle state
+  records submission, and the browser identifies an active attempt from that lifecycle status. The
+  shared browser workflow now follows visible asynchronous-grading status and successor issuance
+  instead of assuming immediate feedback or reusing an answer-free completed attempt.
+- Aligned the connected receipt, manual-grading, issued-attempt, and WebWork service oracles with
+  that immutable answer-free contract. The WebWork oracle now proves accepted-pending submission,
+  server-worker completion, status-route disclosure, and answer-free idempotent POST replay; its
+  focused live service gate, the 81-migration PostgreSQL baseline, and replica-restart gate pass
+  with empty disposable cleanup inventories.
+- Updated the isolated WebWork service oracle to treat `completed` with
+  `scoringStatus: recalculating` as the privacy-preserving intermediate between worker completion
+  and current-score publication. It validates redaction while polling the route-bound status GET,
+  then asserts the exact authorized current result; the real service child passed full/zero scoring,
+  outage/restart, redaction, answer-secrecy, and exact-cleanup rerun checks with host
+  process-inspection permissions. The manager-owned `source source_me.sh && ./all_test.sh` then
+  passed the complete Rust, frontend/Node, pytest, production-browser, 81-migration PostgreSQL,
+  WebWork, replica-restart, and exact-cleanup aggregate. That receipt predates the bounded audit
+  maintenance edits below, so final-tree Validation remains required. G1 remains incomplete because
+  W4 acceptance and W5-W7 remain.
+- Ran six independent plan, style, test-quality, legacy, documentation, and comment/readability
+  audit passes over the current G1-W4 tree. The review keeps W4 acceptance open on two design
+  findings: completed PostgreSQL reads still need a least-privilege proof of the worker-owned
+  canonical evaluation source/digest relationship, and learner acceptance still needs the planned
+  exact-job synchronous claim through the same leased handler used by background recovery.
+- Applied the audit's bounded maintenance repairs: moved flat-run HTTP support into its focused test
+  module, removed the accepted-worker compatibility alias, made the browser pending-status helper
+  tolerate a legitimate worker-completion race, corrected the 36-value completion-capability
+  contract, refreshed async learner and recovery documentation, closed accepted T6 evidence ledger
+  entries, removed an incidental screenshot-count claim, and cleared generated Python bytecode.
+  Focused native/QTI lifecycle and accepted-worker tests, strict server Clippy,
+  `./check_codebase.sh`, 3,700 documentation/source-policy tests, and `git diff --check` pass.
+- Repeated all six independent audit passes on the resulting G1-W4 material tree. The fresh review
+  independently reconfirmed the exact-claim fast-path and canonical completed-read blockers. Its
+  bounded follow-ons moved automated-grading browser behavior into focused learner-workflow
+  support, replaced title-based successor detection with a safe attempt identity, closed three
+  family-specific pending-response assertions, clarified learner attention and async demo guidance,
+  and qualified the earlier aggregate receipt. The three affected Rust lifecycle tests, strict
+  server Clippy, all five `./check_codebase.sh` gates with 359 Node tests, 1,993 source/link checks,
+  and `git diff --check` pass. Final-tree aggregate Validation remains open.
 - Aggressively restored `docs/HUMAN_GUIDANCE.md` to terse owner-level statements. Moved uncertain
   technical interpretation, rationale, compliance mechanics, demo evidence, content-format detail,
   authentication policy, and local-stack behavior into structured `docs/DESIGN_DECISIONS.md`
@@ -44,13 +88,13 @@
   owns only independent review, documentation reconciliation, and final material-tree Validation.
 - `./check_codebase.sh` passed on the G1-W1 plan tree: TypeScript typecheck, lint-typecheck, ESLint,
   Prettier verification, and all 356 deterministic Node tests were green. G1 final acceptance still
-  requires the full evidence model and `source source_me.sh && ./all_test.sh` after implementation.
+  requires the full evidence model after every remaining G1 package is implemented.
 - G1-W3 evidence passed 384 `server_core` tests with 3 intentional connected ignores, all server
   integration and doctest targets, and the learning-data-access main target (308 passed, 1 ignored)
   with its auxiliary targets. Strict Clippy passed for both affected crates, 3,643 documentation and
   source-policy checks passed, and independent architecture and security/privacy reviews approved.
-  The final aggregate `all_test.sh` remains manager-owned: a scoped subagent invocation did not
-  retain a terminal result and is therefore unverified.
+  At W3 acceptance, the final aggregate remained manager-owned because a scoped subagent invocation
+  retained no terminal result; the later successful manager run is recorded above.
 - W2 evidence passed the learning-data-access full suite main target (308 passed, 1 ignored) with
   auxiliary targets green; strict format, check, and Clippy gates; 2,008 focused policy, process,
   documentation, and source tests; and `./check_codebase.sh` 5/5 with 356 Node tests. Fresh

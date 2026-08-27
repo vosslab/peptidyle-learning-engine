@@ -606,7 +606,7 @@ export function createAttemptStateMachine(
       clearBuffer();
       if (status.kind !== "completed") {
         const state = {
-          ...base({ response: null, feedback: { kind: "none" } }),
+          ...base({ response, feedback: { kind: "none" } }),
           phase: "acceptedPending" as const,
           acknowledgement: pendingAcknowledgement(status),
           checkingStatus: false,
@@ -696,7 +696,7 @@ export function createAttemptStateMachine(
       if (disposed || request !== requestNumber || current.phase !== "acceptedPending") return;
       if (status.kind !== "completed") {
         publish({
-          ...base({ response: null, feedback: { kind: "none" } }),
+          ...base({ response: pending.response, feedback: { kind: "none" } }),
           phase: "acceptedPending",
           acknowledgement: pendingAcknowledgement(status),
           checkingStatus: false,
@@ -713,7 +713,7 @@ export function createAttemptStateMachine(
         nextPending: status.nextPending,
       };
       publish({
-        ...base({ response: null, feedback }),
+        ...base({ response: pending.response, feedback }),
         phase: "feedback",
         acknowledgement,
       });

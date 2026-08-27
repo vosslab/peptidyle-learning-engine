@@ -370,9 +370,10 @@ impl PostgresAcceptedSubmissionExecutionStore {
                 )
             })?;
         let plan = crate::plan_accepted_submission_completion(source.input)?;
-        // Receipt evidence has one source-byte authority.  The established
-        // mutable projections deliberately retain their legacy payload
-        // checksums, so prepare both representations before the atomic v2
+        // Receipt evidence has one source-byte authority. The attempt row
+        // retains its immutable issuance payload while relational lifecycle
+        // columns carry current status. The run remains a mutable aggregate,
+        // so only it needs a current-projection encoding for the atomic v2
         // commit capability.
         let receipt_attempt =
             super::submission::encode_receipt_attempt_snapshot(&plan.receipt.attempt)?;
@@ -396,7 +397,6 @@ impl PostgresAcceptedSubmissionExecutionStore {
                 )
             })
             .transpose()?;
-        let attempt_current_projection = encode_current_projection(&plan.receipt.attempt)?;
         let run_current_projection = encode_current_projection(&plan.receipt.run)?;
         if receipt_attempt.version != expected_evidence.canonical_json_version
             || receipt_feedback.version != expected_evidence.canonical_json_version
@@ -411,9 +411,7 @@ impl PostgresAcceptedSubmissionExecutionStore {
             )
             .into());
         }
-        if receipt_attempt.projection != attempt_current_projection.projection
-            || receipt_run.projection != run_current_projection.projection
-        {
+        if receipt_run.projection != run_current_projection.projection {
             return Err(StoreError::InvalidRecord(
                 "receipt evidence disagrees with its mutable current projection".to_string(),
             )
@@ -426,7 +424,7 @@ impl PostgresAcceptedSubmissionExecutionStore {
         let row = sqlx::query(
             "SELECT * FROM public.ple_commit_accepted_submission_completion_v2(\
              $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,\
-             $20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38)",
+             $20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36)",
         )
         .bind(claim.tenant.as_uuid())
         .bind(claim.job.as_uuid())
@@ -445,8 +443,6 @@ impl PostgresAcceptedSubmissionExecutionStore {
         .bind(receipt_attempt.source)
         .bind(Json(receipt_attempt.projection))
         .bind(receipt_attempt.sha256.to_string())
-        .bind(attempt_current_projection.source)
-        .bind(attempt_current_projection.sha256)
         .bind(receipt_feedback.source)
         .bind(receipt_feedback.sha256.to_string())
         .bind(receipt_run.source)

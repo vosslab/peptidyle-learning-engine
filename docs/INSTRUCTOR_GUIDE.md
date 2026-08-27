@@ -121,8 +121,10 @@ session in place. It is an inspection surface only: it does not start a run or c
 
 For graded work, sign out, choose a seeded Student and authorized course, open the assignment through
 the ordinary Student course page, and choose **Start assignment**. Submit through the visible response
-controls. This ordinary Student entry creates the real learner run, submission, receipt, grade, and
-instructor-visible gradebook history. Do not use Instructor **Student view** as a substitute.
+controls. If the response is accepted for grading, use **Check grading status** until feedback or an
+instructor-attention state appears. This ordinary Student entry creates the real learner run,
+submission, receipt, grade, and instructor-visible gradebook history. Instructor **Student view**
+remains the answer-free inspection surface.
 
 ## Configure course grades
 

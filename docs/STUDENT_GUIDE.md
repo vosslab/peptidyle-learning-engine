@@ -49,9 +49,12 @@ The complete accessibility contract is in
    deadline from its own clock.
 2. Activate **Start or resume practice**.
 3. Read the visible timer, then select a response and activate **Submit answer**.
-4. Read the visible feedback.
-5. Activate **Continue**.
-6. Correct the retry and continue to the completed summary.
+4. If **Response received** appears, activate **Check grading status** until feedback or an
+   instructor-attention message appears.
+5. When **Feedback** appears, read it and activate **Continue**.
+6. When an instructor-attention message appears, stop and contact your instructor; the assignment
+   keeps your accepted response while the instructor resolves the grading issue.
+7. After feedback, correct the retry and continue to the completed summary.
 
 The student receives visible feedback, but answer keys and grading implementation remain on the
 server. The browser displays the countdown; the server decides whether a response arrived on time.

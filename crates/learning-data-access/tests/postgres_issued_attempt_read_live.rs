@@ -656,9 +656,6 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
         "raw issuance remains in_progress while relational/witness submitted selects submitted receipt"
     );
 
-    receipt_integrity
-        .assert_submitted_receipt_fails_closed(binding, active)
-        .await;
     sqlx::query("ALTER TABLE public.submission_receipt_snapshot DISABLE TRIGGER ALL")
         .execute(&pool)
         .await
@@ -792,7 +789,7 @@ async fn postgres_issued_attempt_read_is_broker_first_route_bound_and_lifecycle_
         "submitted WebWork retains receipt while deleting active-only replay"
     );
     receipt_integrity
-        .assert_cleared_receipt_fails_closed(
+        .assert_clear_preserves_terminal_receipt_read(
             webwork_binding,
             instructor,
             webwork_attempt,

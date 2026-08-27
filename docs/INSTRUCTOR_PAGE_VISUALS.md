@@ -99,5 +99,5 @@ Behavior-focused browser tests remain the authority for interaction, authorizati
 and teaching semantics; these images are visual evidence for composition and current appearance.
 The accepted B2 evidence covers the source/destination distinction, preview-before-apply, DST
 correction, keyboard focus, recovery, privacy, and contrast at the canonical 1280 by 800 Instructor
-profile. The current T6 evidence adds the focused Policies and answer-free Student-view surfaces;
-T6 acceptance remains open until the complete final-material-tree Validation gate passes.
+profile. Accepted T6 evidence adds the focused Policies and answer-free Student-view surfaces. G1 is
+the current active package and retains its own final-material-tree Validation gate.

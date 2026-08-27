@@ -115,10 +115,11 @@ Content-Type: application/json
 ```
 
 The current server authenticates the session, loads the RLS-visible attempt and owning run, validates
-the response against the checksummed issued public snapshot, translates rendered IDs through the
-matching server-only grading envelope, grades, and commits once. It does not reproduce a mutable
-issued envelope. Therefore the submitted `kind` is redundant. The attempt already determines the
-expected response family.
+the response against the checksummed issued public snapshot, and atomically records immutable
+accepted work plus a ready grading job. The sealed worker translates rendered IDs through the
+matching server-only grading envelope, grades under server authority, and commits the completed
+aggregate. Neither path reproduces a mutable issued envelope. Therefore the submitted `kind` is
+redundant. The attempt already determines the expected response family.
 
 Removing `kind` is not merely deleting one JSON property. The v1 handler must first load the attempt
 and its issued public snapshot response schema, then select a closed, family-specific decoder for `answer`.

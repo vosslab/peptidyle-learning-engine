@@ -217,19 +217,24 @@ key, or correctness assertion for ordinary grading. The current tagged
 `StudentResponse` route accepts `kind`, but derives and validates the
 expected family from the issued attempt; it is not submission authority.
 
-The response, grading result, score event, attempt transition, run completion,
-enrollment pointers, summary projection, successor receipt, and idempotency
-receipt commit atomically. The first receipt copies the issued, answer-free
-`PresentationEnvelopeV1` and exact public `AssetBindingV1` snapshot. A process
-retry or a submitted-attempt `GET` therefore reads the receipt, not a newer
-catalog/backend render or run state, and cannot re-grade an answer or calculate
-a later summary.
+Acceptance first commits the validated response, immutable issued-work witness,
+pending evaluation, execution record, and ready grading job as one transaction.
+The learner receives `202 Accepted` and may read the route-bound submission
+status while the sealed worker owns grading. A successful worker transaction
+then commits the grading result, score event, attempt transition, run completion,
+enrollment pointers, summary projection, successor receipt, and immutable
+idempotency receipt together. The completed receipt copies the issued,
+answer-free `PresentationEnvelopeV1` and exact public `AssetBindingV1` snapshot.
+Replay and status reads therefore use durable accepted or completed evidence,
+never a newer catalog/backend render, and never re-grade an answer.
 
 ### 11. Return a policy-projected receipt
 
-The learner receives only accepted status, committed attempt identity,
-policy-permitted correctness and points, sanitized feedback, and either an
-immutable `nextIssued` descriptor or `nextPending`. The Store evaluates learner
+While grading is pending, the learner receives only accepted status and the
+committed attempt identity, with an accessible action to check grading status.
+After completion, the learner receives policy-permitted correctness and points,
+sanitized feedback, and either an immutable `nextIssued` descriptor or
+`nextPending`. The Store evaluates learner
 disclosure at projection time only after S5 entitlement, from the current
 S3-resolved effective-policy verdict, assignment-owned policy, authoritative
 time, and the submitted fact; the request cannot choose it. The historical S3
