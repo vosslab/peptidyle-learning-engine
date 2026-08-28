@@ -4,50 +4,57 @@ Last updated: 2026-08-28
 
 This is the sole mutable registry for the global current-package handoff and shared migration
 allocations. The [implementation plan](implementation_plan.md), active
-[professor capability plan](active/professor_capability_architecture_plan.md), and active
+[Instructor capability plan](active/instructor_capability_architecture_plan.md), and active
 [release completion plan](active/release_completion_plan.md) own architecture, scope, dependency
 order, validation, and acceptance. Durable product decisions remain in
 [Human Guidance](../HUMAN_GUIDANCE.md); package history and detailed receipts remain in the
 [changelog](../CHANGELOG.md).
 
+Work-package labels such as `WP-INST-G2` are temporary plan coordinates. They identify the current
+handoff while the plan is active and retire with the planning layer; product contracts and durable
+data use domain identifiers.
+
 ## Current handoff
 
-- **Current package:** `WP-PROF-G1` - the automated-grading operation boundary is in `G1-W7`
-  closeout. W4 through W7b implementation and connected evidence are complete: course-scoped
-  Instructor operations route deterministic grader exceptions through bounded retry and
-  generation-fenced recalculation; immutable accepted learner work recovers through an
-  answer-free status reader; and the ordinary grading worker publishes the current total. The
-  [G1 binding plan](active/automated_grading_operations_plan.md) keeps immutable
-  `submission`/`submission_idempotency` metadata parents authoritative before grading, records
-  only an answer-free marker there, and stores the canonical response in a composite-FK private
-  child. The fresh G1 HCI closeout review accepted the current workflow with no P0/P1/P2 findings.
-  Accepted migration restoration and closeout source implementation are complete: migrations
-  `2026081849`, `1850`, `1855`, `1859`, `1860`, `1861`, and `1865` are restored byte-for-byte,
-  while the approved four-file forward sequence `2026081866` through `2026081869` owns the new
-  receipt schema and writer responsibilities. The affected live browser, database, RLS, worker,
-  WebWork, and replica-restart evidence is green on the 99-migration material tree. G1 remains
-  incomplete pending repository tracking of the new owned files and the exact final-tracked-tree
-  `source source_me.sh && ./all_test.sh` gate. Existing `WP-P2` owns the later consumer-by-consumer
-  replacement of broad reads and corresponding grant reductions.
-- **Current acceptance predecessor:** `WP-PROF-B2` accepted 2026-08-26. Its focused adoption
-  boundary now owns preview-before-save fork and instantiation, rollover, term shifting,
-  immutable provenance,
-  controlled fast-forward, divergence recovery, and answer-free import inspection over ordinary
-  teaching courses. Its final receipt is in the professor plan and changelog: all 77 migrations and
-  Store/RLS oracles; all 15 production HTTPS journeys with independent Elena Instructor and Morgan
-  Sysadmin passkeys; its then-current 75-artifact privacy-validated corpus; exact cleanup; and final
-  Validation passed.
-- **Accepted prerequisites:** `WP-PROF-S1` through `S7`, `T1` through `T3`, `BS1`, `LD1` through
-  `LD3`, `T5`, `D1`, `D2`, `B1`, and `B2` are accepted. Their scopes and evidence are retained in
-  the owning plans and changelog.
+- **Current package:** `WP-INST-G2` - implement the approved
+  [audited Student-work and calculated Gradebook plan](active/audited_student_work_gradebook_plan.md).
+  `CourseGradebookStore` owns the roster-first, server-calculated page; a dedicated
+  `StudentWorkInspectionStore` owns one explicit, atomic-audit, solution-free detail read. The package reserves
+  migrations `2026081870` through `2026081873` as authority foundation, private immutable witness,
+  only app-executable broker, and query-evidence indexes; it preserves answer-free navigation and G1
+  receipts and proves the ordinary Student-to-Instructor workflow on the canonical real stack.
+- **Current acceptance predecessor:** `WP-INST-G1` accepted 2026-08-28. Course-scoped Instructor
+  operations route deterministic grader exceptions through bounded retry and generation-fenced
+  recalculation; immutable accepted Student work recovers through an answer-free status reader;
+  and the ordinary grading worker publishes the current total. The final aggregate passed Rust and
+  Wasm, 369 Node tests, 7,978 pytest checks, every production-browser scenario, all 99 migrations
+  and PostgreSQL/RLS/worker oracles, isolated WebWork, replica restart and durable replay, and exact
+  cleanup. Independent architecture, security/privacy, and HCI reviews accepted the boundary with
+  no P0/P1/P2 finding.
+- **Accepted prerequisites:** `WP-INST-S1` through `S7`, `T1` through `T3`, `BS1`, `LD1` through
+  `LD3`, `T5`, `T6`, `D1`, `D2`, `B1`, `B2`, and `G1` are accepted. Their scopes and evidence are
+  retained in the owning plans and changelog.
 - **Release handoff:** `WP-RC8` remains parked and acceptance-open. It owns provider/mailbox,
-  unrelated passkey, multi-replica, security, HCI, and release gates. Professor live-demo work does
+  unrelated passkey, multi-replica, security, HCI, and release gates. Instructor live-demo work does
   not imply production onboarding, deployment, or release acceptance.
+
+## G2-W1 architecture handoff
+
+The binding is implementation-ready on 2026-08-28. Independent architecture, security, and HCI
+rereviews accept the roster-first calculated Gradebook, exact Student/run choice, browser-valid
+Fetch Metadata decision table, solution-free response projection, atomic audit boundary, accessible
+recovery, and permanent/connected/visual evidence allocation with no remaining P0-P3 finding.
+`G2-W2A` and `G2-W2B` now proceed as independent contract slices.
+
+The W1 focused gate is green on the current material tree: the combined ASCII, source-size,
+SQL-line, and Markdown run passes 3,954 cases, and the focused naming/Markdown run passes 265 cases.
+The renamed Instructor and G2 plans now resolve through the repository inventory, closing the W1
+documentation condition without changing the accepted contract.
 
 ## G1-W2 accepted evidence
 
-`WP-PROF-G1 / G1-W2` is accepted on 2026-08-27 for its static/offline implementation and fresh
-schema evidence. This acceptance kept `WP-PROF-G1` incomplete while W3 stabilized the typed
+`WP-INST-G1 / G1-W2` is accepted on 2026-08-27 for its static/offline implementation and fresh
+schema evidence. This acceptance kept `WP-INST-G1` incomplete while W3 stabilized the typed
 pending/read boundary. W4 owns 1851 through 1860, W5 owns 1861 through 1865,
 W7b owns executable PostgreSQL authority proof, and final `all_test.sh` remains required.
 
@@ -60,7 +67,7 @@ W7b owns executable PostgreSQL authority proof, and final `all_test.sh` remains 
   with 1 intentionally ignored test, and auxiliary targets were green. Strict format, check, and
   Clippy gates passed. The focused policy/process/documentation/source set passed 2,008 tests.
 - **Repository evidence:** `./check_codebase.sh` passed all 5 gates, including 356 Node tests.
-- **Database evidence:** fresh PostgreSQL 17 applied all 80 migrations; the second migration pass
+- **Historical database evidence:** fresh PostgreSQL 17 applied all 80 migrations; the second migration pass
   was a no-op; database verification returned `database verify: compatible`. The repaired
   database-baseline
   Rust selector now resolves to exactly one intended test.
@@ -71,15 +78,15 @@ W7b owns executable PostgreSQL authority proof, and final `all_test.sh` remains 
 
 ## G1-W3 accepted evidence
 
-`WP-PROF-G1 / G1-W3` is accepted on 2026-08-27 for the typed pending/read stabilization and
+`WP-INST-G1 / G1-W3` is accepted on 2026-08-27 for the typed pending/read stabilization and
 post-validation outcome classification. This acceptance advances the current stage to G1-W4; it
-does not accept `WP-PROF-G1`, whose W4-W7 work and final Validation remain required.
+does not accept `WP-INST-G1`, whose W4-W7 work and final Validation remain required.
 
 - **Accepted artifacts:** exhaustive `SubmissionReceiptRead` pending/read handling; the minimal
   answer-free, no-store `accepted_pending` 202 replay projection; closed deterministic grader
   failure categories and operation-reason mapping; Native, WebWork, QTI, and composite
   post-validation classification; the preserved opaque iMathAS broker boundary; and aligned Memory
-  learner-attempt projection for accepted-pending detail reads.
+  Student-attempt projection for accepted-pending detail reads.
 - **Rust evidence:** `server_core` passed 384 tests with 3 intentional connected ignores, and all
   server integration and doctest targets were green. `learning-data-access` passed 308 tests with
   1 intentional ignore in its main target, with auxiliary targets green. Strict Clippy passed for
@@ -88,11 +95,11 @@ does not accept `WP-PROF-G1`, whose W4-W7 work and final Validation remain requi
   local route tests cover answer-free submitted projections and the no-store provider-free pending
   replay without services, timing, or fixture data.
 - **Independent approvals:** the architecture and security/privacy reviews both approved the final
-  W3 boundary. They confirm that W3 preserves answer-free learner data, generic deterministic
+  W3 boundary. They confirm that W3 preserves answer-free Student data, generic deterministic
   failure handling, and the separate iMathAS broker while creating no acceptance, claim, outcome,
-  job, or learner-client effect.
+  job, or Student-client effect.
 - **Handoff:** W4 consumes the sealed W3 pending/read and deterministic-category contracts before
-  dispatching its paired first-effect, worker, and learner-status work. It owns allocated migration
+  dispatching its paired first-effect, worker, and Student-status work. It owns allocated migration
   1851 schema/roles layer plus integrity, public-function authority, table authority, acquisition,
   read, load, completion-lock, commit, and fail capabilities through 1860. The aggregate
   `all_test.sh` remains the manager-owned final gate; a subagent aggregate invocation has no
@@ -100,7 +107,7 @@ does not accept `WP-PROF-G1`, whose W4-W7 work and final Validation remain requi
 
 ## G1-W4 stable implementation handoff
 
-`WP-PROF-G1 / G1-W4` reached its stable implementation handoff on 2026-08-27. It advanced source
+`WP-INST-G1 / G1-W4` reached its stable implementation handoff on 2026-08-27. It advanced source
 work to W5 while W7b prepared the executable PostgreSQL oracle and W7 prepared final
 material-tree Validation.
 
@@ -108,7 +115,7 @@ material-tree Validation.
   generic-recovery claims; type-distinct eagerly connected pools and service logins; one shared
   leased grading handler; canonical source/digest/projection evidence; atomic tuple-fenced
   load/lock/commit/fail; route-bound verified completed reads; and answer-free pending, attention,
-  and completed learner projections.
+  and completed Student projections.
 - **Focused evidence:** `learning-data-access` passed 332 tests with 1 intentional connected ignore;
   `server_core` passed 413 tests with 3 intentional connected ignores; the five process-login tests
   and 1,754 source-length checks passed; strict Clippy, formatting, and diff hygiene were green.
@@ -126,24 +133,24 @@ material-tree Validation.
 - **Follow-on evidence:** W7b supplied
   `postgres_automated_grading_operations_live`, its database-baseline registration, exhaustive
   role/RLS/function proof, outcome and immutable-evidence behavior, ordinary-versus-worker parity,
-  and the 1830-to-1831 score-publication sequence. G1-W7 now owns the remaining fresh HCI review
-  and final `all_test.sh` material-tree Validation.
+  and the 1830-to-1831 score-publication sequence. G1-W7 completed the fresh HCI review and final
+  `all_test.sh` material-tree Validation during G1 closeout.
 
-## G1-W5 through G1-W7b completed evidence
+## G1 accepted evidence
 
-`WP-PROF-G1 / G1-W5` through `G1-W7b` completed on 2026-08-28. Their results advance the
-package to `G1-W7` closeout without accepting the package.
+`WP-INST-G1` was accepted on 2026-08-28 after W5 through W7b, forward reconciliation, independent
+review, and final material-tree Validation completed.
 
 - **Implemented operation boundary:** the course-scoped Instructor list, retry, and recalculation
   routes use revision and idempotency fences. The immutable operation receipts and canonical
-  scoring-invalidation capability keep the original learner receipt stable while the ordinary
+  scoring-invalidation capability keep the original Student receipt stable while the ordinary
   worker publishes only the current generation's total.
-- **Learner and Instructor journey:** the production HTTPS scenario submits learner work once,
+- **Student and Instructor journey:** the production HTTPS scenario submits Student work once,
   clears the browser answer buffer on `acceptedPending`, exposes **Check grading status**, routes a
   deterministic grader exception to Instructor attention, completes one visible retry, and shows
   the resulting total in the Instructor Gradebook. The focused
   `automated_grading_recovery` browser journey passed against the real stack.
-- **Canonical connected acceptance:**
+- **Historical pre-reconciliation connected evidence:**
   `source source_me.sh && .venv/bin/python local_stack.py acceptance`
   passed against the historical pre-reconciliation 95-migration material tree, with the
   production browser suite, PostgreSQL baseline and oracles, isolated WebWork grading, API-replica
@@ -153,8 +160,8 @@ package to `G1-W7` closeout without accepting the package.
   cleanup checks. The two G1 Instructor artifacts use the required 1280 by 800 desktop viewport;
   the operation artifact visibly confirms the canonical Question ID copy action.
 - **Independent review:** architecture, security, and fresh G1 HCI rereviews returned ACCEPT. The
-  HCI closeout found no P0/P1/P2 issue in the one-submit learner status flow, title-first copyable
-  Question ID, target-specific retry, focused accepted confirmation, learner completion, or
+  HCI closeout found no P0/P1/P2 issue in the one-submit Student status flow, title-first copyable
+  Question ID, target-specific retry, focused accepted confirmation, Student completion, or
   Gradebook propagation.
 - **Forward reconciliation evidence:** accepted migration restoration and implementation of the
   four allocated forward migrations `2026081866` through `2026081869` are complete in order,
@@ -163,22 +170,16 @@ package to `G1-W7` closeout without accepting the package.
   and verified all 99 migrations; the connected G1 PostgreSQL oracle, forced-RLS inventory and role
   denials, deterministic browser recovery, isolated WebWork grading, and replica restart/durable
   replay passed with exact cleanup.
-- **One-time tracking diagnostic:** a temporary shadow Git index containing exactly the 13 intended
-  durable artifacts let the unchanged aggregate proceed past Git-browsable link validation without
-  mutating the repository index. That diagnostic `source source_me.sh && ./all_test.sh` run passed
-  Rust/Wasm, 369 Node tests, 7,978 pytest checks, every production-browser scenario, the full
-  99-migration PostgreSQL/RLS/worker oracle, isolated WebWork, replica restart/durable replay, and
-  exact cleanup. This is implementation evidence rather than tracked-tree acceptance.
-- **Remaining closeout gate:** the exact aggregate Validation attempt passed the complete Rust and
-  codebase gates, then reported 7,912 passed Python checks and tracking-dependent Markdown-link
-  failures for physical targets awaiting Git tracking. After the current repository-owned manifest
-  is tracked, rerun `source source_me.sh && ./all_test.sh` on the exact final tracked tree before
-  accepting `WP-PROF-G1` and advancing to `WP-PROF-G2`.
+- **Final Validation:** `source source_me.sh && ./all_test.sh` passed on the final material tree.
+  The exact aggregate passed Rust checks, tests, doctests, strict Clippy, and browser Wasm; all five
+  frontend gates with 369 Node tests; 7,978 pytest checks; every canonical production-browser
+  scenario; all 99 migrations and connected PostgreSQL/RLS/worker oracles; isolated WebWork;
+  replica restart and durable replay; and exact disposable cleanup.
 
 ## T6 accepted evidence
 
-`WP-PROF-T6` was accepted on 2026-08-27. Its binding plan remains the acceptance authority, and
-the ledger advances to `WP-PROF-G1` after the exact final tracked-tree Validation gate passed.
+`WP-INST-T6` was accepted on 2026-08-27. Its binding plan remains the acceptance authority, and
+the completed handoff advanced to the accepted `WP-INST-G1` package.
 
 - **Focused architecture and contracts: passed.** Migration `2026081848`, persisted incomplete
   Drafts, focused Questions and Policies commands, strict shared revisions, publication readiness,
@@ -201,10 +202,10 @@ the ledger advances to `WP-PROF-G1` after the exact final tracked-tree Validatio
   for editor responses, and Questions provides title-bound controls and an accessible replacement
   summary.
 - **Final Validation: passed.** `source source_me.sh && ./all_test.sh` passed on the exact final
-  tracked tree, including Rust checks/tests/doctests/Wasm, frontend/codebase/Node, 7,428 pytest
+  material tree, including Rust checks/tests/doctests/Wasm, frontend/codebase/Node, 7,428 pytest
   cases, all 15 production browser scenarios, all 78 migrations and database oracles, isolated
-  WebWork, and replica restart/durable replay. The six durable closure paths were tracked as part
-  of that material tree:
+  WebWork, and replica restart/durable replay. The six durable closure paths formed part of that
+  material tree:
   `crates/server/src/course/tests/assignment_revision/replacement.rs`,
   `docs/screenshots/instructor/assignment_workspace/01_assignment_policies.png`,
   `docs/screenshots/instructor/assignment_workspace/02_student_view.png`,
@@ -236,7 +237,7 @@ boundaries and the allocated `2026081838` through `2026081847` migration set.
   adoption and recovery, provenance/receipt persistence, and reconciliation relationships.
 - **Connected browser suite: passed.** All 15 production-shaped HTTPS journeys are green, including
   direct Sysadmin and Instructor passkey entry, authorization, authoring, preview, replacement,
-  item pools, grading conflicts, learner delivery, discovery evidence, curation, reusable curricula,
+  item pools, grading conflicts, Student delivery, discovery evidence, curation, reusable curricula,
   adoption and rollover, WebWork, gateway recovery, and QTI import.
 - **Static and deterministic gates: passed.** The five-part codebase gate, 322 Node tests, 7,361
   pytest checks, complete Rust feature/Clippy/test/doctest matrix, browser Wasm target, focused
@@ -255,17 +256,17 @@ boundaries and the allocated `2026081838` through `2026081847` migration set.
 ### B2 seeded course-model correction
 
 The approved live-demo course-model correction defines recognizable ordinary teaching courses with ordinary active
-memberships and learner work: `Biochemistry: Protein Structure and Function`, `Genetics: Foundations of Inheritance`,
+memberships and Student work: `Biochemistry: Protein Structure and Function`, `Genetics: Foundations of Inheritance`,
 and `Biochemistry: Molecular Foundations`. Installer diagnostics retain an internal recipe identity, while product
 surfaces use the teaching-course title. Morgan and Avery retain their separate ordinary authorization course.
 Blueprints are non-enrollable personal reusable assignments, and Alpha curricula are
 non-enrollable shared curricula; each name stays exclusive to its corresponding reusable aggregate.
 
-The corrected seed distributes five deterministic learner observations across meaningful ordinary Chapter 1
+The corrected seed distributes five deterministic Student observations across meaningful ordinary Chapter 1
 assignments titled `Molecular Foundations: Charged Functional Groups` in the Genetics and Biochemistry teaching
 courses. Existing item-analysis and discovery surfaces present those observations in context through the ordinary course
 evidence surfaces. Course navigation presents recognizable teaching courses from active server-owned relationships:
-Instructor teaching membership, Student learner membership, and the Sysadmin's direct teaching membership or audited
+Instructor teaching membership, Student membership, and the Sysadmin's direct teaching membership or audited
 support relation under ASVS 8.2.2 and 8.3.1. Seeded memberships provide representative course context.
 
 Before first production deployment, the reviewed clean-cluster baseline reissues `2026081818` with the final visible
@@ -284,86 +285,90 @@ The release integrator owns migration ordering and this ledger. The reviewed pre
 explicit clean-cluster baseline decision. After v1 ships, accepted files are immutable; future schema packages receive
 an allocation before implementation. Non-schema packages do not receive an implicit allocation.
 
-| Allocation                | Package               | Current disposition                                                                                               |
-| ------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `2026080801`-`2026080806` | Foundational baseline | Accepted six-file baseline                                                                                        |
-| `2026080907`              | `WP-RC1`              | Accepted course appearance                                                                                        |
-| `2026080908`              | `WP-P2`               | Allocated secure question-grading payloads and the post-G1-W2 legacy-consumer/grant-reduction transition          |
-| `2026080909`              | `WP-RC8`              | Allocated passwordless identity and enrollment                                                                    |
-| `2026080910`              | `WP-RC7`              | Reserved object reconciliation                                                                                    |
-| `2026080911`              | `WP-RC9`              | Reserved LTI Advantage                                                                                            |
-| `2026080912`              | `WP-FU1`-`WP-FU6`     | Reserved secure learner uploads                                                                                   |
-| `2026080914`-`2026080935` | Release packages      | Existing forward allocations                                                                                      |
-| `2026081401`              | `WP-R0`               | Existing ranked-catalog allocation                                                                                |
-| `2026081501`-`2026081504` | `WP-RC8` repairs      | Existing forward allocations                                                                                      |
-| `2026081801`              | `WP-PROF-S2`          | Accepted term and time zone                                                                                       |
-| `2026081802`              | `WP-PROF-S7`          | Accepted typed references and bylines                                                                             |
-| `2026081803`              | `WP-PROF-S5`          | Accepted entitlement and materialization                                                                          |
-| `2026081804`              | `WP-PROF-S3`          | Accepted effective-policy resolver                                                                                |
-| `2026081805`              | `WP-PROF-S4`          | Accepted disclosure policy                                                                                        |
-| `2026081806`              | `WP-PROF-S6`          | Accepted course grade scheme                                                                                      |
-| `2026081807`              | `WP-PROF-T2`          | Accepted teaching operations                                                                                      |
-| `2026081808`              | `WP-PROF-LD1`         | Accepted live-demo installation state                                                                             |
-| `2026081809`              | `WP-PROF-LD2`         | Accepted Sysadmin candidate and completed-install brokers                                                         |
-| `2026081810`              | `WP-PROF-LD2`         | Accepted Student pre-tenant context repair                                                                        |
-| `2026081811`              | Reserved              | Reserved numeric identity                                                                                         |
-| `2026081812`              | `WP-PROF-LD3`         | Accepted ordinary assignment mutation authority                                                                   |
-| `2026081813`              | Reserved              | Reserved numeric identity                                                                                         |
-| `2026081814`              | `WP-PROF-LD3`         | Accepted assignment-definition capability                                                                         |
-| `2026081815`              | Reserved              | Reserved numeric identity                                                                                         |
-| `2026081816`              | `WP-PROF-LD3`         | Accepted course-group mutation brokers                                                                            |
-| `2026081817`              | `WP-PROF-LD3`         | Accepted learner-work source and execution snapshots                                                              |
-| `2026081818`              | `WP-PROF-LD3`         | Canonical v1 course provisioning and installed-course attestation                                                 |
-| `2026081819`              | `WP-PROF-LD3`         | Accepted grade control and export audit                                                                           |
-| `2026081820`              | `WP-PROF-LD3`         | Accepted scoring preparation and finalization                                                                     |
-| `2026081821`-`2026081822` | Reserved              | Reserved numeric identities                                                                                       |
-| `2026081823`              | `WP-PROF-LD3`         | Accepted teaching-invitation mutation authority                                                                   |
-| `2026081824`              | `WP-PROF-LD3`         | Accepted roster procedure ambiguity repair                                                                        |
-| `2026081825`              | `WP-PROF-LD3`         | Accepted inactive-Student materialization decision                                                                |
-| `2026081826`              | `WP-PROF-T5`          | Accepted pre-issue assignment-definition replacement                                                              |
-| `2026081827`              | `WP-PROF-D1`          | Accepted discovery evidence and response-family projection                                                        |
-| `2026081828`              | `WP-PROF-D1`          | Accepted actor usage snapshots and Library facets                                                                 |
-| `2026081829`              | `WP-PROF-LD3`         | Reserved learner-work broker capability                                                                           |
-| `2026081830`              | `WP-PROF-G1`          | Reserved assignment recalculation enqueue capability                                                              |
-| `2026081831`              | `WP-PROF-G1`          | Reserved scoring-generation publication                                                                           |
-| `2026081832`              | `WP-PROF-G3`          | Reserved item-analysis publication and cleanup                                                                    |
-| `2026081833`              | `WP-PROF-T5`          | Reserved assignment-definition scratch isolation                                                                  |
-| `2026081834`              | `WP-PROF-LD3`         | Reserved course-group policy broker repair                                                                        |
-| `2026081835`              | `WP-PROF-LD1`         | Reserved catalog-derived Base Course freshness authority                                                          |
-| `2026081836`              | `WP-PROF-D2`          | Accepted problem curation capabilities                                                                            |
-| `2026081837`              | `WP-PROF-B1`          | Accepted blueprint and public Alpha capabilities                                                                  |
-| `2026081838`              | `WP-PROF-B2`          | Accepted curriculum-adoption schema, lineage, schedule, provenance, receipt, integrity, and forced RLS foundation |
-| `2026081839`              | `WP-PROF-B2`          | Accepted curriculum-adoption common broker authority, retention integration, and shared capability boundary       |
-| `2026081840`              | `WP-PROF-B2`          | Accepted curriculum-adoption relational snapshots, locked preparation, inspection, and reconciliation helpers     |
-| `2026081841`              | `WP-PROF-B2`          | Accepted canonical ordinary-course topology, issued-work fencing, and topology capability assertions              |
-| `2026081842`              | `WP-PROF-B2`          | Accepted curriculum-adoption source authorization, closed request validation, and source snapshot facts           |
-| `2026081843`              | `WP-PROF-B2`          | Accepted teaching-course, import, inspection, reconciliation, and controlled schedule snapshot facts              |
-| `2026081844`              | `WP-PROF-B2`          | Accepted curriculum-adoption shared materializer validation, idempotency, receipt, and evidence helpers           |
-| `2026081845`              | `WP-PROF-B2`          | Accepted fork, assignment adoption, fast-forward, and reconciliation materializers                                |
-| `2026081846`              | `WP-PROF-B2`          | Accepted whole-course instantiation, rollover, and term-shift materializers                                       |
-| `2026081847`              | `WP-PROF-B2`          | Accepted canonical public bridge completion and final broker catalog assertions                                   |
-| `2026081848`              | `WP-PROF-T6`          | Allocated assignment-workspace capability migration: empty Draft/Archived definitions and Published readiness     |
-| `2026081849`              | `WP-PROF-G1`          | Accepted W2 operation/evaluation/execution schema prerequisite and receipts                                     |
-| `2026081850`              | `WP-PROF-G1`          | Accepted W2 private accepted-response, acceptance/replay, retention/RLS, and lease-fenced execution boundary    |
-| `2026081851`              | `WP-PROF-G1 / G1-W4` | Schema and roles; proof: fresh schema/role shape query                                                            |
-| `2026081852`              | `WP-PROF-G1 / G1-W4` | Integrity guards and triggers; proof: immutable-write rejection                                                   |
-| `2026081853`              | `WP-PROF-G1 / G1-W4` | Public function authority; proof: effective catalog closes PUBLIC/default EXECUTE and legacy v1 load                 |
-| `2026081854`              | `WP-PROF-G1 / G1-W4` | Witness/RLS/table authority and receipt version SELECT; proof: exact authority and ACL matrix                      |
-| `2026081855`              | `WP-PROF-G1 / G1-W4` | Split generic/exact claim and ready/max convergence; proof: one winner and sibling denial                          |
-| `2026081856`              | `WP-PROF-G1 / G1-W4` | Four-key structural verified read; proof: entitled route succeeds and changed key fails                            |
-| `2026081857`              | `WP-PROF-G1 / G1-W4` | Exact private execution load; proof: exact claim loads once and rejects mismatches                                |
-| `2026081858`              | `WP-PROF-G1 / G1-W4` | Completion lock; proof: lock fences stale or duplicate completion                                                  |
-| `2026081859`              | `WP-PROF-G1 / G1-W4` | Commit-v2; proof: full 36-input signature commits one immutable aggregate                                          |
-| `2026081860`              | `WP-PROF-G1 / G1-W4` | Fail; proof: NULL-safe closed failure validation preserves invalid-call state                                      |
-| `2026081861`              | `WP-PROF-G1 / G1-W5` | W5 Instructor grading-operation capability and broker surface                                                      |
-| `2026081862`              | `WP-PROF-G1 / G1-W5` | W5 worker-authoritative grading-operation lifecycle projection                                                     |
-| `2026081863`              | `WP-PROF-G1 / G1-W5` | W5 immutable scoring-invalidation origin evidence                                                                  |
-| `2026081864`              | `WP-PROF-G1 / G1-W5` | W5 canonical generation, job, operation, and supersession capability                                               |
-| `2026081865`              | `WP-PROF-G1 / G1-W5` | W5 source-specific invalidation witnesses and least-privilege adapters                                             |
-| `2026081866`              | `WP-PROF-G1 / G1-W7` | `2026081866_g1_receipt_provenance_schema.sql`: clean-volume preflight; execution and operation receipt provenance/category schema and closed constraints |
-| `2026081867`              | `WP-PROF-G1 / G1-W7` | `2026081867_g1_execution_receipt_writers.sql`: acceptance, claim, and failure writer bodies; exact ACL/catalog proof |
-| `2026081868`              | `WP-PROF-G1 / G1-W7` | `2026081868_g1_completion_receipt_writer.sql`: 36-input commit-v2 body and narrow ACL/catalog proof                |
-| `2026081869`              | `WP-PROF-G1 / G1-W7` | `2026081869_g1_instructor_receipt_writers.sql`: V2 retry transition, public retry routing/V1 retirement, and final (1865) recalculation body with broker ACL proof |
+| Allocation                | Package               | Current disposition                                                                                                                                                   |
+| ------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `2026080801`-`2026080806` | Foundational baseline | Accepted six-file baseline                                                                                                                                            |
+| `2026080907`              | `WP-RC1`              | Accepted course appearance                                                                                                                                            |
+| `2026080908`              | `WP-P2`               | Allocated secure question-grading payloads and the post-G1-W2 legacy-consumer/grant-reduction transition                                                              |
+| `2026080909`              | `WP-RC8`              | Allocated passwordless identity and enrollment                                                                                                                        |
+| `2026080910`              | `WP-RC7`              | Reserved object reconciliation                                                                                                                                        |
+| `2026080911`              | `WP-RC9`              | Reserved LTI Advantage                                                                                                                                                |
+| `2026080912`              | `WP-FU1`-`WP-FU6`     | Reserved secure Student uploads                                                                                                                                       |
+| `2026080914`-`2026080935` | Release packages      | Existing forward allocations                                                                                                                                          |
+| `2026081401`              | `WP-R0`               | Existing ranked-catalog allocation                                                                                                                                    |
+| `2026081501`-`2026081504` | `WP-RC8` repairs      | Existing forward allocations                                                                                                                                          |
+| `2026081801`              | `WP-INST-S2`          | Accepted term and time zone                                                                                                                                           |
+| `2026081802`              | `WP-INST-S7`          | Accepted typed references and bylines                                                                                                                                 |
+| `2026081803`              | `WP-INST-S5`          | Accepted entitlement and materialization                                                                                                                              |
+| `2026081804`              | `WP-INST-S3`          | Accepted effective-policy resolver                                                                                                                                    |
+| `2026081805`              | `WP-INST-S4`          | Accepted disclosure policy                                                                                                                                            |
+| `2026081806`              | `WP-INST-S6`          | Accepted course grade scheme                                                                                                                                          |
+| `2026081807`              | `WP-INST-T2`          | Accepted teaching operations                                                                                                                                          |
+| `2026081808`              | `WP-INST-LD1`         | Accepted live-demo installation state                                                                                                                                 |
+| `2026081809`              | `WP-INST-LD2`         | Accepted Sysadmin candidate and completed-install brokers                                                                                                             |
+| `2026081810`              | `WP-INST-LD2`         | Accepted Student pre-tenant context repair                                                                                                                            |
+| `2026081811`              | Reserved              | Reserved numeric identity                                                                                                                                             |
+| `2026081812`              | `WP-INST-LD3`         | Accepted ordinary assignment mutation authority                                                                                                                       |
+| `2026081813`              | Reserved              | Reserved numeric identity                                                                                                                                             |
+| `2026081814`              | `WP-INST-LD3`         | Accepted assignment-definition capability                                                                                                                             |
+| `2026081815`              | Reserved              | Reserved numeric identity                                                                                                                                             |
+| `2026081816`              | `WP-INST-LD3`         | Accepted course-group mutation brokers                                                                                                                                |
+| `2026081817`              | `WP-INST-LD3`         | Accepted Student-work source and execution snapshots                                                                                                                  |
+| `2026081818`              | `WP-INST-LD3`         | Canonical v1 course provisioning and installed-course attestation                                                                                                     |
+| `2026081819`              | `WP-INST-LD3`         | Accepted grade control and export audit                                                                                                                               |
+| `2026081820`              | `WP-INST-LD3`         | Accepted scoring preparation and finalization                                                                                                                         |
+| `2026081821`-`2026081822` | Reserved              | Reserved numeric identities                                                                                                                                           |
+| `2026081823`              | `WP-INST-LD3`         | Accepted teaching-invitation mutation authority                                                                                                                       |
+| `2026081824`              | `WP-INST-LD3`         | Accepted roster procedure ambiguity repair                                                                                                                            |
+| `2026081825`              | `WP-INST-LD3`         | Accepted inactive-Student materialization decision                                                                                                                    |
+| `2026081826`              | `WP-INST-T5`          | Accepted pre-issue assignment-definition replacement                                                                                                                  |
+| `2026081827`              | `WP-INST-D1`          | Accepted discovery evidence and response-family projection                                                                                                            |
+| `2026081828`              | `WP-INST-D1`          | Accepted actor usage snapshots and Library facets                                                                                                                     |
+| `2026081829`              | `WP-INST-LD3`         | Reserved Student-work broker capability                                                                                                                               |
+| `2026081830`              | `WP-INST-G1`          | Reserved assignment recalculation enqueue capability                                                                                                                  |
+| `2026081831`              | `WP-INST-G1`          | Reserved scoring-generation publication                                                                                                                               |
+| `2026081832`              | `WP-INST-G3`          | Reserved item-analysis publication and cleanup                                                                                                                        |
+| `2026081833`              | `WP-INST-T5`          | Reserved assignment-definition scratch isolation                                                                                                                      |
+| `2026081834`              | `WP-INST-LD3`         | Reserved course-group policy broker repair                                                                                                                            |
+| `2026081835`              | `WP-INST-LD1`         | Reserved catalog-derived Base Course freshness authority                                                                                                              |
+| `2026081836`              | `WP-INST-D2`          | Accepted problem curation capabilities                                                                                                                                |
+| `2026081837`              | `WP-INST-B1`          | Accepted blueprint and public Alpha capabilities                                                                                                                      |
+| `2026081838`              | `WP-INST-B2`          | Accepted curriculum-adoption schema, lineage, schedule, provenance, receipt, integrity, and forced RLS foundation                                                     |
+| `2026081839`              | `WP-INST-B2`          | Accepted curriculum-adoption common broker authority, retention integration, and shared capability boundary                                                           |
+| `2026081840`              | `WP-INST-B2`          | Accepted curriculum-adoption relational snapshots, locked preparation, inspection, and reconciliation helpers                                                         |
+| `2026081841`              | `WP-INST-B2`          | Accepted canonical ordinary-course topology, issued-work fencing, and topology capability assertions                                                                  |
+| `2026081842`              | `WP-INST-B2`          | Accepted curriculum-adoption source authorization, closed request validation, and source snapshot facts                                                               |
+| `2026081843`              | `WP-INST-B2`          | Accepted teaching-course, import, inspection, reconciliation, and controlled schedule snapshot facts                                                                  |
+| `2026081844`              | `WP-INST-B2`          | Accepted curriculum-adoption shared materializer validation, idempotency, receipt, and evidence helpers                                                               |
+| `2026081845`              | `WP-INST-B2`          | Accepted fork, assignment adoption, fast-forward, and reconciliation materializers                                                                                    |
+| `2026081846`              | `WP-INST-B2`          | Accepted whole-course instantiation, rollover, and term-shift materializers                                                                                           |
+| `2026081847`              | `WP-INST-B2`          | Accepted canonical public bridge completion and final broker catalog assertions                                                                                       |
+| `2026081848`              | `WP-INST-T6`          | Allocated assignment-workspace capability migration: empty Draft/Archived definitions and Published readiness                                                         |
+| `2026081849`              | `WP-INST-G1`          | Accepted W2 operation/evaluation/execution schema prerequisite and receipts                                                                                           |
+| `2026081850`              | `WP-INST-G1`          | Accepted W2 private accepted-response, acceptance/replay, retention/RLS, and lease-fenced execution boundary                                                          |
+| `2026081851`              | `WP-INST-G1 / G1-W4`  | Schema and roles; proof: fresh schema/role shape query                                                                                                                |
+| `2026081852`              | `WP-INST-G1 / G1-W4`  | Integrity guards and triggers; proof: immutable-write rejection                                                                                                       |
+| `2026081853`              | `WP-INST-G1 / G1-W4`  | Public function authority; proof: effective catalog closes PUBLIC/default EXECUTE and legacy v1 load                                                                  |
+| `2026081854`              | `WP-INST-G1 / G1-W4`  | Witness/RLS/table authority and receipt version SELECT; proof: exact authority and ACL matrix                                                                         |
+| `2026081855`              | `WP-INST-G1 / G1-W4`  | Split generic/exact claim and ready/max convergence; proof: one winner and sibling denial                                                                             |
+| `2026081856`              | `WP-INST-G1 / G1-W4`  | Four-key structural verified read; proof: entitled route succeeds and changed key fails                                                                               |
+| `2026081857`              | `WP-INST-G1 / G1-W4`  | Exact private execution load; proof: exact claim loads once and rejects mismatches                                                                                    |
+| `2026081858`              | `WP-INST-G1 / G1-W4`  | Completion lock; proof: lock fences stale or duplicate completion                                                                                                     |
+| `2026081859`              | `WP-INST-G1 / G1-W4`  | Commit-v2; proof: full 36-input signature commits one immutable aggregate                                                                                             |
+| `2026081860`              | `WP-INST-G1 / G1-W4`  | Fail; proof: NULL-safe closed failure validation preserves invalid-call state                                                                                         |
+| `2026081861`              | `WP-INST-G1 / G1-W5`  | W5 Instructor grading-operation capability and broker surface                                                                                                         |
+| `2026081862`              | `WP-INST-G1 / G1-W5`  | W5 worker-authoritative grading-operation lifecycle projection                                                                                                        |
+| `2026081863`              | `WP-INST-G1 / G1-W5`  | W5 immutable scoring-invalidation origin evidence                                                                                                                     |
+| `2026081864`              | `WP-INST-G1 / G1-W5`  | W5 canonical generation, job, operation, and supersession capability                                                                                                  |
+| `2026081865`              | `WP-INST-G1 / G1-W5`  | W5 source-specific invalidation witnesses and least-privilege adapters                                                                                                |
+| `2026081866`              | `WP-INST-G1 / G1-W7`  | `2026081866_g1_receipt_provenance_schema.sql`: clean-volume preflight; execution and operation receipt provenance/category schema and closed constraints              |
+| `2026081867`              | `WP-INST-G1 / G1-W7`  | `2026081867_g1_execution_receipt_writers.sql`: acceptance, claim, and failure writer bodies; exact ACL/catalog proof                                                  |
+| `2026081868`              | `WP-INST-G1 / G1-W7`  | `2026081868_g1_completion_receipt_writer.sql`: 36-input commit-v2 body and narrow ACL/catalog proof                                                                   |
+| `2026081869`              | `WP-INST-G1 / G1-W7`  | `2026081869_g1_instructor_receipt_writers.sql`: V2 retry transition, public retry routing/V1 retirement, and final (1865) recalculation body with broker ACL proof    |
+| `2026081870`              | `WP-INST-G2 / G2-W3B` | `2026081870_student_work_inspection_authority.sql`: dedicated inspection owner, fixed search path, baseline revocations, narrow grants, and catalog proof             |
+| `2026081871`              | `WP-INST-G2 / G2-W3B` | `2026081871_student_work_inspection_witness.sql`: private immutable receipt/presentation/response witness, integrity boundary, and catalog proof                      |
+| `2026081872`              | `WP-INST-G2 / G2-W3B` | `2026081872_student_work_inspection_capability.sql`: only app-executable inspection broker, parameter-bound composite resolution, atomic audits, and closed ACL proof |
+| `2026081873`              | `WP-INST-G2 / G2-W3B` | `2026081873_student_work_inspection_indexes.sql`: query-demonstrated inspection/audit indexes with retained closed broker authority                                   |
 
 `2026081803` (`S5`), `2026081804` (`S3`), and `2026081805` (`S4`) reflect the accepted
 pre-file allocation reorder. Allocations `2026081811`, `1813`, `1815`, `1821`, and `1822` retain
@@ -380,42 +385,39 @@ before adding provenance/category fields; it preserves immutable receipt history
 creates the five-input actor-bound retry V2 capability, routes the unchanged public retry caller
 through it, revokes V1 execute, and drops the four-input V1 with `RESTRICT`. The 99-migration live
 database, RLS, worker, browser, WebWork, and replica-restart evidence is green. These rows remain
-allocated, and G1-W7 and `WP-PROF-G1` remain incomplete pending repository tracking plus final
-tracked-tree Validation. The professor plan owns dependencies among reserved capabilities.
+allocated, and G1-W7 plus `WP-INST-G1` are accepted on the final 99-migration material tree. The
+Instructor plan owns dependencies among reserved capabilities.
 
 ## Accepted package pointers
 
-| Package                     | Current durable result                                                    | Owning evidence                                                                                  |
-| --------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `WP-PROF-LD1`               | Base Course installation lifecycle and retained-state rules               | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-PROF-LD2`               | Seeded entry and connected live authoring boundary                        | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-PROF-LD3`               | Ordinary live assignment, learner-work, and immutable evidence path       | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-PROF-T5`                | Fixed-or-pool assignment editing and deterministic issued draws           | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-PROF-T6`                | Accepted assignment workspace, focused replacement, and live Student view | [T6 plan](active/instructor_assignment_workspace_plan.md), [changelog](../CHANGELOG.md)          |
-| `WP-PROF-D1`                | Canonical Library discovery and evidence-backed question detail           | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-PROF-D2`                | Live curation and shared problem selection                                | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-PROF-B1`                | Revisioned Blueprints, public Alpha curricula, and shared reuse           | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-PROF-B2`                | Curriculum adoption, rollover, term shifting, and controlled update       | [Professor plan](active/professor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
-| `WP-R0`-`WP-R2`, `WP-PY-L1` | Accepted cross-roadmap capabilities                                       | [Release plan](active/release_completion_plan.md), [changelog](../CHANGELOG.md)                  |
+| Package                     | Current durable result                                                    | Owning evidence                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `WP-INST-LD1`               | Base Course installation lifecycle and retained-state rules               | [Instructor plan](active/instructor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-INST-LD2`               | Seeded entry and connected live authoring boundary                        | [Instructor plan](active/instructor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-INST-LD3`               | Ordinary live assignment, Student work, and immutable evidence path       | [Instructor plan](active/instructor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-INST-T5`                | Fixed-or-pool assignment editing and deterministic issued draws           | [Instructor plan](active/instructor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-INST-T6`                | Accepted assignment workspace, focused replacement, and live Student view | [T6 plan](active/instructor_assignment_workspace_plan.md), [changelog](../CHANGELOG.md)            |
+| `WP-INST-D1`                | Canonical Library discovery and evidence-backed question detail           | [Instructor plan](active/instructor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-INST-D2`                | Live curation and shared problem selection                                | [Instructor plan](active/instructor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-INST-B1`                | Revisioned Blueprints, public Alpha curricula, and shared reuse           | [Instructor plan](active/instructor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-INST-B2`                | Curriculum adoption, rollover, term shifting, and controlled update       | [Instructor plan](active/instructor_capability_architecture_plan.md), [changelog](../CHANGELOG.md) |
+| `WP-INST-G1`                | Automated-grading exception routing, retry, and recalculation             | [G1 plan](active/automated_grading_operations_plan.md), [changelog](../CHANGELOG.md)               |
+| `WP-INST-G2`                | Calculated Gradebook and audited Student-work inspection                  | [G2 plan](active/audited_student_work_gradebook_plan.md), [changelog](../CHANGELOG.md)             |
+| `WP-R0`-`WP-R2`, `WP-PY-L1` | Accepted cross-roadmap capabilities                                       | [Release plan](active/release_completion_plan.md), [changelog](../CHANGELOG.md)                    |
 
 ## Dependency-ordered queue
 
 The authoritative package sequence is in the [release completion plan](active/release_completion_plan.md)
-and [professor capability plan](active/professor_capability_architecture_plan.md). The current
+and [Instructor capability plan](active/instructor_capability_architecture_plan.md). The current
 handoff is:
 
-1. Close `WP-PROF-G1` through its approved G1-W7 process: track the 13 current repository-owned
-   source, migration, test, documentation, and screenshot files, then run
-   `source source_me.sh && ./all_test.sh` on that exact final tracked tree and record the result.
-   Fresh HCI and live 99-migration evidence are green; the completed implementation proves
-   deterministic replay, current-total recalculation, and visible exception recovery.
-2. After G1 acceptance, implement `WP-PROF-G2` audited learner-work inspection and the
-   grade-scheme-aware calculated Gradebook. Continue G3 through G5 and E1/E2 in the professor
-   plan's declared dependency order.
-3. Resume the release queue at `WP-RC8`, then follow the release plan through native-family,
-   learner-payload, reconciliation, LTI, upload, deployment, cost-control, and release closure
+1. Implement `WP-INST-G2` from the approved
+   [calculated Gradebook and audited Student-work plan](active/audited_student_work_gradebook_plan.md).
+   Continue G3 through G5 and E1/E2 in the Instructor plan's declared dependency order.
+2. Resume the release queue at `WP-RC8`, then follow the release plan through native-family,
+   Student-payload, reconciliation, LTI, upload, deployment, cost-control, and release closure
    packages.
-4. Run the complete final-material-tree Validation suite before declaring the goal complete.
+3. Run the complete final-material-tree Validation suite before declaring the goal complete.
 
 ## Operational references
 

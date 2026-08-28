@@ -1,4 +1,4 @@
-//! Public Store conformance for the WP-PROF-T2 group-management capability.
+//! Public Store conformance for the WP-INST-T2 group-management capability.
 //!
 //! PostgreSQL calls this same helper once it implements
 //! `CourseGroupManagementStore`; Memory is the first backend to execute it.

@@ -1,6 +1,6 @@
 #![cfg(feature = "postgres")]
 
-//! Disposable PostgreSQL oracle for WP-PROF-S6 course-grade persistence.
+//! Disposable PostgreSQL oracle for WP-INST-S6 course-grade persistence.
 //!
 //! This creates no runs: course totals use summaries, never activity history.
 

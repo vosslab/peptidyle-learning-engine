@@ -26,7 +26,7 @@ SMTP configuration, or skip-build option. See [USAGE.md](USAGE.md) and
 The lower-level lifecycle receives a private ASCII `NAME=value` owner manifest closed to `OWNER`,
 `PROJECT`, `ENV_FILE`, and `CAPABILITY_FILE`; `PROFILE` is required for the live-demo-browser
 owner. The referenced files are current-user-owned regular files with mode `0600`. The generated
-`runtime.yaml` record is operational evidence, not an authoring or learner-upload format.
+`runtime.yaml` record is operational evidence, not an authoring or Student-upload format.
 
 ## Implemented authoring and import
 
@@ -46,7 +46,7 @@ The public runtime receives only the native question projection. See
 ## Private server source
 
 PLE can publish a private immutable PG or PGML source artifact to the configured external
-`webwork-pg-renderer`. This is not a learner upload, browser renderer file, WebWork2 import, or
+`webwork-pg-renderer`. This is not a Student upload, browser renderer file, WebWork2 import, or
 general Open Problem Library route. The server sends source, path, seed, display policy, and
 resolved answer to `/render-api`; the browser receives only the typed PLE presentation envelope
 and submits a PLE response. The four reviewed Chapter 1 sources are the current evidence boundary.

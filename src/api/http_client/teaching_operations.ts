@@ -1,4 +1,4 @@
-// Strict same-origin browser transport for WP-PROF-T2 teaching operations.
+// Strict same-origin browser transport for WP-INST-T2 teaching operations.
 
 import type { AccountApprovalView } from "../../../generated/api/AccountApprovalView";
 import type { SysadminInstructorCandidateSearchPage } from "../../../generated/api/SysadminInstructorCandidateSearchPage";

@@ -5,10 +5,10 @@
 Implementation state: accepted on 2026-08-27 after connected acceptance, review, and the complete
 final tracked-tree Validation gate passed.
 
-This plan is the binding execution plan for `WP-PROF-T6`. It follows accepted
-`WP-PROF-T3`, `WP-PROF-LD3`, and `WP-PROF-T5` and becomes the immediate prerequisite for
-`WP-PROF-G1`. The package creates one coherent Instructor assignment workspace before the grading
-operations packages add more assignment-local work.
+This plan is the accepted execution record for `WP-INST-T6`. It followed accepted `WP-INST-T3`,
+`WP-INST-LD3`, and `WP-INST-T5` and satisfied the immediate prerequisite for accepted `WP-INST-G1`.
+The resulting product owns one coherent Instructor assignment workspace before grading operations
+add more assignment-local work.
 
 T6 owns forward capability migration `2026081848`. The migration permits persisted assignments with
 empty ordered definitions while their lifecycle is `Draft` or `Archived`; a `Published` assignment
@@ -49,8 +49,8 @@ Peptidyle already has the stronger foundations needed for this design:
 
 - `LearnerAssignmentDetail` is an answer-free learner projection and is already available to an
   authorized Instructor opening a learner-facing route;
-- `WP-PROF-T3` owns non-mutating policy inspection over current live records;
-- `WP-PROF-T5` owns fixed-or-pool assignment definitions and server-generated samples; and
+- `WP-INST-T3` owns non-mutating policy inspection over current live records;
+- `WP-INST-T5` owns fixed-or-pool assignment definitions and server-generated samples; and
 - the canonical demo Student owns ordinary runs, submissions, receipts, grades, and Instructor-visible
   gradebook evidence.
 
@@ -69,7 +69,7 @@ Peptidyle already has the stronger foundations needed for this design:
    updates only the part of the assignment it owns.
 8. Make draft creation naturally support a multi-page workspace: create the draft, add questions,
    review policies, and publish when the server reports it ready.
-9. Leave a stable assignment-local navigation seam for `WP-PROF-G1` through `WP-PROF-G5` without
+9. Leave a stable assignment-local navigation seam for `WP-INST-G1` through `WP-INST-G5` without
    turning the course-level navigation into an assignment dashboard.
 
 ## Design philosophy
@@ -124,7 +124,7 @@ Peptidyle already has the stronger foundations needed for this design:
 - A generated test-student account, implicit session replacement, or hidden role toggle.
 - A second assignment, policy, question, or learner-data model for preview.
 - Human scoring, score override, recalculation, learner-work inspection, item analysis, or the
-  `WP-PROF-G1` through `WP-PROF-G5` operation surfaces.
+  `WP-INST-G1` through `WP-INST-G5` operation surfaces.
 - A new persistent preview record or preview-specific migration.
 - New fake courses, assignments, learners, observations, or screenshot-count requirements.
 - Pixel equivalence, timing thresholds, route-inventory assertions, or source-text assertions.
@@ -449,7 +449,7 @@ generated contracts, shared CSS, existing test edits, and final deletion of the 
 4. Obtain independent architecture/security and HCI/accessibility review with every P0/P1 resolved
    and each lower finding resolved or recorded with owner disposition.
 5. Run `source source_me.sh && ./all_test.sh` on the final material tree. A required skip or unrun
-   Validation lane keeps `WP-PROF-T6` open.
+   Validation lane keeps `WP-INST-T6` open.
 
 ## Integrated evidence
 

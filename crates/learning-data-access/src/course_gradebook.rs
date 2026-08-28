@@ -3,15 +3,234 @@
 use async_trait::async_trait;
 use domain::course_grade::CourseGradeOutcome;
 use question_model::{
-    AssignmentDeliveryState, AssignmentId, AssignmentScoringMode, CourseGradeMode,
-    CourseGradeScheme, CourseId, GradeCategoryId, PointValue,
+    ActivityTimestamp, AssignmentDeliveryState, AssignmentId, AssignmentReference,
+    AssignmentScoringMode, CourseGradeMode, CourseGradeScheme, CourseId, CourseMembershipReference,
+    GradeCategoryId, GradePolicy, GradingOperationReference, PointValue, RunReference,
+    ScoringGeneration, ScoringStatus,
 };
 use uuid::Uuid;
 
-use crate::{AuthenticationEmail, CourseRosterId, SessionTokenHash, StoreError, TenantContext};
+use crate::{
+    AuthenticationEmail, CourseRosterId, Cursor, PageRequest, RosterRevision, SessionTokenHash,
+    StoreError, TenantContext,
+};
 
 /// Maximum active students returned by a synchronous course-grade export.
 pub const MAX_COURSE_GRADE_EXPORT_ROWS: usize = 500;
+
+/// Closed, browser-safe filter supplied at the HTTP boundary.
+///
+/// An operation is meaningful to the browser, but its resolution belongs to
+/// the server's grading-operation selection capability. The calculated Store
+/// accepts only the normalized scope in [`GradebookFilter`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GradebookFilterRequest {
+    /// The complete active Student roster for the course.
+    All,
+    /// One current assignment across the roster.
+    Assignment(AssignmentReference),
+    /// One current Student membership across assignments.
+    Student(CourseMembershipReference),
+    /// A grading-operation context the server resolves before the Store read.
+    Operation(GradingOperationReference),
+}
+
+/// Closed, normalized scope for one calculated Gradebook Store read.
+///
+/// The request only carries public locators. Storage resolves each locator
+/// inside the authenticated Instructor's tenant and course boundary before it
+/// is used. This Store boundary never resolves an operation context.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GradebookFilter {
+    /// The complete active Student roster for the course.
+    All,
+    /// One current assignment across the roster.
+    Assignment(AssignmentReference),
+    /// One current Student membership across assignments.
+    Student(CourseMembershipReference),
+}
+
+/// Bounded request for the canonical roster-first calculated Gradebook.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CalculatedGradebookRequest {
+    /// Closed public filter normalized by the server before the Store read.
+    pub filter: GradebookFilter,
+    /// Bounded structural continuation request.
+    pub page: PageRequest,
+}
+
+/// The server-owned rule that selected the run shown by a Gradebook cell.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AssignmentRunSelectionBasis {
+    /// The first completed run supplies the current score.
+    First,
+    /// The latest completed run supplies the current score.
+    Latest,
+    /// The highest completed run supplies the current score.
+    Highest,
+    /// An Instructor explicitly selected the current run.
+    InstructorSelected,
+}
+
+impl From<GradePolicy> for AssignmentRunSelectionBasis {
+    fn from(value: GradePolicy) -> Self {
+        match value {
+            GradePolicy::First => Self::First,
+            GradePolicy::Latest => Self::Latest,
+            GradePolicy::Highest => Self::Highest,
+            GradePolicy::InstructorSelected => Self::InstructorSelected,
+        }
+    }
+}
+
+/// Exact next inspection action for one calculated assignment cell.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AssignmentInspectionChoice {
+    /// The score policy selected one exact submitted run.
+    SelectedRun {
+        /// The server-owned policy basis that selected this run.
+        basis: AssignmentRunSelectionBasis,
+        /// Public route locator for the exact immutable run.
+        run: RunReference,
+        /// Server timestamp at which the run completed.
+        submitted_at: ActivityTimestamp,
+    },
+    /// Completed work exists but an Instructor must choose the exact run.
+    ChooseRun {
+        /// Bounded count rendered by the run chooser.
+        completed_run_count: u32,
+    },
+    /// No submitted work is available for inspection.
+    NoSubmittedRun,
+}
+
+/// Whether a named Student has a deliverable enrollment for an assignment cell.
+///
+/// Assignment filtering retains the complete active Student roster. This
+/// explicit state distinguishes a missing enrollment from an enrolled Student
+/// who has not submitted work, without exposing enrollment internals.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CalculatedAssignmentCellAvailability {
+    /// The Student has a current assignment enrollment.
+    Available,
+    /// The Student remains in the course roster but lacks this assignment enrollment.
+    Unavailable,
+}
+
+/// One assignment's live score witness on a calculated Gradebook page.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AssignmentScoringWitness {
+    /// Public assignment locator shown by the page.
+    pub assignment: AssignmentReference,
+    /// Generation observed while assembling this page.
+    pub generation: ScoringGeneration,
+    /// Freshness state observed while assembling this page.
+    pub status: ScoringStatus,
+}
+
+/// One answer-free calculated assignment cell in a Student roster row.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CalculatedAssignmentCell {
+    /// Public assignment locator.
+    pub assignment: AssignmentReference,
+    /// Current server-owned assignment title.
+    pub title: String,
+    /// Whether the assignment contributes to the course total.
+    pub included: bool,
+    /// Category context for a weighted scheme.
+    pub category: Option<GradeCategoryId>,
+    /// Whether the named Student can receive work from this assignment.
+    pub availability: CalculatedAssignmentCellAvailability,
+    /// Current server-selected score, if calculation may use one.
+    pub selected_score: Option<f64>,
+    /// Live scoring state for this assignment.
+    pub scoring_status: ScoringStatus,
+    /// Exact next inspected-work action.
+    pub inspection_choice: AssignmentInspectionChoice,
+}
+
+/// One roster-first, answer-free calculated Gradebook row.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CalculatedGradebookRow {
+    /// Public course-membership locator for the named Student.
+    pub membership: CourseMembershipReference,
+    /// Protected roster display label; email and roster ID remain export-only.
+    pub display_label: String,
+    /// Total derived only by `domain::course_grade::calculate_course_grade`.
+    pub outcome: CourseGradeOutcome,
+    /// Cells in current server-owned assignment order.
+    pub assignment_cells: Vec<CalculatedAssignmentCell>,
+}
+
+/// Structural change that requires the browser to reload the first page.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GradebookReloadReason {
+    /// The selected course-grade scheme changed.
+    SchemeChanged,
+    /// The active Student roster changed.
+    RosterChanged,
+    /// The page filter differs from its structural continuation binding.
+    FilterChanged,
+}
+
+/// Canonical response for a roster-first calculated Gradebook request.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CalculatedGradebookResult {
+    /// One structural page with its page-local live scoring witness.
+    Page(CalculatedGradebookPage),
+    /// The browser must restart from the first page using current structure.
+    ReloadRequired { reason: GradebookReloadReason },
+}
+
+/// One bounded, roster-ordered calculated Gradebook page.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CalculatedGradebookPage {
+    /// Course-grade scheme revision governing every total on this page.
+    pub scheme_revision: CourseGradeSchemeRevision,
+    /// Course roster revision governing row structure and continuation order.
+    pub roster_revision: RosterRevision,
+    /// Aggregation mode governing every row total.
+    pub mode: CourseGradeMode,
+    /// Final rounding rule governing every row total.
+    pub rounding: question_model::CourseGradeRoundingRule,
+    /// Server time at which this page's live score witness was observed.
+    pub observation_time: ActivityTimestamp,
+    /// Per-assignment live scoring witnesses for this page.
+    pub scoring_witnesses: Vec<AssignmentScoringWitness>,
+    /// Opaque continuation binding, when another structural page exists.
+    pub next_cursor: Option<Cursor>,
+    /// Answer-free Student roster rows.
+    pub rows: Vec<CalculatedGradebookRow>,
+}
+
+/// A named Student choice produced from an operation or Gradebook context.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StudentSelectionRow {
+    /// Public course membership locator for the named Student.
+    pub membership: CourseMembershipReference,
+    /// Protected display label used to make the human choice explicit.
+    pub display_label: String,
+    /// Public assignment locator associated with this choice.
+    pub assignment: AssignmentReference,
+    /// Exact next inspected-work action.
+    pub inspection_choice: AssignmentInspectionChoice,
+}
+
+/// Closed next-step result before the response-bearing inspected-work route.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GradebookSelectionResult {
+    /// An operation already identifies one named Student and assignment.
+    SingleStudent {
+        membership: CourseMembershipReference,
+        assignment: AssignmentReference,
+        inspection_choice: AssignmentInspectionChoice,
+    },
+    /// An Instructor must choose one named Student from a bounded list.
+    StudentSelection {
+        rows: Vec<StudentSelectionRow>,
+        next_cursor: Option<Cursor>,
+    },
+}
 
 /// Strong, positive compare-and-swap revision for one course scheme.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -259,6 +478,23 @@ pub trait CourseGradebookStore: Send + Sync {
         session: SessionTokenHash,
         course: CourseId,
     ) -> Result<CourseGradebookTotals, StoreError>;
+
+    /// Returns one bounded roster-first calculated Gradebook page.
+    ///
+    /// Implementations resolve every public reference inside the authenticated
+    /// Instructor's course boundary.  The default keeps existing production
+    /// stores closed until the PostgreSQL calculated-Gradebook implementation lands.
+    async fn calculated_gradebook_page(
+        &self,
+        _context: TenantContext,
+        _session: SessionTokenHash,
+        _course: CourseId,
+        _request: CalculatedGradebookRequest,
+    ) -> Result<CalculatedGradebookResult, StoreError> {
+        Err(StoreError::Unavailable(
+            "calculated gradebook is not available for this store".to_string(),
+        ))
+    }
 
     /// Produces bounded ephemeral rows and records a PII-free audit.
     async fn create_course_grade_export(

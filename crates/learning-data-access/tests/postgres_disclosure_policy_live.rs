@@ -1,6 +1,6 @@
 #![cfg(feature = "postgres")]
 
-//! Disposable PostgreSQL oracle for WP-PROF-S4 assignment disclosure policy.
+//! Disposable PostgreSQL oracle for WP-INST-S4 assignment disclosure policy.
 //!
 //! Store commands create the educational state.  SQL is limited to the
 //! PostgreSQL-only promises: closed columns, forced RLS, and retention fences.

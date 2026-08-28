@@ -184,7 +184,7 @@ impl std::error::Error for CourseLocalDateTimeError {}
 pub struct InstructorAssignmentTeachingSettingsLocal {
     /// Authoritative course IANA zone shown beside local form controls.
     pub time_zone: IanaTimeZone,
-    /// Professor-controlled assignment lifecycle intent.
+    /// Instructor-controlled assignment lifecycle intent.
     pub lifecycle: AssignmentLifecycle,
     /// Validated learner-facing plain-text instructions.
     pub instructions: AssignmentInstructions,

@@ -106,7 +106,7 @@ pub struct AssignmentRecord {
     pub course_id: CourseId,
     /// Human-facing assignment title.
     pub title: String,
-    /// Professor-controlled delivery state. Draft is never learner-visible.
+    /// Instructor-controlled delivery state. Draft is never learner-visible.
     pub lifecycle: question_model::AssignmentLifecycle,
     /// Learner-facing instructions owned by the assignment policy slice.
     pub instructions: question_model::AssignmentInstructions,

@@ -12,7 +12,7 @@ impl MemoryStore {
     }
 }
 
-/// Opaque Memory-only conformance snapshot for WP-PROF-T3 state effects.
+/// Opaque Memory-only conformance snapshot for WP-INST-T3 state effects.
 ///
 /// Application code has no route-callable state snapshot.  Keeping the full
 /// state private makes the oracle resilient to new state collections: a

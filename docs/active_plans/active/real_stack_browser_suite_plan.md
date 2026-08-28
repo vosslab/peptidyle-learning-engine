@@ -2,7 +2,7 @@
 
 ## Primary outcome
 
-`WP-PROF-BS1` gives PLE one production browser artifact and one disposable real-stack browser path.
+`WP-INST-BS1` gives PLE one production browser artifact and one disposable real-stack browser path.
 Playwright, canonical screenshots, direct browser development, and aggregate acceptance all visit the
 same production `dist/` bundle through the private HTTPS gateway. That browser uses the real Rust
 API, PostgreSQL, MinIO, worker, renderer, authentication, authorization, and seeded live-demo data.
@@ -22,8 +22,8 @@ visible labels remain recognizable teaching language.
 The live-demo E2E owner becomes the shared browser-suite owner. Narrow decoder, serialization, and
 error-mapping tests remain fast unit tests outside the product browser runtime graph.
 
-This package and its frozen-scope successor, `WP-PROF-T3`, were accepted on 2026-08-22. The sole
-current professor package is recorded only in [implementation_status.md](../implementation_status.md),
+This package and its frozen-scope successor, `WP-INST-T3`, were accepted on 2026-08-22. The sole
+current Instructor package is recorded only in [implementation_status.md](../implementation_status.md),
 which owns every changing handoff. The accepted BS1 closure remains the historical nine-scenario,
 51-artifact record; T3 separately extends that evidence to ten
 scenarios and 63 artifacts.
@@ -130,28 +130,28 @@ interaction, or inspection prerequisite.
 
 | Milestone | Work package     | Outcome                                                               | Depends on              | Automated checkpoint                                                                                                                                           |
 | --------- | ---------------- | --------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| BS1-1     | `WP-PROF-BS1-H0` | Add a typed owner adapter around the existing lifecycle               | none                    | Caller-configuration rejection before allocation, generated-input validation before Chromium, one visible `live_demo` scenario, and lifecycle/cleanup receipts |
-| BS1-2     | `WP-PROF-BS1-H1` | Route `run_playwright_tests.sh` through H0 and build `dist/`          | H0                      | Default and focused command selections reach a freshly regenerated HTTPS origin under the fixed project                                                        |
-| BS1-3     | `WP-PROF-BS1-H2` | Freeze seed-baseline and scenario-isolation contracts                 | H0                      | Offline contract tests and plan-backed scenario manifest check                                                                                                 |
-| BS1-4     | `WP-PROF-BS1-H3` | Add origin and suite-resource cleanup oracles                         | H0                      | Origin, labelled-inventory, process, and repeat-run checks                                                                                                     |
-| BS1-5     | `WP-PROF-BS1-C0` | Expand `all_test.sh` into the aggregate Validation front door         | H1, H3                  | Ordered aggregate receipts and one `local_stack.py acceptance` invocation                                                                                      |
-| BS1-6     | `WP-PROF-BS1-B0` | Establish the catalog and multi-scenario owner foundation             | H2, C0                  | Closed registry, exact selection, independent per-scenario input/origin receipts, and direct Sysadmin entry                                                    |
-| BS1-7     | `WP-PROF-BS1-B1` | Prove generic passkeys in independent browser journeys                | B0                      | Visible Elena and Morgan enrollment/sign-in, ordinary authorization, and repeat-run cleanup evidence                                                           |
-| BS1-8     | `WP-PROF-BS1-B2` | Make the browser project single-flight with exact reset recovery      | B1                      | Fixed project, owner-labelled reset before regeneration and final cleanup, and sequential real-run proof                                                       |
-| BS1-9     | `WP-PROF-BS1-I1` | Migrate one instructor authoring/course family                        | B0, C0                  | Reload and second-session behavior evidence                                                                                                                    |
-| BS1-10    | `WP-PROF-BS1-L1` | Migrate one learner delivery/response family                          | B0, C0                  | Reload or second-session learner evidence                                                                                                                      |
-| BS1-11    | `WP-PROF-BS1-A1` | Migrate ordinary auth, direct-role entry, and role-boundary families  | B2, B1, B0, C0          | Visible role/session and denial scenarios                                                                                                                      |
-| BS1-12    | `WP-PROF-BS1-S1` | Add semantic persistence receipts where claims require them           | I1, L1, A1              | Read-only Store/service receipts tied to named claims                                                                                                          |
-| BS1-13    | `WP-PROF-BS1-U1` | Map browser-independent behavior to isolated unit owners              | C0                      | Focused Node/Rust unit tests plus one-time runtime-consumer closure inventory                                                                                  |
-| BS1-14    | `WP-PROF-BS1-X1` | Exercise real concurrent-session conflicts                            | I1, B0                  | Two-session UI conflict scenario                                                                                                                               |
-| BS1-15    | `WP-PROF-BS1-F1` | Exercise lifecycle-controlled infrastructure recovery                 | C0 plus affected family | Owner-fault scenario and visible recovery                                                                                                                      |
-| BS1-16    | `WP-PROF-BS1-V1` | Capture canonical screenshots from accepted real scenarios            | I1, L1, X1, F1          | Origin/provenance verifier and image-evaluator report                                                                                                          |
-| BS1-17    | `WP-PROF-BS1-R1` | Retire the alternate browser application and runtime graph            | U1, X1, F1, V1          | One-time build/consumer closure inventory and canonical suite run                                                                                              |
-| BS1-18    | `WP-PROF-BS1-D1` | Converge developer entry on the seeded production-auth HTTPS profile  | B2, C0                  | Daily-workflow experiment, one production `dist/` artifact, and seeded-auth lifecycle receipts                                                                 |
-| BS1-19    | `WP-PROF-BS1-W1` | Add the catalog-only WebWork baseline and canonical delivery scenario | B0, I1, L1, S1          | UI-first instructor/learner flow, one renderer-call receipt, and fresh-session persistence                                                                     |
-| BS1-20    | `WP-PROF-BS1-Q1` | Add canonical assignment-question replacement behavior                | B0, I1, L1, X1          | Issued-problem stability, visible replacement, stale-editor reload, and new-run replacement evidence                                                           |
-| BS1-21    | `WP-PROF-BS1-R2` | Retire every remaining alternate browser owner and browser tail       | R1, D1, W1, Q1          | One-time static consumer closure inventory, canonical complete suite, and retained non-browser oracle receipts                                                 |
-| BS1-22    | `WP-PROF-BS1-C1` | Invoke the suite once from aggregate acceptance and complete closure  | B2, C0, R2              | Final Validation and repeat-run cleanup evidence                                                                                                               |
+| BS1-1     | `WP-INST-BS1-H0` | Add a typed owner adapter around the existing lifecycle               | none                    | Caller-configuration rejection before allocation, generated-input validation before Chromium, one visible `live_demo` scenario, and lifecycle/cleanup receipts |
+| BS1-2     | `WP-INST-BS1-H1` | Route `run_playwright_tests.sh` through H0 and build `dist/`          | H0                      | Default and focused command selections reach a freshly regenerated HTTPS origin under the fixed project                                                        |
+| BS1-3     | `WP-INST-BS1-H2` | Freeze seed-baseline and scenario-isolation contracts                 | H0                      | Offline contract tests and plan-backed scenario manifest check                                                                                                 |
+| BS1-4     | `WP-INST-BS1-H3` | Add origin and suite-resource cleanup oracles                         | H0                      | Origin, labelled-inventory, process, and repeat-run checks                                                                                                     |
+| BS1-5     | `WP-INST-BS1-C0` | Expand `all_test.sh` into the aggregate Validation front door         | H1, H3                  | Ordered aggregate receipts and one `local_stack.py acceptance` invocation                                                                                      |
+| BS1-6     | `WP-INST-BS1-B0` | Establish the catalog and multi-scenario owner foundation             | H2, C0                  | Closed registry, exact selection, independent per-scenario input/origin receipts, and direct Sysadmin entry                                                    |
+| BS1-7     | `WP-INST-BS1-B1` | Prove generic passkeys in independent browser journeys                | B0                      | Visible Elena and Morgan enrollment/sign-in, ordinary authorization, and repeat-run cleanup evidence                                                           |
+| BS1-8     | `WP-INST-BS1-B2` | Make the browser project single-flight with exact reset recovery      | B1                      | Fixed project, owner-labelled reset before regeneration and final cleanup, and sequential real-run proof                                                       |
+| BS1-9     | `WP-INST-BS1-I1` | Migrate one instructor authoring/course family                        | B0, C0                  | Reload and second-session behavior evidence                                                                                                                    |
+| BS1-10    | `WP-INST-BS1-L1` | Migrate one learner delivery/response family                          | B0, C0                  | Reload or second-session learner evidence                                                                                                                      |
+| BS1-11    | `WP-INST-BS1-A1` | Migrate ordinary auth, direct-role entry, and role-boundary families  | B2, B1, B0, C0          | Visible role/session and denial scenarios                                                                                                                      |
+| BS1-12    | `WP-INST-BS1-S1` | Add semantic persistence receipts where claims require them           | I1, L1, A1              | Read-only Store/service receipts tied to named claims                                                                                                          |
+| BS1-13    | `WP-INST-BS1-U1` | Map browser-independent behavior to isolated unit owners              | C0                      | Focused Node/Rust unit tests plus one-time runtime-consumer closure inventory                                                                                  |
+| BS1-14    | `WP-INST-BS1-X1` | Exercise real concurrent-session conflicts                            | I1, B0                  | Two-session UI conflict scenario                                                                                                                               |
+| BS1-15    | `WP-INST-BS1-F1` | Exercise lifecycle-controlled infrastructure recovery                 | C0 plus affected family | Owner-fault scenario and visible recovery                                                                                                                      |
+| BS1-16    | `WP-INST-BS1-V1` | Capture canonical screenshots from accepted real scenarios            | I1, L1, X1, F1          | Origin/provenance verifier and image-evaluator report                                                                                                          |
+| BS1-17    | `WP-INST-BS1-R1` | Retire the alternate browser application and runtime graph            | U1, X1, F1, V1          | One-time build/consumer closure inventory and canonical suite run                                                                                              |
+| BS1-18    | `WP-INST-BS1-D1` | Converge developer entry on the seeded production-auth HTTPS profile  | B2, C0                  | Daily-workflow experiment, one production `dist/` artifact, and seeded-auth lifecycle receipts                                                                 |
+| BS1-19    | `WP-INST-BS1-W1` | Add the catalog-only WebWork baseline and canonical delivery scenario | B0, I1, L1, S1          | UI-first instructor/learner flow, one renderer-call receipt, and fresh-session persistence                                                                     |
+| BS1-20    | `WP-INST-BS1-Q1` | Add canonical assignment-question replacement behavior                | B0, I1, L1, X1          | Issued-problem stability, visible replacement, stale-editor reload, and new-run replacement evidence                                                           |
+| BS1-21    | `WP-INST-BS1-R2` | Retire every remaining alternate browser owner and browser tail       | R1, D1, W1, Q1          | One-time static consumer closure inventory, canonical complete suite, and retained non-browser oracle receipts                                                 |
+| BS1-22    | `WP-INST-BS1-C1` | Invoke the suite once from aggregate acceptance and complete closure  | B2, C0, R2              | Final Validation and repeat-run cleanup evidence                                                                                                               |
 
 The manager may dispatch H1 and H2 after H0. C0 follows accepted H1 and H3. B0 follows C0 and
 supplies the shared catalog, multi-scenario owner, and generic browser helpers. B1 follows B0 and
@@ -165,7 +165,7 @@ C1 follows R2 after the B2 gate.
 
 ## Work-package contracts
 
-### WP-PROF-BS1-H0: Add the typed owner adapter
+### WP-INST-BS1-H0: Add the typed owner adapter
 
 - Owner: expert coder.
 - Deliverable: a closed, typed browser-suite owner adapter around the existing live-demo lifecycle.
@@ -177,7 +177,7 @@ C1 follows R2 after the B2 gate.
   generation-bound input validates before Chromium; success and synthetic Playwright failure each
   produce lifecycle and scoped typed-cleanup receipts.
 
-### WP-PROF-BS1-H1: Consolidate browser entry
+### WP-INST-BS1-H1: Consolidate browser entry
 
 - Owner: coder.
 - Deliverable: `run_playwright_tests.sh`, Playwright configuration, and production build handoff use
@@ -186,7 +186,7 @@ C1 follows R2 after the B2 gate.
   `ple-live-demo-browser`, and the gateway serves the same `dist/` artifact that direct browser
   development uses.
 
-### WP-PROF-BS1-H2: Freeze baseline and isolation
+### WP-INST-BS1-H2: Freeze baseline and isolation
 
 - Owner: architect, then expert coder after design acceptance.
 - Deliverable: one typed scenario contract defining baseline, namespace, UI actions, user-visible
@@ -194,7 +194,7 @@ C1 follows R2 after the B2 gate.
 - Acceptance: every scenario can run from its declared baseline without predecessor state or
   caller-selected product-state APIs.
 
-### WP-PROF-BS1-H3: Verify origin and cleanup
+### WP-INST-BS1-H3: Verify origin and cleanup
 
 - Owner: tester.
 - Deliverable: exact labelled container, volume, network, temporary-artifact, temporary-process,
@@ -203,7 +203,7 @@ C1 follows R2 after the B2 gate.
   containers, volumes, networks, temporary artifacts, and background processes; a repeat run starts
   cleanly.
 
-### WP-PROF-BS1-C0: Establish aggregate Validation
+### WP-INST-BS1-C0: Establish aggregate Validation
 
 - Owner: integrator.
 - Deliverable: keep the user-facing `all_test.sh` front door as four ordered gates: `check_rust.sh`,
@@ -213,7 +213,7 @@ C1 follows R2 after the B2 gate.
 - Acceptance: the four commands run in that order, the acceptance gate reports the production
   browser build and canonical HTTPS suite, and no duplicate browser lane is introduced.
 
-### WP-PROF-BS1-B0: Establish catalog and multi-scenario owner
+### WP-INST-BS1-B0: Establish catalog and multi-scenario owner
 
 - Owner: expert coder.
 - Deliverable: the catalog and owner use a closed `schemaVersion: 2` private ABI. Every child gets
@@ -231,7 +231,7 @@ C1 follows R2 after the B2 gate.
   TypeScript parser tests prove the canonical private-input and origin-path boundary; focused real-stack
   execution proves that each selected scenario starts independently and completes its declared behavior.
 
-### WP-PROF-BS1-B1: Direct generic passkey browser evidence
+### WP-INST-BS1-B1: Direct generic passkey browser evidence
 
 - Owner: expert coder.
 - Current contract: generic passkeys are ordinary account-security behavior. `direct_role_entry`
@@ -244,7 +244,7 @@ C1 follows R2 after the B2 gate.
   server-authorized role behavior. Public receipts contain only bounded public lifecycle and origin
   evidence; private credentials, cookies, and file paths remain within the owner workspace.
 
-### WP-PROF-BS1-B2: Make the browser project single-flight with exact reset
+### WP-INST-BS1-B2: Make the browser project single-flight with exact reset
 
 - Owner: expert coder.
 - Depends on: B1.
@@ -294,7 +294,7 @@ C1 follows R2 after the B2 gate.
   network, private-workspace, and owner-process inventory. The gate requires no human interaction
   or inspection.
 
-### WP-PROF-BS1-I1: Migrate instructor behavior
+### WP-INST-BS1-I1: Migrate instructor behavior
 
 - Owner: expert coder.
 - Deliverable: UI-first instructor scenarios for questions, courses, assignments, roster changes,
@@ -302,7 +302,7 @@ C1 follows R2 after the B2 gate.
 - Acceptance: visible actions create meaningful scenario-owned state; reload and a second authorized instructor
   observe the intended result. PostgreSQL or MinIO inspection appears only for a stated service claim.
 
-### WP-PROF-BS1-L1: Migrate learner behavior
+### WP-INST-BS1-L1: Migrate learner behavior
 
 - Owner: expert coder.
 - Deliverable: UI-first learner scenarios that create their course/assignment prerequisites through
@@ -311,7 +311,7 @@ C1 follows R2 after the B2 gate.
 - Acceptance: a fresh or second authorized learner session observes the expected durable product
   result; browser traffic preserves answer and credential boundaries.
 
-### WP-PROF-BS1-A1: Migrate auth and authorization
+### WP-INST-BS1-A1: Migrate auth and authorization
 
 - Owner: expert coder.
 - Deliverable: real seeded entry for the five fixed personas, ordinary account and course sessions,
@@ -325,7 +325,7 @@ C1 follows R2 after the B2 gate.
   by exactly one A1 contract. Each scenario starts independently and does not consume another
   scenario's browser state, proof, or credential.
 
-### WP-PROF-BS1-S1: Add semantic persistence receipts
+### WP-INST-BS1-S1: Add semantic persistence receipts
 
 - Owner: tester.
 - Deliverable: read-only semantic Store, object-storage, worker, or renderer verifiers for the
@@ -333,7 +333,7 @@ C1 follows R2 after the B2 gate.
 - Acceptance: every receipt identifies the preceding UI action and the service claim it proves;
   verifiers avoid schema-layout and row-count assertions.
 
-### WP-PROF-BS1-U1: Isolate narrow unit behavior
+### WP-INST-BS1-U1: Isolate narrow unit behavior
 
 - Owner: tester.
 - Deliverable: retain only decoder, serialization, formatting, error-mapping, public-reference,
@@ -349,7 +349,7 @@ C1 follows R2 after the B2 gate.
   unit owner. U1's focused Node/Rust checks pass as browser-independent tests; the allocation itself
   is one-time migration evidence.
 
-### WP-PROF-BS1-X1: Exercise concurrent-session behavior
+### WP-INST-BS1-X1: Exercise concurrent-session behavior
 
 - Owner: expert coder.
 - Deliverable: two ordinary visible sessions that create a revision conflict through the product's
@@ -357,7 +357,7 @@ C1 follows R2 after the B2 gate.
 - Acceptance: the initiating user sees the recovery state and the observing session verifies the
   product result after reload; the scenario creates and owns the resources required by the journey.
 
-### WP-PROF-BS1-F1: Exercise real failure behavior
+### WP-INST-BS1-F1: Exercise real failure behavior
 
 - Owner: expert coder.
 - Deliverable: one visible learner saved-response recovery scenario with lifecycle-owner control of
@@ -366,7 +366,7 @@ C1 follows R2 after the B2 gate.
   a fresh learner session observes the persisted score, and the typed lifecycle receipt proves the
   declared gateway fault was injected, recovered, and completely cleaned up.
 
-### WP-PROF-BS1-V1: Capture canonical visual evidence
+### WP-INST-BS1-V1: Capture canonical visual evidence
 
 - Owner: playwright operator.
 - Deliverable: the single JSON corpus authority defines 51 ordered, nested role-and-journey
@@ -383,7 +383,7 @@ C1 follows R2 after the B2 gate.
   manifest, origin, digest, path, coverage, and privacy invariants, and `image_evaluator` returns an
   automated report with resolved findings. Retained evidence contains no private material.
 
-### WP-PROF-BS1-R1: Establish the production browser graph
+### WP-INST-BS1-R1: Establish the production browser graph
 
 - Owner: integrator.
 - Deliverable: one browser build graph and production client path, with browser-independent behavior
@@ -392,7 +392,7 @@ C1 follows R2 after the B2 gate.
   Playwright creates
   product state through visible PLE workflows against real services.
 
-### WP-PROF-BS1-D1: Converge developer browser entry
+### WP-INST-BS1-D1: Converge developer browser entry
 
 - Owner: expert coder.
 - Depends on: B2, C0.
@@ -413,7 +413,7 @@ C1 follows R2 after the B2 gate.
   migration, and `local_stack.py start`, browser commands, canonical-suite inputs, service oracles,
   and developer documentation contain only the production account/session graph.
 
-### WP-PROF-BS1-W1: Add canonical WebWork delivery
+### WP-INST-BS1-W1: Add canonical WebWork delivery
 
 - Owner: expert coder.
 - Depends on: B0, I1, L1, S1.
@@ -434,7 +434,7 @@ C1 follows R2 after the B2 gate.
   `renderer_call` witness. Its fresh authenticated session observes the completed result without
   depending on prior scenario state.
 
-### WP-PROF-BS1-Q1: Preserve issued-question replacement
+### WP-INST-BS1-Q1: Preserve issued-question replacement
 
 - Owner: expert coder.
 - Depends on: B0, I1, L1, X1.
@@ -447,7 +447,7 @@ C1 follows R2 after the B2 gate.
   demonstrate the issued learner problem remains stable, visibly show the instructor replacement and
   stale-editor reload, and show the replacement only for a newly issued learner run.
 
-### WP-PROF-BS1-R2: Establish the canonical browser owner
+### WP-INST-BS1-R2: Establish the canonical browser owner
 
 - Owner: integrator.
 - Depends on: R1, D1, W1, Q1.
@@ -463,7 +463,7 @@ C1 follows R2 after the B2 gate.
   complete suite passes under one fixed stack, and retained WebWork, replica, database/RLS, Rust, and
   renderer evidence makes only its distinct non-browser claims.
 
-### WP-PROF-BS1-C1: Integrate acceptance
+### WP-INST-BS1-C1: Integrate acceptance
 
 - Owner: integrator.
 - Depends on: B2, C0, R2.
@@ -518,7 +518,7 @@ subordinate gates prove that outcome:
 
 ## Validation
 
-`WP-PROF-BS1` closes only after each of these four final-material-tree commands is green twice,
+`WP-INST-BS1` closes only after each of these four final-material-tree commands is green twice,
 in the listed order, on the final material tree:
 
 ```bash
@@ -560,12 +560,12 @@ and at final cleanup. Image pruning is available after that check as ordinary li
 ## Closure record
 
 Each work package records its owner, changed boundary, automated command/result, generated artifacts,
-and remaining dependencies in the normal changelog and handoff. `WP-PROF-BS1-C1` performs the
+and remaining dependencies in the normal changelog and handoff. `WP-INST-BS1-C1` performs the
 requirement-by-requirement closure audit, advances the current-package registry, and archives this
 plan after the final Validation suite passes.
 
-`WP-PROF-BS1-C1` accepted the one-artifact/one-stack architecture on 2026-08-22. The nine-scenario
+`WP-INST-BS1-C1` accepted the one-artifact/one-stack architecture on 2026-08-22. The nine-scenario
 browser catalog, 51-artifact real-origin screenshot publication, image-evaluator re-review, WebWork
 service oracle, two-API/one-PostgreSQL restart oracle, and exact cleanup receipts passed. The four
 final-material-tree Validation commands passed twice in their required order; the handoff advanced to
-`WP-PROF-T3`.
+`WP-INST-T3`.

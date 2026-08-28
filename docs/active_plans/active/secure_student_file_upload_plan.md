@@ -1,14 +1,14 @@
-# Plan: Secure learner file-upload responses
+# Plan: Secure Student file-upload responses
 
 ## Status
 
 Planning state: decision-complete on 2026-08-10; implementation has not started. The current UI and
 submission route correctly fail closed. This plan owns the dedicated upload contract required before
-PLE can enable `ResponseDefinition::FileUpload` for learners.
+PLE can enable `ResponseDefinition::FileUpload` for Students.
 
 This plan does not interrupt the current release order. It runs after the secure assessment payload
 packages WP-P1 through WP-P6, object reconciliation WP-RC7, and LTI WP-RC9 are accepted. Its forward
-SQL migration is `2026080912_secure_learner_uploads.sql`, following the already-reserved
+SQL migration is `2026080912_secure_student_uploads.sql`, following the already-reserved
 object-reconciliation and LTI migrations and completing before WP-RC10 production deployment. File
 upload is a required
 working-codebase release capability; it is not a reason to weaken or bypass the current fail-closed
@@ -21,15 +21,15 @@ delivery, retention, and a durable worker queue. Those pieces are intentionally 
 
 - `StudentResponse::FileUpload` still carries a raw string `object_key`;
 - browser format validation merely checks that the string is nonempty;
-- the learner widget displays an unavailable state; and
+- the Student widget displays an unavailable state; and
 - the submission route returns `422` before backend or Store mutation.
 
 That refusal is correct. A browser-supplied object key would let an untrusted client assert storage
-ownership, tenant, learner, attempt, file type, and lifecycle state. None of those claims is safe to
+ownership, tenant, Student, attempt, file type, and lifecycle state. None of those claims is safe to
 accept from the browser.
 
 The secure boundary is a server-created upload record plus repeated authenticated authorization. The
-browser receives one opaque `LearnerUploadId`, streams bytes to a same-origin PLE route, and later
+browser receives one opaque `StudentUploadId`, streams bytes to a same-origin PLE route, and later
 submits only that ID. PLE owns the physical object keys, checksum, observed media type, inspection
 state, delivery grant, attempt binding, and retention.
 
@@ -41,15 +41,15 @@ replaces, PLE's authoritative SHA-256 record.
 
 ## Objectives
 
-- Enable one-file learner responses without exposing raw object keys or storage credentials.
-- Bind every upload to exactly one tenant, learner, question attempt, course, presentation digest,
+- Enable one-file Student responses without exposing raw object keys or storage credentials.
+- Bind every upload to exactly one tenant, Student, question attempt, course, presentation digest,
   and server-owned response definition.
 - Keep bytes non-deliverable until server-side type validation and malware inspection pass.
 - Atomically consume one accepted upload when the attempt enters `needs_manual_grading`.
 - Preserve idempotent submission, timing, retention, RLS, replica safety, and access logging.
-- Keep the learner wire small: one upload ID in the answer body, with no repeated filename, checksum,
-  MIME type, object path, learner, course, version, seed, or backend.
-- Give learners an accessible upload, progress, replacement, failure, and recovery flow.
+- Keep the Student wire small: one upload ID in the answer body, with no repeated filename, checksum,
+  MIME type, object path, Student, course, version, seed, or backend.
+- Give Students an accessible upload, progress, replacement, failure, and recovery flow.
 
 ## Design philosophy
 
@@ -58,7 +58,7 @@ attempt ownership and lifecycle, the persisted presentation digest, the closed u
 and the atomic final submission transaction.
 
 CRC16 remains the compact consistency ID for rendered selectable items. It is not used for uploaded
-bytes. PLE stores a full SHA-256 digest for every candidate and durable learner object. A UUID-sized
+ bytes. PLE stores a full SHA-256 digest for every candidate and durable Student object. A UUID-sized
 upload handle occurs only once in a submission, so shortening it would not produce meaningful latency
 or bandwidth savings.
 
@@ -71,16 +71,16 @@ checksum, expiry, CORS, and replay evidence. It must not change the final answer
 ## Scope
 
 - One file per `ResponseDefinition::FileUpload` question.
-- A closed learner-upload identity, policy, state machine, Store contract, Memory/PostgreSQL backends,
+- A closed Student-upload identity, policy, state machine, Store contract, Memory/PostgreSQL backends,
   and forced-RLS migration.
 - Authenticated same-origin create, byte-stream, status, abandon, submit, and protected-download
   routes.
-- Typed temporary and durable learner-upload object keys.
+- Typed temporary and durable Student-upload object keys.
 - Streaming size enforcement and SHA-256 calculation without buffering the complete file in API
   memory.
 - A complete worker family for file inspection, promotion, and atomic durable finalization.
 - First-release file profiles for PDF, UTF-8 plain text, PNG, and JPEG.
-- Existing manual-grading integration, learner/instructor authorized retrieval, retention,
+- Existing manual-grading integration, Student/Instructor authorized retrieval, retention,
   reconciliation, multi-replica operation, accessibility, and documentation.
 
 ## Non-goals
@@ -90,7 +90,7 @@ checksum, expiry, CORS, and replay evidence. It must not change the final answer
   are not security proof.
 - The first release does not accept HTML, SVG, JavaScript, executables, generic ZIP archives, audio,
   video, encrypted documents, DOCX, ODT, or macro-enabled office formats.
-- Inline rendering of an original learner upload is out of scope. Accepted objects download as
+- Inline rendering of an original Student upload is out of scope. Accepted objects download as
   attachments; separately generated safe previews require a later content-disarm contract.
 - Multiple files, folders, resumable multipart upload, direct browser-to-S3 upload, and instructor
   annotation are later additive capabilities.
@@ -102,15 +102,15 @@ checksum, expiry, CORS, and replay evidence. It must not change the final answer
 
 | Boundary | Current behavior | Required change |
 | --- | --- | --- |
-| Question model | File response stores raw `object_key` text | Replace with typed `LearnerUploadId` |
+| Question model | File response stores raw `object_key` text | Replace with typed `StudentUploadId` |
 | Browser widget | Accessible unavailable state | Add native file input, upload state, replace, and submit |
 | Run submission | Refuses all file uploads before mutation | Accept only atomically consumable `ready` upload IDs |
 | Object store | Generic temporary and student-record keys | Add attempt-bound candidate and durable upload keys |
-| Object metadata | `StudentRecord` implies export category | Add a distinct learner-submission category |
+| Object metadata | `StudentRecord` implies export category | Add a distinct Student-submission category |
 | Object write | `PutObject` owns a complete `Vec<u8>` | Add a bounded streaming write contract |
 | Worker | No upload-inspection family | Add handler and committer before the family is claimable |
 | Manual grading | Pending evaluation is implemented | Bind its response to the consumed upload record |
-| Delivery | Protected 5-minute student-record URLs exist | Authorize the exact learner/instructor upload grant |
+| Delivery | Protected 5-minute student-record URLs exist | Authorize the exact Student/Instructor upload grant |
 | Retention | Student records archive/delete at 100/365 days | Include consumed upload records and bytes |
 | Reconciliation | WP-RC7 owns object/database agreement | Register candidate and durable upload object classes |
 
@@ -118,7 +118,7 @@ checksum, expiry, CORS, and replay evidence. It must not change the final answer
 
 ### Question model
 
-`crates/question_model` owns `LearnerUploadId`, the browser-safe upload status projection, and the
+`crates/question_model` owns `StudentUploadId`, the browser-safe upload status projection, and the
 typed file-upload response. It does not know a bucket name, S3 key, scanner, access grant, or storage
 credential.
 
@@ -131,7 +131,7 @@ StudentResponse::FileUpload { object_key: String }
 with:
 
 ```rust
-StudentResponse::FileUpload { upload: LearnerUploadId }
+StudentResponse::FileUpload { upload: StudentUploadId }
 ```
 
 The secure assessment wire chooses this response shape only after loading an attempt whose issued
@@ -141,17 +141,17 @@ definition is `FileUpload`. The browser never sends `kind`.
 
 `crates/domain` owns pure upload-policy validation and legal state transitions. It validates
 definition limits against an injected platform policy and validates the final typed response shape.
-It cannot inspect bytes, query a database, read a clock, or authorize a learner.
+It cannot inspect bytes, query a database, read a clock, or authorize a Student.
 
 ### Object storage
 
 `crates/objects` owns two new semantic keys:
 
-- `LearnerUploadCandidate { tenant, attempt, upload, object }` in `temp-processing`; and
-- `LearnerUpload { tenant, attempt, upload, object }` in `student-records`.
+- `StudentUploadCandidate { tenant, attempt, upload, object }` in `temp-processing`; and
+- `StudentUpload { tenant, attempt, upload, object }` in `student-records`.
 
 Both paths derive only from typed server-generated IDs. No original filename enters a path. The
-candidate is never signable. The durable object uses `ObjectCategory::LearnerSubmission`, not the
+candidate is never signable. The durable object uses `ObjectCategory::StudentSubmission`, not the
 existing export category.
 
 The object contract adds a bounded streaming put operation. It accepts a typed destination and an
@@ -171,7 +171,7 @@ and reconciliation references.
 streaming, platform file profiles, media inspection, scanner composition, worker registration,
 protected download projection, and safe error mapping.
 
-The worker registry may claim `InspectLearnerUpload` only when both its real handler and atomic
+The worker registry may claim `InspectStudentUpload` only when both its real handler and atomic
 committer are registered. A missing scanner configuration keeps the family unregistered and leaves
 uploads unavailable; it does not consume and fail jobs repeatedly.
 
@@ -179,7 +179,7 @@ uploads unavailable; it does not consume and fail jobs repeatedly.
 
 The SolidJS widget owns file selection, progress, retry, replacement, status polling, keyboard and
 screen-reader behavior, and final submission of the upload ID. It never constructs an object path,
-derives a tenant/course/learner binding, or treats a local digest as authoritative.
+derives a tenant/course/Student binding, or treats a local digest as authoritative.
 
 ## Capability contract
 
@@ -196,7 +196,7 @@ Creating an upload requires all of these checks before the request body can cont
 7. intersect the question's allowed extensions with the platform allowlist; and
 8. calculate an expiry no later than the attempt's server-owned submission window.
 
-The returned `LearnerUploadId` is randomly generated with at least UUIDv4 entropy. It is not a
+The returned `StudentUploadId` is randomly generated with at least UUIDv4 entropy. It is not a
 bearer credential: every later route repeats authenticated ownership and binding checks. The record
 contains no reusable secret and no presigned URL.
 
@@ -229,7 +229,7 @@ issued -----> uploaded -----> ready -----> consumed
 - `consumed`: the exact upload is bound to the submitted attempt requiring manual grading.
 - `rejected`: type, structure, or malware inspection failed; no delivery is possible.
 - `expired`: no upload completed before capability expiry.
-- `abandoned`: the learner replaced/cancelled it or the attempt closed before consumption.
+- `abandoned`: the Student replaced/cancelled it or the attempt closed before consumption.
 
 There is no persisted `receiving` state. A replica streams to the immutable candidate key while the
 row remains `issued`, then atomically records metadata and queues inspection. If the process dies
@@ -274,7 +274,7 @@ The response is `201`, `Cache-Control: no-store`:
 ```
 
 The server returns same-origin paths, never an S3/MinIO URL, bucket, key, credential, checksum, or
-tenant/learner identifier. The exact default `maxBytes` above is illustrative; the response carries
+tenant/Student identifier. The exact default `maxBytes` above is illustrative; the response carries
 the authoritative effective policy.
 
 ### Stream bytes
@@ -291,7 +291,7 @@ refusal but never relaxes streaming validation.
 
 Every mutation requires the configured PLE origin and, when present, same-origin Fetch Metadata. The
 server does not rely on `SameSite` cookies alone, because future embedded LTI sessions require an
-explicit origin-bound anti-CSRF check. Capability creation also enforces durable per-learner,
+explicit origin-bound anti-CSRF check. Capability creation also enforces durable per-Student,
 per-attempt, and per-tenant active-upload and byte quotas so another API replica cannot bypass them.
 
 The S3/MinIO backend aborts an incomplete multipart upload on disconnect, over-limit, cancellation,
@@ -309,8 +309,8 @@ DELETE /api/attempts/{attemptId}/uploads/{uploadId}
 ```
 
 The safe status projection contains only upload ID, state, display filename, authoritative size,
-accepted media profile when known, and a stable learner-facing rejection code. It never returns a
-physical object ID/key, checksum, scanner signature, raw scanner output, course/tenant/learner ID, or
+accepted media profile when known, and a stable Student-facing rejection code. It never returns a
+physical object ID/key, checksum, scanner signature, raw scanner output, course/tenant/Student ID, or
 download URL.
 
 Delete is idempotent for `issued`, `uploaded`, or `ready`; it cannot delete `consumed`. Cleanup of
@@ -328,7 +328,7 @@ The existing compact submission route receives:
 ```
 
 `QuestionAttemptId` remains in the path and `Idempotency-Key` remains in the header. The body does not
-repeat `kind`, filename, size, type, checksum, object ID/key, learner, tenant, course, question,
+repeat `kind`, filename, size, type, checksum, object ID/key, Student, tenant, course, question,
 version, seed, or grading state.
 
 File-upload submissions use assessment request contract version `2`; ordinary flat and WeBWorK
@@ -353,9 +353,9 @@ delivery binding atomically. A changed idempotent replay returns `409` before an
 
 ### Allowlist ownership
 
-The platform owns a closed `LearnerUploadProfileV1` allowlist. An instructor's
+The platform owns a closed `StudentUploadProfileV1` allowlist. An instructor's
 `accepted_extensions` may narrow it but can never add a profile. Publication refuses an extension
-outside the platform allowlist instead of creating a question learners cannot safely submit.
+outside the platform allowlist instead of creating a question Students cannot safely submit.
 
 The first profiles are:
 
@@ -389,9 +389,9 @@ cleanup is visible to reconciliation and never changes the ready verdict.
 
 ## Persistence contract
 
-`2026080912_secure_learner_uploads.sql` creates `learner_upload` with at least:
+`2026080912_secure_student_uploads.sql` creates `student_upload` with at least:
 
-- `tenant_id`, `upload_id`, `attempt_id`, `attempt_occurred_at`, `course_id`, and `learner_id`;
+- `tenant_id`, `upload_id`, `attempt_id`, `attempt_occurred_at`, `course_id`, and `student_id`;
 - full 32-byte `presentation_digest`;
 - pre-minted candidate and durable object IDs plus protected delivery ID;
 - bounded display filename and declared byte count;
@@ -405,7 +405,7 @@ The primary key is `(tenant_id, upload_id)`. A composite foreign key binds the p
 object, and delivery identities. A partial unique index permits at most one consumed upload per
 attempt. Check constraints enforce state-specific all-or-none columns and exact digest widths.
 
-A course-binding trigger derives `course_id` from the attempt. The learner ID is derived from the
+A course-binding trigger derives `course_id` from the attempt. The Student ID is derived from the
 owned run/enrollment, not supplied as a trusted request field. The table uses forced RLS. The
 application receives only the statements needed by authenticated route transitions; the queue broker
 receives claim access; the retention broker receives exact tenant-scoped select/delete. No role gets
@@ -416,8 +416,8 @@ The migration also:
 - widens assessment request contract versions from `(0,1)` to `(0,1,2)`;
 - adds `PresentationDescriptorV2` as an allowed attempt descriptor only when the issued response is
   file upload;
-- adds `InspectLearnerUpload` to the closed job payload/check constraints;
-- extends delivery metadata with an attempt-bound learner-upload kind;
+- adds `InspectStudentUpload` to the closed job payload/check constraints;
+- extends delivery metadata with an attempt-bound Student-upload kind;
 - adds retention fences, access-log scope, and object-reconciliation references; and
 - updates the read-only migration ledger projection.
 
@@ -428,10 +428,10 @@ No historical row is rewritten to invent an upload. The current server has never
 A ready upload is not a grade. Successful submission creates the existing
 `needs_manual_grading` evaluation with no correctness or credit. The instructor grading projection
 adds only safe metadata and one protected same-origin download route. It does not expose the object
-key, checksum, scanner details, or learner-supplied path.
+key, checksum, scanner details, or Student-supplied path.
 
-The learner may retrieve their own consumed file, and an authorized course instructor may retrieve it
-for grading. Every request reauthorizes tenant, course, role, learner/attempt scope, and retention
+The Student may retrieve their own consumed file, and an authorized course Instructor may retrieve it
+for grading. Every request reauthorizes tenant, course, role, Student/attempt scope, and retention
 state before issuing the existing maximum five-minute student-record URL. Responses remain
 `Cache-Control: no-store`, `Pragma: no-cache`, and `Referrer-Policy: no-referrer` and are delivered as
 attachments with `X-Content-Type-Options: nosniff`. Temp and rejected objects are never signable.
@@ -444,7 +444,7 @@ ASCII fallback is generated server-side; CR/LF, path, control, and quoting injec
 - Unconsumed candidates and durable objects are short-lived and deleted by exact typed key.
 - Consumed uploads are student records and follow the course's archive/delete policy: notify at 30
   days, archive at 100 days, permanently delete at 365 days by default.
-- Retention first revokes delivery, then deletes the exact durable object and learner-upload row in
+- Retention first revokes delivery, then deletes the exact durable object and Student-upload row in
   the established work-set order.
 - WP-RC7 inventory understands both new key classes. It never deletes after one observation, never
   follows a browser string, and cancels deletion when a valid reference appears.
@@ -467,9 +467,9 @@ bytes, a worker inspect them, and a third accept the final submission.
 | Worker dies after promotion | Replay verifies exact durable object before commit |
 | Database commit fails after object write | Durable orphan is reconciled; no upload becomes ready |
 | Temporary cleanup fails | Ready record remains valid; cleanup/reconciliation retries |
-| Learner replaces file | New upload ID; old unconsumed upload becomes abandoned |
+| Student replaces file | New upload ID; old unconsumed upload becomes abandoned |
 | Attempt closes during upload | Final transition/submission refuses; cleanup owns bytes |
-| Foreign tenant/learner guesses ID | Concealed `404`; no object read, write, or state disclosure |
+| Foreign tenant/Student guesses ID | Concealed `404`; no object read, write, or state disclosure |
 | Ready object later mismatches checksum | Delivery and grading review fail closed; alert is recorded |
 
 ## Browser and accessibility behavior
@@ -488,7 +488,7 @@ submit and Escape-to-return remain widget extensions under the existing no-mouse
 The widget distinguishes selecting, uploading, checking, ready, rejected, expired, offline, and
 submitted states in text, not color alone. It preserves the selected local `File` only in memory;
 page refresh cannot silently recreate a browser file handle. After refresh, PLE reloads server upload
-status. If bytes were never accepted, the learner is clearly asked to choose the file again.
+status. If bytes were never accepted, the Student is clearly asked to choose the file again.
 
 The browser never stores file bytes, upload URLs, or object metadata in `localStorage` or
 `sessionStorage`. It may retain only the attempt/upload IDs needed to query same-origin status while
@@ -508,8 +508,8 @@ the active attempt remains compatible.
 - Depends on: accepted WP-P1 through WP-P6, WP-RC7, and WP-RC9.
 - Files: question-model identity/response/presentation modules, domain validation/state modules,
   generated contracts, Wasm bridge only for browser-safe format/state validation.
-- Behavior: add `LearnerUploadId`, `PresentationDescriptorV2`, closed profiles, pure policy/state
-  transitions, and typed response; remove raw object-key input from every learner contract.
+- Behavior: add `StudentUploadId`, `PresentationDescriptorV2`, closed profiles, pure policy/state
+  transitions, and typed response; remove raw object-key input from every Student contract.
 - Success: unknown fields, wrong descriptor, invalid transition, unsupported profile, and forged raw
   object material cannot construct an accepted response.
 - Validation: focused Rust/Wasm vectors, strict Clippy, generated binding freshness, and independent
@@ -519,7 +519,7 @@ the active attempt remains compatible.
 
 - Owner: `postgresql-expert`.
 - Depends on: WP-FU1, accepted WP-RC7, and accepted WP-RC9 migration ledger.
-- Files: `2026080912_secure_learner_uploads.sql`, Store contract, Memory/PostgreSQL upload owners,
+- Files: `2026080912_secure_student_uploads.sql`, Store contract, Memory/PostgreSQL upload owners,
   queue payload, retention/reconciliation and conformance tests.
 - Behavior: persist exact bindings and transitions, forced RLS, least grants, atomic queueing, and
   exact retention references.
@@ -562,7 +562,7 @@ the active attempt remains compatible.
 - Files: run submission decoder/route, atomic Store command, manual-grading projection, asset delivery,
   access logging, retention and route tests.
 - Behavior: consume one exact ready upload in the same transaction that records the idempotent manual
-  submission; authorize learner/instructor attachment delivery.
+  submission; authorize Student/Instructor attachment delivery.
 - Success: exact retry returns the same receipt; changed retry conflicts; wrong state/binding/digest,
   expired attempt, second consumed upload, foreign course, and damaged object fail before mutation or
   delivery.
@@ -586,14 +586,14 @@ the active attempt remains compatible.
 
 The capability is accepted only when all are true:
 
-- no browser request or persisted learner response contains a raw object key;
-- every route authenticates and rechecks tenant/learner/attempt binding before object access;
+- no browser request or persisted Student response contains a raw object key;
+- every route authenticates and rechecks tenant/Student/attempt binding before object access;
 - every accepted object has authoritative size, SHA-256, observed profile, and inspection evidence;
 - temp/rejected bytes are never deliverable and ready bytes use only the durable typed key;
 - final submission consumes the ready upload and creates manual-grading state atomically;
 - exact idempotent retries converge and changed retries fail before mutation;
 - forced RLS, least grants, course retention fences, reconciliation, and access logs include uploads;
-- scanner outage fails closed without losing the learner's status or consuming incomplete jobs;
+- scanner outage fails closed without losing the Student's status or consuming incomplete jobs;
 - one API replica can issue, another receive, a worker inspect, and another submit/download;
 - the native keyboard journey works without drag-and-drop or widget shortcuts;
 - no object path, checksum, scanner output, signed URL, credential, or foreign scope enters browser
@@ -650,7 +650,7 @@ a fragile test.
 8. Accept the package only after independent security, PostgreSQL, HCI, and documentation review.
 
 Rollback disables new issuance and drains or safely expires existing unconsumed uploads. It never
-deletes consumed learner records, rewrites manual grades, or rolls back the forward migration.
+deletes consumed Student records, rewrites manual grades, or rolls back the forward migration.
 
 ## Documentation close-out requirements
 

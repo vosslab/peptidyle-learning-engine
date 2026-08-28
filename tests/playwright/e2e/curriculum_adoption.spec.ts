@@ -1,4 +1,4 @@
-// Production-stack WP-PROF-B2 curriculum-adoption journey.
+// Production-stack WP-INST-B2 curriculum-adoption journey.
 //
 // Selector contract:
 // - src/pages/editor_page.tsx:906 owns public question publication.

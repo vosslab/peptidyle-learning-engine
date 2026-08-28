@@ -10,7 +10,7 @@ external QTI-JSONL is a separate future adapter concern. WP-RC1 through WP-RC3 a
 accepted. See
 [release_completion_plan.md](../active/release_completion_plan.md) for the current package sequence.
 
-> **Current-contract supersession (WP-PROF-S4).** This is an accepted import-history plan. Its
+> **Current-contract supersession (WP-INST-S4).** This is an accepted import-history plan. Its
 > former `immediateFull` authoring default is retired: current `AttemptPolicy` is exactly
 > `maxAttempts`, and imports create no learner-disclosure default. Assignment creation independently
 > chooses each of the five learner-disclosure timings through the current assignment-owned policy.

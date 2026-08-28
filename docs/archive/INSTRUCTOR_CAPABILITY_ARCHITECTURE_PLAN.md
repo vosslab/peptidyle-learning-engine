@@ -1,4 +1,4 @@
-# Plan: Professor capability architecture and Alpha course roadmap
+# Plan: Instructor capability architecture and Alpha course roadmap
 
 ## Context
 
@@ -7,7 +7,7 @@ assignment, complete repeated student runs, and inspect the gradebook. The Playw
 covers catalog scale, question authoring, assignment reuse, course appearance, imports, pagination,
 accessibility, and recovery.
 
-The broader professor cycle is less complete:
+The broader Instructor cycle is less complete:
 
 ```text
 discover -> inspect -> curate -> assemble -> teach -> intervene
@@ -25,19 +25,19 @@ of synchronization exceptions.
 This plan uses two ledgers:
 
 - Repair existing release-contract gaps before RC12.
-- Implement the broader professor system through a separate post-RC12 plan while Peptidyle remains
+- Implement the broader Instructor system through a separate post-RC12 plan while Peptidyle remains
   pre-production and before the first durable-data baseline.
 
 ## Objectives
 
-- Support the entire professor cycle from open-ended discovery through course reuse and
+- Support the entire Instructor cycle from open-ended discovery through course reuse and
   evidence-led revision.
 - Introduce public Alpha courses as creator-owned, non-enrollable curriculum blueprints that any
   approved Instructor may clone.
 - Give collections, reusable assignments, Alpha curricula, and teaching courses distinct ownership
   and mutability contracts.
 - Turn existing timing, accommodations, manual grading, item analysis, and retention foundations
-  into complete professor-facing workflows.
+  into complete Instructor-facing workflows.
 - Preserve Peptidyle's stronger security, reproducibility, accessibility, and student-record
   boundaries.
 
@@ -89,7 +89,7 @@ Optimize across four rates:
   and archive/rollover interfaces.
 - Add manual-grading queues, reusable feedback snippets, explicit assignment-grade overrides,
   item-analysis pages, and revision/replacement actions.
-- Add complete professor-centered Playwright and live PostgreSQL journeys.
+- Add complete Instructor-centered Playwright and live PostgreSQL journeys.
 - Update Human Guidance, active plans, architecture documentation, usage guidance, and the
   changelog as each package closes.
 
@@ -132,7 +132,7 @@ Optimize across four rates:
   exist in the database design but are not coherently projected through the current browser
   contract.
 
-### Backend capability without professor capability
+### Backend capability without Instructor capability
 
 - Assignment schedule and per-student/group accommodations.
 - Manual item grading and mixed automatic/manual recalculation.
@@ -261,7 +261,7 @@ Keep the current course aggregate exclusively for teaching.
 - Preserve pending manual items independently of assignment-level overrides.
 - Render current item-analysis aggregates with links to the problem, assignment, author workspace
   when owned, fork flow when not owned, and future-assignment replacement controls.
-- Never join professor analytics pages directly to raw learner responses except through an
+- Never join Instructor analytics pages directly to raw learner responses except through an
   explicitly authorized manual-grading detail.
 
 ## Milestone plan
@@ -269,10 +269,10 @@ Keep the current course aggregate exclusively for teaching.
 ```text
 M0  Release truth          Close existing discovery/statistics promises before RC12.
 M1  Shared foundations     Record decisions and establish public authorship, ownership, refs, and schemas.
-M2  Professor foundations  Build discovery/curation and teaching operations in parallel.
+M2  Instructor foundations  Build discovery/curation and teaching operations in parallel.
 M3  Reusable curriculum    Add personal blueprints, Alpha courses, cloning, rollover, and bounded updates.
 M4  Intervention loop      Add manual grading, overrides, item analysis, and revision pathways.
-M5  Connected acceptance   Prove the complete professor cycle on the final material tree.
+M5  Connected acceptance   Prove the complete Instructor cycle on the final material tree.
 ```
 
 ### Milestone M0: Release truth
@@ -297,7 +297,7 @@ M5  Connected acceptance   Prove the complete professor cycle on the final mater
 - Parallel-plan ready: no; shared types, migrations, generated contracts, and ownership rules must
   land serially.
 
-### Milestone M2: Professor foundations
+### Milestone M2: Instructor foundations
 
 - Depends on: M1.
 - Workstreams:
@@ -355,15 +355,15 @@ M5  Connected acceptance   Prove the complete professor cycle on the final mater
   timing; remove redundant visibility state; depends on WP-F2.
 - `WP-T2` - Expert coder: implement co-instructors, group purposes, assignment audiences,
   accommodations, retention, and archive UI; depends on WP-T1.
-- `WP-PROF-B1` - Expert coder: implement personal blueprints and public creator-owned Alpha aggregates;
+- `WP-INST-B1` - Expert coder: implement personal blueprints and public creator-owned Alpha aggregates;
   depends on WP-D2 and WP-F2.
-- `WP-PROF-B2` - Expert coder: implement Alpha fork, teaching instantiation, rollover, relative-date
-  preview, manifests, fast-forward, and selected copy; depends on WP-PROF-B1 and WP-T1.
+- `WP-INST-B2` - Expert coder: implement Alpha fork, teaching instantiation, rollover, relative-date
+  preview, manifests, fast-forward, and selected copy; depends on WP-INST-B1 and WP-T1.
 - `WP-G1` - Expert coder: implement manual-grading queue, feedback snippets, and separate grade
   overrides; depends on WP-T2.
 - `WP-G2` - Coder: expose item analysis and connect it to problem inspection, revision/fork, and
   future assignment replacement; depends on WP-G1 and WP-B2.
-- `WP-E1` - Playwright operator/tester: add behavior-named professor journeys and live-stack
+- `WP-E1` - Playwright operator/tester: add behavior-named Instructor journeys and live-stack
   evidence; depends on all behavior packages.
 - `WP-E2` - Integrator/reviewer: run final gates, visual review, documentation closure, changelog
   update, and first-data baseline procedure; depends on WP-E1.
@@ -374,10 +374,10 @@ files.
 
 ## Acceptance criteria and gates
 
-- A professor can search broadly, tolerate a simple typo, filter, inspect safe details, favorite a
+- A Instructor can search broadly, tolerate a simple typo, filter, inspect safe details, favorite a
   problem, place it in a collection, and add it to an assignment without copying an ID manually.
 - The assignment editor and Library use the same selection behavior and metadata vocabulary.
-- A professor can save an assignment as a personal blueprint and instantiate it in another course.
+- A Instructor can save an assignment as a personal blueprint and instantiate it in another course.
 - An Alpha course is visibly and programmatically non-enrollable, public to approved Instructors,
   creator-editable, and cloneable by any approved Instructor.
 - Alpha clones preserve attribution and source manifests but remain independently editable.
@@ -388,10 +388,10 @@ files.
 - Co-instructors use the existing Instructor role; Students and Sysadmins without direct membership
   cannot access course records.
 - Scheduling, accommodations, manual grading, overrides, item analysis, archive, and retention are
-  operable through accessible professor pages.
+  operable through accessible Instructor pages.
 - No public, learner, non-author, collection, blueprint, or Alpha response contains answer keys,
   grading implementations, private source, email, UUID, or FERPA data.
-- All professor pages remain compact and keyboard-complete at 1280 by 800; student pages retain
+- All Instructor pages remain compact and keyboard-complete at 1280 by 800; student pages retain
   tablet and narrow-phone guards.
 
 ## Test and verification strategy
@@ -415,9 +415,9 @@ files.
   - item analysis -> revision/fork -> future assignment;
   - keyboard, recovery, and canonical viewport behavior.
 - Keep the canonical pilot walkthrough focused on its existing known-ID teaching loop; add
-  professor-discovery and Alpha journeys as separate visible evidence.
+  Instructor-discovery and Alpha journeys as separate visible evidence.
 - One-time evidence uses representative PostgreSQL scale for ranking/facets, cross-tenant RLS,
-  schedule/DST cases, and complete live professor journeys.
+  schedule/DST cases, and complete live Instructor journeys.
 - Every package runs focused gates first, then the applicable generated-contract, Rust, TypeScript,
   Playwright, and repository gates. Final acceptance requires the entire Validation suite from
   `docs/TEST_EVIDENCE_MODEL.md` green on the final material tree with no required skip.
@@ -428,7 +428,7 @@ files.
   complete.
 - Because no durable production data exists, change foundational schemas directly and carry no
   compatibility readers.
-- After all professor packages pass, execute the reviewed clean-cluster baseline replacement before
+- After all Instructor packages pass, execute the reviewed clean-cluster baseline replacement before
   first production data.
 - If durable pilot data exists before baseline closure, stop consolidation and use forward-only
   migrations from that point.
@@ -460,7 +460,7 @@ files.
 
 ## Documentation close-out requirements
 
-- Preserve the settled Alpha-course and professor-workflow decisions in `docs/HUMAN_GUIDANCE.md`.
+- Preserve the settled Alpha-course and Instructor-workflow decisions in `docs/HUMAN_GUIDANCE.md`.
 - Save this roadmap under `docs/active_plans/active/` and link it from the implementation status
   without replacing the current release plan.
 - Update architecture, file structure, contracts, database structure, install/usage, instructor

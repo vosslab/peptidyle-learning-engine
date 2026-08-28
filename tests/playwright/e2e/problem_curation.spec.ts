@@ -1,4 +1,4 @@
-// Real-stack WP-PROF-D2 curation and reusable-question journey.
+// Real-stack WP-INST-D2 curation and reusable-question journey.
 //
 // Selector contract:
 // - src/features/problem_curation/problem_curation_panel.tsx owns the reuse workspace,

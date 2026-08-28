@@ -10,7 +10,7 @@ Dr. Voss holds a Ph.D. in Molecular Biophysics and Biochemistry from [Yale Unive
 
 Dr. Voss's research background spans structural biology, cryo electron microscopy, computational geometry, and scientific software development. His work has included the development of computational tools for analyzing protein geometry, ribosomal exit tunnels, molecular volumes, and electron microscopy image processing workflows.
 
-He has contributed to and maintained a number of widely used tools in the cryoEM ecosystem, including work associated with Appion, Leginon, TiltPicker, DoG Picker, ACE2, FindEM, and related pipelines. His published research includes peer reviewed work in journals such as *Journal of Structural Biology*, *Journal of Molecular Biology*, *Nucleic Acids Research*, *Proceedings of the National Academy of Sciences*, and *Nano Letters*.
+He has contributed to and maintained a number of widely used tools in the cryoEM ecosystem, including work associated with Appion, Leginon, TiltPicker, DoG Picker, ACE2, FindEM, and related pipelines. His published research includes peer reviewed work in journals such as _Journal of Structural Biology_, _Journal of Molecular Biology_, _Nucleic Acids Research_, _Proceedings of the National Academy of Sciences_, and _Nano Letters_.
 
 While no longer actively developing cryoEM software, this prior work continues to inform his approach to computational rigor, reproducibility, and open scientific tooling.
 

@@ -1,14 +1,14 @@
-# Plan: rewrite the professor capability architecture plan around a course spine
+# Plan: rewrite the Instructor capability architecture plan around a course spine
 
 ## Context
 
-`PROFESSOR_CAPABILITY_ARCHITECTURE_PLAN.md` (repo root, untracked) already names most of the
-professor cycle: discovery, collections, blueprints, Alpha courses, cloning, manual grading, item
+`INSTRUCTOR_CAPABILITY_ARCHITECTURE_PLAN.md` (repo root, untracked) already names most of the
+Instructor cycle: discovery, collections, blueprints, Alpha courses, cloning, manual grading, item
 analysis. It is a strong plan, but the investigation below found that it is organized as a
 **capability list layered on top of the current design**, and it misses several load-bearing
-abstractions that multiple professor workflows all depend on.
+abstractions that multiple Instructor workflows all depend on.
 
-The decisive evidence is that Peptidyle's professor gap is mostly a **projection deficit**, not a
+The decisive evidence is that Peptidyle's Instructor gap is mostly a **projection deficit**, not a
 storage deficit. The schema and domain crates already hold assignment lifecycle, availability/due/
 close, late policy, per-student and per-group policy exceptions, item pools with draw counts,
 `gradebook_included`, `attempt_selection_policy = instructor_selected`, manual grading, course item
@@ -42,29 +42,29 @@ the newly found gaps folded in, and moved into the location `docs/REPO_STYLE.md`
 ```
 +- DIMENSIONS ------------------------------------------------------------------+
 |                                                                               |
-|  autonomy         professor-driven O=====================o system-driven      |
-|                   every state change today needs a professor click; retention  |
+|  autonomy         Instructor-driven O=====================o system-driven      |
+|                   every state change today needs a Instructor click; retention  |
 |                   jobs already prove a worker exists that could close, release,|
 |                   and notify on schedule                                       |
 |                                                                               |
 |  intentionality   designed O===========o========== emergent                    |
 |                   policy is designed in the schema, emergent in the UI: due    |
 |                   dates, extensions and late rules exist as columns but reach  |
-|                   the professor as nothing, so real courses would grow ad-hoc  |
+|                   the Instructor as nothing, so real courses would grow ad-hoc  |
 |                   workarounds around them                                      |
 |                                                                               |
 |  size        *    one item o=========O===================o department          |
 |                   the plan is written at course scale. Below it sits the item  |
 |                   pool (schema-present, invisible). Above it sit term, section |
 |                   set, and multi-instructor program. * pivot - both ends are   |
-|                   unowned, and both are where professors actually live         |
+|                   unowned, and both are where Instructors actually live         |
 |                                                                               |
 +-------------------------------------------------------------------------------+
 ```
 
 ```
 ===================================================================================
-  *  SUBSTITUTION  *   holding "professor capability" fixed, swapping its scale
+  *  SUBSTITUTION  *   holding "Instructor capability" fixed, swapping its scale
                        value: course -> term, course -> section-set, course -> item pool
 ===================================================================================
 ```
@@ -76,7 +76,7 @@ daylight-saving refusal (all promised by the current plan) have nothing to resol
 sections cannot express per-section windows or audiences. At **item-pool** scale
 `assignment_selection_group` and `assignment_selection_candidate` already store draw counts,
 per-item points, ordering policy and an algorithm version, and no browser route reaches them; a
-professor cannot build "10 drawn from 40" even though the engine can deliver it.
+Instructor cannot build "10 drawn from 40" even though the engine can deliver it.
 
 ```
 ===================================================================================
@@ -141,7 +141,7 @@ collections, and Alpha curricula that reference it, exposed with tenant-safe agg
 search facets ("used in my courses"), correction-impact review, safe deprecation, item-analysis
 navigation, and "which of my assignments contain the question I just corrected".
 
-**Assignment item pool** - a professor-facing surface over the existing selection group: draw N of M
+**Assignment item pool** - a Instructor-facing surface over the existing selection group: draw N of M
 candidates, per-item points, ordering policy. Genus: assignment content; differentia: the delivered
 set differs per learner while the definition stays one object. Unblocks: practice variety beyond
 seed variation, exam integrity, and reuse of large collections.
@@ -152,35 +152,35 @@ courses that can fast-forward. `docs/HUMAN_GUIDANCE.md` forbids a generic dashbo
 permits a separate surface for a demonstrated cross-course task; these five are that demonstration.
 It contains no statistics tiles and every row links into the owning object page.
 
-**Learner work inspection** - an authorized, audited professor view of one learner's exact issued
+**Learner work inspection** - an authorized, audited Instructor view of one learner's exact issued
 variant, responses, and scoring for one attempt. Genus: FERPA-scoped read; differentia: it is the
 only place raw learner response text reaches an instructor outside manual grading. Unblocks the
-missing gradebook drill-down: today a professor sees summary rows and cannot answer "what did Mary
+missing gradebook drill-down: today a Instructor sees summary rows and cannot answer "what did Mary
 actually answer".
 
 **Course-local item analysis vs catalog item statistics** - two distinct products from one
 observation stream. Course-local answers "is this item working in my class"; catalog-wide answers
 "is this item working anywhere", is anonymous, and is disclosed under the existing statistics
-disclosure rules. Both exist in the domain crate; neither reaches a professor page.
+disclosure rules. Both exist in the domain crate; neither reaches a Instructor page.
 
 **Section** - a typed purpose on `course_group` (`section` vs `accommodation_group` vs
 `work_group`), plus assignment audiences that target one. Genus: course group; differentia: a
 learner belongs to exactly one section, and sections may carry their own schedule offsets.
 
 ```
-[ideonomy * 6 moves * 3 dims * 1 organon * "professor capability architecture"]
+[ideonomy * 6 moves * 3 dims * 1 organon * "Instructor capability architecture"]
   dim * pivot:     size - the plan is course-scaled; item-pool below and term/section/program
-                   above are both unowned, and professors work at all three
+                   above are both unowned, and Instructors work at all three
   * substitution:  scale course -> term          -> course term (start/end/IANA zone)
   * substitution:  scale course -> section-set   -> typed group purpose + assignment audience
-  * substitution:  scale course -> item pool     -> professor surface over selection groups
-  * substitution:  autonomy professor -> system  -> scheduled close/release/notify on the job worker
+  * substitution:  scale course -> item pool     -> Instructor surface over selection groups
+  * substitution:  autonomy Instructor -> system  -> scheduled close/release/notify on the job worker
   * x-domain:      theater (rehearsal)          -> rehearsal run with no educational record
   * x-domain:      theater (repertory + notes)  -> catalog-wide item statistics as flagship analysis
   organon:         dictionary - 11 entries, 7 of them coinages the current plan lacks
   not surfaced:    the student's own view of the same system (progress, what-if grade, practice
                    recommendation); the department/program scale above the course (shared sections
-                   across instructors, program-level outcomes); and the professor-as-author economy
+                   across instructors, program-level outcomes); and the Instructor-as-author economy
                    (ownership transfer, co-authoring, attribution when a fork outgrows its source).
                    These are negations of the plan's implicit "one instructor, one course, one term"
                    frame that the drawn dimension-prompts did not reach. Worth a follow-up tuple.
@@ -213,7 +213,7 @@ editor policies (completion, grade policy, continued practice, variation, time l
 browsing, authoring/publication, QTI import, repeated runs, feedback, recovery, keyboard, gradebook
 summary + pagination, appearance, and the J1-J5 plus Chapter 1 walkthroughs. No test exercises a
 date, a lifecycle transition, an accommodation, a pool, a manual grade, an override, an analysis
-page, or a professor looking at one learner's work - consistent with the table above.
+page, or a Instructor looking at one learner's work - consistent with the table above.
 
 ADAPT comparison verdicts (route inventory, `OTHER_REPOS/adapt/routes/api.php`):
 
@@ -233,16 +233,16 @@ ADAPT comparison verdicts (route inventory, `OTHER_REPOS/adapt/routes/api.php`):
 
 ## What changes in the plan document
 
-Rewrite `PROFESSOR_CAPABILITY_ARCHITECTURE_PLAN.md` and relocate it with `git mv` to
-`docs/active_plans/active/professor_capability_architecture_plan.md` (REPO_STYLE requires
+Rewrite `INSTRUCTOR_CAPABILITY_ARCHITECTURE_PLAN.md` and relocate it with `git mv` to
+`docs/active_plans/active/instructor_capability_architecture_plan.md` (REPO_STYLE requires
 snake_case working plans under `docs/active_plans/active/`). Keep it ASCII-only with `+-|` diagrams
 per `docs/MARKDOWN_STYLE.md`; the Unicode artifact above stays in this session, not in the repo.
 
 Sections to add or replace:
 
 1. **Thesis section "The projection deficit"** - replaces the current three-bullet "backend
-   capability without professor capability" list with the evidence table above, and states the
-   design rule: a stored policy that no professor page projects is an unfinished capability, not a
+   capability without Instructor capability" list with the evidence table above, and states the
+   design rule: a stored policy that no Instructor page projects is an unfinished capability, not a
    future feature.
 2. **"Seven load-bearing abstractions"** - the dictionary entries, each with genus, differentia,
    ownership, mutability, and the list of workflows it unblocks. This replaces the plan's flat
@@ -253,7 +253,7 @@ Sections to add or replace:
 4. **Rehearsal run contract** - instructor-owned, no enrollment, no gradebook row, no analysis
    observation, visibly labelled, reuses the existing run pipeline and question delivery. Includes
    the explicit rejection of ADAPT's test-student and login-as designs and the FERPA reason.
-5. **Item pool authoring** - professor surface over the existing selection-group schema, its
+5. **Item pool authoring** - Instructor surface over the existing selection-group schema, its
    interaction with the first-issued-run lock, and its relationship to blueprints and Alpha
    assignments.
 6. **Two-level analysis** - course-local item analysis and anonymous catalog-wide item statistics as
@@ -266,7 +266,7 @@ Sections to add or replace:
    it.
 9. **Autonomy boundary** - which transitions the server performs on schedule (close at `closes_at`,
    release disclosure at close, retention notify/archive/delete) versus which always require a
-   professor action (publish, override, delete-and-regrade, archive-early). Reuses the existing job
+   Instructor action (publish, override, delete-and-regrade, archive-early). Reuses the existing job
    worker rather than adding a scheduler.
 10. **Revised milestones** - M1 becomes "Course spine and shared foundations" and absorbs term,
     grade scheme, policy resolver, disclosure policy and group purposes; M2 gains a third lane for
@@ -296,8 +296,8 @@ Assumptions I will record in the document rather than ask about:
 
 ## Files
 
-- `PROFESSOR_CAPABILITY_ARCHITECTURE_PLAN.md` -> `git mv` to
-  `docs/active_plans/active/professor_capability_architecture_plan.md`, then rewritten in place.
+- `INSTRUCTOR_CAPABILITY_ARCHITECTURE_PLAN.md` -> `git mv` to
+  `docs/active_plans/active/instructor_capability_architecture_plan.md`, then rewritten in place.
 - `docs/HUMAN_GUIDANCE.md` - append the settled decisions only (course term required, grade scheme
   scope, rehearsal instead of test-student, attention-queue permission and cap). Keep the owner's
   voice; engineering detail stays in the plan.

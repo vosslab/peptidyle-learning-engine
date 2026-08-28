@@ -1,10 +1,10 @@
-# WP-PROF-S4 Start and Closeout Checklist
+# WP-INST-S4 Start and Closeout Checklist
 
 ## Codebase status snapshot (2026-08-19)
 
-- WP-PROF-S3 and WP-PROF-S5 are accepted and closed; S4 consumes their current verdicts without
+- WP-INST-S3 and WP-INST-S5 are accepted and closed; S4 consumes their current verdicts without
   rebuilding policy resolution or entitlement.
-- WP-PROF-S4 is accepted on the final material tree. Migration 1805, learner projections, the central
+- WP-INST-S4 is accepted on the final material tree. Migration 1805, learner projections, the central
   student route boundary, class-statistics privacy, and the visual/access evidence are complete.
 - Multiple prior cuts were rejected until resolved where competing authority paths remained; these were repaired to enforce single-truth ownership for policy, entitlement, and course membership.
 - This file preserves the start sequence as implementation history and records the completed closure.
@@ -39,8 +39,8 @@
   - `docs/active_plans/implementation_plan.md`
   - `docs/active_plans/implementation_status.md`
   - `docs/TEST_EVIDENCE_MODEL.md`
-- Confirm that `implementation_status.md` records accepted WP-PROF-S4, immutable migration 1805, and
-  the sole handoff to dependency-ready WP-PROF-S6.
+- Confirm that `implementation_status.md` records accepted WP-INST-S4, immutable migration 1805, and
+  the sole handoff to dependency-ready WP-INST-S6.
 
 2) Scope freeze (next 10 min)
 

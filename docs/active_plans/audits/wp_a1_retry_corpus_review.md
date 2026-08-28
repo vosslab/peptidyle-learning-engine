@@ -40,7 +40,7 @@
   cleanup action.
 - HISTORICAL: At the time of this WP-A1 review, the v1 single-choice source
   contract included private `correctChoice`, `maxAttempts: null`, `immediateFull`, and `untimed`.
-  WP-PROF-S4 supersedes that disclosure model: current `AttemptPolicy` is `maxAttempts`-only, and the
+  WP-INST-S4 supersedes that disclosure model: current `AttemptPolicy` is `maxAttempts`-only, and the
   assignment-owned five-field learner disclosure policy controls visibility. The reviewed source
   still selected a named RNG stream and kept the first response wrong and second response correct
   without exporting that information.

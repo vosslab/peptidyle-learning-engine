@@ -393,7 +393,7 @@
   policies, post-create assignment confirmation, assignment list and overview, timed problem, scored
   retake control, a visibly new Practice run 2, and multi-learner gradebook history. The capture
   still walks visible controls, now uses the unmistakable identities
-  `Dr. Fake Professor`, `Mary Fake Student`, and `Jack Fake Student`, and gives demo course/problem
+  `Dr. Fake Instructor`, `Mary Fake Student`, and `Jack Fake Student`, and gives demo course/problem
   titles concise `Fake` labels. Fake-user screenshots are required acceptance evidence; credentials,
   answer material, traces, and raw child output remain excluded.
 - Added dedicated instructor and student guides with three fresh real-stack

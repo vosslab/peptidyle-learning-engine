@@ -27,7 +27,9 @@ pub use model::{
     RenderedItemIdV1, ResponseSchemaV1,
 };
 pub use response_translation::{
-    RenderedResponseTranslationErrorV1, translate_rendered_response_v1,
+    InspectedExternalToolStateV1, InspectedMatchPairV1, InspectedStudentArtifactStateV1,
+    InspectedStudentResponseV1, InspectedTextEntryV1, RenderedResponseTranslationErrorV1,
+    project_durable_response_to_rendered_v1, translate_rendered_response_v1,
 };
 
 #[cfg(test)]

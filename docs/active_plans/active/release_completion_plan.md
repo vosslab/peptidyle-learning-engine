@@ -10,13 +10,13 @@ WP-RC8's generic identity/passwordless/roster routes and provider-free productio
 live SMTP, optional-passkey/multi-replica evidence, and independent acceptance precede WP-RC4.
 Secure payload closeout and WP-RC5 visual-authoring/all-family integration follow in dependency order.
 
-**WP-PROF-G1 reconciliation boundary (2026-08-28).** The approved G1-W7 closeout is one semantic
+**WP-INST-G1 reconciliation boundary (2026-08-28).** The approved G1-W7 closeout is one semantic
 transition split into four atomic forward migrations, allocated in the shared
 [implementation status](../implementation_status.md) ledger: receipt provenance schema, execution
 receipt writers, completion receipt writer, and Instructor receipt writers. The sequence restores
-the accepted G1 migrations first, then applies 1866 through 1869 in order. G1 remains incomplete
-until its fresh/no-op/compatibility/checksum, nonempty-receipt fail-closed, PostgreSQL/RLS/worker,
-actual-V2 denial, browser, screenshot, and exact-final-tree `all_test.sh` gates are green.
+the accepted G1 migrations first, then applies 1866 through 1869 in order. G1 is accepted after its
+fresh/no-op/compatibility/checksum, nonempty-receipt fail-closed, PostgreSQL/RLS/worker, actual-V2
+denial, browser, screenshot, and exact-final-tree `all_test.sh` gates passed.
 
 **Current bounded evidence.** WP-HG1 is accepted through permanent repository gates plus clean-stack,
 learner-sweep, and disposable PostgreSQL evidence; email activation, Fastmail, and HOTSPOT lifecycle
@@ -44,7 +44,7 @@ Keep deterministic behavior/contract checks permanent; source inventories, confi
 screenshots, timings, and reconstruction probes are one-time scratch evidence, and real service checks are opt-in
 E2E/live. Fixtures require a stable serialized contract; otherwise use inline builders.
 
-The active professor-capability roadmap applies this boundary to WP-R2. Offline Memory conformance belongs to
+The active Instructor-capability roadmap applies this boundary to WP-R2. Offline Memory conformance belongs to
 `crates/learning-data-access/tests/conformance/publication.rs` and `assignments.rs`; disposable PostgreSQL/RLS
 persistence and role claims to `tests/e2e/e2e_wp_r2_postgres_rls.py`; and manufactured manifest convergence to
 `crates/project-tools/src/e2e_seed/tests.rs`. The canonical `webwork_delivery` and
@@ -235,14 +235,16 @@ begins only after WP-P2 preserves the reserved migration ordering below.
 WP-P2 also completes its post-G1-W2 legacy-consumer transition and associated grant reductions before
 that RC7 schema handoff, using the recorded migration-allocation review.
 
-The G1 closeout remains a release dependency before any downstream package consumes accepted
-automated-grading operation receipts. Migration 1866 refuses a nonempty execution or operation
+The accepted G1 closeout supplies the operation receipts that Instructor-track G2 consumes; it
+remains a satisfied release dependency. Migration 1866 refuses a nonempty execution or operation
 receipt table before changing schema; it adds closed non-null provenance only on the clean
 pre-production volume. Migration 1869 supplies the five-input private retry V2, routes the public
 retry caller through its session-derived actor, revokes V1 execution, and drops V1 with `RESTRICT`.
-The connected security oracle must call the actual V2 function as `ple_app` and observe SQLSTATE
-`42501`; this actual-capability result is the authorization evidence. Any required unrun or
-skipped gate keeps G1 incomplete under [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md).
+The connected security oracle called the actual V2 function as `ple_app` and observed SQLSTATE
+`42501`; this actual-capability result is recorded authorization evidence. G1's required final
+Validation passed under [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md), so Instructor-track
+G2 may consume its accepted operation receipts. Release-package dependencies retain their named
+acceptance gates.
 
 ### WP-UI1: Compose the PLE teaching workspace
 
@@ -674,15 +676,15 @@ identity-proofing and audit design; it is not a version 1 release dependency.
 - **Validation:** signed protocol fixtures generated in tests, not captured secrets; Store/RLS tests;
   disposable LMS sandbox or standards harness; replay/cross-tenant/outage tests; full gate and
   independent protocol/security review.
-### WP-FU1 through WP-FU6: Secure learner file uploads
+### WP-FU1 through WP-FU6: Secure Student file uploads
 
 WP-FU1 through WP-FU6 run after WP-RC9 and before WP-RC10. Their complete contract, files,
 one-owner packages, state machine, security controls, and gates are in
-`docs/active_plans/active/secure_learner_file_upload_plan.md`. The packages replace the
-raw file-upload object-key placeholder with a server-issued tenant/learner/attempt-bound upload,
+`docs/active_plans/active/secure_student_file_upload_plan.md`. The packages replace the
+raw file-upload object-key placeholder with a server-issued tenant/Student/attempt-bound upload,
 stream into non-deliverable temporary storage, inspect and promote exact SHA-256-bound bytes, and
 atomically consume one ready upload into the existing manual-grading path. They own
-`2026080912_secure_learner_uploads.sql`; the current learner route remains fail-closed until all six
+`2026080912_secure_student_uploads.sql`; the current Student route remains fail-closed until all six
 packages are accepted.
 
 Historical note: the former `2026080913_local_development_roster.sql` source was a pre-production
@@ -831,7 +833,7 @@ development. They must pass, not skip, in WP-RC12 release evidence.
 ## Migration and compatibility policy
 
 - The shared migration ledger/allocation registry in [implementation_status.md](../implementation_status.md) is authoritative and owned by the `release integrator`; preserve the accepted baseline and `2026080907_course_appearance.sql` without duplicating the registry here.
-- New schema packages receive an allocation before implementation; accepted versions are never inserted/renamed, and non-schema packages do not implicitly receive one. WP-PROF-E2 may prepare/review a candidate baseline earlier, but actual replacement requires professor WP-PROF-E2 readiness plus all repository-owned release schema packages/RC12 immediately before first production data; it must not replace the ledger early.
+- New schema packages receive an allocation before implementation; accepted versions are never inserted/renamed, and non-schema packages do not implicitly receive one. WP-INST-E2 may prepare/review a candidate baseline earlier, but actual replacement requires Instructor WP-INST-E2 readiness plus all repository-owned release schema packages/RC12 immediately before first production data; it must not replace the ledger early.
 - PLE flat JSON source identity lives inside the existing versioned source payload and immutable
   object/checksum binding; no family-shaped table is added.
 - Native PLE flat JSON uses its v2 reader only. Current source and disposable test data are rebuilt

@@ -17,9 +17,11 @@ use super::builder::{
 };
 use super::codec::{crc16_ccitt_false, descriptor_bytes_v1};
 use super::{
+    InspectedExternalToolStateV1, InspectedStudentArtifactStateV1, InspectedStudentResponseV1,
     PresentationBindingV1, PresentationNonceV1, RenderedItemRoleV1,
-    RenderedResponseTranslationErrorV1, ResponseSchemaV1, rebuild_public_presentation_v1,
-    reproduce_presentation_v1, translate_rendered_response_v1, verify_presentation_v1,
+    RenderedResponseTranslationErrorV1, ResponseSchemaV1, project_durable_response_to_rendered_v1,
+    rebuild_public_presentation_v1, reproduce_presentation_v1, translate_rendered_response_v1,
+    verify_presentation_v1,
 };
 
 fn choice(id: &str, text: &str) -> ChoiceOption {
@@ -322,6 +324,103 @@ fn rendered_response_translation_preserves_scalar_response_families() {
             response
         );
     }
+}
+
+#[test]
+fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_states() {
+    let multiple = presentation_for(ResponseDefinition::MultipleChoice {
+        choices: vec![choice("a", "A")],
+        selection: SelectionCardinality::ExactlyOne,
+    });
+    assert!(matches!(
+        project_durable_response_to_rendered_v1(&StudentResponse::MultipleChoice { selected: vec![ChoiceId::new("a")] }, &multiple),
+        Ok(InspectedStudentResponseV1::MultipleChoice { selected }) if selected == vec![multiple.item_bindings[0].rendered.clone()]
+    ));
+
+    let blank = presentation_for(ResponseDefinition::MultiBlank {
+        blanks: vec![TextEntrySlot {
+            id: ChoiceId::new("slot"),
+            label: vec![],
+            match_mode: TextMatchMode::Exact,
+            max_length: 10,
+        }],
+    });
+    assert!(matches!(
+        project_durable_response_to_rendered_v1(&StudentResponse::MultiBlank { answers: vec![TextEntryAnswer { slot: ChoiceId::new("slot"), text: "entered".into() }] }, &blank),
+        Ok(InspectedStudentResponseV1::MultiBlank { answers }) if answers[0].text == "entered"
+    ));
+
+    let matching = presentation_for(ResponseDefinition::Matching {
+        prompts: vec![choice("p", "P")],
+        choices: vec![choice("c", "C")],
+    });
+    assert!(matches!(
+        project_durable_response_to_rendered_v1(
+            &StudentResponse::Matching {
+                matches: vec![MatchPair {
+                    prompt: ChoiceId::new("p"),
+                    choice: ChoiceId::new("c")
+                }]
+            },
+            &matching
+        ),
+        Ok(InspectedStudentResponseV1::Matching { .. })
+    ));
+    let ordering = presentation_for(ResponseDefinition::Ordering {
+        items: vec![choice("first", "First")],
+    });
+    assert!(matches!(
+        project_durable_response_to_rendered_v1(
+            &StudentResponse::Ordering {
+                order: vec![ChoiceId::new("first")]
+            },
+            &ordering
+        ),
+        Ok(InspectedStudentResponseV1::Ordering { .. })
+    ));
+
+    assert_eq!(
+        project_durable_response_to_rendered_v1(
+            &StudentResponse::Numeric { value: 1.5 },
+            &multiple,
+        ),
+        Ok(InspectedStudentResponseV1::Numeric { value: 1.5 })
+    );
+    assert_eq!(
+        project_durable_response_to_rendered_v1(
+            &StudentResponse::ShortText {
+                text: "written".into(),
+            },
+            &multiple,
+        ),
+        Ok(InspectedStudentResponseV1::ShortText {
+            text: "written".into(),
+        })
+    );
+    assert_eq!(
+        project_durable_response_to_rendered_v1(
+            &StudentResponse::Hotspot { points: vec![] },
+            &multiple,
+        ),
+        Ok(InspectedStudentResponseV1::Hotspot { points: vec![] })
+    );
+    assert_eq!(
+        project_durable_response_to_rendered_v1(
+            &StudentResponse::FileUpload {
+                object_key: "private/object".into()
+            },
+            &multiple
+        ),
+        Ok(InspectedStudentResponseV1::FileUpload {
+            artifact: InspectedStudentArtifactStateV1::Submitted
+        })
+    );
+    assert_eq!(
+        project_durable_response_to_rendered_v1(&StudentResponse::ExternalTool {}, &multiple),
+        Ok(InspectedStudentResponseV1::ExternalTool {
+            completion: InspectedExternalToolStateV1::SubmissionRecorded
+        })
+    );
 }
 
 #[test]

@@ -2,8 +2,9 @@
 
 ## Status
 
-Implementation state: binding architecture approved on 2026-08-27 after independent architecture
-and repository-rules review. The shared [allocation ledger](../implementation_status.md) assigns
+Implementation state: accepted on 2026-08-28 after independent architecture, security/privacy,
+HCI, and repository-rules review plus final material-tree Validation. The shared
+[allocation ledger](../implementation_status.md) assigns
 `2026081849_automated_grading_operations.sql` and
 `2026081850_accepted_submission_execution_load.sql` to this package. The ledger
 also records the approved forward allocations for W4 and W5:
@@ -22,15 +23,18 @@ also records the approved forward allocations for W4 and W5:
 `2026081863_scoring_invalidation_origin.sql`, and
 `2026081864_scoring_invalidation_capability.sql`.
 
-W2 and W3 are accepted; W4 has a stable implementation handoff; and W5 through W7b implementation
-and connected evidence are complete. G1-W7 closeout is current. The 99-migration live evidence
-includes readable migrations 1851 through 1869, second-pass no-op, compatibility, executable
-role/RLS proof, visible browser recovery, WebWork grading, replica restart, and exact cleanup. Final
-tracked-tree Validation follows repository tracking of the 13 current durable artifacts. The W4
-execution contract at
+W2 through W7 are accepted. The 99-migration live evidence includes readable migrations 1851
+through 1869, second-pass no-op, compatibility, executable role/RLS proof, visible browser recovery,
+WebWork grading, replica restart, and exact cleanup. Final `source source_me.sh && ./all_test.sh`
+Validation passed with Rust/Wasm, 369 Node tests, 7,978 pytest checks, every production-browser
+scenario, the connected service oracles, and exact cleanup. The W4 execution contract at
 `docs/active_plans/active/automated_grading_execution_contract.md` freezes the
 sealed worker capability, versioned canonical immutable evidence protocol, state transitions, lane
 ownership, and focused evidence boundary for contract-paired dispatch.
+
+Rust, frontend, and pytest checks remain permanent regression gates. The production-browser and
+connected-service lanes, final aggregate, screenshots, and independent review are disposable
+acceptance evidence for the accepted G1 boundary.
 
 This plan extends the accepted T6 assignment workspace with assignment-local automated-grading
 operations. It consumes the existing learner delivery, deterministic grading, immutable evidence,
@@ -44,9 +48,8 @@ connected proof then follow in dependency order.
 ## G1-W7 reconciliation addendum
 
 The 2026-08-28 architect decision approves one semantic closeout transition split across four
-atomic forward migrations. This addendum preserves the accepted G1 package scope and contract;
-accepted work remains closed and the existing receipt history remains canonical. `WP-PROF-G1`
-remains incomplete until final Validation passes on the exact tracked material tree.
+atomic forward migrations. This addendum preserves the accepted G1 package scope and contract,
+keeps the existing receipt history canonical, and records the green final material-tree Validation.
 
 ### Ordered migration work
 
@@ -88,26 +91,26 @@ through the actual capability boundary.
   network observations, and screenshots, then run `source source_me.sh && ./all_test.sh` on the
   exact final material tree.
 
-Per [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md), any required unrun or skipped gate
-keeps G1 incomplete. The shared migration ledger remains the allocation authority; this section
-records only the reconciliation delta and its acceptance boundary.
+The historical acceptance rule in [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md) required
+every gate named above. G1 passed those gates; the shared migration ledger remains the allocation
+authority, and this section records the reconciliation delta and accepted boundary.
 
-## Context
+## Pre-G1 problem context
 
 PLE already has a dependable scoring-recalculation pipeline. Migration `2026081830` advances an
 assignment generation, marks the assignment recalculating, and creates bounded work. Migration
 `2026081831` lets the sole scoring committer publish only privately staged work for an exact lease
 and current generation. A newer generation supersedes old work without stale score publication.
 
-The pipeline lacks an Instructor operation model. It has no typed, immutable record for a
+The pipeline lacked an Instructor operation model. It had no typed, immutable record for a
 deterministic grader exception; no answer-free assignment-local queue; and no replay-safe recovery
-command. `worker_job` is mutable execution state. `audit_event` is generic history.
+command. `worker_job` was mutable execution state. `audit_event` was generic history.
 `manual_grade_receipt` belongs to the separately authorized human-grading capability.
 
-Source inspection adds an important foundation requirement. `submit_response` currently calls the
-grader before `submit_question_attempt`, while preparation hydrates and authorizes without
+Source inspection established an important foundation requirement. `submit_response` called the
+grader before `submit_question_attempt`, while preparation hydrated and authorized without
 persisting the browser response or idempotency key. A deterministic grader exception therefore
-loses its retry input when the request ends. G1 fixes the state machine: an accepted, shape-valid
+lost its retry input when the request ended. G1 fixed the state machine: an accepted, shape-valid
 learner input is first persisted as the existing canonical immutable `submission`, then a
 synchronous grader or a worker grades that exact server-private record. `submission_evaluation`
 remains the grade outcome. The successful synchronous fast path remains valuable as an optimization
@@ -542,7 +545,7 @@ journey, connected oracles, and final Validation.
 
 ### G1-W3: stabilize typed pending reads and classify outcomes
 
-- **Owner/package:** expert coder, `WP-PROF-G1 / G1-W3`, learner
+- **Owner/package:** expert coder, `WP-INST-G1 / G1-W3`, learner
   submission/grader boundary.
 - **Depends on:** G1-W2. W4 and W5 wait for the stabilization gate below.
 - **Owned artifacts:** the two `submission_record` matches in
@@ -586,7 +589,7 @@ journey, connected oracles, and final Validation.
 
 ### G1-W4: accept, execute, and recover learner grading
 
-- **Owner/package:** expert coder, `WP-PROF-G1 / G1-W4`, learner acceptance,
+- **Owner/package:** expert coder, `WP-INST-G1 / G1-W4`, learner acceptance,
   worker/scoring, and persistence-capability boundary.
 - **Depends on:** G1-W3 green stabilization gate, W2 accepted SQL/security
   review, and the W4 migration stabilization gate. Migrations

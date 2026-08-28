@@ -1,6 +1,7 @@
 # Design decisions
 
 <!-- VENDORED HEADER: START -->
+
 Record each durable decision about how this code and repository are shaped, once it is settled, with
 the reasoning a later reader needs. Guidance Neil Voss states belongs in
 [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), dated history in `docs/CHANGELOG.md`, open discussion in
@@ -135,7 +136,7 @@ the source, and an Instructor deliberately replaces any assignment item that sho
 
 ### Assignment work is one aggregate
 
-**Decision.** WP-PROF-T6 gives each assignment one exact course-scoped Instructor workspace. Its
+**Decision.** WP-INST-T6 gives each assignment one exact course-scoped Instructor workspace. Its
 Overview, Questions, Policies, and Student view are separate tasks over the same assignment record.
 Questions owns title and ordered fixed-or-pool content. Policies owns audience, disclosure, run
 policies, instructions, schedule, limits, late behavior, and lifecycle. Student view is a read-only
@@ -743,3 +744,31 @@ their acceptance target permits removal, and prunes only images unused by curren
 
 **Why.** The owner's Podman machine is dedicated to disposable project infrastructure, but typed
 target, label, and explicit-resource safeguards keep destructive cleanup bounded.
+
+### The Gradebook calculates once and Student-work inspection audits once
+
+**Decision.** The course Gradebook is one roster-first, cursor-paged server projection calculated
+only by `domain::course_grade::calculate_course_grade`. `CourseGradebookStore` derives each page
+from the active grade scheme and current assignment summaries. It serves browser-safe calculated
+rows separately from export-only PII rows. A cursor binds scheme/roster structural revision,
+normalized operation filter, named-Student selection result, and roster position; continuation
+keeps roster order while returning each later page's own scoring witness. A named Student-work
+inspection uses one dedicated Store and PostgreSQL broker that validates the complete public
+course/membership/assignment/run composite, same-origin Fetch Metadata, and immutable issued
+evidence; writes server-owned student-record access and metadata-only audit facts atomically; then
+returns solution-free `no-store` detail with the Student's submitted response and issued
+presentation. `question_model::presentation::project_durable_response_to_rendered_v1` owns the
+pure conversion from private durable response to closed `InspectedStudentResponseV1` rendering.
+
+The four G2 migrations close authority independently: `1870` establishes the owner and base ACL;
+`1871` introduces private immutable witness access; `1872` supplies the only app-executable,
+fixed-search-path inspection function with parameter-bound SQL and atomic audit writes; `1873`
+adds evidence-backed indexes while retaining that authority boundary. Generic secure failures write
+separate server-owned security telemetry and preserve the truthfulness of student-record access
+facts.
+
+**Why.** Course totals are derived state and stay trustworthy when they have one calculator and
+one current-summary source. An Instructor needs the exact Student record to teach and resolve
+grading work, while course navigation, operation receipts, cursors, logs, and screenshots remain
+answer-free. The explicit audited detail boundary supports both needs with traceable authority and
+without creating another grading authority or record model.

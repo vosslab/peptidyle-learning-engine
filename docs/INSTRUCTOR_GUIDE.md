@@ -132,7 +132,7 @@ surface.
 
 ## Configure course grades
 
-The current WP-PROF-S6 slice supports two course-grade modes:
+The current WP-INST-S6 slice supports two course-grade modes:
 
 - **Total points** adds included assignment scores over included points possible.
 - **Weighted categories** assigns ordered categories and weights, with optional drop-lowest rules

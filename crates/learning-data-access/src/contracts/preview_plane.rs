@@ -1,4 +1,4 @@
-//! Focused persistence boundary for the non-mutating WP-PROF-T3 preview plane.
+//! Focused persistence boundary for the non-mutating WP-INST-T3 preview plane.
 
 use crate::{PageRequest, StoreError, TenantContext};
 use async_trait::async_trait;

@@ -1,4 +1,4 @@
-//! Pure composition of S5 entitlement, S3 policy, and S4 disclosure for WP-PROF-T3.
+//! Pure composition of S5 entitlement, S3 policy, and S4 disclosure for WP-INST-T3.
 //!
 //! The Store owns route locators and authorization. It resolves them, discards all
 //! identity-bearing values, owns the resulting `PreviewSubject`, and passes this

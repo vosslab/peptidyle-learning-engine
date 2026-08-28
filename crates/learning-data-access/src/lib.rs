@@ -78,6 +78,7 @@ mod score_precision;
 /// Provider-neutral, replica-safe authentication session contract.
 pub mod session;
 mod statistics;
+mod student_work_inspection;
 mod submission_completion;
 mod successor_eligibility;
 mod teaching_authority_references;
@@ -131,10 +132,15 @@ pub use crate::course_appearance::{
     RegisterCourseBannerCandidate, SaveCourseAppearance,
 };
 pub use crate::course_gradebook::{
+    AssignmentInspectionChoice, AssignmentRunSelectionBasis, AssignmentScoringWitness,
+    CalculatedAssignmentCell, CalculatedAssignmentCellAvailability, CalculatedGradebookPage,
+    CalculatedGradebookRequest, CalculatedGradebookResult, CalculatedGradebookRow,
     CourseGradeAssignmentMembership, CourseGradeAssignmentRecord, CourseGradeExport,
     CourseGradeExportAudit, CourseGradeExportId, CourseGradeSchemeRecord,
     CourseGradeSchemeRevision, CourseGradebookStore, CourseGradebookTotalRow,
-    CourseGradebookTotals, MAX_COURSE_GRADE_EXPORT_ROWS, UpdateCourseGradeScheme,
+    CourseGradebookTotals, GradebookFilter, GradebookFilterRequest, GradebookReloadReason,
+    GradebookSelectionResult, MAX_COURSE_GRADE_EXPORT_ROWS, StudentSelectionRow,
+    UpdateCourseGradeScheme,
 };
 pub use crate::course_roster::{
     AllowedEmailDomain, ClaimCourseInvitation, ClaimedCourseMembership, CommitCourseRosterImport,
@@ -274,6 +280,12 @@ pub use crate::rls::TenantContext;
 pub use crate::session::{
     SessionLifetime, SessionRecord, SessionStore, SessionSubject, SessionSubjectError,
     SessionTokenHash, SessionTokenHashParseError,
+};
+pub use crate::student_work_inspection::{
+    InspectStudentWorkRequest, InspectedStudentSubmissionV1, InspectedStudentWorkDetailV1,
+    StudentWorkInspectionAudit, StudentWorkInspectionAuditIntent, StudentWorkInspectionFocusTarget,
+    StudentWorkInspectionRecordAccess, StudentWorkInspectionReturnContext,
+    StudentWorkInspectionStore,
 };
 pub use crate::teaching_authority_references::{
     CourseCoInstructorInvitationReferenceView, CourseInstructorMembershipReferencePage,

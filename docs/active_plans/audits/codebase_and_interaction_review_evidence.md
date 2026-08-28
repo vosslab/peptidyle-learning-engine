@@ -73,7 +73,7 @@ pathnames rather than deriving them from the route contract.
 | STU-5 | Student assignment rows carry no state | Source | Resolved |
 | STU-6 | Completeness copy leaks pagination and breaks grammar | Source | Resolved |
 
-**STU-1.** This original repair used the now-retired `assignmentTiming` projection. WP-PROF-T1
+**STU-1.** This original repair used the now-retired `assignmentTiming` projection. WP-INST-T1
 supersedes it: `src/pages/assignment_overview_page.tsx` reads only the dedicated learner-safe detail
 from `/api/assignments/{assignment}/learner`, including server-resolved course-zone delivery facts and
 an explicit no-limit state. No compatibility default or browser-local timing inference remains.

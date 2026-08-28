@@ -10,6 +10,14 @@ Name an identifier for the boundary that owns it, and convert it once at that bo
 registered or frozen external name exactly. When PLE owns a portable or server-side identifier and
 no stronger boundary convention applies, prefer readable lowercase `snake_case`.
 
+Human-role names follow [USER_ROLES.md](USER_ROLES.md): **Student**, **Instructor**, and
+**Sysadmin**. PLE-owned identifiers use `student`, `instructor`, and `sysadmin` for those people and
+their role-bound work. `user` names a generic authenticated identity before course authority is
+known. `learning` remains valid for educational-system concepts; `learner` is not a role alias in
+new PLE-owned names. Temporary Instructor-roadmap coordination keys use `WP-INST-*`. They exist only
+while the owning plan is active and can disappear when that plan closes. Product, API, evidence,
+and persistence identifiers use domain names instead.
+
 `UpperCamelCase` is reserved for type-like and component objects. Ordinary TypeScript and browser
 names use `lowerCamelCase`; the initial lowercase letter distinguishes that form from the reserved
 type-like form. This browser convention follows the naming used by DOM Web APIs, SolidJS, TypeScript,
@@ -32,7 +40,7 @@ a stronger reason.
 | Static URL segments and CSS class names               | lowercase kebab case                   | `course-blueprints`               |
 | Environment variables and constants                   | `SCREAMING_SNAKE_CASE`                 | `PLE_LIVE_DEMO_BROWSER_INPUT`     |
 | Public domain references                              | registered uppercase prefix plus value | `C-11`, `AC-2`                    |
-| Work-package identities                               | registered uppercase hyphen form       | `WP-PROF-B2`, `WP-R0`             |
+| Temporary work-package labels                         | plan-scoped uppercase hyphen form      | `WP-INST-B2`, `WP-R0`             |
 
 ## Why these conventions
 
@@ -46,8 +54,9 @@ a stronger reason.
 - `SCREAMING_SNAKE_CASE` makes process-level configuration and compile-time constants conspicuous.
 - One conversion at an owning boundary prevents handwritten aliases and casing drift between
   runtimes.
-- Registered public IDs and work-package keys retain their exact forms because stability is more
-  valuable than local stylistic uniformity.
+- Registered public IDs retain their exact forms because stability is more valuable than local
+  stylistic uniformity. Work-package keys follow their active plan namespace and may be renamed
+  atomically while they remain temporary planning metadata.
 
 ## Boundary distinctions
 
@@ -60,6 +69,22 @@ a stronger reason.
 - Frozen contract changes follow the atomic change rule in [CONTRACTS.md](CONTRACTS.md).
 - Acronyms follow the owning language's normal word rules. Use `Uuid`, not `UUID`, in an
   `UpperCamelCase` Rust or TypeScript type name unless an external API freezes another form.
+
+## Human-role vocabulary convergence
+
+Use dependency order to move existing PLE-owned role names to the canonical vocabulary:
+
+1. New contracts use `Student`, `Instructor`, and `Sysadmin` immediately.
+2. Question-model and browser assignment types converge on `StudentAssignment*` together.
+3. Disclosure contracts converge on `StudentDisclosure*` as one model-to-client change.
+4. Work-routing and submission-status Stores converge on `StudentWork*` together with their server
+   consumers.
+5. PostgreSQL role-bearing names converge through forward migrations before the first schema
+   freeze; accepted migrations remain immutable evidence of the schema path.
+
+Each step owns its source, generated contracts, focused validation, and documentation as one atomic
+change. `learning` remains the correct adjective for system concepts such as learning data and
+learning outcomes.
 
 ## TypeScript and browser
 

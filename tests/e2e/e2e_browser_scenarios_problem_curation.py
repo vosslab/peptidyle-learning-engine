@@ -1,4 +1,4 @@
-"""UI-first WP-PROF-D2 curation and reusable-selection production facts."""
+"""UI-first WP-INST-D2 curation and reusable-selection production facts."""
 
 from e2e_browser_scenario_contract import ScenarioContract
 

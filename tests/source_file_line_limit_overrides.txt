@@ -8,5 +8,5 @@ schemas/migrations/2026080806_retention.sql
 # not the maintained code-module line limit.
 docs/CHANGELOG-2026-08a.md
 docs/active_plans/active/bot_traffic_cost_reduction_plan.md
-docs/active_plans/active/professor_capability_architecture_plan.md
+docs/active_plans/active/instructor_capability_architecture_plan.md
 docs/active_plans/implementation_plan.md

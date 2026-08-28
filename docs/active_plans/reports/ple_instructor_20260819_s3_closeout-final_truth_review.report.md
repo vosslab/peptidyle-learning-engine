@@ -1,4 +1,4 @@
-# WP-PROF-S3 final truth and authority review
+# WP-INST-S3 final truth and authority review
 
 Date: 2026-08-19
 
@@ -25,10 +25,10 @@ No P0--P3 issue remains in the current S3 closeout authority record.
 ## Authority and evidence review
 
 - `docs/active_plans/implementation_status.md` remains the sole global
-  changing handoff and migration-allocation owner. It names WP-PROF-S4 as the
-  single current professor package, accepts S3, preserves S4's dependency on
+  changing handoff and migration-allocation owner. It names WP-INST-S4 as the
+  single current Instructor package, accepts S3, preserves S4's dependency on
   S3, allocates S4 `2026081805`, and keeps WP-RC8 parked and open.
-- The active professor plan, contracts, database structure, status, and
+- The active Instructor plan, contracts, database structure, status, and
   changelog consistently describe one S3 resolver that consumes S5 decision
   and scope evidence without rebuilding entitlement. Migration `2026081804`
   is allocated to S3 and recorded as accepted and immutable.

@@ -250,7 +250,7 @@ pub enum CourseTermFailureCode {
     CourseTermInvalid,
 }
 
-/// Input field the professor needs to correct.
+/// Input field the Instructor needs to correct.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CourseTermField {
@@ -284,7 +284,7 @@ pub enum CourseTermFailureReason {
 pub struct CourseTermValidationFailure {
     /// Stable response discriminator.
     pub error: CourseTermFailureCode,
-    /// Field the professor needs to correct.
+    /// Field the Instructor needs to correct.
     pub field: CourseTermField,
     /// Machine-readable refusal reason.
     pub reason: CourseTermFailureReason,

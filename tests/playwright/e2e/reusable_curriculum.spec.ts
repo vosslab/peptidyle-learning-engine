@@ -1,4 +1,4 @@
-// Real-stack WP-PROF-B1 reusable curriculum journey.
+// Real-stack WP-INST-B1 reusable curriculum journey.
 //
 // Selector contract:
 // - src/features/reusable_curriculum/reusable_curriculum_workspace.tsx owns workspace and editor names.

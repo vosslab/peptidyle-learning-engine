@@ -7,17 +7,17 @@ This execution companion is governed by the binding
 That parent remains the source of truth for scope, architecture, contracts, dependency order, and
 migration allocation. This document owns the detailed W5-W7 delivery sequence, evidence,
 acceptance, and handoff. It preserves the approved scope, including migrations 2026081861
-through 2026081865.
+through 2026081865. W5 through W7 and `WP-INST-G1` are accepted on 2026-08-28 after the exact final
+material-tree aggregate passed every required gate.
 
 ## G1-W7 reconciliation addendum
 
 The architect-approved closeout is one semantic transition with four atomic, dependency-ordered
-migrations. It preserves the accepted W2-W7b scope and keeps `WP-PROF-G1` incomplete until all
-closeout and final Validation gates pass.
+migrations. It preserves the accepted W2-W7b scope; all closeout and final Validation gates passed.
 
 ### G1-W7c: apply the forward reconciliation
 
-- **Owner/package:** PostgreSQL and release-integrator pair, `WP-PROF-G1 / G1-W7`, with the
+- **Owner/package:** PostgreSQL and release-integrator pair, `WP-INST-G1 / G1-W7`, with the
   architect retaining approval of the cross-cutting authority transition.
 - **Depends on:** restored accepted migrations `2026081849`, `1850`, `1855`, `1859`, `1860`,
   `1861`, and `1865`; four identities allocated in the shared ledger; W7a and W7b evidence
@@ -41,14 +41,16 @@ closeout and final Validation gates pass.
 - **Exit criteria:** all four migrations apply in order; the fresh baseline, second-pass no-op,
   compatibility, checksum, nonempty-preflight, PostgreSQL/RLS/worker, browser, screenshot, and
   exact-final-tree `source source_me.sh && ./all_test.sh` gates have recorded green evidence.
-- **Status rule:** any required unrun or skipped gate leaves G1 incomplete under
-  [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md).
+- **Accepted evidence:** the named gates passed under
+  [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md). The permanent Rust, frontend, and
+  pytest gates retain regression coverage; the real-stack browser and service lanes, final
+  aggregate, screenshots, and independent reviews are disposable acceptance evidence.
 
 ## Delivery work packages
 
 ### G1-W5: compose strict course-scoped operations HTTP
 
-- **Owner/package:** expert coder, `WP-PROF-G1 / G1-W5`, operation capability
+- **Owner/package:** expert coder, `WP-INST-G1 / G1-W5`, operation capability
   and server route boundary.
 - **Depends on:** G1-W4 stable worker handoff and its passed migration
   stabilization gate. Migrations `2026081861_instructor_grading_operation_capabilities.sql`
@@ -95,7 +97,7 @@ closeout and final Validation gates pass.
 
 ### G1-W6: build the assignment-local Instructor surface
 
-- **Owner/package:** SolidJS/TypeScript engineer, `WP-PROF-G1 / G1-W6`.
+- **Owner/package:** SolidJS/TypeScript engineer, `WP-INST-G1 / G1-W6`.
 - **Depends on:** G1-W5 DTOs and accepted T6 workspace seam.
 - **Owned artifacts:** `src/api/decoders/grading_operations.ts`,
   `src/api/http_client/grading_operations.ts`,
@@ -121,7 +123,7 @@ closeout and final Validation gates pass.
 
 ### G1-W7a: prove the visible recovery journey
 
-- **Owner/package:** Playwright/integration engineer, `WP-PROF-G1 / G1-W7a`.
+- **Owner/package:** Playwright/integration engineer, `WP-INST-G1 / G1-W7a`.
 - **Depends on:** G1-W6 and W4's deterministic fault seam.
 - **Owned artifacts:** `tests/playwright/e2e/automated_grading_recovery.spec.ts`,
   `tests/e2e/e2e_browser_scenarios_failure.py`,
@@ -158,7 +160,7 @@ closeout and final Validation gates pass.
 
 ### G1-W7b: prove PostgreSQL and worker recovery
 
-- **Owner/package:** expert coder, `WP-PROF-G1 / G1-W7b`, PostgreSQL and
+- **Owner/package:** expert coder, `WP-INST-G1 / G1-W7b`, PostgreSQL and
   persistence-evidence boundary.
 - **Depends on:** G1-W4 exact claim/outcome contract, G1-W5 route policy, and
   W2 migrations. W7a supplies an independent visible journey for closeout.
@@ -204,8 +206,10 @@ closeout and final Validation gates pass.
 - **Implementation steps:** consume the browser and PostgreSQL handoffs; run independent
   architecture/security and HCI reviews; reconcile documentation; run final Validation on the exact
   material tree; and record commands, results, and remaining evidence honestly.
-- **Permanent tests:** none; this package closes evidence already owned by W2-W7b.
-- **One-time/connected evidence:** independent reviews and final `all_test.sh`.
+- **Permanent tests added by W7:** none; this package closes evidence already owned by W2-W7b.
+- **Permanent evidence:** the Rust, frontend, and pytest gates exercised by the final aggregate.
+- **One-time/connected evidence:** independent reviews plus the live browser/service portions of
+  final `all_test.sh`.
 - **Success criteria:** Instructor-visible action routes safe recovery to a current total without
   human scoring, every required final gate is green, and the ledger points to reproducible evidence.
 - **Handoff:** G2 consumes operation/receipt links; G3 consumes independent analysis publication;
@@ -277,9 +281,9 @@ provenance are one-time evidence rather than permanent tests.
 - **Scope grows into G2/G3/G5:** W7 records typed downstream handoffs instead of copying those
   capabilities.
 
-## Success criteria
+## Historical success criteria
 
-G1 is accepted on the final material tree when:
+G1 was accepted on the final material tree after satisfying these criteria:
 
 1. Shape-valid accepted learner input becomes an immutable server-private `submission` before
    grading; invalid input remains pre-persistence and successful fast grading retains ordinary

@@ -1,10 +1,10 @@
-# Plan: WP-PROF-LD3 live-delivery convergence
+# Plan: WP-INST-LD3 live-delivery convergence
 
 ## Status and authority
 
-WP-PROF-LD3 was accepted on 2026-08-24. It established the live demo as the canonical product and
+WP-INST-LD3 was accepted on 2026-08-24. It established the live demo as the canonical product and
 acceptance path over ordinary assignments, learner runs, grading, evidence, and Instructor
-inspection. WP-PROF-T5 item pools are accepted. [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) leads
+inspection. WP-INST-T5 item pools are accepted. [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) leads
 product behavior,
 [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) records durable owner decisions, and
 [implementation_status.md](../implementation_status.md) owns the current handoff and migration
@@ -23,7 +23,7 @@ PLE has one assignment-execution model:
 - The disposable HTTPS production stack creates and mutates ordinary PLE data through visible
   workflows and supplies canonical browser acceptance.
 
-Preview remains the accepted WP-PROF-T3 live computation over ordinary course policy. It explains
+Preview remains the accepted WP-INST-T3 live computation over ordinary course policy. It explains
 effective state and provenance. Delivery validation uses ordinary Student work, so evidence from
 preview, learner execution, grading, receipt replay, gradebook totals, and Instructor inspection
 connects through the same product records.
@@ -47,7 +47,7 @@ state, visible mutations, and reset-to-seeded-baseline behavior remain unchanged
 
 ### Ordinary live authority
 
-WP-PROF-LD3 owns the accepted ordinary-course capabilities in `2026081812`,
+WP-INST-LD3 owns the accepted ordinary-course capabilities in `2026081812`,
 `2026081814`, and `2026081816` through `2026081820`, plus `2026081823`:
 
 - assignment and complete assignment-definition mutation with revision conflict checks;
@@ -71,11 +71,11 @@ reserved for installation baselines and controlled infrastructure faults.
 
 ## Dependency and handoff
 
-WP-PROF-LD3 depends on accepted WP-PROF-T3 and the accepted learner-delivery and issued-receipt
+WP-INST-LD3 depends on accepted WP-INST-T3 and the accepted learner-delivery and issued-receipt
 foundations. It is a convergence package, so discovery, collections, curricula, and grading
 operations continue to use their existing package identities and dependency order.
 
-WP-PROF-T5 accepted its item-pool productization on the canonical live path. The active professor
+WP-INST-T5 accepted its item-pool productization on the canonical live path. The active Instructor
 handoff is recorded only in [implementation_status.md](../implementation_status.md).
 
 ## Validation
@@ -105,5 +105,5 @@ Focused implementation evidence:
 
 ## Acceptance
 
-WP-PROF-LD3 is accepted under [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md). The active
+WP-INST-LD3 is accepted under [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md). The active
 status and changelog record its final evidence, and the current package handoff has advanced.

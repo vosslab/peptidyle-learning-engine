@@ -1,4 +1,4 @@
-//! Pure WP-PROF-T2 validation for group warnings and co-instructor invitations.
+//! Pure WP-INST-T2 validation for group warnings and co-instructor invitations.
 //!
 //! This module is deliberately separate from S5 entitlement. It validates
 //! teaching-operation facts supplied by a Store transaction but never grants

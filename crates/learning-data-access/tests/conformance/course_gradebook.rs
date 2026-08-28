@@ -2,7 +2,9 @@
 
 use super::*;
 use learning_data_access::{
-    CourseGradeAssignmentMembership, CourseGradebookStore, SessionLifetime, UpdateCourseGradeScheme,
+    CalculatedGradebookRequest, CalculatedGradebookResult, CourseGradeAssignmentMembership,
+    CourseGradebookStore, GradebookFilter, PageRequest, PageSize, SessionLifetime,
+    UpdateCourseGradeScheme,
 };
 use question_model::{
     CourseGradeMode, CourseGradeRoundingRule, CourseGradeScheme, GradeCategoryId,
@@ -315,6 +317,231 @@ async fn claimed_gradebook_fixture(
     (context, session, course, instructor)
 }
 
+async fn add_gradebook_student(
+    store: &MemoryStore,
+    context: TenantContext,
+    course: CourseId,
+    instructor: UserId,
+    seed: u128,
+) {
+    store
+        .upsert_course_member(
+            context,
+            instructor,
+            UpsertCourseMember {
+                course,
+                user: UserId::from_uuid(uuid(seed)),
+                display_name: format!("Gradebook Student {seed}"),
+                roster_contact: None,
+            },
+        )
+        .await
+        .expect("active gradebook student");
+}
+
+fn first_gradebook_page(filter: GradebookFilter, size: u16) -> CalculatedGradebookRequest {
+    CalculatedGradebookRequest {
+        filter,
+        page: PageRequest::first(PageSize::new(size).expect("bounded page size")),
+    }
+}
+
+#[tokio::test]
+async fn calculated_gradebook_continues_roster_order_and_reloads_for_structural_changes() {
+    let store = MemoryStore::default();
+    let (context, session, course, instructor) = claimed_gradebook_fixture(&store).await;
+    add_gradebook_student(&store, context, course, instructor, 91_004).await;
+
+    let CalculatedGradebookResult::Page(first) = store
+        .calculated_gradebook_page(
+            context,
+            session,
+            course,
+            first_gradebook_page(GradebookFilter::All, 1),
+        )
+        .await
+        .expect("first gradebook page")
+    else {
+        panic!("first page must be available");
+    };
+    let cursor = first.next_cursor.clone().expect("second roster page");
+    let CalculatedGradebookResult::Page(second) = store
+        .calculated_gradebook_page(
+            context,
+            session,
+            course,
+            CalculatedGradebookRequest {
+                filter: GradebookFilter::All,
+                page: PageRequest::after(cursor, PageSize::new(1).expect("page size")),
+            },
+        )
+        .await
+        .expect("second gradebook page")
+    else {
+        panic!("unchanged roster must continue");
+    };
+    assert_ne!(first.rows[0].membership, second.rows[0].membership);
+
+    let cursor = first.next_cursor.expect("reusable cursor");
+    let scheme = store
+        .course_grade_scheme(context, session, course)
+        .await
+        .expect("scheme");
+    store
+        .update_course_grade_scheme(
+            context,
+            session,
+            UpdateCourseGradeScheme {
+                course,
+                expected_revision: scheme.revision,
+                scheme: scheme.scheme.clone(),
+                assignments: memberships(&scheme),
+            },
+        )
+        .await
+        .expect("structural scheme revision");
+    assert_eq!(
+        store
+            .calculated_gradebook_page(
+                context,
+                session,
+                course,
+                CalculatedGradebookRequest {
+                    filter: GradebookFilter::All,
+                    page: PageRequest::after(cursor, PageSize::new(1).expect("page size")),
+                },
+            )
+            .await,
+        Ok(CalculatedGradebookResult::ReloadRequired {
+            reason: learning_data_access::GradebookReloadReason::SchemeChanged,
+        })
+    );
+
+    let CalculatedGradebookResult::Page(after_scheme) = store
+        .calculated_gradebook_page(
+            context,
+            session,
+            course,
+            first_gradebook_page(GradebookFilter::All, 1),
+        )
+        .await
+        .expect("fresh page after scheme reload")
+    else {
+        panic!("fresh page must be available");
+    };
+    let roster_cursor = after_scheme.next_cursor.expect("second roster page");
+    add_gradebook_student(&store, context, course, instructor, 91_006).await;
+    assert_eq!(
+        store
+            .calculated_gradebook_page(
+                context,
+                session,
+                course,
+                CalculatedGradebookRequest {
+                    filter: GradebookFilter::All,
+                    page: PageRequest::after(roster_cursor, PageSize::new(1).expect("page size")),
+                },
+            )
+            .await,
+        Ok(CalculatedGradebookResult::ReloadRequired {
+            reason: learning_data_access::GradebookReloadReason::RosterChanged,
+        })
+    );
+
+    let CalculatedGradebookResult::Page(after_roster) = store
+        .calculated_gradebook_page(
+            context,
+            session,
+            course,
+            first_gradebook_page(GradebookFilter::All, 1),
+        )
+        .await
+        .expect("fresh page after roster reload")
+    else {
+        panic!("fresh page must be available");
+    };
+    let filter_cursor = after_roster.next_cursor.expect("second roster page");
+    assert_eq!(
+        store
+            .calculated_gradebook_page(
+                context,
+                session,
+                course,
+                CalculatedGradebookRequest {
+                    filter: GradebookFilter::Student(after_roster.rows[0].membership),
+                    page: PageRequest::after(filter_cursor, PageSize::new(1).expect("page size")),
+                },
+            )
+            .await,
+        Ok(CalculatedGradebookResult::ReloadRequired {
+            reason: learning_data_access::GradebookReloadReason::FilterChanged,
+        })
+    );
+    let CalculatedGradebookResult::Page(student_page) = store
+        .calculated_gradebook_page(
+            context,
+            session,
+            course,
+            first_gradebook_page(
+                GradebookFilter::Student(after_roster.rows[0].membership),
+                10,
+            ),
+        )
+        .await
+        .expect("named Student page")
+    else {
+        panic!("named Student page must be available");
+    };
+    assert_eq!(
+        student_page.rows[0].membership,
+        after_roster.rows[0].membership
+    );
+}
+
+#[tokio::test]
+async fn assignment_filter_keeps_every_active_student_and_marks_missing_enrollment() {
+    let store = MemoryStore::default();
+    let (context, session, course, instructor) = claimed_gradebook_fixture(&store).await;
+    add_gradebook_student(&store, context, course, instructor, 91_005).await;
+    let assignment = create_grade_assignment(
+        &store,
+        context,
+        context.tenant_id(),
+        instructor,
+        course,
+        91_060,
+        PointValue::from_whole(1),
+    )
+    .await;
+    let assignment_reference = store
+        .assignment_reference(context, instructor, assignment)
+        .await
+        .expect("assignment reference lookup")
+        .expect("assignment reference");
+
+    let CalculatedGradebookResult::Page(page) = store
+        .calculated_gradebook_page(
+            context,
+            session,
+            course,
+            first_gradebook_page(GradebookFilter::Assignment(assignment_reference), 10),
+        )
+        .await
+        .expect("assignment gradebook page")
+    else {
+        panic!("assignment page must be available");
+    };
+    assert_eq!(page.rows.len(), 2);
+    assert!(page.rows.iter().all(|row| matches!(
+        row.assignment_cells.as_slice(),
+        [learning_data_access::CalculatedAssignmentCell {
+            availability: learning_data_access::CalculatedAssignmentCellAvailability::Unavailable,
+            inspection_choice: learning_data_access::AssignmentInspectionChoice::NoSubmittedRun,
+            ..
+        }]
+    )));
+}
+
 #[tokio::test]
 async fn memory_course_grade_totals_use_public_roster_and_scheme_transitions() {
     let store = MemoryStore::default();
@@ -348,6 +575,30 @@ async fn memory_course_grade_totals_use_public_roster_and_scheme_transitions() {
     let outcome = &totals.rows[0].outcome;
     assert_eq!(outcome.rounded_score, Some(0.0));
     assert_eq!(outcome.total_possible, Some(3.0));
+
+    let page = store
+        .calculated_gradebook_page(
+            context,
+            session,
+            course,
+            CalculatedGradebookRequest {
+                filter: GradebookFilter::All,
+                page: PageRequest::first(PageSize::new(10).expect("bounded page size")),
+            },
+        )
+        .await
+        .expect("calculated gradebook page");
+    let CalculatedGradebookResult::Page(page) = page else {
+        panic!("first calculated gradebook request must not require reload");
+    };
+    assert_eq!(page.rows.len(), 1);
+    assert_eq!(page.rows[0].display_label, "Numeric Student");
+    assert_eq!(page.rows[0].assignment_cells.len(), 2);
+    assert!(page.rows[0].assignment_cells.iter().all(|cell| matches!(
+        cell.inspection_choice,
+        learning_data_access::AssignmentInspectionChoice::NoSubmittedRun
+    )));
+    assert_eq!(page.scoring_witnesses.len(), 2);
 
     let export = store
         .create_course_grade_export(context, session, course)
@@ -412,6 +663,22 @@ async fn memory_course_grade_totals_use_public_roster_and_scheme_transitions() {
         weighted_totals.rows[0].outcome.dropped_assignment_ids,
         vec![second],
         "equal missing summaries deterministically drop the later category position"
+    );
+    let CalculatedGradebookResult::Page(weighted_page) = store
+        .calculated_gradebook_page(
+            context,
+            session,
+            course,
+            first_gradebook_page(GradebookFilter::All, 10),
+        )
+        .await
+        .expect("weighted calculated page")
+    else {
+        panic!("weighted page must be available");
+    };
+    assert_eq!(
+        weighted_page.rows[0].outcome.dropped_assignment_ids,
+        vec![second]
     );
 
     let third = create_grade_assignment(

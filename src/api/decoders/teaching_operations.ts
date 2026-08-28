@@ -1,4 +1,4 @@
-// Strict browser decoders for generated WP-PROF-T2 teaching-operation DTOs.
+// Strict browser decoders for generated WP-INST-T2 teaching-operation DTOs.
 
 import { MAX_ASSIGNMENT_ATTEMPT_LIMIT } from "../../../generated/api/MAX_ASSIGNMENT_ATTEMPT_LIMIT";
 import { MAX_ASSIGNMENT_TIME_LIMIT_SECONDS } from "../../../generated/api/MAX_ASSIGNMENT_TIME_LIMIT_SECONDS";

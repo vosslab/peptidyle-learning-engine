@@ -1,4 +1,4 @@
-// WP-PROF-S6 strict browser course-grade contract tests.
+// WP-INST-S6 strict browser course-grade contract tests.
 
 import assert from "node:assert/strict";
 import test from "node:test";

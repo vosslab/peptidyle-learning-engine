@@ -1,4 +1,4 @@
-// Real-stack WP-PROF-D1 discovery journey. The installed native question is reused through
+// Real-stack WP-INST-D1 discovery journey. The installed native question is reused through
 // visible course and learner workflows so published evidence reflects ordinary completed work.
 //
 // Selector contract:

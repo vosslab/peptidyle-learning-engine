@@ -38,7 +38,7 @@
 - Pinned the live-demo service-owner child environments to unbuffered Python with bytecode writing
   disabled, preserving the closed runtime allowlist while preventing aggregate service oracles from
   recreating repository `__pycache__` artifacts.
-- Accepted `WP-PROF-T3`: the preview plane now authorizes the direct Instructor before decoding an
+- Accepted `WP-INST-T3`: the preview plane now authorizes the direct Instructor before decoding an
   identity-free learner-derived subject, evaluates through the accepted S5 -> S3 -> S4 chain, and
   atomically appends the sole successful PII-minimal audit event. Memory and PostgreSQL prove that
   audit/no-mutation boundary; the fixed serial `DATABASE_BASELINE` profile under
@@ -58,7 +58,7 @@
   source, and QTI snapshot are retired, and current documentation routes validation and browser
   evidence to their canonical plans. The exact Wasm secrecy gate remains preserved while the Base
   Course boundary stays adaptable.
-- Accepted `WP-PROF-BS1`: Playwright, canonical screenshot capture, direct browser development, and
+- Accepted `WP-INST-BS1`: Playwright, canonical screenshot capture, direct browser development, and
   aggregate acceptance now share one production `dist/` browser and the fixed disposable
   `ple-live-demo-browser` HTTPS stack. The real Rust API, PostgreSQL, MinIO, worker, renderer,
   production account/session authentication, authorization, and seeded live-demo baseline are the
@@ -97,28 +97,28 @@
   lane. The three proven narrow utilities now live under `tests/support/` with Node ownership;
   simulator-only evidence grammars, private walkthrough configuration, orchestration, and exact
   wrappers/tests were removed.
-- Accepted `WP-PROF-BS1-H0`: a typed shared `live_demo` browser-suite owner and wrapper now validate
+- Accepted `WP-INST-BS1-H0`: a typed shared `live_demo` browser-suite owner and wrapper now validate
   closed selection/configuration before allocation, create and validate generation-bound input before
   Chromium, sanitize the Playwright environment, and record truthful lifecycle plus typed-cleanup
   receipts with aggregated failures and private diagnostic retention.
 
-- Accepted `WP-PROF-BS1-H1`: `run_playwright_tests.sh` now owns default, `--build`, named
+- Accepted `WP-INST-BS1-H1`: `run_playwright_tests.sh` now owns default, `--build`, named
   `live_demo`, approved-file, and literal-grep selections through a fresh disposable production
   `dist/` HTTPS stack. The lifecycle owns build and cleanup; WebWork/walkthrough callers retain
   closed owner-fixed transitional commands until their later consolidation, and TLS bypass applies
   only to the live-demo path.
 
-- Accepted `WP-PROF-BS1-H2`: Python `ScenarioContract` is the sole policy owner with strict generic
+- Accepted `WP-INST-BS1-H2`: Python `ScenarioContract` is the sole policy owner with strict generic
   `BrowserScenarioInputV1` and Rust Base Course receipt authority. A public-safe run namespace
   replaces `Date.now()`/`parallelIndex`; product mutations use visible UI, route-abort fault behavior
   moves to F1, and Avery's visible sign-out/sign-in proves teaching-team persistence.
 
-- Accepted `WP-PROF-BS1-H3`: typed browser-suite oracles now prove the exact disposable HTTPS
+- Accepted `WP-INST-BS1-H3`: typed browser-suite oracles now prove the exact disposable HTTPS
   gateway origin, lifecycle-derived `podman-compose --in-pod false` provider policy, labelled
   resources, private artifacts, and owner processes. Receipts expose safe metadata only; successful
   cleanup leaves each final ownership inventory empty.
 
-- Accepted `WP-PROF-BS1-I1`: the real production-browser instructor-authoring journey uses visible
+- Accepted `WP-INST-BS1-I1`: the real production-browser instructor-authoring journey uses visible
   PLE controls to create and publish a namespaced question, course, assignment, and roster
   invitation. A roster reload plus a fresh Elena browser session visibly confirm the persisted
   course, published assignment, and pending invitation. Real-stack validation corrected the
@@ -129,27 +129,27 @@
   `not_required` Sysadmin semantics as genuine scenario independence, and the focused security
   review passed.
 
-- Accepted `WP-PROF-BS1-C0`: `all_test.sh` is the fail-fast aggregate front door, ordered as
+- Accepted `WP-INST-BS1-C0`: `all_test.sh` is the fail-fast aggregate front door, ordered as
   environment, pytest, build, Rust, codebase, one local-stack acceptance handoff, and both diff
   checks. Aggregate evidence has one canonical real-stack production-browser lane and two labelled
   transitional visual-fixture lanes pending V1; the duplicate compatibility-wrapper lane is gone.
   The evidence model and operational documentation now state that boundary and reserve fakes for
   narrow isolated contracts.
 
-- Accepted `WP-PROF-BS1-B0`: the V2 browser-scenario contract now has a closed
+- Accepted `WP-INST-BS1-B0`: the V2 browser-scenario contract now has a closed
   `sysadminRequirement`, a deterministic flat catalog with an explicit legacy-live-demo bridge, and
   a multi-scenario owner that uses one disposable stack for a complete selection and a fresh stack
   for a focused selection. Each child receives only its own canonical input and origin-receipt path;
   ordered public success and failure receipts record each child outcome without exposing private
   claim material.
 
-- Accepted `WP-PROF-BS1-U1`: retained browser-independent Node evidence now uses literal decoder
+- Accepted `WP-INST-BS1-U1`: retained browser-independent Node evidence now uses literal decoder
   payloads, direct narrow dependencies, and a test-local recording fetch. It restores
   issued-question secrecy checks without a fake server, retains no `src/api/mock/**` imports, and
   adds a deterministic consumer/allocation scanner that assigns every remaining mock-runtime marker
   to its later real-stack migration owner (`I1`, `L1`, `A1`, `S1`, `V1`, `F1`, or `R1`).
 
-- Accepted `WP-PROF-BS1-L1`: the real production-browser learner journey creates its namespaced
+- Accepted `WP-INST-BS1-L1`: the real production-browser learner journey creates its namespaced
   instructor prerequisites through visible PLE controls, then lets Mary visibly claim the invitation,
   submit the UI-authored known-correct response, receive `Correct` feedback, and observe completion
   plus `Current`, `Latest`, `Best`, and `This run` 100% score evidence. Mary starts a second practice
@@ -160,14 +160,14 @@
   Offline boundary gates passed; independent correctness accepted and security passed with no P0-P3
   findings.
 
-- Accepted `WP-PROF-BS1-B1`: the unclaimed visible Sysadmin setup child now exports one strictly
+- Accepted `WP-INST-BS1-B1`: the unclaimed visible Sysadmin setup child now exports one strictly
   validated, mode-0600 WebAuthn continuation; a fresh claimed child imports it into a new virtual
   authenticator, signs in through the ordinary visible passkey path, and writes an owner-validated
   acknowledgement. Public evidence records only truthful consumption state. The fixed-project
   `auth_authorization` receipt proved the producer-to-consumer transition and reported
   `webAuthnContinuationConsumed: true`; independent correctness and security accepted the boundary.
 
-- Accepted `WP-PROF-BS1-B2`: every browser invocation now owns the exact
+- Accepted `WP-INST-BS1-B2`: every browser invocation now owns the exact
   `ple-live-demo-browser` project through one nonblocking checkout lease, one fixed private
   workspace, and one exact owner-labelled reset before regeneration and during final cleanup. The
   production entry acquires the lease before ports, provider, build, Podman, or PostgreSQL work;
@@ -176,7 +176,7 @@
   runs regenerated the same seeded fixture and each left zero containers, volumes, networks,
   workspace artifacts, or owner processes. Correctness and security reviews accepted the design.
 
-- Accepted `WP-PROF-BS1-A1`: real production-browser journeys visibly complete generation-bound
+- Accepted `WP-INST-BS1-A1`: real production-browser journeys visibly complete generation-bound
   Sysadmin first claim and passkey reauthentication; Instructor and Student session entry/reentry;
   Morgan's Genetics access and Avery approval; Elena's invitation; Avery's acceptance and fresh
   teaching session; and Mary's safe cross-course and instructor-role denials. Product state changes
@@ -184,7 +184,7 @@
   backend product-state setup participates. Independent correctness/HCI and security reviews found
   no P0-P3 issue.
 
-- Accepted `WP-PROF-BS1-X1`: two independent Elena sessions now create and mutate one namespaced
+- Accepted `WP-INST-BS1-X1`: two independent Elena sessions now create and mutate one namespaced
   course through visible PLE controls, produce a real grade-settings revision conflict, preserve the
   stale local draft, retry it by keyboard, and reload the authoritative result in the observing
   session. The connected fixed-stack receipt proves each BrowserContext independently used the same
@@ -193,7 +193,7 @@
   locator and bounded its generated letter-band labels to the product's visible 32-character rule.
   Independent correctness/HCI and security review accepted the final design.
 
-- Accepted `WP-PROF-BS1-S1`: reload, fresh authorized sessions, role observation, and protected
+- Accepted `WP-INST-BS1-S1`: reload, fresh authorized sessions, role observation, and protected
   transport already provide the semantic persistence evidence required by the accepted instructor,
   learner, and authorization journeys, so no schema-coupled Store or service receipt was added. The
   three remaining S1 mock-browser behaviors now have machine-checked successors and explicit R1
@@ -204,7 +204,7 @@
   a fresh empty-storage Elena session. Its connected receipt proved separate exact HTTPS origins and
   complete fixed-stack cleanup. Independent correctness/HCI and security review accepted the result.
 
-- Accepted `WP-PROF-BS1-F1`: the canonical production-browser owner now drives one typed gateway
+- Accepted `WP-INST-BS1-F1`: the canonical production-browser owner now drives one typed gateway
   outage at Mary's visible saved-response boundary. Elena and Mary create all product state through
   the PLE UI; the learner retains her selected response, sees the real network-recovery state,
   keyboard-activates the retry after owner-proven gateway readiness, and a fresh learner session
@@ -257,8 +257,8 @@
 
 ### Decisions and Failures
 
-- Reprioritized `WP-PROF-BS1` as the sole current professor package after accepted live-demo
-  delivery, ahead of planned frozen-scope `WP-PROF-T3` and `WP-PROF-T4`. It establishes one
+- Reprioritized `WP-INST-BS1` as the sole current Instructor package after accepted live-demo
+  delivery, ahead of planned frozen-scope `WP-INST-T3` and `WP-INST-T4`. It establishes one
   disposable production-browser HTTPS path for Playwright, screenshots, and acceptance, then
   retires the parallel mock application as real scenarios and narrow unit tests take ownership of
   meaningful behavior. The plan starts with a typed live-demo owner adapter, uses UI-created
@@ -325,7 +325,7 @@
   checks with 322 Node tests, 6,089 pytest cases, 248 built Playwright cases, and the complete
   disposable local-stack acceptance suite with no required skips.
 
-- Applied authority ruling A to the accepted immutable WP-PROF-LD2 allocation: migration
+- Applied authority ruling A to the accepted immutable WP-INST-LD2 allocation: migration
   `2026081809` owns exactly two narrow least-privilege execute-only brokers, safe normal Sysadmin
   approval-candidate discovery and read-only completed-installation-generation lookup used to bind
   configured first-ownership proof. `2026081810` is accepted and immutable only for the Student
@@ -336,7 +336,7 @@
   and leaves WP-RC8 parked and open. This documentation closeout does not itself prove final-goal
   completion: final-goal completion additionally requires the complete final-material-tree Validation
   after these record edits.
-- Reopened WP-PROF-LD2 after the independent final material review rejected a P2
+- Reopened WP-INST-LD2 after the independent final material review rejected a P2
   documentation-and-migration scope contradiction. Migration `2026081809` contains both the
   Sysadmin approval-candidate discovery broker and the restricted completed-installation-generation
   read broker used by the ownership route. Its exact allocation scope is under authority correction;
@@ -344,7 +344,7 @@
   retention-boundary repair. Neither allocation is accepted or immutable. The full
   final-material-tree Validation and a fresh independent review are required after correction; this
   entry does not choose between widening 1809's accepted scope and splitting a new migration.
-- Historical post-repair runtime evidence for the open WP-PROF-LD2 passed
+- Historical post-repair runtime evidence for the open WP-INST-LD2 passed
   `./check_rust.sh`; `./check_codebase.sh` (five checks and 322 Node tests);
   pytest (6,017 tests, no skips); the baseline E2E under
   `ple_live_demo_baseline_124c398f82978266c7370838`; and all eight aggregate
@@ -372,7 +372,7 @@
   selected), while the live-demo browser owner remains base plus its TLS overlay without a local
   identity bind. Live bootstrap still creates its seed, invitation, Question ID, and claim inputs
   but no longer creates local-file credentials or an authentication host-file setting.
-- Accepted WP-PROF-T2 with `2026081807_teaching_operations.sql` immutable. Course groups,
+- Accepted WP-INST-T2 with `2026081807_teaching_operations.sql` immutable. Course groups,
   purpose-specific allow/warn policies, referenced-group refusal, atomic S5/S3 re-evaluation with
   sealed receipt history, operator-owned Instructor approval, target-bound 30-day co-instructor
   invitations, direct-membership acceptance, final-Instructor protection, server-owned retention,
@@ -388,7 +388,7 @@
   the existing explicit reset contract. Permanent lifecycle/image-cleanup tests pass, and two
   consecutive starts replaced all nine containers without increasing container, image, or volume
   counts.
-- Continued WP-PROF-T2 through the typed domain, Store, Memory, PostgreSQL, and migration
+- Continued WP-INST-T2 through the typed domain, Store, Memory, PostgreSQL, and migration
   boundaries. Course groups now retain five purpose-specific multiple-membership policies, reject
   referenced deletion, and atomically re-resolve active S5/S3 work after audience, membership,
   purpose, or M2--M4 changes while preserving sealed receipt generations. Global Instructor
@@ -399,7 +399,7 @@
   upgrade, group-policy, and teaching-authority oracles. The final database-baseline rerun passed all
   43 tracked migrations, exact group receipt transitions, four approval/invitation/concurrency
   cases, forced-RLS and global-table inventory checks, and representative role denial. This is an
-  intermediate database vertical receipt; WP-PROF-T2 server, browser, retention-page, full
+  intermediate database vertical receipt; WP-INST-T2 server, browser, retention-page, full
   Validation, and final independent-review gates remain open.
 - Added accepted typed `U-`, `M-`, and `CI-` public locators for accounts, course-membership
   episodes, and co-instructor invitations. Authorized Memory and PostgreSQL projections now keep
@@ -407,7 +407,7 @@
   invitations target-bound; bounded snapshot lists return display labels without email or UUIDs.
   PostgreSQL identity sequences remain least-privilege (`ple_auth` for accounts and `ple_app` for
   memberships and invitations), and fresh independent review found no remaining P0--P3 issue.
-- Accepted the strict WP-PROF-T2 teaching-operations wire contract before route implementation.
+- Accepted the strict WP-INST-T2 teaching-operations wire contract before route implementation.
   Group, modifier, preview, co-instructor, and retention DTOs use only typed human references and
   bounded values; strong revisions remain in `If-Match`, denied previews cannot carry resolved S3
   fields, and retention shapes match the existing server-owned lifecycle endpoints. Temporary
@@ -415,21 +415,21 @@
 
 ### Decisions and Failures
 
-- Accepted WP-PROF-LD1 on 2026-08-20: `base_course_installation` now owns the typed two-phase Base
+- Accepted WP-INST-LD1 on 2026-08-20: `base_course_installation` now owns the typed two-phase Base
   Course lifecycle, while learning-data-access owns its SQL, advisory lock, durable state, migration,
   and Store boundary and project-tools remains the direct CLI adapter. The final PostgreSQL 17 plus
   MinIO lifecycle proved five ordinary accounts across two courses, interruption/resume, retained
-  restarts, concurrent serialization, fail-closed mixed state, and fresh regeneration. WP-PROF-LD2
-  made WP-PROF-LD2 the next professor handoff; T3 remains parked. LD2's `2026081809` and
+  restarts, concurrent serialization, fail-closed mixed state, and fresh regeneration. WP-INST-LD2
+  made WP-INST-LD2 the next Instructor handoff; T3 remains parked. LD2's `2026081809` and
   `2026081810` allocations were later found to need 1809 scope reconciliation: the current 1809
   file contains approval-candidate discovery and a completed-installation-generation read broker.
   The selector and passkey ceremony seams remain non-schema; the generation-read broker awaits an
   authority ruling. Whole live-demo Validation remains incomplete until LD2 and the connected goal
   close.
 
-- Recorded the intermediate WP-PROF-T2 contract/allocation gate before implementation. The shared
+- Recorded the intermediate WP-INST-T2 contract/allocation gate before implementation. The shared
   migration ledger reserves `2026081807` for future
-  `2026081807_teaching_operations.sql`; the professor plan and durable guidance now define
+  `2026081807_teaching_operations.sql`; the Instructor plan and durable guidance now define
   many-to-many group warning policy, referenced-group refusal, atomic S5/S3 re-evaluation,
   operator-owned non-authorizing Instructor approval, target-bound 30-day co-instructor invitations,
   direct-membership acceptance, final-Instructor protection, and server-owned preview/retention
@@ -439,45 +439,45 @@
 
 ### Additions and New Features
 
-- Began WP-PROF-T1 with the serial assignment teaching contract. A closed
+- Began WP-INST-T1 with the serial assignment teaching contract. A closed
   `draft | published | closed | archived` lifecycle, validated plain-text instructions, and the
   existing S3 base policy now form one typed teaching-settings value. The domain maps only
   `published` through lifecycle gate G1 and keeps archived assignments terminal, while learner
   progress carries an independent `current | recalculating | failed` scoring status and omits
   numeric totals whenever scoring is not current.
-- Continued WP-PROF-T1 through the Store, Memory, PostgreSQL, and server boundaries. One
+- Continued WP-INST-T1 through the Store, Memory, PostgreSQL, and server boundaries. One
   instructor-authorized, revision-checked teaching-settings mutation now owns lifecycle,
   instructions, availability, due and close instants, run and attempt limits, late behavior, and
   the existing server deadline behavior without a second timing writer. Memory and PostgreSQL both
   derive G1 from stored lifecycle, re-resolve active attempts through S3 after a settings change,
   preserve sealed receipt generations, and carry atomic scoring status with learner summaries,
   run summaries, and gradebook rows.
-- Added the in-progress course-local schedule transport for WP-PROF-T1. Instructor inputs use exact
+- Added the in-progress course-local schedule transport for WP-INST-T1. Instructor inputs use exact
   local wall-clock values plus the course's IANA zone; the server alone converts them to absolute
   policy instants and refuses zone mismatch, out-of-term values, invalid ordering, and ambiguous or
   nonexistent daylight-saving times. Paginated learner assignment rows remain compact, while the
   separately authorized detail projects text-safe instructions and resolved learner-specific
   timing and late status without exposing base policy, provenance, tenant, or clock authority.
-- Continued WP-PROF-T1 through the browser and permanent learner evidence. The instructor editor now
+- Continued WP-INST-T1 through the browser and permanent learner evidence. The instructor editor now
   keeps Teaching operations separate from content saves, supports keyboard save, exact field focus
   for schedule and lifecycle failures, and explicit stale-revision adoption without discarding either
   draft. The learner overview renders plain-text instructions and server-resolved course-zone delivery
   facts, while recalculating or failed scoring omits every numeric score. The refreshed student/access
   corpus proves the 1280 by 800, 800 by 1280, 393 by 852, and 800 by 800 compositions and the central
   no-instructor-transport route boundary; final live and aggregate acceptance remain pending.
-- Repaired WP-PROF-T1 review findings before acceptance. Store creation now enforces Draft even for
+- Repaired WP-INST-T1 review findings before acceptance. Store creation now enforces Draft even for
   direct callers; Memory and PostgreSQL terminalize active attempts consistently after a teaching
   policy change; instructor editor reads pair durable lifecycle intent with a server-derived
   scheduled, open, or clock-closed state; and noncurrent scoring removes per-attempt results and
   feedback point values in addition to aggregate scores. Permanent cross-route tests cover both
   Recalculating and Failed, while live PostgreSQL and full demo-environment acceptance remain pending.
-- Accepted WP-PROF-T1 with one revisioned assignment-teaching aggregate. Draft-only creation and an
+- Accepted WP-INST-T1 with one revisioned assignment-teaching aggregate. Draft-only creation and an
   instructor-authorized revision-CAS mutation now own lifecycle, plain-text instructions, course-zone
   scheduling, run and attempt limits, late behavior, and deadline behavior. Memory and PostgreSQL
   share stored-lifecycle gating and active-attempt re-resolution. Learner list transport remains
   compact, resolved detail omits policy and clock authority, and Current, Recalculating, or Failed
   scoring status consistently controls every aggregate and per-attempt numeric projection.
-- Accepted WP-PROF-S6 with a closed course-grade contract for total points and weighted categories.
+- Accepted WP-INST-S6 with a closed course-grade contract for total points and weighted categories.
   The shared evaluator consumes maintained assignment summaries, uses exact point values and category
   weights, applies drop-lowest rules deterministically, rounds once to four decimal places, and keeps
   recalculating, failed, empty, and zero-possible states distinct from a numeric zero.
@@ -494,7 +494,7 @@
   revision; displays current totals; and downloads the server-generated audited CSV without exposing
   its audit identifier. Four fresh 1280 by 800, 800 by 1280, 393 by 852, and 800 by 800 screenshots
   are manifest-owned under `docs/screenshots/instructor/course_grade/`.
-- Accepted WP-PROF-S4 with one assignment-owned learner-disclosure policy. Score, correctness,
+- Accepted WP-INST-S4 with one assignment-owned learner-disclosure policy. Score, correctness,
   feedback text, solution, and class statistics each use an independent closed timing, while current
   S5 entitlement, the current S3-resolved verdict, authoritative server time, and submission fact
   remain the only projection inputs.
@@ -507,14 +507,14 @@
   only cohort size plus normalized average at the fixed five-learner floor. Eight allowed/denied
   access images at 1280 by 800, 800 by 1280, 393 by 852, and 800 by 800 now live under role-based
   screenshot subfolders within a 32-artifact manifest-owned corpus.
-- Accepted WP-PROF-S3 with one pure effective-assignment-policy resolver. Ordered lifecycle,
+- Accepted WP-INST-S3 with one pure effective-assignment-policy resolver. Ordered lifecycle,
   entitlement, and authorization gates deny before grant-filtered group modifiers or an individual
   exception resolve per-field policy and provenance. The resolver consumes S5 authority rather than
   reconstructing roster, audience, group membership, or enrollment state.
 - Added accepted immutable migration `2026081804_effective_policy_resolver.sql`. It normalizes base
   policy and modifier inputs, then preserves resolved attempt policy in append-only sealed receipts
   with complete per-field source rows and a current pointer only to a sealed generation.
-- Accepted WP-PROF-S5 with one typed entitlement authority. Closed assignment audiences, canonical
+- Accepted WP-INST-S5 with one typed entitlement authority. Closed assignment audiences, canonical
   course-membership episodes, purpose-capable course groups, evaluator-issued applicable-policy
   scopes, and immutable materialization provenance now share one Rust domain and Store contract.
 - Added accepted immutable migration `2026081803_entitlement_membership.sql`. It normalizes current
@@ -600,13 +600,13 @@
 
 ### Decisions and Failures
 
-- WP-PROF-T1 is accepted as a non-schema package. Accepted migration `2026081804` already removed the redundant
+- WP-INST-T1 is accepted as a non-schema package. Accepted migration `2026081804` already removed the redundant
   assignment `visible` column and retained the normalized base-policy row together with the existing
   instructions and four-state lifecycle columns, so no `2026081807` allocation or compatibility
-  model is warranted for T1. At T1 acceptance on 2026-08-19, the sole professor handoff advanced to
-  WP-PROF-T2 and the next schema allocation was unassigned; the 2026-08-20 T2 contract gate now
+  model is warranted for T1. At T1 acceptance on 2026-08-19, the sole Instructor handoff advanced to
+  WP-INST-T2 and the next schema allocation was unassigned; the 2026-08-20 T2 contract gate now
   reserves `2026081807`. WP-RC8 remains parked and open.
-- WP-PROF-T1 final material-tree Validation passed `./check_rust.sh`; `./check_codebase.sh` (five
+- WP-INST-T1 final material-tree Validation passed `./check_rust.sh`; `./check_codebase.sh` (five
   checks and 279 Node tests); `source source_me.sh && python3 -m pytest tests/ -q` (5,480 tests and 2
   subtests); the fresh PostgreSQL 17 baseline with all 42 migrations and the assignment-teaching plus
   retained S3--S6 oracles; both diff checks; and the 36-artifact screenshot verifier. The final
@@ -616,19 +616,19 @@
   rechecks returned ACCEPT with no P0--P3 finding. Local fictional users route around unavailable
   email. This does not claim provider or mailbox delivery, production email, passkeys, multi-replica
   operation, deployment, release activation, or that screenshots alone prove authorization.
-- Worked the three completion-mode examples required by the professor plan. A mixed practice-plus-exam
+- Worked the three completion-mode examples required by the Instructor plan. A mixed practice-plus-exam
   course needs a hybrid rule not present in the current table, and adding assignments mid-term needs a
   membership or required-count rule. Completion-based grading therefore leaves S6 for a later package;
   no runtime, database, API, or browser consumer may assume that third mode exists. S6 closes with
-  only total points and weighted categories, and the sole professor handoff advances to WP-PROF-T1.
+  only total points and weighted categories, and the sole Instructor handoff advances to WP-INST-T1.
 - Defined the requested test-drive environment as the ordinary local, networked Podman stack: the
   complete designed service suite communicates through its normal topology and is seeded with sample
   data and fictional local users. It is not an offline bundle or a specialized acceptance stack. The
   stale simulated volumes and generated Chapter 1 pilot receipt were reset. A fresh full-stack start
   and all seven acceptance lanes passed, and the ordinary demo is now ready on loopback port 8080.
-- Accepted WP-PROF-S4 after independent architecture/security, tests/HCI, docs/legacy,
+- Accepted WP-INST-S4 after independent architecture/security, tests/HCI, docs/legacy,
   student-access/HCI, and screenshot-corpus reviews returned ACCEPT with no unresolved P0--P3
-  finding. The sole professor handoff advances to WP-PROF-S6; WP-RC8 remains parked and open.
+  finding. The sole Instructor handoff advances to WP-INST-S6; WP-RC8 remains parked and open.
 - Final material-tree Validation passed `./check_rust.sh`; `./check_codebase.sh` (five checks and 274
   Node tests); `source source_me.sh && python3 -m pytest tests/` (5,418 tests and 2 subtests);
   outside-sandbox built Playwright (228 of 228, zero skips); the fresh PostgreSQL 17 baseline (all 41
@@ -638,8 +638,8 @@
   invitations route around unavailable email. This does not claim provider or mailbox delivery,
   passkeys, multi-replica operation, deployment, release activation, or that screenshots alone prove
   authorization.
-- Accepted WP-PROF-S3 after independent domain/Store, PostgreSQL/RLS, and consumer/test reviews
-  returned ACCEPT with no final blocking finding. The sole professor handoff advances to WP-PROF-S4;
+- Accepted WP-INST-S3 after independent domain/Store, PostgreSQL/RLS, and consumer/test reviews
+  returned ACCEPT with no final blocking finding. The sole Instructor handoff advances to WP-INST-S4;
   WP-RC8 remains parked and open.
 - Final material-tree Validation passed `./check_rust.sh`, `./check_codebase.sh` (five checks and 264
   Node tests), `source source_me.sh && python3 -m pytest tests/` (5,220 tests), outside-sandbox
@@ -648,9 +648,9 @@
   An external renderer image rebuild after pruning was one-time environmental evidence, not a PLE
   implementation change. Both diff checks passed. This acceptance does not claim provider or mailbox
   delivery, passkeys, multi-replica operation, deployment, or release activation.
-- Accepted WP-PROF-S5 after final independent domain/Store, PostgreSQL/RLS/security, and API/HCI/test
-  reviews returned ACCEPT with no P0--P3 finding. The sole professor handoff advances to
-  WP-PROF-S3, which consumes S5's decision and applicable scopes instead of reconstructing roster or
+- Accepted WP-INST-S5 after final independent domain/Store, PostgreSQL/RLS/security, and API/HCI/test
+  reviews returned ACCEPT with no P0--P3 finding. The sole Instructor handoff advances to
+  WP-INST-S3, which consumes S5's decision and applicable scopes instead of reconstructing roster or
   group authority. WP-RC8 remains parked and open.
 - Final material-tree Validation passed `./check_rust.sh`, `./check_codebase.sh` (five checks and 264
   Node tests), `source source_me.sh && python3 -m pytest tests/` (5,232 tests), outside-sandbox
@@ -664,11 +664,11 @@
 
 ### Additions and New Features
 
-- Accepted WP-PROF-S7: one full-string typed public-reference grammar now names courses,
+- Accepted WP-INST-S7: one full-string typed public-reference grammar now names courses,
   assignments, runs, workspaces, and course groups as `C-`, `A-`, `R-`, `W-`, and `G-`; `AC-` stays
   reserved for the later Alpha aggregate. Published versions now carry one immutable, validated,
   ordered public byline that is deliberately distinct from private author-account identities.
-- Added accepted WP-PROF-S2 support for one mandatory teaching-course term. Shared Rust
+- Added accepted WP-INST-S2 support for one mandatory teaching-course term. Shared Rust
   values now own exact calendar dates, inclusive ordering, and case-sensitive IANA membership;
   `CourseRecord`, `CourseSummary`, the existing Store and course routes, generated TypeScript, and
   the course form all carry that same required value without a default or compatibility reader.
@@ -739,55 +739,55 @@
 
 ### Decisions and Failures
 
-- Repaired the professor M1 dependency graph before implementation: WP-PROF-S5 is now the sole
+- Repaired the Instructor M1 dependency graph before implementation: WP-INST-S5 is now the sole
   current package and owns typed `EntitlementDecision` reasons, applicable group-purpose scopes,
-  derived authority, and the materialization seam. WP-PROF-S3 waits for accepted S5 output and then
+  derived authority, and the materialization seam. WP-INST-S3 waits for accepted S5 output and then
   consumes it for policy composition; it does not reconstruct entitlement. The three unimplemented
   migration reservations were reordered as S5 `2026081803`, S3 `2026081804`, and S4 `2026081805`,
   preserving the forward dependency sequence without a placeholder or out-of-order file. None of
   those packages is accepted by this planning repair.
-- Reconciled the professor roadmap with the release track: evidenced M0 is accepted for the professor
+- Reconciled the Instructor roadmap with the release track: evidenced M0 is accepted for the Instructor
   track, the sole global current-package handoff is recorded in
   [implementation_status.md](active_plans/implementation_status.md), and the release queue is parked
   at still-open WP-RC8. WP-RC8, WP-RC12, and production activation remain open.
-- Accepted WP-PROF-S1 on 2026-08-18 after recording the four product decisions in
+- Accepted WP-INST-S1 on 2026-08-18 after recording the four product decisions in
   [docs/HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md): teaching-course term and time zone, identity-free
   rehearsal, an actionability-gated cross-course attention surface, and anonymous catalog evidence
   with `insufficient evidence` below disclosure strength. Independent acceptance review returned
   ACCEPT with no P0/P1/P2 finding.
-- Accepted WP-PROF-S2 on 2026-08-18. The normalized course-owned term has no Alpha flag: active
+- Accepted WP-INST-S2 on 2026-08-18. The normalized course-owned term has no Alpha flag: active
   teaching courses carry the mandatory term, while the later Alpha curriculum aggregate has its own
   identity and instantiates a term-bearing teaching course. The sole current-package handoff now
-  names dependency-ready WP-PROF-S7; the release queue remains parked at open WP-RC8.
-- Accepted WP-PROF-S7 on 2026-08-19 after independent PostgreSQL/RLS, Rust-contract, and
+  names dependency-ready WP-INST-S7; the release queue remains parked at open WP-RC8.
+- Accepted WP-INST-S7 on 2026-08-19 after independent PostgreSQL/RLS, Rust-contract, and
   frontend/HCI reviews each returned ACCEPT. Its completed serial-core boundary advances the sole
-  professor handoff to WP-PROF-S3, the effective-policy resolver. WP-RC8 remains parked and open;
+  Instructor handoff to WP-INST-S3, the effective-policy resolver. WP-RC8 remains parked and open;
   this does not claim provider or mailbox delivery, passkeys, multi-replica operation, deployment,
   or release activation.
-- Recorded planning weights for professor and student viewport work. The weights guide design
+- Recorded planning weights for Instructor and student viewport work. The weights guide design
   planning only; they are not test quotas or telemetry targets. The email-unconfigured route-around
   uses fictional local identities, direct local roster membership, and copyable links without
   accepting production authentication or onboarding.
 - Registered the six named M1 schema-package reservations (`2026081801` through `2026081806`) in the
   shared migration ledger owned by the release integrator. No placeholder SQL or amendment of
-  accepted files is allowed. WP-PROF-E2 may prepare a candidate baseline earlier, but actual replacement
-  requires professor WP-PROF-E2 readiness plus all repository-owned release schema packages/RC12,
+  accepted files is allowed. WP-INST-E2 may prepare a candidate baseline earlier, but actual replacement
+  requires Instructor WP-INST-E2 readiness plus all repository-owned release schema packages/RC12,
   immediately before first production data.
 - Repair iteration and acceptance closeout: centralized the changing current-package handoff and migration allocation in
   `implementation_status.md`; plans now own scope and dependency order and Human Guidance records
-  only the durable authority rule. The professor allocation rule is schema-only, the database
+  only the durable authority rule. The Instructor allocation rule is schema-only, the database
   reference is a physical migration inventory, and the open provider/mailbox/passkey,
-  multi-replica, security, and HCI gates remain owned by WP-RC8. WP-PROF-S1 is accepted, and
-  WP-PROF-S2 is the next dependency-ready package.
-- Repaired the global package-identity collision by reserving `WP-PROF-*` for the active professor
-  roadmap. The status registry now records accepted WP-PROF-S1 and names WP-PROF-S2 as the sole
+  multi-replica, security, and HCI gates remain owned by WP-RC8. WP-INST-S1 is accepted, and
+  WP-INST-S2 is the next dependency-ready package.
+- Repaired the global package-identity collision by reserving `WP-INST-*` for the active Instructor
+  roadmap. The status registry now records accepted WP-INST-S1 and names WP-INST-S2 as the sole
   current package, the six M1
-  reservations use WP-PROF-S2/S7/S3/S4/S5/S6, and the baseline condition waits for WP-PROF-E2; legacy
+  reservations use WP-INST-S2/S7/S3/S4/S5/S6, and the baseline condition waits for WP-INST-E2; legacy
   walkthrough package IDs remain in their historical scope.
 
 ### Developer Tests and Notes
 
-- WP-PROF-S6 final material-tree evidence is green for `./check_rust.sh`;
+- WP-INST-S6 final material-tree evidence is green for `./check_rust.sh`;
   `./check_codebase.sh` (five checks and 278 Node tests); the full Python suite
   (`source source_me.sh && python3 -m pytest -q tests`) passed 5,480 tests and 2 subtests;
   outside-sandbox `./run_playwright_tests.sh --build` passed 231 of 231 with zero skips; the
@@ -797,7 +797,7 @@
   inventories, and cleaned its disposable project. All seven aggregate acceptance lanes passed;
   independent architecture/security, tests/HCI, and documentation/authority reviews returned ACCEPT
   with no unresolved P0--P3 finding.
-- WP-PROF-S7 final material-tree Validation passed: `./check_rust.sh`; `./check_codebase.sh` (five
+- WP-INST-S7 final material-tree Validation passed: `./check_rust.sh`; `./check_codebase.sh` (five
   checks and 264 Node tests); `source source_me.sh && python3 -m pytest tests/` (5,235 tests); and
   outside-sandbox `./run_playwright_tests.sh --build` (203 of 203, zero skips). The fresh
   PostgreSQL 17 `tests/e2e/e2e_database_baseline.sh` run applied 38 migrations and passed the S7
@@ -806,7 +806,7 @@
   `b04c1572d361b10518138e2090a67a33ca78de795f44c175f3cde6b4d7264d15`; versus accepted S2, those
   deltas are +373, +405, and -14 bytes. The live baseline is one-time database evidence; no
   networked regular test or new fixture was added.
-- WP-PROF-S2 acceptance evidence: `./check_rust.sh`; `./check_codebase.sh` (five checks and 261
+- WP-INST-S2 acceptance evidence: `./check_rust.sh`; `./check_codebase.sh` (five checks and 261
   Node tests); `source source_me.sh && python3 -m pytest tests/` (5,235 tests); outside-sandbox
   `./run_playwright_tests.sh --build` (203 of 203); and outside-sandbox
   `tests/e2e/e2e_database_baseline.sh` (37 PostgreSQL 17 migrations, exact course-term constraint,
@@ -815,11 +815,11 @@
   finding. The release Wasm gzip result was 231,911 bytes (+353). Test-only repairs use the bounded
   real-Tab helper for native date controls and give browser term decoding its focused owner; no new
   fixture or networked regular test was added.
-- WP-PROF-S1 acceptance validation evidence: `source source_me.sh && python3 -m pytest
+- WP-INST-S1 acceptance validation evidence: `source source_me.sh && python3 -m pytest
   tests/test_markdown_links.py tests/test_ascii_compliance.py` passed 1,471 tests; `source
   source_me.sh && python3 -m pytest tests/` passed 5,235 tests in 3.13 seconds; and both `git
   diff --check` and `git diff --cached --check` passed. Independent acceptance review returned
-  ACCEPT with no P0/P1/P2 finding, so WP-PROF-S1 is accepted.
+  ACCEPT with no P0/P1/P2 finding, so WP-INST-S1 is accepted.
 - Final repository-owned validation passed on the material tree: `./check_rust.sh`;
   `./check_codebase.sh` with 261 Node tests; `source source_me.sh && python3 -m pytest tests/` with
   5,235 pytest tests; and `./run_playwright_tests.sh --build` with 203 built-browser tests. The

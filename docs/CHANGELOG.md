@@ -4,6 +4,33 @@
 
 ### Fixes and Maintenance
 
+- Corrected the planned secure file-upload capability to use canonical Student terminology: the
+  active plan is now `secure_student_file_upload_plan.md`, its proposed `StudentUploadId`,
+  `student_upload`, `secure_student_uploads`, and `CON-STUDENT-UPLOAD` names are aligned across
+  current contracts, and historical dated reports retain their original wording as evidence.
+
+- Standardized the active Instructor roadmap on the temporary `WP-INST-*` package namespace and
+  renamed its capability plan accordingly. These labels are disposable plan coordinates that retire
+  with the planning layer. Product and source vocabulary now treats Student,
+  Instructor, and Sysadmin as the sole human-role terms; new G2 contracts use
+  `StudentWorkInspectionStore` and `InspectedStudentResponseV1`. Accepted migration files retain
+  their historical package comments while current planning identifiers and future capabilities use
+  the canonical namespace.
+
+- Strengthened the approved `WP-INST-G2` binding plan for one roster-first calculated Gradebook and
+  one explicit audited Student-work inspection read. It now binds operation filters and the
+  `singleStudent`/`studentSelection` choice into structural cursor continuation; gives each later
+  page its own live scoring witness; assigns safe response rendering to
+  `question_model::presentation`; and specifies Fetch Metadata, server-owned audit facts,
+  parameter-bound SQL, secure errors, and separate security telemetry. The four migrations now
+  close authority in order: foundation (`1870`), private immutable witness (`1871`), the only
+  app-executable broker with atomic audits (`1872`), and demonstrated indexes (`1873`).
+
+- Closed the final G2 architecture findings with an exact typed Student-selection row that reuses
+  the Gradebook run-choice union and a Fetch Metadata decision table covering same-origin requests
+  plus explicit user-initiated top-level navigation. Independent HCI and security rereviews accept
+  the interaction, evidence, and privacy boundaries.
+
 - Reconciled the repository documentation set with current live-demo ownership, exact role
   viewports, state-derived grading recovery, project-scoped Podman cleanup, release notes, and the
   active G1 evidence boundary. The root `AGENTS.md` now routes agents to canonical documents rather
@@ -46,7 +73,7 @@
 
 ### Decisions and Failures
 
-- Advanced WP-PROF-G1's accepted-input boundary: immutable server-private submissions remain the
+- Advanced WP-INST-G1's accepted-input boundary: immutable server-private submissions remain the
   grading authority, replay returns the original receipt, and answer-free learner and Instructor
   projections keep response material private. Source/projection digests, receipt immutability,
   integrity-failure routing, worker readiness, and the existing generation-fenced score path remain
@@ -65,8 +92,9 @@
   `1855`, `1859`, `1860`, `1861`, and `1865` are restored byte-for-byte, and the closeout source
   is implemented across `2026081866` through `2026081869`. The four atomic owners are receipt
   schema/preflight, execution writers, the 36-input commit-v2 writer, and Instructor writers with
-  retry V2 and public V1 retirement. The affected live evidence is green on the 99-migration tree;
-  G1 remains incomplete pending repository tracking and final tracked-tree Validation.
+  retry V2 and public V1 retirement. The affected live evidence is green on the 99-migration tree.
+- Accepted `WP-INST-G1` after the final material-tree aggregate passed every required gate. G2 now
+  owns audited learner-work inspection and the grade-scheme-aware calculated Gradebook.
 
 ### Developer Tests and Notes
 
@@ -89,27 +117,25 @@
   tracking-dependent Markdown-link module passed 7,654 tests.
 - The audit repair gate passed 65 focused Python tests, 7 focused Node tests, shell syntax,
   Prettier, controller help, and `git diff --check`.
-- The documentation set has been reconciled in the working tree, but link acceptance awaits
-  repository tracking of its new owned artifacts. The exact aggregate attempt passed the complete
-  Rust and codebase gates, then reported 7,912 passed Python checks and tracking-dependent
-  Markdown-link failures for physical targets awaiting Git tracking. Separately, complete live
-  acceptance passed every production browser scenario, all 99 migrations and connected
-  PostgreSQL/RLS/worker oracles, isolated WebWork, replica restart/durable replay, and exact cleanup.
-  Final
-  `source source_me.sh && ./all_test.sh` Validation remains open; WP-PROF-G1 and the overall goal
-  therefore remain incomplete.
+- An intermediate aggregate passed the complete Rust and codebase gates, then reported 7,912
+  Python checks before local-link scope stopped that run. Complete live acceptance separately passed
+  every production-browser scenario, all 99 migrations and connected PostgreSQL/RLS/worker oracles,
+  isolated WebWork, replica restart and durable replay, and exact cleanup.
 - A one-time shadow-index diagnostic added exactly the 13 intended durable artifacts to an isolated
   temporary Git index while preserving the real repository index. The unchanged aggregate then
   passed Rust/Wasm, 369 Node tests, 7,978 pytest checks, every production-browser scenario, all 99
   migrations and connected PostgreSQL/RLS/worker oracles, isolated WebWork, replica restart/durable
-  replay, and exact cleanup. This proves no later gate is hidden behind the tracking-dependent links;
-  final acceptance still requires the ordinary tracked-tree aggregate.
+  replay, and exact cleanup. This one-time implementation probe established the remaining gate path.
+- Final `source source_me.sh && ./all_test.sh` Validation passed on the material tree: Rust checks,
+  tests, doctests, strict Clippy, and browser Wasm; 369 Node tests; 7,978 pytest checks; every
+  canonical production-browser scenario; all 99 migrations and connected PostgreSQL/RLS/worker
+  oracles; isolated WebWork; replica restart and durable replay; and exact disposable cleanup.
 
 ## 2026-08-27
 
 ### Decisions and Failures
 
-- Approved the WP-PROF-G1 automated-grading operations binding plan. Source and dependency review
+- Approved the WP-INST-G1 automated-grading operations binding plan. Source and dependency review
   found that learner grading could begin before the accepted response had a durable retry owner, so
   G1 now makes one immutable server-private `submission` authoritative before grading and separates
   mutable execution, evaluation, and Instructor-operation projections from append-only receipts.
@@ -121,7 +147,7 @@
   path and background recovery. Deterministic grader exceptions become assignment-local,
   metadata-only Instructor work; retry reuses accepted private input, recalculation remains
   generation-fenced, and automated capabilities stay structurally separate from human grading.
-- Accepted `WP-PROF-G1 / G1-W2` for the typed pending contracts, answer-free metadata parents and
+- Accepted `WP-INST-G1 / G1-W2` for the typed pending contracts, answer-free metadata parents and
   private-response child, canonical UTF-8 response identity, Memory/PostgreSQL parity, dedicated
   worker-only execution store, separate API/worker process logins, and migrations 1849/1850. G1
   remains incomplete; G1-W3 then became the next dependency-ordered stage.
@@ -129,7 +155,7 @@
   load, completion-lock, commit, and fail capabilities; W5 owns `2026081861` and its dedicated
   Instructor operation capability. W7b
   owns executable API-denial/worker-lease/RLS proof, and final `all_test.sh` remains required.
-- Accepted `WP-PROF-G1 / G1-W3` for exhaustive typed pending reads, the answer-free no-store
+- Accepted `WP-INST-G1 / G1-W3` for exhaustive typed pending reads, the answer-free no-store
   `accepted_pending` replay projection, closed deterministic grader categories, Native/WebWork/QTI/
   composite classification, the preserved opaque iMathAS broker boundary, and Memory learner-read
   projection parity. `G1-W4` is now current; it owns migrations `2026081851` through `2026081860` and consumes
@@ -240,7 +266,7 @@
 
 ### Additions and New Features
 
-- Added the WP-PROF-T6 W2 Instructor assignment workspace shell: canonical Overview, Questions,
+- Added the WP-INST-T6 W2 Instructor assignment workspace shell: canonical Overview, Questions,
   Policies, and Student view routes share one course-authorized assignment load, assignment titles
   open the Instructor Overview, and local navigation preserves the surrounding course management
   context.
@@ -250,11 +276,11 @@
 - Implemented the Instructor Student-view landing: the current answer-free live assignment is
   loaded through the exact course/assignment authority, rendered by the shared learner
   presentation, and paired with stable-identity, no-mutation guidance to explicit Student entry.
-- Completed the WP-PROF-T6 assignment workspace: Questions owns ordered fixed and pooled content,
+- Completed the WP-INST-T6 assignment workspace: Questions owns ordered fixed and pooled content,
   Policies owns delivery and lifecycle decisions, Overview is the assignment home, and Student view
   uses the same answer-free learner presentation while retaining Instructor identity. Empty Drafts
   persist before content exists, and publication readiness remains server-owned.
-- Implemented the WP-PROF-B2 curriculum-adoption API and Instructor browser composition across
+- Implemented the WP-INST-B2 curriculum-adoption API and Instructor browser composition across
   preview-before-save adoption, rollover, term shifting, provenance receipts, controlled
   fast-forward, and divergence recovery.
 
@@ -353,7 +379,7 @@
 
 ### Decisions and Failures
 
-- Corrected the WP-PROF-T6 fixed-slot replacement boundary after the live journey showed that
+- Corrected the WP-INST-T6 fixed-slot replacement boundary after the live journey showed that
   selection alone did not commit a future-run replacement. The focused route-policy command now
   resolves the public Question server-side, preserves the assignment item identity, advances the
   shared revision, returns authoritative no-store editor detail, and leaves issued snapshots
@@ -366,13 +392,13 @@
   oracle, WebWork oracle, replica restart, and exact cleanup; and independent security and HCI
   re-reviews are clean. The six durable T6 closure paths are now tracked; final package acceptance
   remains tied to `source source_me.sh && ./all_test.sh` passing on that exact final tracked tree.
-- Accepted WP-PROF-T6 on 2026-08-27. The exact tracked-tree `source source_me.sh && ./all_test.sh`
+- Accepted WP-INST-T6 on 2026-08-27. The exact tracked-tree `source source_me.sh && ./all_test.sh`
   gate passed Rust checks/tests/doctests/Wasm, frontend/codebase/Node, 7,428 pytest cases, all 15
   production browser scenarios, all 78 migrations and database oracles, isolated WebWork, and
-  replica restart/durable replay. The professor handoff advances to WP-PROF-G1.
+  replica restart/durable replay. The Instructor handoff advances to WP-INST-G1.
 
-- Added the owner-directed `WP-PROF-T6` assignment-workspace binding plan and advanced the current
-  professor handoff to it before `WP-PROF-G1`. The assignment title becomes the canonical entry to
+- Added the owner-directed `WP-INST-T6` assignment-workspace binding plan and advanced the current
+  Instructor handoff to it before `WP-INST-G1`. The assignment title becomes the canonical entry to
   one Instructor assignment home; Questions and Policies become focused revision-checked pages; and
   Student view renders the current answer-free learner landing while retaining the Instructor
   session. ADAPT supplied comparison evidence for title navigation, child routes, and the familiar
@@ -398,7 +424,7 @@
 - Passed focused TypeScript compilation, ESLint, Node browser-contract/workflow checks, Python
   scenario-contract checks, 23 question-model tests, 62 learning-data-access tests, and the
   repository ASCII, source-size, Markdown-link, and diff-hygiene gates.
-- Passed the integrated WP-PROF-T6 production-shaped HTTPS capture with all live scenarios, one
+- Passed the integrated WP-INST-T6 production-shaped HTTPS capture with all live scenarios, one
   origin, independent Elena Instructor and Morgan Sysadmin passkey paths, same-assignment Mary
   Student submission and Elena gradebook observation, all 61 current screenshot artifacts, privacy
   validation, atomic publication, and exact cleanup. Independent architecture/security and
@@ -411,7 +437,7 @@
 - Passed all 15 connected production-browser journeys, the 77-migration PostgreSQL/RLS/persistence
   baseline, the isolated WebWork scoring and outage oracle, and the API replica restart/replay
   oracle. Each disposable owner returned an exact cleanup receipt.
-- Accepted WP-PROF-B2 and advanced the professor handoff to WP-PROF-G1. Final
+- Accepted WP-INST-B2 and advanced the Instructor handoff to WP-INST-G1. Final
   `source source_me.sh && ./all_test.sh` passed the complete Rust, 322-case Node, 7,361-case pytest,
   15-journey production-browser, 77-migration PostgreSQL, WebWork, replica-restart, and exact-cleanup
   gates on the published material tree.
@@ -436,7 +462,7 @@
 - Made API schema startup topology-aware: disposable local PostgreSQL now fails before serving
   when schema verification is unavailable, while AWS workload retains its degraded-start diagnostic;
   incompatible schemas remain fatal for both topologies.
-- Established the audited `WP-PROF-B2` domain and browser-contract foundation for explicit
+- Established the audited `WP-INST-B2` domain and browser-contract foundation for explicit
   curriculum adoption. Validated server-only assignment and course semantic baselines bind exact
   publication pins, authored order, pools, defaults, and relative schedules; structural equality
   governs equivalence while a canonical digest supplies immutable evidence. Target-term resolution
@@ -448,7 +474,7 @@
   contract, documentation, style, legacy, readability, and permanent-test finding. All 146
   `question_model` tests, two doctests, TypeScript compilation, formatting, strict Clippy, source
   limits, Markdown links, and diff hygiene pass.
-- Accepted WP-PROF-B1 reusable curricula and advanced the professor queue to WP-PROF-B2 curriculum
+- Accepted WP-INST-B1 reusable curricula and advanced the Instructor queue to WP-INST-B2 curriculum
   adoption, rollover, term shifting, provenance, and controlled updates. Approved Instructors can
   create revisioned private assignment Blueprints, inspect non-enrollable public Alpha curricula,
   and reuse ordered Alpha questions through the same answer-free `ProblemPicker` used by ordinary
@@ -461,7 +487,7 @@
   canonical 1280 by 800 desktop creator, picker, and reader states. Architecture, security/privacy,
   HCI/accessibility, and documentation/evidence reviews approved with no unresolved P0--P3 finding.
 - Restored the owner-defined viewport allocation after a generalized responsive-corpus paraphrase
-  weakened it. Professor/Instructor and Sysadmin visual evidence now uses only the canonical 1280 by
+  weakened it. Instructor/Instructor and Sysadmin visual evidence now uses only the canonical 1280 by
   800 16:10 desktop profile; Student evidence retains the 40/30/20/10 laptop, portrait-tablet,
   iPhone Pro, and square planning mix. The manifest validator enforces the teaching-role boundary,
   and screenshot publication retires the prior non-laptop teaching-role variants.
@@ -479,7 +505,7 @@
   the complete production HTTPS browser suite, all 67 database migrations, the WebWork and
   replica-restart service oracles, and exact cleanup. B2 final Validation remains open until its
   Store, PostgreSQL, browser, and evidence slices are complete on one final material tree.
-- Accepted WP-PROF-D2 live problem curation and advanced the professor queue to WP-PROF-B1 reusable
+- Accepted WP-INST-D2 live problem curation and advanced the Instructor queue to WP-INST-B1 reusable
   curricula. Favorites, private and institution collections, canonical saved searches,
   revision-checked bulk actions, and the shared `ProblemPicker` now compose the ordinary Library and
   assignment-authoring paths. Elena Instructor and Morgan Sysadmin retain their independent passkey
@@ -498,8 +524,8 @@
 - Final `source source_me.sh && ./all_test.sh` passed the Rust workspace, all five codebase gates
   including 297 Node tests, 6,982 pytest checks, and the complete connected acceptance path with
   exact cleanup.
-- Accepted WP-PROF-D1 question discovery on the canonical live product path and advanced the
-  professor queue to WP-PROF-D2 collections, Favorites, saved searches, bulk curation, and reusable
+- Accepted WP-INST-D1 question discovery on the canonical live product path and advanced the
+  Instructor queue to WP-INST-D2 collections, Favorites, saved searches, bulk curation, and reusable
   problem selection. Library search now combines public metadata and response-family facets with
   validity-governed cross-course evidence and actor-authorized own-course usage. Generated
   questions show one deterministic server-materialized example through the shared semantic prompt
@@ -525,21 +551,21 @@
 
 ### Fixes and Maintenance
 
-- Accepted WP-PROF-T5 item pools on the canonical live-demo product path. Elena creates an ordered
+- Accepted WP-INST-T5 item pools on the canonical live-demo product path. Elena creates an ordered
   mixed fixed/pool assignment using public Question IDs, previews a server-generated no-store draw,
   and the normal Student path issues, grades, resumes, and exposes immutable evidence for the
   selected items. Pre-issue structural edits serialize against first run; issued work stays
   immutable and later structural editing presents a visible new-assignment recovery path.
   Production HTTPS acceptance, refreshed screenshot provenance/privacy publication, independent
-  visual review, and complete final Validation passed; the professor handoff advances to
-  WP-PROF-D1 discovery.
-- Hardened WP-PROF-T5 assignment authoring: create and update now establish the session,
+  visual review, and complete final Validation passed; the Instructor handoff advances to
+  WP-INST-D1 discovery.
+- Hardened WP-INST-T5 assignment authoring: create and update now establish the session,
   Instructor course authority, and update-route assignment binding before bounded JSON decoding;
   every refusal remains `no-store`. Shared Rust/TypeScript cardinality limits now cap ordered
   entries at 1,024, candidates per pool at 1,024, and total candidates at 8,192 before any catalog
   resolution; accessible authoring recovery feedback names the applicable correction.
-- Accepted `WP-PROF-LD3` on the canonical live product path and advanced the professor queue to
-  `WP-PROF-T5` item pools. The production HTTPS browser completed all ten visible role, passkey,
+- Accepted `WP-INST-LD3` on the canonical live product path and advanced the Instructor queue to
+  `WP-INST-T5` item pools. The production HTTPS browser completed all ten visible role, passkey,
   authoring, preview, replacement, grading, learner-delivery, recovery, WebWork, and QTI-import
   scenarios; the isolated WebWork and replica-restart oracles also passed with exact durable replay
   and empty final resource, process, private-artifact, and workspace inventories. The 63-artifact
@@ -550,7 +576,7 @@
   after optional screenshot replacement, preventing ordinary acceptance from raising an unbound-local
   failure; added a focused behavioral regression for the ordinary child-execution path.
 - Selected the live demo as PLE's single product and acceptance path and retired the unaccepted
-  `WP-PROF-T4` parallel execution sidecar before production. New current package `WP-PROF-LD3`
+  `WP-INST-T4` parallel execution sidecar before production. New current package `WP-INST-LD3`
   converges ordinary assignment mutation, learner delivery, deterministic server-owned grading,
   immutable issued evidence and receipt replay, course grade control, and audited Instructor
   inspection. Removed the sidecar domain, Store, server composition, routes, generated contracts,

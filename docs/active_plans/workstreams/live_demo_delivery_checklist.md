@@ -1,7 +1,7 @@
 # Live demo delivery checklist
 
 > **Historical lifecycle record plus current T6 evidence ledger.** This checklist preserves its dated
-> delivery evidence and records the current WP-PROF-T6 assignment-workspace evidence state. The
+> delivery evidence and records the current WP-INST-T6 assignment-workspace evidence state. The
 > supported browser owner, catalog, commands, and lane truth are defined by the
 > [real-stack browser suite plan](../active/real_stack_browser_suite_plan.md),
 > [implementation status](../implementation_status.md), and
@@ -32,7 +32,7 @@ Seeded instructors, students, courses, assignments, problems, and student activi
 data. Fresh database and object-storage regeneration restores the baseline. Retained stores
 preserve edits and new data across ordinary restarts.
 
-## WP-PROF-T6 assignment workspace
+## WP-INST-T6 assignment workspace
 
 The current Instructor workflow follows the assignment as a teaching object. Selecting an assignment
 title opens that assignment's Overview. Assignment-local navigation then provides separate Overview,
@@ -65,22 +65,22 @@ sign-in; `auth_authorization` does the same generic passkey proof for Elena befo
 Instructor and course-boundary checks. The fixed owner retains reset and cleanup responsibility;
 the scenarios share neither credentials nor setup state.
 
-This checklist applies the [professor capability architecture plan](../active/professor_capability_architecture_plan.md),
+This checklist applies the [Instructor capability architecture plan](../active/instructor_capability_architecture_plan.md),
 the [implementation plan](../implementation_plan.md), and the current package handoff in
 [implementation status](../implementation_status.md). It records delivery work; those documents
 remain the scope and acceptance authorities.
 
 ## P0: seed only fresh state
 
-- [x] Allocate the `WP-PROF-LD1` schema package and migration through
+- [x] Allocate the `WP-INST-LD1` schema package and migration through
       [implementation_status.md](../implementation_status.md) before durable install-state work begins.
-      `WP-PROF-LD2` accepted immutable migration `2026081809` owns exactly two least-privilege
+      `WP-INST-LD2` accepted immutable migration `2026081809` owns exactly two least-privilege
       execute-only PostgreSQL brokers: safe normal Sysadmin approval-candidate discovery and read-only
       completed live-demo installation-generation lookup.
       Its separately accepted immutable `2026081810` is only the narrow Student pre-tenant account-course
       context retention-boundary repair. Selector, passkey, account, and session data and semantics remain
       non-schema; the generation-read broker is the accepted narrow auth-owned installation-state read.
-      `WP-PROF-T3` remains separate and current.
+      `WP-INST-T3` remains separate and current.
 - [x] Give each fresh baseline installation a durable `installing`/`complete` state and generation,
       serialize its installer, and bind its PostgreSQL rows and object-storage receipt to that
       installation.
@@ -129,15 +129,15 @@ The browser-test artifact does not create a shared fixture corpus. The installed
 production baseline data and its ordinary HTTP journey is the live-demo proof. See
 [PYTEST_STYLE.md](../../PYTEST_STYLE.md#fixture-policy).
 
-## Seeded account authentication (WP-PROF-LD2)
+## Seeded account authentication (WP-INST-LD2)
 
-`WP-PROF-LD2` starts after `WP-PROF-LD1` has accepted the baseline lifecycle. Its only `WP-RC8`
+`WP-INST-LD2` starts after `WP-INST-LD1` has accepted the baseline lifecycle. Its only `WP-RC8`
 dependency is the necessary existing account-session/passkey/origin contract: LD2 can implement
 and validate the seeded-entry seams against those contracts while unrelated provider, mailbox,
 multi-replica, security, and HCI gates remain open. It adds convenient entry for seeded Student
 and Instructor accounts while preserving `WP-RC8` as the production authentication owner.
 
-The live-demo handoff order was `WP-PROF-LD1` -> `WP-PROF-LD2` -> `WP-PROF-T3`; all three packages
+The live-demo handoff order was `WP-INST-LD1` -> `WP-INST-LD2` -> `WP-INST-T3`; all three packages
 are accepted. [implementation_status.md](../implementation_status.md) owns the active handoff.
 
 - [x] Provide a deployment-controlled selector for five fixed seeded personas: Elena Instructor,
@@ -190,7 +190,7 @@ browser scenario.
       answers through the ordinary Student session.
 - [x] View the permitted feedback and grades, then repeat the assignment where its policy allows.
 
-### Item-pool continuation (WP-PROF-T5)
+### Item-pool continuation (WP-INST-T5)
 
 - [x] Elena uses visible controls and public Question IDs to create a mixed fixed-plus-pool
       assignment. She configures draw count, points, and ordering while the v1 algorithm label remains

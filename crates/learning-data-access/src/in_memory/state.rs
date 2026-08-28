@@ -234,6 +234,24 @@ impl MemoryStore {
         Ok(self.read_state()?.preview_subject_audits.clone())
     }
 
+    /// Returns paired Student-record inspection facts for deterministic conformance tests.
+    /// Application code has no audit lookup capability.
+    pub fn student_work_inspection_audit_facts(
+        &self,
+    ) -> Result<
+        (
+            Vec<crate::StudentWorkInspectionRecordAccess>,
+            Vec<crate::StudentWorkInspectionAudit>,
+        ),
+        StoreError,
+    > {
+        let state = self.read_state()?;
+        Ok((
+            state.student_work_inspection_record_accesses.clone(),
+            state.student_work_inspection_audits.clone(),
+        ))
+    }
+
     /// Test-only equivalent of the later submission-completion capability.
     ///
     /// No public Store trait method accepts a collapsed observation.  Keeping

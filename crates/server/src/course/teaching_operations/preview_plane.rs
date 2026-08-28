@@ -1,4 +1,4 @@
-//! Direct-Instructor, non-mutating WP-PROF-T3 preview-plane transport.
+//! Direct-Instructor, non-mutating WP-INST-T3 preview-plane transport.
 //!
 //! The browser supplies only public C-/A-/G-/M- references.  This boundary
 //! authenticates, resolves and binds the C-/A- pair before it reads a query or

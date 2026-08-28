@@ -1,4 +1,4 @@
-//! Strict browser/server contracts for the non-mutating WP-PROF-T3 preview plane.
+//! Strict browser/server contracts for the non-mutating WP-INST-T3 preview plane.
 //!
 //! A route request owns any `M-` or `G-` locator.  The Store resolves and discards
 //! those locators before returning the owned [`PreviewSubject`].  That value is
@@ -52,7 +52,7 @@ impl From<PreviewSyntheticGroupReferences> for Vec<CourseGroupReference> {
     }
 }
 
-/// Bounded professor wall-clock input. The server resolves it in this exact course zone.
+/// Bounded Instructor wall-clock input. The server resolves it in this exact course zone.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PreviewSelectedMoment {

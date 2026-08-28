@@ -1,6 +1,6 @@
 #![cfg(feature = "postgres")]
 
-//! Disposable PostgreSQL oracle for WP-PROF-D1 evidence and usage authority.
+//! Disposable PostgreSQL oracle for WP-INST-D1 evidence and usage authority.
 
 use std::fs;
 use std::str::FromStr;

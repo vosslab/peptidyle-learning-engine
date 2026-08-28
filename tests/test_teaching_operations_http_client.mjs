@@ -1,4 +1,4 @@
-// WP-PROF-T2 strict same-origin browser transport behavior tests.
+// WP-INST-T2 strict same-origin browser transport behavior tests.
 
 import assert from "node:assert/strict";
 import test from "node:test";

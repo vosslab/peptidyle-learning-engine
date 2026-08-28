@@ -1,4 +1,4 @@
-// Strict same-origin browser transport for the read-only WP-PROF-T3 preview plane.
+// Strict same-origin browser transport for the read-only WP-INST-T3 preview plane.
 
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
 import type { CourseReference } from "../../../generated/api/CourseReference";

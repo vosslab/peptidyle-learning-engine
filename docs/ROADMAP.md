@@ -19,14 +19,14 @@ migration files remain immutable.
 The status registry is the authority for package allocation and its recorded evidence, which
 can lag the current material tree until the named Validation gates are rerun.
 
-The current package is `WP-PROF-G1`, stage G1-W7 closeout. Its automated-grading operation
-boundary has completed W5 through W7b, its seven accepted migrations are restored, and its
-implemented closeout source is complete across the four-file `2026081866`-`2026081869` sequence.
-The affected live database/RLS/worker/browser evidence is green on the 99-migration material
-tree. It remains acceptance-open pending repository tracking of the new owned files and exact
-final-tracked-tree Validation.
+`WP-INST-G1` is accepted. Its automated-grading operation boundary completed W5 through W7, its
+seven predecessor migrations and four-file `2026081866`-`2026081869` closeout sequence are present,
+and final material-tree Validation passed on the 99-migration tree. `WP-INST-G2` is current under
+the [calculated Gradebook and audited Student-work plan](active_plans/active/audited_student_work_gradebook_plan.md),
+which reserves four forward migrations: authority foundation, private immutable witness, only
+app-executable broker, and query-demonstrated indexes (`2026081870` through `2026081873`).
 `WP-RC8` remains acceptance-open for provider/mailbox, unrelated passkey, multi-replica, security,
-HCI, and release work. Professor live-demo acceptance does not imply production onboarding,
+HCI, and release work. Instructor live-demo acceptance does not imply production onboarding,
 deployment, or release acceptance.
 
 ## Accepted/current/future
@@ -46,14 +46,12 @@ deployment, or release acceptance.
 
 ### Current and acceptance-open
 
-- Close `WP-PROF-G1` by tracking its new owned files, then pass exact final-tracked-tree
-  Validation and advance the professor queue to `WP-PROF-G2`. The affected live
-  database/RLS/worker/browser evidence for `2026081866` through `2026081869` is already green
-  on the 99-migration material tree.
-- Rerun the complete named Validation suite on the final material tree. Focused or historical
-  migration counts are not sufficient for release acceptance.
-- Keep documentation link acceptance open until the new owned artifacts are tracked and the link
-  gate is rerun on that material tree.
+- Implement `WP-INST-G2` from its approved calculated Gradebook and audited Student-work contract,
+  then continue the Instructor sequence in declared dependency order. `WP-INST-G1` contributes
+  accepted operation and receipt links.
+- Rerun the complete named Validation suite on each final material tree. Focused or historical
+  migration counts do not establish release acceptance.
+- Keep documentation links GitHub-browsable through the material-tree Markdown-link gate.
 - Keep schema administration explicit and privileged: `cargo tools database migrate` uses
   `PLE_MIGRATION_DATABASE_URL`; application startup and browser capabilities do not own DDL.
 - Close live-demo data separation. The typed lifecycle may apply migrations first, but the
@@ -93,13 +91,13 @@ determinism, ordinary teaching workflows, and demo identity boundaries.
 
 ## Dependency-ordered work
 
-| Stage | Work | Exit evidence |
-| --- | --- | --- |
-| D1 | Finish the current professor package and its authority proofs | Owning plan's focused gates and final Validation pass |
-| D2 | Reconcile the final migration inventory and clean-cluster baseline evidence | Fresh/no-op/status/verify and role/RLS evidence on disposable clusters |
-| D3 | Remove migration authority from the live-demo data installer | Incompatible or absent baseline is refused without DDL; data-only install succeeds |
-| D4 | Exercise release operations | Clean-volume lifecycle, real-stack browser, restore, and independent review pass |
-| D5 | Human release decision | No unresolved required gate; deployment approval is explicitly recorded |
+| Stage | Work                                                                        | Exit evidence                                                                      |
+| ----- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| D1    | Finish the current Instructor package and its authority proofs              | Owning plan's focused gates and final Validation pass                              |
+| D2    | Reconcile the final migration inventory and clean-cluster baseline evidence | Fresh/no-op/status/verify and role/RLS evidence on disposable clusters             |
+| D3    | Remove migration authority from the live-demo data installer                | Incompatible or absent baseline is refused without DDL; data-only install succeeds |
+| D4    | Exercise release operations                                                 | Clean-volume lifecycle, real-stack browser, restore, and independent review pass   |
+| D5    | Human release decision                                                      | No unresolved required gate; deployment approval is explicitly recorded            |
 
 Stages are intentionally serial where later work depends on accepted schema or package
 contracts. Any new schema work receives an allocation in the shared ledger before
@@ -120,13 +118,13 @@ explicit E2E, Playwright, or operational gates rather than hidden fast tests.
 
 ## Risks and release gates
 
-| Risk | Required response |
-| --- | --- |
-| Schema or security object drift | Block the cutover; compare clean clusters and repeat independent review. |
-| Installer still applies DDL | Keep release acceptance open; remove the flag and ledger path. |
-| Current source changes during evidence capture | Refresh the inventory and rerun the affected gates on the final material tree. |
-| Recovery procedure is untested | Block release until a disposable restore exercise passes. |
-| Normalization is proposed without measured need | Defer it to a future package with an explicit owner and allocation. |
+| Risk                                            | Required response                                                              |
+| ----------------------------------------------- | ------------------------------------------------------------------------------ |
+| Schema or security object drift                 | Block the cutover; compare clean clusters and repeat independent review.       |
+| Installer still applies DDL                     | Keep release acceptance open; remove the flag and ledger path.                 |
+| Current source changes during evidence capture  | Refresh the inventory and rerun the affected gates on the final material tree. |
+| Recovery procedure is untested                  | Block release until a disposable restore exercise passes.                      |
+| Normalization is proposed without measured need | Defer it to a future package with an explicit owner and allocation.            |
 
 Release is not ready until the active plans record accepted package predecessors, complete
 Validation, data-only live-demo installation, clean-stack/browser evidence, recovery evidence,

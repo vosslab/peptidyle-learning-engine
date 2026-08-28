@@ -164,7 +164,7 @@ has crossed its intended trust boundary. See
 [insecure deserialization](https://portswigger.net/web-security/deserialization).
 
 - **Preconditions:** The service accepts ZIP/QTI packages, images, canonical source, JSON, object
-  references, or any future learner upload.
+  references, or any future Student upload.
 - **Review questions:** Is input bounded before decode? Are archive names normalized and rejected on
   absolute paths, backslashes, traversal, duplicates, symlinks, and expansion bombs? Are media
   types sniffed and fully decoded? Can a wire payload choose a Rust trait object, filesystem path,
@@ -177,7 +177,7 @@ has crossed its intended trust boundary. See
   privileged value.
 - **False confidence:** Filename/MIME checks, a SHA-256 alone, a random storage name, or Serde
   parsing without an explicit schema and resource bounds.
-- **Applicability:** **Code evidence target** for author imports and assets. Learner upload is
+- **Applicability:** **Code evidence target** for author imports and assets. Student upload is
   intentionally deferred; its activation must add server-issued, attempt-bound upload capabilities
   and malware/retention policy rather than reopening a raw object-key field.
 

@@ -1,4 +1,4 @@
-"""UI-first production discovery evidence facts for WP-PROF-D1."""
+"""UI-first production discovery evidence facts for WP-INST-D1."""
 
 from e2e_browser_scenario_contract import ScenarioContract
 

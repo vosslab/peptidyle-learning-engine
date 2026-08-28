@@ -1,10 +1,10 @@
 # Plan: Secure question grading payloads
 
-> **Current-authority supersession (WP-PROF-S4).** This accepted payload-boundary plan retains its
+> **Current-authority supersession (WP-INST-S4).** This accepted payload-boundary plan retains its
 > receipt and projection history, but it no longer defines learner disclosure authority. The retired
 > coarse attempt/receipt feedback policy, `Deferred` behavior, and Store-derived disclosure design
 > are superseded by the assignment-owned five-field policy in
-> [professor_capability_architecture_plan.md](../active/professor_capability_architecture_plan.md).
+> [instructor_capability_architecture_plan.md](../active/instructor_capability_architecture_plan.md).
 > At every learner read or receipt projection, the server evaluates S5 entitlement, then S3 current
 > effective policy, authoritative time, and the submitted fact. `feedback_release` and retained
 > receipt records are audit/evidence only; neither supplies a disclosure decision or unlocks a
@@ -184,7 +184,7 @@ new version; it cannot silently reinterpret v1.
 - File-upload and external-tool response payloads are out of v1 because neither is an accepted
   WP-RC5 family; each needs its own object-transfer or broker contract. The dedicated file boundary
   is now decision-complete in
-  `docs/active_plans/active/secure_learner_file_upload_plan.md`.
+  `docs/active_plans/active/secure_student_file_upload_plan.md`.
 - The digest and CRC do not authenticate a browser, replace TLS, prove a pixel painted, prove an
   image decoded, or prevent a malicious authenticated learner from submitting an allowed answer.
 - Current v1 flat questions and RC3 WeBWorK MC do not gain partial-credit rules here. Future

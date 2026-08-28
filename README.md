@@ -3,10 +3,10 @@
 An open mastery-learning platform for biology instructors and students that delivers varied practice, keeps grading and answer keys on the server, and supports meaningful work beyond assignment completion.
 
 **Project status: advanced implementation, not ready for production deployment.** The production-shaped
-live demo and G1 connected evidence are green, but WP-PROF-G1 remains open until the new repository-owned
-files are tracked and the exact final-tracked-tree `all_test.sh` gate passes. Wider release closure and
-production deployment remain open; the demo and its current 63-artifact privacy/provenance-checked capture
-are not a public deployment. [docs/active_plans/implementation_status.md](docs/active_plans/implementation_status.md)
+live demo and G1 acceptance evidence are green, and G2 calculated Gradebook plus audited Student-work
+inspection is the current implementation handoff. Wider release closure and production deployment remain
+open; the demo and its current 63-artifact privacy/provenance-checked capture are not a public deployment.
+[docs/active_plans/implementation_status.md](docs/active_plans/implementation_status.md)
 records the current handoff, and [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md)
 owns planned work.
 
@@ -22,6 +22,7 @@ activity PLE presents to instructors and students, alongside the more expressive
 that implement it.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
+
 ![Instructor assignment Policies workspace showing delivery, completion, grading, and continued-practice controls](docs/screenshots/instructor/assignment_workspace/01_assignment_policies.png)
 ![Student practice run showing server-returned feedback after a selected peptide-bond response](docs/screenshots/student/delivery/05_feedback_correct.png)
 ![Instructor Gradebook showing the completed Peptide Bonds Guided Practice result](docs/screenshots/instructor/grading/01_instructor_gradebook.png)
@@ -269,13 +270,13 @@ metadata and receipts, not learner responses or answer keys.
 | Reusable curriculum                  | Revisioned private Blueprints, public Alpha curricula, immutable publication pins, answer-free inspection, and shared question selection                                                                                                                                                                    |
 | API server                           | Auth, catalog, course, assignment, run, submission, deterministic grading, item analysis, asset, export, workspace, retention, reusable curriculum, and curriculum-adoption route groups                                                                                                                    |
 | WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                                                              |
-| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, Library discovery, question authoring, the Overview/Questions/Policies/Grading operations/Student view assignment workspace, gradebook, reusable curricula, and Instructor curriculum adoption                                                                   |
+| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, Library discovery, question authoring, the Overview/Questions/Policies/Grading operations/Student view assignment workspace, gradebook, reusable curricula, and Instructor curriculum adoption                                                |
 | Curriculum adoption                  | Accepted preview-before-save fork and instantiation, rollover, term shifting, provenance receipts, controlled fast-forward, divergence recovery, and teaching-operation API/browser capabilities                                                                                                            |
 | PostgreSQL                           | Forward-only SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification                                                                                                                                                                                    |
 | Question engines                     | PLE flat-question JSON v2 implements all eight required native families; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
 | DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                                                                                  |
 | Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                                                       |
-| Worker runtime                       | Production attests seven families: six generic queue families plus sealed `GradeAcceptedSubmission`; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                                                                 |
+| Worker runtime                       | Production attests seven families: six generic queue families plus sealed `GradeAcceptedSubmission`; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                                        |
 
 The current checkpoint, evidence, and remaining dependency order live in
 [docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md),
@@ -304,7 +305,7 @@ The full architecture and milestone plan remain in
   active-content or styling injection.
 - File-upload responses deliberately fail closed until the server-issued,
   tenant/learner/attempt-bound capability described in the
-  [secure learner file-upload plan](docs/active_plans/active/secure_learner_file_upload_plan.md)
+  [secure Student file-upload plan](docs/active_plans/active/secure_student_file_upload_plan.md)
   is implemented and verified.
 - The local container topology is not a production security or deployment configuration.
 

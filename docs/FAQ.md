@@ -107,11 +107,10 @@ See [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
 ## Is PLE ready for production?
 
 Not yet. PLE is still pre-production. The live demo is a functional,
-disposable installation, but it is not release acceptance. `WP-PROF-G1`
-implementation and connected evidence are green, while repository tracking of
-new owned files and the exact final-tracked-tree `all_test.sh` gate remain open.
-`WP-RC8` also remains acceptance-open for its provider, mailbox, passkey,
-multi-replica, security, HCI, and release gates. See
+disposable installation, but it is not release acceptance. `WP-INST-G1` is
+accepted after final material-tree Validation; `WP-INST-G2` is the current Instructor capability
+package. `WP-RC8` remains acceptance-open for its provider, mailbox, passkey, multi-replica,
+security, HCI, and release gates. See
 [implementation_status.md](active_plans/implementation_status.md) and
 [release completion plan](active_plans/active/release_completion_plan.md).
 
@@ -205,13 +204,13 @@ and compact rendered-item IDs detect a stale or mismatched question display;
 they are consistency checks, not authentication or grading proof. See
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 
-## Can a learner upload a file answer?
+## Can a Student upload a file answer?
 
 Not yet. The current browser widget and submission route fail closed because a
 browser-supplied object key cannot prove tenant, learner, attempt, storage, or
 inspection ownership. The planned capability creates one server-issued,
 attempt-bound upload record and later accepts only that opaque upload ID. See
-[secure_learner_file_upload_plan.md](active_plans/active/secure_learner_file_upload_plan.md).
+[secure_student_file_upload_plan.md](active_plans/active/secure_student_file_upload_plan.md).
 
 ## Where should a contributor record a durable decision?
 

@@ -58,7 +58,7 @@ formats, database relations, and recovery procedures.
 | Binary objects and assets | Object record plus typed-key object store | Logical asset ID or authorized bytes only | Object record, immutable object, integrity metadata | Check scope and digest; refuse a mismatch | [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md) |
 | Caches and prefetch reservations | Authoritative origin remains the database/backend | Safe reusable render or no browser visibility | Cache rows, reservation state, and metrics | Expire, re-render, or promote atomically; never grade a reservation | [CACHING_AND_PREFETCH.md](CACHING_AND_PREFETCH.md) |
 | Jobs, leases, and aggregates | Worker lease and generation fence | Coarse progress or aggregate projection only | Job, ledger, aggregate, and audit rows | Stale lease/generation cannot commit; cleanup remains retryable | [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md) |
-| Upload responses | No accepted learner-upload path yet | No capability, object key, or signed URL | No learner-upload object is accepted | **Fail closed** before submission mutation | [secure learner file-upload plan](active_plans/active/secure_learner_file_upload_plan.md) |
+| Upload responses | No accepted Student-upload path yet | No capability, object key, or signed URL | No Student-upload object is accepted | **Fail closed** before submission mutation | [secure Student file-upload plan](active_plans/active/secure_student_file_upload_plan.md) |
 
 ## Visibility rules
 

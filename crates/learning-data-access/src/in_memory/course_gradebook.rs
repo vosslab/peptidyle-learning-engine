@@ -5,7 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use async_trait::async_trait;
 use domain::course_grade::{CourseGradeAssignment, CourseGradeError, calculate_course_grade};
 use question_model::{
-    AssignmentId, CourseGradeMode, CourseGradeRoundingRule, CourseGradeScheme, CourseId, PointValue,
+    AssignmentId, CourseGradeMode, CourseGradeRoundingRule, CourseGradeScheme, CourseId,
+    CourseMembershipRole, GradePolicy, PointValue, RunCompletionStatus,
 };
 
 use super::course_roster::require_course_instructor;
@@ -13,11 +14,15 @@ use super::{MemoryStore, State, require_course_records_accessible};
 use crate::course_gradebook::{
     course_grade_assignment_points, validate_course_grade_scheme_update,
 };
+use crate::gradebook_cursor::CalculatedGradebookCursor;
 use crate::{
-    CourseGradeAssignmentRecord, CourseGradeExport, CourseGradeExportAudit, CourseGradeExportId,
-    CourseGradeSchemeRecord, CourseGradeSchemeRevision, CourseGradebookStore,
-    CourseGradebookTotalRow, CourseGradebookTotals, MAX_COURSE_GRADE_EXPORT_ROWS, SessionTokenHash,
-    StoreError, TenantContext, UpdateCourseGradeScheme,
+    AssignmentInspectionChoice, AssignmentScoringWitness, CalculatedAssignmentCell,
+    CalculatedAssignmentCellAvailability, CalculatedGradebookPage, CalculatedGradebookRequest,
+    CalculatedGradebookResult, CalculatedGradebookRow, CourseGradeAssignmentRecord,
+    CourseGradeExport, CourseGradeExportAudit, CourseGradeExportId, CourseGradeSchemeRecord,
+    CourseGradeSchemeRevision, CourseGradebookStore, CourseGradebookTotalRow,
+    CourseGradebookTotals, GradebookFilter, GradebookReloadReason, MAX_COURSE_GRADE_EXPORT_ROWS,
+    SessionTokenHash, StoreError, TenantContext, UpdateCourseGradeScheme,
 };
 
 #[async_trait]
@@ -107,6 +112,117 @@ impl CourseGradebookStore for MemoryStore {
             rounding: scheme.scheme.rounding,
             rows,
         })
+    }
+
+    async fn calculated_gradebook_page(
+        &self,
+        context: TenantContext,
+        session: SessionTokenHash,
+        course: CourseId,
+        request: CalculatedGradebookRequest,
+    ) -> Result<CalculatedGradebookResult, StoreError> {
+        let state = self.read_state()?;
+        let tenant = context.tenant_id();
+        require_course_records_accessible(&state, tenant, course)?;
+        require_course_instructor(&state, context, session, course)?;
+        let scheme = course_grade_scheme(&state, tenant, course);
+        let roster_revision = super::course_roster::roster_policy(&state, tenant, course).revision;
+        let after = request
+            .page
+            .after
+            .as_ref()
+            .map(CalculatedGradebookCursor::decode)
+            .transpose()?;
+        if let Some(after) = after {
+            if after.scheme_revision != scheme.revision {
+                return Ok(CalculatedGradebookResult::ReloadRequired {
+                    reason: GradebookReloadReason::SchemeChanged,
+                });
+            }
+            if after.roster_revision != roster_revision {
+                return Ok(CalculatedGradebookResult::ReloadRequired {
+                    reason: GradebookReloadReason::RosterChanged,
+                });
+            }
+            if after.filter != request.filter {
+                return Ok(CalculatedGradebookResult::ReloadRequired {
+                    reason: GradebookReloadReason::FilterChanged,
+                });
+            }
+        }
+
+        let mut memberships = active_student_memberships(&state, tenant, course, request.filter)?;
+        memberships.sort_by_key(|membership| {
+            state
+                .course_membership_references
+                .get(&(tenant, membership.id))
+                .map(|reference| reference.number())
+                .unwrap_or_default()
+        });
+        let after_membership = after.map(|cursor| cursor.last_membership);
+        let mut rows = memberships
+            .into_iter()
+            .filter(|membership| {
+                after_membership.is_none_or(|after| {
+                    state
+                        .course_membership_references
+                        .get(&(tenant, membership.id))
+                        .is_some_and(|reference| *reference > after)
+                })
+            })
+            .take(usize::from(request.page.size.get()) + 1)
+            .collect::<Vec<_>>();
+        let has_more = rows.len() > usize::from(request.page.size.get());
+        if has_more {
+            rows.pop();
+        }
+        let next_cursor = if has_more {
+            let membership = rows.last().expect("a following page has a final row");
+            let last_membership = *state
+                .course_membership_references
+                .get(&(tenant, membership.id))
+                .ok_or_else(|| {
+                    StoreError::Unavailable(
+                        "active student membership lacks public reference".to_string(),
+                    )
+                })?;
+            Some(
+                CalculatedGradebookCursor {
+                    scheme_revision: scheme.revision,
+                    roster_revision,
+                    filter: request.filter,
+                    last_membership,
+                }
+                .encode(),
+            )
+        } else {
+            None
+        };
+        let scoring_witnesses =
+            calculated_scoring_witnesses(&state, tenant, course, &scheme, request.filter)?;
+        let rows = rows
+            .into_iter()
+            .map(|membership| {
+                calculated_gradebook_row(
+                    &state,
+                    tenant,
+                    course,
+                    membership,
+                    &scheme,
+                    request.filter,
+                )
+            })
+            .collect::<Result<Vec<_>, StoreError>>()?;
+        Ok(CalculatedGradebookResult::Page(CalculatedGradebookPage {
+            scheme_revision: scheme.revision,
+            roster_revision,
+            mode: scheme.scheme.mode,
+            rounding: scheme.scheme.rounding,
+            observation_time: state.authoritative_time,
+            scoring_witnesses,
+            next_cursor,
+            rows,
+        }))
     }
 
     async fn create_course_grade_export(
@@ -235,6 +351,255 @@ fn course_grade_scheme(
         .assignments
         .sort_by_key(|membership| membership.assignment);
     record
+}
+
+fn active_student_memberships(
+    state: &State,
+    tenant: question_model::TenantId,
+    course: CourseId,
+    filter: GradebookFilter,
+) -> Result<Vec<&crate::CourseMembershipRecord>, StoreError> {
+    if let GradebookFilter::Assignment(reference) = filter {
+        state
+            .assignments_by_reference
+            .get(&(tenant, reference))
+            .filter(|assignment| {
+                state
+                    .assignments
+                    .get(&(tenant, **assignment))
+                    .is_some_and(|record| record.course_id == course)
+            })
+            .ok_or(StoreError::NotFound)?;
+    }
+    let selected_membership = match filter {
+        GradebookFilter::Student(reference) => Some(
+            *state
+                .course_memberships_by_reference
+                .get(&(tenant, reference))
+                .filter(|id| {
+                    state
+                        .course_memberships
+                        .get(&(tenant, **id))
+                        .is_some_and(|membership| membership.course == course)
+                })
+                .ok_or(StoreError::NotFound)?,
+        ),
+        GradebookFilter::All | GradebookFilter::Assignment(_) => None,
+    };
+    Ok(state
+        .course_memberships
+        .values()
+        .filter(|membership| {
+            membership.tenant == tenant
+                && membership.course == course
+                && membership.status == crate::CourseMemberStatus::Active
+                && membership.role == CourseMembershipRole::Student
+                && selected_membership.is_none_or(|id| membership.id == id)
+        })
+        .collect())
+}
+
+fn calculated_scoring_witnesses(
+    state: &State,
+    tenant: question_model::TenantId,
+    course: CourseId,
+    scheme: &CourseGradeSchemeRecord,
+    filter: GradebookFilter,
+) -> Result<Vec<AssignmentScoringWitness>, StoreError> {
+    let selected = match filter {
+        GradebookFilter::Assignment(reference) => Some(reference),
+        GradebookFilter::All | GradebookFilter::Student(_) => None,
+    };
+    let mut result = Vec::new();
+    for configured in &scheme.assignments {
+        let assignment = state
+            .assignments
+            .get(&(tenant, configured.assignment))
+            .filter(|assignment| assignment.course_id == course)
+            .ok_or(StoreError::NotFound)?;
+        let reference = *state
+            .assignment_references
+            .get(&(tenant, configured.assignment))
+            .ok_or_else(|| {
+                StoreError::Unavailable("course assignment lacks public reference".to_string())
+            })?;
+        if selected.is_some_and(|selected| selected != reference) {
+            continue;
+        }
+        let (generation, status) = state
+            .assignment_scoring
+            .get(&(tenant, assignment.id))
+            .copied()
+            .ok_or_else(|| {
+                StoreError::Unavailable("assignment scoring state is missing".to_string())
+            })?;
+        result.push(AssignmentScoringWitness {
+            assignment: reference,
+            generation,
+            status,
+        });
+    }
+    Ok(result)
+}
+
+fn calculated_gradebook_row(
+    state: &State,
+    tenant: question_model::TenantId,
+    course: CourseId,
+    membership: &crate::CourseMembershipRecord,
+    scheme: &CourseGradeSchemeRecord,
+    filter: GradebookFilter,
+) -> Result<CalculatedGradebookRow, StoreError> {
+    let student = membership.student.ok_or_else(|| {
+        StoreError::Unavailable("active student membership lacks student identity".to_string())
+    })?;
+    let membership_reference = *state
+        .course_membership_references
+        .get(&(tenant, membership.id))
+        .ok_or_else(|| {
+            StoreError::Unavailable("active student membership lacks public reference".to_string())
+        })?;
+    let profile = state
+        .roster_profiles
+        .get(&(tenant, course, membership.id))
+        .ok_or_else(|| {
+            StoreError::Unavailable("active student membership lacks roster profile".to_string())
+        })?;
+    let assignments = course_grade_assignments(state, tenant, course, student, scheme)?;
+    let outcome =
+        calculate_course_grade(&scheme.scheme, &assignments).map_err(course_grade_error)?;
+    let selected = match filter {
+        GradebookFilter::Assignment(reference) => Some(reference),
+        GradebookFilter::All | GradebookFilter::Student(_) => None,
+    };
+    let assignment_cells = scheme
+        .assignments
+        .iter()
+        .filter_map(|configured| {
+            let reference = state
+                .assignment_references
+                .get(&(tenant, configured.assignment))?;
+            selected
+                .is_none_or(|selected| selected == *reference)
+                .then_some((configured, *reference))
+        })
+        .map(|(configured, reference)| {
+            calculated_assignment_cell(
+                state,
+                tenant,
+                course,
+                student,
+                configured,
+                reference,
+                &assignments,
+            )
+        })
+        .collect::<Result<Vec<_>, StoreError>>()?;
+    Ok(CalculatedGradebookRow {
+        membership: membership_reference,
+        display_label: profile.display_name.clone(),
+        outcome,
+        assignment_cells,
+    })
+}
+
+fn calculated_assignment_cell(
+    state: &State,
+    tenant: question_model::TenantId,
+    course: CourseId,
+    student: question_model::StudentId,
+    configured: &CourseGradeAssignmentRecord,
+    reference: question_model::AssignmentReference,
+    grade_assignments: &[CourseGradeAssignment],
+) -> Result<CalculatedAssignmentCell, StoreError> {
+    let assignment = state
+        .assignments
+        .get(&(tenant, configured.assignment))
+        .filter(|assignment| assignment.course_id == course)
+        .ok_or(StoreError::NotFound)?;
+    let enrollment = state.enrollments.values().find(|enrollment| {
+        enrollment.tenant == tenant
+            && enrollment.assignment == configured.assignment
+            && enrollment.student == student
+    });
+    let grade_assignment = grade_assignments
+        .iter()
+        .find(|item| item.assignment == configured.assignment)
+        .ok_or_else(|| StoreError::Unavailable("course grade assignment is missing".to_string()))?;
+    let (_, scoring_status) = state
+        .assignment_scoring
+        .get(&(tenant, configured.assignment))
+        .copied()
+        .ok_or_else(|| {
+            StoreError::Unavailable("assignment scoring state is missing".to_string())
+        })?;
+    Ok(CalculatedAssignmentCell {
+        assignment: reference,
+        title: assignment.title.clone(),
+        included: configured.included,
+        category: configured.category,
+        availability: if enrollment.is_some() {
+            CalculatedAssignmentCellAvailability::Available
+        } else {
+            CalculatedAssignmentCellAvailability::Unavailable
+        },
+        selected_score: grade_assignment.selected_current_score,
+        scoring_status,
+        inspection_choice: inspection_choice(state, tenant, enrollment, assignment.policies.grade)?,
+    })
+}
+
+fn inspection_choice(
+    state: &State,
+    tenant: question_model::TenantId,
+    enrollment: Option<&question_model::AssignmentEnrollment>,
+    policy: GradePolicy,
+) -> Result<AssignmentInspectionChoice, StoreError> {
+    let Some(enrollment) = enrollment else {
+        return Ok(AssignmentInspectionChoice::NoSubmittedRun);
+    };
+    if let Some(selected) = enrollment.current_grade_run {
+        let run = state
+            .runs
+            .get(&(tenant, selected))
+            .ok_or(StoreError::NotFound)?;
+        let submitted_at = run.completed_at.ok_or_else(|| {
+            StoreError::Unavailable("selected grade run is not completed".to_string())
+        })?;
+        return Ok(AssignmentInspectionChoice::SelectedRun {
+            basis: policy.into(),
+            run: run.reference,
+            submitted_at,
+        });
+    }
+    let completed_run_count = state
+        .runs
+        .values()
+        .filter(|run| run.tenant == tenant && run.enrollment == enrollment.id)
+        .filter(|run| run.completion_status() == RunCompletionStatus::Completed)
+        .count();
+    let completed_run_count = u32::try_from(completed_run_count).map_err(|_| {
+        StoreError::Unavailable("completed run count exceeds supported range".to_string())
+    })?;
+    Ok(if completed_run_count == 0 {
+        AssignmentInspectionChoice::NoSubmittedRun
+    } else {
+        AssignmentInspectionChoice::ChooseRun {
+            completed_run_count,
+        }
+    })
+}
+
+fn course_grade_error(error: CourseGradeError) -> StoreError {
+    match error {
+        CourseGradeError::MissingCategory { .. } | CourseGradeError::UnknownCategory { .. } => {
+            StoreError::Unavailable(
+                "weighted course grade scheme requires a mapping for each included assignment"
+                    .to_string(),
+            )
+        }
+        other => StoreError::InvalidRecord(other.to_string()),
+    }
 }
 
 /// Advances the scheme token whenever its title-bearing assignment projection

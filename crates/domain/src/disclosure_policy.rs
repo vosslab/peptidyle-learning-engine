@@ -1,4 +1,4 @@
-//! Pure learner disclosure evaluation (WP-PROF-S4).
+//! Pure learner disclosure evaluation (WP-INST-S4).
 //!
 //! S3 has already resolved the learner's effective assignment window, and S5
 //! has already determined whether the learner may access it. This module only

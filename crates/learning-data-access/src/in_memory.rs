@@ -60,6 +60,7 @@ mod scoring_invalidation;
 mod sessions;
 mod state;
 mod statistics;
+mod student_work_inspection;
 mod teaching_authority;
 mod teaching_authority_references;
 
@@ -723,6 +724,8 @@ struct State {
     /// that materializes accepted input for grading.
     private_submission_responses:
         BTreeMap<(TenantId, QuestionAttemptId), StoredPrivateSubmissionResponse>,
+    student_work_inspection_audits: Vec<crate::StudentWorkInspectionAudit>,
+    student_work_inspection_record_accesses: Vec<crate::StudentWorkInspectionRecordAccess>,
     automated_grading_executions: BTreeMap<(TenantId, QuestionAttemptId), crate::GradingExecution>,
     /// Current learner-safe automated evaluation projection. The immutable
     /// accepted input is owned by `submissions`; W4 advances this projection

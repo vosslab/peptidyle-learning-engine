@@ -124,14 +124,11 @@ has read-only diagnostics; [USAGE.md](USAGE.md) lists the supported commands.
 
 ## Known gaps
 
-- `WP-PROF-G1` is in closeout: the seven accepted migrations are restored and the implemented
-  closeout source is split across the allocated forward sequence `2026081866` through
-  `2026081869`. Migration 1866 owns the clean-volume receipt-schema preflight and constraints;
-  1867 owns execution receipt writers; 1868 owns the 36-input commit-v2 writer; and 1869 owns
-  Instructor receipt writers, retry V2, public retry routing, and V1 retirement. The affected
-  99-migration live database, RLS, worker, browser, WebWork, and replica evidence is green. G1
-  remains incomplete only pending repository tracking of the new owned artifacts and the exact
-  final-tracked-tree `source source_me.sh && ./all_test.sh` gate. `WP-RC12` release acceptance
-  remains open; this disposable live demo is not release evidence by itself.
+- `WP-INST-G1` is accepted. Its forward closeout migrations `2026081866` through `2026081869`
+  provide the clean-volume receipt preflight, receipt writers, commit-v2 authority, and retry V2
+  retirement boundary. Final material-tree Validation passed with the affected 99-migration live
+  database, RLS, worker, browser, WebWork, and replica evidence. `WP-INST-G2` now owns audited
+  learner-work inspection and grade-scheme-aware calculated Gradebook work. `WP-RC12` release
+  acceptance remains open; this disposable live demo is not release evidence by itself.
 - TODO: Verify PG/PGML compatibility beyond the reviewed Chapter 1 MC/MATCH sources with separate
   source and live evidence.

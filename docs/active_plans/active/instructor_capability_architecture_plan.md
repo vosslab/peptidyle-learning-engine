@@ -1,23 +1,23 @@
-# Plan: professor capability architecture and teaching-system roadmap
+# Plan: Instructor capability architecture and teaching-system roadmap
 
 ## Status
 
-The documentation package WP-PROF-S1 was accepted on 2026-08-18 after independent acceptance review
+The documentation package WP-INST-S1 was accepted on 2026-08-18 after independent acceptance review
 returned ACCEPT with no P0/P1/P2 finding. The evidenced M0 release-truth packages WP-R0, WP-R1, WP-R2, and WP-PY-L1 are
-accepted for this professor roadmap. The global current-package handoff is recorded only in
-[implementation_status.md](../implementation_status.md). This plan owns the professor dependency
-queue; it does not create a second current-package handoff. The professor track may use the shared
+accepted for this Instructor roadmap. The global current-package handoff is recorded only in
+[implementation_status.md](../implementation_status.md). This plan owns the Instructor dependency
+queue; it does not create a second current-package handoff. The Instructor track may use the shared
 pre-production migration ledger while release acceptance and production activation remain open. Nothing in this track
 accepts or implies live email authentication, mailbox delivery, production onboarding, deployment,
 or release acceptance.
 
-The owner-directed WP-PROF-T6 assignment workspace plan at
+The owner-directed WP-INST-T6 assignment workspace plan at
 `docs/active_plans/active/instructor_assignment_workspace_plan.md` is the focused binding contract
 for assignment-title navigation, separate Questions and Policies pages, and the live answer-free
 Student view. It precedes G1 so the grading-operation packages build on one coherent
 assignment-local workspace.
 
-The four product decisions recorded by WP-PROF-S1 are preserved in
+The four product decisions recorded by WP-INST-S1 are preserved in
 [docs/HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md). Conditional architecture and component ownership
 remain authoritative in this plan.
 
@@ -28,7 +28,7 @@ assignment from published questions, let a student practice it repeatedly, and r
 The Playwright suite also covers catalog browsing at scale, authoring and publication, QTI import,
 reuse by Question ID, course appearance, pagination, keyboard accessibility, and recovery.
 
-The rest of the professor cycle is not yet a system:
+The rest of the Instructor cycle is not yet a system:
 
 ```text
    discover --> inspect --> curate --> assemble --> teach --> intervene
@@ -37,15 +37,15 @@ The rest of the professor cycle is not yet a system:
     reuse <-- revise <-- learn from evidence <---------------------------- grade
 ```
 
-This document replaces the earlier root-level professor-capability roadmap and its spine rewrite.
-It is the single active direction for professor capability; older versions remain only as history.
+This document replaces the earlier root-level Instructor-capability roadmap and its spine rewrite.
+It is the single active direction for Instructor capability; older versions remain only as history.
 [docs/HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) is the product authority. ADAPT in `OTHER_REPOS`
 is comparison evidence, never a specification.
 
 The plan answers two questions, in this order:
 
-1. How does Peptidyle reach the capabilities professors already expect?
-2. What can Peptidyle let professors do **substantially better**, because published questions have
+1. How does Peptidyle reach the capabilities Instructors already expect?
+2. What can Peptidyle let Instructors do **substantially better**, because published questions have
    stable shared identities and issued runs retain exact immutable evidence?
 
 The second question is the more valuable one, and it drives the evidence commons in section 6.
@@ -56,7 +56,7 @@ An inventory across the schema, the domain crates, the store, the server routes,
 browser route contract in `src/route_contract.ts` sorts every gap into three classes. They carry
 very different cost, and conflating them would make teams underestimate the foundational work.
 
-- **Class P, projection**: the capability is stored and computed; no professor page reaches it. Cost
+- **Class P, projection**: the capability is stored and computed; no Instructor page reaches it. Cost
   is contract and interface work.
 - **Class O, ownership**: schema exists with no code, or with code but no defined rules for who may
   change it and what it means. Cost is deciding semantics, then implementing them.
@@ -99,12 +99,12 @@ Three consequences drive the plan.
 - Class N is where the foundational cost lives, and it must land before the workflows that depend on
   it. That is why the milestone order changed from the earlier roadmap.
 
-## Thesis 2: the architecture is judged by professor actions
+## Thesis 2: the architecture is judged by Instructor actions
 
-Every abstraction in this plan is stated with the professor action it unlocks. An abstraction that
+Every abstraction in this plan is stated with the Instructor action it unlocks. An abstraction that
 cannot name one does not belong here.
 
-| Abstraction               | Professor action it makes possible                                                 |
+| Abstraction               | Instructor action it makes possible                                                |
 | ------------------------- | ---------------------------------------------------------------------------------- |
 | Course term and zone      | "Move my whole term back five days" without editing 14 assignments                 |
 | Effective policy resolver | "Why is Mary's copy due Friday?" answered on the page, with the source             |
@@ -156,7 +156,7 @@ cannot name one does not belong here.
 Because questions are shared and immutable, and issued runs retain exact `(ProblemId, VersionId)`
 and seed evidence, Peptidyle can compute things ADAPT cannot compute at all: cross-course item
 behavior and comparison of explicitly linked replacement questions with their sources. Section 6
-turns that into professor capability rather than a statistics page.
+turns that into Instructor capability rather than a statistics page.
 
 ## Design philosophy
 
@@ -261,15 +261,15 @@ assignability an explicit contract and ties deprecation to the usage index and t
 ### 2.7 Scoring generation and regrade
 
 `assignment.scoring_generation` and `scoring_status` (`current`, `recalculating`, `failed`) exist,
-plus staging tables and a worker. Regrade is therefore already a state machine, but no professor
-surface shows it. A professor who removes an item or corrects a question needs to see that scores
+plus staging tables and a worker. Regrade is therefore already a state machine, but no Instructor
+surface shows it. A Instructor who removes an item or corrects a question needs to see that scores
 are recalculating, and to see failure honestly rather than reading a stale total.
 
 ### 2.8 Assignment points model
 
 An assignment's total points are derived from fixed items plus pool draws (`points_per_item` times
 `draw_count`), with `scoring_mode` values `normal`, `full_credit`, `extra_credit`, and `excluded`
-already defined per item. The professor-facing points model is the derived total and its extra-credit
+already defined per item. The Instructor-facing points model is the derived total and its extra-credit
 share, shown while editing. The grade scheme in section 4 consumes this and must not redefine it.
 
 ### 2.9 Orphan schema decisions
@@ -296,7 +296,7 @@ learner at all; modifiers shape the window and limits.
 ```text
    GATES (hard, evaluated first, cannot be widened by a modifier)
    G1 lifecycle        draft | published | closed | archived
-   G2 entitlement      roster state + audience + group membership   (owned by WP-PROF-S5)
+   G2 entitlement      roster state + audience + group membership   (owned by WP-INST-S5)
    G3 authorization    tenant, membership, revocation
 
    MODIFIERS (most specific non-null wins; each carries its source)
@@ -311,15 +311,15 @@ Resolution rules, stated once so no surface invents its own:
 
 - A gate that denies ends resolution. No modifier can grant access that a gate denied.
 - **Ownership split, so two packages cannot both claim the verdict**: the entitlement component
-  (`WP-PROF-S5`) owns the entitlement decision and its reason, and is the only place that reads roster
-  state, audience, and group membership. The resolver (`WP-PROF-S3`) _consumes_ that decision as gate G2
+  (`WP-INST-S5`) owns the entitlement decision and its reason, and is the only place that reads roster
+  state, audience, and group membership. The resolver (`WP-INST-S3`) _consumes_ that decision as gate G2
   and owns everything downstream of it: window, limits, lateness, and per-field provenance. A caller
   asks the resolver once and receives both, so no surface composes them itself.
 - Modifier precedence is M4 > M3 > M2 > M1 per field, never per record: an exception that sets only
   a close time leaves the time limit resolved from the lower layer.
-- Accommodations are extend-only unless the professor explicitly marks an override, so the common
+- Accommodations are extend-only unless the Instructor explicitly marks an override, so the common
   case cannot accidentally shorten a learner's window.
-- The resolver returns, for every field, the value **and** the layer that produced it. Professor
+- The resolver returns, for every field, the value **and** the layer that produced it. Instructor
   surfaces show that provenance in plain language: "Closes Friday 23:59 (Mary's extension)".
 - Lateness is computed once, by the resolver, from the effective close time and the late rule.
 
@@ -352,7 +352,7 @@ no-transport assertions are required because a screenshot cannot prove authoriza
 boundary governs direct navigation and in-app links; it is not a learner projection or a second
 entitlement/policy authority.
 
-Permanent visual evidence follows the owner-defined role profiles. Professor/Instructor and Sysadmin
+Permanent visual evidence follows the owner-defined role profiles. Instructor/Instructor and Sysadmin
 evidence uses only the canonical 1280 by 800 desktop profile. Student evidence may use the maintained
 laptop, portrait-tablet, iPhone Pro, and square profiles under the 40/30/20/10 planning mix. The
 profiles are semantic review contexts: each capture demonstrates readable hierarchy, visible focus,
@@ -379,14 +379,14 @@ _receipts of things that happened_, while decisions themselves are computed. Sta
 
 - **Everything the resolver answers is derived from (policy, now).** "Closed", "late", "available",
   "entitled", and "what may this learner see" are computed at read time. No job writes them.
-- **`assignment.lifecycle` is professor intent, not clock state.** `draft`, `published`, `closed`,
-  and `archived` record what the professor decided. "Closed right now because the close time passed"
+- **`assignment.lifecycle` is Instructor intent, not clock state.** `draft`, `published`, `closed`,
+  and `archived` record what the Instructor decided. "Closed right now because the close time passed"
   is derived, and the interface shows both plainly: "Published, closed since Friday 23:59".
 - **The worker owns only effects that cannot be derived**: notifications, retention purges and their
   manifests, statistics contributions and aggregate refresh, score recalculation runs, and export
   artifacts. Each is an existing job family with a real handler and atomic committer.
 - **Every worker effect writes a durable receipt**, so recovery after a crash re-derives decisions
-  and skips completed effects. No worker outage can change a professor-visible verdict, only delay a
+  and skips completed effects. No worker outage can change a Instructor-visible verdict, only delay a
   side effect.
 
 This removes the ambiguity that would otherwise appear between lifecycle, preview, late handling,
@@ -403,7 +403,7 @@ A conformance suite proves that each surface returns the same decision for the s
 
 The need is real: `assignment.gradebook_included` already anticipates a course total,
 [docs/HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) requires manual LMS grade export to be practical,
-and per-assignment scores cannot answer the question professors actually ask. The **model** is
+and per-assignment scores cannot answer the question Instructors actually ask. The **model** is
 derived from what Peptidyle is, not from ADAPT's category weights.
 
 Peptidyle's distinguishing facts: repeated practice is a feature, not an exception; a first
@@ -437,8 +437,8 @@ keeps the three representative-course examples (a pure practice course, a mixed 
 course, and a course that adds an assignment mid-term) as later-package design work. If any example
 needs a rule outside the table above, completion remains a separate package.
 
-Nothing downstream may assume completion mode exists. `WP-PROF-S6`, the gradebook, the course export,
-`WP-PROF-G2`, and the M6 journey are scoped to the two shipped modes; the course export names the mode
+Nothing downstream may assume completion mode exists. `WP-INST-S6`, the gradebook, the course export,
+`WP-INST-G2`, and the M6 journey are scoped to the two shipped modes; the course export names the mode
 that produced the file. If completion mode ships later it adds a mode to an existing selector and
 changes no consumer contract.
 
@@ -469,7 +469,7 @@ constraint in policy.
 
 Published questions have one identity everywhere they are used. Issued runs retain the exact version
 and seed. Fork lineage is already stored. Statistics aggregation and contribution receipts already
-exist. That combination supports six professor capabilities no per-course-copy product can offer.
+exist. That combination supports six Instructor capabilities no per-course-copy product can offer.
 
 ### 6.0 Validity contract, before any statistic is shown
 
@@ -494,7 +494,7 @@ This plan extends that contract rather than inventing a parallel one.
 - **Insufficient evidence is a first-class answer.** Below threshold the interface says
   "insufficient evidence" and offers no ranking contribution, no comparison, and no flag. It never
   substitutes a weak estimate.
-- **No professor-level or course-level identification.** Aggregates never reveal which course
+- **No Instructor-level or course-level identification.** Aggregates never reveal which course
   produced which observation, and a figure computed from a single course is suppressed at the
   cross-course boundary.
 - **Explainability over formula tuning.** Any composite is shown decomposed into its inputs. The
@@ -539,7 +539,7 @@ rather than titles, and an author learns whether the replacement improved on its
 Discovery fails when questions are untagged, and hand-tagging a large corpus does not happen in
 practice. Assisted tagging closes that gap, and it is deliberately **not on the critical path**: the
 architecture must succeed with human-managed taxonomy alone. It is scoped as one optional package
-(`WP-PROF-D3`) that depends on discovery contracts and that nothing else depends on, so it can be
+(`WP-INST-D3`) that depends on discovery contracts and that nothing else depends on, so it can be
 deferred, run late, or dropped without touching the teaching system. Its cost is model execution,
 provenance, operator policy, batching, and a confirmation interface; that cost buys corpus
 discoverability and nothing else in this plan.
@@ -594,7 +594,7 @@ Item analysis must not terminate at a chart. The loop is the product.
   collection or blueprint. Issued evidence is never altered.
 - **Decide and carry forward**: an **improvement thread** records the decision and attaches to the
   question and to the assignment or blueprint, so the reason a question was replaced survives the
-  professor's memory.
+  Instructor's memory.
 
 The improvement thread is small on purpose. Its complete lifecycle is fixed here so it cannot grow
 into a second task-management system:
@@ -636,7 +636,7 @@ the live demo one execution model and makes its evidence representative of a con
 **Preview subject.** Policy preview uses a `PreviewSubject` value containing group memberships,
 policy modifier values, and a chosen moment. It is built in one of two ways:
 
-- **Synthetic**: the professor picks the groups and modifiers directly ("a Thursday lab member with
+- **Synthetic**: the Instructor picks the groups and modifiers directly ("a Thursday lab member with
   a 48-hour extension, at 09:00 next Monday").
 - **Derived from a learner**: the resolver produces that learner's effective policy, and only the
   resolved values and their layer names are copied into the subject. The ephemeral projection uses
@@ -647,9 +647,9 @@ Student enrollment and therefore follows the normal FERPA, retention, grading, a
 rules. This replaces ADAPT's filtered test-student convention with an honest separation between
 ephemeral policy inspection and real learner work.
 
-### WP-PROF-LD1 live-demo installation lifecycle contract
+### WP-INST-LD1 live-demo installation lifecycle contract
 
-WP-PROF-LD1 implements only the durable lifecycle that makes the approved
+WP-INST-LD1 implements only the durable lifecycle that makes the approved
 [live-demo specification](../../LIVE_DEMO_SPEC.md) an ordinary PLE installation with seeded baseline
 data. It is allocated `2026081808_live_demo_install_state.sql` in the shared
 [implementation-status registry](../implementation_status.md). The package creates one durable
@@ -682,9 +682,9 @@ convergence; the existing LDA PostgreSQL live oracle covers schema and lock beha
 `tests/e2e/e2e_live_demo_baseline.py` covers the connected lifecycle. LD1 does not add a second
 product-specific PostgreSQL harness or an exhaustive live matrix.
 
-### WP-PROF-LD2 seeded demo entry contract
+### WP-INST-LD2 seeded demo entry contract
 
-WP-PROF-LD2 follows accepted WP-PROF-LD1 and the
+WP-INST-LD2 follows accepted WP-INST-LD1 and the
 necessary existing WP-RC8 account-session/passkey/origin contracts. LD2 can implement and validate
 the seeded-entry seams against those contracts while unrelated WP-RC8 provider, mailbox,
 multi-replica, security, and HCI gates remain open. It adds a deployment-controlled selector for the
@@ -701,19 +701,19 @@ without disclosing archived, deleted, or started-retention course records, leave
 unchanged, and prove connected Student login. Sysadmin remains a normal account and passkey flow with
 full ordinary Sysadmin capabilities.
 
-The accepted live-demo handoff is `WP-PROF-LD1` -> `WP-PROF-LD2` -> `WP-PROF-BS1` ->
-`WP-PROF-T3` -> `WP-PROF-LD3`. WP-PROF-LD3 was accepted on 2026-08-24. The sole current-package
+The accepted live-demo handoff is `WP-INST-LD1` -> `WP-INST-LD2` -> `WP-INST-BS1` ->
+`WP-INST-T3` -> `WP-INST-LD3`. WP-INST-LD3 was accepted on 2026-08-24. The sole current-package
 handoff is recorded in [implementation_status.md](../implementation_status.md).
 
-`WP-PROF-BS1` now replaces the parallel mock-backed browser application and separate
+`WP-INST-BS1` now replaces the parallel mock-backed browser application and separate
 screenshot/browser owners with one canonical disposable real-stack suite. It establishes the
 production `dist/` and HTTPS gateway path before T3 browser acceptance. T3 retains its frozen scope
-as the accepted preview-plane package after BS1; WP-PROF-LD3 converges ordinary learner delivery and
+as the accepted preview-plane package after BS1; WP-INST-LD3 converges ordinary learner delivery and
 its focused active plan owns the current execution detail.
 
-### WP-PROF-T3 preview contract
+### WP-INST-T3 preview contract
 
-WP-PROF-T3 implements the non-mutating preview plane. The only permitted durable effect is one
+WP-INST-T3 implements the non-mutating preview plane. The only permitted durable effect is one
 private `audit_event` atomically appended after a successful learner-derived subject construction.
 T3 does not create or change an enrollment, run,
 attempt, receipt, gradebook row, analysis observation, catalog contribution, export, job, session,
@@ -726,8 +726,8 @@ T3 implements the currently ready preview families:
 - disclosure projections at Now, Due, and Close; and
 - entitlement evaluation with safe reasons and effective-policy provenance.
 
-The contract leaves typed extension seams for the WP-PROF-T5 pool-draw sample and the later
-WP-PROF-B2 clone and term-shift preview. Those packages are not implemented or accepted by T3.
+The contract leaves typed extension seams for the WP-INST-T5 pool-draw sample and the later
+WP-INST-B2 clone and term-shift preview. Those packages are not implemented or accepted by T3.
 
 **Inspection and subject boundary.** The exact-course, direct-Instructor inspection plane may show
 safe `M-` references and display labels in its schedule or entitlement table. It is a FERPA-authorized
@@ -762,8 +762,8 @@ projection and never reconstructs entitlement, precedence, timing, or disclosure
 binding before body or learner-reference parsing, and conceals protected data on denial. A denial
 union carries no resolved time, policy, provenance, disclosure, or subject metadata.
 
-**Instructor task model.** The professor enters from an assignment to diagnose delivery. A persistent
-"Preview only - no learner work or grades are created" cue remains visible while the professor scans
+**Instructor task model.** The Instructor enters from an assignment to diagnose delivery. A persistent
+"Preview only - no learner work or grades are created" cue remains visible while the Instructor scans
 the schedule/entitlement table, derives a role-only subject or constructs a synthetic subject,
 compares accommodation Before and After, and scrubs Now, Due, and Close disclosure moments. The page
 shows safe provenance and explicit shown/withheld text. Failures and stale revisions preserve the
@@ -771,7 +771,7 @@ hypothetical draft and provide a focused retry or reload. The route is keyboard-
 maintained desktop profile, and responsive across the maintained profiles. Learner and outsider direct navigation mounts
 no protected transport.
 
-**Installed teaching course.** After WP-PROF-LD1 accepts its lifecycle contract, every standard fresh
+**Installed teaching course.** After WP-INST-LD1 accepts its lifecycle contract, every standard fresh
 installation provisions the persistent live teaching baseline through the ordinary migration and
 first-run setup path. The installed course is visibly named `Biochemistry: Protein Structure and
 Function`; the baseline also contains a Genetics teaching course. Their instructors, students,
@@ -847,7 +847,7 @@ T3 does not rebrand, remove, or use it as its identity-free subject contract.
   boolean; derive availability from lifecycle plus the resolver.
 - Project instructions, schedule, late policy, run timing, attempt selection, and lifecycle through
   typed Store, API, and browser contracts. `attempt_selection_policy = instructor_selected` gains its
-  professor action: choose which run counts for one learner.
+  Instructor action: choose which run counts for one learner.
 - Add co-instructor invitations for globally approved Instructor accounts only.
 - Add course-local pages for groups and sections, entitlement, accommodations, schedule, retention,
   and archive. Accommodation editing always shows the resolved outcome, not the raw exception.
@@ -889,11 +889,11 @@ stalled score recalculation, and unresolved improvement threads from last term.
 Section 3.3 fixes the state model; this section fixes who acts.
 
 - **Derived, no actor**: closure at the effective close time, lateness, availability, entitlement,
-  and what a learner may see. These need no job and no professor click; they are computed.
+  and what a learner may see. These need no job and no Instructor click; they are computed.
 - **Worker, non-derivable effects only**: retention notifications, purges and manifests, statistics
   contribution and aggregate refresh, score recalculation runs, export artifacts, and optional
   assisted-tagging batches. Each writes a durable receipt and is idempotent on replay.
-- **Professor, always explicit**: publish, close early, delete and regrade, retry a routed grader
+- **Instructor, always explicit**: publish, close early, delete and regrade, retry a routed grader
   exception, request recalculation, archive early, extend retention, confirm tags, fork or replace
   a question, resolve an improvement thread, and instantiate or fast-forward curriculum.
 - No new scheduler; every worker effect is an existing job family with a real handler and an atomic
@@ -923,7 +923,7 @@ M3  Discovery commons    Search metadata, collections, picker, usage index, evid
 M4  Reusable curriculum  Blueprints, Alpha curricula, clone, rollover, term shift, fast-forward.
 M5  Evidence to action   Grader-exception routing, recalculation, audited work inspection,
                          analysis, improvement threads, attention queue.
-M6  Connected term       Prove the whole professor cycle at term scale on the final tree.
+M6  Connected term       Prove the whole Instructor cycle at term scale on the final tree.
 ```
 
 ### M0 Release truth
@@ -945,8 +945,8 @@ Python-owned Chapter One and aggregate acceptance orchestration, a designated re
 per-run OCI configuration-ID provenance, and final Validation: repository, Rust, 4,865-case pytest,
 and seven-lane local-stack acceptance gates are green. WP-R2 is accepted with immutable-question
 release truth. WP-PY-L1 is accepted on 2026-08-15 after final offline/live Validation and its named
-independent final reviews. M0 is accepted for this professor roadmap from those four evidenced
-packages; M1 is the next professor milestone.
+independent final reviews. M0 is accepted for this Instructor roadmap from those four evidenced
+packages; M1 is the next Instructor milestone.
 
 ### M1 Course spine
 
@@ -962,19 +962,19 @@ ledger. The six named M1 schema packages have the reservations recorded there, w
 SQL or amendment/renumbering of accepted migration files. Future schema packages receive an
 allocation before implementation; non-schema packages do not implicitly own a migration.
 
-The actual clean-cluster baseline replacement requires both professor WP-PROF-E2 readiness and completion
-of all repository-owned release schema packages/RC12, immediately before first production data. WP-PROF-E2
+The actual clean-cluster baseline replacement requires both Instructor WP-INST-E2 readiness and completion
+of all repository-owned release schema packages/RC12, immediately before first production data. WP-INST-E2
 may prepare and review a candidate baseline earlier, but it must not replace the active ledger early.
 
 ```text
-  serial core (WP-PROF-S1, WP-PROF-S2, WP-PROF-S7)
+  serial core (WP-INST-S1, WP-INST-S2, WP-INST-S7)
     decisions recorded | course term and zone | typed references, value types,
     migration allocation, RLS shape
         |
-        +--> lane B  WP-PROF-S5 entitlement and typed group purposes
+        +--> lane B  WP-INST-S5 entitlement and typed group purposes
         |                |
-        |                +--> lane A  WP-PROF-S3 resolver  --> WP-PROF-S4 disclosure
-        +--> lane C  WP-PROF-S6 grade scheme, two shipped modes, deferred completion examples
+        |                +--> lane A  WP-INST-S3 resolver  --> WP-INST-S4 disclosure
+        +--> lane C  WP-INST-S6 grade scheme, two shipped modes, deferred completion examples
 ```
 
 - The serial core is deliberately small: the decisions, the course term, and the shared types,
@@ -982,7 +982,7 @@ may prepare and review a candidate baseline earlier, but it must not replace the
 - Lane B owns entitlement and group purposes. It defines the typed `EntitlementDecision` and its
   reasons, applicable group-purpose policy scopes, the derived-authority evaluation, and the
   enrollment/materialization seam. It consumes the term but not the resolver.
-- Lane A starts after accepted Lane B output: WP-PROF-S3 consumes that contract and owns policy
+- Lane A starts after accepted Lane B output: WP-INST-S3 consumes that contract and owns policy
   composition, window, limits, lateness, and per-field provenance; it must not derive entitlement
   from roster, audience, group membership, or enrollment. Disclosure follows the resolver inside
   the same lane because it consumes the resolver's output directly.
@@ -999,9 +999,9 @@ cannot participate in any enrollment relationship. Completion-mode examples rema
 work and do not enter the S6 evaluator or consumer contracts; M1 exits with the two shipped modes.
 Three lanes after the serial core.
 
-### Evidence planning rule for open professor packages
+### Evidence planning rule for open Instructor packages
 
-WP-PROF-B2, WP-PROF-T6, WP-PROF-G1 through WP-PROF-G5, WP-PROF-E1, and WP-PROF-E2 start only after an
+WP-INST-B2, WP-INST-T6, WP-INST-G1 through WP-INST-G5, WP-INST-E1, and WP-INST-E2 start only after an
 approved B1-style binding contract records the capability boundary, dependency order, an
 evidence-class table, owned modules, routes, migrations when persistence changes, and independent
 architecture review. Package-local fast, opt-in connected, one-time implementation, and human-review
@@ -1024,12 +1024,12 @@ current answer-free learner landing while retaining Instructor identity. Three l
 Depends on M1 and accepted WP-R2; runs beside M2. Delivers expanded search metadata, the usage index, collections and
 Favorites, saved searches, bulk selection, the shared `ProblemPicker` adopted by Library and
 assignment editor, the validity contract, and quality-signal computation with disclosed inputs.
-Assisted tagging (`WP-PROF-D3`) is an optional package inside this milestone: nothing else depends on it,
+Assisted tagging (`WP-INST-D3`) is an optional package inside this milestone: nothing else depends on it,
 and M3 exits without it.
 
 Exit: one selection component and one metadata vocabulary across sources; usage and quality
 aggregates leak no cross-tenant record and suppress below threshold; human taxonomy editing is
-sufficient to make the corpus discoverable. If `WP-PROF-D3` ships, no tag reaches the catalog without a
+sufficient to make the corpus discoverable. If `WP-INST-D3` ships, no tag reaches the catalog without a
 confirming user and recorded model provenance. Two lanes plus the optional package.
 
 ### M4 Reusable curriculum
@@ -1068,36 +1068,36 @@ P1 finding.
 | WP-R1       | UI                   | Accepted 2026-08-14: disclosed statistics rendering, live broad-discovery evidence, and Python conversion of Chapter One pilot/browser plus aggregate acceptance lanes over existing typed `local_stack_control`                                                                                                                              | WP-R0                                                                                    |
 | WP-R2       | Release truth        | Accepted 2026-08-14: immutable Question-ID publication, fresh opaque hidden evidence, explicit revision-checked assignment replacement, optional immutable provenance, and real host-seed manifest recovery                                                                                                                                   | accepted WP-R1                                                                           |
 | WP-PY-L1    | Python orchestration | Accepted 2026-08-15: focused Python modules replace `local_stack_control/launch.sh`, `_restart.sh`, and `containers/local_identity_bootstrap.sh`; final offline/live Validation and named independent final reviews passed                                                                                                                    | accepted WP-R2                                                                           |
-| WP-PROF-S1  | Architect            | Record spine decisions in guidance and this plan; accepted 2026-08-18 after independent ACCEPT with no P0/P1/P2 finding                                                                                                                                                                                                                       | accepted M0                                                                              |
-| WP-PROF-S2  | Expert coder         | Course term, zone, validation, migration (serial core); accepted 2026-08-18 after full Validation and independent final ACCEPT reviews                                                                                                                                                                                                        | WP-PROF-S1 accepted                                                                      |
-| WP-PROF-S7  | Expert coder         | Typed references, shared value types, migration allocation, RLS, and immutable public bylines (serial core); accepted 2026-08-19 after full Validation and independent final ACCEPT reviews                                                                                                                                                   | WP-PROF-S1                                                                               |
-| WP-PROF-S3  | Expert coder         | Accepted 2026-08-19: effective-policy resolver, ordered gates, grant-filtered modifiers, per-field provenance, and sealed attempt receipts (lane A); full Validation and three independent final reviews passed                                                                                                                               | WP-PROF-S2, WP-PROF-S7, WP-PROF-S5                                                       |
-| WP-PROF-S4  | Expert coder         | Accepted 2026-08-19: assignment-owned five-field disclosure, learner-safe projections, fail-closed student access, class-statistics privacy, and the four-profile Student/access visual contract; full Validation and independent final reviews passed                                                                                        | WP-PROF-S3                                                                               |
-| WP-PROF-S5  | Expert coder         | Accepted 2026-08-19: entitlement authority, typed decision/reasons and applicable group-purpose scopes, derived authority, and materialization (lane B); full Validation and three independent final reviews passed                                                                                                                           | WP-PROF-S2, WP-PROF-S7                                                                   |
-| WP-PROF-S6  | Expert coder         | Accepted 2026-08-19: two-mode course-grade scheme, deferred completion examples, totals, and audited export; full Validation and three independent final reviews passed                                                                                                                                                                       | WP-PROF-S2, WP-PROF-S7                                                                   |
-| WP-PROF-T1  | Expert coder         | Lifecycle, schedule, late policy, instructions, scoring status                                                                                                                                                                                                                                                                                | WP-PROF-S3                                                                               |
-| WP-PROF-T2  | Expert coder         | Groups, entitlement, accommodations, co-instructors, retention                                                                                                                                                                                                                                                                                | WP-PROF-S5, WP-PROF-T1                                                                   |
-| WP-PROF-LD1 | Integrator           | Accepted 2026-08-20: `base_course_installation`, LDA-owned SQL/lock/migration lifecycle, deterministic product evidence, and real-stack lifecycle proof                                                                                                                                                                                       | WP-PROF-T2 accepted                                                                      |
-| WP-PROF-LD2 | Expert coder         | Direct entry for five seeded personas through ordinary WP-RC8 account-session paths; `2026081809` owns exactly two least-privilege execute-only brokers: Sysadmin approval-candidate discovery and read-only completed-installation-generation lookup; `2026081810` only repairs Student pre-tenant account-course retention                  | WP-PROF-LD1 accepted; necessary existing WP-RC8 account-session/passkey/origin contracts |
-| WP-PROF-BS1 | Integrator           | Accepted canonical disposable real-stack browser suite for Playwright, acceptance, and screenshots; UI-first scenario state against the production browser graph                                                                                                                                                                              | WP-PROF-LD2 accepted                                                                     |
-| WP-PROF-T3  | Expert coder         | Accepted 2026-08-22: frozen-scope identity-free preview plane with real-stack browser and canonical screenshot evidence                                                                                                                                                                                                                       | WP-PROF-S4, WP-PROF-T1, WP-PROF-LD1 accepted, WP-PROF-LD2 accepted, WP-PROF-BS1 accepted |
-| WP-PROF-LD3 | Expert coder         | Accepted 2026-08-24: converged ordinary live assignment authority, learner delivery, deterministic grading, immutable receipts, and audited Instructor inspection                                                                                                                                                                             | WP-PROF-T3 accepted                                                                      |
-| WP-PROF-T5  | Coder                | Accepted 2026-08-24: accessible ordered fixed-or-pool authoring, policy-correct v1 draws, no-store preview, immutable issued evidence, and ordinary live Instructor/Student delivery; canonical HTTPS acceptance, screenshot provenance, independent visual approval, and final Validation passed                                             | WP-PROF-T1 accepted                                                                      |
-| WP-PROF-D1  | Expert coder         | Accepted 2026-08-25: ranked metadata search, actor-scoped usage, first-attempt validity, disclosed evidence, and deterministic answer-free generated examples; canonical PostgreSQL, production HTTPS, screenshot, review, and final Validation evidence passed                                                                               | WP-PROF-S7, WP-R2                                                                        |
-| WP-PROF-D2  | Coder                | Accepted 2026-08-25: live Favorites, private and institution collections, canonical saved searches, revision-checked bulk curation, and one shared ProblemPicker; PostgreSQL, production HTTPS, canonical desktop visual, review, and final Validation evidence passed                                                                        | WP-PROF-D1 accepted                                                                      |
-| WP-PROF-D3  | Coder                | Assisted tagging: worker, proposals, confirmation, provenance. **Optional; nothing depends on it**                                                                                                                                                                                                                                            | WP-PROF-D1                                                                               |
-| WP-PROF-B1  | Expert coder         | Accepted 2026-08-25: revisioned personal assignment blueprints and public Alpha curriculum aggregates with typed references, creator-owned updates, answer-free projections, and shared `ProblemPicker` authoring and reuse; PostgreSQL, production HTTPS, canonical desktop visual, independent review, and final Validation evidence passed | WP-PROF-D2 accepted, WP-PROF-S7 accepted                                                 |
-| WP-PROF-B2  | Expert coder         | Accepted 2026-08-26: fork, instantiation, rollover, term shift, manifests, provenance, controlled fast-forward, divergence recovery, canonical PostgreSQL/browser/screenshot evidence, and final Validation passed                                                                                                                            | WP-PROF-B1 accepted, WP-PROF-T1 accepted                                                 |
-| WP-PROF-T6  | Expert coder         | Linked assignment home, separate Questions and Policies pages, focused revision-checked mutations, persisted incomplete drafts, and Instructor-authorized answer-free Student view; binding plan at `docs/active_plans/active/instructor_assignment_workspace_plan.md`                                                                        | WP-PROF-T3, WP-PROF-LD3, WP-PROF-T5 accepted                                             |
-| WP-PROF-G1  | Expert coder         | Automated-grading operation queue grouped by question/learner; deterministic-grader exception routing, bounded retry, generation-fenced recalculation, and immutable operation receipts; no human scoring or manual-grade mutation                                                                                                            | WP-PROF-T2, WP-PROF-T6                                                                   |
-| WP-PROF-G2  | Expert coder         | Audited learner-work inspection and grade-scheme-aware calculated gradebook, linked directly from G1 operations                                                                                                                                                                                                                               | WP-PROF-S6, WP-PROF-G1                                                                   |
-| WP-PROF-G3  | Coder                | Item and course analysis connected to catalog evidence, audited learner-work context, and explicitly linked replacement/source impact                                                                                                                                                                                                         | WP-PROF-G1, WP-PROF-G2, WP-PROF-D1                                                       |
-| WP-PROF-G4  | Coder                | Durable question-improvement threads that preserve evidence, decisions, replacement links, and next-term context                                                                                                                                                                                                                              | WP-PROF-G3, WP-PROF-B2                                                                   |
-| WP-PROF-G5  | Coder                | Actionable Instructor work queue for grader exceptions, recalculation failures, active replacement impact, and unresolved improvement threads under the actionability predicate                                                                                                                                                               | WP-PROF-G4, WP-PROF-T2                                                                   |
-| WP-PROF-E1  | Playwright           | Behavior-named professor journeys and live-stack evidence                                                                                                                                                                                                                                                                                     | all behavior WPs                                                                         |
-| WP-PROF-E2  | Integrator           | Final gates, visual review, docs, changelog, baseline procedure                                                                                                                                                                                                                                                                               | WP-PROF-E1                                                                               |
+| WP-INST-S1  | Architect            | Record spine decisions in guidance and this plan; accepted 2026-08-18 after independent ACCEPT with no P0/P1/P2 finding                                                                                                                                                                                                                       | accepted M0                                                                              |
+| WP-INST-S2  | Expert coder         | Course term, zone, validation, migration (serial core); accepted 2026-08-18 after full Validation and independent final ACCEPT reviews                                                                                                                                                                                                        | WP-INST-S1 accepted                                                                      |
+| WP-INST-S7  | Expert coder         | Typed references, shared value types, migration allocation, RLS, and immutable public bylines (serial core); accepted 2026-08-19 after full Validation and independent final ACCEPT reviews                                                                                                                                                   | WP-INST-S1                                                                               |
+| WP-INST-S3  | Expert coder         | Accepted 2026-08-19: effective-policy resolver, ordered gates, grant-filtered modifiers, per-field provenance, and sealed attempt receipts (lane A); full Validation and three independent final reviews passed                                                                                                                               | WP-INST-S2, WP-INST-S7, WP-INST-S5                                                       |
+| WP-INST-S4  | Expert coder         | Accepted 2026-08-19: assignment-owned five-field disclosure, learner-safe projections, fail-closed student access, class-statistics privacy, and the four-profile Student/access visual contract; full Validation and independent final reviews passed                                                                                        | WP-INST-S3                                                                               |
+| WP-INST-S5  | Expert coder         | Accepted 2026-08-19: entitlement authority, typed decision/reasons and applicable group-purpose scopes, derived authority, and materialization (lane B); full Validation and three independent final reviews passed                                                                                                                           | WP-INST-S2, WP-INST-S7                                                                   |
+| WP-INST-S6  | Expert coder         | Accepted 2026-08-19: two-mode course-grade scheme, deferred completion examples, totals, and audited export; full Validation and three independent final reviews passed                                                                                                                                                                       | WP-INST-S2, WP-INST-S7                                                                   |
+| WP-INST-T1  | Expert coder         | Lifecycle, schedule, late policy, instructions, scoring status                                                                                                                                                                                                                                                                                | WP-INST-S3                                                                               |
+| WP-INST-T2  | Expert coder         | Groups, entitlement, accommodations, co-instructors, retention                                                                                                                                                                                                                                                                                | WP-INST-S5, WP-INST-T1                                                                   |
+| WP-INST-LD1 | Integrator           | Accepted 2026-08-20: `base_course_installation`, LDA-owned SQL/lock/migration lifecycle, deterministic product evidence, and real-stack lifecycle proof                                                                                                                                                                                       | WP-INST-T2 accepted                                                                      |
+| WP-INST-LD2 | Expert coder         | Direct entry for five seeded personas through ordinary WP-RC8 account-session paths; `2026081809` owns exactly two least-privilege execute-only brokers: Sysadmin approval-candidate discovery and read-only completed-installation-generation lookup; `2026081810` only repairs Student pre-tenant account-course retention                  | WP-INST-LD1 accepted; necessary existing WP-RC8 account-session/passkey/origin contracts |
+| WP-INST-BS1 | Integrator           | Accepted canonical disposable real-stack browser suite for Playwright, acceptance, and screenshots; UI-first scenario state against the production browser graph                                                                                                                                                                              | WP-INST-LD2 accepted                                                                     |
+| WP-INST-T3  | Expert coder         | Accepted 2026-08-22: frozen-scope identity-free preview plane with real-stack browser and canonical screenshot evidence                                                                                                                                                                                                                       | WP-INST-S4, WP-INST-T1, WP-INST-LD1 accepted, WP-INST-LD2 accepted, WP-INST-BS1 accepted |
+| WP-INST-LD3 | Expert coder         | Accepted 2026-08-24: converged ordinary live assignment authority, learner delivery, deterministic grading, immutable receipts, and audited Instructor inspection                                                                                                                                                                             | WP-INST-T3 accepted                                                                      |
+| WP-INST-T5  | Coder                | Accepted 2026-08-24: accessible ordered fixed-or-pool authoring, policy-correct v1 draws, no-store preview, immutable issued evidence, and ordinary live Instructor/Student delivery; canonical HTTPS acceptance, screenshot provenance, independent visual approval, and final Validation passed                                             | WP-INST-T1 accepted                                                                      |
+| WP-INST-D1  | Expert coder         | Accepted 2026-08-25: ranked metadata search, actor-scoped usage, first-attempt validity, disclosed evidence, and deterministic answer-free generated examples; canonical PostgreSQL, production HTTPS, screenshot, review, and final Validation evidence passed                                                                               | WP-INST-S7, WP-R2                                                                        |
+| WP-INST-D2  | Coder                | Accepted 2026-08-25: live Favorites, private and institution collections, canonical saved searches, revision-checked bulk curation, and one shared ProblemPicker; PostgreSQL, production HTTPS, canonical desktop visual, review, and final Validation evidence passed                                                                        | WP-INST-D1 accepted                                                                      |
+| WP-INST-D3  | Coder                | Assisted tagging: worker, proposals, confirmation, provenance. **Optional; nothing depends on it**                                                                                                                                                                                                                                            | WP-INST-D1                                                                               |
+| WP-INST-B1  | Expert coder         | Accepted 2026-08-25: revisioned personal assignment blueprints and public Alpha curriculum aggregates with typed references, creator-owned updates, answer-free projections, and shared `ProblemPicker` authoring and reuse; PostgreSQL, production HTTPS, canonical desktop visual, independent review, and final Validation evidence passed | WP-INST-D2 accepted, WP-INST-S7 accepted                                                 |
+| WP-INST-B2  | Expert coder         | Accepted 2026-08-26: fork, instantiation, rollover, term shift, manifests, provenance, controlled fast-forward, divergence recovery, canonical PostgreSQL/browser/screenshot evidence, and final Validation passed                                                                                                                            | WP-INST-B1 accepted, WP-INST-T1 accepted                                                 |
+| WP-INST-T6  | Expert coder         | Accepted 2026-08-27: linked assignment home, separate Questions and Policies pages, focused revision-checked mutations, persisted incomplete drafts, and Instructor-authorized answer-free Student view; binding plan at `docs/active_plans/active/instructor_assignment_workspace_plan.md`                                                   | WP-INST-T3, WP-INST-LD3, WP-INST-T5 accepted                                             |
+| WP-INST-G1  | Expert coder         | Accepted 2026-08-28: automated-grading operation queue grouped by question/learner, deterministic-grader exception routing, bounded retry, generation-fenced recalculation, immutable operation receipts, canonical live recovery, independent review, and final Validation passed                                                            | WP-INST-T2, WP-INST-T6                                                                   |
+| WP-INST-G2  | Expert coder         | Current: [roster-first calculated Gradebook and audited Student-work inspection](audited_student_work_gradebook_plan.md), with one server calculator, response-free navigation, solution-free no-store named-work detail, atomic audit, a typed Student chooser, and structural continuation with live score witnesses                        | WP-INST-S6, WP-INST-G1                                                                   |
+| WP-INST-G3  | Coder                | Item and course analysis connected to catalog evidence, audited Student-work context, and explicitly linked replacement/source impact                                                                                                                                                                                                         | WP-INST-G1, WP-INST-G2, WP-INST-D1                                                       |
+| WP-INST-G4  | Coder                | Durable question-improvement threads that preserve evidence, decisions, replacement links, and next-term context                                                                                                                                                                                                                              | WP-INST-G3, WP-INST-B2                                                                   |
+| WP-INST-G5  | Coder                | Actionable Instructor work queue for grader exceptions, recalculation failures, active replacement impact, and unresolved improvement threads under the actionability predicate                                                                                                                                                               | WP-INST-G4, WP-INST-T2                                                                   |
+| WP-INST-E1  | Playwright           | Behavior-named Instructor journeys and live-stack evidence                                                                                                                                                                                                                                                                                    | all behavior WPs                                                                         |
+| WP-INST-E2  | Integrator           | Final gates, visual review, docs, changelog, baseline procedure                                                                                                                                                                                                                                                                               | WP-INST-E1                                                                               |
 
-**WP-PROF-T6 binding contract.** The focused plan at
+**WP-INST-T6 binding contract.** The focused plan at
 `docs/active_plans/active/instructor_assignment_workspace_plan.md` owns the route map, task analysis,
 assignment aggregate mutations, authorization boundary, ADAPT comparison, evidence classification,
 and acceptance. T6 consumes the existing assignment, preview, and learner models and owns forward
@@ -1108,7 +1108,7 @@ advances no grading operation. One assignment revision serializes the focused Qu
 mutations. Ordinary Student activity remains the source of run, submission, receipt, grade, and
 gradebook evidence.
 
-**WP-PROF-G1 binding contract.** The focused plan at
+**WP-INST-G1 binding contract.** The focused plan at
 `docs/active_plans/active/automated_grading_operations_plan.md` owns accepted-input durability,
 current execution/evaluation/operation state, append-only receipts, deterministic exception
 classification, exact-job retry, assignment recalculation, Instructor routes, and the
@@ -1131,7 +1131,22 @@ threads. W2 protects G1 version-2 input now. Existing `WP-P2` Persistent binding
 consumer-by-consumer migration from legacy broad reads and the corresponding grant reductions after
 its migration-allocation review.
 
-**WP-PROF-T5 binding contract.** One ordered assignment-definition union owns fixed items and
+**WP-INST-G2 binding contract.** The focused plan at
+`docs/active_plans/active/audited_student_work_gradebook_plan.md` owns the calculated Gradebook,
+explicit audited Student-work inspection, public page/detail contracts, and migrations `2026081870`
+through `2026081873`. The migrations establish the inspection authority foundation, private
+immutable witness, only application-executable broker, and evidence-driven indexes in that order.
+`domain::course_grade::calculate_course_grade` remains the sole course-total calculator.
+`CourseGradebookStore` assembles the structurally roster-ordered cursor page from current
+summaries; each page publishes its own live scoring witness. `StudentWorkInspectionStore` is the
+approved domain name aligned with the product-role language; it validates
+typed public locators, Fetch Metadata, and immutable evidence, then appends server-owned audit facts
+atomically and returns no-store solution-free detail. G1 operation lists and receipts retain their
+metadata-only shape and resolve a typed Student selection before inspection. The canonical Instructor
+evidence uses 1280 by 800 and follows ordinary Student completion through calculated Gradebook and
+named-work inspection.
+
+**WP-INST-T5 binding contract.** One ordered assignment-definition union owns fixed items and
 selection groups in the shared position namespace. Browser writes contain public Question IDs and
 teaching choices only. The server authorizes every Question ID, resolves its immutable publication,
 mints group and candidate identities, and assigns the closed `PoolDrawAlgorithm::V1`. The editor
@@ -1170,9 +1185,9 @@ recovery path, and ended with exact cleanup. Refreshed canonical screenshots pas
 provenance/privacy publication and independent visual review; final Validation passed on the
 material tree.
 
-### WP-PROF-D1 discovery acceptance contract
+### WP-INST-D1 discovery acceptance contract
 
-WP-PROF-D1 delivers the authoritative Library discovery read model for immutable published
+WP-INST-D1 delivers the authoritative Library discovery read model for immutable published
 questions: normalized search and cursor recovery; public byline, backend, tag, taxonomy,
 response-family, disclosed-evidence, and own-course-usage facets; validity-governed evidence; and
 actor-scoped usage detail. It makes a question's public identity, discoverability, evidence, and
@@ -1187,17 +1202,17 @@ courses by name and presents other institutional use only through tenant-safe ag
 
 D1 establishes the shared discovery contracts consumed by later packages:
 
-- WP-PROF-D2 adds collections, Favorites, saved searches, bulk actions, and the reusable
+- WP-INST-D2 adds collections, Favorites, saved searches, bulk actions, and the reusable
   `ProblemPicker`; it consumes D1 query, facet, evidence, and usage projections.
-- WP-PROF-D3 adds optional assisted-tag proposals, confirmation, and provenance; D1 remains fully
+- WP-INST-D3 adds optional assisted-tag proposals, confirmation, and provenance; D1 remains fully
   usable with human-managed taxonomy.
-- WP-PROF-G3 adds item/course analysis workflows and linked replacement-impact interpretation; it
+- WP-INST-G3 adds item/course analysis workflows and linked replacement-impact interpretation; it
   consumes D1's validity-governed evidence and usage boundary.
 
-**Dependency order.** Accepted WP-PROF-S7 public references and WP-R2 immutable publication supply
+**Dependency order.** Accepted WP-INST-S7 public references and WP-R2 immutable publication supply
 the stable catalog identity. D1 then establishes closed query and result projections,
 validity/usage Store semantics, PostgreSQL migrations and RLS brokers, strict server transport, and
-the visible Library. Accepted WP-PROF-LD3 and WP-PROF-T5 supply the ordinary live learner-work path
+the visible Library. Accepted WP-INST-LD3 and WP-INST-T5 supply the ordinary live learner-work path
 used to produce connected evidence. Browser, visual, review, and final Validation evidence run after
 those focused contracts are green.
 
@@ -1216,7 +1231,7 @@ D1 is accepted when every required focused gate, real-stack journey, semantic de
 independent review, screenshot publication gate, and full Validation gate is green on the final
 material tree.
 
-**WP-PROF-D2 binding contract.** One `ProblemCurationStore` aggregate owns personal Favorites,
+**WP-INST-D2 binding contract.** One `ProblemCurationStore` aggregate owns personal Favorites,
 flat named collections, and saved problem searches. It consumes D1's normalized query, safe catalog
 summary, evidence, usage, and immutable Question ID contracts while keeping curation authority
 separate from catalog publication and discovery. `ProblemCollectionReference` and
@@ -1301,7 +1316,7 @@ closed with zero P0 through P3 findings. Final `source source_me.sh && ./all_tes
 workspace, all five codebase gates including 297 Node tests, 6,982 pytest checks, the complete
 production-browser suite, the database baseline, and the browser-free service oracles.
 
-**WP-PROF-B1 binding contract.** A focused `ReusableCurriculumStore` owns two separate current-state
+**WP-INST-B1 binding contract.** A focused `ReusableCurriculumStore` owns two separate current-state
 aggregates over accepted D2 selection and S7 public references. A personal assignment blueprint is
 private to its approved Instructor owner and tenant. A public Alpha curriculum is readable by an
 approved Instructor across tenants and editable only by its creator. Both use strong revisions and
@@ -1409,7 +1424,7 @@ The HCI review's initial P2 reader-guidance finding was resolved before approval
 documentation/evidence review requested this durable repository receipt; this table closes that
 evidence gap and preserves the four specialist verdicts with the binding B1 contract.
 
-**WP-PROF-B2 binding contract.** B2 is the dedicated curriculum-adoption boundary. It consumes
+**WP-INST-B2 binding contract.** B2 is the dedicated curriculum-adoption boundary. It consumes
 accepted B1 Blueprint and Alpha meaning and creates or updates ordinary teaching-course state. It
 does not turn a Blueprint or Alpha into a course: B1 source aggregates, ordinary teaching courses,
 learner activity, and immutable issued evidence remain separate aggregates. This is the approved
@@ -1584,14 +1599,14 @@ and issued-work fencing. Existing Student delivery, deterministic grading, immut
 Instructor inspection remain ordinary teaching-course behavior and are not reimplemented by B2.
 
 Each package owns its capability modules. The six named M1 schema packages and the accepted
-post-M1 WP-PROF-LD1 allocation are recorded in the shared registry; WP-PROF-LD2 has the
+post-M1 WP-INST-LD1 allocation are recorded in the shared registry; WP-INST-LD2 has the
 `2026081809` two-broker allocation (Sysadmin approval-candidate discovery and completed-installation-
 generation lookup) and the separate `2026081810` Student
 pre-tenant account-course retention-boundary repair allocation. Every later schema package
 receives a release-integrator allocation before implementation, and non-schema packages receive no
 migration implicitly. Shared route registration and migration ordering belong to the integrator.
 
-**WP-PROF-T1 current contract.** One revisioned `AssignmentTeachingSettings` aggregate owns the
+**WP-INST-T1 current contract.** One revisioned `AssignmentTeachingSettings` aggregate owns the
 closed Draft/Published/Closed/Archived lifecycle, validated learner instructions, and the absolute S3
 base policy for availability, due, close, whole-run and attempt limits, late behavior, and deadline
 behavior. New assignments are Draft and only stored Published opens G1. The instructor HTTP boundary
@@ -1607,7 +1622,7 @@ attempt-result, and disclosed-point numeric without
 changing the semantic disclosure/activity state. The package allocates no migration and directly
 removes the historical `AssignmentTimingPolicy`/`assignmentTiming` API.
 
-**WP-PROF-T2 contract.** The shared migration allocation and package disposition are owned by
+**WP-INST-T2 contract.** The shared migration allocation and package disposition are owned by
 [implementation status](../implementation_status.md); this plan owns the frozen contract and
 acceptance criteria. Course-group membership remains many-to-many. Each course persists an
 `allow | warn` multiple-membership policy per group purpose:
@@ -1653,7 +1668,7 @@ verifiers, the canonical walkthrough, Chapter One pilot, Chapter One browser wit
 Question-ID replacements, and WebWork render/grade/outage. Test, UI, and architecture reviews each
 returned ACCEPT with no P0/P1 finding. The designated canonical renderer image was rebuilt only for
 the acceptance run; cleanup then removed all disposable containers, images, and volumes. The
-professor roadmap's M0 evidence is accepted; WP-PY-L1 is accepted on 2026-08-15 after final
+Instructor roadmap's M0 evidence is accepted; WP-PY-L1 is accepted on 2026-08-15 after final
 offline/live Validation and named final reviews.
 
 **WP-R1 Python closeout.** WP-R1 is accepted on 2026-08-14. Chapter One pilot/browser and aggregate
@@ -1664,7 +1679,7 @@ focused typed Python lifecycle is the current default `containers` owner. `conta
 designated local renderer image name as the stable selection and rebuild target, and each live run
 records the inspected immutable OCI image configuration ID as exact runtime provenance. Rebuilding the
 configured target supplies a new selectable local artifact after pruning while the receipt preserves
-the configuration used. The professor roadmap's M0 evidence is accepted; WP-PY-L1 is accepted on
+the configuration used. The Instructor roadmap's M0 evidence is accepted; WP-PY-L1 is accepted on
 2026-08-15 after final offline/live Validation and named final reviews.
 
 **WP-R2 evidence boundary.** WP-R2 uses inline builders by default and adds no fixture directory.
@@ -1698,27 +1713,27 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
 
 ## Acceptance criteria
 
-- A professor searches broadly, tolerates a typo, filters by evidence and tag, inspects safe details,
+- A Instructor searches broadly, tolerates a typo, filters by evidence and tag, inspects safe details,
   favorites a problem, places it in a collection, and adds it to an assignment without typing an ID.
-- One resolver answers every entitlement, window, limit, and lateness question, and every professor
+- One resolver answers every entitlement, window, limit, and lateness question, and every Instructor
   and learner surface shows the same answer with its source named in plain language.
 - Disclosure is set once per assignment and holds across run summary, gradebook, and analysis.
 - A course has a term and zone; absolute dates require one; ambiguous local times are refused with a
   correction path; a term shift previews every resolved date before committing.
 - The gradebook shows a course total under the selected mode, and one audited click opens exactly
   what a named learner saw and answered.
-- A professor previews current learner policy, exercises the published assignment through an
+- A Instructor previews current learner policy, exercises the published assignment through an
   ordinary enrolled Student, and inspects the resulting submission, deterministic grade, immutable
   receipt, and audited learner work.
 - A pool assignment delivers its draw per learner and honors the issued-run lock.
-- `WP-PROF-B1`: an Alpha curriculum is non-enrollable, public to approved Instructors,
+- `WP-INST-B1`: an Alpha curriculum is non-enrollable, public to approved Instructors,
   creator-editable, and exposes answer-free modules and ordered questions for shared picker reuse.
-- `WP-PROF-B2`: fork and teaching-course instantiation carry the declared reusable meaning and
+- `WP-INST-B2`: fork and teaching-course instantiation carry the declared reusable meaning and
   provenance. Fast-forward updates apply only to untouched reusable fields before the first issued
   run; divergence produces an explicitly selected copy or new assignment.
 - A flagged item leads from analysis to learner evidence to usage to a distinct linked replacement,
   and the decision is recorded and visible in next term's material.
-- After an explicitly linked replacement is published, the professor can compare its disclosed
+- After an explicitly linked replacement is published, the Instructor can compare its disclosed
   behavior with its source's, with both Question IDs and sample sizes shown.
 - Human taxonomy editing alone makes the corpus discoverable. If assisted tagging ships, no tag
   enters the catalog without a confirming user and recorded model provenance, and no grader-only
@@ -1731,7 +1746,7 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   its own row.
 - No public, learner, non-author, collection, blueprint, or Alpha response contains answer keys,
   grading implementations, private source, email, UUID, or FERPA data.
-- Professor pages stay compact and keyboard-complete in the maintained desktop profile; student pages
+- Instructor pages stay compact and keyboard-complete in the maintained desktop profile; student pages
   retain maintained tablet and narrow-phone profiles.
 - Student acceptance evidence includes an allowed student surface and fail-closed denial of
   instructor-only routes across the maintained responsive profiles. No-transport assertions and
@@ -1780,7 +1795,7 @@ entry is a direct `exec` facade. This schedule preserves WP-R1's bounded Chapter
   roster and gradebook denial probes, a centrally derived fail-closed route boundary before transport,
   and no instructor payload on denied navigation. Fresh capture and inspection are required before
   screenshots count as acceptance evidence.
-- Use the canonical fixed real-stack suite for M6 professor-and-learner composition behavior, using
+- Use the canonical fixed real-stack suite for M6 Instructor-and-learner composition behavior, using
   Elena Instructor and only the seeded learner state required for each semantic transition. Elena
   Instructor and Morgan Sysadmin passkey enrollment, sign-out, and sign-in remain independent
   suite-owned scenarios; the M6 journey begins from their ordinary authenticated sessions.
@@ -1822,7 +1837,7 @@ pages:
 1. Elena searches the published Library by concept, filters to safe evidence, and opens a public
    question detail.
 2. Elena favorites selected questions and places them in a named collection; the same live selection
-   is available to the assignment picker. When `WP-PROF-D3` has shipped, she may review and confirm an
+   is available to the assignment picker. When `WP-INST-D3` has shipped, she may review and confirm an
    assisted tag with recorded provenance. Human taxonomy and collection actions complete the core
    journey.
 3. Elena creates or revises reusable curriculum with a fixed-question definition and a pool
@@ -1866,10 +1881,10 @@ contributions where required.
   improvement threads join the existing epoch rather than arriving as bolt-ons.
 - Remove `assignment.visible` once lifecycle plus the resolver replace it. Remove
   `catalog_search_document.quality_signal` if section 6.1 is not adopted; do not leave it unowned.
-- WP-PROF-E2 may prepare and review a candidate clean-cluster baseline before all packages finish, but the
-  actual baseline replacement requires both professor WP-PROF-E2 readiness and completion of all
+- WP-INST-E2 may prepare and review a candidate clean-cluster baseline before all packages finish, but the
+  actual baseline replacement requires both Instructor WP-INST-E2 readiness and completion of all
   repository-owned release schema packages/RC12, immediately before first production data. If
-  durable pilot data exists first, stop consolidation and use forward-only migrations; WP-PROF-E2 must not
+  durable pilot data exists first, stop consolidation and use forward-only migrations; WP-INST-E2 must not
   replace the active migration ledger early.
 - Keep Alpha and shared-curriculum tables outside FERPA course-record ownership.
 - Keep PostgreSQL search behind the existing repository boundary.
@@ -1886,7 +1901,7 @@ contributions where required.
   closed two-mode scope and explicit non-goals.
 - **Parallel-path drift**: acceptance behavior diverges from ordinary course behavior; mitigated by
   one live data model, one learner execution path, and production-stack browser evidence.
-- **Evidence misreading**: professors treating small or non-comparable samples as fact; mitigated by
+- **Evidence misreading**: Instructors treating small or non-comparable samples as fact; mitigated by
   the section 6.0 validity contract: existing k-anonymity suppression, first-attempt independence,
   separately scoped exact-version evidence, comparison only of explicitly linked replacement/source
   questions, disclosed cohort sizes, and an explicit insufficient-evidence answer.
@@ -1915,7 +1930,7 @@ contributions where required.
   owner's voice: course term required, one canonical live product path, the attention predicate, and
   the evidence-disclosure stance. Conditional architecture
   (completion mode, assisted tagging) and component ownership stay in this plan.
-- This document is the active professor-capability scope and dependency direction; link it from
+- This document is the active Instructor-capability scope and dependency direction; link it from
   implementation status without replacing the current release plan or global current-package
   handoff.
 - Update architecture, file structure, contracts, database structure, install and usage, instructor
@@ -1929,7 +1944,7 @@ contributions where required.
 - Accommodations are extend-only unless explicitly marked as an override.
 - Entitlement authority is derived from roster, audience, group, and lifecycle; the enrollment record
   is its materialized receipt with provenance; revocation ends authority and preserves evidence.
-- Effective state is always derived from (policy, now). `assignment.lifecycle` records professor
+- Effective state is always derived from (policy, now). `assignment.lifecycle` records Instructor
   intent. Workers own only non-derivable effects and write a durable receipt for each.
 - A `PreviewSubject` contains resolved policy values and group roles rather than learner identity;
   deriving one from a learner is an audited record read.
@@ -1976,9 +1991,9 @@ so a reviewer can check the reasoning and repeat the method.
 +---------------------------------------------------------------------------------+
 | substitution  scale course -> term         => course term, zone, term shift       |
 | substitution  scale course -> section set  => typed group purposes, entitlement    |
-| substitution  scale course -> item pool    => professor surface over selection     |
+| substitution  scale course -> item pool    => Instructor surface over selection     |
 |                                               groups already present in schema     |
-| substitution  autonomy professor -> system => scheduled close, disclosure,          |
+| substitution  autonomy Instructor -> system => scheduled close, disclosure,          |
 |                                               retention, tagging batches           |
 | re-instantiate  teaching policy inspection => preview plane over live course state  |
 | re-instantiate  authentic learner practice => ordinary delivery and grading path    |

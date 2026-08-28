@@ -341,7 +341,7 @@ is Current.
 
 ## Course-grade flow
 
-WP-PROF-S6 adds one isolated `CourseGradebookStore` capability. The pure domain evaluator supports
+WP-INST-S6 adds one isolated `CourseGradebookStore` capability. The pure domain evaluator supports
 only the two shipped modes: total points and weighted categories with optional drop-lowest. A
 completion-based mode is deferred to a later package and is absent from the model, migration, and
 HTTP selector. Memory and PostgreSQL implementors share the same validation and conformance cases.
@@ -677,12 +677,11 @@ not evidence that an unrun deployment path works.
 
 ## Known gaps
 
-- The implemented G1 closeout source is present in the four allocated migrations
-  `2026081866` through `2026081869`, and the seven accepted predecessor migrations
-  are restored. The affected live database, RLS, worker, browser, WebWork, and
-  replica evidence is green on the 99-migration material tree. `WP-PROF-G1`
-  remains incomplete until the new owned files are tracked and the exact final
-  tracked-tree `source source_me.sh && ./all_test.sh` gate passes.
+- `WP-INST-G1` is accepted. Its closeout comprises allocated migrations `2026081866` through
+  `2026081869`, with seven accepted predecessor migrations restored. Final material-tree
+  Validation passed with the affected 99-migration live database, RLS, worker, browser, WebWork,
+  and replica evidence. `WP-INST-G2` now owns audited learner-work inspection and grade-scheme-aware
+  calculated Gradebook work.
 - Verify the deployed AWS account's DNS, ACM certificates, Secrets Manager
   values, database login provisioning, backup recovery, alerting, and incident
   procedures before production use.

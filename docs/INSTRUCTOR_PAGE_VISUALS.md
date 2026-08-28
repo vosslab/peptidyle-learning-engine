@@ -103,6 +103,6 @@ and teaching semantics; these images are visual evidence for composition and cur
 The accepted B2 evidence covers the source/destination distinction, preview-before-apply, DST
 correction, keyboard focus, recovery, privacy, and contrast at the canonical 1280 by 800 Instructor
 profile. Accepted T6 evidence adds the focused Policies and answer-free Student-view surfaces. G1 is
-the current active package and retains its own final-material-tree Validation gate. The two
-automated-grading recovery images above are connected visual evidence for G1's Instructor operation
-and Gradebook branch, pending final package closeout; they do not by themselves close G1 acceptance.
+accepted; its two automated-grading recovery images are connected visual evidence for the Instructor
+operation and Gradebook branch. G2 is the current package and owns the next learner-work inspection
+and calculated-Gradebook visual boundary.

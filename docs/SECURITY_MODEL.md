@@ -86,7 +86,7 @@ not an authority. The browser-safe validator can only reject an empty legacy
 upload placeholder; it cannot establish that a string names an authorized
 object. The server therefore refuses every file-upload submission before
 backend or Store mutation. The server-issued upload capability and metadata
-binding workflow are not implemented. [secure_learner_file_upload_plan.md](active_plans/active/secure_learner_file_upload_plan.md)
+binding workflow are not implemented. [secure_student_file_upload_plan.md](active_plans/active/secure_student_file_upload_plan.md)
 owns that future path. It requires file size, profile, checksum, ownership,
 learner, and attempt binding to be checked from server-owned object metadata,
 never from browser claims.
@@ -580,7 +580,7 @@ answer keys, or raw backend errors.
 Server and worker diagnostics use bounded error categories and safe record
 identities only where an operator needs correlation. Credentials, raw session
 cookies, provider launch values, renderer fields, source bytes, private grading
-payloads, raw learner uploads, and raw student answers are never general log
+payloads, raw Student uploads, and raw Student answers are never general log
 fields. A new diagnostic must use the [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md)
 class of each field and record the appropriate authorization and retention
 owner before it is emitted.

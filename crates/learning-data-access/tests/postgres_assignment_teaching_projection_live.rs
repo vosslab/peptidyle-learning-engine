@@ -1,6 +1,6 @@
 #![cfg(feature = "postgres")]
 
-//! Disposable PostgreSQL 17 oracle for the WP-PROF-T1 teaching projection.
+//! Disposable PostgreSQL 17 oracle for the WP-INST-T1 teaching projection.
 //!
 //! The Store constructs lifecycle and policy state. The small SQL probes below
 //! prove only physical persistence, forced RLS, and sealed receipt history.

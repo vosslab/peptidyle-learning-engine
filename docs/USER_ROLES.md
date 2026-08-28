@@ -10,11 +10,11 @@ handling rules remain in [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
 
 ## Human roles
 
-| Role | How it is established | Authority | Explicit limits |
-| --- | --- | --- | --- |
-| Student | A verified PLE account claims an instructor-issued course invitation. | Work assigned activities and view only that student's currently accessible educational records. | Cannot enumerate classmates, author content, manage a course, inspect grading material, or use another student's identifiers. |
-| Instructor | A real person is manually approved and receives a direct `Instructor` membership in a course. | Create courses and content; manage only courses where the person has a current direct Instructor membership; view the FERPA records needed to teach those courses. | A coarse Instructor session role does not grant access to every course. Instructor access ends when the direct course membership is revoked. |
-| Sysadmin | An operator manually adds the `sysadmin` platform role to the verified PLE account. | Operate the platform and perform the narrow sysadmin-only lifecycle actions documented by each contract. A sysadmin with an established tenant context may create a course, which also creates direct Instructor membership in that course. | Sysadmin status never makes the person a course member or grants general access to teaching records. Audited roster support and coarse retention lifecycle actions are explicit exceptions; grades, responses, runs, exports, and item analysis remain unavailable without direct Instructor membership. |
+| Role       | How it is established                                                                         | Authority                                                                                                                                                                                                                                   | Explicit limits                                                                                                                                                                                                                                                                                          |
+| ---------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Student    | A verified PLE account claims an instructor-issued course invitation.                         | Work assigned activities and view only that student's currently accessible educational records.                                                                                                                                             | Cannot enumerate classmates, author content, manage a course, inspect grading material, or use another student's identifiers.                                                                                                                                                                            |
+| Instructor | A real person is manually approved and receives a direct `Instructor` membership in a course. | Create courses and content; manage only courses where the person has a current direct Instructor membership; view the FERPA records needed to teach those courses.                                                                          | A coarse Instructor session role does not grant access to every course. Instructor access ends when the direct course membership is revoked.                                                                                                                                                             |
+| Sysadmin   | An operator manually adds the `sysadmin` platform role to the verified PLE account.           | Operate the platform and perform the narrow sysadmin-only lifecycle actions documented by each contract. A sysadmin with an established tenant context may create a course, which also creates direct Instructor membership in that course. | Sysadmin status never makes the person a course member or grants general access to teaching records. Audited roster support and coarse retention lifecycle actions are explicit exceptions; grades, responses, runs, exports, and item analysis remain unavailable without direct Instructor membership. |
 
 The repository owner is both a Sysadmin and an Instructor. Other instructors
 are approved only after real-person validation. There is no self-service
@@ -25,7 +25,7 @@ promotion to Instructor or Sysadmin.
 Course membership does not add more types of users. It records which of the
 same human roles relates a person to one exact course:
 
-- `Student` means the person may use only their own active learner paths.
+- `Student` means the person may use only their own active Student paths.
 - `Instructor` means the person may teach and administer that exact course.
 
 `Sysadmin` is deliberately not a course-membership value. A sysadmin who needs
@@ -93,7 +93,7 @@ asset bytes after the committed outbox decision.
   secrets in the audit payload.
 - Keep the Sysadmin retention exception coarse and payload-free; it may change
   lifecycle state but never return roster, response, grade, or artifact data.
-- Keep learner-owner and Instructor-history capabilities separate.
+- Keep Student-owner and Instructor-history capabilities separate.
 - Conceal missing and unauthorized FERPA records with the same result where
   existence itself is sensitive.
 - Serialize Instructor membership revocation with response disclosure,
@@ -110,6 +110,15 @@ words owner and collaborator describe access to one private workspace, not
 additional types of users. The words manager and administrator may still
 describe software/process concepts such as a package manager or Secrets
 Manager, but never a PLE human role.
+
+Use **Student** in PLE-owned type, module, route, field, and table names whenever the subject is a
+person with the Student role or that person's course work. Use **User** before a course role is
+known. Use **learning** only for educational-system concepts, such as learning data or learning
+outcomes. `learner` is not a fourth role or an alias for Student in new PLE-owned names.
+
+Active Instructor-roadmap work packages use the temporary `WP-INST-*` namespace. These planning
+keys exist only while their owning plans remain active; completed planning can retire the labels.
+Current titles, prose, code, APIs, and schemas use **Instructor** directly.
 
 ## Enforcement owners
 

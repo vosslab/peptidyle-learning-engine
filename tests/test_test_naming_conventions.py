@@ -46,35 +46,33 @@ def playwright_dir_exists() -> bool:
 
 
 #============================================
-def list_files_recursive(directory: str) -> list[str]:
-	"""
-	List all files under a directory recursively, returning relative paths.
-	"""
-	files = []
-	for root, dirs, filenames in os.walk(directory):
-		for filename in filenames:
-			full_path = os.path.join(root, filename)
-			rel_path = os.path.relpath(full_path, directory)
-			files.append(rel_path)
-	return sorted(files)
-
-
-#============================================
 def list_e2e_files() -> list[str]:
 	"""
-	List all files under tests/e2e/ recursively, returning relative paths.
+	List authored Python and shell files under tests/e2e/.
 	"""
-	e2e_dir = get_e2e_dir()
-	return list_files_recursive(e2e_dir)
+	return [
+		file_utils.rel_to_root(path)
+		for path in file_utils.discover_files(
+			extensions=(".py", ".sh"),
+			test_key="test_naming_conventions",
+			extra_filter=lambda rel: rel.startswith("tests/e2e/"),
+		)
+	]
 
 
 #============================================
 def list_playwright_files() -> list[str]:
 	"""
-	List all files under tests/playwright/ recursively, returning relative paths.
+	List authored Python files under tests/playwright/.
 	"""
-	playwright_dir = get_playwright_dir()
-	return list_files_recursive(playwright_dir)
+	return [
+		file_utils.rel_to_root(path)
+		for path in file_utils.discover_files(
+			extensions=(".py",),
+			test_key="test_naming_conventions",
+			extra_filter=lambda rel: rel.startswith("tests/playwright/"),
+		)
+	]
 
 
 #============================================
@@ -145,7 +143,7 @@ def check_python_files_use_e2e_prefix() -> list[str]:
 	violations = []
 	for filename in files:
 		if filename.endswith(".py"):
-			if not fnmatch.fnmatch(filename, "e2e_*.py"):
+			if not fnmatch.fnmatch(os.path.basename(filename), "e2e_*.py"):
 				violations.append(filename)
 	return violations
 
@@ -168,7 +166,7 @@ def check_shell_files_use_e2e_prefix() -> list[str]:
 	violations = []
 	for filename in files:
 		if filename.endswith(".sh"):
-			if not fnmatch.fnmatch(filename, "e2e_*.sh"):
+			if not fnmatch.fnmatch(os.path.basename(filename), "e2e_*.sh"):
 				violations.append(filename)
 	return violations
 
@@ -208,28 +206,27 @@ def has_playwright_import(file_path: str) -> bool:
 #============================================
 def list_mjs_files_outside_playwright() -> list[str]:
 	"""
-	List all .mjs files under tests/, excluding tests/playwright/ subtree.
+	List authored JavaScript and TypeScript files under tests/, excluding
+	the tests/playwright/ subtree.
 
 	Returns relative paths from repo root.
 	"""
-	tests_dir = os.path.join(REPO_ROOT, "tests")
-	playwright_dir = get_playwright_dir()
-	files = []
-	for root, dirs, filenames in os.walk(tests_dir):
-		if root.startswith(playwright_dir):
-			continue
-		for filename in filenames:
-			if filename.endswith(".mjs"):
-				full_path = os.path.join(root, filename)
-				rel_path = os.path.relpath(full_path, REPO_ROOT)
-				files.append(rel_path)
-	return sorted(files)
+	return [
+		file_utils.rel_to_root(path)
+		for path in file_utils.discover_files(
+			extensions=(".mjs", ".js", ".cjs", ".ts", ".tsx"),
+			test_key="test_naming_conventions",
+			extra_filter=lambda rel: rel.startswith("tests/")
+			and not rel.startswith("tests/playwright/"),
+		)
+	]
 
 
 #============================================
 def check_playwright_imports_in_playwright_folder() -> list[str]:
 	"""
-	Return .mjs files with Playwright imports outside tests/playwright/.
+	Return authored JavaScript/TypeScript files with Playwright imports
+	outside tests/playwright/.
 
 	Playwright browser tests must live under the browser tier
 	(tests/playwright/, including tests/playwright/e2e/) to avoid
@@ -413,7 +410,7 @@ def test_playwright_imports_in_playwright_folder() -> None:
 	"""
 	violations = VIOLATIONS.get("test_playwright_imports_in_playwright_folder", [])
 	message = (
-		f"Playwright imports found in .mjs files outside tests/playwright/. "
+		f"Playwright imports found in authored JS/TS files outside tests/playwright/. "
 		f"Move these files to tests/playwright/: {violations}"
 		f" See {_report_rel()}."
 	)

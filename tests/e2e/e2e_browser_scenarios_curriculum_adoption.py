@@ -1,4 +1,4 @@
-"""UI-first WP-PROF-B2 curriculum-adoption production facts."""
+"""UI-first WP-INST-B2 curriculum-adoption production facts."""
 
 from e2e_browser_scenario_contract import ScenarioContract
 

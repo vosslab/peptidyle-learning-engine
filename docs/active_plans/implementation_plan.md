@@ -6,7 +6,7 @@
 backend-agnostic assignment platform built around repeated attempts, algorithmic questions, and
 question-level timing. The foundational M0 and M1 platform slices and the main M2 through M4
 learning paths are implemented, while current release-track acceptance remains governed by the active
-release plan. The professor roadmap's evidenced M0 release-truth exit is accepted; the sole global
+release plan. The Instructor roadmap's evidenced M0 release-truth exit is accepted; the sole global
 current-package handoff is recorded in [implementation_status.md](implementation_status.md). Retention R4.4, QTI
 profile import WP-QTI-12, course appearance
 WP-CA1 through WP-CA7/WP-RC1, and production-seam closure WP-RC2 are accepted. The authoritative
@@ -26,28 +26,31 @@ The pre-production schema and code use opaque Question IDs and immutable content
 native and WeBWorK host seed publication mints fresh opaque evidence; a rerun resumes through a
 protected explicit manifest or verified existing record. Final material-tree evidence is
 recorded in [implementation_status.md](implementation_status.md) and the changelog. WP-PY-L1 is
-accepted on 2026-08-15. The professor roadmap records M0 as accepted from the four evidenced
-release-truth packages; its subsequent work follows the professor dependency queue.
+accepted on 2026-08-15. The Instructor roadmap records M0 as accepted from the four evidenced
+release-truth packages; its subsequent work follows the Instructor dependency queue.
 
 Current browser evidence is owned by the
 [real_stack_browser_suite_plan.md](active/real_stack_browser_suite_plan.md); the sole current-package
 handoff remains in [implementation_status.md](implementation_status.md). Production email and
 canonical onboarding remain separate release work.
 
-**Current live-demo capability.** [WP-PROF-LD3](active/live_delivery_convergence_plan.md) established
+**Current live-demo capability.** [WP-INST-LD3](active/live_delivery_convergence_plan.md) established
 ordinary live assignments, learner runs, deterministic server-owned grading, immutable issued
 evidence, receipt replay, and audited Instructor inspection as the canonical product path.
-WP-PROF-T5 is accepted after extending that model with visible item-pool authoring, policy-correct
-automatic variation, executable no-store preview, and ordinary Student delivery. WP-PROF-D1 and
-WP-PROF-D2, WP-PROF-B1, and WP-PROF-B2 are accepted. Reusable curricula now advance into ordinary
+WP-INST-T5 is accepted after extending that model with visible item-pool authoring, policy-correct
+automatic variation, executable no-store preview, and ordinary Student delivery. WP-INST-D1 and
+WP-INST-D2, WP-INST-B1, and WP-INST-B2 are accepted. Reusable curricula now advance into ordinary
 teaching courses through explicit adoption, rollover, term shifting, provenance, and controlled
-updates. WP-PROF-T6 is accepted: each assignment has a linked home, separate Questions and Policies
-pages, and a live answer-free Student view. WP-PROF-G1 is active under the
+updates. WP-INST-T6 is accepted: each assignment has a linked home, separate Questions and Policies
+pages, and a live answer-free Student view. WP-INST-G1 is accepted under the
 [automated-grading operations plan](active/automated_grading_operations_plan.md). It persists one
 immutable accepted learner input before grading and adds assignment-local exception recovery,
-bounded retry, generation-fenced recalculation, and immutable receipts. The shared status registry
-owns the current handoff and migration allocation; the professor capability plan retains the
-accepted capability contracts and evidence boundaries.
+bounded retry, generation-fenced recalculation, and immutable receipts. WP-INST-G2 is the current
+package under the [audited Student-work and calculated Gradebook plan](active/audited_student_work_gradebook_plan.md).
+It establishes a roster-first, server-calculated Gradebook and an explicit atomic-audit inspection
+read that is response-bearing, solution-free, and no-store. The shared status registry owns the
+current handoff and migration allocation; the Instructor capability plan retains the accepted
+capability contracts and evidence boundaries.
 
 ## Grounded evidence rule for open packages
 
@@ -83,8 +86,8 @@ focused Python modules are the current build, bootstrap, migration, seed, render
 That direct Python lifecycle conversion is accepted: WP-PY-L1 replaces the
 launcher, `_restart.sh`, and `local_identity_bootstrap.sh` together after WP-R2 and before M1. No Python
 wrapper or dual launcher is an accepted intermediate state. Final offline and live Validation are green,
-as are the three named independent final reviews. The professor roadmap's M0 evidence is accepted;
-its subsequent work follows the professor dependency queue, while the release plan retains its
+as are the three named independent final reviews. The Instructor roadmap's M0 evidence is accepted;
+its subsequent work follows the Instructor dependency queue, while the release plan retains its
 later acceptance gates.
 
 **WP-R2 test and live-evidence boundary.** Offline Memory publication, replacement, and replay behavior
@@ -111,7 +114,7 @@ historical evidence only and are not referenced through an ignored scratch artif
 pilot/browser and aggregate-acceptance Python work uses one designated configured renderer image name
 as the stable local selection and rebuild target. Each live run records the inspected immutable OCI
 image configuration ID as exact runtime provenance. Image pruning may remove the selected local bytes,
-after which the configured target is rebuilt before use. WP-R2 is accepted; the professor roadmap's
+after which the configured target is rebuilt before use. WP-R2 is accepted; the Instructor roadmap's
 M0 evidence is accepted, and WP-PY-L1 is accepted on 2026-08-15 after final offline/live Validation
 and its named independent final reviews. The release plan retains its later acceptance gates.
 
@@ -1575,12 +1578,12 @@ M6 composes the already-gated capabilities in one smallest-useful live narrative
 Elena Instructor and the seeded Mary Student record for learner delivery and inspection. Elena
 and Morgan passkey enrollment, sign-out, and sign-in remain independent suite-owned scenarios; this
 journey starts from their ordinary authenticated sessions. Assisted tagging participates only when
-`WP-PROF-D3` has shipped; the core journey remains complete with human taxonomy and collection actions.
+`WP-INST-D3` has shipped; the core journey remains complete with human taxonomy and collection actions.
 
 1. **Discover.** Elena searches the published Library by concept, filters to safe evidence, and
    opens a public question detail.
 2. **Collect.** Elena favorites the selected questions and places them in a named collection. The
-   same live selection is available to the assignment picker. If `WP-PROF-D3` is accepted, she may
+   same live selection is available to the assignment picker. If `WP-INST-D3` is accepted, she may
    review and confirm a proposed tag with recorded provenance; otherwise human taxonomy is the
    demonstrated path.
 3. **Reuse.** Elena creates or revises a reusable curriculum with one fixed question and one pool

@@ -38,7 +38,7 @@ pub const MAX_ASSIGNMENT_CANDIDATES_PER_SELECTION_GROUP: usize = 1_024;
 /// Maximum candidate Question IDs across all selection groups in one assignment definition.
 pub const MAX_ASSIGNMENT_TOTAL_SELECTION_CANDIDATES: usize = 8_192;
 
-/// Professor-controlled lifecycle intent for an assignment.
+/// Instructor-controlled lifecycle intent for an assignment.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AssignmentLifecycle {
@@ -221,7 +221,7 @@ impl Default for BaseAssignmentPolicy {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssignmentTeachingSettings {
-    /// Professor-controlled assignment lifecycle intent.
+    /// Instructor-controlled assignment lifecycle intent.
     pub lifecycle: AssignmentLifecycle,
     /// Validated learner-facing plain-text instructions.
     pub instructions: AssignmentInstructions,

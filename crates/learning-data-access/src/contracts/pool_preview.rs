@@ -1,4 +1,4 @@
-//! Read-only persistence capability for WP-PROF-T5 item-pool samples.
+//! Read-only persistence capability for WP-INST-T5 item-pool samples.
 
 use async_trait::async_trait;
 use question_model::{

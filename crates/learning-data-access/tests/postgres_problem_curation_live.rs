@@ -1,6 +1,6 @@
 #![cfg(feature = "postgres")]
 
-//! Disposable PostgreSQL 17 oracle for the WP-PROF-D2 curation capability.
+//! Disposable PostgreSQL 17 oracle for the WP-INST-D2 curation capability.
 //!
 //! The single ignored entry point deliberately exercises the application Store
 //! and then inspects the migration-owned broker/RLS boundary directly.  Its

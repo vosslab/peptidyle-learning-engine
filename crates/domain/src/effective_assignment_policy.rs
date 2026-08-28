@@ -49,7 +49,7 @@ pub fn assignment_lifecycle_gate(lifecycle: AssignmentLifecycle) -> AssignmentLi
     }
 }
 
-/// Returns whether a professor-controlled lifecycle transition is legal.
+/// Returns whether a Instructor-controlled lifecycle transition is legal.
 pub fn is_legal_assignment_lifecycle_transition(
     from: AssignmentLifecycle,
     to: AssignmentLifecycle,
@@ -334,7 +334,7 @@ pub fn validate_base_assignment_policy(
 ///
 /// The input is already an absolute server timestamp. This only projects that
 /// instant into the course's authoritative zone to check its calendar date; it
-/// neither accepts nor resolves professor-entered local wall-clock text.
+/// neither accepts nor resolves Instructor-entered local wall-clock text.
 pub fn validate_base_assignment_policy_for_course_term(
     base: BaseAssignmentPolicy,
     term: &CourseTerm,

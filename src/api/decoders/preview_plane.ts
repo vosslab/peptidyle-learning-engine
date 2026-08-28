@@ -1,4 +1,4 @@
-// Strict browser decoders for generated WP-PROF-T3 preview-plane DTOs.
+// Strict browser decoders for generated WP-INST-T3 preview-plane DTOs.
 
 import { MAX_PREVIEW_SUBJECT_GROUPS } from "../../../generated/api/MAX_PREVIEW_SUBJECT_GROUPS";
 import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";

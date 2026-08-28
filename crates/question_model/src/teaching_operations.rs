@@ -1,4 +1,4 @@
-//! Strict browser/server contracts for the WP-PROF-T2 teaching operations.
+//! Strict browser/server contracts for the WP-INST-T2 teaching operations.
 //!
 //! The types here use only human route references and display labels.  They
 //! deliberately exclude tenant IDs, UUIDs, email, policy inputs, jobs, object

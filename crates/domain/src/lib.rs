@@ -11,7 +11,7 @@ pub mod attempt;
 pub mod completion;
 /// Pure course-grade aggregation from selected assignment scores.
 pub mod course_grade;
-/// Pure evaluation of assignment-owned learner disclosure policy (WP-PROF-S4).
+/// Pure evaluation of assignment-owned learner disclosure policy (WP-INST-S4).
 pub mod disclosure_policy;
 /// Key-free deterministic workspace-draft prompt preview (MOD-WASM).
 pub mod draft_preview;
@@ -26,7 +26,7 @@ pub mod generator;
 pub mod item_analysis;
 /// Assignment configuration validation (MOD-CAP).
 pub mod policy;
-/// Pure non-mutating S5 -> S3 -> S4 preview composition (WP-PROF-T3).
+/// Pure non-mutating S5 -> S3 -> S4 preview composition (WP-INST-T3).
 pub mod preview_plane;
 /// Continued-practice eligibility and shared run-model errors (MOD-RUN).
 pub mod run;
@@ -34,7 +34,7 @@ pub mod run;
 pub mod scoring;
 /// Retention-safe anonymous question-statistics aggregation (MOD-STATS).
 pub mod statistics;
-/// Pure group-membership and co-instructor authority validation (WP-PROF-T2).
+/// Pure group-membership and co-instructor authority validation (WP-INST-T2).
 pub mod teaching_authority;
 /// Timer verdict for time-limited attempts (MOD-TIME).
 pub mod timing;

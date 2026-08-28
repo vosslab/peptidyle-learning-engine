@@ -722,7 +722,7 @@ Historical records remain available through bounded history and summary projecti
 is never deleted or recreated as a shortcut. File upload and external-tool submission contracts stay
 out of this v1 cutover because they require separate object-transfer and broker designs. The file
 boundary is specified separately in
-`docs/active_plans/active/secure_learner_file_upload_plan.md`.
+  `docs/active_plans/active/secure_student_file_upload_plan.md`.
 
 ## Final decisions
 
