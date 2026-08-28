@@ -6,11 +6,12 @@ use async_trait::async_trait;
 use learning_data_access::{
     AcceptedSubmission, AcceptedSubmissionCommitError, AcceptedSubmissionExecution,
     AcceptedSubmissionExecutionClaim, AcceptedSubmissionExecutionDisposition,
-    AcceptedSubmissionExecutionFastPathClaimStore, AcceptedSubmissionExecutionOutcome,
-    AcceptedSubmissionExecutionRecoveryClaimStore, AcceptedSubmissionExecutionStore,
-    AcceptedSubmissionExecutionTarget, GradingExecutionGeneration, IssuedQuestionFamilyWitnessV1,
-    IssuedQuestionSnapshotV1, JobId, JobLeaseDuration, JobLeaseToken, PreparedQuestionSubmission,
-    SubmissionIdempotencyKey, WorkerId,
+    AcceptedSubmissionExecutionFastPathClaimStore, AcceptedSubmissionExecutionLoadError,
+    AcceptedSubmissionExecutionOutcome, AcceptedSubmissionExecutionRecoveryClaimStore,
+    AcceptedSubmissionExecutionStore, AcceptedSubmissionExecutionTarget,
+    GradingExecutionGeneration, IssuedQuestionFamilyWitnessV1, IssuedQuestionSnapshotV1, JobId,
+    JobLeaseDuration, JobLeaseToken, PreparedQuestionSubmission, SubmissionIdempotencyKey,
+    WorkerId,
 };
 use question_model::answer::TextMatchMode;
 use question_model::definition::{GradingDefinition, QuestionMetadata};
@@ -34,7 +35,7 @@ struct FakeStore {
     claim_requests: Arc<Mutex<Vec<(WorkerId, JobLeaseDuration)>>>,
     load_claims: Arc<Mutex<Vec<AcceptedSubmissionExecutionClaim>>>,
     execution: Arc<Mutex<Option<AcceptedSubmissionExecution>>>,
-    load_error: Option<StoreError>,
+    load_error: Option<AcceptedSubmissionExecutionLoadError>,
     commit_result: Result<AcceptedSubmissionExecutionDisposition, AcceptedSubmissionCommitError>,
     commits: Arc<Mutex<Vec<AcceptedSubmissionExecutionOutcome>>>,
     cancellation_before_commit: Option<Arc<AtomicBool>>,
@@ -77,7 +78,7 @@ impl AcceptedSubmissionExecutionStore for FakeStore {
         &self,
         _: TenantContext,
         claim: AcceptedSubmissionExecutionClaim,
-    ) -> Result<AcceptedSubmissionExecution, StoreError> {
+    ) -> Result<AcceptedSubmissionExecution, AcceptedSubmissionExecutionLoadError> {
         self.load_claims
             .lock()
             .expect("fake load claims lock")
@@ -89,7 +90,7 @@ impl AcceptedSubmissionExecutionStore for FakeStore {
             .lock()
             .expect("fake execution lock")
             .take()
-            .ok_or(StoreError::NotFound)
+            .ok_or(AcceptedSubmissionExecutionLoadError::NotFound)
     }
 
     async fn commit_or_fail_accepted_submission_execution(
@@ -762,7 +763,7 @@ async fn load_claim_loss_does_not_invoke_the_backend() {
     );
     let handler = AcceptedSubmissionExecutionHandler::new(
         FakeStore {
-            load_error: Some(StoreError::Conflict),
+            load_error: Some(AcceptedSubmissionExecutionLoadError::Conflict),
             ..handler.store
         },
         handler.backend,
@@ -775,6 +776,38 @@ async fn load_claim_loss_does_not_invoke_the_backend() {
     );
     assert_eq!(calls.load(Ordering::SeqCst), 0);
     assert!(commits.lock().expect("commits").is_empty());
+}
+
+#[tokio::test]
+async fn issued_evidence_integrity_finalizes_the_active_lease_without_grading() {
+    let (prototype, calls, commits) = handler(
+        grade_disposition(),
+        Ok(AcceptedSubmissionExecutionDisposition::Terminal),
+    );
+    let handler = AcceptedSubmissionExecutionHandler::new(
+        FakeStore {
+            load_error: Some(AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity),
+            ..prototype.store
+        },
+        prototype.backend,
+        EXECUTION_DEADLINE,
+    )
+    .expect("positive deadline");
+
+    assert_eq!(
+        handler
+            .execute_claim(claim())
+            .await
+            .expect("integrity transition"),
+        AcceptedSubmissionHandlerResult::Terminal
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    assert!(matches!(
+        commits.lock().expect("commits").as_slice(),
+        [AcceptedSubmissionExecutionOutcome::DeterministicFailure {
+            reason: GradingOperationReason::IssuedEvidenceIntegrity
+        }]
+    ));
 }
 
 #[tokio::test]

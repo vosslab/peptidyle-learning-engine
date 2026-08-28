@@ -7,15 +7,47 @@ export const AUTOMATED_GRADING_RECOVERY_LABELS = {
   gradebook: "Gradebook",
 } as const;
 
-export const automatedGradingRetryName = /^Retry grading operation GO-[1-9][0-9]*$/u;
+export const automatedGradingRetryName = /^Retry automated grading for /u;
 
 const instructorRetryPath = /\/grading-operations\/GO-[1-9][0-9]{0,9}\/retry$/u;
-const privateFieldName =
-  /(?:answer|correct|feedback|gradingKey|learnerResponse|pointsEarned|pointsPossible|rawKey|response|result|score|solution|submittedResponse)/iu;
+const instructorOperationsListPath =
+  /\/api\/courses\/[^/]+\/assignments\/[^/]+\/grading-operations$/u;
+const privateFieldNames = new Set([
+  "answer",
+  "correct",
+  "correctness",
+  "feedback",
+  "grading",
+  "gradingkey",
+  "learnerresponse",
+  "pointsearned",
+  "pointspossible",
+  "rawkey",
+  "response",
+  "result",
+  "score",
+  "solution",
+  "submittedresponse",
+]);
+
+function isPrivateFieldName(key: string): boolean {
+  const normalized = key.replace(/[^A-Za-z0-9]/gu, "").toLowerCase();
+  if (privateFieldNames.has(normalized)) return true;
+  const tokens = key
+    .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
+    .split(/[^A-Za-z0-9]+/u)
+    .map((token) => token.toLowerCase());
+  return tokens.some((token) => privateFieldNames.has(token));
+}
 
 /** Identifies the one Instructor mutation exercised by the recovery journey. */
 export function isInstructorRetryPost(method: string, pathname: string): boolean {
   return method === "POST" && instructorRetryPath.test(pathname);
+}
+
+/** Identifies the Instructor metadata list without matching action subroutes. */
+export function isInstructorOperationsListGet(method: string, pathname: string): boolean {
+  return method === "GET" && instructorOperationsListPath.test(pathname);
 }
 
 /**
@@ -45,7 +77,7 @@ export function answerFreeViolation(
     }
     if (candidate === null || typeof candidate !== "object") return null;
     for (const [key, item] of Object.entries(candidate)) {
-      if (privateFieldName.test(key)) return `${path}.${key} is a private answer field`;
+      if (isPrivateFieldName(key)) return `${path}.${key} is a private answer field`;
       const violation = visit(item, `${path}.${key}`);
       if (violation !== null) return violation;
     }
@@ -53,6 +85,26 @@ export function answerFreeViolation(
   }
 
   return visit(value, "response");
+}
+
+/**
+ * Verifies response redaction on a completed learner variant after the caller
+ * has passed it through the production browser decoder.
+ */
+export function completedLearnerReceiptViolation(value: unknown): string | null {
+  if (value === null || typeof value !== "object") {
+    return "response is not a decoded completed learner receipt";
+  }
+  const decoded = value as { kind?: unknown; attempt?: unknown };
+  if (decoded.kind !== "completed") return "response is not a completed learner receipt";
+  if (decoded.attempt === null || typeof decoded.attempt !== "object") {
+    return "response.attempt is not a decoded learner attempt";
+  }
+  const attempt = decoded.attempt as { response?: unknown };
+  if (attempt.response !== null) {
+    return "response.attempt.response contains the submitted learner response";
+  }
+  return null;
 }
 
 export function isLearnerSubmissionPost(method: string, pathname: string): boolean {

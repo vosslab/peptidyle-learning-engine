@@ -10,9 +10,10 @@ use std::time::Duration;
 use learning_data_access::{
     AcceptedSubmissionCommitError, AcceptedSubmissionExecution, AcceptedSubmissionExecutionClaim,
     AcceptedSubmissionExecutionDisposition, AcceptedSubmissionExecutionFastPathClaimStore,
-    AcceptedSubmissionExecutionOutcome, AcceptedSubmissionExecutionRecoveryClaimStore,
-    AcceptedSubmissionExecutionStore, AcceptedSubmissionExecutionTarget, AcceptedSubmissionGrade,
-    StoreError, TenantContext, WorkerId, canonical_attempt_result_json,
+    AcceptedSubmissionExecutionLoadError, AcceptedSubmissionExecutionOutcome,
+    AcceptedSubmissionExecutionRecoveryClaimStore, AcceptedSubmissionExecutionStore,
+    AcceptedSubmissionExecutionTarget, AcceptedSubmissionGrade, StoreError, TenantContext,
+    WorkerId, canonical_attempt_result_json,
 };
 use question_model::{GradingOperationReason, ProblemVersionRef, StudentResponse};
 
@@ -209,10 +210,35 @@ where
             .await
         {
             Ok(execution) => execution,
-            Err(StoreError::NotFound | StoreError::Conflict) => {
+            Err(
+                AcceptedSubmissionExecutionLoadError::NotFound
+                | AcceptedSubmissionExecutionLoadError::Conflict,
+            ) => {
                 return Ok(AcceptedSubmissionHandlerResult::ClaimNoLongerActive);
             }
-            Err(error) => return Err(error),
+            // The load capability has already rejected the private material
+            // and rolled back its read transaction. The claim is still live,
+            // so finalize the safe, closed integrity outcome through the same
+            // lease-fenced fail transition as a deterministic grader fault.
+            // ASVS 1.5.2 and 2.3.1: malformed issued evidence cannot be
+            // interpreted or leave a running execution stranded.
+            Err(AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity) => {
+                let outcome = AcceptedSubmissionExecutionOutcome::DeterministicFailure {
+                    reason: GradingOperationReason::IssuedEvidenceIntegrity,
+                };
+                return match self
+                    .store
+                    .commit_or_fail_accepted_submission_execution(context, claim, outcome)
+                    .await
+                {
+                    Ok(disposition) => Ok(handler_result(disposition)),
+                    Err(AcceptedSubmissionCommitError::Known(error)) => Err(error),
+                    Err(AcceptedSubmissionCommitError::OutcomeUnknown) => {
+                        Ok(AcceptedSubmissionHandlerResult::OutcomeUnknown)
+                    }
+                };
+            }
+            Err(AcceptedSubmissionExecutionLoadError::Store(error)) => return Err(error),
         };
         let outcome = self.evaluate(context, execution).await;
         match self

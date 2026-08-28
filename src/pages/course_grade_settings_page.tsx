@@ -92,7 +92,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
     if (nextErrors.length > 0) queueMicrotask(() => errorSummary?.focus());
     return nextErrors.length === 0;
   }
-  async function load(): Promise<void> {
+  async function load(showReloadMessage = false): Promise<void> {
     setState("loading");
     setErrors([]);
     setHasConflict(false);
@@ -107,7 +107,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
       setAssignmentTitles(new Map(view.assignments.map((item) => [item.assignment, item.title])));
       setRevision(view.revision);
       setTotals(projectedTotals);
-      setMessage("");
+      setMessage(showReloadMessage ? "Latest server settings loaded." : "");
       setState("ready");
     } catch {
       setState("error");
@@ -577,7 +577,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
                   type="button"
                   disabled={busy()}
                   onClick={() => {
-                    void load();
+                    void load(true);
                   }}
                 >
                   Reload current settings

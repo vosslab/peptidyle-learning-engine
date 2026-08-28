@@ -31,7 +31,7 @@ RESULT_NAME = "developer-result.json"
 SOCKET_NAME = "developer-control.sock"
 SOCKET_DIRECTORY = pathlib.Path("/private/tmp") / "ple-live-demo-browser-control"
 MAXIMUM_CONTROL_BYTES = 1024
-LIFECYCLE_LAUNCH_TIMEOUT_SECONDS = 240.0
+LIFECYCLE_LAUNCH_TIMEOUT_SECONDS = local_stack_control.worker_readiness.WORKER_READINESS_TIMEOUT_SECONDS
 DEVELOPER_STOP_WAIT_SECONDS = 20.0
 # The parent wait covers a clean host build before the child's separately
 # bounded service-readiness stages. This is an operator recovery ceiling, not
@@ -462,16 +462,25 @@ def _require_worker_ready(
 	repository_root: pathlib.Path,
 ) -> None:
 	"""Require the production worker readiness receipt before reporting ready."""
-	result = runner.run(
-		_adapter_argv(
-			"read-evidence-logs", manifest_path, ("--claim", "worker_completion")
-		),
-		cwd=repository_root,
-	)
-	if not result.ok() or not local_stack_control.worker_readiness.attests_job_family(
-		result.stdout + result.stderr, "GradeAcceptedSubmission"
-	):
-		raise DeveloperBrowserSuiteError("live-demo worker did not reach ready state")
+	def read_evidence() -> tuple[bool, str]:
+		result = runner.run(
+			_adapter_argv(
+				"read-evidence-logs", manifest_path, ("--claim", "worker_completion")
+			),
+			cwd=repository_root,
+		)
+		return result.ok(), result.stdout + result.stderr
+
+	try:
+		local_stack_control.worker_readiness.wait_for_job_family(
+			read_evidence,
+			"GradeAcceptedSubmission",
+			LIFECYCLE_LAUNCH_TIMEOUT_SECONDS,
+		)
+	except local_stack_control.worker_readiness.WorkerReadinessError as error:
+		raise DeveloperBrowserSuiteError(
+			f"live-demo worker did not reach ready state ({error})"
+		) from error
 
 
 #============================================

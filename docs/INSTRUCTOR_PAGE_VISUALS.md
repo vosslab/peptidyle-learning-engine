@@ -2,9 +2,9 @@
 
 This gallery is the visual map of PLE's instructor interface. It is captured from a working demo
 environment with one coherent set of sample courses, questions, roster records, and grades. The
-complete Instructor and Sysadmin page map uses desktop evidence at 1280 by 800 CSS pixels or
-larger in the 16:10 profile. Student profiles remain variable and use the maintained profiles
-declared by the current screenshot corpus.
+complete Instructor and Sysadmin page map uses the fixed `laptop` evidence profile at exactly 1280
+by 800 CSS pixels in a desktop 16:10 viewport. Student profiles remain variable and use the
+maintained profiles declared by the current screenshot corpus.
 
 All people and records are fictional. Elena Rivera, Mary Okafor, Morgan, and the other seeded
 personas are deterministic documentation identities, not real Roosevelt participants.
@@ -26,6 +26,7 @@ writes an image.
 | Assignment Questions    | `/instructor/courses/C-1/assignments/A-1/questions`    | Title, ordered questions, pools, discovery, reuse, and server samples                                                                                                    |
 | Assignment Policies     | `/instructor/courses/C-1/assignments/A-1/policies`     | Learner instructions, release, delivery, lifecycle, access, and delivery-check actions                                                                                   |
 | Assignment Student view | `/instructor/courses/C-1/assignments/A-1/student-view` | Stable-identity, answer-free learner landing while the Instructor identity remains active                                                                            |
+| Grading operations      | `/instructor/courses/C-1/assignments/A-1/grading-operations` | Assignment-local automated-grading attention, metadata-only recovery rows, and retry actions                                                                            |
 | Students                | `/instructor/courses/C-1/students`                     | Invitation, enrollment policy, pending invitation, and roster context                                                                                                    |
 | Gradebook               | `/instructor/courses/C-1/gradebook`                    | Compact learner-assignment progress without expanded raw records                                                                                                         |
 | Grade settings          | `/instructor/courses/C-1/grade-settings`               | Weighted categories, assignment membership, letter bands, totals, and audited export                                                                                     |
@@ -72,6 +73,8 @@ course theme or teaching behavior.
 ![Instructor item pool preview](screenshots/instructor/item_pool_delivery/01_pool_preview.png)
 ![Instructor assignment Policies workspace](screenshots/instructor/assignment_workspace/01_assignment_policies.png)
 ![Instructor answer-free assignment Student view](screenshots/instructor/assignment_workspace/02_student_view.png)
+![Instructor automated-grading operations recovery](screenshots/instructor/automated_grading_recovery/01_instructor_operation_laptop.png)
+![Instructor Gradebook after automated-grading recovery](screenshots/instructor/automated_grading_recovery/02_instructor_gradebook_laptop.png)
 ![Instructor catalog discovery evidence](screenshots/instructor/catalog_discovery/01_disclosed_evidence_laptop.png)
 ![Instructor problem curation workspace](screenshots/instructor/problem_curation/01_curation_workspace_laptop.png)
 ![Instructor reusable curriculum workspace](screenshots/instructor/reusable_curriculum/01_reusable_curriculum_workspace_laptop.png)
@@ -100,4 +103,6 @@ and teaching semantics; these images are visual evidence for composition and cur
 The accepted B2 evidence covers the source/destination distinction, preview-before-apply, DST
 correction, keyboard focus, recovery, privacy, and contrast at the canonical 1280 by 800 Instructor
 profile. Accepted T6 evidence adds the focused Policies and answer-free Student-view surfaces. G1 is
-the current active package and retains its own final-material-tree Validation gate.
+the current active package and retains its own final-material-tree Validation gate. The two
+automated-grading recovery images above are connected visual evidence for G1's Instructor operation
+and Gradebook branch, pending final package closeout; they do not by themselves close G1 acceptance.

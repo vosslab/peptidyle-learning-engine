@@ -253,6 +253,47 @@ reuses the accepted private response, advances the execution generation, and lea
 `crates/learning-data-access/src/contracts/grading_operations.rs`, and the
 `GradingOperationStore` route in [CONTRACTS.md](CONTRACTS.md).
 
+### G1 receipt reconciliation is forward-only
+
+**Decision.** G1 preserves the accepted SQLx migration files and checksums for
+`2026081849`, `1850`, `1855`, `1859`, `1860`, `1861`, and `1865`. Its closeout
+uses four consecutive atomic migrations, `2026081866` through `2026081869`,
+with one bounded schema or writer responsibility per migration.
+
+**Why.** Accepted migrations are immutable history, and append-only receipts
+must describe only facts that were actually recorded. The pre-production
+live-demo creates disposable seeded installations, so a nonempty prior receipt
+history is an incompatible lifecycle rather than data to reinterpret. Four
+transaction boundaries keep provenance, execution writers, completion, and
+Instructor writers explicit without an oversized migration or a source-limit
+exception.
+
+**Consequence.** Migration 1866 fails closed before changing receipt schema if
+either `grading_execution_receipt` or `grading_operation_receipt` is nonempty;
+it never backfills, disables immutability, assigns invented defaults, or
+fabricates categories, actors, workers, or retry generations. Migrations 1867,
+1868, and 1869 then install the closed execution writers, the frozen 36-input
+commit-v2 writer, and the Instructor writers in that order. The internal retry
+capability is the five-input actor-bound
+`ple_prepare_accepted_submission_retry_v2`; its public caller transitions to
+V2, V1 execute is revoked, and the four-input V1 is dropped with `RESTRICT`.
+Truthful append-only evidence, forced RLS, and the existing lease- and
+generation-fenced score publisher remain the authority boundaries.
+
+**Owner.** The [G1 plan](active_plans/active/automated_grading_operations_plan.md),
+[implementation status](active_plans/implementation_status.md), and
+[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) own allocation, dependency
+order, and acceptance evidence.
+
+**Planned closure.** Fresh disposable PostgreSQL evidence must prove one
+successful migration pass, a no-op second pass, compatibility, checksum
+mutation detection, and explicit refusal against a nonempty receipt fixture.
+The connected G1 oracle must call the actual five-input V2 as `ple_app` with
+well-formed values and observe SQLSTATE `42501`; undefined-function failure is
+not authorization evidence. The production real-stack browser and service
+path must then prove answer-free learner and Instructor behavior, followed by
+`source source_me.sh && ./all_test.sh` on the exact final material tree.
+
 ### Render once, answer compactly
 
 **Decision.** A rich, answer-free render payload is separate from a much smaller response payload.
@@ -663,6 +704,27 @@ lockfiles remain the reviewed exact resolution between deliberate refreshes.
 
 **Why.** The owner prioritizes current security fixes while an open reviewed minimum records the
 known-safe floor without blocking later corrective releases.
+
+### Local controller dependency is reproducible
+
+**Decision.** `pip_requirements.txt` pins the local-stack controller's PyYAML runtime dependency to
+the verified `PyYAML==6.0.3`. `pip_requirements-dev.txt` includes that runtime manifest and adds
+the repository developer tools. `devel/setup_python.sh` owns a fixed repo-local `.venv` created
+with Python 3.12 and refreshes it from a receipt over the interpreter identity and both manifests.
+
+**Why.** The live-demo front door needs a complete Python dependency boundary on a fresh clone,
+without requiring a global pip installation or an activated shell environment. The reviewed exact
+PyYAML release is a narrow exception to the repository's open-dependency default.
+
+**Consequence.** `run_live_demo.sh` invokes the setup owner before both start and stop, then execs
+the controller through `.venv/bin/python`. The wrapper help path remains side-effect-free. The
+receipt changes whenever the selected Python interpreter or either requirements manifest changes.
+Git, ESLint, Prettier, and repository hygiene discovery treat `.venv` as installed dependency state,
+so third-party package files never become repository source or validation inputs.
+
+**Owner.** [pip_requirements.txt](../pip_requirements.txt),
+[pip_requirements-dev.txt](../pip_requirements-dev.txt), and
+[`devel/setup_python.sh`](../devel/setup_python.sh).
 
 ### Generated output has tracked authority
 

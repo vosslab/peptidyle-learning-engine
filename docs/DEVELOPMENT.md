@@ -27,13 +27,14 @@ build and validation interface. The TypeScript and Playwright installers are pro
 helpers; the root build and validation scripts are repository-owned front doors:
 
 ```bash
+./devel/setup_python.sh
 ./devel/setup_typescript.sh
 ./devel/setup_playwright.sh       # once, before browser tests
 ./devel/setup_wasm_tests.sh       # only when running wasm-bindgen tests
 ./build.sh
 ./check_rust.sh
 ./check_codebase.sh
-source source_me.sh && pytest tests/
+source source_me.sh && .venv/bin/python -m pytest tests/
 ```
 
 `devel/DEVEL_README.md` indexes maintainer-only helpers. Use `devel/clean_build.sh` for a light
@@ -46,6 +47,20 @@ form is destructive and follows the explicit fixed-project confirmation owned by
 fixture projection, and Solid browser bundle in dependency order. Use `./build.sh --release` for
 optimized host artifacts. `npm run build` and `npm run check` are aliases for the build and check
 scripts.
+
+### Inspect command surfaces
+
+Use the read-only help surfaces to confirm available local-stack and browser options before
+starting a service or acceptance lane:
+
+```bash
+source source_me.sh && .venv/bin/python local_stack.py --help
+./run_live_demo.sh --help
+./run_playwright_tests.sh --help
+```
+
+The help commands do not start containers, open a browser, or mutate generated artifacts. Choose
+the narrowest command that proves the behavior under review before running a broader gate.
 
 PLE's measured development profile controls disk growth: ordinary dev and test builds disable
 incremental compilation and retain line-table debug information for useful filename/line
@@ -110,18 +125,45 @@ active work package.
 | ------------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | Rust code, features, lints, tests, or Wasm | `./check_rust.sh`                                           | The complete offline Cargo and Rust gate.                                                 |
 | TypeScript, browser lint, format, or tests | `./check_codebase.sh`                                       | The vendored TypeScript and Node gate.                                                    |
-| Repository documentation and hygiene       | `source source_me.sh && pytest tests/`                      | Fast Python hygiene and repository-rule checks.                                           |
+| Repository documentation and hygiene       | `source source_me.sh && .venv/bin/python -m pytest tests/` | Fast Python hygiene and repository-rule checks.                                           |
 | Built-browser behavior                     | `./run_playwright_tests.sh --build`                         | A focused production `dist/` scenario through a fresh disposable HTTPS PLE stack.         |
-| Complete Playwright validation             | `source source_me.sh && python3 local_stack.py acceptance`  | One canonical real-stack browser lane plus browser-free service receipts. |
+| Complete Playwright validation             | `source source_me.sh && .venv/bin/python local_stack.py acceptance` | One canonical real-stack browser lane plus browser-free service receipts. |
 | One browser scenario                       | `./run_playwright_tests.sh tests/playwright/e2e/<file>.spec.ts` | The selected catalog-owned production-browser scenario on a fresh disposable stack.         |
 | Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                              | The named disposable whole-system oracle.                                                 |
-| Local stack diagnosis and lifecycle        | `source source_me.sh && python3 local_stack.py <command>`   | The scoped controller contract.                                                           |
+| Local stack diagnosis and lifecycle        | `source source_me.sh && .venv/bin/python local_stack.py <command>` | The scoped controller contract.                                                           |
 
 `tests/playwright/` is browser-driven testing and `tests/e2e/` is non-browser whole-system
 orchestration. Both are intentionally excluded from `pytest tests/`; see
 [E2E_TESTS.md](E2E_TESTS.md) for the test-tier boundary. Install the browser binaries once with
 `./devel/setup_playwright.sh` (or `npm run setup:playwright`) before running Playwright.
 `./run_playwright_tests.sh` is the sole browser-suite entry point.
+
+`./capture_screenshots.sh` is the explicit visual-publication front door. Use it when the UI,
+screenshot corpus, or viewport contract changes; it runs the canonical production-browser owner
+with `--screenshots` and atomically publishes the declared corpus after its privacy and provenance
+checks. It is separate from `./all_test.sh`: the aggregate validates behavior and contracts but
+does not rewrite checked-in screenshot artifacts. Review the generated captures as visual evidence;
+artifact counts or hashes do not replace that review.
+
+### Permanent and connected evidence
+
+Permanent offline gates are the deterministic behavior, contract, security, hygiene, Rust, and
+Node checks owned by `./check_rust.sh`, `./check_codebase.sh`, and
+`source source_me.sh && .venv/bin/python -m pytest tests/`. They run without PostgreSQL, MinIO, the
+renderer, or a browser and do not prove those external boundaries.
+
+Connected and one-time evidence is opt-in and remains separate from the permanent fast lane:
+
+- `./run_playwright_tests.sh` proves the named production-browser scenario through the fixed local
+  stack.
+- `source source_me.sh && .venv/bin/python local_stack.py acceptance` runs the complete connected acceptance
+  lane and its distinct browser-free service oracles.
+- Named `tests/e2e/` runners, migration probes, rendered captures, manual inspections, and load or
+  query-plan observations prove only their stated disposable or one-time claim.
+
+Do not promote a probe, inventory, screenshot, count, or live diagnostic to a permanent test unless
+it satisfies the admission rules in [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) and
+[PYTEST_STYLE.md](PYTEST_STYLE.md#is-this-a-good-pytest).
 
 ### Playwright execution lanes
 
@@ -135,7 +177,7 @@ Run the complete Playwright Validation test suite explicitly when the active pla
 browser claims:
 
 ```bash
-source source_me.sh && python3 local_stack.py acceptance
+source source_me.sh && .venv/bin/python local_stack.py acceptance
 ```
 
 The command invokes the canonical browser lane once with its documented private
@@ -184,8 +226,8 @@ Use the fixed owner when a work package needs the supported PostgreSQL, MinIO,
 API, worker, gateway, and external stateless WeBWorK PG renderer:
 
 ```bash
-source source_me.sh && python3 local_stack.py start --headless
-source source_me.sh && python3 local_stack.py stop
+source source_me.sh && .venv/bin/python local_stack.py start --headless
+source source_me.sh && .venv/bin/python local_stack.py stop
 ```
 
 `start` first authenticates to and cleans the previous developer owner, then builds production
@@ -199,10 +241,17 @@ than building a second WeBWorK platform or database. See
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for the owner and cleanup
 contract.
 
-The convenience wrapper `./run_live_demo.sh` starts or stops that same owner and installs
-TypeScript dependencies on first launch when `node_modules` is absent. Use it for a human demo;
-use `local_stack.py` directly when selecting a controller command or collecting acceptance
-evidence.
+The convenience wrapper `./run_live_demo.sh` starts or stops that same owner. It first creates or
+refreshes the fixed Python 3.12 `.venv`, installs the declared dependencies, verifies PyYAML, and
+installs TypeScript dependencies when `node_modules` is absent. Use it for a human demo; use the
+repo-local `.venv/bin/python local_stack.py` directly when selecting a controller command or
+collecting acceptance evidence.
+
+`source_me.sh` is a shell precondition, not a Python-environment activator: it requires Bash and
+loads the repository's shell setup. Prepare the fixed environment with `./devel/setup_python.sh`,
+then invoke repository Python through `.venv/bin/python`. Root shell front doors own their own
+setup and should be called directly; do not substitute a system `python3` for the documented
+`.venv/bin/python` commands when collecting pytest or local-stack evidence.
 
 ### Validation classes
 
@@ -218,6 +267,14 @@ final material tree. The suite includes all required permanent gates, named
 service/browser acceptance, and independent reviews; an unrun or required
 skipped live gate is not green. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite)
 for the evidence model and completion rule.
+
+The exact final aggregate is:
+
+```bash
+source source_me.sh && ./all_test.sh
+```
+
+Run it on the final material tree after the package's focused and connected gates are green.
 
 ## Prepare a handoff
 

@@ -22,6 +22,7 @@ import {
   requireScenarioInput,
   selectVisibleCourse,
   signOutVisible,
+  startOrContinuePractice,
   writeOriginReceipt,
 } from "./real_stack_ui";
 import {
@@ -112,8 +113,7 @@ async function completeVisibleWebworkRun(
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
   await assignment.getByRole("link", { name: "Start assignment", exact: true }).click();
-  await page.getByRole("button", { name: "Start or continue practice", exact: true }).click();
-  await expect(page.locator('[data-route-surface="runAttempt"]')).toBeVisible();
+  await startOrContinuePractice(page);
   await expect(page.getByRole("heading", { name: questionTitle, exact: true })).toBeVisible();
   writeVisibleIssuanceAcknowledgement(
     process.env,

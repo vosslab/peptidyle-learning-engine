@@ -6,7 +6,8 @@ fixed developer stack exist? The owner uses
 `tests/e2e/compose.live-demo-browser.yaml`.
 The base defines common services, networks, hardening, and one-shot setup; the
 owner overlay selects seeded production authentication and the TLS gateway. The
-normal path is `source source_me.sh && python3 local_stack.py start`.
+normal path is `./run_live_demo.sh`. Direct controller operations use
+`source source_me.sh && .venv/bin/python local_stack.py`.
 Focused private `local_stack_control` modules and the canonical browser owner
 hold the lease through bootstrap, startup, migration, seed, renderer provenance,
 polling, readiness, and exact cleanup.
@@ -91,7 +92,7 @@ storage, IAM, and KMS controls.
 The normal stop command is authenticated owner cleanup:
 
 ```bash
-source source_me.sh && python3 local_stack.py stop
+./run_live_demo.sh stop
 ```
 
 The owner verifies exact cleanup of its resources; do not remove unrelated
@@ -166,7 +167,7 @@ semantics stay with the fixed seed/manifest and Rust behavior tests; installatio
 occurs through the same live-demo lifecycle rather than a separate stack owner.
 
 The aggregate live browser command is
-`source source_me.sh && python3 local_stack.py acceptance`. The canonical owner
+`source source_me.sh && .venv/bin/python local_stack.py acceptance`. The canonical owner
 lease serializes it with developer sessions and exact cleanup. The active plan
 names the full Validation test suite; [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite)
 defines why permanent offline checks and opt-in live acceptance remain separate.

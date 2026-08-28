@@ -17,6 +17,7 @@ import {
   relativeIsoDate,
   requireScenarioInput,
   selectVisibleCourse,
+  startOrContinuePractice,
   writeOriginReceipt,
 } from "./real_stack_ui";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
@@ -206,8 +207,7 @@ async function completeDeliveredPoolRun(
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
   await assignmentCard.getByRole("link", { name: "Start assignment", exact: true }).click();
-  await page.getByRole("button", { name: "Start or continue practice", exact: true }).click();
-  await expect(page.locator('[data-route-surface="runAttempt"]')).toBeVisible();
+  await startOrContinuePractice(page);
 
   const byTitle = new Map(candidates.map((candidate) => [candidate.title, candidate]));
   await expect(page.getByRole("heading", { name: fixed.title, exact: true })).toBeVisible();

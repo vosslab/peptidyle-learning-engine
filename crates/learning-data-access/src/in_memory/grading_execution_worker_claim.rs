@@ -99,6 +99,8 @@ impl MemoryStore {
                 submission,
                 generation: execution_generation,
                 resulting_state: crate::GradingExecutionState::Running,
+                safe_category: crate::GradingExecutionReceiptSafeCategory::WorkerClaim,
+                actor: None,
                 worker: Some(worker),
                 occurred_at: now,
             });

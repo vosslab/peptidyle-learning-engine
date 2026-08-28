@@ -179,6 +179,7 @@ async function selectQuestionInPicker(
   sourceLabel: string,
   search: string,
   confirmLabel: string,
+  beforeConfirm?: (picker: Locator) => Promise<void>,
 ): Promise<Locator> {
   const picker = page.getByRole("dialog");
   await expect(picker).toBeVisible();
@@ -192,6 +193,7 @@ async function selectQuestionInPicker(
   await choice.focus();
   await page.keyboard.press("Space");
   await expect(choice).toBeChecked();
+  if (beforeConfirm !== undefined) await beforeConfirm(picker);
   await picker.getByRole("button", { name: confirmLabel, exact: true }).click();
   await expect(picker).toHaveCount(0);
   return choice;
@@ -487,9 +489,11 @@ test.describe("problem curation on the production PLE stack", () => {
           "My published questions",
           nativeQuestionTitle,
           "Add selected candidates",
+          async (picker) => {
+            await captureLaptop(elena, scenarioInput, picker, pickerArtifacts);
+          },
         );
         await expect(secondPool).toContainText(nativeQuestionTitle);
-        await captureLaptop(elena, scenarioInput, workspace, pickerArtifacts);
 
         await workspace
           .getByRole("button", { name: "Save questions and order", exact: true })

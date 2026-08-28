@@ -8,6 +8,7 @@
 /OTHER_REPOS/
 
 # Dependencies and installed package state.
+.venv/
 node_modules/
 package-lock.json
 

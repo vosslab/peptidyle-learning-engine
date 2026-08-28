@@ -9,10 +9,11 @@ use crate::{
     AcceptedSubmission, AcceptedSubmissionCommand, AcceptedSubmissionCommitError,
     AcceptedSubmissionExecution, AcceptedSubmissionExecutionClaim,
     AcceptedSubmissionExecutionDisposition, AcceptedSubmissionExecutionFastPathClaimStore,
-    AcceptedSubmissionExecutionOutcome, AcceptedSubmissionExecutionRecoveryClaimStore,
-    AcceptedSubmissionExecutionStore, AcceptedSubmissionExecutionTarget, AcceptedSubmissionId,
-    AutomatedGradingStore, GradingExecution, GradingExecutionGeneration, GradingExecutionReceipt,
-    GradingExecutionState, JobLeaseDuration, JobLeaseToken, StoreError, TenantContext, WorkerId,
+    AcceptedSubmissionExecutionLoadError, AcceptedSubmissionExecutionOutcome,
+    AcceptedSubmissionExecutionRecoveryClaimStore, AcceptedSubmissionExecutionStore,
+    AcceptedSubmissionExecutionTarget, AcceptedSubmissionId, AutomatedGradingStore,
+    GradingExecution, GradingExecutionGeneration, GradingExecutionReceipt, GradingExecutionState,
+    JobLeaseDuration, JobLeaseToken, StoreError, TenantContext, WorkerId,
     canonical_student_response_json,
 };
 
@@ -142,10 +143,10 @@ impl AcceptedSubmissionExecutionCore {
         &self,
         context: TenantContext,
         claim: AcceptedSubmissionExecutionClaim,
-    ) -> Result<AcceptedSubmissionExecution, StoreError> {
+    ) -> Result<AcceptedSubmissionExecution, AcceptedSubmissionExecutionLoadError> {
         let tenant = context.tenant_id();
         if claim.tenant != tenant {
-            return Err(StoreError::Conflict);
+            return Err(AcceptedSubmissionExecutionLoadError::Conflict);
         }
         let mut transaction = self.begin_execution_tenant(context).await?;
         // ASVS 2.3, 8.1-8.4, 14.2, and 15.4: the only answer-bearing worker
@@ -167,63 +168,58 @@ impl AcceptedSubmissionExecutionCore {
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?
-        .ok_or(StoreError::NotFound)?;
+        .ok_or(AcceptedSubmissionExecutionLoadError::NotFound)?;
 
-        let returned_job: Uuid = row.try_get("worker_job_id").map_err(map_sqlx_error)?;
-        let returned_lease: Uuid = row.try_get("worker_lease_token").map_err(map_sqlx_error)?;
+        let returned_job: Uuid = row
+            .try_get("worker_job_id")
+            .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
+        let returned_lease: Uuid = row
+            .try_get("worker_lease_token")
+            .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
         let returned_generation: i64 = row
             .try_get("execution_generation")
-            .map_err(map_sqlx_error)?;
-        let returned_state: String = row.try_get("execution_state").map_err(map_sqlx_error)?;
+            .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
+        let returned_state: String = row
+            .try_get("execution_state")
+            .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
         if returned_job != claim.job.as_uuid()
             || returned_lease != claim.lease_token.as_uuid()
-            || GradingExecutionGeneration::from_u64(u64::try_from(returned_generation).map_err(
-                |_| {
-                    StoreError::Unavailable(
-                        "execution-load broker returned an invalid generation".to_string(),
-                    )
-                },
-            )?) != Some(claim.execution_generation)
+            || GradingExecutionGeneration::from_u64(
+                u64::try_from(returned_generation)
+                    .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?,
+            ) != Some(claim.execution_generation)
             || row
                 .try_get::<Uuid, _>("worker_id")
-                .map_err(map_sqlx_error)?
+                .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?
                 != claim.worker.as_uuid()
             || returned_state != "running"
         {
-            return Err(StoreError::Unavailable(
-                "execution-load broker disagrees with the exact worker claim".to_string(),
-            ));
+            return Err(AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity);
         }
 
-        let accepted = decode_accepted_submission_row(&row)?;
+        let accepted = decode_accepted_submission_row(&row)
+            .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
         if accepted.tenant != tenant || accepted.submission != claim.submission {
-            return Err(StoreError::Unavailable(
-                "execution-load broker returned a foreign accepted submission".to_string(),
-            ));
+            return Err(AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity);
         }
         let response_canonical_json: String = row
             .try_get("response_canonical_json")
-            .map_err(map_sqlx_error)?;
+            .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
         let response: question_model::StudentResponse =
-            serde_json::from_str(&response_canonical_json).map_err(|_| {
-                StoreError::Unavailable(
-                    "execution-load broker returned an invalid stored response".to_string(),
-                )
-            })?;
-        let canonical = canonical_student_response_json(&response)?;
+            serde_json::from_str(&response_canonical_json)
+                .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
+        let canonical = canonical_student_response_json(&response)
+            .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
         if canonical != response_canonical_json
             || objects::Sha256Digest::compute(canonical.as_bytes()) != accepted.request_sha256
         {
-            return Err(StoreError::Unavailable(
-                "execution-load broker response identity disagrees with accepted input".to_string(),
-            ));
+            return Err(AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity);
         }
         let prepared =
-            super::submission_preparation::decode_prepared_accepted_submission_execution(&row)?;
+            super::submission_preparation::decode_prepared_accepted_submission_execution(&row)
+                .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
         if prepared.attempt.tenant != accepted.tenant || prepared.attempt.id != accepted.attempt {
-            return Err(StoreError::Unavailable(
-                "execution-load broker issued evidence disagrees with accepted input".to_string(),
-            ));
+            return Err(AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity);
         }
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(AcceptedSubmissionExecution {
@@ -356,7 +352,7 @@ where
         &self,
         context: TenantContext,
         claim: AcceptedSubmissionExecutionClaim,
-    ) -> Result<AcceptedSubmissionExecution, StoreError> {
+    ) -> Result<AcceptedSubmissionExecution, AcceptedSubmissionExecutionLoadError> {
         self.execution_core()
             .load_accepted_submission_for_execution(context, claim)
             .await

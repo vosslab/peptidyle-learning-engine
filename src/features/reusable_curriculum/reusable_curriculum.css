@@ -211,6 +211,26 @@
   grid-column: 1 / -1;
 }
 
+.curriculum-detail-reader {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "heading"
+    "content"
+    "fork";
+}
+
+.curriculum-detail-reader > .curriculum-page-heading {
+  grid-area: heading;
+}
+
+.curriculum-detail-reader > .curriculum-editor-content {
+  grid-area: content;
+}
+
+.curriculum-detail-reader > .curriculum-alpha-fork {
+  grid-area: fork;
+}
+
 .curriculum-editor-content {
   min-width: 0;
 }

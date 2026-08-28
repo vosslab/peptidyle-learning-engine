@@ -3,11 +3,11 @@
 use super::*;
 use crate::{
     AcceptedSubmissionId, GradingExecution, GradingExecutionState, GradingOperation,
-    GradingOperationActionId, GradingOperationGroupBy, GradingOperationRevision,
-    GradingOperationStore, GradingOperationTarget, GradingOperationTrustGeneration,
-    ListInstructorGradingOperationsCommand, MAX_INSTRUCTOR_GRADING_RETRY_COUNT,
-    RecalculateAssignmentCommand, RetryGradingOperationCommand, SessionLifetime, SessionStore,
-    SessionSubject, SessionTokenHash,
+    GradingOperationActionId, GradingOperationActionReceipt, GradingOperationGroupBy,
+    GradingOperationRevision, GradingOperationStore, GradingOperationTarget,
+    GradingOperationTrustGeneration, ListInstructorGradingOperationsCommand,
+    MAX_INSTRUCTOR_GRADING_RETRY_COUNT, RecalculateAssignmentCommand, RetryGradingOperationCommand,
+    SessionLifetime, SessionStore, SessionSubject, SessionTokenHash,
 };
 use question_model::{
     CourseMembershipId, CourseMembershipRole, EntitlementMaterialization, EntitlementPurpose,
@@ -218,6 +218,13 @@ async fn exact_retry_replay_survives_same_actor_session_rotation() {
         .retry_instructor_grading_operation(context, command.clone())
         .await
         .expect("first retry");
+    assert!(matches!(
+        first,
+        GradingOperationActionReceipt::Retry {
+            safe_category: crate::GradingOperationReceiptSafeCategory::InstructorRetry,
+            ..
+        }
+    ));
     let (jobs_after_first, receipts_after_first) = {
         let state_after_first = fixture.store.read_state().expect("state");
         assert_eq!(
@@ -244,6 +251,17 @@ async fn exact_retry_replay_survives_same_actor_session_rotation() {
                 .worker,
             None
         );
+        let retry_receipt = state_after_first
+            .automated_grading_execution_receipts
+            .values()
+            .next()
+            .and_then(|receipts| receipts.last())
+            .expect("retry receipt");
+        assert_eq!(
+            retry_receipt.safe_category,
+            crate::GradingExecutionReceiptSafeCategory::InstructorRetry
+        );
+        assert!(retry_receipt.actor.is_some());
         (state_after_first.jobs.len(), receipts_after_first)
     };
     fixture

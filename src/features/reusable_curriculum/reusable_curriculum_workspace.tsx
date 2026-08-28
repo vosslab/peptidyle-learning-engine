@@ -701,7 +701,10 @@ interface AlphaDetailProps extends DetailActionsProps {
 function AlphaDetail(props: AlphaDetailProps): JSX.Element {
   const editable = (): boolean => props.current.view.access === "creator";
   return (
-    <section class="curriculum-detail-editor">
+    <section
+      class="curriculum-detail-editor"
+      classList={{ "curriculum-detail-reader": !editable() }}
+    >
       <header class="curriculum-page-heading">
         <p class="eyebrow">Public Alpha curriculum</p>
         <h1>{props.current.draft.title}</h1>
@@ -712,9 +715,6 @@ function AlphaDetail(props: AlphaDetailProps): JSX.Element {
             : "You can inspect and reuse its answer-free question set."}
         </p>
       </header>
-      <Show when={!editable() && props.current.view.access === "approvedInstructor"}>
-        <AlphaForkAction source={props.current.view} client={props.adoptionClient} />
-      </Show>
       <Show when={editable()}>
         <DetailActions {...props} />
       </Show>
@@ -728,6 +728,9 @@ function AlphaDetail(props: AlphaDetailProps): JSX.Element {
           />
         </Show>
       </div>
+      <Show when={!editable() && props.current.view.access === "approvedInstructor"}>
+        <AlphaForkAction source={props.current.view} client={props.adoptionClient} />
+      </Show>
     </section>
   );
 }

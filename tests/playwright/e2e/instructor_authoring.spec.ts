@@ -21,6 +21,7 @@ import {
   requireScenarioInput,
   restoreViewportOrigin,
   selectVisibleCourse,
+  startOrContinuePractice,
   writeOriginReceipt,
 } from "./real_stack_ui";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
@@ -265,8 +266,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
         .filter({ has: mary.getByRole("heading", { name: assignmentTitle, exact: true }) });
       await learnerAssignment.getByRole("link", { name: "Start assignment", exact: true }).click();
       await expect(mary.locator("[data-route-surface=assignmentOverview]")).toBeVisible();
-      await mary.getByRole("button", { name: "Start or continue practice" }).click();
-      await expect(mary.locator("[data-route-surface=runAttempt]")).toBeVisible();
+      await startOrContinuePractice(mary);
       await mary.getByRole("checkbox", { name: correctChoice, exact: true }).check();
       await mary.getByRole("button", { name: "Submit answer", exact: true }).click();
       const feedback = await waitForAutomatedFeedback(mary);

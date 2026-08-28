@@ -45,8 +45,8 @@ export interface LearnerAssignmentPresentationProps {
   readonly progress?: LearnerAssignmentProgress;
   readonly contextCue?: JSX.Element;
   readonly returnAction?: JSX.Element;
-  readonly secondaryAction?: JSX.Element;
-  readonly primaryAction: JSX.Element;
+  readonly secondaryAction?: JSX.Element | null;
+  readonly primaryAction: JSX.Element | null;
 }
 
 /** Adapts either answer-free server projection to the shared presentation shape. */
@@ -166,6 +166,13 @@ export function LearnerAssignmentPresentation(
     return disclosureSummary(props.assignment.disclosurePolicy);
   }
 
+  function hasActions(): boolean {
+    return (
+      (props.primaryAction !== null && props.primaryAction !== undefined) ||
+      (props.secondaryAction !== null && props.secondaryAction !== undefined)
+    );
+  }
+
   return (
     <div class="learner-assignment-presentation">
       <Show when={props.contextCue}>
@@ -178,6 +185,16 @@ export function LearnerAssignmentPresentation(
       </Show>
       <p class="eyebrow">Assignment overview</p>
       <h1>{props.assignment.title}</h1>
+      <Show when={hasActions()}>
+        <div class="learner-assignment-action-region" role="group" aria-label="Practice actions">
+          <Show when={props.primaryAction}>
+            <div class="learner-assignment-primary-action">{props.primaryAction}</div>
+          </Show>
+          <Show when={props.secondaryAction}>
+            <div class="learner-assignment-secondary-actions">{props.secondaryAction}</div>
+          </Show>
+        </div>
+      </Show>
       <p class="page-lede">
         Work from the structures and concepts in front of you. Memorization is not the goal.
       </p>
@@ -311,12 +328,6 @@ export function LearnerAssignmentPresentation(
           )}
         </Show>
       </dl>
-      <div class="course-card-actions learner-assignment-actions">
-        <Show when={props.secondaryAction}>
-          <div>{props.secondaryAction}</div>
-        </Show>
-        {props.primaryAction}
-      </div>
     </div>
   );
 }

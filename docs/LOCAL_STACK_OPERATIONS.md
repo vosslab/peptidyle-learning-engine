@@ -110,14 +110,14 @@ shared prefix.
 
 ## First run
 
-`source source_me.sh && python3 local_stack.py start [--headless]` is the normal
-developer lifecycle. It resolves the fixed `ple-live-demo-browser` project and
+`./run_live_demo.sh [--headless]` is the normal developer lifecycle. It resolves the fixed
+`ple-live-demo-browser` project and
 calls the canonical production-browser owner. The owner holds one lease through
 build, bootstrap, migration, seed, renderer provenance, readiness, and cleanup.
 
 ```bash
-source source_me.sh && python3 local_stack.py start
-source source_me.sh && python3 local_stack.py start --headless
+./run_live_demo.sh
+./run_live_demo.sh --headless
 ```
 
 `start` always builds production `dist/`, regenerates the disposable stack, and
@@ -181,10 +181,16 @@ The browser-free renderer oracle and the canonical browser selection are the
 supported evidence paths; see [USAGE.md](USAGE.md#build-and-validation-commands).
 
 The worker handles one job per bounded pass and concurrency comes from scaling
-the service. It claims only current scoring, course item analysis, attempt
-auto-submit, retention, assignment export, and QTI import. Reserved Render and
-generic Import rows remain ready until both preparation and atomic commit
-implementations exist. `PLE_WORKER_LEASE_SECONDS`,
+the service. Its production readiness receipt attests seven supported families:
+`RecalculateAssignment`, `RecalculateCourseItemAnalysis`,
+`AutoSubmitAttempt`, `Retention`, `Export`, `QtiImport`, and the sealed
+`GradeAcceptedSubmission` family. The six generic families use the ordinary
+worker claim filter; `GradeAcceptedSubmission` is dispatched through the
+sealed accepted-submission execution capability and is never claimed by that
+generic filter. The worker-only accepted-submission recovery login can load
+private accepted responses only under its exact lease and tenant fence.
+Reserved Render and generic Import rows remain ready until both preparation and
+atomic commit implementations exist. `PLE_WORKER_LEASE_SECONDS`,
 `PLE_WORKER_PREPARATION_TIMEOUT_SECONDS`, and `PLE_WORKER_POLL_MILLIS` are
 bounded in-process controls with documented defaults in `env.example`.
 
@@ -220,8 +226,10 @@ A stack missing a dependency names it, which is the point of the endpoint:
 The worker exposes no HTTP endpoint, so Compose explicitly disables the API
 image health check for that service. Its liveness is the supervised process;
 its useful operational signal is the supported-family queue depth emitted with
-non-empty pass counters. Worker startup verifies schema compatibility and
-refuses to drain when verification is unavailable or incompatible.
+non-empty pass counters. Startup must also emit one coherent readiness receipt
+with the seven-family count and the sealed `GradeAcceptedSubmission` family.
+Worker startup verifies schema compatibility and refuses to drain when
+verification is unavailable or incompatible.
 
 Use the controller for ordinary inspection. Raw Compose remains a diagnosis or
 recovery tool for the owner, not the normal lifecycle interface.
@@ -229,9 +237,9 @@ recovery tool for the owner, not the normal lifecycle interface.
 ## Common commands
 
 ```bash
-source source_me.sh && python3 local_stack.py start          # build, start, wait, and open
-source source_me.sh && python3 local_stack.py start --headless
-source source_me.sh && python3 local_stack.py stop           # authenticated cleanup
+./run_live_demo.sh                 # build, start, wait, and open
+./run_live_demo.sh --headless      # build, start, wait, and print the origin
+./run_live_demo.sh stop            # authenticated cleanup
 ```
 
 `start` and `stop` are the only developer-session mutations. They do not accept
@@ -239,7 +247,7 @@ project, environment, identity, SMTP, or build selectors. Cleanup is exact and
 owner-scoped; it does not retain a caller-selected data project.
 
 The fixed owner performs its own exact cleanup. Use
-`source source_me.sh && python3 local_stack.py stop` after diagnostics or when
+`./run_live_demo.sh stop` after diagnostics or when
 finished; do not use a project selector, confirmation target, or global Podman
 cleanup.
 

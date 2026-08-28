@@ -211,7 +211,7 @@ and service readiness. Bare `compose up` against an empty database is not an
 equivalent bootstrap path.
 
 ```bash
-source source_me.sh && python3 local_stack.py start --headless
+./run_live_demo.sh --headless
 ```
 
 The normal stack starts one API and one worker. The fixed `replica_restart`
@@ -244,7 +244,7 @@ podman compose -f containers/compose.yaml \
   down --remove-orphans
 ```
 
-The fixed developer/browser owner uses `source source_me.sh && python3
+The fixed developer/browser owner uses `source source_me.sh && .venv/bin/python
 local_stack.py stop` rather than raw Compose teardown. See
 [CONTAINER_PORT_MAPPING.md](CONTAINER_PORT_MAPPING.md) for the local and
 planned-AWS port boundaries.
@@ -279,7 +279,7 @@ evidence rather than permanent pytests.
 
 ```bash
 node tests/e2e/e2e_replica_restart.mjs
-source source_me.sh && python3 local_stack.py validate
+source source_me.sh && .venv/bin/python local_stack.py validate
 ```
 
 The replica E2E starts two API replicas behind Caddy, logs in, issues a
@@ -293,7 +293,7 @@ Run the three repository-owned offline gates separately:
 ```bash
 ./check_codebase.sh
 ./check_rust.sh
-source source_me.sh && python3 -m pytest -q tests/
+source source_me.sh && .venv/bin/python -m pytest -q tests/
 ```
 
 The vendored `check_codebase.sh` owns the browser/TypeScript lane;

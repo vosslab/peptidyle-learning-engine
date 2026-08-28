@@ -48,7 +48,7 @@ run_check database_baseline bash tests/e2e/e2e_database_baseline.sh
 
 # Fresh, retained, interrupted, concurrent, mixed, and regenerated live-demo baseline lifecycle.
 run_check live_demo_baseline bash -c \
-	'source source_me.sh && python3 tests/e2e/e2e_live_demo_baseline.py'
+	'source source_me.sh && .venv/bin/python tests/e2e/e2e_live_demo_baseline.py'
 
 # A learner session and idempotent submission survive across two API replicas.
 # A missing Podman machine is deliberately a failing BLOCKED prerequisite, not a skip.

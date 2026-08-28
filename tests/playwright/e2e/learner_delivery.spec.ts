@@ -21,6 +21,7 @@ import {
   requireScenarioInput,
   selectVisibleCourse,
   signOutVisible,
+  startOrContinuePractice,
   writeOriginReceipt,
 } from "./real_stack_ui";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
@@ -294,8 +295,7 @@ async function claimCourseAndCompleteAssignment(
     scenarioInput,
     "learner_delivery_assignment_overview_square",
   );
-  await page.getByRole("button", { name: "Start or continue practice" }).click();
-  await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible();
+  await startOrContinuePractice(page);
   await captureRealStackScreenshot(page, scenarioInput, "learner_delivery_problem_ready");
   const selectedResponse = page.getByRole("radio", { name: correctChoice, exact: true });
   await selectedResponse.focus();

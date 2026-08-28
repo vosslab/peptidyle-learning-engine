@@ -422,9 +422,9 @@ node --import tsx --test tests/test_*.mjs
 npx playwright test tests/playwright/frontend_contract.spec.ts tests/playwright/student_keyboard_accessibility.spec.ts --workers=1
 
 # WP-SIZE5: permanent policy and integrated close-out.
-source source_me.sh && python3 -m pytest -q tests/test_source_file_line_limit.py
+source source_me.sh && .venv/bin/python -m pytest -q tests/test_source_file_line_limit.py
 ./check_codebase.sh
-source source_me.sh && python3 -m pytest -q tests
+source source_me.sh && .venv/bin/python -m pytest -q tests
 npx playwright test --workers=1
 git diff --check
 git diff --cached --check

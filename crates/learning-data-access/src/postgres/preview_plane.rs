@@ -243,36 +243,46 @@ impl crate::PreviewPlaneStore for PostgresStore {
         course: CourseId,
         request: DerivedPreviewSubjectRequest,
     ) -> Result<crate::PreviewPlaneResult, StoreError> {
-        let tenant = context.tenant_id();
-        let mut tx = self.begin_tenant_writable_snapshot(context).await?;
-        require_direct_instructor_read_only(&mut tx, tenant, course, actor).await?;
-        let resolved = resolve_derived_preview_by_membership_read_only_bound(
-            &mut tx,
-            tenant,
-            course,
-            request.assignment,
-            request.revision,
-            request.membership,
-            request.selected_moment.clone(),
-        )
-        .await?;
-        if matches!(
-            resolved.result.evaluation,
-            PreviewEvaluation::Allowed { .. }
-        ) {
-            append_audit(
-                &mut tx,
-                tenant,
-                actor,
-                course,
-                resolved.assignment,
-                resolved.membership,
-            )
-            .await?;
-        }
-        let result = resolved.result;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(result)
+        retry_transaction(|| {
+            let request = request.clone();
+            async move {
+                let tenant = context.tenant_id();
+                // A derived preview writes its read audit. The whole
+                // repeatable-read snapshot therefore retries as one operation:
+                // every attempt owns a fresh transaction, and only the
+                // successfully committed attempt can retain its audit record.
+                let mut tx = self.begin_tenant_writable_snapshot(context).await?;
+                require_direct_instructor_read_only(&mut tx, tenant, course, actor).await?;
+                let resolved = resolve_derived_preview_by_membership_read_only_bound(
+                    &mut tx,
+                    tenant,
+                    course,
+                    request.assignment,
+                    request.revision,
+                    request.membership,
+                    request.selected_moment,
+                )
+                .await?;
+                if matches!(
+                    resolved.result.evaluation,
+                    PreviewEvaluation::Allowed { .. }
+                ) {
+                    append_audit(
+                        &mut tx,
+                        tenant,
+                        actor,
+                        course,
+                        resolved.assignment,
+                        resolved.membership,
+                    )
+                    .await?;
+                }
+                let result = resolved.result;
+                tx.commit().await.map_err(map_sqlx_error)?;
+                Ok(result)
+            }
+        })
+        .await
     }
 }
 
@@ -369,13 +379,11 @@ pub(super) async fn resolve_synthetic_preview_read_only(
     })
 }
 
-/// Resolves a derived preview from the route-owned membership reference.
-///
 /// Resolves a derived preview with the internal membership identity that the
 /// public reference selected. The preview plane relies
 /// on its repeatable-read snapshot. In both cases, the returned internal IDs
 /// prevent changed public references from being mistaken for audited sources.
-/// // ASVS 2.2.1, 2.3.1, 8.2.2, 8.3.1
+/// ASVS 2.2.1, 2.3.1, 8.2.2, 8.3.1.
 pub(super) async fn resolve_derived_preview_by_membership_read_only_bound(
     tx: &mut Transaction<'_, Postgres>,
     tenant: TenantId,

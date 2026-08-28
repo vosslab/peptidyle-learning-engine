@@ -2,9 +2,6 @@
   max-width: 76rem;
 }
 .preview-only-cue {
-  position: sticky;
-  top: 0.4rem;
-  z-index: 1;
   margin: 0 0 0.9rem;
   padding: 0.65rem 0.85rem;
   border-left: 0.3rem solid var(--ple-accent-strong);

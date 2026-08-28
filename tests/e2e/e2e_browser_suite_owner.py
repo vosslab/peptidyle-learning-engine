@@ -10,7 +10,6 @@ import shutil
 import stat
 import sys
 from collections.abc import Callable, Mapping, Sequence
-from typing import Protocol
 
 SCRIPT_REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_REPOSITORY_ROOT))
@@ -48,16 +47,9 @@ BrowserSuiteError = browser_scenario_execution.BrowserSuiteError
 ScenarioRunReceipt = browser_scenario_execution.ScenarioRunReceipt
 
 
-class BrowserPrivateState(Protocol):
-	"""Private lifecycle state shared by full-suite and isolated-profile owners."""
-
-	directory: pathlib.Path
-
-	def remove(self) -> None:
-		"""Remove the validated private state directory."""
-
-
-StateFactory = Callable[[pathlib.Path, pathlib.Path, str], BrowserPrivateState]
+StateFactory = Callable[
+	[pathlib.Path, pathlib.Path, str], local_stack_control.private_state.PrivateStateHandle
+]
 InputWriter = Callable[[pathlib.Path, int, browser_scenario_contract.ScenarioContract], None]
 PortChecker = Callable[[tuple[int, int, int, int], local_stack_control.process.CommandRunner, pathlib.Path], None]
 LifecycleValidator = Callable[
@@ -336,15 +328,24 @@ def require_worker_ready(
 	root: pathlib.Path,
 ) -> None:
 	"""Require the production worker readiness receipt before Chromium starts."""
-	result = runner.run(
-		adapter_argv("read-evidence-logs", manifest_path, ["--claim", "worker_completion"]),
-		cwd=root,
-	)
-	readiness_output = result.stdout + result.stderr
-	if not result.ok() or not local_stack_control.worker_readiness.attests_job_family(
-		readiness_output, "GradeAcceptedSubmission"
-	):
-		raise BrowserSuiteError("live-demo worker did not reach its production-ready state")
+	def read_evidence() -> tuple[bool, str]:
+		result = runner.run(
+			adapter_argv("read-evidence-logs", manifest_path, ["--claim", "worker_completion"]),
+			cwd=root,
+		)
+		return result.ok(), result.stdout + result.stderr
+
+	try:
+		local_stack_control.worker_readiness.wait_for_job_family(
+			read_evidence,
+			"GradeAcceptedSubmission",
+			local_stack_control.worker_readiness.WORKER_READINESS_TIMEOUT_SECONDS,
+		)
+	except local_stack_control.worker_readiness.WorkerReadinessError as error:
+		raise BrowserSuiteError(
+			"live-demo worker did not reach its production-ready state "
+			f"({error})"
+		) from error
 
 
 def webwork_catalog_seed_argv(minio_port: int) -> list[str]:
@@ -505,11 +506,29 @@ def report_receipt(receipt: BrowserSuiteReceipt) -> None:
 	print("Browser-suite receipt: " + receipt.as_json())
 
 
+@dataclasses.dataclass(frozen=True)
+class _ProfilePrivateState(local_stack_control.private_state.PrivateStateHandle):
+	"""One checked child beneath the lease-owned private browser workspace."""
+
+	directory: pathlib.Path
+
+	def remove(self) -> None:
+		metadata = self.directory.lstat()
+		if (
+			self.directory.is_symlink()
+			or not stat.S_ISDIR(metadata.st_mode)
+			or stat.S_IMODE(metadata.st_mode) != 0o700
+			or metadata.st_uid != os.getuid()
+		):
+			raise BrowserSuiteError("browser profile private state is invalid")
+		shutil.rmtree(self.directory)
+
+
 @dataclasses.dataclass
 class BrowserSuiteLifecycleState:
 	"""Mutable private state for one launch, scenario run, and cleanup sequence."""
 
-	private_state: BrowserPrivateState
+	private_state: local_stack_control.private_state.PrivateStateHandle
 	origin: str
 	project: str
 	provider: browser_suite_oracles.ProviderReceipt
@@ -533,28 +552,10 @@ class BrowserSuiteLifecycleState:
 	private_state_removed: bool = False
 
 
-@dataclasses.dataclass(frozen=True)
-class _ProfilePrivateState:
-	"""One checked child beneath the lease-owned private browser workspace."""
-
-	directory: pathlib.Path
-
-	def remove(self) -> None:
-		metadata = self.directory.lstat()
-		if (
-			self.directory.is_symlink()
-			or not stat.S_ISDIR(metadata.st_mode)
-			or stat.S_IMODE(metadata.st_mode) != 0o700
-			or metadata.st_uid != os.getuid()
-		):
-			raise BrowserSuiteError("browser profile private state is invalid")
-		shutil.rmtree(self.directory)
-
-
 def prepare_lifecycle_state(
 	selection: BrowserSuiteSelection,
 	dependencies: BrowserSuiteDependencies,
-	private_state: BrowserPrivateState | None = None,
+	private_state: local_stack_control.private_state.PrivateStateHandle | None = None,
 	screenshot_staging: pathlib.Path | None = None,
 ) -> BrowserSuiteLifecycleState:
 	"""Allocate private suite state after every public input boundary has passed."""
@@ -637,7 +638,11 @@ def launch_production_stack(
 	dependencies.topology_validator(dependencies.runner, dependencies.root, manifest_path)
 	print("Browser-suite: starting the isolated production PLE stack")
 	lifecycle.lifecycle_launch_attempted = True
-	launch_argv = adapter_argv("launch", manifest_path, ["--timeout-seconds", "240"])
+	launch_argv = adapter_argv(
+		"launch",
+		manifest_path,
+		["--timeout-seconds", str(int(local_stack_control.worker_readiness.WORKER_READINESS_TIMEOUT_SECONDS))],
+	)
 	launch_result = dependencies.command_runner(
 		dependencies.runner,
 		launch_argv,
@@ -811,7 +816,7 @@ def run_profile_group(
 	contracts: tuple[browser_scenario_contract.ScenarioContract, ...],
 	profile: local_stack_control.models.LiveDemoProfile,
 	dependencies: BrowserSuiteDependencies,
-	private_state: BrowserPrivateState | None = None,
+	private_state: local_stack_control.private_state.PrivateStateHandle | None = None,
 	screenshot_staging: pathlib.Path | None = None,
 ) -> BrowserSuiteLifecycleState:
 	"""Run one closed profile group through its own fresh stack and cleanup."""

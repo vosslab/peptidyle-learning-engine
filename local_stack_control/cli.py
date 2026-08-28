@@ -41,7 +41,7 @@ def log_tail(value: str) -> str:
 def build_parser() -> argparse.ArgumentParser:
 	"""Build the supported operator command surface."""
 	parser = argparse.ArgumentParser(
-		prog="python3 local_stack.py",
+		prog=".venv/bin/python local_stack.py",
 		description="Inspect and control the local PLE Podman stack.",
 	)
 	subparsers = parser.add_subparsers(dest="command", required=True)

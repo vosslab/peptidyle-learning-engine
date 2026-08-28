@@ -64,6 +64,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - Keep the public-asset publisher as a service identity, never a human role.
 - Keep PLE accounts independent of institutions and use passwordless email authentication.
 - Losing a passkey returns the user to email sign-in; do not add a separate recovery mode.
+- Email is not configured for the live demo yet; use the visible seeded-role entry for demo access.
 - Collect student data reluctantly, use it deliberately, and purge it predictably.
 
 ## Retention and local work
@@ -72,7 +73,8 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - Keep tenant-owned assignment definitions when Student records are archived or deleted.
 - Podman is normally running on my machine.
 - Treat project images and simulated live-stack data as disposable acceptance infrastructure.
-- Use `source source_me.sh && python3 local_stack.py` as the normal local-stack controller.
+- Use `./run_live_demo.sh` as the normal local-stack entry point. For direct controller
+  diagnostics, use `source source_me.sh && .venv/bin/python local_stack.py`.
 
 ## Agent guidance
 

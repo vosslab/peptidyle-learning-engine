@@ -4,6 +4,7 @@ import test from "node:test";
 import { ApiRequestError } from "../src/api/http_client/error.ts";
 import {
   gradingOperationsActionFailure,
+  gradingOperationsGroupLabel,
   gradingOperationsPositionForGroup,
   gradingOperationsRetryLabel,
   retryGradingOperationsAction,
@@ -32,8 +33,17 @@ test("grading-operation stale conflicts require an explicit reload", () => {
 });
 
 test("grading-operation retry control names its exact recovery target", () => {
+  const row = {
+    group: {
+      kind: "question",
+      questionId: "PEP-7B4D",
+      title: "Peptide bond resonance",
+    },
+  };
+
+  assert.equal(gradingOperationsGroupLabel(row), "Question: Peptide bond resonance");
   assert.equal(
-    gradingOperationsRetryLabel({ operation: { reference: "GO-12" } }),
-    "Retry grading operation GO-12",
+    gradingOperationsRetryLabel(row),
+    "Retry automated grading for Peptide bond resonance (PEP-7B4D)",
   );
 });

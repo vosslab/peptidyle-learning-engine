@@ -111,7 +111,7 @@ without becoming a runtime dependency.
 Run the closure gate with the repository Python environment:
 
 ```bash
-source source_me.sh && python3 -m pytest tests/test_crate_boundaries.py
+source source_me.sh && .venv/bin/python -m pytest tests/test_crate_boundaries.py
 ```
 
 ## Export allowlist

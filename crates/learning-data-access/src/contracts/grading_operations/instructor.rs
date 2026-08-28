@@ -13,7 +13,10 @@ use question_model::{
     GradingOperationState, QuestionId, ScoringGeneration, TeachingDisplayLabel, TenantId,
 };
 
-use super::{GradingExecutionGeneration, GradingOperationActionId, GradingOperationRevision};
+use super::{
+    GradingExecutionGeneration, GradingOperationActionId, GradingOperationReceiptSafeCategory,
+    GradingOperationRevision,
+};
 use crate::{Cursor, Page, PageRequest, SessionTokenHash, StoreError, TenantContext};
 
 /// Maximum human-confirmed retries for one accepted-submission execution thread.
@@ -235,6 +238,7 @@ pub enum GradingOperationActionReceipt {
         action: GradingOperationActionId,
         operation: GradingOperationReference,
         resulting_operation_revision: GradingOperationRevision,
+        safe_category: GradingOperationReceiptSafeCategory,
         occurred_at: ActivityTimestamp,
     },
     Recalculation {
@@ -243,6 +247,7 @@ pub enum GradingOperationActionReceipt {
         resulting_operation_revision: GradingOperationRevision,
         assignment_revision: AssignmentRevision,
         scoring_generation: ScoringGeneration,
+        safe_category: GradingOperationReceiptSafeCategory,
         occurred_at: ActivityTimestamp,
     },
 }

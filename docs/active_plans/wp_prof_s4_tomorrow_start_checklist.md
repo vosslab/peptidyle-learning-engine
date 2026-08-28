@@ -14,8 +14,9 @@
 - Use the exact CSS-pixel matrix: 1280 by 800 (16:10), 800 by 1280 (10:16), 393 by 852 (iPhone Pro
   aspect), and 800 by 800 (square). Planning weights are 40%, 30%, 20%, and 10%; they are not test
   quotas.
-- Professor evidence remains desktop at 1280 by 800 or larger. Student evidence includes an allowed
-  student surface and fail-closed denial of instructor-only routes.
+- Instructor and Sysadmin evidence uses exactly 1280 by 800 CSS pixels (16:10) on a laptop or
+  desktop. Student evidence includes an allowed student surface and fail-closed denial of
+  instructor-only routes.
 - Put committed evidence under `docs/screenshots/` by instructor, student, and the student/access
   boundary; access artifacts use `docs/screenshots/student/access/`.
   `tests/playwright/ui_corpus_manifest.ts` is the sole screenshot ownership authority.

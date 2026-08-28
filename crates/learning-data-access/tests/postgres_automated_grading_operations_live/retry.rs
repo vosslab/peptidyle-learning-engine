@@ -2,7 +2,7 @@
 
 use super::broker::{InstructorBroker, admin_tenant_transaction};
 use super::fresh_uuid;
-use question_model::{QuestionAttemptId, TenantId};
+use question_model::{QuestionAttemptId, TenantId, UserId};
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
@@ -12,6 +12,7 @@ pub(super) struct RetryScenario<'pool, 'broker> {
     pub(super) operation: i32,
     pub(super) attempt: QuestionAttemptId,
     pub(super) submission: Uuid,
+    pub(super) instructor: UserId,
     pub(super) instructor_broker: &'broker InstructorBroker<'pool>,
     pub(super) rotated_instructor_broker: &'broker InstructorBroker<'pool>,
     pub(super) other_instructor_broker: &'broker InstructorBroker<'pool>,
@@ -24,6 +25,7 @@ pub(super) async fn prove_retry_and_replay(scenario: RetryScenario<'_, '_>) {
         operation,
         attempt,
         submission,
+        instructor,
         instructor_broker,
         rotated_instructor_broker,
         other_instructor_broker,
@@ -226,20 +228,65 @@ pub(super) async fn prove_retry_and_replay(scenario: RetryScenario<'_, '_>) {
         3,
         "retry job uses the bounded accepted-submission budget"
     );
+    let retry_receipts = sqlx::query(
+        "SELECT safe_category, actor_id, worker_id \
+         FROM public.grading_execution_receipt \
+         WHERE tenant_id=$1 AND attempt_id=$2 AND submission_id=$3 \
+           AND execution_generation=2 AND resulting_state='ready'",
+    )
+    .bind(tenant.as_uuid())
+    .bind(attempt.as_uuid())
+    .bind(submission)
+    .fetch_all(pool)
+    .await
+    .expect("read generation-two retry receipt");
     assert_eq!(
-        sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*) FROM public.grading_execution_receipt \
-             WHERE tenant_id=$1 AND attempt_id=$2 AND submission_id=$3 \
-               AND execution_generation=2 AND resulting_state='ready' AND worker_id IS NULL",
-        )
-        .bind(tenant.as_uuid())
-        .bind(attempt.as_uuid())
-        .bind(submission)
-        .fetch_one(pool)
-        .await
-        .expect("count generation-two retry receipt"),
+        retry_receipts.len(),
         1,
-        "accepted retry emits one worker-unassigned generation-two receipt"
+        "accepted retry emits one instructor-owned worker-unassigned receipt"
+    );
+    let retry_receipt = &retry_receipts[0];
+    assert_eq!(
+        retry_receipt.try_get::<String, _>("safe_category").unwrap(),
+        "instructor_retry"
+    );
+    assert_eq!(
+        retry_receipt.try_get::<Uuid, _>("actor_id").unwrap(),
+        instructor.as_uuid()
+    );
+    assert!(
+        retry_receipt
+            .try_get::<Option<Uuid>, _>("worker_id")
+            .unwrap()
+            .is_none(),
+        "Instructor retry receipt has no worker identity"
+    );
+    let operation_receipt = sqlx::query(
+        "SELECT safe_category, actor_id, resulting_state \
+         FROM public.grading_operation_receipt WHERE tenant_id=$1 AND action_id=$2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(action)
+    .fetch_one(pool)
+    .await
+    .expect("read Instructor retry receipt");
+    assert_eq!(
+        operation_receipt
+            .try_get::<String, _>("safe_category")
+            .expect("retry operation category"),
+        "instructor_retry"
+    );
+    assert_eq!(
+        operation_receipt
+            .try_get::<Uuid, _>("actor_id")
+            .expect("retry operation actor"),
+        instructor.as_uuid()
+    );
+    assert_eq!(
+        operation_receipt
+            .try_get::<String, _>("resulting_state")
+            .expect("retry operation state"),
+        "ready"
     );
     let jobs_after_retry: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM public.worker_job \

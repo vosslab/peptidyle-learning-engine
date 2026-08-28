@@ -9,6 +9,41 @@ migration allocation. This document owns the detailed W5-W7 delivery sequence, e
 acceptance, and handoff. It preserves the approved scope, including migrations 2026081861
 through 2026081865.
 
+## G1-W7 reconciliation addendum
+
+The architect-approved closeout is one semantic transition with four atomic, dependency-ordered
+migrations. It preserves the accepted W2-W7b scope and keeps `WP-PROF-G1` incomplete until all
+closeout and final Validation gates pass.
+
+### G1-W7c: apply the forward reconciliation
+
+- **Owner/package:** PostgreSQL and release-integrator pair, `WP-PROF-G1 / G1-W7`, with the
+  architect retaining approval of the cross-cutting authority transition.
+- **Depends on:** restored accepted migrations `2026081849`, `1850`, `1855`, `1859`, `1860`,
+  `1861`, and `1865`; four identities allocated in the shared ledger; W7a and W7b evidence
+  handoffs available for rerun.
+- **Ordered work packages:**
+  1. `2026081866_g1_receipt_provenance_schema.sql` proves empty execution and operation receipt
+     tables, then adds non-null provenance/category fields and closed constraints.
+  2. `2026081867_g1_execution_receipt_writers.sql` updates acceptance, claim, and failure writer
+     bodies so each transition records an allowed category and exclusive actor-or-worker identity.
+  3. `2026081868_g1_completion_receipt_writer.sql` carries the frozen 36-input commit-v2 writer
+     and its narrow authority proof, including the `graded` completion category.
+  4. `2026081869_g1_instructor_receipt_writers.sql` carries the final 1865 recalculation body,
+     creates five-input `ple_prepare_accepted_submission_retry_v2`, routes the public retry
+     caller through the session actor, revokes V1 execution, and drops V1 with `RESTRICT`.
+- **Clean-volume rule:** a nonempty receipt table fails 1866 before schema mutation with an
+  actionable error. Append-only rows remain unchanged, provenance stays explicit, defaults remain
+  absent, immutability stays enforced, and retained history remains a separate design package;
+  V1 retirement uses `RESTRICT`.
+- **Focused gate:** the connected oracle calls the actual well-formed V2 capability as `ple_app`
+  and requires SQLSTATE `42501`, proving the effective authorization boundary through V2.
+- **Exit criteria:** all four migrations apply in order; the fresh baseline, second-pass no-op,
+  compatibility, checksum, nonempty-preflight, PostgreSQL/RLS/worker, browser, screenshot, and
+  exact-final-tree `source source_me.sh && ./all_test.sh` gates have recorded green evidence.
+- **Status rule:** any required unrun or skipped gate leaves G1 incomplete under
+  [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md).
+
 ## Delivery work packages
 
 ### G1-W5: compose strict course-scoped operations HTTP
@@ -111,7 +146,7 @@ through 2026081865.
   checks. Keep browser execution and screenshots out of the offline pytest lane;
   use no sleeps, pixel equivalence, or incidental collection counts.
 - **Connected one-time gate:** run
-  `source source_me.sh && python3 local_stack.py acceptance` against the real
+  `source source_me.sh && .venv/bin/python local_stack.py acceptance` against the real
   built HTTPS stack, with the visible Student submission and Instructor recovery
   flow. Publish Instructor-only 1280x800 evidence and exact provenance.
   Acceptance uses the built `dist/`, activates the deterministic fault, and

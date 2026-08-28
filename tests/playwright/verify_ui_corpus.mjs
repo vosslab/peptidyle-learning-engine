@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Offline integrity check for the committed twenty-image real-stack corpus.
+// Offline integrity check for the declared real-stack browser corpus.
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, open, readdir } from "node:fs/promises";
@@ -59,6 +59,14 @@ function crc32(content) {
 
 function isDigest(value, length) {
   return typeof value === "string" && new RegExp(`^[0-9a-f]{${length}}$`).test(value);
+}
+
+function isCanonicalHttpsGatewayOrigin(value) {
+  if (typeof value !== "string") return false;
+  const match = /^https:\/\/localhost:([1-9][0-9]*)$/.exec(value);
+  if (match === null) return false;
+  const port = Number(match[1]);
+  return Number.isSafeInteger(port) && port <= 65_535;
 }
 
 function hasExactKeys(value, keys) {
@@ -235,7 +243,7 @@ async function main() {
       provenance.schemaVersion !== 2 ||
       provenance.pipeline !== "realStack" ||
       provenance.browserSuite !== "ple-live-demo-browser" ||
-      !/^https:\/\/localhost:[1-9][0-9]*$/.test(provenance.origin) ||
+      !isCanonicalHttpsGatewayOrigin(provenance.origin) ||
       !isDigest(provenance.productionDistDigest, 64) ||
       !isDigest(provenance.generationIdentity, 64) ||
       !Array.isArray(provenance.artifacts) ||
@@ -262,6 +270,7 @@ async function main() {
           "width",
           "height",
           "privacyChecks",
+          "origin",
         ]) ||
         record.artifactId !== artifact.artifactId ||
         record.path !== artifact.path ||
@@ -275,6 +284,7 @@ async function main() {
         record.viewport?.width !== viewport.width ||
         record.viewport?.height !== viewport.height ||
         record.viewport?.deviceScaleFactor !== viewport.deviceScaleFactor ||
+        record.origin !== provenance.origin ||
         JSON.stringify(record.privacyChecks) !== JSON.stringify(artifact.privacyChecks)
       )
         throw new Error(`provenance is incomplete for ${artifact.artifactId}`);
@@ -287,6 +297,7 @@ async function main() {
       records.push({
         artifactId: record.artifactId,
         captureOrder: record.captureOrder,
+        origin: record.origin,
         path: record.path,
         sha256: record.sha256,
         viewport: record.viewport,

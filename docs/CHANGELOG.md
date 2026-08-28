@@ -1,5 +1,110 @@
 # Changelog
 
+## 2026-08-28
+
+### Fixes and Maintenance
+
+- Reconciled the repository documentation set with current live-demo ownership, exact role
+  viewports, state-derived grading recovery, project-scoped Podman cleanup, release notes, and the
+  active G1 evidence boundary. The root `AGENTS.md` now routes agents to canonical documents rather
+  than restating their content.
+- Improved the screenshot evidence states: explicit grade-setting reloads announce the latest
+  server settings, the shared assignment picker is captured while open with a selected candidate,
+  and curriculum-recovery and authorized-usage captures frame their complete actionable regions.
+- Tightened the root `AGENTS.md` to bare-path pointers while retaining active-plan authority,
+  package identity reservations, ownership boundaries, dependency-order workflow, and the
+  final-tree Validation completion rule.
+- Refreshed `docs/TROUBLESHOOTING.md` with the fixed Python environment and
+  owner-scoped browser, screenshot, Podman, cleanup, and migration recovery
+  paths; corrected the destructive scope of `./run_live_demo.sh stop`.
+- Added a typed real-stack route-surface readiness helper that uses the configured Playwright
+  action timeout for assignment-overview and practice-entry waits in catalog discovery evidence.
+- Reordered the shared learner assignment presentation so the single primary Start/continue action
+  follows assignment identity before instructions and progress/details. The action region adapts
+  across widths without overlays, and answer-free Instructor Student view omits it when no primary
+  action is supplied.
+- Made the live-demo Python runtime self-contained: `run_live_demo.sh` now creates or refreshes a
+  fixed Python 3.12 `.venv` through `devel/setup_python.sh`, installs the declared manifests, and
+  executes the controller through that environment for both start and stop. `all_test.sh` reuses
+  that same owner before its pytest and connected acceptance gates. The pinned `PyYAML==6.0.3`
+  runtime requirement now belongs in `pip_requirements.txt`, while developer tools extend it through
+  `pip_requirements-dev.txt`.
+- Reused the shared copyable Question ID control in Instructor grading operations. The operation
+  keeps the question title as its heading, exposes the stable public ID with accessible copy success
+  and manual-copy fallback status, and keeps the retry action bound to the exact title and ID.
+- Aligned current operator documentation with the repo-owned Python runtime: `./run_live_demo.sh`
+  remains the ordinary live-demo entry, while direct controller and pytest work use the prepared
+  `.venv/bin/python` after sourcing repository settings.
+- Classified `.venv` consistently as installed dependency state in Git, ESLint, Prettier, and
+  hygiene discovery after the aggregate gate exposed ESLint traversing pip-vendored JavaScript.
+- Reconciled the remaining live controller entry points with the repo-owned `.venv`, added negative
+  capability-receipt coverage, removed duplicate readiness coverage, isolated the completed-receipt
+  privacy test from an unrelated fixture, and clarified the response-redaction and selector-owner
+  contracts found during audit.
+- Updated the connected PostgreSQL G1 oracle to exercise the five-UUID retry V2 denial with SQLSTATE
+  `42501` and to verify Instructor retry receipt category, actor provenance, and worker exclusivity.
+
+### Decisions and Failures
+
+- Advanced WP-PROF-G1's accepted-input boundary: immutable server-private submissions remain the
+  grading authority, replay returns the original receipt, and answer-free learner and Instructor
+  projections keep response material private. Source/projection digests, receipt immutability,
+  integrity-failure routing, worker readiness, and the existing generation-fenced score path remain
+  explicit contracts rather than compatibility behavior.
+- Proved the learner terminal path through the canonical production browser: a successful accepted
+  response clears the answer buffer, reaches `acceptedPending`, exposes status-only recovery, moves
+  through deterministic Instructor attention, and reaches completed feedback after one Instructor
+  retry without another learner answer POST. The answer-free audit covers every submitted,
+  completed, operation-list, and retry response variant.
+- Accepted the connected G1 evidence package for the canonical production-browser journey, the
+  fresh pre-reconciliation 95-migration PostgreSQL/RLS and worker oracle, WebWork service, and
+  replica-restart acceptance. The package also atomically published and verified the 63-artifact
+  screenshot corpus; HCI review repairs the dense operation and learner layouts, and independent
+  architecture and security/privacy reviews approve the resulting boundaries.
+- Completed the approved G1-W7 forward reconciliation: accepted migrations `2026081849`, `1850`,
+  `1855`, `1859`, `1860`, `1861`, and `1865` are restored byte-for-byte, and the closeout source
+  is implemented across `2026081866` through `2026081869`. The four atomic owners are receipt
+  schema/preflight, execution writers, the 36-input commit-v2 writer, and Instructor writers with
+  retry V2 and public V1 retirement. The affected live evidence is green on the 99-migration tree;
+  G1 remains incomplete pending repository tracking and final tracked-tree Validation.
+
+### Developer Tests and Notes
+
+- Regenerated all 63 screenshots through the canonical production-stack owner after the evidence
+  fixes. Every ordinary scenario and the isolated deterministic grader-exception profile passed,
+  publication completed atomically, cleanup was exact, the 97-case publisher suite passed, and the
+  offline corpus verifier accepted the current production-dist provenance.
+- Passed focused TypeScript, ESLint, Prettier, learner-presentation Node, Student-view contract, and
+  `git diff --check` gates. The focused production G1 browser journey then passed clipboard
+  confirmation, retry-focus, learner-completion, Gradebook, answer-free network, single-origin, and
+  exact-cleanup assertions.
+- Regenerated the canonical live-stack screenshot corpus: 63 PNGs, including 54 desktop artifacts
+  at 1280 by 800 plus three Student artifacts at each of tablet 800 by 1280, iPhone Pro 393 by
+  852, and square 800 by 800. The 97-case screenshot publisher suite passed, and the independent
+  offline corpus verifier passed after its receipt contract aligned per-artifact origin and
+  generation-digest validation with the publisher.
+- The first exact aggregate Validation attempt passed the complete Rust gate, then exposed and
+  stopped at the `.venv` ESLint ownership defect. After the ownership repair, all five frontend
+  gates passed with 369 Node tests, and the permanent Python suite outside the known
+  tracking-dependent Markdown-link module passed 7,654 tests.
+- The audit repair gate passed 65 focused Python tests, 7 focused Node tests, shell syntax,
+  Prettier, controller help, and `git diff --check`.
+- The documentation set has been reconciled in the working tree, but link acceptance awaits
+  repository tracking of its new owned artifacts. The exact aggregate attempt passed the complete
+  Rust and codebase gates, then reported 7,912 passed Python checks and tracking-dependent
+  Markdown-link failures for physical targets awaiting Git tracking. Separately, complete live
+  acceptance passed every production browser scenario, all 99 migrations and connected
+  PostgreSQL/RLS/worker oracles, isolated WebWork, replica restart/durable replay, and exact cleanup.
+  Final
+  `source source_me.sh && ./all_test.sh` Validation remains open; WP-PROF-G1 and the overall goal
+  therefore remain incomplete.
+- A one-time shadow-index diagnostic added exactly the 13 intended durable artifacts to an isolated
+  temporary Git index while preserving the real repository index. The unchanged aggregate then
+  passed Rust/Wasm, 369 Node tests, 7,978 pytest checks, every production-browser scenario, all 99
+  migrations and connected PostgreSQL/RLS/worker oracles, isolated WebWork, replica restart/durable
+  replay, and exact cleanup. This proves no later gate is hidden behind the tracking-dependent links;
+  final acceptance still requires the ordinary tracked-tree aggregate.
+
 ## 2026-08-27
 
 ### Decisions and Failures

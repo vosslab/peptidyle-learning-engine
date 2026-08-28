@@ -14,6 +14,7 @@ import local_stack_control.image_cleanup
 import local_stack_control.lifecycle_validation
 import local_stack_control.lifecycle_wait
 import local_stack_control.lifecycle_diagnostics
+import local_stack_control.lifecycle_commands
 import local_stack_control.local_environment
 import local_stack_control.lifecycle_profiles
 import local_stack_control.models
@@ -61,6 +62,14 @@ LifecycleTarget = (
 	local_stack_control.models.ComposeTarget
 	| local_stack_control.models.DisposableComposeTarget
 )
+
+
+# Lifecycle retains its established public facade while lifecycle_commands owns
+# child execution, selected environments, and failure redaction.
+child_environment = local_stack_control.lifecycle_commands.child_environment
+compose_run = local_stack_control.lifecycle_commands.compose_run
+require_command = local_stack_control.lifecycle_commands.require_command
+validate_compose = local_stack_control.lifecycle_commands.validate_compose
 
 
 #============================================
@@ -434,16 +443,6 @@ def restart_lifecycle(
 
 
 #============================================
-def validate_compose(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, repo_root: pathlib.Path) -> str:
-	"""Validate selected Compose interpolation and return its rendered topology."""
-	compose_result = runner.run(
-		local_stack_control.compose.compose_argv(target, ["config"]), child_environment(target), repo_root
-	)
-	require_command(compose_result, "Compose configuration validation")
-	return compose_result.stdout
-
-
-#============================================
 def require_lifecycle_inputs(target: local_stack_control.models.ComposeTarget, repo_root: pathlib.Path, options: LifecycleOptions) -> None:
 	"""Reject mismatched targets and nonpositive caller-owned timeout before effects."""
 	if target.repo_root != repo_root or options.timeout_seconds <= 0:
@@ -455,32 +454,6 @@ def require_disposable_ownership(target: local_stack_control.models.ComposeTarge
 	"""Retain the explicit capability proof when the selected target is disposable."""
 	if isinstance(target, local_stack_control.models.DisposableComposeTarget):
 		local_stack_control.compose.require_disposable_ownership(target)
-
-
-#============================================
-def child_environment(target: local_stack_control.models.ComposeTarget) -> dict[str, str]:
-	"""Build the selected environment authority for each child process."""
-	return local_stack_control.compose.target_environment(
-		target, local_stack_control.process.current_environment()
-	)
-
-
-#============================================
-def compose_run(target: local_stack_control.models.ComposeTarget, runner: local_stack_control.process.CommandRunner, arguments: list[str]) -> None:
-	"""Run one non-secret Compose operation and retain failures for diagnosis."""
-	result = runner.run(local_stack_control.compose.compose_argv(target, arguments), child_environment(target), target.repo_root)
-	private_values = local_stack_control.consumer.private_environment_values(target.env_file)
-	require_command(result, "selected Compose operation", private_values)
-
-
-#============================================
-def require_command(result: local_stack_control.models.CommandResult, operation: str, private_values: tuple[str, ...] = ()) -> None:
-	"""Convert child failure into bounded non-secret lifecycle guidance."""
-	if not result.ok():
-		detail = local_stack_control.lifecycle_diagnostics.redacted_failure_detail(result, private_values)
-		raise local_stack_control.models.ControllerError(
-			f"{operation} failed ({detail}); retained stack resources are available for diagnostics"
-		)
 
 
 #============================================

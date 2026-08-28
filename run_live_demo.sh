@@ -50,8 +50,10 @@ esac
 # shellcheck disable=SC1091
 source "$SCRIPT_DIRECTORY/source_me.sh"
 
+"$SCRIPT_DIRECTORY/devel/setup_python.sh"
+
 if [ "$COMMAND" = "stop" ]; then
-  exec python3 "$SCRIPT_DIRECTORY/local_stack.py" stop
+  exec "$SCRIPT_DIRECTORY/.venv/bin/python" "$SCRIPT_DIRECTORY/local_stack.py" stop
 fi
 
 if [ ! -d "$SCRIPT_DIRECTORY/node_modules" ]; then
@@ -60,7 +62,7 @@ if [ ! -d "$SCRIPT_DIRECTORY/node_modules" ]; then
 fi
 
 if [ "$HEADLESS" = "true" ]; then
-  exec python3 "$SCRIPT_DIRECTORY/local_stack.py" start --headless
+  exec "$SCRIPT_DIRECTORY/.venv/bin/python" "$SCRIPT_DIRECTORY/local_stack.py" start --headless
 fi
 
-exec python3 "$SCRIPT_DIRECTORY/local_stack.py" start
+exec "$SCRIPT_DIRECTORY/.venv/bin/python" "$SCRIPT_DIRECTORY/local_stack.py" start

@@ -38,7 +38,7 @@ current acceptance status remains in
   [test-evidence model](TEST_EVIDENCE_MODEL.md) makes the production-shaped stack the browser
   acceptance boundary. These are PLE guarantees, not claims about ADAPT parity.
 - Provenance: Confirmed by the explicit PLE prior-art records and the authoritative ADAPT guides
-  checked on 2026-08-26. The ignored `OTHER_REPOS/adapt` checkout is read-only corroboration for
+  checked on 2026-08-28. The ignored `OTHER_REPOS/adapt` checkout is read-only corroboration for
   route-level structure, not a PLE dependency or current-upstream compatibility claim.
 
 ### WeBWorK2
@@ -47,9 +47,11 @@ current acceptance status remains in
 - Link: https://github.com/openwebwork/webwork2
 - Why visitors may care: instructors can explore a mature open homework application for math and
   science courses, including course management and a large community problem library.
-- Evidence: WeBWorK's official README describes the application and its Open Problem Library, while
-  [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#webwork-project-boundary) names WeBWorK2 as implementation
-  history and reference material for PLE.
+- Evidence: the [official WeBWorK project](https://github.com/openwebwork/webwork2) describes an
+  open-source online homework system, and its [Open Problem Library guide](https://wiki.openwebwork.org/wiki/Open_Problem_Library)
+  documents reviewed, reusable problem contributions. [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#course-and-content-choices)
+  names WeBWorK as part of the course content and question-engine choices that inform PLE's
+  implementation history.
 - Notes: PLE owns its own courses, rosters, assignments, attempts, and gradebook; WeBWorK2 is not a
   second application inside the PLE runtime.
 
@@ -64,6 +66,17 @@ current acceptance status remains in
   private renderer boundary.
 - Notes: PG supplies question-engine behavior; PLE retains course, learner, attempt, and gradebook
   ownership.
+
+### WeBWorK Open Problem Library
+
+- Relationship: Companion project, extension, or interoperability tool
+- Link: https://github.com/openwebwork/webwork-open-problem-library
+- Why visitors may care: problem authors can browse and reuse a large open library of algorithmic
+  WeBWorK questions when building science and mathematics practice.
+- Evidence: the [official OPL guide](https://wiki.openwebwork.org/wiki/Open_Problem_Library) describes
+  reviewed contributions, taxonomy browsing, and installation for the WeBWorK Library Browser.
+- Notes: the library is a WeBWorK content resource; PLE's accepted renderer profile remains bounded
+  to its reviewed Chapter 1 sources.
 
 ### webwork-pg-renderer
 
@@ -83,8 +96,8 @@ current acceptance status remains in
 - Link: https://www.imathas.com/
 - Why visitors may care: instructors can explore another open system for algorithmically generated,
   automatically graded homework and tests with a full gradebook.
-- Evidence: the official iMathAS site documents generated questions, computer grading, learning
-  management, and gradebook features; PLE's
+- Evidence: the [official iMathAS site](https://www.imathas.com/) documents algorithmically generated
+  questions, computer grading, learning management, and a full gradebook; PLE's
   [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md#current-adapter-posture) records its contracted or
   self-hosted scored-embed boundary.
 - Notes: PLE supports its reviewed server-brokered provider contract, not a generic browser-trusted
@@ -96,8 +109,10 @@ current acceptance status remains in
 - Link: https://h5p.org/
 - Why visitors may care: learning-content authors can create, share, reuse, import, and export rich
   interactive activities across supported publishing and learning platforms.
-- Evidence: H5P's official site documents reusable interactive HTML5 content and LMS integrations;
-  PLE's [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md#current-adapter-posture) records the supported
+- Evidence: H5P's [official site](https://h5p.org/) documents creating, sharing, reusing, importing,
+  and exporting interactive HTML5 content with LMS integrations; its [reuse guide](https://h5p.org/reuse-h5p-content)
+  documents copying questions and downloading/uploading packages. PLE's
+  [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md#current-adapter-posture) records the supported
   bounded static-import path.
 - Notes: native H5P remains ungraded practice in PLE because browser-evaluated answers do not satisfy
   PLE's server-owned grading boundary.
@@ -147,8 +162,10 @@ current acceptance status remains in
 - Link: https://docs.prairielearn.com/
 - Why visitors may care: instructors can compare another open problem-driven system for homework,
   tests, randomized variants, automatic grading, content sharing, and LMS integration.
-- Evidence: PrairieLearn's official documentation describes Python-generated randomized questions,
-  automatic grading, homework and exams, access controls, and code autograders.
+- Evidence: PrairieLearn's [official overview](https://docs.prairielearn.com/) describes randomized
+  custom questions, Python-based autograding, homework and exams, access controls, and code
+  autograders. Its [assessment guide](https://docs.prairielearn.com/assessment/configuration/)
+  explicitly distinguishes formative homework with unlimited randomized retries from exams.
 - Confidence: likely
 
 ### Numbas
@@ -157,8 +174,11 @@ current acceptance status remains in
 - Link: https://www.numbas.org.uk/
 - Why visitors may care: instructors can create randomized, automatically marked assessments, reuse
   openly licensed questions, and deliver work through an LMS or standalone player.
-- Evidence: Numbas' official site documents randomized variants, instant marking, feedback, public
-  question reuse, accessibility, statistics, remarking, and LTI delivery.
+- Evidence: Numbas' [official site](https://www.numbas.org.uk/) documents interactive questions,
+  customizable marking, and current documentation. Its [question reference](https://docs.numbas.org.uk/en/latest/question/reference.html)
+  documents generated variables and fresh values for each attempt, while its [marking algorithm
+  guide](https://docs.numbas.org.uk/en/heads/queues/marking-algorithm.html) documents automatic
+  credit and feedback.
 - Confidence: likely
 
 ### Moodle question banks
@@ -188,9 +208,11 @@ current acceptance status remains in
 
 The confirmed set requires repository evidence of a current adapter, explicit lineage, named prior
 art, a same-author companion relationship, or a standard already present in PLE's contracts. The
-possible set comes from two bounded discovery rounds and official project documentation showing a
-shared instructor, assessment-authoring, question-reuse, automatic-grading, or LMS-integration
-workflow.
+possible set comes from two bounded discovery rounds on 2026-08-28 (seed queries about varied biology
+practice, server grading, and QTI; widening queries about open assessment systems and question banks)
+and
+official project documentation showing a shared instructor, assessment-authoring, question-reuse,
+automatic-grading, or LMS-integration workflow.
 
 The distinctions between WeBWorK2, PG, and `webwork-pg-renderer` are intentional: WeBWorK2 is the
 full application and prior art, PG is the upstream question engine, and the standalone renderer is

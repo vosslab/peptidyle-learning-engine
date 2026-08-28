@@ -438,12 +438,16 @@ async fn prepared_submission_replay_for_witness(
             }
         }
         2 => {
-            return super::submission_receipts::accepted_pending_replay_from_metadata(
+            // ASVS 1.5.2-1.5.3, 2.2.1-2.2.3, and 2.3.1-2.3.3: validate
+            // the closed replay identity before selecting the durable receipt
+            // state. An exact retry therefore converges on completion when
+            // the immutable snapshot exists, while incomplete evaluation
+            // remains the closed accepted-pending projection.
+            super::submission_receipts::validate_accepted_replay_metadata(
                 &metadata,
                 response,
                 idempotency_key,
-                witness.attempt,
-            );
+            )?;
         }
         _ => return Err(StoreError::Conflict),
     }
@@ -510,12 +514,14 @@ pub(super) async fn prepared_submission_replay(
             }
         }
         2 => {
-            return super::submission_receipts::accepted_pending_replay_from_metadata(
+            // ASVS 1.5.2-1.5.3, 2.2.1-2.2.3, and 2.3.1-2.3.3: the durable
+            // receipt is the sole pending-versus-completed authority after
+            // the exact typed request identity is verified.
+            super::submission_receipts::validate_accepted_replay_metadata(
                 &metadata,
                 response,
                 idempotency_key,
-                prepared.attempt.id,
-            );
+            )?;
         }
         _ => return Err(StoreError::Conflict),
     }

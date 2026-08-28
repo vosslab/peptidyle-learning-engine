@@ -1,4 +1,4 @@
-//! Sealed accepted-submission recovery used by the connected grading oracle.
+//! Sealed accepted-submission recovery used by the connected W7 receipt oracle.
 
 use acceptance_runtime::AcceptanceRuntime;
 use learning_data_access::postgres::{
@@ -37,7 +37,7 @@ impl RecoveryWorker {
         &self,
         expected_job: JobId,
         expected_submission: AcceptedSubmissionId,
-    ) {
+    ) -> WorkerId {
         self.claim_and_fail(
             expected_job,
             expected_submission,
@@ -45,20 +45,20 @@ impl RecoveryWorker {
                 reason: GradingOperationReason::GraderExecutionFailure,
             },
         )
-        .await;
+        .await
     }
 
     pub(super) async fn fail_terminally(
         &self,
         expected_job: JobId,
         expected_submission: AcceptedSubmissionId,
-    ) {
+    ) -> WorkerId {
         self.claim_and_fail(
             expected_job,
             expected_submission,
             AcceptedSubmissionExecutionOutcome::TerminalFailure,
         )
-        .await;
+        .await
     }
 
     async fn claim_and_fail(
@@ -66,11 +66,12 @@ impl RecoveryWorker {
         expected_job: JobId,
         expected_submission: AcceptedSubmissionId,
         outcome: AcceptedSubmissionExecutionOutcome,
-    ) {
+    ) -> WorkerId {
+        let worker = WorkerId::from_uuid(fresh_uuid());
         let claim = self
             .store
             .claim_next_accepted_submission_execution(
-                WorkerId::from_uuid(fresh_uuid()),
+                worker,
                 JobLeaseDuration::from_seconds(60).expect("bounded recovery-worker lease"),
             )
             .await
@@ -100,5 +101,6 @@ impl RecoveryWorker {
             AcceptedSubmissionExecutionDisposition::Terminal,
             "recovery worker records the terminal transition"
         );
+        worker
     }
 }

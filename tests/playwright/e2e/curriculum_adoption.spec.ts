@@ -376,6 +376,10 @@ test.describe("curriculum adoption on the production PLE stack", () => {
           recovery.getByRole("heading", { name: "Resolve the proposal blocker" }),
         ).toBeVisible();
         await expect(recovery).toContainText("nonexistent daylight-saving local time");
+        // The recovery state is the evidence-bearing moment for this journey. Keep the
+        // complete server-owned recovery panel in the fixed instructor viewport so the
+        // named blocker and its next action are immediately legible.
+        await recovery.scrollIntoViewIfNeeded();
         await captureRealStackScreenshot(
           elena,
           scenarioInput,

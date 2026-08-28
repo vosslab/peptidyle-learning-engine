@@ -1,116 +1,115 @@
 # Input and exchange formats
 
-This page maps the files PLE accepts or produces at its authoring, roster, and manual grade-export
-boundaries. It is not a replacement for the authoritative schema, profile, or API contracts.
+This page is the file-I/O index for PLE. It names only formats implemented by the current source
+or explicitly reserved in the release plan. It does not replace the linked schema, adapter, or API
+contract.
 
-## Supported authoring inputs
+## Browser and server boundary
 
-| Input                  | Accepted surface                                                                         | Boundary                                                                                                  | Exact contract                                                                    |
-| ---------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| PLE flat-question JSON | `application/vnd.peptidyle.flat-question+json` on the private flat-question source route | One v2 document in the closed eight-family set, including answers and private feedback; at most 256 KiB | [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md)                            |
-| Canvas QTI 1.2 ZIP     | `application/zip` on the private QTI import route                                        | At most 32 MiB; the original ZIP stays private while a worker creates an answer-free review report        | [qti_profile_mapping_plan.md](active_plans/decisions/qti_profile_mapping_plan.md) |
-| Blackboard QTI 2.1 ZIP | `application/zip` on the private QTI import route                                        | At most 32 MiB; the original ZIP stays private while a worker creates an answer-free review report        | [qti_profile_mapping_plan.md](active_plans/decisions/qti_profile_mapping_plan.md) |
+The browser may receive answer-free question presentation, safe import reports, normalized roster
+previews, and export status or downloadable artifacts. It never receives answer keys, expected
+values, hidden correct choices, private rubrics, grading code, provider credentials, raw provider
+results, object keys, or source archives. The complete allowlist and privacy boundary are in
+[API_CONTRACTS.md](API_CONTRACTS.md).
 
-The PLE JSON source is a Peptidyle contract, not a QTI variant. Its exact fields, validation rules,
-canonicalization, source-to-public/private compilation boundary, and v1/v2 scope are in
-[QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md). The public runtime model produced from any
-accepted source is described separately in [QUESTION_MODEL.md](QUESTION_MODEL.md).
+Authoring, import, grading, and export workers may handle private payloads after authorization.
+Private source bytes and grading material remain in their owning adapter or object-store boundary;
+they are not browser formats merely because an Instructor can initiate the operation.
 
-## WeBWorK source
+## Live-demo operator input
 
-PLE can publish a private immutable PG or PGML source artifact for its configured external
-`webwork-pg-renderer`. This is an author-controlled source artifact, not a learner upload, a
-browser-accessible renderer file, or a general-purpose WebWork2 import route. Live acceptance covers
-the four reviewed Chapter 1 PGML sources: one multiple-choice and one matching source for each of
-Genetics and Biochemistry. Their projection, grading, source-artifact handling, and exact
-compatibility boundary are defined in
-[WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md). Other PG controls, source
-revisions, and Open Problem Library compatibility require separate examples and live evidence.
+The supported front door is `./run_live_demo.sh` with `start`, `stop`, and `--headless`. It uses a
+fixed disposable target and does not accept a caller-selected project, identity, environment,
+SMTP configuration, or skip-build option. See [USAGE.md](USAGE.md) and
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
+
+The lower-level lifecycle receives a private ASCII `NAME=value` owner manifest closed to `OWNER`,
+`PROJECT`, `ENV_FILE`, and `CAPABILITY_FILE`; `PROFILE` is required for the live-demo-browser
+owner. The referenced files are current-user-owned regular files with mode `0600`. The generated
+`runtime.yaml` record is operational evidence, not an authoring or learner-upload format.
+
+## Implemented authoring and import
+
+| Format | Surface and media type | Implemented boundary | Owner |
+| --- | --- | --- | --- |
+| PLE flat-question JSON v2 | Private flat-question source route; `application/vnd.peptidyle.flat-question+json` | One answer-bearing document in the closed eight-family set: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT; maximum 256 KiB | [crates/adapters/native/src/flat_question.rs](../crates/adapters/native/src/flat_question.rs), [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) |
+| Canvas QTI 1.2 ZIP | Private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `canvas-qti-1.2-static-single-choice/v1` profile. Unsupported semantics refuse without loss; archive, answers, mappings, and provenance stay private | [crates/adapters/qti/src/profiles/canvas.rs](../crates/adapters/qti/src/profiles/canvas.rs), [crates/server/src/qti_profile_import.rs](../crates/server/src/qti_profile_import.rs) |
+| Blackboard QTI 2.1 ZIP | Private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `blackboard-qti-2.1-static-single-choice-pool/v1` profile. Unsupported semantics refuse without loss; browser reports are answer-free | [crates/adapters/qti/src/profiles/blackboard.rs](../crates/adapters/qti/src/profiles/blackboard.rs), [crates/server/src/qti_profile_import.rs](../crates/server/src/qti_profile_import.rs) |
+| H5P `.h5p` package | Trusted private adapter/object-store boundary, not a browser upload route | `H5P.MultiChoice` converts to an unpublished, key-free practice question with `clientRendering` only. It cannot be used as a server-graded assignment | [crates/adapters/h5p/src/import.rs](../crates/adapters/h5p/src/import.rs), [CONTRACTS.md](CONTRACTS.md) |
+
+QTI conversion produces an answer-free draft handoff for the authoring UI. The worker separately
+retains the original archive, private answer bindings, choice maps, digests, and source provenance.
+The public runtime receives only the native question projection. See
+[qti_profile_mapping_plan.md](active_plans/decisions/qti_profile_mapping_plan.md) and
+[QUESTION_MODEL.md](QUESTION_MODEL.md).
+
+## Private server source
+
+PLE can publish a private immutable PG or PGML source artifact to the configured external
+`webwork-pg-renderer`. This is not a learner upload, browser renderer file, WebWork2 import, or
+general Open Problem Library route. The server sends source, path, seed, display policy, and
+resolved answer to `/render-api`; the browser receives only the typed PLE presentation envelope
+and submits a PLE response. The four reviewed Chapter 1 sources are the current evidence boundary.
+See [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
+
+iMathAS is likewise a provider/broker boundary, not a file format. Its verified launch and result
+tokens remain server-private; no generic hosted MyOpenMath import is accepted.
 
 ## Roster CSV import
 
-Direct course Instructors, or a Sysadmin using the audited roster-support
-capability, can preview and explicitly commit a UTF-8 CSV roster at the private roster-import
-route. The current generic file has exactly these headers, in this order:
+An authorized course Instructor, or an audited Sysadmin support session, may preview and explicitly
+commit UTF-8 CSV at `/api/courses/{course}/roster-imports/preview`. The exact current grammar is:
 
 ```csv
 email,roster_id
 student@example.edu,900123456
 ```
 
-- The import accepts `text/csv`, at most one MiB and 500 data rows.
-- `email` is the course invitation destination; `roster_id` is the protected course-scoped value
-  used to match a later manual LMS or gradebook export.
-- The preview normalizes and classifies rows before the instructor selects the rows to commit.
-  PLE discards raw CSV bytes after staging the normalized preview.
-- The generic parser does not make an email address an account key or a roster ID an authentication
-  credential. A reviewed institution profile may map alternate headings and validate its documented
-  roster-ID grammar.
+- The media type is `text/csv`; the body is at most 1 MiB and 500 data rows.
+- Headers must be exactly `email,roster_id` in that order.
+- Preview normalizes and classifies rows; commit selects preview row numbers with strong revisions
+  and idempotency. Raw CSV bytes are not retained after normalized staging.
+- `roster_id` is course-scoped matching data, not an account key or authentication credential.
 
-The invitation, preview, atomic commit, retention, and privacy semantics are in
-[ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md), not in the CSV grammar.
+The route and ownership rules are in [crates/server/src/course/roster/import.rs](../crates/server/src/course/roster/import.rs)
+and [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
 
-## Manual assignment grade CSV export
+## Implemented CSV exports
 
-For one course and assignment, a direct course Instructor can download a synchronous
-`text/csv; charset=utf-8` file from the private assignment grade-export route. The current output
-uses CRLF records and these headers:
+### Assignment grades
 
-```csv
-roster_id,email,display_name,score
-900123456,student@example.edu,Student Name,93
-```
+`POST /api/courses/{course}/assignments/{assignment}/grade-export.csv` requires an empty body and
+returns synchronous, no-store `text/csv; charset=utf-8` attachment data. Headers are
+`roster_id,email,display_name,score`; rows contain only course-scoped roster identity and the
+selected assignment score. The CSV object is not persisted.
 
-The response is an attachment with `Cache-Control: no-store`; PLE does not persist a grade-export
-object. It contains only the course roster ID, course roster email, display label, and the selected
-assignment score. It excludes global account IDs, passkey state, invitation secrets, and unrelated
-course activity. [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) and
-[API_CONTRACTS.md](API_CONTRACTS.md) define its authorization, auditing, and retention boundary.
+### Course totals
 
-## Course grade CSV export
+`POST /api/courses/{course}/grade-export.csv` also requires an empty body and returns synchronous,
+no-store `text/csv; charset=utf-8` attachment data, bounded to 500 active students. It begins with
+`metadata` and `student` records and declares `totalPoints` or `weightedCategories` plus the fixed
+four-decimal half-away-from-zero rule. Unavailable rows carry a status instead of a score. Durable
+audit metadata is PII-free; email and display name exist only in the response.
 
-A direct course Instructor can also download the synchronous course-total export from
-`POST /api/courses/{course}/grade-export.csv`. The request body must be empty. The response is
-`text/csv; charset=utf-8`, uses CRLF records, is an attachment named `ple-course-grades.csv`, and
-returns `Cache-Control: no-store` plus an opaque `X-PLE-Course-Grade-Export-Id` response header.
+Route authorization, response headers, and retention are defined in [API_CONTRACTS.md](API_CONTRACTS.md),
+[crates/server/src/course/roster/export.rs](../crates/server/src/course/roster/export.rs), and
+[crates/server/src/course/gradebook.rs](../crates/server/src/course/gradebook.rs).
 
-The first two records identify the export and its calculation rules:
+## Planned formats and routes
 
-```csv
-record_type,aggregation_mode,rounding_rule,roster_id,email,display_name,course_total,letter,unavailable_status
-metadata,totalPoints,fourDecimalPlacesHalfAwayFromZero,,,,,,
-student,totalPoints,fourDecimalPlacesHalfAwayFromZero,900123456,student@example.edu,Student Name,93.0000,A,
-```
+These are explicit release-plan work, not current interfaces:
 
-- `aggregation_mode` is `totalPoints` or `weightedCategories`, and `rounding_rule` is the fixed
-  four-decimal half-away-from-zero rule.
-- Student rows carry either `course_total` and an optional `letter`, or an
-  `unavailable_status` such as `recalculating`; unavailable rows do not carry a score.
-- The export is limited to 500 active-student rows. Durable audit metadata retains no email,
-  display name, global account ID, or CSV object; the CSV bytes are not persisted.
+- Canvas and Blackboard QTI profile export as background jobs with queued status and protected
+  downloads (WP-RC6). No profile exporter has shipped.
+- A future external QTI-JSONL adapter. Native flat JSON v2 remains the authoritative internal
+  source contract; QTI-JSONL is not a current upload format.
+- Broader scored H5P conversion. Current H5P remains ungraded key-free practice; any scored
+  conversion requires a separate bounded, evidence-backed adapter contract.
 
-The route, authorization, response headers, and audit ownership are defined in
-[API_CONTRACTS.md](API_CONTRACTS.md), [crates/server/src/course/gradebook.rs](../crates/server/src/course/gradebook.rs),
-and [schemas/migrations/2026081806_course_grade_scheme.sql](../schemas/migrations/2026081806_course_grade_scheme.sql).
+YAML is not an input or output interface. A future human-editing format may compile to canonical
+flat JSON, but no YAML schema is accepted today. Generic PG, PGML, WebWork2, Open Problem Library,
+LMS roster synchronization, and Canvas/Blackboard export are not current file interfaces.
 
-## Import handling
-
-- Only an authenticated author with access to the target workspace may submit either source type.
-- The flat-question route parses and canonicalizes the complete answer-bearing JSON before staging it
-  as private source material.
-- The QTI route requires the exact `application/zip` media type and rejects an empty or oversized
-  archive before it is queued.
-- QTI recognition is intentionally bounded to Canvas QTI 1.2 and Blackboard QTI 2.1. A recognized
-  package can report accepted and rejected items together; unsupported features remain in the private
-  review report instead of being silently discarded.
-- A reviewed QTI item converts through the profile-to-native boundary. It does not expose its original
-  archive or answer bindings to a learner-facing or public route.
-
-## Formats not yet accepted
-
-- YAML is not an input or output interface. It may later become a human-editing format that compiles
-  once to canonical PLE JSON; until then, no YAML schema is defined.
-- QTI-JSONL is not a current PLE upload format. A future accepted external contract may receive a
-  versioned adapter, but PLE flat JSON v2 already owns native all-family source semantics.
-- A generic browser route for arbitrary PG, PGML, or Open Problem Library imports is not a current
-  contract. The configured private renderer accepts only the documented bounded source path.
+The release scope and dependency order are maintained in
+[release_completion_plan.md](active_plans/active/release_completion_plan.md); current package status is in
+[implementation_status.md](active_plans/implementation_status.md).

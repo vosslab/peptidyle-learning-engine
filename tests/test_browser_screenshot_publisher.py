@@ -1,5 +1,6 @@
 """Focused durable-publication checks for the canonical screenshot corpus."""
 
+import dataclasses
 import hashlib
 import json
 import pathlib
@@ -438,3 +439,26 @@ def test_profile_bundle_join_rejects_different_gateway_origins(tmp_path: pathlib
 	right = staging(tmp_path / "fault", contract.ARTIFACTS[1:], "https://localhost:55001")
 	with pytest.raises(publisher.ScreenshotPublicationError, match="different gateway origins"):
 		publisher.combine_pending((left, right))
+
+
+def test_pending_publication_rejects_cross_origin_artifact_evidence(tmp_path: pathlib.Path) -> None:
+	"""A pending corpus keeps every artifact on its declared public gateway."""
+	pending = staging(tmp_path / "private")
+	artifact_id, _ = pending.artifact_origins[0]
+	cross_origin_origins = ((artifact_id, "https://localhost:55001"), *pending.artifact_origins[1:])
+	mutated = dataclasses.replace(pending, artifact_origins=cross_origin_origins)
+	with pytest.raises(publisher.ScreenshotPublicationError, match="cross-origin artifact evidence"):
+		publisher._validate_pending(mutated)
+
+
+def test_gateway_origin_accepts_usable_port_boundaries() -> None:
+	"""Gateway origins retain the full valid TCP port range."""
+	assert publisher.normalize_https_gateway_origin("https://localhost:1") == "https://localhost:1"
+	assert publisher.normalize_https_gateway_origin("https://localhost:65535") == "https://localhost:65535"
+
+
+@pytest.mark.parametrize("origin", ("https://localhost:0", "https://localhost:65536", "https://localhost:not-a-port"))
+def test_gateway_origin_rejects_unusable_port_values(origin: str) -> None:
+	"""Origin parsing reports invalid port input through the publisher error type."""
+	with pytest.raises(publisher.ScreenshotPublicationError, match="origin is invalid"):
+		publisher.normalize_https_gateway_origin(origin)

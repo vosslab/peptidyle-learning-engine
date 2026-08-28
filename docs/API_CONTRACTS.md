@@ -78,6 +78,7 @@ body limit, status response, and Rust type remain in the linked owner.
 | Catalog lifecycle | `POST /api/problems/{workspace}/publish`, `POST /api/problems/by-id/{reference}/deprecate`, `/archive` | Publication mints one new immutable question with a fresh Question ID and hidden exact publication evidence. Lifecycle actions resolve the Question ID under authorization and retain protected historical evidence. | [crates/server/src/catalog/routes.rs](../crates/server/src/catalog/routes.rs) |
 | Course and assignment | `GET/POST /api/courses`, `GET /api/courses/{course}/assignments`, `GET /api/courses/{course}`, `/gradebook`; exact-course Instructor workspace `GET /api/courses/{course}/assignments/{assignment}`, `POST .../drafts`, `PUT .../{assignment}/content`, `PUT .../{assignment}/policies`, and `GET .../{assignment}/student-view` | Course comes from the route plus the authenticated direct-course relationship. Workspace reads and writes require the exact course/assignment pair; the workspace read returns the complete Instructor editor projection, while focused content and policy writes each replace only their owned slice and return the complete authoritative projection. Every focused write uses the shared assignment revision and `If-Match`; stale or issued-work conflicts preserve the page's entered values for visible recovery. | [crates/server/src/course/routing.rs](../crates/server/src/course/routing.rs), [crates/server/src/course/assignments/workspace.rs](../crates/server/src/course/assignments/workspace.rs) |
 | Assignment learner delivery | learner `GET /api/assignments/{assignment}/learner` and `/summary` | Ordinary learner routes remain separate key-free projections. They use learner enrollment and effective-policy authority; they are not Instructor workspace reads and do not authorize an Instructor Student view. | [crates/server/src/course/assignments/learner.rs](../crates/server/src/course/assignments/learner.rs) |
+| Instructor grading operations | `GET /api/courses/{course}/assignments/{assignment}/grading-operations`; `POST .../grading-operations/{operation}/retry`; `POST .../grading-operations/recalculate` | Direct-Instructor-only, exact course/assignment authority derived from the authenticated session and active direct course membership. The GET is a bounded, answer-free, metadata-only, `no-store` projection grouped by question, learner, or assignment. Retry and recalculation are `no-store`, body-free commands: retry requires the operation revision in `If-Match`, recalculation requires the assignment revision, and both require one UUID `Idempotency-Key`. Neither route accepts learner responses, answer keys, scores, or operation state from the browser. | [crates/server/src/course/grading_operations.rs](../crates/server/src/course/grading_operations.rs) |
 | Course groups and membership policy | `GET/POST /api/courses/{course}/groups`; `GET/PUT/DELETE /api/courses/{course}/groups/{group}`; `GET/PUT /api/courses/{course}/group-purpose-policies/{purpose}`; `GET /api/courses/{course}/group-membership-warnings` | Exact-course direct Instructors manage bounded, cursor-paged groups and the five purpose policies. Strong revisions protect mutations; referenced groups cannot be deleted or changed to an incompatible purpose. Multiple Section membership reports its actual warning disposition and count without blocking; other default purposes allow it. Responses are no-store and expose only safe `G-` and `M-` references and display labels. | [course router](../crates/server/src/course/routing.rs), [question-model facade](../crates/question_model/src/lib.rs) |
 | Assignment access modifiers and preview | `PUT/DELETE /api/courses/{course}/assignments/{assignment}/group-schedule-offsets/{group}`; `PUT/DELETE .../group-accommodations/{group}`; `PUT/DELETE .../individual-policy-exceptions/{student}`; `GET .../policy-preview/{student}`; `GET /api/courses/{course}/student-targets` | Exact-course direct Instructors mutate M2, M3, and M4 through assignment `If-Match`; authorization and reference resolution precede body parsing. Course-local times are resolved by the server through the course IANA zone. Each mutation atomically re-evaluates active-attempt S5 entitlement and S3 effective policy. The server-owned preview is a closed denied/allowed union: denial leaks no policy, while allowance carries safe local values, course zone, and ordered `G-`/`M-` provenance labels without internal IDs, clocks, or raw policy inputs. | [course router](../crates/server/src/course/routing.rs), [question-model facade](../crates/question_model/src/lib.rs) |
 | Course roster | `GET /api/courses/{course}/roster`; invitation create/revoke/redeem; enrollment-policy replace; member revoke; roster-import preview/commit; `POST /api/courses/{course}/assignments/{assignment}/grade-export.csv` | Direct Instructors own the workflow. A Sysadmin may use only the closed list/invite/policy/revoke/import support operations; the Store records actor/course/action/time for each support disclosure or change. Invitation claim resolves the authenticated PLE account and atomically creates a canonical membership episode plus its protected roster profile; assignment receipts remain evaluator-owned and materialize only on a qualifying event. Grade export remains direct-Instructor-only, synchronous, no-store, and excludes global account IDs. | [crates/server/src/course/roster.rs](../crates/server/src/course/roster.rs), [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) |
@@ -140,6 +141,34 @@ course-wide base delivery facts, and does not create enrollment, run, attempt,
 submission, receipt, grade, or preview state. The shared landing presentation
 is also used by ordinary learner overview; only ordinary enrolled Student
 entry creates work and supplies the server-owned gradebook evidence.
+
+### Instructor grading operations
+
+The grading-operations surface is an assignment-local Instructor recovery
+projection. `GET
+/api/courses/{course}/assignments/{assignment}/grading-operations` resolves
+the direct Instructor relationship from the session, verifies the exact course
+and assignment pair, and returns a bounded `no-store` page of metadata-only
+rows. `groupBy` accepts `question` or `learner`; `cursor` and `pageSize`
+are opaque and bounded. Rows expose safe operation state, reason, revision, next
+action, grouping label, affected-learner count, and trust generation. They
+never expose learner responses, answer keys, feedback internals, private
+source, or score values.
+
+`POST
+/api/courses/{course}/assignments/{assignment}/grading-operations/{operation}/retry`
+retries one visible operation. It requires one strong operation revision in
+`If-Match`, one UUID `Idempotency-Key`, and an exactly empty body. `POST
+/api/courses/{course}/assignments/{assignment}/grading-operations/recalculate`
+requests assignment-wide recalculation with one strong assignment revision in
+`If-Match`, one UUID `Idempotency-Key`, and the same empty-body contract. Both
+commands return a `no-store` action receipt with a strong `ETag`; authorization
+and exact course/assignment ownership are checked from the authenticated
+session before the controlled operation reference or action is interpreted.
+
+The browser receives only the route-bound metadata and receipt projection. The
+server recovers accepted private input through the sealed worker capability; a
+retry never asks the learner to submit the response again.
 
 ### Identity composition and activation
 

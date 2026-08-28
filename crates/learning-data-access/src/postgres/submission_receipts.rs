@@ -337,26 +337,15 @@ pub(super) fn automated_response_digest(response: &StudentResponse) -> Result<St
     Ok(Sha256Digest::compute(canonical.as_bytes()).to_string())
 }
 
-/// Produces the accepted-input replay state from answer-free metadata only.
+/// Validates accepted replay identity before the immutable receipt selects the
+/// current pending-versus-completed state.
 ///
-/// ASVS 1.5.2-1.5.3, 2.3, and 14.2: an exact v2 retry binds its typed response
-/// to the stored canonical digest without loading any generic response field.
-pub(super) fn accepted_pending_replay_from_metadata(
-    metadata: &SubmissionReplayMetadata,
-    response: &StudentResponse,
-    idempotency_key: &SubmissionIdempotencyKey,
-    attempt: QuestionAttemptId,
-) -> Result<crate::SubmissionReceiptRead, StoreError> {
-    validate_accepted_replay_metadata(metadata, response, idempotency_key)?;
-    Ok(crate::SubmissionReceiptRead::AcceptedPending(
-        crate::AcceptedSubmissionPending::new(attempt),
-    ))
-}
-
-/// Validates accepted replay identity without selecting a current receipt
-/// state. The receipt loader is the durable pending-versus-completed source.
+/// ASVS 1.5.2-1.5.3, 2.2.1-2.2.3, 2.3.1-2.3.3, 8.2.1-8.2.3, and 14.2.6:
+/// the typed answer stays private, the canonical digest is the replay key,
+/// and the later receipt projection remains the minimum route-authorized
+/// browser disclosure.
 #[cfg(feature = "postgres")]
-fn validate_accepted_replay_metadata(
+pub(super) fn validate_accepted_replay_metadata(
     metadata: &SubmissionReplayMetadata,
     response: &StudentResponse,
     idempotency_key: &SubmissionIdempotencyKey,
@@ -748,10 +737,10 @@ fn decode_receipt_presentation(
 #[cfg(test)]
 mod tests {
     use super::{
-        SubmissionReplayMetadata, accepted_pending_replay_from_metadata, automated_response_digest,
+        SubmissionReplayMetadata, automated_response_digest, validate_accepted_replay_metadata,
         validate_receipt_attempt_snapshot,
     };
-    use crate::{SubmissionIdempotencyKey, SubmissionReceiptRead};
+    use crate::SubmissionIdempotencyKey;
     use question_model::{
         ActivityTimestamp, AttemptProvenance, AttemptResult, AttemptStatus, AttemptTimerRecord,
         ImplementationVersion, IssuedAttemptCapabilityV1, ProblemId, QuestionAttempt,
@@ -760,26 +749,24 @@ mod tests {
     use uuid::Uuid;
 
     #[test]
-    fn accepted_v2_replay_uses_answer_free_metadata_and_canonical_digest() {
+    fn accepted_v2_replay_validates_answer_free_metadata_and_canonical_digest() {
         let response = StudentResponse::Numeric { value: 4.0 };
         let key = SubmissionIdempotencyKey::parse("accepted-replay").expect("key");
-        let attempt = QuestionAttemptId::from_uuid(Uuid::from_u128(41));
         let metadata = SubmissionReplayMetadata {
             idempotency_key: key.as_str().to_string(),
             request_contract_version: 2,
             request_sha256: automated_response_digest(&response).expect("digest"),
         };
 
+        assert_eq!(
+            validate_accepted_replay_metadata(&metadata, &response, &key),
+            Ok(())
+        );
         assert!(matches!(
-            accepted_pending_replay_from_metadata(&metadata, &response, &key, attempt),
-            Ok(SubmissionReceiptRead::AcceptedPending(_))
-        ));
-        assert!(matches!(
-            accepted_pending_replay_from_metadata(
+            validate_accepted_replay_metadata(
                 &metadata,
                 &StudentResponse::Numeric { value: 5.0 },
                 &key,
-                attempt,
             ),
             Err(crate::StoreError::Conflict)
         ));

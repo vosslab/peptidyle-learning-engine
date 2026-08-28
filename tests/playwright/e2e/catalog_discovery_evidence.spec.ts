@@ -23,6 +23,8 @@ import {
   requireScenarioInput,
   selectVisibleCourse,
   signOutVisible,
+  startOrContinuePractice,
+  waitForRouteDataSurface,
   writeOriginReceipt,
 } from "./real_stack_ui";
 
@@ -156,9 +158,8 @@ async function completeAssignment(page: Page, assignmentTitle: string): Promise<
     .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
   await expect(card).toHaveCount(1);
   await card.getByRole("link", { name: "Start assignment", exact: true }).click();
-  await expect(page.locator('[data-route-surface="assignmentOverview"]')).toBeVisible();
-  await page.getByRole("button", { name: "Start or continue practice", exact: true }).click();
-  await expect(page.locator('[data-route-surface="runAttempt"]')).toBeVisible();
+  await waitForRouteDataSurface(page, "assignmentOverview");
+  await startOrContinuePractice(page);
   const response = page.getByRole("radio").nth(firstVisibleResponseIndex);
   await expect(response).toBeVisible();
   await response.check();
@@ -232,7 +233,13 @@ async function captureLaptopState(
 ): Promise<void> {
   for (const artifact of artifacts) {
     await page.setViewportSize(CORPUS_VIEWPORT_SIZES[artifact.viewport]);
-    await target.scrollIntoViewIfNeeded();
+    // Place the captured evidence section at the top of the fixed viewport so
+    // its heading, authorized course row, and next-step link are visible
+    // together. `scrollIntoViewIfNeeded` can leave a partially visible section
+    // at the viewport edge when the preceding evidence panel is tall.
+    await target.evaluate((element) => {
+      element.scrollIntoView({ block: "start", inline: "nearest" });
+    });
     await expect(target).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await captureRealStackScreenshot(page, scenarioInput, artifact.artifactId);
@@ -337,7 +344,7 @@ test.describe("catalog discovery evidence on the production PLE stack", () => {
           .getByRole("article")
           .filter({ has: mary.getByRole("heading", { name: baseAssignmentTitle, exact: true }) });
         await card.getByRole("link", { name: "Start assignment", exact: true }).click();
-        await expect(mary.locator('[data-route-surface="assignmentOverview"]')).toBeVisible();
+        await waitForRouteDataSurface(mary, "assignmentOverview");
         await expect(mary.getByText("Completed runs", { exact: true })).toBeVisible();
       });
 
@@ -418,7 +425,9 @@ test.describe("catalog discovery evidence on the production PLE stack", () => {
         await captureLaptopState(
           elena,
           scenarioInput,
-          elena.getByRole("heading", { name: "Usage in your institution", exact: true }),
+          elena
+            .getByRole("heading", { name: "Usage in your institution", exact: true })
+            .locator(".."),
           usageArtifacts,
         );
         await verifyLibraryFilters(elena);

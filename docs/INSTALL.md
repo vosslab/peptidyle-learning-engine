@@ -11,8 +11,8 @@ and private WebWork renderer services.
 - Current Node.js and npm. The first launch installs the dependencies locked in `package-lock.json`.
 - Current stable Rust through `rustup`; [rust-toolchain.toml](../rust-toolchain.toml) selects
   `rustfmt`, Clippy, and `wasm32-unknown-unknown`.
-- Python 3.12. Install [pip_requirements-dev.txt](../pip_requirements-dev.txt) when running the
-  repository's Python-based developer checks.
+- Python 3.12. The live-demo wrapper creates its fixed repo-local `.venv` and installs the
+  declared runtime and developer dependencies with that interpreter.
 - Podman and a usable Compose provider for the local stack. On macOS, also start a Podman machine;
   see [MACOS_PODMAN.md](MACOS_PODMAN.md).
 - `curl`, `awk`, `openssl`, `xxd`, and `lsof`, which the typed stack lifecycle uses.
@@ -27,11 +27,13 @@ cd peptidyle-learning-engine
 ./run_live_demo.sh
 ```
 
-When `node_modules` is absent, `run_live_demo.sh` visibly runs
-`devel/setup_typescript.sh` before it starts the local-stack owner. That owner builds the production
-`dist/` bundle, creates the disposable `ple-live-demo-browser` HTTPS session, waits for readiness,
-and opens the printed origin. Select a seeded role in the visible PLE sign-in flow; its account,
-course membership, and authorization come from ordinary seeded PLE state.
+`./run_live_demo.sh` is the supported fresh-clone front door. It creates or refreshes the fixed
+repo-local `.venv` with Python 3.12, installs [pip_requirements-dev.txt](../pip_requirements-dev.txt),
+and verifies its PyYAML runtime import. When `node_modules` is absent, it also visibly runs
+`devel/setup_typescript.sh`; it then builds the production `dist/` bundle, creates the disposable
+`ple-live-demo-browser` HTTPS session, waits for readiness, and opens the printed origin.
+Select a seeded role in the visible PLE sign-in flow; its account, course membership, and
+authorization come from ordinary seeded PLE state.
 
 Each launch first completes owner-scoped cleanup of the previous `ple-live-demo-browser` session,
 then creates a fresh seeded installation. Relaunching therefore discards records created in the
@@ -53,14 +55,28 @@ finish:
 
 ## Developer tools
 
-Install the Python tooling only for repository checks:
+The same repo-local Python environment supports the controller and repository checks. Refresh it
+without activating an environment when you need the developer tools:
 
 ```bash
-python3 -m pip install -r pip_requirements-dev.txt
+./devel/setup_python.sh
 ```
 
 The repository toolchain and Cargo lockfile provide the Rust dependencies. Keep the developer live
 demo on its fixed Compose project and runtime identity so its owner-scoped lifecycle remains valid.
+
+## Browser test setup
+
+Install the Chromium and Firefox browsers used by the Playwright lanes after the JavaScript
+dependencies are present:
+
+```bash
+./devel/setup_playwright.sh
+```
+
+The script requires `node_modules`; run `./devel/setup_typescript.sh` first when starting from a
+checkout that has not yet run `./run_live_demo.sh`. Browser installation is optional for the
+headless live-demo start and for offline Rust, TypeScript, and Python checks.
 
 ## Seeded accounts and passkeys
 
@@ -93,7 +109,7 @@ For an offline cross-language verification after installing the developer tools,
 ```bash
 ./check_rust.sh
 ./check_codebase.sh
-source source_me.sh && pytest tests/
+source source_me.sh && .venv/bin/python -m pytest tests/
 ```
 
 Run `./check_rust.sh` before `./check_codebase.sh`: it generates the ignored TypeScript API and
@@ -108,5 +124,14 @@ has read-only diagnostics; [USAGE.md](USAGE.md) lists the supported commands.
 
 ## Known gaps
 
+- `WP-PROF-G1` is in closeout: the seven accepted migrations are restored and the implemented
+  closeout source is split across the allocated forward sequence `2026081866` through
+  `2026081869`. Migration 1866 owns the clean-volume receipt-schema preflight and constraints;
+  1867 owns execution receipt writers; 1868 owns the 36-input commit-v2 writer; and 1869 owns
+  Instructor receipt writers, retry V2, public retry routing, and V1 retirement. The affected
+  99-migration live database, RLS, worker, browser, WebWork, and replica evidence is green. G1
+  remains incomplete only pending repository tracking of the new owned artifacts and the exact
+  final-tracked-tree `source source_me.sh && ./all_test.sh` gate. `WP-RC12` release acceptance
+  remains open; this disposable live demo is not release evidence by itself.
 - TODO: Verify PG/PGML compatibility beyond the reviewed Chapter 1 MC/MATCH sources with separate
   source and live evidence.

@@ -10,6 +10,14 @@ WP-RC8's generic identity/passwordless/roster routes and provider-free productio
 live SMTP, optional-passkey/multi-replica evidence, and independent acceptance precede WP-RC4.
 Secure payload closeout and WP-RC5 visual-authoring/all-family integration follow in dependency order.
 
+**WP-PROF-G1 reconciliation boundary (2026-08-28).** The approved G1-W7 closeout is one semantic
+transition split into four atomic forward migrations, allocated in the shared
+[implementation status](../implementation_status.md) ledger: receipt provenance schema, execution
+receipt writers, completion receipt writer, and Instructor receipt writers. The sequence restores
+the accepted G1 migrations first, then applies 1866 through 1869 in order. G1 remains incomplete
+until its fresh/no-op/compatibility/checksum, nonempty-receipt fail-closed, PostgreSQL/RLS/worker,
+actual-V2 denial, browser, screenshot, and exact-final-tree `all_test.sh` gates are green.
+
 **Current bounded evidence.** WP-HG1 is accepted through permanent repository gates plus clean-stack,
 learner-sweep, and disposable PostgreSQL evidence; email activation, Fastmail, and HOTSPOT lifecycle
 remain release follow-ons. WP-RC5 has the Chapter 1 MC/MATCH matrix and browser sweep; visual
@@ -227,6 +235,15 @@ begins only after WP-P2 preserves the reserved migration ordering below.
 WP-P2 also completes its post-G1-W2 legacy-consumer transition and associated grant reductions before
 that RC7 schema handoff, using the recorded migration-allocation review.
 
+The G1 closeout remains a release dependency before any downstream package consumes accepted
+automated-grading operation receipts. Migration 1866 refuses a nonempty execution or operation
+receipt table before changing schema; it adds closed non-null provenance only on the clean
+pre-production volume. Migration 1869 supplies the five-input private retry V2, routes the public
+retry caller through its session-derived actor, revokes V1 execution, and drops V1 with `RESTRICT`.
+The connected security oracle must call the actual V2 function as `ple_app` and observe SQLSTATE
+`42501`; this actual-capability result is the authorization evidence. Any required unrun or
+skipped gate keeps G1 incomplete under [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md).
+
 ### WP-UI1: Compose the PLE teaching workspace
 
 - **Status:** accepted on 2026-08-13. The owner rejected the previous geometry and default contrast as component-correct
@@ -333,8 +350,9 @@ walkthrough acceptance. It removes provisional variants from the current design;
   candidate, and superseded cases refuse; independent review reports no P0/P1.
 - **Validation:** focused Node and Playwright tests; Rust Store/server suites; disposable PostgreSQL
   and MinIO acceptance; one-time 15-theme contact sheet and human contrast review;
-  `./check_codebase.sh`; built-browser Playwright; `source source_me.sh && python3 -m pytest -q
-tests/`; both diff checks. The contact sheet and exact theme inventory are not permanent test
+  `./check_codebase.sh`; built-browser Playwright;
+  `source source_me.sh && .venv/bin/python -m pytest -q tests/`; both diff checks. The contact
+  sheet and exact theme inventory are not permanent test
   fixtures.
 ### WP-RC2: Remove placeholder production seams
 
@@ -387,7 +405,8 @@ tests/`; both diff checks. The contact sheet and exact theme inventory are not p
   correct answers, credentials, unexpected protected fields/scripts/resources, redirects, oversized
   bodies, identity/version drift, malformed output, and unsupported controls. One question outage does
   not stop native questions or API health.
-- **Success:** `source source_me.sh && python3 local_stack.py start --with-webwork` builds/starts a private WeBWorK plus MariaDB
+- **Success:** `source source_me.sh && .venv/bin/python local_stack.py start --with-webwork`
+  builds/starts a private WeBWorK plus MariaDB
   profile from exact unmodified upstream revisions, verifies the resulting OCI digest, renders the exact
   immutable licensed `content/pilot/webwork/which_hydrophobic-simple.pgml` RadioButtons fixture twice
   with the same seed and stable result, grades correct and incorrect submissions, proves a cache hit,
@@ -422,7 +441,8 @@ tests/`; both diff checks. The contact sheet and exact theme inventory are not p
   Podman machine never performs concurrent duplicate Cargo builds.
   Every `OTHER_REPOS/` path remains reference-only and cannot be a build context, import, mount, or
   runtime source.
-- **Success:** `source source_me.sh && python3 local_stack.py start` starts PLE PostgreSQL, MinIO, API, worker,
+- **Success:** `source source_me.sh && .venv/bin/python local_stack.py start` starts PLE PostgreSQL,
+  MinIO, API, worker,
   gateway, and one private stateless PG renderer. No MariaDB service, WebWork2 application, render
   course, render user, or renderer password exists. The licensed pilot renders twice with a stable
   seed, grades correct and incorrect submissions, proves the cache/replay behavior, survives
@@ -800,7 +820,7 @@ node --import tsx --test tests/test_*.mjs
 ./check_codebase.sh
 bash run_playwright_tests.sh --build
 bash tests/e2e/e2e_release_candidate.sh
-source source_me.sh && python3 -m pytest -q tests/
+source source_me.sh && .venv/bin/python -m pytest -q tests/
 git diff --check
 git diff --cached --check
 ```

@@ -89,6 +89,32 @@ pub enum GradingExecutionState {
     Superseded,
 }
 
+/// Closed, answer-free category for one immutable execution receipt.
+///
+/// A category is separate from the mutable execution state: it preserves why
+/// that state was reached without recording private learner material or a
+/// provider diagnostic.  The database validates its exact state and identity
+/// pairing on every append.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GradingExecutionReceiptSafeCategory {
+    AcceptedSubmission,
+    InstructorRetry,
+    WorkerClaim,
+    Graded,
+    DependencyRetry,
+    GraderContractFailure,
+    GraderExecutionFailure,
+    IssuedEvidenceIntegrity,
+    RetryExhausted,
+}
+
+/// Closed, answer-free category for one immutable Instructor-action receipt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GradingOperationReceiptSafeCategory {
+    InstructorRetry,
+    InstructorRecalculation,
+}
+
 /// Immutable accepted-input metadata. The private response is intentionally absent.
 #[derive(Clone, PartialEq)]
 pub struct AcceptedSubmission {
@@ -303,6 +329,58 @@ pub enum AcceptedSubmissionExecutionDisposition {
     ClaimNoLongerActive,
 }
 
+/// Typed outcome of reloading immutable accepted work for an active lease.
+///
+/// `NotFound` and `Conflict` retain the established stale-claim meaning. A
+/// failed private-input or issued-evidence verification is closed and safe to
+/// route to `issued_evidence_integrity`; all other store failures remain
+/// operational errors and keep their original handling.
+#[derive(Debug, Clone, PartialEq)]
+pub enum AcceptedSubmissionExecutionLoadError {
+    NotFound,
+    Conflict,
+    IssuedEvidenceIntegrity,
+    Store(StoreError),
+}
+
+impl std::fmt::Display for AcceptedSubmissionExecutionLoadError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotFound => write!(formatter, "accepted-submission execution is absent"),
+            Self::Conflict => write!(formatter, "accepted-submission execution claim is stale"),
+            Self::IssuedEvidenceIntegrity => {
+                write!(
+                    formatter,
+                    "issued execution evidence failed integrity verification"
+                )
+            }
+            Self::Store(error) => write!(
+                formatter,
+                "accepted-submission execution load failed: {error}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for AcceptedSubmissionExecutionLoadError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Store(error) => Some(error),
+            Self::NotFound | Self::Conflict | Self::IssuedEvidenceIntegrity => None,
+        }
+    }
+}
+
+impl From<StoreError> for AcceptedSubmissionExecutionLoadError {
+    fn from(error: StoreError) -> Self {
+        match error {
+            StoreError::NotFound => Self::NotFound,
+            StoreError::Conflict => Self::Conflict,
+            error => Self::Store(error),
+        }
+    }
+}
+
 /// Result of a worker completion request whose acknowledgement may be uncertain.
 ///
 /// `Known` preserves a failure that prevented the requested transition. `OutcomeUnknown`
@@ -368,6 +446,12 @@ pub struct GradingExecutionReceipt {
     pub submission: AcceptedSubmissionId,
     pub generation: GradingExecutionGeneration,
     pub resulting_state: GradingExecutionState,
+    pub safe_category: GradingExecutionReceiptSafeCategory,
+    /// The authenticated learner or Instructor that initiated a ready
+    /// execution generation. Exactly one of `actor` and `worker` is present.
+    pub actor: Option<UserId>,
+    /// The server worker that made a claimed, completed, retry, or exception
+    /// transition. Exactly one of `actor` and `worker` is present.
     pub worker: Option<WorkerId>,
     pub occurred_at: ActivityTimestamp,
 }
@@ -455,7 +539,7 @@ pub trait AcceptedSubmissionExecutionStore: Send + Sync {
         &self,
         context: TenantContext,
         claim: AcceptedSubmissionExecutionClaim,
-    ) -> Result<AcceptedSubmissionExecution, StoreError>;
+    ) -> Result<AcceptedSubmissionExecution, AcceptedSubmissionExecutionLoadError>;
 
     async fn commit_or_fail_accepted_submission_execution(
         &self,

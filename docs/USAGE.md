@@ -12,11 +12,13 @@ Start and open the live demo:
 ./run_live_demo.sh
 ```
 
-On a fresh clone, this command runs `devel/setup_typescript.sh` when `node_modules` is absent. The
-lifecycle then builds production `dist/`, starts `ple-live-demo-browser`, waits for HTTPS readiness,
-and opens the canonical origin. Select a seeded Student, Instructor, or Sysadmin persona in the
-visible production-auth flow. Those personas use ordinary server-owned accounts, memberships, roles,
-and authorization from the disposable seeded installation.
+On a fresh clone, this command creates or refreshes the fixed Python 3.12 `.venv`, installs the
+declared Python dependencies, verifies PyYAML, and runs `devel/setup_typescript.sh` when
+`node_modules` is absent. The lifecycle then builds production `dist/`, starts
+`ple-live-demo-browser`, waits for HTTPS readiness, and opens the canonical origin. Select a seeded
+Student, Instructor, or Sysadmin persona in the visible production-auth flow. Those personas use
+ordinary server-owned accounts, memberships, roles, and authorization from the disposable seeded
+installation.
 
 Running the command again cleans its fixed project and starts a fresh seeded installation. This
 replacement discards the prior demo's disposable records and keeps unrelated Podman projects intact.
@@ -47,7 +49,8 @@ server-backed accounts for the Instructor, Student, and Sysadmin roles:
   account identity, session, membership, and authorization are resolved by the server.
 - To exercise passkeys, open **Account** -> **Your passkeys**, enter a passkey name, choose **Add
   passkey**, and complete the device prompt. Use **Sign out**, then **Sign in with a passkey** and
-  choose a course again. Email remains the normal account sign-in method.
+  choose a course again. Passwordless email remains the intended ordinary sign-in method, but email
+  delivery is not configured for this live demo; use the visible seeded-role entry for demo access.
 - To switch from Instructor to Student work, sign out and select a seeded Student persona. Do not
   use Instructor **Student view** as a substitute for a graded Student run.
 
@@ -78,9 +81,10 @@ records.
 When an accepted submission needs recovery, the Student sees **Response received**, a cleared answer
 buffer, and **Check grading status**. Select that control to read the current answer-free status;
 the browser does not submit the answer again. If the status becomes **Your response needs instructor
-attention**, Elena opens **Grading operations**, reviews the metadata-only operation, and selects its
-named retry action once. The ordinary worker completes the accepted private response, and Elena
-refreshes the current Gradebook to observe the resulting total.
+attention**, Elena opens **Grading operations**, reviews the metadata-only operation, and chooses its
+currently enabled named retry action when the operation is eligible. Elena follows the operation's
+current state and available action, then refreshes the current **Gradebook** to observe the resulting
+total after the ordinary worker completes the accepted private response.
 
 The grading-operations API is assignment-local and metadata-only:
 
@@ -96,15 +100,16 @@ rechecks it in the Store transaction. Responses contain operation state, safe re
 grouping, revisions, and action receipts, never learner responses, answer keys, feedback internals,
 or score values.
 
-## Build and validation
+## Build and validation commands
 
-Use these commands outside the normal demo launch when their named evidence is needed:
+Use the root shell scripts as the primary build and validation interface. Run these commands outside
+the normal demo launch when their named evidence is needed:
 
 ```bash
 ./build.sh
 ./check_rust.sh
 ./check_codebase.sh
-source source_me.sh && python3 local_stack.py acceptance
+source source_me.sh && .venv/bin/python local_stack.py acceptance
 ```
 
 `./build.sh` builds the Rust workspace, WebAssembly bridge, generated contracts, fixture evidence,
@@ -116,27 +121,39 @@ owner. For the complete final-material Validation suite, run:
 source source_me.sh && ./all_test.sh
 ```
 
-Use `./run_playwright_tests.sh --build` for one selected production-browser suite. It owns a fresh
-disposable HTTPS stack and cleanup, and creates scenario state through visible PLE workflows.
+Use `./run_playwright_tests.sh --build` for one selected production-browser suite after installing
+the browsers with `./devel/setup_playwright.sh`. It owns a fresh disposable HTTPS stack and cleanup,
+and creates scenario state through visible PLE workflows.
 
-## Read-only operations
+## Controller diagnostics
 
-The local-stack controller reports canonical stack state. Source the repository shell setup first:
+These read-only commands are the supported exception to the root-wrapper path. Source the repository
+shell environment before invoking the controller directly:
 
 ```bash
-source source_me.sh && python3 local_stack.py doctor
-source source_me.sh && python3 local_stack.py status
-source source_me.sh && python3 local_stack.py logs --tail 120
-source source_me.sh && python3 local_stack.py validate
+source source_me.sh && .venv/bin/python local_stack.py doctor
+source source_me.sh && .venv/bin/python local_stack.py status
+source source_me.sh && .venv/bin/python local_stack.py logs --tail 120
+source source_me.sh && .venv/bin/python local_stack.py validate
 ```
 
-`doctor` reports Podman/configuration diagnostics; `status` reports semantic readiness; `logs` shows
-scoped application logs; and `validate` checks initialized configuration and runtime state without
+`doctor` checks Podman and its Compose provider; `status` reports semantic readiness; `logs` prints
+scoped application logs; and `validate` checks configuration and runtime availability without
 starting or changing the stack. Add `--json` to `doctor`, `status`, or `validate` for machine output.
+Use `./run_live_demo.sh stop` for cleanup rather than a project-wide Compose command.
 Logs can contain private local diagnostic data. For deeper operator recovery, see
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) and [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## Known gaps
 
+- `WP-PROF-G1` remains in closeout: the seven accepted migrations are restored and the implemented
+  closeout source is split across allocated forward migrations `2026081866` through `2026081869`.
+  Migration 1866 owns the clean-volume receipt-schema preflight and constraints; 1867 owns
+  execution receipt writers; 1868 owns the 36-input commit-v2 writer; and 1869 owns Instructor
+  receipt writers, retry V2, public retry routing, and V1 retirement. The affected 99-migration
+  live database, RLS, worker, browser, WebWork, and replica evidence is green. G1 remains
+  incomplete only pending repository tracking of the new owned artifacts and the exact
+  final-tracked-tree `source source_me.sh && ./all_test.sh` gate. `WP-RC12` release acceptance
+  remains open; a successful local demo does not by itself establish release readiness.
 - TODO: Verify PG/PGML compatibility beyond the reviewed Chapter 1 MC/MATCH sources with separate
   source and live evidence.

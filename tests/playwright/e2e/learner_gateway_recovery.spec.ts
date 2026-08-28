@@ -24,6 +24,7 @@ import {
   requireScenarioInput,
   selectVisibleCourse,
   signOutVisible,
+  startOrContinuePractice,
   writeContextOriginReceipt,
 } from "./real_stack_ui";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
@@ -123,8 +124,7 @@ async function startRun(
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: assignment, exact: true }) });
   await card.getByRole("link", { name: "Start assignment", exact: true }).click();
-  await page.getByRole("button", { name: "Start or continue practice" }).click();
-  await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible();
+  await startOrContinuePractice(page);
   await page.getByRole("radio", { name: answer, exact: true }).check();
 }
 

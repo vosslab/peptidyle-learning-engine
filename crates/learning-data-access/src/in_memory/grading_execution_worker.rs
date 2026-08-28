@@ -13,9 +13,10 @@ use crate::{
     AcceptedSubmission, AcceptedSubmissionCommitError, AcceptedSubmissionCompletionInput,
     AcceptedSubmissionExecution, AcceptedSubmissionExecutionClaim,
     AcceptedSubmissionExecutionDisposition, AcceptedSubmissionExecutionFastPathClaimStore,
-    AcceptedSubmissionExecutionOutcome, AcceptedSubmissionExecutionRecoveryClaimStore,
-    AcceptedSubmissionExecutionStore, AcceptedSubmissionExecutionTarget, GradingExecutionReceipt,
-    JobLeaseDuration, JobPayload, JobState, StoreError, TenantContext, WorkerId,
+    AcceptedSubmissionExecutionLoadError, AcceptedSubmissionExecutionOutcome,
+    AcceptedSubmissionExecutionRecoveryClaimStore, AcceptedSubmissionExecutionStore,
+    AcceptedSubmissionExecutionTarget, GradingExecutionReceipt, JobLeaseDuration, JobPayload,
+    JobState, StoreError, TenantContext, WorkerId,
 };
 
 struct SuccessfulEvaluationPlan {
@@ -51,20 +52,23 @@ impl AcceptedSubmissionExecutionStore for MemoryStore {
         &self,
         context: TenantContext,
         claim: AcceptedSubmissionExecutionClaim,
-    ) -> Result<AcceptedSubmissionExecution, StoreError> {
+    ) -> Result<AcceptedSubmissionExecution, AcceptedSubmissionExecutionLoadError> {
         let state = self.read_state()?;
         let tenant = context.tenant_id();
         if claim.tenant != tenant {
-            return Err(StoreError::Conflict);
+            return Err(AcceptedSubmissionExecutionLoadError::Conflict);
         }
         let now = state.authoritative_time;
-        let job = state.jobs.get(&claim.job).ok_or(StoreError::NotFound)?;
+        let job = state
+            .jobs
+            .get(&claim.job)
+            .ok_or(AcceptedSubmissionExecutionLoadError::NotFound)?;
         if job.tenant != tenant
             || job.state != crate::JobState::Leased
             || job.lease_token != Some(claim.lease_token)
             || !job.lease_expires_at.is_some_and(|expiry| expiry > now)
         {
-            return Err(StoreError::Conflict);
+            return Err(AcceptedSubmissionExecutionLoadError::Conflict);
         }
         let crate::JobPayload::GradeAcceptedSubmission {
             attempt,
@@ -72,15 +76,15 @@ impl AcceptedSubmissionExecutionStore for MemoryStore {
             execution_generation,
         } = job.payload
         else {
-            return Err(StoreError::Conflict);
+            return Err(AcceptedSubmissionExecutionLoadError::Conflict);
         };
         if submission != claim.submission || execution_generation != claim.execution_generation {
-            return Err(StoreError::Conflict);
+            return Err(AcceptedSubmissionExecutionLoadError::Conflict);
         }
         let execution = state
             .automated_grading_executions
             .get(&(tenant, attempt))
-            .ok_or(StoreError::NotFound)?;
+            .ok_or(AcceptedSubmissionExecutionLoadError::NotFound)?;
         if execution.submission != claim.submission
             || execution.generation != claim.execution_generation
             || execution.job != claim.job
@@ -90,33 +94,33 @@ impl AcceptedSubmissionExecutionStore for MemoryStore {
                 .get(&(tenant, attempt))
                 != Some(&claim.worker)
         {
-            return Err(StoreError::Conflict);
+            return Err(AcceptedSubmissionExecutionLoadError::Conflict);
         }
         let stored = state
             .submissions
             .get(&(tenant, attempt))
-            .ok_or(StoreError::NotFound)?;
-        let accepted = stored.accepted_pending().ok_or(StoreError::Conflict)?;
+            .ok_or(AcceptedSubmissionExecutionLoadError::NotFound)?;
+        let accepted = stored
+            .accepted_pending()
+            .ok_or(AcceptedSubmissionExecutionLoadError::Conflict)?;
         if accepted.submission != claim.submission || accepted.tenant != tenant {
-            return Err(StoreError::Conflict);
+            return Err(AcceptedSubmissionExecutionLoadError::Conflict);
         }
         let private = state
             .private_submission_responses
             .get(&(tenant, attempt))
-            .ok_or_else(|| {
-                StoreError::Unavailable("accepted response authority is missing".to_string())
-            })?;
-        let canonical = crate::canonical_student_response_json(&private.response)?;
+            .ok_or(AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
+        let canonical = crate::canonical_student_response_json(&private.response)
+            .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
         if canonical != private.canonical_text
             || objects::Sha256Digest::compute(canonical.as_bytes()) != private.sha256
             || private.sha256 != accepted.request_sha256
         {
-            return Err(StoreError::Unavailable(
-                "accepted response authority disagrees with immutable metadata".to_string(),
-            ));
+            return Err(AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity);
         }
         let prepared =
-            super::grading_operations::load_prepared_accepted_submission(&state, tenant, attempt)?;
+            super::grading_operations::load_prepared_accepted_submission(&state, tenant, attempt)
+                .map_err(|_| AcceptedSubmissionExecutionLoadError::IssuedEvidenceIntegrity)?;
         Ok(AcceptedSubmissionExecution {
             accepted: accepted.clone(),
             response: private.response.clone(),
@@ -163,19 +167,27 @@ impl AcceptedSubmissionExecutionStore for MemoryStore {
             }
             AcceptedSubmissionExecutionOutcome::Evaluated { .. } => None,
         };
-        let (state_after, evaluation, disposition, evidence) = match outcome {
+        let (state_after, evaluation, disposition, evidence, safe_category) = match outcome {
             AcceptedSubmissionExecutionOutcome::Evaluated { grade } => (
                 crate::GradingExecutionState::Completed,
                 SubmissionEvaluationStatus::Graded,
                 AcceptedSubmissionExecutionDisposition::Committed,
                 Some(grade.evidence),
+                crate::GradingExecutionReceiptSafeCategory::Graded,
             ),
-            AcceptedSubmissionExecutionOutcome::DeterministicFailure { .. }
-            | AcceptedSubmissionExecutionOutcome::TerminalFailure => (
+            AcceptedSubmissionExecutionOutcome::DeterministicFailure { reason } => (
                 crate::GradingExecutionState::Exception,
                 SubmissionEvaluationStatus::AutomatedException,
                 AcceptedSubmissionExecutionDisposition::Terminal,
                 None,
+                execution_failure_category(reason),
+            ),
+            AcceptedSubmissionExecutionOutcome::TerminalFailure => (
+                crate::GradingExecutionState::Exception,
+                SubmissionEvaluationStatus::AutomatedException,
+                AcceptedSubmissionExecutionDisposition::Terminal,
+                None,
+                crate::GradingExecutionReceiptSafeCategory::GraderExecutionFailure,
             ),
             AcceptedSubmissionExecutionOutcome::TransientFailure
             | AcceptedSubmissionExecutionOutcome::TimedOut => {
@@ -189,6 +201,7 @@ impl AcceptedSubmissionExecutionStore for MemoryStore {
                         SubmissionEvaluationStatus::AutomatedException,
                         AcceptedSubmissionExecutionDisposition::Terminal,
                         None,
+                        crate::GradingExecutionReceiptSafeCategory::RetryExhausted,
                     )
                 } else {
                     (
@@ -196,6 +209,7 @@ impl AcceptedSubmissionExecutionStore for MemoryStore {
                         SubmissionEvaluationStatus::AutomatedPending,
                         AcceptedSubmissionExecutionDisposition::Rescheduled,
                         None,
+                        crate::GradingExecutionReceiptSafeCategory::DependencyRetry,
                     )
                 }
             }
@@ -312,6 +326,8 @@ impl AcceptedSubmissionExecutionStore for MemoryStore {
                 submission: claim.submission,
                 generation: claim.execution_generation,
                 resulting_state: state_after,
+                safe_category,
+                actor: None,
                 worker: Some(claim.worker),
                 occurred_at: now,
             });
@@ -480,7 +496,8 @@ pub(super) fn converge_expired_exhausted_claims(
         }
         let worker = state
             .automated_grading_execution_workers
-            .remove(&(tenant, attempt));
+            .remove(&(tenant, attempt))
+            .ok_or(StoreError::Conflict)?;
         execution.state = crate::GradingExecutionState::Exception;
         state.automated_grading_evaluations.insert(
             (tenant, attempt),
@@ -500,7 +517,9 @@ pub(super) fn converge_expired_exhausted_claims(
                 submission,
                 generation,
                 resulting_state: crate::GradingExecutionState::Exception,
-                worker,
+                safe_category: crate::GradingExecutionReceiptSafeCategory::RetryExhausted,
+                actor: None,
+                worker: Some(worker),
                 occurred_at: now,
             });
         if let Some(accepted) = accepted {
@@ -515,6 +534,26 @@ pub(super) fn converge_expired_exhausted_claims(
         }
     }
     Ok(())
+}
+
+fn execution_failure_category(
+    reason: GradingOperationReason,
+) -> crate::GradingExecutionReceiptSafeCategory {
+    match reason {
+        GradingOperationReason::GraderContractFailure => {
+            crate::GradingExecutionReceiptSafeCategory::GraderContractFailure
+        }
+        GradingOperationReason::IssuedEvidenceIntegrity => {
+            crate::GradingExecutionReceiptSafeCategory::IssuedEvidenceIntegrity
+        }
+        GradingOperationReason::GraderExecutionFailure
+        | GradingOperationReason::RetryExhausted
+        | GradingOperationReason::InstructorRequestedRecalculation
+        | GradingOperationReason::ScoringRecalculationRequested
+        | GradingOperationReason::ScoringRecalculationFailed => {
+            crate::GradingExecutionReceiptSafeCategory::GraderExecutionFailure
+        }
+    }
 }
 
 fn active_claim_attempt(

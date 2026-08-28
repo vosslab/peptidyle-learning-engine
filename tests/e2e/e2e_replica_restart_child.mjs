@@ -36,6 +36,19 @@ const POLL_TIMEOUT_MS = 45_000;
 const REPLICA_REFRESH_MS = 2_500;
 const REPLICA_HEADER_PREFIX = "ple-replica-e2e-api-";
 const TENANT_ID = "00000000-0000-0000-0000-000000000100";
+// Completed learner feedback may include policy-released correctResponse material.
+// These markers identify only server-owned source, grading, renderer, and credential material.
+const PRIVATE_SERVER_MARKERS = [
+  "problemSource",
+  "passwd",
+  "AnSwEr",
+  "hidden_input_field",
+  "render_rpc",
+  "render-api",
+  "answerKey",
+  "gradingPayload",
+  "privateGrading",
+];
 
 function fail(message) {
   throw new Error(message);
@@ -398,6 +411,115 @@ async function waitFor(label, operation, timeoutMs = POLL_TIMEOUT_MS) {
   fail(`${label} did not become ready: ${lastError}`);
 }
 
+function assertServerPrivateMaterialAbsent(body, label) {
+  for (const marker of PRIVATE_SERVER_MARKERS) {
+    assert.ok(!body.includes(marker), `${label} exposed server-private material`);
+  }
+  assert.doesNotMatch(
+    body,
+    /postgres:\/\/(?!\[redacted\])[^@\s]+@/u,
+    `${label} exposed a database credential`,
+  );
+}
+
+function assertAcceptedPendingReceipt(receipt, attemptId, label) {
+  assert.equal(receipt.status, 202, `${label} must be pending or completed`);
+  assert.deepEqual(
+    receipt.json,
+    {
+      kind: "accepted_pending",
+      accepted: true,
+      attemptId,
+      automatedGradingStatus: "pending",
+      nextAction: "check_status",
+    },
+    `${label} has an invalid pending acknowledgement`,
+  );
+  assertServerPrivateMaterialAbsent(receipt.body, label);
+}
+
+function assertCompletedReceiptStatus(receipt, label) {
+  assert.equal(receipt.status, 200, `${label} must be pending or completed`);
+  const value = requireExactKeys(
+    receipt.json,
+    [
+      "kind",
+      "accepted",
+      "attempt",
+      "feedback",
+      "scoringStatus",
+      "runCompletionStatus",
+      "nextIssued",
+      "nextPending",
+    ],
+    label,
+  );
+  assert.equal(value.kind, "completed", `${label} is not completed`);
+  assert.equal(value.accepted, true, `${label} was not accepted`);
+  assert.ok(
+    ["current", "recalculating", "failed"].includes(value.scoringStatus),
+    `${label} has an invalid scoring status`,
+  );
+  assert.ok(
+    ["inProgress", "completed"].includes(value.runCompletionStatus),
+    `${label} has an invalid run completion status`,
+  );
+  assert.equal(typeof value.nextPending, "boolean", `${label} has an invalid successor state`);
+  assert.ok(
+    value.nextIssued === null ||
+      (typeof value.nextIssued === "object" && !Array.isArray(value.nextIssued)),
+    `${label} has an invalid successor receipt`,
+  );
+  assert.ok(
+    value.attempt !== null && typeof value.attempt === "object" && !Array.isArray(value.attempt),
+    `${label} omitted its attempt result boundary`,
+  );
+  assert.ok(
+    value.feedback === null ||
+      (typeof value.feedback === "object" && !Array.isArray(value.feedback)),
+    `${label} has an invalid feedback projection`,
+  );
+  assert.notEqual(value.scoringStatus, "failed", `${label} reported failed score publication`);
+  if (value.scoringStatus === "recalculating") {
+    assert.equal(value.attempt.result, null, `${label} exposed a stale result while recalculating`);
+    if (value.feedback !== null) {
+      assert.ok(
+        !("pointsEarned" in value.feedback || "pointsPossible" in value.feedback),
+        `${label} exposed points while recalculating`,
+      );
+    }
+  }
+  assertServerPrivateMaterialAbsent(receipt.body, label);
+  return value.scoringStatus;
+}
+
+async function awaitTerminalReceipt(
+  dispatcher,
+  statusPath,
+  cookie,
+  attemptId,
+  acknowledgement,
+  label,
+) {
+  if (acknowledgement.status === 202) {
+    assertAcceptedPendingReceipt(acknowledgement, attemptId, label);
+  } else {
+    assertCompletedReceiptStatus(acknowledgement, label);
+  }
+  // The route-bound status read observes the durable aggregate independently of
+  // the transient acknowledgement projection returned by the original POST.
+  return await waitFor(`${label} terminal receipt`, async () => {
+    const receipt = await requestJson(dispatcher, statusPath, { headers: { cookie } });
+    if (receipt.status === 202) {
+      assertAcceptedPendingReceipt(receipt, attemptId, `${label} status`);
+      fail(`${label} is still pending`);
+    }
+    const scoringStatus = assertCompletedReceiptStatus(receipt, `${label} status`);
+    if (scoringStatus !== "current") fail(`${label} is still recalculating`);
+    return receipt;
+  });
+}
+
 function visibleSelectionMinimum(selection) {
   switch (selection?.kind) {
     case "exactlyOne":
@@ -602,15 +724,13 @@ export async function runReplicaOracle(input) {
         headers: studentHeaders,
       },
     );
-    assert.equal(typeof startedRun.json.id, "string", "start run did not return a run id");
-    const runId = encodeURIComponent(startedRun.json.id);
+    const runId = requireUuid(startedRun.json.id, "start run id");
     const attempts = await requestJson(dispatcher, `/api/runs/${runId}/attempts`, {
       headers: { cookie },
     });
     assert.ok(Array.isArray(attempts.json.items) && attempts.json.items.length === 1);
-    const attemptId = attempts.json.items[0]?.id;
-    assert.equal(typeof attemptId, "string", "attempt id is missing");
-    const attemptPath = encodeURIComponent(attemptId);
+    const attemptId = requireUuid(attempts.json.items[0]?.id, "attempt id");
+    const attemptPath = attemptId;
     const questionPath =
       `/api/courses/${manifest.courseId}/assignments/${manifest.assignmentId}` +
       `/attempts/${attemptPath}/question`;
@@ -642,12 +762,35 @@ export async function runReplicaOracle(input) {
     const submissionPath =
       `/api/courses/${manifest.courseId}/assignments/${manifest.assignmentId}` +
       `/attempts/${attemptPath}/submissions`;
-    const firstReceipt = await requestJson(dispatcher, submissionPath, submissionOptions);
+    const statusPath =
+      `/api/courses/${manifest.courseId}/assignments/${manifest.assignmentId}` +
+      `/attempts/${attemptPath}/submission-status`;
+    const acknowledgement = await requestJson(dispatcher, submissionPath, submissionOptions);
+    const terminalReceipt = await awaitTerminalReceipt(
+      dispatcher,
+      statusPath,
+      cookie,
+      attemptId,
+      acknowledgement,
+      "initial submission",
+    );
     const replayReceipt = await requestJson(dispatcher, submissionPath, submissionOptions);
-    assert.deepEqual(replayReceipt.json, firstReceipt.json, "idempotency replay changed receipt");
+    assert.equal(replayReceipt.status, 200, "terminal idempotency replay must return completed");
+    assert.equal(
+      assertCompletedReceiptStatus(replayReceipt, "terminal idempotency replay"),
+      "current",
+      "terminal idempotency replay must return current scoring",
+    );
+    assert.deepEqual(
+      replayReceipt.json,
+      terminalReceipt.json,
+      "terminal idempotency replay changed the completed receipt",
+    );
     await requirePostgresqlCounts(input.manifestPath, attemptId);
+    const replicas = `${initialReplica} -> ${resumed.replica}`;
     console.log(
-      `replica restart E2E passed: ${initialReplica} -> ${resumed.replica}; exact envelope and durable replay verified.`,
+      `replica restart E2E passed: ${replicas}; ` +
+        "exact envelope, terminal status, and durable replay verified.",
     );
   } finally {
     dispatcher.close();

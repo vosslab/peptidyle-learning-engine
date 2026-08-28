@@ -220,6 +220,7 @@ impl GradingOperationStore for MemoryStore {
             action: command.action,
             operation: command.operation,
             resulting_operation_revision: revision,
+            safe_category: crate::GradingOperationReceiptSafeCategory::InstructorRetry,
             occurred_at: state.authoritative_time,
         };
         let occurred_at = state.authoritative_time;
@@ -248,6 +249,8 @@ impl GradingOperationStore for MemoryStore {
                 submission: execution.submission,
                 generation,
                 resulting_state: crate::GradingExecutionState::Ready,
+                safe_category: crate::GradingExecutionReceiptSafeCategory::InstructorRetry,
+                actor: Some(actor),
                 worker: None,
                 occurred_at,
             });
@@ -346,6 +349,7 @@ impl GradingOperationStore for MemoryStore {
             resulting_operation_revision: GradingOperationRevision::INITIAL,
             assignment_revision,
             scoring_generation: invalidation.generation,
+            safe_category: crate::GradingOperationReceiptSafeCategory::InstructorRecalculation,
             occurred_at: state.authoritative_time,
         };
         state.instructor_grading_operation_actions.insert(

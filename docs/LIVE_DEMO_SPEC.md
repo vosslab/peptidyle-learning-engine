@@ -63,11 +63,11 @@ submissions, grades, and instructor review are ordinary PLE records created by t
 
 ### Visual evidence profiles
 
-Instructor and Sysadmin evidence uses a desktop 16:10 profile at 1280 by 800 CSS pixels or larger. Student profiles
-remain variable across the maintained corpus. The corpus name `laptop` is the established 1280 by 800 desktop 16:10
-evidence label; it remains that exact profile name for the G1 Instructor captures. Other Student captures use the
-declared portrait tablet, iPhone Pro aspect, and square profiles where the workflow needs them. Visual evidence
-supports semantic usability, accessibility, privacy, and task completion rather than pixel equivalence.
+Instructor and Sysadmin captures use the fixed `laptop` profile at exactly 1280 by 800 CSS pixels in a desktop 16:10
+viewport. Student captures use the maintained `laptop` (1280 by 800), `tablet` (800 by 1280), `iphone_pro` (393 by
+852), and `square` (800 by 800) profiles. These names and dimensions are defined by
+`tests/e2e/browser_screenshot_corpus.json`, the durable visual-evidence authority. Review each applicable capture for
+semantic usability, accessibility, privacy, and task completion.
 
 ### WebWork catalog baseline
 
@@ -131,8 +131,9 @@ replayed after acknowledgement; each status GET is answer-free and `no-store`.
 
 The acceptance-only fault profile then records one deterministic grader exception. The Student sees **Your response
 needs instructor attention**. Elena opens the assignment's **Grading operations** page, reviews the safe metadata row,
-and selects **Retry grading operation** exactly once. The ordinary worker claims the new execution generation and runs
-the accepted private response through the shared server handler. After completion and current-score publication, Elena
+and selects **Retry automated grading for [question]** exactly once. The ordinary worker claims the
+new execution generation and runs the accepted private response through the shared server handler. After completion
+and current-score publication, Elena
 opens the current Gradebook and observes Mary's resulting total. Learner status, operation responses, and receipts do
 not contain the answer, feedback internals, grading source, or score values.
 

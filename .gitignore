@@ -25,6 +25,7 @@ containers/local-chapter-one-pilot.json
 containers/.runtime/
 containers/.secrets/
 /local_runtime/
+.venv/
 .env
 # === PYTHON === [PROPAGATED - LOCAL EDITS OVERWRITTEN]
 build/

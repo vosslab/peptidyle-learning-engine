@@ -319,6 +319,7 @@ fn decode_retry_receipt(
         action: command.action,
         operation,
         resulting_operation_revision,
+        safe_category: crate::GradingOperationReceiptSafeCategory::InstructorRetry,
         occurred_at: timestamp(row, "action_occurred_at_millis")?,
     })
 }
@@ -351,6 +352,7 @@ fn decode_recalculation_receipt(
         resulting_operation_revision,
         assignment_revision,
         scoring_generation,
+        safe_category: crate::GradingOperationReceiptSafeCategory::InstructorRecalculation,
         occurred_at: timestamp(row, "action_occurred_at_millis")?,
     })
 }

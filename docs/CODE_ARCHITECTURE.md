@@ -231,7 +231,9 @@ submission, receipt, grade, or preview record.
 Assignment authoring belongs to `src/pages/assignment_workspace/`.
 `assignment_workspace_authoring.css` owns controls shared by Create, Questions,
 pools, and Policies, while `assignment_workspace.css` owns the assignment-local
-shell, navigation, and page composition. The remaining `assignment_editor_*`
+shell, navigation, and page composition. The shared
+`src/components/learner_assignment_presentation.css` owns the component's
+learner and Instructor Student-view presentation styles. The remaining `assignment_editor_*`
 modules are focused Questions helpers for picker, content-list, reuse, model, and
 repository behavior. The independent `/workspace/:workspaceRef` editor remains
 the private question-draft editor and is unrelated to course assignment workspace
@@ -269,6 +271,19 @@ The learner submission and status routes are `no-store`; the grading
 operations list and actions are also `no-store`. An acknowledged response is
 recovered from the immutable server-private submission, never from browser
 state or a second answer POST.
+
+The accepted-submission boundary has two durable read shapes. The first
+submission creates an answer-free `AcceptedPending` receipt in the public
+submission parents and stores the canonical response only in the private
+accepted-submission child. Learner status can replay that pending receipt
+without reading private response, job, or grading fields. After the sealed
+worker completes, `SubmissionReceiptRead::Completed` is the immutable replay
+source for the attempt, presentation, and released result; the status reader
+cross-checks it against execution and evaluation state before projecting
+feedback. Exact replays return the existing receipt, while a retry claims a
+new execution generation against the same accepted input. The worker performs
+one private load and one fenced commit-or-fail outcome; an ambiguous outcome
+is read later from durable state rather than graded or submitted again.
 
 ## Identity and authorization
 
@@ -463,13 +478,16 @@ the bytes that do not belong in relational rows. The four typed domains are:
 - `temp-processing`: bounded temporary ingress and processing bytes; it is not
   signable for browser delivery.
 
-The normal worker claims the supported educational job families. The
-accepted-submission execution is a sealed family in the same existing worker
-runtime, with a dedicated worker-only recovery store and login. The ordinary
-worker process claims the six generic families and dispatches the accepted
-family to `AcceptedSubmissionExecutionWorker`, which owns its private
-claim/load/commit capability; neither route nor browser can load private
-response data. The public-asset publisher is a separate process (`--public-asset-publisher`) with
+The normal worker runtime attests seven supported job families: six generic
+families (`RecalculateAssignment`, `RecalculateCourseItemAnalysis`,
+`AutoSubmitAttempt`, `Retention`, `Export`, and `QtiImport`) plus the sealed
+`GradeAcceptedSubmission` family. The ordinary worker claim filter contains
+only the six generic families. The sealed accepted-submission execution runs in
+the same existing worker runtime with a dedicated worker-only recovery store
+and login. It dispatches `GradeAcceptedSubmission` to
+`AcceptedSubmissionExecutionWorker`, which owns its private claim/load/commit
+capability; neither route nor browser can load private response data. The
+public-asset publisher is a separate process (`--public-asset-publisher`) with
 its own database login, queue filter, and object-store authority. A restart
 does not erase a job or educational result because the state transitions remain
 in shared storage.
@@ -484,6 +502,12 @@ receives only the recovery execution capability. The disposable `DATABASE_BASELI
 the same two validated private URLs through `crates/acceptance-runtime/`,
 `local_stack_control/runtime_manifest.py`, and `process_logins.py`; the
 manifest exposes them only at the connection boundary.
+
+`local_stack_control/worker_readiness.py` is the lifecycle evidence parser: it
+accepts only one coherent readiness receipt whose declared count matches the
+listed families and whose bounded failure detail is redacted. The readiness
+receipt is an operational capability assertion, not an HTTP health endpoint;
+the worker still verifies schema compatibility before draining jobs.
 
 ## Browser and local/deployed topology
 
@@ -503,13 +527,17 @@ browser sessions and verifies exact cleanup.
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) document its topology
 and operation.
 
-`python3 local_stack.py` is the repository-anchored operator front door for inspection,
+`./run_live_demo.sh` is the ordinary repository-anchored live-demo front door. Direct
+controller operations use `source source_me.sh && .venv/bin/python local_stack.py` for inspection,
 start, stop, restart, reset, validation, logs, and the aggregate live browser
 acceptance handoff. Its `local_stack_control/` package owns typed Compose
 provider selection, environment-file metadata and inherited-environment
 sanitization, label-based Podman discovery, semantic service status, and
 project-scoped cleanup plans. Focused Python modules own lifecycle sequencing:
-`lifecycle.py` coordinates typed start, validation, and restart requests;
+`lifecycle.py` coordinates typed start, validation, and restart requests through
+the `lifecycle_commands.py` facade owner. `lifecycle_commands.py` owns the
+structured child command boundary, selected child environments, Compose
+interpolation validation, and redacted failure details;
 `local_environment.py` and `private_files.py` own default-only private state;
 `browser_suite_developer.py`, `browser_suite_lease.py`, and `browser_suite_reset.py`
 own the fixed developer/browser lifecycle; `private_state.py` owns mode-0700
@@ -566,7 +594,7 @@ needed assignment, group, and policy state through visible PLE controls before
 asserting the instructor result, persistence, revision recovery, and access
 boundaries.
 
-`python3 local_stack.py acceptance` is the public aggregate acceptance entry
+`source source_me.sh && .venv/bin/python local_stack.py acceptance` is the public aggregate acceptance entry
 point. It delegates stack-conflict preflight and child-environment
 sanitization to the controller, then invokes
 `local_stack_control/acceptance_lanes.py`. That Python module runs exactly one
@@ -581,6 +609,18 @@ CloudFront and WAF at the edge, a CloudFront-restricted application load
 balancer, private ECS tasks, private PostgreSQL, S3 VPC access, separate task
 roles, and four encrypted object buckets. It is deployment configuration, not
 evidence that an AWS account has been provisioned or operated correctly.
+
+The material schema tree contains 99 ordered forward migrations through
+`2026081869`. The earlier 95-migration chain through `2026081865` is historical
+acceptance evidence. The four-file G1 closeout sequence is atomic by responsibility:
+`2026081866` owns the clean-volume receipt-schema preflight and constraints,
+`2026081867` owns execution receipt writers, `2026081868` owns the 36-input
+commit-v2 writer, and `2026081869` owns Instructor receipt writers, retry V2,
+public retry routing, and V1 retirement. PostgreSQL is the production persistence
+authority; the in-memory Store is compiled only for deterministic contract tests and
+is not a runtime fallback. The local live-demo stack is production-shaped evidence
+with disposable volumes and fixed owner and capability boundaries, not a public
+production deployment.
 
 ## Testing and verification
 
@@ -630,13 +670,19 @@ not evidence that an unrun deployment path works.
   projection, grading handoff, authorization, and side-effect behavior.
 - Add forward-only schema changes under [schemas/migrations/](../schemas/migrations/).
 - Add a normal local-stack operation in `local_stack_control/` and expose it through
-  `python3 local_stack.py`; keep lifecycle state in focused typed Python modules.
+  `source source_me.sh && .venv/bin/python local_stack.py`; keep lifecycle state in focused typed Python modules.
 - Add a disposable E2E consumer by declaring a closed owner policy and private
   manifest contract in `local_stack_control/consumer.py`, rather than adding a
   general project or cleanup flag.
 
 ## Known gaps
 
+- The implemented G1 closeout source is present in the four allocated migrations
+  `2026081866` through `2026081869`, and the seven accepted predecessor migrations
+  are restored. The affected live database, RLS, worker, browser, WebWork, and
+  replica evidence is green on the 99-migration material tree. `WP-PROF-G1`
+  remains incomplete until the new owned files are tracked and the exact final
+  tracked-tree `source source_me.sh && ./all_test.sh` gate passes.
 - Verify the deployed AWS account's DNS, ACM certificates, Secrets Manager
   values, database login provisioning, backup recovery, alerting, and incident
   procedures before production use.

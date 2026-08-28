@@ -22,6 +22,40 @@ def require_ready(report: local_stack_control.models.StatusReport) -> None:
 
 
 #============================================
+def poll_until[PollValue](
+	read_value: collections.abc.Callable[[], PollValue],
+	is_ready: collections.abc.Callable[[PollValue], bool],
+	timeout_seconds: float,
+	*,
+	clock: Clock = time.monotonic,
+	pause: Pause = time.sleep,
+	interval_seconds: float = 0.25,
+	detail: collections.abc.Callable[[PollValue], str] | None = None,
+) -> PollValue:
+	"""Return a value once its semantic predicate is true within a bound."""
+	if timeout_seconds <= 0 or interval_seconds <= 0:
+		raise local_stack_control.models.ControllerError("readiness timing must be positive")
+	deadline = clock() + timeout_seconds
+	value = read_value()
+	ready = is_ready(value)
+	while not ready and clock() < deadline:
+		remaining = deadline - clock()
+		if remaining <= 0:
+			break
+		pause(min(interval_seconds, remaining))
+		value = read_value()
+		ready = is_ready(value)
+	if not ready:
+		message = "readiness condition was not met"
+		if detail is not None:
+			message = detail(value)
+		raise local_stack_control.models.ControllerError(
+			"selected stack did not become ready: " + message
+		)
+	return value
+
+
+#============================================
 def poll_ready(
 	read_report: PollRead,
 	timeout_seconds: float,
@@ -30,18 +64,15 @@ def poll_ready(
 	interval_seconds: float = 0.25,
 ) -> local_stack_control.models.StatusReport:
 	"""Return a ready report or the last semantic failure before a bounded timeout."""
-	if timeout_seconds <= 0 or interval_seconds <= 0:
-		raise local_stack_control.models.ControllerError("readiness timing must be positive")
-	deadline = clock() + timeout_seconds
-	last_report = read_report()
-	while not last_report.ok and clock() < deadline:
-		pause(interval_seconds)
-		last_report = read_report()
-	if not last_report.ok:
-		raise local_stack_control.models.ControllerError(
-			"selected stack did not become ready: " + last_report.message
-		)
-	return last_report
+	return poll_until(
+		read_report,
+		lambda report: report.ok,
+		timeout_seconds,
+		clock=clock,
+		pause=pause,
+		interval_seconds=interval_seconds,
+		detail=lambda report: report.message,
+	)
 
 
 #============================================

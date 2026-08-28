@@ -29,6 +29,7 @@ appropriate repo root or package.
 | [rotate_changelog.py](rotate_changelog.py) | Move old changelog day blocks into archive files. |
 | [flatten_broken_md_links.py](flatten_broken_md_links.py) | Repair or flatten broken Markdown links. |
 | [dist_clean.sh](dist_clean.sh) | Remove build artifacts, caches, and dependency installs. |
+| [setup_python.sh](setup_python.sh) | Create or refresh the fixed repo-local Python 3.12 `.venv`. |
 
 ## Propagated devel scripts
 
@@ -50,10 +51,12 @@ TypeScript setup/rendering helpers.
 
 ## Running scripts
 
-For Python scripts, use the repo bootstrap environment:
+Prepare the fixed environment with `./devel/setup_python.sh`. Controller and test
+commands use the repo-local `.venv`:
 
 ```bash
-source source_me.sh && python3 devel/<script>.py
+source source_me.sh && .venv/bin/python devel/<script>.py
+source source_me.sh && .venv/bin/python -m pytest tests/
 ```
 
 Run individual scripts with `--help` for current options. Keep command details

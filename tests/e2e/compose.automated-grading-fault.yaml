@@ -3,6 +3,10 @@
 # ordinary worker command for successful retry processing. The closed disposable
 # owner starts the feature-only one-claim service after stopping that worker.
 
+x-ple-disposable-capability-label: &ple-disposable-capability-label
+  org.peptidyle.disposable.capability-sha256: "${PLE_DISPOSABLE_CAPABILITY_SHA256:?set by the live-demo target}"
+  org.peptidyle.e2e.owner: "${PLE_E2E_OWNER:?set by the live-demo target}"
+
 services:
   api:
     build:
@@ -28,7 +32,10 @@ services:
       webwork-renderer:
         condition: service_healthy
     environment:
-      PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL: ${PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL:?set by the live-demo target}
+      # Compose topology validation precedes PostgreSQL login provisioning.
+      # The lifecycle replaces this unreachable placeholder with the generated,
+      # least-privilege recovery URL before it starts either worker.
+      PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL: ${PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL:-postgres://ple_accepted_submission_recovery_login:unprovisioned@postgres:5432/${POSTGRES_DB:-peptidyle}}
       PLE_GRADER_DATABASE_URL: postgres://ple_grading_reader:${PLE_LOCAL_GRADER_PASSWORD:?set by the live-demo target}@postgres:5432/${POSTGRES_DB:-peptidyle}
       PLE_S3_ENDPOINT: http://minio:9000
       PLE_S3_REGION: us-east-1

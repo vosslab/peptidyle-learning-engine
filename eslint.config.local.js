@@ -33,6 +33,7 @@ export default [
     // export-inspection glue are excluded for the same reason: they are not
     // authored app code. Root generated/api remains linted after tsgen.
     ignores: [
+      ".venv/**",
       "crates/**",
       "target/**",
       "dist_wasm/**",

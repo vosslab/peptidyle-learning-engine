@@ -943,8 +943,8 @@ def test_default_environment_symlink_is_not_a_bootstrap_target(tmp_path: pathlib
 
 
 #============================================
-def test_compose_failure_retains_redacted_bounded_child_diagnostics(tmp_path: pathlib.Path) -> None:
-	"""Compose failures retain the useful tail only after exact private-value redaction."""
+def test_compose_failures_retain_redacted_bounded_child_diagnostics(tmp_path: pathlib.Path) -> None:
+	"""Both Compose boundaries retain only bounded diagnostic detail after redaction."""
 	target = lifecycle_target(tmp_path, "containers", "containers/env.local")
 	target.env_file.parent.mkdir()
 	target.env_file.write_text("PLE_TEST_SECRET=private-value\n", encoding="ascii")
@@ -955,17 +955,18 @@ def test_compose_failure_retains_redacted_bounded_child_diagnostics(tmp_path: pa
 	detail = local_stack_control.lifecycle_diagnostics.redacted_failure_detail(
 		result, ("private-value",)
 	)
-	assert len(detail) == local_stack_control.lifecycle_diagnostics.MAXIMUM_DIAGNOSTIC_CHARACTERS
+	assert len(detail) <= local_stack_control.lifecycle_diagnostics.MAXIMUM_DIAGNOSTIC_CHARACTERS
 	assert "stdout useful [private]" in detail
 	class FailureRunner(UnexpectedRunner):
 		def run(self, argv: list[str], environment: dict[str, str] | None = None, cwd: pathlib.Path | None = None, stdin: str | None = None) -> local_stack_control.models.CommandResult:
 			return result
-	with pytest.raises(local_stack_control.models.ControllerError) as error:
+	with pytest.raises(local_stack_control.models.ControllerError) as compose_error:
 		local_stack_control.lifecycle.compose_run(target, FailureRunner(), ["up", "-d"])
-	message = str(error.value)
-	assert "stderr useful [private]" in message
-	assert "private-value" not in message
-	assert len(message) <= 512
+	with pytest.raises(local_stack_control.models.ControllerError) as validation_error:
+		local_stack_control.lifecycle.validate_compose(target, FailureRunner(), tmp_path)
+	messages = (str(compose_error.value), str(validation_error.value))
+	assert all("stderr useful [private]" in message for message in messages)
+	assert all("private-value" not in message and len(message) <= 512 for message in messages)
 
 
 #============================================

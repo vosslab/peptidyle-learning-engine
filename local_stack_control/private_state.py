@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import abc
 import json
 import os
 import pathlib
@@ -17,6 +18,16 @@ import local_stack_control.private_files
 _RECEIPT_SUFFIX = ".private-state.json"
 
 
+class PrivateStateHandle(abc.ABC):
+	"""Minimal lifecycle contract shared by checked private-state owners."""
+
+	directory: pathlib.Path
+
+	@abc.abstractmethod
+	def remove(self) -> None:
+		"""Remove or reset the checked private state represented by this handle."""
+
+
 def _identity(metadata: os.stat_result) -> tuple[int, int]:
 	"""Return the immutable identity fields used to reject replacement paths."""
 	return metadata.st_dev, metadata.st_ino
@@ -28,7 +39,7 @@ def _directory_descriptor(path: pathlib.Path) -> int:
 
 
 @dataclass(frozen=True)
-class PrivateState:
+class PrivateState(PrivateStateHandle):
 	"""One exact run directory below a checked repository-owned target root."""
 
 	repository_root: pathlib.Path

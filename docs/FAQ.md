@@ -51,7 +51,9 @@ server repeats format validation and then makes the authoritative grading
 decision. If WebAssembly is unavailable, the browser uses a key-free server
 format-validation route; it does not fall back to local grading. See
 [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) and
-[QUESTION_MODEL.md](QUESTION_MODEL.md).
+[QUESTION_MODEL.md](QUESTION_MODEL.md). The live demo follows the same boundary:
+a Student submission is graded on the server, and the authorized Instructor
+Gradebook reads the resulting server-owned record.
 
 ## Is PLE flat-question JSON QTI?
 
@@ -63,8 +65,8 @@ and QTI expression trees do not become PLE's internal schema. PLE flat JSON
 version 2 is the closed native source contract for all eight families, including
 `singleChoice`. A future QTI-JSONL format
 would be an external adapter, not the internal source model. See
-[QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and
-[flat_question_family_evolution_plan.md](active_plans/active/flat_question_family_evolution_plan.md).
+[QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and the
+[flat question family evolution plan](active_plans/active/flat_question_family_evolution_plan.md).
 
 ## Can a student browser contact WeBWorK?
 
@@ -102,6 +104,17 @@ passwordless and roster slice still has production acceptance work, so the
 current status report is the source for what has been verified in a deployment.
 See [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
 
+## Is PLE ready for production?
+
+Not yet. PLE is still pre-production. The live demo is a functional,
+disposable installation, but it is not release acceptance. `WP-PROF-G1`
+implementation and connected evidence are green, while repository tracking of
+new owned files and the exact final-tracked-tree `all_test.sh` gate remain open.
+`WP-RC8` also remains acceptance-open for its provider, mailbox, passkey,
+multi-replica, security, HCI, and release gates. See
+[implementation_status.md](active_plans/implementation_status.md) and
+[release completion plan](active_plans/active/release_completion_plan.md).
+
 ## Is the live demo read-only?
 
 No. The live demo uses the ordinary PLE application, authorization, database,
@@ -110,6 +123,77 @@ membership, submissions, grades, and other permitted records. Those changes
 remain in the current disposable installation until it is regenerated;
 regeneration restores the seeded baseline and discards the demo's disposable
 state. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
+
+## Are live-demo roles isolated from one another?
+
+No. The seeded personas use ordinary accounts, memberships, courses, and
+records in the same live installation. Elena's Instructor course is shared with
+Mary and Jack as enrolled Students, so Mary's submitted work can appear in
+Elena's Gradebook after a fresh read. The data is disposable because the
+installation can be regenerated, not because each role has a private sandbox.
+See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [USER_ROLES.md](USER_ROLES.md).
+
+## Is Instructor Student view the same as entering as a Student?
+
+No. **Student view** is an answer-free, no-store inspection of the current
+assignment that retains the Instructor session and creates no learner work.
+Entering through ordinary Student entry uses the enrolled Student's authority
+and can create a run, attempt, submission, score, and Gradebook evidence. Use
+Student view to inspect delivery; use Student entry to exercise graded work.
+See [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md) and [API_CONTRACTS.md](API_CONTRACTS.md).
+
+## Are Blueprints and Alpha curricula teaching courses?
+
+No. A Blueprint is a personal reusable assignment, and an Alpha curriculum is a
+shared reusable curriculum; neither aggregate can be enrolled in directly.
+An Instructor instantiates one into ordinary teaching work, such as a draft
+assignment or a new teaching course, through the adoption workflow. Their names
+stay separate from course names, assignments, memberships, and learner work.
+See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md).
+
+## Can I reuse a question or assignment?
+
+Yes, but reuse is explicit and versioned. Select a published question by its
+human-readable Question ID, reuse an assignment's ordered questions, or draw
+from a reusable pool. A private Blueprint and a public Alpha curriculum can
+also supply ordered questions through adoption; none is a mutable teaching
+course or an enrollment target. Existing issued learner runs keep their
+immutable question snapshot. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and
+[QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md).
+
+## What happens if automated grading stalls?
+
+The learner submits once and receives **Response received** while the server
+keeps the accepted response private. **Check grading status** is an answer-free
+read, and the normal path proceeds to feedback and **View completed run** without
+Instructor intervention. If the status instead says **Your response needs
+instructor attention**, an authorized Instructor reviews **Grading operations**
+and chooses the currently enabled **Retry automated grading for [question]**
+action when the operation is eligible. The action follows the current operation
+state and its available bounds; no fixed retry count is prescribed. After the
+learner reaches **Your completed run is recorded.**, confirm the current result
+in **Gradebook**. The browser never receives an answer, grading internals, or a
+hidden key. See
+[LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md), [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md),
+and [implementation_status.md](active_plans/implementation_status.md).
+
+## Can the browser or another student see answer keys?
+
+No. Public question and learner projections are answer-free. Answer keys,
+private source material, grading rules, and provider credentials remain on the
+server; tenant and role authorization also restricts educational records.
+The disposable demo shares ordinary seeded course records between its seeded
+personas, but that does not expose private grading material. See
+[SECURITY_MODEL.md](SECURITY_MODEL.md) and [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
+
+## Does the demo role selector grant a role?
+
+No. It replaces only the normal identity-verification ceremony. The server
+resolves the selected seeded account and then derives the ordinary session,
+course membership, role, and authorization from live PLE state. After entry,
+the browser uses the same application and authorization paths as any other
+session. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and
+[AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md).
 
 ## Why does a submission identify an attempt?
 

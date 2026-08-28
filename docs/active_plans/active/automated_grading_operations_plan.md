@@ -22,10 +22,11 @@ also records the approved forward allocations for W4 and W5:
 `2026081863_scoring_invalidation_origin.sql`, and
 `2026081864_scoring_invalidation_capability.sql`.
 
-W2 and W3 are accepted, W4 has a stable implementation handoff, and W5 is current. W4's
-acceptance retains the binding contract's final connected gate: readable
-1851 through 1860 apply, second-pass no-op, compatibility, and executable
-role/RLS proof. The W4
+W2 and W3 are accepted; W4 has a stable implementation handoff; and W5 through W7b implementation
+and connected evidence are complete. G1-W7 closeout is current. The 99-migration live evidence
+includes readable migrations 1851 through 1869, second-pass no-op, compatibility, executable
+role/RLS proof, visible browser recovery, WebWork grading, replica restart, and exact cleanup. Final
+tracked-tree Validation follows repository tracking of the 13 current durable artifacts. The W4
 execution contract at
 `docs/active_plans/active/automated_grading_execution_contract.md` freezes the
 sealed worker capability, versioned canonical immutable evidence protocol, state transitions, lane
@@ -39,6 +40,57 @@ Parallel-plan ready: yes. The accepted-submission and operation contract is the 
 After that contract freezes, the persistence owner may implement Memory contracts and PostgreSQL
 authority as two coordinated lanes. Exception routing, worker execution, HTTP, browser, and
 connected proof then follow in dependency order.
+
+## G1-W7 reconciliation addendum
+
+The 2026-08-28 architect decision approves one semantic closeout transition split across four
+atomic forward migrations. This addendum preserves the accepted G1 package scope and contract;
+accepted work remains closed and the existing receipt history remains canonical. `WP-PROF-G1`
+remains incomplete until final Validation passes on the exact tracked material tree.
+
+### Ordered migration work
+
+Allocate the four identities before source edits, restore the accepted migration contents, then
+implement and apply these bounded responsibilities in order:
+
+| Migration | Bounded outcome | Depends on |
+| --- | --- | --- |
+| `2026081866_g1_receipt_provenance_schema.sql` | Clean-volume preflight plus closed provenance/category schema and constraints for both receipt tables. | Restored accepted migrations and empty receipt history. |
+| `2026081867_g1_execution_receipt_writers.sql` | Acceptance, claim, and failure writers supply the closed category and exclusive actor-or-worker identity. | 1866 valid receipt schema. |
+| `2026081868_g1_completion_receipt_writer.sql` | The frozen 36-input commit-v2 writer records the `graded` completion category under worker authority. | 1867 writer contract. |
+| `2026081869_g1_instructor_receipt_writers.sql` | Final recalculation writer plus five-input private retry V2, public routing, and V1 retirement. | 1868 completion writer and final 1865 body. |
+
+Migration 1866 first asserts that both `grading_execution_receipt` and
+`grading_operation_receipt` are empty. A nonempty table raises an actionable failure before any
+schema change. The migration then adds the required non-null fields and closed constraints while
+preserving append-only rows, requiring explicit provenance, and retaining immutability. The
+nonempty-history refusal is a one-time pre-production acceptance probe. Retained history
+requires a separately approved immutable augmentation design.
+
+Migration 1869 creates the five-input private `ple_prepare_accepted_submission_retry_v2`, routes
+the unchanged public retry caller through its session-derived actor, revokes V1 execution, and
+drops the four-input V1 function with `RESTRICT`. The connected denial oracle calls the actual
+well-formed V2 capability as `ple_app` and requires SQLSTATE `42501`, establishing authorization
+through the actual capability boundary.
+
+### Reconciliation gates
+
+- Before SQL edits, prove byte-for-byte restoration of the seven accepted migrations and record
+  all four allocated identities in the shared ledger.
+- On a clean disposable volume, apply the sequence once, apply it again as a no-op, pass
+  compatibility, and verify checksum mutation detection. Separately record the explicit 1866
+  refusal against a nonempty receipt fixture or database.
+- Run the connected PostgreSQL/RLS and worker oracle for receipt category/state guards,
+  actor-or-worker provenance, V2 owner/ACL/`SECURITY DEFINER`/search-path authority, absent V1
+  capability and grants, forced RLS, direct table denial, lease and generation fences,
+  retry/recalculation idempotency, and sole score publication.
+- Rerun the production HTTPS browser path for answer-free learner and Instructor projections,
+  network observations, and screenshots, then run `source source_me.sh && ./all_test.sh` on the
+  exact final material tree.
+
+Per [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md), any required unrun or skipped gate
+keeps G1 incomplete. The shared migration ledger remains the allocation authority; this section
+records only the reconciliation delta and its acceptance boundary.
 
 ## Context
 

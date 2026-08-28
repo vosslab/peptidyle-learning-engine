@@ -111,9 +111,14 @@ check.
 ## Cleaning up
 
 ```bash
-source source_me.sh && python3 local_stack.py stop # stop the stack, keep data
+./run_live_demo.sh stop                            # stop and remove live-demo data
 podman machine stop                                # stop the virtual machine
 ```
 
-Destructive cleanup (removing volumes, pruning images) is deliberately not
-scripted here. Run those by hand when you mean them.
+`./run_live_demo.sh stop` performs the authenticated owner cleanup for the
+fixed live-demo project. It removes only that project's labelled containers,
+volumes, networks, and private workspace, so the next launch starts with a
+fresh demo dataset. Review status and logs before stopping when diagnostic
+evidence needs to be retained. Image pruning remains a separate manual
+operation; this command does not affect the retained `containers` project or
+other Podman images.

@@ -1,142 +1,206 @@
 # Troubleshooting local stacks
 
-Use this guide when the fixed developer stack is not ready. The Python
-controller owns the `ple-live-demo-browser` project, its lease, scoped
-diagnostics, and authenticated cleanup. For initial requirements and normal
-commands, see [INSTALL.md](INSTALL.md), [USAGE.md](USAGE.md), and
-[MACOS_PODMAN.md](MACOS_PODMAN.md).
+Use this guide when the fixed production-shaped developer stack does not start,
+does not become ready, or does not clean up. The root wrapper owns ordinary
+start and stop operations. The controller is the direct, scoped diagnostic
+interface; it does not authorize a caller-selected live-demo project.
+
+For prerequisites and normal operation, see [INSTALL.md](INSTALL.md),
+[USAGE.md](USAGE.md), and [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
+
+## Triage order
+
+Use the root front door for mutations. It prepares the fixed Python 3.12
+environment, selects the owner-locked `ple-live-demo-browser` project, and
+does not accept a caller-selected project, environment, or identity. Start
+with read-only inspection, preserve the private owner receipt, and change one
+named failure at a time. The command surface is implemented in
+[local_stack.py](../local_stack.py#L1-L28) and the wrapper dispatch is in
+[run_live_demo.sh](../run_live_demo.sh#L27-L43).
+
+Do not use `podman compose down`, `podman system prune`, or another global
+cleanup command. Those commands bypass the label and lease checks that prove
+the project scope.
 
 ## Preflight failures
 
-- **`command not found on PATH`:** install the named launcher prerequisite,
-  then retry the fixed `start` command. The launcher requires Git, Podman,
-  curl, awk, OpenSSL, xxd, and lsof before it changes local state.
-- **`neither 'podman compose' nor 'podman-compose' is usable`:** install a
-  Compose provider for Podman, then retry the fixed `start` command.
-- **`developer browser control state is unavailable`:** inspect the private
-  receipt and lease failure, then rerun the fixed command. Do not add a project,
-  environment, identity, SMTP, or build selector.
+- **`Python 3.12 is required`:** install `python3.12`, then rerun
+  `./run_live_demo.sh`. The wrapper creates the repository `.venv` and installs
+  the declared requirements there.
+- **`command not found on PATH`:** install the named prerequisite and retry
+  `./run_live_demo.sh`. The wrapper requires Git, Podman, curl, awk, OpenSSL,
+  xxd, and lsof.
+- **`neither 'podman compose' nor 'podman-compose' is usable`:** install one
+  supported Podman Compose provider and retry `./run_live_demo.sh`.
+- **`a custom mutating env file must already exist and have mode 0600`:** use
+  the repository's first-run path with the default environment. Do not point
+  the wrapper at another environment, project, identity, SMTP configuration,
+  or build selector.
 
 ## Read-only diagnostics
 
-Run these commands before changing the stack. They use the controller's
-validated Podman and project discovery paths:
+Prepare the fixed interpreter if the wrapper has not already done so:
 
 ```bash
-source source_me.sh && python3 local_stack.py doctor
-source source_me.sh && python3 local_stack.py projects
-source source_me.sh && python3 local_stack.py status --project ple-live-demo-browser
-source source_me.sh && python3 local_stack.py logs --project ple-live-demo-browser --tail 120 gateway api worker
+./devel/setup_python.sh
 ```
 
-`doctor` reports Podman, the Compose provider, the macOS machine, the local
-environment file, and labelled projects. `projects` includes retained
-data-only projects. `status` reports semantic readiness; a running container
-alone is not readiness. `logs` prints a warning because application logs may
-contain private local diagnostic data. Use `--follow` only while actively
-diagnosing the selected services.
-
-## Podman is unavailable
-
-On macOS, a normal controller `start` attempts to start the Podman machine after configuration validation.
-When that fails, inspect and start the machine explicitly:
+Run these commands from the repository root before changing the stack:
 
 ```bash
-podman machine list
-podman machine start
-podman info
+source source_me.sh && .venv/bin/python local_stack.py doctor
+source source_me.sh && .venv/bin/python local_stack.py projects
+source source_me.sh && .venv/bin/python local_stack.py status --project ple-live-demo-browser
+source source_me.sh && .venv/bin/python local_stack.py logs --project ple-live-demo-browser --tail 120 gateway api worker
+source source_me.sh && .venv/bin/python local_stack.py validate
 ```
 
-If the machine is already running but a container build is exhausted or killed, stop it, increase
-its resources, and start it again using the documented values in [MACOS_PODMAN.md](MACOS_PODMAN.md).
-Do not treat `--check` as a machine-start command: it is intentionally read-only.
+`doctor` checks Podman, its Compose provider, the macOS machine, the selected
+environment, and labelled projects. `projects` includes retained data-only
+projects. `status` reports semantic readiness; running containers alone are
+not sufficient. `logs` prints a private-data warning and accepts `--follow`
+only while actively diagnosing. `validate` checks initialized configuration,
+the renderer identity, and the available engine without mutating the stack.
 
-## Startup does not finish
+## Podman and port failures
 
-- **`host artifact build failed (...)`:** reproduce the production browser
-  artifact failure directly, then retry the fixed owner after correcting the
-  reported build error:
+- **Podman is unavailable:** inspect the machine and engine, then retry the
+  wrapper after correcting the reported state:
 
   ```bash
-  ./build.sh --debug
-  source source_me.sh && python3 local_stack.py start --headless
+  podman machine list
+  podman machine start
+  podman info
+  ./run_live_demo.sh
   ```
 
-  The lifecycle builds `dist/` before it reconciles the Compose project. Do not
-  switch to an alternate browser build or selector.
+  On macOS, use the resource values in [MACOS_PODMAN.md](MACOS_PODMAN.md) if
+  the machine is exhausted. These are diagnostics; do not use global Compose
+  cleanup.
+- **`local port ... is already listening`:** identify the owning process with
+  the reported port, stop only that process if you own it, then retry
+  `./run_live_demo.sh`. The fixed owner chooses a free loopback gateway port
+  on first setup when the default port is occupied.
+- **`selected gateway port is occupied`:** correct the selected environment's
+  port ownership, then retry `./run_live_demo.sh`; do not substitute a project
+  or arbitrary port through the command line.
 
-- **`PostgreSQL did not become ready`:** the launcher leaves its containers running. Inspect the
-  service state and recent logs, then correct the reported container failure before retrying.
+## Startup failures
 
-  Preserve the private owner receipt and correct the reported container or
-  image issue before retrying `start`.
+- **`host artifact build failed (...)`:** inspect the reported build failure,
+  correct the source or dependency, then retry `./run_live_demo.sh`. The owner
+  builds the production `dist/` bundle before Compose reconciliation.
+- **`PostgreSQL did not become ready`:** inspect retained services and database
+  logs, correct the reported container, image, or volume problem, then retry:
 
-- **`the stack did not become ready`:** inspect the gateway, API, and worker logs. The owner
-  waits for semantic `/health`, so a running container alone is not a successful start.
+  ```bash
+  source source_me.sh && .venv/bin/python local_stack.py status --project ple-live-demo-browser
+  source source_me.sh && .venv/bin/python local_stack.py logs --project ple-live-demo-browser --tail 120 postgres
+  ./run_live_demo.sh
+  ```
+- **`the stack did not become ready`:** inspect `gateway`, `api`, and `worker`
+  logs. Readiness is semantic `/health`, not merely a running container.
+  Retry the same `./run_live_demo.sh` command after correcting the named
+  failure.
+- **Gateway `unhealthy` while `webwork-renderer` is `starting`:** this is a
+  normal transient dependency state. Wait for the configured timeout. If it
+  expires, inspect renderer logs first, correct the renderer image or
+  render/grade probe failure, and retry `./run_live_demo.sh`.
+- **`running renderer does not match the selected OCI configuration`** or
+  **`renderer service is missing or ambiguous`:** preserve the private owner
+  receipt, inspect status and renderer logs, and retry the fixed wrapper after
+  correcting the labelled renderer. Do not substitute an image or project at
+  the command line.
 
-  Use the HTTPS origin printed by `start`; do not probe a guessed port or
-  substitute a different project. Preserve the private owner receipt if the
-  supervisor reports a failed cleanup.
+## Browser and screenshot failures
 
-- **The gateway is `unhealthy` while `webwork-renderer` is `starting`:** this is an expected
-  transient state during normal startup. The API waits for the renderer's real render-and-grade
-  probe before it starts, and the gateway becomes healthy only after the API's semantic health
-  check succeeds. Let the launcher reach its configured timeout before treating this state as a
-  failure. If it times out, collect the renderer logs below first; the renderer is the upstream
-  dependency in this startup sequence.
+- **The browser suite fails before a scenario starts:** rerun the same
+  selection through `./run_playwright_tests.sh`; use `--build` when the
+  failure names `dist/`, and use `--screenshots` only when the screenshot
+  publication is the intended gate. The suite owner creates a fresh stack and
+  performs exact cleanup for each selection.
+- **Screenshot publication reports an incomplete bundle, changed `dist/`, or
+  invalid private staging:** keep the private receipt and rerun
+  `./run_playwright_tests.sh --screenshots`. Do not copy staging files into
+  `docs/screenshots/` by hand. Publication validates PNG, privacy, provenance,
+  one origin, and the production `dist/` digest in
+  [e2e_browser_screenshot_publisher.py](../tests/e2e/e2e_browser_screenshot_publisher.py#L116-L143).
+- **A focused browser run leaves resources behind:** let the owner finish its
+  final cleanup, then inspect `status` and `projects`. If the owner protocol is
+  unavailable, retry the same root command so the fixed lease can reconcile
+  the labelled project; do not start another project.
 
-For `the standalone PG renderer did not pass its render/grade probe`, preserve
-the owner receipt and correct the reviewed renderer input before retrying.
+## Browser and cleanup permission failures
 
-## Email sign-in and invitations
+- **`bootstrap_check_in ... MachPortRendezvousServer ... Permission denied`:**
+  macOS denied Chromium before a browser context opened. This is not a PLE or
+  `/health` result. Rerun the unchanged browser command from a terminal with
+  the required browser permission.
+- **`service-oracle final owner-process identity probe permission was denied`:**
+  the final cleanup proof could not run its read-only `ps` probe. Rerun the
+  unchanged operation with host process-inspection permission. Do not disable
+  the probe or claim cleanup without its receipt.
+- **Any other `service-oracle final owner-process ...` failure:** preserve the
+  private receipt and correct the named probe failure. Resource exhaustion has
+  only its bounded retry; missing executables, malformed output, and nonzero
+  probe exits remain failures.
+- **`developer browser control state is unavailable`:** preserve the private
+  receipt and lease error, then retry the same wrapper command. Do not start a
+  second project or use raw global Compose cleanup.
 
-- **A new invitation reports `emailDelivery: queued`:** PLE accepted it for processing. This state
-  is not proof of provider submission or mailbox delivery. When no external SMTP provider is
-  configured, use the Instructor-only one-time copy link through the course's established channel.
-  The invitation remains single-use and the learner still completes email authentication before it
-  can become course membership.
-- **An invitation reports `emailDelivery: sentToProvider`:** the configured provider accepted the
-  submission, but this does not confirm mailbox delivery. The copy link remains available as the
-  direct course-channel handoff.
-- **An invitation reports `emailDelivery: needsAttention`:** delivery needs explicit operator
-  attention after an ambiguous result or a failure that remains after retry processing, including
-  a permanent failure. Do not treat it as delivered; use a fresh explicit resend when available,
-  or cancel it and create a new invitation.
-- **An invitation reports `emailDelivery: cancelled`:** its link is fenced and must not be shared.
-  Create a new invitation if enrollment is still needed.
-- **Email sign-in is unavailable through the developer stack:** do not treat
-  that as a local-stack startup failure. The developer entry uses the seeded
-  production-auth browser flow; provider and deployment configuration are
-  outside this local owner.
+## Existing data and migrations
 
-## Existing database volumes
+- **`existing PostgreSQL data volume is not compatible with the pinned
+  PostgreSQL 17 image`:** preserve the volume and migrate it with an explicit
+  PostgreSQL-major-version procedure. Do not delete it to make startup pass.
+- **`migration ... was previously applied but is missing in the resolved
+  migrations`:** preserve the retained resource and private owner receipt.
+  Correct the image or migration problem, then retry the fixed wrapper; do not
+  edit `_sqlx_migrations` or run global cleanup.
+- **`2026081866` refuses a nonempty receipt table:** this is the intentional
+  clean-volume preflight. Preserve the refusal, migration output, and private
+  owner receipt. For disposable demo data, use the fixed owner reset, then
+  create a fresh seeded installation:
 
-`the existing PostgreSQL data volume is not compatible with the pinned PostgreSQL 17 image` means
-the launcher found an existing data directory from another PostgreSQL major version. Preserve that
-volume and migrate it with an explicit PostgreSQL-major-version procedure; do not delete it merely
-to make the local stack start. Once the data is safely migrated, rerun the launcher.
+  The preflight locks both receipt tables and refuses any existing row before
+  adding provenance constraints; see
+  [2026081866_g1_receipt_provenance_schema.sql](../schemas/migrations/2026081866_g1_receipt_provenance_schema.sql#L4-L17).
 
-`migration ... was previously applied but is missing in the resolved migrations` means the owner
-found an incompatible retained resource. Do not edit `_sqlx_migrations` or use a global cleanup
-command. Preserve the private owner receipt and rerun the fixed `start`/`stop` lifecycle after the
-underlying image or migration issue is corrected.
+  ```bash
+  source source_me.sh && .venv/bin/python local_stack.py reset --confirm-project containers
+  ./run_live_demo.sh
+  ```
 
-## Stop without deleting data
+  Retained receipt history follows the separately planned immutable augmentation
+  path. Keep the volume for that review; do not edit `_sqlx_migrations`, backfill
+  append-only receipts, or weaken the 1866 preflight.
 
-After collecting diagnostics or when finished, stop the active developer session
-through its authenticated owner:
+## Stop and acceptance
+
+Stop the active developer owner and remove its fixed disposable browser
+containers, volumes, networks, and private workspace:
 
 ```bash
-source source_me.sh && python3 local_stack.py stop
+./run_live_demo.sh stop
 ```
 
-The owner verifies that its containers, volumes, networks, workspace, and private
-receipts are gone. Do not substitute a project selector or raw Compose.
+This stop is intentionally destructive to the disposable live-demo data. If
+the data must be retained for diagnosis, run the read-only commands above and
+preserve the owner receipt before stopping. The ordinary `containers` project
+has a separate, explicitly confirmed reset path; preview it before any reset:
 
-## Acceptance
+```bash
+source source_me.sh && .venv/bin/python local_stack.py reset --dry-run
+source source_me.sh && .venv/bin/python local_stack.py reset --confirm-project containers
+```
 
-`source source_me.sh && python3 local_stack.py acceptance` is the no-skip live
-acceptance command. Browser selection uses `run_playwright_tests.sh`; the
-canonical owner lease serializes developer and browser sessions. Permanent
-offline controller tests remain in the normal test gates; Podman/browser
-acceptance is explicit evidence. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite).
+The owner verifies containers, volumes, networks, workspace, and private
+receipts. For no-skip connected acceptance, use the fixed interpreter after
+the stack is available:
+
+```bash
+source source_me.sh && .venv/bin/python local_stack.py acceptance
+```
+
+Browser and Podman acceptance are explicit evidence; permanent offline tests
+remain separate. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite).

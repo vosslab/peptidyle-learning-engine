@@ -138,5 +138,12 @@ export function gradingOperationsTrustGenerationLabel(row: InstructorGradingOper
 }
 
 export function gradingOperationsRetryLabel(row: InstructorGradingOperationRow): string {
-  return `Retry grading operation ${row.operation.reference}`;
+  switch (row.group.kind) {
+    case "question":
+      return `Retry automated grading for ${row.group.title} (${row.group.questionId})`;
+    case "learner":
+      return `Retry automated grading for ${row.group.displayName}`;
+    case "assignment":
+      return "Retry automated grading for this assignment";
+  }
 }

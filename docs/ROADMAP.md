@@ -1,356 +1,141 @@
-# Plan: Pre-production database baseline
+# Roadmap: pre-production database and release readiness
 
-Status: partially completed: the foundational baseline is accepted, while data-separation and
-release gates remain open. This document records pre-production planning and authorizes no
-implementation or production claim. Current release
-scope, package order, and acceptance remain in the [active implementation plan](active_plans/implementation_plan.md),
-[active status registry](active_plans/implementation_status.md), and their active release plans.
+Status: foundational pre-production database work is accepted, while data-separation,
+release, and production-readiness gates remain open. This is a forward roadmap, not an
+implementation authorization or a production-release claim. The active plans own current
+scope, dependency order, contracts, validation, and acceptance:
 
-## Context
+- [implementation plan](active_plans/implementation_plan.md)
+- [release completion plan](active_plans/active/release_completion_plan.md)
+- [implementation status registry](active_plans/implementation_status.md)
 
-This roadmap was drafted against a historical 28-file SQLx migration snapshot. That proposal is no
-longer the current work item: the six-file pre-data baseline is accepted, and
-`2026080907_course_appearance.sql` is the first accepted forward migration. The current chain,
-count, and allocation state are maintained by [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and
-the shared migration allocation ledger. PLE remains pre-production with no durable user data;
-remaining release gates must use the active plans rather than this historical roadmap.
+## Evidence boundary
 
-Migrations establish schema, roles, policies, views, grants, and compatibility projections. They do
-not create teaching data. The canonical live-demo lifecycle applies migrations first, but the current
-baseline installer still accepts `--apply-migrations`; the planned data-separation change must make
-it consume a compatible pre-migrated database and own only fictional teaching data. Schema and
-live-data ownership are not yet fully separated in that command.
+The accepted pre-production reset established the six-file foundational baseline
+(`2026080801` through `2026080806`). The material source tree now contains 99 ordered SQL
+migrations through `2026081869`. The earlier 95-migration chain through `2026081865` is
+historical acceptance evidence. Accepted feature packages own later migrations; accepted
+migration files remain immutable.
+The status registry is the authority for package allocation and its recorded evidence, which
+can lag the current material tree until the named Validation gates are rerun.
 
-## Objectives and outcome
+The current package is `WP-PROF-G1`, stage G1-W7 closeout. Its automated-grading operation
+boundary has completed W5 through W7b, its seven accepted migrations are restored, and its
+implemented closeout source is complete across the four-file `2026081866`-`2026081869` sequence.
+The affected live database/RLS/worker/browser evidence is green on the 99-migration material
+tree. It remains acceptance-open pending repository tracking of the new owned files and exact
+final-tracked-tree Validation.
+`WP-RC8` remains acceptance-open for provider/mailbox, unrelated passkey, multi-replica, security,
+HCI, and release work. Professor live-demo acceptance does not imply production onboarding,
+deployment, or release acceptance.
 
-- Replace the unreleased SQLx history with one reviewed clean-cluster baseline before production: **accepted**.
-- Preserve schema behavior, role boundaries, and security properties in that baseline: **accepted**.
-- Establish the shipped baseline as the first entry in the durable forward-only migration ledger: **accepted**.
-- Demonstrate empty-cluster, local-stack, and browser correctness: **remaining release-gate evidence**.
+## Accepted/current/future
 
-## Design philosophy
+### Accepted
 
-This is a clean pre-production redesign, not an upgrade exercise. It follows **Fix the design, not
-the symptom**, **Long-term over short-term**, and **Design for adaptability** from
-[REPO_STYLE.md](REPO_STYLE.md): consolidate only before real data exists, then retain an auditable
-forward ledger forever.
+- The foundational clean-cluster baseline and its explicit migration administration boundary.
+- The forward-only migration allocation policy and the accepted feature migrations recorded in
+  [implementation status](active_plans/implementation_status.md#shared-migration-ledger-and-allocation).
+- The real live-demo product boundary: ordinary Student, Instructor, and Sysadmin workflows,
+  server-owned authorization, answer-free browser contracts, and deterministic automated grading
+  as specified in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
+- The G1 HCI closeout review, which accepted the current learner status, Instructor retry, and
+  Gradebook workflow with no P0/P1/P2 findings.
+- Existing normalized operational models only where the active plans and current evidence mark
+  their owning package accepted. This roadmap does not broaden those claims.
 
-## Scope
+### Current and acceptance-open
 
-- Inventory the accepted schema represented by the complete current migration chain.
-- Generate and review one SQLx baseline migration for an empty PostgreSQL cluster.
-- Preserve schema objects and their security-relevant definitions exactly where behavior requires it.
-- Reset the single disposable live-demo database path to exercise the new single-baseline ledger.
-- Convert the live-demo baseline installer into a data-only operation that requires a compatible
-  pre-migrated database.
-- Record the new forward-migration policy and acceptance evidence in durable documentation.
+- Close `WP-PROF-G1` by tracking its new owned files, then pass exact final-tracked-tree
+  Validation and advance the professor queue to `WP-PROF-G2`. The affected live
+  database/RLS/worker/browser evidence for `2026081866` through `2026081869` is already green
+  on the 99-migration material tree.
+- Rerun the complete named Validation suite on the final material tree. Focused or historical
+  migration counts are not sufficient for release acceptance.
+- Keep documentation link acceptance open until the new owned artifacts are tracked and the link
+  gate is rerun on that material tree.
+- Keep schema administration explicit and privileged: `cargo tools database migrate` uses
+  `PLE_MIGRATION_DATABASE_URL`; application startup and browser capabilities do not own DDL.
+- Close live-demo data separation. The typed lifecycle may apply migrations first, but the
+  baseline installer currently still accepts `--apply-migrations` and therefore retains a
+  duplicate schema authority. The target is a compatible pre-migrated database followed by a
+  data-only installer for fictional, disposable teaching data.
+- Complete clean-volume real-stack, browser, backup/restore, and independent security/operations
+  review gates before any production deployment decision.
+- Continue the broader version 1 platform goal through the release plan; this roadmap records the
+  database and release-readiness boundary only.
 
-## Non-goals
+### Future
 
-- Do not alter the current migration chain during active feature acceptance.
-- Do not migrate, backfill, transform, or retain hypothetical legacy data.
-- Do not change application behavior, teaching semantics, identities, grading, or tenant boundaries.
-- Do not claim a production deployment or use this roadmap as a release authorization.
+- Treat further database normalization as future design work, owned by a later active package
+  after evidence demonstrates a real need. Do not add speculative tables, bridges, down
+  migrations, legacy readers, or data-adoption paths to close current release gaps.
+- Choose production backup retention, restore cadence, capacity thresholds, and operational
+  tuning from measured deployment evidence under the release plan; do not encode those choices
+  in the pre-production baseline.
+- Production deployment and durable user-data migration remain outside this roadmap until human
+  release approval and all required active-plan gates are complete.
 
-## Current state summary
-
-- The accepted baseline is `2026080801` through `2026080806`; the current inventory and forward
-  allocations are maintained in [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and the shared
-  migration ledger.
-- The migration command is explicit and privileged: `cargo tools database migrate` requires
-  `PLE_MIGRATION_DATABASE_URL`; the application role cannot apply DDL.
-- `cargo tools database status` reports ledger state; `verify` checks the application-visible
-  migration projection through restricted roles.
-- `tests/e2e/e2e_database_baseline.sh` already proves an empty database, a second no-op apply,
-  status, verification, checksum detection, RLS/grant behavior, and selected live database contracts.
-- The canonical private typed live-demo lifecycle runs migrations and then the host-only deterministic
-  baseline installer. The installer still requires `--apply-migrations`; removing that duplicate
-  schema authority remains an open data-separation gate.
-- The active plans remain the authority for package acceptance, deployment order, and any remaining
-  full-baseline rerun or release gate.
-
-## Current grading and live-demo boundary
-
-The current product path is already defined and must not be redesigned by this database roadmap.
-[Human Guidance](HUMAN_GUIDANCE.md) and the [live-demo specification](LIVE_DEMO_SPEC.md)
-require ordinary Student delivery and strictly automated grading through the real application.
-
-- Supported questions use deterministic, server-owned graders; browser contracts remain answer-free.
-- Instructor validation previews current policy, then uses the normal learner run, submission,
-  receipt, grade, and Instructor review paths.
-- Answers, keys, and correctness decisions remain outside browser-facing capabilities. The active
-  implementation plan owns the grading boundary and its secrecy, determinism, and connected-runtime
-  gates.
-
-## Architecture boundaries and ownership
+## Architecture and ownership
 
 The authoritative schema is SQL in `schemas/migrations/`; SQLx's `_sqlx_migrations` table is the
 applied-ledger record. `learning-data-access` embeds and verifies the schema epoch. `project-tools`
-offers the explicit administrative commands. The application and browser consume only verified
-capabilities; neither owns DDL. The baseline work removes migration authority from the live-demo
-installer so it owns only fictional, disposable teaching data outside the baseline migration.
+owns explicit migration status, migrate, and verify commands. The application and browser consume
+verified capabilities; neither owns DDL. The live-demo lifecycle should therefore be:
 
-### Mapping (milestones / workstreams -> components / patches)
+1. A migration principal applies and verifies the compatible schema.
+2. A data-only host installer reconciles fictional baseline teaching data.
+3. The normal application, worker, storage, and browser paths exercise that live state.
 
-| Milestone / workstream | Component | Review boundary |
+The product path is not redesigned by this database roadmap. [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md)
+and [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) remain authoritative for grading secrecy,
+determinism, ordinary teaching workflows, and demo identity boundaries.
+
+## Dependency-ordered work
+
+| Stage | Work | Exit evidence |
 | --- | --- | --- |
-| M1 / DB-BL1 | Schema inventory and baseline SQL | PostgreSQL owner + security reviewer |
-| M2 / DB-BL2 | SQLx embedding, ledger, and E2E oracle | Rust/data-access owner |
-| M3 / DB-BL3 | Live-demo baseline, browser acceptance, and documentation | Integrator + independent reviewer |
+| D1 | Finish the current professor package and its authority proofs | Owning plan's focused gates and final Validation pass |
+| D2 | Reconcile the final migration inventory and clean-cluster baseline evidence | Fresh/no-op/status/verify and role/RLS evidence on disposable clusters |
+| D3 | Remove migration authority from the live-demo data installer | Incompatible or absent baseline is refused without DDL; data-only install succeeds |
+| D4 | Exercise release operations | Clean-volume lifecycle, real-stack browser, restore, and independent review pass |
+| D5 | Human release decision | No unresolved required gate; deployment approval is explicitly recorded |
 
-## Milestone plan
+Stages are intentionally serial where later work depends on accepted schema or package
+contracts. Any new schema work receives an allocation in the shared ledger before
+implementation; non-schema work receives no implicit migration number.
 
-| M | Title | Summary | Goal |
-| --- | --- | --- | --- |
-| M1 | Freeze and model | Freeze accepted sources and compare clean-cluster schemas | A reviewed baseline candidate |
-| M2 | Replace and prove | Replace the pre-production chain and run schema/security gates | Exact empty-cluster behavior |
-| M3 | Release readiness | Exercise the real stack, live-demo baseline, and browser before deployment | Shippable durable ledger |
+## Durable migration policy
 
-### Freeze and model
+Before v1 ships, disposable databases may be recreated from the reviewed baseline and current
+forward chain. There is no user-data downgrade or hypothetical legacy-data adoption. After v1
+ships, never edit a migration filename, version, SQL, or checksum. Every schema change uses one
+later forward migration owned by an active package, with fresh/no-op migration evidence, role and
+RLS evidence, and behavior tests justified by [PYTEST_STYLE.md](PYTEST_STYLE.md).
 
-- Depends on: explicit pre-production entry approval and accepted active release packages.
-- Deliverables: baseline inventory, schema-diff evidence, and one proposed SQLx baseline file.
-- Workstreams: DB-BL1.
-- Entry criteria: no migration package remains acceptance-open; the current chain passes its full
-  disposable baseline gate twice from clean clusters.
-- Exit criteria: an independent reviewer accepts that the proposed baseline recreates the current
-  accepted schema and security definitions without relying on fictional live-demo data.
-- Parallel-plan ready: no. The inventory must establish one frozen input before baseline SQL exists.
+Keep fast pytest deterministic, offline, and behavioral. Do not add brittle assertions over dates,
+collection sizes, required key lists, hardcoded defaults, migration filenames, or complete catalog
+output. External-network, Podman, PostgreSQL, lifecycle, browser, and restore checks remain
+explicit E2E, Playwright, or operational gates rather than hidden fast tests.
 
-### Replace and prove
+## Risks and release gates
 
-- Depends on: M1.
-- Deliverables: one replacement baseline, updated embedded-ledger expectations, and E2E evidence.
-- Workstreams: DB-BL2 and DB-BL2R.
-- Entry criteria: accepted M1 inventory and a clean working tree checkpoint for the migration sources.
-- Exit criteria: two independent empty clusters pass fresh migration, no-op reapply, status, and
-  verification; schema and security comparisons are accepted.
-- Parallel-plan ready: yes. DB-BL2 owns the source change while DB-BL2R independently reruns the
-  old-versus-new comparison and reviews it.
+| Risk | Required response |
+| --- | --- |
+| Schema or security object drift | Block the cutover; compare clean clusters and repeat independent review. |
+| Installer still applies DDL | Keep release acceptance open; remove the flag and ledger path. |
+| Current source changes during evidence capture | Refresh the inventory and rerun the affected gates on the final material tree. |
+| Recovery procedure is untested | Block release until a disposable restore exercise passes. |
+| Normalization is proposed without measured need | Defer it to a future package with an explicit owner and allocation. |
 
-### Release readiness
+Release is not ready until the active plans record accepted package predecessors, complete
+Validation, data-only live-demo installation, clean-stack/browser evidence, recovery evidence,
+and independent review. This roadmap does not authorize deployment.
 
-- Depends on: M2 and accepted release packages.
-- Deliverables: local-stack evidence, browser acceptance, restore exercise, and documentation.
-- Workstreams: DB-BL3 and DB-BL3R.
-- Entry criteria: M2 exit evidence and a newly created empty local volume.
-- Exit criteria: all release gates pass, documentation is current, and independent review accepts
-  the evidence before the first production deployment.
-- Parallel-plan ready: yes. DB-BL3 owns runtime evidence; DB-BL3R audits artifacts and commands.
+## Related documentation
 
-## Workstream breakdown
-
-### DB-BL1: Schema inventory
-
-- Goal: describe the exact accepted schema that one baseline must create.
-- Owner: `postgresql-expert`.
-- Work packages: DB-BL1.
-- Needs: a frozen migration-source snapshot from this roadmap's drafting point and active release
-  acceptance status.
-- Provides: a schema, role, RLS, view, grant, extension, function, trigger, partition, and index
-  inventory with a reproducible clean-cluster comparison procedure.
-- Review boundary, when modifying the repository: SQL migration sources and database documentation.
-
-### DB-BL2: Baseline and ledger
-
-- Goal: make SQLx embed exactly one clean-cluster baseline and preserve administration contracts.
-- Owner: `postgresql-expert` with `rust-code-expert`.
-- Work packages: DB-BL2.
-- Needs: DB-BL1 accepted inventory.
-- Provides: replacement baseline migration, updated status/verification expectations, and a single
-  E2E baseline oracle.
-- Review boundary, when modifying the repository: `schemas/migrations/`, migration administration,
-  and database E2E runner.
-
-### DB-BL2R: Independent schema review
-
-- Goal: independently compare old-chain and new-baseline empty clusters.
-- Owner: independent PostgreSQL/security reviewer.
-- Work packages: DB-BL2R.
-- Needs: DB-BL2 candidate and DB-BL1 inventory.
-- Provides: a signed-off discrepancy report or exact remediation findings.
-- Review boundary, when modifying the repository: none; review evidence only.
-
-### DB-BL3: Runtime acceptance
-
-- Goal: make normal bootstrap migration-first and data-only-live-demo-baseline-second.
-- Owner: local-stack integrator.
-- Work packages: DB-BL3.
-- Needs: accepted DB-BL2.
-- Provides: clean-volume typed lifecycle, API, worker, and browser evidence.
-- Review boundary, when modifying the repository: lifecycle, container, test, and operations docs.
-
-### DB-BL3R: Independent release review
-
-- Goal: audit final evidence and recovery instructions before the first deployment.
-- Owner: independent operations/security reviewer.
-- Work packages: DB-BL3R.
-- Needs: DB-BL3 evidence.
-- Provides: accepted release review or blocking findings.
-- Review boundary, when modifying the repository: none; review evidence only.
-
-## Work packages
-
-### DB-BL1: Freeze the current schema
-
-- Owner: `postgresql-expert`.
-- Touch points: `schemas/migrations/`, [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md), and the
-  active release plan.
-- Depends on: none after the explicit pre-production entry gate.
-- Acceptance criteria: record the exact old-chain commit and build two clean databases from it;
-  compare their schema definition, ownership, extensions, roles, forced RLS, policies, views,
-  functions, triggers, grants, and migration-state projections.
-- Evidence or review, when useful: use `pg_dump --schema-only`, catalog queries, and role-specific
-  probes; treat normalized diffs as review material, not a permanent exact-text test.
-- Obvious follow-ons: DB-BL2.
-
-### DB-BL2: Build the baseline ledger
-
-- Owner: `postgresql-expert`.
-- Touch points: `schemas/migrations/`, `crates/learning-data-access/src/postgres/migrations.rs`,
-  `crates/project-tools/src/database.rs`, and `tests/e2e/e2e_database_baseline.sh` only where
-  behavior genuinely changes.
-- Depends on: DB-BL1.
-- Acceptance criteria: replace the unreleased migration history with one ordered SQLx baseline that
-  creates the inventory from DB-BL1 on an empty cluster; keep migration administration explicit and
-  keep application startup read-only.
-- Evidence or review, when useful: apply once, apply again without change, run status and verify
-  twice from separately created empty databases, then compare both results to DB-BL1.
-- Obvious follow-ons: DB-BL2R and DB-BL3.
-
-### DB-BL2R: Review security fidelity
-
-- Owner: independent PostgreSQL/security reviewer.
-- Touch points: none unless a review finding identifies a source correction.
-- Depends on: DB-BL1 and DB-BL2.
-- Acceptance criteria: demonstrate that the baseline preserves schema ownership, forced RLS,
-  tenant isolation, least-privilege grants, `security_invoker` view behavior, answer-key isolation,
-  partition ownership, and required migration-state access for every runtime role.
-- Evidence or review, when useful: separately provisioned disposable clusters and role-specific SQL
-  probes; report any difference as a blocking security discrepancy.
-- Obvious follow-ons: DB-BL3 after acceptance.
-
-### DB-BL3: Prove runtime and recovery
-
-- Owner: local-stack integrator.
-- Touch points: focused `local_stack_control` lifecycle modules, `crates/project-tools/src/e2e_seed.rs`, its focused modules,
-  `tests/e2e/`, `tests/playwright/`, and operations docs only where the ownership contract changes.
-- Depends on: DB-BL2 and DB-BL2R.
-- Acceptance criteria: the live-demo baseline installer refuses an absent or incompatible baseline
-  without applying DDL;
-  on a newly created local PostgreSQL volume, the typed lifecycle alone applies and verifies the baseline,
-  then runs the data-only deterministic installer for the fictional live-demo baseline, starts every
-  required service, and passes the
-  representative browser suite.
-- Evidence or review, when useful: retain command outputs, schema status before/after baseline, and
-  screenshots only when browser behavior changed; run the same clean-stack sequence twice.
-- Obvious follow-ons: DB-BL3R and production deployment planning.
-
-### DB-BL3R: Accept release evidence
-
-- Owner: independent operations/security reviewer.
-- Touch points: documentation and evidence reports only.
-- Depends on: DB-BL3.
-- Acceptance criteria: confirm that all artifacts identify one baseline and that forward migration,
-  backup, restore, and failure recovery instructions are coherent before deployment.
-- Evidence or review, when useful: independent command replay against a fresh disposable stack.
-- Obvious follow-ons: first production deployment only after human release approval.
-
-## Acceptance criteria and gates
-
-- Pre-production entry gate: human approval confirms no production deployment and no durable user
-  data; the active release plan confirms all included schema packages are accepted.
-- Schema-fidelity gate: clean old-chain and clean baseline databases agree on all application-relevant
-  schema, roles, RLS policies, views, grants, functions, triggers, indexes, partitions, and
-  migration-state projections.
-- Ledger gate: a fresh baseline migration succeeds; a second migrate is a no-op; `status` and
-  `verify` report compatible state on two independently created empty clusters.
-- Security gate: `ple_app`, graders, workers, publisher, and migration roles retain exactly their
-  authorized access; cross-tenant and answer-key reads fail as before.
-- Data-separation gate: the baseline is valid before the live-demo baseline runs; its installer has no
-  migration flag or DDL path, refuses an incompatible database, and changes teaching data only.
-- Real-stack gate: `source source_me.sh && python3 local_stack.py start --headless` succeeds from a newly created local volume, then
-  `./run_playwright_tests.sh` passes only after all required Podman services are healthy.
-- Independent review gate: an independent PostgreSQL/security reviewer and an operations reviewer
-  approve the comparison, runtime evidence, and recovery procedure.
-
-## Test and verification strategy
-
-Permanent tests are retained only when they meet the checklist in [PYTEST_STYLE.md](PYTEST_STYLE.md).
-No new fast pytest should snapshot relation counts, migration filenames, or complete catalog output.
-
-| Evidence | Classification | Reason |
-| --- | --- | --- |
-| SQLx status and verification behavior | Permanent Rust behavior test | It protects a durable administration and startup contract. |
-| Existing `e2e_database_baseline.sh` fresh/no-op/security path | Permanent E2E gate | It exercises a durable clean-cluster and role-boundary contract. |
-| Old-chain versus candidate-baseline schema dump | One-time implementation evidence | The old chain disappears after the cutover; an exact comparison would become stale. |
-| Candidate baseline object inventory | One-time implementation evidence | It proves the replacement rather than a continuing user-visible behavior. |
-| Local typed lifecycle with empty volume and fictional live-demo baseline | Permanent E2E/operational gate | It protects the durable migration-first, data-only-baseline-second contract. |
-| Representative browser walkthrough after bootstrap | Permanent Playwright acceptance | It protects teaching workflows, not migration geometry. |
-
-Run the repository fast suites separately from real service checks. Keep external-network, Podman,
-PostgreSQL, lifecycle, and browser work under `tests/e2e/` or Playwright, never under `pytest tests/`.
-
-## Migration and compatibility policy
-
-Before the baseline ships, the historical migration history captured by this roadmap remains
-immutable in practice for active package acceptance. At the explicit cutover, replace that entire
-unreleased history with one reviewed baseline and rebuild only clean disposable/local databases. Do
-not create bridges, down migrations, legacy readers, or data adoption paths.
-
-After the baseline ships, never edit its filename, version, SQL, or checksum. Every schema change
-gets one later forward migration with the owning active-plan package, fresh/no-op migration evidence,
-role/RLS evidence, and the behavior tests justified by [PYTEST_STYLE.md](PYTEST_STYLE.md).
-
-Before shipment, rollback means restoring the frozen old migration chain from the source-control
-checkpoint and recreating only disposable clusters; there is no user-data downgrade. After shipment,
-never edit or roll back the baseline with a down migration. Recover service from the documented,
-tested backup/restore path and repair schema changes with a new forward migration.
-
-## Risk register
-
-| Risk | Impact | Trigger | Owner | Mitigation |
-| --- | --- | --- | --- | --- |
-| Baseline omits a security object | High | Catalog or role diff | PostgreSQL owner | Block cutover; correct baseline and repeat independent review. |
-| Baseline installer retains DDL authority | High | Installer accepts `--apply-migrations` or invokes the ledger | Integrator | Remove that path; require and verify a compatible pre-migrated database. |
-| Feature lands during freeze | Medium | New migration appears | Release manager | Delay cutover and refresh DB-BL1 inventory. |
-| Fragile inventory test enters pytest | Medium | New exact-count test | Test owner | Use one-time evidence or durable behavior gate instead. |
-| Recovery instructions are untested | High | Restore exercise fails | Operations reviewer | Block release until a clean-cluster recovery drill passes. |
-
-## Rollout and release checklist
-
-- [ ] Human approves the pre-production entry gate.
-- [ ] Active release packages and schema owners are accepted.
-- [ ] DB-BL1 inventory and independent comparison procedure are accepted.
-- [ ] DB-BL2 baseline passes two clean-cluster fresh/no-op/status/verify cycles.
-- [ ] DB-BL2R accepts role, RLS, view, and grant fidelity.
-- [ ] DB-BL3 passes typed lifecycle, live-demo baseline separation, API/worker readiness, and Playwright acceptance.
-- [ ] DB-BL3R accepts backup, restore, and failure-recovery drill.
-- [ ] The baseline and all durable forward-ledger instructions are documented before deployment.
-
-## Documentation close-out requirements
-
-- Active plan / progress tracker: update the release completion plan with the accepted cutover and
-  forward-ledger ownership.
-- `docs/CHANGELOG.md` entry: record the baseline replacement, not obsolete migration filenames.
-- Archive / closure notes: move this roadmap to the appropriate completed-plan archive and retain
-  the accepted schema-comparison evidence location.
-
-## Patch plan and reporting format
-
-- Patch 1: DB-BL1 inventory and approved cutover input.
-- Patch 2: DB-BL2 one-baseline SQLx replacement plus durable behavior gates.
-- Patch 3: DB-BL3 operational/docs closure after independent review.
-- Report each patch with owner, dependencies met, commands run, one-time evidence location,
-  permanent tests retained, and unresolved risks.
-
-## Open questions and decisions needed
-
-- Manager/subagent decision procedure:
-  - Decision owner or dedicated class: release manager with `postgresql-expert` and independent
-    security reviewer.
-  - Evidence and decision rule: authorize cutover only when all active schema packages are accepted,
-    two clean-cluster comparisons have no unexplained behavioral/security differences, and no durable
-    production data exists.
-- Non-blocking follow-up: choose the production backup-retention and restore cadence from measured
-  deployment evidence under WP-RC10; do not encode operational tuning into this baseline.
+- [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) - current schema inventory and migration ledger.
+- [CONTRACTS.md](CONTRACTS.md) - durable service and capability contracts.
+- [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) - Validation evidence model.
+- [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) - durable owner decisions.
+- [CHANGELOG.md](CHANGELOG.md) - dated package history and receipts.

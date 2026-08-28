@@ -1,12 +1,13 @@
 #![cfg(feature = "postgres")]
 
-//! Disposable PostgreSQL oracle for Instructor automated-grading operations.
+//! Disposable PostgreSQL W7 oracle for automated-grading receipt and authority evidence.
 //!
 //! The normal Store path creates the course, published item, enrollment, and
 //! issued attempt. The test then makes one accepted submission through the
 //! server-owned broker and drives its recovery with the sealed worker
-//! capability that owns terminal execution transitions. This keeps the
-//! fixture small while exercising the public W5 capabilities with their real
+//! capability that owns terminal execution transitions. It proves the closed
+//! W7 receipt categories, exclusive actor-or-worker provenance, immutable
+//! original receipt, and private retry-capability authority with the real
 //! roles, RLS policies, and lifecycle triggers.
 
 #[path = "postgres_automated_grading_operations_live/broker.rs"]
@@ -385,14 +386,56 @@ async fn postgres_automated_grading_operations_live_oracle_is_brokered_replay_sa
         accepted.attempt, attempt,
         "accepted record binds the issued attempt"
     );
+    let original_receipt = receipt_integrity::assert_execution_receipt(
+        &pool,
+        tenant,
+        receipt_integrity::ExecutionReceiptExpectation {
+            attempt,
+            submission: accepted.submission.as_uuid(),
+            generation: 1,
+            category: "accepted_submission",
+            state: "ready",
+            actor: Some(student.as_uuid()),
+            worker: None,
+        },
+    )
+    .await;
 
     // The sealed recovery adapter owns both eligible-state selection and the
     // terminal transition. This connected oracle observes database evidence,
     // but never hand-assembles a worker claim or lifecycle transition.
     let recovery = recovery_worker::RecoveryWorker::connect(&runtime, tenant).await;
-    recovery
+    let initial_worker = recovery
         .fail_deterministically(original_job, accepted.submission)
         .await;
+    receipt_integrity::assert_execution_receipt(
+        &pool,
+        tenant,
+        receipt_integrity::ExecutionReceiptExpectation {
+            attempt,
+            submission: accepted.submission.as_uuid(),
+            generation: 1,
+            category: "worker_claim",
+            state: "running",
+            actor: None,
+            worker: Some(initial_worker.as_uuid()),
+        },
+    )
+    .await;
+    receipt_integrity::assert_execution_receipt(
+        &pool,
+        tenant,
+        receipt_integrity::ExecutionReceiptExpectation {
+            attempt,
+            submission: accepted.submission.as_uuid(),
+            generation: 1,
+            category: "grader_execution_failure",
+            state: "exception",
+            actor: None,
+            worker: Some(initial_worker.as_uuid()),
+        },
+    )
+    .await;
     let operation: i32 = sqlx::query_scalar(
         "SELECT grading_operation_id::integer FROM public.grading_operation \
          WHERE tenant_id=$1 AND attempt_id=$2 AND submission_id=$3 AND target_kind='submission'",
@@ -529,6 +572,7 @@ async fn postgres_automated_grading_operations_live_oracle_is_brokered_replay_sa
         operation,
         attempt,
         submission: accepted.submission.as_uuid(),
+        instructor,
         instructor_broker: &instructor_broker,
         rotated_instructor_broker: &rotated_instructor_broker,
         other_instructor_broker: &other_instructor_broker,
@@ -545,9 +589,37 @@ async fn postgres_automated_grading_operations_live_oracle_is_brokered_replay_sa
     .fetch_one(&pool)
     .await
     .expect("read retry-owned execution job");
-    recovery
+    let retry_worker = recovery
         .fail_terminally(JobId::from_uuid(retry_job), accepted.submission)
         .await;
+    receipt_integrity::assert_execution_receipt(
+        &pool,
+        tenant,
+        receipt_integrity::ExecutionReceiptExpectation {
+            attempt,
+            submission: accepted.submission.as_uuid(),
+            generation: 2,
+            category: "worker_claim",
+            state: "running",
+            actor: None,
+            worker: Some(retry_worker.as_uuid()),
+        },
+    )
+    .await;
+    receipt_integrity::assert_execution_receipt(
+        &pool,
+        tenant,
+        receipt_integrity::ExecutionReceiptExpectation {
+            attempt,
+            submission: accepted.submission.as_uuid(),
+            generation: 2,
+            category: "grader_execution_failure",
+            state: "exception",
+            actor: None,
+            worker: Some(retry_worker.as_uuid()),
+        },
+    )
+    .await;
     assert_eq!(
         sqlx::query_scalar::<_, String>(
             "SELECT state FROM public.grading_operation WHERE tenant_id=$1 AND grading_operation_id=$2",
@@ -627,6 +699,33 @@ async fn postgres_automated_grading_operations_live_oracle_is_brokered_replay_sa
         i64::from(scoring_operation),
         "the origin links the Instructor-visible thread"
     );
+    let recalculation_receipt = sqlx::query(
+        "SELECT safe_category, actor_id, resulting_state \
+         FROM public.grading_operation_receipt WHERE tenant_id=$1 AND action_id=$2",
+    )
+    .bind(tenant.as_uuid())
+    .bind(recalculate_action)
+    .fetch_one(&pool)
+    .await
+    .expect("read Instructor recalculation receipt");
+    assert_eq!(
+        recalculation_receipt
+            .try_get::<String, _>("safe_category")
+            .expect("recalculation category"),
+        "instructor_recalculation"
+    );
+    assert_eq!(
+        recalculation_receipt
+            .try_get::<Uuid, _>("actor_id")
+            .expect("recalculation actor"),
+        instructor.as_uuid()
+    );
+    assert_eq!(
+        recalculation_receipt
+            .try_get::<String, _>("resulting_state")
+            .expect("recalculation state"),
+        "recalculating"
+    );
     assert_eq!(
         sqlx::query_scalar::<_, String>(
             "SELECT scoring_status FROM public.assignment WHERE tenant_id=$1 AND assignment_id=$2",
@@ -673,6 +772,7 @@ async fn postgres_automated_grading_operations_live_oracle_is_brokered_replay_sa
         scoring_generation,
     )
     .await;
+    receipt_integrity::assert_receipt_unchanged(&pool, tenant, &original_receipt).await;
     assert_eq!(
         sqlx::query_scalar::<_, String>(
             "SELECT state FROM public.grading_operation WHERE tenant_id=$1 AND grading_operation_id=$2",

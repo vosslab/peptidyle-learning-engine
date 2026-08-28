@@ -9,6 +9,7 @@ from collections.abc import Callable
 import local_stack_control.browser_suite_lease
 import local_stack_control.browser_suite_reset
 import local_stack_control.models
+import local_stack_control.private_state
 import local_stack_control.process
 
 import e2e_browser_scenario_contract
@@ -19,7 +20,7 @@ import e2e_browser_suite_owner
 import e2e_browser_suite_oracles
 
 
-class _FixedWorkspaceState:
+class _FixedWorkspaceState(local_stack_control.private_state.PrivateStateHandle):
 	"""Expose the lease-owned state seam through the fixed workspace."""
 
 	def __init__(

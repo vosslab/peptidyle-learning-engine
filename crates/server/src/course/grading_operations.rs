@@ -356,6 +356,7 @@ fn action_receipt_response(receipt: GradingOperationActionReceipt) -> Response {
             action,
             operation,
             resulting_operation_revision,
+            safe_category: _,
             occurred_at,
         } => (
             format!("\"{}\"", resulting_operation_revision.as_u64()),
@@ -372,6 +373,7 @@ fn action_receipt_response(receipt: GradingOperationActionReceipt) -> Response {
             resulting_operation_revision,
             assignment_revision,
             scoring_generation,
+            safe_category: _,
             occurred_at,
         } => (
             format!("\"{}\"", assignment_revision.value()),

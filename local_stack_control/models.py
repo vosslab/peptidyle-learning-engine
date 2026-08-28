@@ -131,6 +131,7 @@ LIVE_DEMO_PROFILE_POLICIES = (
 			"tests/e2e/compose.automated-grading-fault.yaml",
 		),
 		child_capabilities=("automated_grading_fault_worker",),
+		evidence_log_services=(("worker_completion", "worker"),),
 		outage_service="worker",
 		fault_worker_service="fault-worker",
 	),

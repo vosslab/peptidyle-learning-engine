@@ -19,6 +19,7 @@ use question_model::{
 };
 use sqlx::{PgPool, Row};
 
+use super::receipt_integrity::{ExecutionReceiptExpectation, assert_execution_receipt};
 use super::{fresh_uuid, implementation};
 
 pub(super) struct AcceptedCompletionScenario<'a> {
@@ -139,6 +140,20 @@ pub(super) async fn prove_accepted_completion_origin(
         )
         .await
         .expect("accept exact completion response");
+    assert_execution_receipt(
+        pool,
+        tenant,
+        ExecutionReceiptExpectation {
+            attempt,
+            submission: accepted.submission.as_uuid(),
+            generation: 1,
+            category: "accepted_submission",
+            state: "ready",
+            actor: Some(student.as_uuid()),
+            worker: None,
+        },
+    )
+    .await;
     let fast_pool = local_accepted_submission_fast_path_pool(runtime.fast_path_url().expose())
         .await
         .expect("attest disposable fast-path pool");
@@ -157,6 +172,21 @@ pub(super) async fn prove_accepted_completion_origin(
         .await
         .expect("claim exact accepted completion")
         .expect("new accepted submission is claimable");
+    let completion_worker = claim.worker;
+    assert_execution_receipt(
+        pool,
+        tenant,
+        ExecutionReceiptExpectation {
+            attempt,
+            submission: accepted.submission.as_uuid(),
+            generation: 1,
+            category: "worker_claim",
+            state: "running",
+            actor: None,
+            worker: Some(completion_worker.as_uuid()),
+        },
+    )
+    .await;
     let grade = AcceptedSubmissionGrade {
         evidence: canonical_attempt_result_json(AttemptResult {
             correct: true,
@@ -177,6 +207,20 @@ pub(super) async fn prove_accepted_completion_origin(
             .expect("commit accepted completion through sealed worker adapter"),
         AcceptedSubmissionExecutionDisposition::Committed
     );
+    assert_execution_receipt(
+        pool,
+        tenant,
+        ExecutionReceiptExpectation {
+            attempt,
+            submission: accepted.submission.as_uuid(),
+            generation: 1,
+            category: "graded",
+            state: "completed",
+            actor: None,
+            worker: Some(completion_worker.as_uuid()),
+        },
+    )
+    .await;
     let row = sqlx::query(
         "SELECT origin_id, actor_id, recalculation_job_id, scoring_generation, grading_operation_id \
          FROM public.scoring_invalidation_origin \

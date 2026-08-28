@@ -127,6 +127,12 @@ def test_automated_grading_fault_profile_limits_worker_mutation_to_its_declared_
 		tmp_path, local_stack_control.models.LiveDemoProfile.AUTOMATED_GRADING_FAULT
 	)
 	assert local_stack_control.consumer.outage_service(selected) == "worker"
+	assert (
+		local_stack_control.consumer.evidence_log_service(
+			selected, "worker_completion"
+		)
+		== "worker"
+	)
 	argv, _environment = local_stack_control.consumer.automated_grading_fault_worker_command(selected)
 	assert argv[-4:] == ["up", "-d", "--no-deps", "fault-worker"]
 	with pytest.raises(local_stack_control.models.ControllerError):

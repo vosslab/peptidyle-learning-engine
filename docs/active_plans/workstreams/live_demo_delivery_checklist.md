@@ -46,9 +46,9 @@ Questions, Policies, and Student view pages, each with a focused task and curren
 - [x] Ordinary demo Student entry remains the graded path. It creates real learner work through the
       visible Student workflow, and the Instructor sees the resulting score and authorized evidence in
       the gradebook after a fresh read.
-- [x] Instructor and Sysadmin evidence uses the desktop 16:10 profile at 1280 by 800 CSS pixels or
-      larger. Student profiles remain variable across the declared laptop, portrait-tablet, iPhone Pro,
-      and square profiles.
+- [x] Instructor and Sysadmin evidence uses exactly 1280 by 800 CSS pixels (16:10) on a laptop or
+      desktop. Student profiles remain variable across the declared laptop, portrait-tablet, iPhone
+      Pro, and square profiles.
 - [x] Publish and inspect the two current T6 PNG artifacts declared by
       `tests/e2e/browser_screenshot_corpus.json`: `instructor_authoring_assignment_policies` at
       `docs/screenshots/instructor/assignment_workspace/01_assignment_policies.png` and

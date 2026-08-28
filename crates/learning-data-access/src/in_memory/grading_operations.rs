@@ -472,6 +472,8 @@ impl AutomatedGradingStore for MemoryStore {
                 submission,
                 generation: GradingExecutionGeneration::INITIAL,
                 resulting_state: crate::GradingExecutionState::Ready,
+                safe_category: crate::GradingExecutionReceiptSafeCategory::AcceptedSubmission,
+                actor: Some(accepted.actor),
                 worker: None,
                 occurred_at: accepted_at,
             });

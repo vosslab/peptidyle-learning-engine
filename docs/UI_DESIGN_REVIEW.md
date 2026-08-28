@@ -3,8 +3,8 @@
 ## Outcome
 
 The reviewed interface reads as one teaching product rather than a sequence of bordered
-components. Instructor and Sysadmin work uses the desktop 16:10 workspace at 1280 by 800 CSS pixels
-or larger, student work stays in one adaptable reading-and-response flow, and standard course themes
+components. Instructor and Sysadmin work uses exactly the desktop 16:10 workspace at 1280 by 800 CSS
+pixels, student work stays in one adaptable reading-and-response flow, and standard course themes
 retain their palette identity. Student profiles remain variable across the maintained laptop, tablet,
 iPhone Pro aspect, and square profiles.
 Increased contrast is an optional account presentation preference rather than the visual default.

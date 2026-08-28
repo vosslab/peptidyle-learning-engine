@@ -170,7 +170,7 @@ test.describe("instructor grade-settings conflicts on the production PLE stack",
       await test.step("the second session reloads and observes the authoritative result", async () => {
         await remote.getByRole("button", { name: "Reload current settings" }).click();
         await expect(remote.getByRole("textbox", { name: "Label" }).last()).toHaveValue(localLabel);
-        await expect(gradeSettingsStatus(remote)).toHaveText("");
+        await expect(gradeSettingsStatus(remote)).toHaveText("Latest server settings loaded.");
         await captureRemoteObservedLaptopStates(remote, scenarioInput, localLabel);
       });
       expectObservedOrigin(origins.local, expectedOrigin);

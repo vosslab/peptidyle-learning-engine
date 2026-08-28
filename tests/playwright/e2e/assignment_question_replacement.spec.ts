@@ -27,6 +27,7 @@ import {
   relativeIsoDate,
   requireScenarioInput,
   selectVisibleCourse,
+  startOrContinuePractice,
   writeOriginReceipt,
 } from "./real_stack_ui";
 
@@ -132,8 +133,7 @@ async function startIssuedRun(
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
   await assignmentCard.getByRole("link", { name: "Start assignment", exact: true }).click();
-  await page.getByRole("button", { name: "Start or continue practice", exact: true }).click();
-  await expect(page.locator('[data-route-surface="runAttempt"]')).toBeVisible();
+  await startOrContinuePractice(page);
   await expect(
     page.getByRole("heading", { name: originalQuestionTitle, exact: true }),
   ).toBeVisible();

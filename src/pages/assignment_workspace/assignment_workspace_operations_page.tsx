@@ -7,6 +7,7 @@ import type {
   GradingOperationGroupBy,
   InstructorGradingOperationRow,
 } from "../../api/decoders/grading_operations";
+import { CopyableQuestionId } from "../../components/copyable_question_id";
 import {
   gradingOperationsActionFailure,
   gradingOperationsAffectedLearnersLabel,
@@ -206,9 +207,7 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
       <header class="assignment-workspace-operations-header">
         <p class="eyebrow">Assignment review</p>
         <h1 id="grading-operations-heading">Grading operations</h1>
-        <p>
-          Resolve automatic grading interruptions and refresh this assignment's grades.
-        </p>
+        <p>Resolve automatic grading interruptions and refresh this assignment's grades.</p>
       </header>
 
       <section class="assignment-workspace-recalculation" aria-labelledby="recalculate-heading">
@@ -353,12 +352,19 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
                 <article class="assignment-workspace-operation-row">
                   <div class="assignment-workspace-operation-row-heading">
                     <h2>{gradingOperationsGroupLabel(row)}</h2>
+                    <Show when={row.group.kind === "question" ? row.group : undefined}>
+                      {(question) => <CopyableQuestionId displayId={question().questionId} />}
+                    </Show>
                     <p>{gradingOperationsStateLabel(row)}</p>
                   </div>
                   <p class="assignment-workspace-operation-reason">
                     {gradingOperationsReasonLabel(row)}
                   </p>
                   <dl class="assignment-workspace-operation-facts">
+                    <div>
+                      <dt>Operation</dt>
+                      <dd>{row.operation.reference}</dd>
+                    </div>
                     <div>
                       <dt>Affected scope</dt>
                       <dd>{gradingOperationsAffectedLearnersLabel(row.affectedLearnerCount)}</dd>

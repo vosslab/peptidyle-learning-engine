@@ -1,13 +1,16 @@
 // Production browser journey for one deterministic automated-grading exception.
 //
 // Selector contract:
-// - src/pages/run_page.tsx owns the learner pending state and status refresh.
-// - src/pages/assignment_workspace/assignment_workspace_operations_page.tsx owns the
-//   Instructor operation list and row-local retry.
-// - src/pages/gradebook_page.tsx owns the course-grade projection.
+// - src/pages/run_page.tsx:651 owns the learner pending state and status refresh.
+// - src/pages/run_completion_presentation.ts:27 owns completed-run copy and action.
+// - src/components/copyable_question_id.tsx:8 owns Question-ID copy and status.
+// - src/pages/assignment_workspace/assignment_workspace_operations_page.tsx:258 owns
+//   Instructor action status; line 350 owns the operation row and retry.
+// - src/pages/gradebook_page.tsx:318 owns the course-grade projection.
 import { expect, test, type BrowserContext, type Page, type Request } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
+import { decodeLearnerSubmissionStatus } from "../../../src/api/decoders/submission_status";
 import { faultHandshakeFromEnvironment } from "./fault_handshake";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
@@ -18,6 +21,7 @@ import {
   relativeIsoDate,
   requireScenarioInput,
   selectVisibleCourse,
+  startOrContinuePractice,
   writeContextOriginReceipt,
 } from "./real_stack_ui";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
@@ -25,7 +29,9 @@ import {
   AUTOMATED_GRADING_RECOVERY_LABELS,
   answerFreeViolation,
   automatedGradingRetryName,
+  completedLearnerReceiptViolation,
   isInstructorRetryPost,
+  isInstructorOperationsListGet,
   isLearnerStatusGet,
   isLearnerSubmissionPost,
 } from "./automated_grading_recovery_ui";
@@ -41,6 +47,8 @@ const setupStep = "Elena creates the live assessment and Mary selects an ordinar
 const statusStep =
   "Mary refreshes only grading status until the deterministic exception is visible";
 const retryStep = "Elena opens the answer-free operation and requests exactly one retry";
+const completionStep =
+  "Mary checks grading status after recovery and sees completed feedback without resubmitting";
 const gradebookStep =
   "Elena sees the real current gradebook total after the ordinary worker completes";
 
@@ -129,8 +137,7 @@ async function startVisibleAttempt(
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
   await assignment.getByRole("link", { name: "Start assignment", exact: true }).click();
-  await page.getByRole("button", { name: "Start or continue practice" }).click();
-  await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible();
+  await startOrContinuePractice(page);
   await page.getByRole("radio", { name: correctChoice, exact: true }).check();
 }
 
@@ -140,6 +147,8 @@ interface RecoveryNetworkEvidence {
   learnerSubmissionStatuses: number[];
   learnerStatusResponses: unknown[];
   learnerStatusStatuses: number[];
+  instructorOperationsListResponses: unknown[];
+  instructorOperationsListStatuses: number[];
   retryBodies: string[];
   retryResponses: unknown[];
   retryStatuses: number[];
@@ -153,6 +162,8 @@ function trackRecoveryNetworkTraffic(learner: Page, instructor: Page): RecoveryN
     learnerSubmissionStatuses: [],
     learnerStatusResponses: [],
     learnerStatusStatuses: [],
+    instructorOperationsListResponses: [],
+    instructorOperationsListStatuses: [],
     retryBodies: [],
     retryResponses: [],
     retryStatuses: [],
@@ -170,13 +181,17 @@ function trackRecoveryNetworkTraffic(learner: Page, instructor: Page): RecoveryN
     if (isLearnerSubmissionPost("POST", pathname)) {
       evidence.learnerSubmissionStatuses.push(response.status());
       evidence.pendingResponses.push(
-        response.text().then((body) => evidence.learnerSubmissionResponses.push(JSON.parse(body))),
+        response.text().then((body) => {
+          evidence.learnerSubmissionResponses.push(JSON.parse(body));
+        }),
       );
     }
     if (isLearnerStatusGet("GET", pathname)) {
       evidence.learnerStatusStatuses.push(response.status());
       evidence.pendingResponses.push(
-        response.text().then((body) => evidence.learnerStatusResponses.push(JSON.parse(body))),
+        response.text().then((body) => {
+          evidence.learnerStatusResponses.push(JSON.parse(body));
+        }),
       );
     }
   });
@@ -188,10 +203,20 @@ function trackRecoveryNetworkTraffic(learner: Page, instructor: Page): RecoveryN
   });
   instructor.on("response", (response) => {
     const pathname = new URL(response.url()).pathname;
+    if (isInstructorOperationsListGet("GET", pathname)) {
+      evidence.instructorOperationsListStatuses.push(response.status());
+      evidence.pendingResponses.push(
+        response.text().then((body) => {
+          evidence.instructorOperationsListResponses.push(JSON.parse(body));
+        }),
+      );
+    }
     if (!isInstructorRetryPost("POST", pathname)) return;
     evidence.retryStatuses.push(response.status());
     evidence.pendingResponses.push(
-      response.text().then((body) => evidence.retryResponses.push(JSON.parse(body))),
+      response.text().then((body) => {
+        evidence.retryResponses.push(JSON.parse(body));
+      }),
     );
   });
   return evidence;
@@ -206,28 +231,44 @@ async function assertRecoveryNetworkEvidence(
   expect(evidence.learnerSubmissionStatuses).toEqual([202]);
   expect(evidence.learnerSubmissionResponses).toHaveLength(1);
   expect(evidence.learnerStatusStatuses.length).toBeGreaterThan(0);
-  expect(evidence.learnerStatusStatuses.every((status) => status === 202)).toBe(true);
+  expect(evidence.learnerStatusStatuses).toContain(202);
+  expect(evidence.learnerStatusStatuses.slice(0, -1).every((status) => status === 202)).toBe(true);
+  expect(evidence.learnerStatusStatuses[evidence.learnerStatusStatuses.length - 1]).toBe(200);
   expect(evidence.learnerStatusResponses).toHaveLength(evidence.learnerStatusStatuses.length);
+  expect(evidence.instructorOperationsListStatuses.length).toBeGreaterThan(0);
+  expect(evidence.instructorOperationsListStatuses.every((status) => status === 200)).toBe(true);
+  expect(evidence.instructorOperationsListResponses).toHaveLength(
+    evidence.instructorOperationsListStatuses.length,
+  );
   expect(evidence.retryBodies).toEqual([""]);
   expect(evidence.retryStatuses).toEqual([200]);
   expect(evidence.retryResponses).toHaveLength(1);
 
-  const responses = [
+  for (const response of [
     ...evidence.learnerSubmissionResponses,
     ...evidence.learnerStatusResponses,
-    ...evidence.retryResponses,
-  ];
-  for (const response of responses) {
+  ]) {
+    let violation: string | null;
+    try {
+      const decoded = decodeLearnerSubmissionStatus(response);
+      violation = decoded.kind === "completed" ? completedLearnerReceiptViolation(decoded) : null;
+    } catch {
+      violation = "response is not a valid learner submission status";
+    }
+    expect(violation).toBeNull();
+  }
+  for (const response of evidence.instructorOperationsListResponses) {
+    expect(answerFreeViolation(response, privateValues)).toBeNull();
+  }
+  for (const response of evidence.retryResponses) {
     expect(answerFreeViolation(response, privateValues)).toBeNull();
   }
 }
 
-async function openInstructorOperations(
-  page: Page,
-  courseTitle: string,
-  assignmentTitle: string,
-): Promise<void> {
-  await selectVisibleCourse(page, courseTitle);
+async function openInstructorOperations(page: Page, assignmentTitle: string): Promise<void> {
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Students", exact: true }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Assignments", exact: true }).click();
   const assignment = page
     .getByRole("article")
@@ -256,6 +297,7 @@ test(journeyName, async ({ browser }) => {
   );
   const courseTitle = "Biochemistry: Automated Recovery";
   const assignmentTitle = "Peptide Bonds: Deterministic Recovery";
+  const questionTitle = "Peptide Bond Resonance During Automated Recovery";
   const correctChoice = "Resonance restricts peptide-bond rotation";
   const expectedOrigin = new URL(scenarioInput.baseUrl).origin;
   const origins = {
@@ -264,11 +306,13 @@ test(journeyName, async ({ browser }) => {
   };
   const contexts: BrowserContext[] = [];
   let originEvidenceVerified = false;
+  let questionId = "";
 
   try {
     const instructorContext = await browser.newContext(contextOptions);
     const learnerContext = await browser.newContext(contextOptions);
     contexts.push(instructorContext, learnerContext);
+    await instructorContext.grantPermissions(["clipboard-write"], { origin: expectedOrigin });
     observeContextOrigins(
       instructorContext,
       origins.instructor.pageOrigins,
@@ -287,11 +331,7 @@ test(journeyName, async ({ browser }) => {
     await test.step(setupStep, async () => {
       await chooseSeededIdentity(instructor, /Elena Rivera/u);
       await selectVisibleCourse(instructor, BIOCHEMISTRY_COURSE_TITLE);
-      const questionId = await createQuestion(
-        instructor,
-        "Peptide Bond Resonance During Automated Recovery",
-        correctChoice,
-      );
+      questionId = await createQuestion(instructor, questionTitle, correctChoice);
       const invitation = await createAssignmentWithInvitation(
         instructor,
         courseTitle,
@@ -342,9 +382,25 @@ test(journeyName, async ({ browser }) => {
     });
 
     await test.step(retryStep, async () => {
-      await openInstructorOperations(instructor, courseTitle, assignmentTitle);
+      await openInstructorOperations(instructor, assignmentTitle);
       const retry = instructor.getByRole("button", { name: automatedGradingRetryName });
       await expect(retry).toHaveCount(1);
+      await expect(
+        instructor.getByRole("heading", {
+          level: 2,
+          name: `Question: ${questionTitle}`,
+          exact: true,
+        }),
+      ).toBeVisible();
+      const copyQuestionId = instructor.getByRole("button", {
+        name: `Copy question ID ${questionId}`,
+        exact: true,
+      });
+      await expect(copyQuestionId).toBeVisible();
+      await copyQuestionId.click();
+      await expect(
+        instructor.getByRole("status").filter({ hasText: `Copied ${questionId}.` }),
+      ).toBeVisible();
       await expect(
         instructor.getByText("Automatic grading stopped before it could finish."),
       ).toBeVisible();
@@ -354,11 +410,38 @@ test(journeyName, async ({ browser }) => {
         "automated_grading_recovery_operation_laptop",
       );
       await retry.click();
-      await expect(
-        instructor.getByRole("status").filter({ hasText: "The grading retry was accepted." }),
-      ).toBeVisible();
+      const acceptedStatus = instructor
+        .getByRole("status")
+        .filter({ hasText: "The grading retry was accepted." });
+      await expect(acceptedStatus).toBeVisible();
+      await expect(acceptedStatus).toBeFocused();
       handshake.notify("instructor_retry_visible");
       await handshake.waitFor("ordinary_worker_recovered");
+    });
+
+    await test.step(completionStep, async () => {
+      const feedback = learner
+        .getByRole("heading", { name: "Feedback", exact: true })
+        .locator("..");
+      const statusButton = learner.getByRole("button", {
+        name: AUTOMATED_GRADING_RECOVERY_LABELS.checkGradingStatus,
+        exact: true,
+      });
+      await expect
+        .poll(
+          async () => {
+            if (await feedback.isVisible()) return true;
+            if ((await statusButton.isVisible()) && (await statusButton.isEnabled())) {
+              await statusButton.click();
+            }
+            return false;
+          },
+          { timeout: journeyTimeoutMs / 2, intervals: [pollingIntervalMs] },
+        )
+        .toBe(true);
+      await expect(feedback).toBeVisible();
+      await expect(feedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
+      expect(traffic.learnerSubmissionBodies).toHaveLength(1);
     });
 
     await test.step(gradebookStep, async () => {

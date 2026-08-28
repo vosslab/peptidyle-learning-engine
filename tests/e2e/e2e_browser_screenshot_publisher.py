@@ -85,10 +85,14 @@ class ScreenshotEvidence:
 def normalize_https_gateway_origin(value: str) -> str:
 	"""Return the canonical gateway origin shared by receipts and provenance."""
 	from urllib.parse import urlsplit
-	parsed = urlsplit(value)
-	if parsed.scheme != "https" or parsed.hostname != "localhost" or parsed.port is None or parsed.path not in ("", "/") or parsed.query or parsed.fragment or parsed.username or parsed.password:
+	try:
+		parsed = urlsplit(value)
+		port = parsed.port
+	except ValueError as error:
+		raise ScreenshotPublicationError("screenshot origin is invalid") from error
+	if parsed.scheme != "https" or parsed.hostname != "localhost" or port is None or not 1 <= port <= 65_535 or parsed.path not in ("", "/") or parsed.query or parsed.fragment or parsed.username or parsed.password:
 		raise ScreenshotPublicationError("screenshot origin is invalid")
-	return f"https://localhost:{parsed.port}"
+	return f"https://localhost:{port}"
 
 
 def production_dist_digest(root: pathlib.Path) -> str:
@@ -697,6 +701,9 @@ def _validate_pending(pending: PendingScreenshotPublication) -> None:
 		raise ScreenshotPublicationError("screenshot publication has an incomplete origin mapping")
 	if any(normalize_https_gateway_origin(origin) != origin for origin in origins.values()):
 		raise ScreenshotPublicationError("screenshot publication has an invalid origin mapping")
+	# ASVS 3.5.1: one gateway owns every browser artifact in a public corpus.
+	if any(origin != pending.origin for origin in origins.values()):
+		raise ScreenshotPublicationError("screenshot publication has cross-origin artifact evidence")
 	for artifact, content, evidence in pending.artifacts:
 		if not isinstance(content, bytes): raise ScreenshotPublicationError("screenshot artifact content is invalid")
 		width, height = _validate_png(content, artifact)

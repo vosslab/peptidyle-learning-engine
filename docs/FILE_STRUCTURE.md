@@ -24,6 +24,8 @@ status reports live under [active_plans/](active_plans/) and remain separate fro
 +- generated/            Ignored generated contract and fixture projections
 +- Cargo.toml            Rust workspace manifest
 +- package.json          Browser tooling manifest
++- pip_requirements.txt  Pinned Python runtime dependencies
++- pip_requirements-dev.txt Python developer dependencies
 +- build.sh              Full local build entry point
 +- check_codebase.sh     Vendored TypeScript and browser gate
 +- check_rust.sh         Repository-owned Cargo and Rust gate
@@ -32,7 +34,9 @@ status reports live under [active_plans/](active_plans/) and remain separate fro
 +- local_stack_control/  Local Podman controller package and focused private lifecycle modules
    +- acceptance_lanes.py Ordered aggregate acceptance-lane owner
    +- chapter_one.py     Private atomic Chapter 1 publication boundary
-   +- lifecycle.py       Typed lifecycle sequencing for start, validate, and restart
+   +- lifecycle.py       Typed lifecycle sequencing facade for start, validate, and restart
+   +- lifecycle_commands.py Redaction-aware command, environment, and Compose validation owner
+   +- worker_readiness.py Worker capability-receipt parser and bounded readiness wait
    +- local_environment.py Default-only private environment bootstrap
    +- browser_suite_developer.py Fixed production-browser developer owner
    +- browser_suite_lease.py      Shared developer/browser lease boundary
@@ -45,6 +49,10 @@ status reports live under [active_plans/](active_plans/) and remain separate fro
    +- _consumer_cli.py   Private disposable-consumer adapter
 `- run_playwright_tests.sh Browser test entry point
 ```
+
+`devel/setup_python.sh` creates and refreshes the fixed repo-local `.venv` from Python 3.12. The
+root live-demo wrapper owns that setup step before it invokes `local_stack.py`; direct controller
+commands use `.venv/bin/python` without activating an environment.
 
 `OTHER_REPOS/` contains reference snapshots. It is not a source import path,
 container build context, or runtime dependency.
@@ -222,7 +230,8 @@ src/
 |  `- decoders/grading_operations.ts           Answer-free Instructor operation decoder
 +- auth/            Account and course-session browser state
 +- components/      Reusable prompt, response, feedback, and accessibility UI
-|  `- learner_assignment_presentation.tsx Shared answer-free learner/Student-view landing
+|  +- learner_assignment_presentation.tsx Shared answer-free learner/Student-view landing
+|  `- learner_assignment_presentation.css Component-owned learner/Student-view presentation styles
 +- features/        Capability-owned browser logic
 |  `- curriculum_adoption/ Reusable-curriculum adoption preview, apply, receipt, and recovery UI
 +- pages/           Route-level views and page-specific state
@@ -273,7 +282,7 @@ source and replay selection is in
 
 ```text
 schemas/
-`- migrations/        Ordered forward SQL migrations, including auth, RLS, external fences, publication outbox, 2026081401 ranked catalog discovery, 2026081805 assignment learner-disclosure policy, 2026081848 assignment workspace drafts, and 2026081849-2026081865 accepted-submission and grading-operation capabilities
+`- migrations/        99 ordered forward SQL migrations through 2026081869; the earlier 95-migration chain through 2026081865 is historical acceptance evidence
 
 containers/
 +- compose.yaml       Common local and disposable topology, private networks, hardening, and one-shot setup
@@ -301,13 +310,22 @@ response loader boundary. Migrations `2026081851` through `2026081860` own the
 accepted-submission schema, integrity, authority, claim, read, load,
 completion-lock, commit, and failure layers. Migrations `2026081861` through
 `2026081865` own Instructor operation capabilities, lifecycle projection,
-scoring-invalidation origin, capability, and source bindings.
+scoring-invalidation origin, capability, and source bindings. The implemented
+closeout then uses four atomic migrations: `2026081866` owns the clean-volume
+receipt-schema preflight and constraints; `2026081867` owns execution receipt
+writers; `2026081868` owns the 36-input commit-v2 writer; and `2026081869` owns
+Instructor receipt writers, retry V2, public retry routing, and V1 retirement.
+The connected G1 database, RLS, worker, browser, WebWork, and replica evidence
+is green on this 99-migration tree. Package acceptance remains open until the
+new owned files are tracked and the exact final tracked-tree
+`source source_me.sh && ./all_test.sh` gate passes.
 
 The default local services are PostgreSQL, MinIO, API, ordinary worker,
 gateway, and a private standalone renderer. PostgreSQL and MinIO use named
 volumes; the other service containers can be rebuilt from configuration.
 
-`python3 local_stack.py` is the operator-facing controller. Its focused
+`.venv/bin/python local_stack.py` is the operator-facing controller after
+`devel/setup_python.sh` has prepared the fixed repo-local environment. Its focused
 `local_stack_control/` modules own the local stack's build, bootstrap, migration,
 seed, renderer, restart, validation, and semantic-readiness sequence directly.
 The package is organized by
@@ -316,7 +334,10 @@ concern: `models.py` declares typed targets and inspected resources;
 target environments; `env_file.py` validates safe environment-file metadata;
 `discovery.py` reads label-derived Podman topology; `status.py` derives
 readiness; `cleanup.py` constructs scoped stop/reset plans; `commands.py` owns
-operator operations; and `consumer.py` limits disposable E2E ownership.
+operator operations; `lifecycle_commands.py` owns child command execution,
+selected child environments, Compose validation, and redacted failures behind
+the `lifecycle.py` facade; `worker_readiness.py` parses the worker's coherent
+seven-family capability receipt; and `consumer.py` limits disposable E2E ownership.
 
 `local_stack_control/_consumer_cli.py` is intentionally narrower than the public controller.
 It accepts a private, owner-specific manifest and only runs scoped Compose
@@ -384,8 +405,9 @@ Committed visual evidence lives under `docs/screenshots/`, organized by role and
 
 ```text
 docs/screenshots/
-+- instructor/       Desktop professor evidence at the `laptop` 1280 by 800 16:10 profile or larger
-+- student/           Allowed learner surfaces across the student viewport matrix
++- instructor/       Instructor evidence at the fixed `laptop` 1280 by 800 desktop profile
++- sysadmin/         Sysadmin evidence at the fixed `laptop` 1280 by 800 desktop profile
++- student/           Allowed learner surfaces across the maintained viewport matrix
 |  `- access/         Student denial and no-transport access evidence
 `- shared/            Evidence shared by instructor and student surfaces
 ```
@@ -398,13 +420,19 @@ directories describe evidence boundaries. A retained image is not canonical
 acceptance evidence until V1 captures it from the real origin and its
 provenance verifier and visual review pass.
 
+The manifest is the durable ownership authority for artifact names, roles,
+routes, pipelines, viewports, and evidence purposes. The committed files under
+`docs/screenshots/` are its published outputs. Capture runs use the fixed
+`ple-live-demo-browser` owner and production-auth stack, while the
+acceptance-only grader-fault overlay is never part of production composition.
+
 The `automated_grading_recovery` scenario owns the G1 operation and Gradebook
 captures. Its `laptop` value uses the established 1280 by 800 desktop 16:10
 profile name. The deterministic-grader fault overlay is an acceptance-only
 profile; it injects one closed exception and restores the ordinary worker
 before cleanup. It is not included in production composition.
 
-`source source_me.sh && python3 local_stack.py acceptance` is the explicit live aggregate entry
+`source source_me.sh && .venv/bin/python local_stack.py acceptance` is the explicit live aggregate entry
 point. `local_stack_control/commands.py` owns conflict preflight and environment sanitization;
 `local_stack_control/acceptance_lanes.py` then runs the maintained browser and real-stack lanes in
 a fixed fail-fast order. These opt-in commands are live acceptance evidence, not part of the fast
@@ -454,7 +482,8 @@ both commands use the same fixed stack.
 - Put a forward database change in [schemas/migrations/](../schemas/migrations/);
   preserve applied migrations as history.
 - Put normal local-stack lifecycle policy in `local_stack_control/`; use
-  `python3 local_stack.py` for its public command. Keep initialization, migration,
+  `.venv/bin/python local_stack.py` for its public command after the fixed environment setup.
+  Keep initialization, migration,
   seeding, and semantic startup behavior in focused typed Python modules.
 - Put a disposable E2E lifecycle owner in `local_stack_control/consumer.py`
   only when it has a closed project namespace, a private manifest, and a

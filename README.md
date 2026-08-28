@@ -2,9 +2,11 @@
 
 An open mastery-learning platform for biology instructors and students that delivers varied practice, keeps grading and answer keys on the server, and supports meaningful work beyond assignment completion.
 
-**Project status: advanced implementation, not ready for production deployment.** The local live demo
-is a disposable, production-shaped PLE installation for development and acceptance evidence; it is
-not a public deployment. [docs/active_plans/implementation_status.md](docs/active_plans/implementation_status.md)
+**Project status: advanced implementation, not ready for production deployment.** The production-shaped
+live demo and G1 connected evidence are green, but WP-PROF-G1 remains open until the new repository-owned
+files are tracked and the exact final-tracked-tree `all_test.sh` gate passes. Wider release closure and
+production deployment remain open; the demo and its current 63-artifact privacy/provenance-checked capture
+are not a public deployment. [docs/active_plans/implementation_status.md](docs/active_plans/implementation_status.md)
 records the current handoff, and [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md)
 owns planned work.
 
@@ -20,13 +22,16 @@ activity PLE presents to instructors and students, alongside the more expressive
 that implement it.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
-
-![Instructor assignment workspace Policies page showing delivery, lifecycle, and disclosure controls](docs/screenshots/instructor/assignment_workspace/01_assignment_policies.png)
+![Instructor assignment Policies workspace showing delivery, completion, grading, and continued-practice controls](docs/screenshots/instructor/assignment_workspace/01_assignment_policies.png)
+![Student practice run showing server-returned feedback after a selected peptide-bond response](docs/screenshots/student/delivery/05_feedback_correct.png)
+![Instructor Gradebook showing the completed Peptide Bonds Guided Practice result](docs/screenshots/instructor/grading/01_instructor_gradebook.png)
 <!-- screenshots:end -->
 
-The managed visual walkthrough is reserved for the production-shaped live-demo capture pass;
-screenshot-docs owns its images and captions. The demo records behave as ordinary live PLE data inside
-a disposable installation.
+The published screenshots show a connected teaching loop: Instructor policy setup, Student feedback,
+and Instructor Gradebook propagation. `tests/e2e/browser_screenshot_corpus.json` is the durable artifact
+and viewport authority; the repository screenshot publisher and its provenance receipt are the
+publication authority. The demo records behave as ordinary live PLE data inside a disposable,
+production-shaped installation.
 [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md) defines that boundary, and
 [docs/INSTRUCTOR_GUIDE.md](docs/INSTRUCTOR_GUIDE.md) and
 [docs/STUDENT_GUIDE.md](docs/STUDENT_GUIDE.md) explain the visible workflows.
@@ -183,7 +188,8 @@ cd peptidyle-learning-engine
 ./run_live_demo.sh
 ```
 
-On a fresh clone, `run_live_demo.sh` visibly invokes `devel/setup_typescript.sh` before
+On a fresh clone, `run_live_demo.sh` creates or refreshes its fixed `.venv` with Python 3.12,
+installs the declared Python dependencies, and invokes `devel/setup_typescript.sh` before
 delegating to the canonical local-stack owner. It builds the
 production `dist/` bundle, creates a fresh disposable
 `ple-live-demo-browser` HTTPS stack, waits for production-auth readiness, and opens
@@ -219,13 +225,15 @@ repository gate also needs current Node.js and npm, plus Python 3.12 with pytest
 
 ```bash
 ./devel/setup_typescript.sh
-./check_codebase.sh
 ./check_rust.sh
+./check_codebase.sh
 ```
 
-The vendored codebase gate verifies TypeScript and browser code. The repository-owned Rust gate
-checks both Cargo feature graphs, strict Clippy, tests and doctests, and the browser WebAssembly
-target. Build the API, WebAssembly bridge, generated contracts, and Solid client with `./build.sh`.
+Run `./check_rust.sh` before `./check_codebase.sh` because the Rust gate generates projections
+consumed by the codebase gate. The vendored codebase gate verifies TypeScript and browser code. The
+repository-owned Rust gate checks both Cargo feature graphs, strict Clippy, tests and doctests, and
+the browser WebAssembly target. Build the API, WebAssembly bridge, generated contracts, and Solid
+client with `./build.sh`.
 
 ## One assignment through the system
 
@@ -246,6 +254,13 @@ discrimination, credit distribution, unanswered and pending-manual counts, and c
 contains no learner identity, raw response, answer key, or grading implementation. A stale analysis
 generation is discarded without delaying or rolling back the current grade.
 
+When automatic grading needs attention, review the learner's attention state, open **Grading
+operations**, review the metadata-only operation, and choose its currently enabled **Retry automated
+grading for [question]** action when the operation is eligible. Follow the operation's current state
+and available action, wait for learner completion, then open **Gradebook** and confirm the current
+score. The recovery action reuses the accepted server-private response; the Instructor page receives
+metadata and receipts, not learner responses or answer keys.
+
 ## What exists today
 
 | Area                                 | State                                                                                                                                                                                                                                                                                                       |
@@ -254,13 +269,13 @@ generation is discarded without delaying or rolling back the current grade.
 | Reusable curriculum                  | Revisioned private Blueprints, public Alpha curricula, immutable publication pins, answer-free inspection, and shared question selection                                                                                                                                                                    |
 | API server                           | Auth, catalog, course, assignment, run, submission, deterministic grading, item analysis, asset, export, workspace, retention, reusable curriculum, and curriculum-adoption route groups                                                                                                                    |
 | WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                                                              |
-| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, Library discovery, question authoring, the Overview/Questions/Policies/Student view assignment workspace, gradebook, reusable curricula, and Instructor curriculum adoption                                                                   |
+| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, Library discovery, question authoring, the Overview/Questions/Policies/Grading operations/Student view assignment workspace, gradebook, reusable curricula, and Instructor curriculum adoption                                                                   |
 | Curriculum adoption                  | Accepted preview-before-save fork and instantiation, rollover, term shifting, provenance receipts, controlled fast-forward, divergence recovery, and teaching-operation API/browser capabilities                                                                                                            |
 | PostgreSQL                           | Forward-only SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification                                                                                                                                                                                    |
 | Question engines                     | PLE flat-question JSON v2 implements all eight required native families; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
 | DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                                                                                  |
 | Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                                                       |
-| Worker runtime                       | Production drains six complete families through a family-filtered registry; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                                                                 |
+| Worker runtime                       | Production attests seven families: six generic queue families plus sealed `GradeAcceptedSubmission`; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                                                                 |
 
 The current checkpoint, evidence, and remaining dependency order live in
 [docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md),
@@ -316,8 +331,13 @@ Use these routes after the first local result:
   repeat-practice workflow.
 - [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md) - ordinary live-product behavior within the
   disposable seeded installation.
+- [docs/TEST_EVIDENCE_MODEL.md](docs/TEST_EVIDENCE_MODEL.md) - permanent, connected, and one-time
+  validation boundaries.
 - [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) - system boundaries and component ownership.
 - [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) - repository layout and major-directory owners.
+- [docs/RELATED_PROJECTS.md](docs/RELATED_PROJECTS.md) - prior art, alternatives, standards, and
+  companion projects.
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) - dated package history and evidence receipts.
 - [docs/active_plans/implementation_status.md](docs/active_plans/implementation_status.md) - current
   package handoff and evidence boundary.
 
